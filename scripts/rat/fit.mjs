@@ -1,13 +1,29 @@
 // The rat's body fitted to Poly Haven's Street Rat: `node scripts/rat/fit.mjs [--write]`.
 //
-// The body is the art (`landmarks.mjs`) at the authored quadruped's stature, 0.325 m. Every number the art
-// does not give (masses, torques, joint ranges, the teeth) is the authored quadruped's (`assets/quadruped/authored-body.json`): docs/reference/reptile.md#the-rat.
+// The body is the art (`landmarks.mjs`) at the authored quadruped's stature, 0.325 m, standing on legs
+// stretched to raise it (`standing`). Every number the art does not give (masses, torques, joint ranges,
+// the teeth) is the authored quadruped's (`assets/quadruped/authored-body.json`) but the legs' muscles
+// (`LEG_STRENGTH`, `LEG_SPEED`) and the head's and tail's weights (`WEIGHTS`): docs/reference/reptile.md#the-rat.
 // Without --write it prints the body and its fit to the art; with it, writes assets/rat/body.json.
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { ART, at, HEAD_RAISE, mm, turnUp } from "./landmarks.mjs";
+import { at, HEAD_RAISE, mm, standing, turnUp } from "./landmarks.mjs";
 
 const ROOT = resolve(import.meta.dirname, "../..");
+/** The art's landmarks as the body stands. */
+const ART = standing().art;
+/**
+ * The legs' muscles: each girdle, bend and ankle peak this many times the authored quadruped's, and
+ * their unloaded speed, rad/s. A trot at 1 m/s swings each paw at twice that, its stance on two
+ * legs: docs/reference/reptile.md#the-rat.
+ */
+const LEG_STRENGTH = 2, LEG_SPEED = 40;
+/**
+ * The head, jaw and tail's weights, parts of the body's mass: the head heavier and the tail lighter
+ * than the authored quadruped's, carrying the weight forward between the paws, or the trot at 1 m/s
+ * tips back onto its hind pair: docs/reference/reptile.md#the-rat.
+ */
+const WEIGHTS = { head: 1, jaw: 0.2, "tail.base": 0.2, "tail.tip": 0.1 };
 const authored = JSON.parse(readFileSync(resolve(ROOT, "assets/quadruped/authored-body.json"), "utf8"));
 const body = structuredClone(authored);
 const segment = (name) => body.segments.find((s) => s.name === name), joint = (name) => body.joints.find((j) => j.name === name);
@@ -46,6 +62,7 @@ for (const part of [head, jaw]) {
 }
 for (const contact of jaw.contacts) { contact.points = contact.points.map(up); contact.direction = upward(contact.direction); }
 joint("jaw").centre = jaw.proximal;
+for (const [name, weight] of Object.entries(WEIGHTS)) segment(name).weight = weight;
 // The neck holds the head and jaw against gravity with the authored margin: its peak scales with
 // their weight's lever about the neck at the reference pose, the rat's head reaching further ahead.
 const lever = (b) => {
@@ -80,6 +97,7 @@ for (const end of ["front", "hind"]) for (const side of ["left", "right"]) {
   g.centre = upper.proximal; g.limits = [[-1.2, 1.2], [-1.6, 1.6], [-1.6, 1.6]];
   b.centre = lower.proximal; b.axes = [[1, 0, 0]]; b.limits = [[-1.2, 1.2]];
   a.centre = paw.proximal;
+  for (const j of [g, b, a]) { j.peak = round(j.peak * LEG_STRENGTH); j.speed = LEG_SPEED; }
 }
 
 const angle = (u, v) => Math.acos((u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / Math.hypot(...u) / Math.hypot(...v));

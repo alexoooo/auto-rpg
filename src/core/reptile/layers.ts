@@ -53,6 +53,9 @@ export function quadrupedLayers(own: OwnBody, parts: PartLookup, config: Quadrup
   const tracker = effectorTracker(built, motor.root, { seedActual: true }), frame = { position: new Vector3(), rotation: new Quaternion() }, target = new Vector3();
   const inverse = new Quaternion(), desired = new Quaternion(), flat = new Quaternion(), lift = new Vector3(), descending = new Vector3();
   const turn = new Quaternion(), front = new Vector3(), forward = new Vector3(0, 0, 1), still = new Vector3(), carried = new Vector3(), spin = new Vector3();
+  const origin = new Vector3(), drift = new Vector3(), grounded = { origin, drift, firm: false, response: 0 };
+  // Where each paw's travel path began, on the ground, and which path that was (its gait's sequence, twice, and whether it bears).
+  const swing = { key: paws.map(() => -1), start: paws.map(() => [0, 0, 0] as [number, number, number]) };
   // What the look reads of the body's heading and whether it is down, kept with the body's state.
   const look = { yaw: 0, down: false };
   const view: QuadrupedView = { centre: motor.state.centre, velocity: motor.state.velocity, feet: motor.state.endpoints,
@@ -79,12 +82,12 @@ export function quadrupedLayers(own: OwnBody, parts: PartLookup, config: Quadrup
   const drive = (command: SupportedCommand, hold: boolean, dt: number) => {
     const tracked = tracker.step(own.muscles, command.posture, dt);
     motor.control(command, dt, i => snap.tracked(i) ?? tracked(i), hold ? support.hold : support.travel,
-      i => snap.response(i) ?? tracker.response(own.muscles.channels[i]!.name));
+      i => snap.response(i) ?? tracker.response(own.muscles.channels[i]!.name), i => tracker.firm(i));
   };
   return {
     view, motor, tracker, paws, gait, biteTuning, bite: snap, late,
     /** What the body's skills keep, by name, for its mind's state. */
-    state: { motor: motor.state, travel: travel.state, crawl: creep.state, gait, bite: snap.state, tracker: tracker.state, feedback: feedback.state, look, planned },
+    state: { motor: motor.state, travel: travel.state, crawl: creep.state, gait, bite: snap.state, tracker: tracker.state, feedback: feedback.state, look, planned, swing },
     /** Read the body as the last step left it. */
     read,
     /** Read its own body alone, as its motor part does: its support, heading and whether it is down. */
@@ -132,14 +135,21 @@ export function quadrupedLayers(own: OwnBody, parts: PartLookup, config: Quadrup
       descending.set(0, -T.plantSpeed, 0).applyRotationQuaternionToRef(inverse, descending);
       command.endpoints.forEach((goal, i) => {
         const paw = paws[i]!;
-        if (goal.bearing && view.feet[i]!.contact) tracker.release(paw.segment);
+        if (goal.bearing && view.feet[i]!.contact) { tracker.release(paw.segment); swing.key[i] = -1; }
         else {
-          if (gait.kind === "travel") {
-            motionAtToRef(motor.root, target.set(...goal.target), carried, spin);
-            descending.set(-carried.x, -T.plantSpeed - carried.y, -carried.z).applyRotationQuaternionToRef(inverse, descending);
-          }
+          const kept = gait.kind === "travel" && T.swingResponse !== undefined;
+          if (gait.kind === "travel") motionAtToRef(motor.root, target.set(...goal.target), carried, spin);
+          if (kept) {
+            // Kept on the ground: the path begins where the paw left the floor and moves through
+            // the root frame against the root's motion at the target.
+            const key = active.state.sequence * 2 + (goal.bearing ? 1 : 0), foot = view.feet[i]!.at;
+            if (swing.key[i] !== key) { swing.key[i] = key; swing.start[i]!.splice(0, 3, foot.x, foot.y, foot.z); }
+            intoFrameToRef(frame, swing.start[i]!, origin);
+            drift.copyFrom(carried).scaleInPlace(-1).applyRotationQuaternionToRef(inverse, drift);
+            grounded.firm = !goal.bearing; grounded.response = T.swingResponse!;
+          } else if (gait.kind === "travel") descending.set(-carried.x, -T.plantSpeed - carried.y, -carried.z).applyRotationQuaternionToRef(inverse, descending);
           intoFrameToRef(frame, goal.target, target);
-          tracker.reach(paw.segment, soleGoal(paw.point, target, goal.bearing ? T.plant : T.swing, active.state.sequence, descending, flat, goal.bearing ? still : lift));
+          tracker.reach(paw.segment, soleGoal(paw.point, target, goal.bearing ? T.plant : T.swing, active.state.sequence, descending, flat, goal.bearing ? still : lift, kept ? grounded : undefined));
         }
       });
       const hold = gait.kind === "crawl" || active.state.standing && active.state.phase === "settle";

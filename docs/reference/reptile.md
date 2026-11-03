@@ -28,7 +28,8 @@ transcribed as torque ceilings.
   masses. A segment's endpoints define its longitudinal axis; box sizes are in that frame.
 - **Leg speed**: every leg joint (girdle, bend, ankle) runs to 20 rad/s unloaded, the owner's
   decision for travel at 1.0 m/s or more; the torque ceilings are the estimates'. At 6 rad/s the
-  rat's legs, under its trunk, could not carry it: it trotted .04 m/s.
+  rat's legs, under its trunk, could not carry it: it trotted .04 m/s. The rat's run to 40 rad/s
+  at twice the ceilings ([the rat](#the-rat)).
 - **Surfaces**: ordinary surfaces have an estimated 17,000 N/m, not a borrowed human table.
 - **Teeth**: three lower-jaw tooth pyramids are colliders of their own, each with an authored
   10,000,000 N/m surface. In the authored quadruped their bases sit at y .2175 m and z .481-.489 m; their tips rise 8 mm, to
@@ -92,18 +93,31 @@ scan's half (the same trace).
 
 The rat (`assets/rat/body.json`, `rat-anatomy` in `SOURCES`) is fitted to Poly Haven's Street Rat
 (`scripts/rat/fit.mjs`, [its art](../art/rat.md#the-body-fitted-to-the-art)): its trunk, head,
-jaw, legs and tail where the art's are. Its mass weights, torque ceilings, unloaded speeds, joint
-ranges, teeth and paw footprint are the reptile's, and its controller settings are the reptile's,
-but for its hips' range and its righting (below).
-The neck's torque ceiling keeps the reptile's margin over the head and jaw's weight: it scales by
-their weighted lever about the neck at the reference pose, the rat's head reaching 1.69 times as
-far ahead, so 2.53 N m in place of 1.5. At the reptile's 1.5 the rat's neck sags .15 to .27 rad
-below level and returns from a bite at about .02 rad/s, so a return waits out its 8 s limit.
+jaw, legs and tail where the art's are. Its joint ranges, teeth and paw footprint are the
+reptile's, and its controller settings, but for its hips' range and its righting (below). Its own,
+for a trot at 1 m/s ([the trot at speed](#the-trot-at-speed)):
+
+- **Legs raised .08 m** (`LEG_RAISE`, `scripts/rat/landmarks.mjs`): each leg stretched along its
+  upper and lower bones from its shoulder or hip, its paw on the floor, the trunk, head and tail
+  raised with it; the hips stand about .2 m up in place of the art's .12. At the art's height the
+  trot carried it no faster than about .7 m/s.
+- **Legs' muscles twice the reptile's, at 40 rad/s** (`LEG_STRENGTH`, `LEG_SPEED`,
+  `scripts/rat/fit.mjs`): a trot at 1 m/s swings each paw at about twice that, its stance on two
+  legs.
+- **Its weight carried forward** (`WEIGHTS`): the head 1.0 of the weights (the reptile's .7), the
+  jaw .2 (.15), the tail .2 and .1 (.45 and .25). At the reptile's weights 58% of the rat's weight
+  is on its hind legs, and the trot holds 1.0 m/s with no margin: at a speed setting of 1.2, 1 of
+  12 straight runs upright; at 1.05, 6 of 6 at .999 m/s.
+- **The neck's torque ceiling keeps the reptile's margin** over the head and jaw's weight: it
+  scales by their weighted lever about the neck at the reference pose, the rat's head reaching
+  further ahead and weighing more, so 3.56 N m in place of 1.5. At the reptile's 1.5 the rat's
+  neck sagged .15 to .27 rad below level and returned from a bite at about .02 rad/s, so a return
+  waited out its 8 s limit.
 
 | What | Reptile | Rat |
 | --- | --- | --- |
-| Trunk | capsule radius .08 m, axis at y .24 | radius .115 m, axis at y .19, belly at .077 |
-| Hip and shoulder centres | x ±.085, y .24 m | fore x ±.067, y .125; hind x ±.077, y .115 m |
+| Trunk | capsule radius .08 m, axis at y .24 | radius .115 m, axis at y .27, belly at .157 |
+| Hip and shoulder centres | x ±.085, y .24 m | fore x ±.067, y .205; hind x ±.077, y .195 m |
 | Paw soles, across the body | ±.26 m | fore ±.072, hind ±.082 m |
 | Elbow (fore) and knee (hind) | out to the side, bending about the body's z axis, -.2 to 2.8 rad | behind (fore) and ahead (hind) of the paw, bending about the body's x axis, ±1.2 rad |
 | Bend at the reference pose, upper to lower leg | | 1.77 rad fore, 1.55 rad hind |
@@ -111,7 +125,7 @@ below level and returns from a bite at about .02 rad/s, so a return waits out it
 | Girdle's third axis (z) | ±2.8 rad | ±1.6 rad: at ±.8 its righting stalls on its thighs at an up of .8 |
 
 On the Node stand (Rapier, 120 Hz, one run a case, 2 s standing then 18 s ordered one way, the
-trot at .15 m/s):
+trot at .15 m/s, the legs at the art's height, at `38937897`):
 
 - **Paws the art's size (about .04 by .08 m) tip it in a turn**, at 4.7 s in each heading that
   turns right; with the reptile's footprint (.075 by .1 m) it stays upright at all 8 headings.
@@ -182,6 +196,70 @@ above, 40 s; standing still: the six gaps above, 25 s):
 The rat now reaches a still Warrior from 2.5 m, and most of its teeth's HP is its open jaw pressed
 into the Warrior's legs as it closes: one bout at 1.25 m is fatal to the Warrior at 11.9 s.
 Fighting, it is kicked over and does not right itself.
+
+### The trot at speed
+
+The trot (`trot`, `src/core/reptile/trot.ts`) carries the rat at 1.08 m/s at a speed setting of
+1.15 (`speed`), upright at every heading and through half turns. What holds it:
+
+- **A swinging paw tracks its path at .025 s** (`swingResponse`): driven firm
+  (`EffectorGoal.firm`), its path begun where the paw left the floor and moving through the trunk's
+  frame against the trunk's travel. At the travel response's .06 s the knee lagged its asked angle
+  by up to .9 rad and a hind paw struck the floor mid-swing: the trot fell from .9 m/s.
+- **A paw lands led by the step it took**: the travel through the last pair's swing and landing
+  (`stride`), and half the time it then bears, no further than its room.
+- **Its room is its floor reach** (`stanceOf`): each pair's midpoint under the centre of mass, each
+  paw within how far its sole reaches along the body on the floor and at the swing's lift, .9 of it
+  (`reach`). The trunk goes no faster than the room swept in a cycle, nor than its bearing paws'
+  remaining reach over the time until the free pair lands.
+- **A paw within 3 mm of the floor is down** (`touch`), and a landed paw presses down within .03 s
+  (`plant`): a paw hovering a millimetre up bore no weight.
+- **It turns as it travels**: the heading asked turns at .6 rad/s (`turnRate`), never more than .2
+  rad (`turnLead`) ahead of the trunk's, and the trunk travels as fast as it faces its way (the
+  cosine of the difference). At .25 rad/s, waiting for the heading, a half turn took 12 s.
+
+Before (`b493ea5d`, its defaults) and after, on the Node stand (Rapier, 120 Hz, the game's delay; 2
+s standing, then 18 s ordered along each of 8 headings, or the order reversed halfway; the speed
+along the order from 4 s, over the half after the reversal):
+
+| Body | | Upright, straight | m/s, straight | Upright, half turn | m/s after the reversal |
+| --- | --- | --- | --- | --- | --- |
+| rat | before | 7 of 8 | .06 to .22 | 7 of 8 | 0 to .07 |
+| rat | after | 8 | .90 to 1.08 | 8 | .79 |
+| grass lizard | before | 0 | 0 | 0 | 0 |
+| grass lizard | after | 4 | .48 to .60 where upright | 0 | 0 |
+
+The slower headings are those facing away at the start: the turn is in the mean. Over four ground
+sizes (80 to 81.11 m, each a perturbation of the contact arithmetic) the rat stays upright in 64 of
+64 runs; at a speed setting of 1.2 (1.10 m/s), 60 of 64, both falls at 45 degrees near 9.6 s,
+before the reversal; with `plant` at .2 s, 51 of 64.
+
+Bouts against the Warrior with a sword, before and after (fighting: the four gaps of
+[the rat](#the-rat), 40 s; standing still: the six, 25 s):
+
+| Body | Warrior | Bites launched | HP by the teeth | Bouts fatal to the Warrior | First down |
+| --- | --- | --- | --- | --- | --- |
+| rat | fighting | 1, 3 | 1.77, 1.35 | 0, 0 | 7.9 to 24.6 s, 5.2 to 9.0 s |
+| rat | standing still | 5, 57 | 16.10, 11.61 | 3, 2 | never, once at 2.9 s |
+| grass lizard | fighting | 0, 0 | 0, 0 | 0, 0 | .5 s, .8 to 1.0 s |
+| grass lizard | standing still | 0, 0 | 0, 0 | 0, 0 | .5 s, .8 to 1.6 s |
+
+The rat reaches a still Warrior within 4 to 5 s and bites at once; at 1 and 2.5 m it launches 23
+and 25 bites for 1.00 and 0 HP, aimed at a leg it does not close on.
+
+**The grass lizard** trots straight at .5 to .6 m/s and falls in any turn: on legs at .95 of
+their length and spread wide, its paws reach about .08 m fore and aft on the floor (the rat's
+.17), so the trot carries it at .68 m/s at most.
+
+Tried with the trot and not kept:
+
+| Change | Result |
+| --- | --- |
+| Leg strength over twice the reptile's; wider knee and ankle ranges | No faster: a hind paw's forward reach is the leg's length |
+| A narrower stance; more overlap of the pairs' support | No faster, no steadier |
+| Faster `plantSpeed`; a lift-off speed; targets sunk below the floor | No faster, no steadier |
+| The pair about to swing lifting before the other has touched | 7 of 12 straight runs upright |
+| A late landing extending the swing | No faster, no steadier |
 
 ### The lunge
 
@@ -325,10 +403,11 @@ point.
 | Floating-base response | centre .12, endpoint .08, turn .12, posture .15 s | Damped support and pose tracking |
 | Travel response | centre .06, endpoint .04, turn .06, posture .06 s | Faster support and free-paw tracking during the trot |
 | Support solve | lever .3 m, damping .005, rootMotion .05 s | Wrench weighting, regularization and observed root-acceleration filtering |
-| Trot geometry | crawlHeight 1, lift .025 m, lead .3 s | Standing COM height and paw placement ahead of the actual COM by the commanded velocity times the lead |
-| Trot travel | speed .5 m/s, acceleration .5 m/s2, sideways .15 | Bounded velocity changes and slower lateral travel |
-| Trot timing | swing .22, settle .025, plant .2 s; plantSpeed .2 m/s | Alternating diagonal pairs, with root motion subtracted from landing velocity |
-| Trot heading | turnRate .25 rad/s, turnMoveAngle .2 rad, turnError .05 rad | Wait for the actual trunk heading before accelerating; bound the requested turn |
+| Trot geometry | crawlHeight 1, lift .025 m, reach .9 | Standing COM height; each paw within .9 of its floor reach ([the trot at speed](#the-trot-at-speed)) |
+| Trot travel | speed 1.15 m/s, acceleration .5 m/s2, sideways .15 | Bounded velocity changes and slower lateral travel; never faster than the paws' reach allows |
+| Trot timing | swing .175, settle .025, plant .03 s; plantSpeed .2 m/s; touch .003 m | Alternating diagonal pairs; a paw within touch of the floor is down |
+| Trot swing | swingResponse .025 s | A swinging paw's path kept on the ground and tracked firm |
+| Trot heading | turnRate .6 rad/s, turnLead .2 rad, turnMoveAngle .2 rad, turnError .05 rad | Turn while travelling, the heading asked never further than turnLead ahead of the trunk's; the approach counts the trunk aligned with its way within turnMoveAngle |
 | Trot acquisition | liftConfirm .001 m, landingWait .1 s, placementLimit 3 s | Count a step only for a paw that lifted; end a swing once its pair bears, lifted or not; brake on delayed landing and return an unlanded pair to its anchors |
 | Resumed travel | resumeSpeed .1 m/s, resumeHold .3 s | Place each paw again through the crawl, then require quiet four-sole support before trotting; the trot turns to the heading |
 | Crawl geometry | crawlHeight .85, stride .035 m, lift .025 m | Lowered three-paw support and one-paw swing |
@@ -358,8 +437,9 @@ point.
 
 What the settings serve:
 
-- **The trot** alternates diagonal pairs from the reference footprint, advancing the centre of mass
-  continuously at the commanded velocity; free paws land with near-zero world velocity. **The
+- **The trot** alternates diagonal pairs from its stance under the centre of mass, advancing the
+  centre continuously at the commanded velocity within the paws' reach; free paws land led by the
+  step they took. **The
   crawl** shifts the centre into the other three contact patches before each swing, and shortens
   its stride with travel intent so approach braking slows it. Placements are relative to the actual
   centre of mass, so the stance does not widen.
@@ -427,8 +507,8 @@ and `tests/reptile-integration.test.mjs`, all @2a1b29ac.
 | Lifecycle and replay | Hold/resume retains physical bodies; crawling, jaw cancellation and righting fork exactly, with physics-only and state-only negative controls |
 | Generated packs | Both layout generators, 24 seeds each; complete-map repeatability, physical clearance, reachability and pack separation |
 
-These held for the authored body. The grass lizard does not travel
-([the grass lizard](#the-grass-lizard)), so it meets none of the travel gates.
+These held for the authored body. The grass lizard falls in turns
+([the trot at speed](#the-trot-at-speed)), so it meets none of the travel gates.
 
 The bite meter credits actual load wounds during a launched bite and its loaded withdrawal; a
 completed cycle needs the verified release. The eight recovery poses are development witnesses,

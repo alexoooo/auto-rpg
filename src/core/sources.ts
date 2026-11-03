@@ -41,7 +41,7 @@ export const SOURCES = Object.freeze({
   },
   "rat-anatomy": {
     kind: "asset", file: "assets/rat/body.json",
-    what: "The rat's anatomy fitted to Poly Haven's Street Rat (scripts/rat/fit.mjs): trunk, head, jaw, legs under the trunk and tail where the art's are, the head and jaw carried .5 rad above the art's so the open jaw clears the floor (HEAD_RAISE, scripts/rat/landmarks.mjs); mass, torques, joint speeds and ranges, teeth and paw footprint the authored quadruped's (assets/quadruped/authored-body.json), but the hips' second and third axes at ±1.6 rad, the range its righting needs to lever it off its side, and the neck's torque scaled by the head and jaw's weighted lever about it. docs/reference/reptile.md#the-rat says what is the rat's own.",
+    what: "The rat's anatomy fitted to Poly Haven's Street Rat (scripts/rat/fit.mjs): trunk, head, jaw, legs under the trunk and tail where the art's are, the head and jaw carried .5 rad above the art's so the open jaw clears the floor (HEAD_RAISE, scripts/rat/landmarks.mjs), and the body standing .08 m above the art on stretched legs (LEG_RAISE); mass, joint ranges, teeth and paw footprint the authored quadruped's (assets/quadruped/authored-body.json), but the hips' second and third axes at ±1.6 rad, the range its righting needs to lever it off its side; the legs' muscles twice the authored torques at 40 rad/s and the weight carried forward to the head (LEG_STRENGTH, LEG_SPEED, WEIGHTS, scripts/rat/fit.mjs), the owner's decisions for a trot at 1 m/s; the neck's torque scaled by the head and jaw's weighted lever about it. docs/reference/reptile.md#the-rat says what is the rat's own.",
   },
   "reptile-anatomy": {
     kind: "asset", file: "assets/reptile/body.json",

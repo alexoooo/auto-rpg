@@ -42,3 +42,46 @@ export const turnUp = ([x, y, z], [, py, pz], angle) => {
   const dy = y - py, dz = z - pz, c = Math.cos(angle), s = Math.sin(angle);
   return [x, py + dy * c + dz * s, pz + dz * c - dy * s];
 };
+
+/**
+ * How far the body stands above the art, m: trunk, head and tail raised by it, and each leg
+ * stretched along its upper and lower bones from its shoulder or hip so that its paw stays on the
+ * floor (`standing`). The art holds its hips about 0.12 m up, where a trot at 1 m/s is a gallop's
+ * pace; raised, they stand about 0.2 m up: docs/reference/reptile.md#the-rat.
+ */
+export const LEG_RAISE = 0.08;
+
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const unit = (a) => scale(a, 1 / Math.sqrt(dot(a, a)));
+
+/**
+ * The art as the body stands, mm: `body(p)` carries a point of the trunk, head or tail, and
+ * `legs[name][piece](p)` one of a leg's (`upper`, `lower`, `paw`), `name` as `front.left`; `art`
+ * is the landmarks posed so. A bone keeps its thickness and lengthens along its axis by its leg's
+ * stretch, its girdle raised with the trunk and its ankle at the art's height.
+ */
+export function standing() {
+  const raise = LEG_RAISE / SCALE, up = (p) => [p[0], p[1] + raise, p[2]];
+  const legs = {};
+  const posedLeg = (leg, side) => {
+    const p = (point) => side === "left" ? point : [-point[0], point[1], point[2]];
+    const girdle = p(leg.girdle), bend = p(leg.bend), ankle = p(leg.ankle);
+    const k = (girdle[1] + raise - ankle[1]) / (girdle[1] - ankle[1]);
+    const along = (from, to, start) => { const u = unit(sub(to, from)); return (q) => { const d = sub(q, from); return add(add(start, d), scale(u, (k - 1) * dot(d, u))); }; };
+    const upper = along(girdle, bend, up(girdle)), bent = upper(bend), lower = along(bend, ankle, bent), reached = lower(ankle);
+    const paw = (q) => add(q, sub(reached, ankle));
+    return { upper, lower, paw, stretch: k };
+  };
+  for (const end of ["front", "hind"]) for (const side of ["left", "right"]) legs[`${end}.${side}`] = posedLeg(ART[end], side);
+  const leg = (end) => {
+    const { upper, lower, paw } = legs[`${end}.left`], at = ART[end];
+    return { ...at, girdle: upper(at.girdle), bend: upper(at.bend), ankle: lower(at.ankle), toe: paw(at.toe) };
+  };
+  const art = {
+    ...ART, trunk: { ...ART.trunk, from: up(ART.trunk.from), to: up(ART.trunk.to) }, neck: up(ART.neck), nose: up(ART.nose), incisors: up(ART.incisors),
+    eye: up(ART.eye), skull: { ...ART.skull, from: up(ART.skull.from), to: up(ART.skull.to) }, hinge: up(ART.hinge), chin: up(ART.chin),
+    tail: { ...ART.tail, root: up(ART.tail.root), bend: up(ART.tail.bend), tip: up(ART.tail.tip) }, front: leg("front"), hind: leg("hind"),
+  };
+  return { body: up, legs, art };
+}

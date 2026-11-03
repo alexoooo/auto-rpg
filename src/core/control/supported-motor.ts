@@ -66,7 +66,8 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
       toward: toward[i]!, patch: points[i]!, share: 1 } }));
   const bearing = makeBearing(own.assist, limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: state.shortfall }, { effort: true, damping: response.damping });
   const parts = [...built.segments.values()], mass = massOf(parts);
-  const scratch = { at: new Vector3(), velocity: new Vector3(), angular: new Vector3(), target: new Quaternion(), moved: new Uint8Array(muscles.channels.length) };
+  const scratch = { at: new Vector3(), velocity: new Vector3(), angular: new Vector3(), target: new Quaternion(), moved: new Uint8Array(muscles.channels.length),
+    firm: new Float64Array(muscles.channels.length) };
   const read = () => {
     massCentreToRef(parts, mass, state.centre, scratch.at, state.velocity);
     definitions.forEach((d, i) => {
@@ -94,7 +95,7 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
   };
   read();
   return { state, root, read, resume() { state.motion.started = false; state.motion.acceleration.fill(0); }, control(command: SupportedCommand, dt: number, tracked: (channel: number) => readonly [number, number, number] | undefined = () => undefined, timing: Pick<Response, "centre" | "endpoint" | "turn" | "posture"> = response,
-    trackingSeconds?: (channel: number) => number | undefined) {
+    trackingSeconds?: (channel: number) => number | undefined, firm?: (channel: number) => boolean) {
     if (command.endpoints.length !== limbs.length) throw new Error("support goal count differs from anatomy");
     const ne = 1 / timing.endpoint;
     scratch.velocity.copyFrom(state.velocity).subtractInPlace(scratch.at.set(...command.velocity));
@@ -129,7 +130,19 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
       motion.velocity[k] = v;
     }
     motion.started = true;
+    // Each firm freedom's speed at the step's end as the servo asks it (`EffectorGoal.firm`); NaN where none is firm.
+    let anyFirm = false;
+    for (let i = 0; i < scratch.firm.length; i++) {
+      scratch.firm[i] = firm && !work.fixed[i] && !scratch.moved[i] && firm(i) ? muscles.speed(i) + work.accel[i]! * dt : NaN;
+      if (!Number.isNaN(scratch.firm[i]!)) anyFirm = true;
+    }
     servoSolve(muscles, work, motion.acceleration, scratch.moved);
     bearLimbs(bearing, muscles, work, response.lever, true);
+    // A firm freedom is a velocity motor toward the speed asked, at its muscles' full strength.
+    if (anyFirm) for (let i = 0; i < scratch.firm.length; i++) {
+      if (Number.isNaN(scratch.firm[i]!)) continue;
+      muscles.velocity[i] = scratch.firm[i]!;
+      muscles.activation[i] = 1;
+    }
   } };
 }

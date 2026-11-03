@@ -38,6 +38,11 @@ interface GaitSettings {
   readonly plantSpeed: number;
   readonly plant: number;
   readonly swing: number;
+  /**
+   * Where the gait keeps its swings on the ground: each swinging paw's path held where it left the
+   * floor, driven firm (`EffectorGoal.firm`) at this tracking response, s.
+   */
+  readonly swingResponse?: number;
 }
 
 /**

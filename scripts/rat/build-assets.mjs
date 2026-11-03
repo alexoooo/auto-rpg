@@ -9,7 +9,7 @@ import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { Document, NodeIO } from "@gltf-transform/core";
 import { MeshoptSimplifier } from "meshoptimizer";
-import { ART, HEAD_RAISE, SCALE, turnUp } from "./landmarks.mjs";
+import { ART, HEAD_RAISE, SCALE, standing, turnUp } from "./landmarks.mjs";
 
 const ROOT = resolve(import.meta.dirname, "../.."), CACHE = join(ROOT, ".cache/art/downloads/street_rat");
 const OUT = join(ROOT, "assets/art/environment/rat");
@@ -148,6 +148,36 @@ for (let v = 0; v < count; v++) {
   const n = [normals0[v * 3], normals0[v * 3 + 1], normals0[v * 3 + 2]], m = turnUp(n, [0, 0, 0], HEAD_RAISE);
   const blended = n.map((x, i) => x + w * (m[i] - x)), size = Math.sqrt(blended.reduce((s, x) => s + x * x, 0));
   for (let i = 0; i < 3; i++) mesh.normals[v * 3 + i] = blended[i] / size;
+}
+
+// Standing as the body does (`standing`): each vertex carried by each of its segments' poses, by its
+// weight, its normal by the same stretch; the fur of a leg lengthens along its bone and keeps its thickness.
+{
+  const { body: raised, legs } = standing(), poses = segments.map((name) => {
+    const [piece, end, side] = name.split("."), leg = legs[`${end}.${side}`];
+    return leg && leg[piece] ? leg[piece] : raised;
+  });
+  const before = Float64Array.from(millimetres), probe = 1;
+  for (let v = 0; v < count; v++) {
+    const p = [before[v * 3], before[v * 3 + 1], before[v * 3 + 2]], n = [mesh.normals[v * 3], mesh.normals[v * 3 + 1], mesh.normals[v * 3 + 2]];
+    const q = [0, 0, 0], m = [0, 0, 0];
+    for (let k = 0; k < 4; k++) {
+      const w = shares[v * 4 + k] / 255;
+      if (!w) continue;
+      const pose = poses[joints[v * 4 + k]], at = pose(p);
+      // A normal turns with the pose's inverse transpose: two tangents carried, crossed.
+      const t = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+      const a = [n[1] * t[2] - n[2] * t[1], n[2] * t[0] - n[0] * t[2], n[0] * t[1] - n[1] * t[0]];
+      const b = [n[1] * a[2] - n[2] * a[1], n[2] * a[0] - n[0] * a[2], n[0] * a[1] - n[1] * a[0]];
+      const ta = pose(p.map((x, i) => x + probe * a[i])), tb = pose(p.map((x, i) => x + probe * b[i]));
+      const da = ta.map((x, i) => x - at[i]), db = tb.map((x, i) => x - at[i]);
+      const c = [da[1] * db[2] - da[2] * db[1], da[2] * db[0] - da[0] * db[2], da[0] * db[1] - da[1] * db[0]];
+      const size = Math.sqrt(c[0] * c[0] + c[1] * c[1] + c[2] * c[2]), sense = c[0] * n[0] + c[1] * n[1] + c[2] * n[2] < 0 ? -1 : 1;
+      for (let i = 0; i < 3; i++) { q[i] += w * at[i]; m[i] += w * sense * c[i] / size; }
+    }
+    const size = Math.sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
+    for (let i = 0; i < 3; i++) { millimetres[v * 3 + i] = q[i]; mesh.normals[v * 3 + i] = m[i] / size; }
+  }
 }
 
 // Into the body frame: scaled, x mirrored to the body's right, and so each triangle's winding reversed.

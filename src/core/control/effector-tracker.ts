@@ -50,6 +50,17 @@ export interface EffectorGoal {
   readonly terminalVelocity?: Vec3;
   /** Midpath deviation from the Hermite chord, with unchanged endpoint motion; one point only. */
   readonly curve?: Vec3;
+  /**
+   * Where a one-point path began, in the root frame as it stands now: a path the caller keeps in
+   * another frame than the root's (the ground's) gives its start again each step. Without it the
+   * start stays where the point was in the root frame when the path began.
+   */
+  readonly origin?: Vec3;
+  /**
+   * How a path kept in another frame moves through the root's, m/s, root frame: the path's place
+   * at another time than now is carried by it, so the rates asked include the frame's motion.
+   */
+  readonly drift?: Vec3;
   /** Identity of a moving path segment; changing it starts a new path. */
   readonly sequence?: number;
   /**
@@ -150,7 +161,8 @@ export function effectorTracker(built: ReadBody, root: ReadSegment, settings: Tr
    * A supplied initial velocity uses the shared quintic Hermite path instead.
    */
   const along = (m: EffectorMemory, i: number, time: number, out: Vector3): Vector3 => {
-    const { places, seconds: length, through = 0 } = m.goal!, position = places[i]!.position, from = m.from[i]!;
+    const { places, seconds: length, through = 0, drift } = m.goal!, position = places[i]!.position, from = m.goal!.origin ?? m.from[i]!;
+    const carried = drift ? time - m.time : 0;
     if (m.goal!.initialVelocity || m.goal!.terminalVelocity || m.goal!.curve) {
       const way = hypot(position[0] - from[0], position[1] - from[1], position[2] - from[2]);
       const scale = way > 0 ? 1 + through / way : 1;
@@ -161,8 +173,8 @@ export function effectorTracker(built: ReadBody, root: ReadSegment, settings: Tr
       pointPathTargetToRef(start, finish, Math.max(0, time), length, target, sample, terminal, m.goal!.curve);
       // Linear continuation preserves the endpoint rate in the IK finite differences.
       const after = terminal ? Math.max(0, time - length) : 0;
-      return out.set(target[0] + after * (terminal?.[0] ?? 0), target[1] + after * (terminal?.[1] ?? 0),
-        target[2] + after * (terminal?.[2] ?? 0));
+      return out.set(target[0] + after * (terminal?.[0] ?? 0) + carried * (drift?.[0] ?? 0), target[1] + after * (terminal?.[1] ?? 0) + carried * (drift?.[1] ?? 0),
+        target[2] + after * (terminal?.[2] ?? 0) + carried * (drift?.[2] ?? 0));
     }
     const s = Math.max(0, Math.min(1, time / length));
     let f = s * s * s * (10 - 15 * s + 6 * s * s);
@@ -170,8 +182,8 @@ export function effectorTracker(built: ReadBody, root: ReadSegment, settings: Tr
       const way = hypot(position[0] - from[0], position[1] - from[1], position[2] - from[2]);
       if (way > 0) f = f * (1 + through / way);
     }
-    return out.set(from[0] + f * (position[0] - from[0]), from[1] + f * (position[1] - from[1]),
-      from[2] + f * (position[2] - from[2]));
+    return out.set(from[0] + f * (position[0] - from[0]) + carried * (drift?.[0] ?? 0), from[1] + f * (position[1] - from[1]) + carried * (drift?.[1] ?? 0),
+      from[2] + f * (position[2] - from[2]) + carried * (drift?.[2] ?? 0));
   };
   const at = new Vector3(), end: ReachEnd = { passes: 0, still: false };
   const fromTurn = new Quaternion(), toTurn = new Quaternion(), turn = new Quaternion(), inverse = new Quaternion();
@@ -213,7 +225,7 @@ export function effectorTracker(built: ReadBody, root: ReadSegment, settings: Tr
         || !Number.isFinite(goal.orientation.seconds) || goal.orientation.target.length !== 4
         || !goal.orientation.target.every(Number.isFinite)
         || Math.abs(goal.orientation.target.reduce((s, v) => s + v * v, 0) - 1) > 1e-8)) throw new Error("invalid effector orientation");
-      if ((goal.initialVelocity || goal.terminalVelocity || goal.curve) && places.length !== 1) throw new Error("a measured point path requires one point");
+      if ((goal.initialVelocity || goal.terminalVelocity || goal.curve || goal.origin || goal.drift) && places.length !== 1) throw new Error("a measured point path requires one point");
       if (places.length !== 1 && places.length !== 2) throw new Error(`an effector goal is one place or two, not ${places.length}`);
       for (const place of places) {
         if (!points.has(place.point)) throw new Error(`effector ${segment} has no point ${place.point}: it has ${[...points.keys()].join(", ")}`);
