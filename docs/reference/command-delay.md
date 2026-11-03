@@ -85,7 +85,7 @@ step. The falls stood within 10 s move by about six a draw of 64.
 | | 480 Hz | 158 | 172 |
 
 **The strikes' still rungs** (the Strike drill's `still`, 128 trials) at one step: the punch is
-admitted 60 times and lands 35 (`assets/evaluations/strike/2026-11-03-25d720b9-4635c08b.jsonl`;
+admitted 60 times and lands 35 (`assets/evaluations/strike/2026-11-03T011806-25d720b9-4635c08b.jsonl`;
 none at f0c6807c: 62 and 31); the club blow with the buckler lands 6, admitted 16 (`786b1ad8`). The
 stomp's `stomping` lands 4 of 12 at one step, none fallen (252a17eb). A club is swung, not punched
 with: the punch's drive thrown with the club's head gives way to a swing, trained at the game's
