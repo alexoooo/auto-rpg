@@ -8,7 +8,7 @@ rebuild outside the source.
 
 ## The rule it keeps
 
-`src/arena/room.ts` owns the ring's authoritative geometry, and its dimensions are recorded in
+`src/arena/solids.ts` owns the ring's authoritative geometry, and its dimensions are recorded in
 [look](../reference/look.md). The art stays inside it: `forge-room.ts` fills the wall boxes from
 the forge masonry asset at the colliders' positions and rotations, the brazier bands stay inside
 each pedestal, and the paving lies 0.006 m above the collision plane. Every dimension below is a

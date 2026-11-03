@@ -2,7 +2,7 @@ import { Duel, SIDES, type DuelRecipe } from "../arena/duel.ts";
 import { TeamBout, type TeamRecipe } from "../arena/team-bout.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { GAME_ENDS } from "../arena/end-rule.ts";
-import { addArenaSolids, arenaSolids } from "../arena/room.ts";
+import { addArenaSolids, arenaSolids } from "../arena/solids.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { DEFAULT_ENGINE, loadEngine, type EngineName } from "../core/engine/engines.ts";
 import { createWorld, type World } from "../core/world.ts";

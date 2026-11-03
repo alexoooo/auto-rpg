@@ -5,7 +5,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { cutAway } from "./fog.ts";
-import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
+import { CAMERA_AZIMUTH, cameraToward } from "./bearing.ts";
 import type { Point } from "./map.ts";
 
 /** A small world-aligned volume above the basket, m (`docs/reference/look.md#crypt-light`). */

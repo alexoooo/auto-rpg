@@ -9,7 +9,7 @@ import "@babylonjs/core/Culling/ray.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { appearanceFor, appearancesFor, type Appearance } from "../render/appearance.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
-import { arenaSolids } from "./room.ts";
+import { arenaSolids } from "./solids.ts";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { buildArena } from "./scene.ts";
 import { LEVELS, type ArenaLevel } from "./levels.ts";
@@ -141,7 +141,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
   const level = readLevel(location.search);
-  const arena = await buildArena(engine, null, level, context.signal);
+  const arena = await buildArena(engine, level, context.signal);
   const { scene, camera, shadows } = arena;
   context.own(() => scene.dispose());
   context.signal.throwIfAborted();

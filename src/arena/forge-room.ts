@@ -7,7 +7,8 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { ARENA_POSTS, ROOM, ROOM_GROUPS, validateRoomPlacements, validateVisualColliderPairs } from "./room.ts";
+import { ROOM_GROUPS, validateRoomPlacements, validateVisualColliderPairs } from "./room.ts";
+import { ARENA_POSTS, ROOM } from "./solids.ts";
 import type { ForgeStyle } from "./forge-style.ts";
 import "../render/fire.ts";
 

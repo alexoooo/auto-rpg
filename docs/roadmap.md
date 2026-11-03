@@ -55,15 +55,13 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md) | The architecture finished, then Option Mind's skills robust on the toed Warrior, Rogue and Skeleton with every loadout (empty, club, sword, club and buckler, sword and buckler), or why one cannot: one family of minds (the old minds deleted, the reptile and bare kept as checks of generality), minds in parallel, a table of every body, loadout and skill against its bar, stand-up fast on the humans and robust on the Skeleton, the run on toes, then each strike on every body (built: step 1, one family of minds, the Skeleton on Option Mind's preset and the Reptile on Option Mind over the quadruped's frame; step 2, minds in parallel at a step's delay ([the command delay](reference/command-delay.md), [step cost](reference/step-cost.md#minds-on-worker-threads)); step 3, the table) |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
-| [The core without Babylon](plans/2026-11-01-core-without-babylon.md) | The simulation free of the graphics layer: the core's own vector maths, copied exactly; every page drawing a mirror posed from the simulation; poses without scene nodes and worlds without a scene; the boundary test refusing Babylon in the core and the entrants. No bout moves |
-| [Health: a life bar and limbs](plans/2026-11-01-health.md) | One life bar that is the truth, a bar on each limb: a limb emptied is crippled (its muscles weaker), a heavy cut takes it off, it falls free and is drawn apart; the strike profiles measured again under the new rules. Steps 3 to 5 after the core without Babylon. Not started; its place in the order is the owner's |
+| [Health: a life bar and limbs](plans/2026-11-01-health.md) | One life bar that is the truth, a bar on each limb: a limb emptied is crippled (its muscles weaker), a heavy cut takes it off, it falls free and is drawn apart; the strike profiles measured again under the new rules. Not started; its place in the order is the owner's |
 | [The rat](plans/2026-11-01-rat.md) | Poly Haven's Street Rat (CC0) as a second quadruped body, legs under it, and both quadrupeds at 1.0 m/s or more: the rat in the Arena, drawn as the Street Rat on a body fitted to it, then fast legs, a trot that keeps its balance at speed, recovery for legs under the body, and the Crypt (built: the trot lands a pair once its paws bear; steps 1 to 5, the rat in the Arena drawn as the Street Rat, biting the Warrior, both bodies' legs at 20 rad/s and trotting .5 m/s, the bite lunging, the rat righting itself by a recipe of poses from its side and back, the rat trotting 1.08 m/s through turns. Left: the grass lizard at 1 m/s; a rat knocked over in a fight can be left crouched until its righting's retry) |
 
 1. **Now: [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md)** in order
    (the owner, 2026-11-01): the table, stand-up, the run and the strikes on every body.
-2. **Beside it:** [the core without Babylon](plans/2026-11-01-core-without-babylon.md), in one
-   stretch, since its check is that no bout moves. The owner watches the Strike drill's rung 1
-   (the moving target, [Drills](#the-ai)).
+2. **Beside it:** the owner watches the Strike drill's rung 1 (the moving target,
+   [Drills](#the-ai)).
 3. **After it:** fights, Option Mind with its skills in matches the owner watches; the Skeleton's
    preset beating every Arena entrant left more than 90 % of the time, strict wins per opponent on
    held-out conditions ([record](reference/option-skeleton-combat.md)); Option Mind's design left
@@ -145,16 +143,12 @@ The plans in flight, and what comes next across them. Each plan names its own de
   a body a step; each mind's own (Option Mind's options and percepts, the reptile's); then each
   fixture's ceiling set to its readings, what Rapier's binding allocates by itself named apart.
   Done when a game mind's bout allocates under 50 KiB a body a step beyond Rapier's own.
-- Headless runs build a Babylon scene (`buildBout`, `buildCrypt`); none will once the core is
-  without Babylon ([its plan](plans/2026-11-01-core-without-babylon.md), step 3). The trainer's time is the world's step's, 85 % of it, Rapier's wasm 23 %
-  ([the trainer's speed](reference/learned-punch.md#the-trainers-speed)); the scene's share in it
-  is not read apart.
-- The world builders apart from what draws them, then in `src/worlds/`: the bout's (`src/arena/duel.ts`,
-  `team.ts`, `room.ts`, `levels.ts`, the end rules) is headless, but a Crypt run builds its look
-  with its world (`buildDungeonWorld`, `src/dungeon/world.ts`) and steers the person's commands by
-  the camera (`commands.ts`, `camera.ts`), and the Lab's scenarios reach the page's render and
-  controls (`src/lab/scenarios.ts`, `attack-scenario.ts`). Moved before that split, `src/worlds/`
-  would import the screens; until then the boundary test holds the builders by what they reach.
+- The world builders in `src/worlds/`: the bout's (`src/arena/duel.ts`, `team.ts`, `solids.ts`,
+  `levels.ts`, the end rules) and the Crypt run's (`src/dungeon/run.ts`, `solids.ts`,
+  `commands.ts`, `bearing.ts`) import nothing that draws, but they sit among their screens' files,
+  and the Lab's scenarios reach the page's render and controls (`src/lab/scenarios.ts`,
+  `attack-scenario.ts`). Moved before the Lab's split, `src/worlds/` would import the screens;
+  until then the boundary test holds the builders by what they reach.
 - Mind data packed per kind (`docs/plans/2026-10-21-mind-data.md@6dd9420a`), when a second skill
   ships data: one network does today, and the punch's retraining replaces it.
 - One notion of a task: an evaluation plays a task, the Lab shows it, and the Ratings screen

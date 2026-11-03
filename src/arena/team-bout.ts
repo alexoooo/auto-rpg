@@ -16,7 +16,7 @@ import type { Vec3 } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Hook, World } from "../core/world.ts";
 import { sensedBounds } from "../core/navigation/sensed-bounds.ts";
-import { arenaSolids } from "./room.ts";
+import { arenaSolids } from "./solids.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
 import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";
 import { CAP_SECONDS, SIDES, senseDelayOf, type Verdict } from "./duel.ts";

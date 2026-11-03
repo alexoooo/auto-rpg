@@ -10,7 +10,7 @@ The crypt (`?play=dungeon`, `src/dungeon/`) offers three dungeons, each with its
 
 ## The rule every piece keeps
 
-The art carries no authority. Collision is the map's: `buildDungeonWorld` (`src/dungeon/world.ts`)
+The art carries no authority. Collision is the map's: `dungeonSolids` (`src/dungeon/solids.ts`)
 turns the map's walls, doors and obstacles into fixed boxes in the world and lists them as
 `solids`. Nothing the look adds may add one: after the look is built, `src/dungeon/main.ts`
 compares the count of `solids` and throws if it changed.
@@ -38,7 +38,7 @@ Everything is built at runtime from the level's cells; there is no model file.
   pipeline from `DUNGEON_LOOK`; many torch lights share a `ClusteredLightContainer`.
 - **Fog and cutaways.** `src/dungeon/fog-plugin.ts` and `src/dungeon/fog.ts` darken what the party
   has not seen and cut down the walls between the camera and the party.
-- **Camera.** `frameDungeon` (`src/dungeon/camera.ts`): orthographic, `CAMERA_PITCH` (pi/6) unless
+- **Camera.** `frameDungeon` (`src/dungeon/camera.ts`): orthographic, `CAMERA_PITCH` (`bearing.ts`, pi/6) unless
   `?pitch=` says otherwise, `?azimuth=` for the bearing.
 
 `window.__dungeon.look` (`src/dungeon/look-probe.ts`) switches each part of the look from the

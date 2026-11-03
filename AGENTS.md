@@ -96,9 +96,14 @@ and keeps setup choices for the tab; loading runs with physics suspended.
 Bodies, muscles, motor control, skills, minds and the rules of a fight. The screens build on it;
 it never imports them.
 
-- **The core reaches only itself**, `@babylonjs/core`, its engine's package and JSON under
-  `assets/`. `tests/core-boundary.test.mjs` walks the imports and holds the engine's package to
+- **The core reaches only itself**, its engine's package and JSON under `assets/`; never the
+  renderer. `tests/core-boundary.test.mjs` walks the imports and holds the engine's package to
   `src/core/engine/` (`engine.ts` the contract, `engines.ts` the list).
+- **Simulation code uses the core's vectors** (`src/core/math/vector.ts`) and its bodies' plain
+  poses (`Pose`, `ReadPose`); drawing code (`src/render/`, the pages' scenes) uses Babylon's, and a
+  page draws a puppet it poses from the simulated poses (`followBody`, `posePuppet`). A module
+  that does both is split. What builds a headless world (the bout's, the Crypt run's, the cases'
+  and the falls' builders, the world worker) imports nothing of Babylon; the boundary test holds it.
 - **Every number in a spec says where it came from**: a `Quantity` read from a `SOURCES` entry
   (`src/core/sources.ts`: a paper, an asset, a measurement, the owner's decision) or derived by a
   named rule that writes no factor. A deleted record is cited
@@ -106,10 +111,10 @@ it never imports them.
   the game wants is set to what gets the result, sourced as the owner's decision.
 - **The same arithmetic in every JavaScript engine.** The core, and whatever builds a case's world
   (what the bout's, the Crypt run's and the falls' builders, the Lab's scenarios and each
-  evaluation's `cases.ts` reach beside the core, less the Crypt's look), computes with `+ - * /`, `Math.sqrt` and its own functions
-  (`src/core/math/real.ts`, `turn.ts`); never `Math.sin` and kin, `Math.hypot`, `Math.pow` or
-  `**`, which engines round their own way. The boundary test enforces it (`EXACT_MATH`) and lists
-  the Babylon math read and found exact (`EXACT_BABYLON`): read a member's source before adding it.
+  evaluation's `cases.ts` reach beside the core), computes with `+ - * /`, `Math.sqrt` and its own
+  functions (`src/core/math/real.ts`, `turn.ts`, `vector.ts`); never `Math.sin` and kin,
+  `Math.hypot`, `Math.pow` or `**`, which engines round their own way. The boundary test enforces
+  it (`EXACT_MATH`).
 - **Tuning is immutable.** An experiment passes an override in; nothing mutates a global.
 - **A body's level** (`levelsOf`, `src/core/rules/levels.ts`) comes from where the bodies are,
   never from the machine; a body is not rebuilt to save a step.
@@ -157,9 +162,9 @@ it never imports them.
 - **Side-effect imports are load-bearing**: the shadow, depth-renderer, post-process and HDR imports
   (`src/arena/scene.ts`, `src/render/post.ts`), the shaders (`src/arena/forge-style.ts`),
   `Culling/ray.js` for `scene.pick`, the glTF loader. Removing an "unused" one breaks at runtime.
-- **Read transforms from `mesh.position` and `mesh.rotationQuaternion`.** `getWorldMatrix()` caches
-  per render id, so its first reader freezes the frame for every later one. The core may not use
-  it or what derives from it (`WORLD_MATRIX_READERS`). From a console, `computeWorldMatrix(true)`.
+- **Read a mesh's transform from `mesh.position` and `mesh.rotationQuaternion`.** `getWorldMatrix()`
+  caches per render id, so its first reader freezes the frame for every later one. From a console,
+  `computeWorldMatrix(true)`.
 - **Turn a vector with `applyRotationQuaternionToRef`**, never `rotateByQuaternionToRef` (a float32
   matrix: 1e-8 m of noise per point).
 - **A fast chain's controller asks for the motion under way** (`bias` in `bodyDynamics`,
@@ -224,7 +229,7 @@ no stray files (`tests/workspace.test.mjs`).
 - **Node imports `src/` directly**: relative imports carry `.ts`, and no TypeScript parameter
   properties.
 - **The headless stand** (`tests/harness/core-stand.mjs`): `coreStand(spec)` builds one body on a
-  ground; `createWorld(scene, await freshEngine())` a bare world. `CORE_ENGINE=<name>` picks
+  ground; `createWorld(await freshEngine())` a bare world. `CORE_ENGINE=<name>` picks
   another engine.
 - **Parallel runs need worker threads.** Under CPU load a dropped test count is a timeout, not a
   regression: re-run on a quiet machine.

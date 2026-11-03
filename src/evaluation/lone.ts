@@ -6,7 +6,7 @@
  * and shoves at set times (`LoneCue`).
  */
 import { Vector3 } from "../core/math/vector.ts";
-import { addArenaSolids } from "../arena/room.ts";
+import { addArenaSolids } from "../arena/solids.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import { loadEngine } from "../core/engine/engines.ts";

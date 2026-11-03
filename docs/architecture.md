@@ -9,8 +9,12 @@ energy it brings. There is no attack animation and no hit box: the pages draw wh
   ([engine record](reference/rapier-vendor.md)).
 - **Everything that fights is the core's** (`src/core/`). The screens (`src/arena/`,
   `src/dungeon/`, `src/lab/`) build on it and it never imports them:
-  `tests/core-boundary.test.mjs` allows the core only itself, `@babylonjs/core`, its engine's
-  package and JSON under `assets/`.
+  `tests/core-boundary.test.mjs` allows the core only itself, its engine's package and JSON under
+  `assets/`. The core imports nothing of Babylon: its vectors are its own
+  (`src/core/math/vector.ts`, Babylon's arithmetic operation for operation), its bodies are plain
+  poses (`Pose`, `src/core/engine/engine.ts`), and a world has no scene. A page draws a puppet it
+  poses from them (`followBody`, `posePuppet`, `src/render/puppet.ts`), and a headless world (a
+  bout, a Crypt run, a case, a fall, the world worker) loads no renderer.
 - **One world step** (`World.step`, 120 Hz) owns physics, control, combat and the clock. Pages,
   tests and research all call it; rendering never advances it.
 
@@ -179,7 +183,7 @@ Readings back from the built body:
 
 `src/core/engine/engine.ts` is the contract and names no engine's types. It guarantees:
 
-- a fixed step that writes each node's `position` and `rotationQuaternion`;
+- a fixed step that writes each body's pose, its `position` and `rotation`;
 - bodies that never sleep, with the spec's mass, and the centre of mass's velocity;
 - one friction (`CONTACT_FRICTION`, `src/core/spec/constants.ts`, which the controllers bounding a contact's force read too) and no bounce on every contact;
 - freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded by separate
@@ -1306,7 +1310,7 @@ An item may be simulated as its own body, gripped by joints, beside the game's c
 
 ## One world step
 
-`createWorld(scene, engine)` (`src/core/world.ts`) makes the world: one fixed step at 120 Hz
+`createWorld(engine)` (`src/core/world.ts`) makes the world: one fixed step at 120 Hz
 (`PHYSICS_HZ`). A step runs, in order:
 
 1. the sensing hooks (a fight's senses, `createSenses`; a tape's orders);
@@ -1315,7 +1319,7 @@ An item may be simulated as its own body, gripped by joints, beside the game's c
    shapes, and a mind on a mirror or apart thinking on what its world wrote;
 3. the before-step hooks in the order added: each body's `driveMuscles` (muscles read the joints,
    the mind steps, the assist gives, the motors are set), and a page's own (the Lab's shove);
-4. one solver step, which writes every node; the clock advances;
+4. one solver step, which writes every pose; the clock advances;
 5. the post-physics observations (`afterPhysics`: effector feedback, contacts) of minds on their
    bodies; a mind on a mirror or apart observes as the next step is prepared, on what its world
    wrote, before it answers;
@@ -1422,7 +1426,7 @@ keeps its own as bytes (`PhysicsWorld.save`, `load`); every other module keeps i
 `state` object.
 
 - **State is** numbers, strings, booleans, null, plain objects, arrays, typed arrays, a `Map` or
-  `Set` keyed by strings or numbers, a `Vector3` and a `Quaternion`. A body, node, function or
+  `Set` keyed by strings or numbers, the core's `Vector3` and `Quaternion`. A body, node, function or
   getter is not, and `saveState` refuses one by its path.
 - **`saveState(root)`** copies it (the copy crosses a thread); **`loadState(root, saved)`** puts it
   back in place, so whoever holds a state object holds it still and no module is told of a load.
@@ -1767,7 +1771,7 @@ the pickers its choices (`caseSearch`), and Setup leaves the reel for them; a bo
 assembled from the address (`recipeOf`, `matchup.ts`). Back returns to the Ratings address the reel
 was opened from.
 
-**The Crypt.** Walls, doors and obstacles are fixed boxes (`buildDungeonWorld`); enemies are built
+**The Crypt.** Walls, doors and obstacles are fixed boxes (`dungeonSolids`, `src/dungeon/solids.ts`); enemies are built
 as the party comes near. Each side is a team under a Commander ([Command](#command)), the run its host
 (`DungeonRun`: the map as `TeamLevel`, who is built, levels, doors, status); a person's mouse
 orders and keys (`DungeonCommands`) reach the party only as its Commander's commands and lead,

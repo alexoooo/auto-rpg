@@ -1,7 +1,7 @@
 import { mulberry32 } from "../rng.ts";
 import { isFloor, type DungeonMap, type Point } from "./map.ts";
 import { boundary, doorCells, WALL_HEIGHT } from "./fog.ts";
-import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
+import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./bearing.ts";
 import { MURAL_ASPECT, WALL_PIECES, type WallPiece } from "./decals.ts";
 
 /** A wall piece's draw: its weight, its width in metres, and the height of its middle, or "top" to hang it from the

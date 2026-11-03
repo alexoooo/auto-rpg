@@ -22,8 +22,8 @@ import { isBody } from "../core/read-body.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, routeLength, sightIndex, walkable,
   type DungeonMap, type Point, type SightIndex } from "./map.ts";
 import { DungeonCommands, screenMovement } from "./commands.ts";
-import { dungeonSolids } from "./world.ts";
-import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
+import { dungeonSolids } from "./solids.ts";
+import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./bearing.ts";
 import { companionSpawn } from "./party-placement.ts";
 import { generateEncounterLevel } from "./encounters.ts";
 import type { NavigationReport } from "../core/navigation/navigator.ts";

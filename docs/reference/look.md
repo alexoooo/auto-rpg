@@ -60,7 +60,7 @@ wheel; none advances the world.
 
 The room `buildArenaWorld` builds (`src/arena/room.ts`) is a circular floor, after the owner's
 arena concepts. The floor slab, twenty-four parapet sections and eight brazier pedestals are
-colliders (`arenaSolids`), the same on the page and the headless stand, so their sizes affect
+colliders (`arenaSolids`, `src/arena/solids.ts`, which holds `ROOM` and `ARENA_POSTS`), the same on the page and the headless stand, so their sizes affect
 bouts.
 
 `ROOM`, m:
@@ -250,7 +250,7 @@ A club's end is over 5 m/s for 0.18 to 0.5 s of a bout.
 
 ## Crypt camera
 
-`CAMERA_PITCH` (`src/dungeon/camera.ts`) is pi / 6, 30 degrees above the ground: **the owner's
+`CAMERA_PITCH` (`src/dungeon/bearing.ts`) is pi / 6, 30 degrees above the ground: **the owner's
 choice**, where the concept art looks down at about 40 to 45 degrees and the reference chamber's
 camera at 42. `?pitch=` on the page shows another, in degrees.
 

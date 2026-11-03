@@ -9,12 +9,10 @@ import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
 // `Mesh.createInstance` is registered by this module rather than by Mesh itself.
 import "@babylonjs/core/Meshes/instancedMesh.js";
 
-import type { FixedCollider, PhysicsWorld } from "../core/engine/engine.ts";
 import { cos, sin } from "../core/math/real.ts";
-import type { Vec3 } from "../core/spec/quantity.ts";
-import type { SolidSense } from "../core/mind/object-senses.ts";
 import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import { levelDefinition, type ArenaLevel } from "./levels.ts";
+import { ARENA_POSTS, ROOM, arenaSolids, arenaWalls } from "./solids.ts";
 
 export interface RoomMaterials {
   ground: Material;
@@ -75,34 +73,11 @@ const MATERIAL_TEXTURE_FIELDS = Object.freeze([
 ] as const);
 const CARTESIAN_AXES = Object.freeze(["x", "y", "z"] as const);
 
-/**
- * The arena's room, m (`docs/reference/look.md#arena-room`): the floor, the walls a body meets, and
- * what one repeat of each surface's image spans.
- */
-export const ROOM = Object.freeze({
-  groundHalfExtent: 30,
-  /** The highest a fighter can reach, m: crown, raised arm and the longest carried object, with margin. */
-  maxReachHeight: 3.6,
-  floorSize: 60,
-  /** Metres one image repeat spans on the floor, walls and banners. */
-  floorMetresPerRepeat: 2.4,
-  wallCount: 24,
-  wallWidth: 2 * 13 * sin(Math.PI / 24) / cos(Math.PI / 24) + .08,
-  wallHeight: 1.25,
-  /** Depth of the parapet, shared by its visible masonry and collider, m. */
-  wallThickness: 0.5,
-  wallHalfExtent: 13,
-  wallMetresPerRepeat: 2.1,
-  bannerMetresPerRepeat: 0.4,
-});
-
-const roomWalls = (): readonly RoomPlacement[] => Array.from({ length: ROOM.wallCount }, (_, index) => {
-  const angle = index * Math.PI * 2 / ROOM.wallCount;
-  const radius = ROOM.wallHalfExtent + ROOM.wallThickness / 2;
-  const c = cos(angle), s = sin(angle);
+/** The parapet's sections as placements: drawn where `arenaWalls` stands them, each naming its collider. */
+const roomWalls = (): readonly RoomPlacement[] => arenaWalls().map(({ index, collider, centre, turn }) => {
+  const c = cos(turn), s = sin(turn);
   return {
-    name: `room.wall.${index}`, role: "wall", solid: true, collider: `room.wall.${index}.collider`,
-    position: [s * radius, ROOM.wallHeight / 2, c * radius], rotationY: angle,
+    name: `room.wall.${index}`, role: "wall", solid: true, collider, position: centre, rotationY: turn,
     halfExtent: [Math.abs(c) * ROOM.wallWidth / 2 + Math.abs(s) * ROOM.wallThickness / 2,
       ROOM.wallHeight / 2, Math.abs(s) * ROOM.wallWidth / 2 + Math.abs(c) * ROOM.wallThickness / 2],
   };
@@ -135,18 +110,8 @@ export const ROOM_GROUPS: readonly RoomGroup[] = Object.freeze([
   },
 ]);
 
-/**
- * The ring of posts round the fighting floor: how many, the ring's radius, and each post's size and
- * sides, m (`docs/reference/look.md#arena-room`).
- */
-export const ARENA_POSTS = Object.freeze({ count: 8, ring: 12.3, height: 1.7, diameter: 1.1, sides: 8 });
-
 /** The name of every collider the arena has (`arenaSolids`). */
-const existingColliders = new Set([
-  "ground",
-  ...Array.from({ length: ARENA_POSTS.count }, (_, index) => `post${index}`),
-  ...roomWalls().map((placement) => placement.collider as string),
-]);
+const existingColliders = new Set(arenaSolids().map((solid) => solid.name));
 
 export function validateRoomPlacements(groups: readonly RoomGroup[], registeredColliders: ReadonlySet<string> = existingColliders): string[] {
   const failures: string[] = [];
@@ -290,49 +255,6 @@ function segmentIntersectsMesh(
   return true;
 }
 
-/** One of the arena's fixed colliders, world, m: a box by its centre and full size, or a post by its corners. */
-type ArenaSolid = SolidSense;
-
-/**
- * What a body meets in the arena: the ground's slab, the circular parapet (`roomWalls`) and the ring of posts
- * (`ARENA_POSTS`). A post is the prism its mesh draws, `CreateCylinder` of `sides` sides, corner for corner.
- * Its corners are the world's, so their sines and cosines are the core's own: a bout is the same in every
- * JavaScript engine only if its arena is.
- */
-export function arenaSolids(level: ArenaLevel = "open"): readonly ArenaSolid[] {
-  const solids: ArenaSolid[] = [{ name: "ground", kind: "box", centre: [0, -0.5, 0], size: [ROOM.floorSize, 1, ROOM.floorSize] }];
-  for (const wall of roomWalls()) {
-    solids.push({ name: wall.collider!, kind: "box", centre: [...wall.position],
-      size: [ROOM.wallWidth, ROOM.wallHeight, ROOM.wallThickness], turn: wall.rotationY });
-  }
-  const { count, ring, height, diameter, sides } = ARENA_POSTS;
-  for (let index = 0; index < count; index += 1) {
-    const angle = (index / count) * Math.PI * 2;
-    const centre: Vec3 = [sin(angle) * ring, height / 2, cos(angle) * ring];
-    const points: Vec3[] = [];
-    for (const y of [0, height]) for (let side = 0; side < sides; side += 1) {
-      const a = (side / sides) * Math.PI * 2;
-      points.push([centre[0] + cos(a) * diameter / 2, y, centre[2] + sin(a) * diameter / 2]);
-    }
-    solids.push({ name: `post${index}`, kind: "hull", centre, points });
-  }
-  return [...solids, ...levelDefinition(level).furniture.map(furnishing => furnishing.solid)];
-}
-
-/** The arena's solids as fixed colliders in a world. */
-export function addArenaSolids(physics: PhysicsWorld, solids: readonly ArenaSolid[] = arenaSolids()): FixedCollider[] {
-  return solids.map((solid) => {
-    switch (solid.kind) {
-      case "box": return physics.addFixedBox(solid.centre, solid.size, solid.turn);
-      case "hull": return physics.addFixedShape({ kind: "hull", points: solid.points });
-      default: {
-        const never: never = solid;
-        throw new Error(`unknown solid ${JSON.stringify(never)}`);
-      }
-    }
-  });
-}
-
 interface ArenaColliders {
   readonly meshes: readonly Mesh[];
   readonly pairs: readonly VisualColliderPair[];
@@ -340,12 +262,11 @@ interface ArenaColliders {
 }
 
 /**
- * The arena's solids (`arenaSolids`) as fixed colliders in `physics`, where there is one, and as meshes: the ground
- * and walls invisible, the brazier pedestals drawn.
+ * The arena's solids (`arenaSolids`) as meshes: the ground and walls invisible, the brazier pedestals drawn. The
+ * world that steps the bout holds them as fixed colliders (`addArenaSolids`, `src/arena/solids.ts`).
  */
 function buildArenaColliders(
   scene: Scene,
-  physics: PhysicsWorld | null,
   materials: RoomMaterials,
   shadows: ShadowRegistry = NO_SHADOWS,
   level: ArenaLevel = "open",
@@ -353,7 +274,6 @@ function buildArenaColliders(
   const meshes: Mesh[] = [];
   const pairs: VisualColliderPair[] = [];
   const solids = arenaSolids(level);
-  const fixed = physics ? addArenaSolids(physics, solids) : [];
   // A mesh a collider stands behind says so, for the checks that ask what is solid (`isCollider`).
   const mark = (mesh: Mesh) => { mesh.metadata = { ...mesh.metadata, isCollider: true }; };
   for (const solid of solids) {
@@ -384,7 +304,6 @@ function buildArenaColliders(
       for (const mesh of meshes) {
         if (mesh.name.startsWith("post")) shadows.remove(mesh);
       }
-      for (const collider of fixed) collider.dispose();
       for (let index = meshes.length - 1; index >= 0; index -= 1) {
         if (!meshes[index].isDisposed()) meshes[index].dispose(false, false);
       }
@@ -462,7 +381,6 @@ interface ArenaWorld {
 
 export function buildArenaWorld(
   scene: Scene,
-  physics: PhysicsWorld | null,
   materials: RoomMaterials,
   shadows: ShadowRegistry = NO_SHADOWS,
   groups: readonly RoomGroup[] = ROOM_GROUPS,
@@ -475,11 +393,11 @@ export function buildArenaWorld(
     placements: definition.furniture.map(({ solid, placement }) => {
       if (solid.kind !== "box") throw new Error("Crypt furniture must have a box footprint");
       return { name: solid.name, role: "furniture", position: solid.centre, rotationY: placement.turn,
-        halfExtent: solid.size.map(v => v / 2) as unknown as Vec3, solid: true, collider: solid.name };
+        halfExtent: [solid.size[0] / 2, solid.size[1] / 2, solid.size[2] / 2], solid: true, collider: solid.name };
     }) }] : [];
   const refused = validateRoomPlacements([...groups, ...furnitureGroups], new Set(arenaSolids(level).map(solid => solid.name)));
   if (refused.length) throw new Error(refused.join("\n"));
-  const colliders = buildArenaColliders(scene, physics, materials, shadows, level);
+  const colliders = buildArenaColliders(scene, materials, shadows, level);
   const room = buildCosmeticRoom(scene, materials, shadows, groups);
   const furniture = kit ? assembleCryptKit(kit, definition.furniture.map(entry => entry.placement), false) : [];
   const furniturePairs = furniture.map(mesh => {

@@ -1,7 +1,7 @@
 import type { SolidSense } from "../core/mind/object-senses.ts";
 import { navigationPath } from "../core/navigation/route-search.ts";
 import { distance, findPath, type DungeonMap, type Point } from "./map.ts";
-import { DOOR_OPEN_DISTANCE } from "./world.ts";
+import { DOOR_OPEN_DISTANCE } from "./solids.ts";
 
 /** Earliest contact of a segment with a closed physical door's inflated horizontal box. */
 function crossing(from: Point, to: Point, solid: SolidSense, radius: number): number | null {

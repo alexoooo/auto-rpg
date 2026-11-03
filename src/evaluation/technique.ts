@@ -7,7 +7,7 @@
  * engines: the starts (`src/lab/ground-starts.ts`) use arithmetic each engine rounds its own way.
  */
 import { Vector3 } from "../core/math/vector.ts";
-import { addArenaSolids } from "../arena/room.ts";
+import { addArenaSolids } from "../arena/solids.ts";
 import { commandedBody } from "../core/mind/host.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";

@@ -8,7 +8,7 @@
  * between JavaScript engines: the starts and the shove (`src/lab/ground-starts.ts`,
  * `stance-mode.ts`) use arithmetic each engine rounds its own way.
  */
-import { addArenaSolids } from "../arena/room.ts";
+import { addArenaSolids } from "../arena/solids.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import { loadoutFaults, type Held, type Loadout } from "../core/items/held.ts";

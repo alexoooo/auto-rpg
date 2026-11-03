@@ -1,5 +1,5 @@
 import { distance, type Point } from "./map.ts";
-import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
+import { CAMERA_AZIMUTH, cameraToward } from "./bearing.ts";
 import type { Command, DrawnRoute } from "../core/command/commands.ts";
 import { hypot } from "../core/math/real.ts";
 

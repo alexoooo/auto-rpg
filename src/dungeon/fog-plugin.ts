@@ -14,7 +14,7 @@ import { CUT_AWAY, FOG_SAMPLE, WALL_HEIGHT, fogMask } from "./fog.ts";
 import { revealScenery } from "./scenery-visibility.ts";
 import { MASONRY } from "./masonry.ts";
 import type { DungeonMap, Point } from "./map.ts";
-import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
+import { CAMERA_AZIMUTH, cameraToward } from "./bearing.ts";
 
 /** What ground no longer in sight is drawn as, set by eye (`docs/reference/look.md#crypt-fog`). */
 const FOG_LOOK = Object.freeze({

@@ -10,7 +10,7 @@ import { puppetBody, type Puppet } from "../render/puppet.ts";
 import { bodyBetween, posePuppet, type Between, type WorldLink } from "../worker/client.ts";
 import { cryptSpec, type ActorNews, type CryptCard, type CryptLead, type CryptNews } from "../worker/crypt-stage.ts";
 import { BODY_HEAD } from "../worker/frame.ts";
-import { CAMERA_PITCH } from "./camera.ts";
+import { CAMERA_PITCH } from "./bearing.ts";
 import { DungeonCommands } from "./commands.ts";
 import { cellKey, type DungeonMap, type Point } from "./map.ts";
 import { actorName, type RunStatus } from "./run.ts";

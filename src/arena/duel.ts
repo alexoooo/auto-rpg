@@ -24,7 +24,7 @@ import type { BuiltBody } from "../core/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
 import { sensedBounds } from "../core/navigation/sensed-bounds.ts";
-import { arenaSolids } from "./room.ts";
+import { arenaSolids } from "./solids.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
 import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";
 import { carryOnRail, railFaults, type Rail } from "./rail.ts";

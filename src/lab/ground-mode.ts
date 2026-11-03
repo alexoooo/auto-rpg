@@ -19,7 +19,7 @@ import { shoveBody } from "./stance-mode.ts";
 import { dummySpec, hangDummy } from "./targets.ts";
 import { CALM, labGusts, startWind } from "./wind.ts";
 import { groundEnvironment } from "./ground-environment.ts";
-import { addArenaSolids } from "../arena/room.ts";
+import { addArenaSolids } from "../arena/solids.ts";
 import { solidSenses } from "../core/mind/object-senses.ts";
 import { hypot } from "../core/math/real.ts";
 

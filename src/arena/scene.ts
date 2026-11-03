@@ -13,7 +13,6 @@ import { dressForgeRoom, paintArenaBanners, type ForgeFire } from "./forge-room.
 import { loadForgeStyle, paveForge } from "./forge-style.ts";
 import { postPipeline } from "../render/post.ts";
 import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./room.ts";
-import type { PhysicsWorld } from "../core/engine/engine.ts";
 import { sceneModel } from "../render/asset-cache.ts";
 import { loadArtAssets } from "../render/art-assets.ts";
 import { levelDefinition, type ArenaLevel } from "./levels.ts";
@@ -60,17 +59,13 @@ const ARENA_LIGHT = Object.freeze({
 } as const);
 
 /**
- * The arena's scene: its light, its room and its solids, which are fixed colliders in the physics
- * `physicsFor` makes on the scene (the core's world, `createWorld`); with no physics, as where a
- * worker steps the world (`src/worker/`), the solids are only drawn.
+ * The arena's scene: its light, its room and its solids, drawn. The world that steps the bout, in a
+ * worker (`src/worker/`), holds the solids as fixed colliders (`addArenaSolids`).
  */
-export async function buildArena(engine: Engine, physicsFor: ((scene: Scene) => PhysicsWorld) | null, level: ArenaLevel = "open", signal?: AbortSignal): Promise<Arena> {
+export async function buildArena(engine: Engine, level: ArenaLevel = "open", signal?: AbortSignal): Promise<Arena> {
   const scene = new Scene(engine);
   scene.clearColor = new Color4(...ARENA_LIGHT.clear);
   scene.ambientColor = new Color3(...ARENA_LIGHT.ambient);
-
-  // Physics first: the room's solids go into it as they are built.
-  const physics = physicsFor?.(scene) ?? null;
 
   const camera = new FreeCamera("camera", new Vector3(...ARENA_LIGHT.camera.start), scene);
   camera.fov = ARENA_LIGHT.camera.fov;
@@ -113,7 +108,7 @@ export async function buildArena(engine: Engine, physicsFor: ((scene: Scene) => 
     ? await sceneModel((await loadArtAssets()).model("crypt-kit/kit.glb"), scene) : undefined;
   if (signal?.aborted) { kit?.dispose(); signal.throwIfAborted(); }
   kit?.addAllToScene();
-  const world = buildArenaWorld(scene, physics, materials, {
+  const world = buildArenaWorld(scene, materials, {
     add: (mesh) => shadows.addShadowCaster(mesh),
     remove: (mesh) => shadows.removeShadowCaster(mesh),
   }, ROOM_GROUPS, level, kit);

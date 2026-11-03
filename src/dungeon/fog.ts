@@ -1,5 +1,5 @@
 import { isFloor, type DungeonMap, type Point } from "./map.ts";
-import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
+import { CAMERA_AZIMUTH, cameraToward } from "./bearing.ts";
 import { cos, hypot, sin } from "../core/math/real.ts";
 
 /** What the fog mask holds for a cell: never seen, seen before, in sight now. A numeric setting: the bytes are an
