@@ -10,6 +10,7 @@ import type { BodySpec, HandPose, ItemSpec } from "../../spec/body.ts";
 import { standingFooting, standingHeight } from "../../control/support.ts";
 import type { ReadBody } from "../../read-body.ts";
 import { STANDARD_GRAVITY } from "../../spec/constants.ts";
+import { channelName } from "../../muscle/driver.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { add, cross, distance, dot, length, scale, sub } from "../../spec/vec.ts";
 import type { Skill } from "../framework/skill.ts";
@@ -68,24 +69,28 @@ export interface Covering {
   readonly seconds: number;
 }
 
-/** The joints of `hand`'s arm, from the first off its effector's base (the shoulder) to the hand. */
-function armOf(spec: BodySpec, hand: string): ReturnType<typeof specChainTo> {
+/** `hand`'s chain from the root, split where its arm begins: the trunk's joints, and the arm's from the first off its effector's base (the shoulder) to the hand. */
+function armOf(spec: BodySpec, hand: string): { readonly trunk: ReturnType<typeof specChainTo>; readonly arm: ReturnType<typeof specChainTo> } {
   const base = spec.effectors?.find((effector) => effector.segment === hand)?.base, chain = specChainTo(spec, hand);
   const from = chain.findIndex((joint) => joint.spec.parent === base);
   if (from < 0) throw new Error(`${spec.model}'s ${hand} has no joint off its base ${base}`);
-  return chain.slice(from);
+  return { trunk: chain.slice(0, from), arm: chain.slice(from) };
+}
+
+/** How far `point` (in the reference body frame) of what `hand` holds reaches from the shoulder, m: the arm's joints to the point, at full stretch. */
+function armReach(spec: BodySpec, hand: string, point: Vec3): number {
+  const points = [...armOf(spec, hand).arm.map((joint) => joint.spec.centre.value), point];
+  let reach = 0;
+  for (let k = 1; k < points.length; k++) reach += distance(points[k - 1]!, points[k]!);
+  return reach;
 }
 
 /**
  * How far `point` (in the reference body frame) of what `hand` holds reaches from the body's
- * middle, m: the arm's first joint off its effector's base (the shoulder) its distance across
- * from the middle, and the arm's joints from there to the point, at full stretch.
+ * middle, m: the shoulder's distance across from the middle and the arm from there (`armReach`).
  */
 function faceReach(spec: BodySpec, hand: string, point: Vec3): number {
-  const points = [...armOf(spec, hand).map((joint) => joint.spec.centre.value), point];
-  let reach = Math.abs(points[0]![0]);
-  for (let k = 1; k < points.length; k++) reach += distance(points[k - 1]!, points[k]!);
-  return reach;
+  return Math.abs(armOf(spec, hand).arm[0]!.spec.centre.value[0]) + armReach(spec, hand, point);
 }
 
 /**
@@ -99,7 +104,7 @@ function faceReach(spec: BodySpec, hand: string, point: Vec3): number {
 export function wardSpeed(built: ReadBody, hand: string): number {
   let body = 0, arm = 0;
   for (const segment of built.segments.values()) body += segment.rigid.mass;
-  for (const joint of armOf(built.spec, hand)) arm += built.segments.get(joint.spec.child)!.rigid.mass;
+  for (const joint of armOf(built.spec, hand).arm) arm += built.segments.get(joint.spec.child)!.rigid.mass;
   return body / arm * standingFooting(built).length / 2 * Math.sqrt(STANDARD_GRAVITY.value / standingHeight(built));
 }
 
@@ -107,17 +112,36 @@ export function wardSpeed(built: ReadBody, hand: string): number {
  * **How a shield's ward is held by `hand` of a body of `spec` holding `item` there**, moving at
  * most `speed` m/s (`wardSpeed`): its face's centre as far from the place guarded toward the
  * foe's weapon as the arm reaches (`faceReach`), or at the weapon where that is nearer, held out
- * at the threat, meeting a blow early, not hugged to the body; a path to its place in the time the
- * place takes to go out at that speed. Set: `docs/reference/blows.md#a-shields-ward`.
+ * at the threat, meeting a blow early, not hugged to the body; a place further from the shoulder
+ * than the arm reaches (`armReach`) brought back along that line to where it does; a path to its
+ * place in the time the place takes to go out at that speed. Set: `docs/reference/blows.md#a-shields-ward`.
  */
 function wardOf(spec: BodySpec, hand: string, item: ItemSpec, speed: number): Ward {
   const segment = segmentOf(spec, hand)!, face = rigidPoints(spec, segment).get(item.cover![0]!)!.value, out = faceReach(spec, hand, face);
-  return { out, seconds: out / speed, speed };
+  const { trunk, arm } = armOf(spec, hand);
+  return { out, seconds: out / speed, speed, reach: armReach(spec, hand, face), trunk, shoulder: arm[0]!.spec.centre.value };
 }
 
-/** A shield's ward (`wardOf`): a cover whose place moves at most `speed` m/s about the body. */
+/**
+ * A shield's ward (`wardOf`): a cover whose place moves at most `speed` m/s about the body and
+ * lies within `reach` m of the shoulder, its joint at `shoulder` (reference body frame) carried
+ * by the `trunk`'s joints.
+ */
 interface Ward extends Covering {
   readonly speed: number;
+  readonly reach: number;
+  readonly trunk: ReturnType<typeof specChainTo>;
+  readonly shoulder: Vec3;
+}
+
+/**
+ * **The place on the line from `from` along unit `toward`, `out` m, brought within `reach` of
+ * `shoulder`**: where it lies further, drawn toward the shoulder to its reach, so the arm points
+ * where it would reach for it.
+ */
+function withinReach(from: Vec3, toward: Vec3, out: number, shoulder: Vec3, reach: number): Vec3 {
+  const place = add(from, scale(toward, out)), off = sub(place, shoulder), far = length(off);
+  return far <= reach ? place : add(shoulder, scale(off, reach / far));
 }
 
 /**
@@ -232,7 +256,13 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, { w
     was.time = view.time;
     return was.at;
   };
-  const guarded = new Vector3(), threat = new Vector3();
+  const guarded = new Vector3(), threat = new Vector3(), shoulderAt = new Vector3();
+  /** Where `ward`'s shoulder is now in the body frame: its joint carried by the trunk's joints at their angles (`pointAtToRef`). */
+  const shoulderOf = (view: BodyView, ward: Ward): Vec3 => {
+    if (!ward.trunk.length) return ward.shoulder;
+    pointAtToRef(ward.trunk, ward.trunk.map((joint) => joint.dofs.map((_, k) => view.angles[channelName(joint, k)] ?? 0)), ward.shoulder, shoulderAt);
+    return [shoulderAt.x, shoulderAt.y, shoulderAt.z];
+  };
   const normalNow = new Vector3(), align = new Quaternion(), oriented = new Quaternion();
   /** `hand`'s goal for `cover`, in the body frame (`BodyView.root`); null where the threat is at the place guarded, and names no line. */
   const goalOf = (view: BodyView, hand: string, cover: Cover): EffectorGoal | null => {
@@ -241,7 +271,8 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, { w
     const from: Vec3 = [guarded.x, guarded.y, guarded.z], way = sub([threat.x, threat.y, threat.z], from), far = length(way);
     if (far < NO_LINE) return null;
     const { points, span, normal } = covers[hand]!, held = wards[hand] ?? covering;
-    const toward = scale(way, 1 / far), middle = add(from, scale(toward, Math.min(held.out, far)));
+    const toward = scale(way, 1 / far), ward = wards[hand];
+    const middle = ward ? withinReach(from, toward, Math.min(held.out, far), shoulderOf(view, ward), ward.reach) : add(from, scale(toward, Math.min(held.out, far)));
     const seconds = cover.seconds === undefined ? held.seconds : Math.min(held.seconds, cover.seconds);
     if (points.length === 1) {
       const goal = { places: [{ point: points[0]!, position: wards[hand] ? paced(view, hand, points[0]!, middle) : middle }], seconds, follows: true };
