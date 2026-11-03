@@ -3,7 +3,7 @@
  * (`src/core/spec/quantity.ts`).
  *
  * - `literature`: a published measurement, cited so it can be found.
- * - `asset`: a file in this repository; `where` is a JSON pointer into it.
+ * - `asset`: a file in this repository, and `what` is taken from it.
  * - `tuned`: a value set for a result in play; `for` says in one line what it is set for.
  */
 type Source =

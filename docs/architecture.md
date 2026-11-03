@@ -4,10 +4,11 @@ A fighter is a body of rigid segments and joints driven by muscles; a mind write
 command, a blow is whatever one body carries into another, and it wounds by the energy it brings.
 The pages draw what the physics did.
 
-- **Babylon.js draws; Rapier simulates.** Rapier is vendored ([vendor/rapier](../vendor/rapier/README.md)).
-- **Everything that fights is the core's** (`src/core/`). The screens build on it; it never
-  imports them, nor Babylon: its vectors are its own (`src/core/math/vector.ts`), its bodies plain
-  poses (`Pose`), and a page draws a puppet it poses from them (`posePuppet`, `src/render/puppet.ts`).
+- **Babylon.js draws; Rapier simulates.** Rapier is vendored
+  ([vendor/rapier](../vendor/rapier/README.md)).
+- **Everything that fights is the core's** (`src/core/`). The screens build on it; it never imports
+  them, nor Babylon: its vectors are its own (`src/core/math/vector.ts`), its bodies plain poses
+  (`Pose`), and a page draws a puppet it poses from them (`followBody`, `src/render/puppet.ts`).
 - **One world step** (`World.step`, 120 Hz) owns physics, control, combat and the clock.
 
 ## The layers
@@ -24,17 +25,18 @@ one below.
 | Muscles and rules | `muscle/`, `rules/`, `touches.ts`, `control/assist.ts` | torque within strength and speed; blows, wounds, levels; the assist |
 | Parts and data | `parts/`, `data/`, `learning/` | the part tree, catalogs, mind data, learners |
 | Motor control and the mind seam | `control/`, `mind/`, `body.ts`, `physical-body.ts`, `observation.ts`, `equipment.ts` | goals made muscle commands; a mind embodied, its host and senses |
-| Skills | `skills/`, `intent/`, `navigation/`, `perception/`, `mind/decider.ts`, `engagement.ts`, `choice.ts`, `report.ts` | an intent made a body command; what a decider asks and reads |
+| Skills | `skills/`, `intent/`, `navigation/`, `perception/`, `mind/decider.ts`, `mind/engagement.ts`, `mind/choice.ts`, `mind/report.ts` | an intent made a body command; what a decider asks and reads |
 | Recovery | `recovery/`, `mind/kit.ts`, `skills/kit.ts` | getting up; a mind's kit of skills |
-| Minds and command | `option/`, `reptile/`, `command/`, `mind/config.ts`, `controller.ts`, `minds.ts`, `apart.ts`, `parts/entrant.ts` | Option Mind, the quadruped, Commanders, making a mind from its config |
+| Minds and command | `option/`, `reptile/`, `command/`, `mind/config.ts`, `mind/controller.ts`, `mind/minds.ts`, `mind/apart.ts`, `parts/entrant.ts` | Option Mind, the quadruped, Commanders, making a mind from its config |
 | Top | `toolkit.ts`, `models.ts`, `combatant.ts` | the toolkit's catalog, the body models, enlisting a fighter |
 
-`tests/core-boundary.test.mjs` holds it: `LAYERS` is this table, the registries
-(`parts/lookup.ts`, `parts/catalog.ts`, `mind/kinds.ts`, `toolkit.ts`) exempt. `CORE_PACKAGES`
-makes `option/` a package only what is built on it (the quadruped's frame) imports, so another mind
-is built beside Option Mind, not on it. `UP_STACK` lists imports up a layer; it is empty and only
-shrinks. The same test keeps the core to itself, its engine's package and JSON under `assets/`, and
-every headless world builder (bout, Crypt run, cases, falls, world worker) free of Babylon.
+`tests/core-boundary.test.mjs` holds it: `LAYERS` is this table, the registries (`parts/lookup.ts`,
+`parts/catalog.ts`, `mind/kinds.ts`, `toolkit.ts`) exempt. `CORE_PACKAGES` makes `option/` a package
+only what is built on it (the quadruped's frame) imports, so another mind is built beside Option
+Mind, not on it. `UP_STACK` lists imports up a layer, or into a package from outside it; it is empty
+and only shrinks. The same test keeps the core to itself, its engine's package and JSON under
+`assets/`, and every headless world builder (bout, Crypt run, cases, falls, world worker) free of
+Babylon.
 
 ## Spec and provenance
 
@@ -58,8 +60,8 @@ the down rule (`DownSpec`); and anything held. `bodyKey` names a body for everyt
 
 **Every number in a spec is a `Quantity`** (`src/core/spec/quantity.ts`): a value, a unit and its
 origin. A leaf is `sourced` from an entry of `SOURCES` (`src/core/sources.ts`), whose kind is
-`literature` (a citation), `asset` (a file and a JSON pointer) or `tuned` (one line on what it is
-set for). Anything else is `derive`d by a named rule whose code writes no factor. Tuning is
+`literature` (a citation), `asset` (a file and what is taken from it) or `tuned` (one line on what
+it is set for). Anything else is `derive`d by a named rule whose code writes no factor. Tuning is
 immutable: an experiment passes an override in (`RulebookOverride`, a stance tuning).
 
 ## Arithmetic
@@ -67,7 +69,7 @@ immutable: an experiment passes an override in (`RulebookOverride`, a stance tun
 A bout is the same double for double in every JavaScript engine. An engine's own `Math.sin` and
 kin differ between engines in the last bit, so the core, and whatever builds a case's world,
 computes with `+ - * /`, `Math.sqrt` and its own functions (`src/core/math/real.ts`, fdlibm's kept
-operation for operation, `sin` through `cbrt` and `hypot`; the turns `turnAboutToRef` and
+operation for operation, `sin` through `cbrt`, `hypot` its own; the turns `turnAboutToRef` and
 `turnBetweenToRef`, `turn.ts`). A power is written as products. `EXACT_MATH` in
 `tests/core-boundary.test.mjs` names the members of `Math` allowed.
 
@@ -79,12 +81,13 @@ step's time and allocation ([step cost](reference/step-cost.md)).
 
 **The engine contract** (`src/core/engine/engine.ts`) names no engine's types: a fixed step that
 writes every body's `Pose`; bodies that never sleep, with the spec's mass and the centre of mass's
-velocity; one friction (`CONTACT_FRICTION`), no bounce; freedom k as angular axis k of the joint's
-frame, limited as `jointAngles` reads it; a motor as a velocity constraint with a torque ceiling
-each way (`setMotorBounds`), its whole-step impulse read back (`motorStepImpulse`); contacts with
-the solver's impulse (`contactsOf`, or number by number, `tellContacts`); a joint that comes apart
-(`EngineJoint.release`); grips (`addGrip`); a whole-world save and in-place load
-(`PhysicsWorld.save`, `load`), refused by a world built otherwise.
+velocity; friction `CONTACT_FRICTION` unless a material names its own (the greater taken), no
+bounce; freedom k as angular axis k of the joint's frame, limited as `jointAngles` reads it; a motor
+as a velocity constraint with a torque ceiling each way (`setMotorBounds`), its whole-step impulse
+read back (`motorStepImpulse`); contacts with the solver's impulse (`contactsOf`, or number by
+number, `tellContacts`); a joint that comes apart (`EngineJoint.release`); grips (`addGrip`); a
+whole-world save and in-place load (`PhysicsWorld.save`, `load`), refused by a world built
+otherwise.
 
 - `engines.ts` lists the engines (`ENGINES`), the only module that imports one: `rapier`
   (parent-axis limit rows), `rapier-coordinate` (limit rows on the measured angle, the game's
@@ -92,15 +95,13 @@ the solver's impulse (`contactsOf`, or number by number, `tellContacts`); a join
   `rapier-coordinate-coulomb`). A new engine passes the physics bench (`src/physics-bench/`), then
   `CORE_ENGINE=<name> npm test`.
 - `rapier.ts` implements it, its wasm loaded once a realm (`rapierModule`), its solver
-  conditioning named `SOLVER`. It uses impulse joints: Rapier's multibody form gives no effort
-  reading or frame setters, leaves the two-axis branch unimplemented, and lets a three-axis joint
-  pass its limits.
+  conditioning named `SOLVER`.
 
-**Build** (`buildBody`, `src/core/build/build-body.ts`) makes an engine body a segment and a joint
-a spec joint, a held item's mass folded into its segment (`rigidOf`), the body in the pose its
-joints demand (`builtAngles`: a fighter's guard). Readings back: `jointAngles`, `bodyDynamics`
-(mass matrix, gravity and bias, gyroscopic torque included), `contactMass` and `contactGive` (the
-mass a contact meets, joints held by their muscles).
+**Build** (`buildBody`, `src/core/build/build-body.ts`) makes an engine body a segment and a joint a
+spec joint, a held item's mass folded into its segment (`rigidOf`), the body in the pose its joints
+demand (a fighter's guard, `builtAngles`, `src/core/mind/minds.ts`). Readings back: `jointAngles`,
+`bodyDynamics` (mass matrix, gravity and bias, gyroscopic torque included), `contactMass` and
+`contactGive` (the mass a contact meets, joints held by their muscles).
 
 - **Toes** (`src/core/build/toes.ts`): a massless slab hinged at the ball, bending as the heel
   lifts, in whole `TOE_STEP`s so each step's shapes are made once; the stance reads the sole from
@@ -142,18 +143,19 @@ driven points, a stance goal) into muscle commands.
   `through` its place or `follows` a moving end; a `firm` goal braces the limb through what it
   strikes. Only the channels between an effector's base and its segment are its reach.
 - **The bearing solve** (`bearing.ts`): `carryRoot` asks the wrench the aim needs,
-  `shareGroundWrench` shares it among the patches within friction and centre of pressure,
-  `bearLimbs` gives each limb its inverse dynamics; what the patches miss is asked of the assist.
+  `shareGroundWrench` (`contact-wrench.ts`) shares it among the patches within friction and centre
+  of pressure, `bearLimbs` gives each limb its inverse dynamics; what the patches miss is asked of
+  the assist.
 - **Balance** is a part of role `balance` (`BALANCES`); the game's is the stance (`STANCE_BALANCE`,
-  `stance.ts`): the centre of mass kept inside the support by forces the ground can give, steps
-  placed from the capture point (`catchStep`), a body without box soles refused (`soleRefusal`).
-  What a body was measured to hold is its envelope (`stanceEnvelope`, `walkRunEnvelope`, from
-  `assets/core/*-envelope.json` by `bodyKey`).
+  `stance-balance.ts`): the centre of mass kept inside the support by forces the ground can give,
+  steps placed from the capture point (`catchStep`, `gait.ts`), a body without box soles refused
+  (`soleRefusal`). What a body was measured to hold is its envelope (`stanceEnvelope`,
+  `walkRunEnvelope`, from `assets/core/*-envelope.json` by `bodyKey`).
 - **The assist** (`Assist`, `assist.ts`) is a force at the root and a moment that no muscle gives:
-  asked by the mind, shortened to the body's ceiling, applied through the solver step, metered.
-  The ceiling is the character's balance, a per cent of its weight with a moment a per cent
-  (`AttributeSpec.balance`, `Rulebook.balance`, `balanceCeiling`); with none it gives nothing.
-  Haste (`AttributeSpec.haste`) raises only the legs' unloaded muscle speed.
+  asked by the mind, shortened to the body's ceiling, applied through the solver step, metered. The
+  ceiling is the character's balance, a per cent of its weight with a moment a per cent
+  (`AttributeSpec.balance`, `Rulebook.balance`, `balanceCeiling`); with none it gives nothing. Haste
+  (`AttributeSpec.haste`) raises only the legs' unloaded muscle speed.
 
 ## Skills
 
@@ -223,11 +225,12 @@ A person gives `Orders` (`src/core/intent/orders.ts`), never muscle commands.
 - **Senses** (`Senses`, `senses.ts`): the clock, side, life, when the clock ends the fight, and
   every other body (`BodySense`: side, spec, down, life, motion, each segment still on it), read by
   one layer (`createSenses`) before any mind, others late by `Rulebook.reaction`.
-- **What a mind builds**: the command layers (`commandedMind`), sub-minds that take the body in
-  rank order (`SubMind`, `hosting`), or a policy on detached observations (`policyMind`).
+- **What a mind builds**: the command layers (`commandedMind`), sub-minds that take the body in rank
+  order (`SubMind`, `hosting`), or a policy on detached observations (`policyMind`).
 - **Deciding.** A decider (`Decider`, `decider.ts`) decides an intent from the `Sight` at its pace
-  (`Pace`, `driveBy`), and at once when the body goes down or comes back, its orders change or an
-  action ends; the skills make the command every step from the intent last decided.
+  (`Pace`, `driveBy`), every step the body is down, and at once when it is back from another mind,
+  its orders change or an action ends; the skills make the command every step from the intent last
+  decided.
 - **The report** (`MindReport`, `report.ts`): its `Engagement`, its `Prospect` of each foe, heading,
   gait, kit, actions and menu (`MenuEntry`), read without moving its state. Screens and Commanders
   read the report, never a mind's kind or state.
@@ -296,15 +299,16 @@ asks it once a step, after the senses and before every mind.
 `COMMANDERS` registers the kinds (`createCommander`): `mob` and `independent` (Crypt enemies),
 `party` (a person's party, and an Arena side a person takes, `teamOfOne`), `clearer`, and the
 drills' `drill`, `stand` and `beats`. `tests/core-boundary.test.mjs` keeps `src/core/command/` from
-the engine, world, bodies and minds; `tests/command-contract.test.mjs` has each kind lead a bout,
-fork it and replay it from its orders.
+the engine, world, bodies, enlistment, a mind's host and the senses hub, globals and chance;
+`tests/command-contract.test.mjs` has each kind lead a bout, fork it and replay it from its orders.
 
 ## One world step
 
 `createWorld(engine)` (`src/core/world.ts`) makes a world with one fixed step (`PHYSICS_HZ`). A
 step runs, in order: the sensing hooks (`World.sense`); the preparing hooks (`World.prepare`:
-hands' and toes' shapes, a mind on a mirror or apart handed what it reads); the step hooks
-(`World.beforeStep`: each body's `driveMuscles`, in which the mind steps and the motors are set);
+hands' and toes' shapes; at a delay each mind decides on its mirror, and minds apart are handed
+what they read, `MindsApart.dispatch`); the step hooks (`World.beforeStep`: each body's
+`driveMuscles`, the mind's motor part, or at no delay the mind itself, then the motors set);
 one solver step and the clock; the post-physics observations (`World.afterPhysics`); the after-step
 hooks (`World.afterStep`: blows, readings). A page advances by real time (`World.advance`);
 `scene.render()` never steps. What a step writes is plain data in one `state` object a module
@@ -361,24 +365,25 @@ path for Node, its workers and a page; `scripts/evaluate.mjs` runs it.
   (`CaseWorld`: a bout, a fall, a Crypt run, a lone body, techniques in turn; `WORLD_BUILDERS`) and
   its reader; **a description** (`<id>/index.ts`, `Evaluation`) the question, subjects, figures and
   a drill trial's `outcome`.
-- **A case's key** is the digest of everything it plays; a row (`Row`) is found again by its key,
-  so only changed cases replay. `--write` keeps a record,
+- **A case's key** is the digest of everything it plays; a row (`Row`) is found again by its key, so
+  only changed cases replay. `--write` keeps a record,
   `assets/evaluations/<id>/<date>-<commit8>-<keys8>.jsonl` (`record.ts`), grouped into pools with
   numbered versions (`history.ts`).
 - **Contests**: `match` (two minds, each on each side, one digest), `tournament` (Bradley-Terry,
   `rating.ts`), `unseen`. The panel report (`compare.ts`, `settle.ts`) pairs a subject with its
   baseline and stops once settled; `npm run compare` (`record-comparison.ts`) pairs saved records.
-- **Batteries and drills**: a battery plays one subject over its conditions (`locomotion`,
-  `court`, `crowd`, `crypt-clear`, `rising-target`, `equipped-rise`, `baseline`); a drill's trials
-  pass or fail, its rungs its protocols: `strike` (landed against the bar in `strike/read.ts`),
-  `cover`, `stand`, `gait`, `rise`. Only the owner accepts a rung (`accepted.json`).
+- **Batteries and drills**: a battery plays one subject over its conditions (`locomotion`, `court`,
+  `crowd`, `crypt-clear`, `rising-target`, `equipped-rise`, `baseline`); a drill's trials pass or
+  fail, its rungs its protocols: `strike` (landed against the bar in `strike/read.ts`), `cover`,
+  `stand`, `gait`, `rise`. Only the owner accepts a rung (`accepted.json`).
 - **The Rise drill** (`src/evaluation/rise/`) plays each edge of Stand up alone (`technique.ts`):
   rung `placed` from its postures at rest, rung `moving` after the edge before it, within
   `TECHNIQUE_LIMITS`.
 - **The table** (`src/evaluation/table/`): Option Mind on every body by loadout by skill
   (`tableCells`), each cell judged from the newest records (`verdictOf`).
 - **Falls** (`fall.ts`): one body felled on one bed (`buildFall`), its stand verified
-  (`STAND_CHECK`); a stand-up is read on the [owner's target](reference/rising.md#the-owners-target).
+  (`STAND_CHECK`); a stand-up is read on the [owner's
+  target](reference/rising.md#the-owners-target).
 
 ## Rules and wounds
 
@@ -387,17 +392,17 @@ any page.
 
 - **Down** is the spec's rule (`DownSpec`, `uprightness`, `fallenRule`,
   `src/core/control/ground.ts`): a human is down when a segment but its `bearers` (feet and hands)
-  is within `within` of its lowest point; a quadruped when it tips or sinks (`low`). `Body.down` is
-  read at the step's first look, before physics, so a fight sees every body down at one point.
-- **A blow has no striker** (`watchBlows`, `blows.ts`): two segments of two sides the solver
-  pushes apart while closing have met (a touch, `watchTouches`), its energy half the reduced
-  effective mass (`contactMass`) times the closing speed squared (`impactEnergy`). The surfaces
-  share it as springs in series (`energyShares`); two rigid items meeting clash (`isClash`).
-  Stiffness tables and the fist's threshold: [wounds](reference/wounds.md).
-- **Damage**: a side's share times its mechanism's worth over `Rulebook.unit` (`sideDamage`); a
-  bare hand or foot on flesh lets the first of its share go (`Rulebook.fist`). A held point
-  breaches `Rulebook.layers` and goes in against `resistance` as deep as its energy drives it
-  (`pointWound`).
+  is within `within` of its lowest point; a quadruped when it tips or sinks (`low`).
+  `PhysicalBody.down` is read at the step's first look, before physics, so a fight sees every body
+  down at one point.
+- **A blow has no striker** (`watchBlows`, `blows.ts`): two segments of two sides the solver pushes
+  apart while closing have met (a touch, `watchTouches`), its energy half the reduced effective mass
+  (`contactMass`) times the closing speed squared (`impactEnergy`). The surfaces share it as springs
+  in series (`energyShares`); two rigid items meeting clash (`isClash`). Stiffness tables and the
+  fist's threshold: [wounds](reference/wounds.md).
+- **Damage**: a side's share times its mechanism's worth over `Rulebook.unit` (`sideDamage`); a bare
+  hand or foot on flesh lets the first of its share go (`Rulebook.fist`). A held point breaches
+  `Rulebook.layers` and goes in against `resistance` as deep as its energy drives it (`pointWound`).
 - **A bite** wounds by pointed load: HP = `pointLoad.rate` × max(0, impulse − `pointLoad.threshold`
   × seconds) (`pointLoadDamage`), the impulse summed over the interval; a held item intercepts it.
 - **Life** (`pool.ts`): one bar a body and one a limb. A blow takes its damage times its part's
@@ -422,13 +427,13 @@ last explicitly and keeps setup choices for the tab. Every page is in `vite.conf
 | Ratings | `src/ratings/` | each evaluation's records; a drill's trials open in the Arena as a reel |
 
 - **Links are recipes.** An Arena address is its bout's recipe (`recipeOf`); an edited mind travels
-  whole without `tuning` (`writeMind`, `parseMind`, `src/ui/mind-link.ts`); a reel (`#reel=`)
-  plays recorded cases from their recipes and tapes.
+  whole without `tuning` (`writeMind`, `parseMind`, `src/ui/mind-link.ts`); a reel (`#reel=`) plays
+  recorded cases from their recipes and tapes.
 - **Cosmetics never carry authority.** The arena's slab, parapets and pedestals are colliders
   (`arenaSolids`), the same on the page and the stand; the visible room is checked against them
   (`validateRoomPlacements`). The Crypt's walls and doors are fixed boxes (`dungeonSolids`).
-- **Drawing** (`src/render/`): a skin reads only segment poses and whether each is on its body,
-  else the collision shapes are drawn; art comes through the asset pipeline ([assets](art/assets.md)).
+- **Drawing** (`src/render/`): a skin reads only segment poses and whether each is on its body, else
+  the collision shapes are drawn; art comes through the asset pipeline ([assets](art/assets.md)).
 - **Sound** (`src/audio/`) is synthesized (`GameAudio`): a body is heard by its touches
   (`hearTouches`, loudness from energy, the softer substance's voice) and its air (`airOf`, the
   fastest point's speed); a blow's debris is its own cue (`debrisCues`).
