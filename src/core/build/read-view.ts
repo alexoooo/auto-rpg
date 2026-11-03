@@ -15,7 +15,7 @@ const views = new WeakMap<BuiltBody, ReadBody>();
 function refOf(body: SegmentBody | null): BodyRef | null {
   if (body === null) return null;
   let ref = refs.get(body);
-  if (!ref) { ref = Object.freeze({ id: body.id, node: Object.freeze({ name: body.node.name }) }); refs.set(body, ref); }
+  if (!ref) { ref = Object.freeze({ id: body.id, pose: Object.freeze({ name: body.pose.name }) }); refs.set(body, ref); }
   return ref;
 }
 
@@ -26,14 +26,14 @@ function named<C extends Contact | ContactManifold>(contacts: C[]): readonly (Om
 }
 
 function segmentView(segment: BuiltSegment): ReadSegment {
-  const real = segment.node, body = segment.body;
+  const real = segment.pose, body = segment.body;
   const node = Object.freeze({
     name: real.name,
     get position(): Vector3 { return real.position; },
-    get rotationQuaternion() { return real.rotationQuaternion; },
+    get rotation() { return real.rotation; },
   });
   const readBody: ReadSegmentBody = Object.freeze({
-    id: body.id, node,
+    id: body.id, pose: node,
     linearVelocityToRef: (out: Vector3) => body.linearVelocityToRef(out),
     angularVelocityToRef: (out: Vector3) => body.angularVelocityToRef(out),
     get massProperties() { return body.massProperties; },
@@ -43,7 +43,7 @@ function segmentView(segment: BuiltSegment): ReadSegment {
   const pose = segment.handPose;
   const handPose = pose ? Object.freeze({ get applied(): HandPose { return pose.applied; }, get requested(): HandPose { return pose.requested; } }) : undefined;
   return Object.freeze({
-    spec: segment.spec, frame: segment.frame, node, body: readBody, rest: segment.rest, get rigid() { return segment.rigid; },
+    spec: segment.spec, frame: segment.frame, pose: node, body: readBody, rest: segment.rest, get rigid() { return segment.rigid; },
     ...(handPose ? { handPose } : {}), ...(segment.poses ? { poses: segment.poses } : {}), ...(segment.toes ? { toes: segment.toes } : {}),
   });
 }

@@ -2,13 +2,11 @@
  * **A Crypt run as a case**: a laid-out level (`CryptLayout`), the party placed on it, every party
  * member under one mind or each under its model's own, and a script of the person's orders
  * (`CryptLeg`), each leg given once the last is done, or none. It is the game's run (`DungeonRun`,
- * `src/dungeon/run.ts`), on its own scene with no canvas, each side under the Commander the case
+ * `src/dungeon/run.ts`), each side under the Commander the case
  * names, the party under the person's and the enemies under a mob unless it names another. A Crypt run is bit-equal between JavaScript
  * engines, as a bout is: what lays it out, places it and steps it computes as the core does, and
  * its look (decals, dressing, the fog's shader) decides nothing a body meets.
  */
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import type { CommanderConfig } from "../core/command/kind.ts";
 import type { Command } from "../core/command/commands.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
@@ -127,8 +125,7 @@ async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCr
   const options = { seed: 0, layout: map, hero: hero.model, companions: companions.map((member) => member.model) };
   const prepared = prepareDungeonCharacters(map, options);
   companions.forEach((member, i) => { if (member.at) prepared.homes.set(`ally-${i}`, { ...member.at }); });
-  const babylon = new NullEngine(), scene = new Scene(babylon);
-  const run = new DungeonRun(scene, { ...options, prepared, engine: await loadEngine(engine), visuals: false,
+  const run = new DungeonRun({ ...options, prepared, engine: await loadEngine(engine),
     mind: (participant) => participant.side === "party" ? crypt.mind ?? null : null, party: crypt.commanders?.party, enemies: crypt.commanders?.enemies });
   const party = run.party, falls: { member: string; time: number }[] = [], down = new Map<string, boolean>(), slain = new Set<string>();
   let reached = true, leg = -1, began = 0, from: Point | null = null, pending: CryptAct[] = [], done: number | null = null, ended = false, contactSteps = 0, fallenContactSteps = 0;
@@ -209,7 +206,7 @@ async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCr
     },
     reading: () => ({ reached, legs: done !== null ? crypt.script.length : leg, of: crypt.script.length, done, falls: falls.map((fall) => ({ ...fall })),
       contactSteps, fallenContactSteps, seconds: run.clock }),
-    dispose() { run.dispose(); scene.dispose(); babylon.dispose(); },
+    dispose() { run.dispose(); },
   };
 }
 

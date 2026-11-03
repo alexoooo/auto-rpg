@@ -44,8 +44,8 @@ async function fightTrial(model, recipe, file, fork, seconds) {
     if (played && handed === null && host.righting.phase === "idle" && !body.down) handed = duel.clock - from;
     if (duel.clock > from + seconds - last && body.down) down += 1 / 120;
   }
-  up.set(0, 1, 0).applyRotationQuaternionToRef(trunk.node.rotationQuaternion.multiply(rest), up);
-  const result = { up: up.y, height: trunk.node.position.y, down, handed, retries: host.righting.retries - retries, lie, verdict: duel.verdict ? duel.verdict.winner : null };
+  up.set(0, 1, 0).applyRotationQuaternionToRef(trunk.pose.rotation.multiply(rest), up);
+  const result = { up: up.y, height: trunk.pose.position.y, down, handed, retries: host.righting.retries - retries, lie, verdict: duel.verdict ? duel.verdict.winner : null };
   dispose();
   return result;
 }
@@ -75,8 +75,8 @@ export async function trial({ data, model, recipe, lying, heading = 0, forks, fo
     if (played && handed === null && host.righting.phase === "idle" && !mind.body.down) handed = i / 120;
     if (i > steps - last && mind.body.down) down += 1 / 120;
   }
-  up.set(0, 1, 0).applyRotationQuaternionToRef(trunk.node.rotationQuaternion.multiply(rest), up);
-  const result = { up: up.y, height: trunk.node.position.y, down, handed, retries: host.righting.retries, lie };
+  up.set(0, 1, 0).applyRotationQuaternionToRef(trunk.pose.rotation.multiply(rest), up);
+  const result = { up: up.y, height: trunk.pose.position.y, down, handed, retries: host.righting.retries, lie };
   stand.dispose();
   return result;
 }

@@ -220,7 +220,7 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
     },
     update(angles, motion) {
       for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i]!, rotation = segment.node.rotationQuaternion!, p = segment.node.position;
+        const segment = segments[i]!, rotation = segment.pose.rotation, p = segment.pose.position;
         const c = toWorld(rotation, centreOfMass[i]!, centres[i]!);
         c[0] += p.x; c[1] += p.y; c[2] += p.z;
         // R T R' from the segment frame's axes as they are now: each entry's two axes' outer product.
@@ -256,11 +256,11 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
           I[0] += own[0] + m * (dd - d0 * d0); I[1] += own[1] + m * (dd - d1 * d1); I[2] += own[2] + m * (dd - d2 * d2);
           I[3] += own[3] - m * d0 * d1; I[4] += own[4] - m * d0 * d2; I[5] += own[5] - m * d1 * d2;
         }
-        const centre = toWorld(joint.child.node.rotationQuaternion!, pivot[j]!, pivots[j]!), at = joint.child.node.position;
+        const centre = toWorld(joint.child.pose.rotation, pivot[j]!, pivots[j]!), at = joint.child.pose.position;
         centre[0] += at.x; centre[1] += at.y; centre[2] += at.z;
         // A body-frame axis as the parent now carries it: P P0^-1 (`joint-state.ts` turns the other way).
         Quaternion.InverseToRef(joint.parent.rest, scratch.q);
-        joint.parent.node.rotationQuaternion!.multiplyToRef(scratch.q, scratch.carry);
+        joint.parent.pose.rotation.multiplyToRef(scratch.q, scratch.carry);
         motionAxesToRef(joint, angles[j]!, bodyAxes);
         for (let k = 0; k < bodyAxes.length; k++) toWorld(scratch.carry, bodyAxes[k]!, axes[j]![k]!);
       }

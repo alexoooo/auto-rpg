@@ -176,7 +176,7 @@ export function groundReading(built: ReadBody, dt: number) {
       for (let i = 0; i < feet.length; i++) {
         const foot = feet[i]!;
         soleMiddleToRef(foot, foot.middle);
-        reading.sole[i] = feetUp[i]!.applyRotationQuaternionToRef(foot.segment.node.rotationQuaternion!, work.vector).y;
+        reading.sole[i] = feetUp[i]!.applyRotationQuaternionToRef(foot.segment.pose.rotation, work.vector).y;
         reading.footLoad[i] = reading.load[indices[i]!]!;
         reading.flat[i] = 0;
         if (reading.sole[i]! < FLAT || !bears(indices[i]!)) continue;

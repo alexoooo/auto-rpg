@@ -6,9 +6,7 @@
  * edge before it (`src/evaluation/rise/`). Like a fall, it is not bit-equal between JavaScript
  * engines: the starts (`src/lab/ground-starts.ts`) use arithmetic each engine rounds its own way.
  */
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { addArenaSolids } from "../arena/room.ts";
 import { commandedBody } from "../core/mind/host.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
@@ -114,7 +112,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
   const placement = techniquePlacement(one);
   if ("refused" in placement) throw new Error(placement.refused);
   const spec = techniqueSpec(one);
-  const babylon = new NullEngine(), scene = new Scene(babylon), world = createWorld(scene, await loadEngine(engine));
+  const world = createWorld(await loadEngine(engine));
   addArenaSolids(world.physics);
   const built = buildBody(spec, world, placement);
   const held: Record<string, number> = {};
@@ -184,7 +182,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
     if (one.start.kind !== "shoved" || shoved || world.time < 1) return;
     shoved = true;
     const a = one.start.degrees * Math.PI / 180;
-    root.body.applyImpulse(new Vector3(1.5 * mass * sin(a), 0, 1.5 * mass * cos(a)), root.node.position);
+    root.body.applyImpulse(new Vector3(1.5 * mass * sin(a), 0, 1.5 * mass * cos(a)), root.pose.position);
   });
   const cap = TECHNIQUE_LIMITS.admit * (one.chain.length + 1) + TECHNIQUE_LIMITS.run * one.chain.length + TECHNIQUE_LIMITS.stood + TECHNIQUE_LIMITS.rest + 2;
   return {
@@ -202,7 +200,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
       for (let k = links.length; k < one.chain.length; k++) links.push({ technique: one.chain[k]!, end: "not entered", seconds: 0, entry: null, position: body.view.ground?.position ?? "between" });
       return { links };
     },
-    dispose() { shoving.dispose(); body.dispose(); built.dispose(); world.dispose(); scene.dispose(); babylon.dispose(); },
+    dispose() { shoving.dispose(); body.dispose(); built.dispose(); world.dispose(); },
   };
 }
 

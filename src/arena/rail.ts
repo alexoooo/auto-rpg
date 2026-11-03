@@ -95,7 +95,7 @@ export function carryOnRail(world: World, built: BuiltBody, rail: Rail, clock: (
   const gravity = world.physics.gravity, dt = world.dt;
   const segments = [...built.segments.values()].map((segment) => {
     const centre = centreOfToRef(segment, new Vector3());
-    return { segment, centre: Object.freeze([centre.x, centre.y + rail.height, centre.z] as const), turn: segment.node.rotationQuaternion!.clone() };
+    return { segment, centre: Object.freeze([centre.x, centre.y + rail.height, centre.z] as const), turn: segment.pose.rotation.clone() };
   });
   const now = [0, 0] as [number, number], next = [0, 0] as [number, number];
   const at = new Vector3(), velocity = new Vector3(), spin = new Vector3(), wanted = new Vector3(), impulse = new Vector3();
@@ -115,7 +115,7 @@ export function carryOnRail(world: World, built: BuiltBody, rail: Rail, clock: (
       impulse.set(mass * (vx - velocity.x - gravity[0] * dt), mass * (vy - velocity.y - gravity[1] * dt), mass * (vz - velocity.z - gravity[2] * dt));
       body.applyImpulse(impulse, at);
       // The spin that turns it back to its built turn over `RETURN`, through its inertia in its principal frame.
-      const node = segment.node.rotationQuaternion!;
+      const node = segment.pose.rotation;
       spinBetweenToRef(node, turn, RETURN, wanted);
       wanted.subtractInPlace(body.angularVelocityToRef(spin));
       node.multiplyToRef(orientation, frame);

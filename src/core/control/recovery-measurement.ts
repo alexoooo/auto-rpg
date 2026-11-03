@@ -13,11 +13,11 @@ export function recoveryMeasurement(built: ReadBody, observe: () => BodyObservat
   const settings = { slow: .1, minUpNormal: .9 };
   return () => {
     const observation = observe();
-    root.node.rotationQuaternion!.multiplyToRef(inverseRoot,turn);
+    root.pose.rotation.multiplyToRef(inverseRoot,turn);
     up.set(0,1,0).applyRotationQuaternionToRef(turn,up);
     const rootUp = up.y;
     const soleUp = feet.map((f,i) => {
-      up.copyFrom(footUps[i]!).applyRotationQuaternionToRef(f.segment.node.rotationQuaternion!,up); return up.y;
+      up.copyFrom(footUps[i]!).applyRotationQuaternionToRef(f.segment.pose.rotation,up); return up.y;
     });
     const supports = feet.map(f => ({segment:f.segment.spec.name,
       corners:observation.contacts.filter(c => c.segment === f.segment.spec.name && c.fixed !== null

@@ -24,8 +24,6 @@ import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 import { modelHolding, modelSpec } from "../src/core/models.ts";
 import { replayedBody } from "../src/core/mind/sheets.ts";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { SERVO_SECONDS } from "../src/core/body.ts";
 import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
@@ -83,7 +81,7 @@ function stepTo(world, duel, until, traces, peak, after = () => {}) {
       let mass = 0;
       momentum.setAll(0);
       for (const segment of duel.duelists[side].built.segments.values()) {
-        const { position: p, rotationQuaternion: q } = segment.node;
+        const { position: p, rotation: q } = segment.pose;
         segment.body.linearVelocityToRef(v);
         if (![p.x, p.y, p.z, q.x, q.y, q.z, q.w, v.x, v.y, v.z].every(Number.isFinite)) peak.unfinite.push(world.steps);
         peak.segment = Math.max(peak.segment, v.length());
@@ -254,7 +252,7 @@ test("a mind senses its own life at once and another's as late as the rest of it
 test("a body is down by the fight's rule of the body alone, whatever height its mind asks it to hold", async () => {
   // The Warrior on its back, its mind asking its stance for a centre of mass 2 cm over its soles:
   // under that ask its own view reads it not down, and the fight reads it down all the same.
-  const rendering = new NullEngine(), scene = new Scene(rendering), world = createWorld(scene, await freshEngine());
+  const world = createWorld(await freshEngine());
   world.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);
   const spec = modelSpec("workshop-fighter"), half = Math.sqrt(.5);
   const built = buildBody(spec, world, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
@@ -264,7 +262,7 @@ test("a body is down by the fight's rule of the body alone, whatever height its 
     world.step(world.hz);
     assert.ok(body.physical.height < body.view.standing - 0.5, `the fixture is not lying: its centre of mass is ${body.physical.height.toFixed(2)} m over its lowest point`);
     assert.deepEqual({ itsMind: body.view.down, theFight: body.down }, { itsMind: false, theFight: true });
-  } finally { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); }
+  } finally { body.dispose(); built.dispose(); world.dispose(); }
 });
 
 test("a body's uprightness read through its mind's view of it is the body's, whichever's segments it is asked with", async () => {
@@ -397,8 +395,8 @@ test("Option Mind's preset fits and is built on every humanoid with every loadou
 const SHOWN_DELAY = 2;
 
 test("a body's command is applied the world's delay after it is sent, none before, none again after its level leaves full, and across a save and load", async () => {
-  const spec = modelSpec("workshop-fighter"), engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, await freshEngine(), { actuation: "directional", delay: SHOWN_DELAY });
+  const spec = modelSpec("workshop-fighter");
+  const world = createWorld(await freshEngine(), { actuation: "directional", delay: SHOWN_DELAY });
   const built = buildBody(spec, world, { position: [0, 1, 0], joints: poseAngles(spec, GUARD) });
   // Held in place, every muscle's strength is the one at rest, so a ceiling reads the activation that set it; its weight sets its assist's ceiling.
   for (const segment of built.segments.values()) segment.body.setFixed(true);
@@ -441,5 +439,5 @@ test("a body's command is applied the world's delay after it is sent, none befor
   loadState(root, saved);
   assert.deepEqual(played(14, 5, 8), after);
   assert.deepEqual(after, wanted(14, 5, 8));
-  embodied.dispose(); world.dispose(); scene.dispose(); engine.dispose();
+  embodied.dispose(); world.dispose();
 });

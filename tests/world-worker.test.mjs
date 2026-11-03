@@ -213,9 +213,9 @@ test("a Crypt run a person commands in its worker replays in Node from the tape 
     heard.ready.roster.forEach((body, b) => {
       const segments = run.actors[b].fighter?.built.segments;
       for (const name of body.segments) {
-        const node = segments?.get(name).node;
-        if (node) row.set([node.position.x, node.position.y, node.position.z, node.rotationQuaternion.x, node.rotationQuaternion.y,
-          node.rotationQuaternion.z, node.rotationQuaternion.w]);
+        const node = segments?.get(name).pose;
+        if (node) row.set([node.position.x, node.position.y, node.position.z, node.rotation.x, node.rotation.y,
+          node.rotation.z, node.rotation.w]);
         else row.set([0, 0, 0, 0, 0, 0, 1]);
         hash.update(bytes);
       }

@@ -141,8 +141,8 @@ const uprights = new WeakMap<object, Uprightness>();
 export function uprightness(built: ReadBody): Uprightness {
   const first = built.segments.values().next().value;
   if (!first) throw new Error(`${built.spec.model} has no segment to stand on`);
-  let found = uprights.get(first.node.position);
-  if (!found) uprights.set(first.node.position, found = readUprightness(built));
+  let found = uprights.get(first.pose.position);
+  if (!found) uprights.set(first.pose.position, found = readUprightness(built));
   return found;
 }
 
@@ -181,7 +181,7 @@ function readUprightness(built: ReadBody): Uprightness {
   const partLow = new Float64Array(parts.length);
   const samePose = (): boolean => {
     for (let k = 0, i = 0; k < parts.length; k++, i += POSE) {
-      const part = parts[k]!, p = part.segment.node.position, q = part.segment.node.rotationQuaternion!;
+      const part = parts[k]!, p = part.segment.pose.position, q = part.segment.pose.rotation;
       if (lows[k] !== part.lows || pose[i] !== p.x || pose[i + 1] !== p.y || pose[i + 2] !== p.z
         || pose[i + 3] !== q.x || pose[i + 4] !== q.y || pose[i + 5] !== q.z || pose[i + 6] !== q.w) return false;
     }
@@ -191,7 +191,7 @@ function readUprightness(built: ReadBody): Uprightness {
     if (samePose()) return levels;
     let high = 0, low = Infinity;
     for (let k = 0, i = 0; k < parts.length; k++, i += POSE) {
-      const part = parts[k]!, node = part.segment.node, p = node.position, q = node.rotationQuaternion!, points = part.lows;
+      const part = parts[k]!, node = part.segment.pose, p = node.position, q = node.rotation, points = part.lows;
       pose[i] = p.x; pose[i + 1] = p.y; pose[i + 2] = p.z; pose[i + 3] = q.x; pose[i + 4] = q.y; pose[i + 5] = q.z; pose[i + 6] = q.w;
       lows[k] = points;
       turnOfToRef(part.segment, turn);

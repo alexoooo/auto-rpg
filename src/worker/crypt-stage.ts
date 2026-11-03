@@ -1,6 +1,4 @@
 import { pageMinds } from "./minds.ts";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import type { Command, DrawnRoute } from "../core/command/commands.ts";
 import type { CommanderConfig } from "../core/command/kind.ts";
@@ -129,7 +127,7 @@ export const cryptSpec = (character: { readonly spec: BodySpec }, model: BodyMod
   armedWith(character.spec, "right", modelInfo(model).held);
 
 /**
- * `start`'s run built as its page plays it, with no look, on a scene of its own with no canvas,
+ * `start`'s run built as its page plays it, with no look,
  * its minds' data loaded first, its minds apart where the page is isolated (`pageMinds`), and the
  * person's lead applied; `cues` is given what a blow takes
  * off where the party sees.
@@ -140,14 +138,14 @@ export async function buildCryptRun(start: CryptStart, cues: SoundCue[] = []) {
     attributes: (participant: Participant) => start.attributes[participant.id] ?? {} };
   const mind = (participant: Participant) => start.minds[participant.id] ?? null;
   await loadData(runParticipants(fielded.layout, fielded).flatMap((participant) => treeData(mind(participant) ?? defaultMind(participant.model))));
-  const prepared = prepareDungeonCharacters(fielded.layout, fielded), engine = new NullEngine(), scene = new Scene(engine), minds = pageMinds();
+  const prepared = prepareDungeonCharacters(fielded.layout, fielded), minds = pageMinds();
   const seen = (point: Vec3) => run.visible.has(cellKey(run.map, { x: point[0], z: point[2] }));
-  const run: DungeonRun = new DungeonRun(scene, { ...fielded, prepared, engine: await loadEngine(start.engine), visuals: false, mind,
+  const run: DungeonRun = new DungeonRun({ ...fielded, prepared, engine: await loadEngine(start.engine), mind,
     ...start.party ? { party: start.party } : {}, ...start.enemies ? { enemies: start.enemies } : {}, ...minds ? { minds } : {},
     onBlow: (blow) => { if (seen(blow.point)) cues.push(...debrisCues(blow)); } });
   const apply = cryptInput(run);
   apply({ kind: "lead", lead: start.lead });
-  return { run, prepared, apply, dispose() { run.dispose(); minds?.dispose(); scene.dispose(); engine.dispose(); } };
+  return { run, prepared, apply, dispose() { run.dispose(); minds?.dispose(); } };
 }
 
 /**
@@ -190,8 +188,8 @@ function cryptInput(run: DungeonRun): (input: CryptInput) => void {
 const INSPECTED_STEPS = 12;
 
 /** Where a frame puts a body's segment before it is built: at the origin, unturned. */
-const UNBUILT = Object.freeze({ node: Object.freeze({ position: Object.freeze({ x: 0, y: 0, z: 0 }),
-  rotationQuaternion: Object.freeze({ x: 0, y: 0, z: 0, w: 1 }) }) });
+const UNBUILT = Object.freeze({ pose: Object.freeze({ position: Object.freeze({ x: 0, y: 0, z: 0 }),
+  rotation: Object.freeze({ x: 0, y: 0, z: 0, w: 1 }) }) });
 
 /**
  * **A Crypt run's stage**: `start`'s run built by `buildCryptRun`, stepped while it plays, every

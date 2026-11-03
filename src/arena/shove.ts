@@ -53,8 +53,8 @@ export function shoveOnCue(world: World, built: BuiltBody, shove: Shove, state: 
   return world.sense(() => {
     if (state.at !== null || clock() < shove.at) return;
     if (limb && limb.body.linearVelocityToRef(velocity).subtractInPlace(against!.body.linearVelocityToRef(other)).lengthSquared() < limit) return;
-    const node = segment.body.node, centre = segment.body.massProperties.centre;
-    point.set(centre[0], centre[1], centre[2]).applyRotationQuaternionToRef(node.rotationQuaternion!, point).addInPlace(node.position);
+    const node = segment.body.pose, centre = segment.body.massProperties.centre;
+    point.set(centre[0], centre[1], centre[2]).applyRotationQuaternionToRef(node.rotation, point).addInPlace(node.position);
     segment.body.applyImpulse(impulse, point);
     state.at = clock();
   });

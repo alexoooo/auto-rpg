@@ -99,7 +99,7 @@ export function predictPointContacts(model: Model, torque: ArrayLike<number>, co
   const centre = new Vector3(), angular = new Vector3();
   const initial = geometry.flatMap((contact) => {
     const { body, point } = contact;
-    centre.set(...body.massProperties.centre).applyRotationQuaternionToRef(body.node.rotationQuaternion!, centre).addInPlace(body.node.position);
+    centre.set(...body.massProperties.centre).applyRotationQuaternionToRef(body.pose.rotation, centre).addInPlace(body.pose.position);
     body.angularVelocityToRef(angular);
     const offset = subtract(point, tuple(centre)), turn = cross(tuple(angular), offset), centripetal = cross(tuple(angular), turn);
     const acceleration = model.pointAcceleration(body, point, free).linear;

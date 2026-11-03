@@ -38,7 +38,7 @@ export function armClearance(built: ReadBody): () => boolean {
   const update = (b: { part: ReadSegment; vertices: { point: Vector3; radius: number }[]; low: Vector3; high: Vector3 }) => {
     b.low.setAll(Infinity); b.high.setAll(-Infinity);
     for (const v of b.vertices) {
-      v.point.applyRotationQuaternionToRef(b.part.node.rotationQuaternion!, point).addInPlace(b.part.node.position);
+      v.point.applyRotationQuaternionToRef(b.part.pose.rotation, point).addInPlace(b.part.pose.position);
       b.low.x = Math.min(b.low.x, point.x - v.radius); b.high.x = Math.max(b.high.x, point.x + v.radius);
       b.low.y = Math.min(b.low.y, point.y - v.radius); b.high.y = Math.max(b.high.y, point.y + v.radius);
       b.low.z = Math.min(b.low.z, point.z - v.radius); b.high.z = Math.max(b.high.z, point.z + v.radius);

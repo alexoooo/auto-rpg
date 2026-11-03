@@ -33,15 +33,12 @@ async function built(fixture) {
     return { step: () => world.step(), bodies: () => 2, over: () => duel.verdict !== null, dispose };
   }
   if (fixture === "crypt") {
-    const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
-    const { Scene } = await import("@babylonjs/core/scene.js");
     const { DungeonRun } = await import("../../src/dungeon/run.ts");
     const { freshEngine } = await import("./core-stand.mjs");
-    const engine = new NullEngine(), scene = new Scene(engine);
-    const run = new DungeonRun(scene, { seed: 10, engine: await freshEngine(), visuals: false, companions: [] });
+    const run = new DungeonRun({ seed: 10, engine: await freshEngine(), companions: [] });
     run.commands.setMode({ keyboard: false, facing: true });
     return { step: () => run.step(), bodies: () => run.actors.filter((actor) => actor.fighter).length, over: () => run.status !== "playing",
-      dispose() { run.dispose(); scene.dispose(); engine.dispose(); } };
+      dispose() { run.dispose(); } };
   }
   throw new Error(`no fixture ${fixture}: duel or crypt`);
 }

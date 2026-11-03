@@ -2,15 +2,12 @@
  * **The core's Node stand**: one body built from a spec, on a ground, in a world of its own on the
  * engine `CORE_ENGINE` names (Rapier unless named: `CORE_ENGINE=<name> npm test`).
  *
- * A `NullEngine` and a `Scene` hold the nodes; the core's world (`createWorld`,
- * `src/core/world.ts`) steps the engine, as the page does. The body is built through `buildBody`
+ * The core's world (`createWorld`, `src/core/world.ts`) steps the engine, as the page does. The body is built through `buildBody`
  * and nothing else, so what the stand reads is what the spec states. Bodies never sleep: the
  * engine contract says so (`src/core/engine/engine.ts`), and `tests/core-engine.test.mjs` holds
  * the engine to it.
  */
 import "./preload-data.mjs";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { isEngineName, loadEngine } from "../../src/core/engine/engines.ts";
 import { PHYSICS_HZ } from "../../src/core/world.ts";
@@ -34,9 +31,7 @@ export const freshEngine = (name = CORE_ENGINE) => loadEngine(name);
  * game's, as a finer reference; a figure read at one names it.
  */
 export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], rotation, joints, posture, pinned, groundSize = 20, hz = PHYSICS_HZ.value, actuation, delay, mirrored, engine: engineName = CORE_ENGINE } = {}) {
-  const engine = new NullEngine();
-  const scene = new Scene(engine);
-  const world = createWorld(scene, await freshEngine(engineName), { hz, gravity, actuation, delay, mirrored });
+  const world = createWorld(await freshEngine(engineName), { hz, gravity, actuation, delay, mirrored });
   const floor = ground ? world.physics.addFixedBox([0, -0.5, 0], [groundSize, 1, groundSize]) : null;
   const built = buildBody(spec, world, { position, rotation, joints: posture ? poseAngles(spec, posture) : joints });
   if (pinned !== undefined) {
@@ -45,15 +40,13 @@ export async function coreStand(spec, { gravity = true, ground = true, position 
     segment.body.setFixed(true);
   }
   return {
-    scene, world, built, floor,
+    world, built, floor,
     /** Take `n` of the world's steps. */
     step: (n = 1) => world.step(n),
     seconds: (s) => Math.round(s * hz),
     dispose() {
       built.dispose();
       world.dispose();
-      scene.dispose();
-      engine.dispose();
     },
   };
 }
@@ -92,13 +85,12 @@ export async function spinOnce(spec, name, axisName, impulse) {
 /**
  * The child's rotation relative to its parent since the reference pose, in the body frame: the
  * rotation that, applied to the child in the reference pose with the parent held there, gives the
- * joint's present angle. Read from the nodes' `rotationQuaternion`, not a world matrix, which
- * Babylon caches per render id. Babylon's `a.multiply(b)` applies b, then a.
+ * joint's present angle, read from the segments' poses. `a.multiply(b)` applies b, then a.
  */
 export function relativeRotation(joint) {
   const parentRest = restRotation(joint.parent.frame), childRest = restRotation(joint.child.frame);
-  return parentRest.multiply(Quaternion.Inverse(joint.parent.node.rotationQuaternion))
-    .multiply(joint.child.node.rotationQuaternion).multiply(Quaternion.Inverse(childRest));
+  return parentRest.multiply(Quaternion.Inverse(joint.parent.pose.rotation))
+    .multiply(joint.child.pose.rotation).multiply(Quaternion.Inverse(childRest));
 }
 
 const restRotation = (frame) => Quaternion.RotationQuaternionFromAxis(v(frame.x), v(frame.y), v(frame.z));

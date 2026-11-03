@@ -89,9 +89,9 @@ export function constrainedMass(bodies: readonly ReadSegmentBody[], constraints:
         if (!(p.mass > 0) || !Number.isFinite(p.mass) || !p.moments.every((v) => v > 0 && Number.isFinite(v))) {
           throw new Error("constrained mass requires positive finite mass and principal inertias");
         }
-        point.set(...p.centre).applyRotationQuaternionToRef(b.node.rotationQuaternion!, point).addInPlace(b.node.position);
+        point.set(...p.centre).applyRotationQuaternionToRef(b.pose.rotation, point).addInPlace(b.pose.position);
         centres[i] = [point.x, point.y, point.z];
-        b.node.rotationQuaternion!.multiplyToRef(p.orientation, turn);
+        b.pose.rotation.multiplyToRef(p.orientation, turn);
         axes[i] = XYZ.map((a) => {
           point.set(...a).applyRotationQuaternionToRef(turn, point);
           return [point.x, point.y, point.z];

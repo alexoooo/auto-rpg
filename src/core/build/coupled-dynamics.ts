@@ -153,7 +153,7 @@ export function coupledDynamics(built: ReadBody, gravity: Vec3, items: readonly 
         const properties = body.massProperties, at = centres.get(body)!;
         body.linearVelocityToRef(linear); body.angularVelocityToRef(angular);
         const v = tuple(linear), w = tuple(angular);
-        body.node.rotationQuaternion!.multiplyToRef(properties.orientation, rotation);
+        body.pose.rotation.multiplyToRef(properties.orientation, rotation);
         const axes = XYZ.map((axis) => tuple(new Vector3(...axis).applyRotationQuaternionToRef(rotation, point)));
         const momentum = axes.map((axis, i) => properties.moments[i]! * dot(axis, w));
         const moment = XYZ.map((_, k) => axes.reduce((sum, axis, i) => sum + axis[k]! * momentum[i]!, 0)) as unknown as Vec3;
@@ -188,7 +188,7 @@ export function coupledDynamics(built: ReadBody, gravity: Vec3, items: readonly 
         for (let j = 0; j < count; j++) mass[6 + i]![6 + j] = tree.mass[i]![j]!;
       }
       for (const b of members) {
-        point.set(...b.massProperties.centre).applyRotationQuaternionToRef(b.node.rotationQuaternion!, point).addInPlace(b.node.position);
+        point.set(...b.massProperties.centre).applyRotationQuaternionToRef(b.pose.rotation, point).addInPlace(b.pose.position);
         centres.set(b, tuple(point));
         const segment = byBody.get(b);
         if (segment) {
@@ -198,7 +198,7 @@ export function coupledDynamics(built: ReadBody, gravity: Vec3, items: readonly 
           b.angularVelocityToRef(angular);
           drift.set(b, { centre: ZERO, angular: ZERO, spin: tuple(angular) });
           const offset = itemIndex.get(b)!, properties = b.massProperties;
-          b.node.rotationQuaternion!.multiplyToRef(properties.orientation, rotation);
+          b.pose.rotation.multiplyToRef(properties.orientation, rotation);
           const axes = XYZ.map((axis) => tuple(new Vector3(...axis).applyRotationQuaternionToRef(rotation, point)));
           const momentum: number[] = [0, 0, 0];
           for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {

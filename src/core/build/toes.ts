@@ -76,7 +76,7 @@ function bendOf(rotation: Quaternion): number {
 /** A foot as `createToes` reads and turns it. */
 interface Toed {
   readonly spec: SegmentSpec;
-  readonly node: { readonly rotationQuaternion: Quaternion | null };
+  readonly pose: { readonly rotation: Quaternion };
   readonly body: SegmentBody;
   readonly toes?: ToesState;
   readonly bent?: (bend: number) => { readonly collider: ColliderShape };
@@ -87,7 +87,7 @@ export function createToes(segments: readonly Toed[], world: World): { readonly 
   const feet = segments.filter((segment) => segment.toes && segment.bent);
   const hook = feet.length === 0 ? null : world.prepare(() => {
     for (const foot of feet) {
-      const bend = bendOf(foot.node.rotationQuaternion!);
+      const bend = bendOf(foot.pose.rotation);
       if (bend === foot.toes!.bend) continue;
       foot.toes!.bend = bend;
       foot.body.changeShape(toesShape(foot.spec), foot.bent!(bend).collider);

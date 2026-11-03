@@ -81,7 +81,7 @@ export function centreReading(built: ReadBody, name: string): { centre: Vector3;
   const d = [c[0] - origin[0], c[1] - origin[1], c[2] - origin[2]];
   const local = new Vector3(...[x, y, z].map((a) => d[0]! * a[0]! + d[1]! * a[1]! + d[2]! * a[2]!) as [number, number, number]);
   const centre = new Vector3();
-  return { centre, update() { local.applyRotationQuaternionToRef(segment.node.rotationQuaternion!, centre).addInPlace(segment.node.position); } };
+  return { centre, update() { local.applyRotationQuaternionToRef(segment.pose.rotation, centre).addInPlace(segment.pose.position); } };
 }
 
 const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }): Vec3 => [v.x, v.y, v.z];
@@ -106,9 +106,9 @@ export function observeBody(built: ReadBody, muscles: MuscleDriver, clock: Clock
   return () => {
     const physical = read(), external = senses();
     const segments = [...built.segments.values()].map((part) => {
-      const q = part.node.rotationQuaternion!;
+      const q = part.pose.rotation;
       part.body.angularVelocityToRef(spins.get(part)!);
-      return { name: part.spec.name, ...(part.handPose ? { handPose: part.handPose.applied } : {}), position: tuple(part.node.position), rotation: [q.x, q.y, q.z, q.w] as const,
+      return { name: part.spec.name, ...(part.handPose ? { handPose: part.handPose.applied } : {}), position: tuple(part.pose.position), rotation: [q.x, q.y, q.z, q.w] as const,
         centre: tuple(centreOfToRef(part, p)), velocity: tuple(part.body.linearVelocityToRef(v)), spin: tuple(spins.get(part)!) };
     });
     let index = 0;
@@ -123,7 +123,7 @@ export function observeBody(built: ReadBody, muscles: MuscleDriver, clock: Clock
     const contacts = [...built.segments.values()].flatMap((part) => {
       const manifolds = contactPatches ? built.physics.contactManifoldsOf(part.body, other => other === null) : [];
       return built.physics.contactsOf(part.body).map((contact) => ({
-        segment: part.spec.name, other: contact.other?.node.name ?? null, fixed: contact.fixed,
+        segment: part.spec.name, other: contact.other?.pose.name ?? null, fixed: contact.fixed,
         point: [...contact.point] as Vec3, normal: [...contact.normal] as Vec3, impulse: contact.impulse,
         pairs: contact.pairs.map((pair) => ({ ...pair, point: [...pair.point] as Vec3, normal: [...pair.normal] as Vec3 })),
         ...(contactPatches ? { patch: manifolds.filter(m => contact.fixed !== null && m.fixed === contact.fixed && m.impulse > 0)

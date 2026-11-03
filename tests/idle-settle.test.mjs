@@ -200,7 +200,7 @@ test("a requested step releases the preceding catch's recovery heading", async (
   try {
     stand.step(60);
     const root = stand.built.segments.get("lowerTrunk");
-    root.body.applyImpulse(new Vector3(60, 0, 0), root.node.position);
+    root.body.applyImpulse(new Vector3(60, 0, 0), root.pose.position);
     let caught = false, landed = false;
     for (let i = 0; i < stand.seconds(3); i++) {
       stand.step(); caught ||= !!balance.reading.own;

@@ -1,5 +1,4 @@
 import type { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { Vec3 } from "../spec/quantity.ts";
 
 /**
@@ -58,11 +57,21 @@ export interface MassProperties {
   readonly orientation: Quaternion;
 }
 
-/** **A dynamic body with its node**: what the core reads of a body and does to it. */
+/**
+ * **A pose**: where a body is, world, and how it is turned, as the last step left it, and its name.
+ * The engine writes it after each step (`PhysicsWorld.addBody`); everything else reads it.
+ */
+export interface Pose {
+  readonly name: string;
+  readonly position: Vector3;
+  readonly rotation: Quaternion;
+}
+
+/** **A dynamic body with its pose**: what the core reads of a body and does to it. */
 export interface SegmentBody {
   /** Stable body identity within this world's topology and snapshots. */
   readonly id: number;
-  readonly node: TransformNode;
+  readonly pose: Pose;
   linearVelocityToRef(out: Vector3): Vector3;
   angularVelocityToRef(out: Vector3): Vector3;
   /** An impulse (N s, world) at a point (world). */
@@ -233,11 +242,11 @@ export interface PhysicsWorld {
   readonly revision: string;
   readonly gravity: Vec3;
   /**
-   * A dynamic body at its node's pose, its colliders massless: its mass is `mass`.
+   * A dynamic body at `node`, its colliders massless: its mass is `mass`; `node` follows it after each step.
    * `ccd` requests continuous collision detection including moving colliders; false retains
    * the engine's default behavior against fixed colliders (`docs/reference/collision-ccd.md`).
    */
-  addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties,
+  addBody(node: Pose, shapes: readonly ColliderShape[], mass: MassProperties,
     options?: { readonly ccd?: boolean; readonly materials?: readonly ContactMaterial[] }): SegmentBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): EngineJoint;
   /** Register a detached grip slot. Slots persist across release and snapshot restoration. */

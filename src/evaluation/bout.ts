@@ -1,5 +1,3 @@
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { Duel, SIDES, type DuelRecipe } from "../arena/duel.ts";
 import { TeamBout, type TeamRecipe } from "../arena/team-bout.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
@@ -36,16 +34,15 @@ export interface BuiltBout {
   dispose(): void;
 }
 
-/** A world with the arena's solids and `recipe`'s bout in it, on a scene of its own with no canvas. */
+/** A world with the arena's solids and `recipe`'s bout in it. */
 export async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, mirrored, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
-  const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
+  const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
   const solids = arenaSolids(recipe.level);
   const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
   try {
     const duel = new Duel(world, recipe, { solids, ...hooks });
-    return { world, duel, colliders, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
-  } catch (error) { world.dispose(); scene.dispose(); engine.dispose(); throw error; }
+    return { world, duel, colliders, dispose() { duel.dispose(); world.dispose(); } };
+  } catch (error) { world.dispose(); throw error; }
 }
 
 /** The bout world kind: built by `buildBout`, handed its tape, both sides traced, played by the bout's clock, each side under its recipe's mind or else its model's (`defaultMind`), ended by its recipe's end rules or the game's (`GAME_ENDS`), a side led by its recipe's Commander where it names one. */
@@ -61,14 +58,13 @@ export const BOUT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "bout" }>
   load: (built, saved) => built.duel.load(saved as ReturnType<Duel["save"]>),
 };
 
-/** A world with the arena's solids and `recipe`'s team bout in it, on a scene of its own with no canvas. */
+/** A world with the arena's solids and `recipe`'s team bout in it. */
 export async function buildTeamBout(recipe: TeamRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, mirrored, minds }: Omit<BoutOptions, "hooks" | "actuation"> = {}): Promise<{ readonly world: World; readonly bout: TeamBout; dispose(): void }> {
-  const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, physicsEngine ?? await loadEngine(name), { hz, ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
+  const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
   const solids = arenaSolids(recipe.level);
   addArenaSolids(world.physics, solids);
   try {
     const bout = new TeamBout(world, recipe, { solids });
-    return { world, bout, dispose() { bout.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
-  } catch (error) { world.dispose(); scene.dispose(); engine.dispose(); throw error; }
+    return { world, bout, dispose() { bout.dispose(); world.dispose(); } };
+  } catch (error) { world.dispose(); throw error; }
 }

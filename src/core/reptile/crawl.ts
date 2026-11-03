@@ -62,7 +62,7 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
     const m = p.mass.value / mass, at = p.centreOfMass.value;
     return [c[0] + m * at[0], c[1] + m * at[1], c[2] + m * at[2]] as Vec3;
   }, [0, 0, 0] as Vec3);
-  const over = overPaws(own, names), q = root.node.rotationQuaternion!;
+  const over = overPaws(own, names), q = root.pose.rotation;
   const state = {
     phase: "settle" as "settle" | "shift" | "swing" | "land" | "return", time: 0, paw: 0, steps: 0, placed: 0, sequence: 0, yaw: 0, align: 0, standing: false, lifted: false,
     centre: [motor.state.centre.x, reference[1], motor.state.centre.z] as [number, number, number],

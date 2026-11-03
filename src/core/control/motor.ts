@@ -338,9 +338,9 @@ function aimPoint(one: PointLimb, tasks: readonly PointTask[], driver: MuscleDri
 const turned = new Quaternion();
 /** Where `point` (reference pose, body frame) of `segment` is now, world, into `at`. */
 function pointNow(segment: ReadSegment, point: Vec3, at: Vector3): void {
-  const origin = segment.frame.origin, node = segment.node;
+  const origin = segment.frame.origin, node = segment.pose;
   Quaternion.InverseToRef(segment.rest, turned);
-  node.rotationQuaternion!.multiplyToRef(turned, turned);
+  node.rotation.multiplyToRef(turned, turned);
   at.set(point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]).applyRotationQuaternionToRef(turned, at).addInPlace(node.position);
 }
 

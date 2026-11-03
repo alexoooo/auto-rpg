@@ -40,7 +40,7 @@ export interface Dummy {
  */
 export function hangDummy(world: World, spec: BodySpec, at: Vec3, rules: Rulebook): Dummy {
   const { part, ball } = ballOf(spec), radius = ball.radius.value, built = buildBody(spec, world, { position: at });
-  const { body, node, rigid } = built.segments.get(part)!, g = world.physics.gravity;
+  const { body, pose: node, rigid } = built.segments.get(part)!, g = world.physics.gravity;
   const weight = new Vector3(-g[0] * rigid.mass, -g[1] * rigid.mass, -g[2] * rigid.mass);
   const hold = (): void => body.applyForce(weight, node.position), hung = world.steps;
   hold();

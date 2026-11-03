@@ -71,7 +71,7 @@ test("a drill Commander orders nothing before its moment: the bout is its member
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", capSeconds: 31, recoverySeconds: null, entry: [], ends: [], minds: { left: mind, right: foe } };
   const plain = await buildBout(recipe, { engine: BOUT_ENGINE }), drilled = await buildBout({ ...recipe, commanders: { left: { kind: "drill", after: 0, pace: 1, moment: 2 } } }, { engine: BOUT_ENGINE });
   const poses = (built) => SIDES.flatMap((side) => [...built.duel.duelists[side].built.segments.values()]
-    .flatMap(({ node: { position: p, rotationQuaternion: q } }) => [p.x, p.y, p.z, q.x, q.y, q.z, q.w]));
+    .flatMap(({ pose: { position: p, rotation: q } }) => [p.x, p.y, p.z, q.x, q.y, q.z, q.w]));
   const task = () => drilled.duel.commanded("left")?.task;
   try {
     plain.duel.play([]); drilled.duel.play([]);

@@ -240,8 +240,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const readBalls = (): void => {
     const ground = groundLevel();
     feet.forEach((foot, k) => {
-      const node = foot.segment.node;
-      work.heights[k] = balls[k]!.applyRotationQuaternionToRef(node.rotationQuaternion!, work.ball).y + node.position.y - ground;
+      const node = foot.segment.pose;
+      work.heights[k] = balls[k]!.applyRotationQuaternionToRef(node.rotation, work.ball).y + node.position.y - ground;
     });
   };
 
@@ -387,7 +387,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     else {
       turnAboutToRef(across.set(1, 0, 0), stage.pitch, pitch);
       yaw.multiplyToRef(pitch, turn).multiplyInPlace(root.rest);
-      spinBetweenToRef(root.node.rotationQuaternion!, turn, seconds, spin);
+      spinBetweenToRef(root.pose.rotation, turn, seconds, spin);
     }
     aim.spin.copyFrom(spin).scaleInPlace(n).subtractInPlace(rootSpin.scaleInPlace(2 * n));
     // Motor control's order: the servo's asks, the root's acceleration, the servo's solve around

@@ -8,7 +8,7 @@ export const STUB_RING = Object.freeze({
   out: (one, config) => {
     let x = 0, z = 0, mass = 0;
     for (const segment of one.built.segments.values()) {
-      const { position } = segment.node, m = segment.rigid.mass;
+      const { position } = segment.pose, m = segment.rigid.mass;
       x += position.x * m; z += position.z * m; mass += m;
     }
     return (x / mass) * (x / mass) + (z / mass) * (z / mass) > config.radius * config.radius ? "rung out" : null;

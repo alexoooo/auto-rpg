@@ -136,7 +136,7 @@ export function createSenses(world: World, delay = 0, ends?: number): SensesHub 
   const read = (entry: Carried, frame: Float64Array, out: boolean, down: boolean, life: number): void => {
     let k = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0;
     for (const segment of entry.segments) {
-      const at = segment.node.position, q = segment.node.rotationQuaternion!, m = segment.rigid.mass;
+      const at = segment.pose.position, q = segment.pose.rotation, m = segment.rigid.mass;
       centreOfToRef(segment, p);
       segment.body.linearVelocityToRef(v);
       segment.body.angularVelocityToRef(w);

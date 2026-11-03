@@ -183,14 +183,13 @@ function faceToFace(seed, gap) {
 
 /** 12 s of the crypt from 4 m off its first enemy, nobody ordered: every body built so far, each step. */
 async function cryptFight(seed) {
-  const scene = new Scene(new NullEngine());
-  const run = new DungeonRun(scene, { seed, engine: await freshEngine(), visuals: false, layout: faceToFace(seed, 4) });
+  const run = new DungeonRun({ seed, engine: await freshEngine(), layout: faceToFace(seed, 4) });
   try {
     const trace = traceOf({ *[Symbol.iterator]() { for (const actor of run.actors) if (actor.fighter) yield actor.fighter.built; } });
     for (let i = 0; i < 12 * run.world.hz && run.status === "playing"; i++) { run.step(); trace.take(); }
     const built = run.actors.filter((actor) => actor.fighter).length, pose = trace.digest();
     return { line: `${run.status} at step ${run.world.steps}, bodies ${built}, blows ${run.blows.length}, pose ${pose}`, record: { pose, blows: run.blows.length } };
-  } finally { run.dispose(); scene.dispose(); }
+  } finally { run.dispose(); }
 }
 
 /** `model` round the lab's circle for 10 s. */

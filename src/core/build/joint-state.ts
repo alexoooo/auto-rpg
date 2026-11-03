@@ -37,9 +37,9 @@ const scratch = {
  */
 export function relativeRotationToRef(joint: ReadJoint, out: Quaternion): Quaternion {
   const { parent, child } = joint;
-  Quaternion.InverseToRef(parent.node.rotationQuaternion!, scratch.inverse);
+  Quaternion.InverseToRef(parent.pose.rotation, scratch.inverse);
   parent.rest.multiplyToRef(scratch.inverse, scratch.t);
-  scratch.t.multiplyToRef(child.node.rotationQuaternion!, out);
+  scratch.t.multiplyToRef(child.pose.rotation, out);
   Quaternion.InverseToRef(child.rest, scratch.inverse);
   return out.multiplyToRef(scratch.inverse, out);
 }
@@ -274,7 +274,7 @@ export function jointTracker(joint: ReadJoint): JointTracker {
       ratesToRef(joint, angles, speeds, rates);
     },
     project(world, out) {
-      Quaternion.InverseToRef(joint.parent.node.rotationQuaternion!, scratch.inverse);
+      Quaternion.InverseToRef(joint.parent.pose.rotation, scratch.inverse);
       joint.parent.rest.multiplyToRef(scratch.inverse, scratch.t);
       world.applyRotationQuaternionToRef(scratch.t, scratch.w);
       for (let k = 0; k < axes.length; k++) out[k] = along(scratch.w, axes[k]!);

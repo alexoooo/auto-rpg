@@ -520,7 +520,7 @@ const abc: [number, number, number] = [0, 0, 0];
 function ankleTurnToRef(foot: FootState, turn: Quaternion, spare: number, relative: Quaternion, inverse: Quaternion): Quaternion {
   const ankle = foot.chain[2]!, shank = ankle.parent;
   // relative = shank.rest * shank^-1 * turn * foot.rest^-1 (Babylon's `a.multiply(b)` applies b, then a).
-  Quaternion.InverseToRef(shank.node.rotationQuaternion!, inverse);
+  Quaternion.InverseToRef(shank.pose.rotation, inverse);
   shank.rest.multiplyToRef(inverse, relative);
   relative.multiplyInPlace(turn);
   Quaternion.InverseToRef(foot.segment.rest, inverse);
@@ -537,7 +537,7 @@ function ankleTurnToRef(foot: FootState, turn: Quaternion, spare: number, relati
   // turn = shank * shank.rest^-1 * relative * foot.rest, the composition undone.
   rotationOfToRef(ankle.axes, abc[0], abc[1], abc[2], relative);
   Quaternion.InverseToRef(shank.rest, inverse);
-  shank.node.rotationQuaternion!.multiplyToRef(inverse, turn);
+  shank.pose.rotation.multiplyToRef(inverse, turn);
   turn.multiplyInPlace(relative);
   return turn.multiplyInPlace(foot.segment.rest);
 }
@@ -568,7 +568,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
     step.pivoted = false;
     step.time = 0;
     step.from.copyFrom(sole);
-    step.lift.copyFrom(foot.segment.node.rotationQuaternion!);
+    step.lift.copyFrom(foot.segment.pose.rotation);
     step.drop = soleDrop(foot, step.lift, v);
     motionAtToRef(foot.segment, sole, step.launch, v);
   }
@@ -610,7 +610,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   step.drop = drop;
   if (launch) along.addInPlaceFromFloats(launch.x * dh, launch.y * dh, launch.z * dh);
   const settle = swing.settle ?? seconds.swing;
-  spinBetweenToRef(foot.segment.node.rotationQuaternion!, step.turn, settle, turn);
+  spinBetweenToRef(foot.segment.pose.rotation, step.turn, settle, turn);
   // The whole turn from lift to landing, world, as its axis times its angle: the path's turn goes
   // about its axis at its angle times the path's rate.
   spinBetweenToRef(step.lift, level, 1, wholeAxis);
@@ -731,7 +731,7 @@ function aimRoot(s: Stance, heading: number, planned: readonly [number, number, 
   const { pelvis } = s, { aim, plan, reading } = s.state, { seconds } = s.tuning, { target, pelvisSpin } = s.scratch;
   const r = plan.at, u = plan.velocity, c = reading.centre, vel = reading.velocity, [ax, ay, az] = planned;
   turnAboutToRef(Vector3.UpReadOnly, heading, target).multiplyInPlace(pelvis.rest);
-  turnToRef(pelvis.node.rotationQuaternion!, target, seconds.turn, pelvis.body.angularVelocityToRef(pelvisSpin), aim.spin);
+  turnToRef(pelvis.pose.rotation, target, seconds.turn, pelvis.body.angularVelocityToRef(pelvisSpin), aim.spin);
   aim.centre.set(ax + e * e * (r.x - c.x) + 2 * e * (u.x - vel.x), ay + e * e * (r.y - height) + 2 * e * (u.y - vel.y),
     az + e * e * (r.z - c.z) + 2 * e * (u.z - vel.z));
   aim.on = true;
@@ -997,7 +997,7 @@ function holdPose(s: Stance, goal: StanceGoal, pose: NonNullable<StanceGoal["pos
   turnAboutToRef(Vector3.UpReadOnly, goal.heading, s.scratch.target);
   turnAboutToRef(s.scratch.wholeAxis.set(1, 0, 0), pose.pitch, s.scratch.footTurn);
   s.scratch.target.multiplyInPlace(s.scratch.footTurn).multiplyInPlace(pelvis.rest);
-  turnToRef(pelvis.node.rotationQuaternion!, s.scratch.target, pose.seconds, pelvis.body.angularVelocityToRef(s.scratch.pelvisSpin), aim.spin);
+  turnToRef(pelvis.pose.rotation, s.scratch.target, pose.seconds, pelvis.body.angularVelocityToRef(s.scratch.pelvisSpin), aim.spin);
   aim.on = true;
   for (const foot of bearing) {
     foot.memory.rolled = null;
@@ -1011,7 +1011,7 @@ function holdPose(s: Stance, goal: StanceGoal, pose: NonNullable<StanceGoal["pos
       motionAtToRef(foot.segment, foot.middle, s.scratch.v, s.scratch.pelvisSpin);
       approachToRef(s.scratch.p.set(...anchor.position), foot.middle, s.scratch.v, n, task.linear);
       s.scratch.target.set(...anchor.rotation).multiplyInPlace(foot.segment.rest);
-      turnToRef(foot.segment.node.rotationQuaternion!, s.scratch.target, pose.seconds, s.scratch.pelvisSpin, task.angular);
+      turnToRef(foot.segment.pose.rotation, s.scratch.target, pose.seconds, s.scratch.pelvisSpin, task.angular);
     }
     task.on = true; task.bearing = true;
     for (const i of foot.memory.channels) state.owned[i] = 1;

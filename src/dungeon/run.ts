@@ -1,5 +1,3 @@
-import type { Scene } from "@babylonjs/core/scene.js";
-import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import { buildBody } from "../core/build/build-body.ts";
@@ -24,8 +22,7 @@ import { isBody } from "../core/read-body.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, routeLength, sightIndex, walkable,
   type DungeonMap, type Point, type SightIndex } from "./map.ts";
 import { DungeonCommands, screenMovement } from "./commands.ts";
-import { buildDungeonWorld } from "./world.ts";
-import type { DungeonSurfaces } from "./stone.ts";
+import { dungeonSolids } from "./world.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
 import { companionSpawn } from "./party-placement.ts";
 import { generateEncounterLevel } from "./encounters.ts";
@@ -47,7 +44,7 @@ import { GAME, defaultMind } from "../entrants/game.ts";
 
 /**
  * **A crypt run**: the level's colliders are fixed boxes in a world
- * (`buildDungeonWorld`), and the party and the enemies are bodies (`src/core/`), each under a mind
+ * (`dungeonSolids`), and the party and the enemies are bodies (`src/core/`), each under a mind
  * that carries out its team's orders. Each side is a team under a Commander (`src/core/command/`):
  * the party under the person's (`partyCommander`), whose commands reach it only as `Command`s
  * and the live input of the keys and pointer (`DungeonCommands`), unless the run is given another
@@ -124,8 +121,6 @@ export interface DungeonActor {
   outAt: number | null;
   /** Its pool's bar: 1 whole, 0 spent. */
   readonly vitality: number;
-  /** What the page drew for it (its skin), shown while it is in sight, and picked to select or lock it. */
-  readonly meshes: AbstractMesh[];
   /** The body it fights, as its team's Commander says (`MemberReport.target`); null when none. */
   readonly target: DungeonActor | null;
   /** Where it was placed: where an enemy waits, and a party member's start. */
@@ -171,8 +166,6 @@ interface DungeonRunOptions {
   /** The level's seed (`generateLevel`), unless `layout` is given. */
   readonly seed: number;
   readonly engine: PhysicsEngine;
-  /** The level's look (`buildDungeonWorld`); false draws nothing. */
-  readonly visuals?: boolean | DungeonSurfaces;
   readonly layout?: DungeonMap;
   readonly hero?: BodyModel;
   readonly companions?: readonly BodyModel[];
@@ -231,7 +224,7 @@ export class DungeonRun {
   /** The world every body and collider is in. */
   readonly world: World;
   /** The level built: its floor, walls and doors, drawn, and their colliders in `world`. */
-  readonly level: ReturnType<typeof buildDungeonWorld>;
+  readonly level: ReturnType<typeof dungeonSolids>;
   readonly actors: DungeonActor[] = [];
   readonly hero: DungeonActor;
   /** The bodies one person orders: the hero first, then the companions. */
@@ -262,15 +255,15 @@ export class DungeonRun {
   /** The levels' rule with its lines that let a held body go `AHEAD_METRES` farther: where an enemy is built (`wake`). */
   private readonly ahead: LevelRule;
 
-  constructor(scene: Scene, options: DungeonRunOptions) {
+  constructor(options: DungeonRunOptions) {
     this.options = options;
     const rule = options.levels ?? LEVELS;
     this.ahead = { ...rule, wake: rule.wake + AHEAD_METRES, company: rule.company + AHEAD_METRES };
     this.map = runMap(options);
     const { characters, homes } = options.prepared ?? prepareDungeonCharacters(this.map, options);
-    this.world = createWorld(scene, options.engine, options.minds ? { minds: options.minds } : {});
+    this.world = createWorld(options.engine, options.minds ? { minds: options.minds } : {});
     this.senses = createSenses(this.world, reactionSteps(this.rules.reaction.value, this.world.hz));
-    this.level = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.world.physics);
+    this.level = dungeonSolids(this.map, this.world.physics);
     this.team = createCommander({ level: this.ground((places) => { this.visible = this.sight(places); }) }, options.party ?? RUN_COMMANDERS.party);
     this.foes = createCommander({ level: this.ground(() => {}) }, options.enemies ?? RUN_COMMANDERS.enemies);
     // As the step is prepared, before any body's own hooks, so each body's mind reads this step's orders.
@@ -279,11 +272,11 @@ export class DungeonRun {
     const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
       const character = characters.get(id)!, info = cryptModel(model, character.spec);
       const actor: DungeonActor = {
-        id, name: actorName(model), model, character, attackMetres: info.attackMetres, side, fighter: null, meshes: [], outAt: null,
+        id, name: actorName(model), model, character, attackMetres: info.attackMetres, side, fighter: null, outAt: null,
         feet() {
           if (!this.fighter) return { x: this.home.x, z: this.home.z };
           // A limp body's view is of the step its control left at; its root is where it lies now.
-          const c = this.limp ? this.fighter.body.muscles.dynamics.root.segment.node.position : this.fighter.body.physical.centre;
+          const c = this.limp ? this.fighter.body.muscles.dynamics.root.segment.pose.position : this.fighter.body.physical.centre;
           return { x: c.x, z: c.z };
         },
         get alive() { return this.fighter === null || this.fighter.pool.ending() === null &&
@@ -305,7 +298,7 @@ export class DungeonRun {
       this.party.push(create(`ally-${i}`, model, homes.get(`ally-${i}`)!, "party"));
     });
     for (const member of this.party) this.build(member);
-    this.warm(scene, options.engine);
+    this.warm(options.engine);
     this.wake(Infinity);
     this.visible = this.sight(this.party.map(member => member.home));
   }
@@ -382,9 +375,9 @@ export class DungeonRun {
    * of a model is built as fast as its next. Where its minds run apart, they are warmed there too
    * (`warmApart`).
    */
-  private warm(scene: Scene, engine: PhysicsEngine): void {
+  private warm(engine: PhysicsEngine): void {
     const apart = this.options.minds;
-    const made = new Map<BodySpec, Set<MindConfig>>(), world = createWorld(scene, engine, apart ? { minds: apart } : {});
+    const made = new Map<BodySpec, Set<MindConfig>>(), world = createWorld(engine, apart ? { minds: apart } : {});
     try {
       for (const enemy of this.enemies) {
         const spec = this.specOf(enemy), mind = this.mindOf(enemy);
@@ -559,24 +552,6 @@ export class DungeonRun {
 
   /** The steps owed after `seconds` of real time, no more than `most` (`World.advance`); none once the run is over. */
   advance(seconds: number, most?: number): number { return this.status === "playing" ? this.world.advance(seconds, most) : 0; }
-
-  present(): void {
-    this.level.present(this.visible, this.explored, this.leader.feet(), this.pitch, this.toward);
-    for (const actor of this.actors) {
-      const shown = actor.side === "party" || this.visible.has(cellKey(this.map, actor.feet()));
-      for (const mesh of actor.meshes) mesh.isVisible = shown;
-    }
-  }
-
-  targetAt(mesh: AbstractMesh): DungeonActor | null {
-    return this.enemies.find(a => a.fighter && a.alive && a.meshes.includes(mesh) &&
-      this.visible.has(cellKey(this.map, a.feet()))) ?? null;
-  }
-
-  /** The party member whose body this mesh belongs to, standing, or null: a click on one selects it. */
-  memberAt(mesh: AbstractMesh): DungeonActor | null {
-    return this.party.find(a => a.alive && a.meshes.includes(mesh)) ?? null;
-  }
 
   dispose(): void {
     this.watch?.dispose();

@@ -29,7 +29,7 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
     const m = p.mass.value / mass, at = p.centreOfMass.value;
     return [c[0] + m * at[0], c[1] + m * at[1], c[2] + m * at[2]] as Vec3;
   }, [0, 0, 0] as Vec3);
-  const q = root.node.rotationQuaternion!;
+  const q = root.pose.rotation;
   const groups = pairsOf(nominal);
   const stance = stanceOf(own, names, nominal, groups, reference, T.lift), room = T.reach * stance.room, neutral = stance.neutral;
   const over: readonly [number, number] = [reference[0] - neutral.reduce((s, n) => s + n[0], 0) / names.length, reference[2] - neutral.reduce((s, n) => s + n[1], 0) / names.length];

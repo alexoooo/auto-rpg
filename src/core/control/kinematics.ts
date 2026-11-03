@@ -168,11 +168,11 @@ function walkedColumn(walk: ChainWalk, c: number, joint: number, at: Vector3, ou
 export function pointNowToRef(segment: ReadSegment, root: ReadSegment, point: Vec3, out: Vector3): Vector3 {
   const origin = segment.frame.origin;
   Quaternion.InverseToRef(segment.rest, scratch.a);
-  segment.node.rotationQuaternion!.multiplyToRef(scratch.a, scratch.d);
-  out.set(point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]).applyRotationQuaternionToRef(scratch.d, out).addInPlace(segment.node.position);
+  segment.pose.rotation.multiplyToRef(scratch.a, scratch.d);
+  out.set(point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]).applyRotationQuaternionToRef(scratch.d, out).addInPlace(segment.pose.position);
   // Into the root's frame: its turn undone about its node.
-  out.subtractInPlace(root.node.position);
-  root.rest.multiplyToRef(Quaternion.InverseToRef(root.node.rotationQuaternion!, scratch.a), scratch.d);
+  out.subtractInPlace(root.pose.position);
+  root.rest.multiplyToRef(Quaternion.InverseToRef(root.pose.rotation, scratch.a), scratch.d);
   out.applyRotationQuaternionToRef(scratch.d, out);
   const rootOrigin = root.frame.origin;
   return out.addInPlaceFromFloats(rootOrigin[0], rootOrigin[1], rootOrigin[2]);
@@ -189,10 +189,10 @@ export interface Frame {
  * root's turn since its reference pose about its node.
  */
 export function rootFrameToRef(root: ReadSegment, out: Frame): Frame {
-  root.node.rotationQuaternion!.multiplyToRef(Quaternion.InverseToRef(root.rest, scratch.a), out.rotation);
+  root.pose.rotation.multiplyToRef(Quaternion.InverseToRef(root.rest, scratch.a), out.rotation);
   const origin = root.frame.origin;
   scratch.v.set(origin[0], origin[1], origin[2]).applyRotationQuaternionToRef(out.rotation, scratch.v);
-  out.position.copyFrom(root.node.position).subtractInPlace(scratch.v);
+  out.position.copyFrom(root.pose.position).subtractInPlace(scratch.v);
   return out;
 }
 

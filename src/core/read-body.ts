@@ -24,7 +24,7 @@ export interface ReadBody {
 export interface BodyRef {
   /** Stable within its world and its snapshots (`SegmentBody.id`). */
   readonly id: number;
-  readonly node: { readonly name: string };
+  readonly pose: { readonly name: string };
 }
 
 /**
@@ -34,15 +34,15 @@ export interface BodyRef {
 export const isBody = (other: BodyRef | null, body: { readonly id: number }): boolean => other !== null && other.id === body.id;
 
 /** A segment's node as read: its name, and its pose, world, as the last step left it. */
-interface ReadNode {
+interface ReadPose {
   readonly name: string;
   readonly position: Vector3;
-  readonly rotationQuaternion: Quaternion | null;
+  readonly rotation: Quaternion;
 }
 
 /** A segment's rigid body as read: its motion and its mass properties. */
 export interface ReadSegmentBody extends BodyRef {
-  readonly node: ReadNode;
+  readonly pose: ReadPose;
   linearVelocityToRef(out: Vector3): Vector3;
   angularVelocityToRef(out: Vector3): Vector3;
   readonly massProperties: MassProperties;
@@ -59,7 +59,7 @@ export interface ReadSegment {
   readonly spec: SegmentSpec;
   /** The segment frame in the body frame, reference pose. */
   readonly frame: SegmentFrame;
-  readonly node: ReadNode;
+  readonly pose: ReadPose;
   readonly body: ReadSegmentBody;
   /** The node's rotation in the reference pose, from which a joint reads its angles. */
   readonly rest: Quaternion;

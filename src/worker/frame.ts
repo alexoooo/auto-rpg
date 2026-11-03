@@ -39,8 +39,8 @@ export function frameLayout(roster: readonly RosterBody[]): { readonly offsets: 
 /** A body as a frame is packed from: its segments' nodes and hands, and its life, state and centre. */
 export interface FramedBody {
   readonly segments: ReadonlyMap<string, {
-    readonly node: { readonly position: { readonly x: number; readonly y: number; readonly z: number };
-      readonly rotationQuaternion: { readonly x: number; readonly y: number; readonly z: number; readonly w: number } | null };
+    readonly pose: { readonly position: { readonly x: number; readonly y: number; readonly z: number };
+      readonly rotation: { readonly x: number; readonly y: number; readonly z: number; readonly w: number } };
     readonly handPose?: { readonly applied: HandPose };
     readonly toes?: { readonly bend: number };
   }>;
@@ -62,7 +62,7 @@ export function packFrame(bodies: readonly FramedBody[], length: number, time: n
     frame[at + 3] = centre.x; frame[at + 4] = centre.y; frame[at + 5] = centre.z;
     at += BODY_HEAD;
     for (const segment of body.segments.values()) {
-      const p = segment.node.position, q = segment.node.rotationQuaternion!;
+      const p = segment.pose.position, q = segment.pose.rotation;
       frame[at] = p.x; frame[at + 1] = p.y; frame[at + 2] = p.z;
       frame[at + 3] = q.x; frame[at + 4] = q.y; frame[at + 5] = q.z; frame[at + 6] = q.w;
       frame[at + 7] = segment.handPose ? HAND_POSES.indexOf(segment.handPose.applied) : -1;

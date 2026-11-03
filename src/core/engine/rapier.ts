@@ -1,10 +1,9 @@
 import RAPIER from "@dimforge/rapier3d-simd-compat";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
 import { type ColliderShape, type Contact, type ContactMaterial, type ContactManifold, type ContactPair, type ContactSink, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
-  type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
+  type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type Pose, type SegmentBody } from "./engine.ts";
 import { sin, cos, hypot } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";
 
@@ -134,7 +133,7 @@ interface RapierPhysics extends PhysicsWorld {
   readonly rapier: Rapier;
   /** Rapier's world as it is now: a load replaces it, so read it afresh. */
   readonly raw: RAPIER.World;
-  addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties, options?: { readonly ccd?: boolean; readonly materials?: readonly ContactMaterial[] }): RapierBody;
+  addBody(node: Pose, shapes: readonly ColliderShape[], mass: MassProperties, options?: { readonly ccd?: boolean; readonly materials?: readonly ContactMaterial[] }): RapierBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): RapierJoint;
 }
 
@@ -557,9 +556,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     if (poses.length !== POSE * list.length) poses = new Float64Array(POSE * list.length);
     raw.bodies.raw.rbPosesAndVelocities(handles, poses);
     for (let i = 0; i < list.length; i++) {
-      const body = list[i]!, node = body.node, read = velocities.get(body)!, at = POSE * i;
+      const body = list[i]!, node = body.pose, read = velocities.get(body)!, at = POSE * i;
       node.position.set(poses[at]!, poses[at + 1]!, poses[at + 2]!);
-      (node.rotationQuaternion ??= new Quaternion()).set(poses[at + 3]!, poses[at + 4]!, poses[at + 5]!, poses[at + 6]!);
+      node.rotation.set(poses[at + 3]!, poses[at + 4]!, poses[at + 5]!, poses[at + 6]!);
       read.linear.set(poses[at + 7]!, poses[at + 8]!, poses[at + 9]!); read.linearAt = moment;
       read.angular.set(poses[at + 10]!, poses[at + 11]!, poses[at + 12]!); read.angularAt = moment;
     }
@@ -574,8 +573,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       const snapshot = raw.takeSnapshot(), poses = new Float64Array(HEADER + NODE_POSE * bodies.size + 2 * grips.length);
       poses[0] = SAVE_VERSION; poses[1] = bodies.size; poses[2] = grips.length; poses[3] = worldDigest();
       let k = HEADER;
-      for (const { node } of bodies) {
-        const p = node.position, q = node.rotationQuaternion ?? Quaternion.Identity();
+      for (const { pose: node } of bodies) {
+        const p = node.position, q = node.rotation;
         poses[k++] = p.x; poses[k++] = p.y; poses[k++] = p.z;
         poses[k++] = q.x; poses[k++] = q.y; poses[k++] = q.z; poses[k++] = q.w;
       }
@@ -641,9 +640,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       for (const body of bodies) forced.add(body);
       const poses = new Float64Array(bytes.slice(8 * HEADER, 8 * (HEADER + NODE_POSE * count)).buffer);
       let k = 0;
-      for (const { node } of bodies) {
+      for (const { pose: node } of bodies) {
         node.position.set(poses[k++]!, poses[k++]!, poses[k++]!);
-        (node.rotationQuaternion ??= new Quaternion()).set(poses[k++]!, poses[k++]!, poses[k++]!, poses[k++]!);
+        node.rotation.set(poses[k++]!, poses[k++]!, poses[k++]!, poses[k++]!);
       }
     },
     addBody(node, shapes, mass, { ccd = false, materials: givenMaterials = [] } = {}) {
@@ -652,7 +651,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         if (given?.friction !== undefined && !(given.friction >= 0 && Number.isFinite(given.friction))) throw new Error("a friction coefficient must be finite and nonnegative");
         return given && (given.friction === undefined ? {} : { friction: given.friction });
       });
-      const q = node.rotationQuaternion ?? Quaternion.Identity();
+      const q = node.rotation;
       let rigid = raw.createRigidBody(R.RigidBodyDesc.dynamic()
         .setTranslation(node.position.x, node.position.y, node.position.z)
         .setRotation(xyzw(q))
@@ -687,7 +686,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       setMass(mass);
       const handle = rigid.handle;
       const body: RapierBody = {
-        node, id: handle, get rigid() { return rigid; },
+        pose: node, id: handle, get rigid() { return rigid; },
         linearVelocityToRef(out) {
           if (read.linearAt !== moment) { const v = rigid.linvel(); read.linear.set(v.x, v.y, v.z); read.linearAt = moment; }
           return out.copyFrom(read.linear);

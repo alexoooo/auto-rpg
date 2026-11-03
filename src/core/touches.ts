@@ -125,7 +125,7 @@ export function watchTouches<B extends { readonly built: BuiltBody }>(
       const { segment } = owned, last = state.last[owned.key]!;
       segment.body.linearVelocityToRef(last.velocity);
       segment.body.angularVelocityToRef(last.spin);
-      owned.local.applyRotationQuaternionToRef(segment.node.rotationQuaternion!, last.centre).addInPlace(segment.node.position);
+      owned.local.applyRotationQuaternionToRef(segment.pose.rotation, last.centre).addInPlace(segment.pose.position);
     }
   };
   remember();

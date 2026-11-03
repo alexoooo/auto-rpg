@@ -84,11 +84,11 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
       for (const low of d.lows) { pointOfToRef(d.segment, low.at, scratch.at); e.low = Math.min(e.low, scratch.at.y - low.radius); }
       if (impulse) { e.contactAt.scaleInPlace(1 / impulse); e.ground = e.contactAt.y; } else e.contactAt.copyFrom(e.at);
       motionAtToRef(d.segment, e.contactAt, e.contactVelocity, scratch.angular);
-      scratch.at.set(0, 1, 0).applyRotationQuaternionToRef(d.segment.node.rotationQuaternion!, scratch.velocity);
+      scratch.at.set(0, 1, 0).applyRotationQuaternionToRef(d.segment.pose.rotation, scratch.velocity);
       e.flat = e.contact && Math.abs(scratch.velocity.y) >= response.supportNormal && Math.abs(e.at.y - e.contactAt.y) <= response.contactMargin;
       const sole = soles[i];
       if (sole) {
-        scratch.at.set(0, 0, 1).applyRotationQuaternionToRef(d.segment.node.rotationQuaternion!, sole.along);
+        scratch.at.set(0, 0, 1).applyRotationQuaternionToRef(d.segment.pose.rotation, sole.along);
         sole.along.y = 0; sole.along.normalize();
       }
     });
@@ -101,7 +101,7 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
     scratch.velocity.copyFrom(state.velocity).subtractInPlace(scratch.at.set(...command.velocity));
     approachToRef(scratch.at.set(...command.centre), state.centre, scratch.velocity, 1 / timing.centre, state.aim.centre);
     scratch.target.set(...command.rotation);
-    turnToRef(root.node.rotationQuaternion!, scratch.target, timing.turn, root.body.angularVelocityToRef(scratch.angular), state.aim.spin);
+    turnToRef(root.pose.rotation, scratch.target, timing.turn, root.body.angularVelocityToRef(scratch.angular), state.aim.spin);
     limbs.forEach((limb, i) => {
       const goal = command.endpoints[i]!, actual = state.endpoints[i]!, task = limb.task;
       task.bearing = goal.bearing && actual.contact; task.on = task.bearing;
@@ -109,7 +109,7 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
       limb.work.rows = goal.rotation || actual.flat && soles[i] ? null : positionRows;
       limb.work.patch = actual.flat && soles[i] ? soles[i]! : points[i]!;
       limb.segment.body.angularVelocityToRef(scratch.angular);
-      if (goal.rotation) turnToRef(limb.segment.node.rotationQuaternion!, scratch.target.set(...goal.rotation), timing.endpoint, scratch.angular, task.angular);
+      if (goal.rotation) turnToRef(limb.segment.pose.rotation, scratch.target.set(...goal.rotation), timing.endpoint, scratch.angular, task.angular);
       else task.angular.copyFrom(scratch.angular).scaleInPlace(-2 * ne);
     });
     const work = servoAsk(muscles, i => tracked(i)?.[0] ?? command.posture[muscles.channels[i]!.name] ?? 0, timing.posture, dt,

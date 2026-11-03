@@ -7,14 +7,14 @@ const scratch = { a: new Quaternion(), b: new Quaternion() };
 /** `segment`'s turn since its reference pose, node times rest^-1. */
 export function turnOfToRef(segment: ReadSegment, out: Quaternion): Quaternion {
   Quaternion.InverseToRef(segment.rest, scratch.a);
-  return segment.node.rotationQuaternion!.multiplyToRef(scratch.a, out);
+  return segment.pose.rotation.multiplyToRef(scratch.a, out);
 }
 
 /** `point` (body frame, reference pose, on `segment`) where it is now, world. */
 export function pointOfToRef(segment: ReadSegment, point: Vec3, out: Vector3): Vector3 {
   const origin = segment.frame.origin;
   return out.set(point[0] - origin[0], point[1] - origin[1], point[2] - origin[2])
-    .applyRotationQuaternionToRef(turnOfToRef(segment, scratch.b), out).addInPlace(segment.node.position);
+    .applyRotationQuaternionToRef(turnOfToRef(segment, scratch.b), out).addInPlace(segment.pose.position);
 }
 
 export const centreOfToRef = (segment: ReadSegment, out: Vector3): Vector3 => pointOfToRef(segment, segment.rigid.centre, out);
@@ -47,7 +47,7 @@ export function angularMomentumToRef(parts: readonly ReadSegment[], centre: Vect
   offset: Vector3, motion: Vector3, local: Vector3, turn: Quaternion): void {
   out.setAll(0);
   for (const part of parts) {
-    const { mass, tensor: T } = part.rigid, rotation = part.node.rotationQuaternion!;
+    const { mass, tensor: T } = part.rigid, rotation = part.pose.rotation;
     centreOfToRef(part, offset).subtractInPlace(centre);
     part.body.linearVelocityToRef(motion).subtractInPlace(velocity).scaleInPlace(mass);
     out.addInPlace(Vector3.CrossToRef(offset, motion, local));

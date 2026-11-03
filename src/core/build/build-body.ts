@@ -1,6 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import type { ColliderShape, EngineJoint, PhysicsWorld, SegmentBody } from "../engine/engine.ts";
+import type { ColliderShape, EngineJoint, PhysicsWorld, Pose, SegmentBody } from "../engine/engine.ts";
 import type { ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 import { jointKinematics } from "./joint-kinematics.ts";
 import type { World } from "../world.ts";
@@ -34,9 +33,9 @@ import { createToes, flatToes, type ToesState } from "./toes.ts";
  * with everything but its joint partners.
  */
 
-/** A segment as built: as read (`ReadSegment`), with its node and its engine body. */
+/** A segment as built: as read (`ReadSegment`), with its pose and its engine body. */
 export interface BuiltSegment extends ReadSegment {
-  readonly node: TransformNode;
+  readonly pose: Pose;
   readonly body: SegmentBody;
   readonly handPose?: { applied: HandPose; requested: HandPose };
   /** A foot's toes now (`toes.ts`): its body's state, which its `rigid` follows. */
@@ -82,11 +81,10 @@ const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
 
 function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World, pose?: InitialPose): BuiltSegment {
   const { frame, rigid, initial, poses, bent, rigidAt } = segmentShapes(body, spec);
-  const node = new TransformNode(`${body.model}.${spec.name}`, world.scene);
-  node.position = v3(frame.origin).addInPlace(v3(placement.position));
-  node.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z));
-  const rest = node.rotationQuaternion.clone();
-  if (pose) { node.position.copyFrom(pose.position); node.rotationQuaternion.copyFrom(pose.rotation); }
+  const node: Pose = { name: `${body.model}.${spec.name}`, position: v3(frame.origin).addInPlace(v3(placement.position)),
+    rotation: Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z)) };
+  const rest = node.rotation.clone();
+  if (pose) { node.position.copyFrom(pose.position); node.rotation.copyFrom(pose.rotation); }
   // A posed hand's collider is its initial pose's from the first step, as `handPose.applied` says.
   const shapes = poses ? poses[initial].rigid.shapes : rigid.shapes;
   const [xx, yy, zz] = rigid.tensor;
@@ -113,7 +111,7 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
   }) });
   const handPose = spec.handPoses ? { applied: initial, requested: initial } : undefined;
   const toes = spec.toes ? flatToes() : undefined;
-  return { spec, frame, node, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}), ...(toes && bent ? { toes, bent } : {}),
+  return { spec, frame, pose: node, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}), ...(toes && bent ? { toes, bent } : {}),
     get rigid() { return rigidAt(handPose?.applied, toes); } };
 }
 
@@ -208,7 +206,6 @@ export function buildBody(spec: BodySpec, world: World, placement: Placement): B
       // Removing a body removes its colliders and joints with it.
       for (const segment of segments.values()) {
         world.physics.removeBody(segment.body);
-        segment.node.dispose();
       }
     },
   };

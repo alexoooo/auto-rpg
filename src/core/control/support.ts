@@ -479,7 +479,7 @@ type Sole = { readonly corners: readonly Vector3[] };
 /** The middle of `foot`'s sole's corners, world, now. */
 export function soleMiddleToRef(foot: FootState, out: Vector3): Vector3 {
   fitSole(foot);
-  const turn = foot.segment.node.rotationQuaternion!, at = foot.segment.node.position;
+  const turn = foot.segment.pose.rotation, at = foot.segment.pose.position;
   out.setAll(0);
   foot.sole.forEach((corner, k) => { out.addInPlace(corner.applyRotationQuaternionToRef(turn, foot.corners[k]!).addInPlace(at)); });
   return out.scaleInPlace(1 / foot.sole.length);
@@ -697,7 +697,7 @@ function edgeOf(foot: FootState): void {
 
 /** `foot`'s held regions (`FootState.hold`) where the foot is now, into its `held` points and the point under the ankle. */
 function heldOf(foot: FootState): void {
-  const turn = foot.segment.node.rotationQuaternion!, at = foot.segment.node.position, { points, under } = foot.held;
+  const turn = foot.segment.pose.rotation, at = foot.segment.pose.position, { points, under } = foot.held;
   foot.hold.forEach((point, k) => { point.applyRotationQuaternionToRef(turn, points[k]!).addInPlace(at); });
   under.copyFrom(points[4]!).addInPlace(points[5]!).scaleInPlace(0.5);
 }

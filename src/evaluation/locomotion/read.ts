@@ -40,7 +40,7 @@ export const HALTED = .15, HALT_SPAN = .25, TRAIL_SPAN = .5;
 /** The reader of `condition`'s trial: the root segment's ground point every step, read when the trial has run `AFTER` s past its last cue. */
 export function readLocomotion({ world, body }: BuiltLone, condition: LocomotionCondition): Reader<LocomotionReading> {
   const spec = body.built.spec, rootName = spec.segments.find((segment) => !spec.joints.some((joint) => joint.child === segment.name))!.name;
-  const root = body.built.segments.get(rootName)!.node, hz = world.hz, { last } = scriptOf(condition);
+  const root = body.built.segments.get(rootName)!.pose, hz = world.hz, { last } = scriptOf(condition);
   const end = Math.round((last + AFTER) * hz), path: number[] = [];
   let fellAt: number | null = null, steps = 0;
   const at = (seconds: number) => 2 * Math.min(path.length / 2 - 1, Math.max(0, Math.round(seconds * hz) - 1));

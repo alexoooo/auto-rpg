@@ -5,8 +5,6 @@
  * (`risingReport`). `research/rising-bed.mjs` runs them on workers; the fall evaluations
  * (`rising-target`, `equipped-rise`) play the same falls through `fall.ts`.
  */
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { commandedBody } from "../core/mind/host.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
@@ -137,7 +135,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
   }
   if ("refused" in fixture) return { ...job, factor, reached: false, survived: false, end: "rejected start", phase: null, seconds: cap, error: fixture.refused, trail: [], saturation: {} };
   const placement = fixture;
-  const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"));
+  const world = createWorld(await loadEngine("rapier"));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placement), reader = groundReading(built, world.dt);
   let run!: TechniqueRun, predecessor: TechniqueRun | null = null;
@@ -181,7 +179,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
       if (start === "shoved" && !control.shoved && world.time >= 1) {
         const radians = (job.degrees ?? 0) * Math.PI / 180, mass = [...built.segments.values()].reduce((sum, part) => sum + part.rigid.mass, 0);
         const trunk = built.segments.get("middleTrunk")!;
-        trunk.body.applyImpulse(new Vector3(1.5 * mass * sin(radians), 0, 1.5 * mass * cos(radians)), trunk.node.position);
+        trunk.body.applyImpulse(new Vector3(1.5 * mass * sin(radians), 0, 1.5 * mass * cos(radians)), trunk.pose.position);
         control.shoved = true;
       }
       world.step();
@@ -213,7 +211,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
       endedAt: control.ended ?? world.time, candidateBegun: control.candidateFrom !== null, trail, saturation,
       predecessor: control.predecessor, predecessorSeconds: control.predecessorSeconds,
       balance: 0, assist: { force: body.assist.given.force.length(), moment: body.assist.given.moment.length() } };
-  } finally { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); engine.dispose(); }
+  } finally { body.dispose(); built.dispose(); world.dispose(); }
 }
 
 /** What the bed plays: its starts, bodies, loadouts, seeds and riser, or a fixed suite (`target`, `obstacles`, `loadouts`). */

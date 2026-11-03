@@ -120,9 +120,9 @@ export function startWind(built: BuiltBody, world: World, settings: WindSettings
   const hook = world.beforeStep(() => {
     const [fx, fz] = blow(state, wind.settings, world.time, world.dt);
     if (fx === 0 && fz === 0) return;
-    trunk.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
+    trunk.pose.rotation.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
     const com = trunk.rigid.centre, o = trunk.frame.origin;
-    at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.node.position);
+    at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.pose.position);
     trunk.body.applyImpulse(impulse.set(fx * world.dt, 0, fz * world.dt), at);
   });
   return wind;

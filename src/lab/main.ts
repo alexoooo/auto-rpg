@@ -287,7 +287,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     if (!physicsEngine) { show(to); return; }
     audio.reset();
     unload();
-    world = createWorld(scene, physicsEngine, { hz: to.hz });
+    world = createWorld(physicsEngine, { hz: to.hz });
     world.physics.addFixedBox([0, -0.5, 0], [FLOOR, 1, FLOOR]);
     // The scenario supplies its initial placement; ordinary starts hold the standing guard.
     let placement: Parameters<typeof buildBody>[2];
@@ -299,7 +299,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const mind = mindAt(to, spec);
     const actor = labActor(built, world, { mind, assist: balanceCeiling(balance, PERCENT) });
     thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.mind?.skills ?? null, report: actor.mind?.report ?? null }), labStaging(to.scenario)));
-    const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
+    const rest = built.segments.get("lowerTrunk")!.pose.rotation.clone();
     const puppet = puppetBody(built.spec, scene), follows = followBody(puppet, built, world);
     const view = drawBody(puppet, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(puppet, scene);
     const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = logSounds(world, actor.body, sounds);

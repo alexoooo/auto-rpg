@@ -26,7 +26,7 @@ interface History<T> {
 /** Record the last `seconds` of `built` in `world`, and what `read` says after each step; show a frame on `puppet`. */
 export function recordHistory<T>(built: BuiltBody, puppet: Puppet, world: World, seconds: number, read: () => T): History<T> {
   const capacity = Math.round(seconds / world.dt);
-  const nodes = [...built.segments.values()].map((segment) => segment.node);
+  const nodes = [...built.segments.values()].map((segment) => segment.pose);
   const shownNodes = [...built.segments.keys()].map((name) => {
     const segment = puppet.segments.get(name);
     if (!segment) throw new Error(`the puppet has no segment ${name}`);
@@ -44,7 +44,7 @@ export function recordHistory<T>(built: BuiltBody, puppet: Puppet, world: World,
     readings[at] = read();
     let k = at * nodes.length * 7;
     for (const node of nodes) {
-      const p = node.position, q = node.rotationQuaternion!;
+      const p = node.position, q = node.rotation;
       pose[k++] = p.x; pose[k++] = p.y; pose[k++] = p.z;
       pose[k++] = q.x; pose[k++] = q.y; pose[k++] = q.z; pose[k++] = q.w;
     }

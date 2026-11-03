@@ -109,13 +109,11 @@ interface DungeonSolid {
 }
 
 /**
- * `visuals` is false for a world with no drawn floor or walls, true for the flat colours, and otherwise the page's
- * chosen stone (`dungeonStone` in `stone.ts`). The colliders are fixed boxes in `physics` (`solids`), the same in
- * every case, and none is drawn: the floor's slab, each obstacle, the walls in runs of up to four cells, and each door
- * until it opens. With no `physics` the level is only drawn, and `solids` still says what it would have put there.
+ * **The level's solids**, nothing drawn: fixed boxes in `physics` (`solids`), the floor's slab, each obstacle, the
+ * walls in runs of up to four cells, and each door until it opens (`opened` is told of each it opens). With no
+ * `physics`, `solids` still says what it would have put there. A crypt run is built on these alone (`DungeonRun`).
  */
-export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolean | DungeonSurfaces = true, physics?: PhysicsWorld) {
-  const wood = flatStone(scene, "ironbound doors", "#806044", 0.8);
+export function dungeonSolids(map: DungeonMap, physics?: PhysicsWorld, opened: (door: Door) => void = () => {}) {
   const colliders: FixedCollider[] = [], solids: DungeonSolid[] = [];
   const box = (name: string, x: number, y: number, z: number, width: number, height: number, depth: number): FixedCollider | null => {
     solids.push({ name, centre: [x, y, z], size: [width, height, depth] });
@@ -131,10 +129,44 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     const start = x; while (x < map.size && x - start < 4 && boundary(map, x, z)) x++;
     box(`wall.${z}.${start}`, (start + x - 1) / 2, WALL_HEIGHT / 2, z, x - start, WALL_HEIGHT, 1);
   }
+  const doors = map.doors.map(d => d.open ? null : box(`door.${d.id}`, d.point.x, 1.25, d.point.z, d.axis === "x" ? 0.35 : 3, 2.5, d.axis === "z" ? 0.35 : 3));
+  const senseSolids = () => solidSenses(solids.filter(solid => !solid.name.startsWith("door.") || !map.doors.find(door => solid.name === `door.${door.id}`)?.open)
+    .map(solid => ({ ...solid, kind: "box" as const })));
+  let sensed = senseSolids();
+  /** Opens each of `opening` still closed: its collider gone. */
+  const open = (opening: readonly Door[]) => {
+    let changed = false;
+    for (const door of opening) if (!door.open) {
+      door.open = true;
+      changed = true;
+      doors[door.id]?.dispose();
+      opened(door);
+    }
+    if (changed) sensed = senseSolids();
+  };
+  return {
+    /** Every fixed box the level put in the physics world, in the order it was built; an opened door's stays listed. */
+    solids: solids as readonly DungeonSolid[],
+    /** Current detached collision geometry, replaced only when a door opens. */
+    get sensedSolids() { return sensed; },
+    openNearby(actors: readonly Point[]) {
+      open(map.doors.filter(door => actors.some(p => hypot(p.x - door.point.x, p.z - door.point.z) < DOOR_OPEN_DISTANCE)));
+    },
+    /** Opens the doors of these ids, as a run in another world says it opened them. */
+    opened(ids: readonly number[]) { open(map.doors.filter(door => ids.includes(door.id))); },
+    dispose() { for (const collider of colliders) collider.dispose(); },
+  };
+}
+
+/**
+ * **The level drawn**: its solids (`dungeonSolids`, with no physics) and its look. `visuals` is true for the flat
+ * colours and otherwise the page's chosen stone (`dungeonStone` in `stone.ts`); a door's leaf hides as it opens.
+ */
+export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: true | DungeonSurfaces = true) {
+  const wood = flatStone(scene, "ironbound doors", "#806044", 0.8);
+  const level = dungeonSolids(map, undefined, (door) => { for (const mesh of doors[door.id]!.leaf) mesh.isVisible = false; });
   const iron = flatStone(scene, "door and sconce iron", "#3b3734", 0.5); iron.metallic = 0.7;
   const doors = map.doors.map(d => {
-    const collider = d.open ? null : box(`door.${d.id}`, d.point.x, 1.25, d.point.z, d.axis === "x" ? 0.35 : 3, 2.5, d.axis === "z" ? 0.35 : 3);
-    if (visuals === false) return { collider, leaf: [] as Mesh[] };
     const L = DOOR_LEAF, width = (3 - L.gap * (L.planks + 1)) / L.planks, turn = d.axis === "x" ? Math.PI / 2 : 0;
     const planks = Array.from({ length: L.planks }, (_, i) => {
       const plank = MeshBuilder.CreateBox("plank", { width, height: L.height, depth: L.depths[i % 2] }, scene);
@@ -151,10 +183,10 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     const leaf = [fitting(`door.${d.id}.leaf`, planks, d.point.x, d.point.z, turn), fitting(`door.${d.id}.iron`, [...bands, ...rings], d.point.x, d.point.z, turn)];
     leaf[0].material = wood; leaf[1].material = iron;
     for (const mesh of leaf) mesh.isVisible = !d.open;
-    return { collider, leaf };
+    return { leaf };
   });
   // Fog is a mask the surfaces read (`fog-plugin.ts`), so nothing here is shown or hidden cell by cell.
-  const look = visuals === true ? dungeonStone(scene) : visuals || null;
+  const look = visuals === true ? dungeonStone(scene) : visuals;
   const fog = look ? dungeonFog(scene, map) : null;
   const surfaces: Mesh[] = [], fittings: { mesh: Mesh; floor: number }[] = [];
   if (look && fog) {
@@ -175,33 +207,14 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
   // exposure, so x3 (0.381 x 3 x 1.15 = 1.32) glows, and anything under about x2.5 would not.
   const exitMaterial = flatStone(scene, "exit light", "#93edcf");
   exitMaterial.emissiveColor = Color3.FromHexString("#42b998").toLinearSpace().scale(3); exit.material = exitMaterial;
-  const senseSolids = () => solidSenses(solids.filter(solid => !solid.name.startsWith("door.") || !map.doors.find(door => solid.name === `door.${door.id}`)?.open)
-    .map(solid => ({ ...solid, kind: "box" as const })));
-  let sensed = senseSolids();
-  /** Opens each of `opening` still closed: its collider gone, its leaf hidden. */
-  const open = (opening: readonly Door[]) => {
-    let changed = false;
-    for (const door of opening) if (!door.open) {
-      door.open = true;
-      changed = true;
-      doors[door.id].collider?.dispose();
-      for (const mesh of doors[door.id].leaf) mesh.isVisible = false;
-    }
-    if (changed) sensed = senseSolids();
-  };
   return {
     fog, surfaces, markers: [exit],
-    /** Every fixed box the level put in the physics world, in the order it was built; an opened door's stays listed. */
-    solids: solids as readonly DungeonSolid[],
-    /** Current detached collision geometry, replaced only when a door opens. */
-    get sensedSolids() { return sensed; },
-    /** Materials may be dressed; visibility and collision remain owned by openNearby. */
-    doorVisuals: doors.flatMap(door => door.leaf.length ? [{ wood: door.leaf[0], iron: door.leaf[1] }] : []),
-    openNearby(actors: readonly Point[]) {
-      open(map.doors.filter(door => actors.some(p => hypot(p.x - door.point.x, p.z - door.point.z) < DOOR_OPEN_DISTANCE)));
-    },
-    /** Opens the doors of these ids, as a run in another world says it opened them. */
-    opened(ids: readonly number[]) { open(map.doors.filter(door => ids.includes(door.id))); },
+    /** Every fixed box the level would put in a physics world (`dungeonSolids`). */
+    solids: level.solids,
+    /** Materials may be dressed; visibility follows the doors as they open (`opened`). */
+    doorVisuals: doors.flatMap(door => door.leaf.length ? [{ wood: door.leaf[0]!, iron: door.leaf[1]! }] : []),
+    /** Opens the doors of these ids, as the run in the worker says it opened them: their leaves hidden. */
+    opened(ids: readonly number[]) { level.opened(ids); },
     /** An iron sconce under each torch's flame, hidden until the floor it faces is explored, as its flame is. The fog
      * reads a fitting's top and underside from that floor cell and its front from the wall, which shows as soon as a
      * diagonal neighbour is explored: without the gate, the front of a sconce would be drawn without its top. */
@@ -309,6 +322,6 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     },
     /** Where the walls in front of the hero open. The page calls it every frame; `present` runs every 100 ms. */
     setHero(hero: Point) { fog?.setHero(hero); },
-    dispose() { for (const collider of colliders) collider.dispose(); fog?.dispose(); },
+    dispose() { level.dispose(); fog?.dispose(); },
   };
 }

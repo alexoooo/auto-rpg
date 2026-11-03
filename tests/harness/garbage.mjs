@@ -1,8 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { Session } from "node:inspector/promises";
 import { fileURLToPath } from "node:url";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { SERVO_SECONDS } from "../../src/core/body.ts";
 import { commandedBody } from "../../src/core/mind/host.ts";
 import { buildBody } from "../../src/core/build/build-body.ts";
@@ -24,7 +22,7 @@ import { poseAngles } from "../../src/core/control/kinematics.ts";
  */
 export async function standBodies(count, model = "crypt-skeleton", { only } = {}) {
   const spec = armed(modelSpec(model), "right", woodenClub());
-  const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine());
+  const world = createWorld(await freshEngine());
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const side = Math.ceil(Math.sqrt(count));
   const bodies = Array.from({ length: count }, (_, i) => i).filter((i) => only === undefined || i === only).map((i) => {
@@ -32,7 +30,7 @@ export async function standBodies(count, model = "crypt-skeleton", { only } = {}
     driveBy(body, { name: "stand", decide: () => standIntent(0) });
     return body;
   });
-  return { world, bodies, dispose() { world.dispose(); scene.dispose(); } };
+  return { world, bodies, dispose() { world.dispose(); } };
 }
 
 /**
@@ -46,12 +44,12 @@ const lying = (own, view) => ({
 
 /** A Warrior on its back, lying still (`lying`), so every step reads all fixed support. */
 export async function downBody() {
-  const rendering = new NullEngine(), scene = new Scene(rendering), world = createWorld(scene, await freshEngine());
+  const world = createWorld(await freshEngine());
   world.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);
   const spec = modelSpec("workshop-fighter"), half = Math.sqrt(.5);
   const built = buildBody(spec, world, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
   const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS }, [lying]);
-  return { world, body, dispose() { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); } };
+  return { world, body, dispose() { body.dispose(); built.dispose(); world.dispose(); } };
 }
 
 /**

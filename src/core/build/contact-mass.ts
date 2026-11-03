@@ -162,8 +162,8 @@ export function contactMass(built: BuiltBody): ContactMass {
     update() {
       inverseColumns.clear();
       segments.forEach((segment, i) => {
-        const rotation = segment.node.rotationQuaternion!;
-        localCentre[i]!.applyRotationQuaternionToRef(rotation, v).addInPlace(segment.node.position);
+        const rotation = segment.pose.rotation;
+        localCentre[i]!.applyRotationQuaternionToRef(rotation, v).addInPlace(segment.pose.position);
         const centre = centres[i]!;
         centre[0] = v.x; centre[1] = v.y; centre[2] = v.z;
         // R T R' with R's columns the segment frame's axes as they are now.
@@ -183,12 +183,12 @@ export function contactMass(built: BuiltBody): ContactMass {
         }
       });
       joints.forEach((joint, j) => {
-        localPivot[j]!.applyRotationQuaternionToRef(joint.child.node.rotationQuaternion!, v).addInPlace(joint.child.node.position);
+        localPivot[j]!.applyRotationQuaternionToRef(joint.child.pose.rotation, v).addInPlace(joint.child.pose.position);
         const pivot = pivots[j]!;
         pivot[0] = v.x; pivot[1] = v.y; pivot[2] = v.z;
         // A body-frame axis as the parent now carries it: P P0^-1.
         Quaternion.InverseToRef(joint.parent.rest, q);
-        joint.parent.node.rotationQuaternion!.multiplyToRef(q, carry);
+        joint.parent.pose.rotation.multiplyToRef(q, carry);
         axes[j] = motionAxesToRef(joint, jointAngles(joint), bodyAxes).map((a) => {
           v.set(a[0], a[1], a[2]).applyRotationQuaternionToRef(carry, v);
           return [v.x, v.y, v.z] as Vec3;

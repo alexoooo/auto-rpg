@@ -1,4 +1,3 @@
-import type { Scene } from "@babylonjs/core/scene.js";
 import type { PhysicsEngine, PhysicsWorld } from "./engine/engine.ts";
 import { sourced, type Quantity } from "./spec/quantity.ts";
 
@@ -31,17 +30,15 @@ export interface MindsApart {
  *
  * A step is: the sensing hooks; the preparing hooks (each body made ready to be read, and a mind on
  * a mirror or apart handed what it reads), then what they asked of minds apart is sent; the step hooks, in the order they were added (minds,
- * motor control, the muscle driver); then one solver step of `dt`, which writes every body's node;
+ * motor control, the muscle driver); then one solver step of `dt`, which writes every body's pose;
  * then the clock advances and the post-physics hooks observe the completed interval; then the
- * after-step hooks (events and readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
- * beside the scene, which only carries the nodes: `scene.render()` never advances it, and a page renders what the steps
- * produced. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
+ * after-step hooks (events and readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`).
+ * Nothing draws it: a page draws what the steps produced, and drawing never advances it. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
  *
  * A hook added while its own list runs waits for the next step, but an after-step hook added by a
  * step hook runs in the same step. A hook removed stops at once.
  */
 export interface World {
-  readonly scene: Scene;
   /** The physics: bodies, joints, ground and gravity. */
   readonly physics: PhysicsWorld;
   /** Steps a second. */
@@ -127,8 +124,8 @@ interface WorldOptions {
   readonly minds?: MindsApart;
 }
 
-/** The world on `scene`, with a physics of `engine`'s own: make it before any body. The caller loads the engine (`loadEngine`). */
-export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric", delay = COMMAND_DELAY.value, mirrored = undefined, minds = undefined }: WorldOptions = {}): World {
+/** A world with a physics of `engine`'s own: make it before any body. The caller loads the engine (`loadEngine`). */
+export function createWorld(engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric", delay = COMMAND_DELAY.value, mirrored = undefined, minds = undefined }: WorldOptions = {}): World {
   if (actuation !== "symmetric" && actuation !== "directional") throw new Error(`unknown actuation ${String(actuation)}`);
   if (!(Number.isInteger(delay) && delay >= 0)) throw new Error(`a command's delay is a whole number of steps, not ${String(delay)}`);
   const physics = engine.createPhysics({ hz, gravity });
@@ -149,7 +146,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
 
   const world: World = {
     // A mind a step or more behind its body decides on its mirror, its motor part carrying out the decision on the body as it is.
-    scene, physics, hz, dt, delay, state, mirrored: mirrored === true || delay > 0, minds: minds ?? null,
+    physics, hz, dt, delay, state, mirrored: mirrored === true || delay > 0, minds: minds ?? null,
     get actuation() { return actuation; },
     get steps() { return state.steps; },
     get time() { return state.steps / hz; },
@@ -163,8 +160,6 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
     step(n = 1) {
       if (disposed) throw new Error("the world was disposed");
       for (let i = 0; i < n; i++) {
-        // Babylon caches a node's world matrix per render id; a step is a new moment, so a new id.
-        (scene as unknown as { _renderId: number })._renderId += 1;
         runAll(sensing);
         runAll(preparing);
         minds?.dispatch();

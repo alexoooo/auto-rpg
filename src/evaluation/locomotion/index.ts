@@ -133,7 +133,7 @@ export const LOCOMOTION: Evaluation<LocomotionCondition, LocomotionReading, Buil
       const velocity = rootVelocity(built);
       return -Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
     },
-    upright: (built) => { const turn = rootOf(built).node.rotationQuaternion!; return 1 - 2 * (turn.x * turn.x + turn.z * turn.z); },
+    upright: (built) => { const turn = rootOf(built).pose.rotation; return 1 - 2 * (turn.x * turn.x + turn.z * turn.z); },
   },
   outcome: (r) => ({ label: r.fell ? "fell" : r.stopped ? "stood" : "moving", passed: !r.fell }),
   summary: locomotionSummary,

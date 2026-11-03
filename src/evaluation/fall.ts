@@ -8,8 +8,6 @@
  * between JavaScript engines: the starts and the shove (`src/lab/ground-starts.ts`,
  * `stance-mode.ts`) use arithmetic each engine rounds its own way.
  */
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { addArenaSolids } from "../arena/room.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
@@ -154,8 +152,7 @@ export async function buildStandFall(fall: FallCase, engine: EngineName, given: 
   const { spec, placement } = start;
   if ("refused" in placement) throw new Error(placement.refused);
   const balance = fall.balance ?? 0, verifying = Boolean(fall.target || fall.obstacle || fall.equipped);
-  const babylon = new NullEngine(), scene = new Scene(babylon);
-  const world = createWorld(scene, await loadEngine(engine));
+  const world = createWorld(await loadEngine(engine));
   addArenaSolids(world.physics);
   const body = buildBody(spec, world, placement);
   const address = verifying ? { ...start.address, ground: { ...start.address.ground, impulse: targetImpulse(body) } } : start.address;
@@ -187,7 +184,7 @@ export async function buildStandFall(fall: FallCase, engine: EngineName, given: 
         trail: frame.trail as unknown as Json, attempts: frame.attempts as unknown as Json, phases: frame.phases as unknown as Json, assist: frame.assist as unknown as Json };
       return read;
     },
-    dispose() { run.dispose(); body.dispose(); world.dispose(); scene.dispose(); babylon.dispose(); },
+    dispose() { run.dispose(); body.dispose(); world.dispose(); },
   };
 }
 
@@ -216,8 +213,7 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
   const factor = fall.factor ?? 1;
   if (!Number.isFinite(factor) || factor < 1 || factor > 2) throw new Error("research strength factor stays between 1 and 2");
   const spec = strengthSpec(modelHolding(fall.model, fall.loadout ?? { left: "empty", right: fall.held ?? "empty" }, characterOf(fall)), factor);
-  const babylon = new NullEngine(), scene = new Scene(babylon);
-  const world = createWorld(scene, await loadEngine(engine));
+  const world = createWorld(await loadEngine(engine));
   addArenaSolids(world.physics);
   const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
   let check: ReturnType<typeof standCheck> | null = null;
@@ -252,7 +248,7 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
         trail: (frame?.trail ?? []) as unknown as Json, attempts: (frame?.attempts?.length ? frame.attempts : ledger.attempts(world.time)) as unknown as Json, phases: (frame?.phases ?? {}) as unknown as Json,
         assist: (frame?.assist ?? null) as unknown as Json };
     },
-    dispose() { wind.dispose(); shoving.dispose(); body.dispose(); fighter.built.dispose(); world.dispose(); scene.dispose(); babylon.dispose(); },
+    dispose() { wind.dispose(); shoving.dispose(); body.dispose(); fighter.built.dispose(); world.dispose(); },
   };
 }
 

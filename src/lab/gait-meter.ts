@@ -49,7 +49,7 @@ export function startGaitMeter(built: BuiltBody, world: World): GaitMeter {
       if (!built.physics.contactsOf(segment.body).some((c) => groundContact(c, 0.5))) { off[side] += dt; continue; }
       down++;
       if (off[side] >= AIRBORNE) {
-        const p = segment.node.position;
+        const p = segment.pose.position;
         if (last) stepped += hypot(p.x - last[0], p.z - last[1]);
         last = [p.x, p.z];
         touchdowns++;

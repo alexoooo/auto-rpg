@@ -3,7 +3,7 @@ import { Sha256 } from "./sha256.ts";
 
 /** What a trace reads of a body: its segments, in the order they were built. */
 interface Traced {
-  readonly segments: ReadonlyMap<string, Pick<ReadSegment, "node">>;
+  readonly segments: ReadonlyMap<string, Pick<ReadSegment, "pose">>;
 }
 
 /** A running digest of bodies' poses, taken step by step. */
@@ -24,7 +24,7 @@ export function traceOf(builts: Iterable<Traced>): Trace {
   return {
     take() {
       for (const built of builts) for (const segment of built.segments.values()) {
-        const p = segment.node.position, q = segment.node.rotationQuaternion!;
+        const p = segment.pose.position, q = segment.pose.rotation;
         row[0] = p.x; row[1] = p.y; row[2] = p.z; row[3] = q.x; row[4] = q.y; row[5] = q.z; row[6] = q.w;
         hash.update(bytes);
       }

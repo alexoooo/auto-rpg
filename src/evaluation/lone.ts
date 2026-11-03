@@ -6,8 +6,6 @@
  * and shoves at set times (`LoneCue`).
  */
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { addArenaSolids } from "../arena/room.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
@@ -60,12 +58,12 @@ export interface BuiltLone {
 }
 
 /**
- * A world with the arena's solids and `lone`'s body in it at the centre, facing +z, on a scene of
- * its own with no canvas, its script played: each cue's orders from the step it falls on, and its
+ * A world with the arena's solids and `lone`'s body in it at the centre, facing +z, its script
+ * played: each cue's orders from the step it falls on, and its
  * shove before that step.
  */
 async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<BuiltLone> {
-  const babylon = new NullEngine(), scene = new Scene(babylon), world = createWorld(scene, await loadEngine(engine));
+  const world = createWorld(await loadEngine(engine));
   try {
     addArenaSolids(world.physics);
     const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
@@ -82,15 +80,15 @@ async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<B
         if (cue.orders !== undefined) orders = cue.orders;
         if (cue.shove) {
           if (!trunk) throw new Error("a shove needs a middle trunk");
-          const way = cue.shove.degrees * Math.PI / 180, node = trunk.body.node, centre = trunk.body.massProperties.centre;
-          point.set(centre[0], centre[1], centre[2]).applyRotationQuaternionToRef(node.rotationQuaternion!, point).addInPlace(node.position);
+          const way = cue.shove.degrees * Math.PI / 180, node = trunk.body.pose, centre = trunk.body.massProperties.centre;
+          point.set(centre[0], centre[1], centre[2]).applyRotationQuaternionToRef(node.rotation, point).addInPlace(node.position);
           trunk.body.applyImpulse(impulse.set(cue.shove.impulse * sin(way), 0, cue.shove.impulse * cos(way)), point);
         }
       }
       steps++;
     });
-    return { world, body, dispose() { wind?.dispose(); body.body.dispose(); body.built.dispose(); world.dispose(); scene.dispose(); babylon.dispose(); } };
-  } catch (error) { world.dispose(); scene.dispose(); babylon.dispose(); throw error; }
+    return { world, body, dispose() { wind?.dispose(); body.body.dispose(); body.built.dispose(); world.dispose(); } };
+  } catch (error) { world.dispose(); throw error; }
 }
 
 /** The lone-body world kind: built by `buildLone`, its one body traced, played by the world's clock. */

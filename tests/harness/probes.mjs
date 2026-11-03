@@ -61,7 +61,7 @@ export async function rig({ legs: legsConfig = { kind: "stance-walk" }, motor = 
     /** The steps a command waits before motor control carries it out (`World.delay`). */
     delay: stand.world.delay,
     /** The height over the ground of the centre of the segment the spec's bearing end `end` is on, m. */
-    endHeight: (end) => stand.built.segments.get(spec.ends.find((one) => one.name === end).segment).node.position.y,
+    endHeight: (end) => stand.built.segments.get(spec.ends.find((one) => one.name === end).segment).pose.position.y,
     run(seconds, asked) { ask = asked; stand.step(stand.seconds(seconds)); },
     dispose() { hosted.dispose(); stand.dispose(); },
   };

@@ -150,9 +150,9 @@ export function shoveBody(body: Pick<HostedBody, "built">, world: World, heading
   // After the body's control, before the solver: the page's hand on the world, not the body's.
   const shoving = world.beforeStep(() => {
     if (!shove) return;
-    trunk.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
+    trunk.pose.rotation.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
     const com = trunk.rigid.centre, o = trunk.frame.origin;
-    at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.node.position);
+    at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.pose.position);
     trunk.body.applyImpulse(shove, at);
     pushed?.(trunk, shove, at);
     shove = null;

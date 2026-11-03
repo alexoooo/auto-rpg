@@ -140,7 +140,7 @@ function grown(array: Float64Array, length: number, allocate: (length: number) =
 export function mirrorStatics(built: BuiltBody, labelled: boolean, delay: number): MirrorStatics {
   return { labelled, delay,
     spec: built.spec, gravity: [built.physics.gravity[0], built.physics.gravity[1], built.physics.gravity[2]],
-    segments: [...built.segments].map(([name, segment]) => ({ name, id: segment.body.id, node: segment.node.name })),
+    segments: [...built.segments].map(([name, segment]) => ({ name, id: segment.body.id, node: segment.pose.name })),
     joints: [...built.joints.keys()],
   };
 }
@@ -190,7 +190,7 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
   const coded = new Map<string, number>();
   const identity = (other: BodyRef | null): number => {
     if (other === null) return NaN;
-    if (!named.has(other.id)) { named.add(other.id); channel.told.push({ kind: "body", id: other.id, name: other.node.name }); }
+    if (!named.has(other.id)) { named.add(other.id); channel.told.push({ kind: "body", id: other.id, name: other.pose.name }); }
     if (labels) touched.set(other.id, other);
     return other.id;
   };
@@ -272,8 +272,8 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
       k = 0;
       put(clock.steps); put(clock.time); put(LEVELS.indexOf(driver.level));
       for (const segment of segments) {
-        const node = segment.node, mass: MassProperties = segment.body.massProperties;
-        vec(node.position); quat(node.rotationQuaternion!);
+        const node = segment.pose, mass: MassProperties = segment.body.massProperties;
+        vec(node.position); quat(node.rotation);
         vec(segment.body.linearVelocityToRef(v)); vec(segment.body.angularVelocityToRef(v));
         put(poseCode(segment.handPose?.applied)); put(poseCode(segment.handPose?.requested)); put(segment.toes?.bend ?? 0);
         put(mass.mass); triple(mass.centre); triple(mass.moments); quat(mass.orientation);
@@ -388,11 +388,11 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const records = statics.segments.map(({ name, id, node: nodeName }) => {
     const segmentSpec = specs.get(name)!;
     const { frame, initial, poses, bent, rigidAt } = segmentShapes(spec, segmentSpec);
-    const node = Object.freeze({ name: nodeName, position: new Vector3(), rotationQuaternion: new Quaternion() as Quaternion | null });
+    const node = Object.freeze({ name: nodeName, position: new Vector3(), rotation: new Quaternion() });
     const linear = new Vector3(), angular = new Vector3();
     const motion = { mass: { mass: 0, centre: [0, 0, 0], moments: [0, 0, 0], orientation: new Quaternion() } as MassProperties };
     const body: ReadSegmentBody = Object.freeze({
-      id, node,
+      id, pose: node,
       linearVelocityToRef: (out: Vector3) => out.copyFrom(linear),
       angularVelocityToRef: (out: Vector3) => out.copyFrom(angular),
       get massProperties() { return motion.mass; },
@@ -400,11 +400,11 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
     const handPose: { applied: HandPose; requested: HandPose } | undefined = poses ? { applied: initial, requested: initial } : undefined;
     const toes = bent ? { bend: 0 } : undefined;
     const rest = Quaternion.RotationQuaternionFromAxis(new Vector3(frame.x[0], frame.x[1], frame.x[2]), new Vector3(frame.y[0], frame.y[1], frame.y[2]), new Vector3(frame.z[0], frame.z[1], frame.z[2]));
-    const segment: ReadSegment = Object.freeze({ spec: segmentSpec, frame, node, body, rest, get rigid() { return rigidAt(handPose?.applied, toes); },
+    const segment: ReadSegment = Object.freeze({ spec: segmentSpec, frame, pose: node, body, rest, get rigid() { return rigidAt(handPose?.applied, toes); },
       ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}), ...(toes ? { toes } : {}) });
     byId.set(id, body);
     spins.set(segment, angular);
-    return { segment, node, linear, angular, motion, handPose, toes };
+    return { segment, pose: node, linear, angular, motion, handPose, toes };
   });
   const segments = new Map(records.map((record, i) => [statics.segments[i]!.name, record.segment]));
   const jointSpecs = new Map(spec.joints.map((joint) => [joint.name, joint]));
@@ -421,7 +421,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const refOf = (code: number): BodyRef | null => {
     if (Number.isNaN(code)) return null;
     let ref = byId.get(code);
-    if (!ref) { ref = Object.freeze({ id: code, node: Object.freeze({ name: names.get(code)! }) }); byId.set(code, ref); }
+    if (!ref) { ref = Object.freeze({ id: code, pose: Object.freeze({ name: names.get(code)! }) }); byId.set(code, ref); }
     return ref;
   };
   const at3 = (a: Float64Array, i: number): Vec3 => [a[i]!, a[i + 1]!, a[i + 2]!];
@@ -564,8 +564,8 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       let k = 0;
       clock.steps = a[k++]!; clock.time = a[k++]!; state.level = LEVELS[a[k++]!]!;
       for (const record of records) {
-        record.node.position.set(a[k]!, a[k + 1]!, a[k + 2]!);
-        record.node.rotationQuaternion!.set(a[k + 3]!, a[k + 4]!, a[k + 5]!, a[k + 6]!);
+        record.pose.position.set(a[k]!, a[k + 1]!, a[k + 2]!);
+        record.pose.rotation.set(a[k + 3]!, a[k + 4]!, a[k + 5]!, a[k + 6]!);
         record.linear.set(a[k + 7]!, a[k + 8]!, a[k + 9]!);
         record.angular.set(a[k + 10]!, a[k + 11]!, a[k + 12]!);
         if (record.handPose) { record.handPose.applied = POSES[a[k + 13]!]!; record.handPose.requested = POSES[a[k + 14]!]!; }

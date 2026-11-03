@@ -286,8 +286,8 @@ export function effectorTracker(built: ReadBody, root: ReadSegment, settings: Tr
           return [at.x, at.y, at.z] as Vec3;
         });
         if (m.goal.orientation) {
-          root.rest.multiplyToRef(Quaternion.InverseToRef(root.node.rotationQuaternion!, inverse), fromTurn);
-          fromTurn.multiplyToRef(limb.segment.node.rotationQuaternion!, turn);
+          root.rest.multiplyToRef(Quaternion.InverseToRef(root.pose.rotation, inverse), fromTurn);
+          fromTurn.multiplyToRef(limb.segment.pose.rotation, turn);
           turn.multiplyToRef(Quaternion.InverseToRef(limb.segment.rest, inverse), fromTurn).normalize();
           m.fromRotation = [fromTurn.x, fromTurn.y, fromTurn.z, fromTurn.w];
         }

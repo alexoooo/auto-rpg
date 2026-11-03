@@ -1,6 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import type { ColliderShape, SegmentBody } from "./engine/engine.ts";
+import type { ColliderShape, Pose, SegmentBody } from "./engine/engine.ts";
 import type { ItemShape, ItemSpec } from "./spec/body.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import { deepFreeze } from "./state.ts";
@@ -65,9 +64,7 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
     names.add(g.name);
     return { name: g.name, body: g.body, hand: frame(g.bodyFrame), item: frame(g.itemFrame) };
   });
-  const node = new TransformNode(`item.${id}`, world.scene);
-  node.position.copyFrom(pose.at);
-  node.rotationQuaternion = pose.turn;
+  const node: Pose = { name: `item.${id}`, position: new Vector3().copyFrom(pose.at), rotation: pose.turn };
   const shapes = [...item.shapes, ...(item.contacts ?? []).map(region => region.shape)];
   const surfaces = [...item.shapes.map(() => item.surface), ...(item.contacts ?? []).map(region => region.surface)];
   const body = world.physics.addBody(node, shapes.map(collider), {
@@ -80,7 +77,6 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
     if (disposed) return;
     disposed = true;
     world.physics.removeBody(body);
-    node.dispose(false, false);
   };
   const position = new Vector3(), other = new Vector3(), qa = new Quaternion(), qb = new Quaternion();
   const velocity = new Vector3(), spin = new Vector3();
@@ -93,7 +89,7 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
     const model = deepFreeze({ id, name: item.name, mass: item.mass.value,
       centre: [...item.centreOfMass.value] as Vec3, inertia: [...item.inertia.value] as Vec3,
       capture: { distance, rotationError },
-      grips: grips.map((g) => ({ name: g.name, body: g.body.node.name,
+      grips: grips.map((g) => ({ name: g.name, body: g.body.pose.name,
         bodyFrame: { position: tuple(g.hand.at), rotation: rotation(g.hand.turn) },
         itemFrame: { position: tuple(g.item.at), rotation: rotation(g.item.turn) } })),
     });
@@ -104,10 +100,10 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
       return result;
     };
     const error = (g: typeof grips[number]) => {
-      g.hand.at.applyRotationQuaternionToRef(g.body.node.rotationQuaternion!, position).addInPlace(g.body.node.position);
-      g.item.at.applyRotationQuaternionToRef(node.rotationQuaternion!, other).addInPlace(node.position);
-      g.body.node.rotationQuaternion!.multiplyToRef(g.hand.turn, qa);
-      node.rotationQuaternion!.multiplyToRef(g.item.turn, qb);
+      g.hand.at.applyRotationQuaternionToRef(g.body.pose.rotation, position).addInPlace(g.body.pose.position);
+      g.item.at.applyRotationQuaternionToRef(node.rotation, other).addInPlace(node.position);
+      g.body.pose.rotation.multiplyToRef(g.hand.turn, qa);
+      node.rotation.multiplyToRef(g.item.turn, qb);
       qa.normalize(); qb.normalize();
       const x = position.x - other.x, y = position.y - other.y, z = position.z - other.z;
       return { distance: Math.sqrt(x * x + y * y + z * z),
@@ -121,7 +117,7 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
         const e = error(g);
         if (e.distance > distance || e.rotationError > rotationError) return false;
         const inverse = new Quaternion();
-        Quaternion.InverseToRef(node.rotationQuaternion!, inverse);
+        Quaternion.InverseToRef(node.rotation, inverse);
         position.subtractToRef(node.position, other);
         other.applyRotationQuaternionToRef(inverse, other);
         inverse.multiplyToRef(qa, qb);
@@ -132,20 +128,20 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
       release(name: string): void { grip(name).joint.release(); },
       observe() {
         live();
-        const q = node.rotationQuaternion!;
+        const q = node.rotation;
         return deepFreeze({ id, name: item.name, substance: item.substance, mass: item.mass.value,
           position: tuple(node.position), rotation: [q.x, q.y, q.z, q.w] as const,
           velocity: tuple(body.linearVelocityToRef(velocity)), spin: tuple(body.angularVelocityToRef(spin)),
           grips: grips.map((g) => {
             const frames = g.joint.frames();
-            return { name: g.name, body: g.body.node.name, attached: g.joint.attached,
+            return { name: g.name, body: g.body.pose.name, attached: g.joint.attached,
               collisionSuppressed: g.joint.collisionSuppressed, ...error(g),
               attachment: frames ? {
                 bodyFrame: { position: frames.anchorParent, rotation: rotation(frames.frameParent) },
                 itemFrame: { position: frames.anchorChild, rotation: rotation(frames.frameChild) },
               } : null };
           }),
-          contacts: world.physics.contactsOf(body).map((c) => ({ other: c.other?.node.name ?? null, fixed: c.fixed,
+          contacts: world.physics.contactsOf(body).map((c) => ({ other: c.other?.pose.name ?? null, fixed: c.fixed,
             point: [...c.point] as Vec3, normal: [...c.normal] as Vec3, impulse: c.impulse,
             pairs: c.pairs.map((p) => ({ ...p, point: [...p.point] as Vec3, normal: [...p.normal] as Vec3 })),
           })),
@@ -157,8 +153,8 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
         return grips.flatMap((g) => {
           const frames = g.joint.frames();
           if (!frames) return [];
-          position.set(...frames.anchorParent).applyRotationQuaternionToRef(g.body.node.rotationQuaternion!, position).addInPlace(g.body.node.position);
-          other.set(...frames.anchorChild).applyRotationQuaternionToRef(node.rotationQuaternion!, other).addInPlace(node.position);
+          position.set(...frames.anchorParent).applyRotationQuaternionToRef(g.body.pose.rotation, position).addInPlace(g.body.pose.position);
+          other.set(...frames.anchorChild).applyRotationQuaternionToRef(node.rotation, other).addInPlace(node.position);
           return attachmentRows(g.body, body, tuple(position), tuple(other), true);
         });
       },

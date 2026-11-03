@@ -27,7 +27,7 @@ export function jointCoordinateMotion(joint: ReadJoint, axis: number): {
   if (denominator === 0) return null;
   const inverse = new Quaternion(), transform = new Quaternion();
   Quaternion.InverseToRef(joint.parent.rest, inverse);
-  joint.parent.node.rotationQuaternion!.multiplyToRef(inverse, transform);
+  joint.parent.pose.rotation.multiplyToRef(inverse, transform);
   const axes = local.map((a) => tuple(new Vector3(...a).applyRotationQuaternionToRef(transform, new Vector3())));
   const parent = tuple(joint.parent.body.angularVelocityToRef(new Vector3()));
   const child = tuple(joint.child.body.angularVelocityToRef(new Vector3()));

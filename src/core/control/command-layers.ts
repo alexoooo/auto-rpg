@@ -160,7 +160,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     for (const segment in effectors) {
       const out = effectors[segment]!, part = built.segments.get(segment)!;
       for (const name in out.points) motor.pointToRef(segment, name, out.points[name]!);
-      part.node.rotationQuaternion!.multiplyToRef(Quaternion.InverseToRef(part.rest, inverse), segmentTurn);
+      part.pose.rotation.multiplyToRef(Quaternion.InverseToRef(part.rest, inverse), segmentTurn);
       Quaternion.InverseToRef(state.root.rotation, rootTurn).multiplyToRef(segmentTurn, out.rotation).normalize();
     }
     head.update();
@@ -279,9 +279,9 @@ function fistOf(built: ReadBody, segment: string): { fist: Fist; update(): void 
   return {
     fist,
     update() {
-      const turn = hand.node.rotationQuaternion!;
+      const turn = hand.pose.rotation;
       arm.applyRotationQuaternionToRef(turn, lever);
-      centre.applyRotationQuaternionToRef(turn, fist.position).addInPlace(hand.node.position).addInPlace(lever);
+      centre.applyRotationQuaternionToRef(turn, fist.position).addInPlace(hand.pose.position).addInPlace(lever);
       hand.body.linearVelocityToRef(fist.velocity);
       hand.body.angularVelocityToRef(angular);
       fist.velocity.addInPlace(Vector3.CrossToRef(angular, lever, angular));

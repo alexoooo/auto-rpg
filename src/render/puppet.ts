@@ -63,7 +63,7 @@ export function followBody(puppet: Puppet, body: Pick<ReadBody, "segments">, wor
   });
   const pose = () => {
     for (const { segment, followed } of pairs) {
-      const p = followed.node.position, q = followed.node.rotationQuaternion!;
+      const p = followed.pose.position, q = followed.pose.rotation;
       segment.node.position.set(p.x, p.y, p.z);
       segment.node.rotationQuaternion!.set(q.x, q.y, q.z, q.w);
       if (segment.handPose && followed.handPose) {
