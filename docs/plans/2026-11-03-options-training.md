@@ -13,10 +13,12 @@ The owner: the way Options were trained kept known bugs and rejected real gains.
 - **One controller per Option for every body** rejected a gain on one body that did not help the
   others. One framework for every body has not worked, so Options specialize: by Option first,
   reusing executors beneath, then by body where the shared one cannot serve.
+- **Option Mind is not yet general.** Its tactics build the rise and the strikes themselves, and
+  the rise has its own config list, executor and pricing; a kind of option only hands them out.
+  Everything Option Mind does is an option made the same way.
 
-What is wanted is each skill as good as it can be made in a reasonable time, with two hard
-requirements: every character stands up reliably in under 10 s, and the Warrior and the Rogue run
-reliably.
+What is wanted is each skill as good as it can be made quickly, with two hard requirements: every
+character stands up reliably in under 10 s, and the Warrior and the Rogue run reliably.
 
 Built before it: one family of minds, minds in parallel, and the table. Its scope is the owner's:
 the toed Warrior, Rogue and Skeleton with every loadout (empty hands, the club, the sword, the club
@@ -35,6 +37,10 @@ a walk stops where it was asked, a stand holds its centre where it was asked), n
 above it. What the fix breaks above is a defect there, fixed next in the same push. A cell of the
 table that drops meanwhile is named in the commit, not a reason to keep the defect.
 
+A body's settings were searched against the shared code as it was. Where a shared change sets a
+body back, that body's settings are searched again on the new code before anything is called a
+defect.
+
 ### What is required
 
 - **Stand-up, hard**: the owner's target ([rising](../reference/rising.md#the-owners-target)) on
@@ -47,44 +53,57 @@ table that drops meanwhile is named in the commit, not a reason to keep the defe
   the way travelled at most 0.35 rad behind the way asked, and a stop asked at 2.7 m/s or more and
   under 0.15 m/s within 1.5 s. 3 m/s is a floor (the owner's decision); faster is better.
 - **Every other cell, best effort**: its drill's score on its body, read first as its baseline,
-  then raised by paired readings against the version before; a gain is kept, a loss is not. A
-  cell's work ends at a plateau or after four hours of work without a gain, its best kept and its
-  ceiling named from a reading (the body, the controller, or the drill). The person's figures
-  (`BAR`, `src/evaluation/strike/read.ts`; [human strike reference](../reference/human-strike-reference.md))
-  are reported beside each reading, as a scale, and gate nothing.
+  then raised by paired readings against the version before; a gain is kept, a loss is not. A cell
+  gets one search or training run, priced from its first trials and under an hour, and the fixes
+  of the bugs it exposes; where an iteration brings no gain, its best is kept, its ceiling named
+  from a reading (the body, the controller, or the drill), and the work moves on. The person's
+  figures (`BAR`, `src/evaluation/strike/read.ts`;
+  [human strike reference](../reference/human-strike-reference.md)) are reported beside each
+  reading, as a scale, and gate nothing.
 - **Guards**: no change sets back stand-up or the run; and no Option makes its body fall unless a
   fall is part of its design. An Option that trades a fall for power (a tackle, an all-in kick
   that falls on a miss) states it, and its fall rate by outcome is measured into its profile for
   the mind to weigh. No Option in scope states one, so every fall here is a defect.
 
+### Everything Option Mind does is an option
+
+- **Option Mind's tactics name no kind of option.** Each kind makes its options from the skills
+  its config lists and their profiles; the rise and the strikes are kinds like the walk and the
+  cover.
+- **A way up is an executor**, in the executor list beside the strikes, begun where its entry
+  admits the body as it lies. There is no ground config, ground executor or rise argument.
+- **Where an option leaves the body is worth what Option Mind expects from there**, for every
+  option: a lying posture is worth the expected time to standing over the options that begin
+  there, so a blow that may fall and a way up that may fail are priced alike. An option's record
+  of failing from a situation in the bout, and its price where no profile measures it, are the
+  same for every option.
+
 ### Bodies told apart in data, never in logic
 
-- **Settings per body, for every skill**: each skill, ground technique and gait has a record per
-  body (`SkillRecord`, `src/core/skills/framework/records.ts`), searched on that body alone. A
-  body with no record of a skill does not have it (`recordFault`).
-- **Other logic for a body is another part, chosen by its records.** A slot that holds a skill holds
-  a ranked list of parts (`slotSkills`, `src/core/parts/parts.ts`), and a body uses the first
-  that has a record for it. A Skeleton's rise of its own is a technique with the Skeleton's record
-  alone.
-- **The mind does not see which part runs.** An Option is the act (stand up, punch); Option Mind
-  reads its profile on that body and nothing else.
-- **No body is named in control code**: no model's name or key, and no test that stands for one
-  (a mass under 20 kg). A test of what the body can do (it has toes, a hand is free) is a fit.
-- **Variants compose the shared pieces** (stance, bearing, pose drive, the step's solve) in their
-  own order and with their own settings, and never copy one; a bug fixed in a shared piece is
-  fixed for every body.
-- **A variant lives while a body uses it.**
-- **Records are per body, not per loadout**: a held item is a condition the controller reads from
-  the body it holds.
+- **Settings are a record per body** (`SkillRecord`, `src/core/skills/framework/records.ts`),
+  searched on that body alone across its loadouts; a held item is a condition the controller reads
+  from the body. A body with no record of a skill does not have it (`recordFault`), except where a
+  rule derives settings for any body (the gaits scaled to the leg, `scaledGait`): there the rule
+  gives the default, and a record overrides it.
+- **Other logic for a body is another part**, which only the bodies with its record fit
+  (`Part.fits`); every part a body fits is on offer to it. A slot holding one part becomes a list
+  where a second is needed.
+- **No body is named in control code**: no model's name or key, and no stand-in for one (a mass
+  under 20 kg meaning the Skeleton). A test of what the body can do (it has toes, a hand is free)
+  is a fit.
+- **Variants compose the shared pieces** (stance, bearing, pose drive, the step's solve) and never
+  copy one; a bug fixed in a shared piece is fixed for every body. A variant lives while a body
+  uses it.
 - **What a change is judged on**: a record or a variant on its own body; a shared piece on every
-  body. A shared change that helps one body and hurts another is a defect in the hurt body's path,
-  or the reason it gets a record or a variant of its own; never the reason to reject the change.
+  body. A shared change that sets one body back, once that body is searched again, is a defect in
+  its path or the reason it gets a record or a variant of its own; never the reason to reject the
+  change.
 
 ## Steps
 
 Each lands green on its own: `npm run check`, `npm test`, `npm run build` where browser code or
 assets change, and a toolkit change's message names the fingerprint cases it moves
-(`scripts/fingerprint.mjs`). A search or training run is priced on the pool from its first trials.
+(`scripts/fingerprint.mjs`).
 
 ### 1. The known bugs
 
@@ -107,28 +126,40 @@ Each fixed to its layer's contract, then what it breaks above:
 
 A defect found on any later step joins this list and is fixed the same way.
 
-### 2. Bodies told apart in data
+### 2. Option Mind general
+
+- The rise's techniques become executors in the executor list; the ground config, the ground
+  executor and the rise argument to the tactics go (`Deciding.ground`, `groundExecutor`, `Rising`,
+  `src/core/option/tactics.ts`, `src/core/recovery/ground/held.ts`).
+- The strikes are made by their kind, not by the tactics.
+- The rise's pricing of a lying posture (`groundOptions`, `src/core/option/ground.ts`) becomes
+  Option Mind's value of where any option leaves the body; the record of failures in the bout and
+  the price of an unmeasured option become every option's.
+
+Check: the tactics name no kind of option; the fingerprint, each moved case named; the stand-up
+target on the Warrior read paired against the version before.
+
+### 3. Bodies told apart in data
 
 - Stand-up's settings by body (`STEP_UP`'s table in `src/core/recovery/ground/step-up.ts`, the
-  Skeleton's own roll with them) and the walk's and run's settings
-  (`src/core/skills/locomotion/walk-run.ts`, `cycle-run.ts`, searched on the three bodies together) become records per body under `assets/`, the run's for the
-  Warrior and the Rogue.
-- The getting-up slot and the gaits hold ranked lists of parts each body uses by its records, as
-  the executors do.
+  Skeleton's own roll with them) become records per body under `assets/`, and a technique only one
+  body's settings time (the sit-back) is fitted by that body alone.
+- The walk's and run's settings (`src/core/skills/locomotion/walk-run.ts`, `cycle-run.ts`, searched
+  on the three bodies together) stay the default every body takes scaled to its leg; a body's
+  record overrides them, the run's for the Warrior and the Rogue. The locomotion slot holds a
+  list of gaits.
 - The Skeleton's stomp record is deleted.
-- The boundary test refuses a model's name or key in the control folders.
 
-Check: the fingerprint, no case moved but the Skeleton's stomps, named; the boundary test refuses
-a model's name planted in a control file.
+Check: the fingerprint, no case moved but the Skeleton's stomps, named.
 
-### 3. The table
+### 4. The table
 
 The table (`npm run evaluate -- table`, `src/evaluation/table/`) reads stand-up and the run as met
 or short, and every other cell as its score against its baseline, with the person's figure beside
 it and the version and drill link of its best. Check: every cell read at this step, which is each
 cell's baseline; [the table](../reference/the-table.md) rewritten from it.
 
-### 4. Stand-up
+### 5. Stand-up
 
 To the target on every body and loadout; the shortest first: the Skeleton holding an item (the
 club stands 0 of 15), the Rogue (a median of 13.6 s empty-handed; her arms do not straighten on
@@ -139,7 +170,7 @@ read short. The legs bear on any set of the ends from where the body is (`BodySp
 limbs it moves. Check: the target on every body and loadout, and on fresh falls; rising in fights
 no worse; the owner looks in the Lab's Stand-up mode.
 
-### 5. The run
+### 6. The run
 
 On toes on the Warrior and the Rogue to the requirement in every loadout, then priced by the Gait
 drill (`gait`) so that Option Mind chooses it where it pays. One set of legs stands up and runs a
@@ -148,7 +179,7 @@ the limit, the limit is read and the body's numbers are set for the result, sour
 decision with their before and after. Check: the Locomotion drill's run; the stand-up target held;
 the owner watches the run in the Lab's Locomotion courses and in the Arena.
 
-### 6. The strikes on every body
+### 7. The strikes on every body
 
 Best effort, in order: the punch, the stomp (the Warrior and the Rogue), the club blow, the sword's
 cut and thrust, the buckler's cover; each on the Warrior, then on the Rogue and the Skeleton,
@@ -160,8 +191,10 @@ watched, the failures first; the owner accepts each rung.
 ## Done when
 
 - The known bugs and what they broke above are fixed, each to its own contract.
-- No body is named in control code; every difference between bodies is a record or a part chosen by
-  one.
+- Option Mind's tactics name no kind of option; the rise is executors chosen and priced as every
+  option is.
+- No body is named in control code; every difference between bodies is a record or a part only
+  that body fits.
 - Stand-up meets the owner's target on every body and loadout, and the run its requirement on the
   Warrior and the Rogue in every loadout.
 - Every other cell holds its best reading, its baseline and its ceiling named, and the owner has

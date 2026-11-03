@@ -25,7 +25,7 @@ Where the project is going and what is open. What is built is in the
 
 | Plan | What it builds |
 | --- | --- |
-| [Options trained body by body](plans/2026-11-03-options-training.md) | Option Mind's skills on the Warrior, Rogue and Skeleton with every loadout; stand-up within 10 s on every body, the run on the Warrior and the Rogue |
+| [Options trained body by body](plans/2026-11-03-options-training.md) | Option Mind general, every act an option; its skills on the Warrior, Rogue and Skeleton with every loadout; stand-up within 10 s on every body, the run on the Warrior and the Rogue |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
 | [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |
 
