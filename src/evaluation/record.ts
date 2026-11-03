@@ -124,9 +124,17 @@ export const importedSubject = (id: string, commit: string, play: Json, environm
   parent: null, changes: [], parts: [],
 });
 
-/** A record's file name: `<yyyy-mm-dd>-<commit8>-<keys8>.jsonl`, `keys8` the digest of its case keys. */
-export const recordName = (header: RecordHeader, lines: readonly RecordLine[]): string =>
-  `${header.date}-${header.commit.slice(0, 8)}-${sha256Text(lines.map((line) => line.key).sort().join()).slice(0, 8)}.jsonl`;
+/** The end of a record's file name, which names its content: `-<commit8>-<keys8>.jsonl`, `keys8` the digest of its case keys. */
+export const recordEnd = (header: RecordHeader, lines: readonly RecordLine[]): string =>
+  `-${header.commit.slice(0, 8)}-${sha256Text(lines.map((line) => line.key).sort().join()).slice(0, 8)}.jsonl`;
+
+/**
+ * A record's file name: `<yyyy-mm-ddThhmmss>` (UTC), the moment `written` (ISO) it was written,
+ * then `recordEnd`; names sort in the order records were written, and a name of a day alone
+ * (`<yyyy-mm-dd>`, written before the time was kept) before that day's timed ones.
+ */
+export const recordName = (header: RecordHeader, lines: readonly RecordLine[], written: string): string =>
+  `${written.slice(0, 10)}T${written.slice(11, 19).replaceAll(":", "")}${recordEnd(header, lines)}`;
 
 /** A record's text: the header, then a line per case. */
 export const recordText = (header: RecordHeader, lines: readonly RecordLine[]): string =>

@@ -9,7 +9,7 @@ import { readRecord } from "../evaluation/record.ts";
 const FILES: Readonly<Record<string, string>> = import.meta.glob<string>(
   ["../../assets/evaluations/*/*.jsonl", "!../../assets/evaluations/imports/**"], { query: "?url", import: "default", eager: true });
 
-/** Each record file, by evaluation id, oldest first: the names sort by date, then commit. */
+/** Each record file, by evaluation id, oldest first: the names sort by the moment each was written (`recordName`). */
 const BY_EVALUATION = (() => {
   const files = new Map<string, { name: string; url: string }[]>();
   for (const [path, url] of Object.entries(FILES)) {

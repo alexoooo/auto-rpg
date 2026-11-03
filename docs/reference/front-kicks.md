@@ -154,17 +154,31 @@ with the pelvis's turn; it is carried with the hip.
 | Rung | Landed | Weak | Fell | Outside | Refused |
 | --- | --- | --- | --- | --- | --- |
 | Warrior, `stomping`, at `e026ed21` | 6 | 3 | 0 | 2 | 1 |
-| Warrior, `stomping`, this change | 11 | 0 | 0 | 1 | 0 |
+| Warrior, `stomping`, the return begun at rest, and with the stomp let go | 11 | 0 | 0 | 1 | 0 |
 | Skeleton, `stomping-bodies`, at `e026ed21` | 3 | 2 | 4 | 1 | 1 (and 1 missed) |
-| Skeleton, `stomping-bodies`, this change | 7 | 2 | 1 | 1 | 0 (and 1 guarded) |
+| Skeleton, `stomping-bodies`, the return begun at rest | 7 | 2 | 1 | 1 | 0 (and 1 guarded) |
+| Skeleton, `stomping-bodies`, and the stomp let go on lost support | 8 | 2 | 0 | 1 | 0 (and 1 guarded) |
 | Rogue, `stomping-bodies`, at `e026ed21` | 2 | 4 | 3 | 2 | 0 (and 1 elsewhere) |
-| Rogue, `stomping-bodies`, this change | 1 | 7 | 1 | 2 | 0 (and 1 elsewhere) |
+| Rogue, `stomping-bodies`, the return begun at rest | 1 | 7 | 1 | 2 | 0 (and 1 elsewhere) |
+| Rogue, `stomping-bodies`, and the stomp let go on lost support | 1 | 8 | 0 | 2 | 0 (and 1 elsewhere) |
 
 The Warrior's landed blows come at 3.07 to 4.69 m/s and 0.3 to 26.6 J, against 3.23 to 6.90 m/s
 and 1.1 to 51.7 J braced through the stroke: less is behind the foot (0.55 to 10.5 kg against 6.2
 to 56.6). With the stroke firm as well, the Warrior's left foot at a lying Warrior comes weak at 0.8 and
-1.2 m (3.00, 2.93 m/s), and the Rogue lands 2, 4 weak, 2 fell. The Skeleton's one fall: the blow tips its pelvis back 0.3, its chamber is then past the
-hip's reach, and the return waits out `returnLimit` on one leg. The Rogue's blows come at 0.3 to
+1.2 m (3.00, 2.93 m/s), and the Rogue lands 2, 4 weak, 2 fell. The Skeleton's fall with the return begun at rest: the blow pushed its centre 6 cm off its
+small bearing foot, its pelvis tipped back 0.3 and on to 0.8, its chamber went past the hip's
+reach, and the return waited on one leg; placing the foot at once fell too, the placing slower
+than the fall. A return that lets the centre off the bearing foot now ends the stomp
+(`interrupted`), its legs given back to the stance, which steps to catch the body
+(`stompExecutor`); the Warrior's rung is as before, trial for trial in outcome.
+
+- **Braced late in the stroke** (firm from a time into the swing, the Warrior's rung; speed and the
+  blow's energy at a lying Warrior): from 0.10 s, 10 landed, 2 weak at 2.90 and 2.92 m/s, 0.4 to
+  37.0 J; from 0.15 s, 10, 1 weak at 2.86, 23.1 to 47.3 J; from 0.18 s, 10, 1 weak at 2.98, 17.7
+  to 33.8 J; from 0.20 s, after the blow, as the held contact alone. Through the whole stroke with
+  a firm freedom never braked below its own speed: the Warrior 10, 1 weak at 3.00, 22.9 to 48.5 J,
+  but the Skeleton 6 landed and 4 missed, and the Rogue 2 and 1 fell. The left foot at a Warrior
+  1.2 m off is the rung's margin (3.08 m/s unbraced); the stroke is kept the servo's. The Rogue's blows come at 0.3 to
 2.7 m/s on its row seeded from the Warrior's.
 
 **The toed Skeleton's and Rogue's stomp on a target laid down** (`stomping-bodies`, the same

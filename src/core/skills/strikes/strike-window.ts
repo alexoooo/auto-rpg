@@ -33,6 +33,8 @@ export interface StrikeStand {
   readonly poised: boolean;
   /** The least distance ahead of the stance centre the target may be for the two bodies to stand clear (`clearAhead`), m. */
   readonly clear: number;
+  /** The body the target is on, where it is on one (`Window.on`). */
+  readonly on?: string;
 }
 
 /**
@@ -53,7 +55,7 @@ export function clearAhead(view: BodyView, at: readonly [number, number, number]
  * **A strike's window at `at`**, facing `heading`: the target its stand-off ahead of the head, or
  * as near as keeps the bodies clear where that is farther (no nearer than `CROWDED` less, no
  * further than `band` more), within `aside` of the line it faces,
- * the body facing it and moving no faster than `pace`; ready within it, and quiet where `poised`;
+ * the body facing it and moving no faster than `pace`, on the body `on` names where it names one; ready within it, and quiet where `poised`;
  * else the window to walk to.
  */
 export function strikeWindow(view: BodyView, at: readonly [number, number, number], heading: number, stand: StrikeStand): Readiness {
@@ -62,7 +64,7 @@ export function strikeWindow(view: BodyView, at: readonly [number, number, numbe
   // Entry permits the configured approach speed and a modest bearing error before settling.
   const near = Math.max(stand.standOff + ahead, stand.clear + CROWDED);
   const window = { at, along: [near - CROWDED, near + stand.band] as const,
-    across: [across - stand.aside, across + stand.aside] as const, facing: .4, speed: stand.pace };
+    across: [across - stand.aside, across + stand.aside] as const, facing: .4, speed: stand.pace, ...(stand.on === undefined ? {} : { on: stand.on }) };
   if (!withinActionWindow(view, window, heading) || stand.poised && !quietToStrike(view)) return { kind: "position", window };
   return { kind: "ready", window };
 }

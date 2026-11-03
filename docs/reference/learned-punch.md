@@ -22,12 +22,18 @@ on Option Mind's straight punch (`assets/core/straight-punch.json`;
   rung), 1.05 M more on Option Mind's punch, flat from there to 1.38 M. Her misses are short on the
   fist's mass (230) and straightness (132). On the drill at `5d8976ea` and `b43f4799`: still 8 of
   30 thrown, from a walk 19 of 64, in fights 2 of 8 middle-mark moments land.
-- **The Skeleton has no punch**: no record for `crypt-skeleton+toes`. Its schedule searched from the
-  Warrior's (`research/punch-drill.mjs`, the arm's channels free, gaps 0.76 to 0.84 m;
-  `research/environments/skeleton-punch-schedule.json`) meets the target with the elbow straight at
-  6.3 m/s and 0.54 kg at 120 Hz and 4.7 m/s and 0.15 kg at 480 Hz, against its bar's 7.53 m/s and
-  0.40 kg; nearer gaps meet it with the elbow bent. Whether its arm's numbers are the limit is not
-  yet read.
+- **The Skeleton's lands none.** Its record (`crypt-skeleton+toes`) is the Warrior's window and
+  timing with its own schedule, searched from the Warrior's (`research/punch-drill.mjs`, the arm's
+  channels free, gaps 0.8 to 0.88 m, its arms' motors at twice the peak-power line's speed),
+  steered by a network trained by PPO for 494,592 decisions on the Warrior's environment
+  (`research/environments/punch.json`) with the Skeleton in his place, the gaps scaled by 0.88,
+  from the Warrior's network with its outputs scaled by a quarter. On the Strike drill's still rung
+  (the `still-bodies` protocol, at `8ed9abf4`) none of its 32 middle-mark trials lands at its scaled
+  bar (`barOf`: 7.53 and 5.87 m/s, 0.40 and 0.44 kg): all weak, the fist at 10.8 m/s (median) but
+  meeting 0.09 kg; held out (`punch-policy-check.mjs`, seed 5001, 12 trials a rate) none of 24,
+  short of mass, of squareness and of line, and at 480 Hz of the elbow's straightness. It is
+  there so that Option Mind prices the Skeleton's punch from what it does
+  (`assets/core/strike-profiles.json`), not as a punch that meets its bar.
 - **On the Strike drill's still rung** the high mark is refused, since it aims at the middle only.
 - **On the fight rung** the network before it landed 3 of 56 middle-mark moments; of the 23 blows
   that met the foe past its arms, 3 met the bar, and 9 moments never came into its window.
@@ -64,8 +70,9 @@ lead. Speeds are over the fist's last 0.1 m. The bar is `BAR` (`src/evaluation/s
   striking shoulder faces along at contact (`squared`), no higher than 0.1 m over the shoulder
   (`above`); the aim is the trunk's surface square to that shoulder (`square`,
   [combat strikes](combat-strikes.md)). A drive that has met nothing ends after 0.3 s (`longest`).
-- **Its bodies**: the toed Warrior only (`workshop-fighter+toes`, `PUNCH_BODIES`,
-  `assets/core/straight-punch.meta.json`): any other body throws no straight punch.
+- **Its bodies**: the toed Warrior, the Rogue and the Skeleton (`workshop-fighter+toes`,
+  `workshop-rogue+toes`, `crypt-skeleton+toes`; `PUNCH_BODIES`, `assets/core/straight-punch.meta.json`):
+  any other body throws no straight punch.
 - **How it was made**: PPO (`research/run-train.py` on
   `research/punch-learning-environment.mjs@5d782f0e`, whose episodes the case environment on
   `research/environments/punch.json` plays to the bit)
