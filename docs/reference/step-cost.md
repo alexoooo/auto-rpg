@@ -843,8 +843,7 @@ split would load (a world thread and 2, 3 or 4 mind threads), a whole copy in ea
 motor control) and its observers after physics, which a mind thread would run; the world's part is
 the step less those (senses, muscles, Rapier, contacts, blows, rules). The split's step is
 `max(world's part, the dearest mind thread's minds) + 0.022 ms`, the bodies dealt round the mind
-threads in turn, the handoff the spinning one measured in Chrome
-(`docs/plans/2026-11-01-parallel-minds.md@ca5d8e8a`). Node 24.19, core world,
+threads in turn, the handoff the spinning one measured in Chrome. Node 24.19, core world,
 `rapier-coordinate`, 120 Hz, at `526dd9a1`, read from 2 s; the least over the copies, their median
 in brackets; pinned is one logical processor a core (`start /affinity 55555555`):
 

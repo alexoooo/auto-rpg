@@ -2,8 +2,7 @@ import type { PhysicsEngine, PhysicsWorld } from "./engine/engine.ts";
 import { sourced, type Quantity } from "./spec/quantity.ts";
 
 /** The fixed step's rate: physics and control run at 120 Hz. */
-export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-rate",
-  "physics and control at 120 Hz from the release of 2026-09-25");
+export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-rate", "physics and control at 120 Hz");
 
 /**
  * **The command's delay**, steps: a mind's command, made on a step, is applied that many steps

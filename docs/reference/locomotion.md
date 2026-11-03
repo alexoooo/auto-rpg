@@ -387,7 +387,7 @@ into each other and fell.
 
 Human joint trajectories by phase as a gait's targets, with SIMBICON's landing, balance feedback and
 stance hip on top (Lee, Kim and Lee 2010, "Data-driven biped control"); the physics drives the body
-throughout. The run is built this way ([The SIMBICON run](#the-simbicon-run)); the walk's ways are
+throughout. The run is built this way ([The run cycle](#the-run-cycle)); the walk's ways are
 not.
 
 - **The data**: the CMU Graphics Lab database (mocap.cs.cmu.edu), which places no restriction on

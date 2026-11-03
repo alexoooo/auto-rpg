@@ -36,9 +36,8 @@ const SITUATIONS = ["reversal", "lone", "following", "crossing", "passage", "fal
 export type Situation = (typeof SITUATIONS)[number];
 
 /**
- * The protocol: the members' body; the seeds each situation is played on (the reversal's the
- * fixture's, `tests/crypt-core-capability.test.mjs@2a1b29ac`); the room's floor, m; the gap a wall
- * leaves in the passage, m (twice the level's least clearance, `LEVEL.clearance`); how long the
+ * The protocol: the members' body; the seeds each situation is played on; the room's floor, m;
+ * the gap a wall leaves in the passage, m (twice the level's least clearance, `LEVEL.clearance`); how long the
  * party is watched once its last order is carried out, s; and the most a leg may take, s. A change
  * here is a new protocol.
  */

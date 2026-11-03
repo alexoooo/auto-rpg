@@ -66,7 +66,7 @@ export type Bar = {
  * meets the target within `within` s of the action's start
  * ([thresholds](../../../docs/reference/competencies.md#thresholds)).
  *
- * And it is a punch, as the owner asked (2026-10-24, "I want the punch to be a punch"): its last
+ * And it is a punch: its last
  * `run` m come out more along the arm than across it, within `along` degrees of the line from the
  * striking shoulder to the strike point at contact (a thrust runs along that line, a swing across
  * it; an elbow near straight opens mostly across it, so a person's punch is not held nearer); the

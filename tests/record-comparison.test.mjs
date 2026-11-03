@@ -116,7 +116,7 @@ test("batteries pair individual conditions and changed or unknown context labels
 test("Git provenance classifies entrant changes and shared inputs without checking out source", () => {
   const baseline = fixture(), candidate = fixture({ code: hash("2") }); candidate.header.commit = commit("b");
   const calls = [], runGit = (...args) => { calls.push(args); return args[0] === "diff" ? [
-    "src/entrants/vanguard/plan.ts", "assets/entrants/vanguard/weights.json", "docs/reference/vanguard.md", "assets/evaluations/tournament/kept.jsonl",
+    "src/entrants/vanguard/plan.ts", "assets/entrants/vanguard/weights.json", "docs/architecture.md", "assets/evaluations/tournament/kept.jsonl",
   ].join("\0") + "\0" : ""; };
   assert.deepEqual(sourceContext(baseline, candidate, "vanguard-warrior", "vanguard-warrior", runGit), []);
   assert.deepEqual(calls.map(call => call[0]), ["cat-file", "cat-file", "diff"]);

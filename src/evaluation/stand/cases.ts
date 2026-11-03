@@ -11,7 +11,7 @@
  * A way is the subject's own: 0 shoves it forward, from behind; 90 toward its right; 180 back; 270
  * toward its left. A trial is a bout world, so the Arena plays it as it was scored.
  *
- * Rung 0 holds the shoves the stance's capabilities read at `2a1b29ac` (`shove`,
+ * Rung 0 holds the shoves the stance's capabilities read (`shove`,
  * `research/core-stance-trials.mjs`): the Warrior 8 N s each way, 55 forward, forward right and
  * back, and 60 to each side, at the middle trunk.
  */

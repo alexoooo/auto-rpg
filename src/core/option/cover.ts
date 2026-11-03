@@ -10,9 +10,9 @@ import { here } from "./position.ts";
 const LONGEST = 1;
 
 /**
- * The share of a blow's life on the head a cover keeps off: on the Cover drill at `680f281f`
- * (Option Mind on the Warrior, both rungs, 24 trials each, Node, rapier-coordinate, 120 Hz), its covers
- * lost 0.60 hit points on the head where its hands held the guard lost 1.54.
+ * The share of a blow's life on the head a cover keeps off: on the Cover drill (Option Mind on
+ * the Warrior, both rungs, 24 trials each, Node, rapier-coordinate, 120 Hz), its covers lost 0.60
+ * hit points on the head where its hands held the guard lost 1.54.
  */
 const STOPS = .6;
 

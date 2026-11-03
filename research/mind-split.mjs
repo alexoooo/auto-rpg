@@ -1,7 +1,6 @@
 /**
  * **What splitting the minds off the world's thread could give** the crowd fight, read before it is
- * built (`docs/plans/2026-11-01-parallel-minds.md@ca5d8e8a`, step 1): `--threads`
- * worker threads at once, each playing a whole copy of the crowd fight (`crowdFight`, ten Option
+ * built: `--threads` worker threads at once, each playing a whole copy of the crowd fight (`crowdFight`, ten Option
  * Mind Warriors), every thread loaded as the split would load the machine. In each, every step is
  * timed whole, the solver's part (`PhysicsWorld.step`) and each body's mind (`Mind.step`: its decisions, skills and motor control) on its
  * own (`research/mind-split-hook.mjs`); the world's part is the step less its minds' (senses,
