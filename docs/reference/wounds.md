@@ -169,7 +169,9 @@ each limb drawn on the body diagram.
 - **Each segment is in one group** (`WoundSpec`, `woundGroups`): vital, a limb (`LimbSpec`) or the
   trunk, every segment in neither. A vital part named `whole` never comes off; nor does the trunk.
 - **A limb's bar** is its share of full life. A blow on the limb takes its whole damage from the bar
-  too; at 0 the limb is crippled, and further blows take only life.
+  too; at 0 the limb is crippled, and further blows take only life. A crippled limb is weaker: the
+  muscles of every joint whose child is in it keep `Rulebook.crippled` of their peak torques
+  (`crippleLimb`).
 - **A heavy cut takes a limb off**: an edge or axe blow worth at least `Rulebook.severBlow` of the
   limb's full bar that leaves the bar at 0 takes off the struck segment and every one beyond it. A
   lethal edge or axe blow on a vital part not `whole` takes it off the same way. A cut costs
@@ -185,6 +187,7 @@ every body:
 |---|---|---|
 | `Rulebook.life` | vital 2, trunk 1, limb 0.5 | the club's best blow (1.38 HP) takes 2.76 HP on the head, 1.38 on the trunk, 0.69 on a limb: three to the head kill, five to the trunk |
 | a human's limbs | arm 0.25 of full life, `fights on`; leg 0.35, `out` | two of the club's best blows cripple an arm or a leg; a body never stands on one leg |
+| `Rulebook.crippled` | 0.5 | a crippled leg limps: walking at 1 m/s (Node stand, Rapier, 120 Hz, the Warrior, no assist), the weak leg swung 0.46 s against 0.29 s and stepped 0.61 m against 0.34 m; asked 1.4 m/s it went 0.80 m/s against 1.25 |
 | `Rulebook.severBlow` | 0.5 | a cut worth half an arm's bar (0.75 HP, 13 J of an edge) takes off an arm it empties |
 | `Rulebook.severLoss` | 0.15 | a cut costs 0.9 HP |
 | `Rulebook.through` | 0.25 | a point through the head takes 3 HP, through the trunk 1.5 |

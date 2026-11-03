@@ -32,6 +32,8 @@ export interface Rulebook {
   readonly mode: Mode;
   /** **What a blow costs the body's life**, by the struck part's group: the life it takes over its damage (`src/core/rules/pool.ts`). */
   readonly life: Readonly<Record<PartGroup, Quantity<number>>>;
+  /** **A crippled limb's strength**: the share of their peak torques the muscles of every joint whose child is in it keep (`crippleLimb`). */
+  readonly crippled: Quantity<number>;
   /** **A cut that takes off a limb**: an edge's or an axe's damage at least this share of the limb's full bar, with the bar left empty. */
   readonly severBlow: Quantity<number>;
   /** **What a cut costs**, a share of the body's full life, beside what the blow took. */
@@ -111,6 +113,7 @@ const RULES: Omit<Rulebook, "mode"> = Object.freeze({
     trunk: sourced(1, "1", "owner-life", "a blow on the trunk takes its damage from life"),
     limb: sourced(0.5, "1", "owner-life", "a blow on a limb takes half its damage from life"),
   }),
+  crippled: sourced(0.5, "1", "owner-life", "a crippled limb's muscles at half their peak torques"),
   severBlow: sourced(0.5, "1", "owner-life", "a cut worth half a limb's bar that empties it takes the limb off"),
   severLoss: sourced(0.15, "1", "owner-life", "a cut costs 0.15 of full life"),
   through: sourced(0.25, "1", "owner-life", "a point through a part takes a quarter of full life"),

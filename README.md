@@ -36,7 +36,8 @@ The [asset pipeline](docs/art/assets.md) owns sources, compression, caching and 
 Pick a character for each side (Warrior, Rogue, Skeleton, Reptile or Rat) and press **Fight**. You
 watch, or take a side under **Play as**: your side then does what you order and nothing else.
 Each side has one life bar, and the body diagram shows a bar on each limb: a blow on the head
-costs twice its damage, on the trunk its damage, on a limb half, and an emptied limb is crippled.
+costs twice its damage, on the trunk its damage, on a limb half, and an emptied limb is crippled:
+its muscles keep half their strength.
 A heavy cut takes a crippled limb off. A side is out when its life is spent, its head comes off or
 it loses a leg. From the first minute each side loses a sixtieth of its full life a second, so
 every bout ends by two minutes; a fall ends nothing, and a fallen fighter tries to rise.
@@ -111,7 +112,7 @@ plays it by itself (`&party=clearer`), and the enemies as a mob or each on its o
 ## The Lab
 
 **Lab** (`?play=lab`) stands one body and exercises it. Each scenario's settings and
-readout sit at the sides; **Character** picks the body, loadout, balance and mind (the Option Mind
+readout sit at the sides; **Character** picks the body, a limb to cripple, loadout, balance and mind (the Option Mind
 plays every scenario); the transport
 pauses, single-steps, scrubs and slows time. **View** uses the shared World/Tactical and camera controls.
 

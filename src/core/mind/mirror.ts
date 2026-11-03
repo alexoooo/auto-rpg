@@ -29,7 +29,7 @@ import { segmentShapes } from "../build/segment-shapes.ts";
  *
  * Its numbers, by section (`layoutOf`): the clock and level; each segment's pose, motion, hand, toes
  * and mass; each joint's angles, speeds, rates and turning as the muscles last read them; the
- * muscles' ceilings, delivered torque and bounds; the assist's ceiling, gift, meter and withdrawal; the senses' own life; then, of variable length, each segment's contacts and manifolds,
+ * muscles' ceilings, delivered torque, bounds and strength (`BuiltBody.strength`); the assist's ceiling, gift, meter and withdrawal; the senses' own life; then, of variable length, each segment's contacts and manifolds,
  * each other body and object the senses show, and, where its fight labels what it touches
  * (`OwnBody.contactIdentity`), the label of each body its contacts name and of the world's.
  */
@@ -104,8 +104,8 @@ const poseCode = (pose: HandPose | undefined): number => pose === undefined ? -1
 /** Where each section of a body's numbers starts, made once from its statics. */
 interface Layout {
   readonly segments: number;
-  /** Each joint's freedoms, and where its numbers start. */
-  readonly joints: readonly { readonly dofs: number; readonly at: number }[];
+  /** Each joint's freedoms, where its numbers start, and its first freedom's muscle channel. */
+  readonly joints: readonly { readonly dofs: number; readonly at: number; readonly channel: number }[];
   readonly channels: number;
   readonly muscles: number;
   readonly assist: number;
@@ -120,11 +120,11 @@ function layoutOf(statics: Pick<MirrorStatics, "spec" | "segments" | "joints">):
   const specs = new Map(statics.spec.joints.map((joint) => [joint.name, joint]));
   let at = HEAD + SEGMENT * statics.segments.length, channels = 0;
   const joints = statics.joints.map((name) => {
-    const dofs = specs.get(name)!.dofs.length, made = { dofs, at };
+    const dofs = specs.get(name)!.dofs.length, made = { dofs, at, channel: channels };
     at += 3 * dofs + dofs * dofs; channels += dofs;
     return made;
   });
-  const muscles = at, assist = muscles + 4 * channels, senses = assist + ASSIST;
+  const muscles = at, assist = muscles + 5 * channels, senses = assist + ASSIST;
   return { segments: statics.segments.length, joints, channels, muscles, assist, senses, fixed: senses + 2, command: 2 * channels + 6 };
 }
 
@@ -291,6 +291,7 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
       channel.inbound.set(driver.pulled, k); k += n;
       channel.inbound.set(driver.bounds.negative, k); k += n;
       channel.inbound.set(driver.bounds.positive, k); k += n;
+      channel.inbound.set(built.strength, k); k += n;
       const help = assist.assist;
       put(help.most.force); put(help.most.moment); vec(help.given.force); vec(help.given.moment);
       put(help.meter.steps); put(help.meter.force); put(help.meter.moment); put(help.withdrawn ? 1 : 0);
@@ -408,9 +409,11 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   });
   const segments = new Map(records.map((record, i) => [statics.segments[i]!.name, record.segment]));
   const jointSpecs = new Map(spec.joints.map((joint) => [joint.name, joint]));
-  const joints = new Map<string, ReadJoint>(statics.joints.map((name) => {
-    const jointSpec = jointSpecs.get(name)!, { dofs, axes } = jointKinematics(jointSpec);
-    return [name, Object.freeze({ spec: jointSpec, dofs, axes, parent: segments.get(jointSpec.parent)!, child: segments.get(jointSpec.child)! })];
+  const strength = new Float64Array(layout.channels).fill(1);
+  const joints = new Map<string, ReadJoint>(statics.joints.map((name, j) => {
+    const jointSpec = jointSpecs.get(name)!, { dofs, axes } = jointKinematics(jointSpec), at = layout.joints[j]!.channel;
+    return [name, Object.freeze({ spec: jointSpec, dofs, axes, parent: segments.get(jointSpec.parent)!, child: segments.get(jointSpec.child)!,
+      strength: (dof: number) => strength[at + dof]! })];
   }));
   const index = new Map<ReadSegmentBody, number>(records.map((record, i) => [record.segment.body, i]));
   /** Where each segment's contacts and manifolds start in the inbound numbers, as last read. */
@@ -589,6 +592,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       state.pulled.set(a.subarray(k, k + n)); k += n;
       state.bounds.negative.set(a.subarray(k, k + n)); k += n;
       state.bounds.positive.set(a.subarray(k, k + n)); k += n;
+      strength.set(a.subarray(k, k + n)); k += n;
       help.most.force = a[k++]!; help.most.moment = a[k++]!;
       help.given.force.set(a[k]!, a[k + 1]!, a[k + 2]!); help.given.moment.set(a[k + 3]!, a[k + 4]!, a[k + 5]!); k += 6;
       help.meter.steps = a[k++]!; help.meter.force = a[k++]!; help.meter.moment = a[k++]!; help.withdrawn = a[k++] === 1;

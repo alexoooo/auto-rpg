@@ -96,9 +96,11 @@ export interface FootState {
   /**
    * What it reads from its sole with its toes, and without (the same for a foot without toes), and
    * the most bend of its toes, rad, at which it reads them: their tips, read with the foot, are
-   * then no more than `DOWN` over the ball.
+   * then no more than `DOWN` over the ball. Read again where its leg's strength changes (`fitSole`).
    */
-  readonly fits: { readonly flat: SoleFit; readonly bent: SoleFit; readonly within: number };
+  fits: SoleFits;
+  /** What its fits are read at: the body's weight, N, the inset, and each freedom of its chain's strength (`ReadJoint.strength`) when they were read. */
+  readonly read: { readonly weight: number; readonly inset: number; readonly strength: Float64Array };
   /** Whether the fit with its toes is the one read now. */
   toesFlat: boolean;
   readonly chain: ReadJoint[];
@@ -138,8 +140,8 @@ export interface FootState {
   readonly lengths: readonly [number, number];
   /** The knee's flexion, rad, at which the leg is straight: less its bend in the reference pose. */
   readonly straight: number;
-  /** The leg as a pendulum about its hip (`swingSeconds`, `withinReach`). */
-  readonly leg: SwingLeg;
+  /** The leg as a pendulum about its hip (`swingSeconds`, `withinReach`), at its hip's strength now (`fitSole`). */
+  leg: SwingLeg;
   /** The sole's width across the foot, m. */
   width: number;
   /** Half the sole's length, m. */
@@ -171,6 +173,9 @@ export interface FootState {
 /** What of a foot is read from its sole, reference pose (`soleFit`). */
 type SoleFit = Pick<FootState, "sole" | "ankleHold" | "hold" | "holdReach" | "width" | "reach" | "ahead" | "flat" | "stand" | "ankle" | "back">;
 
+/** A foot's fits (`FootState.fits`). */
+interface SoleFits { readonly flat: SoleFit; readonly bent: SoleFit; readonly within: number }
+
 /** The regions a foot's ankle holds at one load: the whole, and its toe and heel halves from under the ankle (`FootState.held`). */
 interface HeldRegions {
   readonly all: Sole;
@@ -193,12 +198,12 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
   const feet = (["left", "right"] as const).map((side): FootState => {
     const segment = built.segments.get(`foot.${side}`);
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
-    const chain = chainTo(built, segment), flat = fitOf(segment, chain, weight, inset, true);
-    const toes = segment.spec.toes?.length.value, within = toes === undefined ? Infinity : asin(Math.min(DOWN / toes, 1));
-    const fits = { flat, bent: toes === undefined ? flat : fitOf(segment, chain, weight, inset, false), within };
+    const chain = chainTo(built, segment), strength = new Float64Array(chain.reduce((sum, joint) => sum + joint.dofs.length, 0));
+    strengthOf(chain, strength);
+    const fits = fitsOf(segment, chain, weight, inset), flat = fits.flat;
     const held = flat.hold.map(() => new Vector3());
     const regions = (o: number): HeldRegions => ({ all: { corners: held.slice(o, o + 4) }, toe: { corners: [held[o]!, held[o + 1]!, held[o + 4]!, held[o + 5]!] }, heel: { corners: [held[o + 2]!, held[o + 3]!, held[o + 4]!, held[o + 5]!] } });
-    return { ...flat, fits, toesFlat: true, turns: turnsOf(chain[0]!), side, segment, chain,
+    return { ...flat, fits, read: { weight, inset, strength }, toesFlat: true, turns: turnsOf(chain[0]!), side, segment, chain,
       memory: { channels: [] as number[], rolled: null, hip: new Vector3(), ground: 0, lifted: 0 },
       corners: flat.sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       held: { points: held, under: new Vector3(), ankle: held[12]!, full: regions(0), half: regions(6) },
@@ -213,10 +218,26 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
   return feet;
 }
 
+/** `segment`'s fits (`FootState.fits`), a foot on `chain`, at `weight` and `inset` and its ankle's strength now. */
+function fitsOf(segment: ReadSegment, chain: readonly ReadJoint[], weight: number, inset: number): SoleFits {
+  const flat = fitOf(segment, chain, weight, inset, true), toes = segment.spec.toes?.length.value;
+  return { flat, bent: toes === undefined ? flat : fitOf(segment, chain, weight, inset, false), within: toes === undefined ? Infinity : asin(Math.min(DOWN / toes, 1)) };
+}
+
+/** Each freedom of `chain`'s strength now (`ReadJoint.strength`), in its joints' order, into `out`; whether any differs from what `out` held. */
+function strengthOf(chain: readonly ReadJoint[], out: Float64Array): boolean {
+  let k = 0, moved = false;
+  for (const joint of chain) for (let dof = 0; dof < joint.dofs.length; dof++, k++) {
+    const now = joint.strength(dof);
+    if (now !== out[k]) { out[k] = now; moved = true; }
+  }
+  return moved;
+}
+
 /**
- * Each sole's fit (`soleFit`), by its foot's spec, its ankle's, and the weight, inset and toes it
- * is read at: specs are data, never changed, and a fit is read, never written, so bodies of a spec
- * share it.
+ * Each sole's fit (`soleFit`), by its foot's spec, its ankle's, and the weight, inset, toes and
+ * ankle's strength it is read at: specs are data, never changed, and a fit is read, never written,
+ * so bodies of a spec share it.
  */
 const FITS = new WeakMap<SegmentSpec, WeakMap<JointSpec, Map<string, SoleFit>>>();
 
@@ -226,7 +247,7 @@ function fitOf(segment: ReadSegment, chain: readonly ReadJoint[], weight: number
   if (!byAnkle) FITS.set(segment.spec, byAnkle = new WeakMap());
   let byRead = byAnkle.get(chain[2]!.spec);
   if (!byRead) byAnkle.set(chain[2]!.spec, byRead = new Map());
-  const key = `${weight} ${inset} ${toesFlat}`;
+  const ankle = chain[2]!, key = `${weight} ${inset} ${toesFlat} ${ankle.dofs.map((_, dof) => ankle.strength(dof)).join(" ")}`;
   let fit = byRead.get(key);
   if (!fit) byRead.set(key, fit = Object.freeze(soleFit(segment, chain, weight, inset, toesFlat)));
   return fit;
@@ -250,25 +271,33 @@ function soleFit(segment: ReadSegment, chain: readonly ReadJoint[], weight: numb
     ankle: ankle[1] - corners.reduce((sum, q) => sum + q[1], 0) / corners.length, back: hypot(mx, mz) };
 }
 
-/** `foot` read with the fit (`FootState.fits`) of its toes now: with them, or bent past `within`, without. */
+/**
+ * `foot` read with the fit (`FootState.fits`) of its toes now: with them, or bent past `within`,
+ * without; its fits and its leg read again first where its leg's strength has changed since.
+ */
 function fitSole(foot: FootState): void {
+  const weakened = strengthOf(foot.chain, foot.read.strength);
+  if (weakened) {
+    foot.fits = fitsOf(foot.segment, foot.chain, foot.read.weight, foot.read.inset);
+    foot.leg = swingLegOf(foot.chain);
+  }
   const flat = (foot.segment.toes?.bend ?? 0) <= foot.fits.within;
-  if (flat === foot.toesFlat) return;
+  if (!weakened && flat === foot.toesFlat) return;
   Object.assign(foot, flat ? foot.fits.flat : foot.fits.bent);
   foot.toesFlat = flat;
 }
 
 /**
  * What an ankle's muscles toward `sense` hold against a load that pushes the other way, N m: their
- * isometric peak, and across the sole (`across`) that times their lengthening ceiling
+ * isometric peak at their `strength` (`ReadJoint.strength`), and across the sole (`across`) that times their lengthening ceiling
  * (`MuscleSpec`'s speed, `eccentricCeiling`). Across, a load that pushes the sole onto its edge
  * lengthens the invertors or evertors holding it, and they resist up to that ceiling of their peak
  * (Thelen 2003). Along it, a sole held past its peak tips onto its toes or its heel, which the
  * stance reads and plans on (`bearingEnd`). Measured: `docs/reference/stance-tuning.md#ankle-hold`.
  */
-function ankleStrength(muscle: MuscleSpec, sense: "peakPositive" | "peakNegative", across: boolean): number {
+function ankleStrength(muscle: MuscleSpec, strength: number, sense: "peakPositive" | "peakNegative", across: boolean): number {
   const curve = sense === "peakPositive" ? muscle.speedPositive : muscle.speedNegative;
-  return muscle[sense].value * (across ? curve.eccentricCeiling.value : 1);
+  return strength * muscle[sense].value * (across ? curve.eccentricCeiling.value : 1);
 }
 
 /**
@@ -292,8 +321,8 @@ function holdOf(corners: readonly Vec3[], ahead: readonly number[], ankle: Vec3,
   const toeEdge = (front[0] - ax) * ux + (front[2] - az) * uz, heelEdge = (ax - heel[0]) * ux + (az - heel[2]) * uz;
   const halfWidth = hypot(corners[ahead[0]!]![0] - corners[ahead[1]!]![0], corners[ahead[0]!]![2] - corners[ahead[1]!]![2]) / 2;
   const strength = (name: string, sense: "peakPositive" | "peakNegative"): number => {
-    const dof = joint.dofs.find((d) => d.spec.positive === name);
-    return dof ? ankleStrength(dof.spec.muscle, sense, name === "inversion") : Infinity;
+    const dof = joint.dofs.findIndex((d) => d.spec.positive === name);
+    return dof >= 0 ? ankleStrength(joint.dofs[dof]!.spec.muscle, joint.strength(dof), sense, name === "inversion") : Infinity;
   };
   // Dorsiflexion (toes up) presses the heel into the ground, plantar flexion the toes; inversion and eversion each press a side.
   const hold: AnkleHold = { toe: strength("dorsiflexion", "peakNegative"), heel: strength("dorsiflexion", "peakPositive"),

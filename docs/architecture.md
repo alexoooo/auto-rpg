@@ -215,8 +215,16 @@ first, then added to `ENGINES` and run with `CORE_ENGINE=<name> npm test`.
 
 `driveMuscles` (`src/core/muscle/driver.ts`) turns each freedom's command, an activation and a
 velocity, into a motor target and torque ceilings: activation times the peak torque of the side
-pushed toward, times the force-velocity factor at the joint's speed (`force-velocity.ts`: Hill's
-curve shortening, an eccentric branch to 1.4 times isometric lengthening).
+pushed toward, times the joint's strength, times the force-velocity factor at the joint's speed
+(`force-velocity.ts`: Hill's curve shortening, an eccentric branch to 1.4 times isometric lengthening).
+
+**A joint's strength** is the share of their peak torques its muscles give now, 1 whole: plain
+state on the body (`BuiltBody.strength`, one a channel), read through the joint
+(`ReadJoint.strength`) wherever a peak torque is: the driver's ceilings and tendons
+(`strengthAt`), the ankle's hold and the swing leg's torque, which a foot state reads again when
+its leg's strength changes (`fitSole`, `src/core/control/support.ts`), and the mirror. A crippled
+limb writes it (`crippleLimb`, `src/core/rules/pool.ts`); a direct mind's actuator model
+(`direct.ts`) keeps the whole peaks, and the driver bounds what it commands.
 
 - `World.actuation`, fixed per world, selects the symmetric gameplay law or the directional
   research law, which bounds each side independently.
@@ -551,7 +559,7 @@ the spec as the builder makes it (`segmentShapes`, `jointKinematics`) and refres
 numbers (`MirrorChannel.inbound`), which the world writes (`mirrorWriter`) once a step, before the
 mind steps, and again as a load puts the body back. They hold the
 clock and level; each segment's pose, motion, hand, toes and mass; the joints as the muscles last
-read them; the muscles' command, ceilings, delivered torque and bounds; the assist's; the senses';
+read them; the muscles' command, ceilings, delivered torque, bounds and strength; the assist's; the senses';
 and each segment's contacts and manifolds. The mirror reads the body's dynamics itself (the driver
 then does not, `driveMuscles`'s `dynamics`). What the mind asks goes back as numbers
 (`MirrorChannel.outbound`: the command, the assist's ask, the hands' requests), and what it meets
@@ -1709,7 +1717,8 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
   segment is in one group (`woundGroups`, `WoundSpec`): vital (a head), a limb (`LimbSpec`: an
   arm, a leg) or the trunk. A blow takes its damage from life times its group's factor
   (`Rulebook.life`: vital 2, trunk 1, limb 0.5, `lifeFactor`), and on a limb its whole damage
-  from the limb's bar, a share of full life; an empty bar cripples the limb. An edge or axe blow
+  from the limb's bar, a share of full life; an empty bar cripples the limb: the muscles of every
+  joint whose child is in it keep `Rulebook.crippled` of their peak torques (`crippleLimb`, below). An edge or axe blow
   worth `Rulebook.severBlow` of the bar that empties it takes the limb off from the struck segment
   out, and a lethal one on a vital part takes that off; a cut costs `Rulebook.severLoss` of full
   life. A body is out when its life is spent (`slain`), a vital part comes off (`beheaded`) or a

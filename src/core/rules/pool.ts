@@ -8,7 +8,8 @@ import type { Mechanism, Rulebook } from "./rulebook.ts";
  * - **Life** is the body's hit points (`WoundSpec.hp`). A blow takes from it its damage times the
  *   factor of the struck part's group (`Rulebook.life`): vital, trunk or limb (`woundGroups`).
  * - **A limb's bar** is its share of full life (`LimbSpec.share`). A blow on the limb takes its
- *   whole damage from the bar too; at 0 the limb is crippled, and further blows take only life.
+ *   whole damage from the bar too; at 0 the limb is crippled, its muscles weaker (`crippleLimb`),
+ *   and further blows take only life.
  * - **A cut takes a limb off**: an edge or axe blow worth at least `Rulebook.severBlow` of the
  *   limb's full bar that leaves the bar at 0 takes off the struck segment and every one beyond it.
  *   **A lethal cut beheads**: an edge or axe blow on a vital part not `whole` that spends life
@@ -68,6 +69,21 @@ export function lifeFactor(rules: Rulebook, spec: BodySpec, segment: string): nu
   const group = woundGroups(spec).get(segment);
   if (!group) throw new Error(`${spec.model} has no segment ${segment}`);
   return rules.life[group.kind].value;
+}
+
+/**
+ * **A crippled limb is weaker**: the muscles of every joint of `body` whose child is in the limb
+ * named `limb` keep `Rulebook.crippled` of their peak torques (`BuiltBody.strength`, its spec's
+ * joints' freedoms in order).
+ */
+export function crippleLimb(body: { readonly spec: BodySpec; readonly strength: Float64Array }, limb: string, rules: Rulebook): void {
+  const segments = body.spec.wounds.limbs.find((one) => one.name === limb)?.segments;
+  if (!segments) throw new Error(`${body.spec.model} has no limb ${limb}`);
+  let channel = 0;
+  for (const joint of body.spec.joints) {
+    if (segments.includes(joint.child)) body.strength.fill(rules.crippled.value, channel, channel + joint.dofs.length);
+    channel += joint.dofs.length;
+  }
 }
 
 interface Blow {
