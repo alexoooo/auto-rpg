@@ -890,7 +890,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   braced at once and up, the rise's `BY_HAND`.
 - **Profiles** (`src/core/skills/framework/profile.ts`): what a skill's drill measured it to bring, in one type
   for every skill: cells over the range and the foe's phase as the striker sensed it where the
-  trial began (`sensedPhase`), each the share done, the hit points dealt and lost, the seconds and
+  trial began (`sensedPhase`), each the share done, the life dealt (`lifeFactor`) and the hit points lost, the seconds and
   the share ending down, where those not done came to rest, what letting it go before its
   point of no return cost by the progress of the motion it was let go at (`letGo`, where a drill
   let it go: the seconds until the hand was back at its guard, and what was lost meanwhile), and
@@ -979,7 +979,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   every member's actions and covers (`Asked.guard`), less a cover of a hand a member's ask holds. Valued worth (`Objective.worth`; the few terms', `fewTermsWorth`, `objective.ts`), in life, a share of a body's full life, the
   verdict's unit, beside the position held: each option's `Terms`, the focus's life its blows take
   less its own the blows it takes take beyond the blow coming, measured where a profile prices the
-  blow (the rules' damage of each contact the drill recorded) and its prior from the fight's
+  blow (the life the rules take for each contact the drill recorded, at the struck segment's
+  `lifeFactor`) and its prior from the fight's
   rules where none does (`blowLife`: the blow's energy, the struck face's share of it and the
   rules' `sideDamage` at the struck segment's cost in life, `lifeFactor`, over the struck body's
   hit points; the rules reach the mind as

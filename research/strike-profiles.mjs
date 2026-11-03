@@ -15,8 +15,9 @@
  * A trial whose drill lets its strike go (`letGo`) counts only toward its cell's cost of letting go,
  * at the progress of the motion it was let go at (the seconds from its start, to the step).
  *
- * A cell's trials: the share that landed; the hit points the rules took from the target in every
- * contact of the striker's on it (`StrikeContact.damage`), and those the striker lost in them; the seconds from the first step the
+ * A cell's trials: the share that landed; the life the rules take from the target for every contact
+ * of the striker's on it, the contact's damage (`StrikeContact.damage`) at the struck segment's
+ * cost in life under the recipe's rules (`lifeFactor`), and the damage the striker took in them; the seconds from the first step the
  * strike could be thrown to its end, over the trials that could (a cell with none, the trials'
  * own length); the share that ended down; and the range head to head where its strike ended
  * (`exit.range`), over the trials whose strike did. Its cost of letting go, by progress, over the trials
@@ -36,6 +37,8 @@ import { measuredOn, skillDigest, specDigest } from "../src/core/skills/framewor
 import { everyOf } from "../src/core/mind/decider.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 import { harnessRule } from "../src/evaluation/record.ts";
+import { lifeFactor } from "../src/core/rules/pool.ts";
+import { rulebook } from "../src/core/rules/rulebook.ts";
 
 const OUT = "assets/core/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";
 const write = process.argv.includes("--write");
@@ -102,7 +105,8 @@ for (const path of paths) {
     }
     cell.trials++;
     if (r.outcome === "landed") cell.done++;
-    for (const contact of r.contacts) cell.dealt += contact.damage;
+    const rules = rulebook("arena", recipe.rules);
+    for (const contact of r.contacts) cell.dealt += contact.damage * lifeFactor(rules, struck, contact.on);
     cell.taken += r.taken ?? 0;
     if (r.down) cell.down++;
     if (r.exit) { cell.ranged++; cell.exitRange += r.exit.range; }

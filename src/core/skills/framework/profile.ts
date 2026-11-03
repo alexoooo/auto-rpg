@@ -65,8 +65,9 @@ export interface Target {
 /**
  * **One cell of a profile**: where its trials began (range, the foe's phase), how
  * many there were, and what they came to: the share done (a strike landed, an edge reached its
- * posture), the hit points its blows took from the body struck and those its own body lost (the
- * rules' damage, each a share of a body's life once over that body's hit points), the seconds a
+ * posture), the life its blows took from the body struck (each contact's damage at the struck
+ * segment's cost in life, `lifeFactor`) and the hit points its own body lost, each a share of a
+ * body's life once over that body's hit points, the seconds a
  * trial ran, the share that ended with the body down, and where those not done came to rest (an
  * edge's positions), each with its share; and, where its drill let it go from there before its
  * point of no return, what that cost at each progress of the motion it was let go at.
