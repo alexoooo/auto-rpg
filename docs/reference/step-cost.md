@@ -1014,6 +1014,16 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   18.3 to 19.2 ms before, 8.7 to 9.9 after. The 358 searches of the run's first 6840 steps
   replayed give the routes they gave, and 4 million sweeps and points, at random and a hair either
   side of the solids' margins and bounds, the answers they gave.
+- **A reach's freedoms are one shape wherever they are made** (`Freedom`, `copyFreedoms`,
+  `src/core/control/effectors.ts`): the tracker's, the punch's and the guard's are objects of one
+  shape in arrays filled in order. Made by a copy of each (`{ ...f }`) in an array mapped from
+  another, the punch's met a `solveReach` compiled for the tracker's, and the solve fell back to
+  unoptimized code for the rest of the call. In the crowd fight at 92a08060 a mind's first held
+  face's thrust on its thread did so at step 4888: three capped solves of 200 passes each, 1.2 ms
+  each in one process, took that mind's move 23 to 33 ms on a loaded machine, and the step 18.6 ms
+  on a quiet one. Over the crowd fight's first 4890 steps on four mind threads (`--trace-deopt`),
+  `solveReach` left its compiled code 16 times before (12 of them for an object's shape) and 8
+  after (none for one), each for a branch first taken.
 - **What a mind shows a person crosses only when a page reads it** (`SeatAsk`'s `shown`): its
   engagement, 3.2 KB of the 3.9 each crowd mind said a step, read by no rule or Commander, had its
   details made and was copied with every answer, on the world's wait. Crowd fight, its opening

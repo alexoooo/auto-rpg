@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../../body.ts";
 import { heldFrame, rigidPoints } from "../../build/rigid.ts";
-import { effectorFreedoms } from "../../control/effectors.ts";
+import { copyFreedoms, effectorFreedoms } from "../../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, solveReach, specChainTo } from "../../control/kinematics.ts";
 import type { EffectorGoal, PointTask } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
@@ -57,7 +57,7 @@ export function guardPosture(spec: BodySpec): Pose {
     const grip = holding.origin.value, haft = add(grip, holding.along.value);
     pointAtToRef(chain, angles, grip, at);
     const place: Vec3 = [at.x, at.y, at.z], wrist = free.filter((f) => f.joint === chain.length - 1);
-    solveReach(chain, angles, wrist.map((f) => ({ ...f, preferred: GUARD[f.name] ?? 0 })),
+    solveReach(chain, angles, copyFreedoms(wrist, (f) => GUARD[f.name] ?? 0),
       [{ point: grip, target: place }, { point: haft, target: add(place, scale(UP, length(holding.along.value))) }]);
     for (const f of wrist) posture[f.name] = angles[f.joint]![f.k]!;
   }
