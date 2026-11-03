@@ -293,6 +293,28 @@ The rows differ only at 0.5 and 0.7 m/s. `accel` 0.5 held five more of fifty, th
 which the best of twelve rows at 25 walks reads by chance; it is not replicated. A human's
 preferred walk is near 1.4 m/s.
 
+### Pace ramp
+
+`STANCE_GAIT.accel` 2 m/s², from 1: a walk asked another way comes round to it at that rate, and at
+1 the Warrior asked a quarter turn at 1.4 m/s (the Locomotion drill's turn 90, bare) kept 1.4 m/s
+forward 1.6 s while its heading waited, its pelvis yawed 1.5 rad off and it fell. Node stand,
+Rapier, 120 Hz, the Option mind, at `71706c71` with its envelope, read at each `accel`:
+
+        accel   turn 90 bare   Warrior drill falls, 50   stop from 0.5 / 0.7 m/s, s   stop from 1.4, s   shoved, 200 each (Rogue / Warrior / skeleton)
+        1       fell 7.06 s    1                         1.08-1.13 / 1.15-1.41        1.69-2.17          4 / 0 / 199
+        2       held           0                         1.11-1.13 / 1.19-1.31        1.39-1.62          4 / 2 / 199
+        3       held           0                         1.10-1.13 / 1.19-1.29        0.97-2.06          not read
+        10      not read       not read                  1.07-1.11 / 1.13-1.26        Warrior fell, bare and club
+
+The drill is its walk and turn trials, every protocol, calm. A stop is a lone body walking forward
+under orders told to stand, the Rogue and the Warrior bare and with the club, read until under
+0.1 m/s; at 3 the bare Warrior from 1.4 was not still 4 s on. Shoved is the braced walk under random
+orders at 0.5 m/s, the club in hand, shoved 20 N s at a third of them, seeds 1 to 200
+(`research/core-stance-sweep.mjs --batteries orders --orders 0.5:1-200 --shoves 20`); the skeleton
+falls in 199 of 200 of it with the club in its right hand and the core stand's balance at either
+`accel`, so its shoved falls are read on another battery. Chosen: 2, the
+least that holds the turn. The stance envelope was measured at 1 and is to be measured again at 2.
+
 ### Double support and pre-swing
 
 Above 0.4 m/s the swinging hip runs out of strength without a pre-swing: the Rogue walking forward
@@ -447,6 +469,43 @@ forward and falls there, as `reserve` 1 does. With the double support at 0.06 s 
 falls, the pace creeping past the cap a step at a time with the plan's pivot and the measured centre
 of pressure at the heel's edge; through a double support the measured pivot is 0.08 to 0.16 m from
 the plan's, which models no reaction there. The shoves to 90 N s are unchanged (160 and 237).
+
+### A walk's step that ends in the air
+
+A walk's step ends on its time (`walkStep`, `transferStep`, `settleStep`; no `SwingGoal.lands`),
+its foot on the ground or not; a catch's ends as its sole meets the ground. Traced on the
+Skeleton's shoved walk (seed 133), a step ended with its foot still in the air after a shove
+pitched the pelvis 50°, and the next shift handed the weight to that foot: a 2.5 rad/s jolt of
+the pelvis in 25 ms. The whole-body solve was not the cause: it planned about -50 rad/s² of
+righting, and the pelvis slowed by it.
+
+Tried, not kept: walk steps that land, at `d52b1f49`. Two readings:
+
+- The braced walk's shoved orders, seeds 1 to 600, club in hand. The Skeleton is shoved at 4 N s
+  and the humans at 20 (`--batteries orders --orders 0.5:1-600 --shoves <N s>`).
+- The Locomotion drill's every protocol (`npm run evaluate -- locomotion option --protocol every`),
+  705 trials, Option Mind. Each is on the Node core world, Rapier, 120 Hz.
+
+        walk steps end                                     fell of 600   Skeleton  Rogue  Warrior   drill held  stopped
+        on time (kept)                                                   79        17     3         0.984       0.951
+        as the sole meets the ground, from 0.8 of the time               59        15     5         0.974       0.863
+        on time once the sole is down, a late foot going on down         70        28     0         0.987       0.905
+
+- **Met from 0.8 of the time**, every step ended early, and the walk went faster than asked. The
+  0.3 m/s walks went 1.00 to 1.08 of their pace. The runs and turns fell 12 times against 5, and
+  24 walks, runs and turns did not stand still at the end against 6.
+- **On time once down**, the Rogue's shoved walk fell 28 times against 17. Its walks that did not
+  stop went from 0 to 9.
+
+Also tried and not kept:
+
+- The catch's foot chosen by how far the capture point lies outside the hull of the bearing sole
+  and the landed one: the Skeleton fell 28 times of 200 against 20.
+- The Skeleton's motors 1.5 and 2.6 times as fast: 27 and 65 of 200.
+- Its feet at rest 0.338 m apart, the Rogue's, against its own 0.226: 31 of 200.
+
+Empty-handed, it fell 18 times of 200, so the item is not the cause. The recovery step's `reach`,
+`seconds` and `lift` moved nothing on the shove stand.
 
 ## Heel-off
 

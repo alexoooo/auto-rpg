@@ -24,16 +24,39 @@ export function effectorAim(spec: BodySpec, segment: string): string {
   return aim;
 }
 
+/** A freedom an effector moves (`solveReach`): freedom `k` of the chain's joint `joint`, its range, the angle it is drawn toward, and its channel. */
+export interface Freedom { readonly joint: number; readonly k: number; readonly min: number; readonly max: number; preferred: number; readonly name: string }
+
+/**
+ * Freedoms as every maker makes them: each an object of one shape in an array filled in order, so
+ * a solve reads one kind of each wherever they were made. A solve that meets another kind at its
+ * hundreds of passes runs them unoptimized.
+ */
+function freedomsOf(count: number, each: (i: number) => Freedom): Freedom[] {
+  const out: Freedom[] = [];
+  for (let i = 0; i < count; i++) {
+    const { joint, k, min, max, preferred, name } = each(i);
+    out.push({ joint, k, min, max, preferred, name });
+  }
+  return out;
+}
+
+/** A copy of `free`, each drawn toward `preferred` of it where given, else as it is. */
+export function copyFreedoms(free: readonly Freedom[], preferred?: (freedom: Freedom) => number): Freedom[] {
+  return freedomsOf(free.length, (i) => preferred ? { ...free[i]!, preferred: preferred(free[i]!) } : free[i]!);
+}
+
 /**
  * The freedoms an effector moves, `chain` its joints from the root and `base` the segment it moves
  * from: each freedom of the joints from the one that leaves `base` out, by joint in the chain's
  * order and freedom, its range its spec's; null where no joint of the chain leaves `base`.
  */
-export function effectorFreedoms(chain: readonly JointKinematics[], base: string) {
+export function effectorFreedoms(chain: readonly JointKinematics[], base: string): Freedom[] | null {
   const start = chain.findIndex(j => j.spec.parent === base);
   if (start < 0) return null;
-  return chain.flatMap((joint, j) => j < start ? [] : joint.dofs.map((dof, k) => ({ joint: j, k,
+  const all = chain.flatMap((joint, j) => j < start ? [] : joint.dofs.map((dof, k) => ({ joint: j, k,
     min: dof.spec.min.value, max: dof.spec.max.value, preferred: 0, name: channelName(joint, k) })));
+  return freedomsOf(all.length, (i) => all[i]!);
 }
 
 /**

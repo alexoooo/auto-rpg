@@ -1,6 +1,8 @@
 import type { BodyView } from "../body.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
+import { STANCE_GAIT } from "../control/stance-tuning.ts";
+import { STANCE_STOPPING } from "../skills/locomotion/locomotion.ts";
 import type { Window } from "../skills/framework/action.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { groundRoute } from "../perception/downed/route.ts";
@@ -16,11 +18,24 @@ const RESPONSE = 1;
 
 /**
  * **The pace of a walk into a window**, m/s: `ceiling`, braking to arrive as it closes the `distance`
- * left, m, in `RESPONSE`, where the place it walks to moves along the way there at `drift` m/s (a
- * foe coming on, less than 0), so that the two closing on each other close it in that time; none
- * where the place comes on that fast itself.
+ * left, m, in `RESPONSE`, less `on`, what the body goes on once asked to stop (`goesOn`), where the
+ * place it walks to moves along the way there at `drift` m/s (a foe coming on, less than 0), so
+ * that the two closing on each other close it in that time; none where the place comes on that fast
+ * itself.
  */
-export const approachPace = (ceiling: number, distance: number, drift = 0): number => Math.max(0, Math.min(ceiling, distance / RESPONSE + drift));
+export const approachPace = (ceiling: number, distance: number, drift = 0, on = 0): number =>
+  Math.max(0, Math.min(ceiling, Math.max(0, distance - on) / RESPONSE + drift));
+
+/**
+ * How far the body goes on toward a place (`x`, `z`) m from its centre, `distance` m off, once it is
+ * asked to stop, m: at its speed toward it through a step of the stance's walk, which lands where it
+ * was planned (`STANCE_GAIT`'s swing and double support), then slowing at the walk's stopping
+ * rate (`STANCE_STOPPING`), as a stop runs (`docs/reference/locomotion.md#stopping`).
+ */
+const goesOn = (view: BodyView, x: number, z: number, distance: number): number => {
+  const closing = distance > 0 ? Math.max(0, (view.stance.velocity.x * x + view.stance.velocity.z * z) / distance) : 0;
+  return closing * (STANCE_GAIT.seconds + (STANCE_GAIT.transfer ?? 0)) + closing * closing / (2 * STANCE_STOPPING);
+};
 
 /**
  * A walk into a window on a body lying (`Window.on`): how far each foot's middle keeps from that
@@ -261,10 +276,10 @@ export function windowSpot(view: BodyView, window: Window, heading: number, kept
 export function approachSpot(view: BodyView, spot: Spot, ceiling: number, face: number, near = ARRIVED): {
   readonly move: null; readonly face: number; readonly movement?: MovementRequest; readonly pace?: number;
 } {
-  const distance = hypot(spot.x - view.stance.centre.x, spot.z - view.stance.centre.z);
+  const x = spot.x - view.stance.centre.x, z = spot.z - view.stance.centre.z, distance = hypot(x, z);
   const movement: MovementRequest = spot.route ? { kind: "place", points: spot.route.map((point) => ({ x: point.x, z: point.z })), near, ...(spot.by === undefined ? {} : { by: spot.by }) }
     : placeMovement({ x: spot.x, z: spot.z }, near);
-  return { move: null, face, movement, pace: approachPace(ceiling, distance) };
+  return { move: null, face, movement, pace: approachPace(ceiling, distance, 0, goesOn(view, x, z, distance)) };
 }
 
 /**
@@ -296,5 +311,5 @@ export function approachActionWindow(view: BodyView, window: Window, heading: nu
   const movement: MovementRequest = beside ? { kind: "place", points: beside.route.map((point) => ({ x: point[0], z: point[2] })), near: arrive, by: beside.by }
     : placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, arrive);
   return { move: null, face, movement,
-    pace: approachPace(ceiling, distance, drift), ...(distance > travel ? { travelFacing: true as const } : {}) };
+    pace: approachPace(ceiling, distance, drift, goesOn(view, x, z, distance)), ...(distance > travel ? { travelFacing: true as const } : {}) };
 }
