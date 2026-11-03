@@ -125,6 +125,12 @@ one side of it to the other.
   swingSeconds 0.257 s, contactSpeed 6.418 m/s). Read at `25d720b9` it lands 11 of the fresh 12, 1
   fell (at 480 Hz 9, none fell), and 5 of the rung's 12, 1 fell, 2 outside, 2 refused: over the 24,
   16 landed and 2 fell against the row's 14 and 2, within a trial's spread, so the row is kept.
+- **Searched on the laid rung** (the same search at `a33cae1b`, 10 generations, 3.2 h; best 8.30:
+  lift 0.706 m, over 0.973, alongNear / alongFar 0.569 / 0.830 m, chamberSeconds 0.608 s,
+  swingSeconds 0.293 s, contactSpeed 6.870 m/s). Read with each path solved from the limb's own
+  angles (`63485b78`), on `--confirm`'s fresh 12 it lands 9, none fell, against the row's 8 and 1
+  fell at 120 Hz, and 4, 5 refused, 1 fell against 6 and none at 480 Hz: over the 24, 13 landed and
+  1 fell against 14 and 1, so the row is kept.
 - **Tried and not kept**: the place beside a body lying chosen most nearly square across it, the
   walk's route only between its two sides, and held until that body or the target moves or the
   feet stop clearing it: 5 landed, 4 outside, 1 fell, against 6, none and none; the drill's spot
