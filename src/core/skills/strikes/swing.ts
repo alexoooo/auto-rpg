@@ -130,7 +130,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       if (!placedHeightFits(spec, hand, at[1] - view.head.y, face.point)) return { kind: "blocked", reason: "target is outside the arm's height band" };
       return strikeWindow(view, at, around.heading, { standOff: settings.reach, band: settings.band, aside: settings.aside, across: 0, pace: settings.pace,
-        poised: settings.poised === true, clear: clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead) });
+        poised: settings.poised === true, clear: clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead), ...(target.kind === "body" ? { on: target.body } : {}) });
     },
     resume() { state.live = null; },
     interrupt(_view, id) { if (state.live?.request.id === id) state.live = null; },

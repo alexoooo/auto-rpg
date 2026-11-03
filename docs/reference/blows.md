@@ -26,6 +26,30 @@ hung 10 s (`tests/lab-targets.test.mjs@2a1b29ac`):
 A hook added while the world steps first runs in the next step, so `hangDummy` gives the force
 of the step it hangs in itself; without it a dummy hung from a mind's watch sinks at 0.08 m/s.
 
+## A held blow's bar on another body
+
+The held blow's energy bar (`BAR.held.energy`, `src/evaluation/strike/read.ts`) is set for the
+Warrior struck. A blow gives up its energy with the reduced mass of the pair it meets, m M / (m +
+M) (`impactEnergy`, `src/core/rules/impact.ts`), so the same blow gives a lighter body less. On
+another body the bar is the pair's share of it (`pairShare`): the reduced mass of the striker's
+side `m` and the mass met on the target's `M`, over the reduced mass of `m` and the mass the
+Warrior would meet there, `M` scaled by the bodies' masses (79 kg over the target's). A rule
+that writes no factor, as `barOf` scales a fist's mass by its striker's; a Warrior struck reads
+the bar itself, and the fist's, the point's, the edge's and the foot's bars are speeds and
+masses on the striker's side, which the target does not move.
+
+The Warrior's overhead club swing on the Skeleton (15 kg), the drill's still rung at the middle
+mark (`research/swing-drill.mjs --verify`, Node, the bout world, Rapier, at 6de4fe37 with the
+rule):
+
+| Start | Rate, Hz | Energy, J | The pair's bar, J | Outcome |
+|---|---|---|---|---|
+| 1.0 m | 120 | 18.3 | 53.3 | weak |
+| 1.4 m | 120 | 59.7 | 45.8 | landed |
+| 1.4 m | 480 | 62.3 | 47.5 | landed |
+
+At 1.0 m and 480 Hz the swing met the Skeleton off the mark.
+
 ## The club's best blow
 
 `CLUB_BEST` (`src/core/rules/rulebook.ts`, `core-club-unit`): the Warrior's strongest one-handed
