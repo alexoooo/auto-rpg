@@ -2,8 +2,7 @@
  * A sweep of the core's functions of a real number (`src/core/math/real.ts`) and its digest: the
  * arguments are drawn with integer arithmetic and IEEE's own operations and nothing else, so they
  * are the same in every JavaScript engine, and so is the digest if the functions are.
- * `tests/core-math.test.mjs` holds the digests to their record, and
- * `research/real-against-engine.mjs` prints them in whatever engine runs it.
+ * `research/real-against-engine.mjs` prints the digests in whatever engine runs it.
  */
 import { acos, asin, atan2, cbrt, cos, cosh, exp, hypot, norm, sin, sinh, tan } from "../../src/core/math/real.ts";
 

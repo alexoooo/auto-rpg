@@ -2,7 +2,7 @@
  * **Who takes a blow's energy.** The surfaces that met are springs in series under one force, so
  * each stores F^2 / 2k: a surface's share is its compliance over the sum of them all. A rigid
  * surface (null) has no compliance and takes none; where every surface is rigid, nobody does.
- * The list is every layer between the two bodies, in any order: today, the two that touched.
+ * The list is every layer between the two bodies, in any order; a blow's is the two that touched.
  */
 export function energyShares(stiffness: readonly (number | null)[]): number[] {
   const compliance = stiffness.map((k) => {

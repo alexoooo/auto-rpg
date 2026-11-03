@@ -12,8 +12,8 @@ import type { Side } from "../spec/body.ts";
 
 /**
  * **A workshop model as a human figure**: its rig's landmarks (`landmarks.ts`), its clothed
- * envelope's trunk hulls and boots (`envelope.ts`), its bare hands (`hands.ts`), its sex, size and mass (`model.ts`), and the
- * owner's hit points and balance, all at the authored size with the fit scale to take them to x1.
+ * envelope's trunk hulls and boots (`envelope.ts`), its bare hands (`hands.ts`), its sex, size and mass (`model.ts`), and its
+ * hit points and balance (`wounds.ts`, `attributes.ts`), all at the authored size with the fit scale to take them to x1.
  *
  * The rig's feet end in a boot, so the foot runs from the boot's heel to its toe, at the height of
  * the rig's ball. The rig holds each hand thumb up, a quarter turn from the anatomical position's

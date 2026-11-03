@@ -134,7 +134,7 @@ export interface DuelRecipe {
   readonly surfaces?: Readonly<Record<string, number>>;
   /** What a mind must do beyond fitting its body to enter (`EntryRule`): a fight's (`FIGHT_ENTRY`) unless given. */
   readonly entry?: readonly EntryRule[];
-  /** What puts a side out, in order (`EndRuleConfig`, `END_RULES`): the game's (`GAME_ENDS`: damage, then a fall) unless given. */
+  /** What puts a side out, in order (`EndRuleConfig`, `END_RULES`): the game's (`GAME_ENDS`: damage, then the drain) unless given. */
   readonly ends?: readonly EndRuleConfig[];
   /** Where a side stands at the start, on the floor (x, z, m), and which way it faces (rad, zero facing +z), in place of its level's spawn (`levelSpawn`): a scenario's arrangement. */
   readonly start?: Readonly<Partial<Record<Side, { readonly at?: readonly [number, number]; readonly heading?: number }>>>;

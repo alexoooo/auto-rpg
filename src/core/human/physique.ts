@@ -32,7 +32,7 @@ export interface Physique {
 /** A physique's attributes, in the order a physique is written. */
 export const PHYSIQUE_ATTRIBUTES: readonly (keyof Physique)[] = Object.freeze(["size", "weight", "strength", "speed"]);
 
-/** One attribute's factor as a quantity of the owner's physique decision, or null where it is absent. */
+/** One attribute's factor as a quantity (`owner-physique`), or null where it is absent. */
 function factor(physique: Physique, attribute: keyof Physique): Quantity<number> | null {
   const value = physique[attribute];
   if (value === undefined) return null;

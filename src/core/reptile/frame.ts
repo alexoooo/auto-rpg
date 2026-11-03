@@ -33,7 +33,7 @@ interface QuadrupedObjective {
 }
 
 /**
- * The fight's weights, the owner's to set for the result: what lying costs, life (`down`); how long
+ * The fight's weights, set for how a quadruped fights: what lying costs, life (`down`); how long
  * a place in the bite's window is held, s, over which its bites count (`held`); what a step of the
  * orders is worth, life (`orders`), more than any bite, so a person's orders come first.
  */

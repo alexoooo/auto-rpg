@@ -61,7 +61,7 @@ import { GAME, defaultMind } from "../entrants/game.ts";
  *   a reptile receives the nearest sensed collider surface within its mouth's reach.
  * - **Wounds** are the core's blows (`watchBlows`) under the dungeon's rulebook. A fighter is out
  *   of the fight once its pool has ended, or a fall ends that model's fight (`modelInfo`'s
- *   `fallEndsFight`); none does today, so a fallen body stays in the fight while it gets up. An eliminated body goes limp:
+ *   `fallEndsFight`); no model's does, so a fallen body stays in the fight while it gets up. An eliminated body goes limp:
  *   nothing drives its muscles again, and a step costs it only what the solver takes.
  * - **An enemy is built** once a standing party member comes within `WAKE_METRES` of where it waits,
  *   beyond its sight, and not before: every body built costs each step its control and solve.

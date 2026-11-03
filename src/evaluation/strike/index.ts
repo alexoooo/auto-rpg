@@ -88,7 +88,7 @@ function whyFailed(reading: StrikeReading): string | undefined {
     case "elsewhere": return `off the mark: the limb met the target's ${reading.contacts.find((one) => one.time >= (reading.began ?? 0))?.on ?? "body"}`;
     case "weak": return `short of the bar: ${reading.hit ? failedTests(reading.hit).join(", ") || "the action did not end" : "no hit"}`;
     case "missed": {
-      // A record older than the reading's nearest approach does not say it.
+      // A record line without the nearest approach does not say it.
       const nearest = reading.nearest ?? null;
       return nearest !== null && nearest <= REACHED ? "the target moved: the limb reached its aim and the target was not there"
         : `short of the aim${nearest === null ? "" : ` by ${nearest.toFixed(2)} m`}`;

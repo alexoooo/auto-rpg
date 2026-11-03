@@ -43,7 +43,7 @@ export type ObedienceLevel = "own" | "steady" | "orders";
 
 /**
  * **How far a person's orders are carried out through blows coming**, a player's choice and the
- * one weight of an option's worth, by its value and name, each the owner's decision: its own
+ * one weight of an option's worth, by its value and name, each set for the play it gives: its own
  * judgement (a metre 1/60 of a life, a named foe's life a third more), steady (orders obeyed past
  * a one-two at hand and a weak blow coming, not into a heavy one: a metre 0.075 of a life, a named
  * foe's life one and a half times more) and orders first (a metre a third of a life, a named foe's
@@ -149,7 +149,7 @@ export function blowLife(rules: Rulebook, striker: BodySpec, limb: string, struc
   return sideDamage(rules, "blunt", blowEnergy(striker, limb, struck, at, closing), share, 0) * lifeFactor(rules, struck, at) / struck.wounds.hp.value;
 }
 
-/** What an action is taken to do before its body has a record of it, the owner's decision: land this share of its blows, each running this long, s; worth `weight` records. */
+/** What an action is taken to do before its body has a record of it, set by hand: land this share of its blows, each running this long, s; worth `weight` records. */
 const PRIOR = Object.freeze({ lands: .3, seconds: .6, weight: 3 });
 
 /**
@@ -168,7 +168,7 @@ export function record(ledger: readonly Ended[], action: string | null): { reado
 }
 
 /**
- * A clinch, the owner's decision until a drill measures one: a focus within `within` m, centre to
+ * A clinch, set by hand until a drill measures one: a focus within `within` m, centre to
  * centre, where a body goes down `falls` times a second, standing (tangled with it) or lying (its
  * limbs underfoot).
  */

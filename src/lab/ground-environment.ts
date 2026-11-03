@@ -2,13 +2,16 @@ import { deepFreeze } from "../core/state.ts";
 import type { SolidSense } from "../core/mind/object-senses.ts";
 import { cryptFurnishing, type KitPlacement } from "../environment/furniture.ts";
 
-/** Obstacle falls are named conditions, kept separate from the owner's open-floor target. */
+/** A crypt furnishing as a ground level's obstacle: its collision solid and its kit placement. */
 const furnishing = (piece: "column" | "tomb" | "bench", z: number) => {
   const resolved = cryptFurnishing(piece, `ground.${piece}`, 0, z);
   return { solids: [resolved.solid], placements: [resolved.placement] };
 };
 
-/** The obstacle stays fixed while the same chest shoves or clear drops create the fall. */
+/**
+ * The grounds a fall happens on: the open floor, which the stand-up target's falls use, or an
+ * obstacle that stays fixed while the same chest shoves or clear drops make the fall.
+ */
 export const GROUND_LEVELS = deepFreeze({
   open: { label: "Open floor", approach: null, dropOnTop: false, solids: [] as SolidSense[], placements: [] as KitPlacement[] },
   column: { label: "Beside a column", approach: null, dropOnTop: false, ...furnishing("column", -1.2) },

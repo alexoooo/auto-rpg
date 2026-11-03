@@ -26,7 +26,7 @@ type CoverShield = "buckler";
 
 /**
  * One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). The left hand is
- * named only where it holds something, so an empty-handed or club trial is the one it always was.
+ * named only where it holds something, so a trial with an empty left hand keys without it.
  */
 export type CoverCondition = { readonly model: BodyModel; readonly held: CoverHeld; readonly left?: CoverShield; readonly across: number; readonly gap: number };
 

@@ -22,7 +22,7 @@ export const MATCHUP_PARAM = "matchup";
 
 export type Matchup = Readonly<Record<Side, BodyModel>>;
 
-/** Each contender's attributes, including existing flat Balance/Haste links. */
+/** Each contender's attributes: its side's own parameters, over the flat `balance=` and `haste=` (`legacyAttributes`). */
 export function arenaAttributes(search: string): Readonly<Record<Side, AttributeOverrides>> {
   const query = new URLSearchParams(search);
   return { left: readAttributes(query, "left", legacyAttributes(query, 0)), right: readAttributes(query, "right", legacyAttributes(query, 1)) };
@@ -203,7 +203,7 @@ export function mindsSearch(search: string, minds: Readonly<Record<Side, MindCon
   return `?${query}`;
 }
 
-/** What a mind of `config`, chosen from `control`'s preset, is called: the preset's name, or custom where it is the preset's no longer. */
+/** What a mind of `config`, chosen from `control`'s preset, is called: the preset's name, or custom where it differs from the preset. */
 export function controlName(control: Control, config: MindConfig): string {
   return JSON.stringify(config) === JSON.stringify(MINDS[control]!.config) ? CONTROLS[control] : `Custom (from ${CONTROLS[control]})`;
 }

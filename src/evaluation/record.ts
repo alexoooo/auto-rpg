@@ -131,7 +131,7 @@ export const recordEnd = (header: RecordHeader, lines: readonly RecordLine[]): s
 /**
  * A record's file name: `<yyyy-mm-ddThhmmss>` (UTC), the moment `written` (ISO) it was written,
  * then `recordEnd`; names sort in the order records were written, and a name of a day alone
- * (`<yyyy-mm-dd>`, written before the time was kept) before that day's timed ones.
+ * (`<yyyy-mm-dd>`) before that day's timed ones.
  */
 export const recordName = (header: RecordHeader, lines: readonly RecordLine[], written: string): string =>
   `${written.slice(0, 10)}T${written.slice(11, 19).replaceAll(":", "")}${recordEnd(header, lines)}`;
@@ -155,7 +155,7 @@ export function readRecord(text: string, name: string): { header: RecordHeader; 
   return { header, lines };
 }
 
-/** The row a record's line holds; a line older than `Row.played` has it null. */
+/** The row a record's line holds; a line without `played` has it null. */
 export const rowOf = ({ key, reading, digest: trace, played, fault }: RecordLine | Row): Row => ({ key, reading, digest: trace, played: played ?? null, fault });
 
 /** Whether two rows agree in key, reading, digest and fault; how long each played follows from them. */

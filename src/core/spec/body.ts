@@ -285,8 +285,8 @@ export interface LimbSpec {
 }
 
 /**
- * **What a fight's rules read of a character beyond its anatomy and its wounds.** Each is the
- * owner's number for that character.
+ * **What a fight's rules read of a character beyond its anatomy and its wounds.** Each is set
+ * per character.
  */
 export interface AttributeSpec {
   /**

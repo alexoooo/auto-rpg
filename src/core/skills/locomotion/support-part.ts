@@ -13,7 +13,7 @@ export interface SupportPart<C extends PartConfig = PartConfig> extends Part<C> 
 /** **Fighting from low support** (`supportFold`): lowering, folding and rising again. */
 interface SupportFoldConfig { readonly kind: "support-fold" }
 
-/** The opening tactics' research, offered beside the game's. */
+/** Fighting from low support, offered as an experimental part (`stage`). */
 export const SUPPORT_FOLD: SupportPart<SupportFoldConfig> = {
   role: "support", label: "Fight from low support", stage: "experimental", fields: [], slots: [], defaults: { kind: "support-fold" }, keys: { kind: true },
   fits: fitsSoles, faults: () => [], make: (body) => supportFold(body),

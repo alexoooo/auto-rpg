@@ -1,9 +1,8 @@
 import type { Point } from "./map.ts";
 import { cos, sin } from "../core/math/real.ts";
 
-/** The camera's elevation above the ground plane, rad: 30 degrees, where the concept art looks down at about 40 to
- * 45 and the reference chamber's own camera at 42 (`REFERENCE_CAMERA`). Which the crypt takes is the owner's to
- * choose; the page takes `?pitch=` in degrees to compare others. */
+/** The camera's elevation above the ground plane, rad: 30 degrees, set by eye. The reference chamber has its own
+ * (`REFERENCE_CAMERA`); the page takes `?pitch=` in degrees to compare others. */
 export const CAMERA_PITCH = Math.PI / 6;
 
 /** Which way the camera stands from the hero, as a bearing on the ground: `cameraToward` of it is the unit step from

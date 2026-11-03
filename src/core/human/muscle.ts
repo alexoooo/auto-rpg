@@ -16,8 +16,8 @@ import { measuredTorque, subjectMass, type Exertion } from "./tables/joint-torqu
  *     regional muscle = body mass x (the region's muscle per body mass, for the sex)
  *
  * The body mass counted is the figure's muscled mass (`HumanFigure.muscled`), which a physique's
- * weight leaves as it is. What the owner has set an exertion to give in use over its measured peak
- * (`IN_USE`) multiplies the torque, and so does the figure's strength, where it has one.
+ * weight leaves as it is. What an exertion is set to give in use over its measured peak (`IN_USE`)
+ * multiplies the torque, and so does the figure's strength, where it has one.
  *
  * The regional muscle per body mass is Abe 2003's, for both sexes: the women's share and the men's
  * come from the same people in the same scanner, so their ratio carries no difference of method. A
@@ -46,8 +46,7 @@ export function peakTorque(figure: HumanFigure, exertion: Exertion): Quantity<nu
 
 /**
  * What a leg's exertions give in use over their measured peaks: set so the run reaches 3 to 4 m/s,
- * the values it is fastest and surest at. A person
- * running uses the hip at all of its measured capacity and pushes the ankle past a straight-legged
+ * the values it is fastest and surest at. A person running uses the hip at all of its measured capacity and pushes the ankle past a straight-legged
  * push's peak.
  */
 const HIP_IN_USE = sourced(2.49, "1", "owner-run-body", "the hip's torque in use over its measured peak");

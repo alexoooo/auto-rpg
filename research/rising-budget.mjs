@@ -1,5 +1,5 @@
 /**
- * **The stand-up's time budget** on the owner's target (Node stand, core world, Rapier, 120 Hz):
+ * **The stand-up's time budget** on the stand-up target (Node stand, core world, Rapier, 120 Hz):
  * what of the target's median is spent before and after the rise. Two readings:
  *
  * - The target's 64 falls under the game's Stand up (`risingJobs`, the falls

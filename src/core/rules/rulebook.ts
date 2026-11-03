@@ -8,8 +8,8 @@ import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
  * where it came from, as a spec's do. An experiment passes an override
  * in and gets a new rulebook; nothing mutates one.
  *
- * The arena and the dungeon use the same rules (the owner: "The dungeon and the arena use the same
- * rule"); the mode is named so that a rule that comes to differ has a place.
+ * The arena and the dungeon use the same rules; the mode is named so that a rule that comes to
+ * differ has a place.
  */
 type Mode = "arena" | "dungeon";
 
@@ -42,7 +42,7 @@ export interface Rulebook {
   readonly through: Quantity<number>;
   /**
    * **The damage unit**: the energy of a blunt blow worth one hit point, joules. It is a round
-   * number, the owner's (`owner-damage-unit`); the Warrior's strongest one-handed blow with the
+   * number (`owner-damage-unit`); the Warrior's strongest one-handed blow with the
    * wooden club is a measurement beside it (`CLUB_BEST`), worth 1.38.
    */
   readonly unit: Quantity<number>;
@@ -58,7 +58,7 @@ export interface Rulebook {
    */
   readonly fist: Quantity<number>;
   /**
-   * **What lies over every part, outermost first** (the skin today): each layer states the energy
+   * **What lies over every part, outermost first** (the skin): each layer states the energy
    * that breaches it, J, for each mechanism it stops. A point breaches them in turn and meets as
    * blunt from the first it does not breach (`pointWound`).
    */
@@ -98,9 +98,7 @@ export interface Layer {
 export type RulebookOverride = Partial<Omit<Rulebook, "mode">>;
 
 /**
- * Each mechanism's price, joules per point of wound: the prices whose ratios the owner keeps
- * (`owner-weapon-ratios`).
- * Only their ratios to the blunt price are read; the unit sets the scale.
+ * Each mechanism's price, joules per point of wound (`owner-weapon-ratios`). Only their ratios to the blunt price are read; the unit sets the scale.
  */
 const MECHANISM_PRICE: Readonly<Record<Priced, Quantity<number>>> = Object.freeze({
   blunt: sourced(1134.99, "J", "owner-weapon-ratios", "blunt 1134.99 (crushJoulesPerDamage)"),
@@ -154,8 +152,8 @@ export function reactionSteps(seconds: number, hz: number): number {
 
 /**
  * **What a blow is worth**, hit points: its energy (`impactEnergy` in `src/core/rules/impact.ts`)
- * in the rulebook's unit, times what its mechanism's joule is worth. Every blow is priced; the
- * floors under which a blow only shoves come with the edges that need them.
+ * in the rulebook's unit, times what its mechanism's joule is worth. Every blow is priced, however
+ * light.
  */
 export function blowDamage(rules: Rulebook, mechanism: Priced, energy: number): number {
   if (!(energy >= 0) || !Number.isFinite(energy)) throw new Error(`a blow's energy is a finite joules >= 0, not ${energy}`);

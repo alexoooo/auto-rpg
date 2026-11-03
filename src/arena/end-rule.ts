@@ -39,7 +39,7 @@ export interface EndRule<C extends EndRuleConfig = EndRuleConfig> {
 }
 
 /**
- * **The game's end rules, the owner's verdict**: a side is out by its pool's ending, then by the
+ * **The game's end rules**: a side is out by its pool's ending, then by the
  * drain (`DRAIN_END`): from the first minute each loses a sixtieth of its full life a second, so
  * every bout ends by two minutes. A fall ends nothing.
  */

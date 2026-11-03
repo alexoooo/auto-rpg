@@ -79,7 +79,7 @@ export interface Percept<V> {
 const heads = ({ focus, sight }: Seen) => ({ mine: sight.view.head, theirs: focus ? focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre : null });
 
 /**
- * By hand, where no strike models the foe (`foeModel`), the owner's decisions: the chance a foe's
+ * Set by hand, for where no strike models the foe (`foeModel`): the chance a foe's
  * blow predicted to reach the head lands; and how many blows a second a standing foe throws within
  * its reach, of which as many land as of the body's own (`record`): two bodies trading blows land
  * alike.
@@ -146,7 +146,7 @@ function closesOf(seen: Seen): number {
   return pace * reaction;
 }
 
-/** What a prior was measured on: nothing; the owner's decision by hand. */
+/** What a prior was measured on: nothing; it is set by hand. */
 const BY_HAND: Measured = Object.freeze({ body: "", spec: "", skill: "by hand", hz: 0, reaction: null });
 
 /**

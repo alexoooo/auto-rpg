@@ -9,7 +9,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 
 /**
  * **The core's physics engine: Rapier**, the SIMD build of its WebAssembly (`@dimforge/rapier3d-simd-compat`,
- * the owner's choice after the bake-off, `owner-physics-engine`), meeting the contract of `engine.ts`.
+ * `owner-physics-engine`), meeting the contract of `engine.ts`.
  * It is built from the pinned source and patch in `vendor/rapier`. The compat build carries its
  * wasm inline, so a browser and Node load it alike (`loadRapier`).
  *
@@ -18,7 +18,7 @@ import { turnAboutToRef } from "../math/turn.ts";
  * damping and a maximum force is the contract's motor.
  *
  * **Solver conditioning** (`SOLVER`): the solver's iteration counts are named here and nowhere
- * else, and come from the bake-off's table. Bodies never sleep: a sleeping body reads a perfect zero.
+ * else (`physics-bakeoff`). Bodies never sleep: a sleeping body reads a perfect zero.
  *
  * **A save** is each body's pose, each link's handle and release (`Link`) and Rapier's snapshot.
  * The snapshot restores as a new world, so the module holds handles and finds its objects again on
@@ -63,9 +63,8 @@ const profileName = (coordinate: boolean, point: boolean): string => `rapier${co
 
 /**
  * The solver's iterations a step (`numSolverIterations`) and the PGS passes within each
- * (`numInternalPgsIterations`): solver conditioning, not anatomy. The bake-off's cheapest setting at
- * 120 Hz and one sub-step at which a human held the 1920 Hz reference (the elbow within 0.001 rad,
- * a whole human drifting 0.4 mm in 10 s).
+ * (`numInternalPgsIterations`): solver conditioning, not anatomy. The cheapest setting at 120 Hz and
+ * one sub-step at which a human holds the 1920 Hz reference (`physics-bakeoff`).
  */
 const SOLVER = {
   iterations: sourced(16, "1", "physics-bakeoff", "Rapier at 120 Hz, one sub-step: passes the clean bar at 16 iterations"),

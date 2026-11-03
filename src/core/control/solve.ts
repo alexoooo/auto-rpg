@@ -154,20 +154,16 @@ export function makeWholeBody(count: number, limbs: number, free = 0): WholeBody
  * solve gives by least squares in the limb's own freedoms beneath them. A torque held (in its
  * strength: a push's, or a freedom's pinned at its strength) is not an ask but what the muscle
  * will give, so it ranks above everything: a solve that bends it plans the rest of the body against
- * a torque that never comes (a strike's chamber, its trunk pinned and then planned 40 % past its
- * strength, turned the pelvis at twice the rate planned). Numeric settings, not anatomy; the
- * ranking was found on the Warrior's stand, shoves, walk and the assist reference's pulls against
- * the bearing solve.
+ * a torque that never comes, and a strike's chamber with its trunk pinned turns the pelvis faster
+ * than planned. Numeric settings, not anatomy.
  *
  * The root held to the wrench the ground gives aims its spin beneath every task (`spin`) at the
  * turn that wrench gives the body moving rigidly (`rigidTurn`): the body's momentum is then what
  * the ground gives, and of the motions that give it, where the limbs leave a choice, the one that
- * turns the root with the body. Without it the light root takes the whole of what is missed (a
- * chamber's trunk pinned at its strength rolled the pelvis 0.3 rad, and a guard's arms swung in a
- * walk); aimed at the spin first asked instead, a shove that turns the body fells it; at the feet's
- * weight or above, it bends a walk's swing to hold the root, and its stops fall (the stop battery
- * of `research/core-stance-sweep.mjs`, Node stand, Rapier, 120 Hz: 2 falls of 96 at this weight
- * and without it, 3 at 1e-5).
+ * turns the root with the body. Without it the light root takes the whole of what is missed: a
+ * chamber's trunk pinned at its strength rolls the pelvis, and a guard's arms swing in a walk.
+ * Aimed at the spin first asked instead, a shove that turns the body fells it; at the feet's
+ * weight or above, it bends a walk's swing to hold the root, and its stops fall.
  *
  * A limb's freedoms drawn toward what they are asked (`toward`, rad/s^2) rank beneath its point's
  * motion: where its task leaves them free (a hand's point has three rows and its arm seven

@@ -66,7 +66,7 @@ const DOWN = blocked("down"), NO_FOCUS = blocked("no foe"), FAR = blocked("out o
 /** No foe's part aimed at. */
 const NO_SELECTION: BiteSelection = null;
 
-/** The seconds the righting is taken to run before a drill measures it, the owner's decision: a roll, the paws placed and the rise. */
+/** The seconds the righting is priced at, set by hand: a roll, the paws placed and the rise. */
 const RIGHTING_SECONDS = 3;
 
 /** How far a bite under way keeps its window, as a share of it beyond: it is not let go as the foe shifts. */
@@ -164,8 +164,8 @@ function orders(given: QuadrupedGiven): QuadrupedOption {
 
 /**
  * **Right itself**: down, the righting (`recover`) has the body, rolling it over, placing its paws
- * and rising; committed until it hands the body back. Priced by hand until a drill measures it
- * (`RIGHTING_SECONDS`), leaving the body on its paws.
+ * and rising; committed until it hands the body back. Priced by hand (`RIGHTING_SECONDS`),
+ * leaving the body on its paws.
  */
 function righting(given: QuadrupedGiven): QuadrupedOption {
   const state = {};

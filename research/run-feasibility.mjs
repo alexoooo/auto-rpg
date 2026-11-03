@@ -31,7 +31,7 @@
  *   `peak x forceVelocityFactor(speed in their direction)`; the torque over that is the **use**, and
  *   a use over 1 is a frame the body cannot make. The ankle's angles and its moment's lever lean on
  *   the foot bone and the sole's reach, and are the least sure of the three.
- * - **Haste** (the legs' muscles' unloaded speed, a per cent of the body's, as the owner set it) is
+ * - **Haste** (the legs' muscles' unloaded speed, a per cent of the body's) is
  *   read as the least factor, of `HASTE`, at which no frame's use passes 1; past the last, a frame
  *   asks more than the joint's peak, which no speed gives.
  *

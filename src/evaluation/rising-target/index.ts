@@ -1,5 +1,5 @@
 /**
- * **The owner's stand-up target**: does a riser stand from the target's 64 falls within its bar?
+ * **The stand-up target** (`docs/reference/rising.md#the-owners-target`): does a riser stand from the target's 64 falls within its bar?
  * A riser is Option Mind getting up by its techniques (`risingMind`): the game's Stand up's
  * (`STAND_UP`) unless others are named. The summary is the bed's report with the target's gates (`risingReport`).
  */

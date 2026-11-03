@@ -249,14 +249,14 @@ const LEG = /^(hip|knee|ankle)\.(left|right)$/;
  * of the body above the hips, through its own hip, and none of the other leg (`Placement.share`,
  * `shareAt`); the trunk, head and arms held from the lower trunk. Gravity fed forward everywhere.
  *
- * Rejected:
- * - legs from their feet at full share, gravity off the legs: each leg also holds the other, so the
- *   pelvis counts twice in the joint-space inertia, and the body flails and falls;
- * - one tree from the left foot: the whole body's roll moment lands on that ankle, which saturates;
- * - half shares with the shared weight left at its own centre: each leg carries half the body
- *   cantilevered off its own side, and the legs squeeze the pelvis between them.
+ * Why so:
+ * - a leg at full share also holds the other, so the pelvis counts twice in the joint-space
+ *   inertia, and the body flails and falls;
+ * - one tree from one foot puts the whole body's roll moment on that ankle, which saturates;
+ * - a shared weight left at its own centre has each leg carry half the body cantilevered off its
+ *   own side, and the legs squeeze the pelvis between them.
  * With the load through each hip the human stands still in Rapier, and in MuJoCo once its feet
- * carry the inertia conditioning (case C, REPORT.md).
+ * carry the inertia conditioning (case C, `research/physics-bakeoff/REPORT.md`).
  */
 function humanPlacement(model: Model, base: number, prefix = ""): Placement {
   const index = (name: string): number => model.segments.findIndex((s) => s.name === name);

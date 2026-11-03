@@ -4,8 +4,7 @@
  *
  * The core's world (`createWorld`, `src/core/world.ts`) steps the engine, as the page does. The body is built through `buildBody`
  * and nothing else, so what the stand reads is what the spec states. Bodies never sleep: the
- * engine contract says so (`src/core/engine/engine.ts`), and `tests/core-engine.test.mjs` holds
- * the engine to it.
+ * engine contract says so (`src/core/engine/engine.ts`).
  */
 import "./preload-data.mjs";
 import { Vector3, Quaternion } from "../../src/core/math/vector.ts";

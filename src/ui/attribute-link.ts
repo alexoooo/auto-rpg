@@ -2,7 +2,7 @@ import { CHARACTER_ATTRIBUTES, attributeError, type AttributeName, type Attribut
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
 
-/** Flat Balance/Haste parameters accepted by existing Arena and Lab links. */
+/** The flat `balance=` and `haste=` parameters of an Arena or Lab link: one value for both sides, or `left,right`. */
 export function legacyAttributes(query: URLSearchParams, side = 0): AttributeOverrides {
   const values: Partial<Record<AttributeName, number>> = {};
   for (const name of ["balance", "haste"] as const) {

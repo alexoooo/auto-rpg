@@ -1,5 +1,5 @@
 /**
- * **Equipped falls**: the owner's target's sixteen shoves of the Warrior and the Rogue on sword and
+ * **Equipped falls**: the stand-up target's sixteen shoves of the Warrior and the Rogue on sword and
  * buckler, on buckler and club, and on the club, calm air, Balance 0 and Grit 0, a 30 s cap, the
  * stand verified (`standard`); and the same on every body in every rated loadout (`every`,
  * `REPRESENTATIVE`), the Skeleton's among them. Not the target, which fixes its loadouts. The riser is a stand-up's mind or a

@@ -13,7 +13,7 @@ import { WHOLE, type Status } from "../mind/choice.ts";
 import type { Sight } from "../mind/decider.ts";
 
 /**
- * What a way up is taken to do where no drill measured it, the owner's decision: an edge runs 5 s
+ * What a way up is taken to do where no drill measured it, set by hand: an edge runs 5 s
  * and stands the body seven times in ten (`edge`); the steady stands a body on its feet ready in
  * 2 s nine times in ten (`steady`). A profile, measured or by hand, counts as `weight` attempts
  * against the rise's own record of them (`recorded`). What a brace saves a tumbling body: its
@@ -322,7 +322,7 @@ export function groundOptions(spec: BodySpec, hz: number, delay: number, executo
     (now) => downTerms({ seconds: Math.max(dt, BY_HAND.braced - state.tumbled), stands: 0, shelter: 0 }, now.sight.view.ground?.position ?? "between")(now),
     undefined, () => { state.tumbled += dt; }, "brace while tumbling");
 
-  /** The rise from where the body lies now that never stands: what brace is priced at. */
+  /** What brace is priced at: the rise from where the body lies (`riseAt`), else from the back, else by hand (`BY_HAND.edge`). */
   const lying = (now: Situation): DownModel => {
     const g = now.sight.view.ground, rise = g ? riseAt(g.position) : null;
     return rise ?? back ?? { seconds: BY_HAND.edge.seconds, stands: BY_HAND.edge.done, shelter: 0 };

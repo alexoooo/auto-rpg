@@ -187,7 +187,7 @@ export function withinReach(leg: SwingLeg, dx: number, dz: number, cx: number, c
  * leg's reach from its hip, its knee bending behind for it if it `bends`; else with the ankle drawn in toward the hip along the hip's way to it
  * by the share the leg reaches. A step out of reach shortens toward under the hip, where the leg
  * hangs, and keeps its way from it: drawn toward the bearing sole instead, a long step back or
- * ahead lost its width too, and the body it was to catch fell past the landing to the side.
+ * ahead loses its width too, and the body it is to catch falls past the landing to the side.
  */
 export function reachableSole(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, at: Vector3, rx: number, rz: number, sign: number, hip: number, long: number, back: number, reserve: number, bends: boolean): [number, number, boolean] {
   const [ahead, out] = ankleFromHip(dx, dz, cx, cz, at, rx, rz, sign, back);

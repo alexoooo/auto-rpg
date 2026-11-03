@@ -29,21 +29,17 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * error, which builds too slowly for a light segment, and a forearm driven straight throws the hand
  * about the wrist.
  *
- * Rejected:
- * - **Asking the velocity motor for the goal's speed at once**, (goal - angle) / t. Braking hard,
- *   it asks for a speed far past what the damped motion's acceleration allows, and reverses a joint
- *   within a step.
- * - **Each joint's torque from its own inertia** and gravity's moment. It ignores how joints turn
- *   each other: a light segment between two driven joints is thrown back and forth. The mass matrix
- *   carries those couplings.
- * - **Reading the load** (gravity, contact and the rest) from the last step, as the torque applied
- *   less M times the change it made. It divides a change of speed by the step, and the noise spins
- *   light segments. Gravity is known and computed; contact is left to the angle's error.
+ * Why so: the velocity motor asked for the goal's speed at once, (goal - angle) / t, brakes past
+ * what the damped motion's acceleration allows and reverses a joint within a step; each joint's
+ * torque from its own inertia ignores how joints turn each other, and throws a light segment
+ * between two driven joints back and forth, where the mass matrix carries those couplings. The
+ * load is not read from the last step (the torque applied less M times the change it made): that
+ * divides a change of speed by the step, and the noise spins light segments. Gravity is known and
+ * computed; contact is left to the angle's error.
  *
  * `servo` takes the root to be held; `servoSolve` with the root's acceleration carries it. What is
  * left out leaves the motion off the damped one it asks for, alike at every rate, and the goal's
- * error takes it up. A held freedom settles to within a few 1e-4 rad of its goal, and a time
- * constant as short as two steps does not ring (`SERVO_SECONDS`).
+ * error takes it up.
  *
  * A goal that leaves a channel be (returns undefined) has set that channel's command before it
  * returns: the servo reads the command then, as the torque it solves around. A goal that moves

@@ -27,11 +27,11 @@ import { hypot } from "../core/math/real.ts";
  * **How a stand is verified**: from its recovery's takeover, upright and loaded on both feet,
  * quiet for `quiet` s (`recoveryMeasurement`); then holding `standing` s and walking forward at
  * `pace` m/s for `walking` s, its host in command at the end and never down meanwhile. A recovery
- * not quiet `cap` s after its takeover has failed; one quiet within `within` s meets the owner's
+ * not quiet `cap` s after its takeover has failed; one quiet within `within` s meets the stand-up
  * target's time (`docs/reference/rising.md#the-owners-target`).
  */
 export const STAND_CHECK = deepFreeze({ quiet: .5, standing: 2, walking: 1, pace: .3, cap: 30, within: 10 });
-/** The owner's target's shove: N s for each kg of the body, once, at the chest. */
+/** The stand-up target's shove: N s for each kg of the body, once, at the chest. */
 const TARGET_SHOVE = 1.5;
 /** A round's falls: sixteen ways round, 22.5 degrees apart, the target's directions. */
 export const ROUND_FALLS = 16;
@@ -130,7 +130,7 @@ interface RoundFall { readonly degrees: number; readonly verified: number | null
 
 /**
  * Run a placed, dropped or shoved body through its own selected mind and read its ground history.
- * Each stand is verified (`STAND_CHECK`). A round shoves the body as the owner's target does
+ * Each stand is verified (`STAND_CHECK`). A round shoves the body as the stand-up target does
  * (`TARGET_SHOVE`), sixteen ways round one after another (`ROUND_FALLS`), each once it stands
  * again; a body still down `ROUND_DOWN` s after a verdict ends the round. `cap` is the check's, s.
  */

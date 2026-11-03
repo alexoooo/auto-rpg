@@ -107,7 +107,7 @@ interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readon
 
 /**
  * The valued chooser's obedience (`OBEDIENCE`): a choice written as its level's value, the steady
- * level as none written, so the preset is unchanged.
+ * level written as none, so a config at steady equals the preset.
  */
 const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
   kind: "choice", key: "obedience", label: "Obedience", options: OBEDIENCE.map(([value, name]) => [value, name] as const),

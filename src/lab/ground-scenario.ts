@@ -47,7 +47,7 @@ function techniquesBy(own: readonly TechniqueConfig[], rise: GroundRise, drive: 
 
 /**
  * **The Stand-up scenario**: a body shoved, dropped or placed on the ground, or put through a round
- * of the owner's target's falls (sixteen ways round, one after another, each once it stands
+ * of the stand-up target's falls (sixteen ways round, one after another, each once it stands
  * again), getting up by the game's Stand up or another way, or a technique alone. Every stand is
  * verified as the target verifies it (`STAND_CHECK`: quiet, upright and on both feet, then holding
  * and a short walk); the readout is the time from its recovery's takeover to that, the round's

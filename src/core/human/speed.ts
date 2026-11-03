@@ -32,12 +32,11 @@ import type { Exertion } from "./tables/joint-torques.ts";
  * - **Everything else** has no curve read. It takes a measured exertion's, named in `BORROWED`, a
  *   stated assumption.
  * - **Lengthening** is Thelen's everywhere: a ceiling of 1.4 isometric, and a slope at rest twice
- *   the shortening one. It is the stimulated muscle's ceiling; a voluntary one is 1.0-1.3, and the
- *   owner chose 1.4 for fighters.
+ *   the shortening one. It is the stimulated muscle's ceiling; a voluntary one is 1.0-1.3, and
+ *   fighters take 1.4.
  *
  * The figure's column is its sex's. Speed is not scaled to size: a geometrically similar body turns
- * its joints at the same rate. What the owner has set a leg's joints to turn at in use over the
- * curve read (`IN_USE`), and every other joint's (`UPPER_SPEED_IN_USE`), multiplies the unloaded
+ * its joints at the same rate. What a leg's joints are set to turn at in use over the curve read (`IN_USE`), and every other joint's (`UPPER_SPEED_IN_USE`), multiplies the unloaded
  * speed, and so does the figure's speed, where it has one.
  */
 export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVelocitySpec {

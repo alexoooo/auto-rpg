@@ -5,8 +5,7 @@
  * Rung `moving`: after the edges before it on the route, from the nearest begun lying, placed there
  * at rest, the first edge after a shove from standing: entered as the route hands the body over, at
  * the speeds the edge before leaves it. The Warrior on toes, six seeds, empty-handed and holding
- * the buckler and the club (`ARMS`): no edge is worked on flat feet, and the Rogue joins once its
- * stance is measured on toes.
+ * the buckler and the club (`ARMS`): no edge is worked on flat feet.
  */
 import type { TechniqueName } from "../../core/recovery/ground/technique.ts";
 import { TECHNIQUES } from "../../core/recovery/ground/techniques.ts";

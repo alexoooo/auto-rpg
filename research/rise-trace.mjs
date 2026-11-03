@@ -1,5 +1,5 @@
 /**
- * **Where a whole mind's rise spends its time**: the owner's target's falls (`risingJobs`, the falls
+ * **Where a whole mind's rise spends its time**: the stand-up target's falls (`risingJobs`, the falls
  * `npm run evaluate -- rising-target` plays, turned by `--offsets`) on the fall bed (`buildFall`),
  * risen by a mind (Option Mind's preset unless `--mind` names a JSON file), each step reading the
  * mind's rise (`groundOptions`' memory) and the ground actions it runs. Node, core world, Rapier,

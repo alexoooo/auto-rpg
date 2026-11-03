@@ -26,7 +26,7 @@ export interface Objective {
 }
 
 /**
- * The few terms' weights, the owner's to set for the result: how long a place is held before the
+ * The few terms' weights, set for the play they give: how long a place is held before the
  * body moves on, s, over which what is dealt there counts (`held`); and how long before the clock's
  * verdict the lead comes to count, s, from none to whole (`late`).
  */
@@ -101,7 +101,7 @@ export const FEW_TERMS_PART: ObjectivePart<{ readonly kind: "few-terms" }, Objec
 });
 
 /**
- * What reaching a place weighs, the owner's to set for the result: lying down costs as much as
+ * What reaching a place weighs, set for the play it gives: lying down costs as much as
  * standing `down` m further off, and a second spent as `second` m, so of two ways there the quicker
  * is worth more.
  */

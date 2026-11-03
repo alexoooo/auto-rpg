@@ -10,7 +10,7 @@ export function humanAttributes(figure: HumanFigure): AttributeSpec {
   return { balance: figure.balance, haste: figure.haste };
 }
 
-/** A human's haste: its legs' muscles at a person's speed, nothing over it. Every character's, the owner's. */
+/** A human's haste: its legs' muscles at a person's speed, nothing over it: every character's. */
 export const HUMAN_HASTE = sourced(0, "%", "owner-haste", "every character 0");
 
 /** `figure` with its haste `haste` per cent over a person's, a bout's or an experiment's in place of its character's; `figure` itself where none is given. */
@@ -36,7 +36,7 @@ export function hasteOver(spec: BodySpec): number {
   return 1 + spec.attributes.haste.value / 100;
 }
 
-/** A workshop model's balance, per cent of its weight, the owner's. */
+/** A workshop model's balance, per cent of its weight: 0, no assist. */
 export function workshopBalance(model: WorkshopModel): Quantity<number> {
   switch (model) {
     case "workshop-fighter": return sourced(0, "%", "owner-balance", "Warrior 0");
@@ -46,9 +46,9 @@ export function workshopBalance(model: WorkshopModel): Quantity<number> {
 }
 
 /**
- * **Each workshop model's factors on named exertions** (`HumanFigure.exertions`), the owner's, set for
- * the result the owner asked of the body (`owner-rogue-arms`): the Rogue's elbow extension doubled,
- * so her elbows straighten under her on hands and knees.
+ * **Each workshop model's factors on named exertions** (`HumanFigure.exertions`), set for a
+ * result in play (`owner-rogue-arms`): the Rogue's elbow extension doubled, so her elbows
+ * straighten under her on hands and knees.
  */
 export const WORKSHOP_EXERTIONS: Readonly<Record<WorkshopModel, Readonly<Partial<Record<Exertion, Quantity<number>>>> | undefined>> = Object.freeze({
   "workshop-fighter": undefined,

@@ -391,9 +391,9 @@ function packageBarring(file, target) {
 }
 
 /**
- * **Today's imports up the layers**, or into a package by a module not built on it, each
+ * **The imports up the layers**, or into a package by a module not built on it, each
  * `from -> to` under `src/core/`, by what removes it. The list is exact: such an import not on it
- * fails, and so does one the code no longer has, so it only shrinks.
+ * fails, and so does an entry the code does not have, so it only shrinks.
  */
 const UP_STACK = [];
 

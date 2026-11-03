@@ -17,8 +17,8 @@ export const onBearing = (at: GroundPoint, bearing: number, metres: number): Gro
   ({ x: at.x + sin(bearing) * metres, z: at.z + cos(bearing) * metres });
 
 /**
- * How long a foe may lie down before a team passes it over, s: the cap the owner's target gives a
- * stand-up (`docs/reference/rising.md#the-owners-target`), past which its rise has failed.
+ * How long a foe may lie down before a team passes it over, s: the stand-up target's cap on a
+ * rise (`docs/reference/rising.md#the-owners-target`), past which its rise has failed.
  */
 const PASS_OVER_DOWN = 30;
 

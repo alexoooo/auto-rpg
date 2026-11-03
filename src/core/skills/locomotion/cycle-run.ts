@@ -82,12 +82,10 @@ export interface RunCycleSettings {
 
 /**
  * The run as it is taken unless told otherwise, set for the Warrior's leg (`SimbiconSettings.leg`):
- * the best of searches on the Warrior, the Rogue and the skeleton together, each from the one
- * before's best (`research/run-cycle-search.mjs`, Node stand, Rapier, 120 Hz, measuring on), last
- * `--speeds 3,4,5 --turns 0.6,-0.6 --stops 1.5,2.4,3.5 --holds empty,club --winds 1:5:5 --seconds 22
- * --narrow 0.3` over the lateral, lean, stance and swing settings, in the guard, with the walk's
- * `run` and `speedup` (`SIMBICON`). Its `brake` is the walk's `slowdown` the search stopped it by:
- * the run's pace asked came down no faster than that.
+ * its lateral, lean, stance and swing settings searched on the Warrior, the Rogue and the skeleton
+ * together (`research/run-cycle-search.mjs`), running, turning, stopping, empty-handed and with the
+ * club, in the guard and in wind, with the walk's `run` and `speedup` (`SIMBICON`). Its `brake` is
+ * the walk's `slowdown` the search stops it by: the run's pace asked comes down no faster than that.
  */
 export const RUN_CYCLE: RunCycleSettings = Object.freeze({
   blend: 0.3036, gainsFrom: 4.3006, swingGain: 0.0932, cadenceGain: 0.0777, short: 0.1612, period: 1.0481, accel: 1.1428, brake: 0.473, ahead: 0.4603,
@@ -99,10 +97,8 @@ export const RUN_CYCLE: RunCycleSettings = Object.freeze({
 
 /**
  * Where a run holds the arms that it does not swing, rad: at the sides. The guard's, drawn in across
- * the trunk, held through a run and the walk it gives way to, throw the body sideways at every step
- * (a lab actor, Node, Rapier, 120 Hz: the Warrior and the Rogue asked 2 to 3.5 m/s, stopped after 6
- * to 15 m, fall 25 and 30 times in 40 with the guard's, 8 and 18 with these and the walk after the run
- * holding them).
+ * the trunk, held through a run and the walk it gives way to, throw the body sideways at every step,
+ * and it falls far more often stopping from a run.
  */
 const RUN_ARMS = Object.freeze({ abduction: 0 });
 

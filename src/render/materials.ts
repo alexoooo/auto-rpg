@@ -45,8 +45,8 @@ interface RuntimeRegistry { textures: RegistryRow[] }
 const BASE = {
   wood: { name: "wood", albedo: [0.34, 0.20, 0.09], metallic: 0, roughness: 0.72 },
   "room.timber": { name: "roomTimber", albedo: [0.20, 0.12, 0.065], metallic: 0, roughness: 0.88 },
-  // The owner's choice of two candidates each. The colour is a flat stone in linear light, shown until
-  // the maps decode; the roughness is 1 because the packed map's green channel is multiplied by it.
+  // The dungeon's surfaces: the colour is a flat stone in linear light, shown until the maps decode;
+  // the roughness is 1 because the packed map's green channel is multiplied by it.
   "dungeon.floor": { name: "dungeonFloor", albedo: [0.184, 0.177, 0.194], metallic: 0, roughness: 1 },
   "dungeon.wall": { name: "dungeonWall", albedo: [0.066, 0.070, 0.090], metallic: 0, roughness: 1 },
 } as const;

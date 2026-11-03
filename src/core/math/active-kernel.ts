@@ -1,6 +1,6 @@
-/** Goldfarb?Idnani numerical kernel, adapted from quadprog 2.0.0 (MIT).
+/** Goldfarb–Idnani numerical kernel, adapted from quadprog 2.0.0 (MIT).
  * Source, license and arithmetic audit: `vendor/quadprog/README.md`.
- * Arrays are one-indexed and supplied by the owner; every solve starts cold.
+ * Arrays are one-indexed and supplied by the caller; every solve starts cold.
  */
 
 /** Machine-scale zero threshold, quadprog's `vsmall`: starts at 1e-60 and doubles until both

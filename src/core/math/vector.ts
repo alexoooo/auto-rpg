@@ -2,7 +2,7 @@
  * **The core's vectors and turns**: `Vector3` and `Quaternion`, plain number fields and the members
  * the core and the entrants call. Each member is `@babylonjs/core` 9.33.1's
  * (`Maths/math.vector.pure.js`), operation for operation and in the same order, so the core computes
- * as it did on Babylon's to the bit, in every JavaScript engine: `+ - * /` and `Math.sqrt`, and
+ * as Babylon's would to the bit, in every JavaScript engine: `+ - * /` and `Math.sqrt`, and
  * `Math.fround` where Babylon's matrix rounds (`Quaternion.RotationQuaternionFromAxis`).
  *
  * A page's renderer has vectors of its own: it converts to and from these by their numbers. Each

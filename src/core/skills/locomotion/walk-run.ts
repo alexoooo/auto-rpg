@@ -41,12 +41,11 @@ export interface WalkRunSettings {
 export const WALK_RUN: WalkRunSettings = Object.freeze({ run: 0.8614, turn: 2, swerve: 1.6, turnRate: 2, leg: 0.8815024260685317, hasted: 0 });
 
 /**
- * The run the walk and run takes unless told otherwise, set for the Warrior's leg: the best of a
- * search from SIMBICON's (`RUN_CYCLE`) on the walk and run's handover, with the pace it begins at
- * (`WALK_RUN.run`; `research/run-cycle-search.mjs`, Node stand, Rapier, 120 Hz, measuring on, in
- * the guard; 30 generations of 28 over the Warrior, the Rogue and the skeleton asked 1.4, 3 and 4.5
- * m/s and 2.4 m/s then to stop at 8 s, empty and with the club, still and in a gust of seed 5, 14 s,
- * `--fallen 0.5`; its lateral, lean, stance, swing and timing settings, the rest SIMBICON's).
+ * The run the walk and run takes unless told otherwise, set for the Warrior's leg: `RUN_CYCLE`'s
+ * lateral, lean, stance, swing and timing settings searched on the walk and run's handover, with
+ * the pace it begins at (`WALK_RUN.run`; `research/run-cycle-search.mjs`, in the guard, on the
+ * Warrior, the Rogue and the skeleton, running and stopping, empty-handed and with the club, still
+ * and in a gust), the rest `RUN_CYCLE`'s.
  */
 export const WALK_RUN_CYCLE: RunCycleSettings = Object.freeze({
   blend: 0.4708, gainsFrom: 4.3006, swingGain: 0.0932, cadenceGain: 0.0777, short: 0.1548, period: 0.985, accel: 1.115, brake: 0.473, ahead: 0.4603,
@@ -82,8 +81,7 @@ const RUN_STOPPING = 0.2;
  * a body still turning round has not been capped, and a run begun from it standing falls). It takes
  * over from that foot once its sole bears alone, the other's off the ground: a sole that has only
  * touched down still leaves the body on the other, and a run that swings that other leg drops it.
- * Once it
- * has landed `landings` times, gives way to the walk once the pace asked has come down `below`
+ * Once it has landed `landings` times, it gives way to the walk once the pace asked has come down `below`
  * under it, or it is told it may not run, and the body's ground speed, across its heading as well
  * as along it, has slowed to the run's pace, its landings braking it until then: a walk handed a
  * body going faster than it walks cannot catch it, nor one still going sideways off a run that drifted. A run

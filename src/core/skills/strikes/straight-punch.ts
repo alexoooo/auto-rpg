@@ -176,11 +176,9 @@ const AIM_SPEED = 4;
  * with the target `reach` from the head, facing it (`punchReadiness`), it
  * stands there `settle` s with both feet bearing, its fist on the line (its chamber): a stance
  * shifting its weight for a step still bears on both, and so counts while the body moves no
- * faster than a shift's pace (`quietToStrike`), since waiting for the step to land would cost it a quarter of its
- * punches. Then it turns the hips and the
- * chest and leans the trunk to bring the punching shoulder forward, and drives the arm, `lead` s
- * behind, at its
- * contact pose, solved each step for where the target is (`solveReach`): the striking point on
+ * faster than a shift's pace (`quietToStrike`), since waiting for the step to land costs it
+ * punches. Then it turns the hips and the chest and leans the trunk to bring the punching shoulder
+ * forward, and drives the arm, `lead` s behind, at its contact pose, solved each step for where the target is (`solveReach`): the striking point on
  * the line from the shoulder, `through` m past the target, with the elbow straight and the wrist
  * on the line where the reach leaves them free. Each channel is pushed flat out toward its goal
  * and held once near it (`StraightPunch.brake`). After the drive it brings the arm back to the

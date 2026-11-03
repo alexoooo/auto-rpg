@@ -2,13 +2,13 @@
  * **The documents hold together** (`scripts/documents.mjs`). On a planted tree the broken citations
  * are exactly the missing file, the missing heading, the missing file behind a `@commit`, the link
  * out of the repository and the missing reference target, and the comment marks exactly the date,
- * the commit hash and the plan and analysis citations in a comment of `src/`; everything else
- * planted, in code, strings, regular expressions, template literals, fenced blocks and code spans,
- * passes. On this repository there are none.
+ * the commit hash, the plan and analysis citations and "the owner" in a comment of `src/`;
+ * everything else planted, in code, strings, regular expressions, template literals, fenced blocks
+ * and code spans, passes. On this repository there are none.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MARKS, anchorsOf, brokenCitations, commentMarks, repositoryDocuments } from "../scripts/documents.mjs";
+import { anchorsOf, brokenCitations, commentMarks, repositoryDocuments } from "../scripts/documents.mjs";
 
 /** The documents folder, spelled so this file's own text cites nothing. */
 const D = "docs/";
@@ -50,7 +50,7 @@ test("broken_citations_are_the_missing_file_heading_and_target_and_nothing_prese
   ]);
 });
 
-test("comment_marks_are_the_dates_hashes_and_plan_citations_in_comments_of_src_only", () => {
+test("comment_marks_are_the_dates_hashes_plan_citations_and_the_owner_in_comments_of_src_only", () => {
   const plans = `${D}plans/`, analysis = `${D}analysis/`;
   const tree = {
     "src/marked.ts": [
@@ -59,9 +59,10 @@ test("comment_marks_are_the_dates_hashes_and_plan_citations_in_comments_of_src_o
       ` * and ${analysis}y.md; at \`680f281f\` */`,
       "const x = 1; // trailing f327dd9e40",
       "if (x) /* a1b2c3d */ x = 2;",
+      "// The owner set it",
     ].join("\n"),
     "src/clean.ts": [
-      "// a decade of facades, deadbeef, 0x5f3759df, 1.57079632679e+00, 2026-13-40, the owner",
+      "// a decade of facades, deadbeef, 0x5f3759df, 1.57079632679e+00, 2026-13-40, a shape's owner, owners",
       'const when = "2026-10-24", colour = "#a1b2c3ff", hash = "2a1b29ac";',
       "const slashes = /\\/\\/ 2026-10-24 [/]/g, ratio = a / b / 2026;",
       "const text = `${ { a: \"// 2026-10-24\" }.a } and ${`${\"/* 2a1b29ac */\"}`}`; // fine",
@@ -78,10 +79,8 @@ test("comment_marks_are_the_dates_hashes_and_plan_citations_in_comments_of_src_o
     `src/marked.ts:3 holds a citation of a plan or an analysis in a comment: ${analysis}`,
     "src/marked.ts:4 holds a commit hash in a comment: f327dd9e40",
     "src/marked.ts:5 holds a commit hash in a comment: a1b2c3d",
+    "src/marked.ts:6 holds the owner in a comment: The owner",
   ]);
-  const owner = { name: "the owner", pattern: /\bthe owner\b/g };
-  assert.deepEqual(commentMarks(files, read, [...MARKS, owner]).filter((found) => found.includes("the owner")),
-    ["src/clean.ts:1 holds the owner in a comment: the owner"], "a mark is one more entry");
 });
 
 test("every_document_cited_resolves_and_no_comment_in_src_holds_a_mark", () => {

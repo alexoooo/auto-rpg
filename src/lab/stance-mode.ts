@@ -44,7 +44,7 @@ export interface StanceFrame {
   /** The pelvis's heading, rad about up; 0 faces +z as the reference pose does, and it grows to the right. */
   readonly heading: number;
   readonly phase: StancePhase;
-  /** Steps taken to walk, and to catch a push, since the session began. */
+  /** Steps taken to walk, and to catch a push, since the stance started. */
   readonly strides: number;
   readonly recoveries: number;
   /** The centre of mass's speed across the ground, m/s. */
@@ -73,11 +73,10 @@ interface StanceSession {
 const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, lower: STANCE_LOWER });
 
 /**
- * How fast the Stance scenario's Q and E turn the heading while walking, rad/s, and the shuttle's
- * half-turns' radius with the Routine's pace (`track.ts`): a lab setting, not the stance's. It is
- * inside every body's envelope at the Routine's pace (`turnAt`, `Body.envelope`);
- * walking faster, Q and E turn no faster than the body held
- * at that walk.
+ * How fast the Stance scenario's Q and E turn the heading while walking, rad/s, and with
+ * `TURN_PACE` the radius of the shuttle's half-turns (`track.ts`): a lab setting, not the
+ * stance's. It is inside every body's envelope at `TURN_PACE` (`turnAt`, `Body.envelope`);
+ * walking faster, Q and E turn no faster than the body holds at that walk.
  */
 export const LAB_TURN_RATE = 1;
 

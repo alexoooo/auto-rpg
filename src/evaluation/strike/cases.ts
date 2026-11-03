@@ -40,7 +40,7 @@ export type StrikeSubject = { readonly mind: MindConfig; readonly action: string
 
 /**
  * A bout recipe's `loadouts` for the striker holding what `subject` names, the target empty-handed;
- * none for a subject that names nothing, so its world is the one an empty-handed subject's always was.
+ * none for a subject that names nothing, so an empty-handed subject's world names no loadouts.
  */
 export const loadoutsOf = (subject: StrikeSubject) => subject.held === undefined ? {} : { loadouts: { left: subject.held, right: EMPTY_LOADOUT } };
 
@@ -274,7 +274,6 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
   };
 }
 
-/** Every protocol the Strike drill may be played on, by name: its rungs. */
 /** Every body a strike may be thrown by: the toed Warrior, the Rogue and the Skeleton. */
 const STRIKERS: readonly BodyModel[] = Object.freeze(["workshop-fighter", "workshop-rogue", "crypt-skeleton"]);
 
@@ -282,6 +281,7 @@ const STRIKERS: readonly BodyModel[] = Object.freeze(["workshop-fighter", "works
 const onOtherBodies = <P extends { readonly models: readonly BodyModel[] }>(rung: P): P =>
   deepFreeze({ ...rung, models: STRIKERS.filter((model) => !rung.models.includes(model)) as BodyModel[] });
 
+/** Every protocol the Strike drill may be played on, by name: its rungs. */
 export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), moving: stillCases(MOVING), walk: stillCases(WALK),
   stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
   letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),

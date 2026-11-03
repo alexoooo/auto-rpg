@@ -606,7 +606,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   // middle the foot left at: from there, a foot that left standing on its toes, as one stepping
   // back lands, lands its toes as high again, and higher each step.
   // The path's rate carries these terms' rates too, the turn's drop's over the last command: without
-  // it, the leg follows a corner dropping under way at 0.5 m/s a swing's constant late, 5 cm low.
+  // it, the leg follows a corner dropping under way a swing's constant late, and low.
   const drop = soleDrop(foot, held, v), dropLift = soleDrop(foot, step.lift, v), descent = foot.memory.ground - (from.y - dropLift);
   path.y += drop - dropLift + eased * descent;
   along.y += (drop - step.drop) / dt + ds * descent;

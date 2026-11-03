@@ -1,7 +1,7 @@
 /**
  * **The table's cells**: every body by loadout by skill Option Mind is asked to do, each with the
  * drill readings that judge it against its bar (`Skill.bar`, in words). A loadout is a record of
- * slots (`Loadout`, today the two hands), so a slot added to it (a worn piece) adds to the loadout
+ * slots (`Loadout`, the two hands), so a slot added to it (a worn piece) adds to the loadout
  * axis without reshaping a cell. A skill has a cell where its body does it (`Skill.bodies`) and the
  * loadout leaves it the limb it uses (`Skill.limbs`).
  */
@@ -21,7 +21,7 @@ export const TABLE_MIND = "option";
 /**
  * **How a reading is judged** (`verdictOf`): a strike rung by its share landed of those thrown
  * (`landed`), or of those that met the body past its arms (`on-body`, a fight's), with none fallen;
- * the owner's target's gates on one group of sixteen falls (`target`), or at least 15 of them
+ * the stand-up target's gates on one group of sixteen falls (`target`), or at least 15 of them
  * stood (`stood`); none fallen across a walk's trials (`walk`); the run's bar on every run trial
  * (`run`); the buckler first on 4 of 5 blows that touch the body (`buckler`).
  */
@@ -68,11 +68,11 @@ const strikeRung = (rung: string, judge: Judge, action: string, body: HumanoidMo
 const blowRungs = (action: string, body: HumanoidModel, loadout: Loadout): readonly Reading[] =>
   [strikeRung("still", "landed", action, body, loadout), strikeRung("walk", "landed", action, body, loadout), strikeRung("fight", "on-body", action, body, loadout)];
 
-/** Whether `loadout` is the owner's target's: empty hands or the club alone in the right (`risingJobs`, `target`). */
+/** Whether `loadout` is the stand-up target's: empty hands or the club alone in the right (`risingJobs`, `target`). */
 const onTarget = (loadout: Loadout): boolean => loadout.left === "empty" && (loadout.right === "empty" || loadout.right === "club");
 
 /**
- * The stand-up's reading on `body` holding `loadout`: the owner's target where it plays them,
+ * The stand-up's reading on `body` holding `loadout`: the stand-up target where it plays them,
  * else the target's shoves on every body and loadout (`equipped-rise`, `every`), the Skeleton
  * judged by its falls stood.
  */

@@ -18,7 +18,7 @@ export const MEASURED_PREDICTIONS: PredictionsPart<{ readonly kind: "measured" }
   make: () => ({ strikes: dataOf("strike-profiles"), gaits: dataOf("gait-profiles"), edges: dataOf("edge-profiles") }),
 });
 
-/** **The prior alone**: no profile, each model its prior, the owner's decision by hand. */
+/** **The prior alone**: no profile, each model its prior, set by hand. */
 export const PRIOR_PREDICTIONS: PredictionsPart<{ readonly kind: "prior" }, ProfileTables> = deepFreeze({
   role: "predictions", label: "The prior alone", stage: "game", fields: [], slots: [], defaults: { kind: "prior" }, keys: { kind: true },
   fits: anyBody, faults: () => [], make: () => ({ strikes: [], gaits: [], edges: [] }),

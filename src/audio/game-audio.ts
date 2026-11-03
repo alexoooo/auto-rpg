@@ -43,7 +43,7 @@ const MIX = Object.freeze({
 /** The most one-shot voices at once: a numeric setting, which bounds the work and not the mix. */
 const VOICES = 12;
 
-/** One owner per browser page. No import from a body, mind or headless harness. */
+/** The page's sound: one per browser page. No import from a body, mind or headless harness. */
 export class GameAudio {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;

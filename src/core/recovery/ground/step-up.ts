@@ -7,7 +7,7 @@ import { RISE, rollOver, type BearStage, type Recipe, type RollPoses, type Stage
 /** How one of the recipe's stages is played: its time scaled, and a bearing stage's completion. */
 interface StageTiming { readonly scale: number; readonly progress?: NonNullable<BearStage["progress"]> }
 /**
- * **Step up's settings**, searched (`research/rising-step-search.mjs`): how still a body lies
+ * **Step up's settings**, found by search: how still a body lies
  * before it reads its lie, the stance's climb from where the rise leaves the body to standing
  * height, s, and each of the recipe's stages by name, a roll's stages as `roll <name>`; and, where
  * a body's bearing stages come to rest short of their aims, how long at rest and within how many
@@ -25,8 +25,8 @@ interface StepUpTuning {
 }
 
 /**
- * Each humanoid's settings, searched on its own target falls (`research/rising-step-search.mjs`,
- * Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty
+ * Each humanoid's settings, searched on its own target falls (Node stand, Rapier, 120 Hz,
+ * Balance 0): eight shove directions offset from the target's, empty
  * and with the club, a fall's score its verified standing and how soon.
  */
 export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze({

@@ -5,7 +5,7 @@
  */
 import { PHYSIQUE_ATTRIBUTES } from "../src/core/human/physique.ts";
 
-/** Each attribute's factors besides 1, the owner's ranges; 1 is always measured too. */
+/** Each attribute's factors besides 1; 1 is always measured too. */
 export const PHYSIQUE_GRID = Object.freeze({
   size: Object.freeze([0.9, 1.18]),
   weight: Object.freeze([0.85, 1.25]),

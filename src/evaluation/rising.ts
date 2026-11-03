@@ -1,7 +1,7 @@
 /**
  * **The rising bed's falls**: the riser's mind (`risingMind`), a fall played as a job (`risingTrial`), a technique
- * played alone (`techniqueTrial`), the bed's jobs (`risingJobs`: everyday starts, the owner's
- * 64-fall target, the obstacle levels and equipped falls) and its report with the target's gates
+ * played alone (`techniqueTrial`), the bed's jobs (`risingJobs`: everyday starts, the
+ * stand-up target's 64 falls, the obstacle levels and equipped falls) and its report with the target's gates
  * (`risingReport`). `research/rising-bed.mjs` runs them on workers; the fall evaluations
  * (`rising-target`, `equipped-rise`) play the same falls through `fall.ts`.
  */
@@ -239,11 +239,11 @@ interface RisingOptions {
  */
 export const FRESH_OFFSET = 11.25;
 
-/** The owner's target's time for each fall, s: a fall stands within it (`docs/reference/rising.md#the-owners-target`). */
+/** The stand-up target's time for each fall, s: a fall stands within it (`docs/reference/rising.md#the-owners-target`). */
 export const STAND_WITHIN = 10;
 
 /**
- * The bed's jobs. The owner's target: the Warrior and the Rogue, empty-handed and with the club,
+ * The bed's jobs. The stand-up target: the Warrior and the Rogue, empty-handed and with the club,
  * each shoved sixteen ways, every direction once in each group, turned by `offset` for the fresh
  * falls. Equipped falls (`loadouts`): the
  * target's sixteen shoves on each loadout. Obstacle falls: the target's on every level but the open
@@ -270,11 +270,10 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
   return jobs.map((job, id) => ({ ...job, id }));
 }
 
-/** The middle value, the mean of the two middle ones for an even count; null for none. */
 /**
  * The bed's report: by start, body and loadout, the falls stood (verified on a fixed suite, else
  * handed back), within `STAND_WITHIN` and 12 s, the failure-inclusive median (a fall not stood counts at its
- * cap), and each technique's attempts. On the owner's target, its gates: every direction once in
+ * cap), and each technique's attempts. On the stand-up target, its gates: every direction once in
  * each group, 15 of 16 within `STAND_WITHIN` in each, 61 of 64 overall, every cardinal direction
  * within it, a median of at most 10 s.
  */

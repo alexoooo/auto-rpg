@@ -17,7 +17,7 @@ export const { controllers: CONTROLLERS, minds: MINDS, controllerOf, allParts, i
 
 export { FIGHT_ENTRY, partIn, type EntryRule, type Offered } from "../core/parts/catalog.ts";
 
-/** **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): its Option Mind, the owner's choice. */
+/** **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): its Option Mind. */
 const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
   "workshop-fighter": "option", "workshop-rogue": "option", "crypt-skeleton": "option", reptile: "option-reptile", rat: "option-reptile",
 });

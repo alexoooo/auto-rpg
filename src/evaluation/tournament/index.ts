@@ -1,7 +1,7 @@
 /**
  * **The tournament**: how strong is each entrant (a mind on a character with a loadout) against
  * the field? Rated by Bradley-Terry on the Elo scale, the field's mean 1500, every game at once.
- * Its schedule is a panel (`versus`); the whole field is played only when the owner asks.
+ * Its schedule is a panel (`versus`); the whole field is played only when asked for.
  */
 import { CONTEST_FIGURES, type BoutReading } from "../contest.ts";
 import type { Evaluation, Table } from "../evaluation.ts";
@@ -36,8 +36,8 @@ export const TOURNAMENT: Evaluation<TournamentCondition, BoutReading> = {
     ],
     /**
      * When a panel report is settled, on the pair score: a difference of 0.14 is about 100 Elo at
-     * the field's middle; the prior's spread is the median of same-kit entrants' paired differences
-     * in the 10-hour record (0.44).
+     * the field's middle; the prior's spread is the typical paired difference between same-kit
+     * entrants.
      */
     settle: { figure: "score", delta: 0.14, alpha: 0.05, beta: 0.1, minimum: 10, prior: { sd: 0.44, weight: 4 } },
   },

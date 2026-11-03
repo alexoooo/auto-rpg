@@ -40,8 +40,7 @@ export const DRESSING = Object.freeze({
   /** How far off the wall's face a hung piece stands. */
   hungProud: 0.01,
   /** The chance of a web in each inner corner of a room that faces the camera, how far along each wall it reaches, and
-   * how far down it hangs. With the camera square to the walls, two corners of a room face it; 0.28 gives about three
-   * webs a level (seeds 1-50). */
+   * how far down it hangs. With the camera square to the walls, two corners of a room face it. */
   cobwebsPerRoomCorner: 0.28, cobwebSpan: Object.freeze([0.35, 0.55] as const), cobwebDrop: Object.freeze([0.45, 0.7] as const),
   /** Pieces on the walls the camera sees: a whole number of them for each room, drawn between these, each with a few
    * tries at a face. */

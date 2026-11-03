@@ -7,7 +7,7 @@ import skinBounds from "../../../assets/humanoid/skin-bounds.json" with { type: 
 /**
  * **What each workshop model is, before its segments**: its sex, its size and its mass.
  *
- * - **Size.** x1 is the owner's typical adult, a 1.77 m man. The Warrior's skin top at the authored
+ * - **Size.** x1 is a typical adult, a 1.77 m man. The Warrior's skin top at the authored
  *   size sets one fit scale, and both models are built at it, so the Rogue keeps her size against
  *   him.
  * - **Mass.** The Warrior is the typical adult's 79 kg. The Rogue is his mass times the ratio of
@@ -37,7 +37,7 @@ export const skinTop = (model: WorkshopModel): Quantity<number> => {
   return sourced(skinBounds[model].skinTop, "m", SKIN_SOURCE[model], `/${model}/skinTop`);
 };
 
-/** x1's stature and mass for a man, each the middle of the owner's range. */
+/** x1's stature and mass for a man, each the middle of a typical man's range. */
 const TYPICAL_MAN_STATURE = sourced(1.77, "m", "owner-typical-adult", "x1's stature for a man: the middle of 1.76-1.78 m");
 const TYPICAL_MAN_MASS = sourced(79, "kg", "owner-typical-adult", "x1's mass for a man: the middle of 78-80 kg");
 

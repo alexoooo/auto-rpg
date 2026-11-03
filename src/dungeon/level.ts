@@ -1,13 +1,12 @@
 /**
- * The Depths' level generator, after Diablo's Cathedral (devilution's `Source/drlg_l1.cpp`).
+ * The Depths' level generator, after devilution's `Source/drlg_l1.cpp`.
  *
  * The level is laid out on a coarse grid of `LEVEL.block`-metre blocks and carved into the fine
  * grid the run reads, so every corridor and every arch is at least one block wide and a body never
- * meets a passage narrower than itself. The layout is Diablo's: a spine of rooms (`L5firstRoom`),
- * rooms branched off their sides depth first (`L5roomGen`), and walls with a gap drawn across the
- * longer rooms (`L5AddWall`), which is what makes the Cathedral read as ambushes and half-seen
- * spaces rather than as boxes. A layout that comes out too small is thrown away and drawn again, as
- * `L5GetArea` does.
+ * meets a passage narrower than itself. The layout is a spine of rooms (`L5firstRoom`), rooms
+ * branched off their sides depth first (`L5roomGen`), and walls with a gap drawn across the longer
+ * rooms (`L5AddWall`), which split rooms into half-seen spaces. A layout that comes out too small is
+ * thrown away and drawn again (`L5GetArea`).
  *
  * Anything drawn inside a room after carving, such as a dividing wall, is taken back
  * unless every corridor into that room is still a way through (`linksHold`). Carving is connected
@@ -16,11 +15,7 @@
 import { mulberry32 } from "../rng.ts";
 import { distance, isFloor, walkable, type Door, type DungeonMap, type Point, type Room } from "./map.ts";
 
-/**
- * The generator's table, frozen: a level rule is not a console dial. `score` is set by eye with
- * `scripts/dungeon/print-level.mjs`: a loop is worth three dead ends, and 20 m more between start and
- * exit is worth one loop.
- */
+/** The generator's table, frozen: a level rule is not a console dial. */
 export const LEVEL = Object.freeze({
   blocks: 17,
   block: 3,
@@ -38,22 +33,22 @@ export const LEVEL = Object.freeze({
   dividerChance: 0.6,
   /** A room this many blocks long, or longer, may be divided. At four, the only wall that leaves no side a
    * one-block strip is the middle one, which splits the room 6 | 5 cells. At three, nearly every wall leaves a strip
-   * three cells deep beside the arch, and about one in five such strips has no other way in. */
+   * three cells deep beside the arch, often with no other way in. */
   dividerMinBlocks: 4,
   doorChance: 0.6,
   spawnCount: 8,
   /** Metres from the start a spawn must be. */
   spawnFromStart: 10,
   spawnSpacing: 2,
-  /** Metres walked cell to cell (`walkField`): a floor for a degenerate layout, well under the 50 m or more that
-   * levels on seeds 0-23 walk. */
+  /** The least walk from the start to the exit, m, cell to cell (`walkField`): a shorter layout is degenerate and
+   * drawn again. */
   minExitPath: 24,
   /**
    * Layouts drawn per candidate: `levelCandidates` stops after `tries` x `candidates` of them, and
    * a seed none of whose layouts pass is refused.
    */
   tries: 40,
-  /** Brogue's loops: at most this many per level, each cutting at least `loopMinDetour` blocks of walking. */
+  /** Loops (`addLoops`): at most this many per level, each cutting at least `loopMinDetour` blocks of walking. */
   loops: 3,
   loopMinDetour: 6,
   /** A level needs at least one loop, or it is drawn again. */
@@ -106,7 +101,7 @@ const shuffled = <T>(items: readonly T[], random: () => number): T[] => {
 };
 
 /**
- * Diablo's spine and branches, on blocks. `open` holds 1 for a room block and 2 for a corridor
+ * The spine and branches (`L5firstRoom`, `L5roomGen`), on blocks. `open` holds 1 for a room block and 2 for a corridor
  * block. Every room keeps at least one solid block between itself and every other space, so two
  * rooms meet only through a corridor, and a corridor never runs alongside anything.
  */
@@ -291,7 +286,7 @@ function standingMask(map: DungeonMap, clearance = LEVEL.clearance, cells?: read
  * `findPath` also asks `clearSegment` of each step. Between two standing cells a unit step apart
  * that is always true, so it is not asked here: the distance from a point on an axis-aligned unit
  * step to an integer-centred cell is least at one of the step's ends, and both ends stand.
- * `standing_neighbours_need_no_sweep` pins that. Skipping the sweep matters: callers run this
+ * Skipping the sweep matters: callers run this
  * hundreds of times per seed.
  */
 function standingComponents(map: DungeonMap, clearance = LEVEL.clearance, inside?: readonly BlockRect[]): number {
@@ -330,7 +325,7 @@ function linksHold(layout: Layout, map: DungeonMap, room: number): boolean {
 }
 
 /**
- * Diablo's walls across rooms: one fine-cell wall across the room's long axis, with a gap one
+ * Walls across rooms (`L5AddWall`): one fine-cell wall across the room's long axis, with a gap one
  * block wide. The wall stands on a block boundary at least two blocks from either end, and takes its
  * cell from the side toward the room's middle, so each side is a half-room at least five cells deep
  * and never a strip one block wide beside the arch.

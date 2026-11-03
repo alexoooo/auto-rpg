@@ -5,7 +5,7 @@ import type { Hook, World } from "../core/world.ts";
 /**
  * **What a lab body's mind decides, as it changes.** A log holds notes in the order they were
  * made, each at the time its mind saw (`BodyView.time`): a watch of its skills (`watchSkills`)
- * writes one whenever what they are doing is no longer what it was, and a watch of the body
+ * writes one whenever what they are doing changes, and a watch of the body
  * (`watchHas`) whenever who has it changes. Free of the DOM.
  */
 
@@ -61,7 +61,7 @@ export function watchSkills(world: World, body: HostedBody, skills: Pick<Skills,
   });
 }
 
-/** Note in `log` who has `body` (`Body.has`) whenever it is no longer who last had it, after each of `world`'s steps, at the time its mind saw. */
+/** Note in `log` who has `body` (`Body.has`) whenever it is not who last had it, after each of `world`'s steps, at the time its mind saw. */
 export function watchHas(world: World, body: HostedBody, log: MindLog): Hook {
   let last = body.has;
   return world.afterStep(() => {

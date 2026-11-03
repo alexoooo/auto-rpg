@@ -32,7 +32,7 @@ import { TECHNIQUES } from "../src/core/recovery/ground/techniques.ts";
 import { STAND_CHECK } from "../src/lab/ground-mode.ts";
 import { placement } from "./rise-witness.mjs";
 
-/** The owner's allowance, s (`docs/reference/rising.md#the-owners-target`), and the most a trial is watched, s. */
+/** How soon a trial must stand to count, s, and the most a trial is watched, s. */
 const WITHIN = 6, CAP = 12;
 
 /** One seed: when the technique ended and how, and when the body was verified standing, s from the start; null where it was not. */

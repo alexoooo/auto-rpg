@@ -6,7 +6,7 @@ import { SKELETON_MODEL } from "./skeleton.ts";
 
 const SIDES = ["left", "right"] as const;
 
-/** A limb of the owner's (`owner-life`): its segments, its bar's share of full life, and what its loss does. */
+/** A limb (`owner-life`): its segments, its bar's share of full life, and what its loss does. */
 const limb = (name: string, segments: readonly string[], share: number, lost: LimbSpec["lost"]): LimbSpec =>
   ({ name, segments, share: sourced(share, "1", "owner-life", `${name}: ${share} of full life`), lost });
 
@@ -28,7 +28,7 @@ export function humanWounds(figure: HumanFigure): WoundSpec {
     : { hp: figure.hp, vital: ["head"], whole: [], limbs: armsAndLegs(0.25, 0.35) };
 }
 
-/** A workshop model's hit points, the owner's: Warrior 6, Rogue 4. */
+/** A workshop model's hit points: Warrior 6, Rogue 4. */
 export function workshopHitPoints(model: WorkshopModel): Quantity<number> {
   switch (model) {
     case "workshop-fighter": return sourced(6, "HP", "owner-hp-pool", "Warrior 6");

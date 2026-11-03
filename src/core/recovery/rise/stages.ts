@@ -452,7 +452,7 @@ export const RISE: Recipe = deepFreeze({
  * tall on its knees by the bearing solve on both shins, the hands let go once the centre of mass
  * is over the shins and the pelvis brought upright, where the recipe sits back on its heels and
  * poses its way up at full activation; its torques are the solve's, bounded by the muscles.
- * An experiment's (`research/rising-step-search.mjs --recipe contact`): the shins bear on their
+ * An experiment's: the shins bear on their
  * knees alone, their feet held up off the ground, so the hands are never let go.
  */
 export const CONTACT_RISE: Recipe = deepFreeze({

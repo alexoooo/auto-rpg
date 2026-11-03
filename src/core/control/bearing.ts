@@ -405,7 +405,7 @@ function rootAim(b: Bearing, aim: { readonly spin: Vector3; readonly centre: Vec
 /**
  * Whether `limb` takes a share of the ground's wrench: driven and bearing. A bearing sole the
  * ground is not pressing takes its share too: a landing sole is a step from its contact, and a
- * walk whose landing foot bore nothing until the ground pressed it ran away; what the sole does
+ * walk whose landing foot bears nothing until the ground presses it runs away; what the sole does
  * not give is the solve's shortfall until it does, and its own leg brings it down (`holdStance`).
  */
 export const bearsNow = (limb: Limb): boolean => limb.task.on && limb.task.bearing;

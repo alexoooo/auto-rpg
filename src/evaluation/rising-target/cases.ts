@@ -1,5 +1,5 @@
 /**
- * **The owner's target's falls**: the Warrior and the Rogue, empty-handed and with the club, each
+ * **The stand-up target's falls**: the Warrior and the Rogue, empty-handed and with the club, each
  * shoved sixteen ways (`risingJobs`), calm air, Balance 0 and Grit 0, a 30 s cap, the stand
  * verified (`docs/reference/rising.md#the-owners-target`). Protocol `fresh`: the same shoved
  * halfway between those directions (`FRESH_OFFSET`).

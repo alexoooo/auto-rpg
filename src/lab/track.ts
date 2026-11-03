@@ -105,7 +105,7 @@ export function trackOf(pieces: readonly Piece[]): Track {
 }
 
 /**
- * The big circle's radius by default, m: the owner's "big circle", about 25 m a lap. Walked at
+ * The big circle's radius by default, m: about 25 m a lap. Walked at
  * 0.5 m/s it asks the heading to turn 0.125 rad/s, inside the turn each body holds walking at its
  * fastest (`Body.envelope`, `assets/core/stance-envelope.json`). The scenario's slider sets another.
  */
@@ -115,13 +115,13 @@ const CIRCLE_RADIUS = 4;
  * (`stance-mode.ts`) is inside every body's envelope, and that each human takes the shuttle's
  * half-turns from standing; faster, a human falls or pivots off the turn.
  */
-export const TURN_PACE = 0.3;
+const TURN_PACE = 0.3;
 
 /** The shuttle's straight by default, m: the scenario's slider sets another. */
 const SHUTTLE_METRES = 6;
 /**
- * The shuttle's half-turn's radius, m: the Locomotion scenario's and the Routine's, `TURN_PACE` at
- * `LAB_TURN_RATE` (0.3 m/s at 1 rad/s).
+ * The shuttle's half-turn's radius, m: the arc a body walking `TURN_PACE` and turning at
+ * `LAB_TURN_RATE` walks.
  */
 const SHUTTLE_TURN_RADIUS = TURN_PACE / LAB_TURN_RATE;
 

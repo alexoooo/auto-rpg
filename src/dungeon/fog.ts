@@ -87,7 +87,7 @@ export const WALL_HEIGHT = 2.8;
  * by a 4x4 ordered dither; the share is greatest where the wall covers the hero's body on screen and falls smoothly
  * to none at the rim of an oval around it, so the opening has no edge. The bubble shows the hero and a bit of the
  * room around them and reads plainly as see-through, so it is wide and most of its radius is the fade. Its heart
- * keeps half the wall, as a checkerboard, as Diablo's did: a wall only partly transparent makes it obvious the hero
+ * keeps half the wall, as a checkerboard: a wall only partly transparent makes it obvious the hero
  * is behind it, where one nearly gone reads as no wall.
  */
 export const CUT_AWAY = Object.freeze({

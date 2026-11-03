@@ -1,6 +1,5 @@
 /**
- * **An old tournament run as records**: rows of the format `arena-tournament/1` (`scripts/tournament.mjs@d06fb568`)
- * with their provenance, made into a `tournament` and an `unseen` record in a pool of their own.
+ * **A past tournament run as records**: rows of the format `arena-tournament/1` with their provenance, made into a `tournament` and an `unseen` record in a pool of their own.
  * The cases have no world: they are history, never opened, played again or reused.
  */
 import { createHash } from "node:crypto";

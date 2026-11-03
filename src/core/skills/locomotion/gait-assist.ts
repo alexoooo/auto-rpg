@@ -10,8 +10,8 @@ import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
  * leaning as the gait holds it and banked as it banks into a turn, in `settle` s, as a body whose
  * radius of gyration about its centre of mass is `gyration` m would be turned, less what would lean
  * it further forward. So it rights a pelvis tipping forward, to a side or round, and never tips it
- * forward to carry the body along: that pitch is the run's and the walk's own, and holding it both
- * ways the Warrior brakes slower and falls as it stops. It gives no force: one across the heading
+ * forward to carry the body along: that pitch is the run's and the walk's own, and an assist that
+ * holds it both ways makes a body brake slower and fall as it stops. It gives no force: one across the heading
  * toward the walk asked across it holds nothing more up.
  * What it asks past the assist's ceiling the assist shortens; a body with no balance is asked nothing.
  */

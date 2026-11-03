@@ -17,7 +17,7 @@ import type { StrikeOption } from "./strike.ts";
 import { CLINCH, clinched, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 
-/** A gait's prior, where no profile measures it, the owner's decision: braced at once, and up. */
+/** A gait's prior, where no profile measures it, set by hand: braced at once, and up. */
 const UNMEASURED = Object.freeze({ seconds: 0, down: 0 });
 
 /** A gait as Option Mind's legs go by it: its name (null for legs that walk by none), its label and its legs' config. */

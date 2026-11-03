@@ -71,8 +71,8 @@ const SITTING = 0.15;
 /**
  * Under this share of reference height a body on none of the postures above lies, though its trunk
  * bears nothing: face down on its arms or what it holds, on its side on its upper arm, on its
- * hands and thighs: a body this low reads as lying. Lying it is at 0.13 to 0.26; on hands and
- * knees at 0.36 and over.
+ * hands and thighs: a body this low reads as lying. Set between a lying body's height and one on
+ * hands and knees.
  */
 const LYING = 0.3;
 /** Six consecutive readings settle a label; physical facts never wait for it. */

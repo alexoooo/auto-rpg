@@ -16,7 +16,7 @@ export const EMPTY_LOADOUT: Loadout = Object.freeze({ left: "empty", right: "emp
 export const LOADOUTS: readonly Loadout[] = Object.freeze(HELD.flatMap((left) => HELD.map((right) => Object.freeze({ left, right }))));
 
 /**
- * **The loadouts minds are rated on**, by the owner's choice: bare hands, the club, the club and
+ * **The loadouts minds are rated on**: bare hands, the club, the club and
  * buckler, the sword, the sword and buckler, each item in the hand it is made for. The rest of
  * `LOADOUTS` is unseen: no mind is rated on it, and how a mind carries to it is read apart.
  */

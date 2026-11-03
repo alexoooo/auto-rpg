@@ -203,8 +203,8 @@ export interface Fist {
 }
 
 /**
- * The joint servo's time constant, s (`servo`). 0.1 s (twelve steps at 120 Hz) is a choice, not a
- * floor: the servo holds without ringing at time constants down to two steps.
+ * The joint servo's time constant, s (`servo`): twelve steps at 120 Hz, a choice, not the servo's
+ * floor.
  */
 export const SERVO_SECONDS = 0.1;
 

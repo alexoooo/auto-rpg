@@ -5,7 +5,7 @@
  * - `walk`: the Locomotion drill's screen (`LOCOMOTION_CASES`);
  * - `punch`: the Strike drill's still and walk rungs (`STRIKE_CASES`), thrown by the mind's first
  *   action;
- * - `stand-up`: the owner's target's falls (`RISING_TARGET_CASES`) risen by the whole mind on the
+ * - `stand-up`: the stand-up target's falls (`RISING_TARGET_CASES`) risen by the whole mind on the
  *   fall bed (`buildFall`), as every mind is: shoved by the target's impulse, again while it holds
  *   it, its stand verified;
  * - `fight`: the standard match's bouts (`MATCH`'s loadouts, level and gaps) against each opponent,

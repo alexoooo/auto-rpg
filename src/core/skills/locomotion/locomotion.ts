@@ -17,8 +17,8 @@ import type { Readiness } from "../framework/action.ts";
 /**
  * How far under its reference height a body's centre of mass is held, m: the height the stance's
  * tuned constants (`stance-tuning.ts`) are set at, so a change to it calls for them again. A
- * crouch is beyond the stance: asked 8 cm or more lower, a human settles only about 1 cm lower,
- * and falls walking or stopping from there.
+ * crouch is beyond the stance: asked much lower, a human settles barely lower and falls walking or
+ * stopping from there.
  */
 export const STANCE_LOWER = 0.03;
 

@@ -1,7 +1,7 @@
 /**
  * **A fall as a case**: one body, any model under any mind, in a world of its own with the arena's
  * solids. Every evaluated fall is played on one bed (`buildFall`): the body enlisted as a fight
- * enlists it, shoved as the owner's target shoves, and its stand verified as the Lab verifies one,
+ * enlists it, shoved as the stand-up target shoves, and its stand verified as the Lab verifies one,
  * whatever its mind. The research rising bed (`rising.ts`) plays a mind on the Lab's stand bed
  * (`buildStandFall`): shoved, dropped or placed on the ground of the Stand-up mode (`startGround`,
  * `src/lab/ground-mode.ts`), its actor read. It is not bit-equal

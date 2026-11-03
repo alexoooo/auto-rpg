@@ -445,7 +445,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const link = await openWorld<CryptCard>({ kind: "crypt", start: { seed, layout, hero: page.selectedHero, companions: page.companions, minds,
       attributes: Object.fromEntries(participants.map((participant) => [participant.id, page.attributes(participant)])),
       party: page.commanders.party, enemies: page.commanders.enemies, lead } }, page.signal);
-    // The worker is the run's from here: torn down with it, or now where the run is not made.
+    // The worker is the run's from here: torn down with it, or at once where the run is not made.
     let made: RunView;
     try {
       stillShown();

@@ -144,13 +144,13 @@ const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout, ViewSettings {
   readonly ground: {
-    /** A named fall environment; obstacle outcomes remain outside the open-floor target. */
+    /** The ground a fall happens on (`GROUND_LEVELS`): the stand-up target's falls are on the open floor. */
     readonly level: GroundLevel;
     /** A technique its mind gets up by alone, in place of those it names; "mind", as `rise` says. */
     readonly drive: "mind" | TechniqueName;
     /** What the mind gets up by: its own techniques or the game's Stand up's. */
     readonly rise: GroundRise;
-    /** Shoved once, dropped, placed on the ground, or a round of the owner's target's falls (`startGround`). */
+    /** Shoved once, dropped, placed on the ground, or a round of the stand-up target's falls (`startGround`). */
     readonly start: "shoved" | "dropped" | "placed" | "round";
     readonly posture: (typeof GROUND_POSTURES)[number];
     /** Null draws the shove from the seed. */

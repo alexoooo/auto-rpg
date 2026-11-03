@@ -4,7 +4,7 @@ import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import type { Mechanism, Rulebook } from "./rulebook.ts";
 
 /**
- * **A body's life and its limbs** (the owner's decision, `owner-life` in `src/core/sources.ts`).
+ * **A body's life and its limbs** (`owner-life` in `src/core/sources.ts`).
  *
  * - **Life** is the body's hit points (`WoundSpec.hp`). A blow takes from it its damage times the
  *   factor of the struck part's group (`Rulebook.life`): vital, trunk or limb (`woundGroups`).

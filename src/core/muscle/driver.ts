@@ -49,11 +49,9 @@ import { delayLine } from "../command-delay.ts";
  * tangent reaches far past the unloaded speed. A heavy limb saturates its ceiling long before the
  * tangent's zero.
  *
- * Rejected:
- * - **A ceiling read implicitly at the step's end**, solved with the inertia beyond the joint: it
- *   ignores every other torque on the joint, and a muscle stretched by a steady load yields too fast.
- * - **Reading the curve half a step on**, from the speed the last step's ceiling held a joint short
- *   of its target: it makes whole-body strikes depend on the physics rate.
+ * The step's start, not its end: a ceiling solved at the step's end with the inertia beyond the
+ * joint ignores every other torque on it, and lets a muscle stretched by a steady load yield too
+ * fast; one read half a step on makes whole-body strikes depend on the physics rate.
  *
  * **A tendon** (`MuscleSpec.tendonPositive`, `tendonNegative`) is a spring in series with its side's
  * muscles that only pulls. While the motor pushes the way a side with a tendon pulls, under either

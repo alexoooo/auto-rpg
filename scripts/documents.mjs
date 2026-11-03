@@ -30,6 +30,7 @@ export const MARKS = Object.freeze([
   { name: "a date", pattern: /(?<![\w-])(?:19|20)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?![\w])/g },
   { name: "a commit hash", pattern: /(?<![\w.-])(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}(?![\w-])/g },
   { name: "a citation of a plan or an analysis", pattern: /docs\/(?:plans|analysis)\//g },
+  { name: "the owner", pattern: /\b[Tt]he owner\b/g },
 ]);
 
 /** A document cited by repository path from code: the path, an optional `@commit`, an optional anchor. */
