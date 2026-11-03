@@ -84,8 +84,10 @@ closing. The grip lays the blade square to the hand's length, so the arm holds i
 only with the wrist near its stops.
 
 Steered by PPO on `research/environments/sword-thrust.json` (the searched schedule, its record's
-window), after 0.59 M decisions it lands none of 60 held-out trials at either rate, the closest
-4.5 m/s at 120 Hz.
+window), it lands none of 60 held-out trials at either rate after 0.59 M decisions (the closest 4.9
+m/s) or after 1.08 M (0.98 M before each body was born on its first decision, 0.1 M after; the
+closest 4.6 m/s, with the edge, and 4.4 m/s with the point). Training met the target in 1 % of
+episodes or fewer throughout, so the network is not kept.
 
 ## Tried and not kept
 
