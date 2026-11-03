@@ -23,7 +23,9 @@ ground load for 0.05 s before it chambers. Stance owns the bearing leg and corre
 sole through muscles; IK owns the free leg; both arms stay in the ordinary guard. The stroke and a
 held contact drive the free leg firm (`EffectorGoal.firm`): the motion the servo asks, at the
 muscles' full strength, so the leg is braced through the blow; the return and the placing may bend
-a leg the stroke left straight off its knee's stop (`EffectorGoal.unbend`). No pose, velocity,
+a leg the stroke left straight off its knee's stop (`EffectorGoal.unbend`). The stomp's stroke is
+the servo's and only its held contact is firm (`effectorStrike`); its return begins at rest from
+what it struck, carried with the hip (`stompExecutor`). No pose, velocity,
 strength or assistance is added. The bearing sole may rock during a stroke; flat, quiet
 double support is required before preparation and after placement.
 
@@ -135,6 +137,35 @@ one side of it to the other.
   walk's route only between its two sides, and held until that body or the target moves or the
   feet stop clearing it: 5 landed, 4 outside, 1 fell, against 6, none and none; the drill's spot
   held until the body moves, with the target not yet laid: 1 landed of 12 against 4.
+
+**The stomp's stroke, return and stay** (the same harness, at this change). Of the Warrior's rung's
+non-landed trials at `e026ed21`, the one refused stood ready from 6.4 s and never settled: held in
+its window, the drill walked to its spot (`stay`), and took the menu's spot afresh each second,
+which moves with each stride and between two bearings, so the body walked 0.1 to 0.4 m/s to the
+end. The drill now keeps its spot while it holds (`HELD_SPOT`, `src/core/command/drill.ts`); with
+that, three trials that had landed or come weak fell. Each fell in the return: it began at the
+stroke's measured speed, 5.2 m/s down in the body frame, so its path drove the foot on into the
+body it had struck; the foot stayed on it 0.2 to 0.3 s, the reaction tipped the pelvis back 0.6
+and the striker went over its bearing foot. Begun at rest, none falls. Driven firm through the
+stroke, the foot met the Warrior's bar at 2.93 to 3.00 m/s in two trials where the servo's stroke
+gives 3.07 and 3.08. The return's home carried with the body frame's origin swung a leg's length
+with the pelvis's turn; it is carried with the hip.
+
+| Rung | Landed | Weak | Fell | Outside | Refused |
+| --- | --- | --- | --- | --- | --- |
+| Warrior, `stomping`, at `e026ed21` | 6 | 3 | 0 | 2 | 1 |
+| Warrior, `stomping`, this change | 11 | 0 | 0 | 1 | 0 |
+| Skeleton, `stomping-bodies`, at `e026ed21` | 3 | 2 | 4 | 1 | 1 (and 1 missed) |
+| Skeleton, `stomping-bodies`, this change | 7 | 2 | 1 | 1 | 0 (and 1 guarded) |
+| Rogue, `stomping-bodies`, at `e026ed21` | 2 | 4 | 3 | 2 | 0 (and 1 elsewhere) |
+| Rogue, `stomping-bodies`, this change | 1 | 7 | 1 | 2 | 0 (and 1 elsewhere) |
+
+The Warrior's landed blows come at 3.07 to 4.69 m/s and 0.3 to 26.6 J, against 3.23 to 6.90 m/s
+and 1.1 to 51.7 J braced through the stroke: less is behind the foot (0.55 to 10.5 kg against 6.2
+to 56.6). With the stroke firm as well, the Warrior's left foot at a lying Warrior comes weak at 0.8 and
+1.2 m (3.00, 2.93 m/s), and the Rogue lands 2, 4 weak, 2 fell. The Skeleton's one fall: the blow tips its pelvis back 0.3, its chamber is then past the
+hip's reach, and the return waits out `returnLimit` on one leg. The Rogue's blows come at 0.3 to
+2.7 m/s on its row seeded from the Warrior's.
 
 **The toed Skeleton's and Rogue's stomp on a target laid down** (`stomping-bodies`, the same
 harness; each body's own row). At `c260464d` the Skeleton falls in 10 of 12, all before contact:
