@@ -219,6 +219,11 @@ than the fall. A return that lets the centre off the bearing foot now ends the s
   19): 9 landed at 2.63 to 7.94 m/s against its 2.54 bar, 50 to 73 J at a Warrior, and 3 refused,
   all at a lying Skeleton. The Rogue's leg reaches 8.1 to 9.7 m/s at a lying trunk's top in free
   air (pelvis pinned, hip and knee at full activation), the Warrior's 10.1, the Skeleton's 10.4.
+- **Tried and not kept: the Skeleton's brace searched** (`research/skill-search.mjs stomp
+  crypt-skeleton` from its row at `ed11435a`, the brace onset with the stroke and the window, 16
+  candidates a generation on the rung's 8 search trials): the best a generation 8.67, 8.68,
+  9.09, 8.45, 9.98, 8.77 over generations 0 to 5, flat within a trial's spread (as the
+  Warrior's search's were), the medians 3.9 to 7.3. Stopped there; the row is kept, brace 0.
 
 **The toed Skeleton's and Rogue's stomp on a target laid down** (`stomping-bodies`, the same
 harness; each body's own row). At `c260464d` the Skeleton falls in 10 of 12, all before contact:
