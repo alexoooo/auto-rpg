@@ -8,7 +8,7 @@ import type { AnkleHold, BearingSole } from "./contact-wrench.ts";
 import { chainTo } from "./kinematics.ts";
 import { swingLegOf, type SwingLeg } from "./swing-leg.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { turnOfToRef, massOf } from "../read-motion.ts";
+import { turnOfToRef, partsOn, type Parts } from "../read-motion.ts";
 import { SUPPORT_INSET } from "./stance-tuning.ts";
 import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../spec/constants.ts";
 import { acos, asin, atan2, cos, hypot } from "../math/real.ts";
@@ -99,8 +99,11 @@ export interface FootState {
    * then no more than `DOWN` over the ball. Read again where its leg's strength changes (`fitSole`).
    */
   fits: SoleFits;
-  /** What its fits are read at: the body's weight, N, the inset, and each freedom of its chain's strength (`ReadJoint.strength`) when they were read. */
-  readonly read: { readonly weight: number; readonly inset: number; readonly strength: Float64Array };
+  /**
+   * What its fits are read at: the parts on its body (`partsOn`) and their weight, N, as they were
+   * read, the inset, and each freedom of its chain's strength (`ReadJoint.strength`) when they were read.
+   */
+  readonly read: { readonly parts: () => Parts; weight: number; readonly inset: number; readonly strength: Float64Array };
   /** Whether the fit with its toes is the one read now. */
   toesFlat: boolean;
   readonly chain: ReadJoint[];
@@ -194,7 +197,7 @@ export function soleRefusal(spec: BodySpec): string | null {
 }
 
 export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[] {
-  const weight = massOf([...built.segments.values()]) * STANDARD_GRAVITY.value;
+  const parts = partsOn(built), weight = parts().mass * STANDARD_GRAVITY.value;
   const feet = (["left", "right"] as const).map((side): FootState => {
     const segment = built.segments.get(`foot.${side}`);
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
@@ -203,7 +206,7 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
     const fits = fitsOf(segment, chain, weight, inset), flat = fits.flat;
     const held = flat.hold.map(() => new Vector3());
     const regions = (o: number): HeldRegions => ({ all: { corners: held.slice(o, o + 4) }, toe: { corners: [held[o]!, held[o + 1]!, held[o + 4]!, held[o + 5]!] }, heel: { corners: [held[o + 2]!, held[o + 3]!, held[o + 4]!, held[o + 5]!] } });
-    return { ...flat, fits, read: { weight, inset, strength }, toesFlat: true, turns: turnsOf(chain[0]!), side, segment, chain,
+    return { ...flat, fits, read: { parts, weight, inset, strength }, toesFlat: true, turns: turnsOf(chain[0]!), side, segment, chain,
       memory: { channels: [] as number[], rolled: null, hip: new Vector3(), ground: 0, lifted: 0 },
       corners: flat.sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       held: { points: held, under: new Vector3(), ankle: held[12]!, full: regions(0), half: regions(6) },
@@ -273,11 +276,14 @@ function soleFit(segment: ReadSegment, chain: readonly ReadJoint[], weight: numb
 
 /**
  * `foot` read with the fit (`FootState.fits`) of its toes now: with them, or bent past `within`,
- * without; its fits and its leg read again first where its leg's strength has changed since.
+ * without; its fits and its leg read again first where its leg's strength, or what its body
+ * weighs, has changed since.
  */
 function fitSole(foot: FootState): void {
-  const weakened = strengthOf(foot.chain, foot.read.strength);
+  const weight = foot.read.parts().mass * STANDARD_GRAVITY.value, weighed = weight !== foot.read.weight;
+  const weakened = strengthOf(foot.chain, foot.read.strength) || weighed;
   if (weakened) {
+    foot.read.weight = weight;
     foot.fits = fitsOf(foot.segment, foot.chain, foot.read.weight, foot.read.inset);
     foot.leg = swingLegOf(foot.chain);
   }

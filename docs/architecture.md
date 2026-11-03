@@ -196,6 +196,9 @@ Readings back from the built body:
   number to a sink that makes no object (`tellContacts`, `tellManifolds`, `ContactSink`), as a
   mirror's writer reads them;
 - a point's distance from a body's shapes (`SegmentBody.gapTo`);
+- a joint that comes apart (`EngineJoint.release`): its two bodies part, kept from colliding until
+  their shapes clear; it takes no motor command and reads no impulse, and a load restores it as
+  its save had it;
 - a whole-world save and in-place load (`PhysicsWorld.save`, `load`). Every object survives a load
   as itself; a save is identified by a digest of how each body, joint and collider was made, and a
   world built otherwise refuses it.
@@ -223,7 +226,7 @@ state on the body (`BuiltBody.strength`, one a channel), read through the joint
 (`ReadJoint.strength`) wherever a peak torque is: the driver's ceilings and tendons
 (`strengthAt`), the ankle's hold and the swing leg's torque, which a foot state reads again when
 its leg's strength changes (`fitSole`, `src/core/control/support.ts`), and the mirror. A crippled
-limb writes it (`crippleLimb`, `src/core/rules/pool.ts`); a direct mind's actuator model
+limb writes it (`crippleLimb`, `src/core/rules/pool.ts`), and a part cut off sets it to 0 (`cutOff`); a direct mind's actuator model
 (`direct.ts`) keeps the whole peaks, and the driver bounds what it commands.
 
 - `World.actuation`, fixed per world, selects the symmetric gameplay law or the directional
@@ -559,7 +562,7 @@ the spec as the builder makes it (`segmentShapes`, `jointKinematics`) and refres
 numbers (`MirrorChannel.inbound`), which the world writes (`mirrorWriter`) once a step, before the
 mind steps, and again as a load puts the body back. They hold the
 clock and level; each segment's pose, motion, hand, toes and mass; the joints as the muscles last
-read them; the muscles' command, ceilings, delivered torque, bounds and strength; the assist's; the senses';
+read them, and whether each is attached; the muscles' command, ceilings, delivered torque, bounds and strength; the assist's; the senses';
 and each segment's contacts and manifolds. The mirror reads the body's dynamics itself (the driver
 then does not, `driveMuscles`'s `dynamics`). What the mind asks goes back as numbers
 (`MirrorChannel.outbound`: the command, the assist's ask, the hands' requests), and what it meets
@@ -621,8 +624,9 @@ page, offline work and the tests keep their minds on their bodies.
 fraction of its full life, `Pool.bar`, at once), when the fight's clock gives its verdict at the
 latest (`ends`: a bout's cap or its drain's end, `EndRule.drainedBy`; absent where no clock ends
 it), and every other body (`BodySense`): side, spec
-with what it holds, out, down by its spec's rule, its life, centre of mass and its velocity, each
-segment's pose and motion. Never a part's hit points or another mind. A fight's one
+with what it holds, out, down by its spec's rule, its life, the centre of mass of the parts on it
+and its velocity, and each segment on it, its pose and motion: a part cut off is no longer the
+body's (`OFF_BODY`, `shownSegments`). Never a part's hit points or another mind. A fight's one
 sensing layer (`createSenses`) reads every body in the step's sensing phase, before any mind, so
 all minds see one moment, every other body shown late by the reaction time (`Rulebook.reaction`,
 0.15 s, [play](reference/play.md#reaction-time)) and a mind's own at once. A lone body senses
@@ -1723,7 +1727,18 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
   out, and a lethal one on a vital part takes that off; a cut costs `Rulebook.severLoss` of full
   life. A body is out when its life is spent (`slain`), a vital part comes off (`beheaded`) or a
   limb whose loss is `out` (a leg) comes off (`maimed`). A blow's record keeps its damage
-  (`BlowSide.damage`) and what the pool did (`Wound`, `lifeTaken`).
+  (`BlowSide.damage`) and what the pool did (`Wound`, `lifeTaken`), and the body takes it
+  (`woundBody`).
+- **A cut part comes off** (`cutOff`): its joints' strength is 0 and the joint that held it to the
+  body is released (`EngineJoint.release`), so it falls free with what its hand holds, and no blow
+  of it counts (`inFight`). A body is what is still joined to its root (`attachment`,
+  `ReadJoint.attached`, `src/core/read-body.ts`; `partsOn`, `src/core/read-motion.ts`): its mass
+  and centre in the stance, the ground reading, the uprightness and the foot states; its dynamics
+  (`bodyDynamics` leaves the parts off out of the root's rows and the whole body; `coupledDynamics`
+  refuses a body with a part off); its held level (`setLevel` fixes only the parts on); what the
+  others sense of it; and its skills, which refuse an effector cut off (`actionInstances`). A part
+  off is read where the body would carry it, as its own head is (`centreReading`). A load from
+  before the cut puts the part back.
 - **Balance** (`AttributeSpec.balance`): a per cent of the body's weight, the most force its assist
   gives, with the moment `Rulebook.balance` gives each per cent (`balanceCeiling`). A fight sets each
   ceiling from the character and withdraws it when the body is out. The stance steps for a push only

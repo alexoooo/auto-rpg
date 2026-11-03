@@ -6,7 +6,7 @@
 import { Vector3, Quaternion } from "../math/vector.ts";
 import type { DownSpec, HandPose, SegmentFrame, ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { turnOfToRef } from "../read-motion.ts";
+import { partsOn, turnOfToRef } from "../read-motion.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
 
 /**
@@ -177,6 +177,10 @@ function readUprightness(built: ReadBody): Uprightness {
    * and the points it read (`Part.lows`, by its hand's pose). A read in that pose answers them again.
    */
   const pose = new Float64Array(parts.length * POSE), lows: (Float64Array | null)[] = parts.map(() => null);
+  /** The parts on the body as `levels` were read (`partsOn`), and which of `parts` are off it: a part cut off is not the body's. */
+  const on = partsOn(built);
+  let kept = on();
+  const off = new Uint8Array(parts.length);
   /** Each part's lowest point, world, as `levels` were read. */
   const partLow = new Float64Array(parts.length);
   const samePose = (): boolean => {
@@ -188,9 +192,16 @@ function readUprightness(built: ReadBody): Uprightness {
     return true;
   };
   const read = (): typeof levels => {
+    const now = on();
+    if (now !== kept) {
+      kept = now;
+      for (let k = 0; k < parts.length; k++) off[k] = now.segments.includes(parts[k]!.segment) ? 0 : 1;
+      pose.fill(NaN);
+    }
     if (samePose()) return levels;
     let high = 0, low = Infinity;
     for (let k = 0, i = 0; k < parts.length; k++, i += POSE) {
+      if (off[k]) continue;
       const part = parts[k]!, { position: p, rotation: q } = part.segment.pose, points = part.lows;
       pose[i] = p.x; pose[i + 1] = p.y; pose[i + 2] = p.z; pose[i + 3] = q.x; pose[i + 4] = q.y; pose[i + 5] = q.z; pose[i + 6] = q.w;
       lows[k] = points;
@@ -202,7 +213,7 @@ function readUprightness(built: ReadBody): Uprightness {
       partLow[k] = own;
       low = Math.min(low, own);
     }
-    levels.centre = high / mass;
+    levels.centre = high / kept.mass;
     levels.low = low;
     return levels;
   };
@@ -218,7 +229,7 @@ function readUprightness(built: ReadBody): Uprightness {
   const clearance: Uprightness["clearance"] = (except) => {
     const { low } = read();
     let rest = Infinity;
-    for (let k = 0; k < parts.length; k++) if (!excepted(parts[k]!, except)) rest = Math.min(rest, partLow[k]!);
+    for (let k = 0; k < parts.length; k++) if (!off[k] && !excepted(parts[k]!, except)) rest = Math.min(rest, partLow[k]!);
     return rest - low;
   };
   return {

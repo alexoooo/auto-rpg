@@ -137,7 +137,7 @@ function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, 
     frameChild: inFrame(child.frame),
     limits: dofs.map(({ spec: { min, max }, sign }) => (sign > 0 ? [min.value, max.value] as const : [-max.value, -min.value] as const)),
   });
-  return { spec, parent, child, joint, dofs, axes, strength: (dof) => strength[dof]! };
+  return { spec, parent, child, joint, dofs, axes, strength: (dof) => strength[dof]!, attached: () => joint.attached };
 }
 
 /** Compute a connected tree's initial pose before creating any physical segment or joint. */

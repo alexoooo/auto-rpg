@@ -66,7 +66,7 @@ export function readView(built: BuiltBody): ReadBody {
   }
   const joints = new Map<string, ReadJoint>();
   for (const [name, joint] of built.joints) joints.set(name, Object.freeze({
-    spec: joint.spec, dofs: joint.dofs, axes: joint.axes, parent: byBuilt.get(joint.parent)!, child: byBuilt.get(joint.child)!, strength: joint.strength,
+    spec: joint.spec, dofs: joint.dofs, axes: joint.axes, parent: byBuilt.get(joint.parent)!, child: byBuilt.get(joint.child)!, strength: joint.strength, attached: joint.attached,
   }));
   const physics = built.physics;
   const engine = (body: ReadSegmentBody): SegmentBody => {

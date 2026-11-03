@@ -3,6 +3,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { motionAxesToRef } from "./joint-state.ts";
 import { hasProducts } from "./rigid.ts";
 import { type ReadBody, type ReadSegment, rootSegment } from "../read-body.ts";
+import { partsOn, type Parts } from "../read-motion.ts";
 
 /**
  * **The body's dynamics in its joints' speeds**, with its root held: the mass matrix and the
@@ -112,10 +113,28 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
   const index = new Map(segments.map((segment, i) => [segment, i]));
   const carried = (root: ReadSegment): number[] =>
     [index.get(root)!, ...joints.filter((joint) => joint.parent === root).flatMap((joint) => carried(joint.child))];
-  const beyond = joints.map((joint) => carried(joint.child));
+  const carriedWhole = joints.map((joint) => carried(joint.child));
   // Which joint's carried segments two joints both move: the deeper one's, or none (-1).
-  const shared = joints.map((a, i) => joints.map((b, j) =>
-    i === j ? i : beyond[i]!.includes(index.get(b.child)!) ? j : beyond[j]!.includes(index.get(a.child)!) ? i : -1));
+  const sharedWhole = joints.map((a, i) => joints.map((b, j) =>
+    i === j ? i : carriedWhole[i]!.includes(index.get(b.child)!) ? j : carriedWhole[j]!.includes(index.get(a.child)!) ? i : -1));
+  // The body as it is now (`partsOn`): a joint whose child is off moves only the part cut off, as
+  // if its parent held it, and nothing of the body; one on moves only what is on.
+  const on = partsOn(built);
+  let kept: Parts | null = null;
+  const off = new Uint8Array(segments.length), cut = new Uint8Array(joints.length);
+  const beyond = carriedWhole.map((list) => [...list]), shared = sharedWhole.map((row) => [...row]);
+  const mask = (): void => {
+    const now = on();
+    if (now === kept) return;
+    kept = now;
+    for (let i = 0; i < segments.length; i++) off[i] = now.segments.includes(segments[i]!) ? 0 : 1;
+    for (let j = 0; j < joints.length; j++) {
+      cut[j] = off[index.get(joints[j]!.child)!]!;
+      beyond[j] = cut[j] ? [...carriedWhole[j]!] : carriedWhole[j]!.filter((i) => !off[i]);
+    }
+    for (let a = 0; a < joints.length; a++) for (let b = 0; b < joints.length; b++) shared[a]![b] = cut[a] === cut[b] ? sharedWhole[a]![b]! : -1;
+    whole.mass = segments.reduce((sum, s, i) => off[i] ? sum : sum + s.rigid.mass, 0);
+  };
   const freedoms = joints.flatMap((joint, j) => joint.dofs.map((_, k) => ({ joint: j, k })));
   const n = freedoms.length;
   const mass = freedoms.map(() => new Float64Array(n));
@@ -129,7 +148,7 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
   const rootIndex = index.get(rootSegment(built))!;
   const root = { segment: segments[rootIndex]!, centre: [0, 0, 0] as Point, mass: [0, 1, 2, 3, 4, 5].map(() => new Float64Array(6)),
     coupling: [0, 1, 2, 3, 4, 5].map(() => new Float64Array(n)), gravity: new Float64Array(6), bias: new Float64Array(6) };
-  const whole = { centre: [0, 0, 0] as Point, inertia: new Float64Array(6), mass: segments.reduce((sum, s) => sum + s.rigid.mass, 0) };
+  const whole = { centre: [0, 0, 0] as Point, inertia: new Float64Array(6), mass: 0 };
   // Each segment's spin, and its angular and linear acceleration and inertial wrench with every joint's speed held.
   const spins = segments.map((): Point => [0, 0, 0]);
   const alpha = segments.map((): Point => [0, 0, 0]), accel = segments.map((): Point => [0, 0, 0]);
@@ -197,6 +216,7 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
     const b = root.bias, p0 = root.centre;
     b.fill(0);
     for (let i = 0; i < segments.length; i++) {
+      if (off[i]) continue;
       const F = force[i]!, rf = crossTo(subTo(centres[i]!, p0, u), F, v), N = moment[i]!;
       b[0] += rf[0] + N[0]; b[1] += rf[1] + N[1]; b[2] += rf[2] + N[2];
       b[3] += F[0]; b[4] += F[1]; b[5] += F[2];
@@ -218,6 +238,7 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
       angular.set(al[0], al[1], al[2]);
     },
     update(angles, motion) {
+      mask();
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i]!, rotation = segment.pose.rotation, p = segment.pose.position;
         const c = toWorld(rotation, centreOfMass[i]!, centres[i]!);
@@ -267,9 +288,10 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
       {
         const C = whole.centre, I = whole.inertia;
         C.fill(0); I.fill(0);
-        for (let i = 0; i < segments.length; i++) { const m = segments[i]!.rigid.mass, c = centres[i]!; C[0] += m * c[0]; C[1] += m * c[1]; C[2] += m * c[2]; }
+        for (let i = 0; i < segments.length; i++) { if (off[i]) continue; const m = segments[i]!.rigid.mass, c = centres[i]!; C[0] += m * c[0]; C[1] += m * c[1]; C[2] += m * c[2]; }
         C[0] /= whole.mass; C[1] /= whole.mass; C[2] /= whole.mass;
         for (let i = 0; i < segments.length; i++) {
+          if (off[i]) continue;
           const m = segments[i]!.rigid.mass, c = centres[i]!, own = inertias[i]!;
           const d0 = c[0] - C[0], d1 = c[1] - C[1], d2 = c[2] - C[2], dd = d0 * d0 + d1 * d1 + d2 * d2;
           I[0] += own[0] + m * (dd - d0 * d0); I[1] += own[1] + m * (dd - d1 * d1); I[2] += own[2] + m * (dd - d2 * d2);
@@ -298,6 +320,7 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
           // What freedom f moves, as one body: its momentum per unit speed, and that momentum's moment
           // about the root's centre with the body's own spin.
           const { joint: j, k } = freedoms[f]!, mf = axes[j]![k]!, body = composite[j]!;
+          if (cut[j]) { for (let r = 0; r < 6; r++) root.coupling[r]![f] = 0; continue; }
           const swept = crossTo(mf, subTo(body.centre, pivots[j]!, work.c), work.d), lin = work.c;
           lin[0] = body.mass * swept[0]; lin[1] = body.mass * swept[1]; lin[2] = body.mass * swept[2];
           const ang = addTo(inertiaTimesTo(body.inertia, mf, work.a), crossTo(subTo(body.centre, p0, work.d), lin, work.e), work.d);

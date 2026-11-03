@@ -11,7 +11,7 @@ import { makeSwingShiftWork, type SwingShift, type SwingShiftWork } from "./swin
 import type { SwingBow } from "./swing-path.ts";
 import { resolveStance, SUPPORT_INSET, type GaitTuning, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, restWidth, soleRefusal, type FootMemory, type FootState } from "./support.ts";
-import { massOf } from "../read-motion.ts";
+import { massOf, partsOn, type Parts } from "../read-motion.ts";
 import type { Side } from "../spec/body.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
 
@@ -141,9 +141,8 @@ export interface Stance {
   readonly tuning: ResolvedStance;
   /** The segment the legs hang from. */
   readonly pelvis: ReadSegment;
-  readonly segments: readonly ReadSegment[];
-  /** The body's mass, kg. */
-  readonly total: number;
+  /** The parts on the body now and their mass (`partsOn`): a cut part is no longer the stance's. */
+  readonly parts: () => Parts;
   /** The feet, left then right. */
   readonly feet: readonly FootState[];
   /** Each foot's leg as the solve takes it, in the feet's order: its task is the state's. */
@@ -191,8 +190,7 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
     stem: [], work: { at: new Vector3(), rows: null, ahead: [], toward: null, patch: null, share: 1 },
   }));
   return {
-    built, assist, tuning: resolved, pelvis: feet[0]!.chain[0]!.parent, segments,
-    total,
+    built, assist, tuning: resolved, pelvis: feet[0]!.chain[0]!.parent, parts: partsOn(built),
     feet, rest: restWidth(feet), rise, limbs,
     ask: { aim: state.aim, limbs, lever: 0, root: state.aim.root, helped: state.helped, shortfall: state.reading.shortfall,
       asked: feet.map((foot) => state.reading.asked[foot.side]) },

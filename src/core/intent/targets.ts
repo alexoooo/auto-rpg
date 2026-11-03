@@ -51,8 +51,9 @@ export function nearestSurface(senses: Senses, from: Vec3, accept: (at: Vec3) =>
   return best;
 }
 
-/** **The way a foe lies**: the heading of its long axis, from its base to its high mark (`BodySpec.marks`), rad about up. */
+/** **The way a foe lies**: the heading of its long axis, from its base to its high mark (`BodySpec.marks`), or its first middle one where its high one is cut off, rad about up. */
 export function lyingAxis(foe: BodySense): number {
-  const h = foe.segments.get(foe.spec.marks.high)!.centre, p = foe.segments.get(foe.spec.marks.base)?.centre ?? foe.centre;
+  const { high, middle } = foe.spec.marks;
+  const h = (foe.segments.get(high) ?? foe.segments.get(middle[0]!))?.centre ?? foe.centre, p = foe.segments.get(foe.spec.marks.base)?.centre ?? foe.centre;
   return atan2(h.x - p.x, h.z - p.z);
 }

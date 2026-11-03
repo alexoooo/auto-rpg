@@ -176,7 +176,8 @@ each limb drawn on the body diagram.
   limb's full bar that leaves the bar at 0 takes off the struck segment and every one beyond it. A
   lethal edge or axe blow on a vital part not `whole` takes it off the same way. A cut costs
   `Rulebook.severLoss` of full life beside the blow. A blunt blow or a lighter cut cripples; a point
-  never cuts.
+  never cuts. The part cut off falls free with what its hand holds (`cutOff`): its muscles give
+  nothing, it is no longer the body's to itself or to the others, and none of its blows count.
 - **A body is out** when its life is spent (`slain`), a vital part comes off (`beheaded`), or a limb
   whose loss is `out` loses any part (`maimed`). The first ending stands.
 

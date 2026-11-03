@@ -7,7 +7,7 @@ import { chainTo } from "./kinematics.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing, type Limb } from "./bearing.ts";
 import { UNHELD } from "./contact-wrench.ts";
 import { groundContact } from "./support.ts";
-import { massCentreToRef, massOf, motionAtToRef, pointOfToRef } from "../read-motion.ts";
+import { massCentreToRef, motionAtToRef, partsOn, pointOfToRef } from "../read-motion.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { approachToRef, turnToRef } from "./approach.ts";
 import { channelName } from "../muscle/driver.ts";
@@ -65,11 +65,12 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
     task: state.tasks[i]!, work: { at: state.endpoints[i]!.contactAt, rows: positionRows, ahead: d.channels.map(() => NaN),
       toward: toward[i]!, patch: points[i]!, share: 1 } }));
   const bearing = makeBearing(own.assist, limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: state.shortfall }, { effort: true, damping: response.damping });
-  const parts = [...built.segments.values()], mass = massOf(parts);
+  const parts = partsOn(built);
   const scratch = { at: new Vector3(), velocity: new Vector3(), angular: new Vector3(), target: new Quaternion(), moved: new Uint8Array(muscles.channels.length),
     firm: new Float64Array(muscles.channels.length) };
   const read = () => {
-    massCentreToRef(parts, mass, state.centre, scratch.at, state.velocity);
+    const { segments, mass } = parts();
+    massCentreToRef(segments, mass, state.centre, scratch.at, state.velocity);
     definitions.forEach((d, i) => {
       const e = state.endpoints[i]!;
       pointOfToRef(d.segment, d.point, e.at);

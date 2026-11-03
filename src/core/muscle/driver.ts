@@ -7,7 +7,7 @@ import { jointTracker, type JointTracker } from "../build/joint-state.ts";
 import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
 import type { Hook, World } from "../world.ts";
 import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from "./force-velocity.ts";
-import type { BuiltDof, JointKinematics, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
+import { attachment, type BuiltDof, type JointKinematics, type ReadBody, type ReadJoint, type ReadSegment } from "../read-body.ts";
 import { delayLine } from "../command-delay.ts";
 
 /**
@@ -74,7 +74,7 @@ import { delayLine } from "../command-delay.ts";
 /**
  * **How much of itself a body runs.** `full`: its joints are read, its mind steps and its motors
  * are driven. `limp`: none of the three, and its motors are released: the solver alone moves it.
- * `held`: limp, and every segment fixed where it is.
+ * `held`: limp, and every segment on it (`attachment`) fixed where it is; a part cut off stays free.
  */
 export type BodyLevel = "full" | "limp" | "held";
 
@@ -224,6 +224,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   const spin = new Map<ReadSegment, Vector3>(spins.flatMap(({ w, segment, view }) => [[segment, w], [view, w]]));
   const angularVelocity = (segment: ReadSegment): Vector3 => spin.get(segment)!;
   const byName = new Map(channels.map((c, i) => [c.name, i]));
+  const on = attachment(built);
   const n = channels.length;
   const dt = world.dt;
   const directional = (() => {
@@ -275,7 +276,9 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
         for (const sent of [...state.sent.activation, ...state.sent.velocity]) sent.fill(0);
         channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
       }
-      if (fixedAt(next) !== fixedAt(state.level)) for (const segment of built.segments.values()) segment.body.setFixed(fixedAt(next));
+      if (fixedAt(next) !== fixedAt(state.level)) {
+        for (const segment of built.segments.values()) if (!fixedAt(next) || on(segment)) segment.body.setFixed(fixedAt(next));
+      }
       state.level = next;
     },
     strength: (i, sense) => strengthAt(channels[i]!, sense, driver.speed(i)),

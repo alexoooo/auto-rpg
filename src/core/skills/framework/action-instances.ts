@@ -48,10 +48,13 @@ export interface ActionContact {
   readonly onset: boolean;
 }
 
-/** Protocol state belongs to the body; executors only own their motion and shared timing. */
+/**
+ * Protocol state belongs to the body; executors only own their motion and shared timing. An action
+ * whose effector is off the body (`attached`, all on unless given) is refused.
+ */
 export function actionInstances(executors: readonly ExecutorBinding[], actions: readonly ActionBinding[], resources: ResourceMap,
-  limits: { readonly observations?: number; readonly ledger?: number } = {}) {
-  const history = limits.observations ?? OBSERVATIONS, length = limits.ledger ?? LEDGER_LENGTH;
+  options: { readonly observations?: number; readonly ledger?: number; readonly attached?: (effector: string) => boolean } = {}) {
+  const history = options.observations ?? OBSERVATIONS, length = options.ledger ?? LEDGER_LENGTH, attached = options.attached ?? (() => true);
   if (!Number.isSafeInteger(history) || history < 0 || !Number.isSafeInteger(length) || length < 1) throw new Error("invalid action history bounds");
   const registered = new Map<string, number>(), bindings = new Map<string, ActionBinding>();
   executors.forEach((entry, i) => {
@@ -92,6 +95,7 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
   const readiness = (view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround): Readiness => {
     const binding = bindings.get(action);
     if (!binding || !binding.effectors.includes(effector)) return { kind: "blocked", reason: "unknown action or effector" };
+    if (!attached(effector)) return { kind: "blocked", reason: "effector cut off" };
     const executor = executors[registered.get(binding.executor)!]!.executor, needs = needsOf(executor, action, effector);
     const own = executor.readiness(view, action, effector, target, around);
     if (own.kind === "blocked") return own;
