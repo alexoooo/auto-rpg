@@ -22,12 +22,7 @@
  * Wall time on the machine it runs on: read it on a quiet one.
  */
 import { parseArgs } from "node:util";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { Scene } from "@babylonjs/core/scene.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../src/core/body.ts";
 import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
@@ -45,8 +40,6 @@ import { rootSegment } from "../src/core/read-body.ts";
 import { GAME, defaultMind } from "../src/entrants/game.ts";
 
 const { values } = parseArgs({ options: { bodies: { type: "string", default: "8" } } });
-// Babylon greets every engine it makes on the console.
-Logger.LogLevels = Logger.NoneLogLevel;
 if (CORE_ENGINE !== "rapier") throw new Error("the probe reads Rapier's own rigid bodies");
 
 /** A segment slower than this counts as still, m/s: a numeric setting. */
@@ -62,7 +55,7 @@ const SHOVES = [["ahead", 0, 1], ["behind", 0, -1], ["left", -1, 0], ["right", 1
  */
 async function fall(model, shove) {
   const spec = armed(modelSpec(model), "right", woodenClub()), rules = rulebook("dungeon");
-  const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine());
+  const world = createWorld(await freshEngine());
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const built = buildBody(spec, world, { position: [0, 0, 0] });
   const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(rules));
@@ -86,7 +79,7 @@ async function fall(model, shove) {
     if (momentum.length() / mass >= STILL) lastFalling = step + 1;
     if (segments.some((segment) => segment.body.linearVelocityToRef(v).length() >= STILL)) lastMoving = step + 1;
   }
-  world.dispose(); scene.dispose();
+  world.dispose();
   if (limpAt === null) return null;
   const seconds = (last) => (last ?? limpAt) - limpAt < WATCH * world.hz ? ((last ?? limpAt) - limpAt) / world.hz : null;
   return { body: seconds(lastFalling), segment: seconds(lastMoving) };
@@ -115,7 +108,7 @@ the longest that ends: ${longest.toFixed(2)} s; rounded up to a second, ${Math.c
 `);
 
 const spec = armed(modelSpec("crypt-skeleton"), "right", woodenClub());
-const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine());
+const world = createWorld(await freshEngine());
 world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
 const count = Number(values.bodies), side = Math.ceil(Math.sqrt(count));
 const bodies = Array.from({ length: count }, (_, i) => {
@@ -143,10 +136,9 @@ console.log(`every segment put to sleep: asleep ${asleep()}`);
 console.log(`the next 5 s: ${timed(SECONDS)} ms a step; asleep at their end ${asleep()}; the fastest segment ${fastest()} m/s`);
 for (const rigid of rigids) rigid.sleep();
 const first = rigidsOf(bodies[0]), others = rigids.filter((rigid) => !first.includes(rigid)), before = asleep(others);
-const over = first[0].translation(), node = new TransformNode("ball", scene);
-node.position.set(over.x, over.y + 1, over.z);
-node.rotationQuaternion = new Quaternion();
-world.physics.addBody(node, [{ kind: "sphere", centre: [0, 0, 0], radius: 0.15 }],
+const over = first[0].translation();
+const ball = { name: "ball", position: new Vector3(over.x, over.y + 1, over.z), rotation: Quaternion.Identity() };
+world.physics.addBody(ball, [{ kind: "sphere", centre: [0, 0, 0], radius: 0.15 }],
   { mass: 5, centre: [0, 0, 0], moments: [0.05, 0.05, 0.05], orientation: Quaternion.Identity() });
 world.step(world.hz);
 console.log(`put to sleep again, and a 5 kg ball dropped on the first body, 1 s on: of its ${first.length} segments ${first.length - asleep(first)} awake; of the others' ${others.length}, ${before - asleep(others)} woken`);

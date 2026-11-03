@@ -1,7 +1,7 @@
 // A bout forked (Node, core world, Rapier, 120 Hz): by a load, a bout of the recipe put where a
 // save left the bout (`Duel.load`), or by replay, the bout played again to that step, since the same
 // recipe and tape reach the same step to the bit. Either way it goes on under a branch.
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { SIDES } from "../src/arena/duel.ts";
 import { centreOfToRef } from "../src/core/read-motion.ts";
 import { mulberry32 } from "../src/rng.ts";

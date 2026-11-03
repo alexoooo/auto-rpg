@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import fixture from "../assets/research/contact-projection.json" with { type: "json" };
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 import { sourced } from "../src/core/spec/quantity.ts";
@@ -19,7 +19,7 @@ const spec = { model: "contact-projection", mass: q("root/mass", "kg"), stature:
 }] };
 const item = { name: "offset load", mass: q("load/mass", "kg"), centreOfMass: q("load/centre"), inertia: q("load/inertia", "kg m2"),
   shapes: [{ kind: "sphere", centre: q("load/centre"), radius: q("load/radius") }], points: {} };
-const centre = (body) => new Vector3(...body.massProperties.centre).applyRotationQuaternion(body.node.rotationQuaternion).add(body.node.position);
+const centre = (body) => new Vector3(...body.massProperties.centre).applyRotationQuaternionToRef(body.pose.rotation, new Vector3()).add(body.pose.position);
 const tangent = (impulse) => { const length = Math.hypot(impulse[0], impulse[2]); assert.ok(length > 0); return [impulse[0] / length, impulse[2] / length]; };
 
 /** Equal-duration sliding trials distinguish contact-body and articulated friction projection. */
@@ -28,7 +28,7 @@ export async function contactProjection({ hz = 120, sense = 1 } = {}) {
   const stand = await coreStand(spec, { hz, engine: "rapier-coordinate-coulomb" }), root = stand.built.segments.get("root");
   const load = createEquipment(stand.world, { id: "load", item, pose: { position: fixture.load.position, rotation: identity }, capture: fixture.capture,
     grips: [{ name: "fixed", body: root.body, bodyFrame: { position: zero, rotation: identity },
-      itemFrame: { position: root.node.position.asArray().map((v, i) => v - fixture.load.position[i]), rotation: root.node.rotationQuaternion.asArray() } }] });
+      itemFrame: { position: root.pose.position.asArray().map((v, i) => v - fixture.load.position[i]), rotation: root.pose.rotation.asArray() } }] });
   try {
     assert.equal(load.tryGrip("fixed"), true);
     const bodies = [root.body, load.body];
@@ -57,7 +57,7 @@ export async function contactProjection({ hz = 120, sense = 1 } = {}) {
         });
         assert.deepEqual(saveStand(stand.world, {}), unchanged, "projection queries cannot change the world");
         stand.step();
-        const actual = bodies.map((body) => ({ position: body.node.position.asArray(), rotation: body.node.rotationQuaternion.asArray(),
+        const actual = bodies.map((body) => ({ position: body.pose.position.asArray(), rotation: body.pose.rotation.asArray(),
           velocity: body.linearVelocityToRef(new Vector3()).asArray(), spin: body.angularVelocityToRef(new Vector3()).asArray() }));
         for (let i = 0; i < bodies.length; i++) {
           for (let k = 0; k < 3; k++) actualImpulse[k] += bodies[i].massProperties.mass * (actual[i].velocity[k] - before[i][k] - stand.world.physics.gravity[k] / hz);

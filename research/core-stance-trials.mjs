@@ -2,7 +2,7 @@
  * The core stance's trials, one stand each (Node, the core's stand, 120 Hz unless `hz` is given):
  * the batteries `research/core-stance-sweep.mjs` sweeps a stance tuning over. Each returns plain numbers.
  */
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { commandedBody } from "../src/core/mind/host.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
@@ -49,7 +49,7 @@ export async function stand({ model, stance, hz = 120, balance = null }) {
   let goal = null, from = null;
   b.drive((view) => {
     const s = view.stance;
-    if (!goal && view.time > 0) { goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 }; from = feet.map((f) => f.node.position.clone()); }
+    if (!goal && view.time > 0) { goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 }; from = feet.map((f) => f.pose.position.clone()); }
     return { posture: GUARD, pushes: [], stance: goal };
   });
   try {
@@ -65,8 +65,8 @@ export async function stand({ model, stance, hz = 120, balance = null }) {
     stand.step(stand.seconds(2));
     const s = b.view.stance;
     return { settle, off: across(s.centre, s.support), low: Math.abs(s.centre.y - s.support.y - goal.height), drift: Vector3.Distance(s.centre, before),
-      speed: s.velocity.length(), slide: Math.max(...feet.map((f, k) => across(f.node.position, from[k]))),
-      sink: Math.max(...feet.map((f, k) => from[k].y - f.node.position.y)) };
+      speed: s.velocity.length(), slide: Math.max(...feet.map((f, k) => across(f.pose.position, from[k]))),
+      sink: Math.max(...feet.map((f, k) => from[k].y - f.pose.position.y)) };
   } finally { b.dispose(); stand.dispose(); }
 }
 
@@ -79,7 +79,7 @@ export async function edge({ model, degrees, stance, hz = 120, balance = null })
     const s = view.stance;
     if (!goal && view.time > 0) {
       goal = { feet: ["left", "right"], centre: [s.support.x + 0.3 * Math.sin(way), s.support.z + 0.3 * Math.cos(way)], height: view.standing - 0.03, heading: 0 };
-      from = feet.map((f) => f.node.position.clone());
+      from = feet.map((f) => f.pose.position.clone());
     }
     return { posture: {}, pushes: [], stance: goal };
   });
@@ -87,7 +87,7 @@ export async function edge({ model, degrees, stance, hz = 120, balance = null })
     stand.step(stand.seconds(6));
     const s = b.view.stance;
     return { off: across(s.centre, s.place), low: Math.abs(s.centre.y - s.support.y - goal.height), speed: s.velocity.length(),
-      slide: Math.max(...feet.map((f, k) => across(f.node.position, from[k]))), fell: s.centre.y - s.support.y < goal.height - 0.25 };
+      slide: Math.max(...feet.map((f, k) => across(f.pose.position, from[k]))), fell: s.centre.y - s.support.y < goal.height - 0.25 };
   } finally { b.dispose(); stand.dispose(); }
 }
 
@@ -95,7 +95,7 @@ export async function edge({ model, degrees, stance, hz = 120, balance = null })
 export async function step({ model, foot, dx, dz, stance, hz = 120, balance = null }) {
   const { stand, body: b } = await body(model, stance, hz, null, undefined, undefined, { balance });
   const other = foot === "left" ? "right" : "left";
-  const turnOf = () => stand.built.segments.get(`foot.${foot}`).node.rotationQuaternion.clone();
+  const turnOf = () => stand.built.segments.get(`foot.${foot}`).pose.rotation.clone();
   let goal = null, swing = null, to = null, bearing = null, lifted = null, turned = null;
   b.drive((view) => {
     const s = view.stance;
@@ -149,7 +149,7 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
       pace = null;
       stand.step(stand.seconds(3));
     }
-    const apart = Math.abs(feet[0].node.position.x - feet[1].node.position.x);
+    const apart = Math.abs(feet[0].pose.position.x - feet[1].pose.position.x);
     shoveTrunk(stand, impulse, degrees * Math.PI / 180);
     let low = -Infinity;
     for (let i = 0; i < stand.seconds(watch); i++) {
@@ -164,9 +164,9 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
 
 /** A level shove of `impulse` N s at the middle trunk's centre of mass, `way` rad from +z toward +x. */
 function shoveTrunk(stand, impulse, way) {
-  const trunk = stand.built.segments.get("middleTrunk"), turn = trunk.node.rotationQuaternion.multiply(Quaternion.Inverse(trunk.rest));
+  const trunk = stand.built.segments.get("middleTrunk"), turn = trunk.pose.rotation.multiply(Quaternion.Inverse(trunk.rest));
   const com = trunk.spec.centreOfMass.value, o = trunk.frame.origin;
-  const at = new Vector3(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternion(turn).add(trunk.node.position);
+  const at = new Vector3(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, new Vector3()).add(trunk.pose.position);
   trunk.body.applyImpulse(new Vector3(impulse * Math.sin(way), 0, impulse * Math.cos(way)), at);
 }
 

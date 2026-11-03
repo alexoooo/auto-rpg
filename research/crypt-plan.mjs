@@ -17,20 +17,14 @@
  */
 import { Session } from "node:inspector/promises";
 import { parseArgs } from "node:util";
-import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 
 const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2,3" }, seconds: { type: "string", default: "90" }, companions: { type: "string", default: "3" }, profile: { type: "boolean", default: false } } });
 const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "workshop-fighter");
-// Babylon greets every engine it makes on the console.
-Logger.LogLevels = Logger.NoneLogLevel;
 
 async function played(seed) {
-  const engine = new NullEngine(), scene = new Scene(engine);
-  const run = new DungeonRun(scene, { seed, engine: await freshEngine(), visuals: false, companions });
+  const run = new DungeonRun({ seed, engine: await freshEngine(), companions });
   // The hero explores by itself in this mode, and fights what it meets.
   run.commands.setMode({ keyboard: false, facing: true });
   const plan = run.plan.bind(run);
@@ -44,7 +38,7 @@ async function played(seed) {
     plans.push(planned);
   }
   const row = { seed, status: run.status, seconds: steps.length / run.world.hz, built: run.actors.filter((a) => a.fighter).length, steps: steps.slice(2 * run.world.hz), plans: plans.slice(2 * run.world.hz) };
-  run.dispose(); scene.dispose(); engine.dispose();
+  run.dispose();
   return row;
 }
 
@@ -54,8 +48,7 @@ const READ = ["plan src/dungeon/run.ts", "reveal src/dungeon/map.ts", "canSee sr
 
 /** One run under the CPU profiler: its steps, and microseconds a step in all of it and in each of `READ`, with everything each calls. */
 async function profiled(seed) {
-  const engine = new NullEngine(), scene = new Scene(engine);
-  const run = new DungeonRun(scene, { seed, engine: await freshEngine(), visuals: false, companions });
+  const run = new DungeonRun({ seed, engine: await freshEngine(), companions });
   run.commands.setMode({ keyboard: false, facing: true });
   const session = new Session();
   session.connect();
@@ -67,7 +60,7 @@ async function profiled(seed) {
   const { profile } = await session.post("Profiler.stop");
   session.disconnect();
   const status = run.status;
-  run.dispose(); scene.dispose(); engine.dispose();
+  run.dispose();
   const short = (url) => url.replace(/^file:\/\/\/.*?\/(src|tests|research|scripts)\//, "$1/");
   const byId = new Map(profile.nodes.map((node) => [node.id, node])), parent = new Map(), self = new Map(profile.nodes.map((node) => [node.id, 0]));
   for (const node of profile.nodes) for (const child of node.children ?? []) parent.set(child, node.id);

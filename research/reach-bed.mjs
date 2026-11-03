@@ -25,8 +25,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { Logger } from "@babylonjs/core/Misc/logger.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { chainTo, pointAtToRef, solveReach } from "../src/core/control/kinematics.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
@@ -56,7 +55,7 @@ export async function reachBed() {
     solve(k, from = solves[k].angles) {
       const { chain, free, tasks } = solves[k], angles = from.map((row) => [...row]), end = { passes: 0, still: false };
       solveReach(chain, angles, free, tasks, end);
-      const left = Math.max(...tasks.map(({ point, target }) => Vector3.Distance(pointAtToRef(chain, angles, point, at), Vector3.FromArray(target))));
+      const left = Math.max(...tasks.map(({ point, target }) => Vector3.Distance(pointAtToRef(chain, angles, point, at), new Vector3(...target))));
       return { angles, end, left };
     },
     dispose: () => stand.dispose(),
@@ -67,7 +66,6 @@ export async function reachBed() {
 const apart = (a, b) => Math.max(...a.flatMap((row, j) => row.map((angle, k) => Math.abs(angle - b[j][k]))));
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  Logger.LogLevels = Logger.ErrorLogLevel;
   const bed = await reachBed(), n = bed.solves.length;
   const answers = bed.solves.map((_, k) => bed.solve(k));
   const ended = answers.filter(({ end }) => end.still), passes = ended.map(({ end }) => end.passes).sort((a, b) => a - b);

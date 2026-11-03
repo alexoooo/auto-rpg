@@ -38,7 +38,7 @@ import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 
 /** A joint within this of a stop, rad, presses it. */
 const NEAR_STOP = 0.02;
@@ -60,7 +60,7 @@ function momentumOf(segments, mass) {
     centreOf(segment, c); segment.body.linearVelocityToRef(v); segment.body.angularVelocityToRef(w);
     linear.addInPlace(v.scale(m));
     angular.addInPlace(Vector3.Cross(c.subtract(C), v).scaleInPlace(m));
-    segment.node.rotationQuaternion.multiplyToRef(orientation, q);
+    segment.pose.rotation.multiplyToRef(orientation, q);
     w.applyRotationQuaternionToRef(Quaternion.Inverse(q), spin);
     spin.set(spin.x * moments[0], spin.y * moments[1], spin.z * moments[2]);
     angular.addInPlace(spin.applyRotationQuaternionToRef(q, turned));
@@ -79,9 +79,9 @@ const mean = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : nul
 const round = (x, k = 3) => x === null || x === undefined ? null : +x.toFixed(k);
 
 async function runOnce({ model, pace, legs, seconds, from, scale }) {
-  const [{ modelSpec }, { labActor }, { startLocomotion }, { trackOf }, { LAB_MIND }, { coreStand }, { footStatesOf, centreOfToRef }] = await Promise.all([
+  const [{ modelSpec }, { labActor }, { startLocomotion }, { trackOf }, { LAB_MIND }, { coreStand }, { footStatesOf }, { centreOfToRef }] = await Promise.all([
     import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/locomotion-mode.ts"), import("../src/lab/track.ts"),
-    import("../src/lab/scenarios.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/control/support.ts"),
+    import("../src/lab/scenarios.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/control/support.ts"), import("../src/core/read-motion.ts"),
   ]);
   centreOf = centreOfToRef;
   const stand = await coreStand(modelSpec(model), { ground: true, groundSize: GROUND });

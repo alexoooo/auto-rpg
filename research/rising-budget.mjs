@@ -48,9 +48,9 @@ async function targetFall(job) {
 /** The stance alone from the placed squat, to verified standing and 2 s held. */
 async function squatStance({ model, held, seed }) {
   await import("../tests/harness/preload-data.mjs");
-  const [{ NullEngine }, { Scene }, { default: poses }, { commandedBody }, { buildBody }, { loadEngine }, { humanSpec, humanoidSpec }, { armedWith },
+  const [{ default: poses }, { commandedBody }, { buildBody }, { loadEngine }, { humanSpec, humanoidSpec }, { armedWith },
     { guardPosture }, { createWorld }, { groundPlacement }, { recoveryMeasurement }, { observeBody }, { clockSenses }, { STAND_CHECK }] = await Promise.all([
-    import("@babylonjs/core/Engines/nullEngine.js"), import("@babylonjs/core/scene.js"), import("../assets/research/posture-holds.json", { with: { type: "json" } }),
+    import("../assets/research/posture-holds.json", { with: { type: "json" } }),
     import("../src/core/mind/host.ts"), import("../src/core/build/build-body.ts"), import("../src/core/engine/engines.ts"), import("../src/core/human/spec.ts"),
     import("../src/core/items/held.ts"), import("../src/core/skills/guard/guard.ts"), import("../src/core/world.ts"), import("../src/lab/ground-starts.ts"),
     import("../src/core/control/recovery-measurement.ts"), import("../src/core/observation.ts"), import("../src/core/mind/senses.ts"), import("../src/lab/ground-mode.ts")]);
@@ -60,7 +60,7 @@ async function squatStance({ model, held, seed }) {
   const waypoint = { ...source.placement, joints: Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map(d => (angles[`${j.name} ${d.positive}`] ?? 0) - d.bind.value)])) };
   const placement = groundPlacement(spec, { seed, ground: { start: "placed", posture: "squat", degrees: null, impulse: null, foe: 0, gusts: false } }, waypoint);
   if ("refused" in placement) return { reading: "squat", model, held, seed, refused: placement.refused };
-  const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"));
+  const world = createWorld(await loadEngine("rapier"));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placement), body = commandedBody(built, world, { servoSeconds: .1 });
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
@@ -74,7 +74,7 @@ async function squatStance({ model, held, seed }) {
     if (verified === null) { quiet = m.ready ? quiet + world.dt : 0; if (quiet + 1e-9 >= STAND_CHECK.quiet) verified = world.time; }
     else if (m.observation.down) fell = true;
   }
-  world.dispose(); scene.dispose(); engine.dispose();
+  world.dispose();
   return { reading: "squat", model, held, seed, height, climbed, verified, held2s: verified !== null && !fell };
 }
 

@@ -12,8 +12,7 @@
  * angle from the place before it on its row, rad; then the places solved within a millimetre.
  */
 import { parseArgs } from "node:util";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { Logger } from "@babylonjs/core/Misc/logger.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { chainTo, pointAtToRef, solveReach } from "../src/core/control/kinematics.ts";
 import { armed } from "../src/core/human/grip.ts";
@@ -21,8 +20,6 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { GUARD } from "../src/core/skills/guard/guard.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
-
-Logger.LogLevels = Logger.ErrorLogLevel;
 const { values } = parseArgs({ options: {
   up: { type: "string", default: "0.4,0.6,0.8,1,1.2,1.4,1.6,1.8,2" }, ahead: { type: "string", default: "0.3,0.45,0.6,0.75,0.9,1.05" },
 } });

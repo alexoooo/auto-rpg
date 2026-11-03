@@ -44,8 +44,6 @@ import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import "../tests/harness/preload-data.mjs";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
 import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
@@ -85,7 +83,7 @@ export function acceptedSeeds(spec, count) {
 export async function steady({ model = "workshop-fighter", held = "empty", seed, variant = {}, trace = false }) {
   const spec = bodySpec(model, held), placed = placement(spec, seed);
   if ("refused" in placed) return { seed, refused: placed.refused };
-  const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"));
+  const world = createWorld(await loadEngine("rapier"));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   let control = null;
@@ -109,7 +107,7 @@ export async function steady({ model = "workshop-fighter", held = "empty", seed,
         rows.push(traceRow(m, body, control, world));
       }
     }
-  } finally { world.dispose(); scene.dispose(); engine.dispose(); }
+  } finally { world.dispose(); }
   return { seed, climbed, handBack: control.handBack, verified: fell ? null : verified, fell, ...(trace ? { rows } : {}) };
 }
 

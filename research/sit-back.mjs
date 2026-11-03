@@ -13,9 +13,7 @@
  */
 import "../tests/harness/preload-data.mjs";
 import { parseArgs } from "node:util";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
@@ -41,7 +39,7 @@ const WITHIN = 6, CAP = 12;
 export async function sitBackTrial({ model = "workshop-fighter", held = "empty", seed = 1, technique = "sit-back", delay = undefined }) {
   const spec = armedWith(humanoidSpec(model), "right", held), placed = placement("push-off-bear", spec, seed);
   if ("refused" in placed) return { seed, refused: placed.refused };
-  const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"), delay === undefined ? {} : { delay });
+  const world = createWorld(await loadEngine("rapier"), delay === undefined ? {} : { delay });
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   const trial = { end: null, at: null, heading: 0, stage: [] };
@@ -60,7 +58,7 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
         if (trial.stage.at(-1) !== run.phase) trial.stage.push(run.phase);
         if (end === null) return;
         trial.end = end; trial.at = view.time;
-        const turn = turnOfToRef(own.muscles.dynamics.root.segment, new Quaternion()), across = new Vector3(1, 0, 0).applyRotationQuaternion(turn);
+        const turn = turnOfToRef(own.muscles.dynamics.root.segment, new Quaternion()), across = new Vector3(1, 0, 0).applyRotationQuaternionToRef(turn, new Vector3());
         trial.heading = Math.atan2(-across.z, across.x);
       } };
   }]);
@@ -75,7 +73,7 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
       if (verified !== null && m.observation.down) { fell = true; break; }
       if (trial.end !== null && trial.end !== "done") break;
     }
-  } finally { body.dispose?.(); world.dispose(); scene.dispose(); engine.dispose(); }
+  } finally { body.dispose?.(); world.dispose(); }
   const r = (v) => (v === null ? null : +v.toFixed(2));
   return { seed, end: trial.end, at: r(trial.at), verified: fell ? null : r(verified), fell, stages: trial.stage.join(" > ") };
 }

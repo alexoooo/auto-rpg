@@ -13,7 +13,7 @@
  * shove's way about up from the way the body faces in its place. Without `--stages`, the game's
  * rise (`RISE.rise`).
  */
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { centreOfToRef } from "../src/core/read-motion.ts";
 import { lieOf } from "../src/core/control/ground-reading.ts";
 import { stagedRise } from "../src/core/recovery/rise/staged.ts";

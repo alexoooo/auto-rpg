@@ -10,8 +10,6 @@ const {traceOf}=await module(existsSync(resolve(base,'src/evaluation/trace.ts'))
 const {Duel}=await module('src/arena/duel.ts');
 const {createWorld}=await module('src/core/world.ts');
 const {freshEngine}=await module('tests/harness/core-stand.mjs');
-const {NullEngine}=await import('@babylonjs/core/Engines/nullEngine.js');
-const {Scene}=await import('@babylonjs/core/scene.js');
 const {SERVO_SECONDS}=await module('src/core/body.ts');
 const {commandedBody}=await module('src/core/mind/host.ts');
 const {driveBy}=await module('src/core/mind/decider.ts');
@@ -24,10 +22,10 @@ for(const model of ['workshop-fighter','workshop-rogue','crypt-skeleton']){
  output[model]={digest:trace.digest(),milliseconds:time/1200};b.dispose();s.dispose();
 }
 for(const held of ['club','empty']){
- const scene=new Scene(new NullEngine()),world=createWorld(scene,await freshEngine('rapier-coordinate'));
+ const world = createWorld(await freshEngine('rapier-coordinate'));
  world.physics.addFixedBox([0,-.5,0],[40,1,40]);const duel=new Duel(world,{left:'workshop-fighter',right:'workshop-rogue',loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } }});
  const trace=traceOf(Object.values(duel.duelists).map(f=>f.built));let time=0;
  for(let i=0;i<2400;i++){const start=performance.now();world.step();time+=performance.now()-start;trace.take();}
- output[held]={digest:trace.digest(),milliseconds:time/2400,verdict:duel.verdict};duel.dispose();world.dispose();scene.dispose();
+ output[held]={digest:trace.digest(),milliseconds:time/2400,verdict:duel.verdict};duel.dispose();world.dispose();
 }
 writeFileSync(process.argv[3]??'body-plan-regression.json',JSON.stringify(output,null,2));

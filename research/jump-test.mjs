@@ -27,10 +27,10 @@ import { writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort } from "node:worker_threads";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 
 const [{ modelSpec }, { coreStand }, { driveMuscles }, { massCentreToRef }, { cmaSearch, workerPool }] = await Promise.all([
-  import("../src/core/models.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/muscle/driver.ts"), import("../src/core/control/support.ts"),
+  import("../src/core/models.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/muscle/driver.ts"), import("../src/core/read-motion.ts"),
   import("./cma.mjs"),
 ]);
 
@@ -60,7 +60,7 @@ const centreOf = (built) => {
   massCentreToRef(segments, mass, c, w);
   return c;
 };
-const feetOf = (built) => ["foot.left", "foot.right"].map((name) => built.segments.get(name).node.position);
+const feetOf = (built) => ["foot.left", "foot.right"].map((name) => built.segments.get(name).pose.position);
 const between = (feet) => feet[0].add(feet[1]).scale(0.5);
 
 /** The crouch's angles with the hips at `hip`, the root pitched so the feet lie flat. */
@@ -84,7 +84,7 @@ async function crouch(spec, knee) {
   };
   const offset = async (hip) => {
     const s = await build(hip);
-    const feet = between(feetOf(s.built)), c = centreOf(s.built), pitch = s.built.segments.get("foot.left").node.rotationQuaternion.x;
+    const feet = between(feetOf(s.built)), c = centreOf(s.built), pitch = s.built.segments.get("foot.left").pose.rotation.x;
     s.dispose();
     return { ahead: c.z - feet.z, feet, pitch };
   };

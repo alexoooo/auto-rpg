@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { CONTACT_FRICTION } from "../src/core/spec/constants.ts";
@@ -22,7 +22,7 @@ export async function contactTransitions({ hz = 120, sense = 1, spin = 0 } = {})
   try {
     stand.step(hz); const body = stand.built.segments.get("slab").body;
     const model = coupledDynamics(stand.built, stand.world.physics.gravity);
-    const centre = () => new Vector3(...body.massProperties.centre).applyRotationQuaternion(body.node.rotationQuaternion).add(body.node.position);
+    const centre = () => new Vector3(...body.massProperties.centre).applyRotationQuaternionToRef(body.pose.rotation, new Vector3()).add(body.pose.position);
     if (spin) { body.applyTorqueImpulse(new Vector3(0, sense * spin * .04, 0)); stand.step(); }
     const settings = { dt: 1 / hz, friction: CONTACT_FRICTION, iterations: 2048, impulseTolerance: 1e-10, velocityTolerance: 1e-7 };
     const snapshot = saveStand(stand.world, {});
@@ -38,7 +38,7 @@ export async function contactTransitions({ hz = 120, sense = 1, spin = 0 } = {})
         const force = name === "drive" ? [sense * 7, 0, 0] : name === "hold" ? [sense * 3, 0, 0] : name === "lift" ? [0, 15, 0] : zero;
         const com = centre();
         const supports = planarSupportPoints({ kind: "box", centre: body.massProperties.centre, size: [.6, .1, .4] },
-          body.node.position.asArray(), body.node.rotationQuaternion, [0, 1, 0], .001);
+          body.pose.position.asArray(), body.pose.rotation, [0, 1, 0], .001);
         const contacts = supports.filter((point) => point[1] < .005).map((point) => ({ body, point, normal: [0, 1, 0], normalVelocity: -Math.max(point[1], 0) * hz }));
         const loads = [{ body, point: com.asArray(), force, moment: zero }];
         model.update(); const before = saveStand(stand.world, {});
@@ -48,7 +48,7 @@ export async function contactTransitions({ hz = 120, sense = 1, spin = 0 } = {})
         const motion = model.pointAcceleration(body, com.asArray(), prediction.acceleration);
         const start = model.pointVelocity(body, com.asArray(), prediction.projection.velocity);
         body.applyForce(new Vector3(...force), com); stand.step();
-        const actual = { position: body.node.position.asArray(), rotation: body.node.rotationQuaternion.asArray(),
+        const actual = { position: body.pose.position.asArray(), rotation: body.pose.rotation.asArray(),
           velocity: body.linearVelocityToRef(new Vector3()).asArray(), spin: body.angularVelocityToRef(new Vector3()).asArray(),
           contacts: stand.world.physics.contactsOf(body, (other) => other === null), state: saveStand(stand.world, {}).state };
         const linearError = Math.max(...actual.velocity.map((v, i) => Math.abs(v - start.linear[i] - motion.linear[i] / hz)));

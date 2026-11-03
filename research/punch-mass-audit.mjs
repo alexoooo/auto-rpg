@@ -1,6 +1,6 @@
 import {writeFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
-import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
+import {Vector3} from '../src/core/math/vector.ts';
 import {coreStand} from '../tests/harness/core-stand.mjs';
 import {modelSpec} from '../src/core/models.ts';
 import {SERVO_SECONDS} from '../src/core/body.ts';

@@ -27,8 +27,6 @@
  * between the two runs is lost in it.
  */
 import { parseArgs } from "node:util";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { hearRun } from "../src/dungeon/hearing.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
@@ -47,13 +45,13 @@ const seconds = Number(values.seconds), companions = Array.from({ length: Number
 
 /** A run of `seed`, heard or not, and the wall time its steps have taken: all of them, and its slowest second's. */
 async function begun(seed, heard) {
-  const engine = new NullEngine(), scene = new Scene(engine), place = values.minds ? mindWorkers(Number(values.minds)) : null;
-  const run = new DungeonRun(scene, { seed, engine: await freshEngine(), visuals: false, companions, ...(mind ? { mind: () => mind } : {}), ...(place ? { minds: place } : {}) });
+  const place = values.minds ? mindWorkers(Number(values.minds)) : null;
+  const run = new DungeonRun({ seed, engine: await freshEngine(), companions, ...(mind ? { mind: () => mind } : {}), ...(place ? { minds: place } : {}) });
   // The hero explores by itself in this mode, and fights what it meets.
   run.commands.setMode({ keyboard: false, facing: true });
   const hearing = heard ? hearRun(run, () => {}) : null;
   const airing = hearing ? run.world.afterStep(() => hearing.airs(() => {})) : null;
-  return { run, total: 0, worst: 0, dispose() { airing?.dispose(); hearing?.dispose(); run.dispose(); scene.dispose(); engine.dispose(); place?.dispose(); } };
+  return { run, total: 0, worst: 0, dispose() { airing?.dispose(); hearing?.dispose(); run.dispose(); place?.dispose(); } };
 }
 
 async function played(seed) {

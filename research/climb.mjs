@@ -4,7 +4,7 @@
  * `READY` s, with the variants `research/crouch-steady.mjs` names. `research/crouch-steady.mjs` runs it
  * from the placed squat, `research/rise-witness.mjs` from a witness's hand-over.
  */
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../src/core/body.ts";
 import { carrying } from "../src/core/control/motor.ts";
 import { locomotion, stanceOf } from "../src/core/skills/locomotion/locomotion.ts";
@@ -45,7 +45,7 @@ export function crouchSteady(own, view, variant = {}) {
   const climbable = (r, f) => {
     readSupport(feet, feet, middle);
     if (!r.touching.left || !r.touching.right || r.velocity.length() > (f.slow ?? .3) || r.centre.y - r.support.y > (f.below ?? .9) * view.standing) return false;
-    for (const foot of feet) { const q = foot.segment.node.rotationQuaternion.multiply(Quaternion.Inverse(foot.segment.rest)); if (new Vector3(0, 1, 0).applyRotationQuaternion(q).y < (f.flat ?? .9)) return false; }
+    for (const foot of feet) { const q = foot.segment.pose.rotation.multiply(Quaternion.Inverse(foot.segment.rest)); if (new Vector3(0, 1, 0).applyRotationQuaternionToRef(q, new Vector3()).y < (f.flat ?? .9)) return false; }
     const [x, z] = withinSupport(feet, r.centre.x, r.centre.z);
     return x === r.centre.x && z === r.centre.z;
   };
@@ -106,7 +106,7 @@ export function crouchSteady(own, view, variant = {}) {
         // way; the feet planted (`StanceGoal.pose`, followed at `s` s). Then the stance's own goal.
         const f = variant.path, top = legs.reference - LOWER;
         if (!control.path) {
-          const root = motor.root, turn = root.node.rotationQuaternion.multiply(Quaternion.Inverse(root.rest)), up = new Vector3(0, 1, 0).applyRotationQuaternion(turn);
+          const root = motor.root, turn = root.pose.rotation.multiply(Quaternion.Inverse(root.rest)), up = new Vector3(0, 1, 0).applyRotationQuaternionToRef(turn, new Vector3());
           control.path = { at: t, from: channels.map((_, i) => own.muscles.angle(i)), c: [r.centre.x, r.centre.z], v: [r.velocity.x, r.velocity.z], h: r.centre.y - r.support.y, vy: r.velocity.y,
             to: f.stay ? [r.centre.x, r.centre.z] : [r.support.x + (f.d ?? 0) * fx, r.support.z + (f.d ?? 0) * fz], pitch: Math.atan2(up.x * fx + up.z * fz, up.y) };
         }

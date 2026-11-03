@@ -8,9 +8,8 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
+import { Quaternion } from "../src/core/math/vector.ts";
+import { yawPitchRollToRef } from "./yaw-pitch-roll.mjs";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { createWorld } from "../src/core/world.ts";
@@ -38,7 +37,7 @@ export function postureStart(envelope, posture) {
 function placementOf(body, posture) {
   const joints = Object.fromEntries(body.joints.map((joint) => [joint.spec.name, joint.dofs.map(() => 0)]));
   body.freedoms.forEach((f, i) => { joints[f.joint.spec.name][f.k] = Math.max(f.lo, Math.min(f.hi, posture.angles[i])); });
-  return { position: [0, posture.height + LIFT, 0], rotation: Quaternion.RotationYawPitchRoll(0, posture.pitch, posture.roll).asArray(), joints };
+  return { position: [0, posture.height + LIFT, 0], rotation: yawPitchRollToRef(0, posture.pitch, posture.roll, new Quaternion()).asArray(), joints };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -53,14 +52,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const placement = placementOf(body, witness.posture);
     // The placement built in a world of its own must put every segment where the statics posed it.
     posed(body, witness.posture);
-    const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine());
+    const world = createWorld(await freshEngine());
     const built = buildBody(envelopeSpec(modelSpec(AUDITED), "barefoot"), world, placement);
     let apart = 0;
     for (const segment of body.segments) {
-      const a = segment.node.position, b = built.segments.get(segment.spec.name).node.position;
+      const a = segment.pose.position, b = built.segments.get(segment.spec.name).pose.position;
       apart = Math.max(apart, Math.sqrt((a.x - b.x) ** 2 + (a.y + LIFT - b.y) ** 2 + (a.z - b.z) ** 2));
     }
-    built.dispose(); world.dispose(); scene.dispose();
+    built.dispose(); world.dispose();
     if (apart > 1e-6) throw new Error(`${row}: the placement builds ${apart} m from the statics' posture`);
     starts.push({ id, model: AUDITED, envelope: "barefoot", source: { row, share: witness.share, margin: witness.margin }, placement });
     console.log(`${id}: ${row}, share ${witness.share.toFixed(3)}, built within ${apart.toExponential(1)} m`);

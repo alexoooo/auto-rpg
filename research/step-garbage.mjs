@@ -21,7 +21,6 @@ import { PerformanceObserver } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import v8 from "node:v8";
-import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
 import { allocatedIn, standBodies } from "../tests/harness/garbage.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";
@@ -33,8 +32,6 @@ const { values } = parseArgs({ options: {
   left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
 } });
 const steps = Number(values.steps), SAMPLED = 240, MIB = 1048576;
-// Babylon greets every engine it makes on the console.
-Logger.LogLevels = Logger.NoneLogLevel;
 
 /** One count's row: the steps timed with the collections in them, then the steps sampled. */
 async function row(count) {

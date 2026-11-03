@@ -31,7 +31,6 @@
 import { Session } from "node:inspector/promises";
 import { PerformanceObserver } from "node:perf_hooks";
 import { parseArgs } from "node:util";
-import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { buildBout, buildTeamBout } from "../src/evaluation/bout.ts";
 import { recipeOf } from "../src/arena/matchup.ts";
@@ -59,8 +58,6 @@ const build = async () => {
   const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, ...mirrored, ...minds });
   return { world, over: () => duel.verdict !== null, reach: () => place ? [] : SIDES.map((side) => ({ side, ...duel.duelists[side].body.state.mind.host.motor.reach })), dispose: stop(dispose) };
 };
-// Babylon greets every engine it makes on the console.
-Logger.LogLevels = Logger.NoneLogLevel;
 
 const collections = [];
 const observer = new PerformanceObserver((list) => { for (const e of list.getEntries()) collections.push({ at: e.startTime, ms: e.duration, kind: e.detail?.kind }); });

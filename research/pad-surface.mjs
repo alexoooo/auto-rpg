@@ -1,4 +1,4 @@
-import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
+import {Vector3} from '../src/core/math/vector.ts';
 import {lowsOf} from '../src/core/control/ground.ts';
 import {pointOfToRef} from '../src/core/read-motion.ts';
 import {convexHull} from '../src/core/spec/hull.ts';

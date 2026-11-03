@@ -3,11 +3,9 @@
  * shove or in a bout, and watched for whether it gets up. Each trial returns a plain row;
  * `research/core-rise.mjs` runs them and prints the table (`docs/reference/rising.md#battery`).
  */
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { Scene } from "@babylonjs/core/scene.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { SIDES } from "../src/arena/duel.ts";
-import { addArenaSolids } from "../src/arena/room.ts";
+import { addArenaSolids } from "../src/arena/solids.ts";
 import { SERVO_SECONDS } from "../src/core/body.ts";
 import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
@@ -111,14 +109,13 @@ const FLOOR = 12;
  * disposes.
  */
 export async function felled({ model, held, degrees, impulse = 1.5, level = 0, hz = 120, actuation, physique, engine: engineName }, minded, mind = null) {
-  const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, await freshEngine(engineName), { hz, actuation });
+  const world = createWorld(await freshEngine(engineName), { hz, actuation });
   addArenaSolids(world.physics);
   if (level > 0) world.physics.addFixedBox([0, level / 2, 0], [FLOOR, level, FLOOR]);
   const spec = LOADOUTS[held](modelSpec(model, physique));
   const built = buildBody(spec, world, { position: [0, level, 0], ...(mind ? { joints: builtAngles(GAME, spec, mind) } : {}) });
   const body = minded(built, world);
-  const dispose = () => { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); engine.dispose(); };
+  const dispose = () => { body.dispose(); built.dispose(); world.dispose(); };
   try {
     world.step(Math.round(STAND_SECONDS * world.hz));
     const mass = [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);

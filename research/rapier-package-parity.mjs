@@ -5,7 +5,6 @@ import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { createRapierPhysics } from "../src/core/engine/rapier.ts";
 import { playBout } from "./bout.mjs";
 
@@ -27,7 +26,6 @@ const reference = { name: "rapier", createPhysics: (options) => {
   };
   return physics;
 } };
-Logger.LogLevels = Logger.ErrorLogLevel;
 console.log(JSON.stringify({ harness: "Node arena core world, Rapier SIMD, 120 Hz, 12 s cap, no assists",
   reference: manifest.version, stockMotorEffort: "unavailable; not used by the compared policies",
   referenceEntrySha256: createHash("sha256").update(await readFile(entry)).digest("hex") }));

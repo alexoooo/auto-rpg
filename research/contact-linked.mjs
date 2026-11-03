@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { CONTACT_FRICTION } from "../src/core/spec/constants.ts";
@@ -18,7 +18,7 @@ const spec = { model: "linked-contact", mass: q(2, "kg"), stature: q(.1),
   joints: [{ name: "hinge", parent: "left", child: "right", centre: q([0, .05, 0]), dofs: [{ positive: "turn", negative: "return",
     axis: q([0, 0, 1], "1"), min: q(-1, "rad"), max: q(1, "rad"),
     muscle: { peakPositive: q(10, "N m"), peakNegative: q(10, "N m"), speedPositive: speed, speedNegative: speed } }] }] };
-const centre = (body) => new Vector3(...body.massProperties.centre).applyRotationQuaternion(body.node.rotationQuaternion).add(body.node.position);
+const centre = (body) => new Vector3(...body.massProperties.centre).applyRotationQuaternionToRef(body.pose.rotation, new Vector3()).add(body.pose.position);
 
 /** Two grounded bodies exchange a prescribed internal couple while a known centre load drives sliding. */
 export async function linkedContacts({ hz = 120, sense = 1, torque = 0 } = {}) {
@@ -38,7 +38,7 @@ export async function linkedContacts({ hz = 120, sense = 1, torque = 0 } = {}) {
         const time = k / hz, name = time < 1 ? "drive" : "coast", force = time < 1 ? [sense * 14, 0, 0] : zero;
         const effort = time < 1 ? sense * torque : 0, coms = bodies.map(centre);
         const contacts = bodies.flatMap((body) => planarSupportPoints({ kind: "box", centre: body.massProperties.centre, size: [.6, .1, .4] },
-          body.node.position.asArray(), body.node.rotationQuaternion, [0, 1, 0], .001).filter((point) => point[1] < .005)
+          body.pose.position.asArray(), body.pose.rotation, [0, 1, 0], .001).filter((point) => point[1] < .005)
           .map((point) => ({ body, point, normal: [0, 1, 0], normalVelocity: -Math.max(point[1], 0) * hz })));
         const loads = [{ body: bodies[0], point: coms[0].asArray(), force, moment: zero }];
         model.update(); const before = saveStand(stand.world, {});
@@ -48,11 +48,11 @@ export async function linkedContacts({ hz = 120, sense = 1, torque = 0 } = {}) {
         const start = bodies.map((body, i) => model.pointVelocity(body, coms[i].asArray(), prediction.projection.velocity));
         const motion = bodies.map((body, i) => model.pointAcceleration(body, coms[i].asArray(), prediction.acceleration));
         bodies[0].applyForce(new Vector3(...force), coms[0]);
-        const carry = joint.parent.node.rotationQuaternion.multiply(Quaternion.Inverse(joint.parent.rest));
-        const couple = new Vector3(...joint.dofs[0].spec.axis.value).applyRotationQuaternion(carry).scale(effort);
-        bodies[0].applyTorque(couple.negate()); bodies[1].applyTorque(couple);
+        const carry = joint.parent.pose.rotation.multiply(Quaternion.Inverse(joint.parent.rest));
+        const couple = new Vector3(...joint.dofs[0].spec.axis.value).applyRotationQuaternionToRef(carry, new Vector3()).scale(effort);
+        bodies[0].applyTorque(couple.scale(-1)); bodies[1].applyTorque(couple);
         stand.step();
-        const actual = bodies.map((body) => ({ position: body.node.position.asArray(), rotation: body.node.rotationQuaternion.asArray(),
+        const actual = bodies.map((body) => ({ position: body.pose.position.asArray(), rotation: body.pose.rotation.asArray(),
           velocity: body.linearVelocityToRef(new Vector3()).asArray(), spin: body.angularVelocityToRef(new Vector3()).asArray(),
           contacts: stand.world.physics.contactsOf(body, (other) => other === null) }));
         const linearError = Math.max(...actual.flatMap((body, i) => body.velocity.map((v, k) => Math.abs(v - start[i].linear[k] - motion[i].linear[k] / hz))));

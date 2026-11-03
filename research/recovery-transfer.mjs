@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { Vector3 } from '../src/core/math/vector.ts';
 import { toppled, riserOf } from './core-rise-trials.mjs';
 import { riseLimbs } from '../src/core/recovery/rise/limbs.ts';
 import { stagedRise } from '../src/core/recovery/rise/staged.ts';

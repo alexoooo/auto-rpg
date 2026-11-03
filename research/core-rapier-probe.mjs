@@ -18,30 +18,31 @@
  *
  *     node research/core-rapier-probe.mjs [--hz 120]
  */
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
+import { turnAboutToRef } from "../src/core/math/turn.ts";
+import { yawPitchRollToRef } from "./yaw-pitch-roll.mjs";
 import { createRapierPhysics, rapierModule } from "../src/core/engine/rapier.ts";
 
 const argv = process.argv.slice(2);
 const hz = Number(argv[argv.indexOf("--hz") + 1] || 120);
 const R = await rapierModule();
-const scene = new Scene(new NullEngine());
+
+/** `v` turned by `q`, a new vector. */
+const turned = (v, q) => v.applyRotationQuaternionToRef(q, new Vector3());
+/** A body's pose before it is added: at `x, y, z`, unturned. */
+const poseAt = (name, x = 0, y = 0, z = 0) => ({ name, position: new Vector3(x, y, z), rotation: Quaternion.Identity() });
 
 // The joint's axes: an orthonormal frame turned off the world's.
-const frame = Quaternion.RotationYawPitchRoll(0.4, -0.3, 0.7);
-const axisOf = (v) => v.applyRotationQuaternion(frame);
+const frame = yawPitchRollToRef(0.4, -0.3, 0.7, new Quaternion());
+const axisOf = (v) => turned(v, frame);
 const axes = [axisOf(new Vector3(1, 0, 0)), axisOf(new Vector3(0, 1, 0)), axisOf(new Vector3(0, 0, 1))];
 
 function rig({ limits, mass = 2, moments = [0.02, 0.005, 0.02] }) {
   const physics = createRapierPhysics(R, { hz, gravity: false });
-  const nodeOf = (name) => { const n = new TransformNode(name, scene); n.rotationQuaternion = Quaternion.Identity(); return n; };
-  const parentNode = nodeOf("parent"), childNode = nodeOf("child");
+  const parentNode = poseAt("parent"), childNode = poseAt("child", 0, -0.3, 0);
   const box = { kind: "box", centre: [0, 0, 0], size: [0.1, 0.1, 0.1] };
   const parent = physics.addBody(parentNode, [box], { mass: 5, centre: [0, 0, 0], moments: [0.1, 0.1, 0.1], orientation: Quaternion.Identity() });
   parent.setFixed(true);
-  childNode.position.set(0, -0.3, 0);
   const child = physics.addBody(childNode, [{ kind: "capsule", from: [0, 0.25, 0], to: [0, -0.25, 0], radius: 0.03 }],
     { mass, centre: [0, 0, 0], moments, orientation: Quaternion.Identity() });
   const joint = physics.addJoint(parent, child, {
@@ -52,7 +53,7 @@ function rig({ limits, mass = 2, moments = [0.02, 0.005, 0.02] }) {
 
 /** The child's rotation relative to the parent (held at identity), in the joint's axes: (w, x, y, z), w >= 0. */
 function jointQuaternion(node) {
-  const q = node.rotationQuaternion, s = q.w < 0 ? -1 : 1, v = new Vector3(q.x, q.y, q.z);
+  const q = node.rotation, s = q.w < 0 ? -1 : 1, v = new Vector3(q.x, q.y, q.z);
   return [s * q.w, ...axes.map((a) => s * Vector3.Dot(v, a))];
 }
 
@@ -88,7 +89,7 @@ const out = { hz };
     r.physics.step(1 / hz);
     if (i % (hz / 4) !== 0) continue;
     const w = r.child.angularVelocityToRef(new Vector3());
-    const own = axes.map((a) => a.applyRotationQuaternion(r.childNode.rotationQuaternion));
+    const own = axes.map((a) => turned(a, r.childNode.rotation));
     rows.push({ t: f(i / hz, 2), parentFixed: axes.map((a) => f(Vector3.Dot(w, a))), childFixed: own.map((a) => f(Vector3.Dot(w, a))) });
   }
   out.motor = { target, rows };
@@ -117,17 +118,16 @@ const out = { hz };
 // Gyroscope.
 {
   const physics = createRapierPhysics(R, { hz, gravity: false });
-  const node = new TransformNode("box", scene);
-  node.rotationQuaternion = Quaternion.Identity();
+  const node = poseAt("box");
   const body = physics.addBody(node, [{ kind: "box", centre: [0, 0, 0], size: [0.1, 0.2, 0.3] }],
     { mass: 1, centre: [0, 0, 0], moments: [0.010, 0.002, 0.006], orientation: Quaternion.Identity() });
   body.rigid.setAngvel({ x: 3, y: 5, z: 1 }, true);
   const I = [0.010, 0.002, 0.006];
   // Angular momentum (world) and kinetic energy from the body-frame spin.
   const read = () => {
-    const w = body.angularVelocityToRef(new Vector3()), q = node.rotationQuaternion;
-    const wb = w.applyRotationQuaternion(Quaternion.Inverse(q));
-    const Lb = new Vector3(I[0] * wb.x, I[1] * wb.y, I[2] * wb.z), L = Lb.applyRotationQuaternion(q);
+    const w = body.angularVelocityToRef(new Vector3()), q = node.rotation;
+    const wb = turned(w, Quaternion.Inverse(q));
+    const Lb = new Vector3(I[0] * wb.x, I[1] * wb.y, I[2] * wb.z), L = turned(Lb, q);
     return { w: [w.x, w.y, w.z].map((x) => f(x)), L: [L.x, L.y, L.z].map((x) => f(x, 5)), E: f(0.5 * Vector3.Dot(wb, Lb), 5) };
   };
   const rows = [read()];
@@ -142,20 +142,18 @@ const out = { hz };
     const physics = createRapierPhysics(R, { hz, gravity: true });
     physics.raw.numSolverIterations = iterations;
     physics.raw.numInternalPgsIterations = pgs;
-    const nodeOf = (name) => { const n = new TransformNode(name, scene); n.rotationQuaternion = Quaternion.Identity(); return n; };
-    const post = physics.addBody(nodeOf("post"), [{ kind: "box", centre: [0, 0, 0], size: [0.1, 0.1, 0.1] }],
+    const post = physics.addBody(poseAt("post"), [{ kind: "box", centre: [0, 0, 0], size: [0.1, 0.1, 0.1] }],
       { mass: 5, centre: [0, 0, 0], moments: [0.1, 0.1, 0.1], orientation: Quaternion.Identity() });
     post.setFixed(true);
-    const node = nodeOf("rod");
-    node.position.set(0.15, -0.2, 0);
+    const node = poseAt("rod", 0.15, -0.2, 0);
     const rod = physics.addBody(node, [{ kind: "capsule", from: [-0.15, 0.2, 0], to: [0.15, -0.2, 0], radius: 0.03 }],
       { mass: 1, centre: [0, 0, 0], moments: [0.02, 0.004, 0.03], orientation: Quaternion.Identity() });
     // The pin about world z: the joint's X turned onto z.
-    const pin = Quaternion.RotationAxis(new Vector3(0, 1, 0), -Math.PI / 2);
+    const pin = turnAboutToRef(new Vector3(0, 1, 0), -Math.PI / 2, new Quaternion());
     const joint = physics.addJoint(post, rod, { anchorParent: [0, 0, 0], anchorChild: [-0.15, 0.2, 0], frameParent: pin, frameChild: pin, limits: [[-3, 3]] });
     if (model !== undefined) physics.raw.impulseJoints.raw.jointConfigureMotorModel(joint.raw.handle, R.JointAxis.AngX, model);
     joint.setMotor(0, 0, ceiling);
-    const angle = () => 2 * Math.atan2(node.rotationQuaternion.z, node.rotationQuaternion.w);
+    const angle = () => 2 * Math.atan2(node.rotation.z, node.rotation.w);
     for (let i = 0; i < hz; i++) physics.step(1 / hz);
     const settled = angle();
     for (let i = 0; i < hz; i++) physics.step(1 / hz);

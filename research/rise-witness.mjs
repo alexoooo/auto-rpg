@@ -40,9 +40,7 @@ import { parseArgs } from "node:util";
 import { cmaSearch, workerPool } from "./cma.mjs";
 import { crouchSteady, traceRow } from "./climb.mjs";
 import "../tests/harness/preload-data.mjs";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
 import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
@@ -223,7 +221,7 @@ function bearer(own, view) {
     begin(g) {
       turnOfToRef(root, work.turn); work.across.set(1, 0, 0).applyRotationQuaternionToRef(work.turn, work.across);
       orient.heading = atan2(-work.across.z, work.across.x);
-      const feet = ["foot.left", "foot.right"].map(name => own.built.segments.get(name).node.position);
+      const feet = ["foot.left", "foot.right"].map(name => own.built.segments.get(name).pose.position);
       work.toward.set((feet[0].x + feet[1].x) / 2 - g.centre.x, 0, (feet[0].z + feet[1].z) / 2 - g.centre.z);
       const length = work.toward.length();
       if (length > 1e-6) work.toward.scaleInPlace(1 / length); else work.toward.set(0, 0, 1);
@@ -251,7 +249,7 @@ function bearer(own, view) {
       turnAboutToRef(Vector3.UpReadOnly, orient.heading, work.yaw);
       turnAboutToRef(work.right, phase.pitch, work.pitch);
       work.yaw.multiplyToRef(work.pitch, work.turn).multiplyInPlace(root.rest);
-      spinBetweenToRef(root.node.rotationQuaternion, work.turn, phase.response, work.spin);
+      spinBetweenToRef(root.pose.rotation, work.turn, phase.response, work.spin);
       work.aim.spin.copyFrom(work.spin).scaleInPlace(n).subtractInPlace(work.rootSpin.scaleInPlace(2 * n));
       const asked = servoAsk(muscles, i => work.goal[i], WITHIN, dt), lever = muscles.dynamics.root.centre[1] - ground;
       const carried = carryRoot(solve, muscles, asked, work.aim, lever);
@@ -265,7 +263,7 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
   const spec = bodySpec(model, held), placed = placement(move, spec, seed);
   if ("refused" in placed) return { score: 0, refused: placed.refused };
   const plan = phases(move, spec, u), handover = plan.reduce((s, p) => s + p.duration, 0);
-  const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"));
+  const world = createWorld(await loadEngine("rapier"));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   const reader = groundReading(built, world.dt);
@@ -312,7 +310,7 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
       if (trace && g.raw !== last) { path.push([+world.time.toFixed(3), g.raw, +g.height.toFixed(2)]); last = g.raw; }
       if (verified === null && world.time > cap) break;
     }
-  } finally { world.dispose(); scene.dispose(); engine.dispose(); }
+  } finally { world.dispose(); }
   if (table.length) console.table(table);
   const score = verified !== null && !fell ? 2 + (cap - verified) / cap : verified !== null ? 1 + .5 * (cap - verified) / cap : .9 * progress;
   return { score, seed, handover: +handover.toFixed(3), verified: verified === null ? null : +verified.toFixed(3), fell, progress: +progress.toFixed(3),

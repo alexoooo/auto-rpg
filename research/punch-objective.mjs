@@ -15,7 +15,7 @@
  * Harness: Node, the core's world on Rapier (`DEFAULT_ENGINE`), the struck body built in its guard
  * and held there by the combat skills for `SETTLE` s at the rate asked.
  */
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../src/core/body.ts";
 import { commandedBody } from "../src/core/mind/host.ts";
 import { contactGive, contactMass } from "../src/core/build/contact-mass.ts";

@@ -5,7 +5,6 @@ import { mkdir, mkdtemp, writeFile, unlink, rmdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { createRapierPhysics, rapierModule } from "../src/core/engine/rapier.ts";
 import "../tests/harness/preload-data.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";
@@ -24,7 +23,6 @@ try {
   await writeFile(file, source.replace(/from "(\.[^"]+)"/g, (_, relative) =>
     `from ${JSON.stringify(pathToFileURL(resolve(root, "src/core/engine", relative)).href)}`));
   const previous = (await import(pathToFileURL(file).href)).createRapierPhysics, R = await rapierModule();
-  Logger.LogLevels = Logger.ErrorLogLevel;
   const recipe = { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 12 };
   const play = async (factory) => {
     const bout = await buildBout(recipe, { physicsEngine: { name: "rapier", revision: "adapter-cost", createPhysics: (o) => factory(R, o) } });

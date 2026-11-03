@@ -33,11 +33,9 @@
  *   node research/man-toe-solver.mjs
  */
 import { mkdirSync, writeFileSync } from "node:fs";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Scene } from "@babylonjs/core/scene.js";
-import { addArenaSolids } from "../src/arena/room.ts";
+import * as core from "../src/core/math/vector.ts";
+import { addArenaSolids } from "../src/arena/solids.ts";
 import { createRapierPhysics, rapierModule } from "../src/core/engine/rapier.ts";
 import { FIT_SCALE } from "../src/core/human/model.ts";
 import { modelSpec } from "../src/core/models.ts";
@@ -75,7 +73,6 @@ const CONFIGS = [
 const CLEARANCE = 0.0005;
 
 const R = await rapierModule();
-const scene = new Scene(new NullEngine());
 const spec = modelSpec(AUDITED);
 const SIDE = "left";
 const footSpec = spec.segments.find((s) => s.name === `foot.${SIDE}`);
@@ -125,6 +122,8 @@ function massOf(solid, mass) {
   return { mass, centre: fit(solid.centre), moments: values, orientation: Quaternion.FromRotationMatrix(matrix), tensor };
 }
 
+/** A Babylon turn as the core's, by its numbers: what the core is handed is the core's own. */
+const toCore = (q) => new core.Quaternion(q.x, q.y, q.z, q.w);
 const turnAbout = (u, angle) => Quaternion.RotationAxis(new Vector3(...u), angle);
 /** `p` turned by `q` about `c`. */
 function turnedAbout(p, q, c) {
@@ -156,13 +155,10 @@ function run(kase, config) {
   // The whole posed, then lifted so that its lowest corner clears the ground.
   const posedPoints = pieces.flatMap((p) => p.hull.map((x) => (p.turned ? turnedAbout(x, turn, hinge) : x)));
   const lift = CLEARANCE - Math.min(...posedPoints.map((p) => p[1]));
-  const nodeAt = (name, turned) => {
-    const node = new TransformNode(name, scene);
-    const q = turned ? turn.clone() : Quaternion.Identity();
+  const poseAt = (name, turned) => {
+    const q = turned ? turn : Quaternion.Identity();
     const origin = turned ? turnedAbout([0, 0, 0], q, hinge) : [0, 0, 0];
-    node.position.set(origin[0], origin[1] + lift, origin[2]);
-    node.rotationQuaternion = q;
-    return node;
+    return { name, position: new core.Vector3(origin[0], origin[1] + lift, origin[2]), rotation: toCore(q) };
   };
   // The half-body's load rides on the foot at the ankle: one centre, the foot's own moments, which a held turn never reads.
   const foot = pieces[0].props, whole = foot.mass + legMass;
@@ -171,7 +167,7 @@ function run(kase, config) {
   const bodies = {};
   for (const piece of pieces) {
     const { mass, centre, moments, orientation } = piece.props;
-    bodies[piece.name] = physics.addBody(nodeAt(piece.name, piece.turned), [{ kind: "hull", points: piece.hull }], { mass, centre, moments, orientation });
+    bodies[piece.name] = physics.addBody(poseAt(piece.name, piece.turned), [{ kind: "hull", points: piece.hull }], { mass, centre, moments, orientation: toCore(orientation) });
   }
   bodies.foot.rigid.setEnabledRotations(false, false, false, true);
   if (config.conditioned) bodies.toes.rigid.setGravityScale(1 / config.conditioned, true);
@@ -179,7 +175,7 @@ function run(kase, config) {
   const frameOf = (u) => { const q = new Quaternion(); Quaternion.FromUnitVectorsToRef(new Vector3(1, 0, 0), new Vector3(...u), q); return q; };
   let toeJoint = null;
   if (config.toe === "passive") {
-    const toeFrame = frameOf(axis);
+    const toeFrame = toCore(frameOf(axis));
     toeJoint = physics.addJoint(bodies.foot, bodies.toes, { anchorParent: hinge, anchorChild: hinge, frameParent: toeFrame, frameChild: toeFrame, limits: [[TOE.lo, TOE.hi]] });
     const set = raw.impulseJoints.raw, handle = toeJoint.raw.handle;
     set.jointConfigureMotorModel(handle, R.JointAxis.AngX, R.MotorModel.ForceBased);
@@ -226,8 +222,8 @@ function run(kase, config) {
     // The applied moment acts between the toes and the foot, as a muscle's would.
     if (kase.torque && bodies.toes) {
       const u = axisNow();
-      bodies.toes.applyTorque(new Vector3(...u).scale(kase.torque));
-      bodies.foot.applyTorque(new Vector3(...u).scale(-kase.torque));
+      bodies.toes.applyTorque(new core.Vector3(...u).scale(kase.torque));
+      bodies.foot.applyTorque(new core.Vector3(...u).scale(-kase.torque));
     }
     physics.step(dt);
     if (Math.abs(t - (RAMP + HOLD - LAST)) < dt / 2) { const c = bodies.foot.rigid.worldCom(); footAtHold = [c.x, c.y, c.z]; }

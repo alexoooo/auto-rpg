@@ -40,8 +40,7 @@
  * part's centre of mass, which is what the mass it meets turns on.
  */
 import { parseArgs } from "node:util";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { Logger } from "@babylonjs/core/Misc/logger.js";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { SIDES } from "../src/arena/duel.ts";
 import { airOf } from "../src/audio/body-sounds.ts";
 import { balanceCeiling, balancePercent, isBalance, rulebook } from "../src/core/rules/rulebook.ts";
@@ -57,9 +56,6 @@ import { CORE_ENGINE, coreStand } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../src/evaluation/trace.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
-
-// Each stand's engine prints its banner otherwise, into the table.
-Logger.LogLevels = Logger.ErrorLogLevel;
 
 const KINDS = ["stand", "walk", "run", "shove", "fall", "bouts"];
 const BOUTS = [["workshop-fighter", "workshop-rogue"], ["crypt-skeleton", "workshop-fighter"], ["workshop-rogue", "crypt-skeleton"]];
@@ -116,7 +112,7 @@ function partOf(part, point) {
   const { segment, body } = part, group = groupOf(segment.spec.name);
   const held = body.built.spec.held?.find((h) => h.segment === segment.spec.name);
   if (!held) return group;
-  const local = new Vector3(...point).subtractInPlace(segment.node.position).applyRotationQuaternion(Quaternion.Inverse(segment.node.rotationQuaternion));
+  const local = new Vector3(...point).subtractInPlace(segment.pose.position).applyRotationQuaternionToRef(Quaternion.Inverse(segment.pose.rotation), new Vector3());
   const gaps = capsulesOf(segment).map((capsule) => {
     if (!capsule) return Infinity;
     const along = capsule.to.subtract(capsule.from), t = Math.max(0, Math.min(1, Vector3.Dot(local.subtract(capsule.from), along) / along.lengthSquared()));
@@ -127,7 +123,7 @@ function partOf(part, point) {
 
 /** How far `point` (world) is from the centre of mass of `segment`'s rigid body, m. */
 function leverOf(segment, point) {
-  const centre = inFrameOf(segment, segment.rigid.centre).applyRotationQuaternion(segment.node.rotationQuaternion).addInPlace(segment.node.position);
+  const centre = inFrameOf(segment, segment.rigid.centre).applyRotationQuaternionToRef(segment.pose.rotation, new Vector3()).addInPlace(segment.pose.position);
   return Vector3.Distance(centre, new Vector3(...point));
 }
 

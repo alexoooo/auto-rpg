@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { CONTACT_FRICTION } from "../src/core/spec/constants.ts";
@@ -21,7 +21,7 @@ const fixtureSpec = (sense) => ({ model: "contact-stop", mass: q(11, "kg"), stat
   joints: [{ name: "hinge", parent: "base", child: "arm", centre: q([sense * .2, .6, 0]), dofs: [{ positive: "turn", negative: "return",
     axis: q([0, 0, 1], "1"), min: q(sense > 0 ? 0 : -.4, "rad"), max: q(sense > 0 ? .4 : 0, "rad"),
     muscle: { peakPositive: q(10, "N m"), peakNegative: q(10, "N m"), speedPositive: speed, speedNegative: speed } }] }] });
-const centre = (body) => new Vector3(...body.massProperties.centre).applyRotationQuaternion(body.node.rotationQuaternion).add(body.node.position);
+const centre = (body) => new Vector3(...body.massProperties.centre).applyRotationQuaternionToRef(body.pose.rotation, new Vector3()).add(body.pose.position);
 
 /** Established ground and angular support under known loads; lifting releases the angular stop. */
 export async function contactStops({ hz = 120, sense = 1, lift = false, slide = false } = {}) {
@@ -41,7 +41,7 @@ export async function contactStops({ hz = 120, sense = 1, lift = false, slide = 
       for (let k = 0; k < hz / 30; k++) {
         const coms = bodies.map(centre), force = slide ? [sense * 80, 0, 0] : zero, effort = lift ? sense * 6 : 0;
         const contacts = bodies.flatMap((body, i) => planarSupportPoints({ kind: "box", centre: body.massProperties.centre, size: dimensions[i] },
-          body.node.position.asArray(), body.node.rotationQuaternion, [0, 1, 0], .001).filter((point) => point[1] < .005)
+          body.pose.position.asArray(), body.pose.rotation, [0, 1, 0], .001).filter((point) => point[1] < .005)
           .map((point) => ({ body, point, normal: [0, 1, 0], normalVelocity: -Math.max(point[1], 0) * hz })));
         const stops = nearJointStops(stand.built, stopSettings.margin, 1 / hz).map((stop) => ({ row: stop.row,
           minimumVelocity: stop.rate + stop.target / hz, impulseTolerance: stopSettings.impulseTolerance, velocityTolerance: stopSettings.velocityTolerance }));
@@ -51,11 +51,11 @@ export async function contactStops({ hz = 120, sense = 1, lift = false, slide = 
         assert.ok(result.acceleration && result.status !== "nonfinite");
         const start = bodies.map((body, i) => model.pointVelocity(body, coms[i].asArray(), result.projection.velocity));
         const motion = bodies.map((body, i) => model.pointAcceleration(body, coms[i].asArray(), result.acceleration));
-        const carry = joint.parent.node.rotationQuaternion.multiply(Quaternion.Inverse(joint.parent.rest));
-        const couple = new Vector3(...joint.dofs[0].spec.axis.value).applyRotationQuaternion(carry).scale(effort);
-        bodies[0].applyForce(new Vector3(...force), coms[0]); bodies[0].applyTorque(couple.negate()); bodies[1].applyTorque(couple);
+        const carry = joint.parent.pose.rotation.multiply(Quaternion.Inverse(joint.parent.rest));
+        const couple = new Vector3(...joint.dofs[0].spec.axis.value).applyRotationQuaternionToRef(carry, new Vector3()).scale(effort);
+        bodies[0].applyForce(new Vector3(...force), coms[0]); bodies[0].applyTorque(couple.scale(-1)); bodies[1].applyTorque(couple);
         stand.step();
-        const actual = bodies.map((body) => ({ position: body.node.position.asArray(), rotation: body.node.rotationQuaternion.asArray(),
+        const actual = bodies.map((body) => ({ position: body.pose.position.asArray(), rotation: body.pose.rotation.asArray(),
           velocity: body.linearVelocityToRef(new Vector3()).asArray(), spin: body.angularVelocityToRef(new Vector3()).asArray(),
           contacts: stand.world.physics.contactsOf(body, (other) => other === null) }));
         const linearError = Math.max(...actual.flatMap((body, i) => body.velocity.map((v, k) => Math.abs(v - start[i].linear[k] - motion[i].linear[k] / hz))));

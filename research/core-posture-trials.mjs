@@ -15,10 +15,8 @@
  * a printed table write them from the freedom's own zero, as the riser's postures are
  * (`DofSpec.bind`): the reference pose's angle less.
  */
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { Scene } from "@babylonjs/core/scene.js";
-import { addArenaSolids } from "../src/arena/room.ts";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
+import { addArenaSolids } from "../src/arena/solids.ts";
 import { SERVO_SECONDS } from "../src/core/body.ts";
 import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
@@ -37,6 +35,7 @@ import { add, cross, dot, normalize, scale, sub } from "../src/core/spec/vec.ts"
 import { createWorld, PHYSICS_HZ } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { risenAt } from "./core-rise-trials.mjs";
+import { yawPitchRollToRef } from "./yaw-pitch-roll.mjs";
 import MAN from "../assets/humanoid/man-contact-geometry.json" with { type: "json" };
 
 export const STATICS_HARNESS = "Node, statics: the joints' kinematics and the body's dynamics (src/core/build/dynamics.ts), no world step";
@@ -149,9 +148,8 @@ export function envelopeSpec(spec, envelope) {
  * (`toesOf`). The caller disposes.
  */
 export async function staticBody(spec = modelSpec(AUDITED), engineName, envelope = "boot") {
-  const scene = new Scene(new NullEngine());
   const engine = await freshEngine(engineName);
-  const world = createWorld(scene, engine);
+  const world = createWorld(engine);
   let limitModel;
   switch (engine.name) {
     case "rapier": case "rapier-coulomb": limitModel = "parent-axis"; break;
@@ -178,7 +176,7 @@ export async function staticBody(spec = modelSpec(AUDITED), engineName, envelope
     moves: freedoms.map((f) => new Set(segments.filter((segment) => chains.get(segment).includes(f.joint)))),
     dynamics: bodyDynamics(built, gravity),
     channel: new Map(freedoms.map((f, i) => [f.name, i])),
-    dispose: () => { built.dispose(); world.dispose(); scene.dispose(); },
+    dispose: () => { built.dispose(); world.dispose(); },
   };
   body.toe = envelope === "toe" ? toesOf(body) : null;
   if (body.toe) body.lows.push(...body.toe.sides.flatMap((t) => t.lows));
@@ -358,7 +356,7 @@ const scratch = { turn: new Quaternion(), joint: new Quaternion(), root: new Qua
  */
 export function posed(body, posture) {
   const { height, pitch, roll, angles } = posture, joints = byJoint(body, angles);
-  const R = Quaternion.RotationYawPitchRollToRef(0, pitch, roll, scratch.root);
+  const R = yawPitchRollToRef(0, pitch, roll, scratch.root);
   for (const segment of body.segments) {
     const chain = body.chains.get(segment), origin = segment.frame.origin, turn = scratch.turn.copyFromFloats(0, 0, 0, 1);
     if (chain.length === 0) scratch.at.set(origin[0], origin[1], origin[2]);
@@ -367,11 +365,11 @@ export function posed(body, posture) {
       pointAtToRef(chain, along, origin, scratch.at);
       chain.forEach((joint, c) => turn.multiplyInPlace(rotationAtToRef(joint, along[c], scratch.joint)));
     }
-    const node = segment.node;
-    scratch.at.applyRotationQuaternionToRef(R, node.position);
-    node.position.y += height;
+    const pose = segment.pose;
+    scratch.at.applyRotationQuaternionToRef(R, pose.position);
+    pose.position.y += height;
     R.multiplyToRef(turn, scratch.q);
-    scratch.q.multiplyToRef(segment.rest, node.rotationQuaternion ??= new Quaternion());
+    scratch.q.multiplyToRef(segment.rest, pose.rotation);
   }
   if (body.toe) for (const t of body.toe.sides) body.toe.angles[t.k] = angles[t.index] ?? TOE.rest;
   return body;
@@ -416,9 +414,9 @@ export function overlapOf(body) {
   const places = new Map();
   const placesOf = (part) => {
     if (!places.has(part)) {
-      const node = part.segment.node;
+      const pose = part.segment.pose;
       places.set(part, part.colliders.map(({ at, turn }) => {
-        const p = at.applyRotationQuaternion(node.rotationQuaternion).addInPlace(node.position), q = node.rotationQuaternion.multiply(turn);
+        const p = at.applyRotationQuaternionToRef(pose.rotation, new Vector3()).addInPlace(pose.position), q = pose.rotation.multiply(turn);
         return { p: { x: p.x, y: p.y, z: p.z }, q: { x: q.x, y: q.y, z: q.z, w: q.w } };
       }));
     }
@@ -1261,14 +1259,14 @@ export async function path({ from, to, names = [from, to], start, end, variant =
  */
 export function placeLike(body, built, lift = 0.0005) {
   for (const segment of body.segments) {
-    const other = built.segments.get(segment.spec.name), p = segment.node.position, q = segment.node.rotationQuaternion;
+    const other = built.segments.get(segment.spec.name), p = segment.pose.position, q = segment.pose.rotation;
     const rigid = other.body.rigid;
     rigid.setTranslation({ x: p.x, y: p.y + lift, z: p.z }, true);
     rigid.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true);
     rigid.setLinvel({ x: 0, y: 0, z: 0 }, true);
     rigid.setAngvel({ x: 0, y: 0, z: 0 }, true);
-    other.node.position.set(p.x, p.y + lift, p.z);
-    (other.node.rotationQuaternion ??= new Quaternion()).copyFrom(q);
+    other.pose.position.set(p.x, p.y + lift, p.z);
+    other.pose.rotation.copyFrom(q);
   }
 }
 
@@ -1352,9 +1350,8 @@ export function strippedSpec(spec, variant) {
  * `level`). The caller disposes.
  */
 async function placed(posture, { variant = "built", lift = LIFT, make, solver = "game" } = {}) {
-  const scene = new Scene(new NullEngine());
   const { hz, iterations, pgs } = SOLVERS[solver];
-  const world = createWorld(scene, await freshEngine(), { hz });
+  const world = createWorld(await freshEngine(), { hz });
   if (iterations && !world.physics.raw) throw new Error(`the ${solver} solver is Rapier's`);
   if (iterations) { world.physics.raw.numSolverIterations = iterations; world.physics.raw.numInternalPgsIterations = pgs; }
   addArenaSolids(world.physics);
@@ -1366,7 +1363,7 @@ async function placed(posture, { variant = "built", lift = LIFT, make, solver = 
   posed(body, posture);
   placeLike(body, built, lift);
   if (driving?.setLevel) driving.setLevel("full"); else level(false);
-  return { world, built, driving, dispose: () => { driving?.dispose?.(); built.dispose(); world.dispose(); scene.dispose(); } };
+  return { world, built, driving, dispose: () => { driving?.dispose?.(); built.dispose(); world.dispose(); } };
 }
 
 /**
@@ -1378,7 +1375,7 @@ async function placed(posture, { variant = "built", lift = LIFT, make, solver = 
  */
 function watch(world, built, goals, steps, each = () => {}) {
   const segments = [...built.segments.values()], joints = [...built.joints.values()];
-  const from = segments.map((segment) => segment.node.position.clone());
+  const from = segments.map((segment) => segment.pose.position.clone());
   const nameOf = new Map(segments.map((segment) => [segment.body, segment.spec.name]));
   const jointed = new Set(joints.flatMap((joint) => [`${joint.parent.spec.name}|${joint.child.spec.name}`, `${joint.child.spec.name}|${joint.parent.spec.name}`]));
   const touched = new Set(), leant = new Set(), v = new Vector3();
@@ -1396,7 +1393,7 @@ function watch(world, built, goals, steps, each = () => {}) {
       }
     }
   }
-  const drift = Math.max(...segments.map((segment, k) => Vector3.Distance(segment.node.position, from[k])));
+  const drift = Math.max(...segments.map((segment, k) => Vector3.Distance(segment.pose.position, from[k])));
   let worst = { channel: null, error: 0 };
   joints.forEach((joint, j) => jointAngles(joint).forEach((a, k) => {
     const error = a - goals[j][k];

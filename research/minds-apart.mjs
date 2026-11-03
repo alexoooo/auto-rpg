@@ -15,9 +15,6 @@
  */
 import { createHash } from "node:crypto";
 import { parseArgs } from "node:util";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
-import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { recipeOf } from "../src/arena/matchup.ts";
 import { crowdFight } from "../src/arena/team-bout.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
@@ -30,8 +27,6 @@ const { values } = parseArgs({ options: {
   cases: { type: "string", default: "crowd,sword,hands,crypt-10,crypt-25" }, threads: { type: "string", default: "1,2,3,4" }, seconds: { type: "string", default: "60" },
 } });
 const seconds = Number(values.seconds);
-// Babylon greets every engine it makes on the console.
-Logger.LogLevels = Logger.NoneLogLevel;
 
 const duel = (loadouts) => ({ ...recipeOf(`?matchup=workshop-fighter,workshop-fighter&control=option,option&${loadouts}`, { left: {}, right: {} }, "open"), capSeconds: seconds });
 /** Each case: how to build it with its minds in `place` (or on their bodies), as a world, whether it has ended, its blows and its end. */
@@ -45,13 +40,12 @@ const CASES = {
     return { world, ended: () => fight.verdict !== null, blows: () => fight.blows.length, end: () => fight.verdict, dispose };
   }])),
   ...Object.fromEntries([10, 25].map((seed) => [`crypt-${seed}`, async (minds) => {
-    const engine = new NullEngine(), scene = new Scene(engine);
-    const run = new DungeonRun(scene, { seed, engine: await freshEngine("rapier"), visuals: false, ...minds });
+    const run = new DungeonRun({ seed, engine: await freshEngine("rapier"), ...minds });
     run.commands.setMode({ keyboard: false, facing: true });
     let steps = 0;
     return {
       world: run.world, step: () => { run.step(); steps += 1; }, ended: () => run.status !== "playing" || steps >= seconds * run.world.hz,
-      blows: () => run.blows.length, end: () => run.status, dispose() { run.dispose(); scene.dispose(); engine.dispose(); },
+      blows: () => run.blows.length, end: () => run.status, dispose() { run.dispose(); },
     };
   }])),
 };

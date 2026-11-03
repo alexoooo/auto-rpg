@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { CONTACT_FRICTION } from "../src/core/spec/constants.ts";
@@ -24,7 +24,7 @@ export async function slidingSlab({ hz = 120, spin = 3, sense = 1, engine = "rap
   const stand = await coreStand(spec, { hz, engine, actuation: "directional" });
   try {
     stand.step(hz); const body = stand.built.segments.get("slab").body;
-    const centre = () => new Vector3(...body.massProperties.centre).applyRotationQuaternion(body.node.rotationQuaternion).add(body.node.position);
+    const centre = () => new Vector3(...body.massProperties.centre).applyRotationQuaternionToRef(body.pose.rotation, new Vector3()).add(body.pose.position);
     body.applyImpulse(new Vector3(sense, 0, 0), centre()); body.applyTorqueImpulse(new Vector3(0, spin * .04, 0)); stand.step();
     const model = coupledDynamics(stand.built, stand.world.physics.gravity);
     const solver = activeQuadratic(4, 7, { iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6 });
@@ -37,9 +37,9 @@ export async function slidingSlab({ hz = 120, spin = 3, sense = 1, engine = "rap
         const manifolds = stand.world.physics.contactManifoldsOf(body, (other) => other === null);
         assert.equal(manifolds.length, 1); assert.equal(manifolds[0].points.length, 4); assert.ok(manifolds[0].impulse > 0);
         const points = planarSupportPoints({ kind: "box", centre: body.massProperties.centre, size: [.6, .1, .4] },
-          body.node.position.asArray(), body.node.rotationQuaternion, up, .001);
+          body.pose.position.asArray(), body.pose.rotation, up, .001);
         assert.equal(points.length, 4, "the fixture retains a flat support patch");
-        const patchCentre = points.reduce((sum, p) => sum.add(new Vector3(...p).scale(.25)), Vector3.Zero());
+        const patchCentre = points.reduce((sum, p) => sum.add(new Vector3(...p).scale(.25)), new Vector3());
         model.update(); const free = model.solve([]);
         const read = (a) => { const p = model.pointAcceleration(body, com.asArray(), a); return [p.linear[1], p.angular[0], p.angular[2]]; };
         const base = read(free), predictions = {};

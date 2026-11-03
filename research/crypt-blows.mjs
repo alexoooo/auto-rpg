@@ -13,8 +13,6 @@
  * the rule.
  */
 import { parseArgs } from "node:util";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 
@@ -33,10 +31,10 @@ function kindOf(blow) {
 }
 
 async function played(seed) {
-  const engine = new NullEngine(), scene = new Scene(engine), landed = [];
+  const landed = [];
   let run = null;
-  run = new DungeonRun(scene, {
-    seed, engine: await freshEngine(), visuals: false, companions,
+  run = new DungeonRun({
+    seed, engine: await freshEngine(), companions,
     onBlow: (blow) => {
       const alive = blow.sides.map((side) => run.actors.find((actor) => actor.id === side.fighter)?.alive ?? false);
       landed.push({ kind: kindOf(blow), energy: blow.energy, hp: hpOf(blow), out: alive.includes(false), living: blow.sides.reduce((sum, side, k) => sum + (alive[k] ? lost(side) : 0), 0) });
@@ -47,7 +45,7 @@ async function played(seed) {
   let steps = 0;
   for (let s = 0; s < seconds && run.status === "playing"; s++) { run.step(hz); steps += hz; }
   const row = { seed, status: run.status, seconds: steps / hz, built: run.actors.filter((a) => a.fighter).length, landed };
-  run.dispose(); scene.dispose(); engine.dispose();
+  run.dispose();
   return row;
 }
 

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { Vector3 } from '../src/core/math/vector.ts';
 import '../tests/harness/preload-data.mjs';
 import { buildBout } from '../src/evaluation/bout.ts';
 import { commandsBody } from '../src/core/body.ts';
