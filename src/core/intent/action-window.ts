@@ -30,7 +30,8 @@ export const approachPace = (ceiling: number, distance: number, drift = 0, on = 
  * How far the body goes on toward a place (`x`, `z`) m from its centre, `distance` m off, once it is
  * asked to stop, m: at its speed toward it through a step of the stance's walk, which lands where it
  * was planned (`STANCE_GAIT`'s swing and double support), then slowing at the walk's stopping
- * rate (`STANCE_STOPPING`), as a stop runs (`docs/reference/locomotion.md#stopping`).
+ * rate (`STANCE_STOPPING`): a stop is not taken at the end of a stride, and each next step is
+ * planned at the pace the walk has come down to.
  */
 const goesOn = (view: BodyView, x: number, z: number, distance: number): number => {
   const closing = distance > 0 ? Math.max(0, (view.stance.velocity.x * x + view.stance.velocity.z * z) / distance) : 0;

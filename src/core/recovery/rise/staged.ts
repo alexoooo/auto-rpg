@@ -20,35 +20,34 @@ import type { ReadSegment } from "../../read-body.ts";
 
 /**
  * The pose drive: a freedom is asked the speed that would close its error in `POSE_SECONDS`, no
- * faster than `POSE_SPEED`, rad/s, at full activation (`docs/reference/rising.md#stages`: the two
- * drives read on the stand).
+ * faster than `POSE_SPEED`, rad/s, at full activation. Speeds, not the joint servo, which takes
+ * the root as held and knows no contact, as a body pressing off the ground is not.
  */
 const POSE_SECONDS = 0.2, POSE_SPEED = 3;
 /**
- * Lying still: the centre of mass under `SLOW`, m/s, for `STILL_SECONDS`
- * (`docs/reference/rising.md#stages`).
+ * Lying still: the centre of mass under `SLOW`, m/s, for `STILL_SECONDS`. The centre of mass, not
+ * the segments, since a limp hand can turn for as long as it is watched.
  */
 const SLOW = 0.1, STILL_SECONDS = 0.5;
 /**
  * How near its aim the centre of mass is, m, for a bearing stage to be done, once it is slower
- * than `SLOW` (`docs/reference/rising.md#stages`).
+ * than `SLOW`.
  */
 const NEAR = 0.05;
 /**
- * How near its aim the pelvis's turn is, rad, for a bearing stage to be done
- * (`docs/reference/rising.md#stages`).
+ * How near its aim the pelvis's turn is, rad, for a bearing stage to be done.
  */
 const TURNED = 0.15;
 /**
  * A limb a stage leaves, while it still bears: its part of the load against the limbs the stage
- * bears on, whose shares sum to 1. Small, so it bears what they cannot
- * (`docs/reference/rising.md#stages`).
+ * bears on, whose shares sum to 1. Small, so it bears what they cannot, and is let go once the
+ * centre of mass is within their outline (`withinSupport`); a larger share holds it down.
  */
 const LEFT = 0.01;
 /**
  * How far over the ground, m, every segment of the trunk (`Recipe.trunk`) is, in or after the
  * rise's first bearing stage, for the rise to have raised it: from then, one of them down again
- * (within `DOWN`) ends the attempt (`docs/reference/rising.md#the-abort`).
+ * (within `DOWN`) ends the attempt.
  */
 const RAISED = 0.1;
 /** A contact whose normal is within this cosine of straight down is with the ground under the body, not a wall. */
@@ -198,7 +197,13 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     lifted: false,
     /** Whether this attempt has had every segment of the trunk `RAISED` over the ground. */
     raised: false,
-    /** Accumulated weight-transfer error, m, bounded by the body's standing height (docs/reference/recovery-transfer.md). */
+    /**
+     * The weight transfer's integral of the centre's horizontal error from the borne place, m: it
+     * grows at the stage's rate while a stage leaves a limb and the centre is not yet over the
+     * others, takes up the steady error the posture and the contacts leave, is capped at the
+     * body's standing height and is cleared at each stage's entry. Completion reads the stage's
+     * target without it.
+     */
     transfer: new Vector3(),
     /**
      * A bearing stage's records, each written by a step before it reads it: each limb's task, the

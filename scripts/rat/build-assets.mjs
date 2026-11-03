@@ -2,7 +2,7 @@
 //
 // Fetches the pinned published files (each URL's SHA-256 below), and writes
 // `assets/art/environment/rat/rat.glb`, the mesh skinned to the rat's segments, and the three 1k
-// texture maps beside it. What the file holds and how it rides the body: docs/art/rat.md.
+// texture maps beside it. What the file holds: docs/art/rat.md#what-the-file-holds.
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";

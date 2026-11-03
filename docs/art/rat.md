@@ -1,7 +1,7 @@
 # The rat's art
 
 The rat is drawn with Poly Haven's Street Rat, one mesh skinned to the rat's segments so the fur
-bends at the joints. The art is cosmetic: it collides with nothing, is not pickable and decides
+bends at the joints (`dressSkinnedArt`, `src/render/skinned-art.ts`). The art is cosmetic: it collides with nothing, is not pickable and decides
 nothing. The rat's colliders are its segments ([the body](#the-body-fitted-to-the-art)).
 
 ## Source and licence
@@ -25,8 +25,8 @@ in the script, kept in `.cache/art/downloads/street_rat/`), and writes `rat.glb`
 `rat.glb`: one primitive, 7,410 vertices and 12,000 triangles, no material.
 
 - **Simplified.** The published 57,216 triangles to 12,000 (`TRIANGLES`), the UV seams and
-  normals weighed, within 0.04% of the mesh's extent; at 8,000 the silhouette holds but single
-  triangles span the elbows and knees, which then bend coarsely.
+  normals weighed, within 0.04% of the mesh's extent; fewer, and single triangles span the elbows
+  and knees, which then bend coarsely.
 - **Frame.** The body frame at the rat's reference pose, in the game's left-handed coordinates:
   +Y up, +Z forward, +X the body's right; the source's x is mirrored and each triangle's winding
   reversed with it. The runtime converts nothing, so a glTF viewer shows it mirrored.
@@ -45,17 +45,6 @@ in the script, kept in `.cache/art/downloads/street_rat/`), and writes `rat.glb`
   segment is its distance from the nearest piece less its thickness, and its weights fall off
   exponentially, 1.2 mm of the source's cost a factor of e, behind its cheapest segment's. The
   lower jaw is the chin under the snout, from 28 mm forward.
-
-## How it rides the body
-
-`dressSkinnedArt` (`src/render/skinned-art.ts`, the reptile's too) reads the GLB without a glTF
-loader (`src/render/glb.ts`), builds a Babylon skeleton of one bone a segment, and before each
-render sets each bone to its segment's reference frame inverted (`skinReference`) times the
-segment's achieved transform. At the reference pose every bone is the identity and the mesh is the
-art as authored. The material is the published one: the colour map, the OpenGL normal map,
-occlusion, roughness and metalness packed red, green and blue, double-sided for the whiskers and
-ears. A part cut off is drawn apart as the humans' skin is ([a part cut off](characters.md#how-the-core-uses-them),
-`skinApart`): the mesh is split at the cut, its seam vertices drawn once on each side.
 
 ## The body fitted to the art
 

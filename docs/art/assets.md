@@ -2,7 +2,7 @@
 
 Characters, environment models and surface textures have full-quality sources and generated web
 resources. Large originals are in Git LFS; web delivery and character inspection exports are
-reproducible build outputs. The HDR environment and menu image retain their existing encodings.
+reproducible build outputs. The HDR environment and the menu image are served as committed.
 
 ## Sources
 
@@ -60,21 +60,20 @@ Standalone textures use their original encoding when the KTX2 candidate would be
 selected variant has one hashed delivery URL. A source image is never upscaled. Texture sampling,
 normal conventions and physical repeat scales belong to the runtime material descriptors.
 
-The combined base resources of both characters have an 8,000,000-byte ceiling, counting shared
-resources once, before HTTP compression. Workshop additions and decoders are reported separately.
-The entire art inventory, including all decoders, the HDR and menu image, has a 35,000,000-byte
-ceiling. Both budgets count shared payloads once, before HTTP compression; manifest and licence
-text are excluded. Neither is a single scene's download. A larger asset needs a visible purpose
-and an explicit recipe budget change; an encoder failure never relaxes the ceiling automatically.
-The kept [delivery-size record](../reference/art-delivery.md) gives the measured comparison.
+Two ceilings bound delivery, both in `assets/art/catalog.json`'s profile: `baseBudgetBytes`, the
+combined base resources of both characters, and `totalBudgetBytes`, the entire art inventory with
+all decoders, the HDR and the menu image. Both count shared payloads once, before HTTP
+compression; manifest and licence text are excluded. Neither is a single scene's download.
+Workshop additions and decoders are reported separately. A larger asset needs an explicit budget
+change; an encoder failure never relaxes a ceiling.
 
 ## Physics authority
 
 The core reads versioned rig, hull, contact and skin-bound JSON. Web texture quality and delivery
 compression cannot change those values. `assets/humanoid/skin-bounds.json` records the exact skin
-tops with their original lossless source hashes. Anatomy updates remain explicit measurements
-from lossless exports, with their existing scripts and checks.
+tops with their lossless sources' hashes. An anatomy update is an explicit measurement from the
+lossless exports ([the characters](characters.md#exporting-the-games-derivatives)).
 
-The pipeline validates complete output before publishing it. CI checks out LFS originals, caches
-toolchains and artifacts, builds assets, runs the gate, and deploys ordinary generated files to
-GitHub Pages. Historical Git blobs are not removed by this forward-only storage migration.
+The pipeline validates complete output before publishing it. CI (`.github/workflows/pages.yml`)
+checks out LFS originals, caches toolchains and artifacts, builds assets, runs the gate, and
+deploys the generated files to GitHub Pages.

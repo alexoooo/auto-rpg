@@ -252,8 +252,8 @@ export interface PhysicsWorld {
   readonly gravity: Vec3;
   /**
    * A dynamic body at `pose`, its colliders massless: its mass is `mass`; `pose` follows it after each step.
-   * `ccd` requests continuous collision detection including moving colliders; false retains
-   * the engine's default behavior against fixed colliders (`docs/reference/collision-ccd.md`).
+   * Rapier sweeps a fast body against fixed colliders by default; `ccd` adds continuous
+   * collision detection against moving colliders too.
    */
   addBody(pose: Pose, shapes: readonly ColliderShape[], mass: MassProperties,
     options?: { readonly ccd?: boolean; readonly materials?: readonly ContactMaterial[] }): SegmentBody;
@@ -274,7 +274,10 @@ export interface PhysicsWorld {
    * contacts itself.
    */
   contactsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly Contact[];
-  /** Unaveraged solver geometry. A predicted point or zero impulse is not proof of load-bearing contact. */
+  /**
+   * Unaveraged solver geometry: each pair's solver points, signed gaps, normal and stored normal
+   * impulse. A positive gap is a speculative contact; neither it nor a zero impulse proves support.
+   */
   contactManifoldsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly ContactManifold[];
   /** Everything `body` is in contact with, as `contactsOf` reads it unfiltered, told to `sink` number by number: no object made. */
   tellContacts(body: SegmentBody, sink: ContactSink): void;

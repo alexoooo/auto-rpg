@@ -8,15 +8,14 @@ The original MIT notice is preserved in [LICENSE](LICENSE).
 
 The adapted files are `lib/qpgen2.js`, `dpofa.js`, `dposl.js`, `dpori.js` and `vsmall.js`.
 The kernel preserves their operation order and one-indexed work layout. Type annotations and
-array assertions make it checked TypeScript; helpers share one module. The owner supplies the
+array assertions make it checked TypeScript; helpers share one module. The calling module supplies the
 contact-column arrays, and a deterministic budget bounds the state-machine loops. Empty JSDoc,
 coverage directives and commented-out Fortran calls are omitted. The wrapper is repository code.
 
 The arithmetic audit finds only IEEE operations, `Math.sqrt`, `Math.abs`, `Math.min` and
 `Math.max`. There is no environment state, random source, wall clock, transcendental function,
 external dependency or persistent solver memory in the kernel. Its floating-point zero threshold
-is calculated by the original finite doubling procedure. The cold-start owner stores candidates
+is calculated by the original finite doubling procedure. The calling module keeps its cold-start candidates
 in explicit state and checks residuals against caller-supplied tolerances.
 
 This is optional control machinery. It does not change the physical body's action contract.
-See [the validation record](../../docs/reference/active-quadratic.md).

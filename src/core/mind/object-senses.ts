@@ -62,7 +62,11 @@ interface SensedObject {
   readonly points: Readonly<Record<string, Vec3>>;
 }
 
-/** Saved scalar layout: `docs/reference/moving-strike.md#observation-layout`. */
+/**
+ * One saved reading's scalars: the node's position (3) and quaternion (4), the centre of mass (3),
+ * its velocity (3), the angular velocity (3), the mass (1) and the sample time (1). A delay of N
+ * steps keeps N + 1 frames in a ring.
+ */
 const FRAME_LENGTH = 3 + 4 + 3 + 3 + 3 + 1 + 1;
 
 /**

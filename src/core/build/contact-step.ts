@@ -39,13 +39,15 @@ const subtract = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b
 const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 
 /**
- * Diagnostic fixed-plane contact impulse prediction through an updated coupled model. Normal
- * impulses are unilateral; the two-axis stopping impulse is projected onto a friction disk.
- * This is a per-point projected solver law, not a patch/twist model or opposing-slip force.
- * The explicit rigid-body friction metric matches Rapier's local contact update; eliminating
- * joints before choosing a saturated friction direction changes that law. The default coupled
- * metric retains the articulated projection experiment (`docs/reference/contact-projection.md`).
- * Measured velocities are first projected into the model's joint/constraint tangent space.
+ * Diagnostic one-step fixed-plane contact impulse prediction through an updated coupled model;
+ * it applies nothing, and only research scripts reach it. Normal impulses are unilateral; the
+ * two-axis stopping impulse is projected onto a friction disk. This is a per-point projected
+ * solver law, not a patch/twist model or opposing-slip force. The friction metric
+ * (`frictionMetric`) is the disk's: `rigid-body` takes the contacting body's own mobility, as
+ * Rapier's local contact update does against a fixed plane; the default `coupled` takes the
+ * articulated response, which eliminates the joints before a saturated friction direction is
+ * chosen. Measured velocities are first mass-projected into the model's joint/constraint
+ * tangent space.
  * Optional angular stops exchange impulses with contacts in the same coupled solve. Their
  * inward rows may push but never pull; each has its own angular impulse and velocity tolerances.
  * Point lever arms stay fixed during the predicted step. The caller chooses candidate contacts

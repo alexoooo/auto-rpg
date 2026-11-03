@@ -22,8 +22,8 @@ import { derive, sourced, type Quantity } from "../spec/quantity.ts";
  * Measured on the body as a fight plays it, at the rate the asset names: in the guard, under its
  * character's balance, with each thing a fight puts in its right hand. A body holding one of them
  * reads that loadout's own envelope where the asset measured it, and the least of them where not.
- * Another rate, or another thing held, is a body the table did not see. Unassisted coordinate-engine Warrior turns are
- * separately measured in `docs/reference/combat-locomotion.md`; callers may apply a lower ceiling.
+ * Another rate, or another thing held, is a body the table did not see. A walk may apply a lower
+ * turn ceiling (`turnLimit`), never a higher one.
  */
 export interface StanceEnvelope {
   /**

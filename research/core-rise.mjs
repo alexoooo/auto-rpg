@@ -1,5 +1,5 @@
 /**
- * The battery of falls and its table (`docs/reference/rising.md#battery`): every model shoved
+ * The battery of falls and its table: every model shoved
  * sixteen ways with the club in hand and with nothing, and the fall of each of the arena's nine
  * matchups, each watched for whether the body gets up (`core-rise-trials.mjs`). A line a cell: how
  * many fell, how many of those rose, the median seconds to rise, the median of the fastest a

@@ -29,8 +29,7 @@ export const brace = (drive: ReturnType<typeof poseDrive>): void => drive(BRACE,
  * height): the centre of mass carried from where it is, at its speed, to standing height over the
  * feet's middle at rest on a quintic over `seconds`, the pelvis from its pitch to upright, the
  * posture from the crouch's angles to the guard's on a minimum-jerk path, the feet planted
- * (`StanceGoal.pose`, followed at `response` s); then the stance's own goal at standing height
- * (`docs/reference/rising.md#a-planned-climb`).
+ * (`StanceGoal.pose`, followed at `response` s); then the stance's own goal at standing height.
  */
 const CLIMB = deepFreeze({ seconds: .6, response: .08, below: .9 });
 /** Both feet. */

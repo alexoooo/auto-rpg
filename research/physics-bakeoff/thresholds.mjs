@@ -2,7 +2,7 @@
  * **The pass marks, fixed before the engines were swept.** Two bars:
  *
  * - `today`: the incumbent's bar: the readings of the engine the game ran when the bake-off was
- *   set, at one step of 120 Hz, rounded up (REPORT.md's Setup records them).
+ *   set, at one step of 120 Hz, rounded up.
  *   - Case A (the standing foot): standing, with foot spin at most 0.01 rad/s (0.6 deg/s, which
  *     nothing on screen shows), foot tilt 0.4 deg and centre of mass drift 7 mm over 1-10 s.
  *   - Case B (the forearm chain): hand jitter 0.289 rad/s, wrist jitter 0.609 rad/s, ringing

@@ -23,6 +23,10 @@ import { hypot } from "../math/real.ts";
  * over the contact's time, and turns past it against the ceiling. So a braced arm meets a blow
  * with the body behind it, and a limp one with the hand alone.
  *
+ * A free, floating arm's measured response to a pulse at the fist matches this mass. Motors and
+ * the ground raise a fist's measured mass above it; damage uses the free-joint mass all the same
+ * (`research/punch-mass-audit.mjs` reads both).
+ *
  * The speeds are the root's velocity and spin, then every freedom's (`dynamics.ts` has how a
  * freedom's speed turns what its joint carries, about its motion axis through the joint's centre).
  * Each segment's rigid body (`rigid.ts`) is read as it stands, from its pose's `position` and

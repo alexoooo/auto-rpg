@@ -5,7 +5,7 @@ import { cos, tan } from "../core/math/real.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./bearing.ts";
 
 /** How far across the ground the camera stands from the point it looks at, m, and that point's height above the
- * floor under the hero, m (`docs/reference/look.md#crypt-camera`). The camera is orthographic, so the distance
+ * floor under the hero, m, set by eye. The camera is orthographic, so the distance
  * sets what is clipped and not how large anything is drawn. */
 const CAMERA = Object.freeze({ ground: Math.sqrt(800), height: 1 });
 

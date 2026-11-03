@@ -59,13 +59,13 @@ export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVeloci
 }
 
 /**
- * How much faster a leg's joints turn in use than the curves read, as the owner has set it: what the
- * run searched on the body is fastest and surest at (`docs/reference/run-body.md`).
+ * How much faster a leg's joints turn in use than the curves read: set so the run reaches 3 to
+ * 4 m/s, the value it is fastest and surest at.
  */
 const LEG_SPEED_IN_USE = sourced(1.98, "1", "owner-run-body", "a leg joint's unloaded speed in use over the curve read");
 /**
- * How much faster the arm's, the trunk's and the neck's joints turn in use than the curves read, as
- * the owner has set it: what a punch like a person's needs (`docs/reference/punch-body.md`). The
+ * How much faster the arm's, the trunk's and the neck's joints turn in use than the curves read:
+ * 2.5 times the curve's unloaded speed, set so a straight punch reaches the Strike bar. The
  * curves read stop at 5.2 rad/s (Frey-Law's fastest), where a person's straight punch opens the
  * elbow at 22 to 41.
  */

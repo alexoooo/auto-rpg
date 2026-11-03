@@ -1,5 +1,5 @@
 /**
- * The posture audit and its tables (`docs/reference/postures.md`): for each row (`ROWS`), a support
+ * The posture audit and its tables: for each row (`ROWS`), a support
  * between knees and hands and standing, whether the Warrior can hold itself still on it, the
  * least share of its strength that does, and what binds (`core-posture-trials.mjs`).
  *

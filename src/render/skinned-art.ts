@@ -28,7 +28,7 @@ export interface SkinnedLook {
   readonly roughness?: number;
 }
 
-/** **Each skinned creature's art**: docs/art/rat.md, docs/art/reptile.md. */
+/** **Each skinned creature's art**; its source, licence and rebuild in `docs/art/rat.md` and `docs/art/reptile.md`. */
 export const SKINNED_LOOKS = Object.freeze({
   rat: { model: "rat/rat.glb", colour: "rat/street_rat_diff_1k.jpg", normal: "rat/street_rat_nor_gl_1k.jpg", packed: "rat/street_rat_arm_1k.jpg" },
   reptile: { model: "reptile/reptile.glb", colour: "reptile/grass_lizard_diff_1k.jpg", normal: "reptile/grass_lizard_nor_gl_1k.jpg", roughness: .55 },
@@ -87,6 +87,10 @@ export function loadSkinnedArt(look: SkinnedLook): Promise<SkinnedArt> {
  * follows its segment: at the reference pose the mesh is the art as authored, and every bone is its
  * segment's achieved transform after its reference frame, so the surface bends at the joints instead
  * of parting, and opens where a part is cut off (`skinApart`). It reads the segments' transforms and nothing else, owns no collision and decides nothing.
+ *
+ * The GLB is read without a glTF loader (`readGlb`): one primitive whose bones are named by the segments, each at the
+ * body frame's origin with an identity inverse bind, so before each render a bone is set to its segment's reference
+ * frame inverted (`skinReference`) times the segment's achieved transform.
  */
 export function dressSkinnedArt(built: DrawnBody, art: SkinnedArt, scene: Scene): SkinView {
   const prefix = `${built.spec.model}.skin.`, { look } = art;

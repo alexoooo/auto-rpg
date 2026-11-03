@@ -13,7 +13,7 @@ interface Subject {
 }
 export type ArenaSubjects = Readonly<Record<Side, Subject>>;
 
-/** Arena pointer sensitivity and overview framing (docs/reference/look.md#arena-camera). */
+/** Arena pointer sensitivity and overview framing, set by eye. */
 const CAMERA_INPUT = Object.freeze({ turn: .006, pitch: .004, zoom: .001, overviewPitch: .78, overviewDistance: 39, overviewWidth: 31 });
 
 /** An Arena camera reads poses only; it has no physics or playback handles. */

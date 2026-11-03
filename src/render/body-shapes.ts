@@ -86,7 +86,7 @@ function shapeMesh(name: string, frame: SegmentFrame, shape: ShapeSpec, scene: S
 }
 
 /**
- * The plain shapes' colours, set by eye (`docs/reference/look.md#bodies`): the faint grey every shape
+ * The plain shapes' colours, set by eye: the faint grey every shape
  * shines with, and the warm colour a body's right side is drawn toward, `warmShare` of the way, so
  * that its two sides tell apart.
  */
@@ -147,7 +147,7 @@ export function drawBody(built: DrawnBody, scene: Scene, tint: Color3): BodyShap
   };
 }
 
-/** Wood, for what a hand holds (`docs/reference/look.md#bodies`). */
+/** Wood, for what a hand holds, set by eye. */
 const WOOD = new Color3(0.45, 0.3, 0.17);
 /** Neutral steel keeps equipment legible against either character's skin. */
 const METAL = new Color3(.62, .67, .72);

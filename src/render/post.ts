@@ -6,7 +6,7 @@ import "@babylonjs/core/PostProcesses/RenderPipeline/postProcessRenderPipelineMa
 import "@babylonjs/core/Rendering/depthRendererSceneComponent.js";
 
 /**
- * The grade's strengths, set by eye (`docs/reference/look.md#grade`): the image's contrast and
+ * The grade's strengths, set by eye: the image's contrast and
  * exposure, the vignette's weight, and the brightness a pixel blooms from with the bloom's weight.
  */
 const GRADE = Object.freeze({ contrast: 1.12, exposure: 1.15, vignetteWeight: 1.35, bloomThreshold: 1.1, bloomWeight: .16 });

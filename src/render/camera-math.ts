@@ -1,12 +1,12 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
-/** Isometric's diagonal bearing (docs/reference/look.md#view-cameras). */
+/** Isometric's diagonal bearing. */
 export const ISO_ALPHA = -3 * Math.PI / 4;
-/** Isometric's polar angle, from straight down (docs/reference/look.md#view-cameras). */
+/** Isometric's polar angle, from straight down: the three axes foreshortened equally. */
 export const ISO_BETA = Math.acos(1 / Math.sqrt(3));
-/** Chase's polar angle, 21 degrees above level (docs/reference/look.md#view-cameras). */
+/** Chase's polar angle, 21 degrees above level. */
 export const CHASE_BETA = 1.2;
-/** Camera follow and turn rates chosen for body inspection (docs/reference/look.md#view-cameras). */
+/** Camera follow and turn rates chosen for body inspection, set by eye. */
 export const VIEW_CAMERA = Object.freeze({ turnSeconds: .3, lookHeight: 1, follow: .05 });
 
 /** The angle `from` approaches `to` by over `dt`, turning the short way round. */

@@ -8,9 +8,9 @@ through shared generated geometry and textures. The workshop descriptor adds aut
 motion; gameplay moves the same rig through physics. The [asset pipeline](assets.md) owns web
 delivery. The reptile and the rat are drawn from scans of their own: [the reptile](reptile.md), [the rat](rat.md).
 
-The shared Blender export fits each boot's toe box to the bare foot's toe, stretching only
-vertices ahead of the ball. The heel, ankle, cuff and skin weights retain their authored fit.
-World views and the character workshop use that same exported geometry.
+The shared Blender export (`scripts/art/blender.py`) fits each boot's toe box to the bare foot's
+toe, stretching only vertices ahead of the ball. The heel, ankle, cuff and skin weights keep their
+authored fit. World views and the character workshop use that same exported geometry.
 
 ## Where each file comes from
 
@@ -24,9 +24,8 @@ World views and the character workshop use that same exported geometry.
 | `assets/humanoid/workshop-fighter.json`, `workshop-rogue.json` | `scripts/humanoid/export-workshop.py` | the core's rig (`src/core/human/rig.ts`), the skins |
 | `assets/humanoid/workshop-*-trunk-hull.json` | `node scripts/core/workshop-envelope.mjs --write`, from the humanoid GLBs | the core's envelope (`src/core/human/envelope.ts`) |
 
-The rig JSON, skin bounds and trunk hulls are `SOURCES` entries (`src/core/sources.ts`), as is the
-envelope measurement (`workshop-envelope`). The core reads this exact metadata; compressed web
-assets never supply anatomical measurements.
+The rig JSON, skin bounds and trunk hulls are `SOURCES` entries (`src/core/sources.ts`). The core
+reads this exact metadata; compressed web assets never supply anatomical measurements.
 
 ## Building the workshop models
 
@@ -52,7 +51,7 @@ are self-hosted. Nothing depends on `.tools` at runtime.
 The build's helpers, beside it:
 
 - `motion.py`: equipment placed relative to the anatomy, fitted finger poses, and the
-  walk-and-attack timeline.
+  walk-and-attack timeline. Equipped poses refuse unreachable wrist targets while authoring.
 - `rig.py`: shoulder and forearm twist spread across helper joints, skin influences normalized.
   Shoulder plates follow the upper arm's swing without its full axial twist.
 - `grip_fit.py`: finger flexion fitted against a handle using the weighted skin itself.
@@ -61,10 +60,6 @@ The build's helpers, beside it:
   so it leaves the hand in world space.
 - `refresh_motion.py` and `refresh_deformation.py`: re-author the motion, or rebake the
   deformation helpers, on a saved body without rebuilding MPFB.
-
-The archery stance turns hips and feet together to 83 degrees; the bow's extension uses each
-model's measured arm length, and the drawing hand follows the nock that the string and arrow use.
-Equipped poses refuse unreachable wrist targets while authoring.
 
 ## Exporting the game's derivatives
 
@@ -83,63 +78,14 @@ the preview animation, authoring helpers and (for the fighter) the bow. The JSON
 SHA-256, the anatomy's lengths, bone frames, the palm, grip frames, equipment geometry and the
 authored finger poses.
 
-## How the core uses them
-
-- **The body.** `src/core/human/rig.ts` reads the joint centres and lengths from the JSON;
-  `src/core/human/envelope.ts` takes the trunk's hulls and the feet from the clothed envelope that
-  `scripts/core/workshop-envelope.mjs` measures.
-- **The size.** `src/core/human/model.ts` sets x1 to the owner's typical adult, a 1.77 m man of
-  79 kg: the fighter's skin top at the authored size sets one fit scale (`FIT_SCALE`), and both
-  models are built at it, so the Rogue keeps her size against him. Her mass is his times the ratio
-  of the two models' measured volumes.
-- **The skin.** `src/render/skin.ts` loads the shared model once per scene and carries each bone
-  rigidly on the core segment it belongs to, reading only the segments' achieved transforms. It
-  owns no collision and decides nothing. Boots and armour are shown or hidden by `visiblePart`
-  (`src/character-lab/catalog.ts`); a hand that holds the club closes on it (`CLUB_GRIP`,
-  `src/render/club-grip.ts`), and a free hand's fingers take a pose between relaxed and a fist
-  (`src/render/fist.ts`). Shared strike presentation drives that closure in Arena, Crypt and Lab.
-- **A part cut off** is drawn apart (`skinApart`, `src/render/skin-apart.ts`). The skin is one
-  mesh a garment, each vertex weighted on several bones, so a part flying free would stretch it.
-  Once the page's puppet says a segment is off (`DrawnSegment.attached`, from the world worker's
-  frame or `followBody`), each worn mesh is split at the cut: every triangle goes with the piece,
-  the body or a part cut off, whose bones carry most of its weight, and a vertex two pieces share is
-  drawn twice, each copy weighted on its own piece's bones alone. The cut opens where the weights
-  cross; nothing caps it. A load from before the cut draws the mesh as authored again. A mesh never
-  worn (a workshop weapon, the bow's morph targets) is never split.
-
-## The character workshop page
-
-`/character-lab.html` (`src/character-lab/`) is an authored animation study, separate from the
-game's physics and minds. Choose **The Fighter** or **The Rogue**; set Footwear (None or Boots),
-Armour (None or Equipped) and what is in the hands (empty hands, sword, shield, sword and shield,
-or a two-handed bow). Each character keeps its own loadout.
-
-- Drag to orbit, right-drag to pan, scroll to zoom; on the focused canvas the arrow keys orbit and
-  raise the target, and `+` and `-` zoom.
-- **Walk & attack** plays the authored loop; **Neutral** stops on the inspection pose. Pause,
-  restart, scrub the Motion timeline, or slow playback down.
-- **Inspect grip** pauses and frames the equipped hand; **Reset view** restores the camera.
-
-Clothing changes keep the motion's time; changing character or weapon restarts it.
-
-To run it on a port of your own: `npm run dev -- --host 127.0.0.1 --port 5183 --strictPort`, then
-open `http://127.0.0.1:5183/character-lab.html`, and stop the server when done.
-
 ## Checking the models
 
 The checks (`scripts/character-lab/validation.mjs`) read the real GLBs: that the palm and finger
 pads lie on the sword's, shield's and bow's grips (`gripDistances`, `contactPatch` and `gripGap`),
 that the wrists keep their area (`wristAreaRatio`) and the forearms their girth
 (`forearmExpansion`), and that the arms and what they carry clear the head, the body and each
-other (`surfaceIndex`, `meshCrossesSurface`, `skinPart`).
-
-Over the sword-and-shield and bow loops the least a wrist keeps of its rest area is 0.71 on the
-fighter and 0.74 on the rogue, both drawing the bow, against a bound of 0.65; the forearm's skin
-never stands farther from its axis than at rest (a greatest ratio of 1.000 on both), against a
-bound of 1.5; and the bow's hands stay outside a torso twice as wide and deep as the one the check
-uses (Node, `NullEngine`, both GLBs, every frame at 60 a second;
-`tests/character-motion.test.mjs@2a1b29ac`).
-These are sampled surface checks, not proof of clearance between samples; a person looks as well.
+other (`surfaceIndex`, `meshCrossesSurface`, `skinPart`). They are sampled surface checks, not
+proof of clearance between samples; a person looks as well.
 
 ### What the checks read
 
@@ -148,7 +94,7 @@ The checks find their regions on the skin in the rest pose (`skinRegions`,
 
 | Field | Value |
 |---|---|
-| `hand` | 0.1209 m, the fighter's wrist to middle knuckle (0.12086 m at rest; the rogue's is 0.09919 m). The generator authors the grips on this hand and scales them to each model's (`handScale`, `scripts/character-lab/realistic/motion.py`); the checks scale their lengths along the hand the same way |
+| `hand` | 0.1209 m, the fighter's wrist to middle knuckle (the rogue's is 0.09919 m). The generator authors the grips on this hand and scales them to each model's (`handScale`, `scripts/character-lab/realistic/motion.py`); the checks scale their lengths along the hand the same way |
 | `palm` | the skin bound to the hand by more than 0.6, from 0.055 to 0.115 m along the hand from the wrist, whose normal has a cosine above 0.25 with the palm's. A grip's line crosses the palm 0.095 m from the wrist, with a radius of 0.018 m (`point(s, x, .095, .046)` in `motion.py`) |
 | `pad` | a digit's pad is the skin bound to its two outer bones by more than 0.65, whose normal has a cosine above 0.05 with the palm's |
 | `wrist` | the skin from 0.72 to 1.02 of the way from the elbow to the wrist, within 0.07 m of the forearm's axis. Its area is read at 0.77, 0.84, 0.91 and 0.98, over the skin within 0.027 of each |
@@ -156,11 +102,7 @@ The checks find their regions on the skin in the rest pose (`skinRegions`,
 | `patch` | a pad's contact is read at the distance a tenth of the way up its order from the nearest (`contactPatch`) |
 | `part` | a triangle belongs to a part of the body when each corner is bound to the part's bones by more than 0.65 (`skinPart`) |
 
-The values are kept as they were set with the grips; none was swept. Four of the bounds are
-looser than either model: the skin of the wrist stands within 0.06 m of the axis, and the
-forearm's bare skin lies between 0.025 and 0.040 m from it, beyond 0.25 of the way down (Node,
-`NullEngine`, both GLBs). The surface index's cell is `CELL`, 0.12 m, which changes how fast it
-answers and not what.
+The surface index's cell is `CELL`, 0.12 m, which changes how fast it answers and not what.
 
 `node scripts/fingerprint.mjs --character` prints a hash of what these checks measure on both
 models, at three frames of every clip: a change to the checks that is meant to change nothing
@@ -170,8 +112,8 @@ With a server running, and Playwright fetched for the run (it is not a dependenc
 launches Microsoft Edge (`channel: 'msedge'`):
 
 - `npm exec --yes --package=playwright -- node scripts/character-lab/browser-check.mjs URL`: every
-  loadout and animation sample, retained loadouts, orbit and zoom, grip framing, mobile overflow,
-  browser errors and resource counts; captures go to `.tmp/character-lab/`.
+  loadout and animation sample, retained loadouts, orbit and zoom, grip framing, browser errors and
+  resource counts; captures go to `.tmp/character-lab/`.
 - `visual-review.mjs URL fighter` (or `rogue`, with `armour` to add it): grip close-ups and front,
   side, rear and overhead attack poses. Look at the frames between poses too.
 - `anatomy-review.mjs` and `grip-review.mjs` (URL argument, default port 5182) and

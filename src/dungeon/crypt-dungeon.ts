@@ -7,8 +7,9 @@ import { mulberry32 } from "../rng.ts";
 import { populateEncounters, outsidePartyStart } from "./encounters.ts";
 
 /**
- * The crypt's layout, in cells of 1 m (`docs/reference/play.md#the-crypt`): four rooms, two by two, each joined to
- * its neighbours along the ring but for one pair.
+ * The crypt's layout, in cells of 1 m: four rooms, two by two, each joined to its neighbours along the
+ * ring but for one pair. The rooms, their furniture and their spacing are sized so that every room the
+ * encounters give a reptile pack holds the pack, each with a path to the party's start.
  */
 const CRYPT_LAYOUT = Object.freeze({
   /** Cells a side of the map. */

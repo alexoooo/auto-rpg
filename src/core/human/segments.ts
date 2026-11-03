@@ -12,13 +12,13 @@ import { DE_LEVA_1996, type DeLevaRow, type DeLevaSegment } from "./tables/de-le
 import { CONTACT_STIFFNESS } from "./tables/contact-stiffness.ts";
 import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
 
-/** A foot's grip on what it stands on, the coefficient of friction: what the run is fastest and surest at (`docs/reference/run-body.md`). */
+/** A foot's grip on what it stands on, the coefficient of friction: set so the run reaches 3 to 4 m/s, the value it is fastest and surest at. */
 const FOOT_FRICTION = sourced(0.8, "1", "owner-run-body", "the foot's coefficient of friction");
 
 /**
  * The room a thigh's capsule leaves between it and the other, the legs hanging straight, m: a
  * stride brings the knees nearer each other than the hips, and rigid thighs that leave less meet as
- * one swings past the other (`docs/reference/run-body.md`).
+ * one swings past the other.
  */
 const STRIDE_ROOM = sourced(0.03, "m", "owner-stride-room", "the room between the thighs");
 
@@ -297,7 +297,8 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
     }
     if (plan.row === "hand" && points?.knuckles && segment.shape.kind === "capsule") {
       const open = segment.shape;
-      // The capsule ends at the metacarpal head plus the existing thickness: docs/reference/hand-poses.md.
+      // The closed capsule keeps the open one's start and radius and ends at the third metacarpal
+      // head, so it reaches the head plus the radius; a grip uses it.
       const fist: ShapeSpec = { kind: "capsule", from: open.from, to: points.knuckles, radius: open.radius };
       if (plan.hand) {
         const hull = (corners: readonly Quantity<Vec3>[]): ShapeSpec => ({ kind: "hull", points: corners.map(atFit) });

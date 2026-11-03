@@ -1,8 +1,8 @@
 /**
- * **The installed postures' starts on each envelope** (`docs/reference/man-postures.md`): the boot
- * keeps the installed starts (`assets/research/posture-holds.json`); the bare rigid foot and open
- * hand start from the statics' barefoot witnesses (`research/man-postures.mjs`) of the rows the
- * installed starts came from, as placements (`docs/reference/man-postures.json`).
+ * **The installed postures' starts on each envelope**: the boot keeps the installed starts
+ * (`assets/research/posture-holds.json`); the bare rigid foot and open hand start from the statics'
+ * barefoot witnesses (`research/man-postures.mjs`) of the rows the installed starts came from, as
+ * placements (`research/data/man-postures.json`).
  *
  *   node research/man-posture-starts.mjs [--sweep research/runs/postures/envelopes.json]   (rewrites the record's starts)
  */
@@ -16,7 +16,7 @@ import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { AUDITED, envelopeSpec, posed, staticBody } from "./core-posture-trials.mjs";
 
-const RECORD = new URL("../docs/reference/man-postures.json", import.meta.url);
+const RECORD = new URL("./data/man-postures.json", import.meta.url);
 /** How far above the ground a start is built, m, as the installed starts were. */
 const LIFT = 0.0005;
 

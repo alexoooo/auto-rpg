@@ -5,7 +5,7 @@ import { hypot } from "../core/math/real.ts";
 /**
  * The walls' masonry: courses of bevelled blocks on every side of the wall colliders, a coping course on top, and
  * dressed quoins at every outer corner -- which is also every jamb of a door, a corridor mouth and a divider's gap.
- * Set by eye (`docs/reference/look.md#crypt-stone`).
+ * Set by eye.
  *
  * **No block stands proud of its collider.** A block's face is the collider's face or set back from it, and its
  * bevels and joints go into the rock, so what a body touches is what it sees and nothing drawn over the floor has

@@ -21,7 +21,7 @@ import { dungeonSolids } from "./solids.ts";
  * count of draws and nothing drawn. */
 const VISUAL_CHUNK = 16;
 /** A floor tile's half-width and height. A flat floor's tiles leave 2 cm gaps, the only grid it has; a textured
- * floor's meet edge to edge, and the texture draws its own joints (`docs/reference/look.md#crypt-stone`). */
+ * floor's meet edge to edge, and the texture draws its own joints. */
 const TILE = Object.freeze({ flatHalf: 0.49, half: 0.5, y: FLOOR_TOP });
 
 /** A wall quad's four corners, in order around it, and the way it faces. */
@@ -80,14 +80,14 @@ function mergedQuads(scene: Scene, prefix: string, quads: readonly Quad[], metre
 }
 
 /** A closed door's leaf, built for a door across x -- 3 m wide in x, 0.35 m deep in z -- and turned for one across
- * z. Every piece sits inside the door's collider box, and goes when it does (`docs/reference/look.md#crypt-stone`). */
+ * z. Every piece sits inside the door's collider box, and goes when it does. */
 const DOOR_LEAF = Object.freeze({
   planks: 6, gap: 0.02, height: 2.42, depths: Object.freeze([0.2, 0.24] as const),
   bands: Object.freeze([0.55, 1.85] as const), bandHeight: 0.12, bandDepth: 0.28, bandWidth: 2.9,
   ring: Object.freeze({ x: 0.55, y: 1.2, diameter: 0.18, thickness: 0.03 }),
 });
 /** An iron sconce under each torch's flame, set into the wall face: no piece stands more than `proud` off it
- * (`docs/art/crypt.md#the-rule-every-piece-keeps`). Its sizes are set by eye (`docs/reference/look.md#crypt-stone`). */
+ * (art carries no collision, so a fitting stays close to the wall that does). Its sizes are set by eye. */
 export const SCONCE = Object.freeze({ proud: 0.08, plate: Object.freeze([0.20, 0.44, 0.02] as const), plateY: 1.82, cupY: 1.84 });
 
 /** Pieces built about the origin, merged into one mesh and placed: a fitting's parts share one draw. */

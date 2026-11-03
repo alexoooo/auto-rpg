@@ -17,11 +17,14 @@ import { mulberry32 } from "../rng.ts";
 import { distance, isFloor, walkable, type Door, type DungeonMap, type Point, type Room } from "./map.ts";
 
 /**
- * The generator's table, frozen: a level rule is not a console dial (`docs/reference/play.md#the-level`).
+ * The generator's table, frozen: a level rule is not a console dial. `score` is set by eye with
+ * `scripts/dungeon/print-level.mjs`: a loop is worth three dead ends, and 20 m more between start and
+ * exit is worth one loop.
  */
 export const LEVEL = Object.freeze({
   blocks: 17,
   block: 3,
+  /** The radius kept clear of rock about every place a body is asked to stand, and the one the level is proved joined at, m. */
   clearance: 0.65,
   roomMin: 2,
   roomMax: 4,

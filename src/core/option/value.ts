@@ -170,7 +170,7 @@ export function record(ledger: readonly Ended[], action: string | null): { reado
 /**
  * A clinch, the owner's decision until a drill measures one: a focus within `within` m, centre to
  * centre, where a body goes down `falls` times a second, standing (tangled with it) or lying (its
- * limbs underfoot, `docs/reference/ground-combat.md#policy-settings`).
+ * limbs underfoot).
  */
 export const CLINCH = deepFreeze({ within: .65, falls: .2 });
 

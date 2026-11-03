@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { housing, local, type RobotDesign } from "./robot-geometry.ts";
 
-/** Industrial's box housings and finishes (docs/art/robots.md#industrial). */
+/** Industrial's box housings and finishes. */
 export const industrialRobot: RobotDesign = {
   palette: {
     frame: { colour: "#242d33", metallic: .78, roughness: .58 },

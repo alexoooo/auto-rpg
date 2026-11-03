@@ -101,7 +101,8 @@ const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => L
 
 /**
  * A seek runs the world for up to this long in each page frame, ms, then lets the page draw: with
- * the draw's 6 ms it fits one frame of a 60 Hz display. Set: `docs/reference/lab.md#seek-budget`.
+ * the draw's 6 ms it fits one frame of a 60 Hz display. A longer budget runs frames long, and the
+ * browser holds those back.
  */
 const SEEK_BUDGET_MS = 10;
 

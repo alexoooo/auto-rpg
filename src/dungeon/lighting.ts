@@ -24,7 +24,7 @@ import { cellKey, type DungeonMap, type Point } from "./map.ts";
 import type { TorchPlacement } from "./dressing.ts";
 
 /**
- * Generated-dungeon defaults, set by eye (`docs/reference/look.md#crypt-light`). The reference chamber opts into
+ * Generated-dungeon defaults, set by eye. The reference chamber opts into
  * its own profile (`REFERENCE_LIGHT`).
  */
 const DUNGEON_LOOK = Object.freeze({
@@ -65,7 +65,7 @@ interface DungeonLightProfile {
   lanternColor: string;
   grade?: "default" | "crypt";
 }
-/** The reference chamber's cooler fill and dimmer lantern (`docs/reference/look.md#crypt-light`). */
+/** The reference chamber's cooler fill and dimmer lantern, set by eye. */
 export const REFERENCE_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
   ambientIntensity: .30, ambientColor: "#9aaecf", environmentIntensity: .58,
   lanternIntensity: 5, lanternColor: "#dce5f5",
@@ -87,7 +87,10 @@ export interface DungeonLighting {
   refreshFog(explored: ReadonlySet<number>): void;
   setLook(change: Partial<LookSwitches>): void;
   setPresentationEnabled(enabled: boolean): void;
-  /** Burns the torches the `seconds` a frame took: the flames move on and each light flickers. A page that is paused does not call it. */
+  /**
+   * Burns the torches the `seconds` a frame took, on page time and at most 50 ms a frame: the
+   * flames move on and each light flickers. A page that is paused does not call it, so they stand still.
+   */
   burn(seconds: number): void;
   dispose(): void;
 }

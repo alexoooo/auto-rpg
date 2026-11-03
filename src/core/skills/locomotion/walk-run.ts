@@ -65,9 +65,8 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
 
 /**
  * How fast the walk and run states it stops while it may run, m/s² (`Locomotion.stopping`): under
- * its run's `brake`, since the run goes faster than the pace asked and slows from it late. Set by
- * its overshoot at a place goal 8, 15 and 30 m off: at 0.2 each body stops within 0.45 m past it,
- * at 0.25 the Warrior runs 0.75 m past and at 0.3 1.24 (`docs/reference/locomotion.md#the-walk-and-run`).
+ * its run's `brake`, since the run goes faster than the pace asked and slows from it late. Set so
+ * that a run to a place stops close past it; a higher rate overshoots.
  */
 const RUN_STOPPING = 0.2;
 

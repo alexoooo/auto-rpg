@@ -5,8 +5,8 @@ import type { TeamOrder } from "./commands.ts";
 import type { MemberView, SensedBody, TeamLevel, TeamView } from "./team.ts";
 
 /**
- * Arrival tolerances, m (`docs/reference/play.md#arrival`): an ordered destination, a companion's
- * post, an exploration goal, the last place a target was seen.
+ * Arrival tolerances, m: how near counts as there for an ordered destination or where an enemy is
+ * going, a companion's post, an exploration goal, the last place a target was seen.
  */
 export const ARRIVAL = Object.freeze({ point: 0.4, post: 0.6, explored: 0.5, lastSeen: 0.5 });
 

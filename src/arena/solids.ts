@@ -5,7 +5,7 @@ import type { Vec3 } from "../core/spec/quantity.ts";
 import { levelDefinition, type ArenaLevel } from "./levels.ts";
 
 /**
- * The arena's room, m (`docs/reference/look.md#arena-room`): the floor, the walls a body meets, and
+ * The arena's room, m, set by eye: the floor, the walls a body meets, and
  * what one repeat of each surface's image spans.
  */
 export const ROOM = Object.freeze({
@@ -27,7 +27,7 @@ export const ROOM = Object.freeze({
 
 /**
  * The ring of posts round the fighting floor: how many, the ring's radius, and each post's size and
- * sides, m (`docs/reference/look.md#arena-room`).
+ * sides, m, set by eye.
  */
 export const ARENA_POSTS = Object.freeze({ count: 8, ring: 12.3, height: 1.7, diameter: 1.1, sides: 8 });
 

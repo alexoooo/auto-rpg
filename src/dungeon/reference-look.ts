@@ -27,13 +27,12 @@ import type { TorchPlacement } from "./dressing.ts";
 
 export type ReferenceQuality = "high" | "reduced";
 
-/** Where the reference chamber's floor is wet: the middle of each patch, m
- * (`docs/reference/look.md#crypt-cut-away`). */
+/** Where the reference chamber's floor is wet: the middle of each patch, m. */
 const REFERENCE_DAMP: readonly { x: number; z: number }[] = [{x:6.1,z:7},{x:11.6,z:11.3},{x:13.5,z:8.2}];
 /** The reference chamber's walls: what lies beyond these in x or z, m, is wall, and is cut away on the camera's
- * side (`docs/reference/look.md#crypt-cut-away`). */
+ * side. */
 const REFERENCE_CHAMBER = Object.freeze({ min: Object.freeze({ x: 3.55, z: 4.55 }), max: Object.freeze({ x: 15.45, z: 13.45 }) });
-/** How the near walls are cut away (`docs/reference/look.md#crypt-cut-away`). */
+/** How the near walls are cut away, set by eye. */
 const CUTAWAY = Object.freeze({
   /** A wall is cut above this height, m: what is left is a low sill. */
   sill: 0.85,

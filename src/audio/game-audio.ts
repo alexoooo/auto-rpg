@@ -7,12 +7,12 @@ type Voice = { source: AudioBufferSourceNode; gain: GainNode; pan: StereoPannerN
 type Air = { voice: Voice; strength: number; point: SoundPoint; given: boolean };
 /** Everything the page synthesizes: a touch's surface, what a severed part scatters, a body's air, and the crypt's air, fire and drips. */
 type Sound = SoundKind | "air" | "fire" | "drip" | "debris" | "swish";
-/** Each sound's length, s; a loop's is its period. Set by ear (`docs/reference/look.md#sound`). */
+/** Each sound's length, s; a loop's is its period. Set by ear. */
 const SOUND_SECONDS: Readonly<Record<Sound, number>> = { bone: .26, body: .26, shield: .26, debris: .4, drip: .26, air: 6, fire: 6, swish: 3 };
 /** The sounds that loop: their buffers have no attack or tail, and fade through their seam. */
 const LOOPS: ReadonlySet<Sound> = new Set<Sound>(["air", "fire", "swish"]);
 /**
- * The mix, set by ear (`docs/reference/look.md#sound`). A gain is a share of full scale; a time is in seconds unless
+ * The mix, set by ear. A gain is a share of full scale; a time is in seconds unless
  * it says ms.
  */
 const MIX = Object.freeze({
@@ -235,7 +235,7 @@ export class GameAudio {
       under += (noise - under) * .02;
       const attack = Math.min(1, t / .002), tail = Math.min(1, (duration - t) / .02);
       let value: number;
-      // Each sound is its own formula, set by ear (`docs/reference/look.md#sound`).
+      // Each sound is its own formula, set by ear.
       switch (kind) {
         // What wood plays (`voiceOf`): held wood on held wood, damped by the grips and the
         // bodies behind them. A broad crack and a low thump, with no long, high partials.

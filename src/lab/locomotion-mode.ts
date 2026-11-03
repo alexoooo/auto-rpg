@@ -99,13 +99,13 @@ interface LocomotionSession {
 /**
  * **How far along a track a walker faces**, m: the point its heading turns toward, so a walker
  * that has drifted off the track steers back onto it. Walking on the path's own heading lets the
- * drift add up loop after loop. Set: `docs/reference/lab.md#aim-ahead`.
+ * drift add up loop after loop.
  */
 const AIM_AHEAD = 1;
 /**
  * How far along a track a walker facing along it faces, m: further than `AIM_AHEAD`, so that it
- * turns into a bend over a wider arc, at a pace its turns carry round it. Set:
- * `docs/reference/lab.md#aim-ahead`.
+ * turns into a bend over a wider arc, at a pace its turns carry round it; further still, it cuts
+ * the course and a slow-braking body reaches a half-turn too fast.
  */
 const AIM_ALONG = 1.25;
 

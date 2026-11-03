@@ -127,7 +127,12 @@ interface ReachMeter { solves: number; passes: number; capped: number }
  */
 interface TrackerSettings { readonly fromActual?: boolean; readonly seedActual?: boolean }
 
-/** Named physical endpoint paths and bounded IK, independent of a body's support controller. */
+/**
+ * Named physical endpoint paths and bounded IK, independent of a body's support controller. An
+ * effector is a segment, a named point on it and an ancestor base (`EffectorSpec`); only the
+ * channels between the base and the segment are its reach. A foot's points (`sole`, `strike`) are
+ * named points like a hand's, adding no mass, collision or strength.
+ */
 export function effectorTracker(built: ReadBody, root: ReadSegment, settings: TrackerSettings = {}) {
   const { fromActual: actualByDefault = false, seedActual = false } = settings;
   const names = (joint: ReadJoint) => joint.dofs.map((_, k) => channelName(joint, k));

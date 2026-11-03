@@ -1,6 +1,7 @@
 /**
  * The stance's tuned constants, and the settings an experiment may pass in their place
- * (`StanceTuning`). The measured constants' tables are in `docs/reference/stance-tuning.md`.
+ * (`StanceTuning`). Each is set for a stance that holds and walks under the shove and walk
+ * batteries (`research/core-stance-sweep.mjs`).
  */
 
 /**
@@ -9,7 +10,6 @@
  * foot the acceleration it asks; at 0.1 s the foot lags its path, most where the path rises late
  * under a leg stepping back (its knee bending, its ankle on its stop, its toes dropping), and the
  * toes meet the ground short of the landing and drag.
- * Sweep: `docs/reference/stance-tuning.md#time-constants`.
  */
 const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15, swing: 0.04 } as const;
 
@@ -115,7 +115,6 @@ export interface RecoveryTuning {
  * The least knee bend, rad from straight, the stance holds its height for, and the bend a knee past
  * straight is brought back to (`fixedSolve`). A straight knee is a singular leg: past it the leg's
  * Jacobian shortens the leg by extending the knee further, into its stop.
- * Sweep: `docs/reference/stance-tuning.md#knee-bend`.
  */
 const STANCE_KNEE_BEND = 0.2;
 
@@ -125,7 +124,6 @@ const STANCE_KNEE_BEND = 0.2;
  * asked lower, the stance sinks only as far as the ankles reach less this spare, where held to the
  * height asked it would press its ankles on their stops. A lower
  * stance needs the hip to hinge, which the stance does not do.
- * Sweep: `docs/reference/stance-tuning.md#ankle-spare`.
  */
 export const STANCE_ANKLE_SPARE = 0.01;
 
@@ -137,7 +135,6 @@ export const STANCE_ANKLE_SPARE = 0.01;
  * s; no catch longer than `longest` of the leg, a lunge past a walk's longest step. The margin
  * keeps a place held at the edge of that region from setting steps off as the capture point
  * wanders over it.
- * Sweep: `docs/reference/stance-tuning.md#recovery-step`, `#assisted` for `assisted`, `#fast-catch` for `fast` and `#which-foot-catches` for `longest` and `reach`.
  */
 const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0, assisted: 1, fast: 0.2, longest: 1.2 };
 
@@ -151,22 +148,21 @@ const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05
  * person's knee at toe-off (Simoneau, "Kinesiology of Walking", in Neumann, "Kinesiology of the
  * Musculoskeletal System", 2nd ed., 2010, ch. 15): a leg that lifts still extending asks its hip
  * for more than its strength in a fast walk. The swing's path bows `clearance` clear of the bearing
- * sole: the swinging foot met the bearing foot at mid-swing in a 1.4 m/s walk and was thrown up and short.
- * Sweeps: `docs/reference/stance-tuning.md#gait`; `accel`, `#pace-ramp`.
+ * sole, so a swinging foot does not meet the bearing foot at mid-swing and is not thrown up and short.
  */
 export const STANCE_GAIT: GaitTuning = Object.freeze({ seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, reserve: 0.9, effort: 0.5, clearance: 0.03, accel: 2, crouch: 0.1, horizon: 0.1, transfer: 0.08,
   preswing: Object.freeze({ knee: 0.61, seconds: 0.04 }) });
 
 /**
  * The time constant, s, critically damped, at which the centre of mass's errors from its plan are
- * taken up, and a bearing foot's motion damped out. Sweep: `docs/reference/stance-tuning.md#track`.
+ * taken up, and a bearing foot's motion damped out.
  */
 const STANCE_TRACK = 0.2;
 
 /**
  * The fraction of a bearing sole's half-length and half-width its centre of pressure is kept from the
  * sole's edges by (`shareGroundWrench`). A centre of pressure on the edge leaves the sole nothing to
- * turn on but the edge, and the feet slide. Sweep: `docs/reference/stance-tuning.md#sole-margin`.
+ * turn on but the edge, and the feet slide.
  */
 export const SOLE_MARGIN = 0.1;
 
@@ -174,7 +170,6 @@ export const SOLE_MARGIN = 0.1;
  * The damping of the leg's least-squares Jacobian solve (`fixedSolve`): a numeric setting, not
  * anatomy. A straight knee is a singular leg -- no motion of its freedoms lengthens it -- and
  * without damping a root asked to rise over a straight knee asks the leg for unbounded accelerations.
- * Set rather than measured: no table records it.
  */
 export const LEG_DAMPING = 0.02;
 
@@ -185,7 +180,7 @@ export const LEG_DAMPING = 0.02;
  * rising, a kick's bearing foot, the recovery's readiness), the outline of their corners (their
  * convex hull, across the ground) toward its middle. A centre of pressure at the sole's edge only
  * holds the capture point there, the sole about to roll; drawn in, the ankle has the rest to
- * bring it back. Sweep: `docs/reference/stance-tuning.md#support-inset`.
+ * bring it back.
  */
 export const SUPPORT_INSET = 0.5;
 

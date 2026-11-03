@@ -1,5 +1,5 @@
 /**
- * **The edges' profiles** (`docs/reference/rising.md#routes-priced`): from the Rise drill's records,
+ * **The edges' profiles**: from the Rise drill's records,
  * both rungs, each body's profile of each edge it was begun on, in the profiles' one type
  * (`src/core/skills/framework/profile.ts`, `assets/core/edge-profiles.json`): one cell, no foe, its trials those
  * that began the edge; the share it took the body to its posture, the mean seconds a trial ran, done

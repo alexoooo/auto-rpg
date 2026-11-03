@@ -8,10 +8,10 @@ import type { Command, DrawnRoute, StrikeChoice, TeamOrder } from "./commands.ts
 import { ARRIVAL, approach, arrived, direction, distance, lyingSince, reportOf, roomy, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamHost, TeamView } from "./team.ts";
 
-/** How far behind the leader an unposted member trails before it walks after it, m: clear of the leader's reach (`docs/reference/play.md#following`). */
+/** How far behind the leader an unposted member trails before it walks after it, m: clear of the 1.8 m the leader attacks from. */
 const TRAIL_METRES = 2.5;
 /**
- * How far a member sees a foe along a clear line, m (`docs/reference/play.md#sight`): the one its
+ * How far a member sees a foe along a clear line, m: the one its
  * order locks, `locked`; one it may pick for itself, `pick`; and how far the one it fights may go
  * before another is picked, `keep`.
  */
@@ -19,20 +19,21 @@ const PARTY_SIGHT = Object.freeze({ locked: 12, pick: 8, keep: 5 });
 /**
  * With the pointer steering its facing, the leader takes on what the pointer points at, and also
  * any foe nearer than `metres` wherever it stands, turning to it for as long as it stays within
- * `keepMetres` (`docs/reference/play.md#targets`).
+ * `keepMetres`: the gap between the two keeps one circling at `metres` from being swapped at every look.
  */
 const SET_UPON = Object.freeze({ metres: 2.5, keepMetres: 3.5 });
-/** The cone about the pointer's direction the leader picks foes from, as the cosine of its half-angle (73 degrees; `docs/reference/play.md#targets`). */
+/** The cone about the pointer's direction the leader picks foes from, as the cosine of its half-angle (73 degrees). */
 const AIM_COSINE = 0.3;
 /**
- * Where several members sent to one floor point stand, m (`docs/reference/play.md#following`): no
- * two slots nearer than `apart`, on eight bearings of each of these rings about the point.
+ * Where several members sent to one floor point stand, m: the point, then eight bearings on each
+ * of these rings about it, no two slots nearer than `apart`.
  */
 const SLOTS = Object.freeze({ apart: 1.3, rings: [1.4, 2.8] });
 /**
- * When a member sent with others to one point stands where it is short of its slot
- * (`docs/reference/play.md#following`): within `metres` of the slot, with a companion already
- * standing within `metres` of it, having come no `headway` m nearer the slot for `seconds` s.
+ * When a member sent with others to one point stands where it is short of its slot: within
+ * `metres` of the slot, with a companion already standing within `metres` of it, having come no
+ * `headway` m nearer the slot for `seconds` s. Slots `SLOTS.apart` apart are narrower than the room
+ * a walker keeps from another body, so a slot behind one stood in is reached only round it.
  */
 const CROWDED = Object.freeze({ metres: 2.5, headway: 0.1, seconds: 3 });
 

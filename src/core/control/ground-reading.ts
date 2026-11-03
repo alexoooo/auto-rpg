@@ -10,7 +10,7 @@ export type Lie = "front" | "back" | "left" | "right";
 
 /**
  * How far the pelvis's forward points up, or down, for the body to be on its back, or its front:
- * its y, of 1 (`docs/reference/rising.md#stages`). Between, it is on a side.
+ * its y, of 1. Between, it is on a side.
  */
 const LIE_UP = 0.5;
 
@@ -71,8 +71,8 @@ const SITTING = 0.15;
 /**
  * Under this share of reference height a body on none of the postures above lies, though its trunk
  * bears nothing: face down on its arms or what it holds, on its side on its upper arm, on its
- * hands and thighs. Lying it is at 0.13 to 0.26; on hands and knees at 0.36 and over
- * (`docs/reference/rising.md#option-minds-rise-on-the-target`).
+ * hands and thighs: a body this low reads as lying. Lying it is at 0.13 to 0.26; on hands and
+ * knees at 0.36 and over.
  */
 const LYING = 0.3;
 /** Six consecutive readings settle a label; physical facts never wait for it. */

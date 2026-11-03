@@ -10,7 +10,11 @@ export type MotionConstraint = readonly {
   readonly angular: Vec3;
 }[];
 
-/** Relative rank tolerance after mass whitening: a numeric setting (`docs/reference/constraint-mass.md`). */
+/**
+ * Relative rank tolerance after mass whitening: a row whose remainder, after the two-pass
+ * modified Gram-Schmidt with pivoting (`constraintBasis`), is under this share of the largest
+ * row's length is dependent.
+ */
 const RANK_TOLERANCE = 1e-10;
 const XYZ: readonly Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 const ZERO: Vec3 = [0, 0, 0];
@@ -49,6 +53,7 @@ export function constraintBasis(rows: readonly (readonly number[])[], tolerance:
  * impulse response is M^-1/2 (E - Q' Q) M^-1/2. No penalty stiffness or artificial mass is added.
  * The caller declares all constraints; absent contacts, limits and motors remain free.
  * `update` freezes one pose and constraint set for subsequent queries, including after release.
+ * A diagnostic: a blow's damage reads `contactMass` instead.
  */
 export function constrainedMass(bodies: readonly ReadSegmentBody[], constraints: () => readonly MotionConstraint[]) {
   const members = [...bodies], index = new Map(members.map((b, i) => [b, i]));

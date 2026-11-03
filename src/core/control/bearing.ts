@@ -586,7 +586,6 @@ export function limbMotion(b: Bearing, work: ServoWork, moved: Uint8Array): void
  * the knee's torque asking for thigh motion it does not get, and the knee drives the foot into
  * the ground. A hip turning faster than its muscles shorten has no strength that way at all.
  * Few swings ask past strength, but those decide a walk.
- * Measured: `docs/reference/stance-tuning.md#bounded-swing`.
  *
  * `accel` is every freedom's acceleration, which this limb's are written into, with its task's.
  */

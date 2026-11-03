@@ -22,7 +22,7 @@
  * mind apart, on that many worker threads (`mindWorkers`, `src/node/minds.ts`).
  *
  * Wall time on the machine it runs on, one row at a time: read it on a quiet one, with the
- * process held to cores of one kind (`docs/reference/play.md`, Hearing in the step, says how). On
+ * process held to cores of one kind (`start /b /wait /high /affinity <mask>` on Windows). On
  * cores of two kinds a step reads several times longer from one second to the next, and the share
  * between the two runs is lost in it.
  */

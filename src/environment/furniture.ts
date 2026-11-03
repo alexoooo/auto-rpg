@@ -1,8 +1,8 @@
 import { cos, sin } from "../core/math/real.ts";
 import type { SolidSense } from "../core/mind/object-senses.ts";
 
-/** Footprints shared by the Crypt kit and its physical furnishings, width, depth and height, m
- * (`docs/reference/look.md#crypt-rooms`). */
+/** Footprints shared by the Crypt kit and its physical furnishings, width, depth and height, m: the drawn
+ * piece and the map's obstacle are one size. */
 export const CRYPT_FURNITURE = {
   tomb: [2.5, 1.15, 1.1], column: [.8, .8, 2.65], altar: [2.4, 1.1, 1.05],
   bench: [1.7, .55, .65], rack: [1.8, .6, 1.9], cluster: [1.8, 1.5, .55],

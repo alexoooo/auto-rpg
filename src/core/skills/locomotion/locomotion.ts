@@ -15,8 +15,8 @@ import type { GaitName } from "./gaits.ts";
 import type { Readiness } from "../framework/action.ts";
 
 /**
- * How far under its reference height a body's centre of mass is held, m: the height every table
- * of the stance's record was measured at (`docs/reference/stance-tuning.md#stance-height`). A
+ * How far under its reference height a body's centre of mass is held, m: the height the stance's
+ * tuned constants (`stance-tuning.ts`) are set at, so a change to it calls for them again. A
  * crouch is beyond the stance: asked 8 cm or more lower, a human settles only about 1 cm lower,
  * and falls walking or stopping from there.
  */
@@ -73,8 +73,7 @@ const stepsOf = (carriage: Carriage, width: number): GaitTuning => {
 /**
  * How long a resumed body's asked height takes to rise from where its centre of mass is to the
  * stance's, s, by a smoothstep: a stance asked its full height at once from a crouch drives the
- * knees straight under a centre of mass that has not come over the feet, and the body falls
- * (`docs/reference/rising.md#the-handover`).
+ * knees straight under a centre of mass that has not come over the feet, and the body falls.
  */
 const RISING_SECONDS = 1.3;
 
@@ -136,8 +135,7 @@ export type Footing = Readonly<Record<Side, readonly [number, number]>>;
 /**
  * **How the feet are placed** (`LegsGoal.footing`): a foot further than `near` (m) from its place
  * steps there, as a walk's step is taken (`STANCE_GAIT`'s swing time and lift, the weight shifted
- * off it first); one step a foot for each footing asked. `near` is set, not measured
- * (`docs/reference/human-and-strikes.md#placing`).
+ * off it first); one step a foot for each footing asked.
  */
 const PLACING = { near: 0.02 } as const;
 
@@ -236,9 +234,9 @@ export const stanceOf = (drive: LegsDrive): StanceGoal | null => drive.kind === 
  *   asked. A heading still to turn at a pace the envelope turns none at is walked no faster
  *   than the fastest pace it turns at (`fastestTurning`), or it would never turn.
  *
- * An optional `turnLimit` also bounds heading speed below the envelope's limit. Without an
- * envelope, the walk is uncapped and the heading follows the intent within that optional limit.
- * The unassisted Warrior calibration is recorded in `docs/reference/combat-locomotion.md`.
+ * An optional `turnLimit` also bounds heading speed below the envelope's limit; it never raises
+ * it. Without an envelope, the walk is uncapped and the heading follows the intent within that
+ * optional limit.
  *
  * Resumed (`Skill.resume`), it stands facing the way the pelvis faces (read from its left-to-right
  * axis, which says it however far forward the pelvis is pitched), with no footing asked, and
@@ -304,7 +302,11 @@ export function validTurnLimit(turnLimit?: number): boolean {
   return turnLimit === undefined || (Number.isFinite(turnLimit) && turnLimit > 0);
 }
 
-/** An optional startup turn ceiling lasts this many seconds of a continuous requested walk. */
+/**
+ * An optional heading-speed ceiling, `limit` rad/s, for the first `seconds` of a continuous asked
+ * walk. Standing, placing a footing, resuming after recovery or a zero-speed ask starts the
+ * interval again. Like `turnLimit`, it only lowers the envelope's turn.
+ */
 export interface TurnStartup { readonly seconds: number; readonly limit: number }
 
 /** A startup interval and ceiling are finite and positive; omitted retains ordinary turning. */
@@ -414,7 +416,12 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     },
   };
 
-  /** Idle settling: spacing about the feet's midpoint, yaw within 0.2 rad; fixed steps aim within 0.05 rad (docs/reference/human-and-strikes.md#idle-settling). */
+  /**
+   * Idle settling: after 0.2 s still on both feet, the reference spacing turned to the pelvis's
+   * facing about the sole that stays (the one nearer the centre of mass of those turned within
+   * 0.2 rad, else the soles' midpoint); off by a quarter sole length or 0.2 rad, the feet step
+   * there, each step aimed within 0.05 rad.
+   */
   function idleGoal(view: BodyView, goal: SidedAsk, dt: number, context?: LocomotionContext): StanceGoal | null {
     const idle = state.idle, s = view.stance;
     const free = idleFooting && state.carriage.width === null && !view.down && context?.idleSettle !== false && goal.footing === undefined

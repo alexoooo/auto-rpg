@@ -15,14 +15,14 @@ export interface SoundCue { key: string; kind: SoundKind | "debris"; strength: n
 /**
  * How loud a touch is: its strength is the square root of its energy over `joules`, J, capped at 1,
  * and one weaker than `floor` makes no sound. `joules` is a hard fall's landing, which a club blow
- * passes, and `floor` between a sole laid down and the quietest footfall (`docs/reference/look.md#sound`).
+ * passes, and `floor` between a sole laid down and the quietest footfall.
  */
 const CUE = Object.freeze({ joules: 60, floor: .0125 });
 
 /**
  * A body's air: none while its fastest point moves at `from`, m/s, or slower, all of it at `full`,
  * and in proportion between. `from` is over the fastest foot of a walk or the Run, and `full` is a
- * club's end in a blow (`docs/reference/look.md#sound`).
+ * club's end in a blow.
  */
 const SWISH = Object.freeze({ from: 5, full: 20 });
 
@@ -34,7 +34,7 @@ const SWISH = Object.freeze({ from: 5, full: 20 });
 const INBOX = Object.freeze({ coalesce: 60, stale: 200, pending: 64, most: 12 });
 
 /**
- * Where a sound sits, set by ear (`docs/reference/look.md#sound`): its pan is how far it is to
+ * Where a sound sits, set by ear: its pan is how far it is to
  * the listener's side over `panMetres`, held within `panMost` either way, and in the crypt its
  * gain falls to nothing at `reach`, m.
  */

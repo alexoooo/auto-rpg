@@ -18,7 +18,10 @@
  * Body frame (+x right, +y up, +z front), metres at the authored size, rounded to 0.1 mm; the spec
  * scales by the fit scale. `node scripts/core/man-envelope.mjs` prints a summary; with `--write` it
  * writes `assets/humanoid/man-contact-geometry.json`.
- * The record: `docs/reference/man-anatomy.md`.
+ *
+ * The hulls are convex, for contact on flat ground: the arch and the gaps between the toes are
+ * bridged. The ball head stands inside the sole's skin, so the cut's mid-height stands in for the
+ * hinge's centre.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -132,8 +135,8 @@ async function foot(side) {
 export async function manContactGeometry() {
   const out = {
     about: "Man's contact geometry from the Warrior's GLB: bare hands and feet, body frame (+x right, +y up, +z front), "
-      + "metres at the authored size, rounded to 0.1 mm. Written by scripts/core/man-envelope.mjs --write; "
-      + "docs/reference/man-anatomy.md is the record.",
+      + "metres at the authored size, rounded to 0.1 mm. Written by scripts/core/man-envelope.mjs --write, "
+      + "whose header gives the rules.",
     model: MODEL, patch: PATCH,
   };
   for (const side of ["left", "right"]) out[side] = { ...await manHand(side), ...await foot(side) };

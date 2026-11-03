@@ -4,8 +4,8 @@ import type { DeLevaSegment } from "./de-leva-1996.ts";
 /**
  * **How stiff each part of a human is under a blunt load**, as the impact literature measured it,
  * by de Leva's segments, each row in its paper's own units. A part no study gives takes a
- * neighbour's under `contact-stiffness-gaps`. The table, what each paper measured and how, its
- * gaps and what the shares do when a value is halved or doubled: `docs/reference/wounds.md#stiffness`.
+ * neighbour's under `contact-stiffness-gaps`. The table, what each paper measured and how, and
+ * its gaps: `docs/reference/wounds.md#stiffness`.
  */
 
 /** The nasal bone under a flat impactor, between 20 and 80 % of its peak force (`cormier-2009`). */

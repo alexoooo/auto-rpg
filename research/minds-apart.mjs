@@ -9,9 +9,8 @@
  *
  * The cases: the crowd fight (`crowdFight`, seed 0) to its verdict; the reference bouts, Option
  * Mind Warriors at seed 0, sword against club and bare hands, to their verdict or `--seconds`; the
- * Crypt at seeds 10 and 25, the hero exploring alone, `--seconds` of it or to its end. The bouts on
- * `rapier-coordinate`, the Crypt on `rapier`, as the lag is read
- * ([step cost](../docs/reference/step-cost.md#lag-behind-real-time)).
+ * Crypt at seeds 10 and 25, the hero exploring alone, `--seconds` of it or to its end. The bouts
+ * run on `BOUT_ENGINE`, the Crypt on `rapier`.
  */
 import { createHash } from "node:crypto";
 import { parseArgs } from "node:util";

@@ -3,7 +3,8 @@
  * Arrays are one-indexed and supplied by the owner; every solve starts cold.
  */
 
-/** Machine-scale zero threshold, a numeric setting (`docs/reference/active-quadratic.md`). */
+/** Machine-scale zero threshold, quadprog's `vsmall`: starts at 1e-60 and doubles until both
+ * `1 + 0.1 * threshold` and `1 + 0.2 * threshold` differ from 1. */
 const calculateMachineEpsilon = () => {
     let epsilon = 1.0e-60;
     let tmpa;

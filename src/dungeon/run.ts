@@ -64,8 +64,7 @@ import { GAME, defaultMind } from "../entrants/game.ts";
  *   `fallEndsFight`); none does today, so a fallen body stays in the fight while it gets up. An eliminated body goes limp:
  *   nothing drives its muscles again, and a step costs it only what the solver takes.
  * - **An enemy is built** once a standing party member comes within `WAKE_METRES` of where it waits,
- *   beyond its sight: a standing body costs a step 0.53 ms of its 8.33
- *   (`docs/reference/play.md#bodies-in-the-step`).
+ *   beyond its sight, and not before: every body built costs each step its control and solve.
  * - **Each body's level** is the core's rule's (`levelsOf`, `LEVELS`): an enemy waiting at its
  *   home with the party far off and nobody walking near is held, fixed where it stands with
  *   nothing driving it, until the party or a walker comes near again; and the dead, once they
@@ -134,14 +133,15 @@ export interface DungeonActor {
 }
 
 /** How near a standing party member comes before an enemy is built: beyond its sight, so it is standing when it can
- * first see (`docs/reference/play.md#sight`). */
+ * first see. */
 export const WAKE_METRES = SIGHT_METRES + 2;
 /**
- * The levels' rule (`levelsOf`; `docs/reference/play.md#levels`): an enemy is let go with a party
+ * The levels' rule (`levelsOf`): an enemy is let go with a party
  * member within `wake`, before it could see one, or a body going somewhere within `company`,
  * before that body could reach it; waiting, it is held with the party beyond `rest` and nobody
  * going anywhere within `clear`. A body out of the fight is held by the last two once it has
- * lain `settle` seconds.
+ * lain `settle` seconds, longer than a fall takes to end. Each pair's gap (`wake` and `rest`,
+ * `company` and `clear`) keeps a body on the line from being held and let go by turns.
  */
 export const LEVELS: LevelRule = Object.freeze({ wake: WAKE_METRES, rest: SIGHT_METRES + 4, company: 4, clear: 5, settle: 10 });
 /**
@@ -150,11 +150,11 @@ export const LEVELS: LevelRule = Object.freeze({ wake: WAKE_METRES, rest: SIGHT_
  * wanted, at the party's walk, so the run builds at most one body a step.
  */
 const AHEAD_METRES = 2;
-/** How near its home an enemy with nothing to do counts as waiting there, m (`docs/reference/play.md#levels`). */
+/** How near its home an enemy with nothing to do counts as waiting there, m. */
 const HOME_METRES = 0.5;
-/** Who sees whom is read every `perceive`, s, and at once after a party member's plan is reset (`docs/reference/play.md#run-timing`). */
+/** Who sees whom is read every `perceive`, s, and at once after a party member's plan is reset. */
 const RUN_TIMING = Object.freeze({ perceive: 0.2 });
-/** How near the exit a standing party member wins the run, m (`docs/reference/play.md#arrival`). */
+/** How near the exit a standing party member wins the run, m. */
 const EXIT_METRES = 1.1;
 /** A run goes on until its party has fallen or one of it stands at the exit. */
 export type RunStatus = "playing" | "won" | "dead";
@@ -310,8 +310,8 @@ export class DungeonRun {
    * Build `actor`'s body where it waits, holding what its model holds, under its mind (the one the run
    * was given for it, `DungeonRunOptions.mind`, else its model's) with
    * the assist its character's balance gives it, and watch its blows with everybody's. The mind
-   * carries out the orders its team's Commander gives it (`delivered`), its target as the foe
-   * (`docs/reference/crypt-foe.md`). Facing remains independent of movement. It is asked only
+   * carries out the orders its team's Commander gives it (`delivered`), its target as the foe.
+   * Facing remains independent of movement. It is asked only
    * while its body is at `full` (`levels`).
    */
   private build(actor: DungeonActor): void {

@@ -7,7 +7,7 @@ import type { FistPose } from "./fist.ts";
  * axes. Fitted on the skin by `scripts/lab/haft-fit.mjs` (its header gives the rule) around
  * the haft where the core's grip puts it (`inHand`, `src/core/human/grip.ts`): each finger wraps
  * it, its phalanges as near it as they lie without sinking in, and the thumb's pad rests on it.
- * One pose for both hands. The fit's gaps: `docs/reference/lab.md#club-grip`.
+ * One pose for both hands; the script prints each finger's gaps to the haft.
  *
  * It is the wooden club's grip (`woodenClub`, an 18 mm haft), not a grip on anything held: the fit
  * reads the haft's radius and place. The skin is a costume; the hand's collision shape and the

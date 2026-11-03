@@ -14,8 +14,7 @@
  * The configuration names its environment's file (`environment`, `research/environments/`: its
  * `kind`, one of `KINDS`, and the kind's settings) and gives `workers`, `each` and `seed`; its other
  * keys override the file's settings. Environment i is seeded `seed + i`. Unset, 8 workers of 4
- * environments, the fastest read on the 16-core development host
- * ([the trainer's speed](../docs/reference/learned-punch.md#the-trainers-speed)).
+ * environments, the fastest on the 16-core development host.
  */
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { createInterface } from 'node:readline';

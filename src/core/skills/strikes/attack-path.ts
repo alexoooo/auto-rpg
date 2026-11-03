@@ -5,17 +5,22 @@ import type { Side } from "../../spec/body.ts";
 /** A blow's path by its shape: what an opening is searched for (`openingSelector`). */
 export type BlowFamily = "straight" | "cross" | "hook" | "downward" | "overhand" | "uppercut";
 
-/** Experimental trajectory search cells and physical gates: `docs/reference/combat-strikes.md#trajectory-settings`. */
-export const ATTACK_PATH = Object.freeze({ chamberSeconds: .22, swingSeconds: .12, returnSeconds: .32,
-  contactSpeed: 5, windup: .12, across: .05, followSeconds: .04, torso: .2,
+/**
+ * **The path a blow is predicted to take** (`attackPathToRef`), which opening selection samples for
+ * a clear lane: from a chamber along the shared quintic Hermite (`pointPathTargetToRef`) to the
+ * target, met at `contactSpeed` m/s.
+ */
+export const ATTACK_PATH = Object.freeze({
+  // The swing's seconds, and the speed asked at contact, m/s.
+  swingSeconds: .12, contactSpeed: 5,
+  // The chamber drawn back from the guard, m; a cross's chamber offset across, m; and its thoracic turn, rad.
+  windup: .12, across: .05, torso: .2,
+  // A hook: its swing's seconds, its lateral curve, m, and the across share of its contact direction.
   hookSeconds: .18, curve: .05, hookAcross: .15,
-  // Vertical chamber measurement: `docs/reference/combat-strikes.md#overhand-settings`.
+  // An overhand's chamber raised above the guard, m.
   overhandWindup: .35,
-  // Upward chamber search: `docs/reference/combat-uppercut.md`.
-  uppercutWindup: .12, uppercutSeconds: .25,
-  // Optional elbow preference: `docs/reference/combat-strikes.md#elbow-extension`.
-  elbowExtension: 0,
-  prepareLimit: .8, returnLimit: 1.2, near: .05, slow: .6, hold: .05 });
+  // An uppercut's chamber dropped behind the guard, m, and its swing's seconds.
+  uppercutWindup: .12, uppercutSeconds: .25 });
 
 type AttackTuning = { readonly [K in keyof typeof ATTACK_PATH]: number };
 

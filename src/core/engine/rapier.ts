@@ -31,7 +31,7 @@ import { turnAboutToRef } from "../math/turn.ts";
  */
 type Rapier = typeof RAPIER;
 
-/** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
+/** The vendored archive's identity (`vendor/rapier/README.md`) and the adapter's snapshot contract. */
 const REVISION = "rapier/adapter-12/sha256:317197f478ddd9b7a09846c1683269ed52d583e91f7f283e009e689e25e75318";
 
 /**
@@ -50,7 +50,7 @@ export function rapierModule(): Promise<Rapier> {
 /** A solver profile: Rapier's coordinate angular limits and per-point contact friction, each off unless named. */
 interface SolverProfile { readonly coordinateAngularLimits?: boolean; readonly pointContactFriction?: boolean }
 
-/** Rapier with immutable limit/friction selection, its WASM loaded once. The measured profiles are in docs/reference/contact-friction.md. */
+/** Rapier with immutable limit/friction selection, its WASM loaded once. */
 export async function loadRapier(profile: SolverProfile = {}): Promise<PhysicsEngine> {
   const { coordinateAngularLimits = false, pointContactFriction = false } = profile;
   const R = await rapierModule();
@@ -198,7 +198,11 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   const contact = (desc: RAPIER.ColliderDesc): RAPIER.ColliderDesc => desc
     .setFriction(CONTACT_FRICTION).setFrictionCombineRule(R.CoefficientCombineRule.Average)
     .setRestitution(0).setRestitutionCombineRule(R.CoefficientCombineRule.Average);
-  /** Pair exclusions are shared by discrete contacts and the continuous sweep. */
+  /**
+   * Pair exclusions are shared by discrete contacts and the continuous sweep: Rapier's sweep
+   * ignores impulse-joint exclusions, so `FILTER_CCD_PAIRS` runs this filter there too. A released
+   * pair stays excluded until no collider pair of the two overlaps, read before each step; no timer.
+   */
   const hooks: RAPIER.PhysicsHooks = {
     filterContactPair(a, b) {
       const first = bodyOf(a), second = bodyOf(b);

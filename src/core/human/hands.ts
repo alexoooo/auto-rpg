@@ -8,7 +8,7 @@ import type { WorkshopModel } from "./rig.ts";
 
 /**
  * **A workshop model's hands**, as `scripts/core/hand-envelope.mjs` measures them from its skin
- * and writes them to `assets/humanoid/<model>-hands.json` (`docs/reference/man-anatomy.md`): each
+ * and writes them to `assets/humanoid/<model>-hands.json` (the script's header gives the rules): each
  * side's open hull and palm centre, and its fist's hull and strike, body frame, authored size.
  */
 interface HandsFile {

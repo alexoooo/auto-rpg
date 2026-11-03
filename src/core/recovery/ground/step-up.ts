@@ -11,9 +11,9 @@ interface StageTiming { readonly scale: number; readonly progress?: NonNullable<
  * before it reads its lie, the stance's climb from where the rise leaves the body to standing
  * height, s, and each of the recipe's stages by name, a roll's stages as `roll <name>`; and, where
  * a body's bearing stages come to rest short of their aims, how long at rest and within how many
- * times their tolerances hands them on (`Recipe.progress`, `docs/reference/rising.md#what-a-bearing-stage-is-done-by`);
+ * times their tolerances hands them on (`Recipe.progress`);
  * and the side a body's roll from its back goes over where it is not the recipe's, and its poses where
- * they are not the game's (`rollOver`, `docs/reference/rising.md#the-roll`).
+ * they are not the game's (`rollOver`).
  */
 interface StepUpTuning {
   readonly settle: { readonly speed: number; readonly seconds: number };
@@ -65,6 +65,7 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
     },
   },
   "workshop-rogue": {
+    // Rolls over its left side, so its right hand, which holds the club, comes over rather than under.
     settle: { speed: .06004, seconds: .05 }, climb: 1.159, rest: { seconds: .3, widen: 2 }, over: "left",
     stages: {
       "roll wind": { scale: .923 },
@@ -100,7 +101,7 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
   },
   "crypt-skeleton": {
     settle: { speed: .1881, seconds: .05626 }, climb: 1.6377,
-    // Its own roll and sit-back, searched on its body (`docs/reference/rising.md#the-roll`).
+    // Its own roll and sit-back, found by CMA-ES on its body (`research/cma.mjs`).
     over: "right",
     roll: {
       wind: { "hip.far flexion": 1.481, "hip.far abduction": .216, "hip.near flexion": -.284, "shoulder.near flexion": 1.632, "shoulder.far flexion": 2.832 },
@@ -147,8 +148,8 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
 
 /**
  * The step-up's tuning for `model`; a model it has none for cannot play it. It is the model's
- * whatever its feet: a toed body plays the flat foot's stages, which stand none of its falls
- * (`docs/reference/toes.md#on-the-game-bodies`).
+ * whatever its feet: a toed body plays the flat foot's stages, which stand none of its falls (a
+ * swung foot hangs its toes at a right angle and lands on end on them).
  */
 export function stepUpTuning(model: string): StepUpTuning {
   if (!Object.hasOwn(STEP_UP, model)) throw new Error(`the step-up has no tuning for ${model}`);

@@ -378,7 +378,11 @@ function limitsOf(kind: Patch["kind"]): number {
   }
 }
 
-/** Where `patch`'s force is given: a sole's middle, a point itself. */
+/**
+ * Where `patch`'s force is given: a sole's middle, a point itself. A joint's share of the patch's
+ * wrench, and its muscles' load, are taken about this place, not about the point whose motion the
+ * controller asks for (`Limb.work.at`).
+ */
 export function patchPlace(patch: Patch): Vector3 {
   switch (patch.kind) {
     case "sole": return patch.middle;

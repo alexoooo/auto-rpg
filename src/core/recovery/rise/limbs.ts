@@ -24,7 +24,7 @@ import type { ReadBody, ReadSegment } from "../../read-body.ts";
  * The time constant, s, at which the freedoms of an end's or a propped limb's chain that take its
  * point's task are drawn toward the posture, within what the task leaves them: shorter than a
  * stage's own, so that a hip carrying a knee keeps the turn the posture gives it while the point
- * holds (`docs/reference/rising.md#stages`).
+ * holds. A foot's chain, whose every freedom takes its task, is not drawn.
  */
 const TAKES_SECONDS = 0.1;
 
@@ -61,8 +61,10 @@ export interface RiseLimbs {
    * `goal` as the task lets them be; and it bears `share` of the load against the other limbs'
    * (`LimbWork.share`). A limb whose point is over the ground bears nothing: its task is the same,
    * which brings the point down onto the ground where it is over it, its muscles kept within their
-   * strength as a free limb's are. During `transfer`, posture redundancy uses the stage's rate
-   * (docs/reference/recovery-transfer.md), letting the root move over the retained supports.
+   * strength as a free limb's are. During `transfer` (a stage that leaves a limb), the chain's
+   * redundant freedoms follow `goal` at the stage's rate rather than their posture rate, letting the
+   * root move over the retained supports; a leaving limb is let go only once the centre of mass is
+   * within the outline of those that stay.
    */
   bear(index: number, goal: ArrayLike<number>, rate: number, ground: number, share: number, transfer?: boolean): boolean;
   /** Limb `index` is not the solve's this step: the servo has its freedoms. */

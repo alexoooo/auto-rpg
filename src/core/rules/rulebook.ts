@@ -65,13 +65,20 @@ export interface Rulebook {
   readonly layers: readonly Layer[];
   /** **The force a point goes in against** past the layers, N, the same in every part (`pointWound`). */
   readonly resistance: Quantity<number>;
-  /** Piercing injury from normal impulse above a load threshold, N and HP/(N s), shared by every surface. */
+  /**
+   * **A pointed surface pressed on a body**, the same for every surface: HP = `rate` × max(0,
+   * impulse − `threshold` × seconds) over a step, N and HP/(N s) (`pointLoadDamage`). A body's
+   * aligned impulses are summed before the threshold, so splitting a press over more points adds
+   * nothing; a held item takes the press without passing it to its holder; the blow is published
+   * as a `load` (`LandedBlow.kind`), with its impulse and duration.
+   */
   readonly pointLoad: { readonly threshold: Quantity<number>; readonly rate: Quantity<number> };
   /**
    * **What a per cent of balance is** (`AttributeSpec.balance`): the most an assist gives a
    * body for each per cent, a force in the body's own weights, which is a hundredth by the
-   * meaning of a per cent, and the moment that goes with it, in its weights times a metre. What
-   * each does to how bouts end: `docs/reference/assist.md`.
+   * meaning of a per cent, and the moment that goes with it, in its weights times a metre. Both
+   * are ceilings on what the assist gives through the solver step (`Assist`), not an impulse
+   * before it.
    */
   readonly balance: { readonly force: Quantity<number>; readonly moment: Quantity<number> };
   /**

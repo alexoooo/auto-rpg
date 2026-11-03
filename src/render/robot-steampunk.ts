@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { local, type RobotDesign } from "./robot-geometry.ts";
 
-/** Copper pressure vessels, brass fittings and iron mechanisms (docs/art/robots.md#steampunk). */
+/** Copper pressure vessels, brass fittings and iron mechanisms. */
 export const steampunkRobot: RobotDesign = {
   palette: {
     frame: { colour: "#272b29", metallic: .68, roughness: .54 },

@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { local, type RobotDesign } from "./robot-geometry.ts";
 
-/** Swept ceramic armour over a graphite chassis (docs/art/robots.md#futuristic). */
+/** Swept ceramic armour over a graphite chassis. */
 export const futuristicRobot: RobotDesign = {
   palette: {
     frame: { colour: "#17222e", metallic: .42, roughness: .43 },

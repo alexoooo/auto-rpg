@@ -15,8 +15,10 @@
  *
  *   node research/run-cycle.mjs <clip.bvh>[@rate] [...] [--cutoff 8] [--out assets/core/run-cycle.json]
  *
- * The clips are the CMU Graphics Lab's (mocap.cs.cmu.edu) in cgspeed's BVH conversion; they stay
- * outside the repository, and only this table of them is committed.
+ * The clips are the CMU Graphics Lab's (mocap.cs.cmu.edu), which places no restriction on use, in
+ * cgspeed's BVH conversion (github.com/Shriinivas/cmubvh), which adds none: 16_35, 16_45 and
+ * 102_05. They stay outside the repository as untrusted data, and only this table of them is
+ * committed.
  */
 import { writeFileSync } from "node:fs";
 import { basename } from "node:path";

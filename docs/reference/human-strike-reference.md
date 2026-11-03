@@ -1,7 +1,8 @@
 # Human striking biomechanics: reference values for calibrating a simulated fighter
 
 What the literature measured of human strikes, segments, joint torques and ranges, and what the
-core human is built from: sections 1 to 7 are the literature, section 8 the workshop models'
+core human is built from: sections 1 to 6 are the literature (the strike bars, `BAR` in
+`src/evaluation/strike/read.ts`; torques; segments), section 8 the workshop models'
 stature and volume (`src/core/sources.ts`), section 9 the core human's joint ranges and strengths
 (`src/core/human/muscle.ts`, `tables/`).
 
@@ -52,7 +53,7 @@ Peer-reviewed data are thin; most figures are from practitioners.
 | Best peer-reviewed proxy | One-handed 1 kg, 0.65 m rod: 23.9 m/s at the tip (lay men) | -- | Muggenthaler 2018 (row 2) |
 | Kendo (shinai) speed | Not found | Not found | gap |
 
-- **The cut's bar: the rod's tip less one SD** (**derived**, the SD the owner's decision):
+- **The cut's bar: the rod's tip less one SD** (**derived**, the SD read from a range):
   Muggenthaler 2018 gives means only (the full text is behind a paywall), and its sister study
   (Trinh 2018, the same rods and lab) a range, men 14.0 to 35.5 m/s over every rod's mass and
   length. The SD is that range over 4, (35.5 - 14.0) / 4 = 5.4 m/s, as a range gives the stomp's
@@ -99,25 +100,6 @@ hilt's accelerometer. The table gives the mean, the 95th percentile and the maxi
   contact (`Bar.foot`, `src/evaluation/strike/read.ts`). Schirmer's force is not read: the rules
   price a contact's energy, not a plate's peak.
 
-## 4. Kinematic chain: peak angular velocities and trunk rotation
-
-| Quantity | Typical | Elite | Source |
-|---|---|---|---|
-| Pelvis axial rotation, baseball swing | -- | 12.5 rad/s (714 deg/s; professional hitters) | Welch et al. 1995 (row 2) |
-| Upper trunk ("shoulders") axial rotation, baseball swing | -- | 16.4 rad/s (937 deg/s) | Welch et al. 1995 |
-| Pelvis rotation, pitching | High school: 9.7-11.8 rad/s (558-674 deg/s; n = 130) | Professional: 10.9-12.5 rad/s (622-717; n = 288). Slower vs faster pro groups: 10.4 ± 1.2 vs 12.4 ± 1.5 rad/s (598 vs 712 deg/s) | Manzi et al. 2023, https://pmc.ncbi.nlm.nih.gov/articles/PMC10601404/ ; Manzi et al. 2026 (n = 338), https://pmc.ncbi.nlm.nih.gov/articles/PMC13389609/ |
-| Upper trunk rotation, pitching | High school: 9.5-11.4 rad/s (546-653 deg/s) | Professional: 12.4-13.3 rad/s (711-761). Slower vs faster: 11.0 vs 14.2 rad/s (629 vs 811). Older papers using other trunk definitions report ~19-21 rad/s (1100-1200 deg/s) | Manzi 2023; Manzi 2026 |
-| Shoulder internal rotation, pitching | High school: 95-103 rad/s (5474-5884 deg/s) | Professional: 95-107 rad/s (5456-6149). Slower vs faster: 90 vs 112 rad/s | Manzi 2023; Manzi 2026 |
-| Elbow extension, pitching | High school: 36-38 rad/s (2068-2172 deg/s) | Professional: 38-42 rad/s (2191-2403) | Manzi 2023 |
-| Forearm pronation, pitching | -- | Slower vs faster pros: 11.7 vs 17.4 rad/s (669 vs 998 deg/s) | Manzi 2026 |
-| Elbow extension, straight punch | Professional heavyweight: 22.0 ± 5.6 rad/s (1261 ± 320 deg/s) | 41.2 ± 9.4 rad/s (2363 ± 536 deg/s; range 31-61; 8 elite amateurs) | Whiting et al. 1988, via Cheraghi et al. 2014 (row 1) |
-| Hip / trunk rotation, straight punch | Hip 1.8 ± 0.9 rad/s (103 deg/s) in a straight right; ASIS travels 0.28 m forward while the fist covers 0.655 m in 0.31 s | Trunk peak: lead straight 3.8 ± 0.6 rad/s (220 deg/s), rear 4.7 ± 1.2 rad/s (270); trunk range of motion 43 ± 8 deg (lead) and 73 ± 8 deg (rear) | Cheraghi et al. 2014; Wan & Liu 2026 (row 1) |
-| Golf: pelvis rotation velocity | Low ball-speed recreational group: 6.2 ± 1.0 rad/s (358 deg/s; n = 21, ball 55.7 m/s) | High group: 7.6 ± 1.6 rad/s (434; n = 14, ball 75.4 m/s). 13 golfers: 8.4 ± 1.4 (480) | Myers et al. 2008, J Sports Sci 26:181, https://exss.unc.edu/wp-content/uploads/sites/779/2013/01/Myers_jss_2008.pdf ; Marsan et al. 2019, Acta Bioeng Biomech (abstract snippet) |
-| Golf: upper torso rotation velocity | 10.3 ± 1.2 rad/s (591 deg/s) | 13.4 ± 1.3 rad/s (767); 10.6 (605) in Marsan; lead arm 22.9 rad/s (1310) | Myers 2008; Marsan 2019 |
-| Golf: torso-pelvis separation velocity | ~4.9 rad/s (~278 deg/s) | ~6.8 rad/s (~390 deg/s) | Myers 2008 |
-| X-factor (torso-pelvis separation) at the top of the backswing | 44 ± 8 deg (low group); maximum 46 ± 8 deg. 49 ± 12 deg (n = 308, handicap 8.4) | 59 ± 8 deg; maximum 62 ± 8 deg (high group) | Myers 2008; Chu, Sell & Lephart 2010, J Sports Sci 28:1251 |
-| Total upper-torso rotation relative to the target line (feet fixed) at the top | 94 ± 14 deg (pelvis 50 deg) | 104 ± 10 deg; maximum 106 deg (pelvis 45 deg). n = 308 mean 98 ± 14 deg | Myers 2008; Chu 2010 |
-
 ## 5. Maximal joint torques
 
 | Joint action | Typical (untrained men) | Strong / trained | Source |
@@ -161,18 +143,6 @@ Useful sums at 80 kg:
 - Arm from shoulder to wrist ~0.56 m; to the knuckles ~0.65 m.
 - De Leva's trunk mass is lower than Dempster's because de Leva moves mass into the head and thigh through different segment boundaries. Use one set consistently.
 
-## 7. Proportional contributions of legs and trunk vs arm
-
-| Measure | Typical / novice | Elite / advanced | Source |
-|---|---|---|---|
-| Contributions to rear-hand straight punch force | Legs contribute 16.5 % in novices and 32.2 % in intermediates (snippet-level; primary not seen) | Rear-leg drive 38.5 %, trunk rotation 37.4 %, arm extension 24.1 % (advanced boxers). Legs 38.6 % in experienced boxers | Filimonov et al. 1985, Soviet Sports Review, cited in Lenetsky, Harris & Brughelli 2013, Strength Cond J, https://www.ovid.com/jnls/nsca-scj/fulltext/10.1519/ssc.0b013e31828b6c12 and in https://sas.blogs.lincoln.ac.uk/2023/03/07/a-biomechanical-perspective-on-increasing-rear-hand-straight-punch-performance/ |
-| Contributions to wrist velocity, cross (velocity projection) | Juniors: elbow 27.1 %, shoulder 29.1 %, trunk 16.0 % | Elite: elbow 39.2 %, shoulder 15.6 %, trunk 6.7 % | Dinu & Louis 2020 (row 1) |
-| Contributions, hook | Shoulder 71.0 %, pelvis -0.6 % | Shoulder 50.1 %, pelvis 3.0 % | Dinu & Louis 2020 |
-| Contributions, uppercut | Shoulder 67.3 % | Shoulder 54.8 % | Dinu & Louis 2020 |
-| Contributions to racket-head speed, tennis serve (31 m/s) | -- | Upper-arm internal rotation 54.2 %, hand flexion 31.0 %, horizontal flexion/abduction 12.9 %, shoulder linear velocity 9.7 % (n = 11 high-performance players) | Elliott, Marshall & Noffal 1995, J Appl Biomech 11:433, https://journals.humankinetics.com/view/journals/jab/11/4/article-p433.xml |
-| Golf: what predicts club and ball speed | Pelvis rotation velocity alone does not separate groups | Torso-pelvis separation (X-factor) and upper-torso rotation velocity correlate with ball velocity | Myers et al. 2008 |
-| Ground reaction force | -- | Lead-foot force 123 % of body weight in pro hitters; lead-leg ground reaction force correlates with punch hand velocity | Welch et al. 1995; Stanley et al. 2018 (as reported in reviews) |
-
 ## 8. The workshop models
 
 Measurements of this repository's assets for the core's human spec (`src/core/human/`).
@@ -187,14 +157,13 @@ Warrior's file, `/accessors/220/max/1` in the Rogue's).
 | Warrior (`workshop-fighter`) | 1.8805 m | 1.770 m |
 | Rogue (`workshop-rogue`) | 1.7305 m | 1.629 m |
 
-x1 is the owner's typical adult: 1.77 m and 79 kg for a man. The Rogue takes the Warrior's
-factor, so she keeps her size against him.
+x1 is a typical adult (`owner-typical-adult` in `SOURCES`): 1.77 m and 79 kg for a man. The
+Rogue takes the Warrior's factor, so she keeps her size against him.
 
 **Volume.** Each model's skin, feet, jacket, trousers, collar and belt were closed by voxel flood
 fill in the bind pose and extrapolated to a zero voxel from grids of 4.5 to 8 mm (a finer grid
-leaks through a seam). The flood fill's script was not committed (`f9ff0e90`), and no test
-measures a volume again. What is enclosed, and what is not outside, bracket the volume (litres, at
-the authored size):
+leaks through a seam). What is enclosed, and what is not outside, bracket the volume (litres, at
+the authored size); the taken value is `VOLUME` in `src/core/human/model.ts`:
 
 | Model | Enclosed | Not outside | Taken |
 |---|---|---|---|
@@ -208,9 +177,8 @@ the same density.
 ## 9. Joint ranges and strengths for the core human
 
 For the core's human joints (`src/core/human/joints.ts`, `muscle.ts` and `tables/`). Every figure
-here is from Node on the spec alone (no engine), unless it says otherwise. Tables 9.2 and 9.4 were
-printed from `humanSpec` (`src/core/human/spec.ts`) at `1e7bc4f2`, not retyped; the script that
-printed them, and the one that weighed 9.1's three rules, were not committed.
+here is from Node on the spec alone (no engine), unless it says otherwise. The Warrior's and
+Rogue's columns of tables 9.2 and 9.4 are what `modelSpec` (`src/core/models.ts`) builds.
 
 ### 9.1 A model's torque comes from its muscle
 
@@ -447,31 +415,13 @@ goniometer's zero.
 3. **"Peak" and "at impact" speeds differ**: straight punches often slow before contact (7.2 m/s
    peak, 5.6 at contact; Front Physiol 2022). Untrained and elite straight-punch speeds overlap
    (8.0 vs 8.1-9.1 m/s); skill shows in effective mass, force and hook and uppercut speed.
-4. **Impulse figures are uncertain**: Walilko's (~25 N s) is read from a misaligned PDF table;
-   Front Physiol 2022 prints "N·ms", almost certainly N s.
-5. **Trunk angular-velocity definitions conflict**: newer pitching studies give upper-trunk peaks
-   of ~11-14 rad/s, older ones ~19-21 rad/s on another axis and segment. Boxing trunk peaks are
-   4-5 rad/s, a short partial rotation (40-75 deg); throwing or swinging trunk speeds do not
-   transfer to a punch.
-6. **Sword data are mostly not peer-reviewed**: the one controlled study is a high-school-journal
+4. **Sword data are mostly not peer-reviewed**: the one controlled study is a high-school-journal
    saber study with n = 3 a group. The best peer-reviewed proxy is the forensic 1 kg, 0.65 m rod:
    24 m/s one-handed for lay men, about 95 J derived. A cut of ~15-25 m/s at the centre of
    percussion with 60-130 J is consistent across sources but has no statistical weight.
-7. **The bat is a two-handed ceiling**: 0.8-0.9 kg bats reach ~30-32 m/s at the sweet spot for
+5. **The bat is a two-handed ceiling**: 0.8-0.9 kg bats reach ~30-32 m/s at the sweet spot for
    college and professional players, ~36-40 m/s for lighter, longer slow-pitch bats, and speed
    depends only weakly on inertia (exponent ~0.1-0.3). Lay one-handed rod strikes (14-36 m/s) are
    the nearest data for untrained swings.
-8. **Torques are isometric or isokinetic, angle- and cohort-specific.** Isokinetic values fall
-   with test speed (Abdelraouf at 120 deg/s is under Holzbaur's isometric); Harbo's cohort spans
-   ages 15-83; wrist values vary twofold with posture and fixation. A strike is a fast concentric
-   action, so usable torque at 10-40 rad/s is well below these static maxima.
-9. **Contribution percentages are method-dependent**: Filimonov's 38/37/24 % split is a 1985
-   Soviet source known only through citations; velocity-projection methods (Dinu & Louis) credit
-   the distal joints more. Both find skilled strikers get more from proximal segments and a rigid
-   distal chain.
-10. **Derived values** assume textbook models (a point effective mass for the fist, a uniform rod
-    about its end for a stick): order-of-magnitude checks.
-11. **Not found**: kendo shinai speed; truly untrained bat speed; elite one-handed club or baton
-    speed; shoulder horizontal adduction torque; elite shoulder internal rotation, pronation and
-    supination torque; trunk rotation torque in athletes; the numbers behind Filimonov's novice
-    and intermediate leg shares.
+6. **Derived values** assume textbook models (a point effective mass for the fist, a uniform rod
+   about its end for a stick): order-of-magnitude checks.

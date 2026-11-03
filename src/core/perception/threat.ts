@@ -14,7 +14,7 @@ import { lieBy, type Position } from "../control/ground-reading.ts";
 
 /**
  * **What counts as a threat**: a foe's striking point within `within` m of the head and closing
- * on it at over `closing` m/s. Set: `docs/reference/blows.md#threat`.
+ * on it at over `closing` m/s.
  */
 export const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
 
@@ -25,7 +25,6 @@ export const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
  * holds it, which a blow with it turns about, and not a hand that holds nothing, which comes
  * nearer while the weapon is drawn back; read where it is now, carried on from where the senses
  * show it (`lead`): 2 m, an arm and a short blade with a step to spare.
- * Set: `docs/reference/blows.md#a-shields-ward`.
  */
 const WARD: Threat = Object.freeze({ within: 2, closing: -Infinity });
 
@@ -217,8 +216,12 @@ function axisPoint(from: { readonly x: number; readonly y: number; readonly z: n
   return [from.x + t * ax, from.y + t * ay, from.z + t * az];
 }
 
-/** Predictive defense search cells, the reference cover's plane among them: `docs/reference/combat-defense.md#settings`. */
-const DEFENSE = Object.freeze({ out: .3, horizon: .3, speed: 3, reserve: .08, minimum: .05 });
+/**
+ * **Predictive cover** (`incomingThreat`): a striking point counts when its sensed ray, closing on
+ * the guarded point, enters `out` m of it within `horizon` s; the cover is asked to be in place in
+ * that time, never under `minimum` s. Planning inputs only: physics decides what is blocked.
+ */
+const DEFENSE = Object.freeze({ out: .3, horizon: .3, minimum: .05 });
 
 /** Detached constant-motion threat, corrected for sample age and the guarded point's own motion. */
 function incomingThreat(view: BodyView, ownVelocity: Vec3, { point, velocity, lever }: ThreatWork, counts: Threat = THREAT) {

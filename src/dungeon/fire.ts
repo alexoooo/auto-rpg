@@ -8,7 +8,7 @@ import { cutAway } from "./fog.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./bearing.ts";
 import type { Point } from "./map.ts";
 
-/** A small world-aligned volume above the basket, m (`docs/reference/look.md#crypt-light`). */
+/** A small world-aligned volume above the basket, m, set by eye. */
 export const FLAME_VOLUME = Object.freeze({ width: .48, height: .82, depth: .48 });
 
 Effect.ShadersStore.dungeonFireVertexShader = `precision highp float;

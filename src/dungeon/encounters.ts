@@ -9,7 +9,7 @@ const ENCOUNTERS = Object.freeze({ pack: 3, spacing: 2, doorMargin: 1 });
 /** The models a generated level's encounters field, by turn: skeleton rooms and reptile packs. */
 export const ENCOUNTER_MODELS: readonly BodyModel[] = Object.freeze(["crypt-skeleton", "reptile"]);
 
-/** The crypt's initial sight separation in `docs/reference/play.md#the-crypt`. */
+/** Whether `point` is far enough from the party's start for an enemy to begin there: more than 15 m. */
 export function outsidePartyStart(map: DungeonMap, point: Point): boolean { return distance(point, map.start) > 15; }
 
 /** Candidate selection includes encounter feasibility, before a generated run receives the map. */

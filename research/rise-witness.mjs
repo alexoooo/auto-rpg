@@ -1,7 +1,7 @@
 /**
  * **Whether a fast rise exists on the body as built**: a search for one witness, a trajectory from a
  * placed start at rest to verified standing (`STAND_CHECK`) within the target's allowance
- * (`docs/reference/rising.md#the-budget`). Node stand, core world, Rapier, 120 Hz, calm, no assist.
+ * (`docs/reference/rising.md#the-owners-target`). Node stand, core world, Rapier, 120 Hz, calm, no assist.
  *
  * A candidate is a move's phases, each held for its duration, then the body steadied by the stance
  * as Stand up's steady steadies it (`standUp`, `src/core/recovery/ground/stand-up.ts`) and handed back

@@ -12,7 +12,13 @@ import { toesShape, type Rigid } from "./rigid.ts";
  * front edge, the ball. They lie along the ground as the foot tips heel up over them, from flat
  * (the foot flat) to a right angle (the foot on end), as toes bend under a foot; the foot's box
  * never changes. They are a contact region of the foot (`regionsOf`, `rigid.ts`) and carry no mass:
- * the foot's mass properties are its spec's. Measured: `docs/reference/toes.md`.
+ * the foot's mass properties are its spec's. The slab is the box's width, `length` ahead of the
+ * ball and `thickness` up from the sole, no longer than the box is high.
+ *
+ * The stance reads a sole from the heel to the toes' tips while those tips, read rigid with the
+ * foot, are within `DOWN` of the ground, and from the heel to the ball when bent further
+ * (`soleCorners`, `fitSole`, `src/core/control/support.ts`); a foot standing flat reads as the
+ * whole foot. Drawing and contact tracking read the segment's rigid body, which follows the bend.
  */
 
 /** A foot's toes now, plain data in its body's state: their bend from flat toward the foot's top, rad, a whole number of `TOE_STEP`s. */
@@ -23,7 +29,8 @@ export const flatToes = (): ToesState => ({ bend: 0 });
 
 /**
  * The step the toes' bend is taken in, rad: each change of it restarts their contacts, and each
- * step's shapes are made once (`docs/reference/toes.md#toe_step`).
+ * step's shapes are made once. Solver bookkeeping, not anatomy: small enough that the slab lies
+ * along the ground, large enough that a foot at rest does not rebuild its toes every step.
  */
 const TOE_STEP = 0.02;
 

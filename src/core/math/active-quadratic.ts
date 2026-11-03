@@ -8,9 +8,9 @@ interface Settings {
 }
 
 /**
- * Cold-start dual active-set solve for a strictly convex quadratic task. The same two-sided
- * contract as the ADMM component leaves solver choice outside a policy's action interface.
- * Work arrays are made once. The kernel has a deterministic work budget; reports distinguish
+ * Cold-start dual active-set (Goldfarb–Idnani) solve for a strictly convex quadratic task,
+ * `min 0.5 x' H x + g' x` subject to `lower <= A x <= upper`: H must be positive definite, and a
+ * two-sided row enters the kernel as its two finite inequalities. Work arrays are made once. The kernel has a deterministic work budget; reports distinguish
  * its failure modes and independently check primal, dual and complementarity residuals.
  * Returned candidates alias explicit state. A failed report is not an admissible action.
  */

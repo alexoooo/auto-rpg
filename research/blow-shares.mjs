@@ -3,10 +3,11 @@
  *
  *   node research/blow-shares.mjs
  *
- * It prints the tables of `docs/reference/wounds.md`:
+ * It prints:
  * - each row's stiffness under a blunt load (`CONTACT_STIFFNESS`), N/mm, and the sources its
- *   provenance names;
- * - the share each of two surfaces takes where they meet (`energyShares`);
+ *   provenance names (`docs/reference/wounds.md#stiffness`);
+ * - the share each of two surfaces takes where they meet (`energyShares`,
+ *   `docs/reference/wounds.md#shares`);
  * - the same with one surface half and twice as stiff as it is;
  * - the energy a blow must bring to each part of each body, as that surface's share, at the
  *   rulebook's unit: to spend the body's life (its hit points over the part's cost in life,

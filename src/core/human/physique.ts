@@ -17,8 +17,10 @@ import { SIDES } from "./landmarks.ts";
  * - `speed`: every muscle's unloaded speed of shortening.
  *
  * Factors are positive; geometric clearance limits which combinations fit a body. Past about
- * x1.3 of weight, the workshop models' nonadjacent segments meet in the reference pose
- * (`docs/reference/competencies.md#physiques`); the shared character resolver refuses intersections.
+ * x1.3 of weight, the workshop models' nonadjacent segments (the upper arms and the middle trunk)
+ * meet in the reference pose, where the engine would fling them apart; a thigh broadens no
+ * further than leaves the stride's room (`STRIDE_ROOM`) and grows denser instead. The shared
+ * character resolver refuses intersections.
  */
 export interface Physique {
   readonly size?: number;

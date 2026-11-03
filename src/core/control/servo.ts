@@ -43,7 +43,7 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * `servo` takes the root to be held; `servoSolve` with the root's acceleration carries it. What is
  * left out leaves the motion off the damped one it asks for, alike at every rate, and the goal's
  * error takes it up. A held freedom settles to within a few 1e-4 rad of its goal, and a time
- * constant as short as two steps does not ring (`docs/reference/servo-and-muscle.md#holding-a-pose`).
+ * constant as short as two steps does not ring (`SERVO_SECONDS`).
  *
  * A goal that leaves a channel be (returns undefined) has set that channel's command before it
  * returns: the servo reads the command then, as the torque it solves around. A goal that moves

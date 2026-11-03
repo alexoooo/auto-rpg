@@ -10,7 +10,7 @@ import type { BodySpec, ForceVelocitySpec, MuscleSpec, Side } from "../spec/body
 
 /**
  * **The crypt skeleton as a human figure, fitted to its bones.** Its art is Blender Studio's
- * realistic human skeleton (`public/assets/skeleton/README.md`), whose pieces ride the parts whose
+ * realistic human skeleton (`docs/art/skeleton.md#source-and-licence`), whose pieces ride the parts whose
  * places `assets/skeleton/bind.json` holds (the fist build: each part's position and turn, body
  * frame at x1, and its box in its own frame). Its reference pose is that bind: standing, the
  * elbows bent at a right angle with the forearms forward and the fists thumb up, so each piece of
@@ -25,7 +25,7 @@ import type { BodySpec, ForceVelocitySpec, MuscleSpec, Side } from "../spec/body
  *   the head box's top the vertex. The trunk is divided at de Leva's trunk landmarks.
  * - **The body is its bones** (`skeleton-bones`, `scripts/skeleton/bone-fit.mjs`): each segment's
  *   centre of mass and inertia are its bones' solid's (`HumanFigure.fitted`), with men's share of
- *   the mass, which the walk carries (`docs/art/skeleton.md#the-body-fitted-to-the-bones`); its
+ *   the mass, which the walk carries; its
  *   collider the low-polygon hull of its bones (the trunk's the ribcage with the
  *   shoulder girdle, the lumbar spine and the pelvis; the head's the skull and the neck), but a
  *   shank, a capsule as wide as its bones (`HULLED`); a foot the box on its bones, running from
@@ -202,8 +202,7 @@ const MOTOR_CURVATURE = sourced(1000, "1", "owner-skeleton-motor", "the motor's 
 const MOTOR_ECCENTRIC_CEILING = sourced(1, "1", "owner-skeleton-motor", "no more torque turned back than at rest");
 /**
  * The arms' motors (the shoulders' and the elbows') run this many times the unloaded speed of the
- * peak-power line, so its straight punch reaches its bar (`owner-skeleton-arms`,
- * `docs/art/skeleton.md#the-arms-speed`).
+ * peak-power line, so its straight punch reaches its bar (`owner-skeleton-arms`).
  */
 const ARM_MOTOR_SPEED = sourced(2, "1", "owner-skeleton-arms", "the arms' motors' unloaded speed over the peak-power line's");
 /** Whether `joint` is an arm's, its motor run at `ARM_MOTOR_SPEED`. */

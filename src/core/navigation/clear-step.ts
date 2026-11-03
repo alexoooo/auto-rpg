@@ -168,7 +168,11 @@ function clearSweep(w: Float64Array, fx: number, fy: number, fz: number, tx: num
   return true;
 }
 
-/** Conservative swept-body clearance against rotated boxes and hull world bounds; floor is below the sweep. */
+/**
+ * Conservative swept-body clearance against rotated boxes and hull world bounds; floor is below the
+ * sweep. A body already inside the margin may move out of it. It is a necessary check on a step,
+ * not a plan of the physics to come.
+ */
 export function clearStep(from: Vec3, to: Vec3, radius: number, solids: readonly SolidSense[]): boolean {
   if (!(radius >= 0) || !Number.isFinite(radius)) throw new Error("invalid body clearance radius");
   return clearSweep(new Float64Array(SWEEP), from[0], from[1], from[2], to[0], to[1], to[2], radius, solids);

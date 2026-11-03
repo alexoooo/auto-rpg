@@ -79,11 +79,11 @@ export function fogSample(map: DungeonMap, mask: Uint8Array, x: number, z: numbe
   return { drawn, lit: t * t * (3 - 2 * t), edge:edgeT*edgeT*(3-2*edgeT) };
 }
 
-/** How tall a wall stands, m, its collider and its drawn skin alike (`docs/reference/look.md#crypt-stone`). */
+/** How tall a wall stands, m, its collider and its drawn skin alike. */
 export const WALL_HEIGHT = 2.8;
 
 /**
- * How a wall between the hero and the camera ghosts away, set by eye (`docs/reference/look.md#crypt-fog`). The shader drops a share of a wall's pixels
+ * How a wall between the hero and the camera ghosts away, set by eye. The shader drops a share of a wall's pixels
  * by a 4x4 ordered dither; the share is greatest where the wall covers the hero's body on screen and falls smoothly
  * to none at the rim of an oval around it, so the opening has no edge. The bubble shows the hero and a bit of the
  * room around them and reads plainly as see-through, so it is wide and most of its radius is the fade. Its heart

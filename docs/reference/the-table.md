@@ -1,64 +1,26 @@
 # The table
 
-Option Mind on every body, loadout and skill against its bar
-([the plan](../plans/2026-11-03-options-training.md#3-the-table)), first read at `91983216`:
-**88 cells, 6 met, 82 short**. `npm run evaluate -- table --play --workers 22`, every reading
-played and written (`assets/evaluations/*/2026-11-01-91983216-*.jsonl`); Node, core world,
-`rapier-coordinate`, 120 Hz, command delay 0. The met cells: the Warrior's walk holding the club
-and buckler, the sword, and the sword and buckler; the Rogue's walk with the sword and buckler; the
-Rogue's stomp with empty hands and with the sword and buckler. No cell is accepted by the owner.
+Option Mind on every body, loadout and skill against its bar (`src/evaluation/table/`): 88 cells,
+each judged by its drills' readings (`verdictOf`). `npm run evaluate -- table --play --workers 22`
+plays every reading not current and writes it; Node, core world, `rapier-coordinate`, 120 Hz,
+command delay 0. Each reading links its Ratings page.
 
-## What falls short, by cause
+## Open causes
 
-- **Skills with no record for the body** (`usableSkills` leaves them out; the drill counts every
-  trial refused): the Skeleton's one strike is a stomp seeded from the Warrior's, which lands on
-  nothing yet (no punch, club, cut or thrust is tuned for `crypt-skeleton+toes`); the Rogue has the punch and the stomp
-  (no club, cut or thrust). Option Mind does not refuse the Rogue's punch: it throws it on the
-  still rung, 30 of 32, 8 at her bar ([the learned punch](learned-punch.md)).
-  The Skeleton's "no such choice on its menu" is the drill Commander finding no punch in its kit.
-- **Blows thrown but weak or elsewhere**: the Warrior's punch from a walk (52 of 64; still, 31 of
-  32 meets its rung), the club (6 and 12 of 16), the cut and the thrust (none of 7 to 32); in every
-  fight rung but the punch's no blow meets the foe's body past its arms (0 on the body); the
-  Rogue's punch lands 2 of 8 middle-mark moments:
-  the Warrior's punch meets it 3 times of 8 middle-mark moments, all weak, crowded inside the
-  window or grazing, since the drill carries on the mind's own blow and the punch begins only
-  standing quiet ([the learned punch](learned-punch.md#fine-tuned-on-option-mind)).
-- **The run**: no cell meets it. On toes the run gait is held to its envelope, about 0.7 m/s forward
-  ([toes](toes.md#on-the-game-bodies)), so the held run cannot reach 3 m/s; the Rogue falls in 24
-  to 28 of its 32 run trials with empty hands or the sword.
-- **Stand-up speed** (read again at `e8d6c775`): the Warrior stands 78 of its 80 falls but slowly
-  (0 to 3 of 16 within 6 s a group, medians 8.7 to 10.7 s); the Rogue, her elbows extending at twice
-  their measured peak ([her arms](rising.md#the-rogues-arms)), stands 15 of 16 empty (median 13.6 s),
-  11 with the club, 14 with the sword, and 9 and 11 of 16 holding the buckler with the club and the
-  sword; none within 6 s. Faster stage settings gain on one set of falls and lose on the next
-  ([tried](rising.md#tried-and-not-kept)).
-- **The Skeleton's rise** (read again at `e8d6c775`): it rolls and sits back by its own poses and
-  times ([the roll](rising.md#the-roll)) and stands 13 of 15 falls empty-handed, 6 and 3 of 14 with
-  the sword and with the sword and buckler, 1 of 15 with the buckler and the club and none with the
-  club alone. With the club its tuck now stays square ([the tuck's righting](rising.md#the-tucks-righting),
-  at `9c26cf77`, 14 of 15 empty-handed) and its sit-backs reach the steady, which fails under the
-  club's mass; its roll from the back stalls with the club's arm coming across.
-- **The Skeleton's walk**: shoved by its share of the Warrior's impulses (`shoveOf`, the same
-  change of speed: 0.19 of his 30, 45 and 60 N s on its 15 kg) and blown by its share of the lab's
-  gusts (`labGusts`, 8.5 N), it meets the walk's bar holding the buckler and the club and holding
-  the buckler and the sword. Holding the club alone it falls in 7 of 47 trials (`629f7c3b`): 6 of
-  its 24 standing shoves (8.5 and 11.4 N s, aside and back-aside) and a walk in the gusts. Its
-  catch lands short: the body rolls on over the catching foot, the other foot lifts, the catching
-  foot pushes the centre of mass up off the ground and no second step is in time. Empty-handed it
-  falls in the run and a shove (11.4 N s), and with the sword in a walking turn; these trials fall
-  or stand by small changes to the legs.
-- **The buckler's cover**: it meets 1 to 20 of 13 to 30 blows first, 6 to 67 %, against 80 %; the
-  Skeleton falls in 2 to 3 of 6 trials.
-- **The walk** (read again at `629f7c3b`, `assets/evaluations/locomotion/2026-11-02T055158-629f7c3b-ab1210ec.jsonl`):
-  11 falls of 705 trials, 11 of the 15 cells met. A walk slowing crouches for the speed the body
-  goes (`paceToward`): its plan slowed at its acceleration while the body went on faster, and the
-  hips rose over legs stepping long to brake it, so a stop from the top walk vaulted the body
-  over a planted foot at a quarter of the stride's phases, and the walking turns, which slow to the
-  pace they turn at, fell (9 of 30 at `c714c035`; 1 after). Every Warrior cell meets the bar; the
-  Rogue's but the empty-handed, which falls in the largest shove from ahead (43.7 N s).
+- **Skills with no record for the body**: `usableSkills` leaves them out and the drill counts every
+  trial refused. The Skeleton has no punch, club, cut or thrust record (`crypt-skeleton+toes`), and
+  its stomp lands on nothing; the Rogue has no club, cut or thrust.
+- **Blows weak or elsewhere**: in every fight rung but the punch's, no blow meets the foe's body
+  past its arms; the punch begins only from standing quiet.
+- **The run**: no cell meets it. The walk-run envelope (`assets/core/walk-run-envelope.json`) holds
+  the toed Warrior to 0.7 m/s forward and the Rogue to 1.2 m/s, short of the run's 3 m/s.
+- **Stand-up speed**: every body stands too slowly for the target, the Rogue and the Skeleton most
+  of all holding an item; the Skeleton's roll from the back stalls with the club's arm across.
+- **The Skeleton's walk**: holding the club alone, its catch lands short: the body rolls on over
+  the catching foot and no second step is in time.
+- **The buckler's cover**: it meets fewer blows first than its bar of 4 in 5.
 
 ## Each cell
-
 
 | Body | Loadout | stand-up | walk | run | punch | stomp | club-blow | cut | thrust | buckler-cover |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -78,23 +40,22 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
 | Skeleton | empty,sword | short | short | – | short | short | – | short | short | – |
 | Skeleton | buckler,sword | short | short | – | – | short | – | short | short | short |
 
-
 ### Warrior
 
 - **empty,empty, stand-up**: short
-  - rising-target/standard: 16 of 16 stood, 1 within 6 s, median 8.8 s (`?play=ratings&evaluation=rising-target&subject=game&version=ecb59f5a90d3beb6`, at `e8d6c775`)
+  - rising-target/standard: 16 of 16 stood, 1 within 6 s, median 8.8 s (`?play=ratings&evaluation=rising-target&subject=game&version=ecb59f5a90d3beb6`)
 - **empty,empty, walk**: short
   - locomotion/every: 2 of 47 fell, walk along 1.01 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **empty,empty, run**: short
   - locomotion/run: 0 of 32 met, 5 fell; short: run-held, run-turn, run-stop (`?play=ratings&evaluation=locomotion&subject=option&version=6903c3a0de3b5adc`)
-- **empty,empty, punch**: short (still met; read at `824d82d1`)
+- **empty,empty, punch**: short (still met)
   - strike/still: 31 of 32 thrown, 0 fell, 32 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=e1de089a1341813b`)
   - strike/walk: 52 of 64 thrown, 0 fell, 64 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=b71bc87e110f04bd`)
   - strike/fight: 0 of 3 on the body, 0 fell, 8 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=636a427499ab7f9c`)
 - **empty,empty, stomp**: short
   - strike/stomping: 4 of 5 thrown, 0 fell, 7 refused, 12 trials (`?play=ratings&evaluation=strike&subject=stomp60&version=69250816729e6455`)
 - **empty,club, stand-up**: short
-  - rising-target/standard: 16 of 16 stood, 1 within 6 s, median 10.7 s (`?play=ratings&evaluation=rising-target&subject=game&version=ecb59f5a90d3beb6`, at `e8d6c775`)
+  - rising-target/standard: 16 of 16 stood, 1 within 6 s, median 10.7 s (`?play=ratings&evaluation=rising-target&subject=game&version=ecb59f5a90d3beb6`)
 - **empty,club, walk**: short
   - locomotion/every: 1 of 47 fell, walk along 1.02 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **empty,club, run**: short
@@ -110,7 +71,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
   - strike/walk: 9 of 29 thrown, 0 fell, 99 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=1d1b9ef6e679d6c5`)
   - strike/fight: 0 of 1 on the body, 0 fell, 6 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=15963d0b5ff800ac`)
 - **buckler,club, stand-up**: short
-  - equipped-rise/every: 16 of 16 stood, 0 within 6 s, median 9.3 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 16 of 16 stood, 0 within 6 s, median 9.3 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **buckler,club, walk**: met
   - locomotion/every: 0 of 47 fell, walk along 1.02 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **buckler,club, run**: short
@@ -125,7 +86,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
   - cover/club: 2 of 16 blows met by the buckler first, 0 fell, 6 trials (`?play=ratings&evaluation=cover&subject=option&version=b0ac4f4bdb228525`)
   - cover/sword: 6 of 14 blows met by the buckler first, 0 fell, 6 trials (`?play=ratings&evaluation=cover&subject=option&version=02da390f0499ae23`)
 - **empty,sword, stand-up**: short
-  - equipped-rise/every: 14 of 16 stood, 3 within 6 s, median 9.2 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 14 of 16 stood, 3 within 6 s, median 9.2 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **empty,sword, walk**: met
   - locomotion/every: 0 of 47 fell, walk along 1.02 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **empty,sword, run**: short
@@ -145,7 +106,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
   - strike/walk: 0 of 32 thrown, 0 fell, 96 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=ff8516384533d7a2`)
   - strike/fight: 0 of 0 on the body, 0 fell, 12 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=602f098146aaee3e`)
 - **buckler,sword, stand-up**: short
-  - equipped-rise/every: 16 of 16 stood, 1 within 6 s, median 8.7 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 16 of 16 stood, 1 within 6 s, median 8.7 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **buckler,sword, walk**: met
   - locomotion/every: 0 of 47 fell, walk along 1.02 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **buckler,sword, run**: short
@@ -167,19 +128,19 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
 ### Rogue
 
 - **empty,empty, stand-up**: short
-  - rising-target/standard: 15 of 16 stood, 0 within 6 s, median 13.6 s (`?play=ratings&evaluation=rising-target&subject=game&version=ecb59f5a90d3beb6`, at `e8d6c775`)
+  - rising-target/standard: 15 of 16 stood, 0 within 6 s, median 13.6 s (`?play=ratings&evaluation=rising-target&subject=game&version=ecb59f5a90d3beb6`)
 - **empty,empty, walk**: short
   - locomotion/every: 1 of 47 fell, walk along 0.98 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **empty,empty, run**: short
   - locomotion/run: 0 of 32 met, 28 fell; short: run-held, run-turn, run-stop (`?play=ratings&evaluation=locomotion&subject=option&version=6903c3a0de3b5adc`)
 - **empty,empty, punch**: short
-  - strike/still: 8 of 30 thrown, 0 fell, 34 refused, 64 trials, at `5d8976ea`, her network trained again with her elbows at twice their peak (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d71e316f0c869660`)
-  - strike/walk-bodies: 19 of 64 thrown, 0 fell, 64 refused, 128 trials, at `b43f4799` (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=23aeb49499fd7f8a`)
-  - strike/fight-bodies: 2 of 8 on the body, 0 fell, 8 refused, 16 trials, at `b43f4799` (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d17b198620e27fa5`)
+  - strike/still: 8 of 30 thrown, 0 fell, 34 refused, 64 trials, her network trained with her elbows at twice their peak (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d71e316f0c869660`)
+  - strike/walk-bodies: 19 of 64 thrown, 0 fell, 64 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=23aeb49499fd7f8a`)
+  - strike/fight-bodies: 2 of 8 on the body, 0 fell, 8 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d17b198620e27fa5`)
 - **empty,empty, stomp**: met
   - strike/stomping-bodies: 7 of 7 thrown, 0 fell, 4 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp&version=922a202826ac9b87`)
 - **empty,club, stand-up**: short
-  - rising-target/standard: 11 of 16 stood, 0 within 6 s, median 16.7 s (`?play=ratings&evaluation=rising-target&subject=game&version=ecb59f5a90d3beb6`, at `e8d6c775`)
+  - rising-target/standard: 11 of 16 stood, 0 within 6 s, median 16.7 s (`?play=ratings&evaluation=rising-target&subject=game&version=ecb59f5a90d3beb6`)
 - **empty,club, walk**: short
   - locomotion/every: 1 of 47 fell, walk along 0.99 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **empty,club, run**: short
@@ -195,7 +156,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=c568cc3155c017d1`)
   - strike/fight-bodies: 0 of 0 on the body, 0 fell, 16 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=f6d7c8d2290ad368`)
 - **buckler,club, stand-up**: short
-  - equipped-rise/every: 9 of 16 stood, 0 within 6 s, median 24.7 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 9 of 16 stood, 0 within 6 s, median 24.7 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **buckler,club, walk**: short
   - locomotion/every: 2 of 47 fell, walk along 0.98 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **buckler,club, run**: short
@@ -210,7 +171,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
   - cover/club: 6 of 19 blows met by the buckler first, 0 fell, 6 trials (`?play=ratings&evaluation=cover&subject=option&version=b0ac4f4bdb228525`)
   - cover/sword: 9 of 18 blows met by the buckler first, 0 fell, 6 trials (`?play=ratings&evaluation=cover&subject=option&version=02da390f0499ae23`)
 - **empty,sword, stand-up**: short
-  - equipped-rise/every: 14 of 16 stood, 0 within 6 s, median 12.9 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 14 of 16 stood, 0 within 6 s, median 12.9 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **empty,sword, walk**: short
   - locomotion/every: 3 of 47 fell, walk along 0.98 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **empty,sword, run**: short
@@ -230,7 +191,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=90ae4c33cab980a6`)
   - strike/fight-bodies: 0 of 0 on the body, 0 fell, 12 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=0ab5d39b17d82bb9`)
 - **buckler,sword, stand-up**: short
-  - equipped-rise/every: 11 of 16 stood, 0 within 6 s, median 23.8 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 11 of 16 stood, 0 within 6 s, median 23.8 s (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **buckler,sword, walk**: met
   - locomotion/every: 0 of 47 fell, walk along 0.97 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **buckler,sword, run**: short
@@ -252,7 +213,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
 ### Skeleton
 
 - **empty,empty, stand-up**: short
-  - equipped-rise/every: 13 of 15 stood, median 13.4 s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 13 of 15 stood, median 13.4 s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **empty,empty, walk**: short
   - locomotion/every: 5 of 47 fell, walk along 0.93 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **empty,empty, punch**: short
@@ -262,7 +223,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
 - **empty,empty, stomp**: short
   - strike/stomping-bodies: 0 of 0 thrown, 0 fell, 12 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp&version=922a202826ac9b87`)
 - **empty,club, stand-up**: short
-  - equipped-rise/every: 0 of 15 stood, median - s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 0 of 15 stood, median - s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **empty,club, walk**: short
   - locomotion/every: 8 of 47 fell, walk along 0.74 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **empty,club, punch**: short
@@ -276,7 +237,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=c568cc3155c017d1`)
   - strike/fight-bodies: 0 of 0 on the body, 0 fell, 0 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=f6d7c8d2290ad368`)
 - **buckler,club, stand-up**: short
-  - equipped-rise/every: 1 of 15 stood, median 13.1 s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 1 of 15 stood, median 13.1 s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **buckler,club, walk**: short
   - locomotion/every: 8 of 47 fell, walk along 0.00 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **buckler,club, stomp**: short
@@ -289,7 +250,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
   - cover/club: 9 of 18 blows met by the buckler first, 3 fell, 6 trials (`?play=ratings&evaluation=cover&subject=option&version=b0ac4f4bdb228525`)
   - cover/sword: 10 of 17 blows met by the buckler first, 2 fell, 6 trials (`?play=ratings&evaluation=cover&subject=option&version=02da390f0499ae23`)
 - **empty,sword, stand-up**: short
-  - equipped-rise/every: 6 of 14 stood, median 18.3 s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 6 of 14 stood, median 18.3 s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **empty,sword, walk**: short
   - locomotion/every: 3 of 47 fell, walk along 1.17 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **empty,sword, punch**: short
@@ -307,7 +268,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=90ae4c33cab980a6`)
   - strike/fight-bodies: 0 of 0 on the body, 0 fell, 0 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=0ab5d39b17d82bb9`)
 - **buckler,sword, stand-up**: short
-  - equipped-rise/every: 3 of 14 stood, median 26.1 s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
+  - equipped-rise/every: 3 of 14 stood, median 26.1 s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`)
 - **buckler,sword, walk**: short
   - locomotion/every: 2 of 47 fell, walk along 0.75 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **buckler,sword, stomp**: short

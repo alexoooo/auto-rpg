@@ -3,7 +3,7 @@
     "id": "fours",
     "model": "workshop-fighter",
     "source": {
-      "path": "docs/reference/posture-limit-models.json",
+      "path": "research/posture-limits.mjs",
       "engine": "rapier-coordinate",
       "row": "fours",
       "seed": 0
@@ -93,7 +93,7 @@
     "id": "half-kneel",
     "model": "workshop-fighter",
     "source": {
-      "path": "docs/reference/posture-limit-models.json",
+      "path": "research/posture-limits.mjs",
       "engine": "rapier-coordinate",
       "row": "half kneel, knee light",
       "seed": 0
@@ -183,7 +183,7 @@
     "id": "squat",
     "model": "workshop-fighter",
     "source": {
-      "path": "docs/reference/posture-limit-models.json",
+      "path": "research/posture-limits.mjs",
       "engine": "rapier-coordinate",
       "row": "squat",
       "seed": 0

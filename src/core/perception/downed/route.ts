@@ -2,7 +2,7 @@ import { hypot } from "../../math/real.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import type { SensedObstacle } from "../../navigation/sensed-bounds.ts";
 
-/** Corner separation for the visibility graph: `docs/reference/ground-combat.md#policy-settings`. */
+/** How far outside the envelope's expanded corners the visibility graph's nodes stand, m. */
 const ROUTE_MARGIN = .02;
 
 /**

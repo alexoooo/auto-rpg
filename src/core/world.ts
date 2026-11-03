@@ -8,7 +8,7 @@ export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-ra
  * **The command's delay**, steps: a mind's command, made on a step, is applied that many steps
  * later, so the world can step while its minds think (`embody`). The same in every world, on one
  * thread or many, so a bout is the same whatever runs its minds. The game's is one step, at which
- * motor control holds balance and the rise (`docs/reference/command-delay.md`).
+ * motor control holds balance and the rise.
  */
 export const COMMAND_DELAY: Quantity<number> = sourced(1, "1", "owner-command-delay",
   "one step: motor control holds balance and the rise a step late");

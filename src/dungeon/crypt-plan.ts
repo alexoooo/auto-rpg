@@ -18,8 +18,7 @@ export interface CryptRoomPlan {
   damp: Point[];
 }
 
-/** The odds the dressing draws against, where a room's kind does not give its own
- * (`docs/reference/look.md#crypt-rooms`). */
+/** The odds the dressing draws against, where a room's kind does not give its own, set by eye. */
 const CRYPT_ODDS = Object.freeze({
   /** Outside every room, a cell's paving is first tried as a large slab below this draw. */
   largeSlab: .30,
@@ -43,7 +42,7 @@ const CRYPT_ODDS = Object.freeze({
   rootboundRoots: .55,
 });
 
-/** Where the dressing stands its pieces (`docs/reference/look.md#crypt-rooms`). */
+/** Where the dressing stands its pieces, set by eye. */
 const CRYPT_DRESS = Object.freeze({
   /** The kit's plain pavings, `paving0` up. */
   pavings: 4,
@@ -55,7 +54,7 @@ const CRYPT_DRESS = Object.freeze({
   bannerAside: 2.7,
 });
 
-/** A room's torches (`docs/reference/look.md#crypt-rooms`). */
+/** A room's torches, set by eye. */
 const CRYPT_TORCH = Object.freeze({
   /** Torches a room. */
   count: 2,

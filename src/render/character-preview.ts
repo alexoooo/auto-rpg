@@ -26,8 +26,8 @@ const upright = (spec: BodySpec): boolean => {
 };
 
 /** The game's skins on bodies drawn from their specs (`puppetBody`), at their reference pose. Each column has its own camera, so resizing
- * keeps the characters centred. This scene draws on load, selection and resize;
- * its lighting, framing and plinth sizes are art choices in `docs/art/menu.md`. */
+ * keeps the characters centred. This scene draws on load, selection and resize, with no animation loop.
+ * Its lighting (a warm ivory key, a crimson rim), framing and plinth sizes are set by eye. */
 export async function showHeroLineup(canvas: HTMLCanvasElement,
   models: readonly BodyModel[], signal: AbortSignal, appearances: readonly Appearance[] = []): Promise<{
     setModel(index: number, model: BodyModel, appearance?: Appearance): Promise<void>;
@@ -58,7 +58,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement,
     if (!ready || signal.aborted || !canvas.checkVisibility()) return;
     engine.resize();
     const aspect = canvas.clientWidth / models.length / canvas.clientHeight;
-    // A full body with headroom; narrow columns retain space for the arms (docs/art/menu.md).
+    // A full body with headroom; narrow columns retain space for the arms.
     for (let i = 0; i < cameras.length; i++) {
       const camera = cameras[i]!, tall = upright(bodies[i]!.spec);
       const halfHeight = Math.max(tall ? 1.12 : .4, (tall ? .62 : .7) / aspect) * (framing[i] ?? 1);

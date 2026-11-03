@@ -22,8 +22,9 @@ export const groundContact = (contact: ReadContact, minUp: number): boolean =>
   contact.fixed !== null && contact.impulse > 0 && contact.normal[1] < -minUp;
 
 /**
- * How near the ground a point is, m, to be on it rather than in the air: a tolerance on a reading
- * (`docs/reference/rising.md#stages`). A limb's point within it bears, and a corner of a sole props
+ * How near the ground a point is, m, to be on it rather than in the air: a tolerance on a reading,
+ * which tells a hand flat on the ground from one toppled stiff, and knees under the body from
+ * knees lying flat. A limb's point within it bears, and a corner of a sole props
  * what it hangs from (the rise); an end of a sole over the ground by more is in the air, and the
  * foot bears on the other end alone (`standingOn`, `bearingOf`, `bearingSole`): a sole flat on the
  * ground reads its ends within a few millimetres of it, and
@@ -299,7 +300,7 @@ function fitSole(foot: FootState): void {
  * (`MuscleSpec`'s speed, `eccentricCeiling`). Across, a load that pushes the sole onto its edge
  * lengthens the invertors or evertors holding it, and they resist up to that ceiling of their peak
  * (Thelen 2003). Along it, a sole held past its peak tips onto its toes or its heel, which the
- * stance reads and plans on (`bearingEnd`). Measured: `docs/reference/stance-tuning.md#ankle-hold`.
+ * stance reads and plans on (`bearingEnd`).
  */
 function ankleStrength(muscle: MuscleSpec, strength: number, sense: "peakPositive" | "peakNegative", across: boolean): number {
   const curve = sense === "peakPositive" ? muscle.speedPositive : muscle.speedNegative;

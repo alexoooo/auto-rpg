@@ -9,9 +9,9 @@ import { locomotion, validCarriage, validTurnLimit, validTurnStartup, type Carri
 interface StanceWalkConfig {
   readonly kind: "stance-walk";
   readonly tuning?: {
-    /** A heading-speed ceiling, rad/s: `docs/reference/combat-locomotion.md`. */
+    /** A heading-speed ceiling, rad/s: it only lowers the envelope's turn, never raises it. */
     readonly turnLimit?: number;
-    /** A brief heading-speed ceiling while setting off: `docs/reference/combat-turn-startup.md`. */
+    /** A brief heading-speed ceiling while setting off (`TurnStartup`). */
     readonly turnStartup?: TurnStartup;
   };
   /** The carriage it holds until a legs goal names another (`Carriage`); the square stance where none. */

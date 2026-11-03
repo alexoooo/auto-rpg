@@ -2,7 +2,7 @@ import { distance, walkable, clearSegment, type DungeonMap, type Point } from ".
 import { cos, sin } from "../core/math/real.ts";
 
 /**
- * A companion's place at the start, m (`docs/reference/play.md#companions`): the rings about the start it is
+ * A companion's place at the start, m: the rings about the start it is
  * tried on, nearest first; the floor it needs clear about it, as a radius; and how far it stands from
  * everybody already placed.
  */

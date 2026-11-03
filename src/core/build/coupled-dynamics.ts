@@ -10,7 +10,11 @@ interface AttachedItem { readonly body: ReadSegmentBody; motionConstraints(): re
 interface Load { readonly body: ReadSegmentBody; readonly point: Vec3; readonly force: Vec3; readonly moment: Vec3 }
 interface ImpulseLoad { readonly body: ReadSegmentBody; readonly point: Vec3; readonly impulse: Vec3; readonly angularImpulse: Vec3 }
 const XYZ: readonly Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], ZERO: Vec3 = [0, 0, 0];
-/** Relative rank tolerance after mass whitening, a numeric setting (`docs/reference/coupled-dynamics.md`). */
+/**
+ * Relative rank tolerance after mass whitening, of the largest whitened row's length: a numeric
+ * setting. `constraintBasis` pivots on the strongest remaining row and projects twice, so a loop's
+ * rounding admits no extra row.
+ */
 const RANK_TOLERANCE = 1e-10;
 const dot = (a: ArrayLike<number>, b: ArrayLike<number>): number => {
   let sum = 0; for (let i = 0; i < a.length; i++) sum += a[i]! * b[i]!; return sum;
@@ -21,8 +25,11 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 /**
  * Instantaneous acceleration model: a floating anatomical tree and separately massive items,
  * constrained by every active grip. The tree supplies its full root/joint mass and velocity bias;
- * items supply world inertia and gyroscopic bias. Mass-whitened constraints retain closed loops
- * without adding penalty springs or counting an item's mass twice. Contacts are explicit loads,
+ * items supply world inertia and gyroscopic bias, each item six coordinates. With `M = L L'`,
+ * constraint rows `J` become `J L^-T`, whose orthonormal basis projects out forbidden acceleration:
+ * the whitened constraints retain closed loops without adding penalty springs or counting an
+ * item's mass twice. An attachment is one world point, the mean of its anchors, so a solver's gap
+ * between them does not read as relative motion. Contacts are explicit loads,
  * not assumed welds. Fixed bodies must be declared by the experiment. Additional motion rows
  * are predictions supplied at update, not constraints installed in the physical world.
  *

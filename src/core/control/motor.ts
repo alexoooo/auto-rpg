@@ -58,7 +58,7 @@ export interface PointTask {
  * muscles. What a goal leaves free of an arm (one place leaves four of its seven freedoms, two leave
  * two) settles toward the posture's angles.
  * The wrist is the arm's: held at the posture's angle, a point of a held item half a metre from
- * the hand has no path the solve can follow (`docs/reference/human-and-strikes.md#ik`).
+ * the hand has no path the solve can follow over much of its reach.
  *
  * The rates and accelerations are the inverse kinematics differenced a step either side along the
  * path, each solved from the angles the last step found.

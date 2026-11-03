@@ -8,6 +8,17 @@ import type { Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import { otherSide } from "../../spec/body.ts";
 
+/*
+ * **The learned punch's steer**: a straight punch's timed drive (`StraightPunch.timed`) steered by a
+ * ReLU network of two hidden layers of 256, its inputs and outputs named by its layout
+ * (`PUNCH_LAYOUT`) and its weights in its body's record (`network`, `assets/core/straight-punch.json`).
+ * Every `PUNCH_DECIDE` it reads the punch (`punchFeatures`), adds levels to the drive's pushes
+ * (`steerPushes`) and asks the legs goal for a heading and a centre of mass (`stanceAsks`). Only
+ * the bodies with a record (`PUNCH_BODIES`) throw it. Trained by PPO (`research/run-train.py`
+ * against `research/run-learning-server.mjs` on `research/environments/punch.json`) and written
+ * into the record by `research/punch-export.mjs`.
+ */
+
 /** How often a steered punch reads itself and sets its steer, s: 60 times a second at any rate. */
 export const PUNCH_DECIDE = 1 / 60;
 

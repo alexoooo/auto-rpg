@@ -23,8 +23,7 @@ import { need } from "../dom.ts";
 
 type Triple = readonly [number, number, number];
 
-/** The studio the models stand in: its backdrop, grade, lights, shadow and plinth
- * (`docs/reference/look.md#workshop`). */
+/** The studio the models stand in, set by eye: its backdrop, grade, lights, shadow and plinth. */
 const STAGE = Object.freeze({
   /** The page draws at one pixel for every `pixelRatio` of the device's, and never finer than the page's own. */
   pixelRatio: 1.5,
@@ -48,8 +47,7 @@ const STAGE = Object.freeze({
   inlay: Object.freeze({ diameter: 1.46, thickness: .004, y: .002, tessellation: 96, colour: [.53, .45, .29] as Triple }),
 });
 
-/** The camera: where it starts and returns to, what it may do, how it frames a grip and what a key does
- * (`docs/reference/look.md#workshop`). */
+/** The camera: where it starts and returns to, what it may do, how it frames a grip and what a key does. */
 const VIEW = Object.freeze({
   home: Object.freeze({ alpha: Math.PI / 2 + .22, beta: 1.39, radius: 5.7, target: [0, 1.02, .65] as Triple }),
   fov: .57,
@@ -68,8 +66,7 @@ const VIEW = Object.freeze({
   keys: Object.freeze({ turn: .12, raise: .08, lowest: .15, highest: 1.9, zoom: .15, farthest: 5 }),
 });
 
-/** The authored loop: its length, s, the clips' frames a second, and the longest step one drawn frame may take,
- * ms (`docs/reference/look.md#workshop`). */
+/** The authored loop: its length, s, the clips' frames a second, and the longest step one drawn frame may take, ms. */
 const MOTION = Object.freeze({ seconds: 12, framesPerSecond: 60, longestStep: 100 });
 
 const IDS = Object.keys(CHARACTERS) as CharacterId[];

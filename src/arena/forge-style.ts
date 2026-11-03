@@ -37,7 +37,7 @@ export async function loadForgeStyle(scene: Scene) {
 }
 export type ForgeStyle = Awaited<ReturnType<typeof loadForgeStyle>>;
 
-/** Concentric stone courses and bronze inlay, flush with the collision slab (docs/art/arena.md). */
+/** Concentric stone courses and bronze inlay, flush with the collision slab. */
 export function paveForge(scene: Scene, material: PBRMaterial, bronze: PBRMaterial, ember: PBRMaterial): void {
   const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
   const radii = [.06, 3.4, 6.4, 9.5, 13.2], counts = [12, 24, 36, 48];

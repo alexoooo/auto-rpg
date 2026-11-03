@@ -11,7 +11,8 @@ import type { Lie } from "../../control/ground-reading.ts";
 /**
  * **A posture**: goal angles by channel name, rad, each from its freedom's own zero (a human's,
  * the anatomical position: `DofSpec.bind`), so it is the same shape on bodies whose reference
- * poses differ. A channel it does not name goes to that zero.
+ * poses differ, and `stageFaults` checks it against each freedom's range from that zero. A channel
+ * it does not name goes to that zero.
  */
 export type Posture = Readonly<Record<string, number>>;
 
@@ -64,8 +65,8 @@ export interface Until {
 /**
  * **A paced pose**: the posture approached from the one the stage begins in along a way from 0 to
  * 1, at `rate` of it a second while each foot's ball is within `lift` m of the ground and the
- * centre of mass is slower than `slow`, m/s, and held where it is otherwise
- * (`docs/reference/rising.md#the-sit-back`).
+ * centre of mass is slower than `slow`, m/s, and held where it is otherwise: the body is brought up
+ * no faster than its feet stay down.
  */
 export interface Pace {
   readonly rate: number;
@@ -76,8 +77,7 @@ export interface Pace {
 /**
  * **A press toward the ground**: each channel of `gains`, written `name.@ motion` for a foot's own
  * side, asked past the stage's posture by its rad a metre that foot's ball stands over `above` m:
- * what brings a foot's ball down, or turns a rising one back down
- * (`docs/reference/rising.md#the-sit-back`).
+ * what brings a foot's ball down, or turns a rising heel back down.
  */
 interface Press {
   readonly above: number;
@@ -88,7 +88,8 @@ interface Press {
  * **A righting toward lying square**: each channel of `gains`, written `name.@ motion` for a side,
  * asked past the stage's posture by its rad for the pelvis tipped down toward that side, read as
  * how far the pelvis's axis toward its other side points up, of 1 (negative as it tips away): what
- * widens the low side's base and draws in the high side's (`docs/reference/rising.md#the-tucks-righting`).
+ * widens the low side's base and draws in the high side's, so a tip the body lies in, or one a held
+ * item gives it, is not carried onto the side.
  */
 interface Level {
   readonly gains: Readonly<Record<string, number>>;
@@ -206,14 +207,13 @@ function rollingOver(over: Side, posture: Posture): Posture {
 }
 
 /**
- * The far leg raised and out to its own side, the near arm laid overhead, out of the roll's way
- * (`docs/reference/rising.md#the-roll`).
+ * The far leg raised and out to its own side, the near arm laid overhead, out of the roll's way.
  */
 const WIND = { "hip.far flexion": 1.2, "hip.far abduction": 0.54, "hip.near flexion": 0.2, "shoulder.near flexion": 2.8 };
 /**
  * The far leg and the far arm swung across the body, the pelvis curled off the ground, the near
  * leg set out to its side and the near arm swept out from overhead: the body turns onto its near
- * side (`docs/reference/rising.md#the-roll`).
+ * side.
  */
 const SWING = {
   "hip.far flexion": 0.8, "hip.far internal rotation": 0.6, "hip.near abduction": 0.2, "lumbar flexion": 0.8,
@@ -221,45 +221,46 @@ const SWING = {
 };
 /**
  * The trunk and the near leg laid straight, the near arm overhead, and the far leg kept ahead:
- * the body goes on over its near side onto its front (`docs/reference/rising.md#the-roll`).
+ * the body goes on over its near side onto its front.
  */
 const OVER = { "hip.far flexion": 1.2, "hip.far abduction": 0.54, "shoulder.near flexion": 2.8 };
 /**
  * The legs laid straight, the near arm kept overhead and the far hand set down beside the chest:
- * the body lies on its front as the rise finds it (`docs/reference/rising.md#the-roll`).
+ * the body lies square on its front as the rise finds it.
  */
 const FLAT = { "shoulder.near flexion": 2.8, "shoulder.far internal rotation": -0.8, "elbow.far flexion": 2.1 };
 
 /** **A roll's poses**, each written over the `near` side it turns onto and the `far` side that comes over (`rollingOver`). */
 export interface RollPoses { readonly wind: Posture; readonly swing: Posture; readonly over: Posture; readonly flat: Posture }
 
-/** The game's roll (`docs/reference/rising.md#the-roll`): found on the Warrior. */
+/** The game's roll: found on the Warrior. */
 export const ROLL_POSES: RollPoses = Object.freeze({ wind: WIND, swing: SWING, over: OVER, flat: FLAT });
 
 /** The stages that turn a body on its back onto its front, over its `over` side, by `poses`. */
 export const rollOver = (over: Side, poses: RollPoses = ROLL_POSES): PoseStage[] => [
   { kind: "pose", name: "wind", posture: rollingOver(over, poses.wind), seconds: 0.5, over },
-  // Held until the body is on its near side (`docs/reference/rising.md#the-roll`).
+  // Held until the body is on its near side, the pelvis's axis toward the far side 0.6 up: a
+  // swing cut short leaves the body on its back, and `over` cannot carry it.
   { kind: "pose", name: "swing", posture: rollingOver(over, poses.swing), seconds: 1, over, hold: { turned: 0.6, most: 3 } },
   { kind: "pose", name: "over", posture: rollingOver(over, poses.over), seconds: 0.5, over },
   { kind: "pose", name: "flat", posture: rollingOver(over, poses.flat), seconds: 1, over },
 ];
 
 /**
- * The arms folded, the hands beside the chest, and the feet pointed, so that the knees slide
- * under the body (`docs/reference/rising.md#stages`).
+ * The arms folded, the hands beside the chest, and the feet pointed, so that the shins lie flat
+ * and the knees slide under the body.
  */
 const FOLD = { "shoulder.@ flexion": 0.9, "shoulder.@ abduction": 0.7, "elbow.@ flexion": 2.4, "ankle.@ dorsiflexion": -0.85 };
 /**
  * The knees drawn under the body, the trunk curled over them, the arms out to the sides so that the
- * body does not tip onto a side as it comes up (`docs/reference/rising.md#the-pose-stages`).
+ * body does not tip onto a side as it comes up.
  */
 const TUCK = { ...FOLD, "hip.@ flexion": 2.1, "knee.@ flexion": 2.5, "lumbar flexion": 0.7, "thoracic flexion": 0.3, "shoulder.@ abduction": 1.6 };
-/** The tuck's and the prop's righting: the low side's knee and arm out, the high side's in (`docs/reference/rising.md#the-tucks-righting`). */
+/** The tuck's and the prop's righting: the low side's knee and arm out, the high side's in. */
 const LEVEL = { gains: { "hip.@ abduction": 1, "shoulder.@ abduction": 0.5 } };
 /**
  * The arms brought in and reached ahead, the hands turned palm down, and the toes tucked under, so
- * that each shin is propped on its foot (`docs/reference/rising.md#stages`).
+ * that each shin is propped on its foot.
  */
 const PROP = {
   ...TUCK, "lumbar flexion": 0.4, "shoulder.@ flexion": 1.3, "shoulder.@ internal rotation": -0.4, "elbow.@ flexion": 1,
@@ -267,7 +268,7 @@ const PROP = {
 };
 /**
  * On knees and hands: the trunk near level, the arms near straight under the shoulders, the hips
- * over the knees (`docs/reference/rising.md#stages`).
+ * over the knees.
  */
 const FOURS = {
   "lumbar flexion": 0.3, "thoracic flexion": 0.2, "shoulder.@ flexion": 1.9, "shoulder.@ abduction": 0.3, "shoulder.@ internal rotation": -0.4,
@@ -276,36 +277,38 @@ const FOURS = {
 
 /**
  * Sat back on the heels from the knees, the hands off the ground, and the toes let a little out
- * from under the feet, which the tall stages tuck again (`docs/reference/rising.md#the-kneel-up`).
+ * from under the feet, which the tall stages tuck again: sat back with the toes tucked, the centre
+ * of mass is at the front edge of the support, and the ankle at -0.4 brings it inside.
  */
 const SIT = {
   "lumbar flexion": -0.2, "shoulder.@ flexion": 0.6, "shoulder.@ abduction": 0.2, "wrist.@ flexion": -1, "hip.@ flexion": 2, "knee.@ flexion": 2.55,
   "ankle.@ dorsiflexion": -0.4,
 };
-/** Upright on the knees, the trunk over them (`docs/reference/rising.md#the-kneel-up`). */
+/** Upright on the knees, the trunk over them. */
 const KNEEL = { ...SIT, "neck flexion": -0.29, "thoracic flexion": 0.12, "lumbar flexion": 0.18, "hip.@ flexion": 0.4 };
-/** Upright on the knees, the forearms brought in across the body (`docs/reference/rising.md#the-kneel-up`). */
+/** Upright on the knees, the forearms brought in across the body. */
 const KNEEL_ARMS = { ...KNEEL, "shoulder.@ flexion": -0.09, "shoulder.@ abduction": 0.28, "shoulder.@ internal rotation": 0.54, "elbow.@ flexion": 1.17, "wrist.@ flexion": -0.04 };
-/** Tall on the knees, the hips and the trunk straight (`docs/reference/rising.md#the-kneel-up`). */
+/** Tall on the knees, the hips and the trunk straight. */
 const TALL = {
   "shoulder.@ abduction": 0.28, "shoulder.@ internal rotation": 0.54, "elbow.@ flexion": 0.3, "wrist.@ flexion": -0.04, "hip.@ flexion": 0.25,
   "knee.@ flexion": 2.2, "ankle.@ dorsiflexion": 0.389,
 };
-/** Tall on the knees, leant a little to the right, the left hip out and the right in (`docs/reference/rising.md#the-step`). */
+/** Tall on the knees, leant a little to the right, the left hip out and the right in. */
 const SHIFT = { ...TALL, "lumbar lateral flexion right": 0.05, "hip.left abduction": 0.15, "hip.right abduction": -0.15 };
-/** The left knee lifted off the ground, its foot pointed (`docs/reference/rising.md#the-step`). */
+/** The left knee lifted off the ground, its foot pointed. */
 const LIFT = { ...SHIFT, "lumbar flexion": -0.2, "hip.left flexion": 0.35, "hip.left abduction": 0.17, "knee.left flexion": 2.56, "ankle.left dorsiflexion": -0.85 };
-/** The left thigh swung forward (`docs/reference/rising.md#the-step`). */
+/** The left thigh swung forward. */
 const SWING_THROUGH = { ...LIFT, "hip.left flexion": 1.8, "hip.left abduction": 0.1 };
 /**
- * The left foot reached out and down ahead, still pointed, so that it comes down on its toes
- * (`docs/reference/rising.md#the-step`).
+ * The left foot reached out and down ahead, still pointed, so that it comes down on its toes and
+ * bears on them through the half kneel; turned up to land on its sole, it lands flat holding the club,
+ * and the rise does not reach `even`.
  */
 const REACH = { ...SWING_THROUGH, "hip.left abduction": 0.56, "knee.left flexion": 2, "ankle.left inversion": 0.56 };
 /**
  * Half kneeling, on the right knee and the left sole: the posture the statics find holds it at the
- * least share of its strength, but the left ankle, which is asked toward where the stand leaves it
- * (`docs/reference/rising.md#the-step`).
+ * least share of its strength, but the left ankle, asked -0.55 rad toward where the step leaves it
+ * on its toes rather than the statics' 0.389, which the stage ends far short of.
  */
 const HALF_KNEEL = {
   "neck flexion": -0.26, "neck lateral flexion right": -0.19, "neck rotation right": -0.55, "thoracic flexion": 0.19, "thoracic lateral flexion right": 0.03,
@@ -321,7 +324,8 @@ const HALF_KNEEL = {
  * centre of mass, as a part of the standing one, the posture on the left sole and the right ball
  * that the statics find holds it at the least share of its strength, and the left foot's share of
  * the load there: where that posture's centre of mass stands between the feet, but on the first
- * rung, which keeps the share of the stage before (`docs/reference/rising.md#the-lunge`).
+ * rung, which keeps the share of the stage before. The rungs are the statics' answers at a centre
+ * of mass 0.6 to 0.9 m up on the Warrior, the feet where the half kneel leaves them.
  */
 const LUNGE = [
   {
@@ -381,15 +385,15 @@ function between(from: Posture, to: Posture, count: number): Posture[] {
 
 /** The pelvis's pitch forward tall on the knees, rad: about the turn the tall posture's hips leave it. */
 const KNEEL_PITCH = 0.15;
-/** The pose drive of the step's quick stages (`docs/reference/rising.md#the-step`). */
+/** The pose drive of the step's quick stages: a knee swung through slowly leaves the body on one knee longer. */
 const QUICK = { speed: 6, within: 0.1 };
-/** A bearing stage's time constant, s, and the longest it may take, s, from the knees up (`docs/reference/rising.md#the-step`). */
+/** A bearing stage's time constant, s, and the longest it may take before the attempt is given up, s, from the knees up. */
 const BEAR_SECONDS = 0.35, BEAR_LIMIT = 4;
 
 /**
  * The game's recipe, for a human and the skeleton, whose channels, segments and joints have the
- * same names (`docs/reference/rising.md#stages`: each stage's numbers, and the stand's reading of
- * each).
+ * same names: from the front onto knees and hands, a kneel-up, a step to a half kneel, and a lunge
+ * onto both feet, where the stance has the body.
  */
 export const RISE: Recipe = deepFreeze({
   // From its back a body rolls over its right side; on a side, it goes on over that side.
@@ -400,8 +404,8 @@ export const RISE: Recipe = deepFreeze({
     { kind: "pose", name: "tuck", posture: bothSides(TUCK), seconds: 2, level: LEVEL },
     // The arms prop the trunk.
     { kind: "pose", name: "prop", posture: bothSides(PROP), seconds: 1.5, level: LEVEL },
-    // The shins bear two thirds of the body and the hands a third: the centre of mass is held
-    // that far between them. The shins leave the body no height of its own.
+    // The shins bear two thirds of the body and the hands a third: the centre of mass is held a
+    // third of the way from the shins to the hands. The shins leave the body no height of its own.
     {
       kind: "bear", name: "fours", on: SIDES.flatMap((side) => [{ limb: `shin.${side}`, share: 0.33 }, { limb: `hand.${side}`, share: 0.17 }]),
       leave: [], overProp: false, height: null, pitch: 1.3, posture: bothSides(FOURS), seconds: 0.4, limit: 5,
@@ -429,7 +433,7 @@ export const RISE: Recipe = deepFreeze({
       height: null, pitch: null, posture: bothSides(HALF_KNEEL), seconds: BEAR_SECONDS, limit: BEAR_LIMIT,
     },
     // The lunge, on both feet, up its rungs; then the weight even on the feet, which the stance's
-    // own recovery reads as standing (`docs/reference/rising.md#the-handover`).
+    // own recovery reads as standing.
     ...LUNGE.map(({ height, share, posture }, k): BearStage => ({
       kind: "bear", name: `lunge ${k}`, on: [{ limb: "foot.left", share }, { limb: "foot.right", share: 1 - share }], leave: [], overProp: false,
       height, pitch: null, posture: bothSides(posture), seconds: BEAR_SECONDS, limit: BEAR_LIMIT,
@@ -471,12 +475,14 @@ export const CONTACT_RISE: Recipe = deepFreeze({
 
 /**
  * On hands and knees with the toes planted: the shins brought down toward level so that the feet,
- * bent up at the ankles, reach the ground on their balls (`docs/reference/rising.md#the-sit-back`).
+ * bent up at the ankles, reach the ground on their balls. The hands-and-knees knee of 2.4 rad holds
+ * the balls well up; at 2.05 they come down without waiting on the trunk to sink back.
  */
 const PLANT = { ...FOURS, "knee.@ flexion": 2.05, "ankle.@ dorsiflexion": 0.7 };
 /**
  * Sat back on the heels, the toes tucked under, the trunk kept forward over the knees as the hips
- * go back, and the arms forward (`docs/reference/rising.md#the-sit-back`).
+ * go back, and the arms forward: the hips at 1.9 rad keep the trunk from rising before the weight
+ * is over the feet.
  */
 const TUCK_SIT = {
   "thoracic flexion": 0.1, "shoulder.@ flexion": 0.9, "shoulder.@ abduction": 0.15, "elbow.@ flexion": 0.3, "hip.@ flexion": 1.9,
@@ -484,7 +490,7 @@ const TUCK_SIT = {
 };
 /**
  * Kneeling up toward the feet, the toes tucked, the trunk over the hips and the arms a little
- * forward as a counterweight (`docs/reference/rising.md#the-sit-back`).
+ * forward as a counterweight.
  */
 const UPRIGHT = {
   "thoracic flexion": 0.1, "shoulder.@ flexion": 0.2, "shoulder.@ abduction": 0.15, "elbow.@ flexion": 0.4, "hip.@ flexion": 0.6,
@@ -495,8 +501,8 @@ const UPRIGHT = {
  * **The sit-back**: from the front, the game's rise onto hands and knees (`fold` to `prop`); then
  * the toes planted under the feet, sat back onto the heels and the hands off, and the weight
  * brought up over the feet at the pace their balls stay down, where the stance takes the body to
- * standing (`docs/reference/rising.md#the-sit-back`). For a body with toes, on the game's humans'
- * names.
+ * standing. Each stage ends on what the body has done (`Until`). For a body with toes, which the
+ * plant stands on, on the game's humans' names.
  */
 export const SIT_BACK: Recipe = deepFreeze({
   ...RISE,
@@ -532,7 +538,7 @@ export interface Lowering {
 const riseStage = (name: string): Stage => RISE.rise.find((stage) => stage.name === name)!;
 
 /**
- * **The kneel-down**: the rise's step played back (`docs/reference/rising.md#the-kneel-down`). The
+ * **The kneel-down**: the rise's step played back. The
  * feet set in a lunge, the left ahead; the lunge's rungs down, the right foot on its toes, and one
  * lower, until the right knee is at the ground; half kneeling; the step's poses back, which bring
  * the left knee down beside the right; and tall on both knees, borne on the shins and held.

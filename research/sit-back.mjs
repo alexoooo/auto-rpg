@@ -1,5 +1,5 @@
 /**
- * **The sit-back's reproduction** (`docs/reference/rising.md#the-sit-back`): the technique
+ * **The sit-back's reproduction**: the technique
  * (`sit-back`, `src/core/recovery/ground/staged-edges.ts`) played alone from hands and knees at rest on
  * toes, the start the toes' stand-up was measured from (`placement("push-off-bear")`,
  * `research/rise-witness.mjs`), and the body watched to verified standing (`STAND_CHECK`): quiet on

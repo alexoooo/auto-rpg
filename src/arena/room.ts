@@ -97,7 +97,7 @@ const placed = (
  * ceiling (`ROOM.maxReachHeight`) unless it names one of the arena's colliders
  * (`validateRoomPlacements`). A fighter can move beyond the slab, so distance
  * admits nothing; only overhead solids may go without a collider. Where each piece stands is set by
- * eye (`docs/reference/look.md#arena-room`).
+ * eye.
  */
 export const ROOM_GROUPS: readonly RoomGroup[] = Object.freeze([
   { role: "wall", metresPerRepeat: ROOM.wallMetresPerRepeat, placements: roomWalls() },

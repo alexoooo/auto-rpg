@@ -1,5 +1,5 @@
 /**
- * **Man's passive toe on the game's solver** (`docs/reference/man-passive-toes.md`): one foot of
+ * **Man's passive toe on the game's solver**: one foot of
  * the Warrior, cut at the ball (`assets/humanoid/man-contact-geometry.json`), on the arena's ground,
  * built through the core's Rapier world (`createRapierPhysics`: `SOLVER`'s iterations, the contract's
  * friction) and not through the core's body.
@@ -283,7 +283,7 @@ function run(kase, config) {
   return { summary, samples };
 }
 
-/** The declared acceptance (`docs/reference/man-passive-toes.md`): each bar, true where met. */
+/** The acceptance: each bar, true where met. */
 function accept(s) {
   if (s.angle === undefined) return null;
   return {

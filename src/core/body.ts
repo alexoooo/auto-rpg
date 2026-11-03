@@ -203,9 +203,8 @@ export interface Fist {
 }
 
 /**
- * The joint servo's time constant, s (`servo`). 0.1 s is a choice, not a floor: the servo holds at
- * time constants down to two steps (`docs/reference/servo-and-muscle.md#holding-a-pose`). Readings
- * at 0.1 s on the lab's routine: `docs/reference/body-and-engine.md#servo-time-constant`.
+ * The joint servo's time constant, s (`servo`). 0.1 s (twelve steps at 120 Hz) is a choice, not a
+ * floor: the servo holds without ringing at time constants down to two steps.
  */
 export const SERVO_SECONDS = 0.1;
 

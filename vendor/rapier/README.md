@@ -3,8 +3,15 @@
 The core's physics engine is Rapier's 3D SIMD build (`@dimforge/rapier3d-simd-compat`), built
 here from Rapier's source at commit `b716d375efc0201003f0cd9ef7168eee0b62c177`
 (`js-v0.21.0`) with our patch, and installed from the tarball `package.json` names.
-The reproduction and parity results are in
-[the engine record](../../docs/reference/rapier-vendor.md).
+
+- Package `0.21.0-auto-rpg.10`, archive SHA256
+  `317197f478ddd9b7a09846c1683269ed52d583e91f7f283e009e689e25e75318`. The adapter's snapshot
+  revision, `REVISION` in `src/core/engine/rapier.ts`, is `adapter-12` and that hash: a snapshot
+  loads only into the package and adapter that wrote it.
+- `package.json` and the lockfile name the archive, with SHA512 integrity from its bytes;
+  `npm ci --offline --no-audit --no-fund` installs it. Rust is needed only to rebuild.
+- `node research/rapier-package-parity.mjs --reference <unpacked npm 0.21.0 package>` plays three
+  arena recipes on stock Rapier and on this package and compares their digests.
 
 - `auto-rpg.patch`: our change to Rapier, against `js-v0.21.0` (Rapier 0.36.0, its JavaScript
   bindings 0.21.0).
@@ -35,12 +42,14 @@ test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symm
   and a multibody joint's limits, motor and bounds (`jointSetLimits`, `jointConfigureMotor`,
   `jointSetMotorForceBounds`).
 - **Whole-step motor impulse** (`jointMotorStepImpulse`): the signed sum over every solver
-  substep, CCD subdivisions included, reset once a pipeline step, accumulated in double precision,
-  serialized with the joint and never a warm-start seed. Scalar, SIMD and external multibody rows
+  substep, CCD subdivisions included, reset once a pipeline step, accumulated in double precision
+  (single-precision sums of many substeps drift off a motor's cap), serialized with the joint and
+  never a warm-start seed: an observation, not a solver input. Scalar, SIMD and external multibody rows
   contribute; internal multibody motors have no readback. It is not work or an absolute effort.
 - **CCD-only pair filtering** (`ActiveHooks.FILTER_CCD_PAIRS`) runs the pair filter for sweeps
   without disabling contact recycling, so connected-pair exclusions reach continuous collision
-  detection ([grip clearance](../../docs/reference/grip-clearance.md)).
+  detection: a CCD sweep otherwise ignores a joint's exclusion, and a gripped item, which overlaps
+  its hand by construction, would hit it.
 - **Contact readings.** `solverContactSeparation` projects the separation of the solver's two
   anchors, resolved through the current poses, on its normal (`solverContactDist` keeps its
   upstream meaning, a cached distance). `totalSolverContactImpulse` sums the normal impulses of
@@ -52,11 +61,15 @@ test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symm
   readings are serialized. The core installs no layer: every contact it makes is rigid.
 - **Angular-limit gradients** (`coordinateAngularLimits`): impulse-joint and external limit rows
   follow the spatial gradient of their reported coordinate; motor rows are unchanged. Serialized;
-  the adapter's `rapier-coordinate` ([joint limits](../../docs/reference/joint-limits.md)).
+  the adapter's `rapier-coordinate`. For the relative rotation `q = (w, x, y, z)` the limited
+  coordinate is `theta_i = 2 atan2(q_i, w)`; with `j = (i + 1) mod 3`, `k = (i + 2) mod 3` its
+  gradient in the parent's joint frame is `g_i = 1`, `g_j = (q_i q_j + w q_k) / (w^2 + q_i^2)`,
+  `g_k = (q_i q_k - w q_j) / (w^2 + q_i^2)`. The parent-axis row omits the cross terms, so motion
+  about the other axes can carry the angle through a limit unseen. At `q_i = w = 0` the coordinate
+  is undefined and the parent-axis row is kept.
 - **Friction selection** (`pointContactFriction`): the native per-point Coulomb model for rigid
   bodies in place of central and twist friction (multibody contacts always use it). The patch
-  adds only accessors; the adapter refuses snapshots across the two configurations
-  ([contact friction](../../docs/reference/contact-friction.md)).
+  adds only accessors; the adapter refuses snapshots across the two configurations.
 - **Bulk calls**, each one crossing into the wasm with a typed array the caller keeps, each value
   the one the per-item calls give, widened to double precision:
   - `RawNarrowPhase.contact_readings(bodies, handles, out)`: every contact of the listed
@@ -74,7 +87,8 @@ test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symm
 
 Needs git, bash (Git Bash on Windows), Node and npm, and Rust with the `wasm32-unknown-unknown`
 target (`rustup target add wasm32-unknown-unknown`). wasm-pack 0.12.1 and wasm-bindgen 0.2.129 come
-pinned by Rapier's own lockfiles. Built with rustc 1.97.1 and Node 24.15.
+pinned by Rapier's own lockfiles. The archive is built with rustc 1.97.1 and Node 24.15.0; the
+build reproduces its bytes only on that toolchain.
 
 ```bash
 bash vendor/rapier/build.sh   # RAPIER_WORK=<dir> to choose the work tree; CARGO_BUILD_JOBS to spare the machine
@@ -85,8 +99,9 @@ The work tree (Rapier's source, its packages and its Rust target, a few GB) defa
 `RAPIER_SOURCE` can name a local source mirror instead of GitHub. The tag must resolve to the
 pinned commit. The script resets only a work tree bearing its own marker and refuses a symlinked
 source directory or an existing unmanaged tree. Do not use a development checkout as its work tree.
-The script remaps diagnostic source paths and uses the metadata wrapper for the WASM build;
-both are needed to reproduce its bytes in another directory.
+The script remaps diagnostic source and Cargo paths, writes the declarations with LF, and uses the
+metadata wrapper for the WASM build; all are needed to reproduce its bytes in another directory.
+A build elsewhere reproduces the archive's hash before it replaces the archive.
 
 ## Changing it
 

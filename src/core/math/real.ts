@@ -9,6 +9,18 @@
  * array), so each returns the same double everywhere. `tests/core-boundary.test.mjs` holds the
  * core to them.
  *
+ * - `sin`, `cos`, `tan`: fdlibm's `k_sin.c`, `k_cos.c`, `k_tan.c`, `e_rem_pio2.c`, `k_rem_pio2.c`.
+ * - `asin`, `acos`: `e_asin.c`, `e_acos.c`; `atan2`: `e_atan2.c`, `s_atan.c`.
+ * - `exp`: `e_exp.c`; `log`: `e_log.c`; `sinh`, `cosh`: `e_sinh.c`, `e_cosh.c`, `s_expm1.c`;
+ *   `cbrt`: `s_cbrt.c`.
+ * - `hypot`, `norm`: each part over the largest, squared, summed with a running compensation; the
+ *   root, times the largest.
+ *
+ * An engine's `**` and `Math.pow` are its platform's `pow`, so a power is written from these (a
+ * ball's radius from its volume is `cbrt`, `ballRadius`). A turn about an axis and one between two
+ * turns are the same arithmetic on these functions (`turn.ts`), not Babylon's, which take the
+ * engine's sine and cosine.
+ *
  * All but `hypot` are fdlibm's, by way of FreeBSD's msun, kept operation for operation; its notice:
  *
  * ====================================================

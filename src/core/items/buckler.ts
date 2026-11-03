@@ -8,7 +8,8 @@ const GRIP_LENGTH = sourced(.12, "m", "owner-arena-items", "buckler: handle leng
 const OFFSET = sourced(.065, "m", "owner-arena-items", "buckler: disc centre outward from the grip axis");
 const NORMAL = sourced([0, 0, 1], "1", "owner-arena-items", "buckler: outward normal, item +z");
 
-/** A centre-grip disc, its handle and face one rigid load on the hand. */
+/** A centre-grip disc, its handle and face one rigid load on the hand. Its item frame has y along
+ * the grip, x across the face and z outward. */
 export function buckler(): ItemSpec {
   const mass = derive("kg", "the disc and handle masses", [DISC_MASS, GRIP_MASS], (d, h) => d + h);
   const boss = derive("m", "the disc centre, halfway along the grip and forward of its axis", [GRIP_LENGTH, OFFSET], (l, z) => [0, l / 2, z]);

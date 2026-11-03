@@ -4,6 +4,13 @@ import { deepFreeze } from "../state.ts";
 import type { ColliderShape } from "../engine/engine.ts";
 import type { World } from "../world.ts";
 
+/**
+ * **A hand's collision shape by pose**: open, fist or grip, each the hand segment's
+ * (`SegmentSpec.handPoses`). A request waits for an unloaded hand whose new shape overlaps nothing;
+ * the collider keeps its handle, filters, transform, velocity and mass. Requested and applied poses
+ * are state, so a fork or a load keeps a pending change. A closure the skin draws carries no
+ * collision.
+ */
 export interface HandPoseRequest { readonly hand: "left" | "right"; readonly pose: HandPose }
 
 /** Detached requests; an applied pose changes only at an unloaded, clear world-step boundary. */

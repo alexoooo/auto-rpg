@@ -5,7 +5,14 @@ import { footStatesOf, readSupport, withinSupport } from "../../control/support.
 import { STANCE_LOWER } from "./locomotion.ts";
 import { footEnd, type LegsAsked, type LegsGoal, type Skill } from "../framework/skill.ts";
 
-/** Supported low-combat probes and physical gates: `docs/reference/supported-root-pose.md#combat-fold-settings`. */
+/**
+ * The fold and its gates: `lower`, m, the deepest the centre of mass goes under its standing
+ * height; `pitch`, rad, and `response`, s, the root's supported pose at that depth; `transition`,
+ * s, a fold's time; `lumbar` and `thoracic`, rad, the trunk's flexion asked at full depth; it is
+ * supported where both soles are flat within `footGap`, m, and bear on ground whose normal's upward
+ * share is at least `normal`, the rest of the body `clearance`, m, clear of it and the centre
+ * slower than `slow`, m/s, and ready once supported low for `hold`, s.
+ */
 const COMBAT_FOLD = Object.freeze({ lower: .5, pitch: .9, response: .5, transition: 2,
   lumbar: .89, thoracic: .368, footGap: .015, clearance: .15, slow: .1, hold: .05, normal: .9 });
 

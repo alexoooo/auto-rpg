@@ -45,8 +45,8 @@ export function peakTorque(figure: HumanFigure, exertion: Exertion): Quantity<nu
 }
 
 /**
- * What a leg's exertions give in use over their measured peaks, as the owner has set them: what the
- * run searched on the body is fastest and surest at (`docs/reference/run-body.md`). A person
+ * What a leg's exertions give in use over their measured peaks: set so the run reaches 3 to 4 m/s,
+ * the values it is fastest and surest at. A person
  * running uses the hip at all of its measured capacity and pushes the ankle past a straight-legged
  * push's peak.
  */

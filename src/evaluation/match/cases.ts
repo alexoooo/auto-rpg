@@ -1,6 +1,6 @@
 /**
  * **The standard match's cases**: two minds over one fixed set of arena bouts, each mind on each
- * side. Bouts are the same to the bit on every machine (`docs/reference/real-functions.md`).
+ * side. Bouts are the same to the bit on every machine (`src/core/math/real.ts`).
  */
 import { CAP_SECONDS, SIDES } from "../../arena/duel.ts";
 import type { ArenaLevel } from "../../arena/levels.ts";

@@ -1,6 +1,6 @@
 {
   "workshop-fighter+toes": {
-    "made": "The best swing found on the Strike drill's still rung (research/swing-drill.mjs), short of the bar: the edge is fast but meets with the flat (docs/reference/held-blows.md#the-cut)",
+    "made": "The best swing found on the Strike drill's still rung (research/swing-drill.mjs), short of the bar: the edge is fast but meets with the flat",
     "settings": {
       "pace": 1.021,
       "band": 0.15,

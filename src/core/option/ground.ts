@@ -27,8 +27,8 @@ const READY_HOLD = .1;
 /**
  * How upright a body on its feet holds its trunk (`GroundReading.upright`, the cosine of its lean):
  * a squat or a climb holds it above, a body lying on its back with its feet planted below, however
- * its supports read on a step its trunk does not bear
- * (`docs/reference/rising.md#option-minds-rise-on-the-target`).
+ * its supports read on a step its trunk does not bear: on its feet means the trunk within 60
+ * degrees of upright.
  */
 const TRUNK_UP = .5;
 
@@ -153,7 +153,7 @@ export function groundOptions(spec: BodySpec, hz: number, delay: number, executo
     { edges: [{ from: "crouch" as Position, to: "standing" as Position }], way: steadyWay }];
 
   /**
-   * **Each posture's expected seconds to standing** (`docs/reference/rising.md#routes-priced`): the
+   * **Each posture's expected seconds to standing**: the
    * least, over the edges from it, of a try's seconds, then the rise on from where it ends, in the
    * share it reaches there and the shares its failures rest elsewhere, over the share that does not
    * rest where it began; found again until none falls. Infinity where no edge's route stands it.

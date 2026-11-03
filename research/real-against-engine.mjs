@@ -6,8 +6,8 @@
  *
  *   node research/real-against-engine.mjs [arguments a draw]
  *
- * The default is the sweep the test runs, 20 000 a draw; the record's table
- * (`docs/reference/real-functions.md`) is at 5 000 000.
+ * The default is the sweep the test runs, 20 000 a draw. On Node, whose `Math` is fdlibm, no value
+ * differs at 5 000 000 a draw.
  */
 import { SWEEP_EACH, sweep } from "../tests/fixtures/real-sweep.mjs";
 

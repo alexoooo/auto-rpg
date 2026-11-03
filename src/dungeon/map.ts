@@ -60,8 +60,7 @@ export interface SightIndex { readonly clear: Uint8Array }
 
 /**
  * A cell's samples within this of its middle on both axes are at least 0.002 m from every other
- * cell, m: twice the 0.001 m within which `walkable` stops sight at rock, a numeric setting
- * (`docs/reference/step-cost.md#sight-read-through-an-index`).
+ * cell, m: twice the 0.001 m within which `walkable` stops sight at rock, a numeric setting.
  */
 const SIGHT_RIM = 0.498;
 

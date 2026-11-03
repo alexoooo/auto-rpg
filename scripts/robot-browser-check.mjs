@@ -1,4 +1,8 @@
 // npm exec --yes --package=playwright -- node scripts/robot-browser-check.mjs [URL]
+// Drives the robot appearances through the Arena's and the Lab's selectors, previews, paused playback, Tactical
+// view and replacement without rebuilding a body, and writes screenshots under `.tmp/robots/`. It
+// does not judge silhouette, lighting or panel intersections: look at the screenshots and at the
+// shells in motion.
 import assert from "node:assert/strict";
 import { access, mkdir, writeFile, readFile } from "node:fs/promises";
 import { delimiter, resolve } from "node:path";

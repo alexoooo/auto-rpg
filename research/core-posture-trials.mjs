@@ -1,5 +1,5 @@
 /**
- * The posture audit's trials (`docs/reference/postures.md`): whether a body can hold itself still
+ * The posture audit's trials: whether a body can hold itself still
  * on a given support, and which stop or which muscle closes a support it cannot hold.
  *
  * **Statics** (`statics`, `search`). A posture is written to the segments' nodes by the joints' own
@@ -82,8 +82,8 @@ export const STRIPPED = 3;
 
 /**
  * **The hands and feet a body is read with**: `boot`, the Warrior as built, a box boot and a
- * capsule hand; `barefoot`, Man's measured contact geometry (`SOURCES["man-contact-geometry"]`,
- * `docs/reference/man-anatomy.md`), the whole bare foot rigid and the open hand's hull; `toe`, as
+ * capsule hand; `barefoot`, Man's measured contact geometry (`SOURCES["man-contact-geometry"]`),
+ * the whole bare foot rigid and the open hand's hull; `toe`, as
  * `barefoot` with the foot cut at the ball and the toes on a passive hinge (`TOE`). Only shapes
  * change: mass stays where the spec puts it, the toes' in the foot.
  */
@@ -1297,7 +1297,7 @@ export const HOLD_HARNESS = "Node, core world (src/core/world.ts), Rapier, at th
  * iterations) a statue standing as built, every freedom driven to its angle at 5000 N m, misses
  * its goals by 0.12 rad within a second and falls, and one squatting at 0.5 m sinks and falls on
  * its back; at 480 Hz and 256 iterations of 4 passes (`reference`) the two stay within 2 and 4 cm
- * of where they were put over 2 s, every joint within 0.0006 rad (`docs/reference/postures.md`).
+ * of where they were put over 2 s, every joint within 0.0006 rad.
  * So the body's hold is read on the reference, and the game's on its own. The reference's
  * iterations are set on Rapier's world from here, outside the engine's contract: a measuring
  * instrument's, not the core's.

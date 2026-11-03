@@ -268,7 +268,7 @@ export class TeamBout {
 
 /**
  * **The crowd fight**: five Option Mind Warriors a side, swords against clubs: what a step with ten
- * bodies is read on (`docs/reference/step-cost.md`).
+ * bodies is read on (`research/step-time.mjs --crowd`).
  */
 export function crowdFight(seed = 0): TeamRecipe {
   const mind = MINDS["option"]!.config;

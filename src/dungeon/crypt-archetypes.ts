@@ -8,7 +8,7 @@ type Furnishing = keyof typeof CRYPT_FURNITURE;
 
 /**
  * Where each kind of room stands its furniture: offsets from the room's centre, m, before the room's turn mirrors
- * them (`docs/reference/look.md#crypt-rooms`). `shift` is how far one step of a room's variant moves a piece, and
+ * them, set by eye. `shift` is how far one step of a room's variant moves a piece, and
  * the altar's `fromBack` how far short of the room's last row of cells it stands.
  */
 const CRYPT_ARRANGEMENT = {
@@ -100,7 +100,7 @@ interface CryptRoomLook {
   /** The colour its paving's stains take, linear red, green and blue, and how strong they are, 0 to 1. */
   readonly soil: readonly [number, number, number]; readonly strength: number;
 }
-/** Each kind of room's look (`docs/reference/look.md#crypt-rooms`). */
+/** Each kind of room's look, set by eye. */
 export const CRYPT_ROOM_LOOK: Readonly<Record<CryptRoomKind, CryptRoomLook>> = {
   guard: {niches:.08,roots:0,scatter:.55,largeSlab:.18,damp:false,color:'#ff8f32',intensity:60,shadow:260,soil:[.43,.35,.23],strength:.36},
   burial: {niches:.85,roots:.12,scatter:.3,largeSlab:.3,damp:false,color:'#ff9c4b',intensity:4,shadow:60,soil:[.32,.23,.18],strength:.55},

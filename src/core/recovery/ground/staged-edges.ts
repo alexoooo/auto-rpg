@@ -14,14 +14,14 @@ import { otherSide } from "../../spec/body.ts";
 
 /**
  * **Where step up's route is cut**: in route order, the stage of its rise (`RISE`) at whose end
- * each posture is read (`docs/reference/rising.md#the-staged-route`).
+ * each posture is read.
  */
 const CUTS: readonly { readonly after: string; readonly at: Position }[] = Object.freeze([
   { after: "sit", at: "fours" }, { after: "tall", at: "kneeling" }, { after: "onto the toes", at: "half-kneel" }]);
 
 /**
  * **How fast a body a part of the route takes or hands on may move**: its centre of mass under
- * `speed`, m/s, its pelvis turning under `spin`, rad/s (`docs/reference/rising.md#the-staged-route`).
+ * `speed`, m/s, its pelvis turning under `spin`, rad/s.
  */
 const HAND_OVER = Object.freeze({ speed: 1, spin: 2 });
 
@@ -81,8 +81,7 @@ const stagedEntry = (kind: StagedKind, model: string, g: GroundReading, side: Si
  * **A part of step up's route as a technique**, its stages timed as step up's (`STEP_UP`), begun on
  * the body as it is, moving or not (`stagedEntry`): the roll (`rollPart`) or a part of the rise
  * (`risePart`). A rise that falls back to lying slack, or onto its back, fails; one longer than
- * step up's whole attempt (`LIMIT`) times out
- * (`docs/reference/rising.md#option-minds-rise-on-the-target`).
+ * step up's whole attempt (`LIMIT`) times out.
  */
 function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind): TechniqueRun {
   return PARTS[kind].first === null ? rollPart(own, view, kind) : risePart(own, view, kit, kind);
@@ -224,5 +223,9 @@ export const STAGED_ROLL = routeTechnique("staged-roll", "Staged roll");
 export const STAGED_DOWN = routeTechnique("staged-down", "Staged down");
 /** **Sit back**: from hands and knees on toes, sat back onto the heels and up over the feet (`SIT_BACK`), climbed and steadied. */
 export const SIT_BACK_EDGE = routeTechnique("sit-back", "Sit back");
-/** **Sit back from the front**: onto hands and knees as step up comes, and on through the sit-back without a stop (`SIT_BACK`). */
+/**
+ * **Sit back from the front**: onto hands and knees as step up comes, and on through the sit-back
+ * without a stop (`SIT_BACK`): one rise, since a body stopped on hands and knees (`staged-down`)
+ * and begun on the sit-back afresh mostly falls.
+ */
 export const FRONT_SIT_BACK = routeTechnique("front-sit-back", "Sit back from the front");

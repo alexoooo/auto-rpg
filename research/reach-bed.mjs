@@ -8,7 +8,7 @@
  * tasks }`: the hand's segment and the chain's joints by name, the angles the solve started
  * from, its freedoms and its tasks. They are the Rogue's right arm's, three a step (the step
  * before, the step and the step after along the hand's path, from one start), and they are kept
- * as they were asked whatever the solve becomes (`docs/reference/step-cost.md` says which bout).
+ * as they were asked whatever the solve becomes.
  * To capture a bout's solves again: a first line of `solveReach` that pushes a copy of its
  * `angles`, `free` and `tasks` and its chain's names onto a global list, the bout played to its
  * verdict (`buildBout`, `src/evaluation/bout.ts`), and the list written out.

@@ -52,9 +52,10 @@ function cost(profile: Expected, from: Position, to: Position, time: Float64Arra
 }
 
 /**
- * **Each position's expected seconds to standing** (`docs/reference/rising.md#routes-priced`), into
- * `time`: the least of the costs (`cost`) of the edges from it that have a profile and a side short
- * of their failures, found again until none falls; Infinity where no priced route goes.
+ * **Each position's expected seconds to standing**, into `time`: the least of the costs (`cost`)
+ * of the edges from it that have a profile (`assets/core/edge-profiles.json`) and a side short of
+ * their failures, found again until none falls; an edge with no profile prices nothing. Infinity
+ * where no priced route goes.
  */
 function price(order: readonly string[], techniques: Registry, failures: readonly GraphFailure[], retries: number, time: Float64Array): void {
   time.fill(Infinity); time[index("standing")] = 0;

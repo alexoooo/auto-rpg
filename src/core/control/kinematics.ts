@@ -541,7 +541,8 @@ function solveTo(work: ReachWork, rows: number, A: Float64Array, y: Float64Array
  * J has full rank. The joints' ranges keep the last link's line from lining up with the rest, and
  * its length sets the reach that costs. Then how the damping's square grows near full stretch for
  * each metre of error, m, so a step on a place the ranges keep out of reach does not overshoot.
- * What they were read on: `docs/reference/step-cost.md#the-reach-solver-near-full-stretch`.
+ * A fixed margin of a few millimetres in place of a share leaves a club arm's solves slow and
+ * sensitive to the place.
  * Last, how far inside its range a freedom at a stop is begun where the place asks the chain
  * shorter (`unbent`), rad.
  */
@@ -549,7 +550,7 @@ const IK_PASSES = 200, IK_TOLERANCE = 1e-10, IK_DAMPING = 0.01, IK_SHORT = 0.1, 
 const IK_NEAR = 0.2, IK_STRETCH = 0.04, IK_DAMPING_GROWTH = 0.1, IK_ESCAPE = 0.05;
 /**
  * What shapes the path an arm takes to a place: the share of the way to the preferred angles each
- * pass asks in the null space, and the most any angle turns in one pass (rad). Set
- * (`docs/reference/human-and-strikes.md#ik`).
+ * pass asks in the null space, and the most any angle turns in one pass (rad), the whole step
+ * scaled alike. They shape the path, not where it ends.
  */
 const IK_POSTURE_PULL = 0.5, IK_TURN = 0.2;

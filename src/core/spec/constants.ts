@@ -11,7 +11,7 @@ export const STANDARD_GRAVITY: Quantity<number> = sourced(9.80665, "m/s2", "cgpm
   "Declaration on the unit of mass and on the definition of weight; conventional value of gn");
 
 /**
- * A contact's friction coefficient where neither collider names its own: Rapier's default (`rapier-default-friction`), which every
- * table of the stance's record was measured on (`docs/reference/stance-tuning.md`).
+ * A contact's friction coefficient where neither collider names its own: Rapier's default
+ * (`rapier-default-friction`). The stance's limits on a sole are read from the coefficient.
  */
 export const CONTACT_FRICTION = 0.5;

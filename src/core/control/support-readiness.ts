@@ -2,7 +2,11 @@ import { Vector3 } from "../math/vector.ts";
 import { footStatesOf, groundContact, readSupport, withinSupport } from "./support.ts";
 import type { ReadBody } from "../read-body.ts";
 
-/** Physical readiness limits, independent of anatomy: `docs/reference/punch-stability.md#readiness-settings`. */
+/**
+ * A strike's support gates, independent of anatomy: a contact bears as ground where its normal's
+ * upward share is at least `normal`; a sole is flat where its corners' heights differ by at most
+ * `footGap`, m; the base is quiet where the centre moves at most `slow`, m/s.
+ */
 const STRIKE_SUPPORT = Object.freeze({ normal: .9, footGap: .015, slow: .35, hold: .05 });
 
 /** Trusted physical adapter; its detached readings are shared by strike preparation and transfer. */

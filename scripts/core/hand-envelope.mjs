@@ -15,7 +15,10 @@
  * Body frame (+x right, +y up, +z front), metres at the authored size, rounded to 0.1 mm; the spec
  * scales by the fit scale. `node scripts/core/hand-envelope.mjs` prints a summary; with `--write`
  * it writes `assets/humanoid/<model>-hands.json` for each model.
- * The record: `docs/reference/man-anatomy.md`.
+ *
+ * The hulls are convex, for contact on flat ground: the palm's hollow is bridged, and a hand is one
+ * rigid piece per pose whose fingers do not bend under load. The bind pose's skin is the unloaded
+ * skin; nothing models its compression beyond `PATCH`.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -149,7 +152,7 @@ export async function handGeometry(model) {
   const out = {
     about: `${model}'s hands from its GLB's bare skin: each side's open hull with its palm patch, and its fist's hull, `
       + "knuckles and strike; body frame (+x right, +y up, +z front), metres at the authored size, rounded to 0.1 mm. "
-      + "Written by scripts/core/hand-envelope.mjs --write; docs/reference/man-anatomy.md is the record.",
+      + "Written by scripts/core/hand-envelope.mjs --write, whose header gives the rules.",
     model, patch: PATCH,
   };
   for (const side of ["left", "right"]) out[side] = await hand(model, side);

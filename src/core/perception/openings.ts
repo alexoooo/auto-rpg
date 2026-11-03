@@ -14,12 +14,24 @@ import type { BodySense } from "../mind/senses.ts";
 import { convexHull } from "../spec/hull.ts";
 import { hullEntry } from "./hull-entry.ts";
 
-/** Visible lane ranking search cells: `docs/reference/combat-strikes.md#opening-selection`. */
-const OPENINGS = Object.freeze({ prediction: .12, blocked: 2, reachPenalty: 2, handMargin: 1,
-  head: 0, upperTrunk: .2, middleTrunk: .4, overhand: 0, repeated: 1, elevation: .5,
-  // Optional side-surface rays: `docs/reference/combat-strikes.md#lateral-head-surfaces`.
-  headLateral: 0, hookReserve: .15, hookCost: .1, pathSamples: 4,
-  // Upward close-range development cells: `docs/reference/combat-uppercut.md`.
+/**
+ * **How an opening is ranked** among the foe's head, upper-trunk and middle-trunk surfaces, lowest
+ * score first: each a cost added to the score, or a setting of the search.
+ */
+const OPENINGS = Object.freeze({
+  // Seconds the sensed surfaces are carried on, linear and spin, past the observation's age.
+  prediction: .12,
+  // A blocked lane's cost; the cost per metre of distance off the arm's working range; the hand's radius, whole, as the lane's margin.
+  blocked: 2, reachPenalty: 2, handMargin: 1,
+  // Each surface's priority (head, upper trunk, middle trunk); an overhand's cost; a surface blocked last time's.
+  head: 0, upperTrunk: .2, middleTrunk: .4, overhand: 0, repeated: 1,
+  // The heights a capsule is aimed at, a fraction of its radius either side of its middle.
+  elevation: .5,
+  // Rays beside the head's middle, a fraction of its half-extent either side, kept on the sensed surface; 0 aims at the middle alone.
+  headLateral: 0,
+  // A hook's reach kept back, m, and its cost; the samples of a predicted hand path checked for a lane.
+  hookReserve: .15, hookCost: .1, pathSamples: 4,
+  // An uppercut's cost and reach kept back, m.
   uppercut: .1, uppercutReserve: .25,
   // How much a side blow's line from the striking shoulder off the surface's normal costs, by one less its cosine: none unless a tuning asks.
   square: 0 });

@@ -5,9 +5,9 @@ import { STAND_ORDERS, type Orders } from "../intent/orders.ts";
 import { ARRIVAL, approach, direction, distance, lyingSince, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import type { Commander, MemberReport, TeamDecision, TeamHost, TeamView } from "./team.ts";
 
-/** How far a member of an independent team sees a foe along a clear line (`TeamLevel.sees`), m (`docs/reference/play.md#sight`). */
+/** How far a member of an independent team sees a foe along a clear line (`TeamLevel.sees`), m. */
 export const SIGHT_METRES = 14;
-/** How long a member that has lost sight of its foe goes on to the place it last saw it, s (`docs/reference/play.md#run-timing`). */
+/** How long a member that has lost sight of its foe goes on to the place it last saw it, s, before it goes home. */
 export const ALERT_SECONDS = 7;
 
 /** What an independent team remembers of a member: its foe, where and until when it was last seen, and the door it is opening. */

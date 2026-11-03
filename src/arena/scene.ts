@@ -39,7 +39,7 @@ interface Arena {
 }
 
 /**
- * The arena's light and its camera's lens, set by eye (`docs/reference/look.md#arena-light`): a
+ * The arena's light and its camera's lens, set by eye: a
  * cool fill from the sky over a warm bounce from the ground, a warm sun with its shadow map, and
  * the image the metal and the stone reflect. Colours are red, green and blue from 0 to 1;
  * directions and places are the world's, m.

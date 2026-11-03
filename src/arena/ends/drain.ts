@@ -3,7 +3,7 @@ import type { EndRule, EndRuleConfig } from "../end-rule.ts";
 /** The drain's settings: from `from` s into the bout each side loses its full life over `over` s, steadily. */
 interface DrainConfig extends EndRuleConfig { readonly kind: "drain"; readonly from: number; readonly over: number }
 
-/** The owner's verdict: from the first minute, a sixtieth of a side's full life a second (`docs/reference/play.md#the-bout`). */
+/** From the first minute, a sixtieth of a side's full life a second, so every life is drained by two minutes. */
 const DRAIN: DrainConfig = Object.freeze({ kind: "drain", from: 60, over: 60 });
 
 /**

@@ -219,7 +219,7 @@ export function clearFootTranslation(view: BodyView, foe: BodySense, dx: number,
     [sole.x, sole.y, sole.z], [sole.x + dx, sole.y, sole.z + dz], radius));
 }
 
-/** Observed opponent-height gate: `docs/reference/ground-combat.md#opponent-height`. */
+/** A sensed head centre lower than this over the body's own support is a low opponent, m. */
 const LOW_HEAD = .8;
 
 /** A grounded opponent is observed by height over the body's own support, never its controller's state. */

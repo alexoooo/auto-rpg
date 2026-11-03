@@ -1,5 +1,5 @@
 /**
- * **The posture audit's statics on Man's hands and feet** (`docs/reference/man-postures.md`): every
+ * **The posture audit's statics on Man's hands and feet**: every
  * row (`ROWS`) searched on each envelope (`ENVELOPES`: the boot, the bare rigid foot and open hand,
  * and the bare foot with its toes on a passive hinge), as built, as `core-posture.mjs` searches it.
  * Each row from its seed posture (the toe's also with its toes bent, `TOES_BENT`); a row that holds

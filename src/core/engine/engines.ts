@@ -8,16 +8,20 @@ import type { PhysicsEngine } from "./engine.ts";
  */
 const ENGINES = {
   rapier: () => import("./rapier.ts").then((m) => m.loadRapier()),
-  // Measured-angle limit rows; profile measurements are in docs/reference/joint-limits.md.
+  // Angular limit rows along the gradient of the angle the limit reads, `2 atan2(q_i, w)`, where
+  // Rapier's parent-axis rows let motion about the other axes carry it through the limit unseen
+  // (vendor/rapier/README.md, angular-limit gradients).
   "rapier-coordinate": () => import("./rapier.ts").then((m) => m.loadRapier({ coordinateAngularLimits: true })),
-  // Per-point friction profiles are measured in docs/reference/contact-friction.md.
+  // Per-point Coulomb friction in place of Rapier's patch friction, which applies one tangential
+  // and one twist constraint to each group of at most four contacts (the vendored binding's
+  // `pointContactFriction` selector).
   "rapier-coulomb": () => import("./rapier.ts").then((m) => m.loadRapier({ pointContactFriction: true })),
   "rapier-coordinate-coulomb": () => import("./rapier.ts").then((m) => m.loadRapier({ coordinateAngularLimits: true, pointContactFriction: true })),
 } as const satisfies Readonly<Record<string, () => Promise<PhysicsEngine>>>;
 
 export type EngineName = keyof typeof ENGINES;
 
-/** Gameplay uses measured-angle limit gradients (docs/reference/joint-limits.md). */
+/** Gameplay runs with angular limits along the measured angle's gradient. */
 export const DEFAULT_ENGINE: EngineName = "rapier-coordinate";
 
 export const isEngineName = (name: string): name is EngineName => Object.hasOwn(ENGINES, name);

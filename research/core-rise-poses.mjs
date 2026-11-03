@@ -1,5 +1,5 @@
 /**
- * Pose stages played on a fallen body, for finding them (`docs/reference/rising.md#stages`): the
+ * Pose stages played on a fallen body, for finding them: the
  * battery's body toppled stiff the way asked (`toppled`, `core-rise-trials.mjs`), then under a
  * staged riser (`stagedRise`) whose recipe is the stages given, as the rise and as every roll, so
  * they are played however it lies. A line a stage, read at its last step: how the body lies, the

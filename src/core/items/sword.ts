@@ -5,7 +5,8 @@ const q = <T extends number | Vec3>(value: T, unit: Quantity["unit"], where: str
 const point = (value: Vec3) => q(value, "m", "short sword: item-frame collider and named-point coordinates");
 const hull = (points: readonly Vec3[]) => ({ kind: "hull" as const, points: points.map(point) });
 
-/** A one-handed short sword whose edge, flat, tip and hilt are physical contact regions. */
+/** A one-handed short sword whose edge, flat, tip and hilt are physical contact regions. Its item
+ * frame has y from butt to tip, x across the blade between its edges and z through its flat. */
 export function shortSword(): ItemSpec {
   const stiffness = q(10e9, "N/m", "short sword: hard equipment surface"), alignment = q(.8, "1", "short sword: edge and tip normal cones");
   const tip = point([0, .62, 0]), bladeBase = point([0, .145, 0]);

@@ -112,8 +112,8 @@ export function trackOf(pieces: readonly Piece[]): Track {
 const CIRCLE_RADIUS = 4;
 /**
  * The walking pace of a turn on the stance, m/s: slow enough that `LAB_TURN_RATE`
- * (`stance-mode.ts`) is inside every body's envelope, and that each human takes the Routine's
- * half-turns from standing (`docs/reference/lab.md#routine-gait`).
+ * (`stance-mode.ts`) is inside every body's envelope, and that each human takes the shuttle's
+ * half-turns from standing; faster, a human falls or pivots off the turn.
  */
 export const TURN_PACE = 0.3;
 

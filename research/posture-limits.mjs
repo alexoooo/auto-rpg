@@ -7,7 +7,7 @@ const { values } = parseArgs({ options: { workers: { type: "string", default: "3
   out: { type: "string", default: "research/runs/posture-limits" } }, strict: true });
 const workers = Number(values.workers);
 if (!Number.isSafeInteger(workers) || workers < 1) throw new Error("workers must be positive");
-// Development witness inputs and hold conditions: docs/reference/posture-limit-models.md.
+// The witness inputs: three rows on each limit model, each searched once and then held 5 s by its motors.
 const jobs = ["rapier", "rapier-coordinate"].flatMap((engine) => [
   { row: "fours" }, { row: "half kneel, knee light" }, { row: "squat", height: .5 },
 ].map((row) => ({ engine, ...row, trial: "audit", seed: 0, evals: 300, variant: "built", friction: "box" })));

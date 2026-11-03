@@ -13,12 +13,12 @@ import type { ForgeStyle } from "./forge-style.ts";
 import "../render/fire.ts";
 
 /**
- * The walls' masonry, set by eye (`docs/reference/look.md#forge`): the courses up a wall, the
+ * The walls' masonry, set by eye: the courses up a wall, the
  * blocks along it, and the joint left round each block across, up and through the wall, m.
  */
 const FORGE_MASONRY = Object.freeze({ courses: 3, columns: 4, joint: [.008, .006, .008] } as const);
 
-/** The posts' fire, set by eye (`docs/reference/look.md#forge`). */
+/** The posts' fire, set by eye. */
 const FORGE_FIRE = Object.freeze({
   /** A flame burns on every post of this stride round the ring, and a light with it on the posts named. */
   every: 1, lit: [1, 5],
@@ -92,7 +92,7 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): ForgeFire {
   for (let i = 0; i < ARENA_POSTS.count; i += FORGE_FIRE.every) {
     const post = scene.getMeshByName(`post${i}`);
     if (!post) continue;
-    // The bronze bands stay inside the pedestal's physical envelope (docs/art/arena.md).
+    // The bronze bands stay inside the pedestal's physical envelope.
     post.material = forge.materials.basalt ?? post.material;
     const bowl = MeshBuilder.CreateCylinder(`forge.bowl.${i}`, {
       diameterTop: 1.08, diameterBottom: .7, height: .28, tessellation: ARENA_POSTS.sides,
@@ -127,7 +127,7 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): ForgeFire {
   };
 }
 
-/** The banners' painted seal, a circle crossed by a spear (docs/art/arena.md). */
+/** The banners' painted seal, a circle crossed by a spear. */
 export function paintArenaBanners(scene: Scene, forge: ForgeStyle): void {
   const texture = new DynamicTexture("arena banner seal", { width: 256, height: 512 }, scene, true);
   const ctx = texture.getContext();

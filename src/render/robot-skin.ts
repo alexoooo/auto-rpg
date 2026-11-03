@@ -1,3 +1,17 @@
+/**
+ * The Warrior's robot appearances: Industrial (`industrial`), Steampunk (`relic`) and Futuristic
+ * (`duelist`), built in code with no external asset. They are cosmetic: the body, colliders,
+ * joints, muscles, held items and damage rules are the Warrior's, and a metal-looking plate gives
+ * no metal contact, armour or sound.
+ *
+ * Each piece is built in a core segment's local frame and parented to that segment's node, sized
+ * from the built body (segment lengths, capsule radii, foot boxes, the trunk hull's bounds); no
+ * rig, no physics object, nothing pickable, so a detached segment keeps its shell. Each design
+ * owns its silhouette and palette; this module owns attachment, batching by segment and finish,
+ * disposal and the fingers. A finger is three links placed from the hand's knuckle and
+ * little-finger landmarks: on a held item it wraps the grip, otherwise it follows the same closure
+ * as the human skin. The fingers are drawn, not a simulated grasp.
+ */
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";

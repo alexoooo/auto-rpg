@@ -52,8 +52,7 @@ export interface FistPose {
  * on the skin by `scripts/lab/fist-fit.mjs` (its header gives the rule), one pose for both
  * hands: every knuckle at one angle, each middle joint as far closed as it goes, the thumb across
  * the index and middle fingers. The fit leaves no part deeper in another than 2 mm or than the
- * relaxed hand already is, except the thumb's first phalanx in the ball of the thumb. Its readings:
- * `docs/reference/lab.md#fist`.
+ * relaxed hand already is, except the thumb's first phalanx in the ball of the thumb.
  */
 export const FIST: Readonly<Record<WorkshopModel, FistPose>> = {
   "workshop-fighter": {

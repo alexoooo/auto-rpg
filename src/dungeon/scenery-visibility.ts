@@ -1,7 +1,7 @@
 import { canSee, type DungeonMap, type Point, type Room } from "./map.ts";
 import { doorCells } from "./fog.ts";
 
-/** What the scenery's memory reads (`docs/reference/look.md#crypt-fog`). */
+/** What the scenery's memory reads: the look's own memory of what the hero has seen, never the run's. */
 const SCENERY = Object.freeze({
   /** How far the hero sees scenery, m: a cell is sampled within this many cells of the hero, each way. */
   reach: 12,

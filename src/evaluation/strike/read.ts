@@ -63,8 +63,7 @@ export type Bar = {
  * side, kg, by hand: the right is the guard's rear hand (dominant 8.0 ± 1.2 m/s, 2.93 ± 0.81 kg),
  * the left its lead (non-dominant 6.2 ± 0.9 m/s, 3.27 ± 0.93 kg). Its last `run` m come in within
  * `cone` degrees of the surface's normal, as the punch competency's straight blow does, and it
- * meets the target within `within` s of the action's start
- * ([thresholds](../../../docs/reference/competencies.md#thresholds)).
+ * meets the target within `within` s of the action's start, an engineering bound.
  *
  * And it is a punch: its last
  * `run` m come out more along the arm than across it, within `along` degrees of the line from the
@@ -109,7 +108,6 @@ const reduced = (m: number, big: number): number => Number.isFinite(big) ? m * b
  * reduced mass, the striker's `kg` against the `struck` mass the contact met, over the pair's on
  * the Warrior, whose mass met there is the struck mass scaled by the two bodies' masses, as
  * `barOf` scales a fist's mass by its striker's. A Warrior struck reads the bar itself.
- * Set: `docs/reference/blows.md#a-held-blows-bar-on-another-body`.
  */
 function pairShare(kg: number, struck: number, target: BodySpec): number {
   const onWarrior = struck * BAR_BODY.mass.value / target.mass.value;

@@ -19,7 +19,7 @@ import { segmentOf } from "../../spec/body.ts";
 
 /**
  * **The guard**: fists up before the chin, elbows in; the arms' posture when no skill owns them,
- * rad (`docs/reference/human-and-strikes.md#guard`); a body holds it as `guardPosture` says.
+ * rad; a body holds it as `guardPosture` says.
  */
 export const GUARD: Pose = Object.freeze({
   "shoulder.right flexion": 0.5, "shoulder.right abduction": -0.2, "elbow.right flexion": 1.3,
@@ -28,7 +28,7 @@ export const GUARD: Pose = Object.freeze({
 
 /**
  * **How a cover is held**: the covering point, or the middle of the two, `out` m from the place
- * guarded toward the threat, reached in `seconds`. Set: `docs/reference/blows.md#cover`.
+ * guarded toward the threat, reached in `seconds`.
  */
 export const GUARD_COVER: Covering = Object.freeze({ out: 0.3, seconds: 0.15 });
 
@@ -117,7 +117,7 @@ export function wardSpeed(built: ReadBody, hand: string): number {
  * body; a place further from the shoulder than the arm reaches (`armReach`) brought back along
  * that line to where it does; a path to its
  * place in the time the place takes to go out at that speed; its face turned to the threat at most
- * `speed / reach` rad/s. Set: `docs/reference/blows.md#a-shields-ward`.
+ * `speed / reach` rad/s.
  */
 function wardOf(spec: BodySpec, hand: string, item: ItemSpec, speed: number): Ward {
   const segment = segmentOf(spec, hand)!, face = rigidPoints(spec, segment).get(item.cover![0]!)!.value, out = faceReach(spec, hand, face);

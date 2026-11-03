@@ -47,7 +47,7 @@
     },
     "skeleton/skeleton.glb": {
       "source": "assets/art/environment/skeleton/skeleton.glb",
-      "licence": "public/assets/skeleton/README.md"
+      "licence": "docs/art/skeleton.md"
     },
     "rat/rat.glb": {
       "source": "assets/art/environment/rat/rat.glb",

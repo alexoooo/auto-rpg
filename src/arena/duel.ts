@@ -70,7 +70,11 @@ import { otherSide } from "../core/spec/body.ts";
  * there, in this world or another, to go on as the saved bout went on.
  */
 
-/** How long a bout runs before the bars decide it, s (`docs/reference/play.md#the-bout`). */
+/**
+ * How long a bout runs before the bars decide it, s: at the cap the fuller life wins, which
+ * decides only a recipe with end rules of its own, since the drain (`DRAIN_END`) has ended every
+ * other by then.
+ */
 export const CAP_SECONDS = 120;
 
 export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);

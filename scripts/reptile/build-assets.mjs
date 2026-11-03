@@ -2,7 +2,7 @@
 //
 // Poses the scan (`pose.mjs`), decimates it and bakes its look in Blender (`retopo.py`), and writes
 // `assets/art/environment/reptile/reptile.glb`, the mesh skinned to the reptile's segments, and its
-// two 1k maps beside it. What the file holds and how it rides the body: docs/art/reptile.md.
+// two 1k maps beside it. What the file holds: docs/art/reptile.md#what-the-file-holds.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import sharp from "sharp";

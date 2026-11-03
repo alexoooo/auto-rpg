@@ -12,7 +12,7 @@ import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
  * it further forward. So it rights a pelvis tipping forward, to a side or round, and never tips it
  * forward to carry the body along: that pitch is the run's and the walk's own, and holding it both
  * ways the Warrior brakes slower and falls as it stops. It gives no force: one across the heading
- * toward the walk asked across it held nothing more up (`docs/reference/assist.md`, "A gait's assist").
+ * toward the walk asked across it holds nothing more up.
  * What it asks past the assist's ceiling the assist shortens; a body with no balance is asked nothing.
  */
 const GAIT_ASSIST = Object.freeze({ settle: 0.15, gyration: 0.3 });

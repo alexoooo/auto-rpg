@@ -33,7 +33,11 @@ export interface StanceGoal {
   readonly height: number;
   /** The pelvis's heading, rad about the world's up: 0 faces it as in the reference pose. */
   readonly heading: number;
-  /** A supported root pitch, rad, and response time, s; the bearing feet stay planted and no step is requested. */
+  /**
+   * A supported root pitch, rad, and response time, s: the bearing feet stay planted, no step is
+   * taken, and a walk or swing with it is refused. The body still reports a fall from it: a posed
+   * body is asked no lower than its fall bar under its standing height (`uprightness`, `down`).
+   */
   readonly pose?: { readonly pitch: number; readonly seconds: number;
     /** Captured bearing soles, world position and rotation since reference; errors are corrected through muscles. */
     readonly anchors?: Readonly<Partial<Record<Side, { readonly position: Vec3; readonly rotation: readonly [number, number, number, number] }>>> };
@@ -417,7 +421,7 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
  * Analysis", terminal stance: the heel rises as the body passes over the forefoot; walking
  * backward, the toes as it passes over the heel), once the plan's centre of mass is past that edge
  * and going on from the sole: rolled, the foot's pressure is on the edge, and one rolled with the
- * centre back over the sole brakes the walk (`docs/reference/stance-tuning.md#heel-off`). The
+ * centre back over the sole brakes the walk. The
  * height keeps the knees bent, and the ankle its range. A foot the body comes toward does not
  * roll: landed on an end, as a step back lands on its toes, with the centre past that end and
  * coming, its ankle brings the other end down; read as rolled, the plan falls about the edge it
@@ -761,7 +765,7 @@ function holdStance(s: Stance, stance: readonly FootState[], e: number): void {
  * The lever a missed moment of the ground's wrench is weighed against a missed force at
  * (`shareGroundWrench`): the height of the root's centre, where the wrench is taken, over the
  * soles, at least a sole's half-length. A moment the soles miss is a force they miss at the
- * root's height. No fixed lever serves both humans better: `docs/reference/stance-tuning.md#wrench-lever`.
+ * root's height, the lever the wrench's geometry gives; no fixed lever serves both humans better.
  * A swing may ask its own (`SwingGoal.lever`).
  */
 function leverOf(s: Stance, height: number): number {

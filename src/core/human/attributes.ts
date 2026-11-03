@@ -47,8 +47,8 @@ export function workshopBalance(model: WorkshopModel): Quantity<number> {
 
 /**
  * **Each workshop model's factors on named exertions** (`HumanFigure.exertions`), the owner's, set for
- * the result the owner asked of the body (`owner-rogue-arms`, `docs/reference/rising.md#the-rogues-arms`): the
- * Rogue's elbows straighten under her on hands and knees.
+ * the result the owner asked of the body (`owner-rogue-arms`): the Rogue's elbow extension doubled,
+ * so her elbows straighten under her on hands and knees.
  */
 export const WORKSHOP_EXERTIONS: Readonly<Record<WorkshopModel, Readonly<Partial<Record<Exertion, Quantity<number>>>> | undefined>> = Object.freeze({
   "workshop-fighter": undefined,

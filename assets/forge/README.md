@@ -5,21 +5,21 @@ outcrops, all original generated work. `assets/art/environment/forge/forge-kit.g
 and the PNGs beside it their seamless PBR maps. The art compiler emits compressed delivery from
 both; `src/arena/forge-assets.ts` loads the generated resources,
 `src/arena/forge-style.ts` builds the look from them, and `src/arena/forge-room.ts` fills the
-arena's wall colliders with masonry and decorates its posts with flames.
+arena's wall colliders with masonry and decorates its posts with flames. The art stays inside the
+colliders it dresses and adds none.
 
 ## Rebuilding
 
 `forge.blend` is an editable shelf; each object is a named GLB template.
 `scripts/forge/build-assets.py` generates the shelf, the GLB and the maps deterministically.
-From the repository root:
+From the repository root, with the pinned Blender that `npm run assets` extracts into
+`.cache/art/` (`scripts/art/tools.mjs`; any Blender 4.5 LTS runs the same script):
 
 ```powershell
-& '.tools/blender-4.5.12/blender-4.5.12-windows-x64/blender.exe' --background --python scripts/forge/build-assets.py
-npm run build
+& '.cache/art/tools/blender-4.5.12/blender-4.5.12-windows-x64/blender.exe' --background --python scripts/forge/build-assets.py
+npm run assets
 ```
 
-Normal builds compile the lossless GLB and maps to hashed delivery files and reuse their encoder
-cache. The Blender binary is a local
-4.5.12 LTS portable installation under the ignored `.tools`; any Blender 4.5 LTS runs the same
-script. Rebuilding overwrites the kit and the shelf. Colour maps are sRGB; normal and ORM maps are
+`npm run assets` compiles the lossless GLB and maps to hashed delivery files, reusing its encoder
+cache. Rebuilding overwrites the kit and the shelf. Colour maps are sRGB; normal and ORM maps are
 linear.

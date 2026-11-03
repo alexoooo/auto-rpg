@@ -1,7 +1,8 @@
 # The reptile's art
 
 The reptile is drawn with a photogrammetry scan of a Japanese grass lizard, posed as the reptile
-stands and skinned to its segments so the scales bend at the joints. The art is cosmetic: it
+stands and skinned to its segments so the scales bend at the joints (`dressSkinnedArt`,
+`src/render/skinned-art.ts`). The art is cosmetic: it
 collides with nothing, is not pickable and decides nothing. The reptile's colliders are its
 segments ([the body](#the-body-fitted-to-the-art)).
 
@@ -63,13 +64,6 @@ weights read the body's segment names.
   distance from the nearest piece less its thickness, and its weights fall off exponentially,
   .0094 m of cost a factor of e, behind its cheapest segment's. The jaw takes, out of the head's
   share, what lies below the mouth's line and ahead of the hinge.
-
-## How it rides the body
-
-As the rat's ([how it rides the body](rat.md#how-it-rides-the-body)): `dressSkinnedArt`
-(`src/render/skinned-art.ts`) sets each bone to its segment's reference frame inverted times the
-segment's achieved transform. The material is non-metallic at roughness .55, its colour and normal
-maps the baked ones, double-sided. A part cut off is drawn apart as the rat's is.
 
 ## The body fitted to the art
 
