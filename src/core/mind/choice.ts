@@ -61,9 +61,12 @@ export interface Priced<T> {
  * When a selection decides afresh: at once on an event (its cue's change), and else on its body's
  * `phase` of each `rethink` s (`BodyHost.phase`, 0 unless given): the first such time at least
  * half a period on, so a body decides at least every one and a half periods and bodies of one
- * fight decide on different steps.
+ * fight decide on different steps. A running choice with targets keeps the one it runs at for
+ * `keep` s (0 unless given): it, and each choice that claims what it claims, is priced at that
+ * target alone (by name) where it has it on offer, so two targets near alike are not taken by
+ * turns, nor one target and another by two choices with both.
  */
-export interface Deciding { readonly rethink: number; readonly phase?: number }
+export interface Deciding { readonly rethink: number; readonly phase?: number; readonly keep?: number }
 
 /** **When `deciding` next decides with no event**, deciding at `now` s: the first time on its phase at least half a period on (`Deciding`). */
 export function nextDecision(deciding: Deciding, now: number): number {
@@ -145,7 +148,7 @@ export const onOffer = <S>(choice: Choice<S>, now: S): boolean => choice.entry(n
  * it decides afresh: a running choice that does not yield keeps what it claims; with none, it
  * takes the situation (`now`, or one of `others`, another target) whose best choice is worth most,
  * `now` where none is worth more; then, of the choices on offer there (`onOffer`), each running one
- * raised by what letting it go costs (`Priced.letGo`), it takes the best (drawn by `chance` where
+ * raised by what letting it go costs (`Priced.letGo`) at the target it runs at, it takes the best (drawn by `chance` where
  * it gives a margin), then the best of the rest whose claims are still free, the first of equals,
  * until none is left. Another situation's best is held as `holding` says where it is given. A
  * rest choice takes a resource nothing else is worth more on: it is chosen
@@ -159,9 +162,25 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
   deciding: Deciding, cue: (now: S) => string, chance: Chance = NO_CHANCE, memory: Readonly<Record<string, object>> = {}, holding: Holding<S> | null = null): Selection<S, T, C> {
   if (!(chance.margin >= 0) || !Number.isFinite(chance.margin)) throw new Error(`a selection's margin is finite and not negative, not ${chance.margin}`);
   const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
-  const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Priced<T>[], ...(stream ? { random: stream.state } : {}),
+  const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Priced<T>[],
+    aims: choices.map(() => -1), since: choices.map(() => -Infinity), ...(stream ? { random: stream.state } : {}),
     ...(holding ? { others: {} as Record<string, { held: Held; best: number }> } : {}), ...memory };
-  const values: number[] = [], order: number[] = [], chosen: number[] = [], held: (readonly Resource[])[] = [], set: C[] = [];
+  const values: number[] = [], order: number[] = [], chosen: number[] = [], held: (readonly Resource[])[] = [], set: C[] = [], bests: number[] = [];
+  /** The target each choice was aimed at by the last pricing, -1 where it has none or none was on offer. */
+  const aimed: number[] = choices.map(() => -1);
+  /**
+   * The index among `choice`'s targets of the one a running choice claiming what it claims has
+   * kept since less than `Deciding.keep` before `time`, by name; -1 where none is kept or it has not that one.
+   */
+  const keptTarget = (choice: C, time: number): number => {
+    for (const r of state.running) {
+      const running = choices[r]!, k = state.aims[r]!;
+      if (k < 0 || time - state.since[r]! >= (deciding.keep ?? 0) || !overlaps(running.claims, choice.claims)) continue;
+      const at = choice.targets!.indexOf(running.targets![k]!);
+      if (at >= 0) return at;
+    }
+    return -1;
+  };
   const current = (): readonly C[] => { set.length = 0; for (const i of state.running) set.push(choices[i]!); return set; };
   /** Whether what the choices chosen hold overlaps `claims`. */
   const taken = (claims: readonly Resource[]): boolean => { for (const one of held) if (overlaps(one, claims)) return true; return false; };
@@ -181,24 +200,31 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
   /**
    * Each choice not chosen priced at `now` (`values`, the offers), at each of its targets where it
    * has them and aimed at the best (`Choice.aim`), in the order taken (`order`): the best's worth,
-   * -Infinity with none on offer.
+   * -Infinity with none on offer. Within `Deciding.keep` of a running choice aiming at its target,
+   * it and each choice claiming what it claims are priced at that target alone where they have it on offer.
    */
   const appraiseAt = (now: S): number => {
     state.offers = [];
     values.length = 0; order.length = 0;
     choices.forEach((choice, i) => {
       values.push(-Infinity);
+      aimed[i] = -1;
       if (chosen.includes(i)) return;
-      const targets = choice.targets?.length ?? 0;
+      const targets = choice.targets?.length ?? 0, kept = targets > 0 ? keptTarget(choice, now.time) : -1;
       let best = -Infinity, at = -1;
-      for (let k = 0; k < Math.max(1, targets); k++) {
-        if (targets) choice.aim!(k);
-        if (!onOffer(choice, now)) continue;
-        const offer = appraise(choice, i, now), value = offer.worth + (state.running.includes(i) ? offer.letGo : 0);
-        state.offers.push(offer);
-        if (value > best) { best = value; at = k; }
+      for (let pass = kept >= 0 ? 0 : 1; pass < 2 && at < 0; pass++) {
+        for (let k = pass === 0 ? kept : 0; k < (pass === 0 ? kept + 1 : Math.max(1, targets)); k++) {
+          if (targets) choice.aim!(k);
+          if (!onOffer(choice, now)) continue;
+          // What letting it go costs raises the target it runs at alone: run at another, it is let go.
+          const offer = appraise(choice, i, now), runs = state.running.includes(i) && (!targets || k === state.aims[i]);
+          const value = offer.worth + (runs ? offer.letGo : 0);
+          state.offers.push(offer);
+          if (value > best) { best = value; at = k; }
+        }
       }
       if (at < 0) return;
+      aimed[i] = targets ? at : -1;
       if (targets) choice.aim!(at);
       values[i] = best;
       order.push(i);
@@ -244,16 +270,16 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
       // A running choice that does not yield keeps what it claims.
       for (const i of state.running) if (choices[i]!.status(now) === "committed") take(i);
       // With nothing committed, the target whose best choice is worth most; the one at `now` where none is worth more.
-      let top = appraiseAt(now);
+      // The others are priced before `now`, so the choices are left priced and aimed at `now` unless another wins.
       if (others && chosen.length === 0) {
         const alternatives = others();
-        for (const other of alternatives) {
-          const best = otherBest(other, now.time);
-          if (best > top) { top = best; at = other; }
-        }
-        if (alternatives.length) appraiseAt(at);
+        bests.length = 0;
+        for (const other of alternatives) bests.push(otherBest(other, now.time));
+        let top = appraiseAt(now);
+        for (let k = 0; k < alternatives.length; k++) if (bests[k]! > top) { top = bests[k]!; at = alternatives[k]!; }
+        if (at !== now) appraiseAt(at);
         state.event = cue(at);
-      }
+      } else appraiseAt(now);
       // The first, by chance where a margin is given: one drawn among those free worth more than the best free less the margin.
       const best = stream ? order.find(free) : undefined;
       if (stream && best !== undefined) {
@@ -263,6 +289,8 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
       for (const i of order) if (!chosen.includes(i) && free(i)) take(i);
       for (const i of state.running) if (!chosen.includes(i)) choices[i]!.end();
       for (const i of chosen) if (!state.running.includes(i)) choices[i]!.begin(at);
+      // Each choice begun, or aimed at another target, keeps it from now (`Deciding.keep`).
+      for (const i of chosen) if (aimed[i]! >= 0 && (!state.running.includes(i) || aimed[i] !== state.aims[i])) { state.aims[i] = aimed[i]!; state.since[i] = now.time; }
       state.running = [...chosen];
       state.exiting = exitingOf(at);
       return decided(at, true);

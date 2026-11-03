@@ -23,7 +23,9 @@ ground load for 0.05 s before it chambers. Stance owns the bearing leg and corre
 sole through muscles; IK owns the free leg; both arms stay in the ordinary guard. The stroke and a
 held contact drive the free leg firm (`EffectorGoal.firm`): the motion the servo asks, at the
 muscles' full strength, so the leg is braced through the blow; the return and the placing may bend
-a leg the stroke left straight off its knee's stop (`EffectorGoal.unbend`). No pose, velocity,
+a leg the stroke left straight off its knee's stop (`EffectorGoal.unbend`). The stomp's stroke is
+the servo's and only its held contact is firm (`effectorStrike`); its return begins at rest from
+what it struck, carried with the hip (`stompExecutor`). No pose, velocity,
 strength or assistance is added. The bearing sole may rock during a stroke; flat, quiet
 double support is required before preparation and after placement.
 
@@ -70,12 +72,13 @@ back, 0.8 to 1.2 m off).
 
 | Setting | Value | Why |
 | --- | ---: | --- |
-| over | 1 | The chamber over the target, so the stroke comes down on it; at 0.6 to 0.8, 3 trials of 12 fell, and at 0.4 to 0.6 under a 0.7 m lift the chamber was out of reach (9 to 11 abandoned) |
+| over | 0.95 | Searched with the stroke ([braced and searched](#stomp-settings)). The chamber over the target, so the stroke comes down on it; at 0.6 to 0.8, 3 trials of 12 fell, and at 0.4 to 0.6 under a 0.7 m lift the chamber was out of reach (9 to 11 abandoned) |
 | windup / soleTurn | 0 m / 0 | No draw back and no turn of the sole: a stroke straight down; a sole held flat through the stroke (soleTurn 0.001 to 0.1) met the trunk with its toes, 3.6 to 5.3 J at the median; braced, a sole turned either way through the stroke (0.1 to 0.25 of a quarter turn, toes down or up in the pelvis's frame, which a stomp tilts) met it with the toes too, and 3 to 4 trials of 12 fell |
-| lift | 0.7 m | The chamber this far over the strike site: a longer stroke down; at 0.6 the median blow was 4.9 J, at 0.8 9.1 J (within a trial's spread of 0.7's, with less reach to spare), and at 0.9 the chamber went out of reach (5 of 12 abandoned) |
+| lift | 0.63 m | Searched with the stroke. The chamber this far over the strike site: a longer stroke down; at 0.6 the median blow was 4.9 J, at 0.8 9.1 J (within a trial's spread of 0.7's, with less reach to spare), and at 0.9 the chamber went out of reach (5 of 12 abandoned) |
 | top | 0.4 | The height band's top low over the sole: a lying body's trunk, never a standing one's |
 | alongNear / alongFar / across | 0.55 / 0.8 / 0.2 m | The nearest places where both feet stand clear of a lying Warrior's splayed limbs are about 0.55 m from its trunk's middle: at 0.4 / 0.7, 4 trials of 12 never reached the window; at 0.5 / 0.75, 2 refused and 1 to 2 fell |
-| contactSpeed / swingSeconds | 7 m/s / 0.25 s | A faster stroke, the leg braced: the best blow's median 16.7 J and 13.4 kg, against 13.0 J and 9.3 kg at 5 m/s; 6 m/s, and 0.2 s at 5 or 7 m/s, read within a trial's spread of it |
+| contactSpeed / swingSeconds / chamberSeconds | 8.04 m/s / 0.29 s / 0.76 s | Searched with the brace. A faster stroke, the leg braced: the best blow's median 16.7 J and 13.4 kg, against 13.0 J and 9.3 kg at 5 m/s; 6 m/s, and 0.2 s at 5 or 7 m/s, read within a trial's spread of it |
+| brace | 0.076 s | How long before the stroke's path ends the leg is driven firm already (`StrikeDef.brace`); 0 braces the held contact alone. Braced earlier, more is behind the blow and the stroke is slower; searched with the stroke, the Warrior's blows at a lying Warrior carry 15 to 52 J against 9.7 to 26.6 J at 0 ([braced and searched](#stomp-settings)) |
 | returnNear | 0.1 m | The leg comes to rest 0.04 to 0.08 m from the chamber after a blow; at 0.04, 6 trials of 12 ended stalled, at 0.1, 4 |
 
 Its trials (`2c92392a`'s rung): 10 of 12 landed, 2 met the body elsewhere (its lower trunk), none
@@ -125,10 +128,112 @@ one side of it to the other.
   swingSeconds 0.257 s, contactSpeed 6.418 m/s). Read at `25d720b9` it lands 11 of the fresh 12, 1
   fell (at 480 Hz 9, none fell), and 5 of the rung's 12, 1 fell, 2 outside, 2 refused: over the 24,
   16 landed and 2 fell against the row's 14 and 2, within a trial's spread, so the row is kept.
+- **Searched on the laid rung** (the same search at `a33cae1b`, 10 generations, 3.2 h; best 8.30:
+  lift 0.706 m, over 0.973, alongNear / alongFar 0.569 / 0.830 m, chamberSeconds 0.608 s,
+  swingSeconds 0.293 s, contactSpeed 6.870 m/s). Read with each path solved from the limb's own
+  angles (`63485b78`), on `--confirm`'s fresh 12 it lands 9, none fell, against the row's 8 and 1
+  fell at 120 Hz, and 4, 5 refused, 1 fell against 6 and none at 480 Hz: over the 24, 13 landed and
+  1 fell against 14 and 1, so the row is kept.
 - **Tried and not kept**: the place beside a body lying chosen most nearly square across it, the
   walk's route only between its two sides, and held until that body or the target moves or the
   feet stop clearing it: 5 landed, 4 outside, 1 fell, against 6, none and none; the drill's spot
   held until the body moves, with the target not yet laid: 1 landed of 12 against 4.
+- **Tried and not kept: the menu's place beside a body lying held** (the menu's spot,
+  `MenuEntry.spot`, which a read of the menu chose afresh, its holds put back with the mind's
+  state). Held on the mind's own decisions, with the rest of its state put back (at `9e887beb`,
+  the Warrior's `stomping` and the Rogue's and the Skeleton's `stomping-bodies`, 36 trials, same
+  seeds), landed against the menu's place chosen afresh, 28 with 1 fell:
+  - the place held as a point, until it left the window widened by `LYING.shift` or the body or
+    the target moved: 20, 1 fell, 9 ended out of position; the window's middle moves about 0.15 m
+    as the stance squares up, and the point held goes stale;
+  - the way round the body held (the bearing and the ring), the place found again each step at
+    the window's middle on it: 24, 1 fell; the side stays, but the drill's spot, held once its
+    member is in the window, is the menu's from mid-stride, and its stay walks the body out;
+  - that, and the drill's spot read from the menu each step (no `HELD_SPOT`): 22, 1 fell.
+
+  The menu's place is chosen afresh at each read, the cheapest from where the walker is; the
+  drill holds the spot it reads (`HELD_SPOT`).
+
+**The stomp's stroke, return and stay** (the same harness, at this change). Of the Warrior's rung's
+non-landed trials at `e026ed21`, the one refused stood ready from 6.4 s and never settled: held in
+its window, the drill walked to its spot (`stay`), and took the menu's spot afresh each second,
+which moves with each stride and between two bearings, so the body walked 0.1 to 0.4 m/s to the
+end. The drill now keeps its spot while it holds (`HELD_SPOT`, `src/core/command/drill.ts`); with
+that, three trials that had landed or come weak fell. Each fell in the return: it began at the
+stroke's measured speed, 5.2 m/s down in the body frame, so its path drove the foot on into the
+body it had struck; the foot stayed on it 0.2 to 0.3 s, the reaction tipped the pelvis back 0.6
+and the striker went over its bearing foot. Begun at rest, none falls. Driven firm through the
+stroke, the foot met the Warrior's bar at 2.93 to 3.00 m/s in two trials where the servo's stroke
+gives 3.07 and 3.08. The return's home carried with the body frame's origin swung a leg's length
+with the pelvis's turn; it is carried with the hip.
+
+| Rung | Landed | Weak | Fell | Outside | Refused |
+| --- | --- | --- | --- | --- | --- |
+| Warrior, `stomping`, at `e026ed21` | 6 | 3 | 0 | 2 | 1 |
+| Warrior, `stomping`, the return begun at rest, and with the stomp let go | 11 | 0 | 0 | 1 | 0 |
+| Warrior, `stomping`, braced 76 ms before the path's end, its stroke searched (`90bdd549`) | 11 | 0 | 0 | 1 | 0 |
+| Skeleton, `stomping-bodies`, at `e026ed21` | 3 | 2 | 4 | 1 | 1 (and 1 missed) |
+| Skeleton, `stomping-bodies`, the return begun at rest | 7 | 2 | 1 | 1 | 0 (and 1 guarded) |
+| Skeleton, `stomping-bodies`, and the stomp let go on lost support | 8 | 2 | 0 | 1 | 0 (and 1 guarded) |
+| Skeleton, `stomping-bodies`, its row searched (`b0f21223`) | 8 | 1 | 1 | 0 | 0 (and 1 elsewhere, 1 missed) |
+| Rogue, `stomping-bodies`, at `e026ed21` | 2 | 4 | 3 | 2 | 0 (and 1 elsewhere) |
+| Rogue, `stomping-bodies`, the return begun at rest | 1 | 7 | 1 | 2 | 0 (and 1 elsewhere) |
+| Rogue, `stomping-bodies`, and the stomp let go on lost support | 1 | 8 | 0 | 2 | 0 (and 1 elsewhere) |
+| Rogue, `stomping-bodies`, its row searched from the Warrior's chamber height (`b0f21223`) | 9 | 0 | 0 | 0 | 3 |
+
+The Warrior's landed blows come at 3.07 to 4.69 m/s and 0.3 to 26.6 J, against 3.23 to 6.90 m/s
+and 1.1 to 51.7 J braced through the stroke: less is behind the foot (0.55 to 10.5 kg against 6.2
+to 56.6). With the stroke firm as well, the Warrior's left foot at a lying Warrior comes weak at 0.8 and
+1.2 m (3.00, 2.93 m/s), and the Rogue lands 2, 4 weak, 2 fell. The Skeleton's fall with the return begun at rest: the blow pushed its centre 6 cm off its
+small bearing foot, its pelvis tipped back 0.3 and on to 0.8, its chamber went past the hip's
+reach, and the return waited on one leg; placing the foot at once fell too, the placing slower
+than the fall. A return that lets the centre off the bearing foot now ends the stomp
+(`interrupted`), its legs given back to the stance, which steps to catch the body
+(`stompExecutor`); the Warrior's rung is as before, trial for trial in outcome.
+
+- **Braced late in the stroke** (firm from a time into the swing, the Warrior's rung; speed and the
+  blow's energy at a lying Warrior): from 0.10 s, 10 landed, 2 weak at 2.90 and 2.92 m/s, 0.4 to
+  37.0 J; from 0.15 s, 10, 1 weak at 2.86, 23.1 to 47.3 J; from 0.18 s, 10, 1 weak at 2.98, 17.7
+  to 33.8 J; from 0.20 s, after the blow, as the held contact alone. Through the whole stroke with
+  a firm freedom never braked below its own speed: the Warrior 10, 1 weak at 3.00, 22.9 to 48.5 J,
+  but the Skeleton 6 landed and 4 missed, and the Rogue 2 and 1 fell. The left foot at a Warrior
+  1.2 m off is the rung's margin (3.08 m/s unbraced); the stroke is kept the servo's. The Rogue's blows come at 0.3 to
+2.7 m/s on its row seeded from the Warrior's.
+- **Braced and searched** (`research/skill-search.mjs stomp workshop-fighter` at `83442625`, the
+  brace onset searched from 0 s with the stroke and the stance window, under the score that counts
+  damage; 10 generations of 16 on the rung's 8 search trials): best 12.16 at brace 0.076 s, lift
+  0.633 m, over 0.950, chamberSeconds 0.762 s, swingSeconds 0.293 s, contactSpeed 8.04 m/s and the
+  window pulled in to 0.43 / 0.65 m. Whole, on `--confirm`'s fresh 12 at 120 Hz it dealt about four
+  times the row's hit points but refused 4 (7.11 against 9.04). Its stroke in the row's window
+  (0.55 / 0.8 m) is kept: on the fresh 12 at 120 Hz, 11 landed at 3.5 to 5.8 m/s, none fell, twice
+  the hit points (9.04 -> 10.00); at 480 Hz 6 landed and 2 weak against 4 and 5, none fell either
+  way (5.59 -> 6.47). On the rung at `90bdd549`, 11 landed, 1 outside, none fell; at a lying
+  Warrior 3.74 to 4.18 m/s, 5.9 to 16.8 kg behind the foot, 15.3 to 52.2 J; at a Skeleton 4.34 to
+  5.71 m/s, 1.1 to 6.8 J.
+- **The Skeleton's and the Rogue's rows searched** (`stomping-bodies` at `b0f21223`). The
+  Skeleton's, from its row (lift 0.641 -> 0.796 m, contactSpeed 7 -> 6.36 m/s, brace 0): 8 landed
+  at 3.65 to 4.99 m/s against its 3.32 bar, 1 weak, 1 elsewhere, 1 missed, and 1 fell (its left
+  foot at a Warrior 0.8 m off); 0.04 to 0.6 kg behind its foot, 0.02 to 2.6 J. The Rogue's, from
+  its row with the chamber at the Warrior's height (a seed scaled by stature put it 10 cm lower
+  over the same target, and its swing met the body after 10 cm of travel against the Warrior's
+  19): 9 landed at 2.63 to 7.94 m/s against its 2.54 bar, 50 to 73 J at a Warrior, and 3 refused,
+  all at a lying Skeleton. The Rogue's leg reaches 8.1 to 9.7 m/s at a lying trunk's top in free
+  air (pelvis pinned, hip and knee at full activation), the Warrior's 10.1, the Skeleton's 10.4.
+- **Tried and not kept: the Skeleton's brace searched** (`research/skill-search.mjs stomp
+  crypt-skeleton` from its row at `ed11435a`, the brace onset with the stroke and the window, 16
+  candidates a generation on the rung's 8 search trials): the best a generation 8.67, 8.68,
+  9.09, 8.45, 9.98, 8.77 over generations 0 to 5, flat within a trial's spread (as the
+  Warrior's search's were), the medians 3.9 to 7.3. Stopped there; the row is kept, brace 0.
+
+**The toed Skeleton's and Rogue's stomp on a target laid down** (`stomping-bodies`, the same
+harness; each body's own row). At `c260464d` the Skeleton falls in 10 of 12, all before contact:
+in the unload the foot to lift keeps the leg's weight on the ground (27 of its leg's 29 N), the
+pelvis rolls over the bearing foot and the body goes over. The foot's path was solved from
+angles that were not the leg's (the reference pose's, for a foot's first path) and the servo drove
+the free hip into extension; begun from the leg's own angles (`motorControl`,
+`src/core/control/motor.ts`) the foot lifts at 0 to 1 N, and the Skeleton lands 3, 2 weak, 4 fell,
+1 missed, 1 outside, 1 refused. The Rogue lands 2 at both, 5 weak and 2 fell against 4 weak and 3
+fell. The Warrior's rung is as before, trial for trial in outcome.
 
 **The toed Rogue has no front kick.** The Warrior's settings, its lengths scaled by the Rogue's
 stature (`research/skill-search.mjs front-kick workshop-rogue --try`), put nothing on the mark

@@ -17,7 +17,7 @@ import { withinActionWindow } from "../../intent/action-window.ts";
 import { otherSide, segmentOf } from "../../spec/body.ts";
 /** The stomp's settings where its body's record leaves them, first qualified on a front kick: `docs/reference/front-kicks.md#execution-settings`. */
 export const STOMP_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
-  lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, soleTurn: .2,
+  lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, brace: 0, soleTurn: .2,
   prepareLimit: 4, returnLimit: 2, near: .04, returnNear: .04, hover: .08, slow: .3, hold: .05, followSeconds: .04,
   impactSeconds: .04, impactTravel: .04, normalAlignment: .5,
   response: .1, placeSeconds: 1, placeLimit: 6, placement: .02, placementSpeed: .1, rotationError: .001,
@@ -40,7 +40,7 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
   const feet = footStatesOf(body.built), support = supportReadiness(body.built), middle = new Vector3();
   const local = new Vector3(), world = new Vector3(), turn = new Quaternion(), inverse = new Quaternion(), rotation = new Quaternion(), axis = new Vector3();
   const limits = Object.freeze({ ...tuning, impact: tuning });
-  const strikeOf = (side: Side) => effectorStrike({ effector: `foot.${side}`, point: "strike", limits, firm: true,
+  const strikeOf = (side: Side) => effectorStrike({ effector: `foot.${side}`, point: "strike", limits, firm: true, brace: tuning.brace,
     chamberSeconds: tuning.chamberSeconds, returnSeconds: tuning.returnSeconds, response: tuning.response });
   const strikes = { left: strikeOf("left"), right: strikeOf("right") };
   const footprints = { left: Object.freeze(["foot.left", "legs", "trunk"]), right: Object.freeze(["foot.right", "legs", "trunk"]) };
@@ -71,7 +71,8 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
   // The support is read only while a stomp is under way: each of its readings is of that step alone.
   const state = { live: null as Motion | null,
     cycles: { left: strikes.left.state, right: strikes.right.state } };
-  const hipWidth = Math.abs(body.built.spec.joints.find(j => j.name === "hip.right")!.centre.value[0] - body.built.spec.joints.find(j => j.name === "hip.left")!.centre.value[0]);
+  const hipOf = (side: Side) => new Vector3(...body.built.spec.joints.find(j => j.name === `hip.${side}`)!.centre.value);
+  const hips = { left: hipOf("left"), right: hipOf("right") }, hipWidth = Math.abs(hips.right.x - hips.left.x);
   const stage = (next: Motion["stage"]) => {
     const live = state.live!; live.stage = next; live.time = 0; live.held = 0; strikes[live.foot].renew();
   };
@@ -87,9 +88,11 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
     const chamber = coordinates(intoFrameToRef(view.root, live.initial.chamber, local));
     const target = coordinates(intoFrameToRef(view.root, live.target, local));
     const dx = target[0] - chamber[0], dy = target[1] - chamber[1], dz = target[2] - chamber[2], length = hypot(dx, dy, dz);
-    // The stroke returns to its chamber carried with the body as the blow moved it (`back`): clear of
-    // what it struck and within reach, and placed from there.
-    const p = view.root.position, home = live.back ? coordinates(intoFrameToRef(view.root, [p.x + live.back[0], p.y + live.back[1], p.z + live.back[2]], local)) : chamber;
+    // The stroke returns to its chamber carried with its hip as the blow moved it (`back`): clear of
+    // what it struck and within reach, and placed from there. The hip, not the body frame's origin,
+    // which a turn of the pelvis swings a leg's length, and the foot with it.
+    const hip = live.back ? worldPoint(view, hips[live.foot]) : null;
+    const home = live.back && hip ? coordinates(intoFrameToRef(view.root, [hip[0] + live.back[0], hip[1] + live.back[1], hip[2] + live.back[2]], local)) : chamber;
     return { home, chamber, target, seconds: tuning.swingSeconds,
       contactVelocity: length ? [dx * tuning.contactSpeed / length, dy * tuning.contactSpeed / length, dz * tuning.contactSpeed / length] : [0, 0, 0] };
   };
@@ -189,9 +192,13 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
           if (event & STRIKE_EVENT.failed) live.ending = { kind: "stalled", reason: strike.state.phase === "return" ? "chamber deadline" : "withdrawal deadline" };
           if (event & STRIKE_EVENT.aborted) live.ending = { kind: "interrupted", reason: "stroke lost support or met blocking contact" };
           if (strike.state.phase === "swing" && !live.back) {
-            const p = view.root.position, chamber = live.initial.chamber;
-            live.back = [chamber[0] - p.x, chamber[1] - p.y, chamber[2] - p.z];
+            const hip = worldPoint(view, hips[foot]), chamber = live.initial.chamber;
+            live.back = [chamber[0] - hip[0], chamber[1] - hip[1], chamber[2] - hip[2]];
           }
+          // A return that has let the centre off the bearing foot ends the stomp, its legs given back so the
+          // stance can step to catch the body: on one leg, held to its return and its placing, it goes over.
+          if (strike.state.phase === "return" && (inside[0] !== centre.x || inside[1] !== centre.z))
+            return [finish({ kind: "interrupted", reason: "support lost in the return" })];
           if (event & STRIKE_EVENT.finished) { live.phase = "release"; stage("place"); }
           else live.phase = strike.state.phase === "chamber" ? "prepare" : strike.state.phase === "swing" ? "commit" : "release";
           break;

@@ -41,7 +41,7 @@ import { recordingKey } from "../src/core/recording.ts";
 import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
 import { CONTROLLERS, MINDS } from "../src/entrants/game.ts";
 import { poolsOf } from "../src/evaluation/history.ts";
-import { harnessOf, readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
+import { harnessOf, readRecord, recordedSubject, recordEnd, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
 import { COMMAND_DELAY } from "../src/core/world.ts";
 import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf, tableOf } from "../src/evaluation/run.ts";
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
@@ -85,14 +85,16 @@ function commitOf() {
 /** Every record of evaluation `id`, oldest first by name, read and checked. */
 const recordsOf = (id) => filesIn(join(ROOT, "assets/evaluations", id)).map(({ name, text }) => ({ name, ...readRecord(text, name) }));
 
-/** Keep `header` and `lines` as a record of their evaluation: refused where its name holds other content. */
-function writeRecord(header, lines) {
-  const dir = join(ROOT, "assets/evaluations", header.evaluation), name = join(dir, recordName(header, lines)), text = recordText(header, lines);
-  if (existsSync(name)) {
-    if (readFileSync(name, "utf8") !== text) throw new Error(`${name} exists with other content`);
-    console.log(`${name} holds this record already`);
+/** Keep `header` and `lines`, written at `written` (ISO), as a record of their evaluation: none where a record of that day and the same end (`recordEnd`) holds it, refused where one holds other content. */
+function writeRecord(header, lines, written) {
+  const dir = join(ROOT, "assets/evaluations", header.evaluation), text = recordText(header, lines), end = recordEnd(header, lines);
+  const kept = existsSync(dir) ? readdirSync(dir).find((one) => one.startsWith(written.slice(0, 10)) && one.endsWith(end)) : undefined;
+  if (kept) {
+    if (readFileSync(join(dir, kept), "utf8") !== text) throw new Error(`${join(dir, kept)} exists with other content`);
+    console.log(`${join(dir, kept)} holds this record already`);
     return;
   }
+  const name = join(dir, recordName(header, lines, written));
   mkdirSync(dir, { recursive: true });
   writeFileSync(name, text);
   console.log(`wrote ${name}`);
@@ -213,7 +215,7 @@ async function main() {
     until: { type: "string" }, budget: { type: "string", default: "10" }, ablate: { type: "string", multiple: true },
   } });
   if (values.import) {
-    for (const { header, lines } of importRun(values.import, ROOT)) writeRecord(header, lines);
+    for (const { header, lines } of importRun(values.import, ROOT)) writeRecord(header, lines, new Date().toISOString());
     writeNotes();
     return;
   }
@@ -325,7 +327,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
     if (!parent) throw new Error(`no version of ${previous} in a record of ${id} or among the subjects`);
     recorded.set(subjects[0].id, recordedSubject(subjects[0], cases.play, environment.digest, parent, ownCode));
   }
-  const date = new Date().toISOString().slice(0, 10), heads = [...recorded.values()];
+  const written = new Date().toISOString(), date = written.slice(0, 10), heads = [...recorded.values()];
   const header = {
     identity: recordIdentity(BUILD_IDENTITY, engine, harness, cases.play), evaluation: id, protocol, play: cases.play, engine, harness,
     commit, date, schedule: [schedule, ...pairs.length ? [{ kind: "pairs", pairs }] : []].map(scheduleName).join("; "),
@@ -366,7 +368,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
     const files = new Set(lines.flatMap(({ world }) => coder.code(caseNames(world)).files));
     const changed = git("status", "--porcelain", "--", ...[...files].filter((one) => !one.startsWith("node_modules/")));
     if (changed) throw new Error(`a record's code is its commit's: these differ or are untracked:\n${changed}`);
-    writeRecord(header, lines);
+    writeRecord(header, lines, written);
   }
 }
 

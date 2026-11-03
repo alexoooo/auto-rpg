@@ -49,7 +49,7 @@ Rogue's stomp with empty hands and with the sword and buckler. No cell is accept
   or stand by small changes to the legs.
 - **The buckler's cover**: it meets 1 to 20 of 13 to 30 blows first, 6 to 67 %, against 80 %; the
   Skeleton falls in 2 to 3 of 6 trials.
-- **The walk** (read again at `629f7c3b`, `assets/evaluations/locomotion/2026-11-02-629f7c3b-ab1210ec.jsonl`):
+- **The walk** (read again at `629f7c3b`, `assets/evaluations/locomotion/2026-11-02T055158-629f7c3b-ab1210ec.jsonl`):
   11 falls of 705 trials, 11 of the 15 cells met. A walk slowing crouches for the speed the body
   goes (`paceToward`): its plan slowed at its acceleration while the body went on faster, and the
   hips rose over legs stepping long to brake it, so a stop from the top walk vaulted the body

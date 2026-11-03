@@ -1,7 +1,7 @@
 /**
  * **A swing searched on the Strike drill**: Option Mind's swung blow of `--blow <kind>` (`SWINGS`:
  * `cut`, `club-blow`), its striking hand holding the blow's item and the other the buckler, as the
- * game's loadouts hold them. Each of the swung channels (`swingChannels`: the trunk's turn and bend,
+ * game's loadouts hold them. Each of the swung channels (`swingChannels`: the trunk's turn and bends,
  * the striking arm and its wrist) has a windup angle, a fraction of its range (`Swing.wound`), and a
  * push: a level, a start and a length into the swing (`Swing.timed`); then where it stands to swing
  * (`reach`, the head from the target across the ground) and how long the wound stance stands quiet
@@ -36,9 +36,9 @@ import { SWINGS } from "../src/core/skills/strikes/swing-part.ts";
 import { cmaSearch, workerPool } from "./cma.mjs";
 import { drillTrial } from "./punch-drill.mjs";
 
-/** The swung channels of `hand`'s swing: the trunk's turn and bend, the striking arm and its wrist. */
+/** The swung channels of `hand`'s swing: the trunk's turn and bends, the striking arm and its wrist. */
 export function swingChannels(hand) {
-  return ["thoracic rotation right", "lumbar rotation right", "thoracic flexion", "lumbar flexion", `shoulder.${hand} flexion`, `shoulder.${hand} abduction`,
+  return ["thoracic rotation right", "lumbar rotation right", "thoracic flexion", "lumbar flexion", "thoracic lateral flexion right", `shoulder.${hand} flexion`, `shoulder.${hand} abduction`,
     `shoulder.${hand} internal rotation`, `elbow.${hand} flexion`, `wrist.${hand} flexion`, `wrist.${hand} radial deviation`, `wrist.${hand} pronation`];
 }
 

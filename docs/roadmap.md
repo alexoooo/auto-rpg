@@ -58,7 +58,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a toolkit mind, its scripts the evaluation's; built: Strike's rung 1 at a pad on a rail, the trial's overlays and the previous version beside it, the Stand drill). Left: Footwork's rungs; Cover's rung 2, which waits on a counter skill |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
 | [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector; step 2, the contacts' read). Left: the contact-mass solve, the toolkit's tail, each mind's own |
-| [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) | Each body's mind and motor control in mind workers beside the world's, over shared memory, its command taking effect a step after it is made, the same bout on any number of threads: the gain read first, then the delay as a rule on one thread, a mind's body read from a snapshot, minds in workers on Node, then in the browser (built: steps 1 to 3; steps 4 and 5 at no delay, the world waiting for its minds each step, in Node and in the browser's crowd fight and Crypt where the page is isolated: the crowd fight 7.2 to 7.4 ms a step on four mind threads, still behind real time, and the Crypt at worst 9 to 12 ms behind, [step cost](reference/step-cost.md#minds-on-worker-threads)). The game's delay is a step: a mind decides its intent a step late and its skills carry it out on the body as it is ([the command delay](reference/command-delay.md)). At the game's delay the world steps while its minds think, the same to the bit on one to four mind threads, in Node and the browser ([step cost](reference/step-cost.md#minds-on-worker-threads)). With what a mind says sent with its answer and its observers with the next step's ask, the crowd fight on four mind threads steps in 6.8 to 7.1 ms and falls 0.14 to 0.17 s behind at best, over its opening ([step cost](reference/step-cost.md#minds-on-worker-threads)). Left: at most a step behind (the numbers in two buffers, more threads, a cheaper motor part); the owner plays the crowd fight and the Crypt on the preview |
+| [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) | Each body's mind and motor control in mind workers beside the world's, over shared memory, its command taking effect a step after it is made, the same bout on any number of threads: the gain read first, then the delay as a rule on one thread, a mind's body read from a snapshot, minds in workers on Node, then in the browser (built: steps 1 to 3; steps 4 and 5 at no delay, the world waiting for its minds each step, in Node and in the browser's crowd fight and Crypt where the page is isolated: the crowd fight 7.2 to 7.4 ms a step on four mind threads, still behind real time, and the Crypt at worst 9 to 12 ms behind, [step cost](reference/step-cost.md#minds-on-worker-threads)). The game's delay is a step: a mind decides its intent a step late and its skills carry it out on the body as it is ([the command delay](reference/command-delay.md)). At the game's delay the world steps while its minds think, the same to the bit on one to four mind threads, in Node and the browser ([step cost](reference/step-cost.md#minds-on-worker-threads)). On four mind threads the crowd fight steps in 5.5 to 5.8 ms, and it and the Crypt at seed 25 fall 8.6 to 12.9 ms behind at worst, over one or a few dear steps ([step cost](reference/step-cost.md#minds-on-worker-threads)). Left: at most a step behind (the crowd fight's step 3736 and its opening, a Crypt body's build step), then the Crypt at seed 10 and the duels read again; the owner plays the crowd fight and the Crypt on the preview |
 | [The core without Babylon](plans/2026-11-01-core-without-babylon.md) | The simulation free of the graphics layer: the core's own vector maths, copied exactly; every page drawing a mirror posed from the simulation; poses without scene nodes and worlds without a scene; the boundary test refusing Babylon in the core and the entrants. No bout moves |
 | [Health: a life bar and limbs](plans/2026-11-01-health.md) | One life bar that is the truth, a bar on each limb: a limb emptied is crippled (its muscles weaker), a heavy cut takes it off, it falls free and is drawn apart; the strike profiles measured again under the new rules. Steps 3 to 5 after Minds in parallel and the core without Babylon. Not started; its place in the order is the owner's |
 | [The rat](plans/2026-11-01-rat.md) | Poly Haven's Street Rat (CC0) as a second quadruped body, legs under it, and both quadrupeds at 1.0 m/s or more: the rat in the Arena, drawn as the Street Rat on a body fitted to it, then fast legs, a trot that keeps its balance at speed, recovery for legs under the body, and the Crypt (built: the trot lands a pair once its paws bear; steps 1 to 5, the rat in the Arena drawn as the Street Rat, biting the Warrior, both bodies' legs at 20 rad/s and trotting .5 m/s, the bite lunging, the rat righting itself by a recipe of poses from its side and back, the rat trotting 1.08 m/s through turns. Left: the grass lizard at 1 m/s; a rat knocked over in a fight can be left crouched until its righting's retry) |
@@ -125,7 +125,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   (`?play=arena&matchup=crypt-skeleton,workshop-fighter&gap=4`,
   [body](art/skeleton.md#the-body-fitted-to-the-bones), [motors](art/skeleton.md#motors-not-muscles)):
   it goes down more often after contact, and folds onto its thighs crouched past 0.43 m.
-- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option,option`): its approach, cover and a stomp seeded from the Warrior's that lands on nothing yet; no straight punch until one is tuned for its body, and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
+- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option,option`): its approach, cover and a stomp seeded from the Warrior's that lands on nothing yet; a straight punch that meets the foe but lands none at its bar ([the learned punch](reference/learned-punch.md)), and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
 - The Option Reptile against a Warrior and a Reptile
   (`?play=arena&matchup=reptile,workshop-fighter&control=option-reptile,option`,
   `?play=arena&matchup=reptile,reptile&control=option-reptile,option-reptile`), and the Walker reaching its
@@ -196,9 +196,31 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **The braced walk.** Shoved at 20 N s at a third of its orders with the club, the Rogue falls in
   5 and 2 of 200, the Warrior 1 and 2 ([ankle hold](reference/stance-tuning.md#ankle-hold)), and
   empty-handed the Rogue in 8 of 200 ([heel-off](reference/stance-tuning.md#heel-off)); it walks
-  1.5 to 1.7 m/s forward and 0.7 every other way, and turns none at 1 m/s or faster
-  ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: the crowd's reversal
+  1.5 to 2 m/s forward and 0.7 every other way, and turns, along a way or onto one, none at 1 m/s
+  or faster but the club Warrior's 0.25 rad/s ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: the crowd's reversal
   wakes the enemy at 7 of seeds 1 to 60.
+- **The Skeleton's shoved walk.** It holds about 1.0 m/s of shove on the stand, against the Rogue's
+  0.71 and the Warrior's 1.2. With the club, shoved at 4 N s at a third of its orders, it falls in
+  79 of 600; unshoved, it falls in none. Its falls in the Cover drill follow blows, then catch
+  steps that run away.
+  - A walk's step ends on its time with its foot in the air, and the next shift hands the weight
+    to that foot. Neither way of letting a walk's step land held the Rogue's walk
+    ([a walk's step that ends in the air](reference/stance-tuning.md#a-walks-step-that-ends-in-the-air)).
+  - Open: the whole-body solve's choice between the spine and the hips in righting a pitched
+    pelvis.
+  - Open: the Skeleton's stance width. Its soles stand 0.226 m apart, from its reference pose
+    (straight legs under hips 0.18 m apart), about 35 % narrower than a scaled Warrior's. Stood at
+    the Rogue's 0.338, it fell more (31 of 200 against 20).
+- **Yaw at speed.** Walking straight at 1.2 m/s the Warrior's pelvis faces 0.5 to 0.7 rad either
+  side of its heading with every loadout, bare included: the turn's aim asks more yaw moment than a
+  bearing sole twists (50 to 200 N m missed at a step), and the ground share's miss spills into the
+  centre's force. The club Warrior turning onto a way at 1 m/s and over ran to 2 to 2.8 m/s and
+  fell ([the stance's walk](reference/locomotion.md#the-stances-walk)); the envelope's turns onto a
+  way hold its walk under that, but a turning walk past 0.7 m/s, and the run's turns, need yaw held at speed.
+- **Braking.** The walk's pace comes round at 2 m/s² (`STANCE_GAIT.accel`), where at 1 the Warrior
+  asked a quarter turn at 1.4 m/s kept its speed 1.6 s and fell; the stance envelope, measured at
+  1, is to be measured again ([pace ramp](reference/stance-tuning.md#pace-ramp),
+  [stopping](reference/locomotion.md#stopping)).
 - **The stance on a lying body.** Asked a stand while the body lies with no ground action holding
   it, the stance's plan takes what the ground missed (`plan.missed`, `advancePlan`) unbounded and
   runs to NaN in seconds, which the action command refuses as a throw; no mind asks it now
@@ -356,15 +378,17 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
     ([Option Mind](plans/2026-10-27-option-mind.md#one-policy-selecting-a-set));
   - orders: obedience against self-preservation, read with orders given; follow orders values
     an order without its walk (`Orders.walk`).
-- **The stomping rung lands 3 of 12**: the place beside a lying body is held (`HeldBeside`,
-  the drill's `HELD_SPOT`), and the drill's spot jumps more than 0.5 m 6 times over the rung
-  where it jumped 124; a stomp's window is read from where the stomping sole stands now
-  (`stomp.ts`), which a stride moves about 0.1 m. Option Mind stomps a lying Warrior 1.2 m off its feet at
-  9.2 s at `fe82cf01` and not in 20 s at `d597bd5b`; reading the window from the squared stance
-  instead lands 8 of the stomping rung's 12 against 10. At `8739fa22` the rung lands 5 of 12: each
-  stomp thrown at a lying Warrior lands (3 of 3), three trials are ready and never thrown, and in
-  the two at 1 m the limp Warrior never lies down (read standing 0.96 m off), a fixture short of
-  its case that the profile reads as a stomp at a standing body.
+- **The stomp lands 11 of the Warrior's rung's 12**, none fell, 1 outside; on `stomping-bodies`
+  the Skeleton lands 8 of 12, 1 fell, its blows carrying under 3 J, and the Rogue 9, 3 refused at a
+  lying Skeleton, none fell; braced the stroke's last 76 ms, the Warrior's blows at a lying Warrior carry 15 to
+  52 J at 3.7 to 4.2 m/s ([braced and searched](reference/front-kicks.md#stomp-settings)).
+  - Open: a walk to a place beside a lying body overruns it. The Skeleton, asked 0.14 m/s 0.2 m
+    from its place, walks on at 0.4 to 0.8 m/s, 0.3 m past it, plants a foot on the lying
+    Warrior's limb and falls 1.5 s later (`stomping-bodies`, left foot, 0.8 m); the legs' stop,
+    not the stomp.
+  - Open: the Rogue's walk to a lying Skeleton turns between its sides and ends about once a
+    second (the menu's place chosen afresh from where it is, the drill's spot re-read each
+    second), and 3 of 6 trials run out before it settles.
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
   are not built ([blows](reference/blows.md#covering-searched)); each comes as a skill in the shape
   with its Cover drill.

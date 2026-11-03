@@ -941,33 +941,100 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   motor part on the body the world wrote and sends that answer with what the mind says then
   (`Thread.steps`, the count of answered steps in `ANSWERED`, `src/apart/wire.ts`), then makes the
   decision its next answer carries out, while the world takes the answer, steps, and its
-  Commanders read what each member said with its answer (`Seat.said`). The world waits for the
-  decision only as it writes the next step's numbers (`Seat.says`) or asks a menu: one write and
-  one batch a step (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to
+  Commanders read what each member said with its answer (`Seat.said`). The world writes the next
+  step's numbers into the other of two arrays (`MirrorWriter.write`), so it waits for a decision
+  only as it asks a menu: one write a step, each ask sent as it is made and the word to decide as the world dispatches (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to
   the bit on one thread and on one to four mind threads (`research/minds-apart.mjs`, the whole
   physics world's bytes each second, at 81c323b6): the crowd fight to its verdict (13668 steps,
   2577 blows, the left side's by draining at 113.9 s), the bare-hands and sword bouts and the
   Crypt at seeds 10 and 25 for 30 s. A preview at 37871d97, where the world still waited for each
   decision after physics, played the crowd fight on four mind threads to Node's verdict.
-- **At a step of delay the crowd fight is still behind real time, by 0.14 to 0.17 s at best**,
-  built over its opening (steps 396 to 557, as the ten close), where the world waited for each
-  decision after physics fell 0.56 to 1.39 s behind late in the fight. `research/step-time.mjs
-  --crowd --minds 4`, four playings read on the last three, two runs each interleaved, Node 24.19,
-  `rapier-coordinate`, 120 Hz, a quiet machine; before is 3f0ab87d, after 81c323b6:
+- **At a step of delay on four mind threads the crowd fight and the Crypt at seed 25 fall a
+  little over a step behind real time at worst, 8.6 to 12.9 ms, each over one or a few dear
+  steps**: short of the parallel minds' bar of a step
+  ([its plan](../plans/2026-11-01-parallel-minds.md#done-when)). The crowd fight's mean step is
+  5.5 to 5.8 ms (the least of each over the playings), and 53 to 106 of the 12902 steps past its
+  first 2 s are over 8.33 ms. `research/step-time.mjs --crowd --minds 4 --runs 4`, the last three playings
+  read, on `rapier-coordinate`; `research/crypt-step.mjs --seeds 25 --seconds 60 --runs 3 --minds
+  4` on `rapier`, the hero exploring alone; Node 24.19, 120 Hz, a quiet machine; pinned is one
+  logical processor a core (`start /affinity 55555555`). The worst lag is the least of the
+  playings':
 
-  | Run | Mean step, ms | Least of each, ms | Over 8.33 past 2 s | Dearest past 2 s, ms | Worst lag, ms |
-  | --- | --- | --- | --- | --- | --- |
-  | before, 1 | 8.20 to 8.49 | 7.91 | 3020 of 13428 | 17.32 | 1391 |
-  | before, 2 | 7.95 to 8.15 | 7.69 | 2334 of 13428 | 17.47 | 562 |
-  | after, 1 | 6.77 to 7.10 | 6.51 | 591 of 13428 | 15.82 | 136 |
-  | after, 2 | 6.82 to 6.99 | 6.53 | 612 of 13428 | 16.95 | 170 |
+  | Run | At | Worst lag, ms | Built over |
+  | --- | --- | --- | --- |
+  | crowd fight, pinned | 7bf272f1 | 10.38 | step 3736 (18.3 ms); another playing's, the opening (851 to 866) |
+  | crowd fight | 7bf272f1 | 12.89 | the opening, as the ten close (838 to 866, 21 steps over 8.33) |
+  | crowd fight, pinned | 92a08060 | 11.12 | step 4888 (18.7 ms) and the three after |
+  | crowd fight | 92a08060 | 12.17 | step 4888 and the three after; the other playings', the fight's first close (989 to 1012) |
+  | Crypt, seed 25, pinned | 7bf272f1 | 11.36 | one step building a body (17.5 ms) |
+  | Crypt, seed 25 | 7bf272f1 | 8.60 | one step building a body (16.9 ms) |
+  | Crypt, seed 25, pinned | 92a08060 | 6.67 | one step |
+  | Crypt, seed 25 | 92a08060 | 6.75 | one step |
 
-  What is left is the dear steps, each about 3 ms of solver and 11 to 13 of the rest: the world
-  still waits for every mind's motor part and answer before its muscles take them, three or so
-  minds on each of four threads in turn, and for each decision before it writes the next step's
-  numbers. What would split it further: the numbers written in two buffers by the step's parity,
-  so that the world writes a step's while the minds still decide on the last's; more mind threads
-  where the machine has them; and a cheaper motor part (its hands' solves, `ReachMeter`).
+  The fight changes between the two commits (the walk's and the menu's changes), so its dear
+  steps change with it: at 7bf272f1 the crowd fight's verdict comes at 13142 steps, not 13835,
+  and the Crypt at seed 25 builds 14 bodies in its 60 s, not 10. A dear step is one mind's move
+  or decision taking most of a step on its thread, which the world waits for at its muscles a
+  step later: step 4888's was a reach compiled for another shape (a reach's freedoms, below);
+  step 3736's is the same on every playing, pinned and not, and not yet read.
+- **The world writes a step's numbers while the minds still decide on the last's**: each writing
+  takes the other of two arrays (`MirrorWriter.write`, `src/core/mind/mirror.ts`), and before it
+  the world waits only for the seat's last answer (`Seat.answer`), no longer for its thread's whole
+  batch. A decision is still carried out by the seat's next answer, so a slow one still delays its
+  own seat's next move; what no longer waits behind it is every other seat's writing and every
+  other thread's batch. Before it, at 510b96d0 (crowd fight, its least step over two playings
+  pinned, Node 24.19, `rapier-coordinate`, 120 Hz, quiet): a decision of 10.7 ms at step 1806 held
+  every thread's next batch 7.0 ms into step 1807, against 0.8 in an ordinary step. The poses are
+  the same to the bit on one and four threads: the crowd fight's first 2400 steps and the Crypt's
+  at seeds 10 and 25, and the fingerprint.
+- **A thread moves each body as the world writes it** (`mindThreads`, `src/apart/host.ts`;
+  `mindThread`, `src/apart/thread.ts`): each step ask is posted as its seat is written, and the
+  minds decide once the world says the step's asks are all in (`Batch.decide`). Ten seats on four
+  threads are three, three, two and two; a thread of three waited for all ten writings before
+  its first move (0.8 ms at 510b96d0's quiet reading, its moves 1.5 to 1.6), and now begins after
+  its first.
+- **A decision prices the other foes before its focus** (`selectSet`, `src/core/mind/choice.ts`):
+  its options are left aimed and priced at the focus unless another foe is worth more, so the focus
+  is no longer priced a second time after the others. The decisions over 2 ms are three quarters
+  appraisal (`appraiseAt`), two fifths of it at the other foes (the crowd fight's steps 380 to
+  1900, minds in one process, a CPU profile of its 662 decisions over 2 ms, Node 24.19,
+  `rapier-coordinate`, 120 Hz, at bb20424a). Over the crowd fight's first 2400 steps the minds
+  appraise 3499 times, against 4192 before.
+- **A profile reads each phase's cells once** (`profileReading`,
+  `src/core/skills/framework/profile.ts`): the cells a phase reads at and their reach are found at
+  its first reading, and the pressure's rate (`pressureAt`, `ProfileReading.rate`) reads its cell
+  without making an expectation; a region's segments are found once a spec (`regionSegments`,
+  `src/core/intent/action-aim.ts`). In the same profile of those decisions, `expect` was 7.9% of
+  their samples and `regionSegments` 4.2%, each in itself.
+- **An uprightness reading turns only the heights** (`readUprightness`, `src/core/control/ground.ts`):
+  each part's points are kept in one array, and each is turned for its height alone, as
+  `Vector3.applyRotationQuaternionToRef` computes it (`turnedY`). The world reads every body's
+  each step and each mind its own. A Warrior's 636 points, one body of the crowd fight at step
+  400, its pose nudged each reading, 20000 readings five times, the least of each run, two runs
+  each interleaved, Node 24.19, a loaded machine: 9.6 and 10.9 µs a reading before, 6.9 and 7.2
+  after.
+- **A route search asks a sweep only of the solids in the cells it crosses** (`createRouter`,
+  `src/core/navigation/route-search.ts`): readying puts each solid in the cells of a grid its
+  bounds reach (`GRID`), and a sweep asks the solids of the cells it crosses, `CELL_REACH` wider,
+  from its start, first the solid that blocked the last sweep from the same point. A solid in none
+  of those cells has bounds the sweep passes outside (`BOUNDS_SLACK`), so the answer is the one
+  asking every solid gives. The Crypt at seed 25 has a body search for a place it cannot reach at
+  steps 4802, 4858, 5427, 6693 and 6800: 231 solids, 645 corners, about 35500 sweeps, all but about
+  100 blocked; each search was a whole step's 18 to 19 ms of a mind's thread, the Crypt's worst
+  step. Each of the five searches replayed alone, the least of 30, Node 24.19, a loaded machine:
+  18.3 to 19.2 ms before, 8.7 to 9.9 after. The 358 searches of the run's first 6840 steps
+  replayed give the routes they gave, and 4 million sweeps and points, at random and a hair either
+  side of the solids' margins and bounds, the answers they gave.
+- **A reach's freedoms are one shape wherever they are made** (`Freedom`, `copyFreedoms`,
+  `src/core/control/effectors.ts`): the tracker's, the punch's and the guard's are objects of one
+  shape in arrays filled in order. Made by a copy of each (`{ ...f }`) in an array mapped from
+  another, the punch's met a `solveReach` compiled for the tracker's, and the solve fell back to
+  unoptimized code for the rest of the call. In the crowd fight at 92a08060 a mind's first held
+  face's thrust on its thread did so at step 4888: three capped solves of 200 passes each, 1.2 ms
+  each in one process, took that mind's move 23 to 33 ms on a loaded machine, and the step 18.6 ms
+  on a quiet one. Over the crowd fight's first 4890 steps on four mind threads (`--trace-deopt`),
+  `solveReach` left its compiled code 16 times before (12 of them for an object's shape) and 8
+  after (none for one), each for a branch first taken.
 - **What a mind shows a person crosses only when a page reads it** (`SeatAsk`'s `shown`): its
   engagement, 3.2 KB of the 3.9 each crowd mind said a step, read by no rule or Commander, had its
   details made and was copied with every answer, on the world's wait. Crowd fight, its opening

@@ -21,6 +21,8 @@ export interface Objective {
   readonly name: string;
   readonly state?: object;
   worth(terms: Terms, now: Situation, obedience: Obedience): Worth;
+  /** How long a place it prices is held before the body moves on, s (none where it prices no hold): how long a chooser keeps what it walks to (`Deciding.keep`). */
+  readonly holds?: number;
 }
 
 /**
@@ -90,7 +92,7 @@ function fewTermsWorth(terms: Terms, now: Situation, obedience: Obedience): Wort
  * and its orders, the position where it leaves the body (`placeWorth`) and its time at the rate of
  * play (`rateOfPlay`).
  */
-export const FEW_TERMS: Objective = deepFreeze({ name: "few terms", worth: fewTermsWorth });
+export const FEW_TERMS: Objective = deepFreeze({ name: "few terms", worth: fewTermsWorth, holds: TERMS.held });
 
 /** **The few terms** (`FEW_TERMS`) as a part of role `objective`: what a chooser that values options prices them by. */
 export const FEW_TERMS_PART: ObjectivePart<{ readonly kind: "few-terms" }, Objective> = deepFreeze({

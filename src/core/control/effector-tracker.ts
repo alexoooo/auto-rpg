@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { channelName, type MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance } from "../spec/vec.ts";
-import { bodyEffectors } from "./effectors.ts";
+import { bodyEffectors, type Freedom } from "./effectors.ts";
 import { pointPathTargetToRef } from "./point-path.ts";
 import { pointNowToRef, reachWork, solveReach, type ReachEnd, type ReachWork, type ReachOrientation, type ReachWays } from "./kinematics.ts";
 import { turnBetweenToRef } from "../math/turn.ts";
@@ -73,12 +73,6 @@ export interface EffectorGoal {
   readonly orientation?: { readonly target: readonly [number, number, number, number]; readonly seconds: number };
 }
 
-/**
- * A freedom the inverse kinematics moves (`ReachFreedom`), by channel name, drawn toward the
- * posture's angle: `preferred`, which every step sets before it solves.
- */
-interface Free { readonly joint: number; readonly k: number; readonly min: number; readonly max: number; preferred: number; readonly name: string }
-
 /** A place's task as `solveReach` reads it: its point and target, written before each solve. */
 interface Task { point: Vec3; readonly target: [number, number, number] }
 
@@ -92,8 +86,8 @@ interface Effector {
   readonly segment: ReadSegment;
   /** The endpoint's named rigid-body points in the reference root frame. */
   readonly points: ReadonlyMap<string, Vec3>;
-  /** The declared chain's free joint coordinates. */
-  readonly free: Free[];
+  /** The declared chain's free joint coordinates, each drawn toward the posture's angle, which every step sets before it solves. */
+  readonly free: Freedom[];
   /** The chain's held freedoms, in the chain's order. */
   readonly held: readonly Held[];
   /** What its reach works in (`solveReach`). */

@@ -151,7 +151,8 @@ export interface MirrorWriter {
   /**
    * Write the body as it stands, the muscles' last reading and the senses' into the channel's
    * inbound numbers; with `sensing` false, the senses as nothing yet read, as before the fight first
-   * senses for the body (`NOTHING_SENSED`).
+   * senses for the body (`NOTHING_SENSED`). Each writing takes the other of two arrays, the channel's
+   * `inbound` from then: a mind still deciding on the last writing's numbers reads them as they were.
    */
   write(options?: { readonly sensing: false }): void;
   /** Carry out the command the channel's outbound numbers hold: the muscles', the assist's ask, the hands' poses, each request also given to `asked`. */
@@ -175,6 +176,8 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
   let side: string | null = null, ends: number | undefined, solids: readonly SolidSense[] | undefined;
   const v = new Vector3();
   let k = 0;
+  // The array the writing before last filled, the next writing's.
+  let spare: Float64Array | null = null;
   const put = (x: number) => { channel.inbound[k++] = x; };
   const room = (more: number) => { channel.inbound = grown(channel.inbound, k + more, channel.allocate); };
   const vec = (a: { readonly x: number; readonly y: number; readonly z: number }) => { put(a.x); put(a.y); put(a.z); };
@@ -263,6 +266,9 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
     channel,
     write({ sensing = true }: { readonly sensing?: boolean } = {}) {
       const senses = sensing ? sense() : NOTHING_SENSED;
+      const next = spare ?? channel.allocate(channel.inbound.length);
+      spare = channel.inbound;
+      channel.inbound = next;
       k = 0;
       put(clock.steps); put(clock.time); put(LEVELS.indexOf(driver.level));
       for (const segment of segments) {

@@ -89,8 +89,10 @@ function adopts(config: Pick<DrillCommanderConfig, "action" | "limb" | "region">
 
 /**
  * How a spot beside a body lying is held (`Held`): chosen again once that body's middle moves
- * `moved` m, or `rethink` s on. The menu reads its spot afresh at each ask, and a window read from
- * where a sole stands moves with each stride, which would turn the walk from one side to the other.
+ * `moved` m, or, while the walk has not yet held in its window, `rethink` s on. The menu reads its
+ * spot afresh at each ask, and a window read from where a sole stands moves with each stride, which
+ * would turn the walk from one side to the other, and step a member held in its window after each
+ * new spot, never settled.
  */
 const HELD_SPOT = Object.freeze({ moved: .3, rethink: 1 });
 
@@ -227,7 +229,7 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       if (entry?.spot) {
         const offered = entry.spot.route ? entry.spot : null, drift = [{ at: [foe.at.x, foe.at.z], within: HELD_SPOT.moved }];
         if (!offered) { state.spot = null; letGo(state.spotHeld); }
-        else if (!state.spot || !stillHeld(state.spotHeld, view.time, HELD_SPOT.rethink, offered.by ?? "", drift, () => true)) {
+        else if (!state.spot || !stillHeld(state.spotHeld, view.time, state.held ? Infinity : HELD_SPOT.rethink, offered.by ?? "", drift, () => true)) {
           state.spot = offered; hold(state.spotHeld, view.time, offered.by ?? "", drift);
         }
       }

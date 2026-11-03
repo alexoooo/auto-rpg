@@ -85,7 +85,7 @@ step. The falls stood within 10 s move by about six a draw of 64.
 | | 480 Hz | 158 | 172 |
 
 **The strikes' still rungs** (the Strike drill's `still`, 128 trials) at one step: the punch is
-admitted 60 times and lands 35 (`assets/evaluations/strike/2026-11-03-25d720b9-4635c08b.jsonl`;
+admitted 60 times and lands 35 (`assets/evaluations/strike/2026-11-03T011806-25d720b9-4635c08b.jsonl`;
 none at f0c6807c: 62 and 31); the club blow with the buckler lands 6, admitted 16 (`786b1ad8`). The
 stomp's `stomping` lands 4 of 12 at one step, none fallen (252a17eb). A club is swung, not punched
 with: the punch's drive thrown with the club's head gives way to a swing, trained at the game's
@@ -127,6 +127,10 @@ margin of 0.251 (0.214 to 0.290) over 34 units at ca5d8e8a, against 0.241 over 3
 **The fingerprint** at one step against none moves 18 cases: the ten arena cases (the
 `straight-punch` data case among them), the four stands, the Crypt's seeds 1 and 2 and the Lab's
 run circle on the Warrior and the Rogue. At none the split moves no case.
+
+**Real time** with the minds on four mind threads at one step: the crowd fight and the Crypt at
+seed 25 fall 8.6 to 12.9 ms behind at worst (7bf272f1), a little over the step their plan allows,
+each over one or a few dear steps ([step cost](step-cost.md#minds-on-worker-threads)).
 
 ## Tried and not kept
 

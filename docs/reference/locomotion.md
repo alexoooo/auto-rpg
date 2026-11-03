@@ -9,13 +9,19 @@ built is in the [architecture](../architecture.md#skills); what is open is in th
 
 The walk a fight uses. Its envelope (`assets/core/stance-envelope.json`, measured by
 `research/core-stance-envelope.mjs` with the ankle's hold of
-[stance tuning](stance-tuning.md#ankle-hold), every body and thing held, 675 s on 8 workers) walks
-the Warrior 1.7 m/s forward, 1.2 back and 0.7 to either side; the Rogue 1.5, 1 and 0.7; the
-skeleton 1.5, 1 and 0.7, where a person's preferred walk is near 1.4 m/s (`PERSON_PACE`,
-`src/core/human/gait.ts`). Its turns hold 1 rad/s at 0.2 to 0.5 m/s (the Rogue to 0.4, then 0.5),
-0.25 to 0.5 at 0.7, and none at 1 m/s or faster. A turn holds at a speed only if all 28 of its
-trials do, a walk if all 4 of its do: at 1 m/s a 0.25 rad/s turn stands in each of 8 trials read
-alone. A dash, a roll, a crouch and turning on the spot are not built.
+[stance tuning](stance-tuning.md#ankle-hold), every body and thing held, 6654 s on 14 workers)
+walks the Warrior 2 m/s forward, 1.4 back (1.5 with the club) and 0.7 to either side; the Rogue
+1.5 (1.7 with the club), 1 back (1.2) and 0.7; the skeleton 1.7, 0.7 and 0.7 (with the club 1.5
+forward and 1 every other way), where a person's preferred walk is near 1.4 m/s (`PERSON_PACE`,
+`src/core/human/gait.ts`). Its turns are tried as a half round along the way the body faces and as
+a quarter round onto a way to the side asked from the turn's start, as a fight walks to a place
+beside where it faces. They hold 1 rad/s to 0.7 m/s for the Warrior, to 0.5 for the Rogue (0.25 at
+0.7) and to 0.4 for the skeleton (0.5 at 0.5; 1 to 0.5 with the club), and none at 1 m/s or faster
+but the club Warrior's 0.25 at 1. A turn holds at a speed only if all 56 of its trials do, a walk
+if all 4 of its do. Turned onto a way under the turns measured along it alone (0.5 rad/s to
+1.2 m/s with the club), the club Warrior ran to 2 to 2.8 m/s and fell in the fight's approach; the
+pelvis's yaw at speed is the roadmap's ([Yaw at speed](../roadmap.md#body-and-motor-control)). A
+dash, a roll, a crouch and turning on the spot are not built.
 
 **Steering by it** (the crowd battery's 24 cases, then the 69 of seeds 1 to 12; shoved under orders
 at 20 N s, seeds 1 to 200; at `8a363623`):
@@ -23,7 +29,7 @@ at 20 N s, seeds 1 to 200; at `8a363623`):
 | Envelope | Falls, 24 | Done of reached | Done, s, median | Pushed apart, steps a case | Falls / not done, 69 | Shoved falls of 200, Rogue / Warrior |
 |---|---:|---:|---:|---:|---:|---:|
 | the one before it (0.5 m/s every way for the Warrior, 0.4 the others, turns to 4 rad/s) | 0 | 23/23 | 37.7 | 20 | 2 / 2 | 17 / 9 |
-| this one | 0 | 22/23 | 25.7 | 29 | 1 / 3 | 19 / 0 |
+| the next (1.7 m/s forward, its turns measured along a way alone) | 0 | 22/23 | 25.7 | 29 | 1 / 3 | 19 / 0 |
 
 The Rogue walks the 0.5 m/s its orders ask, where the envelope before held it to 0.4. What the walk
 steers by, each found where a member at this envelope stood, walked away or fell:
@@ -149,6 +155,32 @@ way's deepest point out of the box (21); 10 cm between the thighs (`STRIDE_ROOM`
 (13 of 300 against 6); a catch that would land no nearer the capture point than the bearing foot
 stands put down at once, and the bearing foot stepping out (27).
 
+### Stopping
+
+A stop is not taken at the end of a stride cycle: the step under way lands where it was planned, and
+each next step is planned at the pace the walk has come down to (`GaitTuning.accel`), no
+slower than its leg reaches (`reachablePace`). Asked to stand from 0.5 or 0.7 m/s forward (a lone
+body under the Option mind, Node stand, Rapier, 120 Hz, at `71706c71`, `accel` 1), the Rogue and the Warrior,
+bare and with the club, keep their speed some 0.4 s, take 3 steps and a settling one, are under
+0.1 m/s 1.1 to 1.4 s after the order and go on 0.4 to 0.7 m; from 1.2 to 1.6 m/s, 1.7 to 2.2 s and
+1 to 2 m. The steps brake it some 0.5 to 0.75 m/s², what their reach allows, not the pace's ramp.
+The approach allows for it (`goesOn`, `src/core/intent/action-window.ts`): its braking pace is that
+of the distance left less what the body goes on once asked to stop, a step's swing and double
+support at its speed and then the walk's stopping rate (`STANCE_STOPPING`): 0.44 m from 0.5 m/s and
+0.76 from 0.7, against the 0.39 to 0.43 and 0.63 to 0.71 measured, and more than measured faster.
+Over 24 bouts (the Rogue and the Warrior, bare and with the club, both sides the Option mind, gaps
+3 to 6 m, 40 s, at `71706c71`) it holds the two bodies' centres apart a little more (their nearest
+twentieth 0.72 m against 0.69) and falls no more (in 17 bouts against 17).
+
+A stop within one step is the stance's `halt`: one catch step, under 0.1 m/s 0.2 to 0.6 s after
+the order from 0.7 m/s or slower; but it leaves the feet some 0.75 m apart, the body rocks back
+at up to 0.35 m/s and is not still 4 s on in 6 of 12 stops, it goes on as far, and the Warrior
+with the club falls halting from 1.4 m/s. A faster pace ramp (`accel` 3 or 10) stops no sooner from
+0.5 or 0.7 m/s (1.1 to 1.3 s), and at 10 the Warrior falls stopping from 1.4 bare and with the club.
+Turning a quarter at 1.4 m/s (the Locomotion drill's turn 90, the Warrior bare, at `b78c45df`) the
+asked pace swings 1.56 m/s at an `accel` of 1 m/s², the legs keep their speed 1.6 s and the body
+falls; at 2, 3 or 5 it turns and stands ([pace ramp](stance-tuning.md#pace-ramp)).
+
 ## The run cycle
 
 Past its walk, the walk and run tracks a person's run cycle (`runCycle`, `cycle-run.ts`): three CMU clips'
@@ -219,6 +251,19 @@ No cell meets the bar. What holds the turn back is the walk and run itself: its 
 faster than `swerve` (1.6 m/s²) over the speed, 0.8 rad/s at 2 m/s, and the run goes past the pace
 asked (2.8 m/s asked 2) and banks into the turn until it falls inward. Its `brake` slows the pace
 at 0.47 m/s², where a stop within 1.5 s asks about 2.
+
+**Where it falls.** Empty-handed in calm air, each of the bar's trials on the Warrior and the
+Rogue falls at the run's first steps, 1.3 to 2.5 s after it is asked, before its turn or its stop
+begins. Traced there (Node stand, Rapier, 120 Hz, at `9e887beb`):
+
+- The run took over as the swinging sole first touched, before it bore, and swung the leg that
+  still carried the body. It now waits for that sole to bear alone (`RUN_SWITCH`): its first stance
+  bears, and the trials fall a step later (the Warrior 2.27 to 2.39 s after it is asked, the Rogue
+  2.29 to 2.43).
+- The run begins at the walk's pace, 0.86 m/s, playing a cycle no slower than about 2.2 m/s (the
+  slowest clip's less `blend`). In its second stance the body pitches forward over a toed ankle
+  that yields to 0.74 rad, goes from 0.75 to 1.9 m/s in 0.2 s, and falls. The walk reaches no pace
+  the cycle runs at: asked 1.4 m/s the Rogue's walk makes 1.1 and never hands over.
 
 ## The walk and run
 
@@ -377,6 +422,21 @@ five loadouts, calm and gusts of seed 1, 7 generations of 12): asked 1.2 m/s, th
 holds 2.2 to 2.4 m/s and the Rogue 1.2 to 1.8. A run asked just past its handover goes faster than
 asked or falls, which no envelope speed over 0.7 m/s survives; stopped there, not measured on the
 envelope.
+
+### The flat foot's stop, held by muscle
+
+The run's stance ankle pushed at full strength while it is dorsiflexed past the flat foot's stop,
+0.36 rad, and its sole is down (the bar's three trials, the Warrior and the Rogue empty-handed in
+calm air, at `9e887beb` with the bearing handover): the ankle yields to 0.65 rad, not 0.74, and
+every trial falls as before. As a servo toward the stop at the run's `settle`, the push gives
+100 to 235 N·m of a 390 to 518 N·m ceiling and the ankle reaches 0.56. Not kept.
+
+### A later handover, a stiffer ankle
+
+On the same trials: the run begun past 1.2 or 1.4 m/s (`WalkRunSettings.run`), with and without
+the stop above, falls at 3.1 to 3.2 s on the Warrior; at 1.4 the Rogue's walk never reaches the
+run. The stance-ankle servo at `ankle` 1 and `settle` 0.06 falls at 2.3 to 2.4 s on both. Not
+kept.
 
 ### A wider swerve for the run's turn
 

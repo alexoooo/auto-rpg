@@ -19,10 +19,13 @@ import { lieBy, type Position } from "../control/ground-reading.ts";
 export const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
 
 /**
- * **What a ward covers** (`threatOf` with `hold` and `nearest`): the foe's striking point nearest
- * the body within `within` m, however slowly it closes, so the cover stands between the foe's
- * weapon and the body before any blow begins, and keeps to the weapon, which reaches nearer than
- * the hand that holds nothing: 2 m, an arm and a short blade with a step to spare.
+ * **What a ward covers** (`threatOf` with `hold`, `nearest` and `armed`): the foe's striking point
+ * nearest the body within `within` m, however slowly it closes, so the cover stands between the
+ * foe's weapon and the body before any blow begins; of a foe that holds a weapon, the hand that
+ * holds it, which a blow with it turns about, and not a hand that holds nothing, which comes
+ * nearer while the weapon is drawn back; read where it is now, carried on from where the senses
+ * show it (`lead`): 2 m, an arm and a short blade with a step to spare.
+ * Set: `docs/reference/blows.md#a-shields-ward`.
  */
 const WARD: Threat = Object.freeze({ within: 2, closing: -Infinity });
 
@@ -33,7 +36,9 @@ const PREDICTION = Object.freeze({ out: .2, horizon: .4 });
  * How a threat is read (`threatOf`): what counts as one; with `prediction`, its predicted crossing;
  * with `body`, the body's axis guarded in place of the head; with `hold`, a point with no
  * crossing covered where it is; with `nearest`, of the points that count the nearest the place
- * guarded, not the fastest closing.
+ * guarded, not the fastest closing; with `armed`, of a foe whose striking limb holds an item, those
+ * limbs alone, each read at its own point (`Striking.grip`); with `lead`, each point carried along
+ * its sensed velocity for as long as the senses show it late (`BodySense.time`), to where it is now.
  */
 interface ThreatReading {
   readonly counts: Threat;
@@ -41,6 +46,8 @@ interface ThreatReading {
   readonly body?: boolean;
   readonly hold?: boolean;
   readonly nearest?: boolean;
+  readonly armed?: boolean;
+  readonly lead?: boolean;
 }
 
 /** The readings minds use: the threat as it stands, its predicted contact on the head or on the body, and the weapon warded off. */
@@ -48,7 +55,7 @@ export const READINGS = Object.freeze({
   threat: Object.freeze({ counts: THREAT }),
   predicted: Object.freeze({ counts: THREAT, prediction: PREDICTION }),
   body: Object.freeze({ counts: THREAT, prediction: PREDICTION, body: true }),
-  ward: Object.freeze({ counts: WARD, prediction: PREDICTION, body: true, hold: true, nearest: true }),
+  ward: Object.freeze({ counts: WARD, prediction: PREDICTION, body: true, hold: true, nearest: true, armed: true, lead: true }),
 }) satisfies Readonly<Record<string, ThreatReading>>;
 
 /** What counts as a threat (`THREAT`). */
@@ -57,8 +64,11 @@ interface Threat {
   readonly closing: number;
 }
 
-/** A limb a threat is read from, and the point it strikes with in its own frame. */
-interface Striking { readonly limb: string; readonly local: Vec3 }
+/**
+ * A limb a threat is read from, and in its own frame the point it strikes with and, where it holds
+ * an item, its own point (its effector's), which holds the item; null where it holds none.
+ */
+interface Striking { readonly limb: string; readonly local: Vec3; readonly grip: Vec3 | null }
 
 /**
  * **What a blow of a body of `spec` is read from**: each limb it strikes with (`strikersOf`) but
@@ -70,10 +80,12 @@ function strikingPoints(spec: BodySpec): readonly Striking[] {
   const feet = (spec.ends ?? []).flatMap((end) => end.kind === "foot" ? [end.segment] : []);
   return strikersOf(spec).filter((limb) => !feet.includes(limb)).flatMap((limb): Striking[] => {
     const segment = segmentOf(spec, limb), hand = fistOn(spec, "left") === limb ? "left" : fistOn(spec, "right") === limb ? "right" : null;
-    const at = segment && rigidPoints(spec, segment).get(hand ? aimOf(spec, hand) : effectorAim(spec, limb));
-    if (!segment || !at) return [];
-    const { origin, x, y, z } = frameOf(segment), from = sub(at.value, origin);
-    return [{ limb, local: [dot(from, x), dot(from, y), dot(from, z)] }];
+    const points = segment && rigidPoints(spec, segment), at = points && points.get(hand ? aimOf(spec, hand) : effectorAim(spec, limb));
+    if (!segment || !points || !at) return [];
+    const own = spec.held?.some((held) => held.segment === limb) ? spec.effectors?.find((effector) => effector.segment === limb)?.point : undefined;
+    const grip = own === undefined ? undefined : points.get(own);
+    const { origin, x, y, z } = frameOf(segment), local = (point: Vec3): Vec3 => { const from = sub(point, origin); return [dot(from, x), dot(from, y), dot(from, z)]; };
+    return [{ limb, local: local(at.value), grip: grip ? local(grip.value) : null }];
   });
 }
 
@@ -153,7 +165,7 @@ export function sensedPhase(view: ThreatView, focus: string): FoePhase {
  * head, if it is a threat (`counts`:
  * `THREAT`, unless an experiment passes another); guarded, the head. Null with none. The closing
  * speed is the point's own toward the head as the head stands. What is sensed is as old as the
- * senses' delay, and nothing here corrects for it. With `prediction`, a constant-velocity
+ * senses' delay; only `lead` carries a point on by it. With `prediction`, a constant-velocity
  * crossing of the plane ahead of the head replaces the current point; a threat already inside
  * the plane is covered immediately. No crossing in the horizon means no candidate. With `body`, what
  * is guarded against each point is not the head but the point of the body's axis, from its centre
@@ -162,20 +174,22 @@ export function sensedPhase(view: ThreatView, focus: string): FoePhase {
  * contact is the crossing's, or with none its distance at its closing speed.
  */
 function threatOf(view: ThreatView, { point, velocity, lever }: ThreatWork,
-  { counts, prediction, body = false, hold = false, nearest = false }: ThreatReading): { cover: Cover; closing: number; seconds: number; foe: BodySense; limb: string } | null {
+  { counts, prediction, body = false, hold = false, nearest = false, armed = false, lead = false }: ThreatReading): { cover: Cover; closing: number; seconds: number; foe: BodySense; limb: string } | null {
   const { senses, head } = view;
   let threat: Vec3 | null = null, guarded: Vec3 | null = null, fastest = counts.closing, soon = Infinity, nearestFar = Infinity, chosen = 0, by: { foe: BodySense; limb: string } | null = null;
   for (const other of senses.others) {
     if (other.side === senses.side || other.out) continue;
     let striking = STRIKING.get(other.spec);
     if (!striking) STRIKING.set(other.spec, striking = strikingPoints(other.spec));
+    const weapons = armed && striking.some(({ grip }) => grip !== null);
     for (let k = 0; k < striking.length; k++) {
-      const { limb, local } = striking[k]!, sensed = other.segments.get(limb);
-      if (!sensed) continue;
+      const { limb, grip } = striking[k]!, local = weapons ? grip : striking[k]!.local, sensed = other.segments.get(limb);
+      if (!sensed || !local) continue;
       point.set(local[0], local[1], local[2]).applyRotationQuaternionToRef(sensed.rotation, point).addInPlace(sensed.position);
       // The point moves with the hand's centre of mass, and with its spin about that centre.
       point.subtractToRef(sensed.centre, lever);
       Vector3.CrossToRef(sensed.spin, lever, velocity).addInPlace(sensed.velocity);
+      if (lead && other.time !== undefined) { const late = senses.time - other.time; point.addInPlaceFromFloats(velocity.x * late, velocity.y * late, velocity.z * late); }
       const at = body ? axisPoint(view.stance.centre, head, point) : [head.x, head.y, head.z] as const;
       const dx = point.x - at[0], dy = point.y - at[1], dz = point.z - at[2], far = hypot(dx, dy, dz);
       if (far > counts.within || far === 0) continue;

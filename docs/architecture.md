@@ -479,15 +479,18 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
     `assets/core/<kind>.json`, written by `research/punch-export.mjs`), its steer laid out by
     `assets/core/<kind>.layout.json` (the punch's with the wrist), read at its face's striking
     point. A held face's arm is solved from its guard each step, and its chamber may lie behind the
-    shoulder (a negative `chamber`, the blow drawn back). A held face is not `fire`d
-    (`faceFault`): it reads the fist.
+    shoulder (a negative `chamber`, the blow drawn back). From its chamber through its drive the
+    wrist is a servo's (`faceAligner`, `face-aligner.ts`), turning the face onto the line from it
+    to the target, facing first. A held face is not `fire`d (`faceFault`): it reads the fist.
   - **Swung** (`swing.ts`, `swing-part.ts`, `SWINGS`): the sword's cut (`cut`, edge first) and the
     club's blow (`club-blow`, its head, blunt). Admitted where its window says (`strikeWindow`,
     `strike-window.ts`), it winds the trunk and the striking arm to its record's angles
     (`Swing.wound`), stands quiet there, then pushes each channel its schedule names flat out over
     its window (`TimedPush`, `timed-push.ts`, which the drive's schedule shares), and returns to the
-    guard. Its settings are its body's record (`assets/core/<kind>.json`), searched on the Strike
-    drill (`research/swing-drill.mjs`).
+    guard. An edge's swing hands the wrist to the same servo through the stroke (`faceAligner`):
+    each step it asks the wrist the turn that brings the edge's facing onto the way the edge moves,
+    either edge leading. Its settings are its body's record (`assets/core/<kind>.json`), searched
+    on the Strike drill (`research/swing-drill.mjs`).
 - **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
   `skills/guard/guard-part.ts`, a line in `GUARDS`, `skills/guard/guards.ts`) whose posture is the one source of
   the arms' rest: where the body is built, where the arbiter puts the arms no skill holds, and where
@@ -498,10 +501,11 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   (`hand-poses.ts`) names it by side. The game's pose is `GUARD` (`guardPosture`); a
   hand told what to cover (`Cover`) places its knuckles, or an item's two cover points
   (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
-  also wards with a buckler's face: held out toward the foe's weapon as far as the arm reaches,
-  moved no faster than the body's balance takes (`wardSpeed`), turned to it; `cover-guard` is the
-  line-cover alternative. There is no block or
-  parry: a cover is a placement, and what it costs is the blow rule's.
+  also wards with a buckler's face: held out toward the hand that holds the foe's weapon
+  (`READINGS.ward`) as far as the arm reaches, moved no faster than the body's balance takes
+  (`wardSpeed`), never asked past the arm's reach from the shoulder (`withinReach`), turned to it
+  no faster than its centre moves; `cover-guard` is the line-cover alternative. There is no block
+  or parry: a cover is a placement, and what it costs is the blow rule's.
 - **Low support** folds the stance onto a planted base for low blows; a stomp or fold waits for a
   gait that drives the legs to give them back. It is a part (`SupportPart`, `skills/locomotion/support-part.ts`,
   a line in `SUPPORTS`, `skills/locomotion/supports.ts`) that says whether the legs may walk under it (`walks`).
@@ -568,8 +572,10 @@ and with each answer (`SeatSays`), and its menu when asked. The mind's side is a
 (`seatHost`), the same code wherever it runs: each mind on a mirror, its clock set by each ask, its
 orders those last sent, its observers run as a step is asked, before its answer. At any delay the
 world waits for a mind's answer before its driver applies it, and reads what it said with it
-(`Seat.said`); it waits for the decision only to ask the next step or a menu (`Seat.says`), so a
-bout apart is the bout on bodies, step for step, and the same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
+(`Seat.said`). It writes each step's numbers into the other of two arrays (`MirrorWriter.write`),
+waiting only for the seat's last answer, so a mind still deciding reads the numbers it was asked
+with; it waits for a decision only to ask a menu. A bout apart is the bout on bodies, step for
+step, and the same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
 neither saved nor forked (`MIND_APART`).
 
 The place is threads (`mindThreads`, `src/apart/host.ts`), the seats dealt to them in turn, each
@@ -577,8 +583,9 @@ thread a `ThreadLink` that posts a batch, waits for it done and yields the repli
 is `mindThread` (`src/apart/thread.ts`): the minds' data loaded first, each spec sent to every
 thread once by number and derived as it arrives (`deriveSpec`), the asks carried out on a seat host
 over the game's and the toolkit's catalogs (`catalogs.ts`). The channels' numbers are shared memory;
-the step asks go together as the world dispatches them, every other ask at once, what a seat says
-with an answer before the answer is counted, and a side waiting spins about a step, then sleeps
+every ask goes at once, so a thread moves each body as the world writes it, and as the world
+dispatches, each thread asked a step is told the step's asks are all in (`Batch.decide`), and its
+minds decide; what a seat says with an answer goes before the answer is counted, and a side waiting spins about a step, then sleeps
 (`src/apart/wire.ts`). A report's kit and gait cross only when they change, and its engagement,
 which no rule or Commander reads, as the mind is made and with the answer to a step asked after
 a page read it (`SeatAsk`'s `shown`).
@@ -917,7 +924,9 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   (`Predictions.turns`, its measured turn, `turnAt`). A gait (`goings`, a `Going`) goes at its pace,
   asking it (`Intent.gait`), and leaves the body unbraced for the seconds the Gait drill measured it
   stopping from its top speed to throw each strike (`ready`, by the action), none longer than the
-  walk lasts (`settling`), at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once). Another strike adds a place; another
+  walk lasts (`settling`), at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once);
+  a walk into a strike's window ends once that strike is ready, so it leaves that one ready
+  (`Destination.readies`). Another strike adds a place; another
   gait, an option of each kind; another source of places, a kind. With no focus a walk is priced
   by its way and its gait alone. What a walk's place is worth
   beyond the position is the chooser's to look past (below).
@@ -958,7 +967,9 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource
   from rest only worth more; the rest options are last by rank, so `rest` is the option's own mark.
   A rest option is chosen with whichever of its claims are still free, any other with all of its
-  claims or not at all. An option with targets is priced at each and aimed at the best.
+  claims or not at all. An option with targets is priced at each and aimed at the best; for as long
+  as the objective prices a place held (`Objective.holds`, `Deciding.keep`), a running one, and each
+  option claiming what it claims, is priced at the target it runs at alone where it has it on offer.
   The set's step is its members' made one intent by the toolkit (`stepSet`, `intentOfSet` and
   `SelectedAsk`, `src/core/intent/intent.ts`): the walk and facing of the one claiming the legs,
   every member's actions and covers (`Asked.guard`), less a cover of a hand a member's ask holds. Valued worth (`Objective.worth`; the few terms', `fewTermsWorth`, `objective.ts`), in life, a share of a body's full life, the
@@ -1104,8 +1115,9 @@ it set off for stays its choice. A walker that keeps it (`HeldBeside`; Option Mi
 strike's window) holds the place and its way as a held decision (`src/core/mind/held.ts`: made
 again on an event, drift, failure or a deadline), chosen again when another body lies there,
 that body's centre moves `CROWD.settled`, the window's target `LYING.shift`, the place's feet or
-its way stop clearing the body, or `LYING.rethink` s pass; the drill Commander holds the spot its
-member's menu names beside a lying foe the same way (`HELD_SPOT`).
+its way stop clearing the body, or `LYING.rethink` s pass. A menu's spot beside a lying foe
+(`MenuEntry.spot`) is chosen afresh at each read; the drill Commander holds the spot it reads the
+same way (`HELD_SPOT`).
 **The bodies about it** (`src/core/navigation/crowd.ts`): a fallen body, of either side but the one it
 ranges about or goes to a place by, is a fixed footprint it routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
 lie, and taken afresh once its centre has moved `CROWD.settled`, so a body twitching where it lies

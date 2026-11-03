@@ -6,9 +6,10 @@ the rules' energy, the cut 18.5 m/s at the blade's far end instead
 point's closing speed ([section 3a](human-strike-reference.md#3a-one-handed-thrust-a-persons-stab)),
 met with the item's face (the club blunt, the cut its edge, the thrust its point), at the mark
 asked, the striker up ([the bars](../plans/2026-11-01-option-mind-everywhere.md#the-bars),
-`BAR.held`, `src/evaluation/strike/read.ts`). The club, swung, lands 5 of 12 held-out trials and
-meets the trunk with its head in every one, 29 to 99 J: near the bar, not at it. The cut and the
-thrust do not reach it.
+`BAR.held`, `src/evaluation/strike/read.ts`). None reaches it on the still rung: of the Warrior's
+16 right-hand trials at the middle mark, the club lands none, the cut one and the thrust three
+([on the still rung](#on-the-still-rung)). The Rogue and the Skeleton hold no record of any of the
+three, so their trials are refused.
 
 ## What is used
 
@@ -20,6 +21,11 @@ thrust do not reach it.
   channel the schedule names is pushed flat out over its own window (`TimedPush`), the rest held
   wound, and the arm comes back to the guard. The face is the item's (`faceOf`): the club's swell
   meeting the target along the hand's length, the cut's `edge.right` along the edge's direction.
+- **The wrist is servoed** (`faceAligner`, `face-aligner.ts`): each step asks the wrist's three
+  freedoms the damped least-squares turn that brings the face's facing onto a way: the cut's
+  through its stroke, once the edge moves faster than `ALIGN_SPEED` (1 m/s, `swing.ts`), onto its
+  path, either edge leading; the thrust's from its chamber through its drive onto the line from
+  the point to the target, point first. The schedule's wrist pushes are dropped.
 - **The thrust is driven**: the straight punch's whole-body drive (`straightPunchExecutor`) thrown
   with the blade's `tip` along the blade. The arm's contact pose is solved with two points of the
   hand (`solveReach`): the striking point on the line from the shoulder, and a point `FACE_LEVER`
@@ -88,6 +94,48 @@ window), it lands none of 60 held-out trials at either rate after 0.59 M decisio
 m/s) or after 1.08 M (0.98 M before each body was born on its first decision, 0.1 M after; the
 closest 4.6 m/s, with the edge, and 4.4 m/s with the point). Training met the target in 1 % of
 episodes or fewer throughout, so the network is not kept.
+
+### On the still rung
+
+`npm run evaluate -- strike option/<blow>@buckler,<item> --protocol still --write` at b04deb43,
+the thrust's at aaf4d013: Node, the bout world, Rapier, 120 Hz, each record's settings as the core
+reads them. The 16 trials
+of the Warrior's right hand at the middle mark (gaps 0.6 to 1.3 m, square on and 0.2 m across);
+the high mark, the left hand (the buckler's) and the Rogue (no record) are refused.
+
+| Blow | Landed | Otherwise | Record |
+| --- | --- | --- | --- |
+| club | 0 | 15 missed, 1 outside | `assets/evaluations/strike/2026-11-03T133555-b04deb43-1bc383da.jsonl` |
+| cut | 1 | 7 guarded, 5 missed, 1 weak, 1 outside, 1 refused | `assets/evaluations/strike/2026-11-03T133034-b04deb43-1314046a.jsonl` |
+| thrust | 3 | 10 weak, 1 elsewhere, 1 missed, 1 refused | `assets/evaluations/strike/2026-11-03T140109-aaf4d013-43dbc322.jsonl` |
+
+The thrust's record is its kept search's best ([searches stopped](#searches-stopped)); the schedule
+before it landed 1 (9 guarded, 6 missed,
+`assets/evaluations/strike/2026-11-03T133535-b04deb43-f0482724.jsonl`). Its 10 weak trials meet the
+trunk at 4.4 to 9.6 m/s, 8 of them blunt, the point not the face that met, and 2 point
+first but short of 4.6 m/s closing.
+
+What fails is when and where the blow is thrown, not its speed. The drill orders it once the body
+has walked into its window and settled there (`settledAt`, `src/core/command/drill.ts`), and the
+body drifts in the window at about 0.1 m/s: read again at 56b007f0 (`drillTrial`,
+`research/punch-drill.mjs`), 13 of the club's 15 swings commit 4 to 8.3 s in, and every one passes
+0.24 to 0.37 m short of the mark, the two committed at 1.23 s as well. Neither the buckler's ward
+nor its lead moves this: with the ward's lead off, 0 land (1 weak); with no ward, 0 land (9 guarded).
+
+### Searches stopped
+
+Three searches ran on 8b2fee9e, a base without main's walk into a window or the ward's lead, each
+from two gaps at 120 and 480 Hz on the Warrior: the club and the cut from 1 and 1.4 m, the thrust
+from 1.2 and 1.5 m. They were stopped unfinished, because what fails at main is the commit's
+timing above, which the swing's settings do not reach:
+
+- **The club** (from the arm's free ceiling, with the trunk's side bend): 36 generations; the best
+  meets the upper trunk with the head in all four trials, the weakest 59.3 J against 64.8 J.
+- **The cut** (the wrist servo pushing its turn): 25 generations; the best meets with no edge.
+- **The thrust** (drawn back, the wrist servo setting the point): 31 generations; the best lands
+  all four, point first, the weakest 7.3 m/s and 25.2 J (480 Hz, 1.5 m); its search is
+  `research/sword-thrust-search.json` (`research/punch-drill.mjs --verify`), and its best the
+  thrust's record.
 
 ## Tried and not kept
 

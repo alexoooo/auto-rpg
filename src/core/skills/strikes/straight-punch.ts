@@ -1,6 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../../body.ts";
-import { bodyEffectors } from "../../control/effectors.ts";
+import { bodyEffectors, copyFreedoms, type Freedom } from "../../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, reachWork, solveReach } from "../../control/kinematics.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
@@ -19,6 +19,7 @@ import { learnerOf } from "../../learning/learner.ts";
 import { legOf } from "../locomotion/gait-scale.ts";
 import { fistOn, otherSide } from "../../spec/body.ts";
 import { heldFrame } from "../../build/rigid.ts";
+import { faceAligner } from "./face-aligner.ts";
 
 /** The turn about up that brings `hand`'s shoulder forward: a turn of a positive angle about up carries a body's right (+x) back (-z). */
 const turnSense = (hand: Side): 1 | -1 => hand === "right" ? -1 : 1;
@@ -138,7 +139,7 @@ const FACE_LEVER = 0.3;
 interface Limb {
   readonly chain: ReturnType<typeof bodyEffectors>[number]["chain"];
   /** The arm's freedoms (`solveReach`), each drawn toward the contact pose's preferred angle. */
-  readonly free: { joint: number; k: number; min: number; max: number; preferred: number; name: string }[];
+  readonly free: Freedom[];
   readonly work: ReturnType<typeof reachWork>;
   /** The striking point, body frame, reference pose, and its name. */
   readonly point: Vec3;
@@ -225,11 +226,17 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
     pointAtToRef(chain, angles, effector.points.get(aim)!, at);
     for (const f of effector.free) angles[f.joint]![f.k] = 0;
     const arm = hypot(at.x - shoulder[0], at.y - shoulder[1], at.z - shoulder[2]);
-    return { chain, free: effector.free.map((f) => ({ ...f })), work: reachWork(effector.free.length), point: effector.points.get(aim)!, aim, behind,
+    return { chain, free: copyFreedoms(effector.free), work: reachWork(effector.free.length), point: effector.points.get(aim)!, aim, behind,
       trunk, shoulder, arm, goals, angles, trunkChain: chain.slice(0, trunk),
       trunkNames: chain.slice(0, trunk).map((joint) => joint.dofs.map((_, k) => channelName(joint, k))), trunkAngles: angles.slice(0, trunk) };
   };
   const limbs = { left: limbOf("left"), right: limbOf("right") };
+  const forward = new Vector3();
+  /** The way `frame`'s forward (+z, the reference pose's) faces about up, rad, as a heading is counted. */
+  const facingOf = (frame: BodyView["root"]): number => {
+    forward.set(0, 0, 1).applyRotationQuaternionToRef(frame.rotation, forward);
+    return atan2(forward.x, forward.z);
+  };
   /** The channels each hand's schedule names, which are pushed only on it. */
   const leg = legOf(body.built.spec), steeredChannels = { left: punchChannels("left", leg, layout), right: punchChannels("right", leg, layout) };
   const scheduled = { left: new Set((settings.timed?.left ?? []).map((p) => p.channel)), right: new Set((settings.timed?.right ?? []).map((p) => p.channel)) };
@@ -251,8 +258,11 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
     learner: learnerOf(0, false), decided: -Infinity, steeredAt: -Infinity,
     still: 0, thrown: { left: 0, right: 0 },
     /**
-     * Each shoulder at contact from the head as the last step left it, in the body frame: the
-     * trunk at its contact goals and the hips turned, across, up and forward, m.
+     * Each shoulder at contact from the head as the last step left it, across, up and forward, m:
+     * the shoulder from the pelvis with the trunk at its contact goals and the hips turned, the
+     * pelvis upright over the centre of mass and facing the legs' heading (its own where the read
+     * is given none), as it stands at contact; so neither where the pelvis points nor how far it
+     * trails the centre of mass as the body walks moves it.
      */
     shoulders: { left: [0, 0, 0] as [number, number, number], right: [0, 0, 0] as [number, number, number] },
   };
@@ -268,7 +278,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
   const end = () => { state.hand = null; state.phase = null; state.touched = null; state.stood = 0; state.still = 0; state.learner.running = false; };
   /** The motion enters `phase`: its learner runs through a steered swing alone. */
   const enter = (phase: Phase): void => { state.phase = phase; state.learner.running = settings.steered === true && phase === "swing"; };
-  const target = new Vector3(), shoulder = new Vector3(), head = new Vector3(), apart = new Vector3(), face = new Vector3(), headAt: [number, number, number] = [0, 0, 0];
+  const target = new Vector3(), shoulder = new Vector3(), head = new Vector3(), apart = new Vector3(), face = new Vector3();
   /**
    * The arm's angles that put its striking point `out` m from the shoulder on the line to the
    * target, into the limb's `angles`: the trunk as it stands, or at its contact goals with
@@ -350,9 +360,11 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
   /** Where a held face's striking point is, world, as `view` has it. */
   const struck = (view: BodyView, hand: Side, limb: Limb): Vector3 =>
     view.effectors[`hand.${hand}`]!.points[limb.aim]!.applyRotationQuaternionToRef(view.root.rotation, face).addInPlace(view.root.position);
-  const read = (view: BodyView) => {
-      headAt[0] = view.head.x; headAt[1] = view.head.y; headAt[2] = view.head.z;
-      intoFrameToRef(view.root, headAt, head);
+  const read = (view: BodyView, heading?: number) => {
+      // The head from the centre of mass, across and forward of the way the legs head, and up from the pelvis.
+      const r = view.root, centre = view.stance.centre, h = heading ?? facingOf(r), c = cos(h), sn = sin(h);
+      const dx = view.head.x - centre.x, dz = view.head.z - centre.z;
+      head.set(dx * c - dz * sn, view.head.y - r.position.y, dx * sn + dz * c);
       state.headY = view.head.y;
       for (const side of HANDS) {
         const limb = limbs[side], { trunkChain, trunkNames, trunkAngles } = limb;
@@ -387,13 +399,14 @@ const PUNCH_PREPARE_LIMIT = 6;
 /**
  * Whether `hand`'s straight punch at `at` (`technique`'s, with `settings`) can be thrown from where
  * the body stands, facing `heading`: blocked out of the arm's height band; else ready within its
- * window, its stand-off on the ground from the target, or the window to walk to.
+ * window, its stand-off on the ground from the target, or the window to walk to; the window on the
+ * body `on` names, where the target is on one.
  */
-function punchReadiness(view: BodyView, technique: ReturnType<typeof straightTechnique>, settings: StraightPunch, hand: Side, at: Vec3, heading: number, clear: number): Readiness {
+function punchReadiness(view: BodyView, technique: ReturnType<typeof straightTechnique>, settings: StraightPunch, hand: Side, at: Vec3, heading: number, clear: number, on: string | undefined): Readiness {
   const reach = technique.standOff(hand, at[1] - view.head.y);
   if (!technique.heightFits(hand, at[1] - view.head.y)) return { kind: "blocked", reason: "target is outside the arm's height band" };
   return strikeWindow(view, at, heading, { standOff: reach, band: settings.band, aside: settings.aside ?? settings.band,
-    across: settings.squared ? technique.state.shoulders[hand][0] : 0, pace: settings.pace, poised: settings.poised === true, clear });
+    across: settings.squared ? technique.state.shoulders[hand][0] : 0, pace: settings.pace, poised: settings.poised === true, clear, ...(on === undefined ? {} : { on }) });
 }
 
 /** Why settings `settings` cannot drive a held item's face, or null: `fire` reads the fist. */
@@ -406,7 +419,9 @@ export const faceFault = (settings: Partial<StraightPunch>): string | null =>
  * steer from what it reads (`PunchRecord.network`), its inputs and outputs as `layout` lays them out
  * (`PUNCH_LAYOUT` where not given). With `faces`, the hands that strike are the ones
  * it names, each with the face of what it holds (`StrikingFace`), gripped, not with its fist; a hand
- * it names none for is refused.
+ * it names none for is refused. From its chamber through its drive, the wrist of a hand that holds
+ * a face turns the face onto the line from it to the target, facing first (`faceAligner`), and the
+ * schedule's and the solve's pushes leave the wrist to it.
  */
 export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly string[], settings: StraightPunch,
   resolve: TargetResolver, { requireArmAim = false, policy, faces, layout = PUNCH_LAYOUT }: { readonly requireArmAim?: boolean; readonly policy?: (features: readonly number[]) => number[];
@@ -416,6 +431,8 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
   const technique = straightTechnique(body, guard, settings, faces ?? {}, layout), motion = technique.state;
   technique.read(body.view);
   const ahead = bodyAhead(body.built.spec);
+  const alignerOf = (hand: Side) => faces?.[hand] ? faceAligner(body.built.spec, hand, faces[hand]!, { either: false }) : null;
+  const aligners = { left: alignerOf("left"), right: alignerOf("right") }, aimed = new Vector3(), toward = new Float64Array(3);
   const sides = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
@@ -441,7 +458,8 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       if (state.live) return { kind: "waiting", reason: "straight punch is striking or returning" };
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
-      return punchReadiness(view, technique, settings, sideOf(effector), at, around.heading, clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead));
+      return punchReadiness(view, technique, settings, sideOf(effector), at, around.heading, clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead),
+        target.kind === "body" ? target.body : undefined);
     },
     resume() { state.live = null; technique.end(); },
     interrupt(_view, id) { if (state.live?.request.id === id) { state.live = null; technique.end(); } },
@@ -454,8 +472,8 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       motion.hand = hand; technique.enter("settle"); technique.aimAt(at); motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
       motion.began = view.time; motion.now = view.time; motion.touched = null; motion.touching = false;
     },
-    update(view, continued, _around, dt) {
-      technique.read(view); motion.now = view.time; motion.step = dt;
+    update(view, continued, around, dt) {
+      technique.read(view, around.heading); motion.now = view.time; motion.step = dt;
       const live = state.live;
       if (!live) return [];
       if (view.down) { state.live = null; technique.end(); return [{ id: live.request.id, ending: { kind: "interrupted", reason: "body is down" } }]; }
@@ -493,8 +511,17 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`straight punch has no instance ${id}`);
       const pushes: MusclePush[] = [];
-      const posture = live.phase === "commit" ? technique.drive(view, live.hand, live.time, pushes, policy)
+      let posture = live.phase === "commit" ? technique.drive(view, live.hand, live.time, pushes, policy)
         : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
+      const aligner = aligners[live.hand], at = faces?.[live.hand] && view.effectors[`hand.${live.hand}`]?.points[faces[live.hand]!.point];
+      if (aligner && at && live.phase !== "release") {
+        // The face's way to the target, from where it stands, body frame.
+        intoFrameToRef(view.root, motion.target, aimed);
+        toward[0] = aimed.x - at.x; toward[1] = aimed.y - at.y; toward[2] = aimed.z - at.z;
+        posture = { ...posture };
+        for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
+        aligner.ask(view, toward, posture as Record<string, number>, pushes);
+      }
       const sense = technique.sense[live.hand], shift: [number, number] = [0, 0];
       const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.learner.outputs, motion.face, sense, shift) : 0;
       // The hips turned from the legs' heading, and the weight moved from the middle of the soles the stance stands on.

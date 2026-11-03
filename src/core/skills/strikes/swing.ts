@@ -5,6 +5,7 @@ import type { Pose } from "../../spec/pose.ts";
 import { otherSide, type BodySpec, type Side } from "../../spec/body.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
 import { placedHeightFits } from "./arm-reach.ts";
+import { faceAligner } from "./face-aligner.ts";
 import type { StrikingFace } from "./straight-punch.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../../navigation/held-clearance.ts";
@@ -79,6 +80,9 @@ const SWING_PREPARE_LIMIT = 6;
  */
 const WOUND_WITHIN = 0.1, WOUND_STILL = 0.5;
 
+/** The least speed of the face through which its path is read and its facing turned onto it (`faceAligner`), m/s. */
+const ALIGN_SPEED = 1;
+
 /**
  * **A swing**: a held item's blow thrown on an arc that meets the target with the item's face
  * first (`StrikingFace`: the sword's edge, the club's head). Admitted where its window says
@@ -87,11 +91,15 @@ const WOUND_WITHIN = 0.1, WOUND_STILL = 0.5;
  * channel it names flat out over its window (`timedPushes`), the arc's speed coming from the windup's range, the face meeting the target
  * where the arc passes it. After the swing it brings the arm back to the guard. An attack given up
  * before the swing is dropped; a swing begun is thrown to its end. It has the hand, the trunk and
- * the legs from its windup to its return, and the hand grips throughout.
+ * the legs from its windup to its return, and the hand grips throughout. With `align`, through the
+ * swing, once the face moves faster than `ALIGN_SPEED`, the wrist turns it onto its path, either
+ * way leading (`faceAligner`), its scheduled pushes dropped.
  */
 export function swingExecutor(body: Body, guard: Pose, actions: readonly string[], settings: Swing, resolve: TargetResolver,
-  faces: Partial<Record<Side, StrikingFace>>): Executor {
+  faces: Partial<Record<Side, StrikingFace>>, { align = false }: { readonly align?: boolean } = {}): Executor {
   const spec = body.built.spec, ahead = bodyAhead(spec);
+  const alignerOf = (hand: Side) => align && faces[hand] ? faceAligner(spec, hand, faces[hand]!, { either: true }) : null;
+  const aligners = { left: alignerOf("left"), right: alignerOf("right") };
   const sides = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
@@ -104,7 +112,9 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       /** Where it aims, world; the way it faces; when its hand began to touch something and whether it touched last step. */
       target: [number, number, number]; face: number; touched: number | null; touching: boolean;
       /** Each wound channel's angle last step, rad, by name: how fast it still turns toward its windup. */
-      last: Record<string, number> },
+      last: Record<string, number>;
+      /** The face's place last step, whether it has been read, and its velocity over that step, root frame (`faceAligner`). */
+      was: [number, number, number]; read: boolean; path: [number, number, number] },
   };
   const release = (ending: ActionEnding) => {
     const live = state.live!; live.phase = "release"; live.stage = "return"; live.time = 0; live.ending = ending;
@@ -130,7 +140,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       if (!placedHeightFits(spec, hand, at[1] - view.head.y, face.point)) return { kind: "blocked", reason: "target is outside the arm's height band" };
       return strikeWindow(view, at, around.heading, { standOff: settings.reach, band: settings.band, aside: settings.aside, across: 0, pace: settings.pace,
-        poised: settings.poised === true, clear: clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead) });
+        poised: settings.poised === true, clear: clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead), ...(target.kind === "body" ? { on: target.body } : {}) });
     },
     resume() { state.live = null; },
     interrupt(_view, id) { if (state.live?.request.id === id) state.live = null; },
@@ -139,7 +149,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       const hand = sideOf(request.effector), at = resolve(view, request.target, request.action, request.effector);
       if (!at) throw new Error("a swing's target has no aim");
       state.live = { request: { ...request }, hand, phase: "prepare", stage: "admitting", time: 0, step: 0, quiet: 0, lower: around.lower, withdrawn: false,
-        ending: { kind: "completed" }, target: [at[0], at[1], at[2]], face: atan2(at[0] - view.head.x, at[2] - view.head.z), touched: null, touching: false, last: {} };
+        ending: { kind: "completed" }, target: [at[0], at[1], at[2]], face: atan2(at[0] - view.head.x, at[2] - view.head.z), touched: null, touching: false, last: {}, was: [0, 0, 0], read: false, path: [0, 0, 0] };
     },
     update(view, continued, _around, dt) {
       const live = state.live;
@@ -156,6 +166,12 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
         live.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
       }
       live.time += dt; live.step = dt;
+      const facePoint = faces[live.hand] && view.effectors[`hand.${live.hand}`]?.points[faces[live.hand]!.point];
+      if (facePoint && aligners[live.hand]) {
+        const { x, y, z } = facePoint;
+        if (live.read && dt > 0) { live.path[0] = (x - live.was[0]) / dt; live.path[1] = (y - live.was[1]) / dt; live.path[2] = (z - live.was[2]) / dt; }
+        live.was[0] = x; live.was[1] = y; live.was[2] = z; live.read = true;
+      }
       if (live.phase === "prepare") {
         live.stage = "settle";
         let reached = true;
@@ -184,9 +200,14 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
     command(view, id) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`a swing has no instance ${id}`);
-      const pushes: MusclePush[] = [];
+      const pushes: MusclePush[] = [], aligner = aligners[live.hand];
       if (live.phase === "commit") timedPushes(settings.timed[live.hand], live.time, live.step, pushes);
       const posture = live.phase === "release" ? guarded(live.hand) : wound(live.hand);
+      if (aligner && live.phase === "commit") {
+        const [x, y, z] = live.path;
+        for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
+        if (x * x + y * y + z * z >= ALIGN_SPEED * ALIGN_SPEED) aligner.ask(view, live.path, posture, pushes);
+      }
       return { posture, pushes, handPoses: { [`hand.${live.hand}`]: "grip" },
         legs: { walk: null, face: live.face, ...(settings.halts ? { halt: true } : {}), height: view.standing - live.lower } };
     },

@@ -447,8 +447,10 @@ falls against 29, so the Warrior has no rest.
 
 A rise whose trunk has been off the ground and comes back down has gone down. Once every segment of
 the trunk (`Recipe.trunk`: lower, middle and upper trunk and head) has been more than 0.1 m
-(`RAISED`) up in an attempt, one of them back within `DOWN` ends it; the riser lies slack and
-begins again from the body as it is.
+(`RAISED`) up in an attempt, in or after the rise's first bearing stage, one of them back within
+`DOWN` ends it; the riser lies slack and begins again from the body as it is. The pose stages
+before it (`fold`, `tuck`, `prop`) carry the body up from lying and are not yet borne on its
+limbs: a body that lifts its head in `tuck` and nods it to the floor in `prop` is still rising.
 
 | `RAISED`, m | empty, of 127 | club, of 121 |
 |---|---|---|
@@ -458,6 +460,22 @@ begins again from the body as it is.
 | 0.2 | 111, 110 (+1 -1) | 96, 97 (+7 -7) |
 
 At 0.05 m the attempts end in `tuck`; no abort and 0.2 m read as 0.1.
+
+**Armed from the first bearing stage** (`research/rise-trace.mjs`, Option Mind, Node, core world,
+Rapier, 120 Hz, a command a step late, against `9e887beb`, where any stage armed it): at a step late
+the Warrior's sit-backs from the front ended in `tuck` or `prop` on 7 of 39 attempts, its
+head lifted past 0.1 m in `tuck` and back within `DOWN` as the hips rose.
+
+| Falls | stood | within 10 s | median, s | paired: better, worse |
+|---|---|---|---|---|
+| Warrior, the target's 32 | 30 → 31 | 22 → 22 | 9.33 → 8.73 | 5, 2 |
+| Warrior, the fresh 32 | 30 → 30 | 21 → 22 | 9.18 → 8.97 | 4, 1 |
+| Rogue, the target's 32 and the fresh 32 | 23 and 25, the same fall by fall | | | 0, 0 |
+| Skeleton empty-handed, the target's 16 shoves | 13 → 15 | 5 → 5 | 11.81 → 11.81 | 2, 1 |
+| Skeleton with the club, the same | 0 → 0 | | | 0, 0 |
+
+The Rise drill's `moving` rung, the Warrior empty-handed: the front sit-back done 1 → 4 of 6, the
+staged down 2 → 6 of 6; with buckler and club, the same.
 
 ### The kneel-up
 
@@ -1530,7 +1548,7 @@ rest (settled and under 0.1 m/s, for up to 2 s), and the trial reads the positio
   shown as not opened. The route's edges are seen in play in the Lab's Stand-up scenario on the
   staged route ([the staged route](#the-staged-route)).
 
-On toes, the Warrior at `3c0a093a` (`assets/evaluations/rise/2026-10-30-3c0a093a-356447aa.jsonl`
+On toes, the Warrior at `3c0a093a` (`assets/evaluations/rise/2026-10-30T011050-3c0a093a-356447aa.jsonl`
 placed, `-3cd5c8be.jsonl` moving; begun, done of those begun, the median time to done):
 
 | Edge | Placed | Time, s | Moving | Time, s |

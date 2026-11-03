@@ -65,6 +65,12 @@ const SENSES = [1, -1];
  * strides, where a turn meets the walk in any phase of its weight shift; and at 3, under way.
  */
 const AFTERS = [...Array.from({ length: 13 }, (_, k) => k / 8), 3];
+/**
+ * How a turn is walked (`turn`'s `onto`): along the heading, half round; and onto a way, a quarter
+ * round, the walk asked along the heading it ends on from the turn's start within the side way's
+ * fastest walk, as a fight walks to a place to one side of where the body faces.
+ */
+const TURNINGS = ["along", "onto"];
 
 const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, add: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" },
   out: { type: "string" }, physique: { type: "string" }, walks: { type: "boolean", default: false }, gusts: { type: "string" },
@@ -150,7 +156,7 @@ async function fastest(levels, trialsAt, ok) {
 }
 
 const walkJob = (model, held, degrees, speed, wind) => ({ trial: "walk", model, speed, degrees, held, hz, stance: {}, legs: walker, physique, wind, ...TIMES_OF[legs] });
-const turnJob = (model, held, speed, rate, sense, after) => ({ trial: "turn", model, speed, rate, sense, held, after, hz, stance: {}, legs: walker, physique });
+const turnJob = (model, held, speed, rate, sense, after, onto) => ({ trial: "turn", model, speed, rate, sense, held, after, hz, stance: {}, legs: walker, physique, ...(onto ? { onto } : {}) });
 // A walk held if it did not fall and, calm, went the way asked at the pace asked: a gust throws a slow walk off its way, and is there to throw the body down.
 const walked = (job, result) => !result.fell && (job.wind !== null || wentAsAsked(result.along, result.across, job.speed));
 const turned = (_, result) => !result.fell && turnedAsAsked(result.lag);
@@ -158,9 +164,13 @@ const turned = (_, result) => !result.fell && turnedAsAsked(result.lag);
 /** `model`'s walks each way over `held`, each way's search together. */
 const walksOf = (model, held) => Promise.all(WAYS.map((degrees) =>
   fastest(SPEEDS, (speed) => held.flatMap((h) => WINDS.map((wind) => walkJob(model, h, degrees, speed, wind))), walked)));
-/** `model`'s turns over `held` at each speed up to `forward`, each speed's search together. */
-const turnsOf = (model, held, forward) => values.walks ? Promise.resolve([]) : Promise.all(SPEEDS.filter((speed) => speed <= forward).map((speed) =>
-  fastest(RATES, (rate) => held.flatMap((h) => SENSES.flatMap((sense) => AFTERS.map((after) => turnJob(model, h, speed, rate, sense, after)))), turned)));
+/**
+ * `model`'s turns over `held` at each speed up to the fastest walk forward of its `ways` (`walksOf`),
+ * each speed's search together: each turning of `TURNINGS`, a turn onto a way within that side's fastest walk.
+ */
+const turnsOf = (model, held, ways) => values.walks ? Promise.resolve([]) : Promise.all(SPEEDS.filter((speed) => speed <= ways[0].top).map((speed) =>
+  fastest(RATES, (rate) => held.flatMap((h) => SENSES.flatMap((sense) => TURNINGS.flatMap((turning) => AFTERS.map((after) =>
+    turnJob(model, h, speed, rate, sense, after, turning === "onto" ? { side: ways[sense > 0 ? 1 : 3].top } : null))))), turned)));
 /** A reading as the asset keeps it: each way's fastest (`byWay`), and how many held at each level it tried, null where not played through. */
 const reading = (ways, turns, held) => ({
   byWay: ways.map((w) => w.top),
@@ -173,12 +183,12 @@ const reading = (ways, turns, held) => ({
 // Each thing held alone first: what holds over all of them is read mostly from their rows.
 const alone = Object.fromEntries(await Promise.all(models.map(async (model) => [model, Object.fromEntries(await Promise.all(holds.map(async (h) => {
   const ways = await walksOf(model, [h]);
-  return [h, reading(ways, await turnsOf(model, [h], ways[0].top), [h])];
+  return [h, reading(ways, await turnsOf(model, [h], ways), [h])];
 })))])));
 const today = new Date().toISOString().slice(0, 10);
 const all = Object.fromEntries(await Promise.all(models.map(async (model) => {
   const ways = await walksOf(model, holds);
-  return [keyOf(model), { ...(values.add ? { measured: today } : {}), ...reading(ways, await turnsOf(model, holds, ways[0].top), holds), holds: alone[model] }];
+  return [keyOf(model), { ...(values.add ? { measured: today } : {}), ...reading(ways, await turnsOf(model, holds, ways), holds), holds: alone[model] }];
 })));
 clearInterval(progress);
 await Promise.all(pool.map((w) => w.terminate()));
@@ -187,12 +197,12 @@ const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the
   + (walker ? `, walking by the ${legs}` : "") + (TIMES_OF[legs]?.setOff ? `, each walk set off ${TIMES_OF[legs].setOff} s before it is measured and resting ${TIMES_OF[legs].rest} s after` : "")
   + (WINDS.length > 1 ? ", each walk calm and in each of `winds`" : "") + "; each way's and speed's fastest is the fastest at which every trial held, searched down from the fastest, and a level not played through is null",
   ...(walker ? { legs } : {}), ...TIMES_OF[legs], hz, measured: today,
-  speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, holds, afters: AFTERS, ...(WINDS.length > 1 ? { winds: WINDS.slice(1) } : {}), models: all };
+  speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, turnings: TURNINGS, holds, afters: AFTERS, ...(WINDS.length > 1 ? { winds: WINDS.slice(1) } : {}), models: all };
 const asset = new URL(`../assets/core/${legs}-envelope.json`, import.meta.url);
 if (values.add) {
   // The asset as it stands takes this run's bodies, its grid unchanged: a body measured on another grid is no body of it.
   const kept = JSON.parse(await readFile(asset, "utf8"));
-  for (const field of ["legs", "setOff", "rest", "hz", "speeds", "ways", "rates", "senses", "holds", "afters", "winds"])
+  for (const field of ["legs", "setOff", "rest", "hz", "speeds", "ways", "rates", "senses", "turnings", "holds", "afters", "winds"])
     if (JSON.stringify(kept[field]) !== JSON.stringify(envelope[field])) throw new Error(`the asset's ${field} is not this run's: ${JSON.stringify(kept[field])} against ${JSON.stringify(envelope[field])}`);
   Object.assign(envelope, { ...kept, models: { ...kept.models, ...all } });
 }
