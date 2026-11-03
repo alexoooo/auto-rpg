@@ -23,10 +23,10 @@ export function combatFingerprint() {
   return hash.digest('hex');
 }
 
-/** A comparison policy: a mind config as it is, or a preset by id (`scrapper-v1` is the Scrapper), each with its own recovery. */
+/** A comparison policy: a mind config as it is, or a preset by id (`MINDS`), each with its own recovery. */
 export function combatMind(name) {
   if (typeof name === 'object' && name !== null) return name;
-  const preset = MINDS[name === 'scrapper-v1' ? 'scrapper' : name];
+  const preset = MINDS[name];
   if (!preset) throw new Error(`unknown combat policy ${name}`);
   return preset.config;
 }

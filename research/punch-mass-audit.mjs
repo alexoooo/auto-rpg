@@ -14,8 +14,8 @@ import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 async function pulse(mode,hand,impulse,hz){
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,gravity:mode==='grounded',ground:mode==='grounded'});
  const body=commandedBody(s.built,s.world,{servoSeconds:SERVO_SECONDS}),skills=standingSkills(body);
- body.drive((view,dt)=>mode==='grounded'?{...skills.command(view,standIntent(),dt),handPoses:{left:'fist',right:'fist'}}:
-  {posture:{},pushes:[],stance:null,handPoses:{left:'fist',right:'fist'}});
+ body.drive((view,dt)=>mode==='grounded'?{...skills.command(view,standIntent(),dt),handPoses:{'hand.left':'fist','hand.right':'fist'}}:
+  {posture:{},pushes:[],stance:null,handPoses:{'hand.left':'fist','hand.right':'fist'}});
  try{s.step(mode==='grounded'?2*hz:2);if(mode==='free')body.setLevel('limp');
  const segment=s.built.segments.get(`hand.${hand}`),point=pointOfToRef(segment,rigidPoints(s.built.spec,segment.spec).get('strike').value,new Vector3()),
   v=new Vector3(),spin=new Vector3(),mass=contactMass(s.built);mass.update();

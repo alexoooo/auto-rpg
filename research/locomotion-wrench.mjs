@@ -94,8 +94,9 @@ async function runOnce({ model, pace, legs, seconds, from, scale }) {
   const pelvis = feet[0].chain[0].parent;
   const legChannels = muscles.channels.flatMap((c, i) => {
     const m = /^(hip|knee|ankle)\.(left|right) (.*)$/.exec(c.name);
-    // The stop's push in the step's last solver substep: the engine joint's raw Rapier joint.
-    const limit = () => { const joint = c.joint.joint.raw; return joint.rawSet.jointLimitImpulse(joint.handle, 3 + c.index); };
+    // The stop's push in the step's last solver substep: the built joint's raw Rapier joint (a channel holds the read view's joint, which has none).
+    const engine = stand.built.joints.get(c.joint.spec.name).joint;
+    const limit = () => { const joint = engine.raw; return joint.rawSet.jointLimitImpulse(joint.handle, 3 + c.index); };
     return m ? [{ i, group: `${m[1]} ${m[3]}`, side: m[2], knee: m[1] === "knee", min: c.dof.spec.min.value, max: c.dof.spec.max.value, limit }] : [];
   });
   const rows = [], torque = {}, kin = { legSteps: 0, nearStop: {}, nearStraight: 0, limit: {}, limitTorque: {}, landings: [] };
@@ -204,7 +205,8 @@ async function runOnce({ model, pace, legs, seconds, from, scale }) {
     for (const side of bearers) {
       const f = side === "left" ? 0 : 1, task = stance.tasks[f], channels = stance.feet[f].channels, at = reading.asked[side].at;
       const dyn = muscles.dynamics, p0 = dyn.root.centre, lin = new Vector3(), ang = new Vector3();
-      dyn.driftToRef(stand.built.segments.get(`foot.${side}`), at, lin, ang);
+      // The dynamics read the muscles' own view of the body: its foot is the one the ankle's channels turn.
+      dyn.driftToRef(muscles.channels.find((c) => c.joint.child.spec.name === `foot.${side}`).joint.child, at, lin, ang);
       const r = at.subtract(new Vector3(...p0)), alpha = new Vector3(root[0], root[1], root[2]);
       lin.addInPlace(new Vector3(root[3], root[4], root[5])).addInPlace(Vector3.Cross(alpha, r)); ang.addInPlace(alpha);
       for (let k = 0; k < channels.length; k++) {
@@ -282,7 +284,7 @@ function summarize(rows, torque, kin) {
 
 /** The Lab's Locomotion scenario on the forward line, its legs the stance's own walk. */
 function running(stand, { labActor, startLocomotion, trackOf, LAB_MIND }, pace) {
-  const run = startLocomotion(labActor(stand.built, stand.world, { mind: LAB_MIND, experiment: { measuring: true } }), trackOf(LINE.pieces), { top: pace, facing: LINE.facing });
+  const run = startLocomotion(labActor(stand.built, stand.world, { mind: LAB_MIND }), trackOf(LINE.pieces), { top: pace, facing: LINE.facing });
   const { body } = run;
   return { muscles: body.muscles, stance: body.state.mind.host.motor.stance, reading: body.view.stance, down: () => body.view.down,
     advance: () => stand.step(stand.seconds(0.1)), frame: () => run.frame(), dispose: () => run.dispose() };
@@ -298,9 +300,11 @@ const SETTLE = 1;
  * centre of mass swayed forward and back over the soles' middle at `hz`.
  */
 async function swaying(stand, hz) {
-  const [{ motorControl }, { driveMuscles }, { standingHeight }, { STANCE_LOWER }] = await Promise.all([import("../src/core/control/motor.ts"),
-    import("../src/core/muscle/driver.ts"), import("../src/core/control/support.ts"), import("../src/core/skills/locomotion/locomotion.ts")]);
-  const motor = motorControl(stand.built, 0.1, {});
+  const [{ motorControl }, { driveMuscles }, { standingHeight }, { STANCE_LOWER }, { readView }] = await Promise.all([import("../src/core/control/motor.ts"),
+    import("../src/core/muscle/driver.ts"), import("../src/core/control/support.ts"), import("../src/core/skills/locomotion/locomotion.ts"),
+    import("../src/core/build/read-view.ts")]);
+  // Motor control reads the body's one view, as the driver's channels and dynamics do (`driveMuscles`).
+  const motor = motorControl(readView(stand.built), 0.1, {});
   // The stance reads the body before each command, as a body's own step has it (`src/core/body.ts`).
   const driver = driveMuscles(stand.built, stand.world, (muscles, dt) => { motor.stance.read(); motor.control(muscles, dt); }), reading = motor.stance.reading;
   const height = standingHeight(stand.built) - STANCE_LOWER, feet = ["left", "right"];

@@ -21,7 +21,7 @@ if (!isMainThread) {
   if (!Number.isSafeInteger(concurrency) || concurrency < 1 || concurrency > 32) throw new Error('invalid combat worker count');
   const policy = name => name.endsWith('.json') ? JSON.parse(readFileSync(name, 'utf8')) : name;
   const jobsFile = value('--jobs', null), jobs = jobsFile ? JSON.parse(readFileSync(jobsFile, 'utf8'))
-    : combatPairs({ candidate: policy(value('--candidate', 'point')), opponent: policy(value('--opponent', 'classic')), count,
+    : combatPairs({ candidate: policy(value('--candidate', 'option')), opponent: policy(value('--opponent', 'bare')), count,
       split: value('--split', 'development'), capSeconds: Number(value('--cap', 60)) });
   if (!Array.isArray(jobs) || !jobs.length || jobs.some(j => !j.config)) throw new Error('combat run requires physical jobs');
   const fingerprint = combatFingerprint(), output = value('--output', 'research/runs/arena-combat.json');

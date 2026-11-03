@@ -44,9 +44,9 @@ The measurement choices are fixed before any controller tuning:
 ## Measurement
 
 ```powershell
-node research/arena-combat-run.mjs --candidate point --opponent classic --pairs 8 --split development --workers 2
-node research/arena-combat-run.mjs --candidate scrapper --opponent brawler --pairs 100 --split heldout --workers 2 --output research/runs/scrapper.json --resume
-node research/arena-combat-league.mjs research/runs/scrapper.json --output research/runs/league.json
+node research/arena-combat-run.mjs --candidate option --opponent bare --pairs 8 --split development --workers 2
+node research/arena-combat-run.mjs --candidate option --opponent bare --pairs 100 --split heldout --workers 2 --output research/runs/option.json --resume
+node research/arena-combat-league.mjs research/runs/option.json --output research/runs/league.json
 ```
 
 The runner uses worker threads, one sequential physics loop each, and writes a version-2
