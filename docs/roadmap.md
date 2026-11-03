@@ -25,12 +25,13 @@ Where the project is going and what is open. What is built is in the
 
 | Plan | What it builds |
 | --- | --- |
-| [Options trained body by body](plans/2026-11-03-options-training.md) | Option Mind general, every act an option; its skills on the Warrior, Rogue and Skeleton with every loadout; stand-up within 10 s on every body, the run on the Warrior and the Rogue |
+| [Option Mind general](plans/2026-11-03-option-mind-general.md) | Option Mind one loop for every body, every act an Option; bodies told apart in data; skills developed against their own baselines |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
 | [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |
 
-Now: Options trained body by body. After it: fights the owner watches, the Strike drill's rungs,
-Footwork's rungs, the Commander in the Crypt with Option Mind as its hero.
+Now: Option Mind general. After it: stand-up and the run to their targets, the strikes on every
+body, fights the owner watches, the Strike drill's rungs, Footwork's rungs, the Commander in the
+Crypt with Option Mind as its hero.
 
 ## Waiting on the owner
 
@@ -77,6 +78,10 @@ Footwork's rungs, the Commander in the Crypt with Option Mind as its hero.
 
 ### Body and motor control
 
+- A walk's step ends on its time with its foot in the air, and the next shift hands the weight to
+  that foot.
+- A walk asked to stand at a place holds the centre of mass over the feet's middle, not over the
+  place (`LegsGoal.centre` left null); held over it, the punch's entry begins no strike.
 - The braced walk falls under shoves at a third of its orders; the Skeleton's shoved walk with
   the club falls most.
 - Yaw at speed: the pelvis swings either side of the heading past 1 m/s; a turning walk past
