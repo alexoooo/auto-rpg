@@ -349,15 +349,10 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
     ([Option Mind](plans/2026-10-27-option-mind.md#one-policy-selecting-a-set));
   - orders: obedience against self-preservation, read with orders given; follow orders values
     an order without its walk (`Orders.walk`).
-- **The stomping rung lands 3 of 12**: the place beside a lying body is held (`HeldBeside`,
-  the drill's `HELD_SPOT`), and the drill's spot jumps more than 0.5 m 6 times over the rung
-  where it jumped 124; a stomp's window is read from where the stomping sole stands now
-  (`stomp.ts`), which a stride moves about 0.1 m. Option Mind stomps a lying Warrior 1.2 m off its feet at
-  9.2 s at `fe82cf01` and not in 20 s at `d597bd5b`; reading the window from the squared stance
-  instead lands 8 of the stomping rung's 12 against 10. At `8739fa22` the rung lands 5 of 12: each
-  stomp thrown at a lying Warrior lands (3 of 3), three trials are ready and never thrown, and in
-  the two at 1 m the limp Warrior never lies down (read standing 0.96 m off), a fixture short of
-  its case that the profile reads as a stomp at a standing body.
+- **The stomp lands 11 of the Warrior's rung's 12**, none fell, 1 outside; on `stomping-bodies`
+  the Skeleton lands 7 of 12, 1 fell (its pelvis tipped by the blow puts its chamber past the hip's
+  reach, and the return waits on one leg), and the Rogue 1, 7 weak, 1 fell on its row seeded from
+  the Warrior's ([stroke, return and stay](reference/front-kicks.md#stomp-settings)).
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
   are not built ([blows](reference/blows.md#covering-searched)); each comes as a skill in the shape
   with its Cover drill.

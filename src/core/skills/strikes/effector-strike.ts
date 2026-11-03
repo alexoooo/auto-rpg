@@ -24,7 +24,11 @@ interface StrikeDef {
   readonly returnSeconds: number;
   /** Each goal's tracking response, s; the tracker's own where absent. */
   readonly response?: number;
-  /** Whether the stroke and a held contact drive the limb firm (`EffectorGoal.firm`), braced through the blow. */
+  /**
+   * Whether a held contact drives the limb firm (`EffectorGoal.firm`), braced through the blow. The
+   * stroke before it is the servo's: driven firm, its freedoms are held to the speeds the servo asks
+   * step by step, and the stroke meets its target slower.
+   */
   readonly firm?: boolean;
 }
 
@@ -95,10 +99,14 @@ export function effectorStrike(def: StrikeDef) {
     /** Advance the cycle from the last read; the events it gives (`STRIKE_EVENT`) are counted. */
     step(view: BodyView, velocity: Vec3, course: StrikeCourse, conditions: StrikeConditions, dt: number): number {
       const feedback = view.effectors[def.effector]!.feedback, { targetId } = conditions;
+      const touching = conditions.free && (feedback?.impulse ?? 0) > 0, was = state.phase, struck = state.impact !== null || touching;
       const event = advanceStrike(state, { at: state.previous!, velocity, home: course.home, chamber: course.chamber,
         requested: conditions.requested, down: conditions.down, supported: conditions.supported, prepared: conditions.prepared,
-        touching: conditions.free && (feedback?.impulse ?? 0) > 0, intended: !!targetId && contactResponse(feedback, targetId) === "target",
+        touching, intended: !!targetId && contactResponse(feedback, targetId) === "target",
         aligned: aligned(view, feedback, course.contactVelocity), contactVelocity: course.contactVelocity, seconds: course.seconds }, def.limits, dt);
+      // A return from a contact begins at rest: what the point struck stopped it, and the stroke's own
+      // speed, begun from, would drive it on into what it struck.
+      if (was === "swing" && state.phase === "return" && struck) state.velocity = STILL;
       if (event & STRIKE_EVENT.thrown) state.thrown++;
       if (event & STRIKE_EVENT.returned) state.returned++;
       if (event & STRIKE_EVENT.failed) state.failed++;
@@ -114,7 +122,7 @@ export function effectorStrike(def: StrikeDef) {
       const position = impact ? impact.finish : phase === "chamber" ? course.chamber : phase === "return" ? course.home : course.target;
       return { ...(def.response === undefined ? {} : { response: def.response }), places: [{ point: def.point, position }],
         seconds: impact ? def.limits.impact!.impactSeconds : seconds(course), follows: true, initialVelocity: state.velocity, sequence: state.sequence,
-        ...(orientation ? { orientation } : {}), ...(def.firm && (impact || phase === "swing") ? { firm: true } : {}),
+        ...(orientation ? { orientation } : {}), ...(def.firm && impact ? { firm: true } : {}),
         ...(impact ? { terminalVelocity: STILL }
           : phase === "swing" ? { terminalVelocity: course.contactVelocity, ...(course.curve ? { curve: course.curve } : {}) } : {}) };
     },
