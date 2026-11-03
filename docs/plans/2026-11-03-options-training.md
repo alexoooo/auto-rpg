@@ -13,9 +13,9 @@ The owner: the way Options were trained kept known bugs and rejected real gains.
 - **One controller per Option for every body** rejected a gain on one body that did not help the
   others. One framework for every body has not worked, so Options specialize: by Option first,
   reusing executors beneath, then by body where the shared one cannot serve.
-- **Option Mind is not yet general.** Its tactics build the rise and the strikes themselves, and
-  the rise has its own config list, executor and pricing; a kind of option only hands them out.
-  Everything Option Mind does is an option made the same way.
+- **Option Mind is not yet general.** The function that builds its decider builds the rise and
+  the strikes itself, and the rise has its own config list, executor and pricing; a kind of option
+  only hands them out. Everything Option Mind does is an option made the same way.
 
 What is wanted is each skill as good as it can be made quickly, with two hard requirements: every
 character stands up reliably in under 10 s, and the Warrior and the Rogue run reliably.
@@ -67,9 +67,9 @@ defect.
 
 ### Everything Option Mind does is an option
 
-- **Option Mind's tactics name no kind of option.** Each kind makes its options from the skills
-  its config lists and their profiles; the rise and the strikes are kinds like the walk and the
-  cover.
+- **Option Mind names no kind of option where it builds its decider.** Each kind makes its
+  options from the skills its config lists and their profiles; the rise and the strikes are kinds
+  like the walk and the cover.
 - **A way up is an executor**, in the executor list beside the strikes, begun where its entry
   admits the body as it lies. There is no ground config, ground executor or rise argument.
 - **Where an option leaves the body is worth what Option Mind expects from there**, for every
@@ -128,16 +128,33 @@ A defect found on any later step joins this list and is fixed the same way.
 
 ### 2. Option Mind general
 
-- The rise's techniques become executors in the executor list; the ground config, the ground
-  executor and the rise argument to the tactics go (`Deciding.ground`, `groundExecutor`, `Rising`,
-  `src/core/option/tactics.ts`, `src/core/recovery/ground/held.ts`).
-- The strikes are made by their kind, not by the tactics.
-- The rise's pricing of a lying posture (`groundOptions`, `src/core/option/ground.ts`) becomes
-  Option Mind's value of where any option leaves the body; the record of failures in the bout and
-  the price of an unmeasured option become every option's.
+The rise's own code (`groundOptions`, `src/core/option/ground.ts`; `groundExecutor`,
+`src/core/recovery/ground/held.ts`; `Deciding.ground`, `Rising`) goes once what the rest of Option
+Mind reads from it is general:
 
-Check: the tactics name no kind of option; the fingerprint, each moved case named; the stand-up
-target on the Warrior read paired against the version before.
+- **The value of a posture.** The expected time to standing from each lying posture (`riseFrom`)
+  prices every option's chance of leaving the body down (`downCost`, `downCostAt`,
+  `src/core/option/percepts.ts`). It becomes Option Mind's value of where any option leaves the
+  body, from the profiles of the options that begin there.
+- **Unbraced.** The seconds until a body back on its feet is braced (`unbraced`) is a percept every
+  place reads (`here`, `src/core/option/position.ts`); it becomes the reading of whichever option
+  steadies the body.
+- **The in-bout record and the unmeasured price.** A way up that failed from a posture is priced
+  dearer (`recorded`), and one no profile measures is priced by hand (`BY_HAND`); both become every
+  option's.
+- **The ways up and the ground's modes** (brace, land, steady, flatten, the repositions) become
+  executors in the executor list, offered as options of kinds like any other. A config that leaves
+  the body no way up from its back or its front stays a fault (`standUpFaults`).
+- **The strikes** are made by their kind, not by the function that builds the decider.
+- **The name.** `optionTactics` builds Option Mind's decider; "tactics" is the retired fighter's
+  slot and leaves the code and the documents, the roadmap's list of layers included.
+- **Deciding while down.** The shared decider decides every step the body is down
+  (`src/core/mind/decider.ts`); that becomes a cue the options give, or stays with its reason
+  written beside it.
+
+Check: the decider's builder names no kind of option and `src/core/option/` holds no rise of its
+own; the fingerprint, each moved case named; the stand-up target on the Warrior, and a fall's
+price, read paired against the version before.
 
 ### 3. Bodies told apart in data
 
@@ -191,8 +208,8 @@ watched, the failures first; the owner accepts each rung.
 ## Done when
 
 - The known bugs and what they broke above are fixed, each to its own contract.
-- Option Mind's tactics name no kind of option; the rise is executors chosen and priced as every
-  option is.
+- Option Mind names no kind of option where it builds its decider; the rise is executors chosen
+  and priced as every option is.
 - No body is named in control code; every difference between bodies is a record or a part only
   that body fits.
 - Stand-up meets the owner's target on every body and loadout, and the run its requirement on the
