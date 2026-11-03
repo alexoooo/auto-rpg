@@ -966,7 +966,9 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource
   from rest only worth more; the rest options are last by rank, so `rest` is the option's own mark.
   A rest option is chosen with whichever of its claims are still free, any other with all of its
-  claims or not at all. An option with targets is priced at each and aimed at the best.
+  claims or not at all. An option with targets is priced at each and aimed at the best; for as long
+  as the objective prices a place held (`Objective.holds`, `Deciding.keep`), a running one, and each
+  option claiming what it claims, is priced at the target it runs at alone where it has it on offer.
   The set's step is its members' made one intent by the toolkit (`stepSet`, `intentOfSet` and
   `SelectedAsk`, `src/core/intent/intent.ts`): the walk and facing of the one claiming the legs,
   every member's actions and covers (`Asked.guard`), less a cover of a hand a member's ask holds. Valued worth (`Objective.worth`; the few terms', `fewTermsWorth`, `objective.ts`), in life, a share of a body's full life, the
