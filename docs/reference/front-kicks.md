@@ -160,9 +160,11 @@ with the pelvis's turn; it is carried with the hip.
 | Skeleton, `stomping-bodies`, at `e026ed21` | 3 | 2 | 4 | 1 | 1 (and 1 missed) |
 | Skeleton, `stomping-bodies`, the return begun at rest | 7 | 2 | 1 | 1 | 0 (and 1 guarded) |
 | Skeleton, `stomping-bodies`, and the stomp let go on lost support | 8 | 2 | 0 | 1 | 0 (and 1 guarded) |
+| Skeleton, `stomping-bodies`, its row searched (`b0f21223`) | 8 | 1 | 1 | 0 | 0 (and 1 elsewhere, 1 missed) |
 | Rogue, `stomping-bodies`, at `e026ed21` | 2 | 4 | 3 | 2 | 0 (and 1 elsewhere) |
 | Rogue, `stomping-bodies`, the return begun at rest | 1 | 7 | 1 | 2 | 0 (and 1 elsewhere) |
 | Rogue, `stomping-bodies`, and the stomp let go on lost support | 1 | 8 | 0 | 2 | 0 (and 1 elsewhere) |
+| Rogue, `stomping-bodies`, its row searched from the Warrior's chamber height (`b0f21223`) | 9 | 0 | 0 | 0 | 3 |
 
 The Warrior's landed blows come at 3.07 to 4.69 m/s and 0.3 to 26.6 J, against 3.23 to 6.90 m/s
 and 1.1 to 51.7 J braced through the stroke: less is behind the foot (0.55 to 10.5 kg against 6.2
@@ -193,6 +195,15 @@ than the fall. A return that lets the centre off the bearing foot now ends the s
   way (5.59 -> 6.47). On the rung at `90bdd549`, 11 landed, 1 outside, none fell; at a lying
   Warrior 3.74 to 4.18 m/s, 5.9 to 16.8 kg behind the foot, 15.3 to 52.2 J; at a Skeleton 4.34 to
   5.71 m/s, 1.1 to 6.8 J.
+- **The Skeleton's and the Rogue's rows searched** (`stomping-bodies` at `b0f21223`). The
+  Skeleton's, from its row (lift 0.641 -> 0.796 m, contactSpeed 7 -> 6.36 m/s, brace 0): 8 landed
+  at 3.65 to 4.99 m/s against its 3.32 bar, 1 weak, 1 elsewhere, 1 missed, and 1 fell (its left
+  foot at a Warrior 0.8 m off); 0.04 to 0.6 kg behind its foot, 0.02 to 2.6 J. The Rogue's, from
+  its row with the chamber at the Warrior's height (a seed scaled by stature put it 10 cm lower
+  over the same target, and its swing met the body after 10 cm of travel against the Warrior's
+  19): 9 landed at 2.63 to 7.94 m/s against its 2.54 bar, 50 to 73 J at a Warrior, and 3 refused,
+  all at a lying Skeleton. The Rogue's leg reaches 8.1 to 9.7 m/s at a lying trunk's top in free
+  air (pelvis pinned, hip and knee at full activation), the Warrior's 10.1, the Skeleton's 10.4.
 
 **The toed Skeleton's and Rogue's stomp on a target laid down** (`stomping-bodies`, the same
 harness; each body's own row). At `c260464d` the Skeleton falls in 10 of 12, all before contact:
