@@ -21,9 +21,8 @@ not one shape.
   takes the body. Option Mind is one loop for every body, and everything it does is an Option made
   the same way.
 
-This plan restructures Option Mind and the way Options are developed; it trains no skill. The goals
-that work serves (stand-up within 10 s on every character, the Warrior and the Rogue running, each
-strike as good as it can be made) and the known bugs stay in the [roadmap](../roadmap.md).
+This plan fixes the known bugs and restructures Option Mind and the way Options are developed; it
+trains no skill. The training follows it: [Options trained body by body](2026-11-03-options-training.md).
 
 Its bodies: Option Mind general covers every body it plays, the reptile and the rat included; the
 table reads the toed Warrior, Rogue and Skeleton with every loadout (empty hands, the club, the
@@ -109,9 +108,30 @@ defect.
 
 Each lands green on its own: `npm run check`, `npm test`, `npm run build` where browser code or
 assets change, and a toolkit change's message names the fingerprint cases it moves
-(`scripts/fingerprint.mjs`). A defect found on the way is fixed to its own layer's contract.
+(`scripts/fingerprint.mjs`).
 
-### 1. Option Mind general
+### 1. The known bugs
+
+Each fixed to its layer's contract, then what it breaks above:
+
+- **A walk's step ends on its time with its foot in the air**, and the next shift hands the weight
+  to that foot. Landed as a catch's step lands, the Skeleton's shoved walk fell 59 of 600 against
+  79, and the walk ran fast and broke the Locomotion drill's stops and runs (stopped 0.951 to 0.863),
+  which then read the step that does not land. Check: no step ends in the air (a probe or the
+  drill's trials, read at the step's end); the walk's pace and stop on the drill.
+- **A walk asked to stand at a place holds the centre of mass over the feet's middle**, not over
+  the place: the legs goal's `centre` is left null (`LegsGoal`,
+  `src/core/skills/framework/skill.ts`). Held over the place, an
+  ordered punch began no strike: the punch's start needs the body quiet over its feet, a defect of
+  the punch's entry. Check: the stand's centre where asked; the Mind contract; the punch's drill.
+- **A walk to a place beside a body lying overruns it**: the Skeleton asked 0.14 m/s 0.2 m from its
+  place walks on at 0.4 to 0.8 m/s, 0.3 m past, and falls on the body; the Rogue's place beside a
+  lying Skeleton turns between its sides. Check: the walk stops within its place's tolerance on the
+  stomping rung's approach, and the Rogue holds one side.
+
+A defect found on any later step joins this list and is fixed the same way.
+
+### 2. Option Mind general
 
 Each piece lands on its own, in this order:
 
@@ -150,7 +170,7 @@ decider's builder names no kind of Option, and no rise or body family has a loop
 fingerprint, each moved case named; stand-up on the Warrior, the Rogue and the Skeleton, a fall's
 price, and the reptile's and the rat's bouts read paired against the version before.
 
-### 2. Bodies told apart in data
+### 3. Bodies told apart in data
 
 - Stand-up's settings by body (`STEP_UP`'s table in `src/core/recovery/ground/step-up.ts`, the
   Skeleton's own roll with them) become records per body under `assets/`, and a technique only one
@@ -163,7 +183,7 @@ price, and the reptile's and the rat's bouts read paired against the version bef
 Check: no model named in control code; the fingerprint, no case moved but the Skeleton's stomps,
 named.
 
-### 3. How Options are developed
+### 4. How Options are developed
 
 - **The rules that outlive this plan** go into `AGENTS.md`: a bug fixed to its own layer's
   contract and what it breaks above fixed next; a body searched again before a setback is called a
@@ -184,6 +204,7 @@ Check: `npm test`; the table judged from the rows it holds; [rising](../referenc
 
 ## Done when
 
+- The known bugs and what they broke above are fixed, each to its own contract.
 - Option Mind is one loop for every body, its config a chooser, its predictions and its Options;
   the rise, the strikes and the quadrupeds' acts are Options chosen and priced as every Option is.
 - No body is named in control code; every difference between bodies is a record or a part only
