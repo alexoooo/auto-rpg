@@ -148,7 +148,7 @@ export const onOffer = <S>(choice: Choice<S>, now: S): boolean => choice.entry(n
  * it decides afresh: a running choice that does not yield keeps what it claims; with none, it
  * takes the situation (`now`, or one of `others`, another target) whose best choice is worth most,
  * `now` where none is worth more; then, of the choices on offer there (`onOffer`), each running one
- * raised by what letting it go costs (`Priced.letGo`), it takes the best (drawn by `chance` where
+ * raised by what letting it go costs (`Priced.letGo`) at the target it runs at, it takes the best (drawn by `chance` where
  * it gives a margin), then the best of the rest whose claims are still free, the first of equals,
  * until none is left. Another situation's best is held as `holding` says where it is given. A
  * rest choice takes a resource nothing else is worth more on: it is chosen
@@ -216,7 +216,9 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
         for (let k = pass === 0 ? kept : 0; k < (pass === 0 ? kept + 1 : Math.max(1, targets)); k++) {
           if (targets) choice.aim!(k);
           if (!onOffer(choice, now)) continue;
-          const offer = appraise(choice, i, now), value = offer.worth + (state.running.includes(i) ? offer.letGo : 0);
+          // What letting it go costs raises the target it runs at alone: run at another, it is let go.
+          const offer = appraise(choice, i, now), runs = state.running.includes(i) && (!targets || k === state.aims[i]);
+          const value = offer.worth + (runs ? offer.letGo : 0);
           state.offers.push(offer);
           if (value > best) { best = value; at = k; }
         }
