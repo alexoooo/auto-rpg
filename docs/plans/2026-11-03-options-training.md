@@ -12,12 +12,13 @@ The owner: the way Options were trained kept known bugs and rejected real gains.
   Skeleton weighs 15 kg against the Warrior's 79.
 - **One controller per Option for every body** rejected a gain on one body that did not help the
   others. One framework for every body has not worked, so Options specialize: by Option first,
-  reusing executors beneath, then by body where the shared one cannot serve.
-- **Option Mind is not yet general.** The function that builds its decider builds the rise and
-  the strikes itself, and the rise has its own config list, executor and pricing; a kind of option
-  only hands them out. The humanoid's skills are written into Option Mind's config, while a frame
-  (the quadruped's) runs a decision loop of its own. Everything Option Mind does is an option made
-  the same way, by one loop over any body.
+  reusing skills beneath, then by body where the shared one cannot serve.
+- **Option Mind is not yet general.** Its config lists skills (executors, the actions that use
+  them, getting-up techniques, gaits) beside its options, and the function that builds its decider
+  builds the rise and the strikes itself; the quadruped's frame runs a decision loop of its own,
+  with its own chooser, situation and options, a stalk deciding outside them and a righting that
+  takes the body. Option Mind is one loop for every body, and everything it does is an Option made
+  the same way.
 
 What is wanted is each skill as good as it can be made quickly, with two hard requirements: every
 character stands up reliably in under 10 s, and the Warrior and the Rogue run reliably.
@@ -28,7 +29,9 @@ and buckler, the sword and buckler); the walk, stand-up, the punch and the club,
 on all three; the run and the stomp on the Warrior and the Rogue. **The Skeleton has no stomp** (the
 owner's decision): at 15 kg its blows carry under 3 J against the Warrior's 15 to 52 J ([stomp
 settings](../reference/front-kicks.md#stomp-settings)); a held item brings its own mass. Where each
-cell starts: [the table](../reference/the-table.md).
+cell starts: [the table](../reference/the-table.md). Making Option Mind general (step 2) covers
+every body it plays, the reptile and the rat included; how well the quadrupeds move is
+[the rat](2026-11-01-rat.md)'s.
 
 ## How it works
 
@@ -67,23 +70,25 @@ defect.
   that falls on a miss) states it, and its fall rate by outcome is measured into its profile for
   the mind to weigh. No Option in scope states one, so every fall here is a defect.
 
-### Everything Option Mind does is an option
+### Everything Option Mind does is an Option
 
-- **One loop over a frame.** A frame is a body family's layer: the skills its body can carry out
-  (its gaits, guard, executors and their actions, its ways up), the posture it is built in, and
-  what its situation reads of the body. It decides nothing. Option Mind is one loop over any
-  frame: its situation, options, chooser and objective. Every Option Mind config is a chooser,
-  options, predictions and a frame; the humanoid's kit is a frame.
-- **Option Mind names no kind of option where it builds its decider.** Each kind makes its
-  options from the skills its config lists and their profiles; the rise and the strikes are kinds
-  like the walk and the cover.
-- **A way up is an executor**, in the frame's executor list beside the strikes, begun where its
-  entry admits the body as it lies. There is no ground config, ground executor or rise argument.
-- **Where an option leaves the body is worth what Option Mind expects from there**, for every
-  option: a lying posture is worth the expected time to standing over the options that begin
-  there, so a blow that may fall and a way up that may fail are priced alike. An option's record
+- **Two concepts.** A **skill** is how a body does one thing (a punch, a club blow, a gait, a way
+  up, a bite), with its body's settings; a person's orders and the drills drive skills directly.
+  An **Option** is what Option Mind chooses among: one skill used one way (its limbs, its target,
+  its aim), with when it can begin, what it claims and what it is expected to bring. What an action
+  holds today is the Option's.
+- **One config.** An Option Mind config is its chooser, what it predicts from, and its Options,
+  each naming its skill. A body builds the skills its Options name that it fits, and an Option
+  whose skill it does not fit is not on offer to it. There is no executor, action or getting-up
+  list and no frame: what lies under every skill (motor control, the stance, the posture a body is
+  built in) is its body family's, chosen by the body.
+- **One loop.** The situation reads the percepts its Options and objective declare; the chooser
+  and objective are the same for every body. The decider's builder names no kind of Option.
+- **Where an Option leaves the body is worth what Option Mind expects from there**, for every
+  Option: a lying posture is worth the expected time to standing over the Options that begin
+  there, so a blow that may fall and a way up that may fail are priced alike. An Option's record
   of failing from a situation in the bout, and its price where no profile measures it, are the
-  same for every option.
+  same for every Option.
 
 ### Bodies told apart in data, never in logic
 
@@ -92,9 +97,8 @@ defect.
   from the body. A body with no record of a skill does not have it (`recordFault`), except where a
   rule derives settings for any body (the gaits scaled to the leg, `scaledGait`): there the rule
   gives the default, and a record overrides it.
-- **Other logic for a body is another part**, which only the bodies with its record fit
-  (`Part.fits`); every part a body fits is on offer to it. A slot holding one part becomes a list
-  where a second is needed.
+- **Other logic for a body is another skill**, which only the bodies with its record fit
+  (`Part.fits`), named by an Option of its own.
 - **No body is named in control code**: no model's name or key, and no stand-in for one (a mass
   under 20 kg meaning the Skeleton). A test of what the body can do (it has toes, a hand is free)
   is a fit.
@@ -135,42 +139,44 @@ A defect found on any later step joins this list and is fixed the same way.
 
 ### 2. Option Mind general
 
-The rise's own code (`groundOptions`, `src/core/option/ground.ts`; `groundExecutor`,
-`src/core/recovery/ground/held.ts`; `Deciding.ground`, `Rising`) goes once what the rest of Option
-Mind reads from it is general:
+Each piece lands on its own:
 
-- **The value of a posture.** The expected time to standing from each lying posture (`riseFrom`)
-  prices every option's chance of leaving the body down (`downCost`, `downCostAt`,
-  `src/core/option/percepts.ts`). It becomes Option Mind's value of where any option leaves the
-  body, from the profiles of the options that begin there.
-- **Unbraced.** The seconds until a body back on its feet is braced (`unbraced`) is a percept every
-  place reads (`here`, `src/core/option/position.ts`); it becomes the reading of whichever option
-  steadies the body.
-- **The in-bout record and the unmeasured price.** A way up that failed from a posture is priced
-  dearer (`recorded`), and one no profile measures is priced by hand (`BY_HAND`); both become every
-  option's.
-- **The ways up and the ground's modes** (brace, land, steady, flatten, the repositions) become
-  executors in the executor list, offered as options of kinds like any other. A config that leaves
-  the body no way up from its back or its front stays a fault (`standUpFaults`).
+- **The config is Options.** Each Option kind takes the skill it uses and how it uses it (limbs,
+  regions, aim); `OptionMindConfig`'s `executors`, `actions`, `ground`, `locomotion`, `guard`,
+  `support` and `frame` go (`src/core/option/mind.ts`), and the presets list Options. A profile is
+  an Option's on a body. A person's order names a skill the body has.
+- **The body family's layer.** Motor control, the stance and the posture a body is built in come
+  from the body's family (the humanoid's, the quadruped's), not from the mind's config.
 - **The strikes** are made by their kind, not by the function that builds the decider.
+- **The rise as Options.** Each way up, and each of the ground's modes (brace, land, steady,
+  flatten, the repositions), is a skill an Option names; the rise's own code goes
+  (`groundOptions`, `src/core/option/ground.ts`; `groundExecutor`,
+  `src/core/recovery/ground/held.ts`; `Deciding.ground`, `Rising`) once what the rest of Option Mind
+  reads from it is general:
+  - the expected time to standing from each lying posture (`riseFrom`), which prices every Option's
+    chance of leaving the body down (`downCost`, `downCostAt`, `src/core/option/percepts.ts`),
+    becomes Option Mind's value of where any Option leaves the body;
+  - the seconds until a body back on its feet is braced (`unbraced`), which every place reads
+    (`here`, `src/core/option/position.ts`), becomes the reading of whichever Option steadies it;
+  - the in-bout record of a way that failed (`recorded`) and the hand-set price of an unmeasured
+    one (`BY_HAND`) become every Option's.
+
+  A config that leaves the body no way up from its back or its front stays a fault.
+- **The quadrupeds on the one loop.** The reptile's and the rat's Options name their gaits, bite
+  and righting; the quadruped's own chooser, situation reader and Option types go
+  (`QUADRUPED_VALUED`, `quadrupedReader`, `src/core/reptile/frame.ts`), the stalk's decisions
+  (approach, creep, when to bite; `src/core/reptile/tactics.ts`) become Options, and the righting
+  is a way up like a humanoid's.
 - **The name.** `optionTactics` builds Option Mind's decider; "tactics" is the retired fighter's
   slot and leaves the code and the documents, the roadmap's list of layers included.
 - **Deciding while down.** The shared decider decides every step the body is down
-  (`src/core/mind/decider.ts`); that becomes a cue the options give, or stays with its reason
+  (`src/core/mind/decider.ts`); that becomes a cue the Options give, or stays with its reason
   written beside it.
 
-- **The humanoid's frame.** The skills now written into Option Mind's config (`locomotion`,
-  `guard`, `support`, `executors`, `actions`, `ground`, `motor`; `OptionMindConfig`,
-  `src/core/option/mind.ts`) become the humanoid's frame, and the frame's contract
-  (`FramePart`, `src/core/option/parts.ts`) becomes the body's layer, which builds no chooser,
-  situation or options. The quadruped's frame builds its own loop (its own chooser and options,
-  the stalk deciding outside the options, the righting taking the body); bringing it onto the one
-  loop is the reptile's work, outside this plan, and its frame keeps its own `create` until then.
-
-Check: every Option Mind config is a chooser, options, predictions and a frame; the decider's
-builder names no kind of option and `src/core/option/` holds no rise of its own; the fingerprint,
-each moved case named; the stand-up target on the Warrior, and a fall's price, read paired against
-the version before.
+Check: every Option Mind config is a chooser, its predictions and its Options, on every body; the
+decider's builder names no kind of Option, and no rise or body family has a loop of its own; the
+fingerprint, each moved case named; the stand-up target on the Warrior, a fall's price, and the
+reptile's and the rat's bouts read paired against the version before.
 
 ### 3. Bodies told apart in data
 
@@ -179,8 +185,7 @@ the version before.
   body's settings time (the sit-back) is fitted by that body alone.
 - The walk's and run's settings (`src/core/skills/locomotion/walk-run.ts`, `cycle-run.ts`, searched
   on the three bodies together) stay the default every body takes scaled to its leg; a body's
-  record overrides them, the run's for the Warrior and the Rogue. The locomotion slot holds a
-  list of gaits.
+  record overrides them, the run's for the Warrior and the Rogue.
 - The Skeleton's stomp record is deleted.
 
 Check: the fingerprint, no case moved but the Skeleton's stomps, named.
@@ -224,8 +229,8 @@ watched, the failures first; the owner accepts each rung.
 ## Done when
 
 - The known bugs and what they broke above are fixed, each to its own contract.
-- Option Mind is one loop over a frame, the humanoid's included, and names no kind of option
-  where it builds its decider; the rise is executors chosen and priced as every option is.
+- Option Mind is one loop for every body, its config a chooser, its predictions and its Options;
+  the rise, the strikes and the quadrupeds' acts are Options chosen and priced as every Option is.
 - No body is named in control code; every difference between bodies is a record or a part only
   that body fits.
 - Stand-up meets the owner's target on every body and loadout, and the run its requirement on the
