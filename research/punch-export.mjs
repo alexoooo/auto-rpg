@@ -39,16 +39,15 @@ const records = existsSync(`${out}.json`) ? JSON.parse(readFileSync(`${out}.json
 for (const pair of positionals) {
   const [model, rest] = pair.split('='), [file, window] = rest.split('@'), [reach, band, aside, above] = (window ?? '').split(',').map(Number);
   if (!(reach > 0 && band > 0 && aside > 0 && Number.isFinite(above))) throw new Error(`${pair}: name where the punch is admitted, <schedule.json>@<reach>,<band>,<aside>,<above>`);
-  const found = JSON.parse(readFileSync(file, 'utf8')), cell = found.cell, flags = { driven: !!cell.driven, fire: !!cell.fire, brake: !!cell.brake, ease: !!cell.ease, wrist: !!cell.blow, free: !!cell.free, chamber: !!cell.chamber };
+  const found = JSON.parse(readFileSync(file, 'utf8')), cell = found.cell, flags = { fire: !!cell.fire, brake: !!cell.brake, wrist: !!cell.blow, free: !!cell.free, chamber: !!cell.chamber };
   const sided = (hand) => {
     const x = [...found.best.x];
     if (hand !== cell.hand) mirrored(x, cell.hand, hand, flags.wrist);
     return decode(x, hand, cell.gap ?? undefined, new Set((cell.without ?? []).map((c) => hand === cell.hand ? c : c.replace(`.${cell.hand} `, `.${hand} `))), flags);
   };
   const right = sided('right'), left = sided('left');
-  if (right.driven) throw new Error(`${file}: a learned punch's schedule drives no point`);
   const settings = { ...AROUND, longest: blow ? AROUND.longest : LONGEST, reach, band, aside, squared: true, above, lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
-    ...(right.brake === undefined ? {} : { brake: right.brake }), ...(right.ease === undefined ? {} : { ease: right.ease }), ...(values.halts ? { halts: true } : {}),
+    ...(right.brake === undefined ? {} : { brake: right.brake }), ...(values.halts ? { halts: true } : {}),
     timed: { left: left.pushes, right: right.pushes }, ...(policy ? { steered: true } : {}) };
   records[model] = { made: values.made, settings, network: policy ? { actions: policy.actions, layers: policy.layers } : null };
 }
