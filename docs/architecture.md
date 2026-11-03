@@ -579,8 +579,9 @@ thread a `ThreadLink` that posts a batch, waits for it done and yields the repli
 is `mindThread` (`src/apart/thread.ts`): the minds' data loaded first, each spec sent to every
 thread once by number and derived as it arrives (`deriveSpec`), the asks carried out on a seat host
 over the game's and the toolkit's catalogs (`catalogs.ts`). The channels' numbers are shared memory;
-the step asks go together as the world dispatches them, every other ask at once, what a seat says
-with an answer before the answer is counted, and a side waiting spins about a step, then sleeps
+every ask goes at once, so a thread moves each body as the world writes it, and as the world
+dispatches, each thread asked a step is told the step's asks are all in (`Batch.decide`), and its
+minds decide; what a seat says with an answer goes before the answer is counted, and a side waiting spins about a step, then sleeps
 (`src/apart/wire.ts`). A report's kit and gait cross only when they change, and its engagement,
 which no rule or Commander reads, as the mind is made and with the answer to a step asked after
 a page read it (`SeatAsk`'s `shown`).
