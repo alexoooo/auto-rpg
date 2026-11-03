@@ -98,7 +98,7 @@ export function bodyAhead(spec: BodySpec): (view: Sight, ax: number, az: number)
       const q = observed.rotation;
       for (let n = 0; n < limb.radii.length; n++) {
         const vx = limb.offsets[3 * n]!, vy = limb.offsets[3 * n + 1]!, vz = limb.offsets[3 * n + 2]!;
-        // Turned by the limb's quaternion, then by the root's: v + w t + q × t, t = 2 q × v.
+        // Turned by the limb's quaternion, then by the root's: v + w t + q Ã— t, t = 2 q Ã— v.
         let tx = 2 * (q.y * vz - q.z * vy), ty = 2 * (q.z * vx - q.x * vz), tz = 2 * (q.x * vy - q.y * vx);
         const sx = vx + q.w * tx + (q.y * tz - q.z * ty) + anchor.x, sy = vy + q.w * ty + (q.z * tx - q.x * tz) + anchor.y,
           sz = vz + q.w * tz + (q.x * ty - q.y * tx) + anchor.z;
