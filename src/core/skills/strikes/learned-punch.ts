@@ -1,5 +1,5 @@
 import layoutFile from "../../../../assets/core/learned-punch.layout.json" with { type: "json" };
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../../math/vector.ts";
 import type { Body, BodyView } from "../../body.ts";
 import { intoFrameToRef } from "../../control/kinematics.ts";
 import { cos, sin } from "../../math/real.ts";

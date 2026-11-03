@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../../math/vector.ts";
 import { stanceFeetOf } from "../../skills/framework/skill.ts";
 import { carrying, type Carrying } from "../../control/motor.ts";
 import type { StanceGoal } from "../../control/stance.ts";

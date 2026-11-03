@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { constraintBasis, type MotionConstraint } from "./constrained-mass.ts";
 import { bodyDynamics } from "./dynamics.ts";

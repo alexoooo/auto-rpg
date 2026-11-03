@@ -1,4 +1,4 @@
-import { Quaternion, type Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, type Vector3 } from "./vector.ts";
 import { acos, atan2, cos, hypot, sin } from "./real.ts";
 
 /**

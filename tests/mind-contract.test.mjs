@@ -7,7 +7,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
 import { SIDES, senseDelayOf } from "../src/arena/duel.ts";
@@ -406,7 +406,7 @@ test("a body's command is applied the world's delay after it is sent, none befor
   const embodied = embody(built, world, (own) => ({ name: "delay probe", state: {}, step() {
     const k = sent.length;
     own.muscles.activation.fill(level(k)); own.muscles.velocity.fill(0);
-    own.assist.ask(new Vector3(...push(k)), Vector3.Zero());
+    own.assist.ask(new Vector3(...push(k)), new Vector3());
     own.requestHandPoses([{ hand: "right", pose: poses[k % 2] }]);
     sent.push(k);
   } }), { assist: { force: 10, moment: 10 } });

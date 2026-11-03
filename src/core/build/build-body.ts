@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { ColliderShape, EngineJoint, PhysicsWorld, Pose, SegmentBody } from "../engine/engine.ts";
 import type { ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 import { jointKinematics } from "./joint-kinematics.ts";

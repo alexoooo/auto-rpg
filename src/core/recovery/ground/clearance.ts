@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../../math/vector.ts";
 import type { ShapeSpec } from "../../spec/body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import type { ReadBody, ReadSegment } from "../../read-body.ts";

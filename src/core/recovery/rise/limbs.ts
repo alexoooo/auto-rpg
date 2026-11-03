@@ -3,7 +3,7 @@
  * `src/core/control/bearing.ts`), with its part of a step in which it bears. This module knows the
  * kinds of limb and no stage; the player (`staged.ts`) knows the stages and no limb's kind.
  */
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../../math/vector.ts";
 import type { Limb, LimbTask, Row } from "../../control/bearing.ts";
 import { UNHELD, type BearingPoint } from "../../control/contact-wrench.ts";
 import { lowsOf } from "../../control/ground.ts";

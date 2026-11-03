@@ -5,7 +5,7 @@
  * and rules, so it is bit-equal between JavaScript engines as a bout is. Its script gives it orders
  * and shoves at set times (`LoneCue`).
  */
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../core/math/vector.ts";
 import { addArenaSolids } from "../arena/room.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";

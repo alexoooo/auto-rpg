@@ -299,8 +299,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const mind = mindAt(to, spec);
     const actor = labActor(built, world, { mind, assist: balanceCeiling(balance, PERCENT) });
     thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.mind?.skills ?? null, report: actor.mind?.report ?? null }), labStaging(to.scenario)));
-    const rest = built.segments.get("lowerTrunk")!.pose.rotation.clone();
-    const puppet = puppetBody(built.spec, scene), follows = followBody(puppet, built, world);
+    // The pelvis's turn as built, before the puppet follows the body anywhere.
+    const puppet = puppetBody(built.spec, scene), rest = puppet.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
+    const follows = followBody(puppet, built, world);
     const view = drawBody(puppet, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(puppet, scene);
     const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = logSounds(world, actor.body, sounds);
     // A new body starts live: nothing of the last one's recording is shown.

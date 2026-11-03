@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../core/math/vector.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { createSenses } from "../core/mind/senses.ts";
 import { landed, blocked, cleanMiss } from "../core/skills/framework/action-instances.ts";
@@ -58,7 +58,7 @@ export function startAttack(actor: Actor, options: AttackOptions) {
       const at: Vec3 = [(random.next() * 2 - 1) * FIELD,
         built.spec.stature.value * (0.5 + 0.4 * random.next()), (random.next() * 2 - 1) * FIELD];
       if ([...actorBodies].some((segment) => segment.gapTo(at) < radius + CLEARANCE)) continue;
-      if ([...targets.values()].some(({ dummy }) => Vector3.DistanceSquared(dummy.centre, Vector3.FromArray(at)) < square(2 * radius + CLEARANCE))) continue;
+      if ([...targets.values()].some(({ dummy }) => Vector3.DistanceSquared(dummy.centre, new Vector3(at[0], at[1], at[2])) < square(2 * radius + CLEARANCE))) continue;
       const id = `target-${state.next++}`, dummy = hangDummy(world, spec, at, rules);
       const angle = random.next() * Math.PI * 2;
       const target: TargetState = { id, direction: [sin(angle), cos(angle)], hit: null };

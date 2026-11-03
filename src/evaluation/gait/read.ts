@@ -2,7 +2,7 @@
  * **How the Gait drill reads a trial**: when the subject stopped, how fast it was going then, when
  * its action was admitted, and whether it went down.
  */
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../../core/math/vector.ts";
 import type { Duel } from "../../arena/duel.ts";
 import { drillTask } from "../../core/command/drill.ts";
 import type { World } from "../../core/world.ts";

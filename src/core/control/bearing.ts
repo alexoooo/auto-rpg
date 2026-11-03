@@ -12,7 +12,7 @@
  * It works in arrays made with the solve (`makeBearing`), each sized from its limbs, a matrix its
  * rows end to end; a call writes every entry it reads.
  */
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../math/vector.ts";
 import type { BodyDynamics } from "../build/dynamics.ts";
 import { boundedLeastSquaresTo, boundedWork, fixedSolveTo, fixedWork, linearWork, solveLinearTo, type BoundedWork, type FixedWork, type LinearWork } from "../math/flat.ts";
 import { solveLinear } from "../math/linalg.ts";

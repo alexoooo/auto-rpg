@@ -3,7 +3,7 @@
 // in a fight forked where its righting took the body (Node Arena Duel). Rapier, 120 Hz, the game's
 // delay. As a child process it takes { id, ...trial } and answers { id, result }.
 import "../../tests/harness/preload-data.mjs";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../../src/core/math/vector.ts";
 import { coreStand } from "../../tests/harness/core-stand.mjs";
 import { createMind } from "../../src/core/mind/minds.ts";
 import { GAME, defaultMind } from "../../src/entrants/game.ts";

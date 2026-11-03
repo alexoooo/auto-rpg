@@ -1,7 +1,7 @@
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { commandsBody, type HostedBody } from "../core/body.ts";
 import type { World } from "../core/world.ts";
-import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Vector3 } from "../core/math/vector.ts";
 import { recoveryMeasurement } from "../core/control/recovery-measurement.ts";
 import { observeBody } from "../core/observation.ts";
 import { clockSenses, createSenses } from "../core/mind/senses.ts";

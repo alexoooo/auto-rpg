@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import poses from "../../assets/research/posture-holds.json" with { type: "json" };
 import type { buildBody } from "../core/build/build-body.ts";
 import { rigidOf } from "../core/build/rigid.ts";

@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { SupportedCommand, SupportEndpoint } from "../control/supported-motor.ts";
 import { uprightness } from "../control/ground.ts";
 import { effectorTracker } from "../control/effector-tracker.ts";

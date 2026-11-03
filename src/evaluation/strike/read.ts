@@ -3,9 +3,8 @@
  * each touch of the asked limb on the target, a bare hand's judged by the bar a person's punch
  * sets and a hand's holding an item by its blow's (`BAR`). Every rung reads its trials so.
  */
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { pointOfToRef, turnOfToRef } from "../../core/read-motion.ts";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import { rigidPoints } from "../../core/build/rigid.ts";
 import { jointAngles } from "../../core/build/joint-state.ts";
 import { regionSegments } from "../../core/intent/action-aim.ts";
@@ -329,7 +328,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   /** The strike point against the chest, in the chest's turn, into `out`. */
   const againstChest = (out: Vector3): Vector3 => {
     pointOfToRef(limb, aim, point); pointOfToRef(chest, ORIGIN, chestAt); turnOfToRef(chest, turn);
-    return point.subtractToRef(chestAt, out).applyRotationQuaternionToRef(turn.conjugateInPlace(), out);
+    return point.subtractToRef(chestAt, out).applyRotationQuaternionToRef(Quaternion.InverseToRef(turn, turn), out);
   };
   /** The strike point's path, world, a step at a time: time, the strike point's x, y, z, and a hand's shoulder's x, y, z (0 for a foot), its elbow's bend and the chest's lean, rad (0 for a foot), and the far point's x, y, z (`far`). */
   const path: number[] = [];

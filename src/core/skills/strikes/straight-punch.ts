@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../../math/vector.ts";
 import type { Body, BodyView } from "../../body.ts";
 import { bodyEffectors, copyFreedoms, type Freedom } from "../../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, reachWork, solveReach } from "../../control/kinematics.ts";

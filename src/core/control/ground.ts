@@ -3,7 +3,7 @@
  * fight reads a body down by (`fallen`), the bar a mind reads its own body by (`down`), and the
  * readings every page and sub-mind takes of it.
  */
-import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3, Quaternion } from "../math/vector.ts";
 import type { DownSpec, HandPose, SegmentFrame, ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { turnOfToRef } from "../read-motion.ts";

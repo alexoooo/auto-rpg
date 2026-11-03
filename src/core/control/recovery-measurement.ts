@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { BodyObservation } from "../observation.ts";
 import { footStatesOf } from "./support.ts";
 import { recoveryReady } from "./recovery-ready.ts";

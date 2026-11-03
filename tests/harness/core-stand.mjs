@@ -8,7 +8,7 @@
  * the engine to it.
  */
 import "./preload-data.mjs";
-import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3, Quaternion } from "../../src/core/math/vector.ts";
 import { isEngineName, loadEngine } from "../../src/core/engine/engines.ts";
 import { PHYSICS_HZ } from "../../src/core/world.ts";
 import { createWorld } from "../../src/core/world.ts";
@@ -76,7 +76,7 @@ export async function spinOnce(spec, name, axisName, impulse) {
     const axis = new Vector3(...frame[axisName]);
     body.applyTorqueImpulse(axis.scale(impulse));
     stand.step(1);
-    const w = body.angularVelocityToRef(Vector3.Zero());
+    const w = body.angularVelocityToRef(new Vector3());
     const along = Vector3.Dot(w, axis);
     return { along, across: w.subtract(axis.scale(along)).length() };
   } finally { stand.dispose(); }

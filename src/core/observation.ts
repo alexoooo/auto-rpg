@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "./math/vector.ts";
 import { jointTracker } from "./build/joint-state.ts";
 import { uprightness } from "./control/ground.ts";
 import { centreOfToRef, massCentreToRef, massOf } from "./read-motion.ts";

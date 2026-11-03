@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../../math/vector.ts";
 import type { Body, BodyView } from "../../body.ts";
 import { uprightness } from "../../control/ground.ts";
 import { footStatesOf, readSupport, withinSupport } from "../../control/support.ts";

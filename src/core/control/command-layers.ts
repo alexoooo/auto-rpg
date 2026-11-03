@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import { COMMAND, type Body, type BodyCommand, type BodyView, type Fist, type LayerOptions, type SplitDriver } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { OwnBody } from "../mind/mind.ts";

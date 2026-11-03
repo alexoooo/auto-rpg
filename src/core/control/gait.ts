@@ -4,7 +4,7 @@
  * body's capture point; and which of them a stance takes, and when (`ownStep`), at the pace its
  * walk has reached (`paceToward`).
  */
-import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Vector3 } from "../math/vector.ts";
 import type { SwingGoal } from "./stance.ts";
 import { gravityOf, type Stance } from "./stance-state.ts";
 import type { GaitTuning, RecoveryTuning } from "./stance-tuning.ts";

@@ -1,5 +1,5 @@
 import type { BodyView, StepReading } from "../body.ts";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../math/vector.ts";
 import { rigidOf } from "../build/rigid.ts";
 import { frameOf, handShapeAt, type HandPose, type BodySpec, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";

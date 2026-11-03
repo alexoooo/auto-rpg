@@ -3,7 +3,7 @@
  * or a frame: the acceleration that brings it to its goal at rate `n`, 1/s, without overshoot. The
  * stance's planted pose, the supported motor and the staged rise all aim by it.
  */
-import type { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Quaternion, Vector3 } from "../math/vector.ts";
 import { spinBetweenToRef } from "../math/turn.ts";
 
 /** A point at `at`, moving at `velocity` relative to its goal's, asked toward `to`: n²(to − at) − 2n·velocity, into `result`. */

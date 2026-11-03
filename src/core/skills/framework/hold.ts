@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../../math/vector.ts";
 
 import { bodyEffectors } from "../../control/effectors.ts";
 import type { PointTask } from "../../control/motor.ts";

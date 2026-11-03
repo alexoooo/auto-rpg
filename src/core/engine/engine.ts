@@ -1,4 +1,4 @@
-import type { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Quaternion, Vector3 } from "../math/vector.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 
 /**

@@ -15,7 +15,7 @@
  * of the sole is what the sole can give; the shift over the swing's time left is folded into where
  * the capture point and the centre of mass come to as the foot lands.
  */
-import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Vector3 } from "../math/vector.ts";
 import { acos, asin, atan2, cos, cosh, exp, hypot, sin, sinh } from "../math/real.ts";
 import type { SwingGoal } from "./stance.ts";
 import { swingPathToRef, swingPeak, swingProgressToRef, type SwingBow } from "./swing-path.ts";

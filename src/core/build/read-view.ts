@@ -1,4 +1,4 @@
-import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Vector3 } from "../math/vector.ts";
 import type { Contact, ContactManifold, SegmentBody } from "../engine/engine.ts";
 import type { HandPose } from "../spec/body.ts";
 import type { BodyRef, ReadBody, ReadContact, ReadJoint, ReadPhysics, ReadSegment, ReadSegmentBody } from "../read-body.ts";

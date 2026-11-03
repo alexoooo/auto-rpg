@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../../math/vector.ts";
 import type { BodyView } from "../../body.ts";
 import { contactResponse, type EffectorFeedback } from "../../control/effector-feedback.ts";
 import type { EffectorGoal } from "../../control/motor.ts";

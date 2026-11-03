@@ -39,7 +39,7 @@
  * It works in arrays made with the solve (`makeWholeBody`), sized from the body and its limbs; a
  * call writes every entry it reads, and keeps nothing.
  */
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../math/vector.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
 import { bearsNow, carried, give, jacobianTo, keepRows, type Limb, type Row } from "./bearing.ts";

@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { tan, atan2 } from "../math/real.ts";
 import type { JointKinematics, ReadJoint, ReadSegment } from "../read-body.ts";

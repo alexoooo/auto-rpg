@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { ColliderShape, SegmentBody } from "../engine/engine.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import type { ContactRegionSpec, SegmentFrame, SegmentSpec } from "../spec/body.ts";

@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import { jointKinematics } from "../build/joint-kinematics.ts";
 import { halfTansToRef, motionAxesOfHalfTansToRef, rotationOfHalfTansToRef, rotationOfToRef, turningOfHalfTansToRef } from "../build/joint-state.ts";
 import type { BodySpec } from "../spec/body.ts";

@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import { turnOfToRef } from "../read-motion.ts";
 import { heldFrame } from "../build/rigid.ts";
 import { pointsInto } from "./points.ts";

@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import { uprightness } from "./ground.ts";
 import { footStatesOf, soleMiddleToRef, soleRefusal, withinSupport } from "./support.ts";
 import { centreOfToRef, massCentreToRef, massOf, turnOfToRef } from "../read-motion.ts";

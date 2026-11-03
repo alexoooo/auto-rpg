@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { ReadJoint } from "../read-body.ts";
 import type { MotionConstraint } from "./constrained-mass.ts";
 import { jointAngles, relativeRotationToRef } from "./joint-state.ts";

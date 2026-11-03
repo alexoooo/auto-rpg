@@ -1,6 +1,6 @@
 import { effectorTracker, type EffectorGoal } from "./effector-tracker.ts";
 import { bodyEffectors, type EffectorModel } from "./effectors.ts";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import { channelName, type MuscleController, type MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Assist } from "./assist.ts";

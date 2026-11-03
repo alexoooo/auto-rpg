@@ -11,7 +11,7 @@ import { recordingKey } from "../../core/recording.ts";
 import { mindSubject, type Evaluation, type Figure, type Json, type Subject, type SubjectChoice, type Table } from "../evaluation.ts";
 import type { BuiltLone } from "../lone.ts";
 import { sha256Text } from "../sha256.ts";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../../core/math/vector.ts";
 import type { BuiltSegment } from "../../core/build/build-body.ts";
 import type { Orders } from "../../core/intent/orders.ts";
 import { LOCOMOTION_CASES, scriptOf, type LocomotionCondition } from "./cases.ts";

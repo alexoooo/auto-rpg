@@ -6,7 +6,7 @@
  * throws it. Given in the step's sensing phase,
  * before every mind, from what the last step left; when it came is the bout's (`Duel.shoved`).
  */
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../core/math/vector.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { Side } from "../core/spec/body.ts";

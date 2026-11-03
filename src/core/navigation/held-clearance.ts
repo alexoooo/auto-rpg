@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import { rigidOf, rigidPoints } from "../build/rigid.ts";
 import { frameOf, type BodySpec, type SegmentSpec, type ShapeSpec, segmentOf } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";

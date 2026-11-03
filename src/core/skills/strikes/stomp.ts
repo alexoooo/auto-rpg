@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../../math/vector.ts";
 import type { Body, BodyView } from "../../body.ts";
 import { intoFrameToRef } from "../../control/kinematics.ts";
 import type { EffectorGoal } from "../../control/motor.ts";

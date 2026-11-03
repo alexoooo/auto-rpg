@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { anglesOf, rotationOfToRef } from "../build/joint-state.ts";
 import { channelName, type MuscleDriver } from "../muscle/driver.ts";

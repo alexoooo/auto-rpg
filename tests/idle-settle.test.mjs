@@ -4,12 +4,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { rig } from "./harness/probes.mjs";
 import { locomotion } from "../src/core/skills/locomotion/locomotion.ts";
-import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3, Quaternion } from "../src/core/math/vector.ts";
+import { turnAboutToRef } from "../src/core/math/turn.ts";
 
 const feet = { "foot.left": "left", "foot.right": "right" };
 function fixture(scale = 1) {
   const view = { born: 0, time: 1, standing: scale, down: false, root: { rotation: Quaternion.Identity() }, effectors: {},
-    stance: { centre: new Vector3(0, scale, 0), support: Vector3.Zero(), place: Vector3.Zero(), plan: Vector3.Zero(), planVelocity: Vector3.Zero(), velocity: Vector3.Zero(),
+    stance: { centre: new Vector3(0, scale, 0), support: new Vector3(), place: new Vector3(), plan: new Vector3(), planVelocity: new Vector3(), velocity: new Vector3(),
       soles: { left: new Vector3(-.15 * scale, 0, .15 * scale), right: new Vector3(.15 * scale, 0, -.15 * scale) },
       phase: "stand", touching: { left: true, right: true }, own: null } };
   const legs = locomotion(feet, null, { idleFooting: { offsets: { left: [-.15 * scale, 0], right: [.15 * scale, 0] }, length: .25 * scale } });
@@ -68,7 +69,7 @@ test("idle settling ignores body sway but steps a turned sole even at the right 
     view.stance.centre.x = .1 * Math.sin(i);
     assert.equal(ask().swing, undefined, "centre-of-mass sway must not start another foot placement");
   }
-  view.effectors["foot.left"] = { rotation: Quaternion.RotationAxis(new Vector3(0, 1, 0), .5) };
+  view.effectors["foot.left"] = { rotation: turnAboutToRef(new Vector3(0, 1, 0), .5, new Quaternion()) };
   assert.equal(ask().swing.foot, "left", "a turned foot needs a corrective step even when its middle is correctly placed");
 });
 
@@ -167,7 +168,7 @@ test("a disturbance cancels idle foot placement and gives catch steps priority",
 test("idle placement takes the body's current facing after recovery turns it", () => {
   for (const heading of [-1, 1]) {
     const { view, legs, ask } = fixture();
-    view.root.rotation = Quaternion.RotationAxis(Vector3.Up(), heading);
+    view.root.rotation = turnAboutToRef(Vector3.Up(), heading, new Quaternion());
     for (const side of ["left", "right"]) {
       view.stance.soles[side].applyRotationQuaternionToRef(view.root.rotation, view.stance.soles[side]);
       view.effectors[`foot.${side}`] = { rotation: Quaternion.Identity() };

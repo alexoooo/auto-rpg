@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import type { HostedBody } from "../core/body.ts";
 import type { BuiltSegment } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";

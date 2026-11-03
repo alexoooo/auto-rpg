@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../math/vector.ts";
 import { normIn } from "../math/real.ts";
 
 /**

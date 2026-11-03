@@ -1,4 +1,4 @@
-import type { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Quaternion, Vector3 } from "./math/vector.ts";
 import type { Assist } from "./control/assist.ts";
 import type { Frame } from "./control/kinematics.ts";
 import type { EffectorGoal, MotorUnmet, MusclePush, PointTask } from "./control/motor.ts";

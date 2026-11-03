@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "./math/vector.ts";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import { blowChange, contactGive, contactMass, type ContactMass, type Hold } from "./build/contact-mass.ts";
 import type { ContactPair, SegmentBody } from "./engine/engine.ts";

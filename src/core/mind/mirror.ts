@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import { clipToRef, type Assist } from "../control/assist.ts";
 import type { ContactIdentity, ContactTarget } from "../control/effector-feedback.ts";
 import type { ContactPair, ContactSink, MassProperties } from "../engine/engine.ts";

@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../math/vector.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { HandPoseRequest } from "../build/hand-poses.ts";
 import type { AssistCeiling } from "../control/assist.ts";

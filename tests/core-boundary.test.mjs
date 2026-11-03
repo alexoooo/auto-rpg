@@ -282,64 +282,6 @@ test("the core, and what builds a case's world, compute with IEEE's operations a
     ["probe.ts Math.sin", "probe.ts Math.hypot", "probe.ts Math.pow", "probe.ts **", "probe.ts Math", "probe.ts Math", "probe.ts **="]);
 });
 
-/**
- * Babylon's math the core calls, each read in Babylon's source and found to be IEEE's arithmetic
- * and a square root and nothing else, so the same in every JavaScript engine. A member not listed
- * is read before it is: `Quaternion.RotationAxis`, `Slerp`, the Euler angles and the angle
- * between vectors take the engine's sine, cosine or arctangent, and the core has its own
- * (`src/core/math/turn.ts`).
- */
-const EXACT_BABYLON = new Set([
-  "Quaternion.Identity", "Quaternion.Inverse", "Quaternion.InverseToRef", "Quaternion.RotationQuaternionFromAxis", "Quaternion.clone", "Quaternion.copyFrom",
-  "Quaternion.copyFromFloats", "Quaternion.multiply", "Quaternion.multiplyInPlace", "Quaternion.multiplyToRef", "Quaternion.normalize",
-  "Quaternion.scaleInPlace", "Quaternion.set", "Quaternion.w", "Quaternion.x", "Quaternion.y", "Quaternion.z",
-  "Vector3.Cross", "Vector3.CrossToRef", "Vector3.Distance", "Vector3.Dot", "Vector3.Forward", "Vector3.Right", "Vector3.Up",
-  "Vector3.UpReadOnly", "Vector3.add", "Vector3.addInPlace", "Vector3.addInPlaceFromFloats", "Vector3.applyRotationQuaternionToRef",
-  "Vector3.copyFrom", "Vector3.length", "Vector3.lengthSquared", "Vector3.normalize", "Vector3.scale", "Vector3.scaleInPlace",
-  "Vector3.set", "Vector3.setAll", "Vector3.subtract", "Vector3.subtractInPlace", "Vector3.subtractToRef",
-  "Vector3.x", "Vector3.y", "Vector3.z",
-]);
-
-/**
- * Each member of Babylon's math read under `src/core/`, as `"file Class.member"`, through the
- * checker: the name alone does not say whose `length` it is.
- */
-function babylonMathReads(overlay = {}) {
-  const { checker, sources } = programOver([...sourcesUnder("src/core", ".ts"), ...sourcesUnder("src/entrants", ".ts")], overlay);
-  const reads = new Set();
-  const visit = (node, file) => {
-    if (ts.isPropertyAccessExpression(node)) {
-      for (const declaration of checker.getSymbolAtLocation(node.name)?.declarations ?? []) {
-        if (!declaration.getSourceFile().fileName.includes("/node_modules/@babylonjs/core/Maths/")) continue;
-        const member = `${ts.isClassLike(declaration.parent) ? declaration.parent.name?.text : "?"}.${node.name.text}`;
-        reads.add(`${file} ${member}`);
-      }
-    }
-    ts.forEachChild(node, (child) => visit(child, file));
-  };
-  for (const { source, file } of sources()) if (isSimulated(file)) visit(source, file);
-  return [...reads];
-}
-
-test("the core calls only the Babylon math it has read and found exact", () => {
-  const reads = babylonMathReads(), memberOf = (read) => read.split(" ")[1];
-  assert.deepEqual(reads.filter((read) => !EXACT_BABYLON.has(memberOf(read))), []);
-  // The list is what the core calls and no more: a member it has stopped calling leaves it.
-  const called = new Set(reads.map(memberOf));
-  assert.deepEqual([...EXACT_BABYLON].filter((member) => !called.has(member)), []);
-  // The control: the world's module turning by Babylon's own trigonometry is refused for each such
-  // call, and for a member nobody has read; the exact ones beside them are not.
-  const world = "src/core/world.ts";
-  const probe = `${fs.readFileSync(path.join(ROOT, world), "utf8")}
-import { Quaternion as ProbeQuaternion, Vector3 as ProbeVector3 } from "@babylonjs/core/Maths/math.vector.js";
-export const probe = (q: ProbeQuaternion, v: ProbeVector3): unknown[] => [
-  ProbeQuaternion.RotationAxis(v, 1), ProbeQuaternion.Slerp(q, q, 0.5), q.toEulerAngles(), ProbeQuaternion.FromEulerAngles(0, 1, 0),
-  ProbeVector3.GetAngleBetweenVectors(v, v, v), ProbeVector3.Lerp(v, v, 0.5), v.length(), q.w, ProbeQuaternion.InverseToRef(q, q)];
-`;
-  assert.deepEqual(babylonMathReads({ [world]: probe }).filter((read) => !EXACT_BABYLON.has(memberOf(read))), ["RotationAxis", "Slerp", "toEulerAngles", "FromEulerAngles"]
-    .map((name) => `${world} Quaternion.${name}`).concat([`${world} Vector3.GetAngleBetweenVectors`, `${world} Vector3.Lerp`]));
-});
-
 /** Packages that are a physics engine: only that engine's module in `src/core/engine/` imports one. */
 const ENGINE_PACKAGES = ["@dimforge/"];
 /** The contract and the list of engines; every other module in `src/core/engine/` is an engine's. */

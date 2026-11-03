@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../core/math/vector.ts";
 import { loadData } from "../core/data/store.ts";
 import type { EngineName } from "../core/engine/engines.ts";
 import type { Heading } from "../core/intent/orders.ts";
@@ -12,7 +12,7 @@ import { SIDES, type Duel, type DuelRecipe, type OrdersEntry, type Verdict } fro
 import { arenaPlayback } from "../arena/playback.ts";
 import { teamOfOne, type TeamOfOne } from "../arena/team.ts";
 import { aimPoint, rayTarget } from "../arena/orders-input.ts";
-import { trialTrace, type TrialTrace } from "../arena/trial-overlay.ts";
+import { trialTrace, type TrialTrace } from "../arena/trial-trace.ts";
 import { fighterReading, type FighterReading } from "../arena/fighter-readout.ts";
 import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues, type SoundCue } from "../audio/cues.ts";

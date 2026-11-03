@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../../math/vector.ts";
 
 import type { BodyView } from "../../body.ts";
 import { fastestTurning, paceToward, turnAt, type StanceEnvelope } from "../../control/stance-envelope.ts";

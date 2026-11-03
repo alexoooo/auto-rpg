@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../core/math/vector.ts";
 import { buildBody } from "../core/build/build-body.ts";
 import type { Fighter } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";

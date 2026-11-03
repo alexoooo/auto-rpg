@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { BodyView } from "../body.ts";
 import { attackPathToRef, attackPathWork, ATTACK_PATH } from "../skills/strikes/attack-path.ts";
 import { pointPathTargetToRef } from "../control/point-path.ts";

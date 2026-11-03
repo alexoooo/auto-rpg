@@ -2,7 +2,7 @@
  * The feet a stance stands on: each foot's sole, read in the world, the region the soles hold, and
  * the frame helpers that read a segment where it is now.
  */
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { Row } from "./bearing.ts";
 import type { AnkleHold, BearingSole } from "./contact-wrench.ts";
 import { chainTo } from "./kinematics.ts";

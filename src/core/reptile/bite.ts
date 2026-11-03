@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { OwnBody } from "../mind/mind.ts";
 import { channelName } from "../muscle/driver.ts";
 import type { effectorTracker } from "../control/effector-tracker.ts";

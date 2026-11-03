@@ -1,4 +1,4 @@
-import type { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Quaternion, Vector3 } from "./math/vector.ts";
 import type { ColliderShape, Contact, ContactManifold, MassProperties } from "./engine/engine.ts";
 import type { Rigid } from "./build/rigid.ts";
 import type { HandPoseRequest } from "./build/hand-poses.ts";

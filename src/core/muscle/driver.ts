@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../math/vector.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import { readView } from "../build/read-view.ts";
 import type { EngineJoint } from "../engine/engine.ts";

@@ -11,7 +11,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { centreOfToRef } from "../src/core/read-motion.ts";
 import { availableParallelism } from "node:os";
 import { spawnSync } from "node:child_process";

@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../core/math/vector.ts";
 import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import type { SoundCue, SoundPoint } from "../audio/cues.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";

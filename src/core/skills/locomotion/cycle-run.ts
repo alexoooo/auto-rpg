@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../../math/vector.ts";
 import cycles from "../../../../assets/core/run-cycle.json" with { type: "json" };
 import type { Body, BodyView } from "../../body.ts";
 import type { MusclePush } from "../../control/motor.ts";
@@ -136,10 +136,10 @@ const CYCLES: readonly Cycle[] = cycles.cycles;
 const CHANNELS = ["hip", "knee", "ankle"] as const;
 type Channel = (typeof CHANNELS)[number];
 
-/** The world's right, +x: the axis a pelvis leans forward about. */
-const RIGHT: Readonly<Vector3> = Object.freeze(new Vector3(1, 0, 0));
-/** The world's forward, +z: the axis a pelvis leans to the side about. */
-const FORWARD: Readonly<Vector3> = Object.freeze(new Vector3(0, 0, 1));
+/** The world's right, +x: the axis a pelvis leans forward about. Never written. */
+const RIGHT = Vector3.Right();
+/** The world's forward, +z: the axis a pelvis leans to the side about. Never written. */
+const FORWARD = Vector3.Forward();
 
 /** A leg's channels and their offsets from the anatomical angles the cycles are in. */
 interface Leg {

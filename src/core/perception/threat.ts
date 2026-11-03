@@ -1,5 +1,5 @@
 import { predictIntercept } from "../control/whole-body/intercept.ts";
-import { Vector3, type Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3, type Quaternion } from "../math/vector.ts";
 import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { hypot } from "../math/real.ts";

@@ -2,7 +2,7 @@
  * The stance's records: what it is made with (`Stance`), what it remembers from one step to the
  * next (`StanceState`), and the values its functions work in (`StanceScratch`).
  */
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { Assist } from "./assist.ts";
 import type { Limb, LimbTask } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";

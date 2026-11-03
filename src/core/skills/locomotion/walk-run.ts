@@ -1,5 +1,5 @@
 import { standingFooting } from "../../control/support.ts";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion } from "../../math/vector.ts";
 import type { Body, BodyView } from "../../body.ts";
 import { paceToward, quickened, walkRunEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";
 import { hasteOver } from "../../human/attributes.ts";

@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../math/vector.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { effectorAim } from "./effectors.ts";
 import type { Vec3 } from "../spec/quantity.ts";

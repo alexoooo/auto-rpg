@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../math/vector.ts";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import { centreOfToRef } from "../read-motion.ts";
 import { norm } from "../math/real.ts";

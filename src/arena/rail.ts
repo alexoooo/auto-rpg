@@ -7,7 +7,7 @@
  * and a blow moves it only until the rail takes it back. The body is sensed, struck and read as any
  * body is: the striker's mind and the drill's reader see a body that moves, nothing else.
  */
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { centreOfToRef } from "../core/read-motion.ts";
 import { cos, sin } from "../core/math/real.ts";

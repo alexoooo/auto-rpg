@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../math/vector.ts";
 import type { ReadBody } from "../read-body.ts";
 import type { Clock } from "../clock.ts";
 import { bodyEffectors, type EffectorModel } from "../control/effectors.ts";

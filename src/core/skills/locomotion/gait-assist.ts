@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "../../math/vector.ts";
 import type { Assist } from "../../control/assist.ts";
 import type { BodyView } from "../../body.ts";
 import { cos, sin } from "../../math/real.ts";

@@ -5,7 +5,7 @@
  * (`risingReport`). `research/rising-bed.mjs` runs them on workers; the fall evaluations
  * (`rising-target`, `equipped-rise`) play the same falls through `fall.ts`.
  */
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../core/math/vector.ts";
 import { commandedBody } from "../core/mind/host.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";

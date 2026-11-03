@@ -1,5 +1,5 @@
 /** A swing's way along its path, by its progress in time (`swingProgressToRef`). */
-import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Vector3 } from "../math/vector.ts";
 import { hypot } from "../math/real.ts";
 
 /**

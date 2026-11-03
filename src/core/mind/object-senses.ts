@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../math/vector.ts";
 import type { SegmentBody } from "../engine/engine.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "../src/core/math/vector.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { predictor } from "../src/core/option/percepts.ts";
@@ -11,7 +11,7 @@ test("recovery retains an opportunity cost against a foe with no modelled hand a
   const cost = (seconds, stands) => {
     reading.reset({ spec, hz: 120, rules: rulebook("arena"), strikes: [], measured: [],
       focus: { spec: foe, centre: new Vector3(0, 0.3, 1), segments: new Map(), down: false, time: 0 },
-      sight: { view: { head: new Vector3(0, 1.7, 0), stance: { centre: Vector3.Zero() },
+      sight: { view: { head: new Vector3(0, 1.7, 0), stance: { centre: new Vector3() },
         senses: { life: 1 }, time: 0.15 }, report: { ledger: [], actions: [] } },
       riseFrom: () => ({ seconds, stands, shelter: 0 }) });
     return reading.predictions.downCostAt("back");
