@@ -110,12 +110,21 @@ function unknownShape(shape: never): never {
   throw new Error(`no lowest point of a ${JSON.stringify((shape as { kind?: unknown }).kind)}`);
 }
 
-/** A segment as the reading takes it: its mass, and its centre and its shape's points from its node, in the reference pose's axes. */
+/**
+ * A segment as the reading takes it: its mass, and its centre and its shape's points from its node,
+ * in the reference pose's axes, each point four numbers: where, and how far its shape reaches around it.
+ */
 interface Part {
   readonly segment: ReadSegment;
   readonly mass: number;
   readonly centre: Vector3;
-  readonly lows: readonly { readonly from: Vector3; readonly radius: number }[];
+  readonly lows: Float64Array;
+}
+
+/** The height of (`vx`, `vy`, `vz`) turned by (`qx`, `qy`, `qz`, `qw`): the y `Vector3.applyRotationQuaternionToRef` writes, its sums in its order. */
+function turnedY(qx: number, qy: number, qz: number, qw: number, vx: number, vy: number, vz: number): number {
+  const tx = 2 * (qy * vz - qz * vy), ty = 2 * (qz * vx - qx * vz), tz = 2 * (qx * vy - qy * vx);
+  return vy + qw * ty + qz * tx - qx * tz;
 }
 
 /** Numbers a part's pose is kept in (`readUprightness`): its node's position and turn. */
@@ -143,18 +152,23 @@ function readUprightness(built: ReadBody): Uprightness {
   for (const segment of built.segments.values()) {
     const origin = segment.frame.origin, centre = segment.rigid.centre, lows = lowsOf(segment.spec.shape, segment.frame);
     const from = (p: Vec3): Vector3 => new Vector3(p[0] - origin[0], p[1] - origin[1], p[2] - origin[2]);
+    const packed = (points: readonly Low[]): Float64Array => {
+      const made = new Float64Array(4 * points.length);
+      points.forEach((low, k) => { made[4 * k] = low.at[0] - origin[0]; made[4 * k + 1] = low.at[1] - origin[1]; made[4 * k + 2] = low.at[2] - origin[2]; made[4 * k + 3] = low.radius; });
+      return made;
+    };
     mass += segment.rigid.mass;
     moment += segment.rigid.mass * centre[1];
     for (const low of lows) lowest = Math.min(lowest, low.at[1] - low.radius);
-    const base = lows.map((low) => ({ from: from(low.at), radius: low.radius }));
+    const base = packed(lows);
     const poses = segment.poses && Object.fromEntries((Object.keys(segment.poses) as HandPose[]).map(name =>
-      [name, lowsOf(segment.poses![name].shape, segment.frame).map(low => ({ from: from(low.at), radius: low.radius }))]));
+      [name, packed(lowsOf(segment.poses![name].shape, segment.frame))]));
     parts.push({ segment, mass: segment.rigid.mass, centre: from(centre),
       get lows() { return poses && segment.handPose ? poses[segment.handPose.applied]! : base; } });
   }
   if (parts.length === 0) throw new Error(`${built.spec.model} has no segment to stand on`);
   const standing = moment / mass - lowest;
-  const turn = new Quaternion(), at = new Vector3();
+  const turn = new Quaternion();
   const down = downRule(built, built.spec.down, standing, () => height());
   /** The centre of mass's height, world, and the lowest point's, read now. */
   const levels = { centre: 0, low: 0 };
@@ -162,7 +176,7 @@ function readUprightness(built: ReadBody): Uprightness {
    * The pose `levels` were read in: each part's node's position and turn, seven numbers a part,
    * and the points it read (`Part.lows`, by its hand's pose). A read in that pose answers them again.
    */
-  const pose = new Float64Array(parts.length * POSE), lows: (readonly Part["lows"][number][] | null)[] = parts.map(() => null);
+  const pose = new Float64Array(parts.length * POSE), lows: (Float64Array | null)[] = parts.map(() => null);
   /** Each part's lowest point, world, as `levels` were read. */
   const partLow = new Float64Array(parts.length);
   const samePose = (): boolean => {
@@ -181,9 +195,10 @@ function readUprightness(built: ReadBody): Uprightness {
       pose[i] = p.x; pose[i + 1] = p.y; pose[i + 2] = p.z; pose[i + 3] = q.x; pose[i + 4] = q.y; pose[i + 5] = q.z; pose[i + 6] = q.w;
       lows[k] = points;
       turnOfToRef(part.segment, turn);
-      high += part.mass * (part.centre.applyRotationQuaternionToRef(turn, at).y + p.y);
+      const qx = turn.x, qy = turn.y, qz = turn.z, qw = turn.w, c = part.centre;
+      high += part.mass * (turnedY(qx, qy, qz, qw, c.x, c.y, c.z) + p.y);
       let own = Infinity;
-      for (const point of points) own = Math.min(own, point.from.applyRotationQuaternionToRef(turn, at).y + p.y - point.radius);
+      for (let n = 0; n < points.length; n += 4) own = Math.min(own, turnedY(qx, qy, qz, qw, points[n]!, points[n + 1]!, points[n + 2]!) + p.y - points[n + 3]!);
       partLow[k] = own;
       low = Math.min(low, own);
     }
