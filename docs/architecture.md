@@ -463,18 +463,26 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   and admitted where it lands (`research/punch-policy-check.mjs`). A body with no record does not
   throw it (`punch-part.ts`); a mind carries no punch settings, and an experiment's research
   `tuning` sets them over the record's, with no network steering.
-- **Held blows** (`held-blow.ts`, `HELD_BLOWS`): the club blow, the sword's cut and its thrust,
-  each the straight punch's drive thrown with the face of what the hand holds (`StrikingFace`,
-  `faceOf`: a blunt item's aimed point facing the hand's length, a directed region's point facing
-  its direction), the arm's contact pose solved with that face along the line to the target and
-  the hand gripping. Each is its own executor part (`club-blow`, `sword-cut`, `sword-thrust`) that
-  strikes with a hand holding its item and names the mechanism it meets with (`ExecutorPart.meets`,
-  which the Strike drill reads as the blow's face, `StrikeHit.faced`). Its settings and network are
-  its body's record (`HeldBlowRecord`, `assets/core/<kind>.json`, written by
-  `research/punch-export.mjs`), its steer laid out by `assets/core/<kind>.layout.json` (the
-  punch's with the wrist), read at its face's striking point. A held face's arm is solved from its
-  guard each step, and its chamber may lie behind the shoulder (a negative `chamber`, the blow
-  drawn back). A held face is not `fire`d (`faceFault`): it reads the fist.
+- **Held blows**: each thrown as its item is used, with the face of what the hand holds
+  (`StrikingFace`, `faceOf`: a blunt item's aimed point facing the hand's length, a directed
+  region's point facing its direction). Each is its own executor part that strikes with a hand
+  holding its item and names the mechanism it meets with (`ExecutorPart.meets`, which the Strike
+  drill reads as the blow's face, `StrikeHit.faced`); a body with no record of it does not throw it.
+  - **Driven** (`held-blow.ts`, `HELD_BLOWS`): the sword's thrust (`sword-thrust`), the straight
+    punch's drive thrown point first, the arm's contact pose solved with the face along the line to
+    the target. Its settings and network are its body's record (`HeldBlowRecord`,
+    `assets/core/<kind>.json`, written by `research/punch-export.mjs`), its steer laid out by
+    `assets/core/<kind>.layout.json` (the punch's with the wrist), read at its face's striking
+    point. A held face's arm is solved from its guard each step, and its chamber may lie behind the
+    shoulder (a negative `chamber`, the blow drawn back). A held face is not `fire`d
+    (`faceFault`): it reads the fist.
+  - **Swung** (`swing.ts`, `swing-part.ts`, `SWINGS`): the sword's cut (`cut`, edge first) and the
+    club's blow (`club-blow`, its head, blunt). Admitted where its window says (`strikeWindow`,
+    `strike-window.ts`), it winds the trunk and the striking arm to its record's angles
+    (`Swing.wound`), stands quiet there, then pushes each channel its schedule names flat out over
+    its window (`TimedPush`, `timed-push.ts`, which the drive's schedule shares), and returns to the
+    guard. Its settings are its body's record (`assets/core/<kind>.json`), searched on the Strike
+    drill (`research/swing-drill.mjs`).
 - **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
   `skills/guard/guard-part.ts`, a line in `GUARDS`, `skills/guard/guards.ts`) whose posture is the one source of
   the arms' rest: where the body is built, where the arbiter puts the arms no skill holds, and where
@@ -1834,7 +1842,7 @@ sides met with. These seams keep control separate from the contact and damage ru
 
 | Added | Where it goes | What it leaves alone |
 |---|---|---|
-| **A sword, a spear** | Item regions state directed edge or point surfaces, priced on impact; `sword-cut` and `sword-thrust` execute them. A spear needs its own item. | The shares, the pool, the targets. |
+| **A sword, a spear** | Item regions state directed edge or point surfaces, priced on impact; `cut` swings the edge, `sword-thrust` drives the point. A spear needs its own item. | The shares, the pool, the targets. |
 | **The face and the vault** | Natural contact regions (`SegmentSpec.contacts`) give separate colliders and surfaces; teeth use this path. | The pool: one head. |
 | **Armour** | A worn item, rigid with its segment: it adds mass and one more surface in series (`energyShares` over the layers). A glove protects the puncher by the same rule. | The rule's shape. |
 | **A shield** | A held item with a face: the guard places its points (`ItemSpec.cover`) and orients its face; a bash is a blow. | The guard skill, the rule. |

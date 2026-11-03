@@ -21,8 +21,8 @@ const STOMP: ExecutorEntry = deepFreeze({ name: "stomp", kind: "stomp" });
 const STOMP_ACTION: ActionConfig = deepFreeze({ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }],
   aim: { kind: "centre", lead: 0 } });
 
-/** The held blows, each as its body's record has it (`assets/core/<kind>.json`): the club's, the sword's cut and its thrust. */
-const HELD_BLOWS: readonly ExecutorEntry[] = deepFreeze((["club-blow", "sword-cut", "sword-thrust"] as const).map((kind) => ({ name: kind, kind })));
+/** The held blows, each as its body's record has it (`assets/core/<kind>.json`): the club's swing, the sword's cut and its thrust. */
+const HELD_BLOWS: readonly ExecutorEntry[] = deepFreeze((["club-blow", "cut", "sword-thrust"] as const).map((kind) => ({ name: kind, kind })));
 
 /** **The held blows**: each with the hand that holds its item, aimed at the trunk's opening as the straight punch is. */
 const HELD_BLOW_ACTIONS: readonly ActionConfig[] = deepFreeze(HELD_BLOWS.map(({ name }) => ({ ...STRAIGHT_PUNCH_ACTION, name, executor: name })));

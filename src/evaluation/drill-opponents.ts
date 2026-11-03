@@ -53,7 +53,7 @@ export const DRILL_OPPONENTS: Readonly<Record<string, DrillOpponent>> = deepFree
   "drill-guard": { label: "Drill: guard", mind: GUARDS },
   "drill-punch": { label: "Drill: punch on a rhythm", mind: PUNCHES, commander: beats(RHYTHM) },
   "drill-club": { label: "Drill: club on a rhythm", mind: striking(["club-blow"]), commander: beats(RHYTHM) },
-  "drill-sword": { label: "Drill: sword on a rhythm", mind: striking(["sword-cut", "sword-thrust"]), commander: beats(RHYTHM) },
+  "drill-sword": { label: "Drill: sword on a rhythm", mind: striking(["cut", "sword-thrust"]), commander: beats(RHYTHM) },
   "drill-press": { label: "Drill: press forward", mind: MOVES, commander: beats([{ seconds: 1, move: { kind: "range", near: .5, far: .7 } }]) },
 });
 

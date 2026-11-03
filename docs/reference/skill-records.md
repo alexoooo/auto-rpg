@@ -14,8 +14,8 @@ searches' readings.
 | Stomp | toed Skeleton | the Warrior's, scaled by stature: a seed, not searched; lands on nothing |
 | Path strike | toed Warrior | `ATTACK_PATH`, the flat-footed Warrior's search cells ([combat strikes](combat-strikes.md#trajectory-settings)) |
 | Blade cut, blade thrust | toed Warrior | `BLADE_STRIKE`, set by hand with the short sword's actions and read by the blade task |
-| Club blow | toed Warrior | searched on the Strike drill's still rung, steered by PPO ([held blows](held-blows.md#the-club-steered)) |
-| Sword cut, sword thrust | toed Warrior | the straight punch's schedule, set by hand ([held blows](held-blows.md)) |
+| Club blow | toed Warrior | its swing searched on the Strike drill's still rung ([held blows](held-blows.md#the-club-swing)) |
+| Sword thrust | toed Warrior | its schedule searched on the Strike drill's still rung ([held blows](held-blows.md#the-thrust)) |
 | Blade cut, blade thrust | toed Rogue, toed Skeleton | searched on the blade task ([below](#the-blades)) |
 
 No other body has a row: the path strike, the straight punch and the held blows are the Warrior's
