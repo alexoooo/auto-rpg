@@ -3,6 +3,7 @@ import { rigidOf, rigidPoints } from "../build/rigid.ts";
 import { frameOf, type BodySpec, type SegmentSpec, type ShapeSpec, segmentOf } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, scale, sub } from "../spec/vec.ts";
+import { bodyClearance } from "./sensed-bounds.ts";
 
 type Point = { readonly x: number; readonly y: number; readonly z: number };
 type Turn = Point & { readonly w: number };
@@ -63,5 +64,49 @@ export function heldClearance(spec: BodySpec): (view: Sight) => number {
       }
     }
     return radius;
+  };
+}
+
+/**
+ * **How far ahead of its centre of mass a body stands out along a ground direction**, m, as it
+ * stands now: the farthest of its limbs' ends (each effector's segment, its own colliders, what it
+ * holds left out), no less than its trunk's clearance (`bodyClearance`).
+ */
+export function bodyAhead(spec: BodySpec): (view: Sight, ax: number, az: number) => number {
+  const trunk = bodyClearance(spec);
+  const limbs = (spec.effectors ?? []).map(effector => {
+    const segment = segmentOf(spec, effector.segment);
+    const anchor = segment && rigidPoints(spec, segment).get(effector.point)?.value;
+    if (!segment || !anchor) throw new Error(`${spec.model}: a limb's end needs its segment and its point ${effector.point}`);
+    const rigid = rigidOf(spec, segment), offsets: number[] = [], radii: number[] = [];
+    rigid.shapes.forEach((shape, index) => {
+      const owner = rigid.owners[index]!.kind;
+      if (owner !== "segment" && owner !== "region") return;
+      const support = supportOf(shape, segment);
+      for (const point of support.points) { offsets.push(...sub(point, anchor)); radii.push(support.radius); }
+    });
+    return { name: effector.segment, anchor: effector.point, offsets: Float64Array.from(offsets), radii: Float64Array.from(radii) };
+  });
+  return (view, ax, az) => {
+    let ahead = trunk;
+    const root = view.root;
+    if (!root) return ahead;
+    const r = root.rotation, cx = view.stance.centre.x, cz = view.stance.centre.z;
+    for (const limb of limbs) {
+      const observed = view.effectors?.[limb.name], anchor = observed?.points[limb.anchor];
+      if (!observed || !anchor) continue;
+      const q = observed.rotation;
+      for (let n = 0; n < limb.radii.length; n++) {
+        const vx = limb.offsets[3 * n]!, vy = limb.offsets[3 * n + 1]!, vz = limb.offsets[3 * n + 2]!;
+        // Turned by the limb's quaternion, then by the root's: v + w t + q × t, t = 2 q × v.
+        let tx = 2 * (q.y * vz - q.z * vy), ty = 2 * (q.z * vx - q.x * vz), tz = 2 * (q.x * vy - q.y * vx);
+        const sx = vx + q.w * tx + (q.y * tz - q.z * ty) + anchor.x, sy = vy + q.w * ty + (q.z * tx - q.x * tz) + anchor.y,
+          sz = vz + q.w * tz + (q.x * ty - q.y * tx) + anchor.z;
+        tx = 2 * (r.y * sz - r.z * sy); ty = 2 * (r.z * sx - r.x * sz); tz = 2 * (r.x * sy - r.y * sx);
+        const wx = sx + r.w * tx + (r.y * tz - r.z * ty) + root.position.x, wz = sz + r.w * tz + (r.x * ty - r.y * tx) + root.position.z;
+        ahead = Math.max(ahead, (wx - cx) * ax + (wz - cz) * az + limb.radii[n]!);
+      }
+    }
+    return ahead;
   };
 }
