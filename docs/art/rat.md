@@ -55,11 +55,14 @@ in the script, kept in `.cache/art/downloads/street_rat/`), and writes `rat.glb`
 | --- | --- |
 | trunk | a capsule rump to shoulders at the back's height, its radius the body's half height |
 | head | a capsule behind the eyes to the snout; the neck where it leaves the shoulders |
-| jaw | the hinge under the ear to the lower incisors; the reptile's teeth and mouth, scaled and tipped onto them |
+| jaw | the hinge under the ear to the lower incisors; the authored quadruped's teeth and mouth, scaled and tipped onto them |
 | head and jaw raised | .5 rad about the neck (`HEAD_RAISE`): the art holds its mouth about .05 m off the floor, where the jaw, opened to the bite's gape, drops the incisors into it; raised, the mouth stands at about .17 m and the open incisors .09 m clear |
 | legs | the shoulder or hip, elbow or knee and wrist or ankle where the legs bend, stretched to stand the body .08 m higher; bending about x |
-| paws | under the ankles, the reptile's footprint (0.075 by 0.1 m), wider than the art's paws |
+| paws | under the ankles, the authored quadruped's footprint (0.075 by 0.1 m), wider than the art's paws (about 0.04 by 0.08 m) |
 | tail | two capsules, root to the taper's end and on to the tip |
 
-Joint ranges and the teeth are the reptile's; the legs' muscles and the head's and tail's weights
-the rat's own: [the rat](../reference/reptile.md#the-rat).
+What the art does not give is the authored quadruped's (`assets/quadruped/authored-body.json`,
+`rat-anatomy` in `src/core/sources.ts`): masses, torques, joint ranges, the teeth and the paw
+footprint. The rat's own are the hips' second and third axes (±1.6 rad), the bends (±1.2 rad), the
+legs' muscles, the neck's torque (scaled by the head and jaw's lever) and the head's and tail's
+weights: [the rat](../reference/reptile.md#the-rat).

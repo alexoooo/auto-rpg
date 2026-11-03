@@ -15,7 +15,7 @@ import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetReso
 import { footEnd, type LegsGoal } from "../framework/skill.ts";
 import { withinActionWindow } from "../../intent/action-window.ts";
 import { otherSide, segmentOf } from "../../spec/body.ts";
-/** The stomp's settings where its body's record leaves them: `docs/reference/front-kicks.md#execution-settings`. */
+/** The stomp's settings: the keys every body's record holds, each record whole, and the values the records share outside each body's stroke and window: `docs/reference/front-kicks.md#execution-settings`. */
 export const STOMP_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
   lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, brace: 0, soleTurn: .2,
   prepareLimit: 4, returnLimit: 2, near: .04, returnNear: .04, hover: .08, slow: .3, hold: .05, followSeconds: .04,

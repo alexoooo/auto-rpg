@@ -18,4 +18,5 @@ external dependency or persistent solver memory in the kernel. Its floating-poin
 is calculated by the original finite doubling procedure. The calling module keeps its cold-start candidates
 in explicit state and checks residuals against caller-supplied tolerances.
 
-This is optional control machinery. It does not change the physical body's action contract.
+This is research machinery: only `research/contact-friction.mjs` reaches it, through
+`activeQuadratic` (`src/core/math/active-quadratic.ts`). Nothing in the game calls it.

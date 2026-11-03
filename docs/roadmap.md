@@ -69,6 +69,8 @@ Footwork's rungs, the Commander in the Crypt with Option Mind as its hero.
   under 50 KiB a body a step beyond Rapier's ([step cost](reference/step-cost.md)).
 - The bout's and the Crypt run's world builders sit among their screens' files; the Lab's
   scenarios reach the page's render.
+- The table judges the Skeleton's stand-up on 16 falls (`verdictOf`), where its readings hold 14
+  or 15: the cell cannot be met.
 - One notion of a task across evaluations, the Lab and the Ratings; the Ratings reel plays bout
   cases only.
 - The orders vocabulary is closed: a new kind of order edits `Orders`, `isOrders`, `Command` and

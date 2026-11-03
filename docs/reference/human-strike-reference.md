@@ -178,7 +178,15 @@ the same density.
 
 For the core's human joints (`src/core/human/joints.ts`, `muscle.ts` and `tables/`). Every figure
 here is from Node on the spec alone (no engine), unless it says otherwise. The Warrior's and
-Rogue's columns of tables 9.2 and 9.4 are what `modelSpec` (`src/core/models.ts`) builds.
+Rogue's columns of tables 9.2 and 9.4 are the measured peaks and ranges, before what `modelSpec`
+(`src/core/models.ts`) sets over them:
+
+- **The legs' peaks in use** (`IN_USE`, `src/core/human/muscle.ts`): every hip exertion ×2.49,
+  the knee's ×1.58, the ankle's plantar flexion ×2.75.
+- **The Rogue's elbow extension** ×2 (`WORKSHOP_EXERTIONS`, `src/core/human/attributes.ts`).
+- **A toed foot's dorsiflexion** (`toedFigure`, `src/core/human/toes.ts`; both bodies' feet are
+  toed): it stops at `TOED_DORSIFLEXION`, 0.8 rad past the reference pose
+  (`src/core/human/joints.ts`), in place of the measured range.
 
 ### 9.1 A model's torque comes from its muscle
 

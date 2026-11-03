@@ -6,7 +6,7 @@ MakeHuman/MPFB CC0 anatomy, skin textures, hair, eyes and rig weights; their clo
 boots, weapons, equipment fitting and preview motion are this project's work. They reach the game
 through shared generated geometry and textures. The workshop descriptor adds authored preview
 motion; gameplay moves the same rig through physics. The [asset pipeline](assets.md) owns web
-delivery. The reptile and the rat are drawn from scans of their own: [the reptile](reptile.md), [the rat](rat.md).
+delivery. The reptile and the rat are drawn from their own sources: [the reptile](reptile.md), [the rat](rat.md).
 
 The shared Blender export (`scripts/art/blender.py`) fits each boot's toe box to the bare foot's
 toe, stretching only vertices ahead of the ball. The heel, ankle, cuff and skin weights keep their
@@ -22,10 +22,11 @@ authored fit. World views and the character workshop use that same exported geom
 | lossless cached GLBs | `npm run assets` | inspection and measurement scripts, `node scripts/fingerprint.mjs --character` |
 | `assets/humanoid/skin-bounds.json` | exact skin tops transcribed from the lossless source accessors | `src/core/human/model.ts` |
 | `assets/humanoid/workshop-fighter.json`, `workshop-rogue.json` | `scripts/humanoid/export-workshop.py` | the core's rig (`src/core/human/rig.ts`), the skins |
-| `assets/humanoid/workshop-*-trunk-hull.json` | `node scripts/core/workshop-envelope.mjs --write`, from the humanoid GLBs | the core's envelope (`src/core/human/envelope.ts`) |
+| `assets/humanoid/workshop-*-trunk-hull.json` | `node scripts/core/workshop-envelope.mjs --write`, from the lossless cached GLBs (`losslessModelPath`, `scripts/art/paths.mjs`) | the core's envelope (`src/core/human/envelope.ts`) |
+| `assets/humanoid/workshop-*-hands.json` | `node scripts/core/hand-envelope.mjs --write` | the core's hands (`src/core/human/hands.ts`) |
 
-The rig JSON, skin bounds and trunk hulls are `SOURCES` entries (`src/core/sources.ts`). The core
-reads this exact metadata; compressed web assets never supply anatomical measurements.
+The rig JSON, skin bounds, trunk hulls and hands are `SOURCES` entries (`src/core/sources.ts`).
+The core reads this exact metadata; compressed web assets never supply anatomical measurements.
 
 ## Building the workshop models
 
@@ -108,8 +109,13 @@ The surface index's cell is `CELL`, 0.12 m, which changes how fast it answers an
 models, at three frames of every clip: a change to the checks that is meant to change nothing
 leaves it as it was.
 
-With a server running, and Playwright fetched for the run (it is not a dependency); every script
-launches Microsoft Edge (`channel: 'msedge'`):
+With a server on the script's port, and Playwright fetched for the run (it is not a dependency);
+every script launches Microsoft Edge (`channel: 'msedge'`). Without a URL, a script opens
+`http://127.0.0.1:5183/character-lab.html` (`browser-check.mjs`, `visual-review.mjs`,
+`realistic-grips.mjs`) or port 5182 (`anatomy-review.mjs`, `grip-review.mjs`): after
+`npm run build`, serve that port with
+`npm run preview -- --port <port> --strictPort --host 127.0.0.1`, and stop the preview by its PID
+after.
 
 - `npm exec --yes --package=playwright -- node scripts/character-lab/browser-check.mjs URL`: every
   loadout and animation sample, retained loadouts, orbit and zoom, grip framing, browser errors and

@@ -1,8 +1,13 @@
 # The stomp's settings
 
-The stomp's executor (`stompExecutor`, `src/core/skills/strikes/stomp.ts`) takes each setting
-from its body's record (`assets/core/stomp.json`) and, where the record leaves one, from
-`STOMP_PATH`. A body with no record throws no stomp.
+The stomp's executor (`stompExecutor`, `src/core/skills/strikes/stomp.ts`) takes its settings
+from its body's record (`assets/core/stomp.json`, by `bodyKey`), and each record is whole: it holds
+every key `STOMP_PATH` names (`research/skill-records.mjs` writes no other). A body with no record
+throws no stomp (`recordFault`, `src/core/skills/framework/records.ts`), unless an experiment's
+research `tuning` is whole in its place (`wholeStomp`, `stomp-part.ts`); a research `tuning` sets
+settings over the record's (`tunedSettings`). `STOMP_PATH`'s values are the ones the records share
+outside [stomp settings](#stomp-settings); a search starts from a body's record, or the Warrior's
+where it has none (`research/skill-search.mjs`).
 
 ## Execution settings
 
@@ -44,17 +49,27 @@ steps to catch the body. A deadline ends it as `stalled`.
 
 ## Stomp settings
 
-The toed Warrior's row of `assets/core/stomp.json` changes these settings from `STOMP_PATH`; the
-rest are its. They are set for a blow down on a body lying ahead, read on the Strike drill's
-`stomping` rung (Node stand, Rapier, 120 Hz).
+Each toed body's row of `assets/core/stomp.json` differs from `STOMP_PATH` in these settings and
+agrees with it in the rest. Each is set for a blow down on a body lying ahead: its stroke and window
+(`contactSpeed`, `swingSeconds`, `chamberSeconds`, `lift`, `over`, `alongNear`, `alongFar`, and the
+Warrior's and the Rogue's `brace`) searched on the Strike drill's `stomping` rung
+(`research/skill-search.mjs`, each row's `made`), the Rogue's and the Skeleton's `across` and
+`returnNear` the Warrior's scaled by their stature.
 
-| Setting | Value | Why |
-| --- | ---: | --- |
-| over | 0.95 | The chamber over the target, so the stroke comes down on it |
-| windup / soleTurn | 0 m / 0 | A stroke straight down, the sole level with the pelvis: a turned sole meets the trunk with its toes |
-| lift | 0.63 m | A long stroke down, short of where the chamber leaves the hip's reach |
-| top | 0.4 | The height band low over the sole: a lying body's trunk, never a standing one's |
-| alongNear / alongFar / across | 0.55 / 0.8 / 0.2 m | The nearest places where both feet stand clear of a lying Warrior's splayed limbs |
-| contactSpeed / swingSeconds / chamberSeconds | 8.04 m/s / 0.29 s / 0.76 s | A fast stroke with the leg braced |
-| brace | 0.076 s | Braced before contact, more mass is behind the foot: the Warrior's blows at a lying Warrior carry 15 to 52 J, against 9.7 to 26.6 J braced at contact alone |
-| returnNear | 0.1 m | The leg comes to rest 0.04 to 0.08 m from the chamber after a blow; nearer, returns stall |
+| Setting | Warrior | Rogue | Skeleton | Why |
+| --- | ---: | ---: | ---: | --- |
+| over | 0.9496 | 1 | 1 | The chamber over the target, so the stroke comes down on it |
+| windup / soleTurn | 0 m / 0 | 0 m / 0 | 0 m / 0 | A stroke straight down, the sole level with the pelvis: a turned sole meets the trunk with its toes |
+| lift | 0.6329 m | 0.8025 m | 0.7962 m | A long stroke down, short of where the chamber leaves the hip's reach |
+| top | 0.4 | 0.4 | 0.4 | The height band low over the sole: a lying body's trunk, never a standing one's |
+| alongNear / alongFar | 0.55 / 0.8 m | 0.4653 / 0.8895 m | 0.6217 / 0.7217 m | Where the target lies ahead of the stomping sole: places where both feet stand clear of a lying body's splayed limbs |
+| across | 0.2 m | 0.184 m | 0.1831 m | How far to either side of the sole the target may lie |
+| contactSpeed / swingSeconds / chamberSeconds | 8.0377 m/s / 0.2927 s / 0.7616 s | 10.4386 m/s / 0.2596 s / 0.6935 s | 6.3614 m/s / 0.2939 s / 0.5454 s | A fast stroke down |
+| brace | 0.0756 s | 0.1193 s | 0 s | Braced before contact, more mass is behind the foot |
+| returnNear | 0.1 m | 0.092 m | 0.0915 m | The leg comes to rest short of the chamber after a blow; a nearer mark stalls the return |
+
+**Measurement** (the Strike drill's `stomping` rung; Node, core world, `rapier-coordinate`,
+120 Hz, each command 1 step late): the Warrior's blows at a lying Warrior carry 15 to 52 J
+(`assets/evaluations/strike/2026-11-03T104717-90bdd549-cd2a4372.jsonl`). Braced at contact alone
+and with a slower stroke (`brace` 0, `contactSpeed` 7 m/s, `swingSeconds` 0.25 s, `chamberSeconds`
+0.6 s, `lift` 0.7 m, `over` 1), they carry 9.7 to 26.6 J (`assets/evaluations/strike/2026-11-03T080057-cf337055-27c071e6.jsonl`).

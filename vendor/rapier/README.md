@@ -9,7 +9,7 @@ here from Rapier's source at commit `b716d375efc0201003f0cd9ef7168eee0b62c177`
   revision, `REVISION` in `src/core/engine/rapier.ts`, is `adapter-12` and that hash: a snapshot
   loads only into the package and adapter that wrote it.
 - `package.json` and the lockfile name the archive, with SHA512 integrity from its bytes;
-  `npm ci --offline --no-audit --no-fund` installs it. Rust is needed only to rebuild.
+  `npm ci` installs it. Rust is needed only to rebuild.
 - `node research/rapier-package-parity.mjs --reference <unpacked npm 0.21.0 package>` plays three
   arena recipes on stock Rapier and on this package and compares their digests.
 
@@ -101,13 +101,17 @@ pinned commit. The script resets only a work tree bearing its own marker and ref
 source directory or an existing unmanaged tree. Do not use a development checkout as its work tree.
 The script remaps diagnostic source and Cargo paths, writes the declarations with LF, and uses the
 metadata wrapper for the WASM build; all are needed to reproduce its bytes in another directory.
-A build elsewhere reproduces the archive's hash before it replaces the archive.
+`build.sh` checks no hash, and at an unchanged `VERSION` it packs over the committed archive. A
+reproduction is checked by hand: build, compare the archive's SHA256 (`sha256sum`) with the one
+above, and commit only an archive whose hash matches; otherwise restore the archive from Git.
 
 ## Changing it
 
 1. Change Rapier in the work tree's clone (or a clone of your own at the tag), and write the patch
    again: `git diff js-v0.21.0 > <repo>/vendor/rapier/auto-rpg.patch`.
-2. Raise `VERSION` in `build.sh` (`0.21.0-auto-rpg.N`), and run it.
+2. Raise `VERSION` in `build.sh` (`0.21.0-auto-rpg.N`), and run it. Set `REVISION` in
+   `src/core/engine/rapier.ts` (`rapier/adapter-<n>/sha256:<archive hash>`) to the new archive's
+   SHA256, and this README's package and hash with it.
 3. Point `package.json` at the new tarball. Update the matching root dependency and installed
    package record in `package-lock.json`, including the tarball's SHA512 integrity, then run
    `npm ci`. Remove an old archive only once nothing references it.
@@ -115,5 +119,6 @@ A build elsewhere reproduces the archive's hash before it replaces the archive.
    an arena bout's digest (`playBout(recipe, seconds).digest`, `research/bout.mjs`) before and
    after.
 
-Taking a new Rapier is the same with `TAG` and `REVISION` raised: the patch is applied to it, and where it no
-longer applies it is made again by hand. Nothing upstream reaches the game until then.
+Taking a new Rapier is the same with `build.sh`'s `TAG` and `REVISION` set to the new tag and its
+commit: the patch is applied to it, and where it no longer applies it is made again by hand.
+Nothing upstream reaches the game until then.

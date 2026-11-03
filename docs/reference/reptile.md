@@ -64,9 +64,9 @@ scales with the head and jaw's weighted lever about it, as the rat's does.
 The rat (`assets/rat/body.json`, `rat-anatomy` in `SOURCES`) is fitted to Poly Haven's Street Rat
 (`scripts/rat/fit.mjs`, [its art](../art/rat.md#the-body-fitted-to-the-art)): its trunk, head,
 jaw, legs and tail where the art's are. Its teeth, paw footprint (.075 by .1 m) and joint ranges
-are the authored quadruped's, but for its hips', knees' and elbows' ranges (the table below); its
-controller settings are the reptile's, but for its righting ([righting](#righting)). Its own, for
-a trot at 1 m/s ([the trot at speed](#the-trot-at-speed)):
+are the authored quadruped's, but for its girdles' (hips' and shoulders'), knees' and elbows'
+ranges (the table below); its controller settings are the reptile's, but for its righting
+([righting](#righting)). Its own, for a trot at 1 m/s ([the trot at speed](#the-trot-at-speed)):
 
 - **Legs raised .08 m** (`LEG_RAISE`, `scripts/rat/landmarks.mjs`): each leg stretched along its
   upper and lower bones from its shoulder or hip, its paw on the floor, the trunk, head and tail
@@ -90,7 +90,7 @@ a trot at 1 m/s ([the trot at speed](#the-trot-at-speed)):
 | Paw soles, across the body | ±.26 m | fore ±.076, hind ±.086 m |
 | Elbow (fore) and knee (hind) | out to the side, bending about the body's z axis, -.2 to 2.8 rad | behind (fore) and ahead (hind) of the paw, bending about the body's x axis, ±1.2 rad |
 | Bend at the reference pose, upper to lower leg | | 1.77 rad fore, 1.55 rad hind |
-| Girdle's second axis (y) | ±1.2 rad | ±1.6 rad |
+| Girdle's second axis (x) | ±1.2 rad | ±1.6 rad |
 | Girdle's third axis (z) | ±2.8 rad | ±1.6 rad, the range its righting needs to lever it off its side |
 
 ### Fast legs
