@@ -1032,7 +1032,7 @@ holds the body through its climb (`stanceSteady`, `ground/steady.ts`): the sit-b
 climb are one stand-up; the steady option climbs only a body quiet on its feet (`steadying`).
 
 **Mind data loads per use** (`src/core/data/store.ts`). Each skill's records
-(`assets/core/straight-punch.json`, `stomp.json`, `club-blow.json`, `sword-cut.json`, `sword-thrust.json`) and each kind of profile are a module of its own in
+(`assets/core/straight-punch.json`, `stomp.json`, `club-blow.json`, `cut.json`, `sword-thrust.json`) and each kind of profile are a module of its own in
 `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. What a key's data is, its reader declares
 (`DataOf`, added to by `skills/framework/profile.ts`, `skills/strikes/punch-records.ts` and the

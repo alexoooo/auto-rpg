@@ -107,18 +107,24 @@ before it asks.
   (0.3 to 0.5 / 0.55 to 0.75 m), whose blows with the knee bent 43 to 66 degrees reached 47 to 126 J,
   but where 2 to 3 trials of 12 fell and 2 to 10 never reached the window.
 
-**The toed Warrior's stomp on a target laid down** (Node, the bout world, Rapier, 120 Hz, one step
-late; `--confirm`'s 12 fresh trials from 0.9, 1 and 1.1 m, each foot at a Warrior and a Skeleton).
-Its row lands 6, 4 weak at 2.8 to 3.0 m/s against the 3 m/s bar, 2 refused, none fell; the landed
-blows 3.2 to 5.2 m/s. Before the rung laid its target down (`LAID`, `src/evaluation/strike/cases.ts`)
-it landed 4, 5 refused and 3 outside: limp from 1 m off, the Warrior folded where it stood and sat,
-its middle 0.70 m up, which the stomp's height band (`top`) refuses with either foot, and the
-walk to a body that had not come to rest went from one side of it to the other.
+**The toed Warrior's stomp on a target laid down** (`25d720b9`: Node, the bout world, Rapier, one
+step late, each body born facing as it was built; each foot at a Warrior and a Skeleton). Its row
+is the table's settings above. On the rung's 12 trials (0.8, 1 and 1.2 m) it lands 6, 3 weak, 1
+refused, 2 outside, none fell; on `--confirm`'s 12 fresh ones (0.9, 1 and 1.1 m) 8, 2 fell, 1
+weak, 1 refused at 120 Hz, and 5, 4 weak, at 480 Hz. The landed blows meet the foot's bar at 3.1
+to 6.9 m/s; the weak ones come at 1.8 to 2.9. Before the rung laid its target down (`LAID`,
+`src/evaluation/strike/cases.ts`) it landed 4 of the fresh 12, 5 refused and 3 outside: limp from
+1 m off, the Warrior folded where it stood and sat, its middle 0.70 m up, which the stomp's height
+band (`top`) refuses with either foot, and the walk to a body that had not come to rest went from
+one side of it to the other.
 
-- **Searched before the target was laid** (`research/skill-search.mjs stomp workshop-fighter`,
+- **Searched** before the target was laid (`research/skill-search.mjs stomp workshop-fighter`,
   CMA over contactSpeed, swingSeconds, lift, over, alongNear, alongFar and chamberSeconds, 10
-  generations of 16 on the rung's 8 trials from 0.8 and 1.2 m, 4.1 h): best 9.69; on the fresh
-  trials it landed 3 against the row's 4, so the row was kept.
+  generations of 16 on the rung's 8 trials from 0.8 and 1.2 m, 4.1 h, at `00e851dd`; best 9.69:
+  lift 0.773 m, over 0.961, alongNear / alongFar 0.489 / 0.927 m, chamberSeconds 0.654 s,
+  swingSeconds 0.257 s, contactSpeed 6.418 m/s). Read at `25d720b9` it lands 11 of the fresh 12, 1
+  fell (at 480 Hz 9, none fell), and 5 of the rung's 12, 1 fell, 2 outside, 2 refused: over the 24,
+  16 landed and 2 fell against the row's 14 and 2, within a trial's spread, so the row is kept.
 - **Tried and not kept**: the place beside a body lying chosen most nearly square across it, the
   walk's route only between its two sides, and held until that body or the target moves or the
   feet stop clearing it: 5 landed, 4 outside, 1 fell, against 6, none and none; the drill's spot
