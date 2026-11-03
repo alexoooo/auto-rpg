@@ -1,7 +1,7 @@
 # Roadmap
 
-Where the project is going, the plans in flight, what waits on the owner, and what is open, by
-layer. What is built is in the [architecture](architecture.md).
+Where the project is going and what is open. What is built is in the
+[architecture](architecture.md).
 
 ## Where the project is going
 
@@ -9,8 +9,7 @@ layer. What is built is in the [architecture](architecture.md).
   Arena and a generated Crypt. Every layer advances (framework, motor control, skills, tactics,
   command), each depending only on those below it ([the layers](architecture.md#the-layers)).
 - **Skills** in one shape, proved on drills the owner accepts, chosen by tactics from their entry
-  conditions and profiles ([Skills](architecture.md#skills)). A resized or stronger body is
-  measured again, not searched again.
+  conditions and profiles ([Skills](architecture.md#skills)).
 - **The fight is a black box**: at most two minutes, life draining from the first minute; nothing
   else ends or judges a bout.
 - **Real time**: a mind decides within its step from what it holds; search ahead is offline
@@ -19,8 +18,8 @@ layer. What is built is in the [architecture](architecture.md).
   running. **Items next**: weapons, shields, two-handed items, ranged weapons, armour.
 - **Assistance as attributes**, each metered against a ceiling the character's attributes set;
   **attributes** (size, weight, strength, speed, assists) so characters differ.
-- **Later**: an end-to-end learned controller on the muscles (`src/entrants/bare/` is its route);
-  a Ladder of Arena bouts; a Crypt party commanded by a person or an AI.
+- **Later**: an end-to-end learned controller on the muscles; a Ladder of Arena bouts; a Crypt
+  party commanded by a person or an AI.
 
 ## Plans in flight
 
@@ -41,7 +40,8 @@ Footwork's rungs, the Commander in the Crypt with Option Mind as its hero.
 **Choices**, each landed at its default:
 
 - Haste's range and each character's value.
-- The Crypt's set values (`SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`); how the dead disappear.
+- The Crypt's set values: how near a foe the party sets upon it, how wide the leader's aim picks,
+  how wide the passages are; how the dead disappear.
 - The stand-up target's falls: a shove the body holds is given again, up to three.
 - An optional skeleton costume, after seeing the bones in play.
 
@@ -65,19 +65,16 @@ Footwork's rungs, the Commander in the Crypt with Option Mind as its hero.
 
 - Rare dear steps break real time at a step's delay (the crowd fight's opening, a Crypt body's
   build step); cut one when it shows in play.
-- A garbage-free step: the contact-mass solve, the toolkit's tail and each mind's own allocation
-  under 50 KiB a body a step beyond Rapier's ([step cost](reference/step-cost.md)).
+- A step that allocates nothing beyond what Rapier does ([step cost](reference/step-cost.md)).
 - The bout's and the Crypt run's world builders sit among their screens' files; the Lab's
   scenarios reach the page's render.
-- The table judges the Skeleton's stand-up on 16 falls (`verdictOf`), where its readings hold 14
-  or 15: the cell cannot be met.
+- The Skeleton's stand-up cell cannot be met: the table judges more falls than its readings hold.
 - One notion of a task across evaluations, the Lab and the Ratings; the Ratings reel plays bout
   cases only.
 - The orders vocabulary is closed: a new kind of order edits `Orders`, `isOrders`, `Command` and
   the Commanders.
 - A planner's memory forks only through the skills it drives (`driveBy`).
-- Research-only code under `src/core/` (the active-set quadratic, the contact predictor, coupled
-  dynamics, joint stops) moves to `research/` or goes with its question.
+- Research-only code under `src/core/` moves to `research/` or goes with its question.
 - Ratings when asked: items, characters and attributes; ablations beside a battery; live runs on
   the screen.
 
@@ -98,7 +95,6 @@ Footwork's rungs, the Commander in the Crypt with Option Mind as its hero.
   recovery, armour and bows.
 - Grit, a rising assist, has no mechanism; movement and attack-and-defence assists are not built.
 - The reach solver runs to its cap on a cover the joints' ranges keep out of reach.
-- Body numbers set and not swept: `PLACING.near`, `IK_POSTURE_PULL`, `IK_TURN`, `STANCE_LOWER`.
 
 ### Blows and wounds
 
@@ -109,11 +105,10 @@ Footwork's rungs, the Commander in the Crypt with Option Mind as its hero.
 
 ### The AI
 
-- Option Mind's footwork: `walk(velocity, facing)`, goals around the foe, places at bearings off
-  the foe's striking arc, a foe's reach by its limbs and what it holds.
+- Option Mind's footwork: places around the foe chosen by its reach and striking arc.
 - A cover of the predicted blow that keeps the head; a dodge and a counter, each with its drill.
 - Footwork's rungs 0 to 4; Cover's rung 2 waits on a counter.
-- Warrior recovery after two rapid Lab shoves is slow (`tests/idle-settle.test.mjs`).
+- Warrior recovery after two rapid Lab shoves is slow.
 - The foe's phase reads `rising` in bursts only.
 - Nothing in the rules costs effort; fatigue only if a trained mind strikes without pause.
 - Tactics chosen by profile: targets after a guard, spacing, ground choices, obedience.
@@ -123,9 +118,8 @@ Footwork's rungs, the Commander in the Crypt with Option Mind as its hero.
 ### The game
 
 - The Arena: the Ladder; wider walking courses; fighting strength.
-- The Crypt: how many die over `crypt-clear`; the clearer's `POLICY` numbers; set pieces; the
-  skeleton's own wounds; the party's bow; the frame rate on the owner's machine; saving a run.
+- The Crypt: how many die clearing a level; set pieces; the skeleton's own wounds; the party's bow;
+  the frame rate on the owner's machine; saving a run.
 - Sound: unplayed cues dropped at the end, two blows at once heard as one.
 - The Reptile: richer surface response, broader recovery, combat against the humans.
-- Another engine: a bench adapter in `src/physics-bench/engines/` first, then
-  `src/core/engine/<name>.ts`.
+- Another physics engine.
