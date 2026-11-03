@@ -70,3 +70,9 @@ export function placedReach(spec: BodySpec, hand: Side, up: number, aim?: string
   const flat = length * length - shoulder[0] * shoulder[0] - rise * rise;
   return Math.max(toes, shoulder[2] + (flat > 0 ? Math.sqrt(flat) : 0));
 }
+
+/** Whether a level approach can put the hand's point `aim` (its striking point where none is named) at this height above the head. */
+export function placedHeightFits(spec: BodySpec, hand: Side, up: number, aim?: string): boolean {
+  const arm = aimedArm(spec, hand, aim);
+  return Math.abs(up - arm.shoulder[1]) <= arm.length;
+}

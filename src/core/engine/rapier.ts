@@ -717,18 +717,24 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           turn.multiplyToRef(rotation, rotation);
           const reach = boundOf(desc.shape);
           let clear = true;
-          raw.colliders.forEach(other => {
-            if (!clear || bodyOf(other.handle) === body || other.isSensor()
-              || hooks.filterContactPair(handle, other.handle, rigid.handle, other.parent()?.handle ?? 0) === null) return;
-            // Shapes whose bounding spheres stand apart cannot meet: Rapier's test builds the new
-            // shape afresh each time it is asked (a hull's whole hull), so it is asked only of those near.
-            const theirs = boundOf(other.shape);
-            if (reach !== null && theirs !== null) {
-              const at = other.translation(), dx = at.x - position.x, dy = at.y - position.y, dz = at.z - position.z, apart = reach + theirs + SHAPE_TEST_MARGIN;
-              if (dx * dx + dy * dy + dz * dz > apart * apart) return;
-            }
-            if (other.intersectsShape(desc.shape, position, rotation)) clear = false;
-          });
+          // The new shape as the engine tests it, made at the first test and let go after the last: made, a hull is its whole hull.
+          let tested = null as { shape: ReturnType<RAPIER.Shape["intoRaw"]>; at: ReturnType<typeof RAPIER.VectorOps.intoRaw>; turn: ReturnType<typeof RAPIER.RotationOps.intoRaw> } | null;
+          try {
+            raw.colliders.forEach(other => {
+              if (!clear || bodyOf(other.handle) === body || other.isSensor()
+                || hooks.filterContactPair(handle, other.handle, rigid.handle, other.parent()?.handle ?? 0) === null) return;
+              // Shapes whose bounding spheres stand apart cannot meet, so only those near are tested.
+              const theirs = boundOf(other.shape);
+              if (reach !== null && theirs !== null) {
+                const at = other.translation(), dx = at.x - position.x, dy = at.y - position.y, dz = at.z - position.z, apart = reach + theirs + SHAPE_TEST_MARGIN;
+                if (dx * dx + dy * dy + dz * dz > apart * apart) return;
+              }
+              tested ??= { shape: desc.shape.intoRaw(), at: R.VectorOps.intoRaw(position), turn: R.RotationOps.intoRaw(rotation) };
+              if (raw.colliders.raw.coIntersectsShape(other.handle, tested.shape, tested.at, tested.turn)) clear = false;
+            });
+          } finally {
+            if (tested) { tested.shape.free(); tested.at.free(); tested.turn.free(); }
+          }
           return clear;
         },
         changeShape(k, shape) {

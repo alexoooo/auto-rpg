@@ -1,6 +1,7 @@
 import { STOMP_PART } from "../strikes/stomp-part.ts";
 import { PUNCH_PART } from "../strikes/punch-part.ts";
-import { CLUB_BLOW_PART, SWORD_CUT_PART, SWORD_THRUST_PART } from "../strikes/held-blow.ts";
+import { SWORD_THRUST_PART } from "../strikes/held-blow.ts";
+import { CLUB_BLOW_PART, CUT_PART } from "../strikes/swing-part.ts";
 
 /**
  * **Every executor, by its kind** (`ExecutorPart`), in the order a picker offers them: what a
@@ -10,4 +11,4 @@ import { CLUB_BLOW_PART, SWORD_CUT_PART, SWORD_THRUST_PART } from "../strikes/he
  */
 export const EXECUTORS = { "stomp": STOMP_PART,
   "straight-punch": PUNCH_PART,
-  "club-blow": CLUB_BLOW_PART, "sword-cut": SWORD_CUT_PART, "sword-thrust": SWORD_THRUST_PART };
+  "club-blow": CLUB_BLOW_PART, "cut": CUT_PART, "sword-thrust": SWORD_THRUST_PART };

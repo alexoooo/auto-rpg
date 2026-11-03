@@ -177,8 +177,11 @@ export function crowdWalk(view: CrowdView, radius: number, heading: number, want
   const wx = speed > 0 ? want.x / speed : 0, wz = speed > 0 ? want.z / speed : 0;
   let best = { x: 0, z: 0, cost: Infinity };
   const consider = (cx: number, cz: number, turned: number): void => {
-    const when = conflict(cx, cz), miss = hypot(cx - want.x, cz - want.z);
-    const cost = miss * miss + (turned < 0 ? -turned * CROWD.left : 0) + (when === Infinity ? 0 : CROWD.conflict * (1 + (H - when) / H));
+    const miss = hypot(cx - want.x, cz - want.z), kept = miss * miss + (turned < 0 ? -turned * CROWD.left : 0);
+    // A conflict only adds to the cost: a walk that costs the best's without one is not tried.
+    if (!(kept < best.cost)) return;
+    const when = conflict(cx, cz);
+    const cost = kept + (when === Infinity ? 0 : CROWD.conflict * (1 + (H - when) / H));
     if (cost < best.cost) best = { x: cx, z: cz, cost };
   };
   if (speed > 0) for (let k = 0; k <= 2 * CROWD.turns; k++) {

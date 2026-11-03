@@ -523,10 +523,12 @@ export class DungeonRun {
       time: this.clock, look, lead,
       members: members.filter(built).map((actor): MemberView => {
         const report = actor.fighter?.minded.report;
+        // What its mind says is read when asked: a mind just made apart is waited for only by a Commander that reads it.
         // The menu is built at its first read and kept for the view's other readers.
         let menu: MemberView["menu"] | undefined;
         return { id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, vitality: actor.vitality, radius: actor.radius,
-          reach: actor.attackMetres, home: actor.home, navigation: actor.navigation, gait: report?.gait ?? null, heading: report?.heading ?? null, kit: report?.kit ?? null,
+          reach: actor.attackMetres, home: actor.home, get navigation() { return actor.navigation; }, get gait() { return report?.gait ?? null; },
+          get heading() { return report?.heading ?? null; }, get kit() { return report?.kit ?? null; },
           get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return menu === undefined ? menu = report?.menu ?? null : menu; },
           get prospects() { return report?.prospects ?? null; } };
       }),

@@ -9,7 +9,9 @@ import { channelName } from "../../muscle/driver.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetResolver } from "../framework/action.ts";
-import { quietToStrike, strikeWindow } from "./strike-window.ts";
+import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
+import { bodyAhead } from "../../navigation/held-clearance.ts";
+import { sensedActionTarget } from "../../intent/action-aim.ts";
 import { stepShare, timedPushes, validPush, type TimedPush } from "./timed-push.ts";
 import { closesToStrike } from "./held-strike.ts";
 import { keepsWalk, PUNCH_DECIDE, PUNCH_LAYOUT, punchChannels, punchFeatures, stanceAsks, steerPushes, type PunchLayout } from "./learned-punch.ts";
@@ -387,11 +389,11 @@ const PUNCH_PREPARE_LIMIT = 6;
  * the body stands, facing `heading`: blocked out of the arm's height band; else ready within its
  * window, its stand-off on the ground from the target, or the window to walk to.
  */
-function punchReadiness(view: BodyView, technique: ReturnType<typeof straightTechnique>, settings: StraightPunch, hand: Side, at: Vec3, heading: number): Readiness {
+function punchReadiness(view: BodyView, technique: ReturnType<typeof straightTechnique>, settings: StraightPunch, hand: Side, at: Vec3, heading: number, clear: number): Readiness {
   const reach = technique.standOff(hand, at[1] - view.head.y);
   if (!technique.heightFits(hand, at[1] - view.head.y)) return { kind: "blocked", reason: "target is outside the arm's height band" };
   return strikeWindow(view, at, heading, { standOff: reach, band: settings.band, aside: settings.aside ?? settings.band,
-    across: settings.squared ? technique.state.shoulders[hand][0] : 0, pace: settings.pace, poised: settings.poised === true });
+    across: settings.squared ? technique.state.shoulders[hand][0] : 0, pace: settings.pace, poised: settings.poised === true, clear });
 }
 
 /** Why settings `settings` cannot drive a held item's face, or null: `fire` reads the fist. */
@@ -413,6 +415,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
   if (faces && faceFault(settings)) throw new Error(faceFault(settings)!);
   const technique = straightTechnique(body, guard, settings, faces ?? {}, layout), motion = technique.state;
   technique.read(body.view);
+  const ahead = bodyAhead(body.built.spec);
   const sides = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
@@ -438,7 +441,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       if (state.live) return { kind: "waiting", reason: "straight punch is striking or returning" };
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
-      return punchReadiness(view, technique, settings, sideOf(effector), at, around.heading);
+      return punchReadiness(view, technique, settings, sideOf(effector), at, around.heading, clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead));
     },
     resume() { state.live = null; technique.end(); },
     interrupt(_view, id) { if (state.live?.request.id === id) { state.live = null; technique.end(); } },

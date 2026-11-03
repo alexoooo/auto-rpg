@@ -455,7 +455,11 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   a distance's in proportion to the body's leg (`legOf`), or the walk's keep (`walk`). Its
   window may be narrower across the line it faces than along it (`aside`), centred with
   `squared` on the line the punching shoulder faces along at contact rather than the head's, and
-  refuse a target higher than `above` over the shoulder. Its settings and the steer's network are
+  refuse a target higher than `above` over the shoulder. A strike's window (`strikeWindow`,
+  `strike-window.ts`, the punch's and a swing's) keeps the two bodies clear: the target is no nearer
+  than the striker's body stands out ahead of its centre (`bodyAhead`, its limbs as they stand)
+  beyond where the target's body comes nearest (`sensedNearest`), what each holds left out
+  (`clearAhead`). Its settings and the steer's network are
   its body's record (`PunchRecord`, `src/core/skills/strikes/punch-records.ts`; `dataOf("straight-punch")`,
   `assets/core/straight-punch.json` by `bodyKey`, written by `research/punch-export.mjs`; the
   bodies with one, `PUNCH_BODIES`, before it loads): the schedule searched for that body
@@ -464,18 +468,26 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   and admitted where it lands (`research/punch-policy-check.mjs`). A body with no record does not
   throw it (`punch-part.ts`); a mind carries no punch settings, and an experiment's research
   `tuning` sets them over the record's, with no network steering.
-- **Held blows** (`held-blow.ts`, `HELD_BLOWS`): the club blow, the sword's cut and its thrust,
-  each the straight punch's drive thrown with the face of what the hand holds (`StrikingFace`,
-  `faceOf`: a blunt item's aimed point facing the hand's length, a directed region's point facing
-  its direction), the arm's contact pose solved with that face along the line to the target and
-  the hand gripping. Each is its own executor part (`club-blow`, `sword-cut`, `sword-thrust`) that
-  strikes with a hand holding its item and names the mechanism it meets with (`ExecutorPart.meets`,
-  which the Strike drill reads as the blow's face, `StrikeHit.faced`). Its settings and network are
-  its body's record (`HeldBlowRecord`, `assets/core/<kind>.json`, written by
-  `research/punch-export.mjs`), its steer laid out by `assets/core/<kind>.layout.json` (the
-  punch's with the wrist), read at its face's striking point. A held face's arm is solved from its
-  guard each step, and its chamber may lie behind the shoulder (a negative `chamber`, the blow
-  drawn back). A held face is not `fire`d (`faceFault`): it reads the fist.
+- **Held blows**: each thrown as its item is used, with the face of what the hand holds
+  (`StrikingFace`, `faceOf`: a blunt item's aimed point facing the hand's length, a directed
+  region's point facing its direction). Each is its own executor part that strikes with a hand
+  holding its item and names the mechanism it meets with (`ExecutorPart.meets`, which the Strike
+  drill reads as the blow's face, `StrikeHit.faced`); a body with no record of it does not throw it.
+  - **Driven** (`held-blow.ts`, `HELD_BLOWS`): the sword's thrust (`sword-thrust`), the straight
+    punch's drive thrown point first, the arm's contact pose solved with the face along the line to
+    the target. Its settings and network are its body's record (`HeldBlowRecord`,
+    `assets/core/<kind>.json`, written by `research/punch-export.mjs`), its steer laid out by
+    `assets/core/<kind>.layout.json` (the punch's with the wrist), read at its face's striking
+    point. A held face's arm is solved from its guard each step, and its chamber may lie behind the
+    shoulder (a negative `chamber`, the blow drawn back). A held face is not `fire`d
+    (`faceFault`): it reads the fist.
+  - **Swung** (`swing.ts`, `swing-part.ts`, `SWINGS`): the sword's cut (`cut`, edge first) and the
+    club's blow (`club-blow`, its head, blunt). Admitted where its window says (`strikeWindow`,
+    `strike-window.ts`), it winds the trunk and the striking arm to its record's angles
+    (`Swing.wound`), stands quiet there, then pushes each channel its schedule names flat out over
+    its window (`TimedPush`, `timed-push.ts`, which the drive's schedule shares), and returns to the
+    guard. Its settings are its body's record (`assets/core/<kind>.json`), searched on the Strike
+    drill (`research/swing-drill.mjs`).
 - **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
   `skills/guard/guard-part.ts`, a line in `GUARDS`, `skills/guard/guards.ts`) whose posture is the one source of
   the arms' rest: where the body is built, where the arbiter puts the arms no skill holds, and where
@@ -487,7 +499,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   hand told what to cover (`Cover`) places its knuckles, or an item's two cover points
   (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
   also wards with a buckler's face: held out toward the foe's weapon as far as the arm reaches,
-  turned to it (`SHIELD_WARD`); `cover-guard` is the line-cover alternative. There is no block or
+  moved no faster than the body's balance takes (`wardSpeed`), turned to it; `cover-guard` is the
+  line-cover alternative. There is no block or
   parry: a cover is a placement, and what it costs is the blow rule's.
 - **Low support** folds the stance onto a planted base for low blows; a stomp or fold waits for a
   gait that drives the legs to give them back. It is a part (`SupportPart`, `skills/locomotion/support-part.ts`,
@@ -1025,7 +1038,7 @@ holds the body through its climb (`stanceSteady`, `ground/steady.ts`): the sit-b
 climb are one stand-up; the steady option climbs only a body quiet on its feet (`steadying`).
 
 **Mind data loads per use** (`src/core/data/store.ts`). Each skill's records
-(`assets/core/straight-punch.json`, `stomp.json`, `club-blow.json`, `sword-cut.json`, `sword-thrust.json`) and each kind of profile are a module of its own in
+(`assets/core/straight-punch.json`, `stomp.json`, `club-blow.json`, `cut.json`, `sword-thrust.json`) and each kind of profile are a module of its own in
 `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. What a key's data is, its reader declares
 (`DataOf`, added to by `skills/framework/profile.ts`, `skills/strikes/punch-records.ts` and the
@@ -1836,7 +1849,7 @@ sides met with. These seams keep control separate from the contact and damage ru
 
 | Added | Where it goes | What it leaves alone |
 |---|---|---|
-| **A sword, a spear** | Item regions state directed edge or point surfaces, priced on impact; `sword-cut` and `sword-thrust` execute them. A spear needs its own item. | The shares, the pool, the targets. |
+| **A sword, a spear** | Item regions state directed edge or point surfaces, priced on impact; `cut` swings the edge, `sword-thrust` drives the point. A spear needs its own item. | The shares, the pool, the targets. |
 | **The face and the vault** | Natural contact regions (`SegmentSpec.contacts`) give separate colliders and surfaces; teeth use this path. | The pool: one head. |
 | **Armour** | A worn item, rigid with its segment: it adds mass and one more surface in series (`energyShares` over the layers). A glove protects the puncher by the same rule. | The rule's shape. |
 | **A shield** | A held item with a face: the guard places its points (`ItemSpec.cover`) and orients its face; a bash is a blow. | The guard skill, the rule. |

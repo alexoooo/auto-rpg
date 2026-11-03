@@ -5,7 +5,7 @@ import { pointsInto } from "./points.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { ContactPair } from "../engine/engine.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { ContactRegionSpec } from "../spec/body.ts";
+import type { BodySpec, ContactRegionSpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import { watchTouches, type Part, type Touch, type TouchWatch } from "../touches.ts";
 import type { World } from "../world.ts";
@@ -116,6 +116,14 @@ interface BlowState {
   readonly blows: LandedBlow[];
 }
 
+/** Each spec's parts' thicknesses, m (`partThickness`), found once a spec. */
+const THICKNESS = new WeakMap<BodySpec, ReadonlyMap<string, number>>();
+const thicknessOf = (spec: BodySpec): ReadonlyMap<string, number> => {
+  let made = THICKNESS.get(spec);
+  if (!made) THICKNESS.set(spec, made = new Map([...partThickness(spec)].map(([name, q]) => [name, q.value])));
+  return made;
+};
+
 /**
  * Read the blows among `fighters` in `world` under `rules`; `onBlow` hears each as it lands. A
  * fighter with a segment that states no surface, or one not in N/m, is refused.
@@ -143,7 +151,7 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
     if (surface?.directed?.mechanism === "point" && !surface.directed.depth) throw new Error(`${owner.kind === "held" || owner.kind === "held-region" ? owner.held.item.name : ""}'s point states no depth: it has nothing to wound by`);
   }
   /** Each fighter's parts' thicknesses, m (`partThickness`). */
-  const thickness = new Map(fighters.map((fighter) => [fighter, new Map([...partThickness(fighter.built.spec)].map(([name, q]) => [name, q.value]))]));
+  const thickness = new Map(fighters.map((fighter) => [fighter, thicknessOf(fighter.built.spec)]));
   /** Whether `part` can meet in a blow: its fighter's fight has not ended and the part is on. */
   const inFight = ({ body, segment }: Part<Fighter>): boolean => body.pool.ending() === null && body.pool.attached(segment.spec.name);
   /** The touched shape's owner, stiffness and optional mechanism, in the body's reference frame. */

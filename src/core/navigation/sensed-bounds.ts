@@ -47,30 +47,36 @@ function clearanceOf(spec: BodySpec): number {
   return radius;
 }
 
-/** Detached current world bounds for body and held colliders; no visual geometry or engine handles. */
-function worldShapes(foe: BodySense) {
-  let locals = LOCAL.get(foe.spec);
+/** Each segment's colliders, with what it holds, in its own frame (`LOCAL`), and a hand's by its pose (`POSES`): found once a spec. */
+function localsOf(spec: BodySpec): NonNullable<ReturnType<typeof LOCAL.get>> {
+  let locals = LOCAL.get(spec);
   if (!locals) {
-    locals = new Map(foe.spec.segments.map(segment => {
+    locals = new Map(spec.segments.map(segment => {
       const frame = frameOf(segment);
-      return [segment.name, rigidOf(foe.spec, segment).shapes.map(shape => {
+      return [segment.name, rigidOf(spec, segment).shapes.map(shape => {
         const data = pointsOf(shape, segment);
         return Object.freeze({ radius: data.radius, points: Object.freeze(data.points.map(p => {
           const d = sub(p, frame.origin); return [dot(d, frame.x), dot(d, frame.y), dot(d, frame.z)] as Vec3;
         })) });
       })];
     }));
-    LOCAL.set(foe.spec, locals);
-    POSES.set(foe.spec, new Map(foe.spec.segments.filter(s => s.handPoses).map(segment => {
+    LOCAL.set(spec, locals);
+    POSES.set(spec, new Map(spec.segments.filter(s => s.handPoses).map(segment => {
       const frame = frameOf(segment);
       return [segment.name, Object.fromEntries((Object.keys(segment.handPoses!) as HandPose[]).map(pose => {
-        const data = pointsOf(handShapeAt(foe.spec, segment, pose), segment);
+        const data = pointsOf(handShapeAt(spec, segment, pose), segment);
         return [pose, { radius: data.radius, points: data.points.map(p => {
           const d = sub(p, frame.origin); return [dot(d, frame.x), dot(d, frame.y), dot(d, frame.z)] as Vec3;
         }) }];
       }))];
     })));
   }
+  return locals;
+}
+
+/** Detached current world bounds for body and held colliders; no visual geometry or engine handles. */
+function worldShapes(foe: BodySense) {
+  const locals = localsOf(foe.spec);
   const scratch = new Vector3(), shapes: { name: string; points: Vec3[]; radius: number }[] = [];
   for (const [name, localsOf] of locals) {
     const sensed = foe.segments.get(name);
@@ -95,6 +101,51 @@ function boundsOf(shape: ReturnType<typeof worldShapes>[number]): SolidSense {
   }
   return { name: shape.name, kind: "box", centre: low.map((v, k) => (v + high[k]!) / 2) as unknown as Vec3,
     size: low.map((v, k) => high[k]! - v) as unknown as Vec3 };
+}
+
+/**
+ * **How far ahead of (`x`, `z`) along the ground direction (`ax`, `az`) `foe`'s body comes nearest**,
+ * m, as sensed: the least reach along it of any segment's own collider, a hand's as posed, what it
+ * holds left out. Negative where the body stands out behind the point toward the direction's start.
+ */
+export function sensedNearest(foe: BodySense, x: number, z: number, ax: number, az: number): number {
+  const segments = ownShapesOf(foe.spec);
+  let nearest = Infinity;
+  for (let k = 0; k < segments.length; k++) {
+    const segment = segments[k]!, sensed = foe.segments.get(segment.name);
+    if (!sensed) continue;
+    const q = sensed.rotation, p = sensed.position;
+    for (let m = 0; m < segment.shapes.length; m++) {
+      const shape = m === 0 ? segment.poses?.[sensed.handPose ?? "open"] ?? segment.shapes[0]! : segment.shapes[m]!, points = shape.points;
+      for (let n = 0; n < points.length; n++) {
+        const vx = points[n]![0], vy = points[n]![1], vz = points[n]![2];
+        // The point turned by the segment's quaternion: v + w t + q × t, t = 2 q × v; its ground part.
+        const tx = 2 * (q.y * vz - q.z * vy), ty = 2 * (q.z * vx - q.x * vz), tz = 2 * (q.x * vy - q.y * vx);
+        const wx = vx + q.w * tx + (q.y * tz - q.z * ty), wz = vz + q.w * tz + (q.x * ty - q.y * tx);
+        nearest = Math.min(nearest, (p.x + wx - x) * ax + (p.z + wz - z) * az - shape.radius);
+      }
+    }
+  }
+  return nearest;
+}
+
+type LocalShape = { readonly points: readonly Vec3[]; readonly radius: number };
+
+/** Each segment's own colliders (`localsOf`), what it holds left out, its first a hand's by its pose: found once a spec. */
+const OWN = new WeakMap<BodySpec, readonly { readonly name: string; readonly shapes: readonly LocalShape[]; readonly poses: Readonly<Record<string, LocalShape>> | undefined }[]>();
+
+function ownShapesOf(spec: BodySpec) {
+  let own = OWN.get(spec);
+  if (!own) {
+    const locals = localsOf(spec), poses = POSES.get(spec);
+    own = Object.freeze(spec.segments.map(segment => {
+      const owners = rigidOf(spec, segment).owners;
+      return Object.freeze({ name: segment.name, shapes: Object.freeze((locals.get(segment.name) ?? []).filter((_, index) => owners[index]!.kind === "segment" || owners[index]!.kind === "region")),
+        poses: poses?.get(segment.name) });
+    }));
+    OWN.set(spec, own);
+  }
+  return own;
 }
 
 /** Detached current world bounds for body and held colliders; no visual geometry or engine handles. */
