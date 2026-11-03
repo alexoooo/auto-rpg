@@ -7,6 +7,9 @@ import type { EffectorGoal, PointTask } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
 import type { Cover, Intent } from "../../intent/intent.ts";
 import type { BodySpec, HandPose, ItemSpec } from "../../spec/body.ts";
+import { standingFooting, standingHeight } from "../../control/support.ts";
+import type { ReadBody } from "../../read-body.ts";
+import { STANDARD_GRAVITY } from "../../spec/constants.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { add, cross, distance, dot, length, scale, sub } from "../../spec/vec.ts";
 import type { Skill } from "../framework/skill.ts";
@@ -26,14 +29,6 @@ export const GUARD: Pose = Object.freeze({
  * guarded toward the threat, reached in `seconds`. Set: `docs/reference/blows.md#cover`.
  */
 export const GUARD_COVER: Covering = Object.freeze({ out: 0.3, seconds: 0.15 });
-
-/**
- * **How a shield's ward is held** (`Ward`): a covering face's centre as far from the place guarded
- * toward the foe's weapon as the arm reaches (`faceReach`), or at the weapon where that is nearer:
- * held out at the threat, meeting a blow early, not hugged to the body; reached in `seconds` where
- * the item is `share` of the body's mass. Set: `docs/reference/blows.md#a-shields-ward`.
- */
-export const SHIELD_WARD: Ward = Object.freeze({ seconds: 0.05, share: 0.0114 });
 
 /**
  * **The guard a body holds**: `GUARD`, with each hand that holds an item turned at the wrist so
@@ -73,14 +68,12 @@ export interface Covering {
   readonly seconds: number;
 }
 
-/**
- * A ward's settings (`SHIELD_WARD`): the `seconds` a face is placed in by a body whose item is
- * `share` of its mass. A body whose item is more of its mass places it in longer, by the root of
- * the ratio, so the item's swing pushes back on each body as the same share of its weight.
- */
-export interface Ward {
-  readonly seconds: number;
-  readonly share: number;
+/** The joints of `hand`'s arm, from the first off its effector's base (the shoulder) to the hand. */
+function armOf(spec: BodySpec, hand: string): ReturnType<typeof specChainTo> {
+  const base = spec.effectors?.find((effector) => effector.segment === hand)?.base, chain = specChainTo(spec, hand);
+  const from = chain.findIndex((joint) => joint.spec.parent === base);
+  if (from < 0) throw new Error(`${spec.model}'s ${hand} has no joint off its base ${base}`);
+  return chain.slice(from);
 }
 
 /**
@@ -89,19 +82,42 @@ export interface Ward {
  * from the middle, and the arm's joints from there to the point, at full stretch.
  */
 function faceReach(spec: BodySpec, hand: string, point: Vec3): number {
-  const base = spec.effectors?.find((effector) => effector.segment === hand)?.base, chain = specChainTo(spec, hand);
-  const from = chain.findIndex((joint) => joint.spec.parent === base);
-  if (from < 0) throw new Error(`${spec.model}'s ${hand} has no joint off its base ${base}`);
-  const points = [...chain.slice(from).map((joint) => joint.spec.centre.value), point];
+  const points = [...armOf(spec, hand).map((joint) => joint.spec.centre.value), point];
   let reach = Math.abs(points[0]![0]);
   for (let k = 1; k < points.length; k++) reach += distance(points[k - 1]!, points[k]!);
   return reach;
 }
 
-/** How `ward` is held by `hand` of a body of `spec` holding `item` there: out as far as the face reaches (`faceReach`), in seconds by the item's share of the body's mass (`Ward`). */
-function wardOf(spec: BodySpec, hand: string, item: ItemSpec, ward: Ward): Covering {
-  const segment = segmentOf(spec, hand)!, face = rigidPoints(spec, segment).get(item.cover![0]!)!.value;
-  return { out: faceReach(spec, hand, face), seconds: ward.seconds * Math.sqrt(item.mass.value / spec.mass.value / ward.share) };
+/**
+ * **How fast a ward may move `hand`'s face about `built`'s body**, m/s: the speed at which the arm
+ * and what it holds carry as much momentum as the whole body can take at its centre of mass and
+ * still stop over its soles without a step. That centre speed is half the shorter sole's length
+ * (`standingFooting`) over the time the body falls from its standing height (`standingHeight`),
+ * `√(h / g)`, a capture point's; the arm's speed is it scaled by the body's mass over the arm's,
+ * what it holds included. A heavy item or a light body moves its ward slower.
+ */
+export function wardSpeed(built: ReadBody, hand: string): number {
+  let body = 0, arm = 0;
+  for (const segment of built.segments.values()) body += segment.rigid.mass;
+  for (const joint of armOf(built.spec, hand)) arm += built.segments.get(joint.spec.child)!.rigid.mass;
+  return body / arm * standingFooting(built).length / 2 * Math.sqrt(STANDARD_GRAVITY.value / standingHeight(built));
+}
+
+/**
+ * **How a shield's ward is held by `hand` of a body of `spec` holding `item` there**, moving at
+ * most `speed` m/s (`wardSpeed`): its face's centre as far from the place guarded toward the
+ * foe's weapon as the arm reaches (`faceReach`), or at the weapon where that is nearer, held out
+ * at the threat, meeting a blow early, not hugged to the body; a path to its place in the time the
+ * place takes to go out at that speed. Set: `docs/reference/blows.md#a-shields-ward`.
+ */
+function wardOf(spec: BodySpec, hand: string, item: ItemSpec, speed: number): Ward {
+  const segment = segmentOf(spec, hand)!, face = rigidPoints(spec, segment).get(item.cover![0]!)!.value, out = faceReach(spec, hand, face);
+  return { out, seconds: out / speed, speed };
+}
+
+/** A shield's ward (`wardOf`): a cover whose place moves at most `speed` m/s about the body. */
+interface Ward extends Covering {
+  readonly speed: number;
 }
 
 /**
@@ -159,17 +175,20 @@ const NO_LINE = 1e-6;
  * - Two points (a club's swell) have their middle there, and their line square to the line from
  *   the place guarded to the threat: of the ways square to it, the one nearest how the item lies
  *   now, so it is not swung end over end. Each point is half their distance to either side.
- * - A face, where the skill wards (`ward`), has one centre point, held at the ward's `out`, and an
- *   independent orientation target, turning its declared outward normal toward the threat while
- *   preserving its current roll as closely as possible. Without a ward a face covers as a point.
+ * - A face, where the skill wards with it (`GuardOptions.wardSpeeds`), has one centre point, held at
+ *   the ward's `out` and brought there from where it stands no faster than the ward's speed
+ *   (`wardSpeed`), and an independent orientation target, turning its declared outward normal
+ *   toward the threat while preserving its current roll as closely as possible. Without a ward a
+ *   face covers as a point.
  *
  * A hand whose guard names no cover has no goal: its arm is the posture's (`GUARD`). So has the
- * hand a strike has. A free hand that can change its pose is opened. The skill remembers nothing.
+ * hand a strike has. A free hand that can change its pose is opened. The skill remembers where each
+ * ward stands (`state`), and forgets it when the hand stops warding.
  */
 export interface GuardSkill extends Skill {
   /** The hands it guards with, by segment (`handsOf` for the stock guards): what the arbiter asks it of, each free hand. */
   readonly hands: readonly string[];
-  /** What it remembers, plain data saved and loaded with the mind (`src/core/state.ts`); none, it remembers nothing. */
+  /** What it remembers, plain data saved and loaded with the mind (`src/core/state.ts`); none where it remembers nothing. */
   readonly state?: object;
   /** The arms' rest: where the arms no skill holds are put, and where a blow returns (`guardPosture` for the stock guards). */
   readonly posture: Pose;
@@ -181,11 +200,38 @@ export interface GuardSkill extends Skill {
   command(view: BodyView, guard: Intent["guard"]): Readonly<Record<string, EffectorGoal | null>>;
 }
 
-export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, ward: Ward | null = null, hold: GuardSkill["hold"] = null): GuardSkill {
+/**
+ * How a guard skill is made beside its cover: `wardSpeeds`, each hand that wards with the covering
+ * face it holds, by segment, and the most speed its ward moves at (`wardSpeed`), none where it
+ * wards with none; `hold`, a free hand's hold (`GuardSkill.hold`).
+ */
+export interface GuardOptions {
+  readonly wardSpeeds?: Readonly<Record<string, number>> | null;
+  readonly hold?: GuardSkill["hold"];
+}
+
+/** Where each warding hand's ward stands now, by segment: its face's place in the body frame and the clock it was set at; null where the hand is not warding. */
+interface GuardState { wards: Record<string, { at: Vec3; time: number } | null> }
+
+export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, { wardSpeeds = null, hold = null }: GuardOptions = {}): GuardSkill {
   const hands = handsOf(spec), covers = Object.fromEntries(hands.map((hand) => [hand, coversOf(spec, hand)]));
-  /** Each hand's ward, by segment: a hand holding a covering face where the skill wards. */
-  const wards: Readonly<Record<string, Covering>> = Object.fromEntries(ward ? (spec.held ?? []).filter(({ segment, item }) => hands.includes(segment) && item.coverNormal !== undefined)
-    .map(({ segment, item }) => [segment, wardOf(spec, segment, item, ward)]) : []);
+  /** Each hand's ward, by segment: a hand holding a covering face that it wards with. */
+  const wards: Readonly<Record<string, Ward>> = Object.fromEntries((spec.held ?? [])
+    .filter(({ segment, item }) => hands.includes(segment) && item.coverNormal !== undefined && wardSpeeds?.[segment] !== undefined)
+    .map(({ segment, item }) => [segment, wardOf(spec, segment, item, wardSpeeds![segment]!)]));
+  const state: GuardState = { wards: Object.fromEntries(Object.keys(wards).map((hand) => [hand, null])) };
+  /** `hand`'s ward's place now: from where it stood toward `want`, at most its speed since; begun where its face `point` is. */
+  const paced = (view: BodyView, hand: string, point: string, want: Vec3): Vec3 => {
+    let was = state.wards[hand];
+    if (!was) {
+      const at = view.effectors[hand]!.points[point]!;
+      was = state.wards[hand] = { at: [at.x, at.y, at.z], time: view.time };
+    }
+    const gap = sub(want, was.at), far = length(gap), most = wards[hand]!.speed * (view.time - was.time);
+    was.at = far <= most ? want : add(was.at, scale(gap, most / far));
+    was.time = view.time;
+    return was.at;
+  };
   const guarded = new Vector3(), threat = new Vector3();
   const normalNow = new Vector3(), align = new Quaternion(), oriented = new Quaternion();
   /** `hand`'s goal for `cover`, in the body frame (`BodyView.root`); null where the threat is at the place guarded, and names no line. */
@@ -198,7 +244,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, war
     const toward = scale(way, 1 / far), middle = add(from, scale(toward, Math.min(held.out, far)));
     const seconds = cover.seconds === undefined ? held.seconds : Math.min(held.seconds, cover.seconds);
     if (points.length === 1) {
-      const goal = { places: [{ point: points[0]!, position: middle }], seconds, follows: true };
+      const goal = { places: [{ point: points[0]!, position: wards[hand] ? paced(view, hand, points[0]!, middle) : middle }], seconds, follows: true };
       if (!wards[hand] || !normal) return goal;
       const rotation = view.effectors[hand]!.rotation;
       normalNow.set(...normal).applyRotationQuaternionToRef(rotation, normalNow).normalize();
@@ -224,16 +270,15 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, war
     };
   };
   return {
-    hands, posture: guardPosture(spec), hold,
+    hands, posture: guardPosture(spec), hold, state,
     handPose: (hand) => segmentOf(spec, hand)?.handPoses ? "open" : null,
     resume() {},
     command(view, guard) {
       let goals: Record<string, EffectorGoal | null> | null = null;
       for (const hand of hands) {
-        const cover = guard[hand];
-        if (!cover) continue;
-        const goal = goalOf(view, hand, cover);
+        const cover = guard[hand], goal = cover ? goalOf(view, hand, cover) : null;
         if (goal) (goals ??= {})[hand] = goal;
+        else if (state.wards[hand]) state.wards[hand] = null;
       }
       return goals ?? NO_HANDS;
     },

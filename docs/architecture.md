@@ -488,7 +488,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   hand told what to cover (`Cover`) places its knuckles, or an item's two cover points
   (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
   also wards with a buckler's face: held out toward the foe's weapon as far as the arm reaches,
-  turned to it (`SHIELD_WARD`); `cover-guard` is the line-cover alternative. There is no block or
+  moved no faster than the body's balance takes (`wardSpeed`), turned to it; `cover-guard` is the
+  line-cover alternative. There is no block or
   parry: a cover is a placement, and what it costs is the blow rule's.
 - **Low support** folds the stance onto a planted base for low blows; a stomp or fold waits for a
   gait that drives the legs to give them back. It is a part (`SupportPart`, `skills/locomotion/support-part.ts`,
