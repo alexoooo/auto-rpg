@@ -30,6 +30,8 @@ interface StrikeDef {
    * step by step, and the stroke meets its target slower.
    */
   readonly firm?: boolean;
+  /** How long before the stroke's path ends a `firm` limb is driven firm already, s: more behind the blow, a slower stroke; 0 braces the held contact alone. */
+  readonly brace?: number;
 }
 
 /** A strike's cycle, where its point was at the last read (root frame), and what its strokes have come to. */
@@ -122,7 +124,7 @@ export function effectorStrike(def: StrikeDef) {
       const position = impact ? impact.finish : phase === "chamber" ? course.chamber : phase === "return" ? course.home : course.target;
       return { ...(def.response === undefined ? {} : { response: def.response }), places: [{ point: def.point, position }],
         seconds: impact ? def.limits.impact!.impactSeconds : seconds(course), follows: true, initialVelocity: state.velocity, sequence: state.sequence,
-        ...(orientation ? { orientation } : {}), ...(def.firm && impact ? { firm: true } : {}),
+        ...(orientation ? { orientation } : {}), ...(def.firm && (impact || phase === "swing" && (def.brace ?? 0) > 0 && state.time >= seconds(course) - def.brace!) ? { firm: true } : {}),
         ...(impact ? { terminalVelocity: STILL }
           : phase === "swing" ? { terminalVelocity: course.contactVelocity, ...(course.curve ? { curve: course.curve } : {}) } : {}) };
     },

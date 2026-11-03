@@ -17,7 +17,7 @@ import { withinActionWindow } from "../../intent/action-window.ts";
 import { otherSide, segmentOf } from "../../spec/body.ts";
 /** The stomp's settings where its body's record leaves them, first qualified on a front kick: `docs/reference/front-kicks.md#execution-settings`. */
 export const STOMP_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
-  lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, soleTurn: .2,
+  lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, brace: 0, soleTurn: .2,
   prepareLimit: 4, returnLimit: 2, near: .04, returnNear: .04, hover: .08, slow: .3, hold: .05, followSeconds: .04,
   impactSeconds: .04, impactTravel: .04, normalAlignment: .5,
   response: .1, placeSeconds: 1, placeLimit: 6, placement: .02, placementSpeed: .1, rotationError: .001,
@@ -40,7 +40,7 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
   const feet = footStatesOf(body.built), support = supportReadiness(body.built), middle = new Vector3();
   const local = new Vector3(), world = new Vector3(), turn = new Quaternion(), inverse = new Quaternion(), rotation = new Quaternion(), axis = new Vector3();
   const limits = Object.freeze({ ...tuning, impact: tuning });
-  const strikeOf = (side: Side) => effectorStrike({ effector: `foot.${side}`, point: "strike", limits, firm: true,
+  const strikeOf = (side: Side) => effectorStrike({ effector: `foot.${side}`, point: "strike", limits, firm: true, brace: tuning.brace,
     chamberSeconds: tuning.chamberSeconds, returnSeconds: tuning.returnSeconds, response: tuning.response });
   const strikes = { left: strikeOf("left"), right: strikeOf("right") };
   const footprints = { left: Object.freeze(["foot.left", "legs", "trunk"]), right: Object.freeze(["foot.right", "legs", "trunk"]) };
