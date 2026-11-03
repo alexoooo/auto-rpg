@@ -30,7 +30,7 @@ export interface Skills extends Skill {
   readiness(view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround): Readiness;
   /** The actions the body has (`KitEntry`). */
   readonly kit: readonly KitEntry[];
-  /** Its choices as the last step left the body (`menuOf`), from a stance with no walk; reading it changes nothing but the places beside a body lying it holds. */
+  /** Its choices as the last step left the body (`menuOf`), from a stance with no walk; reading it changes nothing of the skills. */
   menu(): readonly MenuEntry[];
   /** What `action` holds with `effector` once admitted (`Executor.needs`): none for one it does not bind. */
   needs(action: string, effector: string): readonly Resource[];

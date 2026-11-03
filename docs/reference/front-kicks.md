@@ -138,6 +138,21 @@ one side of it to the other.
   walk's route only between its two sides, and held until that body or the target moves or the
   feet stop clearing it: 5 landed, 4 outside, 1 fell, against 6, none and none; the drill's spot
   held until the body moves, with the target not yet laid: 1 landed of 12 against 4.
+- **Tried and not kept: the menu's place beside a body lying held** (the menu's spot,
+  `MenuEntry.spot`, which a read of the menu chose afresh, its holds put back with the mind's
+  state). Held on the mind's own decisions, with the rest of its state put back (at `9e887beb`,
+  the Warrior's `stomping` and the Rogue's and the Skeleton's `stomping-bodies`, 36 trials, same
+  seeds), landed against the menu's place chosen afresh, 28 with 1 fell:
+  - the place held as a point, until it left the window widened by `LYING.shift` or the body or
+    the target moved: 20, 1 fell, 9 ended out of position; the window's middle moves about 0.15 m
+    as the stance squares up, and the point held goes stale;
+  - the way round the body held (the bearing and the ring), the place found again each step at
+    the window's middle on it: 24, 1 fell; the side stays, but the drill's spot, held once its
+    member is in the window, is the menu's from mid-stride, and its stay walks the body out;
+  - that, and the drill's spot read from the menu each step (no `HELD_SPOT`): 22, 1 fell.
+
+  The menu's place is chosen afresh at each read, the cheapest from where the walker is; the
+  drill holds the spot it reads (`HELD_SPOT`).
 
 **The stomp's stroke, return and stay** (the same harness, at this change). Of the Warrior's rung's
 non-landed trials at `e026ed21`, the one refused stood ready from 6.4 s and never settled: held in
@@ -204,6 +219,11 @@ than the fall. A return that lets the centre off the bearing foot now ends the s
   19): 9 landed at 2.63 to 7.94 m/s against its 2.54 bar, 50 to 73 J at a Warrior, and 3 refused,
   all at a lying Skeleton. The Rogue's leg reaches 8.1 to 9.7 m/s at a lying trunk's top in free
   air (pelvis pinned, hip and knee at full activation), the Warrior's 10.1, the Skeleton's 10.4.
+- **Tried and not kept: the Skeleton's brace searched** (`research/skill-search.mjs stomp
+  crypt-skeleton` from its row at `ed11435a`, the brace onset with the stroke and the window, 16
+  candidates a generation on the rung's 8 search trials): the best a generation 8.67, 8.68,
+  9.09, 8.45, 9.98, 8.77 over generations 0 to 5, flat within a trial's spread (as the
+  Warrior's search's were), the medians 3.9 to 7.3. Stopped there; the row is kept, brace 0.
 
 **The toed Skeleton's and Rogue's stomp on a target laid down** (`stomping-bodies`, the same
 harness; each body's own row). At `c260464d` the Skeleton falls in 10 of 12, all before contact:
