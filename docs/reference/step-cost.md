@@ -989,6 +989,13 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   without making an expectation; a region's segments are found once a spec (`regionSegments`,
   `src/core/intent/action-aim.ts`). In the same profile of those decisions, `expect` was 7.9% of
   their samples and `regionSegments` 4.2%, each in itself.
+- **An uprightness reading turns only the heights** (`readUprightness`, `src/core/control/ground.ts`):
+  each part's points are kept in one array, and each is turned for its height alone, as
+  `Vector3.applyRotationQuaternionToRef` computes it (`turnedY`). The world reads every body's
+  each step and each mind its own. A Warrior's 636 points, one body of the crowd fight at step
+  400, its pose nudged each reading, 20000 readings five times, the least of each run, two runs
+  each interleaved, Node 24.19, a loaded machine: 9.6 and 10.9 µs a reading before, 6.9 and 7.2
+  after.
 - **What a mind shows a person crosses only when a page reads it** (`SeatAsk`'s `shown`): its
   engagement, 3.2 KB of the 3.9 each crowd mind said a step, read by no rule or Commander, had its
   details made and was copied with every answer, on the world's wait. Crowd fight, its opening

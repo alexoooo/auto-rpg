@@ -112,7 +112,9 @@ place asked; off square, the swell's line from square at 1 s. No run fell. At 0.
 A hand holding a covering face (a buckler) wards: the guard's rest option asks it against the foe's
 striking point nearest the body (`READINGS.ward`, `nearest`); of a foe that holds a weapon, against
 the hand that holds it (`armed`, `src/core/perception/threat.ts`), as a buckler covers the sword
-hand, a cut and a swing turning about it; and the guard skill holds the face's
+hand, a cut and a swing turning about it, where it is now: carried along its sensed velocity for
+as long as the senses show it late (`lead`, 0.15 s in the drill, against a cut's quarter second
+from wind-up to contact); and the guard skill holds the face's
 centre as far from the guarded place toward it as the arm reaches (`faceReach`: the shoulder's
 distance across from the middle and the arm to the face's centre at full stretch, 0.84 m on the
 Warrior, 0.72 on the Rogue, 0.87 on the Skeleton), or at it where that is nearer, turned to it
@@ -150,7 +152,8 @@ trial against the change before.
 | and a place out of reach drawn to it (`withinReach`) | `f16a838b` | 90 % | 82 % | 74 % | 62 % | 12, 14 |
 | the same, effector paths solved from the limb's own angles | `63af1d4c` | 96 % | 77 % | 72 % | 71 % | 10, 13 |
 | and the face's turn paced (`wardSpeed / armReach`) | `1a77cc33` | 91 % | 73 % | 79 % | 75 % | 5, 12 |
-| against the weapon hand (`armed`) | this change | 95 % | 74 % | 95 % | 71 % | 4, 12 |
+| against the weapon hand (`armed`) | `c8abeae5` | 95 % | 74 % | 95 % | 71 % | 4, 12 |
+| and that hand where it is now (`lead`) | this change | 98 % | 80 % | 94 % | 72 % | 5, 11 |
 
 - **Unpaced, the place followed the threat at up to 20 m/s about the body**, and the arm whipped
   after it; where the place lay past the arm's reach from the shoulder (`faceReach` adds the
@@ -173,7 +176,8 @@ trial against the change before.
   of 88), and the blade struck the shield arm first 6 times of 230 on the sword rung.
   **Against the weapon's own striking point** (its `aim`, `edge.right` or `swell`) instead, fewer
   (Warrior 67 % and 70 %, Skeleton 76 % and 65 %); **at the weapon where it stands**, with no
-  constant-velocity crossing predicted, about the same (92 %, 75 %, 74 %, 72 %).
+  constant-velocity crossing predicted, about the same (92 %, 75 %, 74 %, 72 %). **The weapon hand
+  led, with no crossing predicted**, the Warrior's sword rung met no more (74 %).
 - **On the sword rung a blow the subject's own weapon meets first is not counted as met**: 18 of the
   Warrior's 59 blows not met first against the weapon hand, 11 of 60 before.
 - **The Skeleton falls in a sixth of its trials.** Of 100 at `63af1d4c`, before the turn was
@@ -182,9 +186,9 @@ trial against the change before.
   Paced, 17: 9 with nothing touching it, the first at 3.0 s, all holding a club (the one traced
   fell as it swung it), and 8 after a counted blow.
 
-The bar (4 of 5, none fallen) is met on the Warrior's club rung read wide, not on its sword rung
-since `63af1d4c` (82 % at `f16a838b`), and not on the Skeleton's, which falls. The Rogue, the face out as far as its arm reaches and not paced, met 61 %
-on the club rung and 80 % on the sword rung, 2 of 50 fallen on the club rung, before the swings.
+The bar (4 of 5, none fallen) is met on the Warrior's weapon rungs read wide (98 % and 80 %, none
+fallen) and on the Rogue's (99 % and 80 %, none fallen; 100 % and 73 % against the weapon hand not
+led), and not on the Skeleton's, which falls.
 
 ## Threat
 
