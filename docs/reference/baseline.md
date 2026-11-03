@@ -39,8 +39,8 @@ The records:
 | Competence | Record |
 | --- | --- |
 | walk | `assets/evaluations/baseline/2026-10-28-c43aa358-b68a3e72.jsonl` |
-| punch | `assets/evaluations/baseline/2026-10-29-3e6e204c-1be9aa1c.jsonl` |
-| stand-up | `assets/evaluations/baseline/2026-10-29-35faee00-1e9bfc4d.jsonl` |
+| punch | `assets/evaluations/baseline/2026-10-29T032349-3e6e204c-1be9aa1c.jsonl` |
+| stand-up | `assets/evaluations/baseline/2026-10-29T035416-35faee00-1e9bfc4d.jsonl` |
 | fight | `assets/evaluations/baseline/2026-10-30-d6200840-c9c6450d.jsonl` |
 
 The fights are the standard match's loadouts (empty hands, the club, the buckler and club, the

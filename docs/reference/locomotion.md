@@ -9,13 +9,19 @@ built is in the [architecture](../architecture.md#skills); what is open is in th
 
 The walk a fight uses. Its envelope (`assets/core/stance-envelope.json`, measured by
 `research/core-stance-envelope.mjs` with the ankle's hold of
-[stance tuning](stance-tuning.md#ankle-hold), every body and thing held, 675 s on 8 workers) walks
-the Warrior 1.7 m/s forward, 1.2 back and 0.7 to either side; the Rogue 1.5, 1 and 0.7; the
-skeleton 1.5, 1 and 0.7, where a person's preferred walk is near 1.4 m/s (`PERSON_PACE`,
-`src/core/human/gait.ts`). Its turns hold 1 rad/s at 0.2 to 0.5 m/s (the Rogue to 0.4, then 0.5),
-0.25 to 0.5 at 0.7, and none at 1 m/s or faster. A turn holds at a speed only if all 28 of its
-trials do, a walk if all 4 of its do: at 1 m/s a 0.25 rad/s turn stands in each of 8 trials read
-alone. A dash, a roll, a crouch and turning on the spot are not built.
+[stance tuning](stance-tuning.md#ankle-hold), every body and thing held, 6654 s on 14 workers)
+walks the Warrior 2 m/s forward, 1.4 back (1.5 with the club) and 0.7 to either side; the Rogue
+1.5 (1.7 with the club), 1 back (1.2) and 0.7; the skeleton 1.7, 0.7 and 0.7 (with the club 1.5
+forward and 1 every other way), where a person's preferred walk is near 1.4 m/s (`PERSON_PACE`,
+`src/core/human/gait.ts`). Its turns are tried as a half round along the way the body faces and as
+a quarter round onto a way to the side asked from the turn's start, as a fight walks to a place
+beside where it faces. They hold 1 rad/s to 0.7 m/s for the Warrior, to 0.5 for the Rogue (0.25 at
+0.7) and to 0.4 for the skeleton (0.5 at 0.5; 1 to 0.5 with the club), and none at 1 m/s or faster
+but the club Warrior's 0.25 at 1. A turn holds at a speed only if all 56 of its trials do, a walk
+if all 4 of its do. Turned onto a way under the turns measured along it alone (0.5 rad/s to
+1.2 m/s with the club), the club Warrior ran to 2 to 2.8 m/s and fell in the fight's approach; the
+pelvis's yaw at speed is the roadmap's ([Yaw at speed](../roadmap.md#body-and-motor-control)). A
+dash, a roll, a crouch and turning on the spot are not built.
 
 **Steering by it** (the crowd battery's 24 cases, then the 69 of seeds 1 to 12; shoved under orders
 at 20 N s, seeds 1 to 200; at `8a363623`):
@@ -23,7 +29,7 @@ at 20 N s, seeds 1 to 200; at `8a363623`):
 | Envelope | Falls, 24 | Done of reached | Done, s, median | Pushed apart, steps a case | Falls / not done, 69 | Shoved falls of 200, Rogue / Warrior |
 |---|---:|---:|---:|---:|---:|---:|
 | the one before it (0.5 m/s every way for the Warrior, 0.4 the others, turns to 4 rad/s) | 0 | 23/23 | 37.7 | 20 | 2 / 2 | 17 / 9 |
-| this one | 0 | 22/23 | 25.7 | 29 | 1 / 3 | 19 / 0 |
+| the next (1.7 m/s forward, its turns measured along a way alone) | 0 | 22/23 | 25.7 | 29 | 1 / 3 | 19 / 0 |
 
 The Rogue walks the 0.5 m/s its orders ask, where the envelope before held it to 0.4. What the walk
 steers by, each found where a member at this envelope stood, walked away or fell:

@@ -1530,7 +1530,7 @@ rest (settled and under 0.1 m/s, for up to 2 s), and the trial reads the positio
   shown as not opened. The route's edges are seen in play in the Lab's Stand-up scenario on the
   staged route ([the staged route](#the-staged-route)).
 
-On toes, the Warrior at `3c0a093a` (`assets/evaluations/rise/2026-10-30-3c0a093a-356447aa.jsonl`
+On toes, the Warrior at `3c0a093a` (`assets/evaluations/rise/2026-10-30T011050-3c0a093a-356447aa.jsonl`
 placed, `-3cd5c8be.jsonl` moving; begun, done of those begun, the median time to done):
 
 | Edge | Placed | Time, s | Moving | Time, s |

@@ -24,7 +24,10 @@ alone.
 ## Measurement
 
 `research/skill-search.mjs`: diagonal CMA over the settings that shape the motion, the rest held at
-the start's, from the settings the body threw before it had a row of its own (the Warrior's). Node,
+the start's, from the settings the body threw before it had a row of its own (the Warrior's). A
+start carried from another body's row (`--source`) scales its lengths by the body's stature over
+the source's and keeps its heights over the ground (the stomp's `lift`): the target lies at the
+same height for every body, so the same height keeps the source's clearance over it. Node,
 the bout world, Rapier, 120 Hz, default attributes. A candidate scores the mean of its trials; the start and the best are then
 played on fresh trials from other gaps, and the best is kept only where it scores above the start
 there with no more falls. Search files: `research/runs/skill-search/` (ignored).

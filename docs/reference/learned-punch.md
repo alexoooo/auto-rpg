@@ -117,7 +117,7 @@ the right hand at 120 Hz (72 %) is the furthest short.
 
 **The Strike drill** (Node, the bout world on `rapier-coordinate`, 120 Hz, command delay 0, at
 `e01be414`): still, 31 of 32 on the middle mark land, the one weak 6.41 m/s at 1.22 kg (record
-`2026-11-02-e01be414-ecbb0de6`,
+`2026-11-02T080617-e01be414-ecbb0de6`,
 `?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=a4d78d474fe48d4c`); from a
 walk 52 of 64, 12 weak
 (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=c7ff35607a9320a8`). The
@@ -170,8 +170,8 @@ None fell. Short of 90 % in five of the eight cells: walking in, the right hand 
 the furthest; the right hand still at 120 Hz lost 6 trials.
 
 On the baseline's punch rung (Option Mind, `option`, Node, the bout world on Rapier, 120 Hz), paired
-over 128 trials with the network before (`2026-10-29-3e6e204c-1be9aa1c` against
-`2026-10-29-c5c4bbb0-9edf70eb`): landed 0.578 to 0.609 (difference 0.031, 95 % from -0.031 to
+over 128 trials with the network before (`2026-10-29T032349-3e6e204c-1be9aa1c` against
+`2026-10-29T123358-c5c4bbb0-9edf70eb`): landed 0.578 to 0.609 (difference 0.031, 95 % from -0.031 to
 0.094), admitted 0.750 both, none fell. Still, 28 to 26 of 64 (the high mark refused, 32 of them);
 from a walk, 46 to 52 of 64.
 
@@ -193,9 +193,9 @@ seed 1001, 80 trials drawn as training draws them, each at 120 and 480 Hz.
 | held out, walking in, 480 Hz | 1/35 | 21/35 |
 
 None fell. The drill's walk rung's misses are weak, none missed. Records
-`2026-10-28-1754938b-593e2ab7` (still,
+`2026-10-28T203953-1754938b-593e2ab7` (still,
 `?play=ratings&evaluation=strike&pool=72c48f7f&subject=option/strike&version=825089e6846a22c1`) and
-`2026-10-28-1754938b-7bea47b4` (walk,
+`2026-10-28T203953-1754938b-7bea47b4` (walk,
 `?play=ratings&evaluation=strike&pool=6ceb4f94&subject=option/strike&version=94422b9c03f183cb`). In
 the walk rung's worst trial (the left hand, 2.8 m, walking) the striker walks in at about 0.75 m/s
 and throws without stopping 0.9 m off; the fist meets the target between its raised hands, 0.59 kg,
@@ -222,13 +222,13 @@ bend and the speed.
 
 ### On the Strike drill
 
-**Still rung** (record `2026-10-27-35b6998e-6c79723c`, 120 Hz; the Warrior): 30 of 32 at the
+**Still rung** (record `2026-10-27T192414-35b6998e-6c79723c`, 120 Hz; the Warrior): 30 of 32 at the
 middle mark land; 2 are weak, 6.75 and 6.79 m/s, at 0.9 m and 0.2 m across. The high mark is
 refused. Watched by the owner
 (`?play=ratings&evaluation=strike&subject=learned-puncher&version=24ccf7106e3471ef`): "the punch
 actually looks not bad". After contact the striker bows forward at the hips and comes back up.
 
-**Fight rung** (record `2026-10-27-13684ff1-139f06a0`, pool `4145285b`, 120 Hz; the Warrior against
+**Fight rung** (record `2026-10-27T212246-13684ff1-139f06a0`, pool `4145285b`, 120 Hz; the Warrior against
 the rung's seven foes at `13684ff1`, moments 1 to 4, both hands;
 `?play=ratings&evaluation=strike&pool=4145285b&subject=learned-puncher&version=c0e976aff6125d66`):
 
@@ -273,7 +273,7 @@ While the legs bear, the bearing solve gives every channel of a bearing leg its 
 push (`solveBody`, `src/core/control/solve.ts`), so the leg pushes and the steer's leg outputs move
 nothing; the trunk's and the arm's carry the punch.
 
-**From a walk** (the drill's `walk` rung, record `2026-10-28-17581557-b5a333fa`: gaps 1.6 to
+**From a walk** (the drill's `walk` rung, record `2026-10-28T033058-17581557-b5a333fa`: gaps 1.6 to
 3.0 m by 0.2, across 0 and 0.2 m): the striker walks into the window and asks once settled in its
 middle, or the first step its readiness says ready, still walking, at a median 0.27 m/s, 18 of 32
 on one foot. From ready is from the first step its readiness said ready to the mark.

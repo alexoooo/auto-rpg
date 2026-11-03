@@ -17,10 +17,10 @@ It omits Vanguard and most legal loadouts.
 | Code | Reading | Evidence |
 | --- | --- | --- |
 | `0c079314` | 6/6 wins against empty-handed Skeleton Duellist; all end by health drain | [Match](../../assets/evaluations/match/2026-10-30-0c079314-18e4f8e8.jsonl) |
-| `0c079314` | 6/6 trunk contacts and completed returns; 0/6 meet the human punch bar | [Strike](../../assets/evaluations/strike/2026-10-30-0c079314-85bf3d0a.jsonl) |
-| `0bd473d1` | Mixed panel: 6 wins, 10 losses; mean life margin -0.096 | [Panel](../../assets/evaluations/tournament/2026-10-30-0bd473d1-6ae8eb13.jsonl) |
-| `7a4014ab` | Mixed panel: 9 wins, 7 losses; mean life margin +0.014 | [Panel](../../assets/evaluations/tournament/2026-10-30-7a4014ab-23ee982f.jsonl) |
-| `c5ce647b` | Mixed panel: 11 wins, 5 losses; mean life margin +0.017 | [Panel](../../assets/evaluations/tournament/2026-10-30-c5ce647b-5c996c27.jsonl) |
+| `0c079314` | 6/6 trunk contacts and completed returns; 0/6 meet the human punch bar | [Strike](../../assets/evaluations/strike/2026-10-30T023403-0c079314-85bf3d0a.jsonl) |
+| `0bd473d1` | Mixed panel: 6 wins, 10 losses; mean life margin -0.096 | [Panel](../../assets/evaluations/tournament/2026-10-30T120857-0bd473d1-6ae8eb13.jsonl) |
+| `7a4014ab` | Mixed panel: 9 wins, 7 losses; mean life margin +0.014 | [Panel](../../assets/evaluations/tournament/2026-10-30T122336-7a4014ab-23ee982f.jsonl) |
+| `c5ce647b` | Mixed panel: 11 wins, 5 losses; mean life margin +0.017 | [Panel](../../assets/evaluations/tournament/2026-10-30T144455-c5ce647b-5c996c27.jsonl) |
 | `c62d0d62` | 2 wins against Vanguard's empty-handed Skeleton; mean life margin +0.026 | [Pair](../../assets/evaluations/skeleton-combat/2026-10-30-c62d0d62-0bd6da30.jsonl) |
 
 The initial match uses empty-handed Skeletons at 3, 4 and 5 m, swapping sides. The Strike
