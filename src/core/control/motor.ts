@@ -173,7 +173,10 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
   balance: BalanceMaker = stanceControl): WholeBody {
   const stance = balance(built, stanceTuning, assist);
   const root = rootSegment(built);
-  const tracker = effectorTracker(built, root);
+  // A path's solve begins from the limb's angles as they are: begun from another solve's, or the
+  // reference pose's, it can find a limb otherwise placed, and the servo drives the limb there
+  // (a foot lifted from the ground pressed into it).
+  const tracker = effectorTracker(built, root, { seedActual: true });
   const points = pointLimbs(built);
   const freedoms = [...built.joints.values()].reduce((count, joint) => count + joint.dofs.length, 0);
   // The solve's work, made at its first solve: a body makes motors it may never run.
