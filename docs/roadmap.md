@@ -198,10 +198,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
   centre's force. The club Warrior turning onto a way at 1 m/s and over ran to 2 to 2.8 m/s and
   fell ([the stance's walk](reference/locomotion.md#the-stances-walk)); the envelope's turns onto a
   way hold its walk under that, but a turning walk past 0.7 m/s, and the run's turns, need yaw held at speed.
-- **Braking.** The walk's pace comes round at 1 m/s² (`GaitTuning.accel`): asked a quarter turn at
-  1.4 m/s the Warrior keeps its speed 1.6 s and falls (the Locomotion drill's turn 90, bare); at 2
-  to 5 m/s² it turns and stands, but the envelope is then to be measured again
-  ([stopping](reference/locomotion.md#stopping)).
+- **Braking.** The walk's pace comes round at 2 m/s² (`STANCE_GAIT.accel`), where at 1 the Warrior
+  asked a quarter turn at 1.4 m/s kept its speed 1.6 s and fell; the stance envelope, measured at
+  1, is to be measured again ([pace ramp](reference/stance-tuning.md#pace-ramp),
+  [stopping](reference/locomotion.md#stopping)).
 - **The stance on a lying body.** Asked a stand while the body lies with no ground action holding
   it, the stance's plan takes what the ground missed (`plan.missed`, `advancePlan`) unbounded and
   runs to NaN in seconds, which the action command refuses as a throw; no mind asks it now

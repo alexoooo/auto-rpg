@@ -293,6 +293,28 @@ The rows differ only at 0.5 and 0.7 m/s. `accel` 0.5 held five more of fifty, th
 which the best of twelve rows at 25 walks reads by chance; it is not replicated. A human's
 preferred walk is near 1.4 m/s.
 
+### Pace ramp
+
+`STANCE_GAIT.accel` 2 m/s², from 1: a walk asked another way comes round to it at that rate, and at
+1 the Warrior asked a quarter turn at 1.4 m/s (the Locomotion drill's turn 90, bare) kept 1.4 m/s
+forward 1.6 s while its heading waited, its pelvis yawed 1.5 rad off and it fell. Node stand,
+Rapier, 120 Hz, the Option mind, at `71706c71` with its envelope, read at each `accel`:
+
+        accel   turn 90 bare   Warrior drill falls, 50   stop from 0.5 / 0.7 m/s, s   stop from 1.4, s   shoved, 200 each (Rogue / Warrior / skeleton)
+        1       fell 7.06 s    1                         1.08-1.13 / 1.15-1.41        1.69-2.17          4 / 0 / 199
+        2       held           0                         1.11-1.13 / 1.19-1.31        1.39-1.62          4 / 2 / 199
+        3       held           0                         1.10-1.13 / 1.19-1.29        0.97-2.06          not read
+        10      not read       not read                  1.07-1.11 / 1.13-1.26        Warrior fell, bare and club
+
+The drill is its walk and turn trials, every protocol, calm. A stop is a lone body walking forward
+under orders told to stand, the Rogue and the Warrior bare and with the club, read until under
+0.1 m/s; at 3 the bare Warrior from 1.4 was not still 4 s on. Shoved is the braced walk under random
+orders at 0.5 m/s, the club in hand, shoved 20 N s at a third of them, seeds 1 to 200
+(`research/core-stance-sweep.mjs --batteries orders --orders 0.5:1-200 --shoves 20`); the skeleton
+falls in 199 of 200 of it with the club in its right hand and the core stand's balance at either
+`accel`, so its shoved falls are read on another battery. Chosen: 2, the
+least that holds the turn. The stance envelope was measured at 1 and is to be measured again at 2.
+
 ### Double support and pre-swing
 
 Above 0.4 m/s the swinging hip runs out of strength without a pre-swing: the Rogue walking forward
