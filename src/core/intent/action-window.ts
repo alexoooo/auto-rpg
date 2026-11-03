@@ -274,7 +274,8 @@ export function approachSpot(view: BodyView, spot: Spot, ceiling: number, face: 
  * while that place is more than `travel` m off, the body faces its way there (`travelFacing`), and
  * turns to the target within it. On a body lying, the place is beside it and the walk goes round it
  * (`besideLying`), held in `kept` where given (`HeldBeside`). The walk counts as arrived `near` m
- * from that place (`stands`, as the navigator reads it), and stands while the window admits the
+ * from that place (`stands`, as the navigator reads it) once the body faces within the window's
+ * facing, and not before, since the legs turn only as they step; it stands while the window admits the
  * body: a fight strikes the first step it is ready, and a body held standing outside the window
  * through its sway strikes later. Where the target's body lies and no place beside it clears the
  * feet (`placeOf`), it asks no walk.
@@ -290,8 +291,10 @@ export function approachActionWindow(view: BodyView, window: Window, heading: nu
   const on = window.on === undefined ? undefined : view.senses.others.find((other) => other.id === window.on);
   const drift = on ? (on.velocity.x * x + on.velocity.z * z) / distance : 0;
   // Beside a body lying, its way round that body, which is not kept off as a fallen one (`MovementRequest`'s `by`).
-  const movement: MovementRequest = beside ? { kind: "place", points: beside.route.map((point) => ({ x: point[0], z: point[2] })), near, by: beside.by }
-    : placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, near);
+  // A body not yet facing the window's way steps on to turn.
+  const arrive = Math.abs(wrap(face - heading)) > window.facing ? 0 : near;
+  const movement: MovementRequest = beside ? { kind: "place", points: beside.route.map((point) => ({ x: point[0], z: point[2] })), near: arrive, by: beside.by }
+    : placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, arrive);
   return { move: null, face, movement,
     pace: approachPace(ceiling, distance, drift), ...(distance > travel ? { travelFacing: true as const } : {}) };
 }
