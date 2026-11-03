@@ -1,0 +1,102 @@
+{
+  "workshop-fighter+toes": {
+    "made": "The best swing found on the Strike drill's still rung (research/swing-drill.mjs), short of the bar: the edge is fast but meets with the flat (docs/reference/held-blows.md#the-cut)",
+    "settings": {
+      "pace": 1.021,
+      "band": 0.15,
+      "aside": 0.15,
+      "follow": 0.02,
+      "longest": 0.5,
+      "recover": 0.376,
+      "reach": 0.8949015152302557,
+      "settle": 0.05204316184330169,
+      "wound": {
+        "left": {},
+        "right": {
+          "thoracic rotation right": 0.2564234840066763,
+          "lumbar rotation right": -0.01773703427937562,
+          "thoracic flexion": 0.23385436469645243,
+          "lumbar flexion": 0.3585785637010572,
+          "shoulder.right flexion": 0.7046240224899967,
+          "shoulder.right abduction": 0.19860434181885145,
+          "shoulder.right internal rotation": -0.429168424449651,
+          "elbow.right flexion": -0.5947606380675613,
+          "wrist.right flexion": 1.0037749206510025,
+          "wrist.right radial deviation": 0.2772113690795103,
+          "wrist.right pronation": -0.46610590229307913
+        }
+      },
+      "timed": {
+        "left": [],
+        "right": [
+          {
+            "channel": "thoracic rotation right",
+            "level": 0.8392211954012971,
+            "from": 0.11446876361081146,
+            "length": 0.2685134815422729
+          },
+          {
+            "channel": "lumbar rotation right",
+            "level": -0.6717790955759025,
+            "from": 0.06867330436785914,
+            "length": 0.005453387306993622
+          },
+          {
+            "channel": "thoracic flexion",
+            "level": 0.6944191144269996,
+            "from": 0.031101485179626773,
+            "length": 0.318014239821074
+          },
+          {
+            "channel": "lumbar flexion",
+            "level": -0.1546744009526636,
+            "from": 0.295787081754821,
+            "length": 0.2235185310235761
+          },
+          {
+            "channel": "shoulder.right flexion",
+            "level": -1,
+            "from": 0.25678262841626215,
+            "length": 0.18225084879621123
+          },
+          {
+            "channel": "shoulder.right abduction",
+            "level": 0.7295471449969899,
+            "from": 0.3,
+            "length": 0.36189922896074933
+          },
+          {
+            "channel": "shoulder.right internal rotation",
+            "level": -0.9821168910511678,
+            "from": 0.12682006576133073,
+            "length": 0.20321525967831833
+          },
+          {
+            "channel": "elbow.right flexion",
+            "level": -0.7621703656827744,
+            "from": 0.04971051494239646,
+            "length": 0.2912638221967523
+          },
+          {
+            "channel": "wrist.right flexion",
+            "level": -0.06779034790203275,
+            "from": 0.26453163700306204,
+            "length": 0.2825946156569188
+          },
+          {
+            "channel": "wrist.right radial deviation",
+            "level": -0.46653672258981993,
+            "from": 0.12777914499349394,
+            "length": 0.2826853267912049
+          },
+          {
+            "channel": "wrist.right pronation",
+            "level": -0.09958102746870034,
+            "from": 0.07374084606639568,
+            "length": 0.2785577687355687
+          }
+        ]
+      }
+    }
+  }
+}

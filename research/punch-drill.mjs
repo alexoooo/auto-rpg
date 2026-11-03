@@ -2,7 +2,7 @@
  * **A timed punch searched on the Strike drill**: Option Mind's straight punch with its drive on a
  * schedule (`StraightPunch.timed`): each of the pushed channels (`ceilingChannels`: the trunk, both
  * legs and the striking arm) a level, a start and a length into the drive, the stance and the arm's
- * aim beneath. With `--blow <kind>`, a held blow (`HELD_BLOWS`: `club-blow`, `sword-cut`,
+ * aim beneath. With `--blow <kind>`, a held blow driven straight (`HELD_BLOWS`:
  * `sword-thrust`) instead: Option Mind's, its striking hand holding the blow's item and the other
  * the buckler, as the game's loadouts hold them, the striking wrist's channels pushed beside the
  * arm's. A candidate is played as the drill plays a trial (`STRIKE_CASES.still`, its world
@@ -145,7 +145,8 @@ function spreadOf(text, offsets) {
 
 /**
  * One drill trial of `subject` on `condition` at `hz`: its reading, and the nearest its fist came to
- * the punch's target through the drive, m; a held blow's, the reader's nearest of its face to its aim.
+ * the punch's target through the drive, m; a held blow's, the reader's nearest of its face to its aim;
+ * and when its action first committed (`committed`, s on the bout's clock; null where it never did).
  */
 export async function drillTrial(subject, condition, hz) {
   const cases = STRIKE_CASES.still, world = cases.world([subject], condition, undefined, [{}]);
@@ -155,19 +156,20 @@ export async function drillTrial(subject, condition, hz) {
     const used = usableSkills(partLookup, built.duel.duelists.left.built.spec, subject.mind.executors, subject.mind.actions ?? []).executors;
     const at = Math.max(0, used.findIndex((one) => one.name === subject.mind.actions?.find((action) => action.name === subject.action)?.executor));
     const reader = cases.read(built, condition), motion = built.duel.duelists.left.minded.skills.state.actions.executors[at].motion, body = built.duel.duelists.left.body;
-    let nearest = Infinity;
+    let nearest = Infinity, committed = null;
     built.duel.play(world.tape);
     while (!reader.ended) {
       if (built.duel.clock > cases.seconds + 1) throw new Error("the trial ran past its seconds");
       built.world.step();
       reader.afterStep();
-      if (motion.phase === "swing" && !subject.held) {
+      if (committed === null && built.duel.duelists.left.minded.skills.report.actions.some((action) => action.phase === "commit")) committed = built.duel.clock;
+      if (!subject.held && motion.phase === "swing") {
         const f = body.view.fists[condition.hand].position, t = motion.target;
         nearest = Math.min(nearest, Math.sqrt((f.x - t[0]) * (f.x - t[0]) + (f.y - t[1]) * (f.y - t[1]) + (f.z - t[2]) * (f.z - t[2])));
       }
     }
     const reading = reader.reading();
-    return subject.held ? { ...reading, nearest: reading.nearest ?? Infinity } : Object.assign(reading, { nearest });
+    return subject.held ? { ...reading, nearest: reading.nearest ?? Infinity, committed } : Object.assign(reading, { nearest, committed });
   } finally { built.dispose(); }
 }
 
