@@ -387,13 +387,14 @@ const PUNCH_PREPARE_LIMIT = 6;
 /**
  * Whether `hand`'s straight punch at `at` (`technique`'s, with `settings`) can be thrown from where
  * the body stands, facing `heading`: blocked out of the arm's height band; else ready within its
- * window, its stand-off on the ground from the target, or the window to walk to.
+ * window, its stand-off on the ground from the target, or the window to walk to; the window on the
+ * body `on` names, where the target is on one.
  */
-function punchReadiness(view: BodyView, technique: ReturnType<typeof straightTechnique>, settings: StraightPunch, hand: Side, at: Vec3, heading: number, clear: number): Readiness {
+function punchReadiness(view: BodyView, technique: ReturnType<typeof straightTechnique>, settings: StraightPunch, hand: Side, at: Vec3, heading: number, clear: number, on: string | undefined): Readiness {
   const reach = technique.standOff(hand, at[1] - view.head.y);
   if (!technique.heightFits(hand, at[1] - view.head.y)) return { kind: "blocked", reason: "target is outside the arm's height band" };
   return strikeWindow(view, at, heading, { standOff: reach, band: settings.band, aside: settings.aside ?? settings.band,
-    across: settings.squared ? technique.state.shoulders[hand][0] : 0, pace: settings.pace, poised: settings.poised === true, clear });
+    across: settings.squared ? technique.state.shoulders[hand][0] : 0, pace: settings.pace, poised: settings.poised === true, clear, ...(on === undefined ? {} : { on }) });
 }
 
 /** Why settings `settings` cannot drive a held item's face, or null: `fire` reads the fist. */
@@ -441,7 +442,8 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       if (state.live) return { kind: "waiting", reason: "straight punch is striking or returning" };
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
-      return punchReadiness(view, technique, settings, sideOf(effector), at, around.heading, clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead));
+      return punchReadiness(view, technique, settings, sideOf(effector), at, around.heading, clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead),
+        target.kind === "body" ? target.body : undefined);
     },
     resume() { state.live = null; technique.end(); },
     interrupt(_view, id) { if (state.live?.request.id === id) { state.live = null; technique.end(); } },
