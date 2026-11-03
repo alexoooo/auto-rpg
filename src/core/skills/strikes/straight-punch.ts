@@ -519,8 +519,8 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
         intoFrameToRef(view.root, motion.target, aimed);
         toward[0] = aimed.x - at.x; toward[1] = aimed.y - at.y; toward[2] = aimed.z - at.z;
         posture = { ...posture };
-        if (aligner.ask(view, toward, posture as Record<string, number>))
-          for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
+        for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
+        aligner.ask(view, toward, posture as Record<string, number>, pushes);
       }
       const sense = technique.sense[live.hand], shift: [number, number] = [0, 0];
       const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.learner.outputs, motion.face, sense, shift) : 0;
