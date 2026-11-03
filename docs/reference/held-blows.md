@@ -1,132 +1,78 @@
 # Held blows
 
-The toed Warrior's club blow, sword cut and sword thrust (`src/core/skills/strikes/held-blow.ts`)
-read against the held blow's bar: 64.8 J of the rules' energy, the cut 18.5 m/s at the blade's far
-end instead ([section 3](human-strike-reference.md#3-one-handed-sword-cut)), the thrust 4.6 m/s of
-its point's closing speed ([section 3a](human-strike-reference.md#3a-one-handed-thrust-a-persons-stab)),
+The toed Warrior's club blow, cut and sword thrust read against the held blow's bar: 64.8 J of
+the rules' energy, the cut 18.5 m/s at the blade's far end instead
+([section 3](human-strike-reference.md#3-one-handed-sword-cut)), the thrust 4.6 m/s of its
+point's closing speed ([section 3a](human-strike-reference.md#3a-one-handed-thrust-a-persons-stab)),
 met with the item's face (the club blunt, the cut its edge, the thrust its point), at the mark
-asked, the striker up
-([the bars](../plans/2026-11-01-option-mind-everywhere.md#the-bars), `BAR.held`,
-`src/evaluation/strike/read.ts`). The club, steered, lands 272 and 277 of 300 held-out trials
-at 120 and 480 Hz (91 and 92 %), but 3 fell at 480 Hz, and the bar has none fall: it is not yet
-at the bar. The cut and the thrust do not reach it.
+asked, the striker up ([the bars](../plans/2026-11-01-option-mind-everywhere.md#the-bars),
+`BAR.held`, `src/evaluation/strike/read.ts`). The club, swung, lands 5 of 12 held-out trials and
+meets the trunk with its head in every one, 29 to 99 J: near the bar, not at it. The cut and the
+thrust do not reach it.
 
 ## What is used
 
-- **The blow**: the straight punch's whole-body drive (`straightPunchExecutor`) thrown with the
-  face of what the hand holds (`StrikingFace`, `faceOf`). The club's face is its swell (`aim`)
-  meeting the target along the hand's length (`BLUNT_FACING`, the item's x); the sword's cut is
-  its `edge.right` point along the edge's direction, its thrust its `tip` along the blade. The
-  arm's contact pose is solved with two points of the hand (`solveReach`): the striking point on
-  the line from the shoulder, and a point `FACE_LEVER` (0.3 m) behind it against its facing, so the
-  face meets the target along that line. A held face's arm is solved from its guard each step, so
-  a chamber that draws the arm back (a negative `chamber`) leaves one contact pose to drive at.
-- **The records**: `assets/core/club-blow.json`, `sword-cut.json`, `sword-thrust.json`, the toed
-  Warrior's only. The club's is its searched schedule (below) and the network trained on it
-  ([steered](#the-club-steered)), admitted as it was trained (`reach` 0.6 of its 0.90 m arm,
-  shoulder to swell, `band` 0.25 m, `aside` 0.3 m); the cut's and the thrust's are the punch's
-  schedule set by hand, with no network. A steer reads the layout `assets/core/<kind>.layout.json`:
-  the punch's inputs and outputs and the striking wrist's three channels.
+- **The club blow and the cut are swings** (`swingExecutor`, `src/core/skills/strikes/swing.ts`;
+  `SWINGS`, `swing-part.ts`): from where its window admits it, the trunk and the striking arm wind
+  up to the record's angles (`Swing.wound`), each wound channel counted there once within
+  `WOUND_WITHIN` (0.1 rad) of its angle or turning slower than `WOUND_STILL` (0.5 rad/s), as near
+  as the muscles hold it against the item's weight; the stance stands quiet `settle` s; then each
+  channel the schedule names is pushed flat out over its own window (`TimedPush`), the rest held
+  wound, and the arm comes back to the guard. The face is the item's (`faceOf`): the club's swell
+  meeting the target along the hand's length, the cut's `edge.right` along the edge's direction.
+- **The thrust is driven**: the straight punch's whole-body drive (`straightPunchExecutor`) thrown
+  with the blade's `tip` along the blade. The arm's contact pose is solved with two points of the
+  hand (`solveReach`): the striking point on the line from the shoulder, and a point `FACE_LEVER`
+  (0.3 m) behind it against its facing, so the point meets the target along that line. A held
+  face's arm is solved from its guard each step, so a chamber that draws the arm back (a negative
+  `chamber`) leaves one contact pose to drive at.
+- **The records**: `assets/core/club-blow.json`, `cut.json`, `sword-thrust.json`. The club's, the
+  toed Warrior's, is its searched swing ([the club swing](#the-club-swing)), admitted with the head
+  0.49 m from the target across the ground (`reach`), 0.15 m deeper at most (`band`) and 0.15 m to
+  either side (`aside`); the cut's, the toed Warrior's, is the best swing found, short of the bar
+  ([the cut](#the-cut)); the thrust's is its searched schedule with no network.
 - **What the drill reads**: a held blow lands only where the rules read its contact with the
   mechanism its part meets with (`ExecutorPart.meets`, `StrikeHit.faced`); a blow met otherwise is
   `weak`, whatever its energy.
 
 ## Measurement
 
-`research/punch-drill.mjs --blow <kind>`: Option Mind's held blow on the Strike drill's still
-rung, the Warrior's right hand holding the item and the left the buckler, square on, at the middle
-mark; its schedule and gap searched by CMA-ES, each candidate a trial at 120 and at 480 Hz scored
-by the worse (`barScore`: landed 9 and up; else up to 8, half the share of the bar's energy, half
-for meeting with the face). With `--free`, a channel scheduled under a quarter of its effort is
-pushed at the contact pose instead (`FREE`); with `--brake`, the brake is searched; with
-`--chamber`, the chamber and the stand there. Node, the bout world, Rapier, at 190dd88b.
+`research/swing-drill.mjs --blow <kind>`: Option Mind's swing on the Strike drill's still rung,
+the Warrior's right hand holding the item and the left the buckler, at the middle mark. Searched by
+CMA-ES: each of eleven channels' windup (a share of its range, 5 % in from either stop) and push
+(a level, a start and a length), the stand-off and the settle. The window is the record's (band
+and aside 0.15 m): the drill walks the body into it from where the trial starts, as a game does. A
+candidate is played from each starting gap at 120 and 480 Hz, the worse rate counting at each gap
+and the gaps' mean overall (`barScore`: landed 9 and up; else up to 8, half the share of the
+bar, half for meeting with the face); a touch before the swing commits, the windup's, counts as
+no hit. Node, the bout world, Rapier, at 70f89646 with the swing.
 
-### The club
+### The club swing
 
-| Search | Generations | Best score | Its blow at 120 Hz, at 480 Hz |
-| --- | ---: | ---: | --- |
-| from the punch's trunk and legs, the arm free (`--free --brake`) | 60 | 6.86 | 27 J and 47 J |
-| again from it | 15 | 6.94 | 47.6 J at 11.0 m/s and 49.6 J at 10.9 m/s |
-| drawn back (`--chamber`, the arm solved from its guard) | 50 | 9.00 | **landed**, 79.9 J at 14.0 m/s; **landed**, 70.5 J at 13.7 m/s |
-| again over gaps 1, 1.04 and 1.08 m (`--spread`), scored by their mean | 4 | 9.10 | **landed** at all six, 70 to 86 J, 13.9 to 15.3 m/s, 0.47 to 0.48 s after the action begins |
+From the arm's free ceiling (the Warrior pinned at the lower trunk, the short sword's tip at 37.8
+m/s), searched over 1.0 and 1.4 m starts at both rates: 3 generations of 12 landed all four, 73 J the
+least. Held out (starts 0.9, 1.2 and 1.6 m, square on and 0.15 m across):
 
-The schedule is `research/environments/club-blow.json`'s (the gap's mean, 1.04 m). Before it was
-drawn back the club met the target still gaining speed, 0.7 m from where its guard holds it:
-the same schedule on arms turning 1.2 times as fast (`UPPER_SPEED_IN_USE` 3.0) or with the
-forearm and wrist twice as strong met the target no faster (11.0 m/s), and searches on either
-body (50 and 45 generations from the second row's start) reached 6.44 and 7.31. The path is the
-limit, not the muscles: drawn back, the swell meets the target at 14 m/s, and the body's numbers
-are as they were. The best before it was a knife's edge: 47.6 J at a gap of 1.0469 m, 19.9 J at
-1.047.
-
-**Held out**, the schedule alone (`research/punch-policy-check.mjs --policy none`, seed 5001, 40
-trials a rate, gaps 0.79 to 1.29 m and 0.15 m across the body to 0.3 m to the hand's side, Option
-Mind's club blow alone): 2 landed at 120 Hz and 1 at 480, 2 falls at each. It lands at its own
-places; a steer has to take it elsewhere.
-
-### The club steered
-
-PPO (`research/run-train.py`) on `research/environments/club-blow.json`: the searched schedule
-steered by a network, Option Mind's club blow alone, the Warrior holding the club and the buckler,
-the still rung's target 0.94 to 1.14 m away and 0.15 m across the body to 0.3 m to the club's
-side, at 120 and 480 Hz. Node, the bout world, Rapier; 8 to 24 workers of 4, 8.5 M decisions in
-about 10 h, then 1.05 M more from its 8.5 M network with a narrower spread (`--log-std -1.6`) and a
-slower rate (`--lr 1e-4`) in 2.2 h, 8 workers of 4.
-
-| Network | Held out (seed 6001, 100 a rate): 120 Hz | 480 Hz |
+| Start, across | 120 Hz | 480 Hz |
 | --- | --- | --- |
-| none, the schedule alone (seed 5001, 40, gaps 0.79 to 1.29 m) | 2 of 40, 2 fell | 1 of 40, 2 fell |
-| 5.2 M decisions | 73, 2 fell | 91 |
-| 6.2 M | 85, 1 fell | 85 |
-| 7.1 M | 86, none fell | 88, 1 fell |
-| 8.5 M | 88, none fell | 90 |
-| 8.5 M, again (seed 7001, 200 a rate) | 174 of 200, 6 fell | 188 of 200 |
-| 8.5 M and 1.05 M narrower, the record's | **89**, none fell | **90**, 1 fell |
-| the same (seed 7001, 200 a rate) | **183 of 200**, none fell | **187 of 200**, 2 fell |
-| the same, 1.5 M narrower | 87, 2 fell | 96 |
+| 0.9 m, 0 | 29 J | 63 J |
+| 1.2 m, 0 | 60 J | **landed**, 74 J |
+| 1.6 m, 0 | 58 J | **landed**, 92 J |
+| 0.9 m, 0.15 | **landed**, 92 J | **landed**, 99 J |
+| 1.2 m, 0.15 | 36 J | 61 J |
+| 1.6 m, 0.15 | 1 J | **landed**, 82 J |
 
-Landed blows meet at a median 15 to 16 m/s; the misses are weak blows spread over the places, the
-nearest and farthest most. The window is the one it was trained in: a narrower one (`band` and
-`aside` 0.15 m, or `reach` 0.73) admits the same places but moves the body before the blow, and
-lands 72 and 62 (77 and 68). From 7 M decisions on it stays between 84 and 96 at either rate, a
-fall in about a hundred trials at one rate or the other; the misses gather at the far side, 1.12 m
-and beyond.
-
-### The club up the ladder
-
-The Strike drill (`npm run evaluate -- strike option/club-blow@buckler,club`), the steered club at
-5a8f6a6c; Node, the bout world, Rapier, 120 Hz. Counted over the trials it threw (the Rogue, the
-left hand and the high mark are refused):
-
-| Rung | Landed of thrown | Fell | Where it misses |
-| --- | ---: | ---: | --- |
-| still (0) | 11 of 15 | 0 | 0.7 m, nearer than it was trained, and 1.2 and 1.3 m to the side, weak |
-| moving (1) | 4 of 17 | 0 | weak or elsewhere at every pace and heading |
-| stepping (2) | 0 of 1 | 0 | out of its window at 0.8 and 1.2 m |
-| guarding (3) | 3 of 3 | 0 | |
-| punching (4) | 3 of 3 | 0 | |
-| walk (5) | 9 of 29 | 0 | thrown still walking (1 of 16; settled, 8 of 13) |
-| fight | 0 of 4 | 1 | fell, guarded, missed |
-
-Trained on (`research/environments/club-ladder.json`: the still rung from 0.6 m and the walk in,
-PPO from the steered club's network), it gained nothing in 0.5 M decisions: nearer than 0.85 m
-the club passes the target (`missed`), and every blow after the walk in misses it (16 of 16, 2
-fell), as at the start.
-
-Its profile (`assets/core/strike-profiles.json`) is read from the still, stepping, guarding,
-punching and letting-go records (`assets/evaluations/strike/2026-10-31-5a8f6a6c-*.jsonl`), so
-Option Mind prices the club by them.
+Every trial meets the upper trunk with the club's head, 0.25 s into the swing; what moves the
+energy is where in its window the walk leaves the body.
 
 ### The cut
 
-The cut's edge meets the target with little mass behind it: the best of 41 generations
-(`--free --brake`, from the club's start) met the upper trunk with the edge at 10.2 m/s closing
-and 0.40 kg, 20.1 J at 120 Hz and 15.0 J at 480. At 0.40 kg the bar asks 18 m/s closing at the
-edge (`edge.right`, 0.36 m up the blade): a lay person's saber tip moves 13 to 15 m/s, a fencer's
-17.5 to 19.5 ([human strike reference](human-strike-reference.md#3-one-handed-sword-cut)). The
-rules' energy at the edge, not the body, keeps the cut from the bar: the one energy for every held
-blow (the plan's decision, the owner's to reverse) asks of the short sword's edge what a person's
-cut does not give.
+On the drill at 120 Hz alone, from one gap, the cut landed edge first at 24.1 m/s at the far end
+(19 m/s closing, 47 J) 0.46 s into the swing; at 480 Hz the same arc met the target's guarding left
+hand at 20 m/s and was turned. Searched over both rates and two starts it lands nothing: at 120 Hz
+it meets the trunk with the flat at 12 to 14 m/s, at 480 Hz the guard or elsewhere. Searched
+with the windup reached before the swing commits (10 generations of 12), every trial meets the
+trunk at 20.5 m/s or more at the far end, but with the flat: its record, `weak` on the drill.
 
 ### The thrust
 
@@ -137,38 +83,28 @@ trunk point first at 3.5 m/s closing, 25.4 J at 120 Hz and 27.6 J at 480. Withou
 closing. The grip lays the blade square to the hand's length, so the arm holds it along the line
 only with the wrist near its stops.
 
-Steered, it gains nothing: PPO from scratch on `research/environments/sword-thrust.json` (the best
-schedule, the target 1.16 to 1.36 m away, 120 Hz alone at first and 480 Hz mixed in over 1.5 M
-decisions) met every held-out trial weak after 1 M decisions, a median 16 J at 120 Hz and 17 J at
-480, 32 J at most (30 a rate, seed 6001), no higher than at 0.5 M; at 1.5 M, 17 and 18 J, 36 J at
-most, its training score flat from 0.4 M to 2 M.
-
-### The blades it would replace
-
-`BLADE_STRIKE`'s thrust (the Duellist's, `duellist/thrust@buckler,sword`), on the same still rung
-at 9906c33a: 0 of 128 landed, 8 met the mark, median 0.18 J. Neither held sword blow lands either,
-so the Duellist keeps it.
-
-The sword's held blows as Option Mind holds them now (their hand-set records), on the Strike
-drill's still rung at 76f1c94f (`assets/evaluations/strike/2026-10-31-76f1c94f-*.jsonl`): the cut
-threw 7 and landed none (one weak, the rest guarded or elsewhere); the thrust threw 10 and landed
-none.
+Steered by PPO on `research/environments/sword-thrust.json` (the searched schedule, its record's
+window), it lands none of 60 held-out trials at either rate after 0.59 M decisions (the closest 4.9
+m/s) or after 1.08 M (0.98 M before each body was born on its first decision, 0.1 M after; the
+closest 4.6 m/s, with the edge, and 4.4 m/s with the point). Training met the target in 1 % of
+episodes or fewer throughout, so the network is not kept.
 
 ## Tried and not kept
 
-- **The toed Rogue's club blow**: its schedule searched from the Warrior's on the still rung
-  (`research/punch-drill.mjs --blow club-blow`, gaps 0.9 to 1.1 m) lands 2 of 24 unsteered, most
-  blows weak at 15 to 37 J against its scaled bar's 33.5. Steered by PPO on the Warrior's
-  environment (`research/environments/club-blow.json`) with the Rogue in his place: from the
-  Warrior's network, whole or with its outputs scaled by a quarter, it lands none (score -0.5);
-  from scratch, 5.4 M decisions, its training score rose from 1.2 to 5 and the share meeting the
-  bar stayed at 2 to 9 %, no better than unsteered. No record; Option Mind leaves the club blow out
-  on the Rogue.
-- **Faster or stronger arms for the club** (above): no faster at the target, so not kept.
-- **A club met with the palm** (`BLUNT_FACING` the item's z, either way): from the guard it met
-  the target's guard, 15.5 J at best, unsearched.
-- **The club at the head** (the high mark): refused, the head above the arm's height band.
-- **The cut drawn back** (`--chamber`, from the cut's best): 4.23 at 17 generations, under the
-  cut's 4.93.
-- **The thrust drawn back nearer the target** (`--chamber --chamber-range 0.3,0.75`, from the
-  thrust's best): 4.76 at 33 generations, under the thrust's 5.57.
+- **The club and the cut thrown as the punch's drive** (`straightPunchExecutor` with the item's
+  face): not how either is used, so they are swings. Drawn back and steered by PPO, the club drive
+  landed 183 and 187 of 200 held-out trials at 120 and 480 Hz, a fall in about a hundred, but
+  11 of 15 on the ladder's still rung and 9 of 29 after a walk in
+  (`assets/core/club-blow.json@4c0e1d89`, `research/environments/club-blow.json@4c0e1d89`). The cut
+  drive met the edge at 10.2 m/s closing, 0.40 kg behind it.
+- **A swing searched from one gap at 120 Hz**: the club landed at 87 to 94 J from 0.99 m and
+  missed 4 cm nearer or further and at 480 Hz; the cut landed there alone.
+- **The swing admitted at any range past its stand-off** (a 2 m `band`): the drill walks a body to
+  its window's middle, so at some gaps the body backed off 0.5 m before it swung. The window is
+  the record's.
+- **A window 0.08 m deep**: from 1.0 m the walk never settled the body in it.
+- **The toed Rogue's club drive**: searched from the Warrior's, 2 of 24 landed unsteered; steered
+  by PPO, none from the Warrior's network and 2 to 9 % from scratch over 5.4 M decisions.
+- **Faster or stronger arms for the club drive**: no faster at the target.
+- **The thrust drawn back nearer the target** (`--chamber --chamber-range 0.3,0.75`): 4.76 at 33
+  generations, under the thrust's 5.57.
