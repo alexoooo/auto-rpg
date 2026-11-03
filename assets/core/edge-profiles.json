@@ -2,8 +2,8 @@
   "source": {
     "script": "research/edge-profiles.mjs",
     "records": [
-      "assets/evaluations/rise/2026-11-02-252a17eb-c0e94d40.jsonl",
-      "assets/evaluations/rise/2026-11-02-252a17eb-5e477a37.jsonl"
+      "assets/evaluations/rise/2026-11-03-25d720b9-0e11b4c8.jsonl",
+      "assets/evaluations/rise/2026-11-03-25d720b9-807cc20e.jsonl"
     ]
   },
   "profiles": [
@@ -229,19 +229,19 @@
               "share": 0.3333333333333333
             },
             {
-              "at": "right",
-              "share": 0.08333333333333333
-            },
-            {
-              "at": "left",
-              "share": 0.08333333333333333
-            },
-            {
               "at": "fours",
               "share": 0.08333333333333333
             },
             {
               "at": "front",
+              "share": 0.08333333333333333
+            },
+            {
+              "at": "right",
+              "share": 0.08333333333333333
+            },
+            {
+              "at": "left",
               "share": 0.08333333333333333
             }
           ]
