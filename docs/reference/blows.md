@@ -210,6 +210,25 @@ trial against the change before.
   Paced, 17: 9 with nothing touching it, the first at 3.0 s, all holding a club (the one traced
   fell as it swung it), and 8 after a counted blow.
 
+- **Other places for the ward, read wide against the weapon hand led (`d94f4265`, before the cut's
+  wrist turned its edge)**: none meets more on all six rungs, and none is kept.
+
+  | Ward's place toward | Warrior club, sword | Rogue club, sword | Skeleton club, sword | Skeleton fell |
+  |---|---|---|---|---|
+  | the weapon hand led (kept) | 98 %, 80 % | 99 %, 80 % | 94 %, 72 % | 5, 11 |
+  | the weapon arm's shoulder | 92 %, 87 % | 98 %, 92 % | 77 %, 85 % | 10, 15 |
+  | the same, no crossing predicted | 92 %, 87 % | 98 %, 89 % | 77 %, 87 % | 10, 11 |
+  | the shoulder, the face turned to the weapon hand | 100 %, 87 % | 95 %, 91 % | 68 %, 85 % | 7, 8 |
+  | the weapon arm's elbow | 95 %, 82 % | 80 %, 77 % | 51 %, 79 % | 7, 14 |
+  | the point of shoulder, hand and weapon nearest the guarded place | 100 %, 80 % | 93 %, 83 % | 54 %, 70 % | 11, 10 |
+  | where the weapon's swing about the shoulder crosses the ward's reach | 33 %, 74 % | 43 %, 73 % | 81 %, 73 % | 3, 10 |
+
+  Against a blade the shoulder meets more: a cut arcs out from it, and the hand whips from wind-up
+  to contact (0.19 s) faster than the ward's place follows. Against a club it meets fewer, most
+  on the Skeleton: at gaps of 1.6 to 2 m the face goes out low toward the far shoulder and the
+  club comes down over it onto the hand that holds it (9 of 13 blows not met first, the face's
+  place 0.17 m lower than against the weapon hand).
+
 The bar (4 of 5, none fallen) is met on the Warrior's weapon rungs read wide (98 % and 80 %, none
 fallen) and on the Rogue's (99 % and 80 %, none fallen; 100 % and 73 % against the weapon hand not
 led), and not on the Skeleton's, which falls.

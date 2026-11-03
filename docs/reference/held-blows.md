@@ -20,6 +20,11 @@ thrust do not reach it.
   channel the schedule names is pushed flat out over its own window (`TimedPush`), the rest held
   wound, and the arm comes back to the guard. The face is the item's (`faceOf`): the club's swell
   meeting the target along the hand's length, the cut's `edge.right` along the edge's direction.
+- **The wrist is servoed** (`faceAligner`, `face-aligner.ts`): each step asks the wrist's three
+  freedoms the damped least-squares turn that brings the face's facing onto a way: the cut's
+  through its stroke, once the edge moves faster than `ALIGN_SPEED` (1 m/s, `swing.ts`), onto its
+  path, either edge leading; the thrust's from its chamber through its drive onto the line from
+  the point to the target, point first. The schedule's wrist pushes are dropped.
 - **The thrust is driven**: the straight punch's whole-body drive (`straightPunchExecutor`) thrown
   with the blade's `tip` along the blade. The arm's contact pose is solved with two points of the
   hand (`solveReach`): the striking point on the line from the shoulder, and a point `FACE_LEVER`

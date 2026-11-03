@@ -134,12 +134,14 @@ export const VALUED_CHOOSER: OptionChooserPart<ValuedConfig> = deepFreeze({
   make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
     const obedience = OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY, given = config.objective ?? FEW_TERMS_PART.defaults;
     const objective = parts.of("objective", given).make(given) as Objective, past = config.depth >= 2 ? lookingPast(options, obedience, objective) : null;
+    // A place is kept as long as the objective prices it held (`Objective.holds`): one left sooner, for another near
+    // alike, was chosen for a worth it was never given the time to earn, and two such are walked toward by turns.
     return chooser(options, (option, _, now) => {
       const terms = option.model(now), { worth: own, moves, letGo } = objective.worth(terms, now, obedience);
       const value = past && terms.exit.at ? own + past(now, terms.exit) : own;
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
       return { name: option.name, worth: value, terms, moves, letGo };
-    }, { ...DECIDING, phase }, { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING);
+    }, { ...DECIDING, phase, keep: objective.holds ?? 0 }, { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING);
   },
 });
 

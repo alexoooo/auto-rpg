@@ -8,9 +8,10 @@ import type { AskCrossing, Batch, Reply, Said, SpecNumber, ToldCrossing } from "
  * **A minds' thread, whatever carries its batches** (`mindThreads`, `src/apart/host.ts`): a host of
  * seats (`seatHost`) that carries out each batch's asks in order on the channels' shared numbers.
  * Each step ask it carries out as far as its answer (`SeatHost.handle`), says what its seat says
- * then, its numbers made anew with it (`say`), and counts it to `answered`; then each step's
- * decision once every step of the batch is answered, so the world carries out the commands and
- * reads what the minds said while they decide. It answers the batch (`steps`) with what each seat
+ * then, its numbers made anew with it (`say`), and counts it to `answered`; each step's decision
+ * waits until the world says the step's asks are all in (`Batch.decide`) or the seat is asked
+ * again, so the thread moves every body asked before any mind decides, and the world carries out
+ * the commands and reads what the minds said while they decide. It answers the batch (`steps`) with what each seat
  * it was asked to make says, and each menu it was asked for. A spec sent is derived as it arrives
  * (`deriveSpec`). Numbers it makes anew are made by `allocate`, in memory the world shares.
  * Every mind's data is loaded before its first batch (`loadData`, its transport's to await).
@@ -30,6 +31,9 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
   const sent = new Map<number, { kit: ReportNow["kit"]; gait: ReportNow["gait"]; outbound: Float64Array }>();
   // The step asks carried out, ever: every one of a batch once it is answered, failed or not.
   let steps = 0;
+  // The seats whose step is answered and whose decision waits, in the order asked.
+  const deciding: number[] = [];
+  const decide = (seat: number) => { deciding.splice(deciding.indexOf(seat), 1); host.decide(seat); };
   // What `seat` says as it stands, its kit and gait where they changed since it last said them, its engagement where `shown`, and its numbers where made anew.
   const saying = (seat: number, shown: boolean): Said => {
     const says = host.says(seat), last = sent.get(seat)!, channel = channels.get(seat)!, report = says.report;
@@ -48,7 +52,7 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
       for (const { ask } of batch.asks) if (ask.kind === "step") end += 1;
       // What each seat says crosses by copy: a value that cannot be copied fails the batch, said as its error.
       try {
-        const deciding: number[] = [], said: Said[] = [];
+        const said: Said[] = [];
         for (const [number, spec] of batch.specs ?? []) { specs.set(number, spec); deriveSpec(spec); }
         for (const { seat, ask: crossing, told: tells, inbound, outbound } of batch.asks) {
           const ask = asked(crossing);
@@ -59,6 +63,7 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
             channels.set(seat, channel);
             sent.set(seat, { kit: null, gait: null, outbound });
           }
+          if (deciding.includes(seat)) decide(seat);
           if (tells) for (const entry of tells) channel.told.push(told(entry));
           if (inbound) channel.inbound = inbound;
           host.handle(seat, ask, channel);
@@ -76,7 +81,7 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
             default: { const never: never = ask; throw new Error(`no ask ${JSON.stringify(never)}`); }
           }
         }
-        for (const seat of deciding) host.decide(seat);
+        if (batch.decide) while (deciding.length > 0) decide(deciding[0]!);
         return { seq: batch.seq, said };
       } catch (error) {
         return { seq: batch.seq, said: [], error: String((error as Error)?.stack ?? error) };

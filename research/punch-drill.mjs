@@ -12,9 +12,11 @@
  * near its hit came to each of the bar's tests (with `--near`, one with nothing on the mark by how
  * near the fist came to the punch's target, `NEAR`); a fall lowest. The punch is admitted at any range
  * past its arm's (a wide `band`), so where it stands is the cell's.
+ * With `--window-of`, its window and drive are a straight punch record's (`PunchRecord.settings`) but for
+ * what the search sets (`OWN`), so it is admitted where the record is; `--reach` and `--band` then override them.
  *
  *   node research/punch-drill.mjs --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gap <m>]
- *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--fire] [--brake] [--chest] [--near] [--heavier <times>] [--blow <kind>] [--free] [--chamber [--chamber-range <m,m>]] [--targets <body,...> (with --spread)] [--reach <arm share>] [--band <m>] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
+ *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--fire] [--brake] [--chest] [--near] [--heavier <times>] [--blow <kind>] [--free] [--chamber [--chamber-range <m,m>]] [--targets <body,...> (with --spread)] [--reach <arm share>] [--band <m>] [--window-of <record.json>:<bodyKey>] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
  *   node research/punch-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1,1.1] [--across 0,0.2] [--marks middle,high] [--models ...]
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
@@ -194,10 +196,23 @@ async function trial(x, cell) {
   let worst = null;
   for (const hz of cell.rates) {
     const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null, cell.blow ?? null, cell.blow ? cell.mark : null, cell.window ?? {}), condition, hz);
+    // A held blow's touch before its drive commits (its chamber's) is no blow: it scores as one that never came.
+    if (cell.blow && reading.hit && (reading.committed === null || reading.hit.time < reading.committed)) { reading.hit = null; reading.outcome = "early"; }
     const score = scoreOf(reading, cell.hand, cell.heavier) + (cell.near && !reading.hit && !reading.down ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
     if (worst === null || score < worst.score) worst = { score, hz, gap: decoded.gap, outcome: reading.outcome, hit: reading.hit && { speed: reading.hit.speed, kg: reading.hit.kg, energy: reading.hit.energy, mechanism: reading.hit.mechanism, straight: reading.hit.straight, along: reading.hit.along, bend: reading.hit.bend, lean: reading.hit.lean, on: reading.hit.on, time: reading.began === null ? null : reading.hit.time - reading.began } };
   }
   return worst;
+}
+
+/** What a searched schedule sets of a straight punch's settings: its pushes, its aim and posture, and its fire and brake; not steered. */
+const OWN = ["timed", "lead", "through", "hips", "turn", "lean", "fire", "brake", "steered"];
+
+/** A straight punch record's settings (`<record.json>:<bodyKey>`) less what the search sets (`OWN`); none where not named. */
+function recordWindow(named) {
+  if (!named) return {};
+  const at = named.lastIndexOf(":"), records = JSON.parse(readFileSync(named.slice(0, at), "utf8")), record = records[named.slice(at + 1)];
+  if (!record) throw new Error(`${named}: no such record`);
+  return Object.fromEntries(Object.entries(record.settings).filter(([key]) => !OWN.includes(key)));
 }
 
 if (!isMainThread && workerData?.drill) {
@@ -208,7 +223,7 @@ if (!isMainThread && workerData?.drill) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({ options: { out: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" }, across: { type: "string" },
     gap: { type: "string" }, hz: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
-    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, fire: { type: "boolean" }, brake: { type: "boolean" }, chest: { type: "boolean" }, near: { type: "boolean" }, heavier: { type: "string" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, blow: { type: "string" }, free: { type: "boolean" }, chamber: { type: "boolean" }, "chamber-range": { type: "string" }, targets: { type: "string" }, reach: { type: "string" }, band: { type: "string" } } });
+    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, fire: { type: "boolean" }, brake: { type: "boolean" }, chest: { type: "boolean" }, near: { type: "boolean" }, heavier: { type: "string" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, blow: { type: "string" }, free: { type: "boolean" }, chamber: { type: "boolean" }, "chamber-range": { type: "string" }, targets: { type: "string" }, reach: { type: "string" }, band: { type: "string" }, "window-of": { type: "string" } } });
   if (values.verify) {
     const found = JSON.parse(readFileSync(values.verify, "utf8"));
     const decoded = decode(found.cell.base ? tuned(found.cell.base, found.best.x, found.cell) : found.best.x, found.cell.hand, found.cell.gap ?? undefined, new Set(found.cell.without ?? []), { fire: !!found.cell.fire, brake: !!found.cell.brake, wrist: !!found.cell.blow, free: !!found.cell.free, chamber: !!found.cell.chamber });
@@ -224,7 +239,7 @@ if (!isMainThread && workerData?.drill) {
   }
   const cell = { model: values.model ?? "workshop-fighter", hand: values.hand ?? "right", mark: values.mark ?? "middle", across: Number(values.across ?? 0),
     gap: values.gap === undefined ? (values.spread ? 0 : null) : Number(values.gap), spread: spreadOf(values.spread, values.offsets, values.targets), without: (values.without ?? "").split(",").filter(Boolean), fire: !!values.fire, brake: !!values.brake, chest: !!values.chest, near: !!values.near, heavier: Number(values.heavier ?? 1), rates: (values.rates ?? values.hz ?? "120").split(",").map(Number), blow: values.blow ?? null, free: !!values.free, chamber: !!values.chamber,
-    ...(values.reach || values.band ? { window: { ...(values.reach ? { reach: Number(values.reach) } : {}), ...(values.band ? { band: Number(values.band) } : {}) } } : {}) };
+    ...(values.reach || values.band || values["window-of"] ? { window: { ...recordWindow(values["window-of"]), ...(values.reach ? { reach: Number(values.reach) } : {}), ...(values.band ? { band: Number(values.band) } : {}) } } : {}) };
   if (cell.blow && !Object.hasOwn(HELD_BLOWS, cell.blow)) throw new Error(`no held blow ${cell.blow}: one of ${Object.keys(HELD_BLOWS).join(", ")}`);
   const wrist = !!cell.blow, channels = ceilingChannels(cell.hand, wrist);
   const nw = Number(values.workers ?? Math.max(1, availableParallelism() - 4)), generations = Number(values.generations ?? 60);

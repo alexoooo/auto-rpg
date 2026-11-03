@@ -478,15 +478,18 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
     `assets/core/<kind>.json`, written by `research/punch-export.mjs`), its steer laid out by
     `assets/core/<kind>.layout.json` (the punch's with the wrist), read at its face's striking
     point. A held face's arm is solved from its guard each step, and its chamber may lie behind the
-    shoulder (a negative `chamber`, the blow drawn back). A held face is not `fire`d
-    (`faceFault`): it reads the fist.
+    shoulder (a negative `chamber`, the blow drawn back). From its chamber through its drive the
+    wrist is a servo's (`faceAligner`, `face-aligner.ts`), turning the face onto the line from it
+    to the target, facing first. A held face is not `fire`d (`faceFault`): it reads the fist.
   - **Swung** (`swing.ts`, `swing-part.ts`, `SWINGS`): the sword's cut (`cut`, edge first) and the
     club's blow (`club-blow`, its head, blunt). Admitted where its window says (`strikeWindow`,
     `strike-window.ts`), it winds the trunk and the striking arm to its record's angles
     (`Swing.wound`), stands quiet there, then pushes each channel its schedule names flat out over
     its window (`TimedPush`, `timed-push.ts`, which the drive's schedule shares), and returns to the
-    guard. Its settings are its body's record (`assets/core/<kind>.json`), searched on the Strike
-    drill (`research/swing-drill.mjs`).
+    guard. An edge's swing hands the wrist to the same servo through the stroke (`faceAligner`):
+    each step it asks the wrist the turn that brings the edge's facing onto the way the edge moves,
+    either edge leading. Its settings are its body's record (`assets/core/<kind>.json`), searched
+    on the Strike drill (`research/swing-drill.mjs`).
 - **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
   `skills/guard/guard-part.ts`, a line in `GUARDS`, `skills/guard/guards.ts`) whose posture is the one source of
   the arms' rest: where the body is built, where the arbiter puts the arms no skill holds, and where
@@ -579,8 +582,9 @@ thread a `ThreadLink` that posts a batch, waits for it done and yields the repli
 is `mindThread` (`src/apart/thread.ts`): the minds' data loaded first, each spec sent to every
 thread once by number and derived as it arrives (`deriveSpec`), the asks carried out on a seat host
 over the game's and the toolkit's catalogs (`catalogs.ts`). The channels' numbers are shared memory;
-the step asks go together as the world dispatches them, every other ask at once, what a seat says
-with an answer before the answer is counted, and a side waiting spins about a step, then sleeps
+every ask goes at once, so a thread moves each body as the world writes it, and as the world
+dispatches, each thread asked a step is told the step's asks are all in (`Batch.decide`), and its
+minds decide; what a seat says with an answer goes before the answer is counted, and a side waiting spins about a step, then sleeps
 (`src/apart/wire.ts`). A report's kit and gait cross only when they change, and its engagement,
 which no rule or Commander reads, as the mind is made and with the answer to a step asked after
 a page read it (`SeatAsk`'s `shown`).
@@ -962,7 +966,9 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource
   from rest only worth more; the rest options are last by rank, so `rest` is the option's own mark.
   A rest option is chosen with whichever of its claims are still free, any other with all of its
-  claims or not at all. An option with targets is priced at each and aimed at the best.
+  claims or not at all. An option with targets is priced at each and aimed at the best; for as long
+  as the objective prices a place held (`Objective.holds`, `Deciding.keep`), a running one, and each
+  option claiming what it claims, is priced at the target it runs at alone where it has it on offer.
   The set's step is its members' made one intent by the toolkit (`stepSet`, `intentOfSet` and
   `SelectedAsk`, `src/core/intent/intent.ts`): the walk and facing of the one claiming the legs,
   every member's actions and covers (`Asked.guard`), less a cover of a hand a member's ask holds. Valued worth (`Objective.worth`; the few terms', `fewTermsWorth`, `objective.ts`), in life, a share of a body's full life, the
