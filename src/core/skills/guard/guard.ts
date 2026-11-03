@@ -112,9 +112,10 @@ export function wardSpeed(built: ReadBody, hand: string): number {
 /**
  * **How a shield's ward is held by `hand` of a body of `spec` holding `item` there**, moving at
  * most `speed` m/s (`wardSpeed`): its face's centre as far from the place guarded toward the
- * foe's weapon as the arm reaches (`faceReach`), or at the weapon where that is nearer, held out
- * at the threat, meeting a blow early, not hugged to the body; a place further from the shoulder
- * than the arm reaches (`armReach`) brought back along that line to where it does; a path to its
+ * threat (the hand that holds the foe's weapon, `READINGS.ward`) as the arm reaches (`faceReach`),
+ * or at it where that is nearer, held out at the threat, meeting a blow early, not hugged to the
+ * body; a place further from the shoulder than the arm reaches (`armReach`) brought back along
+ * that line to where it does; a path to its
  * place in the time the place takes to go out at that speed; its face turned to the threat at most
  * `speed / reach` rad/s. Set: `docs/reference/blows.md#a-shields-ward`.
  */

@@ -60,12 +60,14 @@ export function goings(spec: BodySpec, hz: number, gaits: readonly GaitOf[], str
 /**
  * **What a walk of `duration` s by `going` leaves to settle**: each strike's seconds until it is
  * ready, and the most of them, as the gait's profile measured them stopping from its top speed,
- * none longer than the walk: a walk unsettles the body no longer than it moved it.
+ * none longer than the walk: a walk unsettles the body no longer than it moved it; and none for the
+ * strike it `readies`, whose readiness is where the walk ends (`Destination.readies`).
  */
-function settling(going: Going, duration: number): { readonly braced: number; readonly ready: Readonly<Record<string, number>> } {
+function settling(going: Going, duration: number, readies: string | null): { readonly braced: number; readonly ready: Readonly<Record<string, number>> } {
   const ready: Record<string, number> = {};
-  for (const [name, seconds] of Object.entries(going.ready)) ready[name] = Math.min(seconds, duration);
-  return { braced: Math.min(going.braced, duration), ready };
+  let braced = 0;
+  for (const [name, seconds] of Object.entries(going.ready)) braced = Math.max(braced, ready[name] = name === readies ? 0 : Math.min(seconds, duration));
+  return { braced, ready };
 }
 
 /** What an option asks of the legs walking to a place. */
@@ -78,6 +80,8 @@ type Walk = ReturnType<Walker["kept"]>;
  */
 export interface Destination {
   readonly name: string;
+  /** The strike it is reached by being ready for, where it is one (`windowPlace`): a walk there leaves that strike ready, its settling done on the way. */
+  readonly readies?: string;
   /** What it holds from step to step (`HeldBeside`, what it read this step), where it holds anything: plain data, in its walk's state. */
   readonly state?: object;
   spot(now: Situation): Spot | null;
@@ -123,7 +127,7 @@ export function windowPlace(strike: StrikeOption, walk: Walker): Destination {
     return window ? windowSpot(now.sight.view, window, now.sight.report.heading, state.beside) : null;
   }, state.into);
   return {
-    name: `into ${strike.name}'s window`, spot: into, state,
+    name: `into ${strike.name}'s window`, readies: strike.name, spot: into, state,
     entry: (now) => !now.focus ? NO_FOCUS : into(now) ? READY : strike.window(now) ? NO_PLACE : NO_WINDOW,
     reached: (now) => strike.window(now) === null,
     walk: (now) => {
@@ -214,11 +218,12 @@ export function groundPlace(x: number, z: number, within: number, walk: Walker):
  * (`Walker.pace`; forward where it holds nothing that way); through the blow coming, and the focus's
  * pressure over the time the way runs within its reach (`threatened`, at the nearest it comes);
  * leaving the body at the spot, the focus turned toward it as far as it turns in that time
- * (`Predictions.turns`), and as the gait leaves it (`Going`); out of a clinch (`CLINCH`), its chance
+ * (`Predictions.turns`), and as the gait leaves it (`Going`), the strike it `readies` ready
+ * (`settling`); out of a clinch (`CLINCH`), its chance
  * of going down behind. With no focus, the way at the gait's pace and where the gait leaves the
  * body, at no range.
  */
-export function walkTerms(now: Situation, spot: Spot, going: Going, walk: Walker): Terms {
+export function walkTerms(now: Situation, spot: Spot, going: Going, walk: Walker, readies: string | null = null): Terms {
   const focus = now.focus, centre = now.sight.view.stance.centre, offset = now.apart - now.range;
   const reach = focus ? edgeOf(now, now.predictions.pressure) + offset : 0, points = spot.route ?? [spot];
   let duration = 0, inReach = 0, nearest = Infinity, x = centre.x, z = centre.z;
@@ -235,7 +240,7 @@ export function walkTerms(now: Situation, spot: Spot, going: Going, walk: Walker
     } else if (focus) nearest = Math.min(nearest, hypot(x - focus.centre.x, z - focus.centre.z));
     x = point.x; z = point.z;
   }
-  const { braced, ready } = settling(going, duration);
+  const { braced, ready } = settling(going, duration, readies);
   if (!focus) return { duration, dealt: 0, taken: now.predictions.danger, orders: 0,
     exit: fromHere(now, { range: Infinity, down: going.down, unbraced: braced, at: spot, ready }) };
   const apart = hypot(spot.x - focus.centre.x, spot.z - focus.centre.z), bearing = bearingAround(focus, spot.x, spot.z);
@@ -279,7 +284,7 @@ export function walkBy(going: Going, places: readonly Destination[], walk: Walke
     status: (now): Status => to().reached(now) ? "over" : "yields",
     begin() {},
     end() {},
-    model: (now) => walkTerms(now, to().spot(now)!, going, walk),
+    model: (now) => walkTerms(now, to().spot(now)!, going, walk, to().readies ?? null),
     step: (now) => ({ asked: { ...to().walk(now), actions: [], ...(going.gait === null ? {} : { gait: going.gait }) }, holds: LEGS }),
   };
 }
