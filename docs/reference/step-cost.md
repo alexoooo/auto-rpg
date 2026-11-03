@@ -949,23 +949,34 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   2577 blows, the left side's by draining at 113.9 s), the bare-hands and sword bouts and the
   Crypt at seeds 10 and 25 for 30 s. A preview at 37871d97, where the world still waited for each
   decision after physics, played the crowd fight on four mind threads to Node's verdict.
-- **At a step of delay the crowd fight is still behind real time, by 0.14 to 0.17 s at best**,
-  built over its opening (steps 396 to 557, as the ten close), where the world waited for each
-  decision after physics fell 0.56 to 1.39 s behind late in the fight. `research/step-time.mjs
-  --crowd --minds 4`, four playings read on the last three, two runs each interleaved, Node 24.19,
-  `rapier-coordinate`, 120 Hz, a quiet machine; before is 3f0ab87d, after 81c323b6:
+- **At a step of delay on four mind threads the crowd fight and the Crypt at seed 25 fall a
+  little over a step behind real time at worst, 8.6 to 12.9 ms, each over one or a few dear
+  steps**: short of the parallel minds' bar of a step
+  ([its plan](../plans/2026-11-01-parallel-minds.md#done-when)). The crowd fight's mean step is
+  5.5 to 5.8 ms (the least of each over the playings), and 53 to 106 of the 12902 steps past its
+  first 2 s are over 8.33 ms. `research/step-time.mjs --crowd --minds 4 --runs 4`, the last three playings
+  read, on `rapier-coordinate`; `research/crypt-step.mjs --seeds 25 --seconds 60 --runs 3 --minds
+  4` on `rapier`, the hero exploring alone; Node 24.19, 120 Hz, a quiet machine; pinned is one
+  logical processor a core (`start /affinity 55555555`). The worst lag is the least of the
+  playings':
 
-  | Run | Mean step, ms | Least of each, ms | Over 8.33 past 2 s | Dearest past 2 s, ms | Worst lag, ms |
-  | --- | --- | --- | --- | --- | --- |
-  | before, 1 | 8.20 to 8.49 | 7.91 | 3020 of 13428 | 17.32 | 1391 |
-  | before, 2 | 7.95 to 8.15 | 7.69 | 2334 of 13428 | 17.47 | 562 |
-  | after, 1 | 6.77 to 7.10 | 6.51 | 591 of 13428 | 15.82 | 136 |
-  | after, 2 | 6.82 to 6.99 | 6.53 | 612 of 13428 | 16.95 | 170 |
+  | Run | At | Worst lag, ms | Built over |
+  | --- | --- | --- | --- |
+  | crowd fight, pinned | 7bf272f1 | 10.38 | step 3736 (18.3 ms); another playing's, the opening (851 to 866) |
+  | crowd fight | 7bf272f1 | 12.89 | the opening, as the ten close (838 to 866, 21 steps over 8.33) |
+  | crowd fight, pinned | 92a08060 | 11.12 | step 4888 (18.7 ms) and the three after |
+  | crowd fight | 92a08060 | 12.17 | step 4888 and the three after; the other playings', the fight's first close (989 to 1012) |
+  | Crypt, seed 25, pinned | 7bf272f1 | 11.36 | one step building a body (17.5 ms) |
+  | Crypt, seed 25 | 7bf272f1 | 8.60 | one step building a body (16.9 ms) |
+  | Crypt, seed 25, pinned | 92a08060 | 6.67 | one step |
+  | Crypt, seed 25 | 92a08060 | 6.75 | one step |
 
-  What is left is the dear steps, each about 3 ms of solver and 11 to 13 of the rest: the world
-  still waits for every mind's motor part and answer before its muscles take them, three or so
-  minds on each of four threads in turn. What would split it further: more mind threads where the
-  machine has them, and a cheaper motor part (its hands' solves, `ReachMeter`).
+  The fight changes between the two commits (the walk's and the menu's changes), so its dear
+  steps change with it: at 7bf272f1 the crowd fight's verdict comes at 13142 steps, not 13835,
+  and the Crypt at seed 25 builds 14 bodies in its 60 s, not 10. A dear step is one mind's move
+  or decision taking most of a step on its thread, which the world waits for at its muscles a
+  step later: step 4888's was a reach compiled for another shape (a reach's freedoms, below);
+  step 3736's is the same on every playing, pinned and not, and not yet read.
 - **The world writes a step's numbers while the minds still decide on the last's**: each writing
   takes the other of two arrays (`MirrorWriter.write`, `src/core/mind/mirror.ts`), and before it
   the world waits only for the seat's last answer (`Seat.answer`), no longer for its thread's whole
