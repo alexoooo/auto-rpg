@@ -480,16 +480,16 @@ variant moves some pieces by a `shift` of 0.3 m either way of the middle one.
 
 | Kind | Piece | x | z |
 |---|---|---|---|
-| guard | two racks | ±2.7 | -3.5 |
-| guard | two benches, variant 0 | ±2.7 | 3.2 |
-| guard | two benches, the other variants, the first turned and the second too in variant 1 | ±3.5 | 2.3, shifted |
-| burial | two tombs, either turned by a variant | ±2.7 | -2.5, shifted |
-| burial | a third tomb | 2.7 on one side or the other | 2.5 |
-| chapel | the altar | 2.2 on one side or the other | 1 short of the chamber's last row of cells |
-| chapel | four columns | ±3 | ±3 |
-| chapel | four benches | ±2.6 | ±1.5, shifted |
-| rootbound | a cluster | -2.7 | -2, shifted |
-| rootbound | a cluster, turned | 2.5 | 2.4, shifted |
+| guard | two racks | ±3.5 | -4.5 |
+| guard | two benches, variant 0 | ±3.5 | 4.2 |
+| guard | two benches, the other variants, the first turned and the second too in variant 1 | ±4.5 | 3, shifted |
+| burial | two tombs, either turned by a variant | ±3.5 | -3.2, shifted |
+| burial | a third tomb | 3.5 on one side or the other | 3.2 |
+| chapel | the altar | 2.9 on one side or the other | 1 short of the chamber's last row of cells |
+| chapel | four columns | ±3.9 | ±3.9 |
+| chapel | four benches | ±3.4 | ±2, shifted |
+| rootbound | a cluster | -3.5 | -2.6, shifted |
+| rootbound | a cluster, turned | 3.2 | 3.1, shifted |
 
 `CRYPT_ROOM_LOOK`, each kind of chamber:
 

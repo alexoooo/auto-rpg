@@ -13,10 +13,10 @@ type Furnishing = keyof typeof CRYPT_FURNITURE;
  */
 const CRYPT_ARRANGEMENT = {
   shift: .3,
-  guard: { rack: { x: 2.7, z: -3.5 }, bench: { x: 2.7, z: 3.2 }, turnedBench: { x: 3.5, z: 2.3 } },
-  burial: { tomb: { x: 2.7, z: 2.5 } },
-  chapel: { altar: { x: 2.2, fromBack: 1 }, column: 3, bench: { x: 2.6, z: 1.5 } },
-  rootbound: { near: { x: -2.7, z: -2 }, far: { x: 2.5, z: 2.4 } },
+  guard: { rack: { x: 3.5, z: -4.5 }, bench: { x: 3.5, z: 4.2 }, turnedBench: { x: 4.5, z: 3 } },
+  burial: { tomb: { x: 3.5, z: 3.2 } },
+  chapel: { altar: { x: 2.9, fromBack: 1 }, column: 3.9, bench: { x: 3.4, z: 2 } },
+  rootbound: { near: { x: -3.5, z: -2.6 }, far: { x: 3.2, z: 3.1 } },
 } as const;
 
 /** Stands one piece at an offset from its room's centre, turned by `turn`, rad. */
@@ -50,8 +50,8 @@ const arrangeBurial: Arrange = (variant, shift, _room, add) => {
   add("tomb", variant === 2 ? tomb.x : -tomb.x, tomb.z, 0);
 };
 
-/** An altar, four columns and four benches. The altar sits off the doorway axis; the central aisle stays two
- * metres wide. */
+/** An altar, four columns and four benches. The altar sits off the doorway axis; the central aisle stays clear
+ * between the benches. */
 const arrangeChapel: Arrange = (variant, shift, room, add) => {
   const { altar, column, bench } = CRYPT_ARRANGEMENT.chapel;
   add("altar", variant === 1 ? altar.x : -altar.x, room.max.z - room.centre.z - altar.fromBack);

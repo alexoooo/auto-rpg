@@ -280,9 +280,9 @@ within 1.4 m.
 
 | Field | Value |
 |---|---|
-| `size` | the map is 44 cells a side |
-| `first`, `pitch` | four rooms, two by two: the first's centre is 12 cells from the map's corner, and a neighbour's 20 cells on |
-| `half` | half a room's side is 5 cells and a draw of 0, 1 or 2 more (one of 3), along x and along z; a chapel's is 5 along x and 7 along z |
+| `size` | the map is 57 cells a side |
+| `first`, `pitch` | four rooms, two by two: the first's centre is 16 cells from the map's corner, and a neighbour's 26 cells on |
+| `half` | half a room's side is 6 cells and a draw of 0, 1 or 2 more (one of 3), along x and along z; a chapel's is 6 along x and 9 along z |
 | `cornerCut` | a rootbound room keeps as rock the cells fewer than 2 steps from a corner |
 | `corridorHalf` | a corridor is 1 cell wide either side of its middle line: 3 cells |
 | `variants` | a kind of room has 3 arrangements ([look](look.md#crypt-rooms)) |
@@ -290,7 +290,7 @@ within 1.4 m.
 | `spawnFromStart`, `spawnFromDoor`, `spawnSpacing` | an enemy starts more than 15 m from the party's start, 3 m from every door and 2 m from the other |
 | `companions` | the entrance has room for 3 companions (`COMPANION_SPAWN`) |
 
-A body stands, and a path is proved, with `LEVEL.clearance` about it, as in the level below.
+A body stands, and a path is proved, with `LEVEL.clearance` about it, as in the level below. The rooms, their furniture ([look](look.md#crypt-rooms)) and the spacing between them are sized so that every room the encounters give a reptile pack holds three, each with a path to the party's start at its footprint ([encounters](reptile.md#encounters)): with the grass lizard's 1.23 m, 500 of seeds 0 to 499 build, and with a footprint of 1.4 m, 300 of 300; at .77 of these sizes, 73 of seeds 0 to 99.
 
 ## The level
 

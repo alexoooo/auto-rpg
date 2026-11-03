@@ -12,13 +12,13 @@ import { populateEncounters, outsidePartyStart } from "./encounters.ts";
  */
 const CRYPT_LAYOUT = Object.freeze({
   /** Cells a side of the map. */
-  size: 44,
+  size: 57,
   /** The first room's centre from the map's corner, and the step from one room's centre to its neighbour's. */
-  first: 12,
-  pitch: 20,
+  first: 16,
+  pitch: 26,
   /** Half a room's side along x and z: `least` and one of `spread` draws each. A chapel's is fixed, and longer
    * along z. */
-  half: Object.freeze({ least: 5, spread: 3, chapel: Object.freeze({ x: 5, z: 7 }) }),
+  half: Object.freeze({ least: 6, spread: 3, chapel: Object.freeze({ x: 6, z: 9 }) }),
   /** A rootbound room keeps as rock the cells fewer than this many steps from a corner, counted along both walls. */
   cornerCut: 2,
   /** Cells a corridor is wide either side of its middle line. */
