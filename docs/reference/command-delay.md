@@ -128,6 +128,10 @@ margin of 0.251 (0.214 to 0.290) over 34 units at ca5d8e8a, against 0.241 over 3
 `straight-punch` data case among them), the four stands, the Crypt's seeds 1 and 2 and the Lab's
 run circle on the Warrior and the Rogue. At none the split moves no case.
 
+**Real time** with the minds on four mind threads at one step: the crowd fight and the Crypt at
+seed 25 fall 8.6 to 12.9 ms behind at worst (7bf272f1), a little over the step their plan allows,
+each over one or a few dear steps ([step cost](step-cost.md#minds-on-worker-threads)).
+
 ## Tried and not kept
 
 - **Motor programs** (`Body.program`, `BodyCommand.programs`; 8411a492): the step decided the
