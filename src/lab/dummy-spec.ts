@@ -1,5 +1,6 @@
 import { SEGMENT_DENSITY, type DensitySegment } from "../core/human/tables/densities.ts";
-import type { BodySpec } from "../core/spec/body.ts";
+import type { BodySpec, WoundSpec } from "../core/spec/body.ts";
+import { woundGroups } from "../core/rules/pool.ts";
 import { ballMoment, ballRadius } from "../core/spec/geometry.ts";
 import { derive, si, type Quantity, type Vec3 } from "../core/spec/quantity.ts";
 import { segmentOf } from "../core/spec/body.ts";
@@ -8,6 +9,17 @@ const densityOf = (part: string) => {
   const kind = part.split(".")[0]!;
   return Object.hasOwn(SEGMENT_DENSITY, kind) ? SEGMENT_DENSITY[kind as DensitySegment] : null;
 };
+
+/** The dummy's one part in the group the attacker's `part` is in (`woundGroups`): vital, the trunk, or a limb of the one part. */
+function groupAs(attacker: BodySpec, part: string): Omit<WoundSpec, "hp"> {
+  const group = woundGroups(attacker).get(part)!;
+  switch (group.kind) {
+    case "vital": return { vital: [part], whole: group.whole ? [part] : [], limbs: [] };
+    case "trunk": return { vital: [], whole: [], limbs: [] };
+    case "limb": return { vital: [], whole: [], limbs: [{ ...group.limb, segments: [part] }] };
+    default: { const never: never = group; throw new Error(`no group ${JSON.stringify(never)}`); }
+  }
+}
 
 /** Parts whose radius or sourced density can construct a dummy, in anatomical order. */
 export const dummyParts = (spec: BodySpec): readonly string[] => spec.down.kind === "low" ? [] : spec.segments
@@ -46,7 +58,7 @@ export function dummySpec(attacker: BodySpec, part: string = attacker.marks.high
       surface: { stiffness: derive("N/m", `the attacker's ${part}'s surface`, [made.surface.stiffness], k => k) },
     }],
     joints: [],
-    wounds: { hp: derive("HP", "the attacker's hit points", [attacker.wounds.hp], hp => hp), vital: [], whole: [part] },
+    wounds: { hp: derive("HP", "the attacker's hit points", [attacker.wounds.hp], hp => hp), ...groupAs(attacker, part) },
     attributes: { balance: derive("%", "the attacker's balance", [attacker.attributes.balance], percent => percent),
       haste: derive("%", "the attacker's haste", [attacker.attributes.haste], percent => percent) },
     down: { kind: "asked", fallen: derive("m", "the attacker's fall bar", [attacker.down.fallen], fallen => fallen) },

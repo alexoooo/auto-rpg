@@ -101,6 +101,8 @@ export interface JointKinematics {
 export interface ReadJoint extends JointKinematics {
   readonly parent: ReadSegment;
   readonly child: ReadSegment;
+  /** The share of their peak torques the muscles of its freedom `dof` give now, 1 whole (`BuiltBody.strength`). */
+  strength(dof: number): number;
 }
 
 /** The segment no joint carries: the root, whose frame is the body frame a goal is set in. */

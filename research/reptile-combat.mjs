@@ -1,6 +1,7 @@
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { pathToFileURL } from "node:url";
 import { buildBout } from "../src/evaluation/bout.ts";
+import { lifeTaken } from "../src/core/rules/blows.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
@@ -34,7 +35,7 @@ export async function combatTrial({ opponent = "reptile", gap = 2, side = "left"
         sides.forEach((s, i) => {
           const source = blow.sides.find(part => part.fighter === s), victim = blow.sides.find(part => part.fighter !== s);
           if (!jaws[i] || source?.segment !== jaws[i].spec.name || victim?.mechanism !== "point") return;
-          const taken = (victim.wound?.taken.reduce((sum, part) => sum + part.hp, 0) ?? 0) + (victim.wound?.lost ?? 0);
+          const taken = lifeTaken(victim);
           damage[i] += taken;
           if (taken > 0 && !engaged[i]) { engagements[i]++; engaged[i] = true; }
         });

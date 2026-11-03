@@ -151,7 +151,7 @@ async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCr
         return;
       case "slain": {
         const body = member(next.member).fighter!;
-        body.pool.wound({ part: body.built.spec.wounds.vital[0]!, damage: body.pool.total, clean: false });
+        body.pool.slay();
         slain.add(next.member);
         return;
       }

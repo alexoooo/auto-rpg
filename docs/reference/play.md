@@ -11,8 +11,8 @@ measurement backs it.
 `src/arena/duel.ts`, `src/arena/ends/drain.ts`. A recipe may give its own gap or cap (`?gap=`,
 `&cap=` on the page) and its own end rules.
 
-- **The verdict**, the owner's (`GAME_ENDS`): a side is out when its pool ends (a fatal, severing
-  or exhausting wound) or its life reaches none. From the first minute each side loses a
+- **The verdict**, the owner's (`GAME_ENDS`): a side is out when its wounds end it (its life
+  spent, its head off or a leg off, [wounds](wounds.md#life)) or its drained life reaches none. From the first minute each side loses a
   sixtieth of its full life a second (`DRAIN_END`: `from` 60 s, `over` 60 s), so by two minutes
   every life is drained; both out on one step is a draw. A fall ends nothing.
 

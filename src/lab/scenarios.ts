@@ -164,6 +164,8 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly scenario: ScenarioId | null;
   /** The body's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`); null is the character's. */
   readonly balance: number | null;
+  /** A limb of the body crippled from the start (`crippleLimb`), by its name (`LimbSpec.name`); null, none. */
+  readonly crippled: string | null;
   /** The body's mind, as the address carries it: faults and all (`labMind`). */
   readonly mind: MindConfig;
   readonly hz: LabRate;
@@ -174,7 +176,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "hz", "view", "camera", "projection", "targets", "targetPart", "seed"] as const;
+const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "crippled", "mind", "hz", "view", "camera", "projection", "targets", "targetPart", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -235,6 +237,7 @@ export function labAddress(search: string): LabAddress {
     armour: flag(query.get("armour"), worn.armour),
     balance: query.has("body.balance") ? attributes.balance ?? null : balanceFrom(query.get("balance") ?? ""),
     haste: query.has("body.haste") ? attributes.haste ?? null : hasteFrom(query.get("haste") ?? ""),
+    crippled: modelSpec(model).wounds.limbs.find((limb) => limb.name === query.get("crippled"))?.name ?? null,
     mind,
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],
@@ -273,6 +276,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("boots", address.boots ? "1" : "0");
   query.set("armour", address.armour ? "1" : "0");
   writeAttributes(query, "body", loadoutAttributes(address));
+  if (address.crippled !== null) query.set("crippled", address.crippled);
   query.set("mind", mindText(address.mind, labMindsForModel(address.model)));
   query.set("hz", String(address.hz));
   query.set("view", address.view);

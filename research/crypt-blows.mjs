@@ -14,13 +14,13 @@
  */
 import { parseArgs } from "node:util";
 import { DungeonRun } from "../src/dungeon/run.ts";
+import { lifeTaken } from "../src/core/rules/blows.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 
 const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2,3,4" }, seconds: { type: "string", default: "120" }, companions: { type: "string", default: "0" } } });
 const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "workshop-fighter");
 
-const lost = (side) => side.wound?.taken.reduce((s, taken) => s + taken.hp, 0) ?? 0;
-const hpOf = (blow) => blow.sides.reduce((sum, side) => sum + lost(side), 0);
+const hpOf = (blow) => blow.sides.reduce((sum, side) => sum + lifeTaken(side), 0);
 const isHand = (side) => side.item === null && side.segment.startsWith("hand.");
 /** What met in `blow`, by its two surfaces. */
 function kindOf(blow) {

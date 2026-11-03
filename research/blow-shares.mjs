@@ -8,12 +8,13 @@
  *   provenance names;
  * - the share each of two surfaces takes where they meet (`energyShares`);
  * - the same with one surface half and twice as stiff as it is;
- * - the energy that empties each part of each body, at the rulebook's unit: the part's hit points
- *   (`partHitPoints`) times the unit, which is what a blow must bring to that surface, its share.
+ * - the energy a blow must bring to each part of each body, as that surface's share, at the
+ *   rulebook's unit: to spend the body's life (its hit points over the part's cost in life,
+ *   `lifeFactor`), and on a limb to empty the limb's bar (`LimbSpec.share` of full life).
  */
 import { CONTACT_STIFFNESS } from "../src/core/human/tables/contact-stiffness.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
-import { partHitPoints } from "../src/core/rules/pool.ts";
+import { lifeFactor, woundGroups } from "../src/core/rules/pool.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { energyShares } from "../src/core/rules/share.ts";
 import { si } from "../src/core/spec/quantity.ts";
@@ -47,15 +48,18 @@ const VARIED = [
 console.log("\n| Surface varied | Met by | Its share at half its stiffness | As it is | At twice |\n|---|---|---|---|---|");
 for (const [row, other] of VARIED) console.log(`| ${row} | ${other} | ${[0.5, 1, 2].map((times) => shareAt(row, other, times).toFixed(3)).join(" | ")} |`);
 
-const unit = rulebook("arena").unit.value;
-console.log(`\nJoules that empty a part, at ${unit} J a hit point:\n`);
-console.log(`| Part | ${HUMANOID_MODELS.map((model) => `${model}: kg | HP | J`).join(" | ")} |\n|---|${HUMANOID_MODELS.map(() => "---|---|---|").join("")}`);
-const specs = HUMANOID_MODELS.map(model => modelSpec(model)), pools = specs.map(partHitPoints);
+const rules = rulebook("arena"), unit = rules.unit.value;
+console.log(`
+Joules of blunt blow that spend the body's life, and that empty the part's limb's bar, at ${unit} J a hit point:
+`);
+console.log(`| Part | ${HUMANOID_MODELS.map((model) => `${model}: group | life, J | bar, J`).join(" | ")} |
+|---|${HUMANOID_MODELS.map(() => "---|---|---|").join("")}`);
+const specs = HUMANOID_MODELS.map(model => modelSpec(model));
 for (const row of Object.keys(CONTACT_STIFFNESS)) {
-  const cells = specs.map((spec, at) => {
-    const segment = spec.segments.find((one) => one.name === row || one.name === `${row}.right`);
-    const hp = pools[at].get(segment.name).value;
-    return `${segment.mass.value.toFixed(2)} | ${hp.toFixed(3)} | ${(hp * unit).toFixed(1)}`;
+  const cells = specs.map((spec) => {
+    const segment = spec.segments.find((one) => one.name === row || one.name === `${row}.right`), hp = spec.wounds.hp.value;
+    const group = woundGroups(spec).get(segment.name), bar = group.kind === "limb" ? (group.limb.share.value * hp * unit).toFixed(0) : "-";
+    return `${group.kind} | ${(hp / lifeFactor(rules, spec, segment.name) * unit).toFixed(0)} | ${bar}`;
   });
   console.log(`| ${row} | ${cells.join(" | ")} |`);
 }

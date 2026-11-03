@@ -1,7 +1,7 @@
 // One arena bout in a world of its own (Node, core world, the arena's Rapier, 120 Hz), and its row.
 import "../tests/harness/preload-data.mjs";
 import { SIDES } from "../src/arena/duel.ts";
-import { isClash, woundedIn } from "../src/core/rules/blows.ts";
+import { isClash, lifeTaken, woundedIn } from "../src/core/rules/blows.ts";
 import { DEFAULT_ENGINE, isEngineName } from "../src/core/engine/engines.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
@@ -53,25 +53,22 @@ const bareHand = (side) => side.item === null && side.segment.startsWith("hand."
 
 /**
  * What `blows` cost `duelist`, read from their records:
- * - `taken`: the hit points its parts lost to them;
- * - `own`: those lost to blows in which its surface was its own bare hand;
- * - `jostled`: those lost to blows in which neither surface was a hand's or an item's;
- * - `ruined`: the hands a blow in which the hand was its surface emptied, and `off`, those such a blow took off.
+ * - `taken`: the life it lost to them (`lifeTaken`);
+ * - `own`: that lost to blows in which its surface was its own bare hand;
+ * - `jostled`: that lost to blows in which neither surface was a hand's or an item's;
+ * - `ruined`: the arms a blow in which the hand was its surface crippled, and `off`, the hands such a blow took off.
  */
 function costOf(blows, duelist) {
-  const hp = new Map(duelist.built.spec.segments.map((segment) => [segment.name, duelist.pool.max(segment.name)]));
   const cost = { taken: 0, own: 0, jostled: 0, ruined: 0, off: 0 };
   for (const blow of blows) {
     const side = blow.sides.find((one) => one.fighter === duelist.id);
     if (!side?.wound) continue;
-    const lost = side.wound.taken.reduce((sum, { hp: taken }) => sum + taken, 0);
-    const had = hp.get(side.segment);
-    for (const { part, hp: taken } of side.wound.taken) hp.set(part, hp.get(part) - taken);
+    const lost = lifeTaken(side);
     cost.taken += lost;
     if (bareHand(side)) {
       cost.own += lost;
-      if (had > 0 && hp.get(side.segment) <= 1e-12) cost.ruined++;
-      if (side.wound.severed.includes(side.segment)) cost.off++;
+      if (side.wound.crippled) cost.ruined++;
+      if (side.wound.cut.includes(side.segment)) cost.off++;
     } else if (blow.sides.every((one) => one.item === null && !one.segment.startsWith("hand."))) cost.jostled += lost;
   }
   return cost;

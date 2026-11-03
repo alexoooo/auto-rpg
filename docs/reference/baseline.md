@@ -27,7 +27,7 @@ reads what it touches by the same command and pairs it with `npm run compare`.
   (`src/evaluation/fall.ts`): the target's directions and loadouts, shoved by the target's impulse
   and again while it holds the shove, its stand verified. Every one of the 32 falls is made. On
   toes Option Mind stands none, so the reading is 0 until its rise stands them
-  ([stand-up](../plans/2026-11-01-option-mind-everywhere.md#4-stand-up)). Option Mind stands on toes: a flat-footed reading
+  ([stand-up](../plans/2026-11-03-options-training.md#4-stand-up)). Option Mind stands on toes: a flat-footed reading
   is not taken.
 
 ## Measurement

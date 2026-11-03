@@ -65,8 +65,9 @@ export interface Target {
 /**
  * **One cell of a profile**: where its trials began (range, the foe's phase), how
  * many there were, and what they came to: the share done (a strike landed, an edge reached its
- * posture), the hit points its blows took from the body struck and those its own body lost (the
- * rules' damage, each a share of a body's life once over that body's hit points), the seconds a
+ * posture), the life its blows took from the body struck (each contact's damage at the struck
+ * segment's cost in life, `lifeFactor`) and the hit points its own body lost, each a share of a
+ * body's life once over that body's hit points, the seconds a
  * trial ran, the share that ended with the body down, and where those not done came to rest (an
  * edge's positions), each with its share; and, where its drill let it go from there before its
  * point of no return, what that cost at each progress of the motion it was let go at.
@@ -300,8 +301,18 @@ export function digestOf(value: unknown): string {
   return digest;
 }
 
-/** A body's spec's digest (`digestOf`): what a profile measured on it names. */
-export const specDigest = (spec: BodySpec): string => digestOf(spec);
+/** Each spec's digest (`specDigest`), found once a spec. */
+const SPEC_DIGESTS = new WeakMap<BodySpec, string>();
+
+/**
+ * **A body's spec's digest** (`digestOf`): what a profile measured on it names. Its wounds are
+ * left out: they are how the rules read a blow on it (`src/core/rules/pool.ts`), not how it moves.
+ */
+export const specDigest = (spec: BodySpec): string => {
+  let digest = SPEC_DIGESTS.get(spec);
+  if (digest === undefined) SPEC_DIGESTS.set(spec, digest = digestOf({ ...spec, wounds: undefined }));
+  return digest;
+};
 
 /**
  * **A strike's digest** on a body of `spec`: what it does, not what it is called: its action's

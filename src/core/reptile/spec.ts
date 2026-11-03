@@ -1,11 +1,17 @@
 import reptileData from "../../../assets/reptile/body.json" with { type: "json" };
-import type { BodySpec, JointSpec, SegmentSpec, ShapeSpec } from "../spec/body.ts";
+import type { BodySpec, JointSpec, LimbSpec, SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { cuboidMoments, cylinderMoments, massShare } from "../spec/geometry.ts";
 import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import type { SourceKey } from "../sources.ts";
 import { deepFreeze } from "../state.ts";
 
 const vector = (v: readonly number[]): Vec3 => [v[0]!, v[1]!, v[2]!];
+
+/** What a body file says losing a limb does (`LimbSpec.lost`); a thrown error for anything else. */
+const lostOf = (lost: string): LimbSpec["lost"] => {
+  if (lost === "out" || lost === "fights on") return lost;
+  throw new Error(`a limb's loss is out or fights on, not ${lost}`);
+};
 
 /** **A quadruped's body file**: the reptile's layout, which every body of the family shares. */
 export type QuadrupedData = typeof reptileData;
@@ -73,7 +79,9 @@ export function reptileSpec(data: QuadrupedData, model: string, source: SourceKe
     effectors: data.effectors.map(e => ({ segment: e.segment, base: e.base, point: e.point })),
     // Its paws are the effectors its asset says it stands on, each on its sole.
     ends: data.effectors.flatMap(e => e.support ? [{ kind: "paw" as const, name: e.segment, segment: e.segment, point: e.point, sole: e.support === "sole" }] : []),
-    wounds: { hp: sourced(1, "HP", "owner-hp-pool", `${model} 1`), vital: data.wounds.vital, whole: data.wounds.whole },
+    wounds: { hp: sourced(1, "HP", "owner-hp-pool", `${model} 1`), vital: data.wounds.vital, whole: data.wounds.whole,
+      limbs: data.wounds.limbs.map((limb) => ({ name: limb.name, segments: limb.segments,
+        share: sourced(limb.share, "1", "owner-life", `${limb.name}: ${limb.share} of full life`), lost: lostOf(limb.lost) })) },
     attributes: { balance: q(data.balance, "%", "/balance"), haste: sourced(0, "%", "owner-haste", `${model} 0`) }, substance: "flesh",
     down: { kind: "low", root: data.down.root, height: q(data.down.height, "1", "/down/height"), up: q(data.down.up, "1", "/down/up") },
     marks: data.marks });

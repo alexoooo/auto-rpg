@@ -235,7 +235,7 @@ body sways wider each step and falls. The ankle's strength is not the limit (the
 plantarflexion 418 N·m); a firmer, fuller stance-ankle servo (`ankle` 1, `settle` 0.06) runs the
 empty Warrior 3.0 to 3.4 m/s for 12 s in calm air.
 
-**Against the run's bar** ([the bars](../plans/2026-11-01-option-mind-everywhere.md#the-bars)),
+**Against the run's bar** ([what is required](../plans/2026-11-03-options-training.md#what-is-required)),
 `research/run-cycle-search.mjs --score` over the bar's matrix (the Warrior and the Rogue; the empty
 hand, the club, the buckler and club, the sword, the buckler and sword; calm and the lab's gusts,
 seeds 1 to 4): asked 3.5 m/s, the slowest second from 3 s to 13 s (`--slowest 3`); a full round

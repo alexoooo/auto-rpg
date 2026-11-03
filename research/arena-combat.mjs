@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { Vector3 } from '../src/core/math/vector.ts';
 import '../tests/harness/preload-data.mjs';
 import { buildBout } from '../src/evaluation/bout.ts';
+import { lifeTaken } from '../src/core/rules/blows.ts';
 import { commandsBody } from '../src/core/body.ts';
 import { DEFAULT_ENGINE, loadEngine } from '../src/core/engine/engines.ts';
 import { MINDS } from "../src/entrants/game.ts";
@@ -43,9 +44,8 @@ export function combatContact(blow, side, witness, protocol = COMBAT_PROTOCOL) {
   const driven = ((hand !== null && witness?.phase === 'swing' && witness.hand === hand) || kick) && !witness.down
     && blow.closing >= protocol.drivenClosing && closing >= (kick ? protocol.relativeFootSpeed : protocol.relativeHandSpeed);
   const block = (hand !== null || kick) && /^hand\.|^forearm\./.test(other.segment);
-  const taken = s => s.wound?.taken.reduce((sum, w) => sum + w.hp, 0) ?? 0;
   return { driven, kind: driven ? block ? 'block' : 'target' : hand ? 'incidental-hand' : 'incidental-body',
-    outgoing: taken(other), incoming: taken(mine), energy: blow.energy, grounded: witness?.foeLow ?? false,
+    outgoing: lifeTaken(other), incoming: lifeTaken(mine), energy: blow.energy, grounded: witness?.foeLow ?? false,
     ...(kick && !witness.down && closing > 0 && blow.closing > 0 ? {nativeKick:true} : {}) };
 }
 

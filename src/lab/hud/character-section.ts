@@ -15,9 +15,12 @@ const WORN: Named<(typeof LAB_WORN)[number]> = {
   armour: { name: "Armour", title: "Appearance only" },
 };
 
+/** A limb's name as a person reads it: `leg.front.left`, "Left front leg". */
+const limbName = (name: string): string => { const words = name.split(".").reverse().join(" "); return words[0]!.toUpperCase() + words.slice(1); };
+
 /**
- * The character, in the order each part depends on the last: its body, what the body holds and
- * wears, and the mind that drives them, its tree folded away until opened.
+ * The character, in the order each part depends on the last: its body (a limb of it crippled or
+ * none), what the body holds and wears, and the mind that drives them, its tree folded away until opened.
  */
 export function characterSection(page: LabPage): readonly Control[] {
   const attributes = attributeEditor({ model: page.shown.model, attributes: loadoutAttributes(page.shown) }, {
@@ -35,6 +38,8 @@ export function characterSection(page: LabPage): readonly Control[] {
         following(() => page.shown.model, model => menu("Appearance", appearancesFor(model).map(row => ({ value: row.id, name: row.name })),
           () => page.shown.appearance, appearance => page.show({ ...page.shown, appearance })))),
       attributeControl,
+      following(() => page.spec, spec => menu("Crippled", [{ value: null, name: "None" }, ...spec.wounds.limbs.map((limb) => ({ value: limb.name, name: limbName(limb.name) }))],
+        () => page.shown.crippled, crippled => page.load({ ...page.shown, crippled }))),
     ]),
     group("Items", [
       ...LAB_HANDS.map((hand) =>

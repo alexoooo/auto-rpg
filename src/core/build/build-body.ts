@@ -60,6 +60,12 @@ export interface BuiltBody extends ReadBody {
   readonly handPoses: HandPoses;
   /** Each foot's toes (`toes.ts`), by segment, as plain state. */
   readonly toes: Readonly<Record<string, ToesState>>;
+  /**
+   * The share of their peak torques each freedom's muscles give now, in its joints' order and each
+   * joint's freedoms' (the muscle channels'), 1 whole, as plain state: a wound writes it
+   * (`crippleLimb`), and every reader of a peak torque reads it through its joint (`ReadJoint.strength`).
+   */
+  readonly strength: Float64Array;
   dispose(): void;
 }
 
@@ -120,7 +126,7 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
 const frameRotation = (x: Vec3, y: Vec3, z: Vec3): Quaternion => Quaternion.RotationQuaternionFromAxis(v3(x), v3(y), v3(z));
 
 
-function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, world: World): BuiltJoint {
+function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, world: World, strength: Float64Array): BuiltJoint {
   const { dofs, axes } = jointKinematics(spec), { x, y, z } = axes;
   const centre = spec.centre.value;
   const inFrame = (frame: SegmentFrame) => frameRotation(localDirection(frame, x), localDirection(frame, y), localDirection(frame, z));
@@ -131,7 +137,7 @@ function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, 
     frameChild: inFrame(child.frame),
     limits: dofs.map(({ spec: { min, max }, sign }) => (sign > 0 ? [min.value, max.value] as const : [-max.value, -min.value] as const)),
   });
-  return { spec, parent, child, joint, dofs, axes };
+  return { spec, parent, child, joint, dofs, axes, strength: (dof) => strength[dof]! };
 }
 
 /** Compute a connected tree's initial pose before creating any physical segment or joint. */
@@ -190,16 +196,18 @@ export function buildBody(spec: BodySpec, world: World, placement: Placement): B
   }
   for (const held of spec.held ?? []) if (!segments.has(held.segment)) throw new Error(`${spec.model} has no ${held.segment} to hold ${held.item.name}`);
   const joints = new Map<string, BuiltJoint>();
+  const strength = new Float64Array(spec.joints.reduce((sum, joint) => sum + joint.dofs.length, 0)).fill(1);
+  let channel = 0;
   for (const joint of spec.joints) {
     const parent = segments.get(joint.parent), child = segments.get(joint.child);
     if (!parent || !child) throw new Error(`${spec.model}'s ${joint.name} joins a segment it does not have`);
-    joints.set(joint.name, buildJoint(joint, parent, child, world));
+    joints.set(joint.name, buildJoint(joint, parent, child, world, strength.subarray(channel, channel += joint.dofs.length)));
   }
   const handPoses = createHandPoses(spec, segments, world);
   const toes = createToes([...segments.values()], world);
   return {
     spec, physics: world.physics, segments, joints,
-    handPoses, toes: toes.state,
+    handPoses, toes: toes.state, strength,
     dispose() {
       handPoses.dispose();
       toes.dispose();

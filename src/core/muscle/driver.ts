@@ -19,7 +19,9 @@ import { delayLine } from "../command-delay.ts";
  * poses, speeds from the bodies' angular velocities, each read once), and sets each motor's target
  * to the commanded speed, held to the curve's reach (below), and its ceiling to
  *
- *     activation x peak isometric torque (the side that pulls) x force-velocity(speed)
+ *     activation x peak isometric torque (the side that pulls) x strength x force-velocity(speed)
+ *
+ * where strength is the share of its peak a wound leaves the joint (`ReadJoint.strength`, 1 whole).
  *
  * The muscle shortens when the joint turns the way it pulls: the force-velocity relation reads the
  * speed in that direction (`forceVelocityFactor`). A speed past the reach makes the motor push at
@@ -102,7 +104,7 @@ interface MuscleChannel {
 }
 
 interface MuscleSide {
-  /** Peak isometric torque, N m. */
+  /** Peak isometric torque of the whole muscles, N m: the spec's, which its joint's strength scales (`peakOf`). */
   readonly peak: number;
   readonly curve: ForceVelocityCurve;
   /** Its tendon's stiffness about the joint, N m/rad; null, none. */
@@ -174,11 +176,14 @@ export function muscleChannels(read: Pick<ReadBody, "joints">): MuscleChannel[] 
   }));
 }
 
-/** The torque `channel`'s muscles toward `sense` give at full activation at `speed`, N m (`MuscleDriver.strength`). */
+/** The torque `channel`'s muscles toward `sense` give at full activation at `speed`, N m (`MuscleDriver.strength`): their peak at their joint's strength now (`ReadJoint.strength`). */
 export function strengthAt(channel: MuscleChannel, sense: 1 | -1, speed: number): number {
   const side = sense > 0 ? channel.positive : channel.negative;
-  return side.peak * forceVelocityFactor(sense * speed, side.curve);
+  return peakOf(channel, side) * forceVelocityFactor(sense * speed, side.curve);
 }
+
+/** `side`'s peak isometric torque at its joint's strength now, N m. */
+const peakOf = (channel: MuscleChannel, side: MuscleSide): number => channel.joint.strength(channel.index) * side.peak;
 
 /**
  * What a driver is made with beside its body and world, how it reads for its mind: without the
@@ -312,7 +317,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       const toward = push > 0 ? 1 : push < 0 ? -1 : c.positive.peak <= c.negative.peak ? 1 : -1;
       const side = toward > 0 ? c.positive : c.negative;
       if (side.tendon !== null) {
-        const stretch = (toward > 0 ? state.stretch.positive : state.stretch.negative)[i]!, force = activation * side.peak;
+        const stretch = (toward > 0 ? state.stretch.positive : state.stretch.negative)[i]!, force = activation * peakOf(c, side);
         const v = fibreSpeed(force, side.curve, side.tendon, stretch, toward * speed, dt, Number.isFinite(target) ? toward * target : Infinity);
         const capacity = force > 0 ? force * forceVelocityFactor(v, side.curve) : 0;
         const positive = toward > 0 ? capacity : 0, negative = toward > 0 ? 0 : capacity;

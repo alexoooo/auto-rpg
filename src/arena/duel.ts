@@ -75,7 +75,7 @@ export const CAP_SECONDS = 120;
 
 export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);
 
-/** How a bout ended: as the end rule that put the loser out names it (`EndRule.out`: `fatal`, `fallen`), or `time`, the bars at the cap (`endingText`). */
+/** How a bout ended: as the end rule that put the loser out names it (`EndRule.out`: `slain`, `fallen`), or `time`, the bars at the cap (`endingText`). */
 export type DuelEnding = string;
 
 export interface Verdict {

@@ -202,7 +202,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   catch (error) { observed?.dispose(); shown?.dispose(); thinking?.dispose(); muscles.dispose(); throw error; }
   mind = made;
   return { own, held: { muscles, assist: way.help.assist, senses: sense }, mind: made,
-    state: { muscles: muscles.state, assist: way.help.state, handPoses: built.handPoses.state, posed: way.posed, toes: built.toes, mind: made.state ?? null,
+    state: { muscles: muscles.state, assist: way.help.state, handPoses: built.handPoses.state, posed: way.posed, toes: built.toes, strength: built.strength, mind: made.state ?? null,
       ...(mirrored ? { asked: mirrored.mirror.command, seen: mirrored.mirror.seen } : {}) },
     dispose: () => { made.dispose?.(); observed?.dispose(); shown?.dispose(); thinking?.dispose(); listeners.clear(); muscles.dispose(); } };
 }

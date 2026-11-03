@@ -1,4 +1,5 @@
 import { mouthOf } from '../src/core/reptile/bite.ts';
+import { lifeTaken } from '../src/core/rules/blows.ts';
 import { channelName } from '../src/core/muscle/driver.ts';
 
 /** Physical bite cycles and their actual piercing-load wounds, including loaded withdrawal. */
@@ -27,7 +28,7 @@ export function biteMeter(world, fighters) {
           const tooth = blow.sides.find(s => s.fighter === f.id && s.segment === jaws[i].spec.name);
           const victim = blow.sides.find(s => s.fighter !== f.id);
           if (tooth && victim?.mechanism === 'point') {
-            cycle.damage += (victim.wound?.taken.reduce((sum, p) => sum + p.hp, 0) ?? 0) + (victim.wound?.lost ?? 0);
+            cycle.damage += lifeTaken(victim);
             if (tooth.region && !cycle.regions.includes(tooth.region)) cycle.regions.push(tooth.region);
           }
         }

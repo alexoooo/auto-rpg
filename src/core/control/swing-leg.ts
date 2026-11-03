@@ -30,7 +30,7 @@ export interface SwingLeg {
   readonly shank: number;
   /** The leg's moment of inertia about its hip across the leg, kg m^2. */
   readonly aboutHip: number;
-  /** The hip's peak torque, N m: the lesser of flexion's and extension's. */
+  /** The hip's peak torque at its strength (`ReadJoint.strength`), N m: the lesser of flexion's and extension's. */
   readonly torque: number;
   /**
    * How far the thigh may lean from the vertical each way, rad, no more than level: ahead and
@@ -49,7 +49,7 @@ export interface SwingLeg {
 /** A link of a swing leg (`SwingLeg.links`). */
 interface SwingLink { readonly mass: number; readonly centre: number; readonly across: number }
 
-/** `chain`'s leg (hip, knee, ankle) as a swing leg, from its specs in the reference pose. */
+/** `chain`'s leg (hip, knee, ankle) as a swing leg, from its specs in the reference pose and its hip's strength now. */
 export function swingLegOf(chain: readonly ReadJoint[]): SwingLeg {
   const [hip, knee, ankle] = chain;
   const h = hip!.spec.centre.value, k = knee!.spec.centre.value, a = ankle!.spec.centre.value;
@@ -81,7 +81,7 @@ export function swingLegOf(chain: readonly ReadJoint[]): SwingLeg {
   const foot = parts[2]!.spec, fc = foot.centreOfMass.value;
   return {
     length, thigh: hypot(k[0] - h[0], k[1] - h[1], k[2] - h[2]), shank: hypot(a[0] - k[0], a[1] - k[1], a[2] - k[2]), aboutHip: inertia + mass * centre * centre,
-    torque: Math.min(flexion!.muscle.peakPositive.value, flexion!.muscle.peakNegative.value),
+    torque: hip!.strength(0) * Math.min(flexion!.muscle.peakPositive.value, flexion!.muscle.peakNegative.value),
     range: {
       ahead: lean(flexion!.max.value, flexion!.bind.value), behind: lean(-flexion!.min.value, -flexion!.bind.value),
       out: lean(abduction!.max.value, abduction!.bind.value), in: lean(-abduction!.min.value, -abduction!.bind.value),

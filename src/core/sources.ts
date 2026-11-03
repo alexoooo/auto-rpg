@@ -212,10 +212,21 @@ export const SOURCES = Object.freeze({
   },
   "owner-hp-pool": {
     kind: "decision", date: "2026-09-27",
-    decided: "Hit points: reptile 1, Rogue 4, Warrior 6. One HP pool per body; excess damage spreads to "
-      + "neighbouring parts, nearest and inward first; the body dies when its HP is gone or its head is "
-      + "emptied. A part severs once it is half its hit points past empty.",
+    decided: "Hit points: reptile 1, Rogue 4, Warrior 6.",
     record: "docs/plans/2026-09-27-warrior-rogue-reptile.md@2e99105f",
+  },
+  "owner-life": {
+    kind: "decision", date: "2026-11-01",
+    decided: "Health easy to understand and familiar to players, with severing like Die by the Sword: one life "
+      + "bar, which is the truth, and a bar on each limb on the body diagram (option B). A blow takes from life "
+      + "its damage times its part's group's factor, vital 2, trunk 1, limb 0.5; on a limb it also takes its "
+      + "damage from the limb's bar, a share of full life (a human's arm 0.25, leg 0.35), which crippled at "
+      + "empty keeps half its muscles' peak torques. An edge or axe blow worth half the limb's full bar that "
+      + "empties it takes the limb off and costs 0.15 of full life; a lethal cut on a vital part takes it off. "
+      + "A point through a part takes a quarter of full life before its group's factor. Losing a leg ends the "
+      + "fight; losing an arm does not. The Skeleton's ribcage is vital and never comes off, its head a limb "
+      + "(0.2), its arms 0.15 and legs 0.25; the Reptile's head and jaw are vital, each leg 0.2 and its tail 0.15.",
+    record: "docs/reference/wounds.md#life",
   },
   "fdlibm": {
     kind: "literature",
@@ -306,12 +317,6 @@ export const SOURCES = Object.freeze({
       + "to the value that achieves the result wanted). With less, the rigid thighs meet as one swings past "
       + "the other, at up to a blow's force; the Warrior's, at their mass and density, leave 31 mm.",
     record: "docs/reference/run-body.md",
-  },
-  "owner-part-hp-split": {
-    kind: "decision", date: "2026-09-29",
-    decided: "A core human's hit points are split over its segments by cross-section: each segment's "
-      + "share is its mass to the two-thirds over the sum of the same over the body.",
-    record: "docs/plans/2026-09-28-core-foundation.md@2e99105f",
   },
   "owner-physics-engine": {
     kind: "decision", date: "2026-09-29",

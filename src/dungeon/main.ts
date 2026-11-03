@@ -820,7 +820,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     run.present();
     page.lighting?.refreshFog(run.explored);
     need<HTMLProgressElement>("hero-hp").value = run.hero.vitality;
-    need("hp-label").textContent = `${Math.ceil(run.hero.vitality * 100)}% HP`;
+    need("hp-label").textContent = `${Math.ceil(run.hero.vitality * 100)}% life`;
     party.partyStatus();
     const target = run.targetOf(run.leader);
     need("target-panel").hidden = !target || !target.alive;

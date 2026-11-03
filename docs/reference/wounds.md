@@ -4,8 +4,8 @@ What a blow costs each surface that meets in it: how stiff each part of a body i
 load (`CONTACT_STIFFNESS`, `src/core/human/tables/contact-stiffness.ts`), who takes what of a
 blow by that (`energyShares`, `src/core/rules/share.ts`), and what each part holds, beside what
 the impact literature measured. The rule is `watchBlows` (`src/core/rules/blows.ts`).
-`node research/blow-shares.mjs` prints the tables of Stiffness, Shares, Sensitivity and
-Tolerances from the specs.
+`node research/blow-shares.mjs` prints the tables of Stiffness, Shares and Sensitivity from the
+specs, and the energy a blow on each part must bring ([Tolerances](#tolerances)).
 
 ## Stiffness
 
@@ -156,45 +156,95 @@ A wound moves no body, so a bout differs only from the step a wound decides it: 
 their winner and second. Bare-handed all 45 are the same bouts, their blows taking 0.200 HP a
 bout where 0.145. The rows: [bouts.md](bouts.md#a-hit-point-is-100-j).
 
+## Life
+
+**One life bar, which is the truth, and a bar on each limb** (`src/core/rules/pool.ts`,
+`owner-life`). The owner, 2026-11-01: health should be easy to understand and familiar to
+players, and keep severing like Die by the Sword; of the options put, B, the life bar and a bar on
+each limb drawn on the body diagram.
+
+- **Life** is the body's hit points (Warrior 6, Rogue 4, `owner-hp-pool`). A blow takes its damage
+  from life times its part's group's factor (`Rulebook.life`, `lifeFactor`). A page's bar is life
+  over full life; no living body reads it empty.
+- **Each segment is in one group** (`WoundSpec`, `woundGroups`): vital, a limb (`LimbSpec`) or the
+  trunk, every segment in neither. A vital part named `whole` never comes off; nor does the trunk.
+- **A limb's bar** is its share of full life. A blow on the limb takes its whole damage from the bar
+  too; at 0 the limb is crippled, and further blows take only life. A crippled limb is weaker: the
+  muscles of every joint whose child is in it keep `Rulebook.crippled` of their peak torques
+  (`crippleLimb`).
+- **A heavy cut takes a limb off**: an edge or axe blow worth at least `Rulebook.severBlow` of the
+  limb's full bar that leaves the bar at 0 takes off the struck segment and every one beyond it. A
+  lethal edge or axe blow on a vital part not `whole` takes it off the same way. A cut costs
+  `Rulebook.severLoss` of full life beside the blow. A blunt blow or a lighter cut cripples; a point
+  never cuts.
+- **A body is out** when its life is spent (`slain`), a vital part comes off (`beheaded`), or a limb
+  whose loss is `out` loses any part (`maimed`). The first ending stands.
+
+The defaults, the owner's to change once seen in play; a share is of full life, so it holds for
+every body:
+
+| Number | Default | What it means for the Warrior (6 HP) |
+|---|---|---|
+| `Rulebook.life` | vital 2, trunk 1, limb 0.5 | the club's best blow (1.38 HP) takes 2.76 HP on the head, 1.38 on the trunk, 0.69 on a limb: three to the head kill, five to the trunk |
+| a human's limbs | arm 0.25 of full life, `fights on`; leg 0.35, `out` | two of the club's best blows cripple an arm or a leg; a body never stands on one leg |
+| `Rulebook.crippled` | 0.5 | a crippled leg limps: walking at 1 m/s (Node stand, Rapier, 120 Hz, the Warrior, no assist), the weak leg swung 0.46 s against 0.29 s and stepped 0.61 m against 0.34 m; asked 1.4 m/s it went 0.80 m/s against 1.25 |
+| `Rulebook.severBlow` | 0.5 | a cut worth half an arm's bar (0.75 HP, 13 J of an edge) takes off an arm it empties |
+| `Rulebook.severLoss` | 0.15 | a cut costs 0.9 HP |
+| `Rulebook.through` | 0.25 | a point through the head takes 3 HP, through the trunk 1.5 |
+
+The Skeleton's groups follow its family's intent (the owner, 2026-09-22: decapitation not fatal, the
+ribcage is, losing a leg ends it, limbs come off easily): its ribcage (`upperTrunk`) vital and
+`whole`; its head a limb (0.2, `fights on`); its arms 0.15 (`fights on`) and legs 0.25 (`out`).
+A quadruped's (`assets/reptile/body.json`, and the rat's and the authored body's, which share its
+layout): head and jaw vital; each leg 0.2 (`out`); its tail 0.15 (`fights on`).
+
+Decisions the owner may reverse: the numbers; that a limb's blows count half to life; that losing a
+leg ends the fight (Die by the Sword lets a body hop); that a cut costs a fixed loss and does not
+bleed.
+
 ## Tolerances
 
-**What a part tolerates is the pool's rule** (`partHitPoints`, `src/core/rules/pool.ts`): its
-cross-section's share of the body's hit points, times the unit; a bare fist lets a blow's first
-share go ([The fist](#the-fist)). The energy that empties each part, as that surface's share, at
-100 J a hit point:
+**What each blow does under the defaults** ([Life](#life)), from the rules (`blowDamage`,
+`pointWound`, `lifeFactor`, `partThickness`), Node: the club's best blow (`CLUB_BEST`, 138.23 J
+blunt, 1.38 HP), the sword's measured cut at 15 and 20 J and thrust at 25 and 28 J
+([held blows](held-blows.md)), each with the struck share 1. A cell is the life taken, and on a
+limb, after the slash, what the limb's bar loses; the Warrior's limb bars are an arm's 1.50 HP and a
+leg's 2.10:
 
-| Part | Warrior and skeleton (6 HP): kg | HP | J | Rogue (4 HP): kg | HP | J |
-|---|---|---|---|---|---|---|
-| head | 5.48 | 0.446 | 44.6 | 3.85 | 0.291 | 29.1 |
-| upperTrunk | 12.61 | 0.776 | 77.6 | 8.90 | 0.508 | 50.8 |
-| middleTrunk | 12.90 | 0.788 | 78.8 | 8.44 | 0.491 | 49.1 |
-| lowerTrunk | 8.82 | 0.612 | 61.2 | 7.18 | 0.441 | 44.1 |
-| upperArm | 2.14 | 0.238 | 23.8 | 1.47 | 0.153 | 15.3 |
-| forearm | 1.28 | 0.169 | 16.9 | 0.79 | 0.102 | 10.2 |
-| hand | 0.48 | 0.088 | 8.8 | 0.32 | 0.056 | 5.6 |
-| thigh | 11.19 | 0.717 | 71.7 | 8.51 | 0.494 | 49.4 |
-| shank | 3.42 | 0.325 | 32.5 | 2.77 | 0.234 | 23.4 |
-| foot | 1.08 | 0.151 | 15.1 | 0.74 | 0.097 | 9.7 |
+| Part | Group | Thickness, m | Club's best | Cut 15 J | Cut 20 J | Thrust 25 or 28 J |
+|---|---|---:|---|---|---|---|
+| head | vital | 0.183 | 2.76 | 1.72 | 2.29 | 3.00, through |
+| upper, middle, lower trunk | trunk | 0.215 to 0.261 | 1.38 | 0.86 | 1.15 | 1.50, through |
+| upper arm, forearm, hand | arm | 0.053 to 0.107 | 0.69 / 1.38 | 0.43 / 0.86 | 0.57 / 1.15 | 0.75 / 1.50, through |
+| thigh, shank, foot | leg | 0.098 to 0.190 | 0.69 / 1.38 | 0.43 / 0.86 | 0.57 / 1.15 | 0.75 / 1.50, through |
 
-A part comes off half its hit points past empty (`Rulebook.severMargin`).
+So three of the club's best blows on the head kill a Warrior, where two leave it 0.48 HP; a
+thrust through the head takes half its life. A 15 J cut takes off an arm whose bar it
+empties (0.86 is past half the arm's 1.50), and a leg's only at 20 J (1.15 past 1.05). A thrust
+empties an arm's bar at once, but a point never cuts. The Rogue's (4 HP) are the same blows on
+two-thirds of the life and bars: its head is through past 3.1 J, its arm's bar 1.00. The
+Skeleton's head is a limb (bar 1.20), its ribcage vital (2.76 a club's best). The energy that
+spends a whole body's life on a part, and that empties its limb's bar, prints from
+`node research/blow-shares.mjs`: the Warrior's head 300 J of blunt blow, its trunk 600 J, an arm's
+bar 150 J and a leg's 210 J.
 
 What the literature gives a part before it breaks. "Mine" is arithmetic on a paper's numbers (a
 spring's ½ F x or F²/2k), no paper's own figure:
 
-| Part | The literature | J | The pool's, Warrior, J |
+| Part | The literature | J | The rules', Warrior: to spend its life (head) or empty its limb's bar, J |
 |---|---|---|---|
-| head, the vault | failure at 33.5 J quasi-static and 28.0 J dynamic, 12 intact heads (Yoganandan et al. 1995, abstract) | 28 to 34 | 44.6 |
-| head, the nose | an even chance of fracture at 450 to 850 N (Cormier et al. 2010, Ann Adv Automot Med 54:3-14); over the dissertation's toe and two slopes, 1.2 to 2.5 J (mine) | 1 to 3 | 44.6 |
-| head, the frontal bone | an even chance of fracture at 1885 to 2405 N (Cormier et al. 2011, J Biomech Eng 133(2):021004, abstract); at 731 N/mm, 2.4 to 4.0 J (mine) | 2 to 4 | 44.6 |
-| thigh | 4349 N at 17.6 mm (`funk-2004`): 38 J (mine) | 38 | 71.7 |
-| hand | an even chance of injury at 3.0 kN on the knuckle joints (Carpanen et al. 2019, J Mech Behav Biomed Mater 97:306-311, abstract); at 122.3 N/mm, 37 J (mine, a human load on a pig's stiffness) | 37 | 8.8 |
-| trunk | none read: `kent-2005` breaks nothing at 20 % of the chest's depth | - | 77.6 |
+| head, the vault | failure at 33.5 J quasi-static and 28.0 J dynamic, 12 intact heads (Yoganandan et al. 1995, abstract) | 28 to 34 | 300 |
+| head, the nose | an even chance of fracture at 450 to 850 N (Cormier et al. 2010, Ann Adv Automot Med 54:3-14); over the dissertation's toe and two slopes, 1.2 to 2.5 J (mine) | 1 to 3 | 300 |
+| head, the frontal bone | an even chance of fracture at 1885 to 2405 N (Cormier et al. 2011, J Biomech Eng 133(2):021004, abstract); at 731 N/mm, 2.4 to 4.0 J (mine) | 2 to 4 | 300 |
+| thigh | 4349 N at 17.6 mm (`funk-2004`): 38 J (mine) | 38 | 210 |
+| hand | an even chance of injury at 3.0 kN on the knuckle joints (Carpanen et al. 2019, J Mech Behav Biomed Mater 97:306-311, abstract); at 122.3 N/mm, 37 J (mine, a human load on a pig's stiffness) | 37 | 150 |
+| trunk | none read: `kent-2005` breaks nothing at 20 % of the chest's depth | - | 600 |
 
 A boxer's straight punch is 3427 N at 9.14 m/s with an effective mass of 2.9 kg (Walilko, Viano
 and Bir 2005, Br J Sports Med 39:710-719, not opened at its source): 121 J in the fist as it lands
-(mine). Against these the pool's vault and thigh are within a factor of two, on the tough side;
-its head is far tougher than a face; its hand is about a quarter as tough as a knuckle, which the
-fist's threshold answers.
+(mine). Against these the rules' bodies are a game's: a head takes several blows that would break
+bone, as the owner asked of a life bar; the fist's threshold keeps a bare hand from emptying its arm
+on its own blows.
 
 ## The fist
 
@@ -221,7 +271,7 @@ Blunt, an edge and an axe are priced by the joule, blunt 1 : an edge 5.7 : an ax
 edge or a point. A point wounds by its depth (`pointWound`, `owner-point-depth`):
 
     depth = min(length, max(0, energy - breach) / resistance)
-    wound = part's hit points x min(1, depth / thickness)
+    wound = through x full life x min(1, depth / thickness)
 
 - `energy` is the struck side's share of the blow (`energyShares`).
 - `breach` is the sum over the layers over every part (`Rulebook.layers`): the skin's 0.25 J, the
@@ -236,33 +286,15 @@ edge or a point. A point wounds by its depth (`pointWound`, `owner-point-depth`)
   to the blade's base.
 - `thickness` is the struck part's least width (`partThickness`, `src/core/rules/pool.ts`): a
   capsule's diameter, a box's least side, a hull's extent along its least principal axis.
-- A point's wound stays in its part (`Blow.contained`): it never takes the part off and does not
-  walk. A point meeting an item meets it blunt. An anatomical point (the reptile's bite) wounds by
+- `through` is a quarter (`Rulebook.through`, `owner-life`); the wound then costs life as any
+  blow does, at its part's group's factor, and on a limb its whole goes to the limb's bar
+  ([Life](#life)). A point never cuts. A point meeting an item meets it blunt. An anatomical point (the reptile's bite) wounds by
   its press (`pointLoad`), not by this rule.
 
 So any held point past about 5.5 J goes through a Warrior's trunk, and one past 3.9 J through its
-head, which is fatal. The cut and the thrust as measured ([held blows](held-blows.md)), each on a
-toed body's parts at 120 Hz's best blows (the struck share about 1, the sword rigid; one side of
-each pair):
-
-| Part | Warrior HP | thickness, m | Cut 15 / 20 J | Thrust 25 / 28 J, at 33 x blunt | by its depth |
-| --- | ---: | ---: | --- | --- | --- |
-| head | 0.446 | 0.183 | 0.86 / 1.15 | 8.35 / 9.35 | 0.446, through |
-| upper trunk | 0.776 | 0.261 | 0.86 / 1.15 | 8.35 / 9.35 | 0.776, through |
-| middle trunk | 0.788 | 0.215 | 0.86 / 1.15 | 8.35 / 9.35 | 0.788, through |
-| lower trunk | 0.612 | 0.258 | 0.86 / 1.15 | 8.35 / 9.35 | 0.612, through |
-| upper arm | 0.238 | 0.107 | 0.86 / 1.15 | 8.35 / 9.35 | 0.238, through |
-| forearm | 0.169 | 0.078 | 0.86 / 1.15 | 8.35 / 9.35 | 0.169, through |
-| hand | 0.088 | 0.053 | 0.86 / 1.15 | 8.35 / 9.35 | 0.088, through |
-| thigh | 0.717 | 0.190 | 0.86 / 1.15 | 8.35 / 9.35 | 0.717, through |
-| shank | 0.325 | 0.099 | 0.86 / 1.15 | 8.35 / 9.35 | 0.325, through |
-| foot | 0.151 | 0.098 | 0.86 / 1.15 | 8.35 / 9.35 | 0.151, through |
-
-The Rogue's (4 HP) and the Skeleton's (6 HP) parts go the same way: every one is through at 25 J
-(the Rogue's head 0.145 m thick, through past 3.1 J; the Skeleton's 0.131 m, past 2.9 J). The cut
-is unchanged; it walks, and severs where the margin allows. At 33 times blunt the thrust took more
-than a whole Warrior; by its depth it takes the part it meets. Computed from the rules
-(`pointWound`, `partHitPoints`, `partThickness`) at the branch's commit, Node.
+head: the measured thrusts, 25 to 28 J, go through every part of every body (the Rogue's head
+0.145 m thick, through past 3.1 J; the Skeleton's 0.131 m, past 2.9 J). What each does to each part
+is in [Tolerances](#tolerances).
 
 Against the literature (none of these opened at its source but where said):
 

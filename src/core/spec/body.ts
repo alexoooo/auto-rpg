@@ -256,16 +256,32 @@ export interface ItemSpec {
 export type ItemShape = Exclude<ShapeSpec, { readonly kind: "box" }>;
 
 /**
- * **What the rulebook wounds** (`src/core/rules/pool.ts`): one pool of hit points for the body,
- * split over its segments by the rulebook's rule.
+ * **What the rulebook wounds** (`src/core/rules/pool.ts`): the body's life, and each segment in
+ * one group, vital, a limb, or the trunk, which is every segment in neither.
  */
 export interface WoundSpec {
-  /** The body's hit points, in the rulebook's unit (`Rulebook.unit`: one is 100 J of blunt blow). */
+  /** The body's life, hit points in the rulebook's unit (`Rulebook.unit`: one is 100 J of blunt blow). */
   readonly hp: Quantity<number>;
-  /** Segments whose emptying, or loss, kills the body: a head. */
+  /** Segments a blow costs most life on (`Rulebook.life`), and whose loss ends the fight: a head. */
   readonly vital: readonly string[];
-  /** Segments that never come off: a trunk. */
+  /** Vital segments that never come off, as no trunk segment does: a skeleton's ribcage. */
   readonly whole: readonly string[];
+  /** The limbs, each with a bar of its own (`LimbSpec`). */
+  readonly limbs: readonly LimbSpec[];
+}
+
+/**
+ * **A limb**: segments that share a bar, a share of the body's life, which blows on them empty,
+ * crippling the limb, and a heavy cut takes off (`src/core/rules/pool.ts`).
+ */
+export interface LimbSpec {
+  readonly name: string;
+  /** Its segments, nearest the trunk first; every segment beyond one is in it. */
+  readonly segments: readonly string[];
+  /** Its bar, a share of the body's full life. */
+  readonly share: Quantity<number>;
+  /** What losing any of it does: ends the fight (`out`, the ending `maimed`) or not. */
+  readonly lost: "out" | "fights on";
 }
 
 /**

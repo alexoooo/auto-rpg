@@ -46,7 +46,7 @@ on Option Mind's straight punch (`assets/core/straight-punch.json`;
 
 Harness throughout: Node, the core's world on Rapier. Right is the guard's rear hand, left its
 lead. Speeds are over the fist's last 0.1 m. The bar is `BAR` (`src/evaluation/strike/read.ts`);
-[the bars](../plans/2026-11-01-option-mind-everywhere.md#the-bars) state it.
+[What is required](../plans/2026-11-03-options-training.md#what-is-required) reports it beside each reading; it gates nothing.
 
 ## What is used
 

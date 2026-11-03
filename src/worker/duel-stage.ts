@@ -153,7 +153,7 @@ export async function duelStage(start: DuelStart): Promise<Stage<DuelCard, DuelI
   duel.play(start.tape);
   if (other && beside) other.duel.play(beside.tape);
   const led: TeamOfOne | null = start.person ? teamOfOne(duel, start.person, { kind: "party", picks: false }) : null;
-  const readings = Object.fromEntries(SIDES.map((side) => [side, fighterReading(duel.duelists[side])])) as Record<Side, ReturnType<typeof fighterReading>>;
+  const readings = Object.fromEntries(SIDES.map((side) => [side, fighterReading(duel.duelists[side], () => duel.blows)])) as Record<Side, ReturnType<typeof fighterReading>>;
   const time = () => duel.state.start + (duel.verdict?.time ?? duel.clock);
   let feedStopped = false;
   const sampling = world.afterStep(() => {

@@ -1,7 +1,7 @@
 # The table
 
 Option Mind on every body, loadout and skill against its bar
-([the plan](../plans/2026-11-01-option-mind-everywhere.md#3-the-table)), first read at `91983216`:
+([the plan](../plans/2026-11-03-options-training.md#3-the-table)), first read at `91983216`:
 **88 cells, 6 met, 82 short**. `npm run evaluate -- table --play --workers 22`, every reading
 played and written (`assets/evaluations/*/2026-11-01-91983216-*.jsonl`); Node, core world,
 `rapier-coordinate`, 120 Hz, command delay 0. The met cells: the Warrior's walk holding the club
