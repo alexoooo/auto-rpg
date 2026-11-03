@@ -65,7 +65,8 @@ defect.
   figures (`BAR`, `src/evaluation/strike/read.ts`;
   [human strike reference](../reference/human-strike-reference.md)) are reported beside each
   reading, as a scale, and gate nothing.
-- **Guards**: no change sets back stand-up or the run; and no Option makes its body fall unless a
+- **Guards**: no push of work ends with stand-up or the run set back (a fix may drop them while
+  what it exposes above is fixed); and no Option makes its body fall unless a
   fall is part of its design. An Option that trades a fall for power (a tackle, an all-in kick
   that falls on a miss) states it, and its fall rate by outcome is measured into its profile for
   the mind to weigh. No Option in scope states one, so every fall here is a defect.
@@ -84,11 +85,13 @@ defect.
   built in) is its body family's, chosen by the body.
 - **One loop.** The situation reads the percepts its Options and objective declare; the chooser
   and objective are the same for every body. The decider's builder names no kind of Option.
-- **Where an Option leaves the body is worth what Option Mind expects from there**, for every
-  Option: a lying posture is worth the expected time to standing over the Options that begin
-  there, so a blow that may fall and a way up that may fail are priced alike. An Option's record
-  of failing from a situation in the bout, and its price where no profile measures it, are the
-  same for every Option.
+- **Where an Option leaves the body is worth the best Option Mind expects from there**, in life,
+  by one rule for every Option: on its feet at a new place, the best Option there; lying in a
+  posture, the life expected lost until it stands, over the Options that begin there, a small
+  table read again only as their profiles or the bout's record change. So a blow that may fall and
+  a way up that may fail are priced alike. An Option that leaves the body unready says for how
+  long, as a gait does. An Option's record of failing from a situation in the bout, and its price
+  where no profile measures it, are the same for every Option.
 
 ### Bodies told apart in data, never in logic
 
@@ -139,39 +142,36 @@ A defect found on any later step joins this list and is fixed the same way.
 
 ### 2. Option Mind general
 
-Each piece lands on its own:
+Each piece lands on its own, in this order:
 
-- **The config is Options.** Each Option kind takes the skill it uses and how it uses it (limbs,
-  regions, aim); `OptionMindConfig`'s `executors`, `actions`, `ground`, `locomotion`, `guard`,
-  `support` and `frame` go (`src/core/option/mind.ts`), and the presets list Options. A profile is
-  an Option's on a body. A person's order names a skill the body has.
-- **The body family's layer.** Motor control, the stance and the posture a body is built in come
-  from the body's family (the humanoid's, the quadruped's), not from the mind's config.
-- **The strikes** are made by their kind, not by the function that builds the decider.
-- **The rise as Options.** Each way up, and each of the ground's modes (brace, land, steady,
-  flatten, the repositions), is a skill an Option names; the rise's own code goes
-  (`groundOptions`, `src/core/option/ground.ts`; `groundExecutor`,
-  `src/core/recovery/ground/held.ts`; `Deciding.ground`, `Rising`) once what the rest of Option Mind
-  reads from it is general:
-  - the expected time to standing from each lying posture (`riseFrom`), which prices every Option's
-    chance of leaving the body down (`downCost`, `downCostAt`, `src/core/option/percepts.ts`),
-    becomes Option Mind's value of where any Option leaves the body;
-  - the seconds until a body back on its feet is braced (`unbraced`), which every place reads
-    (`here`, `src/core/option/position.ts`), becomes the reading of whichever Option steadies it;
-  - the in-bout record of a way that failed (`recorded`) and the hand-set price of an unmeasured
-    one (`BY_HAND`) become every Option's.
-
-  A config that leaves the body no way up from its back or its front stays a fault.
-- **The quadrupeds on the one loop.** The reptile's and the rat's Options name their gaits, bite
-  and righting; the quadruped's own chooser, situation reader and Option types go
-  (`QUADRUPED_VALUED`, `quadrupedReader`, `src/core/reptile/frame.ts`), the stalk's decisions
-  (approach, creep, when to bite; `src/core/reptile/tactics.ts`) become Options, and the righting
-  is a way up like a humanoid's.
-- **The name.** `optionTactics` builds Option Mind's decider; "tactics" is the retired fighter's
-  slot and leaves the code and the documents, the roadmap's list of layers included.
-- **Deciding while down.** The shared decider decides every step the body is down
-  (`src/core/mind/decider.ts`); that becomes a cue the Options give, or stays with its reason
-  written beside it.
+1. **The name.** `optionTactics` builds Option Mind's decider; "tactics" is the retired fighter's
+   slot and leaves the code and the documents, the roadmap's list of layers included.
+2. **The strikes** are made by their kind, not by the function that builds the decider.
+3. **Where an Option leaves the body**, by the one rule, for every Option. What the rise's code
+   holds for the rest of Option Mind moves there: the expected time to standing from each lying
+   posture (`riseFrom`, `src/core/option/ground.ts`), which prices every Option's chance of
+   leaving the body down (`downCost`, `downCostAt`, `src/core/option/percepts.ts`); the seconds
+   until a body back on its feet is braced (`unbraced`), which every place reads (`here`,
+   `src/core/option/position.ts`), reported by the Option that leaves the body unready; the
+   bout's record of a way that failed (`recorded`) and the hand-set price of an unmeasured one
+   (`BY_HAND`).
+4. **The rise as Options.** Each way up, and each of the ground's modes (brace, land, steady,
+   flatten, the repositions), is a skill an Option names; the rise's own code goes
+   (`groundOptions`; `groundExecutor`, `src/core/recovery/ground/held.ts`; `Deciding.ground`,
+   `Rising`). A config that leaves the body no way up from its back or its front stays a fault.
+5. **The config is Options.** Each Option kind takes the skill it uses and how it uses it (limbs,
+   regions, aim); `OptionMindConfig`'s `executors`, `actions`, `ground`, `locomotion`, `guard`,
+   `support` and `frame` go (`src/core/option/mind.ts`), and the presets list Options. Motor
+   control, the stance and the posture a body is built in come from the body's family. A profile
+   is an Option's on a body. A person's order names a skill the body has, its limb and its target.
+6. **The quadrupeds on the one loop.** The reptile's and the rat's Options name their gaits, bite
+   and righting; the quadruped's own chooser, situation reader and Option types go
+   (`QUADRUPED_VALUED`, `quadrupedReader`, `src/core/reptile/frame.ts`), the stalk's decisions
+   (approach, creep, when to bite; `src/core/reptile/tactics.ts`) become Options, and the righting
+   is a way up like a humanoid's.
+7. **Deciding while down.** The shared decider decides every step the body is down
+   (`src/core/mind/decider.ts`); that becomes a cue the Options give, or stays with its reason
+   written beside it.
 
 Check: every Option Mind config is a chooser, its predictions and its Options, on every body; the
 decider's builder names no kind of Option, and no rise or body family has a loop of its own; the
