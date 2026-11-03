@@ -1,6 +1,6 @@
 {
   "crypt-skeleton+toes": {
-    "made": "A seed, not searched: the Warrior's record, its lengths scaled by the Skeleton's stature (research/skill-search.mjs stomp crypt-skeleton --try at 7405626f), so the Skeleton has a strike without the low kick; on the stomping rung's 8 search trials (each foot at a lying Warrior and Skeleton, 0.8 and 1.2 m) it scored -2.000: 4 fell, 2 refused, 2 outside.",
+    "made": "Searched on the crypt-skeleton at 4d5c5116 (research/skill-search.mjs): CMA over contactSpeed, swingSeconds, lift, over, alongNear, alongFar, chamberSeconds from the crypt-skeleton's record, 5 generations of 16, on the Strike drill's stomping rung (each foot at the middle mark of a Warrior and a Skeleton lying limp) from 0.8, 1.2 m, 8 trials a candidate, 6283 s; on fresh trials from 0.9, 1, 1.1 m the search's best scored 6.197 (0 falls) and its start 5.209 (0 falls): the best is kept.",
     "settings": {
       "setupLimit": 8,
       "lower": 0.05,
@@ -8,12 +8,12 @@
       "transferLimit": 6,
       "transferSeconds": 0.2,
       "transferSlow": 0.12,
-      "lift": 0.6407,
+      "lift": 0.7962,
       "windup": 0,
-      "chamberSeconds": 0.6,
-      "swingSeconds": 0.25,
+      "chamberSeconds": 0.5454,
+      "swingSeconds": 0.2939,
       "returnSeconds": 0.6,
-      "contactSpeed": 7,
+      "contactSpeed": 6.3614,
       "brace": 0,
       "soleTurn": 0,
       "prepareLimit": 4,
@@ -36,8 +36,8 @@
       "recenterLimit": 4,
       "over": 1,
       "top": 0.4,
-      "alongNear": 0.5034,
-      "alongFar": 0.7322,
+      "alongNear": 0.6217,
+      "alongFar": 0.7217,
       "across": 0.1831,
       "facing": 0.4,
       "admitSpeed": 0.5
