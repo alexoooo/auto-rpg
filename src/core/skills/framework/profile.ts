@@ -300,8 +300,18 @@ export function digestOf(value: unknown): string {
   return digest;
 }
 
-/** A body's spec's digest (`digestOf`): what a profile measured on it names. */
-export const specDigest = (spec: BodySpec): string => digestOf(spec);
+/** Each spec's digest (`specDigest`), found once a spec. */
+const SPEC_DIGESTS = new WeakMap<BodySpec, string>();
+
+/**
+ * **A body's spec's digest** (`digestOf`): what a profile measured on it names. Its wounds are
+ * left out: they are how the rules read a blow on it (`src/core/rules/pool.ts`), not how it moves.
+ */
+export const specDigest = (spec: BodySpec): string => {
+  let digest = SPEC_DIGESTS.get(spec);
+  if (digest === undefined) SPEC_DIGESTS.set(spec, digest = digestOf({ ...spec, wounds: undefined }));
+  return digest;
+};
 
 /**
  * **A strike's digest** on a body of `spec`: what it does, not what it is called: its action's

@@ -48,7 +48,9 @@ for (const path of paths) {
     // The drill Commander's config, or, in a record from before it, the drill's tactics in the mind.
     const drill = led?.kind === "drill" && led.gait ? { kind: "drill-gait", action: led.action, gait: led.gait } : partIn(mind, "drill-gait");
     if (row.fault || !row.reading || drill?.kind !== "drill-gait") continue;
-    const spec = specOf(recipe), action = armedActions(partLookup, spec, mind.executors, mind.actions).find((one) => one.name === drill.action);
+    // Only the drill's action and its executor are read: the rest of a recorded mind may name parts the game has since lost.
+    const asked = mind.actions.filter((one) => one.name === drill.action), executors = mind.executors.filter((one) => asked.some((a) => a.executor === one.name));
+    const spec = specOf(recipe), action = armedActions(partLookup, spec, executors, asked)[0];
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
     const gait = gaitNamed(mind.locomotion?.kind === "move" ? gaitsOfMove(mind.locomotion) : STOCK_GAITS, drill.gait);
     if (!gait) throw new Error(`${path}: no gait ${drill.gait} in its mind's legs`);
