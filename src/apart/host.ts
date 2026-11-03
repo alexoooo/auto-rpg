@@ -148,10 +148,6 @@ export function mindThreads(links: readonly ThreadLink[]): MindPlace {
           thread.link.answered(held.stepped);
           hear(thread);
         },
-        says() {
-          join(held);
-          return held.says;
-        },
         said() {
           // Until it is heard as made, nothing it said is known: wait for that, which every later reading has.
           if (!held.heard) join(held);
