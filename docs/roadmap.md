@@ -350,9 +350,9 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - orders: obedience against self-preservation, read with orders given; follow orders values
     an order without its walk (`Orders.walk`).
 - **The stomp lands 11 of the Warrior's rung's 12**, none fell, 1 outside; on `stomping-bodies`
-  the Skeleton lands 7 of 12, 1 fell (its pelvis tipped by the blow puts its chamber past the hip's
-  reach, and the return waits on one leg), and the Rogue 1, 7 weak, 1 fell on its row seeded from
-  the Warrior's ([stroke, return and stay](reference/front-kicks.md#stomp-settings)).
+  the Skeleton lands 8 of 12, none fell, and the Rogue 1, 8 weak, none fell on its row seeded from
+  the Warrior's; the Warrior's blows at a lying Warrior carry 9.7 to 26.6 J, half what a stroke
+  braced throughout gave ([stroke, return and stay](reference/front-kicks.md#stomp-settings)).
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
   are not built ([blows](reference/blows.md#covering-searched)); each comes as a skill in the shape
   with its Cover drill.
