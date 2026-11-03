@@ -4,9 +4,10 @@ The game's delay is one step (`COMMAND_DELAY`, `src/core/world.ts`;
 [the architecture](../architecture.md#the-command-delay)). A mind a step late holds balance and
 the rise when it is split in two: **its step decides its intent a step late, and its body's motor
 part has its skills make the command from that intent on the body as it is** (`Mind.move`,
-`SplitDriver`), on the senses the intent was decided on. Every gate probe passes; the walk falls
-as often as at none; the stand-up stands within the fall-set's spread of none. The trained
-strikes land less often than at none and are on the table's fine-tune list.
+`SplitDriver`), on the senses the intent was decided on, and a body is born on the first step its
+decision is carried out. Every gate probe passes; the walk falls as often as at none; the
+stand-up stands as often as at none; the punch's networks, trained at none, land at one step
+without a fine-tune.
 
 ## What is used
 
@@ -48,49 +49,47 @@ strikes land less often than at none and are on the table's fine-tune list.
 
 ## Measurement
 
-With the delay at one step and at none; Node, the core world, Rapier, 120 Hz, at the switch's
-commit against 8411a492 (the motor-program version, its delay set to one step) and at none.
+With the delay at one step and at none; Node, the core world, Rapier, 120 Hz, at 25d720b9 (each
+body born on its first decision carried out) unless named; the motor programs at 8411a492, their
+delay set to one step.
 
 **The gate's probes** (`tests/probes.test.mjs`): every probe passes at one step. The halt from
 0.6 m/s reads 0.089 m/s at its moment (limit 0.15); the kneel 0.164 m (limit 0.2); the heading at
 a run 0.372 rad, reported, as at none.
 
 **The walk** (the Locomotion drill's `every`, 705 trials on the three bodies in every loadout):
-10 trials fall at one step, 11 at none (the record at 629f7c3b). The Warrior falls in one, a turn
-of 270 degrees; the Skeleton in nine, shoves and a turn.
+11 trials fall at one step (`assets/evaluations/locomotion/2026-11-03-25d720b9-cf6cbec6.jsonl`),
+11 at none (the record at 629f7c3b). At one step the Warrior falls in three turns, the Rogue in two
+shoves of 43.7 N s, the Skeleton in six, shoves, turns and a walk.
 
 **The stand-up** (`research/rise-trace.mjs`: the owner's target's 32 falls turned by the offsets
 named, Option Mind's rise; [rising](rising.md#the-owners-target)), the Warrior, stood within 10 s:
 
-| Offsets | None | One step, motor programs | One step, split |
+| Offsets | None | One step | One step, motor programs (8411a492) |
 | --- | --- | --- | --- |
-| 0, 11.25 | 46 of 64 | 47 | 34 |
-| 5.625, 16.875 | 41 of 64 | 41 | 41 |
-| 2.8125, 8.4375, 14.0625, 19.6875 | | 79 of 128 | 85 |
+| 0, 11.25 | 39 of 64 | 43 | 47 |
+| 5.625, 16.875 | 38 of 64 | 38 | 41 |
+| 2.8125, 8.4375, 14.0625, 19.6875 | 75 of 128 | 82 | 79 |
 
-The Rogue on 0 and 11.25: 6 of 64 at none, 11 with motor programs, 4 split; it stands 51 times
-split, 50 at none. The falls stood within 10 s move by about six a draw of 64.
+The Rogue on 0 and 11.25: 6 of 64 at none, 8 at one step; it stands 50 times at none, 48 at one
+step. The falls stood within 10 s move by about six a draw of 64.
 
-**The strikes' still rungs** (the Strike drill's `still`, 128 trials; the stomp's `stomping`, 12),
-at f0c6807c with the Warrior's punch network fine-tuned at none, with its delay at none and at
-one step; the motor programs at 8411a492 with the network before:
+**The punch held out** (`research/punch-policy-check.mjs`, the asset networks, trained at none;
+320 held-out trials a rate, landed; none fell):
 
-| Rung | Figure | None | One step, split | One step, motor programs |
-| --- | --- | --- | --- | --- |
-| `option/straight-punch` | landed | 0.242 | 0.047 | 0.000 |
-| | admitted | 0.484 | 0.359 | |
-| | energy, J, median | 56.4 | 13.2 | 4.6 |
-| `option/club-blow@empty,club` | landed | 0.047 | 0.008 | 0.023 |
-| | energy, J, median | 60.5 | 20.4 | 25.0 |
-| `option/stomp` | landed | 0.25 | 0.167 | 0.167 |
-| | fell | 0 | 0.083 | 0.083 |
+| Body, seed | Rate | None | One step |
+| --- | --- | --- | --- |
+| Warrior, 5001 | 120 Hz | 225 | 228 |
+| | 480 Hz | 247 | 253 |
+| Rogue, 7001 | 120 Hz | 106 | 102 |
+| | 480 Hz | 158 | 172 |
 
-The punch is admitted less often at one step (46 of 128 against 62) and lands on 6 against 31:
-its policy was trained at none. The fine-tune list at one step, the table's pass
-([Option Mind on every body](../plans/2026-11-01-option-mind-everywhere.md)): the Warrior's and
-the Rogue's punch. The stomp needs none: at 252a17eb it lands 4 of 12 at one step, none fallen. The club blow
-leaves the list: a club is swung, not punched with, and the punch's drive thrown with the club's
-head gives way to a swing, which is trained at the game's delay.
+**The strikes' still rungs** (the Strike drill's `still`, 128 trials) at one step: the punch is
+admitted 60 times and lands 35 (`assets/evaluations/strike/2026-11-03-25d720b9-4635c08b.jsonl`;
+none at f0c6807c: 62 and 31); the club blow with the buckler lands 6, admitted 16 (`786b1ad8`). The
+stomp's `stomping` lands 4 of 12 at one step, none fallen (252a17eb). A club is swung, not punched
+with: the punch's drive thrown with the club's head gives way to a swing, trained at the game's
+delay.
 
 **The profiles** are measured at one step at 25d720b9, each body born on its first decision
 carried out, a blow's line clear of a guard by the fist's radius and the Rise drill's techniques in
@@ -101,29 +100,23 @@ are its record at 252a17eb. A profile names the delay it was measured at (`Measu
 Warrior's punch profile kept Option Mind from striking a still foe 0.9 m off (no strike in 8 s);
 measured at one step, it strikes from 2.7 s.
 
-**The Gait drill** (`stopped`, 20 trials on the Warrior, at 252a17eb): 20 ready at one step, 3.1
-to 4.3 s from the stop with either hand (3.1 and 3.9 s from 0.5 m/s), where none leaves the right
-hand 0 and the left 3.7 (the punch begins only standing quiet; at 51aaf4d2, at one step, the
-strike was never admitted from 0.5 m/s). None falls.
+**The Gait drill** (`stopped`, 20 trials on the Warrior): 20 ready at one step, none fallen
+(`assets/evaluations/gait/2026-11-03-25d720b9-ab561cd7.jsonl`).
 
 **The rise's edges hold at one step as at none.** The Rise drill plays each technique in its
 body's motor part, as the game's ground actions run (`groundExecutor`), so a technique's command
 reaches the muscles the step it is made (`src/evaluation/technique.ts`). The Warrior,
-empty-handed and with the buckler and the club, done of begun, at 252a17eb; none at 84e7c898:
+empty-handed and with the buckler and the club, done of begun; none at 84e7c898:
 
 | Edge | Placed, none | Placed, one step | Moving, none | Moving, one step |
 | --- | --- | --- | --- | --- |
 | `staged-roll` | 36 of 36 | 36 of 36 | 8 of 8 | 7 of 7 |
 | `staged-down` | 12 of 12 | 12 of 12 | 10 of 12 | 8 of 12 |
-| `staged-kneel-up` | 12 of 12 | 12 of 12 | 5 of 6 | 10 of 11 |
 | `sit-back` | 12 of 12 | 12 of 12 | 4 of 6 | 7 of 11 |
 | `front-sit-back` | 7 of 12 | 7 of 12 | 8 of 12 | 4 of 12 |
-| `staged-step-through` | 0 of 10 | 0 of 10 | 0 of 5 | 0 of 10 |
-| `staged-lunge` | 0 of 4 | 0 of 4 | none | none |
 
 The front sit-back's moving cases on 72 seeds of each loadout (the drill's six, then 7 to 72) are
-76 of 144 done at one step against 81 at none; the prop's abort ends 28 empty-handed trials against
-18. Run in the mind's decision instead, a technique's command came a step late, and the sit-back
+76 of 144 done at one step against 81 at none. Run in the mind's decision instead, a technique's command came a step late, and the sit-back
 stood 6 of 10 and the front sit-back 1 of 12 (51aaf4d2, empty-handed, the two rungs together).
 
 **The standard match** (`npm run match -- option bare`, protocol 908550df542eb469; ten minutes'
