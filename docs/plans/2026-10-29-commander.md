@@ -12,7 +12,7 @@ This plan builds one Commander in Option Mind's shape one level up, the **Option
 its resources, a team option claims members, each option is priced by what it is expected to leave
 at the exit, and its chooser is configured. The four kinds stay, as opponents and baselines.
 
-**The owner's decisions** (2026-10-29):
+**The owner's decisions**:
 
 - **The Crypt's score is the life left at the exit, less a price on time**: time and wounds are one
   unit, so every run reads a number, and a Commander's value is a prediction of that score.

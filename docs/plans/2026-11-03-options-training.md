@@ -2,7 +2,7 @@
 
 ## Why
 
-The owner (2026-11-03): the way Options were trained kept known bugs and rejected real gains.
+The owner: the way Options were trained kept known bugs and rejected real gains.
 
 - **Lower-level fixes were dropped for a higher reading.** A fix that broke code above it was
   read as a worse fix, when it exposed a bug above. The code must not do the right thing for the
@@ -18,15 +18,13 @@ What is wanted is each skill as good as it can be made in a reasonable time, wit
 requirements: every character stands up reliably in under 10 s, and the Warrior and the Rogue run
 reliably.
 
-This plan takes over from Option Mind on every body
-(`docs/plans/2026-11-01-option-mind-everywhere.md@47ad569f`), whose steps 1 to 3 are built: one
-family of minds, minds in parallel, and the table. Its scope is the owner's: the toed Warrior,
-Rogue and Skeleton with every loadout (empty hands, the club, the sword, the club and buckler, the
-sword and buckler); the walk, stand-up, the punch and the club, sword and buckler on all three; the
-run and the stomp on the Warrior and the Rogue. **The Skeleton has no stomp** (the owner,
-2026-11-03): at 15 kg its blows carry under 3 J against the Warrior's 15 to 52 J
-([stomp settings](../reference/front-kicks.md#stomp-settings)); a held item brings its own mass.
-Where each cell starts: [the table](../reference/the-table.md).
+Built before it: one family of minds, minds in parallel, and the table. Its scope is the owner's:
+the toed Warrior, Rogue and Skeleton with every loadout (empty hands, the club, the sword, the club
+and buckler, the sword and buckler); the walk, stand-up, the punch and the club, sword and buckler
+on all three; the run and the stomp on the Warrior and the Rogue. **The Skeleton has no stomp** (the
+owner's decision): at 15 kg its blows carry under 3 J against the Warrior's 15 to 52 J ([stomp
+settings](../reference/front-kicks.md#stomp-settings)); a held item brings its own mass. Where each
+cell starts: [the table](../reference/the-table.md).
 
 ## How it works
 
@@ -47,7 +45,7 @@ table that drops meanwhile is named in the commit, not a reason to keep the defe
   seeds 1 to 4, none fallen: 3 m/s forward held 10 s, a turn at 1 rad/s at 2 m/s, a stop from
   3 m/s within 1.5 s; read as the slowest second of the hold at 3 m/s, of the turn at 1.8 m/s with
   the way travelled at most 0.35 rad behind the way asked, and a stop asked at 2.7 m/s or more and
-  under 0.15 m/s within 1.5 s. 3 m/s is a floor (the owner, 2026-11-03); faster is better.
+  under 0.15 m/s within 1.5 s. 3 m/s is a floor (the owner's decision); faster is better.
 - **Every other cell, best effort**: its drill's score on its body, read first as its baseline,
   then raised by paired readings against the version before; a gain is kept, a loss is not. A
   cell's work ends at a plateau or after four hours of work without a gain, its best kept and its
