@@ -13,6 +13,7 @@ import { STANDARD_GRAVITY } from "../../spec/constants.ts";
 import { channelName } from "../../muscle/driver.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { add, cross, distance, dot, length, scale, sub } from "../../spec/vec.ts";
+import { acos, sin } from "../../math/real.ts";
 import type { Skill } from "../framework/skill.ts";
 import { segmentOf } from "../../spec/body.ts";
 
@@ -114,7 +115,8 @@ export function wardSpeed(built: ReadBody, hand: string): number {
  * foe's weapon as the arm reaches (`faceReach`), or at the weapon where that is nearer, held out
  * at the threat, meeting a blow early, not hugged to the body; a place further from the shoulder
  * than the arm reaches (`armReach`) brought back along that line to where it does; a path to its
- * place in the time the place takes to go out at that speed. Set: `docs/reference/blows.md#a-shields-ward`.
+ * place in the time the place takes to go out at that speed; its face turned to the threat at most
+ * `speed / reach` rad/s. Set: `docs/reference/blows.md#a-shields-ward`.
  */
 function wardOf(spec: BodySpec, hand: string, item: ItemSpec, speed: number): Ward {
   const segment = segmentOf(spec, hand)!, face = rigidPoints(spec, segment).get(item.cover![0]!)!.value, out = faceReach(spec, hand, face);
@@ -234,8 +236,12 @@ export interface GuardOptions {
   readonly hold?: GuardSkill["hold"];
 }
 
-/** Where each warding hand's ward stands now, by segment: its face's place in the body frame and the clock it was set at; null where the hand is not warding. */
-interface GuardState { wards: Record<string, { at: Vec3; time: number } | null> }
+/**
+ * Where each warding hand's ward stands now, by segment: its face's place in the body frame, its
+ * hand's turn there (a quaternion, x y z w; null until it is first turned) and the clock each was
+ * set at; null where the hand is not warding.
+ */
+interface GuardState { wards: Record<string, { at: Vec3; time: number; turn: [number, number, number, number] | null; turned: number } | null> }
 
 export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, { wardSpeeds = null, hold = null }: GuardOptions = {}): GuardSkill {
   const hands = handsOf(spec), covers = Object.fromEntries(hands.map((hand) => [hand, coversOf(spec, hand)]));
@@ -249,12 +255,32 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, { w
     let was = state.wards[hand];
     if (!was) {
       const at = view.effectors[hand]!.points[point]!;
-      was = state.wards[hand] = { at: [at.x, at.y, at.z], time: view.time };
+      was = state.wards[hand] = { at: [at.x, at.y, at.z], time: view.time, turn: null, turned: view.time };
     }
     const gap = sub(want, was.at), far = length(gap), most = wards[hand]!.speed * (view.time - was.time);
     was.at = far <= most ? want : add(was.at, scale(gap, most / far));
     was.time = view.time;
     return was.at;
+  };
+  /**
+   * `hand`'s ward's turn now: from where it stood toward `want`, at most `speed / reach` rad/s
+   * since, so the face's rim turns no faster than its centre moves; begun at the hand's turn.
+   * Called after `paced`, which begins the ward.
+   */
+  const turnedTo = (view: BodyView, hand: string, want: Quaternion): [number, number, number, number] => {
+    const was = state.wards[hand]!, ward = wards[hand]!;
+    if (!was.turn) { const now = view.effectors[hand]!.rotation; was.turn = [now.x, now.y, now.z, now.w]; was.turned = view.time; }
+    const [x, y, z, w] = was.turn, along = x * want.x + y * want.y + z * want.z + w * want.w, sign = along < 0 ? -1 : 1;
+    const half = acos(Math.min(1, sign * along)), most = ward.speed / ward.reach * (view.time - was.turned) / 2;
+    if (half <= most) was.turn = [want.x, want.y, want.z, want.w];
+    else {
+      const from = sin(half - most) / sin(half), to = sign * sin(most) / sin(half);
+      const q: [number, number, number, number] = [from * x + to * want.x, from * y + to * want.y, from * z + to * want.z, from * w + to * want.w];
+      const size = Math.sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+      was.turn = [q[0] / size, q[1] / size, q[2] / size, q[3] / size];
+    }
+    was.turned = view.time;
+    return was.turn;
   };
   const guarded = new Vector3(), threat = new Vector3(), shoulderAt = new Vector3();
   /** Where `ward`'s shoulder is now in the body frame: its joint carried by the trunk's joints at their angles (`pointAtToRef`). */
@@ -286,7 +312,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, { w
         const size = length(across); align.set(across[0] / size, across[1] / size, across[2] / size, 0);
       } else align.set(axis[0], axis[1], axis[2], 1 + cosine).normalize();
       align.multiplyToRef(rotation, oriented).normalize();
-      return { ...goal, orientation: { target: [oriented.x, oriented.y, oriented.z, oriented.w], seconds } };
+      return { ...goal, orientation: { target: turnedTo(view, hand, oriented), seconds } };
     }
     // The item's line as it lies, less what of it runs along the threat's line.
     const now = view.effectors[hand]!.points, a = now[points[0]!]!, b = now[points[1]!]!;
