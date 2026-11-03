@@ -15,7 +15,9 @@ The owner: the way Options were trained kept known bugs and rejected real gains.
   reusing executors beneath, then by body where the shared one cannot serve.
 - **Option Mind is not yet general.** The function that builds its decider builds the rise and
   the strikes itself, and the rise has its own config list, executor and pricing; a kind of option
-  only hands them out. Everything Option Mind does is an option made the same way.
+  only hands them out. The humanoid's skills are written into Option Mind's config, while a frame
+  (the quadruped's) runs a decision loop of its own. Everything Option Mind does is an option made
+  the same way, by one loop over any body.
 
 What is wanted is each skill as good as it can be made quickly, with two hard requirements: every
 character stands up reliably in under 10 s, and the Warrior and the Rogue run reliably.
@@ -67,11 +69,16 @@ defect.
 
 ### Everything Option Mind does is an option
 
+- **One loop over a frame.** A frame is a body family's layer: the skills its body can carry out
+  (its gaits, guard, executors and their actions, its ways up), the posture it is built in, and
+  what its situation reads of the body. It decides nothing. Option Mind is one loop over any
+  frame: its situation, options, chooser and objective. Every Option Mind config is a chooser,
+  options, predictions and a frame; the humanoid's kit is a frame.
 - **Option Mind names no kind of option where it builds its decider.** Each kind makes its
   options from the skills its config lists and their profiles; the rise and the strikes are kinds
   like the walk and the cover.
-- **A way up is an executor**, in the executor list beside the strikes, begun where its entry
-  admits the body as it lies. There is no ground config, ground executor or rise argument.
+- **A way up is an executor**, in the frame's executor list beside the strikes, begun where its
+  entry admits the body as it lies. There is no ground config, ground executor or rise argument.
 - **Where an option leaves the body is worth what Option Mind expects from there**, for every
   option: a lying posture is worth the expected time to standing over the options that begin
   there, so a blow that may fall and a way up that may fail are priced alike. An option's record
@@ -152,9 +159,18 @@ Mind reads from it is general:
   (`src/core/mind/decider.ts`); that becomes a cue the options give, or stays with its reason
   written beside it.
 
-Check: the decider's builder names no kind of option and `src/core/option/` holds no rise of its
-own; the fingerprint, each moved case named; the stand-up target on the Warrior, and a fall's
-price, read paired against the version before.
+- **The humanoid's frame.** The skills now written into Option Mind's config (`locomotion`,
+  `guard`, `support`, `executors`, `actions`, `ground`, `motor`; `OptionMindConfig`,
+  `src/core/option/mind.ts`) become the humanoid's frame, and the frame's contract
+  (`FramePart`, `src/core/option/parts.ts`) becomes the body's layer, which builds no chooser,
+  situation or options. The quadruped's frame builds its own loop (its own chooser and options,
+  the stalk deciding outside the options, the righting taking the body); bringing it onto the one
+  loop is the reptile's work, outside this plan, and its frame keeps its own `create` until then.
+
+Check: every Option Mind config is a chooser, options, predictions and a frame; the decider's
+builder names no kind of option and `src/core/option/` holds no rise of its own; the fingerprint,
+each moved case named; the stand-up target on the Warrior, and a fall's price, read paired against
+the version before.
 
 ### 3. Bodies told apart in data
 
@@ -208,8 +224,8 @@ watched, the failures first; the owner accepts each rung.
 ## Done when
 
 - The known bugs and what they broke above are fixed, each to its own contract.
-- Option Mind names no kind of option where it builds its decider; the rise is executors chosen
-  and priced as every option is.
+- Option Mind is one loop over a frame, the humanoid's included, and names no kind of option
+  where it builds its decider; the rise is executors chosen and priced as every option is.
 - No body is named in control code; every difference between bodies is a record or a part only
   that body fits.
 - Stand-up meets the owner's target on every body and loadout, and the run its requirement on the
