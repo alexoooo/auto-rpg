@@ -37,7 +37,7 @@ bout of the first body it fits, holding the first of a sword, nothing and a club
 apart, 240 steps after 2 s; each reading in its own process. A ceiling is the highest of five
 readings plus a quarter, rounded up: `CEILING` is 124 standing, 739 for every mind's bout, 82 for a
 down body (KiB a body a step). One ceiling holds every mind, so a mind added is read without a
-number of its own; the [plan](../plans/2026-10-30-garbage-free-step.md) lowers it.
+number of its own; the [roadmap](../roadmap.md#framework) lowers it.
 
 | Fixture | KiB per body per step | Ceiling |
 |---|---|---|
@@ -844,7 +844,7 @@ motor control) and its observers after physics, which a mind thread would run; t
 the step less those (senses, muscles, Rapier, contacts, blows, rules). The split's step is
 `max(world's part, the dearest mind thread's minds) + 0.022 ms`, the bodies dealt round the mind
 threads in turn, the handoff the spinning one measured in Chrome
-([its plan](../plans/2026-11-01-parallel-minds.md#why)). Node 24.19, core world,
+(`docs/plans/2026-11-01-parallel-minds.md@ca5d8e8a`). Node 24.19, core world,
 `rapier-coordinate`, 120 Hz, at `526dd9a1`, read from 2 s; the least over the copies, their median
 in brackets; pinned is one logical processor a core (`start /affinity 55555555`):
 
@@ -951,8 +951,8 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   decision after physics, played the crowd fight on four mind threads to Node's verdict.
 - **At a step of delay on four mind threads the crowd fight and the Crypt at seed 25 fall a
   little over a step behind real time at worst, 8.6 to 12.9 ms, each over one or a few dear
-  steps**: short of the parallel minds' bar of a step
-  ([its plan](../plans/2026-11-01-parallel-minds.md#done-when)). The crowd fight's mean step is
+  steps**: within the bar the owner set, a step behind but for rare slow steps
+  ([roadmap](../roadmap.md#framework)). The crowd fight's mean step is
   5.5 to 5.8 ms (the least of each over the playings), and 53 to 106 of the 12902 steps past its
   first 2 s are over 8.33 ms. `research/step-time.mjs --crowd --minds 4 --runs 4`, the last three playings
   read, on `rapier-coordinate`; `research/crypt-step.mjs --seeds 25 --seconds 60 --runs 3 --minds

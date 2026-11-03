@@ -17,7 +17,7 @@ core (`src/core/`) imports `@babylonjs/core` for three things, none of them draw
 
 Once the core is free of them:
 
-- the world worker and the mind workers ([Minds in parallel](2026-11-01-parallel-minds.md)) load
+- the world worker and the mind workers ([the world in a worker](../architecture.md#the-world-in-a-worker)) load
   nothing of Babylon; a mind's mirror needs no scene either way, since a mind reads its body's
   poses through `ReadNode` (`src/core/read-body.ts`), plain fields;
 - a Babylon upgrade cannot move a bout: the core's arithmetic is its own, read once;

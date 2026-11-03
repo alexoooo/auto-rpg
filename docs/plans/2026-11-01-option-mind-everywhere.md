@@ -17,7 +17,7 @@ The owner's choices:
   sword, the club and buckler, the sword and buckler.
 - **Stand-up** fast and robust on the Warrior and the Rogue, robust on the Skeleton (an enemy
   unit; its time is read, not held). **The run** on toes, on the Warrior and the Rogue.
-- **Minds in parallel** ([its plan](2026-11-01-parallel-minds.md)) lands before any skill is
+- **Minds in parallel** (`docs/plans/2026-11-01-parallel-minds.md@ca5d8e8a`) lands before any skill is
   tuned again: its delay moves every skill, and each is fine-tuned once, after it.
 
 ## Where it starts
@@ -118,10 +118,9 @@ assets change, and a toolkit change's message names the fingerprint cases it mov
 
 ### 2. Minds in parallel
 
-[Minds in parallel, a step late](2026-11-01-parallel-minds.md), whole. The minds run apart at
-any delay; the game's is none until balance and the rise hold a step late
-([command delay](../reference/command-delay.md)), and the trained skills are fine-tuned in step 3
-when it changes.
+Built (`docs/plans/2026-11-01-parallel-minds.md@ca5d8e8a`). The minds run apart at any delay; the
+game's is a step ([command delay](../reference/command-delay.md)), within a step of real time but
+for rare slow steps (the owner, 2026-11-03), and the trained skills are fine-tuned in step 3.
 
 ### 3. The table
 
@@ -218,6 +217,6 @@ failures first; the owner accepts each rung.
 
 - One family of minds: no mind from before Option Mind is left; Option Reptile and the bare
   entrant run on the toolkit, held by the core's boundary and the Mind contract.
-- [Minds in parallel](2026-11-01-parallel-minds.md#done-when) is done.
+- Minds in parallel is done: built, within a step of real time but for rare slow steps (the owner, 2026-11-03).
 - Every cell of the table meets its bar on the rungs above and the owner has accepted it, or
   names, from a reading, why it cannot.

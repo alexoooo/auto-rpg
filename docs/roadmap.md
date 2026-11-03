@@ -15,8 +15,8 @@ as it needs ([architecture](architecture.md#the-layers)).
 
 - **Skills, proficiency and use.** A body has an array of skills, each in one shape: a name and
   goal, an entry condition, the resources it holds, an exit and a profile
-  ([Option Mind](plans/2026-10-27-option-mind.md#the-shape-of-a-skill)). A skill is proved on drills,
-  ladders of rungs the owner watches and accepts, and its profile is measured there ([Drills](plans/2026-10-24-drills.md)).
+  ([Skills](architecture.md#skills)). A skill is proved on drills,
+  ladders of rungs the owner watches and accepts, and its profile is measured there ([Evaluations](architecture.md#evaluations)).
   Tactics choose skills by their entry conditions and profiles, never motion. The more general
   and robust, the better: a body that is resized or made stronger is measured again, not searched
   again.
@@ -53,30 +53,23 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md) | The architecture finished, then Option Mind's skills robust on the toed Warrior, Rogue and Skeleton with every loadout (empty, club, sword, club and buckler, sword and buckler), or why one cannot: one family of minds (the old minds deleted, the reptile and bare kept as checks of generality), minds in parallel, a table of every body, loadout and skill against its bar, stand-up fast on the humans and robust on the Skeleton, the run on toes, then each strike on every body (built: step 1, one family of minds, the Skeleton on Option Mind's preset and the Reptile on Option Mind over the quadruped's frame) |
-| [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior, deciding by one policy over options, each a skill applied to a target priced by its profile, selected as a set by their resources (built: the baseline evaluation, one trainer for any part, worth in life, measured profiles, the value of a position, exits and letting go, the rise as options with no supervisor, the stomp at a fallen foe, the chooser looking one option past a walk, footwork to places from the skills' windows and the foe's pressure; the design read whole, the fights 0.68 against 0.64). Left: footwork, the guard and the intent in the legs goal and the orders (step 13, in part); a place aside the foe from its striking arc (15); a foe's reach by its limbs and what it holds (16) |
-| [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a toolkit mind, its scripts the evaluation's; built: Strike's rung 1 at a pad on a rail, the trial's overlays and the previous version beside it, the Stand drill). Left: Footwork's rungs; Cover's rung 2, which waits on a counter skill |
+| [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md) | The architecture finished, then Option Mind's skills robust on the toed Warrior, Rogue and Skeleton with every loadout (empty, club, sword, club and buckler, sword and buckler), or why one cannot: one family of minds (the old minds deleted, the reptile and bare kept as checks of generality), minds in parallel, a table of every body, loadout and skill against its bar, stand-up fast on the humans and robust on the Skeleton, the run on toes, then each strike on every body (built: step 1, one family of minds, the Skeleton on Option Mind's preset and the Reptile on Option Mind over the quadruped's frame; step 2, minds in parallel at a step's delay ([the command delay](reference/command-delay.md), [step cost](reference/step-cost.md#minds-on-worker-threads)); step 3, the table) |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
-| [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector; step 2, the contacts' read). Left: the contact-mass solve, the toolkit's tail, each mind's own |
-| [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) | Each body's mind and motor control in mind workers beside the world's, over shared memory, its command taking effect a step after it is made, the same bout on any number of threads: the gain read first, then the delay as a rule on one thread, a mind's body read from a snapshot, minds in workers on Node, then in the browser (built: steps 1 to 3; steps 4 and 5 at no delay, the world waiting for its minds each step, in Node and in the browser's crowd fight and Crypt where the page is isolated: the crowd fight 7.2 to 7.4 ms a step on four mind threads, still behind real time, and the Crypt at worst 9 to 12 ms behind, [step cost](reference/step-cost.md#minds-on-worker-threads)). The game's delay is a step: a mind decides its intent a step late and its skills carry it out on the body as it is ([the command delay](reference/command-delay.md)). At the game's delay the world steps while its minds think, the same to the bit on one to four mind threads, in Node and the browser ([step cost](reference/step-cost.md#minds-on-worker-threads)). On four mind threads the crowd fight steps in 5.5 to 5.8 ms, and it and the Crypt at seed 25 fall 8.6 to 12.9 ms behind at worst, over one or a few dear steps ([step cost](reference/step-cost.md#minds-on-worker-threads)). Left: at most a step behind (the crowd fight's step 3736 and its opening, a Crypt body's build step), then the Crypt at seed 10 and the duels read again; the owner plays the crowd fight and the Crypt on the preview |
 | [The core without Babylon](plans/2026-11-01-core-without-babylon.md) | The simulation free of the graphics layer: the core's own vector maths, copied exactly; every page drawing a mirror posed from the simulation; poses without scene nodes and worlds without a scene; the boundary test refusing Babylon in the core and the entrants. No bout moves |
-| [Health: a life bar and limbs](plans/2026-11-01-health.md) | One life bar that is the truth, a bar on each limb: a limb emptied is crippled (its muscles weaker), a heavy cut takes it off, it falls free and is drawn apart; the strike profiles measured again under the new rules. Steps 3 to 5 after Minds in parallel and the core without Babylon. Not started; its place in the order is the owner's |
+| [Health: a life bar and limbs](plans/2026-11-01-health.md) | One life bar that is the truth, a bar on each limb: a limb emptied is crippled (its muscles weaker), a heavy cut takes it off, it falls free and is drawn apart; the strike profiles measured again under the new rules. Steps 3 to 5 after the core without Babylon. Not started; its place in the order is the owner's |
 | [The rat](plans/2026-11-01-rat.md) | Poly Haven's Street Rat (CC0) as a second quadruped body, legs under it, and both quadrupeds at 1.0 m/s or more: the rat in the Arena, drawn as the Street Rat on a body fitted to it, then fast legs, a trot that keeps its balance at speed, recovery for legs under the body, and the Crypt (built: the trot lands a pair once its paws bear; steps 1 to 5, the rat in the Arena drawn as the Street Rat, biting the Warrior, both bodies' legs at 20 rad/s and trotting .5 m/s, the bite lunging, the rat righting itself by a recipe of poses from its side and back, the rat trotting 1.08 m/s through turns. Left: the grass lizard at 1 m/s; a rat knocked over in a fight can be left crouched until its righting's retry) |
 
 1. **Now: [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md)** in order
-   (the owner, 2026-11-01): one family of minds, then
-   [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) in order, its gain read
-   first, then the table, stand-up, the run and the strikes on every body.
-2. **Beside it:** [A garbage-free step](plans/2026-10-30-garbage-free-step.md);
-   [the core without Babylon](plans/2026-11-01-core-without-babylon.md) once Minds in parallel has
-   landed, in one stretch, since its check is that no bout moves. The owner watches
-   the Strike drill's rung 1 (Drills step 2).
+   (the owner, 2026-11-01): the table, stand-up, the run and the strikes on every body.
+2. **Beside it:** [the core without Babylon](plans/2026-11-01-core-without-babylon.md), in one
+   stretch, since its check is that no bout moves. The owner watches the Strike drill's rung 1
+   (the moving target, [Drills](#the-ai)).
 3. **After it:** fights, Option Mind with its skills in matches the owner watches; the Skeleton's
    preset beating every Arena entrant left more than 90 % of the time, strict wins per opponent on
-   held-out conditions ([record](reference/option-skeleton-combat.md)); Option Mind's design steps
-   13, 15 and 16 ([Option Mind](plans/2026-10-27-option-mind.md#steps)) and Footwork's rungs after
-   step 13 (Drills step 4); the Strike drill's rungs 1 to 5, the punch at the head and the one-two;
-   Cover's rung 2; what one thread still offers the crowd fight, by its profile
+   held-out conditions ([record](reference/option-skeleton-combat.md)); Option Mind's design left
+   and Footwork's rungs after it ([The AI](#the-ai)); the Strike drill's rungs 1 to 5, the punch
+   at the head and the one-two; Cover's rung 2; a garbage-free step ([Framework](#framework));
+   what one thread still offers the crowd fight, by its profile
    ([step cost](reference/step-cost.md)); the [Commander](plans/2026-10-29-commander.md) in order,
    the Option Commander (step 4) playing the Crypt with Option Mind as its hero.
 4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
@@ -120,7 +113,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   at 0 (`&senseDelay=0`); one that plays wrong changes the one number.
 - The crowd fight (`?play=crowd`) and the Crypt (`?play=dungeon`) with their minds on workers of
   their own (`npm run dev` or `npm run preview`, cross-origin isolated): smooth, no slow motion
-  ([minds in parallel](plans/2026-11-01-parallel-minds.md), step 5).
+  ([the world in a worker](architecture.md#the-world-in-a-worker)).
 - The skeleton's look in play, on its 15 kg body fitted to its bones and its robot-like motors
   (`?play=arena&matchup=crypt-skeleton,workshop-fighter&gap=4`,
   [body](art/skeleton.md#the-body-fitted-to-the-bones), [motors](art/skeleton.md#motors-not-muscles)):
@@ -139,6 +132,19 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 ### Framework
 
+- **Real time at a step's delay holds with rare slow steps** (the owner, 2026-11-03): the minds
+  in their workers keep the world within a step of real time but for one or a few dear steps a
+  fight (the crowd fight's step 3736 and its opening, a Crypt body's build step; 8.6 to 12.9 ms
+  at worst, [step cost](reference/step-cost.md#minds-on-worker-threads)). A dear step is cut
+  when it shows in play. The owner plays the crowd fight and the Crypt on the preview.
+- **A garbage-free step** (`docs/plans/2026-10-30-garbage-free-step.md@edc60f7f`; built: every
+  game mind under one allocation ceiling, the contacts' read). Left, each a speed rewrite that
+  moves no fingerprint case, its readings in [step cost](reference/step-cost.md) and the
+  ceiling lowered to them: the contact-mass solve's rows and paths in work arrays
+  (`contact-mass.ts`); the toolkit's tail, by the per-mind profile, until no site is over 2 KiB
+  a body a step; each mind's own (Option Mind's options and percepts, the reptile's); then each
+  fixture's ceiling set to its readings, what Rapier's binding allocates by itself named apart.
+  Done when a game mind's bout allocates under 50 KiB a body a step beyond Rapier's own.
 - Headless runs build a Babylon scene (`buildBout`, `buildCrypt`); none will once the core is
   without Babylon ([its plan](plans/2026-11-01-core-without-babylon.md), step 3). The trainer's time is the world's step's, 85 % of it, Rapier's wasm 23 %
   ([the trainer's speed](reference/learned-punch.md#the-trainers-speed)); the scene's share in it
@@ -152,7 +158,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Mind data packed per kind (`docs/plans/2026-10-21-mind-data.md@6dd9420a`), when a second skill
   ships data: one network does today, and the punch's retraining replaces it.
 - One notion of a task: an evaluation plays a task, the Lab shows it, and the Ratings screen
-  opens it ([Drills](plans/2026-10-24-drills.md)).
+  opens it ([Evaluations](architecture.md#evaluations)).
 - The Ratings reel plays bout cases only: a fall's or a technique case's trial (the Rise drill's)
   is shown as not opened, so its reel cannot be watched.
 - Participant contracts, each extended with its first client: every accepted grip request and
@@ -163,7 +169,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Parts swap by configuration ([Adding an entrant](architecture.md#adding-an-entrant)); what is left:
   - the orders vocabulary is closed: a planner that wants a new kind of order edits `Orders`,
     `isOrders`, `Command` and the Commanders; it opens with the intent's skill choices
-    ([Option Mind](plans/2026-10-27-option-mind.md), step 13);
+    (Option Mind's design left, below);
   - a planner's memory forks only through the skills it drives (`driveBy`): one that keeps it
     elsewhere does not fork;
   - nothing holds a navigator to its report's statuses: the straight stub never says `stalled`,
@@ -274,7 +280,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   the 90 % asked, and an earlier network 3 of 56 fight moments; the Rogue's lands about two
   thirds at its scaled bar, and the high mark is refused ([learned punch](reference/learned-punch.md),
   [the strikes on every body](plans/2026-11-01-option-mind-everywhere.md#6-the-strikes-on-every-body)). Read on the Strike drill's rungs
-  ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.
+  ([Evaluations](architecture.md#evaluations)), then in fights by the paired report.
   Blade cuts and thrusts, a club blow, the stomp and low support (a legs-and-trunk commitment that lends the
   trunk to a low strike) come into Option Mind's shape after the punch, each tuned for each body
   that uses it, a configuration of the general trainer where it is learned and drilled as the
@@ -347,6 +353,26 @@ screened small (one body, one loadout, one group of falls) before its full targe
 
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
+- **Option Mind's design left** (`docs/plans/2026-10-27-option-mind.md@f4e17fba`, steps 13, 15
+  and 16):
+  - footwork and the intent: `walk(velocity, facing)`, goals as a bearing around the foe or a
+    place the navigator routes to, the legs goal's pace and height under standing (the arbiter
+    folds the intent's `lower`, `gait` and `destination` into it, navigation its `pace`), and
+    the orders naming a goal as a skill does;
+  - a cover of the blow predicted at the body that keeps the head while it guards the trunk (the
+    body-axis cover covered 0 of 12 on the Cover drill's punched rung, against 2);
+  - places at bearings from the edges of the foe's striking arc, once a strike profile has
+    bearing as a dimension (a Strike drill rung that strikes from off the foe's front); a place
+    behind the focus was tried and not kept (0.367 against 0.417 with the Duellist and Vanguard);
+  - a foe's reach by its limbs and what it holds: a borrowed profile's ranges and the prior's
+    reach (`handsReach`) read by the limb the strike is of, scaled by the two bodies', the senses
+    carrying what a body holds; read by `npm run match` against an unmeasured foe of another reach.
+- **Drills left** (`docs/plans/2026-10-24-drills.md@601abde3`): the owner watches the Strike
+  drill's rung 1 (the pad on a rail, rung `moving`, `src/arena/rail.ts`); Footwork's rungs 0 to
+  4, rungs 2 to 4 against the drill opponent's sidestep and circle scripts
+  (`src/evaluation/drill-opponents.ts`), after footwork's goals around the foe; Cover's rung 2,
+  cover and a counter, which waits on a counter skill.
+
 - Not built: a learned mind (the bare entrant, `src/entrants/bare/`, is its route, trained
   after Option Mind's design); sight that is blocked (the senses pass every body
   whatever stands between); a library for a body of another shape behind the same seam.
@@ -358,24 +384,24 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   0.9 s after the pelvis's lowest point, but only 6 % of the steps from that point to standing
   did. Of 1,321 commits, 88 % read `striking` (about 11 steps into the commit), with 0.4 % of
   clear steps read `striking`. On the Strike drill's still and fight rungs no body fell. Read
-  again when a profile has a cell at a rising foe ([the profile](plans/2026-10-27-option-mind.md#the-profile)).
+  again when a profile has a cell at a rising foe ([Minds](architecture.md#minds)).
 - **Nothing in the rules costs effort**: a mind trained on the verdict alone may find that
   striking without pause pays. Watched once whole minds train; a rule (fatigue) only if it does.
 - **Tactics**, for any fighter, choosing skills by their entry conditions and profiles
-  ([the profile](plans/2026-10-27-option-mind.md#the-profile)), each asked of a concrete
+  ([Minds](architecture.md#minds)), each asked of a concrete
   failure, one decision at a time, and read by the paired report:
   - the behaviour tactics' estimates (`ActionEstimate`) become the strikes' profiles once they are
     drilled;
   - targets after a guard: when to change surface, action or approach;
   - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is one
-    legs skill, `move(goal)` toward a named range ([Option Mind](plans/2026-10-27-option-mind.md), step 13);
+    legs skill, `move(goal)` toward a named range (Option Mind's design left, below);
   - an option's worth is its profile: attack value, incoming cost, travel time, falls and
     recovery, with no hidden opponent state;
   - ground choices: getting up, moving away, fighting from the ground or waiting, on the same
     falls;
   - selection: valued, ranked and behaviour-list selection, interruption; a reflex is a cue the
     chooser watches, not a layer
-    ([Option Mind](plans/2026-10-27-option-mind.md#one-policy-selecting-a-set));
+    ([Minds](architecture.md#minds));
   - orders: obedience against self-preservation, read with orders given; follow orders values
     an order without its walk (`Orders.walk`).
 - **The stomp lands 11 of the Warrior's rung's 12**, none fell, 1 outside; on `stomping-bodies`
