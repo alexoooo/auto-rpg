@@ -119,7 +119,7 @@ export function sensedNearest(foe: BodySense, x: number, z: number, ax: number, 
       const shape = m === 0 ? segment.poses?.[sensed.handPose ?? "open"] ?? segment.shapes[0]! : segment.shapes[m]!, points = shape.points;
       for (let n = 0; n < points.length; n++) {
         const vx = points[n]![0], vy = points[n]![1], vz = points[n]![2];
-        // The point turned by the segment's quaternion: v + w t + q × t, t = 2 q × v; its ground part.
+        // The point turned by the segment's quaternion: v + w t + q Ã— t, t = 2 q Ã— v; its ground part.
         const tx = 2 * (q.y * vz - q.z * vy), ty = 2 * (q.z * vx - q.x * vz), tz = 2 * (q.x * vy - q.y * vx);
         const wx = vx + q.w * tx + (q.y * tz - q.z * ty), wz = vz + q.w * tz + (q.x * ty - q.y * tx);
         nearest = Math.min(nearest, (p.x + wx - x) * ax + (p.z + wz - z) * az - shape.radius);
