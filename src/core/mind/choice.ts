@@ -161,7 +161,7 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
   const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
   const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Priced<T>[], ...(stream ? { random: stream.state } : {}),
     ...(holding ? { others: {} as Record<string, { held: Held; best: number }> } : {}), ...memory };
-  const values: number[] = [], order: number[] = [], chosen: number[] = [], held: (readonly Resource[])[] = [], set: C[] = [];
+  const values: number[] = [], order: number[] = [], chosen: number[] = [], held: (readonly Resource[])[] = [], set: C[] = [], bests: number[] = [];
   const current = (): readonly C[] => { set.length = 0; for (const i of state.running) set.push(choices[i]!); return set; };
   /** Whether what the choices chosen hold overlaps `claims`. */
   const taken = (claims: readonly Resource[]): boolean => { for (const one of held) if (overlaps(one, claims)) return true; return false; };
@@ -244,16 +244,16 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
       // A running choice that does not yield keeps what it claims.
       for (const i of state.running) if (choices[i]!.status(now) === "committed") take(i);
       // With nothing committed, the target whose best choice is worth most; the one at `now` where none is worth more.
-      let top = appraiseAt(now);
+      // The others are priced before `now`, so the choices are left priced and aimed at `now` unless another wins.
       if (others && chosen.length === 0) {
         const alternatives = others();
-        for (const other of alternatives) {
-          const best = otherBest(other, now.time);
-          if (best > top) { top = best; at = other; }
-        }
-        if (alternatives.length) appraiseAt(at);
+        bests.length = 0;
+        for (const other of alternatives) bests.push(otherBest(other, now.time));
+        let top = appraiseAt(now);
+        for (let k = 0; k < alternatives.length; k++) if (bests[k]! > top) { top = bests[k]!; at = alternatives[k]!; }
+        if (at !== now) appraiseAt(at);
         state.event = cue(at);
-      }
+      } else appraiseAt(now);
       // The first, by chance where a margin is given: one drawn among those free worth more than the best free less the margin.
       const best = stream ? order.find(free) : undefined;
       if (stream && best !== undefined) {
