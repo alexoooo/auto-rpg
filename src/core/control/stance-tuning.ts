@@ -152,9 +152,9 @@ const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05
  * Musculoskeletal System", 2nd ed., 2010, ch. 15): a leg that lifts still extending asks its hip
  * for more than its strength in a fast walk. The swing's path bows `clearance` clear of the bearing
  * sole: the swinging foot met the bearing foot at mid-swing in a 1.4 m/s walk and was thrown up and short.
- * Sweeps: `docs/reference/stance-tuning.md#gait`.
+ * Sweeps: `docs/reference/stance-tuning.md#gait`; `accel`, `#pace-ramp`.
  */
-export const STANCE_GAIT: GaitTuning = Object.freeze({ seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, reserve: 0.9, effort: 0.5, clearance: 0.03, accel: 1, crouch: 0.1, horizon: 0.1, transfer: 0.08,
+export const STANCE_GAIT: GaitTuning = Object.freeze({ seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, reserve: 0.9, effort: 0.5, clearance: 0.03, accel: 2, crouch: 0.1, horizon: 0.1, transfer: 0.08,
   preswing: Object.freeze({ knee: 0.61, seconds: 0.04 }) });
 
 /**
