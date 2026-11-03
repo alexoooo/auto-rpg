@@ -6,7 +6,9 @@ import { otherSide, type BodySpec, type Side } from "../../spec/body.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
 import { placedHeightFits } from "./arm-reach.ts";
 import type { StrikingFace } from "./straight-punch.ts";
-import { quietToStrike, strikeWindow } from "./strike-window.ts";
+import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
+import { bodyAhead } from "../../navigation/held-clearance.ts";
+import { sensedActionTarget } from "../../intent/action-aim.ts";
 import { timedPushes, validPush, type TimedPush } from "./timed-push.ts";
 
 /**
@@ -89,7 +91,7 @@ const WOUND_WITHIN = 0.1, WOUND_STILL = 0.5;
  */
 export function swingExecutor(body: Body, guard: Pose, actions: readonly string[], settings: Swing, resolve: TargetResolver,
   faces: Partial<Record<Side, StrikingFace>>): Executor {
-  const spec = body.built.spec;
+  const spec = body.built.spec, ahead = bodyAhead(spec);
   const sides = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
@@ -128,7 +130,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       if (!placedHeightFits(spec, hand, at[1] - view.head.y, face.point)) return { kind: "blocked", reason: "target is outside the arm's height band" };
       return strikeWindow(view, at, around.heading, { standOff: settings.reach, band: settings.band, aside: settings.aside, across: 0, pace: settings.pace,
-        poised: settings.poised === true });
+        poised: settings.poised === true, clear: clearAhead(view, at, around.heading, sensedActionTarget(view, target), ahead) });
     },
     resume() { state.live = null; },
     interrupt(_view, id) { if (state.live?.request.id === id) state.live = null; },

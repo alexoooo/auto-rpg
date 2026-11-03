@@ -9,13 +9,13 @@
  * drill walks the body into it from wherever it starts, as a game does. A candidate is played as
  * the drill plays a trial (`drillTrial`, `STRIKE_CASES.still`) on one cell: a body, a hand, a mark,
  * an offset across, at each of the cell's starting gaps and `--rates` (the worst rate counts at
- * each gap, the gaps' mean overall), scored by its striker's bar (`barScore`); with `--near`, a
+ * each gap and `--targets` body, their mean overall), scored by its striker's bar (`barScore`); with `--near`, a
  * trial with nothing on the mark by how near the face came to its aim. A touch before the swing
  * commits (its windup's) counts as no hit.
  *
- *   node research/swing-drill.mjs --blow <kind> --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gaps 1,1.4]
+ *   node research/swing-drill.mjs --blow <kind> --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gaps 1,1.4] [--targets workshop-fighter,crypt-skeleton]
  *     [--rates 120,480] [--near] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json>] [--sigma 0.15]
- *   node research/swing-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1.2,1.5] [--across 0,0.2] [--marks middle,high] [--models ...]
+ *   node research/swing-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1.2,1.5] [--across 0,0.2] [--marks middle,high] [--models ...] [--targets ...]
  *   node research/swing-drill.mjs --settings <file.json>   the found swing's settings, whole, for `skill-records.mjs`
  *
  * `--from` seeds the search from a search's file, by channel name.
@@ -100,23 +100,24 @@ export function swinger(decoded, hand, blow, mark) {
 /** With `--near`, how much a trial with nothing on the mark gains for its face's coming within `NEAR` m of its aim: up to `NEARING`, still below any hit's. */
 const NEAR = 0.3, NEARING = 0.5;
 
-/** One trial of `decoded` on `cell` from `gap` at `hz`: its score and what it read. */
-async function once(decoded, cell, gap, hz) {
-  const reading = await drillTrial(swinger(decoded, cell.hand, cell.blow, cell.mark), { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap }, hz);
+/** One trial of `decoded` on `cell` from `gap` at `hz`, at a `target` body (the drill's Warrior where none): its score and what it read. */
+async function once(decoded, cell, gap, hz, target) {
+  const reading = await drillTrial(swinger(decoded, cell.hand, cell.blow, cell.mark), { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap,
+    ...(target ? { target } : {}) }, hz);
   // A touch before the swing commits is its windup's, not its blow: it scores as a swing that never came.
   if (reading.hit && (reading.committed === null || reading.hit.time < reading.committed)) { reading.hit = null; reading.outcome = "early"; }
   const score = scoreOf(reading, cell.hand) + (cell.near && !reading.hit && !reading.down && reading.outcome !== "early" ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
   return { score, reading };
 }
 
-/** `x` played on `cell` from each of its gaps at each of its rates: the gaps' mean of each gap's worst rate, how many gaps landed at every rate, and the worst trial. */
+/** `x` played on `cell` from each of its gaps at each of its targets and rates: the mean over gaps and targets of each one's worst rate, how many landed at every rate, and the worst trial. */
 async function trial(x, cell) {
   const decoded = decode(x, cell.model, swingChannels(cell.hand)), each = [];
-  for (const gap of cell.gaps) {
+  for (const gap of cell.gaps) for (const target of cell.targets ?? [null]) {
     let worst = null;
     for (const hz of cell.rates) {
-      const { score, reading } = await once(decoded, cell, gap, hz);
-      if (worst === null || score < worst.score) worst = { score, hz, gap, outcome: reading.outcome, nearest: reading.nearest,
+      const { score, reading } = await once(decoded, cell, gap, hz, target);
+      if (worst === null || score < worst.score) worst = { score, hz, gap, target, outcome: reading.outcome, nearest: reading.nearest,
         hit: reading.hit && { held: reading.hit.held, energy: reading.hit.energy, mechanism: reading.hit.mechanism, faced: reading.hit.faced, on: reading.hit.on,
           time: reading.committed === null ? null : reading.hit.time - reading.committed } };
     }
@@ -135,7 +136,7 @@ if (!isMainThread && workerData?.swing) {
   const { values } = parseArgs({ options: { out: { type: "string" }, blow: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" },
     across: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
     sigma: { type: "string" }, lambda: { type: "string" }, near: { type: "boolean" }, verify: { type: "string" }, settings: { type: "string" },
-    rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" } } });
+    rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, targets: { type: "string" } } });
   const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
   if (values.settings) {
     const found = JSON.parse(readFileSync(values.settings, "utf8"));
@@ -145,16 +146,16 @@ if (!isMainThread && workerData?.swing) {
   if (values.verify) {
     const found = JSON.parse(readFileSync(values.verify, "utf8")), cell = found.cell, decoded = decode(found.best.x, cell.model, found.channels);
     for (const hz of list(values.rates, [120, 480], Number)) for (const model of list(values.models, [cell.model])) for (const mark of list(values.marks, [cell.mark]))
-      for (const across of list(values.across, [cell.across], Number)) for (const gap of list(values.gaps, cell.gaps, Number)) {
-        const { score, reading } = await once(decoded, { ...cell, model, mark, across, near: false }, gap, hz), h = reading.hit;
-        console.log(JSON.stringify({ hz, model, mark, across, gap, outcome: reading.outcome, score: +score.toFixed(3),
+      for (const across of list(values.across, [cell.across], Number)) for (const gap of list(values.gaps, cell.gaps, Number)) for (const target of list(values.targets, cell.targets ?? [null])) {
+        const { score, reading } = await once(decoded, { ...cell, model, mark, across, near: false }, gap, hz, target), h = reading.hit;
+        console.log(JSON.stringify({ hz, model, target, mark, across, gap, outcome: reading.outcome, score: +score.toFixed(3),
           hit: h && { on: h.on, held: h.held && { value: +h.held.value.toFixed(2), bar: h.held.bar }, energy: +h.energy.toFixed(1), mechanism: h.mechanism, faced: h.faced,
             after: reading.committed === null ? null : +(h.time - reading.committed).toFixed(3) } }));
       }
     process.exit(0);
   }
   const cell = { blow: values.blow, model: values.model ?? "workshop-fighter", hand: values.hand ?? "right", mark: values.mark ?? "middle", across: Number(values.across ?? 0),
-    gaps: list(values.gaps, [1.2], Number), near: !!values.near, rates: list(values.rates, [120], Number) };
+    gaps: list(values.gaps, [1.2], Number), near: !!values.near, rates: list(values.rates, [120], Number), ...(values.targets ? { targets: list(values.targets, []) } : {}) };
   if (!Object.hasOwn(SWINGS, cell.blow ?? "")) throw new Error(`--blow names a swing: one of ${Object.keys(SWINGS).join(", ")}`);
   const ranges = rangesOf(cell.model, swingChannels(cell.hand)), lo = [], hi = [];
   for (const _ of ranges) { lo.push(0, -1, FROM[0], LENGTH[0]); hi.push(1, 1, FROM[1], LENGTH[1]); }

@@ -454,7 +454,11 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   a distance's in proportion to the body's leg (`legOf`), or the walk's keep (`walk`). Its
   window may be narrower across the line it faces than along it (`aside`), centred with
   `squared` on the line the punching shoulder faces along at contact rather than the head's, and
-  refuse a target higher than `above` over the shoulder. Its settings and the steer's network are
+  refuse a target higher than `above` over the shoulder. A strike's window (`strikeWindow`,
+  `strike-window.ts`, the punch's and a swing's) keeps the two bodies clear: the target is no nearer
+  than the striker's body stands out ahead of its centre (`bodyAhead`, its limbs as they stand)
+  beyond where the target's body comes nearest (`sensedNearest`), what each holds left out
+  (`clearAhead`). Its settings and the steer's network are
   its body's record (`PunchRecord`, `src/core/skills/strikes/punch-records.ts`; `dataOf("straight-punch")`,
   `assets/core/straight-punch.json` by `bodyKey`, written by `research/punch-export.mjs`; the
   bodies with one, `PUNCH_BODIES`, before it loads): the schedule searched for that body
