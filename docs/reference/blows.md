@@ -125,6 +125,10 @@ carry as much momentum as the whole body can take at its centre of mass and stil
 soles without a step, `(M / m) · (l / 2) · √(g / h)` (M the body's mass, m the arm's with what it
 holds, l the shorter sole, h the standing height): 7.5 m/s on the Warrior, 7.7 on the Rogue, 4.0
 on the Skeleton. Its path to the place takes the time the place takes to go out at that speed.
+The face turns to the threat no faster than `wardSpeed / armReach` rad/s, so its rim moves no
+faster than its centre (11.5 rad/s on the Warrior, 5.7 on the Skeleton): turned to any angle in the
+place's time, the Skeleton's stance fell short by 685 Nm a sixth of a second into its ward and it
+stepped and fell with nothing touching it.
 
 Read on the Cover drill's weapon rungs (`club`, `sword`), Option Mind, Node, core world, Rapier,
 120 Hz, the game's command delay; the share of blows that touched the body its buckler met first, a
@@ -141,7 +145,9 @@ trial against the change before.
 | and the place paced (`wardSpeed`) | `88add2e8` | 66 % | 82 % | 72 % | 72 % | 13, 11 |
 | no ward (`cover-guard`) | `cfb0a715` | | | 62 % | 72 % | 13, 11 |
 | the paced ward, the opponents' swings keeping clear | `510b96d0` | 90 % | 75 % | 70 % | 68 % | 13, 10 |
-| and a place out of reach drawn to it (`withinReach`) | this change | 90 % | 82 % | 74 % | 62 % | 12, 14 |
+| and a place out of reach drawn to it (`withinReach`) | `f16a838b` | 90 % | 82 % | 74 % | 62 % | 12, 14 |
+| the same, the world writing a step's numbers while the minds decide on the last's | `7af49583` | 96 % | 77 % | 72 % | 71 % | 10, 13 |
+| and the face's turn paced (`wardSpeed / armReach`) | this change | 91 % | 73 % | 79 % | 75 % | 5, 12 |
 
 - **Unpaced, the place followed the threat at up to 20 m/s about the body**, and the arm whipped
   after it; where the place lay past the arm's reach from the shoulder (`faceReach` adds the
@@ -158,13 +164,14 @@ trial against the change before.
   trials, 11 of 38 met first).
 - **The fastest-closing point was the opponent's empty hand in 43 % of the steps** (1668 of 3840,
   four trials), and the face followed it; the nearest is the weapon, which reaches further.
-- **The Skeleton falls in a quarter of its trials**, ward or none: before the opponents' windows
-  kept clear, the club blow asked for a place 0.52 to 0.82 m from the Skeleton's middle trunk (low,
-  and behind its centre), and the opponent's hands and head met it before any blow. In 1 to 8
-  trials of 100 it falls with no blow counted, in every row.
+- **The Skeleton falls in a sixth of its trials.** Of 100 at `63af1d4c`, before the turn was
+  paced, 23 fell: 16 with nothing touching it in the second before (5 of them in the first 2.2 s),
+  4 after a counted blow, 3 after other contact; with no ward (`cover-guard`) 14 (5, 8 and 1).
+  Paced, 17: 9 with nothing touching it, the first at 3.0 s, all holding a club (the one traced
+  fell as it swung it), and 8 after a counted blow.
 
-The bar (4 of 5, none fallen) is met on the Warrior's weapon rungs read wide, and not on the
-Skeleton's, which falls. The Rogue, the face out as far as its arm reaches and not paced, met 61 %
+The bar (4 of 5, none fallen) is met on the Warrior's club rung read wide, not on its sword rung
+since `7af49583`, and not on the Skeleton's, which falls. The Rogue, the face out as far as its arm reaches and not paced, met 61 %
 on the club rung and 80 % on the sword rung, 2 of 50 fallen on the club rung, before the swings.
 
 ## Threat
