@@ -192,6 +192,18 @@ screened small (one body, one loadout, one group of falls) before its full targe
   1.5 to 2 m/s forward and 0.7 every other way, and turns, along a way or onto one, none at 1 m/s
   or faster but the club Warrior's 0.25 rad/s ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: the crowd's reversal
   wakes the enemy at 7 of seeds 1 to 60.
+- **The Skeleton's shoved walk.** It holds about 1.0 m/s of shove on the stand, against the Rogue's
+  0.71 and the Warrior's 1.2. With the club, shoved at 4 N s at a third of its orders, it falls in
+  79 of 600; unshoved, it falls in none. Its falls in the Cover drill follow blows, then catch
+  steps that run away.
+  - A walk's step ends on its time with its foot in the air, and the next shift hands the weight
+    to that foot. Neither way of letting a walk's step land held the Rogue's walk
+    ([a walk's step that ends in the air](reference/stance-tuning.md#a-walks-step-that-ends-in-the-air)).
+  - Open: the whole-body solve's choice between the spine and the hips in righting a pitched
+    pelvis.
+  - Open: the Skeleton's stance width. Its soles stand 0.226 m apart, from its reference pose
+    (straight legs under hips 0.18 m apart), about 35 % narrower than a scaled Warrior's. Stood at
+    the Rogue's 0.338, it fell more (31 of 200 against 20).
 - **Yaw at speed.** Walking straight at 1.2 m/s the Warrior's pelvis faces 0.5 to 0.7 rad either
   side of its heading with every loadout, bare included: the turn's aim asks more yaw moment than a
   bearing sole twists (50 to 200 N m missed at a step), and the ground share's miss spills into the
