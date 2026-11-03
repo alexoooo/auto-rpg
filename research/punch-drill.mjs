@@ -194,6 +194,8 @@ async function trial(x, cell) {
   let worst = null;
   for (const hz of cell.rates) {
     const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null, cell.blow ?? null, cell.blow ? cell.mark : null, cell.window ?? {}), condition, hz);
+    // A held blow's touch before its drive commits (its chamber's) is no blow: it scores as one that never came.
+    if (cell.blow && reading.hit && (reading.committed === null || reading.hit.time < reading.committed)) { reading.hit = null; reading.outcome = "early"; }
     const score = scoreOf(reading, cell.hand, cell.heavier) + (cell.near && !reading.hit && !reading.down ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
     if (worst === null || score < worst.score) worst = { score, hz, gap: decoded.gap, outcome: reading.outcome, hit: reading.hit && { speed: reading.hit.speed, kg: reading.hit.kg, energy: reading.hit.energy, mechanism: reading.hit.mechanism, straight: reading.hit.straight, along: reading.hit.along, bend: reading.hit.bend, lean: reading.hit.lean, on: reading.hit.on, time: reading.began === null ? null : reading.hit.time - reading.began } };
   }

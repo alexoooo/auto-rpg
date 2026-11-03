@@ -1,17 +1,11 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { Body, BodyView } from "../../body.ts";
-import { heldFrame, rigidPoints } from "../../build/rigid.ts";
-import { pointAtToRef, specChainTo } from "../../control/kinematics.ts";
+import type { Body } from "../../body.ts";
 import type { MusclePush } from "../../control/motor.ts";
-import { solve3To } from "../../math/flat.ts";
 import { atan2 } from "../../math/real.ts";
-import { channelName } from "../../muscle/driver.ts";
-import type { JointKinematics } from "../../read-body.ts";
 import type { Pose } from "../../spec/pose.ts";
-import type { Vec3 } from "../../spec/quantity.ts";
 import { otherSide, type BodySpec, type Side } from "../../spec/body.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
 import { placedHeightFits } from "./arm-reach.ts";
+import { faceAligner } from "./face-aligner.ts";
 import type { StrikingFace } from "./straight-punch.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../../navigation/held-clearance.ts";
@@ -86,88 +80,8 @@ const SWING_PREPARE_LIMIT = 6;
  */
 const WOUND_WITHIN = 0.1, WOUND_STILL = 0.5;
 
-/** The least speed of the face through which its path is read and its facing turned into it (`edgeAligner`), m/s. */
+/** The least speed of the face through which its path is read and its facing turned onto it (`faceAligner`), m/s. */
 const ALIGN_SPEED = 1;
-
-/** How far along its facing the second point that reads the face's facing stands from the face, m. */
-const ALIGN_LEVER = 0.1;
-
-/** How far each wrist freedom is turned to read what it does to the face's facing, rad. */
-const ALIGN_PROBE = 0.01;
-
-/** The damping of the wrist's least-squares turn, rad^2: how little a freedom that barely moves the facing is asked. */
-const ALIGN_DAMPING = 0.01;
-
-/** The most a step asks a wrist freedom ahead of where it stands, rad. */
-const ALIGN_MOST = 0.5;
-
-/**
- * **The wrist that turns `hand`'s face into its path** through a stroke: each step its face moves
- * faster than `ALIGN_SPEED`, the wrist's freedoms are asked the turn that brings the face's facing
- * (`StrikingFace.facing`, as `hand` holds its item) onto the way the face moves, by a damped
- * least-squares step on the cross product of the two (`ALIGN_DAMPING`), each freedom's effect read
- * by turning it `ALIGN_PROBE` on the arm's chain as the body's angles stand. Facing against the
- * path counts as met: a two-edged blade leads with either edge. Null where `hand` holds no item or
- * has no wrist.
- */
-function edgeAligner(spec: BodySpec, hand: Side, face: StrikingFace) {
-  const held = spec.held?.find((one) => one.segment === `hand.${hand}`), segment = spec.segments.find((one) => one.name === `hand.${hand}`);
-  if (!held || !segment) return null;
-  const chain: JointKinematics[] = specChainTo(spec, `hand.${hand}`), wrist = chain.findIndex((joint) => joint.spec.name === `wrist.${hand}`);
-  const at = rigidPoints(spec, segment).get(face.point)?.value;
-  if (wrist < 0 || !at) return null;
-  const frame = heldFrame(held), f = face.facing;
-  const way = [0, 1, 2].map((k) => frame.x[k]! * f[0] + frame.y[k]! * f[1] + frame.z[k]! * f[2]);
-  const length = Math.sqrt(way[0]! * way[0]! + way[1]! * way[1]! + way[2]! * way[2]!);
-  const ahead = [0, 1, 2].map((k) => at[k]! + way[k]! / length * ALIGN_LEVER) as unknown as Vec3;
-  const channels = chain.map((joint) => joint.dofs.map((_, k) => channelName(joint, k))), freedoms = chain[wrist]!.dofs.length;
-  const angles = chain.map((joint) => joint.dofs.map(() => 0));
-  const p = new Vector3(), q = new Vector3(), facing = new Float64Array(3), base = new Float64Array(3), J = new Float64Array(9);
-  const A = new Float64Array(9), b = new Float64Array(3), x = new Float64Array(3);
-  /** The face's facing, unit, root frame, with the chain at `angles`, onto `facing`. */
-  const facingNow = () => {
-    pointAtToRef(chain, angles, at, p); pointAtToRef(chain, angles, ahead, q);
-    const dx = q.x - p.x, dy = q.y - p.y, dz = q.z - p.z, n = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
-    facing[0] = dx / n; facing[1] = dy / n; facing[2] = dz / n;
-  };
-  /** The cross product of the facing and the unit path, onto `out`. */
-  const across = (out: Float64Array) => {
-    out[0] = facing[1]! * path[2]! - facing[2]! * path[1]!; out[1] = facing[2]! * path[0]! - facing[0]! * path[2]!; out[2] = facing[0]! * path[1]! - facing[1]! * path[0]!;
-  };
-  const r = new Float64Array(3), path = new Float64Array(3);
-  return {
-    /** The wrist's channels: the ones it asks. */
-    channels: channels[wrist]!.slice(0, 3),
-    /**
-     * Each wrist channel's angle that turns the face into the path `v` (root frame, m/s), onto
-     * `posture`; false where the face moves slower than `ALIGN_SPEED`, and nothing is asked.
-     */
-    ask(view: BodyView, v: readonly [number, number, number], posture: Record<string, number>): boolean {
-      const speed = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-      if (speed < ALIGN_SPEED) return false;
-      path[0] = v[0] / speed; path[1] = v[1] / speed; path[2] = v[2] / speed;
-      for (let j = 0; j < chain.length; j++) for (let k = 0; k < angles[j]!.length; k++) angles[j]![k] = view.angles[channels[j]![k]!] ?? 0;
-      facingNow(); across(base);
-      J.fill(0);
-      for (let k = 0; k < Math.min(freedoms, 3); k++) {
-        const was = angles[wrist]![k]!;
-        angles[wrist]![k] = was + ALIGN_PROBE; facingNow(); across(r); angles[wrist]![k] = was;
-        for (let row = 0; row < 3; row++) J[row * 3 + k] = (r[row]! - base[row]!) / ALIGN_PROBE;
-      }
-      // (J'J + damping) x = -J' r: the least turn that takes the cross product to nothing.
-      for (let i = 0; i < 3; i++) {
-        for (let k = 0; k < 3; k++) A[i * 3 + k] = J[i]! * J[k]! + J[3 + i]! * J[3 + k]! + J[6 + i]! * J[6 + k]! + (i === k ? ALIGN_DAMPING : 0);
-        b[i] = -(J[i]! * base[0]! + J[3 + i]! * base[1]! + J[6 + i]! * base[2]!);
-      }
-      solve3To(A, b, x);
-      for (let k = 0; k < Math.min(freedoms, 3); k++) {
-        const turn = Math.max(-ALIGN_MOST, Math.min(ALIGN_MOST, x[k]!));
-        posture[channels[wrist]![k]!] = angles[wrist]![k]! + turn;
-      }
-      return true;
-    },
-  };
-}
 
 /**
  * **A swing**: a held item's blow thrown on an arc that meets the target with the item's face
@@ -178,12 +92,14 @@ function edgeAligner(spec: BodySpec, hand: Side, face: StrikingFace) {
  * where the arc passes it. After the swing it brings the arm back to the guard. An attack given up
  * before the swing is dropped; a swing begun is thrown to its end. It has the hand, the trunk and
  * the legs from its windup to its return, and the hand grips throughout. With `align`, through the
- * swing the wrist turns the face into its path (`edgeAligner`), its scheduled pushes dropped.
+ * swing, once the face moves faster than `ALIGN_SPEED`, the wrist turns it onto its path, either
+ * way leading (`faceAligner`), its scheduled pushes dropped.
  */
 export function swingExecutor(body: Body, guard: Pose, actions: readonly string[], settings: Swing, resolve: TargetResolver,
   faces: Partial<Record<Side, StrikingFace>>, { align = false }: { readonly align?: boolean } = {}): Executor {
   const spec = body.built.spec, ahead = bodyAhead(spec);
-  const aligners = { left: align && faces.left ? edgeAligner(spec, "left", faces.left) : null, right: align && faces.right ? edgeAligner(spec, "right", faces.right) : null };
+  const alignerOf = (hand: Side) => align && faces[hand] ? faceAligner(spec, hand, faces[hand]!, { either: true }) : null;
+  const aligners = { left: alignerOf("left"), right: alignerOf("right") };
   const sides = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
@@ -197,7 +113,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       target: [number, number, number]; face: number; touched: number | null; touching: boolean;
       /** Each wound channel's angle last step, rad, by name: how fast it still turns toward its windup. */
       last: Record<string, number>;
-      /** The face's place last step, whether it has been read, and its velocity over that step, root frame (`edgeAligner`). */
+      /** The face's place last step, whether it has been read, and its velocity over that step, root frame (`faceAligner`). */
       was: [number, number, number]; read: boolean; path: [number, number, number] },
   };
   const release = (ending: ActionEnding) => {
@@ -288,7 +204,8 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       if (live.phase === "commit") timedPushes(settings.timed[live.hand], live.time, live.step, pushes);
       const posture = live.phase === "release" ? guarded(live.hand) : wound(live.hand);
       if (aligner && live.phase === "commit") {
-        aligner.ask(view, live.path, posture);
+        const [x, y, z] = live.path;
+        if (x * x + y * y + z * z >= ALIGN_SPEED * ALIGN_SPEED) aligner.ask(view, live.path, posture);
         for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
       }
       return { posture, pushes, handPoses: { [`hand.${live.hand}`]: "grip" },
