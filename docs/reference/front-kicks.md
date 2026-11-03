@@ -78,6 +78,7 @@ back, 0.8 to 1.2 m off).
 | top | 0.4 | The height band's top low over the sole: a lying body's trunk, never a standing one's |
 | alongNear / alongFar / across | 0.55 / 0.8 / 0.2 m | The nearest places where both feet stand clear of a lying Warrior's splayed limbs are about 0.55 m from its trunk's middle: at 0.4 / 0.7, 4 trials of 12 never reached the window; at 0.5 / 0.75, 2 refused and 1 to 2 fell |
 | contactSpeed / swingSeconds | 7 m/s / 0.25 s | A faster stroke, the leg braced: the best blow's median 16.7 J and 13.4 kg, against 13.0 J and 9.3 kg at 5 m/s; 6 m/s, and 0.2 s at 5 or 7 m/s, read within a trial's spread of it |
+| brace | 0 s | How long before the stroke's path ends the leg is driven firm already (`StrikeDef.brace`); 0 braces the held contact alone. Braced earlier, more is behind the blow and the stroke is slower ([braced late in the stroke](#stomp-settings)) |
 | returnNear | 0.1 m | The leg comes to rest 0.04 to 0.08 m from the chamber after a blow; at 0.04, 6 trials of 12 ended stalled, at 0.1, 4 |
 
 Its trials (`2c92392a`'s rung): 10 of 12 landed, 2 met the body elsewhere (its lower trunk), none
