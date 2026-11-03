@@ -1002,6 +1002,18 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   400, its pose nudged each reading, 20000 readings five times, the least of each run, two runs
   each interleaved, Node 24.19, a loaded machine: 9.6 and 10.9 µs a reading before, 6.9 and 7.2
   after.
+- **A route search asks a sweep only of the solids in the cells it crosses** (`createRouter`,
+  `src/core/navigation/route-search.ts`): readying puts each solid in the cells of a grid its
+  bounds reach (`GRID`), and a sweep asks the solids of the cells it crosses, `CELL_REACH` wider,
+  from its start, first the solid that blocked the last sweep from the same point. A solid in none
+  of those cells has bounds the sweep passes outside (`BOUNDS_SLACK`), so the answer is the one
+  asking every solid gives. The Crypt at seed 25 has a body search for a place it cannot reach at
+  steps 4802, 4858, 5427, 6693 and 6800: 231 solids, 645 corners, about 35500 sweeps, all but about
+  100 blocked; each search was a whole step's 18 to 19 ms of a mind's thread, the Crypt's worst
+  step. Each of the five searches replayed alone, the least of 30, Node 24.19, a loaded machine:
+  18.3 to 19.2 ms before, 8.7 to 9.9 after. The 358 searches of the run's first 6840 steps
+  replayed give the routes they gave, and 4 million sweeps and points, at random and a hair either
+  side of the solids' margins and bounds, the answers they gave.
 - **What a mind shows a person crosses only when a page reads it** (`SeatAsk`'s `shown`): its
   engagement, 3.2 KB of the 3.9 each crowd mind said a step, read by no rule or Commander, had its
   details made and was copied with every answer, on the world's wait. Crowd fight, its opening
