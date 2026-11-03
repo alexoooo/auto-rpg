@@ -53,13 +53,14 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md) | The architecture finished, then Option Mind's skills robust on the toed Warrior, Rogue and Skeleton with every loadout (empty, club, sword, club and buckler, sword and buckler), or why one cannot: one family of minds (the old minds deleted, the reptile and bare kept as checks of generality), minds in parallel, a table of every body, loadout and skill against its bar, stand-up fast on the humans and robust on the Skeleton, the run on toes, then each strike on every body (built: step 1, one family of minds, the Skeleton on Option Mind's preset and the Reptile on Option Mind over the quadruped's frame; step 2, minds in parallel at a step's delay ([the command delay](reference/command-delay.md), [step cost](reference/step-cost.md#minds-on-worker-threads)); step 3, the table) |
+| [Options trained body by body](plans/2026-11-03-options-training.md) | Option Mind's skills on the toed Warrior, Rogue and Skeleton with every loadout, as good as a reasonable time makes them, with two hard requirements: every body stands up within 10 s on the owner's target, and the Warrior and the Rogue run 3 m/s. Lower-level bugs fixed by their own contracts and what they break above fixed after; bodies told apart in data (records, and parts chosen by them), never in control code; the table read against each cell's baseline; stand-up, the run, then the strikes on every body, the stomp on the Warrior and the Rogue alone. It takes over from Option Mind on every body (`docs/plans/2026-11-01-option-mind-everywhere.md@47ad569f`), whose one family of minds, minds in parallel ([the command delay](reference/command-delay.md), [step cost](reference/step-cost.md#minds-on-worker-threads)) and table are built |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
 | [Health: a life bar and limbs](plans/2026-11-01-health.md) | One life bar that is the truth, a bar on each limb: a limb emptied is crippled (its muscles weaker), a heavy cut takes it off, it falls free and is drawn apart; the strike profiles measured again under the new rules (built: step 1, life and limb bars in the pool, the diagram shading each; step 2, the strike profiles priced in life; step 3, a crippled limb weaker). Its place in the order is the owner's |
 | [The rat](plans/2026-11-01-rat.md) | Poly Haven's Street Rat (CC0) as a second quadruped body, legs under it, and both quadrupeds at 1.0 m/s or more: the rat in the Arena, drawn as the Street Rat on a body fitted to it, then fast legs, a trot that keeps its balance at speed, recovery for legs under the body, and the Crypt (built: the trot lands a pair once its paws bear; steps 1 to 5, the rat in the Arena drawn as the Street Rat, biting the Warrior, both bodies' legs at 20 rad/s and trotting .5 m/s, the bite lunging, the rat righting itself by a recipe of poses from its side and back, the rat trotting 1.08 m/s through turns. Left: the grass lizard at 1 m/s; a rat knocked over in a fight can be left crouched until its righting's retry) |
 
-1. **Now: [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md)** in order
-   (the owner, 2026-11-01): the table, stand-up, the run and the strikes on every body.
+1. **Now: [Options trained body by body](plans/2026-11-03-options-training.md)** in order
+   (the owner, 2026-11-03): the known bugs, bodies told apart in data, the table, stand-up, the run
+   and the strikes on every body.
 2. **Beside it:** the owner watches the Strike drill's rung 1 (the moving target,
    [Drills](#the-ai)).
 3. **After it:** fights, Option Mind with its skills in matches the owner watches; the Skeleton's
@@ -81,8 +82,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`
   ([play](reference/play.md)); how the dead disappear in time.
 - The stand-up target's falls: a shove the body holds is given again the same way, up to three
-  ([rising](reference/rising.md#the-owners-target)); the skeleton read beside the target, not
-  held to it ([the bars](plans/2026-11-01-option-mind-everywhere.md#the-bars)).
+  ([rising](reference/rising.md#the-owners-target)).
 - An optional skeleton costume, after seeing the bones in play.
 
 **To watch:**
@@ -247,7 +247,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   its stops at 0.2 m/s²; the Rogue falls turning into the run
   toward a goal to its side, and is thrown by a run ordered in a bout's first 2 s
   ([the walk and run](reference/locomotion.md#the-walk-and-run)).
-- **Recovery** ([stand-up](plans/2026-11-01-option-mind-everywhere.md#4-stand-up)). The owner's 64-fall target
+- **Recovery** ([stand-up](plans/2026-11-03-options-training.md#4-stand-up)). The owner's 64-fall target
   (`npm run evaluate -- rising-target`, [the owner's target](reference/rising.md#the-owners-target)):
   at least 15 of 16 verified recoveries within 10 s in every group, 61 of 64 overall, every
   cardinal direction in every group, a failure-inclusive median at most 10 s, unassisted. The fast edge from hands and knees on
@@ -269,11 +269,11 @@ screened small (one body, one loadout, one group of falls) before its full targe
   and good enough for now; its end changed on 2026-10-31 (the climb kept by the technique, one
   settling step), and waits on the owner's look. The Rise drill's reel waits on a page that plays a technique case
   ([Framework](#framework)).
-- **Strikes.** A straight punch that lands at a person's level in fights. The Warrior's learned
-  punch lands 83 % of 640 held-out trials still or walking in, at 120 and 480 Hz alike, short of
-  the 90 % asked, and an earlier network 3 of 56 fight moments; the Rogue's lands about two
+- **Strikes.** A straight punch as good as it can be made on each body, in fights. The Warrior's
+  learned punch lands 83 % of 640 held-out trials still or walking in, at 120 and 480 Hz alike,
+  and an earlier network 3 of 56 fight moments; the Rogue's lands about two
   thirds at its scaled bar, and the high mark is refused ([learned punch](reference/learned-punch.md),
-  [the strikes on every body](plans/2026-11-01-option-mind-everywhere.md#6-the-strikes-on-every-body)). Read on the Strike drill's rungs
+  [the strikes on every body](plans/2026-11-03-options-training.md#6-the-strikes-on-every-body)). Read on the Strike drill's rungs
   ([Evaluations](architecture.md#evaluations)), then in fights by the paired report.
   Blade cuts and thrusts, a club blow, the stomp and low support (a legs-and-trunk commitment that lends the
   trunk to a low strike) come into Option Mind's shape after the punch, each tuned for each body

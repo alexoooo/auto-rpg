@@ -5,7 +5,7 @@ the rules' energy, the cut 18.5 m/s at the blade's far end instead
 ([section 3](human-strike-reference.md#3-one-handed-sword-cut)), the thrust 4.6 m/s of its
 point's closing speed ([section 3a](human-strike-reference.md#3a-one-handed-thrust-a-persons-stab)),
 met with the item's face (the club blunt, the cut its edge, the thrust its point), at the mark
-asked, the striker up ([the bars](../plans/2026-11-01-option-mind-everywhere.md#the-bars),
+asked, the striker up ([what is required](../plans/2026-11-03-options-training.md#what-is-required),
 `BAR.held`, `src/evaluation/strike/read.ts`). None reaches it on the still rung: of the Warrior's
 16 right-hand trials at the middle mark, the club lands none, the cut one and the thrust three
 ([on the still rung](#on-the-still-rung)). The Rogue and the Skeleton hold no record of any of the
