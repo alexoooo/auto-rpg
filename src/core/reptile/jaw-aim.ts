@@ -11,8 +11,7 @@ import type { Aim, AimPart } from "../skills/framework/aim-part.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { headFrameToRef, jawOf, mouthToRef } from "./jaw.ts";
-import { fitsJaw } from "./parts.ts";
-import { REPTILE_BITE } from "./tuning.ts";
+import { biteSettings, fitsBite } from "./bite.ts";
 
 /** **The first exposed surface**'s config. */
 interface FirstExposedConfig { readonly kind: "first-exposed" }
@@ -25,7 +24,7 @@ const buried = (view: BodyView, at: Vec3): boolean => view.senses.others.some((f
   && foe.spec.segments.some((part) => surfaceContains(foe, part.name, at)));
 
 /**
- * **The first exposed surface along the jaw's arc** (`REPTILE_BITE`) of a body of `spec`: each
+ * **The first exposed surface along the jaw's arc** of a body of `spec`, by its bite's settings (`biteSettings`): each
  * tooth's path as the jaw closes from open (`open`), in `biteSamples` steps, from the head as it is
  * and shifted `biteShift` either way across it, meets the first sensed surface in its way; the aim is
  * the first such surface the target's region holds that the tooth pierces (its piercing way against
@@ -39,7 +38,7 @@ const buried = (view: BodyView, at: Vec3): boolean => view.senses.others.some((f
  * had the body (`BodyView.resumed`).
  */
 function firstExposed(spec: Parameters<AimPart["make"]>[0]): Aim {
-  const T = REPTILE_BITE, jaw = jawOf(spec);
+  const T = biteSettings(spec, {}), jaw = jawOf(spec);
   const arcs = jaw.teeth.map((tooth) => ({ tooth: tooth.name,
     arc: Array.from({ length: T.biteSamples + 1 }, (_, i) => pointAtToRef([jaw.hinge], [[T.open * (1 - i / T.biteSamples)]], tooth.tip, new Vector3())) }));
   const path = Array.from({ length: T.biteSamples + 1 }, () => new Vector3());
@@ -123,8 +122,8 @@ function firstExposed(spec: Parameters<AimPart["make"]>[0]): Aim {
   return Object.assign(aim, { state });
 }
 
-/** **The first exposed surface** (`firstExposed`) as a kind of aim: a jaw's, for a body with one (`fitsJaw`). */
+/** **The first exposed surface** (`firstExposed`) as a kind of aim: a jaw's, for a body with a bite (`fitsBite`). */
 export const FIRST_EXPOSED_AIM: AimPart<FirstExposedConfig> = deepFreeze({
   role: "aim", label: "First exposed surface", stage: "game", unit: null, fields: [], slots: [], defaults: { kind: "first-exposed" }, keys: { kind: true },
-  fits: fitsJaw, faults: () => [], make: (spec) => firstExposed(spec),
+  fits: (spec, _config, parts) => fitsBite(spec, { kind: "first-exposed" }, parts), faults: () => [], reads: () => ["bite"], make: (spec) => firstExposed(spec),
 });

@@ -15,7 +15,7 @@ import { deepFreeze } from "../state.ts";
 import { soleGoal, STAND_TRAVEL, type TravelOrders } from "./crawl.ts";
 import { fitsPaws, type Gait, type GaitReach } from "./parts.ts";
 import { pawEndpoints, pawReader, pawView } from "./paws.ts";
-import { REPTILE_BITE, REPTILE_TROT } from "./tuning.ts";
+import { REPTILE_CRAWL, REPTILE_TROT } from "./tuning.ts";
 
 /** **The paw legs**' config: the gait it travels by and the one it crawls by (`PawGaitPart`), the stock ones where it names none. */
 interface PawMoveConfig { readonly kind: "paw-move"; readonly trot?: PartConfig; readonly crawl?: PartConfig }
@@ -48,7 +48,7 @@ function envelopeOf(name: PawGaitName, reach: GaitReach): StanceEnvelope {
  *   and keeps its gait to stand. The crawl carries the body at the height asked, a share of its
  *   standing height (`BodyView.standing`), its own where none is asked.
  * - **A centre asked** is leaned toward where every paw but one bears, held within their support
- *   (`withinSupport`, `REPTILE_BITE.biteInset`).
+ *   (`withinSupport`, `REPTILE_CRAWL.leanInset`).
  * - **Each paw** that bears and touches is the support's; any other is carried along its path to
  *   its place (`soleGoal`), in the root frame: the trot's kept on the ground from where it left the
  *   floor, against the trunk's motion there.
@@ -110,7 +110,7 @@ function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
       support.forEach((sole, i) => { if (reading.endpoints[i]!.contact) { sole.corners[0]!.copyFrom(reading.endpoints[i]!.at); loaded[bearing++] = sole; } });
       loaded.length = bearing;
       if (bearing >= support.length - 1) {
-        const placed = withinSupport(loaded, goal.centre[0], goal.centre[1], REPTILE_BITE.biteInset);
+        const placed = withinSupport(loaded, goal.centre[0], goal.centre[1], REPTILE_CRAWL.leanInset);
         centre[0] = placed[0]; centre[2] = placed[1];
       }
     }

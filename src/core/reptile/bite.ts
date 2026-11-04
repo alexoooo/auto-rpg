@@ -18,14 +18,41 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { gapePoints, jawOf, mouthOf, mouthToRef } from "./jaw.ts";
 import { fitsJaw } from "./parts.ts";
 import { pawReader } from "./paws.ts";
-import { REPTILE_BITE, REPTILE_TROT } from "./tuning.ts";
+import { REPTILE_TROT } from "./tuning.ts";
+import meta from "../../../assets/core/bite.meta.json" with { type: "json" };
+import { dataOf } from "../data/store.ts";
+import { fitsAll, type PartConfig } from "../parts/parts.ts";
+import { recordFault, tunedSettings, type SkillRecords } from "../skills/framework/records.ts";
+import type { BodySpec } from "../spec/body.ts";
+import { deepFreeze } from "../state.ts";
 
-/** **The bite's settings** (`REPTILE_BITE`): the jaw's path, its reach and the strike cycle's limits. */
-export type BiteTuning = { readonly [K in keyof typeof REPTILE_BITE]: number };
+/** The bite's settings, by name: `docs/reference/reptile.md#controller-settings`. */
+export const BITE_SETTINGS = Object.freeze(["prepare", "snap", "release", "open", "jawError", "jawClosed", "biteTimeout", "biteEntry", "bitePrepareNear",
+  "biteElevation", "biteNear", "biteSlow", "biteHold", "biteReturnLimit", "contactAt", "closeRate", "biteResponse", "biteAlign", "biteShift",
+  "contactSeconds", "biteSamples", "biteLead", "neckRetract"] as const);
+
+/** **The bite's settings** (`BITE_SETTINGS`): the jaw's path, its reach and the strike cycle's limits, a body's record (`dataOf("bite")`). */
+export type BiteTuning = { readonly [K in (typeof BITE_SETTINGS)[number]]: number };
+
+declare module "../data/store.ts" {
+  interface DataOf {
+    /** Every body's bite settings. */
+    "bite": SkillRecords<BiteTuning>;
+  }
+}
 
 /** Whether each setting `tuning` names is a known one, finite and nonnegative. */
 const validBite = (tuning: Partial<BiteTuning>): boolean =>
-  Object.entries(tuning).every(([key, value]) => key in REPTILE_BITE && Number.isFinite(value) && value! >= 0);
+  Object.entries(tuning).every(([key, value]) => (BITE_SETTINGS as readonly string[]).includes(key) && Number.isFinite(value) && value! >= 0);
+
+/** Whether `tuning` holds every bite setting, each valid (`validBite`). */
+export const wholeBite = (tuning: Partial<BiteTuning>): boolean => BITE_SETTINGS.every((key) => key in tuning) && validBite(tuning);
+
+/** Whether a body of `spec` has a bite, its jaw (`fitsJaw`) and its record of the bite, or a whole research `tuning` in its place. */
+export const fitsBite = fitsAll<PartConfig & { readonly tuning?: Partial<BiteTuning> }>(fitsJaw, recordFault("bite", deepFreeze(meta.bodies), wholeBite));
+
+/** The bite's settings on a body of `spec`: its record's, with `config`'s research tuning over them. */
+export const biteSettings = (spec: BodySpec, config: { readonly tuning?: Partial<BiteTuning> }): BiteTuning => tunedSettings(dataOf("bite"), spec, config);
 
 /** One bite under way: its request, the heading it bites along, its strike cycle and where it drives the jaw, the head and the lean this step. */
 interface Live {
@@ -234,7 +261,7 @@ export function biteExecutor(body: Body, actions: readonly string[], T: BiteTuni
   };
 }
 
-/** **The bite**'s config: its kind, and an experiment's research `tuning` over `REPTILE_BITE`, which a link does not carry. */
+/** **The bite**'s config: its kind, and an experiment's research `tuning` over its body's record, which a link does not carry. */
 interface JawBiteConfig {
   readonly kind: "jaw-bite";
   readonly tuning?: Partial<BiteTuning>;
@@ -246,9 +273,9 @@ interface JawBiteConfig {
  */
 export const JAW_BITE: ExecutorPart<JawBiteConfig> = {
   role: "executor", label: "Bite", stage: "game", defaults: { kind: "jaw-bite" }, keys: { kind: true, tuning: true }, fields: [], slots: [],
-  tuning: Object.keys(REPTILE_BITE), fits: fitsJaw,
+  tuning: [...BITE_SETTINGS], fits: fitsBite, reads: () => ["bite"],
   faults: (config) => config.tuning === undefined || validBite(config.tuning) ? [] : ["invalid bite tuning"],
   effectors: ["head"], aims: true, meets: "point",
   strikesWith: (spec, _config, effector) => jawOf(spec).head.name === effector,
-  make: ({ body, aim }, config, actions) => biteExecutor(body, actions.map((action) => action.name), { ...REPTILE_BITE, ...config.tuning }, aim),
+  make: ({ body, aim }, config, actions) => biteExecutor(body, actions.map((action) => action.name), biteSettings(body.built.spec, config), aim),
 };

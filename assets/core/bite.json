@@ -1,0 +1,58 @@
+{
+  "rat": {
+    "made": "Set by hand on the rat when the bite was written (docs/reference/reptile.md#controller-settings); the reptile's, unchanged.",
+    "settings": {
+      "prepare": 0.25,
+      "snap": 0.12,
+      "release": 0.2,
+      "open": 0.65,
+      "jawError": 0.03,
+      "jawClosed": 0.001,
+      "biteTimeout": 2,
+      "biteEntry": 0.008,
+      "bitePrepareNear": 0.12,
+      "biteElevation": 0.15,
+      "biteNear": 0.04,
+      "biteSlow": 0.2,
+      "biteHold": 0.03,
+      "biteReturnLimit": 8,
+      "contactAt": 0.5,
+      "closeRate": 4,
+      "biteResponse": 0.03,
+      "biteAlign": 0.04,
+      "biteShift": 0.04,
+      "contactSeconds": 0.25,
+      "biteSamples": 4,
+      "biteLead": 0.03,
+      "neckRetract": 0.3
+    }
+  },
+  "reptile": {
+    "made": "Set by hand on the reptile when the bite was written (docs/reference/reptile.md#controller-settings).",
+    "settings": {
+      "prepare": 0.25,
+      "snap": 0.12,
+      "release": 0.2,
+      "open": 0.65,
+      "jawError": 0.03,
+      "jawClosed": 0.001,
+      "biteTimeout": 2,
+      "biteEntry": 0.008,
+      "bitePrepareNear": 0.12,
+      "biteElevation": 0.15,
+      "biteNear": 0.04,
+      "biteSlow": 0.2,
+      "biteHold": 0.03,
+      "biteReturnLimit": 8,
+      "contactAt": 0.5,
+      "closeRate": 4,
+      "biteResponse": 0.03,
+      "biteAlign": 0.04,
+      "biteShift": 0.04,
+      "contactSeconds": 0.25,
+      "biteSamples": 4,
+      "biteLead": 0.03,
+      "neckRetract": 0.3
+    }
+  }
+}

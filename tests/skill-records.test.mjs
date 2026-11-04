@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { allParts, partLookup } from "../src/entrants/game.ts";
-import { modelSpec } from "../src/core/models.ts";
+import { BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 import { EXECUTORS } from "../src/core/skills/framework/executors.ts";
 import { TECHNIQUES } from "../src/core/recovery/ground/techniques.ts";
@@ -10,16 +10,20 @@ import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
 /**
  * A skill's settings are its body's record (`SkillRecord`, `src/core/skills/framework/records.ts`)
  * where it reads one (`Part.reads`): a body with none does not use the skill and says so, its
- * executor's fit a returned refusal; a body with one is not refused for want of it. The unrecorded
- * body is the Warrior under another model's name, so nothing but its key differs.
+ * executor's fit a returned refusal; a body with one is not refused for want of it. Each executor
+ * is read on a body it fits and on that body under another model's name, so nothing but its key
+ * differs.
  */
 test("every executor that reads a record refuses a body with no record of its skill, and says so", () => {
-  const warrior = modelSpec("workshop-fighter"), unrecorded = { ...warrior, model: "unrecorded" };
   const executors = Object.entries(allParts()).filter(([, part]) => part.role === "executor");
   const reached = executors.map(([kind]) => kind);
   assert.ok(Object.keys(EXECUTORS).every((kind) => reached.includes(kind)), `the catalog's executors reached: ${reached.join(", ")}`);
-  for (const [kind, part] of executors.filter(([, part]) => part.reads?.(part.defaults).length)) {
-    assert.equal(part.fits(warrior, part.defaults, partLookup), null, `${kind} fits the Warrior, which has its record`);
+  const recorded = executors.filter(([, part]) => part.reads?.(part.defaults).length);
+  assert.ok(recorded.length > 1, `executors that read a record: ${recorded.map(([kind]) => kind).join(", ")}`);
+  for (const [kind, part] of recorded) {
+    const spec = BODY_MODELS.map((model) => modelSpec(model)).find((one) => part.fits(one, part.defaults, partLookup) === null);
+    assert.ok(spec, `${kind} fits a body with its record`);
+    const unrecorded = { ...spec, model: "unrecorded" };
     assert.match(part.fits(unrecorded, part.defaults, partLookup) ?? "", new RegExp(`not tuned for ${bodyKey(unrecorded).replace("+", "\\+")}`),
       `${kind} refuses a body with no record of it`);
   }

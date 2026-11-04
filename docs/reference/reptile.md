@@ -126,7 +126,7 @@ The bite (`jaw-bite`, `biteExecutor`, `src/core/reptile/bite.ts`) aims the tooth
 open jaw with the mouth within `biteAlign` of its aim, and lunges: through the stroke the head's
 goal and the lean still drive the mouth onto the aim while the jaw closes. The lean is bounded by
 `biteShift` from where the centre of mass stood when the bite began, within the loaded paws'
-support (`biteInset`, `pawLegs`). An aligned tooth under load wounds whether or not the jaw is
+support (`leanInset`, `pawLegs`). An aligned tooth under load wounds whether or not the jaw is
 closing (`pointLoadDamage`).
 
 ### Righting
@@ -155,8 +155,9 @@ the body (`scripts/quadruped/righting-forks.mjs`); the back's from its back.
 ## Controller settings
 
 Controller choices, held apart from the anatomy in `REPTILE_MOTOR`, `REPTILE_TRAVEL`,
-`REPTILE_TROT`, `REPTILE_CRAWL`, `REPTILE_RECOVERY` and `REPTILE_BITE`
-(`src/core/reptile/tuning.ts`), and the rat's righting recipe (`assets/core/righting.json`). They
+`REPTILE_TROT`, `REPTILE_CRAWL` and `REPTILE_RECOVERY` (`src/core/reptile/tuning.ts`), each
+body's bite settings (`assets/core/bite.json`, the rat's the reptile's) and the rat's righting
+recipe (`assets/core/righting.json`). They
 are not a measured optimum or evidence of a real animal's locomotion. Times are seconds, lengths
 metres, angles radians, heights relative to the reference centre of mass.
 
@@ -184,7 +185,7 @@ lowest point.
 | Contact | supportNormal .5, contactMargin .01 m | Positive fixed-ground impulses, and sole versus edge contact |
 | Jaw path | prepare .25 s, snap .12 s, open .65 rad, jawError .03 rad, jawClosed .001 rad | Opening and closing, with finite angular motion |
 | Bite reach | biteEntry .008 m, bitePrepareNear .12 m, biteElevation .15 m, biteNear .04 m | A target is taken within the tooth-to-mouth span plus biteEntry, and the open jaw keeps biteEntry clear of the floor; the chamber starts within bitePrepareNear; a target lies within biteElevation of the mouth's height; biteNear is the chamber's readiness |
-| Bite placement | contactAt .5 of the opening angle, biteAlign .04 m, biteShift .04 m, biteInset .02 m | Aim the selected tooth's point at contactAt of the opening on the retained surface; launch with the mouth within biteAlign of that aim; bound COM displacement from where the chamber began, within loaded paw support |
+| Bite placement | contactAt .5 of the opening angle, biteAlign .04 m, biteShift .04 m; the crawl's leanInset .02 m | Aim the selected tooth's point at contactAt of the opening on the retained surface; launch with the mouth within biteAlign of that aim; bound COM displacement from where the chamber began, within loaded paw support |
 | Bite selection | biteSamples 4, biteLead .03 s | First exposed entry over the tooth arc, including natural colliders; predict the retained material point from sensed linear and angular motion |
 | Material contact | contactSeconds .25 s | Bound an admitted stroke's contact by time |
 | Withdrawal | neckRetract .3 rad | Ceiling on upward neck retraction during a loaded return |
