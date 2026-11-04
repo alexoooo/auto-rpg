@@ -7,10 +7,59 @@ import { presetFitsModel } from "../src/core/mind/controller.ts";
 import { BODY_MODELS, modelHolds, resolveCharacter } from "../src/core/models.ts";
 import { LOADOUTS, loadoutFaults, withLoadout } from "../src/core/items/held.ts";
 import { limbAction, skillsOf } from "../src/core/option/kinds.ts";
-import { edgeExpected, groundStart, measuredOn, profileReading, skillDigest, specDigest, techniqueDigest } from "../src/core/skills/framework/profile.ts";
+import { edgeExpected, groundStart, measuredOn, profileReading, skillDigest, specDigest, techniqueDigest, validProfiles } from "../src/core/skills/framework/profile.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 import { record } from "../src/core/option/value.ts";
-import { modelSpec } from "../src/core/models.ts";
+import { modelHolding, modelSpec } from "../src/core/models.ts";
+import { dataOf } from "../src/core/data/store.ts";
+import { MEASURED_PREDICTIONS } from "../src/core/option/predictions-part.ts";
+import { buildFall } from "../src/evaluation/fall.ts";
+import { stepUpTuning } from "../src/core/recovery/ground/step-up.ts";
+
+test("supplied ground profiles are validated, frozen and confined to the prediction input", () => {
+  const saved = dataOf("edge-profiles"), before = structuredClone(saved), edges = structuredClone(saved.slice(0, 1));
+  assert.ok(edges[0].trials.length > 0, "the profile fixture contains actual trials");
+  const config = { kind: "measured", edges };
+  assert.deepEqual(MEASURED_PREDICTIONS.faults(config), []);
+  const tables = MEASURED_PREDICTIONS.make(config);
+  assert.equal(tables.edges, edges);
+  assert.equal(Object.isFrozen(tables.edges[0].trials[0].start), true);
+  assert.equal(tables.strikes, dataOf("strike-profiles"));
+  assert.deepEqual(MEASURED_PREDICTIONS.reads(config), ["strike-profiles"]);
+  assert.deepEqual(MEASURED_PREDICTIONS.reads({ kind: "measured" }), ["strike-profiles", "edge-profiles"]);
+  assert.equal(MEASURED_PREDICTIONS.make({ kind: "measured" }).edges, saved);
+  assert.deepEqual(saved, before);
+  assert.equal(validProfiles(dataOf("strike-profiles")), true, "the shared profile shape also admits the strike corpus");
+  for (const invalid of [null, {}, [{ ...edges[0], measured: { ...edges[0].measured, hz: NaN } }],
+    [{ ...edges[0], trials: [{ ...edges[0].trials[0], seconds: -1 }] }], [{ ...edges[0], trials: [{ ...edges[0].trials[0], start: null }] }]])
+    assert.deepEqual(MEASURED_PREDICTIONS.faults({ kind: "measured", edges: invalid }), ["edges: invalid profiles"]);
+});
+
+test("supplying the measured profiles preserves the whole fall reading", async () => {
+  const job = { model: "workshop-fighter", loadout: { left: "empty", right: "empty" }, seed: 2, start: "shoved", degrees: 0, balance: 0, grit: 0, target: true };
+  const play = async mind => {
+    const b = await buildFall({ ...job, mind }, "rapier");
+    try { while (!b.ended) { b.world.step(); b.afterStep(); } return b.reading(); }
+    finally { b.dispose(); }
+  };
+  const ordinary = await play(MINDS.option.config);
+  assert.notEqual(ordinary.takeover, null, "the seeded shove makes the fall");
+  assert.equal(ordinary.stood, true, "the seeded fall reaches a successful recovery before equality is checked");
+  const supplied = await play({ ...MINDS.option.config, predictions: { kind: "measured", edges: dataOf("edge-profiles") } });
+  assert.deepEqual(supplied, ordinary);
+  const spec = modelHolding(job.model, job.loadout), tuning = stepUpTuning(spec), replacements = new Map();
+  const staged = new Set(["staged-roll", "staged-down", "sit-back", "front-sit-back"]);
+  const options = MINDS.option.config.options.map(option => {
+    if (!staged.has(option.skill?.kind)) return option;
+    const skill = { ...option.skill, tuning };
+    replacements.set(techniqueDigest(partLookup, spec, option.skill), techniqueDigest(partLookup, spec, skill));
+    return { ...option, skill };
+  });
+  const edges = dataOf("edge-profiles").map(profile => profile.measured.body === bodyKey(spec) && profile.measured.spec === specDigest(spec) && replacements.has(profile.measured.skill)
+    ? { ...profile, measured: { ...profile.measured, skill: replacements.get(profile.measured.skill) } } : profile);
+  const explicit = await play({ ...MINDS.option.config, options, predictions: { kind: "measured", edges } });
+  assert.deepEqual(explicit, ordinary, "equivalent skill settings and correctly keyed profiles preserve the fall");
+});
 
 /**
  * Every measured profile (`assets/core/<kind>-profiles.json`) is of a skill the game has, on a body

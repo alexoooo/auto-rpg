@@ -250,7 +250,8 @@ each a state with its chance, `Outcome`), its step, and a status.
 - **Percepts** (`PERCEPTS`) and **predictions** (`PREDICTIONS`) are read into the `Situation`
   the first time a step asks for each and kept for the step (`perceiver`); predictions price from
   measured profiles (`Profile`, `src/core/skills/framework/profile.ts`),
-  a stale one unread and a model with none priced by its prior. A profile is a sample of its
+  a stale one unread and a model with none priced by its prior. A measured predictor may receive
+  immutable ground profiles (`edges`) for the skill settings an experiment runs. A profile is a sample of its
   drill's trials, each keeping what it brought and where it began (the range, the foe's phase,
   both postures, the velocity in its target's frame, `startVelocity`, and, for a skill begun from
   a window, where in it the body stood, `placeInWindow`); a reading takes the trials nearest the

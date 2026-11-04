@@ -155,6 +155,36 @@ export interface Profile {
   readonly limbs?: readonly string[];
 }
 
+const profileObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
+const profileNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+const profileNonnegative = (value: unknown): boolean => profileNumber(value) && value >= 0;
+const profileText = (value: unknown): boolean => typeof value === "string" && value.length > 0;
+const profilePair = (value: unknown): boolean => Array.isArray(value) && value.length === 2 && value.every(profileNumber);
+const profilePostures = (value: unknown): boolean => profileObject(value) && profileText(value.own) && profileText(value.target);
+const profileTarget = (value: unknown): boolean => profileObject(value) && profileText(value.body) && profileText(value.spec);
+const profileMeasured = (value: unknown): boolean => profileTarget(value) && profileObject(value)
+  && profileText(value.skill) && profileNumber(value.hz) && value.hz > 0
+  && (value.reaction === null || profileNonnegative(value.reaction))
+  && (value.rate === undefined || profileNumber(value.rate) && value.rate > 0)
+  && (value.delay === undefined || profileNonnegative(value.delay) && Number.isSafeInteger(value.delay));
+const profileTrial = (value: unknown): boolean => profileObject(value) && profileObject(value.start)
+  && profileNumber(value.start.range) && profileText(value.start.phase)
+  && (value.start.postures === undefined || profilePostures(value.start.postures))
+  && (value.start.velocity === undefined || profilePair(value.start.velocity))
+  && (value.start.window === undefined || profilePair(value.start.window))
+  && typeof value.done === "boolean" && typeof value.down === "boolean"
+  && profileNonnegative(value.dealt) && profileNonnegative(value.taken) && profileNonnegative(value.seconds)
+  && (value.recovers === null || profileNonnegative(value.recovers))
+  && (value.end === undefined || profileText(value.end))
+  && (value.exit === undefined || profileObject(value.exit) && Object.values(value.exit).every(profileNumber))
+  && (value.letGo === undefined || profileObject(value.letGo) && [value.letGo.progress, value.letGo.seconds, value.letGo.taken].every(profileNonnegative));
+
+/** Whether supplied profiles have finite measurements and the trial fields their readers use. */
+export const validProfiles = (value: unknown): value is readonly Profile[] => Array.isArray(value) && value.every(profile => profileObject(profile)
+  && profileMeasured(profile.measured) && (profile.target === null || profileTarget(profile.target))
+  && Array.isArray(profile.trials) && profile.trials.every(profileTrial)
+  && (profile.limbs === undefined || Array.isArray(profile.limbs) && profile.limbs.every(profileText)));
+
 /**
  * **What a skill is expected to bring from a start** (`ProfileReading.expect`), in life, a share
  * of a body's full life: the share done; the struck body's life its blows take; the seconds its
