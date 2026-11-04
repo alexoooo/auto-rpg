@@ -215,10 +215,12 @@ function search(root: Situation, options: readonly Option[], objective: Objectiv
   };
   /**
    * **`option` at `target` run again and again from `at` to the horizon**, where a try of it leaves
-   * the body where it began (`stays`, its staying outcome, by the chance it stays): what each try
-   * brings, the tries as many as fit in the time left; each the chance of leaving compounding, the
-   * body leaving after as many tries as it is expected to, then held where it went (`leaf`, an
-   * open Option). -Infinity where no outcome stays, or a try takes no time.
+   * the body where it began (`stays`, its staying outcome, by the chance it stays): the life each try
+   * deals and takes, the tries as many as fit in the time left, and the orders it carries out once
+   * (`Terms.orders`: an order carried out is carried out, and a try that leaves the state as it found
+   * it carries out nothing more of it); each the chance of leaving compounding, the body leaving after
+   * as many tries as it is expected to, then held where it went (`leaf`, an open Option). -Infinity
+   * where no outcome stays, or a try takes no time.
    */
   const again = (option: Option, target: number, at: Situation, dealt: number, taken: number, orders: number, seconds: number): number => {
     const terms = modelAt(option, target, at)!, duration = terms.duration;
@@ -231,9 +233,10 @@ function search(root: Situation, options: readonly Option[], objective: Objectiv
     if (!there) return -Infinity;
     // Of `full` whole tries, the chance all stay (`through`), and the tries the body is expected to run where one leaves (`run`).
     const tries = (horizon - seconds) / duration, full = Math.floor(tries), through = full === 0 ? 1 : stay === 0 ? 0 : exp(full * log(stay)), left = 1 - through;
-    let worth = through * price(dealt + tries * terms.dealt, taken + tries * terms.taken, orders + tries * terms.orders, horizon, there);
+    const o = orders + Math.min(1, tries) * terms.orders;
+    let worth = through * price(dealt + tries * terms.dealt, taken + tries * terms.taken, o, horizon, there);
     if (left > 0) {
-      const run = (1 - (full + 1) * through + full * through * stay) / ((1 - stay) * left), d = dealt + run * terms.dealt, t = taken + run * terms.taken, o = orders + run * terms.orders, after = seconds + run * duration;
+      const run = (1 - (full + 1) * through + full * through * stay) / ((1 - stay) * left), d = dealt + run * terms.dealt, t = taken + run * terms.taken, after = seconds + run * duration;
       for (const outcome of terms.outcomes) {
         const end = child(at, outcome.leaves, duration);
         if (end === there || end.posture === at.posture && Math.abs(end.range - at.range) <= ARRIVED) continue;

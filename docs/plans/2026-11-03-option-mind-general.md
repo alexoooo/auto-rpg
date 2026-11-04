@@ -103,8 +103,8 @@ defect.
   line's worth is its outcomes' worths weighed by their chances. Every line is priced over the
   chooser's horizon (`ValuedConfig.horizon`, 20 s unless its config says), cut there, so worths are
   absolute over one span and depths compare alike; a line ends in the best of an open Option held
-  to the horizon, an Option that leaves the body where it began run again to it, and holding
-  reached at its site. Each Option is priced by its own lines, and the set the chooser runs is
+  to the horizon, an Option that leaves the body where it began run again to it (the life each try
+  trades counted again, the orders it carries out once), and holding reached at its site. Each Option is priced by its own lines, and the set the chooser runs is
   taken as today (`selectSet`): the best, then the best of the rest whose claims are still free.
   Where an Option leaves the body is worth what the search finds from there,
   by no other rule: holding within the foe's reach loses life there, which prices a place; lying
