@@ -50,9 +50,10 @@ looks in the Lab's Stand-up mode.
 
 ### 2. The run
 
-On toes on the Warrior and the Rogue to the requirement in every loadout, then priced by the Gait
-drill (`gait`) so that Option Mind chooses it where it pays. Where the toes or the body are the
-limit, the limit is read and the body's numbers are set for the result, sourced as tuned for it.
+On toes on the Warrior and the Rogue to the requirement in every loadout, then priced by its own
+profile, measured from its starts as every Option's is, so that Option Mind chooses it where it
+pays. Where the toes or the body are the limit, the limit is read and the body's numbers are set
+for the result, sourced as tuned for it.
 Check: the Locomotion drill's run; the stand-up target held; the owner watches the run in the Lab's
 Locomotion courses and in the Arena.
 
