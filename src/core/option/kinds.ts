@@ -153,6 +153,18 @@ export function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeCo
   return action;
 }
 
+/** Each action struck with one of its limbs (`limbAction`), by its limb: configs are data, so a narrowing is made once and is the same config at every make. */
+const LIMBED = new WeakMap<ActionConfig, Map<string, ActionConfig>>();
+
+/** **`action` struck with `limb` alone**: what one Option of a strike asks of its skill, and what its profile is measured of (`skillDigest`). */
+export function limbAction(action: ActionConfig, limb: string): ActionConfig {
+  let by = LIMBED.get(action);
+  if (!by) LIMBED.set(action, by = new Map());
+  let made = by.get(limb);
+  if (!made) by.set(limb, made = Object.freeze({ ...action, effectors: Object.freeze([limb]) }));
+  return made;
+}
+
 /** What is wrong with where a strike of `config` strikes, each a sentence: its regions and its aim where its executor aims, and neither where not. */
 function aimingFaults(config: StrikeConfig, parts: PartLookup): readonly string[] {
   const executor = parts.of("executor", config.skill);
@@ -177,7 +189,8 @@ function aimingFaults(config: StrikeConfig, parts: PartLookup): readonly string[
 
 /**
  * **The kind of strike by `skill`** (`strike-<skill>`): a strike (`strike`) of its action on its
- * body (`strikeAction`), priced by its profile among the strikes' where one is measured as the body
+ * body (`strikeAction`) with each of its limbs, one Option a limb (`limbAction`, named by the action
+ * and the limb), each priced by its profile among the strikes' where one is measured as the body
  * reads it (`strikeMeasure`); none where the body does not fit its skill or has no limb of its role.
  */
 export function strikeKind<K extends string>(skill: K, label: string, limbs: LimbRole): StrikeKindPart<K> {
@@ -185,7 +198,10 @@ export function strikeKind<K extends string>(skill: K, label: string, limbs: Lim
     const action = strikeAction(given.parts, given.spec, config);
     if (!action) return [];
     const executors = [executorEntry(config.skill)], blows = given.parts.of("executor", config.skill).blows?.(config.skill) ?? 1;
-    return [strike(action, given.walk, blows, strikeMeasure(given.parts, given.spec, executors, action, given.hz, given.tables.strikes, given.rate ?? given.hz, given.delay))];
+    return action.effectors.map((limb) => {
+      const one = limbAction(action, limb);
+      return strike(one, given.walk, blows, strikeMeasure(given.parts, given.spec, executors, one, given.hz, given.tables.strikes, given.rate ?? given.hz, given.delay), `${action.name} ${limb}`);
+    });
   };
   return deepFreeze({
     role: "option", label, stage: "game", skill,

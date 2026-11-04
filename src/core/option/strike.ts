@@ -51,7 +51,8 @@ function measuredProfile(measure: StrikeMeasure): Profile | null {
 type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" | "modelled">>;
 
 /**
- * **Strike**: `action` at the focus with the first of its limbs that is ready, on offer where one
+ * **Strike**: `action` at the focus with the first of its limbs that is ready, named `name` (the
+ * action's unless given), on offer where one
  * is (its executor's readiness, which refuses a body down and a target out of its band). It
  * never walks: where no limb is ready and the first with a window says where it could begin (its
  * readiness's `position`), its sites are the spots in that window, one each side of the body its
@@ -81,7 +82,7 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * on offer; elsewhere, where the spot it stands at is within its window now, ready or not
  * (`windowAny`, `windowHolds`), its model there as it would be here.
  */
-export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure): StrikeOption {
+export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure, name = action.name): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null,
     // Each side's place beside a body lying (`HeldBeside`), and its spot as last read: at what time, for what focus.
     sides: SIDES.map(() => ({ beside: heldBeside(), time: NaN, focus: null as string | null, spot: null as Spot | null })) };
@@ -184,7 +185,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
    * for each focus.
    */
   const siteOn = (side: Side, k: number): Site => ({
-    name: k === 0 ? `${action.name}'s window` : `${action.name}'s window, the other side`,
+    name: k === 0 ? `${name}'s window` : `${name}'s window, the other side`,
     spot(at) {
       if (live(at) || unfit(at)) return null;
       const kept = state.sides[k]!, focus = at.focus?.id ?? null;
@@ -204,8 +205,8 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     return readied ?? (placed?.readiness.kind === "position" ? placed.readiness.window : null);
   };
   return {
-    name: action.name, get claims() { return claimed.claims; }, state,
-    modelled: { name: action.name, limbs: action.effectors, profile: measuredProfile(measure) },
+    name, get claims() { return claimed.claims; }, state,
+    modelled: { name, limbs: action.effectors, profile: measuredProfile(measure) },
     entry,
     status: (now) => { if (state.over) return "over"; const phase = live(now)?.phase; return phase === "release" ? "exit" : phase === "commit" ? "committed" : "yields"; },
     sites,

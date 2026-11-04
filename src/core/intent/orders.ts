@@ -32,7 +32,7 @@ export interface Orders {
   readonly foe?: string;
   /** Aim at this region of the ordered body, a mark or a segment (`Region`); absent, at the regions each action aims at. */
   readonly region?: Region;
-  /** Strike the ordered body with this action, by the name the mind's kit gives it (`KitEntry.action`); absent, with any. */
+  /** Strike the ordered body with this action, by the name the mind's kit gives it (`KitEntry.action`: an Option Mind's strike is named by its skill, `strikeAction`); absent, with any. */
   readonly action?: string;
   /** Strike it with this limb, an effector (`hand.right`, `foot.left`); absent, with any. */
   readonly limb?: string;

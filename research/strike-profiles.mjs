@@ -25,7 +25,8 @@
  * let its strike go (`letGo`) prices letting go alone: the progress of the motion it was let go at
  * (the seconds from its start, to the step), the seconds from the let-go until the hand was back at
  * its guard (the trial's end where it was not), and the hit points the striker lost meanwhile.
- * A profile names the limbs its trials were thrown with (`Profile.limbs`), in its action's order.
+ * A profile is of one limb, as one Option strikes with one (`limbAction`): its skill's digest is
+ * of the action struck with that limb, and it names the limb (`Profile.limbs`).
  *
  *   node --import ./tests/harness/preload-data.mjs research/strike-profiles.mjs [<record.jsonl or run.json> ...] [--write]
  *
@@ -35,7 +36,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { EMPTY_LOADOUT, withLoadout } from "../src/core/items/held.ts";
 import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/entrants/game.ts";
-import { skillsOf } from "../src/core/option/kinds.ts";
+import { limbAction, skillsOf } from "../src/core/option/kinds.ts";
 import { measuredOn, skillDigest, specDigest } from "../src/core/skills/framework/profile.ts";
 import { everyOf } from "../src/core/mind/decider.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
@@ -104,12 +105,12 @@ for (const path of paths) {
     if (!action && row.reading.outcome === "refused" && row.reading.reason === "no such choice on its menu") continue;
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
     if (!action.effectors.includes(drill.effector)) continue;
-    const marks = marksOf(action);
+    const limbed = limbAction(action, drill.effector), marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
-    const measured = measuredOn(spec, skillDigest(partLookup, spec, executors, action), hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
-    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} on ${struck.model}`, effectors: action.effectors, limbs: new Set(), records: new Set(), trials: [] };
+    const measured = measuredOn(spec, skillDigest(partLookup, spec, executors, limbed), hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
+    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} with ${drill.effector} on ${struck.model}`, effectors: limbed.effectors, limbs: new Set(), records: new Set(), trials: [] };
     profiles.set(key, profile);
     profile.records.add(path);
     profile.limbs.add(drill.effector);

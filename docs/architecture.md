@@ -274,7 +274,8 @@ each a state with its chance, `Outcome`), its step, and a status.
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
   `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-cut`,
   `strike-sword-thrust`, `strike-stomp`), a strike (`strike`) of the action it asks of its
-  executor on its body (`strikeAction`), named as the skill; what strikes share is
+  executor on its body (`strikeAction`), named as the skill, one Option a limb (`limbAction`): a
+  punch on empty hands is two Options, each priced by its limb's profile. What strikes share is
   `src/core/option/strike.ts`, which the kinds call.
 - **The rise** (`RISE_OPTIONS`, `src/core/option/rise.ts`): each way up, reposition and mode of
   the ground an Option naming its technique (`way-up`, `reposition`, `flattening`, `steadying`,

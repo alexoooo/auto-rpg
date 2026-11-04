@@ -210,7 +210,7 @@ test("a bout with every mind apart, on two minds' threads, is the bout with ever
 });
 
 test("a mind that draws by chance plays apart on two bout seeds, and a seed's bout forks and resumes to the bit", async () => {
-  // Option Mind with a margin wide enough that any of its options near the best in worth may be drawn.
+  // Option Mind, its punch an Option of each hand, the two near alike in worth, and a margin wide enough that either may be drawn.
   const { config, character } = PRESETS.option;
   const mind = (margin) => ({ ...config, chooser: { ...config.chooser, margin } });
   const recipe = (margin, seed) => ({ left: "workshop-fighter", right: "workshop-fighter", gap: GAP, seed, minds: { left: mind(margin), right: config }, entry: [], ...bothAs(character) });
