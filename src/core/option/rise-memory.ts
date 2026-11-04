@@ -22,20 +22,21 @@ const TRUNK_UP = .5;
 export const onFeet = (g: GroundReading): boolean => (g.onFeet || g.position === "standing" || g.position === "crouch") && g.upright >= TRUNK_UP;
 
 /**
- * **What a body's reader keeps of its rise**, read once a decision, each count a world step a
- * decision (`hz`): whether its rise runs, from the decision the body is down until it has stood
+ * **What a body's reader keeps of its rise**, read once a decision, each count the seconds since
+ * the decision before (the world's time, `BodyView.time`): whether its rise runs, from the decision the body is down until it has stood
  * ready (`standReady`, `READY_HOLD`) with no try under way, an action neither ended nor a mode of
  * the ground's (`isMode`), the steady not climbing
  * (`climbs`), or its steady's try is over with the body standing; the seconds it has been braced
  * tumbling off its feet (`braces`, `tumbling`) since the rise began or a try in `record` last
  * ended; and the seconds the steady has held it in its try (`steadies`, `STEADY_TRY`).
  */
-export function riseMemory(hz: number, record: OptionRecord) {
-  const dt = 1 / hz, state = { rising: false, ready: 0, tumbled: 0, steadied: 0, noted: record.state.version };
+export function riseMemory(record: OptionRecord) {
+  const state = { rising: false, ready: 0, tumbled: 0, steadied: 0, noted: record.state.version, at: null as number | null };
   return {
     state,
     read(sight: Sight): void {
-      const view = sight.view, g = view.ground;
+      const view = sight.view, g = view.ground, dt = state.at === null ? 0 : view.time - state.at;
+      state.at = view.time;
       if (state.noted !== record.state.version) { state.noted = record.state.version; state.tumbled = 0; }
       if (!state.rising && view.down) { state.rising = true; state.ready = 0; state.tumbled = 0; state.steadied = 0; }
       if (!state.rising) return;
