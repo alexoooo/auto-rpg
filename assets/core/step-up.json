@@ -319,19 +319,22 @@
             "speed": 0.372,
             "seconds": 0.05337
           },
-          "climb": 0.58614,
+          "climb": 0.5886,
           "stages": {
+            "roll flat": {
+              "scale": 0.4
+            },
             "fold": {
-              "scale": 0.39359
+              "scale": 0.38805
             },
             "tuck": {
-              "scale": 0.21368
+              "scale": 0.19334
             },
             "prop": {
-              "scale": 0.25522
+              "scale": 0.25317
             },
             "fours": {
-              "scale": 0.33157,
+              "scale": 0.30013,
               "progress": {
                 "speed": 0.17,
                 "near": 0.05486,
@@ -341,17 +344,17 @@
             "up": {
               "scale": 1,
               "posture": {
-                "hip.left flexion": 0.60605,
-                "hip.right flexion": 0.60605
+                "hip.left flexion": 0.60337,
+                "hip.right flexion": 0.60337
               }
             },
             "plant": {
               "scale": 1,
               "posture": {
-                "knee.left flexion": 2.03436,
-                "knee.right flexion": 2.03436,
-                "hip.left flexion": 1.89916,
-                "hip.right flexion": 1.89916
+                "knee.left flexion": 2.04016,
+                "knee.right flexion": 2.04016,
+                "hip.left flexion": 1.93247,
+                "hip.right flexion": 1.93247
               }
             }
           }
