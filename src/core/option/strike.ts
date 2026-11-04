@@ -171,11 +171,11 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   };
   /**
    * Its prior, where no profile prices it, read as a profile is (`Expected`): `throws` blows
-   * from its stronger limb at the segment its region strikes (`blowLife`), each landing as often as its record says (`record`, which is of the limb
-   * it is asked for), as long as its record says it runs.
+   * from its stronger limb at the segment its region strikes (`blowLife`), each landing as often as its record says (`record`, of its action
+   * with its limbs), as long as its record says it runs.
    */
   const priorOf = (now: Situation): Expected => {
-    const { lands, seconds } = record(now.sight.report.ledger, action.name);
+    const { lands, seconds } = record(now.sight.report.ledger, action);
     const target = targetOf(now), segment = target?.kind === "body" && now.focus ? regionSegments(now.focus.spec, target.region)[0] : undefined;
     const struck = segment ?? now.focus?.spec.marks.high ?? "";
     const blow = Math.max(...action.effectors.map((limb) => now.predictions.blows(limb, struck)));

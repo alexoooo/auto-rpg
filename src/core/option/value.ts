@@ -202,18 +202,20 @@ export function blowLife(rules: Rulebook, striker: BodySpec, limb: string, struc
 const PRIOR = Object.freeze({ lands: .3, seconds: .6, weight: 3 });
 
 /**
- * What a body's own record says of an action of its, or of every action with none named, from its
- * ledger: the share of its committed blows (actions at a body) that landed, and how long one ran,
- * s; each with its prior (`PRIOR`), so that the first blows move it and none leaves it the prior.
+ * What a body's own record says of an action of its with its limbs, or of every action with none
+ * named, from its ledger: the share of its tries at a body that landed, and how long one ran, s;
+ * each with its prior (`PRIOR`), so that the first tries move it and none leaves it the prior. A
+ * try is a blow committed, or one its executor gave up on by itself (`stalled`), which landed nothing.
  */
-export function record(ledger: readonly Ended[], action: string | null): { readonly lands: number; readonly seconds: number } {
-  let committed = 0, hits = 0, seconds = 0;
+export function record(ledger: readonly Ended[], action: { readonly name: string; readonly effectors: readonly string[] } | null): { readonly lands: number; readonly seconds: number } {
+  let tries = 0, hits = 0, seconds = 0;
   for (const ended of ledger) {
-    if (action !== null && ended.action !== action || !ended.committed || ended.target.kind !== "body") continue;
-    committed += 1; seconds += ended.ended - ended.began;
+    if (action !== null && (ended.action !== action.name || !action.effectors.includes(ended.effector))) continue;
+    if (!ended.committed && ended.ending.kind !== "stalled" || ended.target.kind !== "body") continue;
+    tries += 1; seconds += ended.ended - ended.began;
     if (landed(ended)) hits += 1;
   }
-  return { lands: (hits + PRIOR.lands * PRIOR.weight) / (committed + PRIOR.weight), seconds: (seconds + PRIOR.seconds * PRIOR.weight) / (committed + PRIOR.weight) };
+  return { lands: (hits + PRIOR.lands * PRIOR.weight) / (tries + PRIOR.weight), seconds: (seconds + PRIOR.seconds * PRIOR.weight) / (tries + PRIOR.weight) };
 }
 
 /**

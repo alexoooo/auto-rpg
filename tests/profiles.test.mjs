@@ -9,6 +9,7 @@ import { LOADOUTS, loadoutFaults, withLoadout } from "../src/core/items/held.ts"
 import { limbAction, skillsOf } from "../src/core/option/kinds.ts";
 import { profileReading, skillDigest, specDigest, techniqueDigest } from "../src/core/skills/framework/profile.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
+import { record } from "../src/core/option/value.ts";
 import { modelSpec } from "../src/core/models.ts";
 
 /**
@@ -75,4 +76,23 @@ test("a strike's profile reads its trials by the start's velocity, and its rate 
   assert.equal(near(reading.fastest("clear")), .2, "its fastest blow is the shortest run");
   const alike = profileReading({ measured, target: null, trials: [...still, ...still.map((one) => ({ ...one, start: { ...one.start, velocity: [.8, 0] } }))] }, spec);
   assert.deepEqual(alike.expect(at([.8, 0]), spec), alike.expect(at([0, 0]), spec), "where the trials are alike, so are the readings");
+});
+
+/**
+ * **A strike priced by hand reads its tries of its own limb** (`record`): a stomp its executor gave
+ * up on before committing (`stalled`) is a try that landed nothing, so a foot that keeps failing
+ * from where it stands is priced down, not retried from there forever; the other foot's record is
+ * its own, and a try the mind let go (`cancelled`) is no try.
+ */
+test("a strike's record counts its own limb's tries its executor gave up on", () => {
+  const none = { target: 0, block: 0, incidental: 0, world: 0 };
+  const ended = (id, effector, kind, committed) => ({ id, action: "stomp", effector, target: { kind: "body", id: "foe", region: { kind: "mark", mark: "middle" } },
+    sequence: id, began: id, ended: id + .5, ending: { kind }, committed, observations: [], observed: 0,
+    contacts: { counts: { prepare: none, commit: none, release: none }, loadedInCommit: false, blockedSegments: [], lastTarget: null } });
+  const right = { name: "stomp", effectors: ["foot.right"] }, left = { name: "stomp", effectors: ["foot.left"] };
+  const stalled = [1, 2, 3].map((id) => ended(id, "foot.right", "stalled", false));
+  const fresh = record([], right);
+  assert.ok(record(stalled, right).lands < fresh.lands, `three stalled tries lower the foot's record: ${record(stalled, right).lands} against ${fresh.lands}`);
+  assert.deepEqual(record(stalled, left), record([], left), "the other foot's record is its own");
+  assert.deepEqual(record([...stalled, ended(4, "foot.right", "cancelled", false)], right), record(stalled, right), "a try let go is no try");
 });
