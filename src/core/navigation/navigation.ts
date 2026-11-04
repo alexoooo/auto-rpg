@@ -282,7 +282,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       }
       const distance = apart(here, goal), speed = hypot(view.stance.velocity.x, view.stance.velocity.z);
       state.stood = stands(distance, near, state.stood);
-      if (state.stood) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance }; }
+      if (state.stood) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance, rest: [aim.x, aim.z] }; }
       // A corner is passed within `NAV.waypoint` of it, or once the leg past it is clear from here.
       while (state.route.length > 1 && (apart(here, state.route[0]!) <= NAV.waypoint
         || clearStep(atHeight(here, centre.y), atHeight(state.route[1]!, centre.y), radius, solids))) state.route.shift();

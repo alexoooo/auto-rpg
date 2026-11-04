@@ -33,12 +33,15 @@ export interface NavigationSight {
 
 /**
  * A navigator's step: the walk this step, forward and to the right in the heading's frame, m/s, or
- * none; the way to face, or none; and how far the walk has left to go, m, where it is going somewhere.
+ * none; the way to face, or none; how far the walk has left to go, m, where it is going somewhere;
+ * and, standing at the place it was taken to, that place, world (x, z), m, which the legs hold the
+ * centre of mass over (`Intent.rest`).
  */
 export interface NavigationStep {
   readonly move: readonly [number, number] | null;
   readonly face: number | null;
   readonly destination?: number;
+  readonly rest?: readonly [number, number];
 }
 
 /**

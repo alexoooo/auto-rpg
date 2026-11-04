@@ -43,6 +43,12 @@ export interface Intent {
   readonly interrupt?: readonly number[];
   /** How far the body is from where its walk is taking it, m; absent where it is taking it nowhere. Its locomotion may choose its gait by it (`move`). */
   readonly destination?: number;
+  /**
+   * Where the body stands, its walk arrived: the place it was taken to, world (x, z), m, which the
+   * legs hold the centre of mass over while they stand and nothing else asks where it goes
+   * (`LegsGoal.centre`); absent where no walk has arrived.
+   */
+  readonly rest?: readonly [number, number];
   /** The gait to go by, by name (`GAITS`), for legs that walk by gaits; absent, their own choice (`move`'s rules). */
   readonly gait?: GaitName;
 }

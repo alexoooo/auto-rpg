@@ -215,15 +215,18 @@ function writes(claim: ActionClaim, control: string, legs: readonly string[], ch
  * **The legs goal the legs are given** (`LegsAsked`): `asked`, its walk, facing and gait the
  * intent's where it leaves them out, and its height the intent's lowering under standing where it sets
  * none. A footing asked stands, facing the legs' `heading`. While a support fold is under way
- * (`waiting`) a walk waits for it to rise.
+ * (`waiting`) a walk waits for it to rise. Standing where a walk arrived (`Intent.rest`), on both
+ * feet with no centre, pose or swing asked, the centre of mass is held over the place it arrived at.
  */
-function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" | "lower" | "destination" | "gait">, view: Pick<BodyView, "standing">, heading: number,
+function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" | "lower" | "destination" | "gait" | "rest">, view: Pick<BodyView, "standing">, heading: number,
   fold: { readonly waiting: boolean }): LegsAsked {
   const height = asked.height ?? (intent.lower === undefined ? undefined : view.standing - intent.lower);
   const gait = asked.gait ?? intent.gait, named = gait === undefined ? {} : { gait };
   if (asked.footing) return { ...asked, walk: null, face: heading, height, ...named };
-  return { ...asked, walk: fold.waiting ? null : asked.walk !== undefined ? asked.walk : intent.move, face: asked.face ?? intent.face, height,
-    destination: asked.destination ?? intent.destination, ...named };
+  const walk = fold.waiting ? null : asked.walk !== undefined ? asked.walk : intent.move;
+  const rests = walk === null && intent.rest !== undefined && asked.centre === undefined && asked.feet === undefined && asked.pose === undefined && asked.swing === undefined;
+  return { ...asked, walk, face: asked.face ?? intent.face, height, destination: asked.destination ?? intent.destination, ...named,
+    ...(rests ? { centre: intent.rest } : {}) };
 }
 
 /**
@@ -243,7 +246,7 @@ function navigated(navigation: Navigator | null, sight: NavigationSight, legs: P
   const result = navigation?.step(sight, request, legs, ceiling, dt, available) ?? null;
   if (requested.movement && result) return { ...requested, move: result.move,
     face: requested.travelFacing ? result.face ?? requested.face : requested.face,
-    ...(result.destination === undefined ? {} : { destination: result.destination }) };
+    ...(result.destination === undefined ? {} : { destination: result.destination }), ...(result.rest === undefined ? {} : { rest: result.rest }) };
   if (navigation && view.senses.solids?.length && velocity) return { ...requested, move: navigation.steer(view, h, velocity) };
   return requested;
 }
