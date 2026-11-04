@@ -194,6 +194,30 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   over the fight; never one seed. A conclusion is void once its reference is corrected.
 - **Failures are reported as failures**: passing checks and a better battery are not completion.
 
+## Developing skills and Options
+
+- **A bug is fixed to its own layer's contract** (a step lands, a walk stops where it was asked),
+  never judged by a reading above it; what the fix breaks above is a defect there, fixed next in
+  the same push. A table cell that drops meanwhile is named in the commit.
+- **What a change is judged on**: a record or a variant on its own body; a shared piece on every
+  body. A body a shared change sets back is searched again on the new code first; a setback that
+  remains is a defect in its path or the reason it gets a record or a variant of its own, never
+  the reason to reject the change.
+- **Stand-up and the run are met or short** on their definitions; no push ends with either set
+  back. **Every other cell is read against its baseline** (its first reading, kept as a row) and
+  raised by paired readings against the version before: a gain is kept, a loss is not. A cell's
+  work gets one search or training run, priced from its first trials and under an hour, and the
+  fixes of the bugs it exposes; where an iteration brings no gain, its best is kept and its
+  ceiling named from a reading (the body, the controller or the drill).
+- **The person's figures are a scale** (`BAR`, `src/evaluation/strike/read.ts`), reported beside
+  each reading; they gate nothing.
+- **No Option makes its body fall** unless its design states it, its fall rate by outcome measured
+  into its profile; any other fall is a defect.
+- **One act an Option**: one skill used one way, its limbs, target and aim; what blows share is
+  code the Options call, never a kind of Option that makes one of each.
+- **No body is named in control code** (`tests/body-names.test.mjs`): settings are a record per
+  body (`SkillRecord`, `recordFault`); other logic for a body is a skill only that body fits.
+
 ## Line endings
 
 The clone has `core.autocrlf = true`; the repository is LF. Gate a commit on `git diff --numstat`
