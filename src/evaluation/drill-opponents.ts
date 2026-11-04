@@ -2,7 +2,7 @@ import type { MindConfig } from "../core/mind/config.ts";
 import type { BeatsConfig } from "../core/command/beats.ts";
 import type { CommanderConfig } from "../core/command/kind.ts";
 import type { OptionMindConfig } from "../core/option/mind.ts";
-import { ORDERS_OPTION, STANDING_OPTIONS, STRIKE_OPTION, WINDOWS_WALK, COVER_OPTION } from "../core/option/kinds.ts";
+import { ORDERS_OPTION, STANDING_OPTIONS, WINDOWS_WALK, COVER_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../core/option/kinds.ts";
 import { deepFreeze } from "../core/state.ts";
 import { MINDS } from "../entrants/game.ts";
 
@@ -20,17 +20,17 @@ const GUARDS: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defau
 
 /**
  * A body that goes where it is ordered and, ordered at its foe, walks into the window of one of
- * Option Mind's actions `names` as its entrant configures them (each body's record) and throws it,
- * its hands otherwise at guard.
+ * the strikes of `kinds` and throws it, each by Option Mind's executors of its skill and their
+ * actions as its entrant configures them (each body's record), its hands otherwise at guard.
  */
-function striking(names: readonly string[]): MindConfig {
-  const actions = OPTION.actions.filter((action) => names.includes(action.name));
-  return deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, STRIKE_OPTION.defaults, WINDOWS_WALK.defaults, ...STANDING_OPTIONS],
-    executors: OPTION.executors.filter((executor) => actions.some((action) => action.executor === executor.name)), actions });
+function striking(kinds: readonly StrikeKindPart[]): MindConfig {
+  const executors = OPTION.executors.filter((executor) => kinds.some((kind) => kind.skill === executor.kind));
+  return deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...kinds.map((kind) => kind.defaults), WINDOWS_WALK.defaults, ...STANDING_OPTIONS],
+    executors, actions: OPTION.actions.filter((action) => executors.some((executor) => executor.name === action.executor)) });
 }
 
 /** Option Mind's straight punch with either hand, at the trunk's middle. */
-const PUNCHES = striking(["straight-punch"]);
+const PUNCHES = striking([STRAIGHT_PUNCH_OPTION]);
 
 /** On a rhythm: a strike ordered for 2 s, then a stand for 1 s. */
 const RHYTHM = [{ seconds: 2, move: { kind: "strike" } }, { seconds: 1, move: { kind: "stand" } }] as const;
@@ -52,8 +52,8 @@ export const DRILL_OPPONENTS: Readonly<Record<string, DrillOpponent>> = deepFree
     commander: beats([{ seconds: 1.2, move: { kind: "range", near: .8, far: 1 } }, { seconds: 1.2, move: { kind: "range", near: 1.6, far: 1.8 } }]) },
   "drill-guard": { label: "Drill: guard", mind: GUARDS },
   "drill-punch": { label: "Drill: punch on a rhythm", mind: PUNCHES, commander: beats(RHYTHM) },
-  "drill-club": { label: "Drill: club on a rhythm", mind: striking(["club-blow"]), commander: beats(RHYTHM) },
-  "drill-sword": { label: "Drill: sword on a rhythm", mind: striking(["cut", "sword-thrust"]), commander: beats(RHYTHM) },
+  "drill-club": { label: "Drill: club on a rhythm", mind: striking([CLUB_BLOW_OPTION]), commander: beats(RHYTHM) },
+  "drill-sword": { label: "Drill: sword on a rhythm", mind: striking([CUT_OPTION, SWORD_THRUST_OPTION]), commander: beats(RHYTHM) },
   "drill-press": { label: "Drill: press forward", mind: MOVES, commander: beats([{ seconds: 1, move: { kind: "range", near: .5, far: .7 } }]) },
 });
 

@@ -231,6 +231,10 @@ options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Optio
   `src/core/mind/choice.ts`): the best option on offer, then the best whose claims are still free,
   rest options last; a running option that does not yield keeps its claims. The set's step is one
   intent (`stepSet`). It decides afresh on a percept's cue, at an exit, or on its phase.
+- **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
+  `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-cut`,
+  `strike-sword-thrust`, `strike-stomp`), a strike (`strike`) of each action its executor of that
+  kind carries out; what strikes share is `src/core/option/strike.ts`, which the kinds call.
 - **The rise** (`groundOptions`): each technique an option where its entry admits the body as it
   lies, priced by its edge's expected seconds down; repositioning only from a posture no technique
   begins from.

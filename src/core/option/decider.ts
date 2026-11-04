@@ -1,14 +1,12 @@
-import { blowsOf } from "../skills/action-config.ts";
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { chooserOf } from "./chooser.ts";
 import { OPTIONS, optionsOf, type OptionKindPart } from "./kinds.ts";
 import { MEASURED_PREDICTIONS, type ProfileTables } from "./predictions-part.ts";
-import { stepSet, type Situation } from "./option.ts";
+import { stepSet, type Option, type Situation } from "./option.ts";
 import type { GroundExecutor } from "../recovery/ground/held.ts";
 import type { TechniqueConfig, TechniquePart } from "../recovery/ground/technique.ts";
 import { groundOptions, type Ground } from "./ground.ts";
 import { situationReader } from "./situation.ts";
-import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "./strike.ts";
 import { walker } from "./walk.ts";
 import type { PartConfig } from "../parts/parts.ts";
 import type { EngagementDetail } from "../mind/engagement.ts";
@@ -30,7 +28,7 @@ export interface DeciderMaking {
   readonly parts: PartLookup;
 }
 
-/** What Option Mind decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the actions and executors its strikes are carried out by. */
+/** What Option Mind decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the actions and executors its options carry out. */
 export interface Deciding {
   readonly chooser: PartConfig;
   /** What it predicts from (a part of role `predictions`; the measured profiles, `MEASURED_PREDICTIONS`, unless given). */
@@ -64,12 +62,12 @@ function unmetDetail(legs: LegsUnmet, motor: MotorUnmet): EngagementDetail {
 }
 
 /**
- * How each strike, the focus's strikes and the rise are priced as it last decided, as an
- * engagement's detail: by their measured profiles, or by hand and why (`StrikeOption.priced`,
- * `Pressure.priced`, `Ground.priced`).
+ * How each option that reads a profile, the focus's strikes and the rise are priced as it last
+ * decided, as an engagement's detail: by their measured profiles, or by hand and why
+ * (`Option.priced`, `Pressure.priced`, `Ground.priced`).
  */
-function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Situation): EngagementDetail {
-  const own = strikes.map((option) => `${option.name}: ${option.priced(now)}`);
+function profileDetail(options: readonly Option[], ground: Ground, now: Situation): EngagementDetail {
+  const own = options.flatMap((option) => option.priced ? [`${option.name}: ${option.priced(now)}`] : []);
   return { label: "Profiles", value: [...own, `foe: ${now.predictions.pressure.priced}`, `rise: ${ground.priced}`].join("; ") };
 }
 
@@ -81,14 +79,14 @@ type Kept = { foe: string; dealt: number; taken: number };
 
 /**
  * **Write into `prospects` what `now` expects of its focus** (`Prospect`), at reach: the most its
- * `strikes` are expected to deal the focus a second within their reach (`StrikeOption.rate`), and
+ * `options` are expected to deal the focus a second within their reach (`Option.rate`), and
  * the most the focus's are expected to take of it (`Pressure.peak` of `pressure`), in place of what
  * was kept of that foe; nothing with no focus.
  */
-function prospect(prospects: Kept[], strikes: readonly StrikeOption[], now: Situation): void {
+function prospect(prospects: Kept[], options: readonly Option[], now: Situation): void {
   if (!now.focus) return;
   let dealt = 0;
-  for (const strike of strikes) dealt = Math.max(dealt, strike.rate(now));
+  for (const option of options) if (option.rate) dealt = Math.max(dealt, option.rate(now));
   const foe = now.focus.id, taken = now.predictions.pressure.peak;
   const kept = prospects.find((one) => one.foe === foe);
   if (kept) { kept.dealt = dealt; kept.taken = taken; } else prospects.push({ foe, dealt, taken });
@@ -99,7 +97,7 @@ function prospect(prospects: Kept[], strikes: readonly StrikeOption[], now: Situ
  * at the foe it is worth most to act on (`Selection.decide`, each foe's situation read by
  * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given),
  * each kind making its options from what the mind gives it (`OptionsGiven`) and building what else it needs:
- * following orders (to move, stand or face), a strike of each of its blows (`strike`, from a limb
+ * following orders (to move, stand or face), each strike of its own kind (`strike`, from a limb
  * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and an
  * option a gait of its legs (`walkBy`, `gaitsOf`, `goings`: its pace, and the seconds it leaves each
  * strike unready) walking where it is worth most, each place worth where it leaves the body and the
@@ -113,27 +111,25 @@ function prospect(prospects: Kept[], strikes: readonly StrikeOption[], now: Situ
  * (`stepSet`); each option that asks the legs keeps its walk out of a fallen body's reach and a
  * solid's clearance (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
  * what its controllers did not carry out as it last decided (`unmetDetail`) and how its options
- * were priced (`profileDetail`). Each time its chooser decides afresh it keeps what it expects of
-each foe it priced (`prospects`, `prospect`): the focus, and each other foe the chooser read.
+ * were priced (`profileDetail`). Its body is modelled by the strikes its options are
+ * (`Option.modelled`). Each time its chooser decides afresh it keeps what it expects of each foe it
+ * priced (`prospects`, `prospect`): the focus, and each other foe the chooser read.
  */
 export function optionDecider(making: DeciderMaking, hz: number, deciding: Deciding, seed: number, rising: Rising, phase: number, rate: number, delay: number): Decider {
   const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
   const ground = groundOptions(spec, hz, delay, rising.executor, deciding.ground, rising.registry, tables.edges);
-  const actions = deciding.actions;
-  const measures = actions.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes, rate, delay));
-  const walk = walker(spec), reader = situationReader({ spec, hz, rate, delay, rules,
-    strikes: actions.map((action, i) => ({ name: action.name, limbs: action.effectors, profile: measuredProfile(measures[i]!) })), measured: tables.strikes,
-    ordersOf: making.orders, riseFrom: ground.riseFrom, unbraced: ground.unbraced, parts });
-  const strikes = actions.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
+  const walk = walker(spec);
   const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS,
-    { spec, hz, rate, delay, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions, tables, measures, strikes, ground });
+    { spec, hz, rate, delay, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions: deciding.actions, tables, ground });
+  const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap((option) => option.modelled ? [option.modelled] : []), measured: tables.strikes,
+    ordersOf: making.orders, riseFrom: ground.riseFrom, unbraced: ground.unbraced, parts });
   const chosen = chooserOf(parts, deciding.chooser, options, seed, phase);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), ground: ground.state, prospects: [] as Kept[] };
   let last: Sight | null = null, lastNow: Situation | null = null;
   const engagement = {
     get phase() { return chosen.running[0]?.name ?? "hold"; },
     get offers() { return chosen.offers; },
-    get details() { return last && lastNow ? [unmetDetail(last.report.legs, last.view.unmet), profileDetail(strikes, ground, lastNow)] : []; },
+    get details() { return last && lastNow ? [unmetDetail(last.report.legs, last.view.unmet), profileDetail(options, ground, lastNow)] : []; },
   };
   return {
     name: "option", state, engagement,
@@ -143,7 +139,7 @@ export function optionDecider(making: DeciderMaking, hz: number, deciding: Decid
       const read = reader.read(seen);
       let priced: readonly Situation[] = NONE;
       const { set, at: now, fresh } = chosen.decide(read, () => priced = reader.others());
-      if (fresh) { prospect(state.prospects, strikes, read); for (const other of priced) prospect(state.prospects, strikes, other); }
+      if (fresh) { prospect(state.prospects, options, read); for (const other of priced) prospect(state.prospects, options, other); }
       lastNow = now;
       reader.keep(now);
       return stepSet(set, now, dt, () => ({ move: null, face: walk.facing(now) }));

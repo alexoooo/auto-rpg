@@ -26,7 +26,7 @@ export const around = (sight: Sight): ActionAround => ({ heading: sight.report.h
  * have been measured on (`measuredOn`, no reaction time: the senses give it at each decision), and
  * the strikes' profiles it is looked up among (`ProfileTables.strikes`).
  */
-export interface StrikeMeasure {
+interface StrikeMeasure {
   readonly spec: BodySpec;
   readonly measured: Measured;
   readonly profiles: readonly Profile[];
@@ -37,33 +37,20 @@ export const strikeMeasure = (parts: PartLookup, spec: BodySpec, executors: read
   ({ spec, measured: measuredOn(spec, skillDigest(parts, spec, executors, action), hz, null, rate, delay), profiles });
 
 /** The profile of the strike `measure` names, where one is measured as its body reads it (its reaction time aside: the senses give it); null where none is. */
-export function measuredProfile(measure: StrikeMeasure): Profile | null {
+function measuredProfile(measure: StrikeMeasure): Profile | null {
   const found = profileFor(measure.profiles, measure.measured);
   return found && found.stale === null ? found.profile : null;
 }
 
-/** **A strike option** (`strike`), which says how its model is priced. */
-export interface StrikeOption extends Option {
-  /**
-   * How its model is priced now, a sentence: measured, where a cell of its profile prices it (and
-   * why scaled, `ProfileReading.scaled`); else by hand, and why: no drill measured it, its profile
-   * is stale (`staleness`), or no cell reads where it stands.
-   */
-  priced(now: Situation): string;
-  /**
-   * The window its legs are to be brought to for it now (`Readiness`'s `position`): the first of
-   * its limbs' that has one, where none is ready and no blow of its own is under way; null where a
-   * limb is ready, or none has a window. The places a walk goes to for it (`windowPlace`).
-   */
-  window(now: Situation): Window | null;
-  /**
-   * What its blows are expected to take of the focus a second, within its reach, as a share of the
-   * focus's full life, begun afresh: the most any cell of its profile takes at the focus's phase
-   * (`ProfileReading.peak`) where its model reads its profile now, else its prior's (`priorOf`); 0
-   * with no focus. Not at the range now: out of reach it reads what it would deal in reach.
-   */
-  rate(now: Situation): number;
-}
+/**
+ * **A strike option** (`strike`): how its model is priced (`Option.priced`); its window
+ * (`Option.window`), the first of its limbs' that has one, where none is ready and no blow of its
+ * own is under way; what it deals a second (`Option.rate`), the most any cell of its profile takes
+ * at the focus's phase (`ProfileReading.peak`) where its model reads its profile now, else its
+ * prior's (`priorOf`); and the strike its body is modelled by (`Option.modelled`), its profile
+ * where one is measured as its body reads it (`measuredProfile`).
+ */
+type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "window" | "modelled">>;
 
 /**
  * **Strike**: `action` at the focus with the first of its limbs that is ready, on offer where one
@@ -183,7 +170,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const blow = Math.max(...action.effectors.map((limb) => now.predictions.blows(limb, struck)));
     return { done: lands, dealt: throws * lands * blow, taken: threatened(now, seconds, from), seconds, down: 0, ends: [] };
   };
-  /** Its window now (`StrikeOption.window`). */
+  /** Its window now (`Option.window`). */
   const windowNow = (now: Situation): Window | null => {
     if (live(now) || unfit(now)) return null;
     const { ready, placed } = offer(now);
@@ -198,6 +185,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   };
   return {
     name: action.name, get claims() { return claimed.claims; }, state,
+    modelled: { name: action.name, limbs: action.effectors, profile: measuredProfile(measure) },
     entry,
     status: (now) => { if (state.over) return "over"; const phase = live(now)?.phase; return phase === "release" ? "exit" : phase === "commit" ? "committed" : "yields"; },
     window: windowNow,

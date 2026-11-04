@@ -13,7 +13,6 @@ import { blocked, LEGS, READY, type Option, type Situation } from "./option.ts";
 import type { Status } from "../mind/choice.ts";
 import { bearingAround, edgeOf, threatened } from "./percepts.ts";
 import { fromHere, type Going } from "./position.ts";
-import type { StrikeOption } from "./strike.ts";
 import { CLINCH, clinched, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 
@@ -111,14 +110,17 @@ const NO_FOCUS = blocked("no focus");
 /** The orders' pace, as a walk's ceiling. */
 const ceilingOf = (now: Situation): number => now.orders?.pace ?? Infinity;
 
+/** An option with a window (`Option.window`): what a walk into it goes to (`windowPlace`). */
+export type Windowed = Option & Required<Pick<Option, "window">>;
+
 /**
- * **Into `strike`'s window** (`StrikeOption.window`), where it stands now, while it has one its legs
+ * **Into `strike`'s window** (`Option.window`), where it stands now, while it has one its legs
  * are to be brought to and no limb is ready, so a new strike adds its own place: at the window's
  * middle, turning to the target, beside a body lying (`windowSpot`), the walk there
  * (`approachActionWindow`), kept out of every fallen body's reach but the focus's (`Walker.kept`);
  * reached once a limb is ready.
  */
-export function windowPlace(strike: StrikeOption, walk: Walker): Destination {
+export function windowPlace(strike: Windowed, walk: Walker): Destination {
   const NO_WINDOW = blocked(`no window to walk to for ${strike.name}`), NO_PLACE = blocked(`no place beside the body lying clears the feet for ${strike.name}`);
   // The place beside a body lying, held while it holds, for its spot and its walk alike.
   const state = { beside: heldBeside(), into: unread<Spot>() };

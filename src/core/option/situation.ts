@@ -15,7 +15,7 @@ import { PERCEPTS, predictor, type ModelledStrike, type Seen } from "./percepts.
 
 /**
  * What a situation reader reads with: the body's `spec`, the world's rate `hz`, the fight's `rules`
- * (`BodyHost.rules`), its own strikes (`strikes`, each with its profile, `measuredProfile`) and every striker's
+ * (`BodyHost.rules`), its own strikes (`strikes`, each with its profile, its options' `Option.modelled`) and every striker's
  * (`measured`, `dataOf("strike-profiles")`), its orders read
  * through `ordersOf`, the prices of its ways up from the ground (`downs`), and the seconds until
  * it is braced as its rise reads them (`unbraced`; absent, braced at once), and the lookup its

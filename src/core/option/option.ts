@@ -1,8 +1,8 @@
-import type { Readiness, Resource } from "../skills/framework/action.ts";
+import type { Readiness, Resource, Window } from "../skills/framework/action.ts";
 import { intentOfSet, type Intent, type SelectedAsk } from "../intent/intent.ts";
 import type { Sight } from "../mind/decider.ts";
 import type { Choice } from "../mind/choice.ts";
-import type { Percepts, Predictions } from "./percepts.ts";
+import type { ModelledStrike, Percepts, Predictions } from "./percepts.ts";
 import type { PartConfig } from "../parts/parts.ts";
 import type { Place } from "./position.ts";
 import type { Terms } from "./value.ts";
@@ -40,11 +40,30 @@ export interface Step {
  * `brace`; its targets, a gait's destinations; and its status), with its model (what running it
  * from now is expected to bring: measured where a profile prices it, else built by hand) and its
  * step. Begun, it runs until it is over, out of its entry, or given up for a better one where it
- * yields.
+ * yields. What it may say beside, where its kind has it to say, its mind reads of any option alike.
  */
 export interface Option extends Choice<Situation> {
   /** What running it from now is expected to bring (`Terms`). */
   model(now: Situation): Terms;
+  /**
+   * How its model is priced now, a sentence: measured, where its profile prices it (and why
+   * scaled, `ProfileReading.scaled`); else by hand, and why: no drill measured it, its profile is
+   * stale (`staleness`), or no cell reads where it stands. Absent where it reads no profile.
+   */
+  priced?(now: Situation): string;
+  /**
+   * What it is expected to take of the focus a second, within its reach, as a share of the
+   * focus's full life, begun afresh; 0 with no focus. Not at the range now: out of reach it reads
+   * what it would deal in reach. Absent where it deals nothing.
+   */
+  rate?(now: Situation): number;
+  /**
+   * The window its legs are to be brought to for it now (`Readiness`'s `position`), null where it
+   * needs none now; what a walk into it goes to (`windowPlace`). Absent where its skill has none.
+   */
+  window?(now: Situation): Window | null;
+  /** The strike its body is modelled by (`ModelledStrike`, `Seen.strikes`), where it is one. */
+  readonly modelled?: ModelledStrike;
   /**
    * What running it is expected to bring once the body stands where `place` leaves it (`Place.at`),
    * read at `there`, the situation that place predicts (`placed`): its entry there and its model

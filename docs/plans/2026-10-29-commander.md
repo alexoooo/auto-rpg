@@ -172,7 +172,7 @@ equal the original's.
 Built: `TeamLevel.exit` and `route` (`routeLength`, `src/dungeon/map.ts`; kept a step),
 `SensedBody.life`, `Prospect` and `MindReport.prospects` (`src/core/mind/report.ts`, a decider's
 `Decider.prospects`), `MemberView.prospects`; Option Mind keeps them each time its chooser decides
-afresh (`Chosen.fresh`), its dealt its strikes' best rate within reach (`StrikeOption.rate`: the
+afresh (`Chosen.fresh`), its dealt its strikes' best rate within reach (`Option.rate`: the
 measured peak at the focus's phase, else the prior). `BY_HAND` waits for step 4.
 
 ### 4. The Option Commander
