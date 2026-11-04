@@ -15,7 +15,7 @@ npm run build             # type-check, then the bundle
 npm run pull:merge        # fetch, merge, validate once, commit; -- --continue after resolving conflicts
 npm run match -- <a> <b>  # two minds, each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases where no row has them; --write keeps a record
-npm run evaluate -- table [--play]   # every body, loadout and skill against its bar
+npm run evaluate -- table [--play] [--baseline]   # every body, loadout and skill: met or short, or against its baseline
 npm run compare -- <before.jsonl> <after.jsonl> --subject <id>  # paired saved evidence
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 node scripts/fingerprint.mjs          # what the game computes, before and after a refactor
@@ -204,11 +204,12 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   remains is a defect in its path or the reason it gets a record or a variant of its own, never
   the reason to reject the change.
 - **Stand-up and the run are met or short** on their definitions; no push ends with either set
-  back. **Every other cell is read against its baseline** (its first reading, kept as a row) and
-  raised by paired readings against the version before: a gain is kept, a loss is not. A cell's
-  work gets one search or training run, priced from its first trials and under an hour, and the
-  fixes of the bugs it exposes; where an iteration brings no gain, its best is kept and its
-  ceiling named from a reading (the body, the controller or the drill).
+  back. **Every other cell is read against its baseline** (its first reading when its work begins,
+  kept with `npm run evaluate -- table --baseline`) and raised by paired readings against the
+  version before: a gain is kept, a loss is not. A cell's work gets one search or training run,
+  priced from its first trials and under an hour, and the fixes of the bugs it exposes; where an
+  iteration brings no gain, its best is kept and its ceiling named from a reading (the body, the
+  controller or the drill).
 - **The person's figures are a scale** (`BAR`, `src/evaluation/strike/read.ts`), reported beside
   each reading; they gate nothing.
 - **No Option makes its body fall** unless its design states it, its fall rate by outcome measured

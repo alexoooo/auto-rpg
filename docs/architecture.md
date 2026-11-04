@@ -357,7 +357,10 @@ path for Node, its workers and a page; `scripts/evaluate.mjs` runs it.
   or fail, its rungs its protocols (the strike's bar in `strike/read.ts`). Only the owner accepts a
   rung (`accepted.json`).
 - **The table** (`src/evaluation/table/`): Option Mind on every body by loadout by skill
-  (`tableCells`), each cell judged from the newest records (`verdictOf`).
+  (`tableCells`), judged from the newest records: stand-up and the run met or short
+  (`verdictOf`), every other cell its score (`scoreOf`) against its baseline
+  (`assets/evaluations/<drill>/baselines.json`, `baselineOf`) and its best version, the person's
+  figure beside a strike's (`personOf`).
 - **Falls** (`fall.ts`): one body felled on one bed (`buildFall`), its stand verified
   (`STAND_CHECK`); a stand-up is read on the [owner's
   target](reference/rising.md#the-owners-target).

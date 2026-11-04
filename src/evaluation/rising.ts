@@ -29,7 +29,7 @@ import type { Actor } from "../lab/actor.ts";
 import { GROUND_LEVELS, type GroundLevel } from "../lab/ground-environment.ts";
 import { groundPlacement, groundPostures } from "../lab/ground-starts.ts";
 import type { LabAddress } from "../lab/scenarios.ts";
-import { buildStandFall, checkFall, fallStart, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
+import { buildStandFall, checkFall, FALL_CAP, fallStart, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
 import { cos, sin } from "../core/math/real.ts";
 import { medianOf } from "./stats.ts";
 
@@ -243,6 +243,26 @@ export const FRESH_OFFSET = 11.25;
 
 /** The stand-up target's time for each fall, s: a fall stands within it (`docs/reference/rising.md#the-owners-target`). */
 export const STAND_WITHIN = 10;
+
+/** The most a body and loadout's failure-inclusive median may be on the stand-up target, s. */
+const TARGET_MEDIAN = 10;
+
+/**
+ * **The stand-up target's gates on one body and loadout's falls**
+ * (`docs/reference/rising.md#the-owners-target`), each fall its shove's direction, degrees, and its
+ * time to a verified stand, s, null for none: its sixteen directions each once, turned by `offset`
+ * (`complete`); at least 15 within `STAND_WITHIN` (`within`); every cardinal direction within it
+ * (`cardinals`); a failure-inclusive median, a fall not stood at the cap (`FALL_CAP`), of at most
+ * `TARGET_MEDIAN` (`median`, with the median itself, `seconds`).
+ */
+export function targetGates(falls: readonly { readonly degrees: number; readonly time: number | null }[], offset = 0) {
+  const directions = falls.map((fall) => fall.degrees).sort((a, b) => a - b);
+  const complete = JSON.stringify(directions) === JSON.stringify(Array.from({ length: 16 }, (_, k) => k * 22.5 + offset));
+  const inTime = (fall: { readonly time: number | null }): boolean => fall.time !== null && fall.time <= STAND_WITHIN;
+  const seconds = medianOf(falls.map((fall) => fall.time ?? FALL_CAP)) ?? FALL_CAP;
+  return { seconds, gates: { complete, within: complete && falls.filter(inTime).length >= 15,
+    cardinals: complete && falls.filter((fall) => (fall.degrees - offset) % 90 === 0).every(inTime), median: complete && seconds <= TARGET_MEDIAN } };
+}
 
 /**
  * The bed's jobs. The stand-up target: the Warrior and the Rogue, empty-handed and with the club,

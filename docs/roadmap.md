@@ -67,7 +67,6 @@ Option Mind as its hero.
 - A step that allocates nothing beyond what Rapier does ([step cost](reference/step-cost.md)).
 - The bout's and the Crypt run's world builders sit among their screens' files; the Lab's
   scenarios reach the page's render.
-- The Skeleton's stand-up cell cannot be met: the table judges more falls than its readings hold.
 - One notion of a task across evaluations, the Lab and the Ratings; the Ratings reel plays bout
   cases only.
 - The orders vocabulary is closed: a new kind of order edits `Orders`, `isOrders`, `Command` and
