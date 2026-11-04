@@ -76,7 +76,6 @@ export type FallReading = {
   readonly status: "stood" | "landed standing" | "no takeover" | "fell after verification" | "failed";
   readonly stood: boolean;
   readonly handback: number | null;
-  readonly handBackReason: string | null;
   readonly takeover: number | null;
   readonly verified: number | null;
   readonly walked: number | null;
@@ -178,7 +177,7 @@ export async function buildStandFall(fall: FallCase, engine: EngineName, given: 
       const frame = run.frame();
       read = { status: stood ? "stood" : run.state.status === "landed standing" ? "landed standing"
         : check.takeover === null && fall.start === "shoved" ? "no takeover" : check.stage === "fell after verification" ? "fell after verification" : "failed",
-        stood, handback: frame.handback, handBackReason: frame.handBackReason, takeover: check.takeover, verified: check.verified, walked: check.walked,
+        stood, handback: frame.handback, takeover: check.takeover, verified: check.verified, walked: check.walked,
         trail: frame.trail as unknown as Json, attempts: frame.attempts as unknown as Json, phases: frame.phases as unknown as Json, assist: frame.assist as unknown as Json };
       return read;
     },
@@ -242,7 +241,7 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
     reading() {
       const c = check!.state, stood = c.stage === "stood", frame = meter?.frame();
       return { status: stood ? "stood" : c.takeover === null ? "no takeover" : c.stage === "fell after verification" ? "fell after verification" : "failed",
-        stood, handback: frame?.handback ?? null, handBackReason: frame?.handBackReason ?? null, takeover: c.takeover, verified: c.verified, walked: c.walked,
+        stood, handback: frame?.handback ?? null, takeover: c.takeover, verified: c.verified, walked: c.walked,
         trail: (frame?.trail ?? []) as unknown as Json, attempts: (frame?.attempts?.length ? frame.attempts : ledger.attempts(world.time)) as unknown as Json, phases: (frame?.phases ?? {}) as unknown as Json,
         assist: (frame?.assist ?? null) as unknown as Json };
     },

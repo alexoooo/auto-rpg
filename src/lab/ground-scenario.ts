@@ -61,13 +61,13 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
   let address = labAddress("?scenario=ground"), fault = "";
   let current: { shove(): void } | null = null;
   let shown: ReturnType<ReturnType<typeof startGround>["frame"]> | null = null;
-  const trail = note(() => shown?.trail.slice(-12).map(t => `${t.at.toFixed(2)} s: ${t.position} — ${t.controller}, ${t.mode}, ${t.phase}`).join("\n") ?? "");
+  const trail = note(() => shown?.trail.slice(-12).map(t => `${t.at.toFixed(2)} s: ${t.position} — ${t.controller}`).join("\n") ?? "");
   const attempts = note(() => shown?.attempts.map(a => `${a.controller}: ${a.end}, ${a.seconds.toFixed(2)} s`).join("\n") ?? "");
-  const phases = note(() => shown ? Object.entries(shown.phases).map(([phase, seconds]) => `${phase}: ${seconds.toFixed(2)} s`).join("; ") : "");
+  const phases = note(() => shown ? Object.entries(shown.phases).map(([controller, seconds]) => `${controller}: ${seconds.toFixed(2)} s`).join("; ") : "");
   const change = (ground: Partial<LabAddress["ground"]>) => shell.load({ ...address, ground: { ...address.ground, ...ground } });
-  const meter = readings({ position: { name: "Position" }, doing: { name: "Sub-mind / mode / phase" }, reached: { name: "Technique reached" },
+  const meter = readings({ position: { name: "Position" }, doing: { name: "Controller" },
     level: { name: "Fall environment" }, seconds: { name: "Time down", unit: "s" }, check: { name: "Stand check" }, verified: { name: "Up and quiet", unit: "s from takeover" },
-    round: { name: "Round" }, handback: { name: "Time to hand-back", unit: "s" }, handbackRule: { name: "Hand-back rule" },
+    round: { name: "Round" }, handback: { name: "Time to hand-back", unit: "s" },
     hands: { name: "Hand loads", unit: "body weight" }, feet: { name: "Foot loads", unit: "body weight" },
     balance: { name: "Balance", unit: "%" }, assist: { name: "Peak help", unit: "N / N m" },
     impulse: { name: "Total help", unit: "N s / N m s" }, totals: { name: "Falls / stood / median / worst" }, status: { name: "Run" } });
@@ -153,10 +153,10 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
           const loads = shown.loads, summary = shown.summary;
           const seconds = (v: number | null) => v === null ? "—" : v.toFixed(2);
           const load = (name: string) => loads[name]?.toFixed(2) ?? "—";
-          meter.write({ level: GROUND_LEVELS[shown.level].label, position: shown.position, doing: `${shown.controller} / ${shown.mode} / ${shown.phase} ${shown.stage ?? ""}`, reached: shown.techniqueReached === null ? "—" : shown.techniqueReached ? "yes" : "no",
+          meter.write({ level: GROUND_LEVELS[shown.level].label, position: shown.position, doing: shown.controller,
             seconds: shown.seconds.toFixed(2), check: shown.check.stage, verified: seconds(shown.check.verified),
             round: shown.round ? `${shown.round.falls} of ${shown.round.of}: stood ${shown.round.stood}, within ${STAND_CHECK.within} s ${shown.round.within}, median ${seconds(shown.round.median)} s (a failure at ${STAND_CHECK.cap} s)` : "—",
-            handback: seconds(shown.handback), handbackRule: shown.handBackReason ?? "—",
+            handback: seconds(shown.handback),
             hands: `${load("hand.left")} / ${load("hand.right")}`,
             feet: `${load("foot.left")} / ${load("foot.right")}`,
             balance: String(shown.balance), assist: `${shown.assist.forcePeak.toFixed(2)} / ${shown.assist.momentPeak.toFixed(2)}`,
