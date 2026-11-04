@@ -230,7 +230,11 @@ options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Optio
 - **Percepts** (`PERCEPTS`) and **predictions** (`PREDICTIONS`) are read into the `Situation`
   the first time a step asks for each and kept for the step (`perceiver`); predictions price from
   measured profiles (`Profile`, `src/core/skills/framework/profile.ts`),
-  a stale one unread and a model with none priced by its prior.
+  a stale one unread and a model with none priced by its prior. A profile is a sample of its
+  drill's trials, each keeping what it brought and where it began (the range, the foe's phase,
+  both postures, and the velocity in its target's frame, `startVelocity`); a reading takes the
+  trials nearest the start asked at, and a rate of blows reads each trial's run and its limb's way
+  back to its guard.
 - **The objective** (`OBJECTIVES`): `few-terms` values an option in a share of a body's life
   beside its orders at the person's `OBEDIENCE`.
 - **The chooser** (`CHOOSERS`) runs the toolkit's set selection (`selectSet`,

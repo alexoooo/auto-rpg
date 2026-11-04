@@ -1,9 +1,10 @@
 /**
  * **The edges' profiles**: from the Rise drill's records,
  * both rungs, each body's profile of each edge it was begun on, in the profiles' one type
- * (`src/core/skills/framework/profile.ts`, `assets/core/edge-profiles.json`): one cell, no foe, its trials those
- * that began the edge; the share it took the body to its posture, the mean seconds a trial ran, done
- * or not, the share not done (down), and the positions those came to rest in. Each names what it was
+ * (`src/core/skills/framework/profile.ts`, `assets/core/edge-profiles.json`): no foe, its trials those
+ * that began the edge, each begun at no range, clear, its velocity not recorded (`Start.velocity`);
+ * whether it took the body to its posture, the seconds it ran, done or not, and, not done, that it
+ * ended down and the position it came to rest in (`Trial.end`). Each names what it was
  * measured on: the body as the drill builds it (`techniqueSpec`), the technique's config, the
  * harness's rate, and no reaction time (an edge reads no other body). Stand up prices its routes by
  * them (`src/core/recovery/ground/stand-up.ts`).
@@ -56,17 +57,17 @@ for (const path of paths) {
     const link = line.reading.links[line.reading.links.length - 1];
     if (!link.entry) continue;
     const measured = measuredOn(techniqueSpec(line.world.technique), techniqueDigest({ kind: link.technique }), hz, null, hz, delay), key = JSON.stringify(measured);
-    const profile = profiles.get(key) ?? { measured, label: `${line.condition.model} ${link.technique}`, begun: 0, done: 0, seconds: 0, fails: {} };
+    const profile = profiles.get(key) ?? { measured, label: `${line.condition.model} ${link.technique}`, trials: [] };
     profiles.set(key, profile);
-    profile.begun++; profile.seconds += link.seconds;
-    if (link.end === "done") profile.done++;
-    else profile.fails[link.position] = (profile.fails[link.position] ?? 0) + 1;
+    const done = link.end === "done";
+    profile.trials.push({ start: { range: 0, phase: "clear" }, done, dealt: 0, taken: 0, seconds: round(link.seconds), recovers: null, down: !done, ...(done ? {} : { end: link.position }) });
   }
 }
 
-const out = { source: { script: "research/edge-profiles.mjs", records: paths }, profiles: [...profiles.values()].map((p) => ({ measured: p.measured, target: null,
-  cells: [{ range: 0, phase: "clear", trials: p.begun, done: p.done / p.begun, dealt: 0, taken: 0, seconds: round(p.seconds / p.begun),
-    down: 1 - p.done / p.begun, ends: Object.entries(p.fails).map(([at, count]) => ({ at, share: count / p.begun })) }] })) };
-for (const p of profiles.values())
-  console.log(`${p.label}: done ${p.done} of ${p.begun}, ${round(p.seconds / p.begun)} s a trial, failures ending ${JSON.stringify(p.fails)}`);
+const out = { source: { script: "research/edge-profiles.mjs", records: paths }, profiles: [...profiles.values()].map((p) => ({ measured: p.measured, target: null, trials: p.trials })) };
+for (const p of profiles.values()) {
+  const done = p.trials.filter((t) => t.done).length, fails = {};
+  for (const t of p.trials) if (t.end) fails[t.end] = (fails[t.end] ?? 0) + 1;
+  console.log(`${p.label}: done ${done} of ${p.trials.length}, ${round(p.trials.reduce((s, t) => s + t.seconds, 0) / p.trials.length)} s a trial, failures ending ${JSON.stringify(fails)}`);
+}
 if (write) writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);

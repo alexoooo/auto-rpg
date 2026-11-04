@@ -1,32 +1,35 @@
 /**
  * **The strikes' profiles** (`src/core/skills/framework/profile.ts`, `assets/core/strike-profiles.json`): from
  * Strike drill records (`assets/evaluations/strike/`, and the baseline's punch rows, whose `rung`
- * names theirs), each strike's trials thrown from rest at a gap, on a mark its action aims at, with
- * a limb that throws it with what it holds (`armedActions`). A profile a skill on a body against a
- * target: its measured-on read from each row's world (the left
- * body's spec as the bout builds it, the skill's digest as the mind holds it, the harness's rate and command delay (`harnessRule`),
- * the recipe's sense delay, the rate its mind decides at), its target the right body's; a cell a range, the target's phase as
- * the striker sensed it where its trial began (the reading's `foePhase`; a trial with none never
- * reached the drill) and its posture then (`foeAt.posture`, `ProfileCell.postures`; standing in a
- * record from before the reading held it). A target standing is at its condition's gap; one down,
- * at the range the striker sensed it at then, centre to centre (`foeAt.apart`), to the nearest 0.1 m. A record that does not hold that phase is refused: its rung is played again. The `walk`
- * rung is left out: the range it was asked at is not recorded.
+ * names theirs), each strike's trials on a mark its action aims at, with a limb that throws it with
+ * what it holds (`armedActions`). A profile a skill on a body against a target: its measured-on read
+ * from each row's world (the left body's spec as the bout builds it, the skill's digest as the mind
+ * holds it, the harness's rate and command delay (`harnessRule`), the recipe's sense delay, the rate
+ * its mind decides at), its target the right body's; its trials those whose strike began (a trial
+ * whose action never began measures the drill's walk, not the strike).
+ *
+ * A trial's start (`Start`) is where the striker sensed the target as it began (the reading's
+ * `foeAt` and `foePhase`): the range centre to centre, the target's phase and posture, and the
+ * striker's velocity against the target's (`foeAt.velocity`; absent in a record from before the
+ * reading held it). A profile with trials that record their velocity keeps those alone: fresh trials
+ * replace the older. A record that does not hold the phase is refused: its rung is played again. The
+ * `walk` rung is left out: it was asked of a body still walking at no start the drill sets.
+ *
+ * What a trial brought: whether it landed; the life the rules take from the target for every
+ * contact of the striker's on it, the contact's damage (`StrikeContact.damage`) at the struck
+ * segment's cost in life under the recipe's rules (`lifeFactor`), and the damage the striker took
+ * over the trial; the seconds its action ran, from its start to its end, when its limb is free to
+ * begin another (to the trial's end where it did not end); the seconds from its end until the limb
+ * was back at its guard (`recovers`; null where it was not, or the record does not say); whether it
+ * ended down; and the range head to head once its limb was back (`exit.range`). A trial whose drill
+ * let its strike go (`letGo`) prices letting go alone: the progress of the motion it was let go at
+ * (the seconds from its start, to the step), the seconds from the let-go until the hand was back at
+ * its guard (the trial's end where it was not), and the hit points the striker lost meanwhile.
  * A profile names the limbs its trials were thrown with (`Profile.limbs`), in its action's order.
- * A trial whose drill lets its strike go (`letGo`) counts only toward its cell's cost of letting go,
- * at the progress of the motion it was let go at (the seconds from its start, to the step).
  *
- * A cell's trials: the share that landed; the life the rules take from the target for every contact
- * of the striker's on it, the contact's damage (`StrikeContact.damage`) at the struck segment's
- * cost in life under the recipe's rules (`lifeFactor`), and the damage the striker took in them; the seconds its action ran,
- * from its start to its end, when its limb is free to begin another, over the trials whose action
- * did (a cell with none, the trials' own length); the share that ended down; and the range head to head where its strike ended
- * (`exit.range`), over the trials whose strike did. Its cost of letting go, by progress, over the trials
- * let go there: the seconds from the let-go until the hand was back at its guard (the trial's end
- * where it was not), and the hit points the striker lost meanwhile.
+ *   node --import ./tests/harness/preload-data.mjs research/strike-profiles.mjs [<record.jsonl or run.json> ...] [--write]
  *
- *   node --import ./tests/harness/preload-data.mjs research/strike-profiles.mjs [<record.jsonl> ...] [--write]
- *
- * With none named, the records the profiles name now.
+ * With none named, the records the profiles name now; a run's `--json` file reads as a record.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { EMPTY_LOADOUT, withLoadout } from "../src/core/items/held.ts";
@@ -45,9 +48,15 @@ const write = process.argv.includes("--write");
 const named = process.argv.slice(2).filter((arg) => arg !== "--write");
 const paths = named.length ? named : JSON.parse(readFileSync(OUT, "utf8")).source.records;
 
-/** A record's header and rows. */
-const read = (path) => readFileSync(path, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
+/** A record's header and rows: a kept record (`.jsonl`), or a run's `--json` file. */
+const read = (path) => {
+  const text = readFileSync(path, "utf8");
+  if (!path.endsWith(".json")) return text.split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
+  const { header, cases } = JSON.parse(text);
+  return [header, ...cases];
+};
 const round = (x) => Number(x.toFixed(4));
+const median = (xs) => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length ? s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 : null; };
 
 /** Each side's body's spec, by its recipe's model, attributes and loadout: as the bout resolves it (no surfaces, haste or balance in a drill's recipe). */
 const specs = new Map();
@@ -83,48 +92,43 @@ for (const path of paths) {
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
     const measured = measuredOn(spec, skillDigest(partLookup, spec, mind.executors, action), hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
-    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} on ${struck.model}`, effectors: action.effectors, limbs: new Set(), records: new Set(), cells: new Map() };
+    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} on ${struck.model}`, effectors: action.effectors, limbs: new Set(), records: new Set(), trials: [] };
     profiles.set(key, profile);
     profile.records.add(path);
     profile.limbs.add(drill.effector);
-    if (row.reading.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
-    const phase = row.reading.foePhase;
-    if (phase === null) continue;
-    const posture = row.reading.foeAt?.posture ?? "standing", range = posture === "standing" ? row.condition.gap : Math.round(row.reading.foeAt.apart * 10) / 10;
-    const cellKey = JSON.stringify([range, phase, posture]);
-    const cell = profile.cells.get(cellKey) ?? { range, phase, posture, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0, ranged: 0, exitRange: 0, lets: new Map() };
-    profile.cells.set(cellKey, cell);
     const r = row.reading;
+    if (r.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
+    if (r.foePhase === null || r.foeAt === null || r.began === null) continue;
+    const posture = r.foeAt.posture ?? "standing";
+    const start = { range: round(r.foeAt.apart), phase: r.foePhase, ...(posture === "standing" ? {} : { postures: { own: "standing", target: posture } }),
+      ...(r.foeAt.velocity ? { velocity: r.foeAt.velocity.map(round) } : {}) };
     if (drill.letGo !== undefined) {
-      if (r.letGo) {
-        const progress = Math.round((r.letGo.at - r.began) * hz) / hz, at = cell.lets.get(progress) ?? { n: 0, seconds: 0, taken: 0 };
-        cell.lets.set(progress, at);
-        at.n++; at.seconds += (r.letGo.again ?? r.seconds) - r.letGo.at; at.taken += r.letGo.opening;
-      }
+      // Past its point of no return, a strike is not let go: such a trial prices nothing.
+      if (r.letGo) profile.trials.push({ start, done: false, dealt: 0, taken: round(r.taken ?? 0), seconds: round((r.ended ?? r.seconds) - r.began), recovers: null, down: r.down,
+        letGo: { progress: round(Math.round((r.letGo.at - r.began) * hz) / hz), seconds: round((r.letGo.again ?? r.seconds) - r.letGo.at), taken: round(r.letGo.opening) } });
       continue;
     }
-    cell.trials++;
-    if (r.outcome === "landed") cell.done++;
     const rules = rulebook("arena", recipe.rules);
-    for (const contact of r.contacts) cell.dealt += contact.damage * lifeFactor(rules, struck, contact.on);
-    cell.taken += r.taken ?? 0;
-    if (r.down) cell.down++;
-    if (r.exit) { cell.ranged++; cell.exitRange += r.exit.range; }
-    if (r.began !== null && r.ended !== null) { cell.timed++; cell.seconds += r.ended - r.began; }
-    cell.length += (r.ended ?? r.seconds) - r.handed;
+    let dealt = 0;
+    for (const contact of r.contacts) dealt += contact.damage * lifeFactor(rules, struck, contact.on);
+    profile.trials.push({ start, done: r.outcome === "landed", dealt: round(dealt), taken: round(r.taken ?? 0), seconds: round((r.ended ?? r.seconds) - r.began),
+      recovers: r.recovers === undefined || r.recovers === null ? null : round(r.recovers), down: r.down, ...(r.exit ? { exit: { range: round(r.exit.range) } } : {}) });
   }
 }
 
+for (const profile of profiles.values()) if (profile.trials.some((t) => t.start.velocity)) profile.trials = profile.trials.filter((t) => t.start.velocity);
+const order = (a, b) => (a.start.postures?.target ?? "").localeCompare(b.start.postures?.target ?? "") || a.start.phase.localeCompare(b.start.phase) || a.start.range - b.start.range;
 const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles.values()].map((profile) => ({ measured: profile.measured, target: profile.target,
-  limbs: profile.effectors.filter((limb) => profile.limbs.has(limb)),
-  cells: [...profile.cells.values()].filter((c) => c.trials > 0).sort((a, b) => a.posture.localeCompare(b.posture) || a.phase.localeCompare(b.phase) || a.range - b.range).map((c) => ({
-    range: c.range, phase: c.phase, trials: c.trials, done: round(c.done / c.trials), dealt: round(c.dealt / c.trials), taken: round(c.taken / c.trials),
-    seconds: round(c.timed ? c.seconds / c.timed : c.length / c.trials), down: round(c.down / c.trials), ends: [], ...(c.ranged ? { exit: { range: round(c.exitRange / c.ranged) } } : {}),
-    ...(c.posture === "standing" ? {} : { postures: { own: "standing", target: c.posture } }),
-    ...(c.lets.size ? { letGo: [...c.lets].sort(([a], [b]) => a - b).map(([progress, at]) => ({ progress: round(progress), seconds: round(at.seconds / at.n), taken: round(at.taken / at.n) })) } : {}) })) })) };
-for (const [i, profile] of [...profiles.values()].entries()) {
-  console.log(`${profile.label} (${profile.measured.body}, spec ${profile.measured.spec}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz${profile.measured.rate ? `, its mind at ${profile.measured.rate} Hz` : ""}${profile.measured.delay ? `, its command ${profile.measured.delay} steps late` : ""}, senses ${profile.measured.reaction} s late)`);
-  for (const c of out.profiles[i].cells) console.log(`  ${c.postures ? `${c.postures.target} ` : ""}${c.phase} ${c.range} m: ${c.trials} trials, landed ${c.done}, dealt ${c.dealt} HP, taken ${c.taken} HP, ${c.seconds} s, down ${c.down}${c.letGo ? `; let go: ${c.letGo.map((at) => `at ${at.progress} s, ${at.seconds} s, taken ${at.taken} HP`).join("; ")}` : ""}`);
-  for (const c of profile.cells.values()) if (c.trials === 0) console.log(`  ${c.phase} ${c.range} m: let go ${[...c.lets.values()].reduce((n, at) => n + at.n, 0)} times, no trial thrown: left out`);
+  limbs: profile.effectors.filter((limb) => profile.limbs.has(limb)), trials: [...profile.trials].sort(order) })) };
+for (const profile of profiles.values()) {
+  const m = profile.measured, run = profile.trials.filter((t) => !t.letGo), lets = profile.trials.length - run.length;
+  console.log(`${profile.label} (${m.body}, spec ${m.spec}, skill ${m.skill}, ${m.hz} Hz${m.rate ? `, its mind at ${m.rate} Hz` : ""}${m.delay ? `, its command ${m.delay} steps late` : ""}, senses ${m.reaction} s late)`);
+  if (!run.length) { console.log(`  no trial run; ${lets} let go`); continue; }
+  const ranges = run.map((t) => t.start.range), closing = run.map((t) => t.start.velocity?.[0] ?? 0), across = run.map((t) => t.start.velocity?.[1] ?? 0);
+  const recovered = run.filter((t) => t.recovers !== null).map((t) => t.recovers), seconds = run.map((t) => t.seconds), dealing = run.filter((t) => t.dealt > 0);
+  const cycle = seconds.reduce((s, x) => s + x, 0) / seconds.length + (recovered.length ? recovered.reduce((s, x) => s + x, 0) / recovered.length : 0);
+  console.log(`  ${run.length} trials run (${lets} let go): range ${Math.min(...ranges)} to ${Math.max(...ranges)} m, closing ${round(Math.min(...closing))} to ${round(Math.max(...closing))} m/s, across ${round(Math.min(...across))} to ${round(Math.max(...across))} m/s;`
+    + ` landed ${round(run.filter((t) => t.done).length / run.length)}, dealt ${round(dealing.length / run.length)} of them, down ${round(run.filter((t) => t.down).length / run.length)};`
+    + ` run median ${round(median(seconds))} s; recovers ${recovered.length ? `median ${round(median(recovered))} s, ${round(Math.min(...recovered))} to ${round(Math.max(...recovered))} s, in ${recovered.length} of ${run.length}` : "recorded by none"}; cycle ${round(cycle)} s`);
 }
 if (write) writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);

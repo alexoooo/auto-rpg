@@ -632,6 +632,15 @@ export function cosh(x: number): number {
   return ix >= 0x7ff00000 ? x * x : HUGE * HUGE;
 }
 
+/** The hyperbolic tangent of `x`. */
+export function tanh(x: number): number {
+  const ax = Math.abs(x);
+  if (ax < TWO_M28) return x;
+  if (ax >= 22) return x < 0 ? -1 : 1;
+  const t = ax >= 1 ? 1 - 2 / (expm1(2 * ax) + 2) : -expm1(-2 * ax) / (expm1(-2 * ax) + 2);
+  return x < 0 ? -t : t;
+}
+
 /**
  * fdlibm's cube root: the words that turn a third of an exponent into a first estimate, for a
  * normal and a subnormal argument, two to the 54th that makes a subnormal one normal, and the

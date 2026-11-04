@@ -240,8 +240,8 @@ Each piece lands on its own, in this order:
    measures them (`src/evaluation/gait/`). A profile becomes a sample of trials, each with its
    start (the range, the foe's phase, both postures, the velocity in the frame of the Option's
    target or the body's own), read by the trials nearest the state asked at
-   (`src/core/skills/framework/profile.ts`; `ProfileCell` goes, each of today's cells read as a
-   sample begun still, weighed by its trials, until fresh trials replace it); each Option's drill
+   (`src/core/skills/framework/profile.ts`; `ProfileCell` goes, a trial from a record that holds
+   no start velocity read as begun still, until fresh trials replace it); each Option's drill
    draws its starts at random. A gait's own profile (its pace, its falls) is measured as every
    Option's is. Check: no Option
    reads another's readiness; a reading of a strike begun stepping in differs from one begun still

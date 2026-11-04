@@ -11,24 +11,73 @@ import { rigidPoints } from "../build/rigid.ts";
 import { effectorAim } from "../control/effectors.ts";
 import { deepFreeze } from "../state.ts";
 import type { Situation } from "./option.ts";
-import type { Place } from "./position.ts";
+import type { Spot } from "../intent/action-window.ts";
+import type { Position } from "../control/ground-reading.ts";
 import { segmentOf } from "../spec/body.ts";
+import type { Deciding } from "../mind/choice.ts";
+
+/** How an Option Mind's chooser decides (`Deciding`): it rethinks every 0.2 s. A foe's mind is taken for one like it (`Pressure.latency`). */
+export const DECIDING: Deciding = Object.freeze({ rethink: .2 });
 
 /**
- * **What running an option from now is expected to bring**, over its run, in life (a share of a
- * body's full life, the verdict's unit) where it is a payoff: how long it runs, s; the focus's life
- * its blows take; its own life the blows it takes take, the blow coming included; the metres it
- * walks as ordered; where it leaves the body (`Place`: how far
- * from the focus, and the chance it is down); and, where it runs and may be let go now, before its
- * point of no return, what letting it go leaves: the seconds until its body could begin it again,
- * and its own life lost meanwhile.
+ * **Where an Option leaves the body**: what of the situation it changes, each a percept by its name
+ * (`PERCEPTS`): where on the ground the body stands and the way it faces (`where`), its bearing
+ * around the focus where the focus has not turned to face it there (`around`; else as `where`
+ * reads it), what bears it (`posture`; down unless standing) and its velocity over the ground,
+ * m/s (`velocity`); and, where it reckons it, the seconds before the focus's pressure reaches the
+ * body there (`grace`, `Situation.grace`). What it does not name is as it was, the foe included
+ * (`placed`).
+ */
+export interface Leaves {
+  readonly where?: Spot;
+  readonly around?: number;
+  readonly posture?: Position;
+  readonly grace?: number;
+  readonly velocity?: Ground;
+}
+
+/** **One way an Option ends**: where it leaves the body (`Leaves`), and the chance it ends so. */
+export interface Outcome {
+  readonly leaves: Leaves;
+  readonly chance: number;
+}
+
+/** Leaving the body as it is: nothing changed. */
+export const AS_IS: Leaves = Object.freeze({});
+
+/** **Ending one way**: leaving the body as it is (`AS_IS`), for certain. */
+export const UNMOVED: readonly Outcome[] = Object.freeze([Object.freeze({ leaves: AS_IS, chance: 1 })]);
+
+/** Where a fall leaves the body where nothing measured where it comes to rest: on its back. */
+export const FALLEN: Position = "back";
+
+/** No motion over the ground. */
+export const STILL: Ground = Object.freeze({ x: 0, z: 0 });
+
+/**
+ * **Up, or fallen**: leaving the body as `up` says in the share it stays up, lying in `posture`
+ * (`FALLEN` unless given) in the share `down`; one outcome where either share is none.
+ */
+export function upOrDown(up: Leaves, down: number, posture: Position = FALLEN): readonly Outcome[] {
+  if (!(down > 0)) return [{ leaves: up, chance: 1 }];
+  const fallen: Outcome = { leaves: { posture, velocity: STILL }, chance: Math.min(1, down) };
+  return down >= 1 ? [fallen] : [{ leaves: up, chance: 1 - down }, fallen];
+}
+
+/**
+ * **What running an Option from a state is expected to bring**, over its run, in life (a share of
+ * a body's full life, the verdict's unit) where it is a payoff: how long it runs, s; the focus's
+ * life its blows take; its own life the blows it takes take, the blow coming included; the metres
+ * it walks as ordered; the ways it ends (`Outcome`), whose chances sum to one; and, where it runs
+ * and may be let go now, before its point of no return, what letting it go leaves: the seconds
+ * until its body could begin it again, and its own life lost meanwhile.
  */
 export interface Terms {
   readonly duration: number;
   readonly dealt: number;
   readonly taken: number;
   readonly orders: number;
-  readonly exit: Place;
+  readonly outcomes: readonly Outcome[];
   readonly letGo?: { readonly seconds: number; readonly taken: number };
 }
 
@@ -174,5 +223,8 @@ export function record(ledger: readonly Ended[], action: string | null): { reado
  */
 export const CLINCH = deepFreeze({ within: .65, falls: .2 });
 
-/** The chance of going down in `seconds` s of a clinch, if the body is in one `apart` m centre to centre from the focus (as it stands now unless given). */
+/** The chance of going down in `seconds` s of a clinch, if the body is in one `apart` m centre to centre from the focus (as it stands at `now` unless given). */
 export const clinched = (now: Situation, seconds: number, apart = now.apart): number => now.focus && apart < CLINCH.within ? Math.min(1, CLINCH.falls * seconds) : 0;
+
+/** A point on the ground, or a motion over it: x and z, m or m/s. */
+export interface Ground { readonly x: number; readonly z: number }

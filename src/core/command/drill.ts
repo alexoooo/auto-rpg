@@ -3,7 +3,6 @@ import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArriva
 import { ARRIVED, directMovement, placeMovement, SWAY } from "../intent/movement.ts";
 import { isRegion, type Orders } from "../intent/orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../skills/framework/action.ts";
-import { GAIT_NAMES, type GaitName } from "../skills/locomotion/gaits.ts";
 import type { MenuEntry } from "../skills/framework/menu.ts";
 import { deepFreeze } from "../state.ts";
 import { hold, letGo, stillHeld, unheld } from "../mind/held.ts";
@@ -13,11 +12,10 @@ import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, Tea
 /**
  * **A drill Commander's config**: one action with one limb at one region of the nearest foe, asked
  * once; where it leaves one of the three out, the first choice of its member's menu that fits the
- * rest and could start or be walked to, kept once taken. It stands `after` s; with `going`, goes
- * straight at the foe at that speed until the window would admit the body but for its speed; walks
- * into the action's window no faster than `pace` (with none, it never walks) and orders the strike
- * once there and settled, or, `walking`, the first step it is ready. With `gait`, every order names
- * it. With `letGo`, it orders a stand that long after the action began, where the action is
+ * rest and could start or be walked to, kept once taken. It stands `after` s; with `approach`, walks
+ * its way off the line to the foe, ordering the strike the first step it is ready; walks into the
+ * action's window no faster than `pace` (with none, it never walks) and orders the strike once there
+ * and settled, or, `walking`, the first step it is ready. With `letGo`, it orders a stand that long after the action began, where the action is
  * still before its point of no return. With `moment`, it orders nothing until its member begins its
  * `moment`th action aimed at a body, and the mind fights by itself till then; from that step it
  * carries that one on where it is the choice it asks (`adopts`), else orders its own in that one's
@@ -37,10 +35,11 @@ export interface DrillCommanderConfig extends CommanderConfig {
   readonly pace?: number;
   /** Order the strike the first step it is ready, walking or not, rather than once settled in the window's middle. */
   readonly walking?: true;
-  /** How fast it first goes straight at the foe, m/s, until the action's window would admit its member but for its speed; absent, it walks only into the window. */
-  readonly going?: number;
-  /** The gait every order names (`Orders.gait`); absent, the mind's choice. */
-  readonly gait?: GaitName;
+  /**
+   * How it first moves once it has stood (`Approach`), ordering the strike the first step it is
+   * ready meanwhile; absent, it walks only into the window.
+   */
+  readonly approach?: Approach;
   /** How long after its action began it orders a stand, s, where the action is still before its point of no return; absent, never. */
   readonly letGo?: number;
   /** Which of its member's actions aimed at a body it takes the place of, from 1; absent, none: it orders from the start. */
@@ -48,8 +47,15 @@ export interface DrillCommanderConfig extends CommanderConfig {
 }
 
 /**
+ * **How a drill first moves its member** (`DrillCommanderConfig.approach`): `way` degrees off the
+ * line to the foe, to the member's right (0 toward the foe, 180 away from it, 90 to its right), at
+ * `speed` m/s, for `seconds` s, facing the foe.
+ */
+export type Approach = { readonly way: number; readonly speed: number; readonly seconds: number };
+
+/**
  * Where a drill is: its member fighting by itself before its moment; standing first (`settling`);
- * going at the foe (`going`); with no foe (`lost`); reading the ordered choice (its readiness: out of its window, waiting,
+ * on its approach (`going`); with no foe (`lost`); reading the ordered choice (its readiness: out of its window, waiting,
  * refused, ready); with the strike ordered (`striking`) or under way (`under way`); after
  * letting it go until it is ready again (`let go`); or after it (`done`).
  */
@@ -121,8 +127,6 @@ function drillCommander(config: DrillCommanderConfig): Commander {
     last: null as { x: number; z: number; time: number } | null,
     /** How its member's walk into the window ends (`arrivedIn`), and since when its speed has stayed at most `SETTLED`. */
     arrival: windowArrival(),
-    /** Whether, going at the foe, it has come where the window would admit its member but for its speed. */
-    arrived: false,
   };
   const aimed = (member: MemberView): ReadonlySet<string> => new Set((member.kit ?? []).filter((entry) => entry.regions.length > 0).map((entry) => entry.action));
   const nearest = (member: MemberView, others: readonly SensedBody[]): SensedBody | null => {
@@ -162,7 +166,7 @@ function drillCommander(config: DrillCommanderConfig): Commander {
     return { move: { kind: "place", points: [{ x: spot.x, z: spot.z }], near, by: spot.by }, face: heading(face) };
   };
   const decided = (member: MemberView, orders: Orders | null): TeamDecision =>
-    ({ orders: new Map(orders ? [[member.id, { ...orders, firm: true as const, ...(config.gait === undefined ? {} : { gait: config.gait }) }]] : []), looked: true });
+    ({ orders: new Map(orders ? [[member.id, { ...orders, firm: true as const }]] : []), looked: true });
   return {
     state,
     hear() {},
@@ -210,18 +214,17 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       if (state.phase === "done") return decided(member, STAND);
       if (view.time < state.since + config.after) { state.phase = "settling"; return decided(member, STAND); }
       if (!foe) { state.phase = "lost"; return decided(member, STAND); }
-      if (config.going !== undefined && !state.arrived) {
-        const readiness = ordered(member, foe.id)?.readiness;
-        // A member whose menu names the foe nowhere has not sensed it yet, and so is short of it.
-        const sensed = (member.menu ?? []).some((entry) => entry.foe === foe.id);
-        const short = !sensed || readiness?.kind === "waiting" || readiness?.kind === "position" && !windowHolds(readiness.window, at.x, at.z, member.heading ?? 0);
-        if (short) {
-          state.phase = "going";
-          return decided(member, { move: directMovement(foe.at.x - at.x, foe.at.z - at.z), pace: config.going, face: heading(atan2(foe.at.x - at.x, foe.at.z - at.z)) });
-        }
-        state.arrived = true;
-      }
       const entry = ordered(member, foe.id), readiness = entry?.readiness ?? { kind: "blocked" as const, reason: "no such choice on its menu" };
+      const approach = config.approach;
+      if (approach && view.time < state.since + config.after + approach.seconds) {
+        const toward = atan2(foe.at.x - at.x, foe.at.z - at.z), way = toward + approach.way * Math.PI / 180;
+        if (readiness.kind === "ready") {
+          state.set = toward; state.struck = foe.id; state.phase = "striking";
+          return decided(member, strike(foe.id, toward));
+        }
+        state.phase = "going";
+        return decided(member, { move: directMovement(sin(way), cos(way)), pace: approach.speed, face: heading(toward) });
+      }
       state.phase = readiness.kind;
       state.reason = readiness.kind === "blocked" || readiness.kind === "waiting" ? readiness.reason : "";
       const h = member.heading ?? 0, toward = atan2(foe.at.x - at.x, foe.at.z - at.z);
@@ -269,13 +272,19 @@ function drillCommander(config: DrillCommanderConfig): Commander {
 }
 
 const named = (value: unknown): boolean => typeof value === "string" && value.length > 0;
+/** Whether `value` is an approach (`Approach`): a finite way, a speed over nothing and a time not negative, and nothing else. */
+const approachFine = (value: unknown): boolean => {
+  const given = value as Partial<Approach> | null;
+  return typeof given === "object" && given !== null && Object.keys(given).every((key) => ["way", "speed", "seconds"].includes(key))
+    && typeof given.way === "number" && Number.isFinite(given.way) && time(given.speed) && given.speed! > 0 && time(given.seconds);
+};
 const time = (value: unknown): boolean => typeof value === "number" && Number.isFinite(value) && value >= 0;
 
 /** **A drill** (`drillCommander`): one action with one limb at one region of the nearest foe. It leads no side of a Crypt run. */
 export const DRILL: CommanderEntry = deepFreeze({
   label: "Drill", sides: [], defaults: { kind: "drill", after: .5, pace: 1 },
   faults: (config: CommanderConfig) => {
-    const given = config as Partial<DrillCommanderConfig>, keys = ["kind", "action", "limb", "region", "after", "pace", "walking", "going", "gait", "letGo", "moment"];
+    const given = config as Partial<DrillCommanderConfig>, keys = ["kind", "action", "limb", "region", "after", "pace", "walking", "approach", "letGo", "moment"];
     return [
       ...Object.keys(config).filter((key) => !keys.includes(key)).map((key) => `${key}: not a setting of drill`),
       ...given.action === undefined || named(given.action) ? [] : ["action: an action's name, or absent"],
@@ -284,8 +293,7 @@ export const DRILL: CommanderEntry = deepFreeze({
       ...time(given.after) ? [] : ["after: a finite time, s, not negative"],
       ...given.pace === undefined || time(given.pace) ? [] : ["pace: a finite speed, m/s, not negative"],
       ...given.walking === undefined || given.walking === true ? [] : ["walking: true, or absent"],
-      ...given.going === undefined || time(given.going) && given.going > 0 ? [] : ["going: a finite speed, m/s, over nothing"],
-      ...given.gait === undefined || (GAIT_NAMES as readonly unknown[]).includes(given.gait) ? [] : [`gait: one of ${GAIT_NAMES.join(", ")}, or absent`],
+      ...given.approach === undefined || approachFine(given.approach) ? [] : ["approach: a way, degrees, finite; a speed, m/s, over nothing; and a time, s, not negative"],
       ...given.letGo === undefined || time(given.letGo) ? [] : ["letGo: a finite time, s, not negative"],
       ...given.moment === undefined || Number.isSafeInteger(given.moment) && given.moment >= 1 ? [] : ["moment: a count from 1, of its member's actions"],
     ];

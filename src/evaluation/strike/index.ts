@@ -1,7 +1,7 @@
 /**
  * **The Strike drill**: does a strike skill, thrown once, land on
  * the mark it was asked, and come back without felling the striker? Each rung is a protocol (rung
- * 0, `still`: a still target; rung 1, `moving`: a pad carried on a rail; rungs 2 to 4, `stepping`, `guarding`, `punching`: a drill opponent;
+ * 0, `still`: a still target, and `sampled`, its starts drawn at random, moving or still; rung 1, `moving`: a pad carried on a rail; rungs 2 to 4, `stepping`, `guarding`, `punching`: a drill opponent;
  * rung 5, `walk`: one walked to, asked settled or still walking), its trials laid out by body, mark, hand, offset and range. The
  * subject is a mind and one of its actions (`option/straight-punch`), and what its striker holds where
  * it names a loadout (`option/club-blow@buckler,club`, its left hand first); a drill Commander
@@ -18,7 +18,7 @@ import { limbOf, STRIKE_CASES, type StrikeCondition } from "./cases.ts";
 
 /** Where a trial was thrown: the still rung's offset and gap (and its target, and how it moves, where it names them), or a fight's foe and moment. */
 const whereOf = (condition: StrikeCondition) => "foe" in condition ? `${condition.foe}, moment ${condition.moment}`
-  : `${condition.target ? `${condition.target}, ` : ""}${condition.direction ? `moving ${condition.direction} at ${condition.speed} m/s, ` : ""}across ${condition.across} m, gap ${condition.gap} m${condition.start ? `, ${condition.start}` : ""}`;
+  : `${condition.target ? `${condition.target}, ` : ""}${condition.direction ? `moving ${condition.direction} at ${condition.speed} m/s, ` : ""}${condition.approach ? `moving ${condition.approach.way} degrees off the line at ${condition.approach.speed} m/s for ${condition.approach.seconds} s, ` : ""}across ${condition.across} m, gap ${condition.gap} m${condition.start ? `, ${condition.start}` : ""}`;
 import { meetsBar, type StrikeReading } from "./read.ts";
 import { barScore } from "./score.ts";
 

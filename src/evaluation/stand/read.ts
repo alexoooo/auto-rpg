@@ -46,7 +46,7 @@ export function readStand(built: { readonly world: World; readonly duel: Duel },
   /** Whether a foot bears on something fixed, the floor: the solver pushed on it last step. */
   const bears = (segment: BuiltSegment | undefined) => segment !== undefined && body.physics.contactsOf(segment.body, (other) => other === null).some((contact) => contact.impulse > 0);
   const strike = rung.state === "striking" ? readStrike(built, { mark: rung.mark ?? "middle", hand: condition.hand ?? "right" },
-    { seconds: rung.seconds, settle: .5, settled: rung.after ?? 0, patience: 8 }) : null;
+    { seconds: rung.seconds, settle: .5, recover: 0, settled: rung.after ?? 0, patience: 8 }) : null;
   /** The centre of mass's velocity across the ground over the last `window` s, a ring of x and z. */
   const size = Math.max(1, Math.round(rung.window * world.hz)), ring = new Float64Array(2 * size);
   let filled = 0, next = 0, sumX = 0, sumZ = 0;

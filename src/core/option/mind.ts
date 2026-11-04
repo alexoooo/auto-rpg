@@ -163,7 +163,7 @@ export const OPTION_MIND = controller<AnyOptionMindConfig>({
   keys: { kind: true, frame: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, motor: true, rate: true },
   // The options it starts with where its config names none; a frame's are named.
   uses: (config) => framed(config) || config.options ? [] : OPTIONS,
-  reads: (config) => framed(config) ? [] : ["strike-profiles", "edge-profiles", "gait-profiles"],
+  reads: (config) => framed(config) ? [] : ["strike-profiles", "edge-profiles"],
   fits: (spec, config, parts) => framed(config) ? parts.of("frame", config.frame).fits(spec, config.frame, parts) : anyBody(),
   strikes: (spec, config, parts) => framed(config) ? parts.of("frame", config.frame).strikes?.(spec, config.frame, parts)
     : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),

@@ -4,7 +4,6 @@ import { OPTIONS, optionsOf, type OptionKindPart } from "./kinds.ts";
 import { MEASURED_PREDICTIONS, type ProfileTables } from "./predictions-part.ts";
 import { stepSet, type Option, type Situation } from "./option.ts";
 import { optionRecord } from "./record.ts";
-import { risePrices } from "./rise.ts";
 import { situationReader } from "./situation.ts";
 import { walker } from "./walk.ts";
 import type { PartConfig } from "../parts/parts.ts";
@@ -90,15 +89,13 @@ function prospect(prospects: Kept[], options: readonly Option[], now: Situation)
  * each kind making its options from what the mind gives it (`OptionsGiven`) and building what else it needs:
  * following orders (to move, stand or face), each strike of its own kind (`strike`, from a limb
  * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and an
- * option a gait of its legs (`walkBy`, `gaitsOf`, `goings`: its pace, and the seconds it leaves each
- * strike unready) walking where it is worth most, each place worth where it leaves the body and the
- * best option there (the chooser's look past it): each strike's window, ahead and behind the foe
- * (`windowPlaces`), and out of the foe's pressure (`outOfPressure`); and, down,
+ * option a gait of its legs (`walkBy`, `gaitsOf`) walking where it is worth most, each place worth
+ * what the chooser's search finds there: each strike's window (`windowPlace`), and out of the foe's
+ * pressure (`outOfPressure`); and, down,
  * the rise's options (`RISE_OPTIONS`); and the rest options, worth nothing, which
  * take what nothing else is worth more on: hold the position, the hands at their guard, and, down,
  * brace (`hold`, `guard`, `brace`), which the cover outbids on the hand on a blow's side while it
- * closes on the head (`covers`). Its options keep one record of their tries (`optionRecord`), and
- * lying is priced by the routes of those that are ways up (`Option.route`, `risePrices`). The set's step is its members'
+ * closes on the head (`covers`). Its options keep one record of their tries (`optionRecord`). The set's step is its members'
  * (`stepSet`); each option that asks the legs keeps its walk out of a fallen body's reach and a
  * solid's clearance (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
  * what its controllers did not carry out as it last decided (`unmetDetail`) and how its options
@@ -112,7 +109,7 @@ export function optionDecider(making: DeciderMaking, hz: number, deciding: Decid
   const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS,
     { spec, hz, rate, delay, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions: deciding.actions, tables, record });
   const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap((option) => option.modelled ? [option.modelled] : []), measured: tables.strikes,
-    ordersOf: making.orders, rise: risePrices(options.flatMap((option) => option.route ? [option.route] : []), record), record, parts });
+    ordersOf: making.orders, record, parts });
   const chosen = chooserOf(parts, deciding.chooser, options, seed, phase);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), record: record.state, prospects: [] as Kept[] };
   let last: Sight | null = null, lastNow: Situation | null = null;

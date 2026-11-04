@@ -32,135 +32,1037 @@
         "hand.right",
         "hand.left"
       ],
-      "cells": [
+      "trials": [
         {
-          "range": 0.6,
-          "phase": "clear",
-          "trials": 8,
-          "done": 0.75,
-          "dealt": 1.2927,
-          "taken": 0.0005,
-          "seconds": 0.2333,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 0.6995
-          }
-        },
-        {
-          "range": 0.7,
-          "phase": "clear",
-          "trials": 8,
-          "done": 1,
-          "dealt": 1.7709,
-          "taken": 0,
-          "seconds": 0.2396,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 0.6788
-          }
-        },
-        {
-          "range": 0.8,
-          "phase": "clear",
-          "trials": 14,
-          "done": 0.3571,
-          "dealt": 0.2186,
-          "taken": 0.329,
-          "seconds": 0.2392,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 0.6738
+          "start": {
+            "range": 0.8002,
+            "phase": "clear"
           },
-          "letGo": [
-            {
-              "progress": 0.0083,
-              "seconds": 0.0083,
-              "taken": 0
-            }
-          ]
+          "done": true,
+          "dealt": 1.6527,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6572
+          }
         },
         {
-          "range": 0.9,
-          "phase": "clear",
-          "trials": 8,
-          "done": 1,
-          "dealt": 0.4398,
+          "start": {
+            "range": 0.8002,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.6527,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6572
+          }
+        },
+        {
+          "start": {
+            "range": 0.8024,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.5943,
           "taken": 0,
           "seconds": 0.2333,
-          "down": 0,
-          "ends": [],
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.6573
+            "range": 0.6654
           }
         },
         {
-          "range": 1,
-          "phase": "clear",
-          "trials": 14,
-          "done": 0.7143,
-          "dealt": 1.0555,
-          "taken": 0.169,
-          "seconds": 0.235,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 0.7247
+          "start": {
+            "range": 0.8024,
+            "phase": "clear"
           },
-          "letGo": [
-            {
-              "progress": 0.0083,
-              "seconds": 0.0083,
-              "taken": 0
-            }
-          ]
+          "done": true,
+          "dealt": 1.5943,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6654
+          }
         },
         {
-          "range": 1.1,
-          "phase": "clear",
-          "trials": 8,
-          "done": 0,
+          "start": {
+            "range": 0.8055,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.2904,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6558
+          }
+        },
+        {
+          "start": {
+            "range": 0.8055,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.2904,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6558
+          }
+        },
+        {
+          "start": {
+            "range": 0.8099,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.3057,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6681
+          }
+        },
+        {
+          "start": {
+            "range": 0.8099,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.3057,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6681
+          }
+        },
+        {
+          "start": {
+            "range": 0.8207,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.312,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6394
+          }
+        },
+        {
+          "start": {
+            "range": 0.8207,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.6244,
+          "taken": 0.0007,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6905
+          }
+        },
+        {
+          "start": {
+            "range": 0.8207,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.2265,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6476
+          }
+        },
+        {
+          "start": {
+            "range": 0.8207,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.312,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6394
+          }
+        },
+        {
+          "start": {
+            "range": 0.8207,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.6244,
+          "taken": 0.0007,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6905
+          }
+        },
+        {
+          "start": {
+            "range": 0.8207,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.2265,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6476
+          }
+        },
+        {
+          "start": {
+            "range": 0.8216,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 2.0579,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6922
+          }
+        },
+        {
+          "start": {
+            "range": 0.8216,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 2.0579,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6922
+          }
+        },
+        {
+          "start": {
+            "range": 0.8218,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.3574,
+          "taken": 0.0007,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7054
+          }
+        },
+        {
+          "start": {
+            "range": 0.8218,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.3574,
+          "taken": 0.0007,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7054
+          }
+        },
+        {
+          "start": {
+            "range": 0.8231,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 2.1432,
+          "taken": 0.0002,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6996
+          }
+        },
+        {
+          "start": {
+            "range": 0.8231,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 2.1432,
+          "taken": 0.0002,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6996
+          }
+        },
+        {
+          "start": {
+            "range": 0.8259,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 2.0458,
+          "taken": 0.0002,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7023
+          }
+        },
+        {
+          "start": {
+            "range": 0.8259,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 2.0458,
+          "taken": 0.0002,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7023
+          }
+        },
+        {
+          "start": {
+            "range": 0.8305,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.3103,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6769
+          }
+        },
+        {
+          "start": {
+            "range": 0.8305,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.3126,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6867
+          }
+        },
+        {
+          "start": {
+            "range": 0.8305,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.3103,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6769
+          }
+        },
+        {
+          "start": {
+            "range": 0.8305,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.3126,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6867
+          }
+        },
+        {
+          "start": {
+            "range": 0.8305,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.3103,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6769
+          }
+        },
+        {
+          "start": {
+            "range": 0.8305,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.3126,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6867
+          }
+        },
+        {
+          "start": {
+            "range": 0.8305,
+            "phase": "clear"
+          },
+          "done": false,
           "dealt": 0,
           "taken": 0,
-          "seconds": 8.5,
-          "down": 0,
-          "ends": []
-        },
-        {
-          "range": 1.2,
-          "phase": "clear",
-          "trials": 14,
-          "done": 0.7143,
-          "dealt": 0.9073,
-          "taken": 0.086,
           "seconds": 0.2333,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 0.7288
-          },
-          "letGo": [
-            {
-              "progress": 0.0083,
-              "seconds": 0.0083,
-              "taken": 0
-            }
-          ]
+          "recovers": null,
+          "down": false,
+          "letGo": {
+            "progress": 0.0083,
+            "seconds": 0.0083,
+            "taken": 0
+          }
         },
         {
-          "range": 1.3,
-          "phase": "clear",
-          "trials": 8,
-          "done": 1,
-          "dealt": 1.268,
+          "start": {
+            "range": 0.8305,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "letGo": {
+            "progress": 0.0083,
+            "seconds": 0.0083,
+            "taken": 0
+          }
+        },
+        {
+          "start": {
+            "range": 0.8343,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.7787,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7003
+          }
+        },
+        {
+          "start": {
+            "range": 0.8343,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.7787,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7003
+          }
+        },
+        {
+          "start": {
+            "range": 0.8447,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.5882,
           "taken": 0,
           "seconds": 0.2333,
-          "down": 0,
-          "ends": [],
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.7309
+            "range": 0.6709
+          }
+        },
+        {
+          "start": {
+            "range": 0.8447,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.5882,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6709
+          }
+        },
+        {
+          "start": {
+            "range": 0.8448,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.6323,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6713
+          }
+        },
+        {
+          "start": {
+            "range": 0.8448,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.6323,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6713
+          }
+        },
+        {
+          "start": {
+            "range": 0.8702,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.8458,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7246
+          }
+        },
+        {
+          "start": {
+            "range": 0.8702,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.7519,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.723
+          }
+        },
+        {
+          "start": {
+            "range": 0.8702,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.8458,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7246
+          }
+        },
+        {
+          "start": {
+            "range": 0.8702,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.7519,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.723
+          }
+        },
+        {
+          "start": {
+            "range": 0.8702,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.8458,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7246
+          }
+        },
+        {
+          "start": {
+            "range": 0.8702,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.7519,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.723
+          }
+        },
+        {
+          "start": {
+            "range": 0.8702,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "letGo": {
+            "progress": 0.0083,
+            "seconds": 0.0083,
+            "taken": 0
+          }
+        },
+        {
+          "start": {
+            "range": 0.8702,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "letGo": {
+            "progress": 0.0083,
+            "seconds": 0.0083,
+            "taken": 0
+          }
+        },
+        {
+          "start": {
+            "range": 0.8755,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.3156,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7277
+          }
+        },
+        {
+          "start": {
+            "range": 0.8755,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.6433,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7299
+          }
+        },
+        {
+          "start": {
+            "range": 0.8755,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.3156,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7277
+          }
+        },
+        {
+          "start": {
+            "range": 0.8755,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.6433,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7299
+          }
+        },
+        {
+          "start": {
+            "range": 0.8783,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.5473,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7303
+          }
+        },
+        {
+          "start": {
+            "range": 0.8783,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.5473,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7303
+          }
+        },
+        {
+          "start": {
+            "range": 0.8784,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.566,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7355
+          }
+        },
+        {
+          "start": {
+            "range": 0.8784,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.566,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7355
+          }
+        },
+        {
+          "start": {
+            "range": 0.8899,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.7882,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7249
+          }
+        },
+        {
+          "start": {
+            "range": 0.8899,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.6248,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7287
+          }
+        },
+        {
+          "start": {
+            "range": 0.8899,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.7882,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7249
+          }
+        },
+        {
+          "start": {
+            "range": 0.8899,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.6248,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7287
+          }
+        },
+        {
+          "start": {
+            "range": 0.8899,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.7882,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7249
+          }
+        },
+        {
+          "start": {
+            "range": 0.8899,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.6248,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7287
+          }
+        },
+        {
+          "start": {
+            "range": 0.8899,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "letGo": {
+            "progress": 0.0083,
+            "seconds": 0.0083,
+            "taken": 0
+          }
+        },
+        {
+          "start": {
+            "range": 0.8899,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "letGo": {
+            "progress": 0.0083,
+            "seconds": 0.0083,
+            "taken": 0
+          }
+        },
+        {
+          "start": {
+            "range": 0.8907,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.0249,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7278
+          }
+        },
+        {
+          "start": {
+            "range": 0.8907,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.0249,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7278
+          }
+        },
+        {
+          "start": {
+            "range": 0.8919,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.967,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7244
+          }
+        },
+        {
+          "start": {
+            "range": 0.8919,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.967,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7244
+          }
+        },
+        {
+          "start": {
+            "range": 0.8952,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.1177,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.73
+          }
+        },
+        {
+          "start": {
+            "range": 0.8952,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.1177,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.73
+          }
+        },
+        {
+          "start": {
+            "range": 0.8953,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.6139,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7336
+          }
+        },
+        {
+          "start": {
+            "range": 0.8953,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 1.6139,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7336
           }
         }
       ]
@@ -183,41 +1085,119 @@
         "foot.right",
         "foot.left"
       ],
-      "cells": [
+      "trials": [
         {
-          "range": 0.8,
-          "phase": "down",
-          "trials": 2,
-          "done": 1,
-          "dealt": 0.1976,
-          "taken": 0,
-          "seconds": 4.2292,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 1.0666
+          "start": {
+            "range": 0.8014,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
           },
-          "postures": {
-            "own": "standing",
-            "target": "back"
+          "done": true,
+          "dealt": 0.2,
+          "taken": 0,
+          "seconds": 5.625,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.869
           }
         },
         {
-          "range": 0.9,
-          "phase": "down",
-          "trials": 4,
-          "done": 1,
-          "dealt": 0.5203,
-          "taken": 0,
-          "seconds": 3.4854,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 1.0998
+          "start": {
+            "range": 0.8066,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
           },
-          "postures": {
-            "own": "standing",
-            "target": "back"
+          "done": true,
+          "dealt": 0.1952,
+          "taken": 0,
+          "seconds": 2.8333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 1.2642
+          }
+        },
+        {
+          "start": {
+            "range": 0.8556,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
+          },
+          "done": true,
+          "dealt": 0.2472,
+          "taken": 0,
+          "seconds": 5.425,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.9343
+          }
+        },
+        {
+          "start": {
+            "range": 0.8744,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
+          },
+          "done": true,
+          "dealt": 0.4581,
+          "taken": 0,
+          "seconds": 2.825,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 1.163
+          }
+        },
+        {
+          "start": {
+            "range": 0.879,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
+          },
+          "done": true,
+          "dealt": 0.4483,
+          "taken": 0,
+          "seconds": 2.7917,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 1.1822
+          }
+        },
+        {
+          "start": {
+            "range": 0.9031,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
+          },
+          "done": true,
+          "dealt": 0.9275,
+          "taken": 0,
+          "seconds": 2.9,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 1.1198
           }
         }
       ]
@@ -240,59 +1220,100 @@
         "foot.right",
         "foot.left"
       ],
-      "cells": [
+      "trials": [
         {
-          "range": 0.6,
-          "phase": "down",
-          "trials": 1,
-          "done": 1,
+          "start": {
+            "range": 0.6477,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
+          },
+          "done": true,
           "dealt": 0.0731,
           "taken": 0,
           "seconds": 5.5583,
-          "down": 0,
-          "ends": [],
+          "recovers": null,
+          "down": false,
           "exit": {
             "range": 0.6174
-          },
-          "postures": {
-            "own": "standing",
-            "target": "back"
           }
         },
         {
-          "range": 0.7,
-          "phase": "down",
-          "trials": 4,
-          "done": 0.75,
-          "dealt": 0.0561,
+          "start": {
+            "range": 0.6763,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
+          },
+          "done": true,
+          "dealt": 0.0859,
           "taken": 0,
-          "seconds": 5.9639,
-          "down": 0,
-          "ends": [],
+          "seconds": 5.6,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.7004
-          },
-          "postures": {
-            "own": "standing",
-            "target": "back"
+            "range": 0.4934
           }
         },
         {
-          "range": 0.8,
-          "phase": "down",
-          "trials": 1,
-          "done": 1,
+          "start": {
+            "range": 0.6931,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
+          },
+          "done": true,
+          "dealt": 0.1193,
+          "taken": 0,
+          "seconds": 6.75,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.9577
+          }
+        },
+        {
+          "start": {
+            "range": 0.7041,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
+          },
+          "done": true,
+          "dealt": 0.0191,
+          "taken": 0,
+          "seconds": 5.5417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6502
+          }
+        },
+        {
+          "start": {
+            "range": 0.7712,
+            "phase": "down",
+            "postures": {
+              "own": "standing",
+              "target": "back"
+            }
+          },
+          "done": true,
           "dealt": 0.096,
           "taken": 0,
           "seconds": 5.5083,
-          "down": 0,
-          "ends": [],
+          "recovers": null,
+          "down": false,
           "exit": {
             "range": 0.6836
-          },
-          "postures": {
-            "own": "standing",
-            "target": "back"
           }
         }
       ]
@@ -315,117 +1336,455 @@
         "hand.right",
         "hand.left"
       ],
-      "cells": [
+      "trials": [
         {
-          "range": 0.6,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0.75,
-          "dealt": 0.3712,
+          "start": {
+            "range": 0.7068,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.3259,
           "taken": 0,
-          "seconds": 0.2396,
-          "down": 0,
-          "ends": [],
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.6375
+            "range": 0.6265
           }
         },
         {
-          "range": 0.7,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.0937,
+          "start": {
+            "range": 0.7072,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.1393,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.62
+          }
+        },
+        {
+          "start": {
+            "range": 0.7102,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.2831,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6158
+          }
+        },
+        {
+          "start": {
+            "range": 0.7106,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.3046,
           "taken": 0,
           "seconds": 0.2333,
-          "down": 0,
-          "ends": [],
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.6381
+            "range": 0.6252
           }
         },
         {
-          "range": 0.8,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0.5,
-          "dealt": 0.1469,
+          "start": {
+            "range": 0.7171,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.1048,
           "taken": 0,
-          "seconds": 0.2375,
-          "down": 0,
-          "ends": [],
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.6205
+            "range": 0.6483
           }
         },
         {
-          "range": 0.9,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.2735,
+          "start": {
+            "range": 0.7182,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0609,
           "taken": 0,
-          "seconds": 0.2417,
-          "down": 0,
-          "ends": [],
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.647
+            "range": 0.6486
           }
         },
         {
-          "range": 1,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0.25,
-          "dealt": 0.2441,
+          "start": {
+            "range": 0.7199,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.322,
           "taken": 0,
-          "seconds": 0.2375,
-          "down": 0,
-          "ends": [],
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.6482
+            "range": 0.6545
           }
         },
         {
-          "range": 1.1,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.0521,
-          "taken": 0,
-          "seconds": 0.25,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 0.637
-          }
-        },
-        {
-          "range": 1.2,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0.5,
-          "dealt": 0.1268,
+          "start": {
+            "range": 0.7207,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.6977,
           "taken": 0,
           "seconds": 0.2417,
-          "down": 0,
-          "ends": [],
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.6434
+            "range": 0.649
           }
         },
         {
-          "range": 1.3,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0.5,
-          "dealt": 0.4542,
+          "start": {
+            "range": 0.7293,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0612,
           "taken": 0,
-          "seconds": 0.2354,
-          "down": 0,
-          "ends": [],
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.6439
+            "range": 0.6279
+          }
+        },
+        {
+          "start": {
+            "range": 0.7296,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.1481,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6275
+          }
+        },
+        {
+          "start": {
+            "range": 0.7713,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.4295,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6526
+          }
+        },
+        {
+          "start": {
+            "range": 0.7713,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.4629,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6566
+          }
+        },
+        {
+          "start": {
+            "range": 0.7731,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0422,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.642
+          }
+        },
+        {
+          "start": {
+            "range": 0.7733,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.2022,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6441
+          }
+        },
+        {
+          "start": {
+            "range": 0.7737,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.4348,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.645
+          }
+        },
+        {
+          "start": {
+            "range": 0.7737,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.5248,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6465
+          }
+        },
+        {
+          "start": {
+            "range": 0.7796,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.4662,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6383
+          }
+        },
+        {
+          "start": {
+            "range": 0.7798,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.4478,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6445
+          }
+        },
+        {
+          "start": {
+            "range": 0.7801,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0176,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6444
+          }
+        },
+        {
+          "start": {
+            "range": 0.7802,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.1075,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6486
+          }
+        },
+        {
+          "start": {
+            "range": 0.7809,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.1226,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6569
+          }
+        },
+        {
+          "start": {
+            "range": 0.7811,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0118,
+          "taken": 0,
+          "seconds": 0.2583,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6396
+          }
+        },
+        {
+          "start": {
+            "range": 0.7865,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0622,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6447
+          }
+        },
+        {
+          "start": {
+            "range": 0.7866,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.2008,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6429
+          }
+        },
+        {
+          "start": {
+            "range": 0.7868,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0036,
+          "taken": 0,
+          "seconds": 0.275,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6135
+          }
+        },
+        {
+          "start": {
+            "range": 0.787,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0796,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6417
+          }
+        },
+        {
+          "start": {
+            "range": 0.7885,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.4753,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6461
+          }
+        },
+        {
+          "start": {
+            "range": 0.7886,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.4275,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6465
+          }
+        },
+        {
+          "start": {
+            "range": 0.7907,
+            "phase": "clear"
+          },
+          "done": true,
+          "dealt": 0.0328,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6369
+          }
+        },
+        {
+          "start": {
+            "range": 0.7911,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0512,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6467
           }
         }
       ]
@@ -448,117 +1807,485 @@
         "hand.right",
         "hand.left"
       ],
-      "cells": [
+      "trials": [
         {
-          "range": 0.6,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.0663,
-          "taken": 0.0045,
-          "seconds": 0.2333,
-          "down": 0,
-          "ends": [],
+          "start": {
+            "range": 0.7543,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.088,
+          "taken": 0.0041,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.6704
+            "range": 0.7323
           }
         },
         {
-          "range": 0.7,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.063,
-          "taken": 0.0054,
-          "seconds": 0.2375,
-          "down": 0,
-          "ends": [],
+          "start": {
+            "range": 0.7543,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0583,
+          "taken": 0.0059,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.7029
+            "range": 0.7004
           }
         },
         {
-          "range": 0.8,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.059,
-          "taken": 0.0027,
-          "seconds": 0.2292,
-          "down": 0,
-          "ends": [],
+          "start": {
+            "range": 0.7594,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0093,
+          "taken": 0.0032,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.7023
+            "range": 0.6786
           }
         },
         {
-          "range": 0.9,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.0272,
+          "start": {
+            "range": 0.7594,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0241,
+          "taken": 0.0005,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6942
+          }
+        },
+        {
+          "start": {
+            "range": 0.7677,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0117,
           "taken": 0,
           "seconds": 0.2333,
-          "down": 0,
-          "ends": [],
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.7044
+            "range": 0.7587
           }
         },
         {
-          "range": 1,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.0497,
-          "taken": 0.0045,
-          "seconds": 0.2375,
-          "down": 0,
-          "ends": [],
+          "start": {
+            "range": 0.7683,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0154,
+          "taken": 0.0009,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.7396
+            "range": 0.6563
           }
         },
         {
-          "range": 1.1,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.0299,
-          "taken": 0.0025,
-          "seconds": 0.2375,
-          "down": 0,
-          "ends": [],
+          "start": {
+            "range": 0.7689,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0742,
+          "taken": 0,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.7259
+            "range": 0.7201
           }
         },
         {
-          "range": 1.2,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.0452,
-          "taken": 0.0022,
+          "start": {
+            "range": 0.7707,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0567,
+          "taken": 0.0001,
           "seconds": 0.2333,
-          "down": 0,
-          "ends": [],
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.7263
+            "range": 0.6782
           }
         },
         {
-          "range": 1.3,
-          "phase": "clear",
-          "trials": 4,
-          "done": 0,
-          "dealt": 0.0223,
-          "taken": 0.0041,
-          "seconds": 0.2271,
-          "down": 0,
-          "ends": [],
+          "start": {
+            "range": 0.7731,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0114,
+          "taken": 0.0104,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
           "exit": {
-            "range": 0.7003
+            "range": 0.7026
+          }
+        },
+        {
+          "start": {
+            "range": 0.7748,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.1722,
+          "taken": 0.011,
+          "seconds": 0.25,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.672
+          }
+        },
+        {
+          "start": {
+            "range": 0.7864,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0864,
+          "taken": 0.0051,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6447
+          }
+        },
+        {
+          "start": {
+            "range": 0.7867,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0443,
+          "taken": 0,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7002
+          }
+        },
+        {
+          "start": {
+            "range": 0.7867,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0011,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6852
+          }
+        },
+        {
+          "start": {
+            "range": 0.7898,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.1453,
+          "taken": 0.0092,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6638
+          }
+        },
+        {
+          "start": {
+            "range": 0.8149,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0087,
+          "taken": 0.0001,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7438
+          }
+        },
+        {
+          "start": {
+            "range": 0.815,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0549,
+          "taken": 0,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6884
+          }
+        },
+        {
+          "start": {
+            "range": 0.8236,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0368,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7122
+          }
+        },
+        {
+          "start": {
+            "range": 0.8238,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0333,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6997
+          }
+        },
+        {
+          "start": {
+            "range": 0.827,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0165,
+          "taken": 0.0058,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7485
+          }
+        },
+        {
+          "start": {
+            "range": 0.8286,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0329,
+          "taken": 0.0043,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7431
+          }
+        },
+        {
+          "start": {
+            "range": 0.834,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0102,
+          "taken": 0.0067,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7587
+          }
+        },
+        {
+          "start": {
+            "range": 0.834,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.1238,
+          "taken": 0.0113,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7555
+          }
+        },
+        {
+          "start": {
+            "range": 0.8366,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0315,
+          "taken": 0.0037,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7345
+          }
+        },
+        {
+          "start": {
+            "range": 0.8366,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.012,
+          "taken": 0,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7167
+          }
+        },
+        {
+          "start": {
+            "range": 0.8371,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.09,
+          "taken": 0.0051,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7354
+          }
+        },
+        {
+          "start": {
+            "range": 0.8375,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0074,
+          "taken": 0.0051,
+          "seconds": 0.2333,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7202
+          }
+        },
+        {
+          "start": {
+            "range": 0.8376,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0297,
+          "taken": 0.0111,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6783
+          }
+        },
+        {
+          "start": {
+            "range": 0.8378,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0473,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7185
+          }
+        },
+        {
+          "start": {
+            "range": 0.8384,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0282,
+          "taken": 0,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7124
+          }
+        },
+        {
+          "start": {
+            "range": 0.8407,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0241,
+          "taken": 0,
+          "seconds": 0.225,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.6904
+          }
+        },
+        {
+          "start": {
+            "range": 0.8414,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0091,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7109
+          }
+        },
+        {
+          "start": {
+            "range": 0.8418,
+            "phase": "clear"
+          },
+          "done": false,
+          "dealt": 0.0557,
+          "taken": 0,
+          "seconds": 0.2417,
+          "recovers": null,
+          "down": false,
+          "exit": {
+            "range": 0.7335
           }
         }
       ]

@@ -4,7 +4,7 @@ import { coveringHand } from "../intent/cover-hand.ts";
 import type { Resource } from "../skills/framework/action.ts";
 import { blocked, READY, type Situation, type Option } from "./option.ts";
 import { NOTHING } from "../mind/choice.ts";
-import { here } from "./position.ts";
+import { holding } from "./rest.ts";
 
 /** The longest cover holds a hand up against one run of blows, s. */
 const LONGEST = 1;
@@ -18,9 +18,11 @@ const STOPS = .6;
  * from (`coveringHand`: none where that hand holds a covering face, whose ward is the guard's).
  * On offer while there is such a hand and no action under way holds it, down or standing, for at
  * most `LONGEST` s of one run of blows, then not until the threat has gone. It claims that hand,
- * asks it between the blow and the head, and is priced by the share of the blow's life it keeps off (`STOPS` of `Situation.danger`), leaving the body where it is. It
- * always yields. Its memory is when the run began, whether it is spent, and the hand, read once a
- * step. None for a body without hands.
+ * asks it between the blow and the head, and is priced as holding the body as it is (`holding`)
+ * less the share of the blow's life it keeps off (`STOPS` of `Predictions.danger`), at a state with
+ * a blow coming. It runs as long as it is held (`Option.open`) and always yields. Its memory is
+ * when the run began, whether it is spent, and the hand, read once a step. None for a body without
+ * hands.
  */
 export function covers(spec: BodySpec): readonly Option[] {
   const state = { read: -Infinity, since: null as number | null, spent: false, hand: null as Side | null };
@@ -48,8 +50,8 @@ export function covers(spec: BodySpec): readonly Option[] {
       if (side === null || !sides.includes(side)) return OFF;
       return now.sight.report.actions.some((action) => action.holds.includes(`hand.${side}`)) ? HELD : READY;
     },
-    status: () => "yields", begin() {}, end() {},
-    model: (now) => ({ duration: 0, dealt: 0, taken: (1 - STOPS) * now.predictions.danger, orders: 0, exit: here(now) }),
+    open: true, status: () => "yields", begin() {}, end() {},
+    model: (at, ask) => at.incoming ? holding(at, ask, (1 - STOPS) * at.predictions.danger) : null,
     step: (now) => {
       const hand = `hand.${handAt(now)}`;
       return { asked: { move: null, face: now.sight.report.heading, actions: [], guard: { [hand]: now.incoming! } }, holds: NOTHING };

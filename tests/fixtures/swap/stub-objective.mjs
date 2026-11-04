@@ -18,12 +18,12 @@ export const STUB_OBJECTIVE = Object.freeze({
     const state = { stub: "swap:stub-objective", steps: 0, percept: { stub: null, steps: 0 }, prediction: { stub: null, steps: 0 } };
     return {
       name: "counted few terms", state,
-      worth(terms, now, obedience) {
+      worth(path, now, obedience) {
         state.steps++;
         const sensed = now.perceive(STUB_PERCEPT.defaults), predicted = now.predict(STUB_PREDICTION.defaults);
         if (sensed.time === now.sight.view.senses.time) { state.percept.stub = sensed.stub; state.percept.steps++; }
         if (predicted.focus === (now.focus?.id ?? null)) { state.prediction.stub = predicted.stub; state.prediction.steps++; }
-        return FEW_TERMS.worth(terms, now, obedience);
+        return FEW_TERMS.worth(path, now, obedience);
       },
     };
   },

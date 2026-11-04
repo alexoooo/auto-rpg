@@ -1,6 +1,5 @@
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { blowsOf } from "../skills/action-config.ts";
-import { skillDigest } from "../skills/framework/profile.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { OptionPart } from "./parts.ts";
 import { anyBody, type KeysOf, type PartConfig } from "../parts/parts.ts";
@@ -9,7 +8,7 @@ import { deepFreeze } from "../state.ts";
 import { covers } from "./cover.ts";
 import type { Option } from "./option.ts";
 import { followOrders } from "./orders.ts";
-import { gaitsOf, goings, groundPlace, outOfPressure, walkBy, windowPlace, type Destination, type Windowed } from "./places.ts";
+import { gaitsOf, groundPlace, outOfPressure, walkBy, windowPlace, type Destination, type Windowed } from "./places.ts";
 import type { ProfileTables } from "./predictions-part.ts";
 import { guardOf, hold } from "./rest.ts";
 import type { OptionRecord } from "./record.ts";
@@ -86,18 +85,14 @@ export const SWORD_THRUST_OPTION = strikeKind("sword-thrust", "Sword thrust");
 /** **The stomp** (`stomp`). */
 export const STOMP_OPTION = strikeKind("stomp", "Stomp");
 
-/** **Each gait its legs go by** (`gaitsOf`) as the Gait drill measured it stopping to throw each of its actions (`goings`, each by its digest, `skillDigest`). */
-const gaitsGiven = (given: OptionsGiven) => goings(given.spec, given.hz, gaitsOf(given.locomotion),
-  given.actions.map((action) => ({ name: action.name, skill: skillDigest(given.parts, given.spec, given.executors, action) })), given.tables.gaits, given.rate ?? given.hz, given.delay);
-
 /**
- * **Footwork to `destinations`**: an option of each gait its legs go by (`walkBy`, `gaitsGiven`),
+ * **Footwork to `destinations`**: an option of each gait its legs go by (`walkBy`, `gaitsOf`),
  * each going where it is worth most of them, priced as every walk is (`walkTerms`); none where there
  * is no destination. A kind of option of any mind's own makes its footwork with it, its places any
  * rule's (`placeBy`).
  */
 export const walksTo = (given: OptionsGiven, destinations: readonly Destination[]): readonly Option[] =>
-  destinations.length === 0 ? [] : gaitsGiven(given).map((going) => walkBy(going, destinations, given.walk));
+  destinations.length === 0 ? [] : gaitsOf(given.locomotion).map((gait) => walkBy(gait, destinations, given.walk));
 
 /** A kind of footwork, `kind`, labelled `label`, to the places `places` makes (`walksTo`). */
 export const footwork = <K extends string>(name: K, label: string, places: (given: OptionsGiven) => readonly Destination[]) =>

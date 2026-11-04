@@ -1,23 +1,17 @@
 import { atan2, cos, hypot, sin } from "../math/real.ts";
-import type { BodySpec } from "../spec/body.ts";
 import { approachActionWindow, approachSpot, heldBeside, windowSpot, type Spot } from "../intent/action-window.ts";
 import type { PartConfig } from "../parts/parts.ts";
 import type { Readiness } from "../skills/framework/action.ts";
-import type { GaitName } from "../skills/locomotion/gaits.ts";
 import type { LocomotionConfig } from "../skills/config.ts";
 import { gaitsOfMove, type MoveConfig } from "../skills/locomotion/move-part.ts";
-import { gaitDigest, measuredOn, profileFor, readProfile, type Profile } from "../skills/framework/profile.ts";
+import { startVelocity } from "../skills/framework/profile.ts";
 import { legsReadiness } from "../skills/locomotion/locomotion.ts";
-import { deepFreeze } from "../state.ts";
-import { blocked, LEGS, READY, type Option, type Situation } from "./option.ts";
+import { blocked, LEGS, READY, standing, type Option, type Situation } from "./option.ts";
 import type { Status } from "../mind/choice.ts";
-import { bearingAround, edgeOf, threatened } from "./percepts.ts";
-import { fromHere, type Going } from "./position.ts";
-import { CLINCH, clinched, type Terms } from "./value.ts";
+import { bearingAround, dealtAt, edgeOf, graceAt } from "./percepts.ts";
+import { CLINCH, clinched, STILL, upOrDown, type Ground, type Terms } from "./value.ts";
+import type { GaitName } from "../skills/locomotion/gaits.ts";
 import type { Walker } from "./walk.ts";
-
-/** A gait's prior, where no profile measures it, set by hand: braced at once, and up. */
-const UNMEASURED = Object.freeze({ seconds: 0, down: 0 });
 
 /** A gait as Option Mind's legs go by it: its name (null for legs that walk by none), its label and its legs' config. */
 export interface GaitOf {
@@ -32,43 +26,6 @@ export function gaitsOf(legs: LocomotionConfig): readonly GaitOf[] {
   return [{ name: null, label: "Walk", legs }];
 }
 
-/** A strike a gait's profile stops to throw: its action's name and its digest (`skillDigest`). */
-export interface Stopping {
-  readonly name: string;
-  readonly skill: string;
-}
-
-/**
- * **Each of `gaits`** as a body of `spec` goes by it at `hz`, its mind deciding at `rate` Hz and its command `delay` steps late, stopping to throw each of `strikes`:
- * what its profile measured it to leave the body (`Going`, the cell of `profiles`, the gaits',
- * measured as the body reads it, `gaitDigest`), its prior (`UNMEASURED`) for a strike none measures.
- */
-export function goings(spec: BodySpec, hz: number, gaits: readonly GaitOf[], strikes: readonly Stopping[], profiles: readonly Profile[], rate: number, delay: number): readonly Going[] {
-  return gaits.map((gait): Going => {
-    const ready: Record<string, number> = {};
-    let braced = 0, down = 0;
-    for (const strike of strikes) {
-      const found = profileFor(profiles, measuredOn(spec, gaitDigest(gait.legs, strike.skill), hz, null, rate, delay));
-      const expected = (found && found.stale === null ? readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null) : null) ?? UNMEASURED;
-      ready[strike.name] = expected.seconds; braced = Math.max(braced, expected.seconds); down = Math.max(down, expected.down);
-    }
-    return deepFreeze({ gait: gait.name, label: gait.label, ready, braced, down });
-  });
-}
-
-/**
- * **What a walk of `duration` s by `going` leaves to settle**: each strike's seconds until it is
- * ready, and the most of them, as the gait's profile measured them stopping from its top speed,
- * none longer than the walk: a walk unsettles the body no longer than it moved it; and none for the
- * strike it `readies`, whose readiness is where the walk ends (`Destination.readies`).
- */
-function settling(going: Going, duration: number, readies: string | null): { readonly braced: number; readonly ready: Readonly<Record<string, number>> } {
-  const ready: Record<string, number> = {};
-  let braced = 0;
-  for (const [name, seconds] of Object.entries(going.ready)) braced = Math.max(braced, ready[name] = name === readies ? 0 : Math.min(seconds, duration));
-  return { braced, ready };
-}
-
 /** What an option asks of the legs walking to a place. */
 type Walk = ReturnType<Walker["kept"]>;
 
@@ -79,8 +36,6 @@ type Walk = ReturnType<Walker["kept"]>;
  */
 export interface Destination {
   readonly name: string;
-  /** The strike it is reached by being ready for, where it is one (`windowPlace`): a walk there leaves that strike ready, its settling done on the way. */
-  readonly readies?: string;
   /** What it holds from step to step (`HeldBeside`, what it read this step), where it holds anything: plain data, in its walk's state. */
   readonly state?: object;
   spot(now: Situation): Spot | null;
@@ -89,17 +44,19 @@ export interface Destination {
   walk(now: Situation): Walk;
 }
 
-/** What `once` keeps of a place: the time and focus it last read at, and what it read, plain data in its place's state. */
-interface Once<T> { time: number; focus: string | null; spot: T | null }
+/** What `once` keeps of a place: the time, focus and spot of the body it last read at, and what it read, plain data in its place's state. */
+interface Once<T> { time: number; focus: string | null; x: number; z: number; spot: T | null }
 
 /** A place's memory before it has read (`once`). */
-const unread = <T>(): Once<T> => ({ time: NaN, focus: null, spot: null });
+const unread = <T>(): Once<T> => ({ time: NaN, focus: null, x: NaN, z: NaN, spot: null });
 
-/** `spot`'s where it is, read once a step at each focus, kept in `memory`. */
+/** `spot`'s where it is, read once a step at each focus and each spot the body stands at (`Situation.where`, a state an Option leaves it in), kept in `memory`. */
 function once<T>(spot: (now: Situation) => T | null, memory: Once<T>): (now: Situation) => T | null {
   return (now) => {
-    const focus = now.focus?.id ?? null;
-    if (memory.time !== now.time || memory.focus !== focus) { memory.time = now.time; memory.focus = focus; memory.spot = spot(now); }
+    const focus = now.focus?.id ?? null, { x, z } = now.where;
+    if (memory.time !== now.time || memory.focus !== focus || memory.x !== x || memory.z !== z) {
+      memory.time = now.time; memory.focus = focus; memory.x = x; memory.z = z; memory.spot = spot(now);
+    }
     return memory.spot;
   };
 }
@@ -129,7 +86,7 @@ export function windowPlace(strike: Windowed, walk: Walker): Destination {
     return window ? windowSpot(now.sight.view, window, now.sight.report.heading, state.beside) : null;
   }, state.into);
   return {
-    name: `into ${strike.name}'s window`, readies: strike.name, spot: into, state,
+    name: `into ${strike.name}'s window`, spot: into, state,
     entry: (now) => !now.focus ? NO_FOCUS : into(now) ? READY : strike.window(now) ? NO_PLACE : NO_WINDOW,
     reached: (now) => strike.window(now) === null,
     walk: (now) => {
@@ -140,25 +97,27 @@ export function windowPlace(strike: Windowed, walk: Walker): Destination {
   };
 }
 
+/** The name of the place out of the focus's pressure (`outOfPressure`): where holding is held (`Option.site`). */
+export const OUT_OF_PRESSURE = "out of pressure";
+
 /**
- * **Out of the focus's pressure**: on the line from the focus through the body, past where its
- * pressure reaches (`edgeOf`) by as far as it walks in the time the senses show it late
- * (`Predictions.closes`), facing it; a place while the body stands nearer, reached there. Its
+ * **Out of the focus's pressure**: on the line from the focus through the body, where its pressure
+ * reaches (`edgeOf`), the focus as it stands, facing it; a place while the body stands nearer, reached there. Its
  * walk faces the focus, kept out of every fallen body's reach (`Walker.kept`).
  */
 export function outOfPressure(walk: Walker): Destination {
   const THERE = blocked("out of its reach");
-  const edge = (now: Situation): number => edgeOf(now, now.predictions.pressure) + now.predictions.closes;
+  const edge = (now: Situation): number => edgeOf(now, now.predictions.pressure);
   const state = { spot: unread<Spot>() };
   const spot = once((now) => {
     const focus = now.focus;
     if (!focus || now.range >= edge(now)) return null;
-    const centre = now.sight.view.stance.centre, apart = now.apart, to = edge(now) + apart - now.range;
+    const centre = now.where, apart = now.apart, to = edge(now) + apart - now.range;
     const x = apart > 0 ? (centre.x - focus.centre.x) / apart : -sin(walk.facing(now)), z = apart > 0 ? (centre.z - focus.centre.z) / apart : -cos(walk.facing(now));
     return { x: focus.centre.x + x * to, z: focus.centre.z + z * to, face: walk.facing(now) };
   }, state.spot);
   return {
-    name: "out of pressure", spot, state,
+    name: OUT_OF_PRESSURE, spot, state,
     entry: (now) => !now.focus ? NO_FOCUS : spot(now) ? READY : THERE,
     reached: (now) => now.range >= edge(now),
     walk: (now) => {
@@ -167,9 +126,6 @@ export function outOfPressure(walk: Walker): Destination {
     },
   };
 }
-
-/** Where on the ground a place is, m, as a rule finds it. */
-export interface Ground { readonly x: number; readonly z: number }
 
 /** No place found this step. */
 const NOWHERE = blocked("no place found");
@@ -184,11 +140,11 @@ const NOWHERE = blocked("no place found");
 export function placeBy(name: string, where: (now: Situation) => Ground | null, within: number, walk: Walker): Destination {
   const THERE = blocked("there");
   const state = { found: unread<Ground>() }, found = once(where, state.found);
-  const off = (now: Situation, at: Ground): number => hypot(at.x - now.sight.view.stance.centre.x, at.z - now.sight.view.stance.centre.z);
+  const off = (now: Situation, at: Ground): number => hypot(at.x - now.where.x, at.z - now.where.z);
   const spot = (now: Situation): Spot | null => {
     const at = found(now);
     if (!at) return null;
-    const centre = now.sight.view.stance.centre;
+    const centre = now.where;
     return { x: at.x, z: at.z, face: off(now, at) > 0 ? atan2(at.x - centre.x, at.z - centre.z) : now.sight.report.heading };
   };
   return {
@@ -214,69 +170,68 @@ export function groundPlace(x: number, z: number, within: number, walk: Walker):
   return placeBy(`to (${x}, ${z})`, () => at, within, walk);
 }
 
+/** The time step a walk's way is read at, s: within the focus's reach, its pressure is read at the range of each step's middle (`walkTerms`). */
+const WALK_READ = .05;
+
 /**
- * **A walk's model**: from where the body stands to `spot` (by its route where it has one) by
- * `going`'s gait, each leg of the way at what the gait holds walking that way facing the focus
- * (`Walker.pace`; forward where it holds nothing that way); through the blow coming, and the focus's
- * pressure over the time the way runs within its reach (`threatened`, at the nearest it comes);
- * leaving the body at the spot, the focus turned toward it as far as it turns in that time
- * (`Predictions.turns`), and as the gait leaves it (`Going`), the strike it `readies` ready
- * (`settling`); out of a clinch (`CLINCH`), its chance
- * of going down behind. With no focus, the way at the gait's pace and where the gait leaves the
- * body, at no range.
+ * **A walk's model** from `at`: from where the body stands there to `spot` (by its route where it
+ * has one) by `gait`, each leg of the way at what the gait holds walking that way facing the
+ * focus (`Walker.pace`; forward where it holds nothing that way); through the blow coming, and the
+ * focus's pressure at each range the way passes within its reach, the body moving at the walk's
+ * velocity against the focus's (`dealtAt`, read every
+ * `WALK_READ` s), past its grace (`graceAt`: the latency counted once a stretch within its reach, and
+ * afresh each time the way comes back within it); leaving the body still at the spot with what is
+ * left of that grace, the focus turned toward it as far as it turns in that time
+ * (`Predictions.turns`), and, in a clinch (`CLINCH`), down in its chance of going down behind. A
+ * gait's falls are its own profile's to measure; none is, so a walk is taken to stay up. With no
+ * focus, the way at the gait's pace.
  */
-export function walkTerms(now: Situation, spot: Spot, going: Going, walk: Walker, readies: string | null = null): Terms {
-  const focus = now.focus, centre = now.sight.view.stance.centre, offset = now.apart - now.range;
-  const reach = focus ? edgeOf(now, now.predictions.pressure) + offset : 0, points = spot.route ?? [spot];
-  let duration = 0, inReach = 0, nearest = Infinity, x = centre.x, z = centre.z;
+export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker): Terms {
+  const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = at.predictions.pressure;
+  const reach = focus ? edgeOf(at, pressure) + offset : 0, points = spot.route ?? [spot];
+  let duration = 0, taken = 0, grace = graceAt(at), x = from.x, z = from.z;
   for (const point of points) {
     const dx = point.x - x, dz = point.z - z, length = hypot(dx, dz);
     if (length > 0) {
-      const face = walk.facing(now), forward = (dx * sin(face) + dz * cos(face)) / length, right = (dx * cos(face) - dz * sin(face)) / length;
-      const way = walk.pace(now, going.gait, forward, right), pace = way > 0 ? way : walk.pace(now, going.gait);
-      duration += length / pace;
+      const face = walk.facing(at), forward = (dx * sin(face) + dz * cos(face)) / length, right = (dx * cos(face) - dz * sin(face)) / length;
+      const way = walk.pace(at, gait.name, forward, right), pace = way > 0 ? way : walk.pace(at, gait.name), seconds = length / pace;
+      duration += seconds;
       if (focus) {
-        const within = alongWithin(x - focus.centre.x, z - focus.centre.z, dx, dz, reach);
-        inReach += within.inside * length / pace; nearest = Math.min(nearest, within.nearest);
+        const pieces = Math.max(1, Math.ceil(seconds / WALK_READ)), dt = seconds / pieces;
+        const moving = { x: dx / length * pace - focus.velocity.x, z: dz / length * pace - focus.velocity.z };
+        for (let i = 0; i < pieces; i++) {
+          const along = (i + .5) / pieces, tx = focus.centre.x - (x + along * dx), tz = focus.centre.z - (z + along * dz), apart = hypot(tx, tz);
+          if (apart >= reach) { grace = pressure.latency; continue; }
+          const spent = Math.min(grace, dt);
+          grace -= spent;
+          taken += dealtAt(pressure, at, apart - offset, dt - spent, startVelocity({ x: tx, z: tz }, moving));
+        }
       }
-    } else if (focus) nearest = Math.min(nearest, hypot(x - focus.centre.x, z - focus.centre.z));
+    }
     x = point.x; z = point.z;
   }
-  const { braced, ready } = settling(going, duration, readies);
-  if (!focus) return { duration, dealt: 0, taken: now.predictions.danger, orders: 0,
-    exit: fromHere(now, { range: Infinity, down: going.down, unbraced: braced, at: spot, ready }) };
+  const where = { x: spot.x, z: spot.z, face: spot.face };
+  if (!focus) return { duration, dealt: 0, taken: at.predictions.danger, orders: 0, outcomes: upOrDown({ where, velocity: STILL }, 0) };
   const apart = hypot(spot.x - focus.centre.x, spot.z - focus.centre.z), bearing = bearingAround(focus, spot.x, spot.z);
-  const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - now.predictions.turns * duration);
-  return { duration, dealt: 0, taken: now.predictions.danger + threatened(now, inReach, nearest - offset), orders: 0,
-    exit: fromHere(now, { range: apart - offset, down: Math.max(going.down, apart >= CLINCH.within ? 0 : clinched(now, duration)),
-      unbraced: braced, around, at: spot, ready }) };
+  const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - at.predictions.turns * duration);
+  return { duration, dealt: 0, taken: at.predictions.danger + taken, orders: 0,
+    outcomes: upOrDown({ where, around, velocity: STILL, grace: apart < reach ? grace : pressure.latency }, apart >= CLINCH.within ? 0 : clinched(at, duration)) };
 }
 
 /**
- * Along the way from (`x`, `z`) by (`dx`, `dz`), both from a centre: the share of it within `reach`
- * m of that centre (`inside`), and the nearest it comes to it, m (`nearest`).
- */
-function alongWithin(x: number, z: number, dx: number, dz: number, reach: number): { readonly inside: number; readonly nearest: number } {
-  const a = dx * dx + dz * dz, b = x * dx + z * dz, c = x * x + z * z - reach * reach;
-  const t = Math.min(1, Math.max(0, -b / a)), nearest = hypot(x + t * dx, z + t * dz), disc = b * b - a * c;
-  if (!(reach > 0) || disc <= 0) return { inside: 0, nearest };
-  const root = Math.sqrt(disc), from = Math.max(0, (-b - root) / a), to = Math.min(1, (-b + root) / a);
-  return { inside: Math.max(0, to - from), nearest };
-}
-
-/**
- * **Walk by `going`'s gait**: footwork, one option a gait, run at whichever of `places` it is worth
+ * **Walk by `gait`**: footwork, one option a gait, run at whichever of `places` it is worth
  * most to walk to (its targets, `Option.targets`, priced and chosen by the chooser): on offer where
  * the legs can carry the body (`legsReadiness`) and its place is one to walk to (`Destination.entry`),
- * run its course once there; it always yields and asks for no blow. Its model is the walk there
- * (`walkTerms`), which the chooser looks past (`Place.at`); its walk is its destination's, by the gait.
- * Named for the gait and where it goes. Its memory is which place it runs at.
+ * run its course once there; it always yields and asks for no blow. Its model at a state where the
+ * body stands (`standing`) and its place is one to walk to is the walk there from where it stands
+ * (`walkTerms`), the place read as it is now; its walk is its destination's, by the gait. Named for
+ * the gait and where it goes. Its memory is which place it runs at.
  */
-export function walkBy(going: Going, places: readonly Destination[], walk: Walker): Option {
-  const state = { at: 0, places: places.map((one) => one.state ?? null) }, gait = going.label.toLowerCase();
+export function walkBy(gait: GaitOf, places: readonly Destination[], walk: Walker): Option {
+  const state = { at: 0, places: places.map((one) => one.state ?? null) }, label = gait.label.toLowerCase();
   const to = (): Destination => places[state.at]!;
   return {
-    get name() { return `${gait} ${to().name}`; },
+    get name() { return `${label} ${to().name}`; },
     claims: LEGS, state, targets: places.map((one) => one.name),
     aim(index) { state.at = index; },
     entry: (now) => {
@@ -286,8 +241,11 @@ export function walkBy(going: Going, places: readonly Destination[], walk: Walke
     status: (now): Status => to().reached(now) ? "over" : "yields",
     begin() {},
     end() {},
-    model: (now) => walkTerms(now, to().spot(now)!, going, walk, to().readies ?? null),
-    step: (now) => ({ asked: { ...to().walk(now), actions: [], ...(going.gait === null ? {} : { gait: going.gait }) }, holds: LEGS }),
+    model(at, ask) {
+      const place = places[ask?.target ?? 0]!, spot = standing(at) && place.entry(at).kind === "ready" ? place.spot(at) : null;
+      return spot ? walkTerms(at, spot, gait, walk) : null;
+    },
+    step: (now) => ({ asked: { ...to().walk(now), actions: [], ...(gait.name === null ? {} : { gait: gait.name }) }, holds: LEGS }),
   };
 }
 

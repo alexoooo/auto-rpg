@@ -1,4 +1,3 @@
-import type { BodyView } from "../body.ts";
 import { standReady, tumbling, type GroundReading } from "../control/ground-reading.ts";
 import type { Sight } from "../mind/decider.ts";
 import { braces, climbs, isMode, steadies } from "../recovery/ground/modes.ts";
@@ -55,8 +54,6 @@ export function riseMemory(record: OptionRecord) {
       state.ready = !trying && standReady(view) ? state.ready + dt : 0;
       if (state.ready >= READY_HOLD && !climbing) state.rising = false;
     },
-    /** The seconds until the body is braced: on its feet while its rise runs, what is left of the steady's try; else none. */
-    unbraced(view: BodyView): number { return state.rising && !view.down ? Math.max(0, STEADY_TRY - state.steadied) : 0; },
   };
 }
 

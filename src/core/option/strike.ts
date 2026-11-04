@@ -1,21 +1,32 @@
 import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../skills/framework/action.ts";
 import { STANCE_LOWER } from "../skills/locomotion/locomotion.ts";
 import { regionSegments } from "../intent/action-aim.ts";
-import { windowHolds } from "../intent/action-window.ts";
+import { windowHolds, type Spot } from "../intent/action-window.ts";
 import { orderAllows, orderedTarget } from "../intent/orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../skills/config.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../skills/framework/profile.ts";
 import type { Sight } from "../mind/decider.ts";
-import { asking, blocked, READY, type Asked, type Situation, type Option } from "./option.ts";
-import { threatened } from "./percepts.ts";
-import { clinched, record, type Terms } from "./value.ts";
-import { fromHere } from "./position.ts";
+import { asking, blocked, READY, standing, type Asked, type Situation, type Option } from "./option.ts";
+import { startOf, threatened } from "./percepts.ts";
+import { clinched, record, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { BodySpec } from "../spec/body.ts";
+import { atan2, cos, sin } from "../math/real.ts";
 
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
+
+/**
+ * **Where the body stands `range` m head to head from the focus of `at`**: on the line from the
+ * focus through where it stands at `at` (the way it faces, back, where it stands on the focus's
+ * centre), facing the focus.
+ */
+function along(at: Situation, range: number): Spot {
+  const focus = at.focus!, where = at.where, apart = at.apart, to = Math.max(0, range + apart - at.range);
+  const x = apart > 0 ? (where.x - focus.centre.x) / apart : -sin(where.face), z = apart > 0 ? (where.z - focus.centre.z) / apart : -cos(where.face);
+  return { x: focus.centre.x + x * to, z: focus.centre.z + z * to, face: atan2(-x, -z) };
+}
 
 /** What an action's executor reads of the skills beside it, as the last step left them. */
 export const around = (sight: Sight): ActionAround => ({ heading: sight.report.heading, placed: sight.view.stance.phase === "stand",
@@ -46,7 +57,7 @@ function measuredProfile(measure: StrikeMeasure): Profile | null {
  * **A strike option** (`strike`): how its model is priced (`Option.priced`); its window
  * (`Option.window`), the first of its limbs' that has one, where none is ready and no blow of its
  * own is under way; what it deals a second (`Option.rate`), the most any cell of its profile takes
- * at the focus's phase (`ProfileReading.peak`) where its model reads its profile now, else its
+ * at the focus's phase from any start (`ProfileReading.peak`) where its model reads its profile now, else its
  * prior's (`priorOf`); and the strike its body is modelled by (`Option.modelled`), its profile
  * where one is measured as its body reads it (`measuredProfile`).
  */
@@ -68,16 +79,17 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "window" 
  *
  * Its model, where its drill measured it as it is read now (its profile among its measure's,
  * found by `measure`, read at the senses' reaction time): what the profile expects at the range
- * (to its reach) and the focus's phase (`readProfile`): the focus's life its blows took, its own
- * the drill took (the foe's reply while it struck), how long it ran and its chance of ending down;
- * through the blow coming, and the focus's pressure within its reach (`threatened`); and, its blow
+ * (to its reach), the start's velocity (`startOf`) and the focus's phase (`readProfile`): the focus's life its blows took, how long
+ * it ran until its limb was back (`Expected.recovers`), and its chance of ending down; through the blow coming, and the focus's pressure while it
+ * runs, past the focus's latency (`threatened`, `graceAt`); and, its blow
  * begun and not yet committed, what letting it go cost there at its progress (`Expected.letGo`).
- * Else its prior (`priorOf`), read the same way. It leaves the body at the range its cell's trials
- * ended at (`Expected.exit`), else where it strikes from.
+ * Else its prior (`priorOf`), read the same way. It leaves the body up at the range its
+ * trials came back at (`Expected.exit`), else where it strikes from, on the line from the focus through
+ * it, facing the focus (`along`); and down in its chance of ending down.
  *
- * Where a walk leaves the body (`Option.at`): on offer where the walk's spot stands within its window
- * now, ready or not (`windowAny`, `windowHolds`), its model there as it would be here, after the seconds its limb takes to be
- * ready there (`Place.ready`) under the focus's pressure.
+ * At a state where the body stands (`standing`), where it stands now its entry says whether it is
+ * on offer; elsewhere, where the spot it stands at is within its window now, ready or not
+ * (`windowAny`, `windowHolds`), its model there as it would be here.
  */
 export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null };
@@ -85,12 +97,17 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   /** Its profile, where it is read now: measured as the body reads it, its senses as late. */
   const profileNow = (now: Situation): Profile | null =>
     found && staleness(found.profile, { ...measured, reaction: now.reaction }) === null ? found.profile : null;
-  /** What its profile expects where the body stands now, `progress` s into its motion (`ProfileReading.expect`); null where none prices it. */
-  const expected = (now: Situation, progress: number): Expected | null => {
+  /**
+   * What its profile expects begun where the body stands now and as it moves (`startOf`), and, its
+   * motion `progress` s under way, what letting it go there costs (`ProfileReading.expect`); null
+   * where none prices it.
+   */
+  const expected = (now: Situation, progress?: number): Expected | null => {
     const profile = profileNow(now), focus = now.focus;
     if (!profile || !focus) return null;
     const reading = readProfile(profile, measure.spec, { own: "standing", target: now.foePosture });
-    return reading.expect({ range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, progress }, focus.spec);
+    return reading.expect({ range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, velocity: startOf(now),
+      ...(progress === undefined ? {} : { progress }) }, focus.spec);
   };
   const targetOf = (now: Situation): TargetRef | null => {
     const focus = now.focus;
@@ -142,33 +159,32 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     return ready?.readiness ?? UNREADY;
   };
   /**
-   * Its model (`Terms`). Its blow under way, short of its exit, it is priced from where it is:
-   * the time its motion has left, and its payoff unless its blow has met the target. Its chance of
-   * ending down is its profile's where one measures it (its trials' falls, in a clinch or not), else
-   * the clinch's (`clinched`).
+   * Its model (`Terms`) at `at`. Its blow under way, short of its exit, it is priced from where it
+   * is: the time its motion has left, and its payoff unless its blow has met the target. Its chance
+   * of ending down is its profile's where one measures it (its trials' falls, in a clinch or not),
+   * else the clinch's (`clinched`).
    */
-  const priceOf = (now: Situation): Terms => {
-    const apart = now.range;
-    const running = live(now), under = running !== undefined && running.phase !== "release";
-    const progress = under && state.began !== null ? now.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
-    const measured = expected(now, progress), e = measured ?? priorOf(now, apart);
-    const left = Math.max(0, e.seconds - progress), share = e.seconds > 0 ? left / e.seconds : 0, duration = left;
-    const letGo = running?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
-    return { duration, dealt: met ? 0 : e.dealt, taken: now.predictions.danger + e.taken * share,
-      orders: 0, exit: fromHere(now, { range: e.exit?.range ?? apart, down: Math.max(e.down, measured ? 0 : clinched(now, duration, now.apart)) }), ...letGo };
+  const priceOf = (at: Situation): Terms => {
+    const apart = at.range;
+    const running = live(at), under = running !== undefined && running.phase !== "release";
+    const progress = under && state.began !== null ? at.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
+    const preparing = running?.phase === "prepare", measured = expected(at, preparing ? progress : undefined), e = measured ?? priorOf(at);
+    const duration = Math.max(0, e.seconds + e.recovers - progress);
+    const letGo = preparing && e.letGo ? { letGo: e.letGo } : {};
+    return { duration, dealt: met ? 0 : e.dealt, taken: at.predictions.danger + threatened(at, duration), orders: 0,
+      outcomes: upOrDown({ where: along(at, e.exit?.range ?? apart) }, Math.max(e.down, measured ? 0 : clinched(at, duration, at.apart))), ...letGo };
   };
   /**
-   * Its prior, where no profile prices it, read as a profile's cell is (`Expected`): `throws` blows
+   * Its prior, where no profile prices it, read as a profile is (`Expected`): `throws` blows
    * from its stronger limb at the segment its region strikes (`blowLife`), each landing as often as its record says (`record`, which is of the limb
-   * it is asked for), as long as its record says it runs, under the focus's pressure from `from` m
-   * head to head.
+   * it is asked for), as long as its record says it runs.
    */
-  const priorOf = (now: Situation, from: number): Expected => {
+  const priorOf = (now: Situation): Expected => {
     const { lands, seconds } = record(now.sight.report.ledger, action.name);
     const target = targetOf(now), segment = target?.kind === "body" && now.focus ? regionSegments(now.focus.spec, target.region)[0] : undefined;
     const struck = segment ?? now.focus?.spec.marks.high ?? "";
     const blow = Math.max(...action.effectors.map((limb) => now.predictions.blows(limb, struck)));
-    return { done: lands, dealt: throws * lands * blow, taken: threatened(now, seconds, from), seconds, down: 0, ends: [] };
+    return { done: lands, dealt: throws * lands * blow, seconds, recovers: 0, down: 0, ends: [] };
   };
   /** Its window now (`Option.window`). */
   const windowNow = (now: Situation): Window | null => {
@@ -195,23 +211,23 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
       if (!found) return "by hand, no drill measured it";
       const stale = staleness(found.profile, { ...measured, reaction: now.reaction });
       if (stale !== null) return `by hand, ${stale}`;
-      if (!expected(now, 0)) return "by hand, no cell of its profile reads here";
+      if (!expected(now)) return "by hand, no trial of its profile reads here";
       const scaled = readProfile(found.profile, measure.spec).scaled(now.focus?.spec ?? null);
       return scaled === null ? "measured" : `measured, ${scaled}`;
     },
-    model: priceOf,
+    model(at) {
+      if (!at.focus || !standing(at)) return null;
+      const where = at.where, centre = at.sight.view.stance.centre;
+      if (where.x === centre.x && where.z === centre.z) return entry(at).kind === "ready" ? priceOf(at) : null;
+      const window = windowAny(at);
+      return window && windowHolds(window, where.x, where.z, where.face) ? priceOf(at) : null;
+    },
     rate(now) {
       const profile = profileNow(now), focus = now.focus;
       if (!focus) return 0;
-      if (profile && expected(now, 0)) return readProfile(profile, measure.spec, { own: "standing", target: now.foePosture }).peak(now.phase, focus.spec);
-      const prior = priorOf(now, now.range);
+      if (profile && expected(now)) return readProfile(profile, measure.spec, { own: "standing", target: now.foePosture }).peak(now.phase, focus.spec);
+      const prior = priorOf(now);
       return prior.seconds > 0 ? prior.dealt / prior.seconds : 0;
-    },
-    at(now, there, place) {
-      const spot = place.at, window = spot ? windowAny(now) : null;
-      if (!spot || !window || !windowHolds(window, spot.x, spot.z, spot.face)) return null;
-      const terms = priceOf(there), wait = place.ready?.[action.name] ?? 0;
-      return wait > 0 ? { ...terms, duration: terms.duration + wait, taken: terms.taken + threatened(there, wait) } : terms;
     },
     step(now) { const asked = walk.kept(now, ask(now), now.focus?.id ?? null); return { asked, holds: asking(now, asked) }; },
   };

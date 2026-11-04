@@ -2,24 +2,26 @@ import type { Readiness, Resource, Window } from "../skills/framework/action.ts"
 import { intentOfSet, type Intent, type SelectedAsk } from "../intent/intent.ts";
 import type { Sight } from "../mind/decider.ts";
 import type { Choice } from "../mind/choice.ts";
-import type { Cues, ModelledStrike, Percepts, Predictions } from "./percepts.ts";
+import { bearingAround, graceAt, inReach, type Cues, type ModelledStrike, type Percepts, type Predictions } from "./percepts.ts";
+import { hypot } from "../math/real.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import type { Place } from "./position.ts";
-import type { Route } from "./rise.ts";
-import type { Terms } from "./value.ts";
+import type { Edge } from "./rise.ts";
+import type { Leaves, Terms } from "./value.ts";
 
 /**
  * **What a decision reads**, once a control step: the body and its skills as the last step left
  * them, and each percept (`PERCEPTS`) and prediction (`PREDICTIONS`), read the first time it is
  * asked and kept for the step; and, by its config, a percept or prediction part's reading, read as
  * it is asked: one an option kind or an objective names in its `uses`. Those parts have no cue,
- * and a place (`Place`) leaves them as they are now. Which cued percepts were asked for is counted
- * for its chooser (`cues`).
+ * and a predicted state (`placed`) leaves them as they are now. Which cued percepts were asked for
+ * is counted for its chooser (`cues`).
  */
 export interface Situation extends Percepts {
   readonly sight: Sight;
   readonly time: number;
   readonly predictions: Predictions;
+  /** At a state an Option leaves the body in (`placed`), the seconds before the focus's pressure reaches it there (`graceAt`); absent at the state now. */
+  readonly grace?: number;
   /** What its chooser watches: the cued percepts asked for of any situation its reader made (`Cues`). */
   readonly cues: Cues;
   /** What the percept part `config` names reads now (`PerceptPart`). */
@@ -38,21 +40,41 @@ export interface Step {
 }
 
 /**
+ * **What an Option is asked to price** besides the state: the target it runs at, by its place in
+ * its `targets` (its first unless given), so a search prices each without aiming it (`Choice.aim`);
+ * and, for an Option that runs as long as it is held (`Option.open`), the seconds it is priced
+ * over (none unless given: it is priced as an instant).
+ */
+export interface Ask {
+  readonly target?: number;
+  readonly until?: number;
+}
+
+/**
  * **An option**: a skill applied to a target, chosen by its chooser (`Chooser`) in a set of options
  * whose resources do not overlap (a `Choice`: its entry, where it can begin, or, running, go on; the
  * resources it claims, `WHOLE` the whole body; whether it is a rest option, `hold`, `guard`,
  * `brace`; its targets, a gait's destinations; and its status), with its model (what running it
- * from now is expected to bring: measured where a profile prices it, else built by hand) and its
+ * from a state is expected to bring: measured where a profile prices it, else built by hand) and its
  * step. Begun, it runs until it is over, out of its entry, or given up for a better one where it
  * yields. What it may say beside, where its kind has it to say, its mind reads of any option alike.
  */
 export interface Option extends Choice<Situation> {
-  /** What running it from now is expected to bring (`Terms`). */
-  model(now: Situation): Terms;
+  /**
+   * **What running it from `at` is expected to bring** (`Terms`), at the state the body is in now
+   * or one an Option leaves it in (`placed`), asked as `ask` says; null where it is not on offer
+   * there. It reads the state's percepts, so it answers at a predicted state as it would there; at
+   * the state now its entry has the last word (`Choice.entry`).
+   */
+  model(at: Situation, ask?: Ask): Terms | null;
+  /** It runs as long as it is held, never over of itself (hold, guard, brace, the cover): priced over the seconds it is asked (`Ask.until`), and nothing after it. */
+  readonly open?: true;
+  /** Where it is held, where it names a place: the name of a walk's target (`Choice.targets`) that goes there, so the search reaches it there as well as where the body stands. */
+  readonly site?: string;
   /**
    * How its model is priced now, a sentence: measured, where its profile prices it (and why
    * scaled, `ProfileReading.scaled`); else by hand, and why: no drill measured it, its profile is
-   * stale (`staleness`), or no cell reads where it stands. Absent where it reads no profile.
+   * stale (`staleness`), or no trial reads where it stands. Absent where it reads no profile.
    */
   priced?(now: Situation): string;
   /**
@@ -68,26 +90,53 @@ export interface Option extends Choice<Situation> {
   window?(now: Situation): Window | null;
   /** The strike its body is modelled by (`ModelledStrike`, `Seen.strikes`), where it is one. */
   readonly modelled?: ModelledStrike;
-  /** The edges it takes the body by on the ground and what it is expected to do from each (`Route`), where it is a way up: what lying is priced by (`risePrices`). */
-  readonly route?: Route;
-  /**
-   * What running it is expected to bring once the body stands where `place` leaves it (`Place.at`),
-   * read at `there`, the situation that place predicts (`placed`): its entry there and its model
-   * there, null where it is not on offer there. Absent, an option the chooser does not look at past
-   * a walk: its entry reads nothing a place predicts, so it answers there as it does here.
-   */
-  at?(now: Situation, there: Situation, place: Place): Terms | null;
+  /** The edges it takes the body by on the ground (`TechniquePart.edges`), where it is a way up. */
+  readonly route?: readonly Edge[];
   /** What it asks this step, and what that holds. */
   step(now: Situation, dt: number): Step;
 }
 
 /**
- * **The situation where `place` leaves the body**, as `now` reads it otherwise, read through it:
- * its range and the range centre to centre moved alike, and its bearing around the focus where it
- * names one.
+ * **The state `leaves` leaves the body in** (`Leaves`), from `at`, read through it: where it stands
+ * (`where`), and from there its range centre to centre and head to head to the focus, the head as
+ * far from the centre as at `at`, and its bearing around the focus, unless `leaves` names it; its
+ * posture, down where it is not standing, and its velocity. A state an Option leaves is later than
+ * the blow coming and the body's own blows under way: no blow comes there (`incoming`,
+ * `Predictions.danger`), none of its own is under way there (`SkillReport.actions`), and no ground
+ * reading is read there (`ground`). Its grace (`Situation.grace`) is what `leaves` reckons; else, within the
+ * focus's reach, what is left of `at`'s after the Option's `seconds` where `at` is within it too
+ * (one stretch in reach counts the focus's latency once), and the whole latency where the body has
+ * just come within it or is out of it. The foe and every other percept are as `at` reads them.
  */
-export const placed = (now: Situation, place: Place): Situation => Object.create(now, {
-  range: { value: place.range }, apart: { value: now.apart + place.range - now.range }, around: { value: place.around ?? now.around } }) as Situation;
+/** No action under way: a state an Option leaves the body in (`placed`). */
+const NO_ACTIONS: Sight["report"]["actions"] = Object.freeze([]);
+
+export function placed(at: Situation, leaves: Leaves, seconds: number): Situation {
+  const report = Object.create(at.sight.report, { actions: { value: NO_ACTIONS } }) as Sight["report"];
+  const props: PropertyDescriptorMap = { ground: { value: null }, incoming: { value: null }, sight: { value: Object.create(at.sight, { report: { value: report } }) },
+    predictions: { value: Object.create(at.predictions, { danger: { value: 0 } }) } };
+  const where = leaves.where, focus = at.focus;
+  if (where) {
+    props.where = { value: where };
+    if (focus) {
+      const apart = hypot(where.x - focus.centre.x, where.z - focus.centre.z);
+      props.apart = { value: apart }; props.range = { value: apart + at.range - at.apart };
+      props.around = { value: leaves.around ?? bearingAround(focus, where.x, where.z) };
+    }
+  } else if (leaves.around !== undefined) props.around = { value: leaves.around };
+  if (leaves.posture) { props.posture = { value: leaves.posture }; props.down = { value: leaves.posture !== "standing" }; }
+  if (leaves.velocity) props.velocity = { value: leaves.velocity };
+  const there = Object.create(at, props) as Situation, latency = at.predictions.pressure.latency;
+  const grace = leaves.grace ?? (!inReach(there) ? latency : inReach(at) ? Math.max(0, graceAt(at) - seconds) : latency);
+  Object.defineProperty(there, "grace", { value: grace });
+  return there;
+}
+
+/**
+ * **Whether the body stands at `at`**: not down, and borne by its feet with no rise of its own
+ * holding it otherwise (`posture` standing): where an Option that begins standing is on offer.
+ */
+export const standing = (at: Situation): boolean => !at.down && at.posture === "standing";
 
 /** An entry or exit that admits. */
 export const READY: Readiness = Object.freeze({ kind: "ready" });

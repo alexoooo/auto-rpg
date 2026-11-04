@@ -1,5 +1,6 @@
 /**
- * **The Strike drill's cases**: one strike skill thrown once, at a still body (`still`), at one
+ * **The Strike drill's cases**: one strike skill thrown once, at a still body (`still`, and from
+ * starts drawn at random, moving or still, `sampled`), at one
  * carried past on a rail (`moving`), at one walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
  * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`). The striker is the
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
@@ -20,7 +21,8 @@
  */
 import type { MindConfig } from "../../core/mind/config.ts";
 import { treeObeys, CONTROLLERS, MINDS } from "../../entrants/game.ts";
-import type { DrillCommanderConfig } from "../../core/command/drill.ts";
+import type { Approach, DrillCommanderConfig } from "../../core/command/drill.ts";
+import { randomStream } from "../../core/math/random.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { modelHolding, modelSpec } from "../../core/models.ts";
@@ -49,13 +51,14 @@ export const loadoutsOf = (subject: StrikeSubject) => subject.held === undefined
  * ordering `action` with `effector` (`hand.right`, `foot.left`) at `mark`, standing `after` s first
  * and walking it to its action's window no faster than `pace` (ordering it, with `walking`, the
  * first step it is ready), or, at a `moment`, ordering nothing until the mind begins that many
- * actions; with `letGo`, ordering a stand that long after it began.
+ * actions; with `approach`, moving so first (`Approach`); with `letGo`, ordering a stand that long after it began.
  */
 export function striker({ mind, action }: StrikeSubject, effector: string, mark: Mark,
-  { after = STILL.settled, pace, walking, letGo, moment }: { readonly after?: number; readonly pace?: number; readonly walking?: boolean; readonly letGo?: number; readonly moment?: number } = {},
+  { after = STILL.settled, pace, walking, approach, letGo, moment }: { readonly after?: number; readonly pace?: number; readonly walking?: boolean; readonly approach?: Approach;
+    readonly letGo?: number; readonly moment?: number } = {},
 ): { readonly mind: MindConfig; readonly commander: DrillCommanderConfig } {
   const commander: DrillCommanderConfig = { kind: "drill", action, limb: effector, region: { kind: "mark", mark }, after, ...(pace === undefined ? {} : { pace }),
-    ...(walking ? { walking: true } : {}), ...(letGo === undefined ? {} : { letGo }), ...(moment === undefined ? {} : { moment }) };
+    ...(walking ? { walking: true } : {}), ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }), ...(moment === undefined ? {} : { moment }) };
   return deepFreeze({ mind, commander });
 }
 
@@ -66,8 +69,9 @@ export function striker({ mind, action }: StrikeSubject, effector: string, mark:
  * start, m, and
  * how far to the side of the striking hand (`toward`), so each hand is tried on the line ahead and
  * in front of its own shoulder alike; the mark and the hand; how long the striker stands in guard
- * before it asks, the most speed it walks at to bring the target into its action's window, m/s, how long after that it may wait to be admitted, the longest a trial plays, and
- * how long it runs on once the action has ended, for a fall it brings about, s. A trial is judged
+ * before it asks, the most speed it walks at to bring the target into its action's window, m/s, how long after that it may wait to be admitted, the longest a trial plays,
+ * how long it runs on once the action has ended, for a fall it brings about, and how long it waits
+ * for the limb back at its guard after that (`Ending.recover`), s. A trial is judged
  * by the bar a person's punch sets, scaled to the striker's body (`barOf`, `read.ts`). A change here is a new protocol.
  */
 const STILL = deepFreeze({
@@ -77,8 +81,24 @@ const STILL = deepFreeze({
   toward: "hand",
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],
-  settled: .5, pace: 1, patience: 8, seconds: 11, settle: .5,
+  settled: .5, pace: 1, patience: 8, seconds: 11, settle: .5, recover: 2,
 });
+
+/**
+ * **Starts drawn at random**, the `sampled` rung: the still rung's trials on every striker's body,
+ * each begun from a start drawn from a fixed stream (`seed`), so its trials are the same at every
+ * play: by turns still, stepping in, backing off and sideways (`APPROACHES`), each hand alike, at
+ * the middle mark; the target's gap ahead from `gaps` (stepping in, from `closer`) and its offset across from
+ * `across`, m, each drawn evenly; and the approach's speed, m/s, and time, s, drawn evenly from
+ * `speeds` and `times`. The striker stands, moves so (`Approach`), striking the first step it is
+ * ready, then walks into its window and strikes the first step it is ready there: where it began
+ * and how it moved then are what the trial records (`StrikeReading.foeAt`).
+ */
+const SAMPLED = deepFreeze({ ...STILL, models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[],
+  marks: ["middle"] as Mark[], trials: 96, seed: 1, gaps: [.6, 1.4], closer: [1.2, 2.2], across: [0, .2], speeds: [.3, 1], times: [.3, 1] });
+
+/** **How a sampled start moves** (`SAMPLED`), degrees off the line to the target: still, stepping in, backing off, sideways to the right and to the left. */
+const APPROACHES = Object.freeze([null, 0, 180, 90, -90] as const);
 
 /**
  * Rung 5, struck from a walk: the still rung's target and striker set farther apart than the
@@ -166,7 +186,7 @@ const FIGHT = deepFreeze({
   moments: [1, 2, 3, 4],
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],
-  settled: 0, pace: 1, patience: 2, seconds: 30, settle: .5,
+  settled: 0, pace: 1, patience: 2, seconds: 30, settle: .5, recover: 2,
 });
 
 /** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
@@ -176,6 +196,8 @@ export type StillCondition = { readonly model: BodyModel; readonly mark: Mark } 
   /** Which way and how fast the target moves on its rail, m/s, where its rung moves it. */
   readonly direction?: Direction; readonly speed?: number;
   readonly across: number; readonly gap: number; readonly start?: Start;
+  /** How the striker first moves, where its rung draws it (`Approach`). */
+  readonly approach?: Approach;
   /** Where the drill lets its strike go, s after it began; absent where it does not. */
   readonly letGo?: number };
 type FightCondition = { readonly model: BodyModel; readonly foe: string; readonly mark: Mark; readonly hand: Hand; readonly moment: number };
@@ -216,12 +238,32 @@ function railOf(moving: Moving, settled: number, direction: Direction, speed: nu
   return { rail: { side: "right", path: { kind: "line", along: [dx * length, dz * length] }, speed, height: moving.height }, from };
 }
 
+/**
+ * **The sampled rung's trials** (`SAMPLED`): on each body, `trials` starts drawn in turn from one
+ * stream, the same for every body, each drawn to the millimetre and the hundredth.
+ */
+function sampledConditions(protocol: typeof SAMPLED): StillCondition[] {
+  const conditions: StillCondition[] = [], within = ([low, high]: readonly number[], at: number) => low! + at * (high! - low!);
+  for (const model of protocol.models) {
+    const stream = randomStream(protocol.seed);
+    for (let k = 0; k < protocol.trials; k++) {
+      const way = APPROACHES[k % APPROACHES.length]!, hand = protocol.hands[k % protocol.hands.length]!, mark = protocol.marks[Math.floor(k / protocol.hands.length) % protocol.marks.length]!;
+      const gap = within(way === 0 ? protocol.closer : protocol.gaps, stream.next()), across = within(protocol.across, stream.next());
+      const speed = within(protocol.speeds, stream.next()), seconds = within(protocol.times, stream.next());
+      conditions.push({ model, mark, hand, across: Math.round(across * 1000) / 1000, gap: Math.round(gap * 1000) / 1000,
+        ...(way === null ? {} : { approach: { way, speed: Math.round(speed * 100) / 100, seconds: Math.round(seconds * 100) / 100 } }) });
+    }
+  }
+  return conditions;
+}
+
 function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: readonly number[];
-  readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID } & Partial<Moving>): Cases<StrikeCondition, StrikeReading> {
-  const conditions: StillCondition[] = [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
+  readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID } & Partial<Moving>,
+  drawn?: readonly StillCondition[]): Cases<StrikeCondition, StrikeReading> {
+  const conditions: StillCondition[] = drawn ? [...drawn] : [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
   const moving: Moving | null = protocol.directions === undefined ? null : protocol as Moving;
   const motions = moving ? moving.directions.flatMap((direction) => moving.speeds.map((speed) => ({ direction, speed }))) : [undefined];
-  for (const model of protocol.models) for (const mark of protocol.marks) for (const limb of limbs) for (const target of protocol.targets ?? [undefined]) for (const motion of motions)
+  if (!drawn) for (const model of protocol.models) for (const mark of protocol.marks) for (const limb of limbs) for (const target of protocol.targets ?? [undefined]) for (const motion of motions)
     for (const across of protocol.across) for (const gap of protocol.gaps) for (const start of protocol.starts ?? [undefined]) for (const letGo of protocol.letGo ?? [undefined])
       conditions.push({ model, mark, ...limb, ...(target === undefined ? {} : { target }), ...motion, across, gap, ...(start === undefined ? {} : { start }), ...(letGo === undefined ? {} : { letGo }) });
   return {
@@ -231,7 +273,7 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
     seconds: protocol.seconds,
     faults: (value, { model }, subject) => faultsOf(value, model, subject),
     world: ([value], condition, engine, [character]) => {
-      const { model, gap, across, mark, target, start, letGo, direction, speed } = condition as StillCondition, hand = handOf(condition as StillCondition);
+      const { model, gap, across, mark, target, start, approach, letGo, direction, speed } = condition as StillCondition, hand = handOf(condition as StillCondition);
       const side = protocol.toward === "hand" && hand === "left" ? across : -across;
       const carried = moving && direction !== undefined && speed !== undefined ? railOf(moving, protocol.settled, direction, speed, gap, side) : null;
       return { kind: "bout", engine, tape: [],
@@ -241,7 +283,7 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
         // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: carried ? [...carried.from] : [gap / 2, side], heading: -Math.PI / 2 } },
         ...opposed(striker(value as unknown as StrikeSubject, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace,
-          walking: start === "walking" || carried !== null, ...(letGo === undefined ? {} : { letGo }) }),
+          walking: start === "walking" || carried !== null || approach !== undefined, ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }) }),
           opponentOf(protocol.opponent ?? STANDING)!),
         ...(carried ? { rail: carried.rail } : {}),
         // Facing -x, its back is toward +x: 90 degrees from +z.
@@ -282,7 +324,8 @@ const onOtherBodies = <P extends { readonly models: readonly BodyModel[] }>(rung
   deepFreeze({ ...rung, models: STRIKERS.filter((model) => !rung.models.includes(model)) as BodyModel[] });
 
 /** Every protocol the Strike drill may be played on, by name: its rungs. */
-export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), moving: stillCases(MOVING), walk: stillCases(WALK),
+export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
+  moving: stillCases(MOVING), walk: stillCases(WALK),
   stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
   letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
   "still-bodies": stillCases(onOtherBodies(STILL)), "walk-bodies": stillCases(onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),

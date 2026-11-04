@@ -8,12 +8,13 @@ import { REPOSITION, STAND_UP } from "../recovery/ground/stand-up.ts";
 import { edgeExpected } from "../skills/framework/profile.ts";
 import { anyBody, slotOne, type KeysOf, type PartConfig } from "../parts/parts.ts";
 import { WHOLE, type Status } from "../mind/choice.ts";
-import { downTerms, type DownModel } from "./down.ts";
+import { downTerms } from "./down.ts";
 import { brace } from "./rest.ts";
 import { asking, blocked, READY, type Option, type Situation, type Step } from "./option.ts";
 import { around } from "./strike.ts";
 import { onFeet, STEADY_TRY } from "./rise-memory.ts";
 import { recorded, type OptionRecord, type Prior, type Tried } from "./record.ts";
+import { STILL, UNMOVED, type Outcome } from "./value.ts";
 import type { OptionKindPart, OptionsGiven } from "./kinds.ts";
 
 /** What a way up is taken to do where no drill measured it (`Prior`), set by hand: it runs 5 s and stands the body seven times in ten. */
@@ -36,13 +37,7 @@ export interface Way {
 }
 
 /** An edge a way up takes the body by: from a posture to another (`TechniquePart.edges`). */
-type Edge = TechniquePart["edges"][number];
-
-/** **A way up's route**: the edges it takes the body by, and what it is expected to do from where each begins (`Way`): what a rise is priced over (`risePrices`). */
-export interface Route {
-  readonly edges: readonly Edge[];
-  way(from: Position): Way;
-}
+export type Edge = TechniquePart["edges"][number];
 
 /** `way` as `tried` moves it (`recorded`): its share done, and its failures in proportion, the unaccounted resting where it began, `from`. */
 function recordedWay(way: Way, tried: Tried | undefined, from: Position): Way {
@@ -53,71 +48,24 @@ function recordedWay(way: Way, tried: Tried | undefined, from: Position): Way {
 }
 
 /**
- * **What a rise from each posture is priced at** over `routes` (`DownModel`): its expected seconds
- * to standing, the least, over the edges from it, of a try's seconds, then the rise on from where
- * it ends, in the share it reaches there and the shares its failures rest elsewhere, over the share
- * that does not rest where it began; found again until none falls, and again only as `record`
- * changes. None where no edge's route stands it.
+ * **Where a try of `way` from `from` leaves the body**, each lying in a posture or standing, still:
+ * where it goes, `to`, in the share it is done; where those not done came to rest (`Way.ends`), each
+ * in its share; and where it began in the share no end names. Shares that sum past the whole are
+ * read in proportion.
  */
-export function risePrices(routes: readonly Route[], record: OptionRecord): (posture: Position) => DownModel | null {
-  const prices = new Map<Position, number>();
-  let pricedFor: string | null = null;
-  const price = (): ReadonlyMap<Position, number> => {
-    const key = JSON.stringify(record.state.tried);
-    if (pricedFor === key) return prices;
-    pricedFor = key; prices.clear(); prices.set("standing", 0);
-    const at = (posture: string): number => prices.get(posture as Position) ?? Infinity;
-    for (let round = 0, fell = true; fell && round < 32; round++) {
-      fell = false;
-      for (const route of routes) for (const edge of route.edges) {
-        const way = route.way(edge.from);
-        let sum = way.seconds + way.done * at(edge.to), again = 0;
-        for (const end of way.ends) if (end.at === edge.from || !Number.isFinite(at(end.at))) again += end.share; else sum += end.share * at(end.at);
-        const seconds = again >= 1 - 1e-9 ? Infinity : sum / (1 - again);
-        if (seconds < at(edge.from) - 1e-9) { prices.set(edge.from, seconds); fell = true; }
-      }
-    }
-    return prices;
-  };
-  return (posture) => {
-    const seconds = price().get(posture) ?? Infinity;
-    return Number.isFinite(seconds) ? { seconds, stands: 1, shelter: 0 } : null;
-  };
-}
-
-/**
- * Where a way up's failures most come to rest, as a rise's price counts them (`risePrices`): one
- * that comes to rest where no rise is priced counts as resting where it began, `from`, as does the
- * share no end names.
- */
-function restOf(way: Way, from: Position, rise: (posture: Position) => DownModel | null): Position {
-  const shares = new Map<Position, number>();
-  for (const end of way.ends) {
-    const at = rise(end.at as Position) ? end.at as Position : from;
-    shares.set(at, (shares.get(at) ?? 0) + end.share);
-  }
-  let best: Position = from, share = 0;
-  for (const [at, one] of shares) if (one > share) { share = one; best = at; }
-  return best;
-}
-
-/**
- * **The route on through `way` from `from` to `to`** (`DownModel`): its seconds and, in its share
- * done, the rise's on from `to` (`Predictions.rise`), standing in that share, the rest down where
- * its failures come to rest (`restOf`); where no rise on from `to` is priced, the way alone,
- * leaving the body down there.
- */
-function routeOf(now: Situation, way: Way, from: Position, to: Position): { readonly model: DownModel; readonly posture: Position } {
-  const rise = now.predictions.rise, onward = rise(to);
-  return onward ? { model: { seconds: way.seconds + way.done * onward.seconds, stands: way.done, shelter: 0 }, posture: restOf(way, from, rise) }
-    : { model: { seconds: way.seconds, stands: 0, shelter: 0 }, posture: to };
+function endings(way: Way, from: Position, to: Position): readonly Outcome[] {
+  const shares = new Map<Position, number>([[to, way.done]]);
+  let total = way.done;
+  for (const end of way.ends) { const at = end.at as Position; shares.set(at, (shares.get(at) ?? 0) + end.share); total += end.share; }
+  if (total < 1) shares.set(from, (shares.get(from) ?? 0) + 1 - total);
+  const whole = Math.max(1, total), outcomes: Outcome[] = [];
+  for (const [posture, share] of shares) if (share > 0) outcomes.push({ leaves: { posture, velocity: STILL }, chance: share / whole });
+  return outcomes;
 }
 
 /** Whether a way up may be begun on the body: not tumbling, or braced its while (`BRACED`, `Situation.tumbled`) since its rise began or its last try ended. */
 const calm = (now: Situation, g: GroundReading): boolean => !tumbling(g) || now.tumbled >= BRACED;
 
-/** The ground as the body's rise reads it: none where no rise runs. */
-const risen = (now: Situation): GroundReading | null => now.rising ? now.sight.view.ground : null;
 
 /** A ground option's memory: the action it asks (none until its first step), the side it asks it on, and where its try began (none where it keeps no record). */
 interface Asking { id: number | null; side: Side; from: Position | null }
@@ -134,16 +82,19 @@ function asks(now: Situation, memory: Asking, action: string): Step {
 
 /**
  * **A try of the ground skill `part`** over the whole body (`WHOLE`), named as it: on offer where
- * the body's rise runs, its position read (`GroundReading.settled`) and calm unless its entry reads
- * motion (`calm`, `TechniquePart.moving`), an edge of `edges` from where it lies (raw where its
- * entry reads motion, as last settled else; `toward` says where it goes from there), on the side it
- * lies on first, then left, then right, where its skill admits it there (`Sight.readiness`). Begun,
- * it runs until its action ends, yielding while the action is prepared; its try noted in `record`
- * as it ends (`OptionRecord.note`), done where the action ended done. Priced as the route on
- * through it (`routeOf`), what it is expected to do from where it is begun (`way`).
+ * the body's rise runs (`Situation.ground`), its position read (`GroundReading.settled`) and calm
+ * unless its entry reads motion (`calm`, `TechniquePart.moving`), an edge of `edges` from where it
+ * lies (raw where its entry reads motion, as last settled else; `toward` says where it goes from
+ * there), on the side it lies on first, then left, then right, where its skill admits it there
+ * (`Sight.readiness`). Begun, it runs until its action ends, yielding while the action is
+ * prepared; its try noted in `record` as it ends (`OptionRecord.note`), done where the action ended
+ * done. Priced as what it is expected to do from where it is begun (`way`): its seconds down
+ * (`downTerms`), ending where it goes in the share done and where its failures come to rest
+ * (`endings`). At a state an Option leaves the body in, where no ground is read, it is on offer
+ * lying in a posture `toward` goes from.
  */
-function attempt(part: TechniquePart, edges: readonly Edge[], toward: (from: Position, g: GroundReading) => Position | null,
-  way: (from: Position) => Way, record: OptionRecord, extra: { readonly route?: Route; readonly priced?: Option["priced"] }): Option {
+function attempt(part: TechniquePart, edges: readonly Edge[], toward: (from: Position, g: GroundReading | null) => Position | null,
+  way: (from: Position) => Way, record: OptionRecord, extra: { readonly route?: readonly Edge[]; readonly priced?: Option["priced"] }): Option {
   const name = part.defaults.kind as string, memory: Asking = { id: null, side: "left", from: null };
   const UNOFFERED = blocked(`${name} does not admit the body as it lies`);
   const fromOf = (g: GroundReading): Position => part.moving && edges.some((edge) => edge.from === g.raw) ? g.raw : g.position;
@@ -158,7 +109,7 @@ function attempt(part: TechniquePart, edges: readonly Edge[], toward: (from: Pos
     entry(now) {
       // Begun, it runs on until it ends, however the body is read.
       if (memory.id !== null) return READY;
-      const g = risen(now);
+      const g = now.ground;
       if (!g) return UNOFFERED;
       return g.settled && (part.moving || calm(now, g)) && toward(fromOf(g), g) !== null && sideOf(now, g) !== null ? READY : UNOFFERED;
     },
@@ -170,12 +121,11 @@ function attempt(part: TechniquePart, edges: readonly Edge[], toward: (from: Pos
       if (live.stage.startsWith("ended:")) { note(live.stage === "ended:done"); return "over"; }
       return live.phase === "prepare" ? "yields" : "committed";
     },
-    model(now) {
-      const g = now.sight.view.ground;
-      if (!g) return downTerms({ seconds: WAY_PRIOR.seconds, stands: WAY_PRIOR.done, shelter: 0 })(now);
-      const from = memory.from ?? fromOf(g), to = toward(from, g) ?? from;
-      const route = routeOf(now, way(from), from, to);
-      return downTerms(route.model, route.posture)(now);
+    model(at) {
+      const g = at.ground, from = g ? memory.from ?? fromOf(g) : at.down ? at.posture : null, to = from === null ? null : toward(from, g);
+      if (from === null || to === null) return null;
+      const expected = way(from);
+      return downTerms(at, expected.seconds, endings(expected, from, to));
     },
     begin(now) {
       memory.id = null;
@@ -192,12 +142,12 @@ function attempt(part: TechniquePart, edges: readonly Edge[], toward: (from: Pos
 const wayBy = (name: string, prior: Prior, profile: Way | null, record: OptionRecord) => (from: Position): Way =>
   recordedWay(profile ?? { ...prior, ends: [] }, record.of(name, from), from);
 
-/** A way up's `attempt` of `part` over `edges`, its route those edges (`Route`), priced by its profile on the body where one is measured (`edgeExpected`), by hand else (`WAY_PRIOR`). */
+/** A way up's `attempt` of `part` over `edges`, its route (`Option.route`), priced by its profile on the body where one is measured (`edgeExpected`), by hand else (`WAY_PRIOR`). */
 function wayUp(given: OptionsGiven, config: GroundConfig<string>, part: TechniquePart, edges: readonly Edge[]): Option {
   const { expected, priced } = edgeExpected(given.spec, config.technique, given.hz, given.delay, given.tables.edges);
-  const way = wayBy(part.defaults.kind as string, WAY_PRIOR, expected, given.record), route: Route = { edges, way };
+  const way = wayBy(part.defaults.kind as string, WAY_PRIOR, expected, given.record);
   return attempt(part, edges, (from) => edges.find((edge) => edge.from === from)?.to ?? null, way, given.record,
-    { route, priced: () => expected ? "measured" : `by hand, ${priced}` });
+    { route: edges, priced: () => expected ? "measured" : `by hand, ${priced}` });
 }
 
 /** **A kind of ground option's config**: its kind, and the technique it runs (`TechniquePart`): a way up, or a mode of the ground. */
@@ -228,37 +178,39 @@ export const WAY_UP_OPTION = groundKind("way-up", "Way up", "staged-roll", true,
  * one the ways up were made from.
  */
 export const REPOSITION_OPTION = groundKind("reposition", "Reposition", "roll", true, (given, config, part) => {
-  const routed = new Set(given.made.flatMap((option) => option.route ? option.route.edges.map((edge) => edge.from) : []));
+  const routed = new Set(given.made.flatMap((option) => option.route ? option.route.map((edge) => edge.from) : []));
   return [wayUp(given, config, part, part.edges.filter((edge) => !routed.has(edge.from)))];
 });
 
 /** **Flatten** (`attempt`): the body laid flat on the side it lies on, priced as a way up by hand to that lie. */
 export const FLATTEN_OPTION = groundKind("flattening", "Flatten", "flatten", false, (given, _config, part) => {
   const way = wayBy(part.defaults.kind as string, WAY_PRIOR, null, given.record);
-  return [attempt(part, [], (_from, g) => g.lie, way, given.record, {})];
+  return [attempt(part, [], (_from, g) => g?.lie ?? null, way, given.record, {})];
 });
 
 /**
  * **The steady**, on its feet while its rise runs (`onFeet`), over the whole body, yielding: priced as
- * a way up from where it stands (`STEADY_PRIOR`), its try's seconds left (`Situation.steadied`); its
- * route from a crouch to standing. Its try is noted in the record as it ends: done where its rise is
- * over, not where its try ran out with the rise still on.
+ * a way up from where it stands to standing (`STEADY_PRIOR`), its try's seconds left
+ * (`Situation.steadied`); its route from a crouch to standing. Its try is noted in the record as it
+ * ends: done where its rise is over, not where its try ran out with the rise still on.
  */
 export const STEADY_OPTION = groundKind("steadying", "Steady", "steady", false, (given, _config, part) => {
   const name = part.defaults.kind as string, record = given.record, way = wayBy(name, STEADY_PRIOR, null, record);
   const memory = { id: null as number | null, side: "left" as Side, from: null, steadied: 0 }, NOT_ON_FEET = blocked("not on its feet in a rise");
-  const route: Route = { edges: [{ from: "crouch", to: "standing" }], way };
+  const route: readonly Edge[] = [{ from: "crouch", to: "standing" }];
   return [{
     name: "steady", claims: WHOLE, state: memory, route,
-    entry: (now) => { const g = risen(now); return g && onFeet(g) ? READY : NOT_ON_FEET; },
+    entry: (now) => { const g = now.ground; return g && onFeet(g) ? READY : NOT_ON_FEET; },
     status(now): Status {
       if (now.rising) return "yields";
       if (memory.id !== null) { record.note(name, now.posture, true); memory.id = null; }
       return "over";
     },
-    model(now) {
-      const g = now.sight.view.ground, from: Position = g?.position ?? "standing", expected = way(from);
-      return downTerms({ seconds: Math.max(0, expected.seconds - now.steadied), stands: expected.done, shelter: 0 }, from)(now);
+    model(at) {
+      const g = at.ground;
+      if (!g || !onFeet(g)) return null;
+      const expected = way(g.position);
+      return downTerms(at, Math.max(0, expected.seconds - at.steadied), endings(expected, g.position, "standing"));
     },
     begin() { memory.id = null; memory.steadied = 0; },
     end() { memory.id = null; },
@@ -271,14 +223,14 @@ export const STEADY_OPTION = groundKind("steadying", "Steady", "steady", false, 
   }];
 });
 
-/** **Landing**: the command carried on while the body, in its rise and off its feet, lands calm, its position not yet read; priced as holding where it is a step. */
+/** **Landing**: the command carried on while the body, in its rise and off its feet, lands calm, its position not yet read; priced as lying where it is a step. */
 export const LAND_OPTION = groundKind("landing", "Land", "land", false, (given, _config, part) => {
   const name = part.defaults.kind as string, memory = { id: null as number | null, side: "left" as Side, from: null }, NOT_LANDING = blocked("not landing");
   return [{
     name, claims: WHOLE, state: memory,
-    entry: (now) => { const g = risen(now); return g && !onFeet(g) && !g.settled && calm(now, g) ? READY : NOT_LANDING; },
+    entry: (now) => { const g = now.ground; return g && !onFeet(g) && !g.settled && calm(now, g) ? READY : NOT_LANDING; },
     status: () => "yields",
-    model: (now) => downTerms({ seconds: 1 / given.hz, stands: 0, shelter: 0 }, now.sight.view.ground?.position ?? "between")(now),
+    model: (at) => at.ground ? downTerms(at, 1 / given.hz, UNMOVED) : null,
     begin() { memory.id = null; }, end() { memory.id = null; },
     step: (now) => asks(now, memory, name),
   }];
@@ -286,35 +238,26 @@ export const LAND_OPTION = groundKind("landing", "Land", "land", false, (given, 
 
 /**
  * **Brace while tumbling**, in its rise off its feet and not calm (`calm`): a body on its feet is the
- * stance's to catch, and bracing it would fold the legs under it. Priced as holding where it is for
+ * stance's to catch, and bracing it would fold the legs under it. Priced as lying where it is for
  * what is left of what a brace saves (`BRACED`).
  */
 export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while tumbling", "brace", false, (given, _config, part) => {
   const name = part.defaults.kind as string, memory = { id: null as number | null, side: "left" as Side, from: null }, NOT_TUMBLING = blocked("not tumbling unbraced");
   return [{
     name: "brace while tumbling", claims: WHOLE, state: memory,
-    entry: (now) => { const g = risen(now); return g && !onFeet(g) && !calm(now, g) ? READY : NOT_TUMBLING; },
+    entry: (now) => { const g = now.ground; return g && !onFeet(g) && !calm(now, g) ? READY : NOT_TUMBLING; },
     status: () => "yields",
-    model: (now) => downTerms({ seconds: Math.max(1 / given.hz, BRACED - now.tumbled), stands: 0, shelter: 0 }, now.sight.view.ground?.position ?? "between")(now),
+    model: (at) => at.ground ? downTerms(at, Math.max(1 / given.hz, BRACED - at.tumbled), UNMOVED) : null,
     begin() { memory.id = null; }, end() { memory.id = null; },
     step: (now) => asks(now, memory, name),
   }];
 });
 
-/**
- * **Brace**, down (`brace`), a rest option: by the ground's brace where it fits the body, priced as
- * the rise from where the body lies (`Predictions.rise`), else from its back, else by hand
- * (`WAY_PRIOR`), with none of it standing.
- */
+/** **Brace**, down (`brace`), a rest option: by the ground's brace where it fits the body, priced as lying where it lies. */
 export const BRACE_OPTION: OptionKindPart<GroundConfig<"brace-down">> = deepFreeze({ ...groundKind("brace-down", "Brace", "brace", false, () => []),
   make: (config: GroundConfig<"brace-down">, given: OptionsGiven) => {
-    const part = given.parts.of("technique", config.technique), by = part.fits(given.spec, config.technique, given.parts) === null
-      ? { action: part.defaults.kind as string, effector: sideEffector("left") } : null;
-    const lying = (now: Situation): DownModel => {
-      const g = now.sight.view.ground, rise = now.predictions.rise;
-      return (g ? rise(g.position) : null) ?? rise("back") ?? { seconds: WAY_PRIOR.seconds, stands: WAY_PRIOR.done, shelter: 0 };
-    };
-    return [brace(lying, by)];
+    const part = given.parts.of("technique", config.technique);
+    return [brace(part.fits(given.spec, config.technique, given.parts) === null ? { action: part.defaults.kind as string, effector: sideEffector("left") } : null)];
   } });
 
 /** The way-up options of `techniques`, each a way up of its own (`WAY_UP_OPTION`). */

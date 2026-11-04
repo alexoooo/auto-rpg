@@ -108,8 +108,8 @@ export interface Cue<S> {
 /** No chance: the best is taken, nothing drawn. */
 const NO_CHANCE: Chance = Object.freeze({ margin: 0, seed: 0 });
 
-/** How a selection prices the choice at `i` of its choices, now. */
-export type Appraise<S, T, C extends Choice<S>> = (choice: C, i: number, now: S) => Priced<T>;
+/** How a selection prices the choice at `i` of its choices, now, at the target at `target` of its targets (0 for one with none); null where it is not on offer there. */
+export type Appraise<S, T, C extends Choice<S>> = (choice: C, i: number, now: S, target: number) => Priced<T> | null;
 
 /**
  * **What a selection decided**: the set running, the first chosen first (empty with none), the
@@ -229,7 +229,9 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
           if (targets) choice.aim!(k);
           if (!onOffer(choice, now)) continue;
           // What letting it go costs raises the target it runs at alone: run at another, it is let go.
-          const offer = appraise(choice, i, now), runs = state.running.includes(i) && (!targets || k === state.aims[i]);
+          const offer = appraise(choice, i, now, k);
+          if (!offer) continue;
+          const runs = state.running.includes(i) && (!targets || k === state.aims[i]);
           const value = offer.worth + (runs ? offer.letGo : 0);
           state.offers.push(offer);
           if (value > best) { best = value; at = k; }

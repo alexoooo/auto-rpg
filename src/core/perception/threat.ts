@@ -115,8 +115,8 @@ export function threatReader() {
 /**
  * **What a foe's body is doing**, read from what is sensed of it: striking, a blow of its predicted
  * to reach the head (`READINGS.predicted`); down by its spec's rule (`BodySense.down`), and rising,
- * down with its centre of mass going up faster than `RISING`; else clear. What a profile's cells are
- * indexed by (`ProfileCell.phase`).
+ * down with its centre of mass going up faster than `RISING`; else clear. What a profile's trials are
+ * read by (`Start.phase`).
  */
 export type FoePhase = "striking" | "down" | "rising" | "clear";
 
