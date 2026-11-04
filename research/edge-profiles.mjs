@@ -1,7 +1,7 @@
 /**
  * **The ground Options' profiles** (`assets/core/edge-profiles.json`, in the profiles' one type,
- * `src/core/skills/framework/profile.ts`): Option Mind, the game's preset on its priors alone,
- * rising from the stand-up target's falls (`risingJobs`) turned by offsets neither of its protocols
+ * `src/core/skills/framework/profile.ts`): Option Mind, the game's preset on its priors alone and
+ * choosing by chance among the Options near the best (`MARGIN`), rising from the stand-up target's falls (`risingJobs`) turned by offsets neither of its protocols
  * plays (`--offsets`), every body in every loadout; each try of a ground technique it runs is a
  * trial begun where the body lay (`groundStart`): a way up or a reposition, flatten, and a brace
  * while a way up does not yet admit the body (`BRACE_TUMBLING_OPTION`, calm). A trial runs from its
@@ -23,6 +23,8 @@ import { Worker, isMainThread, parentPort } from "node:worker_threads";
 const OUT = new URL("../assets/core/edge-profiles.json", import.meta.url);
 /** The Options a trial waits through before the next choice: what the body does while it cannot yet choose. */
 const WAITS = new Set(["brace while tumbling", "land"]);
+/** The worth, life, within which the measuring mind chooses by chance (`Chance`): wide enough that each way up on offer is tried, not only the one its priors rank first. */
+const MARGIN = .25;
 /** A mean of seconds as the profiles keep it: to the millisecond. */
 const round = (x) => Number(x.toFixed(3));
 
@@ -36,7 +38,7 @@ async function trialsOf(job) {
   const { tumbling } = await import("../src/core/control/ground-reading.ts");
   const { groundStart, measuredOn, techniqueDigest } = await import("../src/core/skills/framework/profile.ts");
   // Its priors alone (`PRIOR_PREDICTIONS`), so what it measures does not depend on what it measured before.
-  const mind = { ...MINDS.option.config, predictions: { kind: "prior" } };
+  const mind = { ...MINDS.option.config, predictions: { kind: "prior" }, chooser: { ...MINDS.option.config.chooser, margin: MARGIN } };
   /** Each ground Option measured and the technique it runs: a way up's and flatten's named as their technique, a brace while tumbling as itself. */
   const skills = new Map();
   for (const option of mind.options ?? OPTIONS) {
