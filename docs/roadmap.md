@@ -90,6 +90,8 @@ Option Mind as its hero.
   loadout; the Rogue's arms on hands and knees; the Skeleton holding the club.
 - Strikes on every body: the punch, then sword, club and buckler; the stomp on the Warrior and
   the Rogue.
+- The Rogue's stomp holding a club or a sword never chambers: each try runs about 10 s
+  uncommitted and stalls (`withdrawal deadline`), and Option Mind chases it, priced by its prior.
 - Holds and equipment: shield and weapon lines, two hands on one item (a closed chain), equipped
   recovery, armour and bows.
 - Grit, a rising assist, has no mechanism; movement and attack-and-defence assists are not built.
@@ -114,6 +116,11 @@ Option Mind as its hero.
 - The foe's phase reads `rising` in bursts only.
 - Nothing in the rules costs effort; fatigue only if a trained mind strikes without pause.
 - Options chosen by profile: targets after a guard, spacing, ground choices, obedience.
+- The valued chooser is indifferent to delay: a strike now ties the same strike after a second
+  of following orders, so a stomp profile whose way back leaves the body outside its window walks
+  between sites; the measured stomp profiles wait on it.
+- A body lying where only flatten is on offer reaches standing three Options deep, past the
+  search's depth, and braces.
 - A learned mind; sight that is blocked; team bouts in the Arena.
 
 ### The game
