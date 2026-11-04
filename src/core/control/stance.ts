@@ -107,10 +107,11 @@ export interface SwingGoal {
   readonly lean?: readonly [number, number];
   /**
    * Whether the swing ends as soon as its sole meets the ground from `LANDS_FROM` of its time, as a
-   * catch's does; none, it ends on its time, its sole on the ground, and a sole that meets the
-   * ground early does not end it, so a walk's steps keep their time. Either way a foot still off the
-   * ground at its time goes on down past its place's height (`LATE_DESCENT`) until it meets it, or
-   * for `LATE_MOST` of its time again.
+   * catch's does; none, it ends on its time once its sole has met the ground from then, so a walk's
+   * steps keep their time: a sole that met it rests there at its time, most often with no weight on
+   * it yet, which the ground does not push. Either way a foot that has not met the ground by its
+   * time goes on down past its place's height (`LATE_DESCENT`) until it meets it, or for
+   * `LATE_MOST` of its time again.
    */
   readonly early?: boolean;
   /**
@@ -147,7 +148,7 @@ export interface SwingGoal {
   readonly lever?: number;
 }
 
-/** The share of a swing's time from which the ground meeting its sole ends it (`SwingGoal.early`): before it, the foot is still leaving the ground. */
+/** The share of a swing's time from which the ground meeting its sole lands it (`SwingGoal.early`): before it, the foot is still leaving the ground. */
 const LANDS_FROM = 0.8;
 
 /** How far down the ground's normal at a sole is, as the cosine from up, for its meeting to land the swing: the floor, not a wall. */
@@ -561,16 +562,17 @@ function soleDrop(foot: FootState, turn: Quaternion, work: Vector3): number {
 /**
  * The swing: `swing`'s foot's sole carried along its path (`swingPathToRef`), its turn carried from
  * the one it left the ground with to flat and facing `heading` as it lands; the step ends as it lands
- * (`SwingGoal.early`), its sole on the ground.
+ * (`SwingGoal.early`), once its sole has met the ground.
  */
 function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): void {
   const { feet } = s, { step, tasks, reading, gait } = s.state, { seconds, spare } = s.tuning;
   const { sole, level, path, along, accel, turn, wholeAxis, progress, v, bow } = s.scratch;
   const foot = feet.find((f) => f.side === swing.foot)!, bearer = feet.find((f) => f.side !== swing.foot)!;
   soleMiddleToRef(foot, sole);
-  const down = soleOnGround(s, foot), met = swing.early === true && step.lifted && step.time + dt >= LANDS_FROM * swing.seconds && down;
+  const down = soleOnGround(s, foot), met = step.lifted && step.time + dt >= LANDS_FROM * swing.seconds && down;
   if (!step.lifted) {
     step.lifted = true;
+    step.met = false;
     step.pivoted = false;
     step.time = 0;
     step.from.copyFrom(sole);
@@ -578,13 +580,14 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
     step.drop = soleDrop(foot, step.lift, v);
     motionAtToRef(foot.segment, sole, step.launch, v);
   }
+  if (met) step.met = true;
   // It lands facing the heading, as flat as its ankle lets it (`landingTurnToRef`). (Held at the
   // turn it left with, a foot's yaw drifts step by step.)
   landingTurnToRef(foot, heading, swing.lean, spare ?? 0, s.scratch.footTurn, level);
   step.time += dt;
   const tau = Math.min(1, step.time / swing.seconds), from = step.from, T = swing.seconds;
-  // Past its time, a foot off the ground goes on down until it meets it.
-  const late = Math.min(Math.max(step.time - swing.seconds, 0), LATE_MOST * swing.seconds);
+  // Past its time, a foot that has not met the ground goes on down until it meets it.
+  const late = step.met ? 0 : Math.min(Math.max(step.time - swing.seconds, 0), LATE_MOST * swing.seconds);
   // Along its path (`swingPathToRef`) by its progress, bowed clear of the bearing sole (`swingBowToRef`).
   swingProgressToRef(tau, swing.ramp, progress);
   const eased = progress.x, ds = progress.y / T, dds = progress.z / (T * T);
@@ -633,7 +636,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   task.on = true;
   task.bearing = false;
   for (const i of foot.memory.channels) s.state.owned[i] = 1;
-  if (met || tau >= 1 && down || late >= LATE_MOST * swing.seconds) {
+  if (met && swing.early === true || tau >= 1 && step.met || late >= LATE_MOST * swing.seconds) {
     reading.phase = "stand";
     reading.own = null;
     step.catching = false;

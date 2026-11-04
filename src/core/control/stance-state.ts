@@ -48,6 +48,8 @@ interface StanceState {
     /** Whether the pivot the plan falls about has been chosen in the step's phase under way (`planAcross`): within the horizon of the phase's end it is held. */
     pivoted: boolean;
     time: number;
+    /** Whether its sole has met the ground from `LANDS_FROM` of its time: the step has landed (`SwingGoal.early`). */
+    met: boolean;
     /** How long a walk's double support has run, s. */
     held: number;
     /** How far the capture point was from what the bearing sole holds at a weight shift's last command, m; Infinity before its first. */
@@ -171,7 +173,7 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
   const pace: [number, number] = [0, 0], resolved = resolveStance(tuning);
   const state: StanceState = {
     gait: resolved.gait, pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
-    step: { swing: null, lifted: false, pivoted: false, time: 0, held: 0, off: Infinity, catching: false, recovering: false, facing: null, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
+    step: { swing: null, lifted: false, pivoted: false, time: 0, met: false, held: 0, off: Infinity, catching: false, recovering: false, facing: null, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
       shift: { now: [0, 0], capture: [0, 0], centre: [0, 0] } },
     plan: { on: false, at: new Vector3(), velocity: new Vector3(), missed: new Vector3() },
     reading: { centre: new Vector3(), velocity: new Vector3(), momentum: new Vector3(), support: new Vector3(), place: new Vector3(),
