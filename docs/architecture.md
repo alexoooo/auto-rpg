@@ -193,8 +193,8 @@ stance stands on it stands, on its trunk it lies (named by the side up), and bet
 the ends that bear it. A way up names the postures it begins from and reaches (its `edges`), begun
 `moving` or `still`, handing the body on at the first cut read slow enough (`CUTS`, `HAND_OVER`);
 the game's ways up (`STAND_UP`) reach standing from the back and the front (`standUpFaults`). The
-Option Mind prices each route by its edges' measured profiles (`risePrices`,
-`assets/core/edge-profiles.json`). The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
+Option Mind prices each way up by its edges' measured profiles
+(`assets/core/edge-profiles.json`), as every Option is priced. The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
 (`rise/stages.ts`).
 
 ## Minds
