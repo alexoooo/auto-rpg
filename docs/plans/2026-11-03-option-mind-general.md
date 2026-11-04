@@ -124,8 +124,8 @@ defect.
   in the frame of the Option's target (the body against its target, the target's own motion
   included), or in the body's own frame (forward and sideways of its facing) for an Option with no
   target. Its drill draws the starts at random (still, stepping in, backing off, sideways), and a
-  reading takes the trials nearest the state asked at. The sample grows with its own trials, never
-  with pairs of Options.
+  reading takes the trials nearest the state asked at, a velocity none began at read as the nearest
+  that one did. The sample grows with its own trials, never with pairs of Options.
 - **Where to walk.** An Option may name its sites: the spots it would begin from, if not where the
   body stands. An Option whose skill cannot begin from here and says where it could (its readiness
   a window, `Readiness`'s `position`) names that window, and one shared rule makes a spot of a

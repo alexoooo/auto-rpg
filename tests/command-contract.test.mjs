@@ -68,7 +68,8 @@ for (const kind of Object.keys(COMMANDERS)) {
 test("a drill Commander orders nothing before its moment: the bout is its member's own to the bit until then", async () => {
   const { MINDS } = await import("../src/entrants/game.ts");
   const mind = MINDS.option.config, foe = MINDS.option.config;
-  const recipe = { left: "workshop-fighter", right: "workshop-fighter", capSeconds: 31, recoverySeconds: null, entry: [], ends: [], minds: { left: mind, right: foe } };
+  // A Warrior against a Rogue: it begins its first two blows within seconds, as an even mirror, keeping out of reach, does only by chance.
+  const recipe = { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 31, recoverySeconds: null, entry: [], ends: [], minds: { left: mind, right: foe } };
   const plain = await buildBout(recipe, { engine: BOUT_ENGINE }), drilled = await buildBout({ ...recipe, commanders: { left: { kind: "drill", after: 0, pace: 1, moment: 2 } } }, { engine: BOUT_ENGINE });
   const poses = (built) => SIDES.flatMap((side) => [...built.duel.duelists[side].built.segments.values()]
     .flatMap(({ pose: { position: p, rotation: q } }) => [p.x, p.y, p.z, q.x, q.y, q.z, q.w]));
