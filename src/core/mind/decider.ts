@@ -87,8 +87,8 @@ export const EVERY_STEP: Pace = Object.freeze({ every: 1, phase: 0 });
 export const everyOf = (rate: number | undefined, hz: number): number => rate === undefined ? 1 : Math.max(1, Math.round(hz / rate));
 
 /**
- * Hand `body` to `decider`: on its `pace`'s steps (every step unless given), and every step the
- * body is down or back from another mind, or its orders change or an action ends, it decides on the body's view and the skills' report,
+ * Hand `body` to `decider`: on its `pace`'s steps (every step unless given), and on the step the
+ * body is back from another mind, its orders change or an action ends, it decides on the body's view and the skills' report,
  * `dt` the time since it last decided; each control step the skills `make` makes (legs and guard
  * with no action, `standingSkills`, unless given) make the command from what it last decided, on
  * the body as it is when the body carries the decision out (`SplitDriver`): an
@@ -108,7 +108,7 @@ export function driveBy(body: Body, decider: Decider, make: (body: Body) => Skil
     if (view.resumed) skills.resume(view);
     if (every === 1) return decider.decide(sight, dt);
     const step = Math.round(view.time / dt), ordered = orders?.(sight) ?? null, ledger = skills.report.ledger, ended = ledger.length ? ledger[ledger.length - 1]!.sequence : 0;
-    if (state.held === null || view.resumed || view.down || ((step - offset) % every + every) % every === 0 || ended !== state.ended || !sameOrders(ordered, state.orders)) {
+    if (state.held === null || view.resumed || ((step - offset) % every + every) % every === 0 || ended !== state.ended || !sameOrders(ordered, state.orders)) {
       state.held = decider.decide(sight, state.held === null ? dt : (step - state.decided) * dt);
       state.decided = step;
       state.orders = ordered;

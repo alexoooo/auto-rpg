@@ -214,9 +214,9 @@ world. It is made with its own body (`OwnBody`); its memory is its `state`. A pe
   (`BodySense`), read once before any mind (`createSenses`), others late by `Rulebook.reaction`.
 - **What a mind builds**: the command layers (`commandedMind`), sub-minds that take the body in rank
   order (`SubMind`, `hosting`), or a policy on detached observations (`policyMind`).
-- **Deciding.** A decider (`Decider`, `decider.ts`) decides an intent at its pace (`Pace`), every
-  step the body is down, and at once when it is back from another mind, its orders change or an
-  action ends; the skills make the command every step from the intent last decided.
+- **Deciding.** A decider (`Decider`, `decider.ts`) decides an intent at its pace (`Pace`), and at
+  once when the body is back from another mind, its orders change or an action ends; the skills
+  make the command every step from the intent last decided.
 - **The report** (`MindReport`, `report.ts`) says what a mind is engaged in, weighing and doing,
   read without moving its state. Screens and Commanders read the report, never a mind's kind or
   state.

@@ -406,7 +406,8 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
 /**
  * **Every percept Option Mind reads**, by name: what it reads of the senses
  * and its own body with fixed geometry and kinematics, the same whatever a drill or the rules give.
- * Whether the body is down, how it lies (`Position`: standing on its feet); what its reader keeps
+ * Whether the body is down, how it lies (`Position`, what bears it, as the ground reading's label
+ * settles: standing on its feet); what its reader keeps
  * of its rise (`Seen.risen`): whether it runs, the ground as its rise reads it (`ground`, none where
  * no rise runs), the seconds the body has been braced tumbling in it (`tumbled`) and the seconds its
  * steady has held it in its try (`steadied`); where
@@ -424,12 +425,12 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
  * over the ground, m/s (`velocity`). What the controllers did not carry out: the legs' (`SkillReport.legs`) and
  * the motor's (`BodyView.unmet`). The focus's phase (`FoePhase`), its posture (`sensedPosture`;
  * standing with no focus), and the time to contact of the
- * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, other orders,
- * another focus, a threat or a blow coming.
+ * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, another posture,
+ * other orders, another focus, a threat or a blow coming.
  */
 export const PERCEPTS = Object.freeze({
   down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
-  posture: { read: ({ sight }) => sight.view.ground?.position ?? (sight.view.down ? "between" : "standing") } as Percept<Position>,
+  posture: { read: ({ sight }) => sight.view.ground?.position ?? (sight.view.down ? "between" : "standing"), cue: (posture) => posture } as Percept<Position>,
   rising: { read: (seen) => seen.risen.state.rising } as Percept<boolean>,
   ground: { read: ({ risen, sight }) => risen.state.rising ? sight.view.ground : null } as Percept<GroundReading | null>,
   tumbled: { read: (seen) => seen.risen.state.tumbled } as Percept<number>,
