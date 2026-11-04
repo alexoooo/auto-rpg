@@ -106,12 +106,13 @@ export interface SwingGoal {
    */
   readonly lean?: readonly [number, number];
   /**
-   * Whether the swing ends as its sole meets the ground (`LANDS_FROM`): one that meets it early ends
-   * there, and one still off the ground at its time goes on down past its place's height
-   * (`LATE_DESCENT`) until it meets it, or for `LATE_MOST` of its time again. None, it ends on
-   * its time.
+   * Whether the swing ends as soon as its sole meets the ground from `LANDS_FROM` of its time, as a
+   * catch's does; none, it ends on its time, its sole on the ground, and a sole that meets the
+   * ground early does not end it, so a walk's steps keep their time. Either way a foot still off the
+   * ground at its time goes on down past its place's height (`LATE_DESCENT`) until it meets it, or
+   * for `LATE_MOST` of its time again.
    */
-  readonly lands?: boolean;
+  readonly early?: boolean;
   /**
    * The swing's way across the ground as a ramped acceleration, the share of each half of the
    * swing's time its acceleration takes to rise or fall (0 to 1/4, `swingProgressToRef`); its peak
@@ -146,7 +147,7 @@ export interface SwingGoal {
   readonly lever?: number;
 }
 
-/** The share of a swing's time from which the ground meeting its sole ends it (`SwingGoal.lands`): before it, the foot is still leaving the ground. */
+/** The share of a swing's time from which the ground meeting its sole ends it (`SwingGoal.early`): before it, the foot is still leaving the ground. */
 const LANDS_FROM = 0.8;
 
 /** How far down the ground's normal at a sole is, as the cosine from up, for its meeting to land the swing: the floor, not a wall. */
@@ -154,10 +155,10 @@ const LANDED_NORMAL = 0.5;
 
 /**
  * How fast a late foot goes on down past its place's height, m/s, and for how long at most, as a
- * share of the swing's time (`SwingGoal.lands`): a landing not met in as long again is given up,
- * and the foot stands where it is. Ended sooner, a landing swing short of the ground by a hand's
- * breadth leaves a foot in the air that the stance steps again at once, and the body runs away
- * step by step.
+ * share of the swing's time (`swingFoot`): a landing not met in as long again is given up, and the
+ * foot stands where it is. Ended sooner, a swing short of the ground by a hand's breadth leaves a
+ * foot in the air that the next weight shift hands the body to, or that the stance steps again at
+ * once, and the body runs away step by step.
  */
 const LATE_DESCENT = 0.3, LATE_MOST = 1;
 
@@ -454,9 +455,9 @@ function rollFeet(s: Stance, stance: readonly FootState[], swing: SwingGoal | nu
  * The weight shift before a step ends, and the foot lifts, once the body's capture point (Pratt et
  * al. 2006, "Capture point: a step toward humanoid push recovery", Humanoids) is over the bearing
  * sole: from there the body falls toward that foot, not away from it. A walk's double support ends
- * on its time once the bearing sole is on the ground: a step that ended in the air, late, has the
- * foot it lands on pressed down first, and a foot that lifted with none under the body would drop
- * the body's weight onto that sole at once.
+ * on its time once the bearing sole is on the ground: a step whose landing was given up in the air
+ * (`LATE_MOST`) has the foot it lands on pressed down first, and a foot that lifted with none under
+ * the body would drop the body's weight onto that sole at once.
  */
 function shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | undefined, height: number, dt: number): void {
   const { reading, step } = s.state;
@@ -559,14 +560,15 @@ function soleDrop(foot: FootState, turn: Quaternion, work: Vector3): number {
 
 /**
  * The swing: `swing`'s foot's sole carried along its path (`swingPathToRef`), its turn carried from
- * the one it left the ground with to flat and facing `heading` as it lands; the step ends as it lands.
+ * the one it left the ground with to flat and facing `heading` as it lands; the step ends as it lands
+ * (`SwingGoal.early`), its sole on the ground.
  */
 function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): void {
   const { feet } = s, { step, tasks, reading, gait } = s.state, { seconds, spare } = s.tuning;
   const { sole, level, path, along, accel, turn, wholeAxis, progress, v, bow } = s.scratch;
   const foot = feet.find((f) => f.side === swing.foot)!, bearer = feet.find((f) => f.side !== swing.foot)!;
   soleMiddleToRef(foot, sole);
-  const met = swing.lands === true && step.lifted && step.time + dt >= LANDS_FROM * swing.seconds && soleOnGround(s, foot);
+  const down = soleOnGround(s, foot), met = swing.early === true && step.lifted && step.time + dt >= LANDS_FROM * swing.seconds && down;
   if (!step.lifted) {
     step.lifted = true;
     step.pivoted = false;
@@ -581,8 +583,8 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   landingTurnToRef(foot, heading, swing.lean, spare ?? 0, s.scratch.footTurn, level);
   step.time += dt;
   const tau = Math.min(1, step.time / swing.seconds), from = step.from, T = swing.seconds;
-  // Past its time, a foot that lands goes on down until it meets the ground.
-  const late = swing.lands === true ? Math.min(Math.max(step.time - swing.seconds, 0), LATE_MOST * swing.seconds) : 0;
+  // Past its time, a foot off the ground goes on down until it meets it.
+  const late = Math.min(Math.max(step.time - swing.seconds, 0), LATE_MOST * swing.seconds);
   // Along its path (`swingPathToRef`) by its progress, bowed clear of the bearing sole (`swingBowToRef`).
   swingProgressToRef(tau, swing.ramp, progress);
   const eased = progress.x, ds = progress.y / T, dds = progress.z / (T * T);
@@ -631,7 +633,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   task.on = true;
   task.bearing = false;
   for (const i of foot.memory.channels) s.state.owned[i] = 1;
-  if (swing.lands === true ? met || late >= LATE_MOST * swing.seconds : tau >= 1) {
+  if (met || tau >= 1 && down || late >= LATE_MOST * swing.seconds) {
     reading.phase = "stand";
     reading.own = null;
     step.catching = false;

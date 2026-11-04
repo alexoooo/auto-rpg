@@ -251,7 +251,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         const h = legs.heading, along = v.x * sin(h) + v.z * cos(h), speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0;
         memory.capped = memory.may && runsWay(asked) && speed > settings.run + RUN_SWITCH.past ? memory.capped + dt : 0;
         // A step of the stance's walk ends as its foot lands: the run takes over from that foot. A step
-        // that ended late, its foot in the air, has not landed until its sole is on the ground.
+        // whose landing was given up in the air has not landed until its sole is on the ground.
         let landed: Side | null = null;
         if (s.phase === "swing") memory.swinging = s.own ? s.own.foot : null;
         else if (memory.swinging !== null && s.touching[memory.swinging]) { landed = memory.swinging; memory.swinging = null; }

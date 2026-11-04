@@ -107,7 +107,7 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
   if (under) {
     const foot = feet.find((f) => f.side === under.foot)!, bearer = feet.find((f) => f !== foot)!, p = under.pivot;
     const [tx, tz] = landing(bearer, foot, p.x, p.z, Math.max(under.remaining, 0), 1);
-    return { foot: foot.side, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false, lands: true };
+    return { foot: foot.side, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false, early: true };
   }
   const [hx, hz] = withinSupport(heldBy(holding), xi, zi, 0);
   if (holding.length === feet.length && hypot(xi - hx, zi - hz) <= tuning.margin + held) return null;
@@ -126,7 +126,7 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
     if (short && tuning.fast !== undefined) { seconds = tuning.fast; [tx, tz] = planned(bearer, foot, seconds); }
     const need = swingWaySeconds(foot.leg, hypot(tx - foot.middle.x, tz - foot.middle.z), effort);
     if (need > seconds) { seconds = need; [tx, tz] = planned(bearer, foot, seconds); }
-    return { foot: foot.side, to: [tx, tz], seconds, lift: tuning.lift, shift: false, lands: true };
+    return { foot: foot.side, to: [tx, tz], seconds, lift: tuning.lift, shift: false, early: true };
   };
   // How far a step's landing is from where the capture point will be as it lands, run about the
   // point of its bearer's sole nearest it, m.
