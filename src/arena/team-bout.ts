@@ -143,7 +143,7 @@ export class TeamBout {
     const start = world.time, startStep = world.steps;
     let ends = this.cap;
     for (const [rule, config] of this.ends) ends = Math.min(ends, rule.drainedBy?.(config) ?? Infinity);
-    this.senses = createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), start + ends);
+    this.senses = createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), { begins: start, ends: start + ends });
     const contactLabels = new Map<number, ContactTarget>();
     const members: Member[] = [];
     let order = 0;

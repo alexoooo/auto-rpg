@@ -22,6 +22,8 @@ export interface Senses {
   readonly out: boolean;
   /** Its own life, a fraction of its full life (`Pool.bar`), at once: whole where nothing keeps its life. */
   readonly life: number;
+  /** When the fight's clock started, s of the world's clock: given where `ends` is. */
+  readonly begins?: number;
   /** When the fight's clock gives its verdict at the latest, s of the world's clock: absent where no clock ends it. */
   readonly ends?: number;
   /** Every other body the senses carry, as they pass it (`createSenses`): in the order added. */
@@ -149,11 +151,11 @@ function frameLength(segments: number): number { return (3 + 4 + 3 + 3 + 3 + 1) 
  * to the others `delay` steps late. Every mind in a step therefore sees the same moment, and none
  * sees another through its view.
  *
- * `delay` is whole steps, 0 unless given; `ends`, when the fight's clock gives its verdict at the
- * latest (`Senses.ends`), none unless given. The frames a body's delay holds are its memory
+ * `delay` is whole steps, 0 unless given; `clock`, when the fight's clock started and when it gives
+ * its verdict at the latest (`Senses.begins`, `Senses.ends`), none unless given. The frames a body's delay holds are its memory
  * (`Remembered`), plain numbers, and the hub's state.
  */
-export function createSenses(world: World, delay = 0, ends?: number): SensesHub {
+export function createSenses(world: World, delay = 0, clock?: { readonly begins: number; readonly ends: number }): SensesHub {
   if (!Number.isInteger(delay) || delay < 0) throw new Error(`a delay is whole steps, not ${delay}`);
   const carried: Carried[] = [];
   const state: Record<string, Remembered> = {};
@@ -263,7 +265,7 @@ export function createSenses(world: World, delay = 0, ends?: number): SensesHub 
         side: sensed.side,
         get out() { return sensed.out(); },
         get life() { return sensed.life?.() ?? 1; },
-        ...(ends === undefined ? {} : { ends }),
+        ...(clock === undefined ? {} : { begins: clock.begins, ends: clock.ends }),
         others: entry.others,
       };
       if (sensed.solids) Object.defineProperty(senses, "solids", { enumerable: true, get: () => sensed.solids });

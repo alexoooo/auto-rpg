@@ -397,8 +397,9 @@ function downRateAtOf(seen: Seen): (posture: Position) => DownRate {
  * bearing around the focus, rad from the focus's forward (its `marks.base`'s +z), positive to its
  * right (0 with none); a foe's blow predicted to reach the head (`READINGS.predicted`); a foe's
  * weapon near enough to ward off (`Seen.ward`); how late the senses show the focus (`reactionOf`), s; the
- * lead (its own life less the focus's, 0 with none) and the time left before the clock's verdict
- * (`Senses.ends`, Infinity where none ends it), s. The gait's: where the stance is in a step
+ * lead (its own life less the focus's, 0 with none) and how late in the bout it is (`lateness`:
+ * the share of the clock's time from its start to its verdict that has passed, `Senses.begins` to
+ * `Senses.ends`; 0 where no clock ends the bout). The gait's: where the stance is in a step
  * (`StanceReading.phase`), which feet the ground bears (`Bearing`) and the centre of mass's velocity
  * over the ground, m/s (`velocity`). What the controllers did not carry out: the legs' (`SkillReport.legs`) and
  * the motor's (`BodyView.unmet`). The focus's phase (`FoePhase`), its posture (`sensedPosture`;
@@ -423,7 +424,7 @@ export const PERCEPTS = Object.freeze({
   around: { read: ({ focus, sight }) => focus ? bearingAround(focus, sight.view.stance.centre.x, sight.view.stance.centre.z) : 0 } as Percept<number>,
   reaction: { read: reactionOf } as Percept<number | null>,
   lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,
-  left: { read: ({ sight }) => (sight.view.senses.ends ?? Infinity) - sight.view.senses.time } as Percept<number>,
+  lateness: { read: ({ sight }) => { const { begins, ends, time } = sight.view.senses; return begins === undefined || ends === undefined || !(ends > begins) ? 0 : Math.min(1, Math.max(0, (time - begins) / (ends - begins))); } } as Percept<number>,
   stride: { read: ({ sight }) => sight.view.stance.phase } as Percept<StancePhase>,
   bearing: { read: ({ sight }) => bearingOf(sight.view.stance.touching) } as Percept<Bearing>,
   velocity: { read: ({ sight }) => ({ x: sight.view.stance.velocity.x, z: sight.view.stance.velocity.z }) } as Percept<Ground>,

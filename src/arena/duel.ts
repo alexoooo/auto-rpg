@@ -348,7 +348,7 @@ export class Duel {
     // Each side senses when the clock gives the verdict at the latest: the cap, or a drain's end before it.
     let ends = this.cap;
     for (const [rule, config] of this.ends) ends = Math.min(ends, rule.drainedBy?.(config) ?? Infinity);
-    this.senses = createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), start + ends);
+    this.senses = createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), { begins: start, ends: start + ends });
     // In the step's sensing phase, after the senses and before every mind: a taped order is given
     // before the step it names.
     this.feeding = world.sense(() => {

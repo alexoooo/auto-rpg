@@ -158,7 +158,7 @@ function search(root: Situation, options: readonly Option[], objective: Objectiv
     if (!state) made.set(key, state = placed(at, leaves, seconds));
     return state;
   };
-  const path = { dealt: 0, taken: 0, orders: 0, seconds: 0, span: horizon, end: root };
+  const path = { dealt: 0, taken: 0, orders: 0, seconds: 0, end: root };
   /** What a path is worth, priced whole (`Objective.worth`). */
   const price = (dealt: number, taken: number, orders: number, seconds: number, end: Situation): number => {
     path.dealt = dealt; path.taken = taken; path.orders = orders; path.seconds = seconds; path.end = end;
