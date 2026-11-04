@@ -81,8 +81,8 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * it, facing the focus (`along`); and down in its chance of ending down.
  *
  * At a state where the body stands (`standing`), where it stands now its entry says whether it is
- * on offer; elsewhere, where the spot it stands at is within its window now, ready or not
- * (`windowAny`, `windowHolds`), its model there as it would be here.
+ * on offer; elsewhere, at one of its sites (`atSite`), or where the spot it stands at is within its
+ * window now, ready or not (`windowAny`, `windowHolds`), its model there as it would be here.
  */
 export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure, name = action.name): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null,
@@ -206,6 +206,15 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const readied = ready?.readiness.kind === "ready" ? ready.readiness.window : undefined;
     return readied ?? (placed?.readiness.kind === "position" ? placed.readiness.window : null);
   };
+  /**
+   * Whether the body stands at one of its sites as last read for the focus (`siteOn`): a site is
+   * where it begins, though the window it was read in moves with each stride.
+   */
+  const atSite = (at: Situation): boolean => {
+    const focus = at.focus?.id ?? null, where = at.where;
+    return state.sides.some((kept) => kept.time === at.time && kept.focus === focus && kept.spot !== null
+      && kept.spot.x === where.x && kept.spot.z === where.z && kept.spot.face === where.face);
+  };
   return {
     name, get claims() { return claimed.claims; }, state,
     modelled: { name, limbs: action.effectors, profile: measuredProfile(measure) },
@@ -226,6 +235,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
       if (!at.focus || !standing(at)) return null;
       const where = at.where, centre = at.sight.view.stance.centre;
       if (where.x === centre.x && where.z === centre.z) return entry(at).kind === "ready" ? priceOf(at) : null;
+      if (atSite(at)) return priceOf(at);
       const window = windowAny(at);
       return window && windowHolds(window, where.x, where.z, where.face) ? priceOf(at) : null;
     },
