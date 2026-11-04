@@ -51,22 +51,22 @@ steps to catch the body. A deadline ends it as `stalled`.
 
 Each toed body's row of `assets/core/stomp.json` differs from `STOMP_PATH` in these settings and
 agrees with it in the rest. Each is set for a blow down on a body lying ahead: its stroke and window
-(`contactSpeed`, `swingSeconds`, `chamberSeconds`, `lift`, `over`, `alongNear`, `alongFar`, and the
-Warrior's and the Rogue's `brace`) searched on the Strike drill's `stomping` rung
-(`research/skill-search.mjs`, each row's `made`), the Rogue's and the Skeleton's `across` and
-`returnNear` the Warrior's scaled by their stature.
+(`contactSpeed`, `swingSeconds`, `chamberSeconds`, `lift`, `over`, `alongNear`, `alongFar` and
+`brace`) searched on the Strike drill's `stomping` rung
+(`research/skill-search.mjs`, each row's `made`), the Rogue's `across` and `returnNear` the
+Warrior's scaled by its stature. The Skeleton has no record and throws no stomp.
 
-| Setting | Warrior | Rogue | Skeleton | Why |
-| --- | ---: | ---: | ---: | --- |
-| over | 0.9496 | 1 | 1 | The chamber over the target, so the stroke comes down on it |
-| windup / soleTurn | 0 m / 0 | 0 m / 0 | 0 m / 0 | A stroke straight down, the sole level with the pelvis: a turned sole meets the trunk with its toes |
-| lift | 0.6329 m | 0.8025 m | 0.7962 m | A long stroke down, short of where the chamber leaves the hip's reach |
-| top | 0.4 | 0.4 | 0.4 | The height band low over the sole: a lying body's trunk, never a standing one's |
-| alongNear / alongFar | 0.55 / 0.8 m | 0.4653 / 0.8895 m | 0.6217 / 0.7217 m | Where the target lies ahead of the stomping sole: places where both feet stand clear of a lying body's splayed limbs |
-| across | 0.2 m | 0.184 m | 0.1831 m | How far to either side of the sole the target may lie |
-| contactSpeed / swingSeconds / chamberSeconds | 8.0377 m/s / 0.2927 s / 0.7616 s | 10.4386 m/s / 0.2596 s / 0.6935 s | 6.3614 m/s / 0.2939 s / 0.5454 s | A fast stroke down |
-| brace | 0.0756 s | 0.1193 s | 0 s | Braced before contact, more mass is behind the foot |
-| returnNear | 0.1 m | 0.092 m | 0.0915 m | The leg comes to rest short of the chamber after a blow; a nearer mark stalls the return |
+| Setting | Warrior | Rogue | Why |
+| --- | ---: | ---: | --- |
+| over | 0.9496 | 1 | The chamber over the target, so the stroke comes down on it |
+| windup / soleTurn | 0 m / 0 | 0 m / 0 | A stroke straight down, the sole level with the pelvis: a turned sole meets the trunk with its toes |
+| lift | 0.6329 m | 0.8025 m | A long stroke down, short of where the chamber leaves the hip's reach |
+| top | 0.4 | 0.4 | The height band low over the sole: a lying body's trunk, never a standing one's |
+| alongNear / alongFar | 0.55 / 0.8 m | 0.4653 / 0.8895 m | Where the target lies ahead of the stomping sole: places where both feet stand clear of a lying body's splayed limbs |
+| across | 0.2 m | 0.184 m | How far to either side of the sole the target may lie |
+| contactSpeed / swingSeconds / chamberSeconds | 8.0377 m/s / 0.2927 s / 0.7616 s | 10.4386 m/s / 0.2596 s / 0.6935 s | A fast stroke down |
+| brace | 0.0756 s | 0.1193 s | Braced before contact, more mass is behind the foot |
+| returnNear | 0.1 m | 0.092 m | The leg comes to rest short of the chamber after a blow; a nearer mark stalls the return |
 
 **Measurement** (the Strike drill's `stomping` rung; Node, core world, `rapier-coordinate`,
 120 Hz, each command 1 step late): the Warrior's blows at a lying Warrior carry 15 to 52 J
