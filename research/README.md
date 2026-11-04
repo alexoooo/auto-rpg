@@ -32,8 +32,8 @@ it reads by.
 | `man-toe-solver.mjs` | Man's passive toe on the game's solver, at 120 and 480 Hz; a passive toe hinge does not hold as a spring under load | |
 | `core-rise.mjs`, `-trials.mjs`, `-worker.mjs` | the battery of falls: every model shoved sixteen ways (`--shoves`, `--turn`), with the club and without, watched (`--watch`) under a mind (`--mind`): how many rose, how fast, the furthest stage | |
 | `core-rise-poses.mjs` | stages played on a body toppled stiff (`--lie`, `--degrees`): how it lies at each stage's end | |
-| `rise-trace.mjs` | where a whole mind's rise spends its time on the stand-up target's falls: each ground action, where it began, how long, its stages and how it ended | `--out` |
-| `rise-search.mjs` | one body's staged recovery timings and poses searched through immutable technique tunings on a subset of target falls; fresh falls reserved for confirmation | `--out`: settings, trial readings and CMA checkpoint |
+| `rise-trace.mjs` | where a whole mind's rise spends its time on the stand-up target's falls: each ground action, where it began, how long, its stages and how it ended; `--seeds` checks other seeds | `--out` |
+| `rise-search.mjs` | one body's staged recovery timings and poses searched through immutable technique tunings; `--all --offsets 5.625,16.875` uses additional training directions; fresh falls reserved for confirmation | `--out`: settings, trial readings and CMA checkpoint |
 | `rise-witness.mjs` | whether a fast rise exists on the body as built: CMA-ES for one trajectory of pose and bearing phases from a placed start to verified standing within the target's allowance | `--out`: `.best.json`, `.jsonl` |
 | `climb.mjs` | no measurement: Stand up's steady (`standUp`) with research variants, for `crouch-steady.mjs` and `rise-witness.mjs` | |
 | `crouch-steady.mjs` | the steady from the Warrior's stored squat, under `climb.mjs`'s variants: the time to verified standing | |

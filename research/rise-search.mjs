@@ -4,6 +4,7 @@
  *
  * node research/rise-search.mjs --model workshop-fighter --generations 8 --lambda 10 --workers 8 --out research/runs/rise-search/best.json
  * --resume <checkpoint.json> continues the same search; --all widens it to every standard fall.
+ * --offsets <degrees,...> with --all trains on other directions, excluding the fresh protocol.
  * Each played trial is kept beside --out as .trials.jsonl, reused only on the same build.
  * A pass stops at a generation boundary once eight minutes have elapsed.
  */
@@ -53,13 +54,16 @@ if (!isMainThread) {
     catch(e) {throw new Error(`recovery search trial: ${e.stack ?? e}`);}
   });
 } else {
-  const {values} = parseArgs({options:{model:{type:'string',default:'workshop-fighter'},generations:{type:'string',default:'8'},lambda:{type:'string',default:'10'},workers:{type:'string',default:'8'},out:{type:'string'},sigma:{type:'string',default:'.13'},all:{type:'boolean'},resume:{type:'string'},loadout:{type:'string'}}});
+  const {values} = parseArgs({options:{model:{type:'string',default:'workshop-fighter'},generations:{type:'string',default:'8'},lambda:{type:'string',default:'10'},workers:{type:'string',default:'8'},out:{type:'string'},sigma:{type:'string',default:'.13'},all:{type:'boolean'},resume:{type:'string'},loadout:{type:'string'},offsets:{type:'string',default:'0'}}});
   if (!values.out) throw new Error('--out is required');
   const previous = values.resume ? JSON.parse(readFileSync(values.resume,'utf8')) : null;
   if (previous && (previous.model !== values.model || JSON.stringify(previous.dimensions) !== JSON.stringify(dimensions))) throw new Error('resume needs the same body and search dimensions');
   const [left,right] = values.loadout?.split(',') ?? [];
   const base = previous?.base ?? structuredClone(stepUpTuning(values.loadout ? modelHolding(values.model,{left,right}) : modelSpec(values.model)));
-  const jobs = risingJobs({target:true}).filter(j => j.model === values.model && (!values.loadout || `${j.loadout.left},${j.loadout.right}` === values.loadout) && (values.all || [0,135,270].includes(j.degrees) || (j.degrees===22.5 && j.loadout.left==='buckler') || (j.degrees===202.5 && j.loadout.right==='sword')));
+  const offsets = values.offsets.split(',').map(Number);
+  if (offsets.some(offset => !Number.isFinite(offset) || Math.abs(((offset % 22.5) + 22.5) % 22.5 - 11.25) < 1e-9)) throw new Error('training offsets must be finite and leave the fresh protocol unused');
+  if (!values.all && values.offsets !== '0') throw new Error('--offsets requires --all');
+  const jobs = offsets.flatMap(offset => risingJobs({target:true,offset})).filter(j => j.model === values.model && (!values.loadout || `${j.loadout.left},${j.loadout.right}` === values.loadout) && (values.all || [0,135,270].includes(j.degrees) || (j.degrees===22.5 && j.loadout.left==='buckler') || (j.degrees===202.5 && j.loadout.right==='sword')));
   const pool = workerPool(new URL(import.meta.url),{},Number(values.workers));
   const start = initial(base).map((v,i)=>(v-dimensions[i][1])/(dimensions[i][2]-dimensions[i][1]));
   const started = Date.now(); let baseline;
