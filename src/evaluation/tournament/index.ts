@@ -30,7 +30,7 @@ export const TOURNAMENT: Evaluation<TournamentCondition, BoutReading> = {
      * the field at least once; chosen for variety, not strength.
      */
     panel: [
-      "option/workshop-fighter/buckler,club", "option/crypt-skeleton/buckler,sword", "option/workshop-rogue/buckler,sword",
+      "option/workshop-fighter/buckler,club", "option/crypt-skeleton/empty,club", "option/workshop-rogue/buckler,sword",
       "option/reptile/empty,empty", "option/workshop-fighter/empty,sword", "option/workshop-fighter/empty,empty",
       "option/workshop-rogue/empty,club", "option/crypt-skeleton/empty,sword",
     ],

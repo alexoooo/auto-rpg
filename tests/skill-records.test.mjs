@@ -5,6 +5,7 @@ import { modelSpec } from "../src/core/models.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 import { EXECUTORS } from "../src/core/skills/framework/executors.ts";
 import { TECHNIQUES } from "../src/core/recovery/ground/techniques.ts";
+import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
 
 /**
  * A skill's settings are its body's record (`SkillRecord`, `src/core/skills/framework/records.ts`)
@@ -37,4 +38,16 @@ test("a body with no step-up or sit-back record is refused the techniques that r
     for (const model of ["workshop-fighter", "workshop-rogue", "crypt-skeleton"]) assert.equal(part.fits(modelSpec(model), part.defaults, partLookup), null, `${kind} fits the ${model}, which has its records`);
     assert.equal(part.fits(unrecorded, part.defaults, partLookup), `the ${record} is not tuned for ${bodyKey(unrecorded)}`, `${kind} refuses a body with no ${record} record`);
   }
+});
+
+/**
+ * A default panel is a fixed list of a mind's entrants, and which entrants a mind has is its
+ * bodies' records: every evaluation's panel names subjects it has, so a record dropped or not kept
+ * cannot leave a panel naming a body that no longer strikes.
+ */
+test("every evaluation's default panel names entrants it has", () => {
+  const panels = Object.values(EVALUATIONS).filter((evaluation) => evaluation.analysis?.panel?.length);
+  assert.ok(panels.length > 0, "an evaluation has a default panel");
+  for (const evaluation of panels) for (const id of evaluation.analysis.panel)
+    assert.doesNotThrow(() => evaluation.subjects([id]), `${evaluation.id}'s panel names ${id}`);
 });
