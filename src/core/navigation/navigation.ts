@@ -15,7 +15,8 @@ import { travelSpeed, type Corner, type GaitLimits } from "../intent/travel.ts";
  * Route clearance includes gait sway; progress windows are navigation preferences, not anatomy. A
  * route turns onto its next leg `waypoint` m before a corner, the room its gait has to turn in there
  * (`Corner.room`), or sooner where that leg is clear from where the body stands: a body carried or
- * crowded off its route goes on from where it is, never back to a corner it has passed. What it
+ * crowded off its route goes on from where it is, never back to a corner it has passed. A place's
+ * points before its last are corners of its way the same: walked through, not stopped at. What it
  * carries is given the most room it took over the last `hold` s: an arm drawn in for a moment
  * would find a route past a jamb that the guard, back out, does not fit through. A body that has
  * come no nearer for `stalled` s, its route kept from where it was, stands that step and searches
@@ -209,7 +210,8 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       let goal: GroundPoint, near: number;
       switch (request.kind) {
         case "place": {
-          while (state.waypoint < request.points.length - 1 && apart(here, request.points[state.waypoint]!) <= request.near) { state.waypoint++; state.route = []; state.stood = false; }
+          // The points before its last are corners of its way, passed within `NAV.waypoint` as a route's are.
+          while (state.waypoint < request.points.length - 1 && apart(here, request.points[state.waypoint]!) <= Math.max(request.near, NAV.waypoint)) { state.waypoint++; state.route = []; state.stood = false; }
           goal = request.points[state.waypoint]!; near = request.near;
           break;
         }
@@ -288,8 +290,10 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       while (state.route.length > 1 && (apart(here, state.route[0]!) <= NAV.waypoint
         || clearStep(atHeight(here, centre.y), atHeight(state.route[1]!, centre.y), radius, solids))) state.route.shift();
       if (!state.route.length) return unreachable(goal);
+      // The way on: the route to the goal, then a place's points after it.
+      const way = request.kind === "place" ? [...state.route, ...request.points.slice(state.waypoint + 1)] : state.route;
       let remaining = 0, from = here;
-      for (const point of state.route) { remaining += apart(from, point); from = point; }
+      for (const point of way) { remaining += apart(from, point); from = point; }
       if (state.bestRemaining === null || remaining <= state.bestRemaining - NAV.progress) {
         state.progress = here; state.bestRemaining = remaining; state.lastProgress = view.time;
       }
@@ -302,11 +306,11 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
         state.held = false; state.route = []; state.solids = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time;
         update("stalled", remaining, goal); return { move: null, face: null };
       }
-      // Each corner of the route ahead: how far along it, and the tangent of half its turn.
+      // Each corner of the way ahead: how far along it, and the tangent of half its turn.
       const corners: Corner[] = [];
-      let to = apart(here, state.route[0]!);
-      for (let k = 0; k + 1 < state.route.length; k++) {
-        const from = k === 0 ? here : state.route[k - 1]!, at = state.route[k]!, after = state.route[k + 1]!;
+      let to = apart(here, way[0]!);
+      for (let k = 0; k + 1 < way.length; k++) {
+        const from = k === 0 ? here : way[k - 1]!, at = way[k]!, after = way[k + 1]!;
         const ax = at.x - from.x, az = at.z - from.z, bx = after.x - at.x, bz = after.z - at.z, la = hypot(ax, az), lb = hypot(bx, bz);
         const sum = la * lb + ax * bx + az * bz;
         corners.push({ distance: to, halfTurn: la === 0 || lb === 0 ? 0 : sum > 0 ? Math.abs(ax * bz - az * bx) / sum : Infinity, room: NAV.waypoint });
