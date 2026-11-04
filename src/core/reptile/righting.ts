@@ -13,11 +13,11 @@ import { atan2, cos, hypot, sin } from "../math/real.ts";
 import type { MindKit } from "../mind/kit.ts";
 import type { OwnBody } from "../mind/mind.ts";
 import { channelName } from "../muscle/driver.ts";
-import { fitsAll, type KeysOf } from "../parts/parts.ts";
+import { fitsAll, fitsWhen, type KeysOf } from "../parts/parts.ts";
 import { turnOfToRef } from "../read-motion.ts";
 import type { TechniqueEnd, TechniquePart, TechniqueRun } from "../recovery/ground/technique.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../skills/framework/records.ts";
-import type { Side } from "../spec/body.ts";
+import { pawsOf, segmentOf, type BodySpec, type DofSpec, type Side } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import { soleGoal } from "./crawl.ts";
 import { fitsPaws } from "./parts.ts";
@@ -128,6 +128,9 @@ function rightingByRecipe(own: OwnBody, recipe: RightingRecipe): TechniqueRun {
   };
 }
 
+/** Where the body lies for the routes to roll it: on its back or a side. */
+const ROLLED: readonly Position[] = Object.freeze(["back", "left", "right"]);
+
 /** A leg's joints by their place in the chain from the trunk out to its paw. */
 const HIP = 0, KNEE = 1;
 
@@ -137,10 +140,11 @@ const HIP = 0, KNEE = 1;
  * and its end where its paw is in the reference pose (+x the body's right, +z its front).
  *
  * - **Rolled upright**: the loaded hips push the trunk toward upright (`rightingGain`,
- *   `rightingDamping`), the rest of the body at its reference pose, until its up passes
- *   `rollUpright` on the ground.
+ *   `rightingDamping`), the rest of the body at its reference pose, until the ground reads it on
+ *   its front or crouched (`Position`): a leg caught under the trunk tilts it short of upright.
  * - **Placed**: one paw at a time is routed clear round the trunk (swept, folded, unwound, unfolded)
- *   and pressed down, each placed paw held where it landed.
+ *   and pressed down, each placed paw held where it landed; turned onto its back or a side
+ *   (`ROLLED`), it is rolled again and places every paw afresh.
  * - **Risen**: the mind's motor (`MindKit.motor`) carries the body up over its placed paws to the
  *   crawl's height, each paw not bearing brought down where it stands, and it is done once the body
  *   is up (`recoveryHeight`), on every paw flat and slow (`recoveredSpeed`) for `recovered` s.
@@ -173,7 +177,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
   const point = new Vector3(), descending = new Vector3(), frame = { position: new Vector3(), rotation: new Quaternion() };
   const readTurn = () => { turnOfToRef(root, turn); vertical.applyRotationQuaternionToRef(turn, up); lateral.applyRotationQuaternionToRef(turn, side); forward.applyRotationQuaternionToRef(turn, front); };
   const start = () => {
-    motor.reset(); readTurn(); state.phase = up.y >= T.rollUpright ? "place" : "roll";
+    motor.reset(); state.phase = "roll";
     state.route = "start"; state.time = 0; state.elapsed = 0; state.stable = 0; state.paw = 0; state.sequence++;
     state.placed.fill(false); state.held.fill(0);
   };
@@ -215,7 +219,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
     reached: (g, to) => g.position === to,
     begin() { start(); },
     end() { state.phase = "idle"; motor.reset(); },
-    step(_g, _senses, dt): TechniqueEnd | null {
+    step(g, _senses, dt): TechniqueEnd | null {
       state.time += dt; state.elapsed += dt;
       motor.read();
       let ground = 0, contacts = 0;
@@ -225,7 +229,8 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
       supports.forEach((chain, i) => { state.loaded[i] = chain.some((part) => own.built.physics.contactsOf(part.body)
         .some((contact) => groundContact(contact, REPTILE_MOTOR.supportNormal))); });
       readTurn();
-      if (state.phase === "roll" && up.y >= T.rollUpright && contacts) { state.phase = "place"; state.time = 0; state.elapsed = 0; }
+      if (state.phase === "roll" && (g.position === "front" || g.position === "crouch")) { state.phase = "place"; state.time = 0; state.elapsed = 0; }
+      else if (state.phase === "place" && ROLLED.includes(g.position)) { state.phase = "roll"; state.paw = 0; state.placed.fill(false); nextRoute("start"); }
       if (state.phase === "rise") return rise(dt);
       const size = hypot(up.x, up.z), angle = atan2(size, up.y), gain = size > T.rightingEpsilon ? T.rightingGain * angle / size : 0;
       root.body.angularVelocityToRef(spin);
@@ -298,8 +303,8 @@ const RIGHTING = { role: "technique", stage: "game", moving: true, sides: BOTH, 
 /**
  * **Righting by recipe** (`rightingByRecipe`) as a way up from lying (`LYING`): a body on paws
  * (`fitsPaws`) with a righting record of its own (`assets/core/righting.json`,
- * `dataOf("righting")`), or a whole research recipe in its place. Its last pose leaves the body on
- * its paws, crouched, for the routes to stand.
+ * `dataOf("righting")`), or a whole research recipe in its place. It is done once its last pose
+ * holds the trunk upright and still, wherever its legs bear.
  */
 export const RIGHTING_RECIPE: TechniquePart<RecipeConfig> = deepFreeze({
   ...RIGHTING, edges: toStanding(LYING), label: "Right by recipe", defaults: { kind: "righting-recipe" }, keys: { kind: true, tuning: true } as KeysOf<RecipeConfig>, tuning: ["settle", "servo", "upright", "calm", "still", "limit", "side", "back"],
@@ -311,10 +316,28 @@ export const RIGHTING_RECIPE: TechniquePart<RecipeConfig> = deepFreeze({
 });
 
 /**
+ * Whether every leg of a body of `spec` can take the routes' poses (`rightingByRoutes`): each
+ * freedom the routes servo ranges over the angles they ask of it on its side, the hip's yaw to
+ * either `sweepYaw`, its pitch to either `foldHip`, its roll from `-foldHip` to `unwindHip` and the
+ * knee to `plantedKnee` and `foldKnee`. A leg that cannot is held short of a route's goal, and the
+ * route never ends.
+ */
+const holdsRoutes = (spec: BodySpec): boolean => pawsOf(spec).every((paw) => {
+  const above = (segment: string) => spec.joints.find((joint) => joint.child === segment)!;
+  const knee = above(above(paw.segment).parent), hip = above(knee.parent), s = segmentOf(spec, paw.segment)!.proximal.value[0] < 0 ? 1 : -1;
+  const holds = (dof: DofSpec | undefined, ...angles: number[]) =>
+    dof !== undefined && angles.every((angle) => dof.min.value <= angle && angle <= dof.max.value);
+  return holds(hip.dofs[0], -T.sweepYaw, T.sweepYaw) && holds(hip.dofs[1], -T.foldHip, T.foldHip) && holds(hip.dofs[2], -s * T.foldHip, s * T.unwindHip)
+    && holds(knee.dofs[0], s * T.plantedKnee, s * T.foldKnee);
+});
+
+/**
  * **Righting by routes** (`rightingByRoutes`) as a way up from lying, crouched on its paws or
- * between: a body on paws (`fitsPaws`), carried up by its mind's motor.
+ * between: a body on paws (`fitsPaws`) whose legs take the routes' poses (`holdsRoutes`), carried
+ * up by its mind's motor.
  */
 export const RIGHTING_ROUTES: TechniquePart<{ readonly kind: "righting-routes" }> = deepFreeze({
-  ...RIGHTING, edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true }, fits: fitsPaws, faults: () => [],
+  ...RIGHTING, edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true },
+  fits: fitsAll(fitsPaws, fitsWhen(holdsRoutes, "needs legs whose ranges hold the righting routes' poses")), faults: () => [],
   make: (own: OwnBody, view: BodyView, clock: Clock, kit: MindKit) => rightingByRoutes(own, view, clock, kit),
 });

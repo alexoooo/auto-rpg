@@ -94,8 +94,9 @@ Option Mind as its hero.
   recovery, armour and bows.
 - Grit, a rising assist, has no mechanism; movement and attack-and-defence assists are not built.
 - The reach solver runs to its cap on a cover the joints' ranges keep out of reach.
-- A body on paws righted does not stand: the routes stall (the rat placing its first paw, the
-  reptile rolled to a trunk's up of .88 under `rollUpright`).
+- A body on paws righted does not stand: the rat's recipe ends propped on folded legs, not its
+  paws, and any drive of its legs from there rolls it onto its back; the reptile's routes turn it
+  over while placing a paw, or hold a swept leg short of the hip's yaw limit.
 
 ### Blows and wounds
 

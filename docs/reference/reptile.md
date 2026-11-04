@@ -142,10 +142,13 @@ the rise runs (`way-up`), begun once the body lies settled:
   back where the trunk's up is under -.5, else on a side, the poses mirrored on its left); servos
   through the poses, each until held for its time or the trunk is up to its mark; and is done once
   the last pose has held the trunk's up at .95 or more and the centre of mass under .1 m/s for
-  .25 s, timed out after 6 s of poses. Its last pose leaves the body crouched on its paws.
+  .25 s, timed out after 6 s of poses. The rat's last pose leaves it upright, propped on the
+  folded legs of the side it rolled over.
 - **By routes** (`righting-routes`, `rightingByRoutes`), from lying, crouched on its paws or
-  between, for any body on paws: it rolls the body upright, places each paw by a clear route and
-  rises on its motor ([controller settings](#controller-settings)).
+  between, for a body on paws whose legs' ranges hold the routes' angles (the reptile's; the
+  rat's knees and hips do not): it rolls the body until the ground reads it on its front or
+  crouched, places each paw by a clear route, rolled again if a placement turns it onto its back
+  or a side, and rises on its motor ([controller settings](#controller-settings)).
 
 The search (CMA-ES over each pose's 20 angles, its hold and its mark) plays each candidate
 through the game's mind and scores its worst start and its mean: the side's poses from the body
@@ -198,7 +201,7 @@ lowest point.
 | Leg tracking | recoveryServo .06, placementServo .008 s, placementError .15 rad, foldWait .5 s | Separate holding and moving legs; require actual joint arrival and paw clearance |
 | Paw acquisition | pressWait .3 s, pressLever .15 m, pressDepth .002 m | A bounded joint servo lowers a paw; the lever is a controller approximation, not anatomy |
 | Route limits | routeLimit 10 s, recoveryLimit 30 s | Try the other trunk end; time out |
-| Supported rise | recoveryPath .5 s, recoveryHeight .8, recoveredSpeed .1 m/s, recovered .5 s, rollUpright .95 | Place the paws once the trunk is upright; done on quiet four-sole support at height |
+| Supported rise | recoveryPath .5 s, recoveryHeight .8, recoveredSpeed .1 m/s, recovered .5 s | Done on quiet four-sole support at height |
 
 What the settings serve:
 
