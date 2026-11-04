@@ -101,6 +101,13 @@ interface Pair { readonly option: Option; readonly target: number }
 /** **A line's price at a decision**: its worth, life, and the model of the Option it begins with there. */
 interface Line { readonly worth: number; readonly terms: Terms }
 
+/**
+ * **What a leaf weighs** (`search`'s `leaf`): `whole`, where a line's last Option ends, every Option
+ * held or run again and a walk to a site; `arrived`, where that walk ends, all but another walk;
+ * `held`, where a run again leaves the body, the open Options only.
+ */
+type Reach = "whole" | "arrived" | "held";
+
 /** Whether `leaves` changes nothing (`AS_IS`). */
 const unchanged = (leaves: Leaves): boolean => leaves.where === undefined && leaves.around === undefined && leaves.posture === undefined && leaves.velocity === undefined && leaves.grace === undefined;
 
@@ -115,8 +122,8 @@ const keyOf = (leaves: Leaves, seconds: number): string => {
  * `objective` at `obedience`, `depth` Options deep, over the `horizon`, s: each Option's line from
  * `root` at each of its targets (`line`). A line runs its Option (`Option.model`), then at each way
  * it ends (`Outcome`) the best single Option from there where the search goes deeper (`best`), and
- * ends at a leaf (`leaf`: the best open Option, held where the body is or at its sites, `Option.sites`)
- * until the horizon; a line is cut at the horizon, so every worth is absolute over the same seconds
+ * ends at a leaf (`leaf`: the best Option held or run again until the horizon, where the body is or
+ * at a site, `Option.sites`); a line is cut at the horizon, so every worth is absolute over the same seconds
  * and depths compare alike. Each path is priced whole by the objective (`Path`) and weighed by its
  * chances. At `root` an Option with no targets is asked only where its entry admits (`onOffer`);
  * elsewhere its model says whether it is on offer. A model is asked once a state for each Option
@@ -125,7 +132,7 @@ const keyOf = (leaves: Leaves, seconds: number): string => {
  */
 function search(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, depth: number, horizon: number): (option: Option, target: number) => Line | null {
   const sites = new Set<string>();
-  for (const option of options) if (option.open && option.sites) for (const site of option.sites) sites.add(site.name);
+  for (const option of options) if (option.sites) for (const site of option.sites) sites.add(site.name);
   const models = new Map<Situation, Map<Option, (Terms | null)[]>>(), offered = new Map<Situation, readonly Pair[]>(), children = new Map<Situation, Map<string, Situation>>();
   /** The model of `option` at `target` from `at`, asked once (an open one priced as an instant). */
   const modelAt = (option: Option, target: number, at: Situation): Terms | null => {
@@ -184,7 +191,7 @@ function search(root: Situation, options: readonly Option[], objective: Objectiv
     for (const outcome of terms.outcomes) {
       const leaves = outcome.leaves;
       worth += outcome.chance * (cut ? price(d, t, o, after, unchanged(leaves) ? at : child(at, leaves, terms.duration))
-        : left > 1 ? best(child(at, leaves, terms.duration), left - 1, d, t, o, after) : leaf(child(at, leaves, terms.duration), left === 1, d, t, o, after));
+        : left > 1 ? best(child(at, leaves, terms.duration), left - 1, d, t, o, after) : leaf(child(at, leaves, terms.duration), left === 1 ? "whole" : "arrived", d, t, o, after));
       chances += outcome.chance;
     }
     if (Math.abs(chances - 1) > 1e-9) throw new Error(`${option.name}'s outcomes' chances sum to ${chances}`);
@@ -197,18 +204,18 @@ function search(root: Situation, options: readonly Option[], objective: Objectiv
     return top > -Infinity ? top : price(dealt, taken, orders, seconds, at);
   };
   /**
-   * **Where a line ends**, at `at`, `seconds` s into the horizon: the best, to the horizon, of each
-   * Option on offer there that leaves the body where it began, run again and again (an open
-   * Option, `Option.open`, held, the case of none; where `whole`, any other, `again`), and, where
-   * `whole`, of each open Option reached at its sites (`Option.sites`: a walk to one, then the best
-   * held where that ends); the path as it is where none is.
+   * **Where a line ends**, at `at`, `seconds` s into the horizon, as `reach` says: the best, to the
+   * horizon, of each Option on offer there that leaves the body where it began, run again and again
+   * (an open Option, `Option.open`, held, the case of none; unless `held`, any other, `again`), and,
+   * where `whole`, of each Option reached at its sites (`Option.sites`: a walk to one, then the best
+   * there, `arrived`); the path as it is where none is.
    */
-  const leaf = (at: Situation, whole: boolean, dealt: number, taken: number, orders: number, seconds: number): number => {
+  const leaf = (at: Situation, reach: Reach, dealt: number, taken: number, orders: number, seconds: number): number => {
     let top = -Infinity;
     for (const { option, target } of pairsAt(at)) {
       if (option.open) top = Math.max(top, line(option, target, at, 1, dealt, taken, orders, seconds));
-      else if (!whole) continue;
-      else if (option.targets && sites.has(option.targets[target]!)) top = Math.max(top, line(option, target, at, 0, dealt, taken, orders, seconds));
+      else if (reach === "held") continue;
+      else if (option.targets && sites.has(option.targets[target]!)) { if (reach === "whole") top = Math.max(top, line(option, target, at, 0, dealt, taken, orders, seconds)); }
       else top = Math.max(top, again(option, target, at, dealt, taken, orders, seconds));
     }
     return top > -Infinity ? top : price(dealt, taken, orders, seconds, at);
@@ -240,7 +247,7 @@ function search(root: Situation, options: readonly Option[], objective: Objectiv
       for (const outcome of terms.outcomes) {
         const end = child(at, outcome.leaves, duration);
         if (end === there || end.posture === at.posture && Math.abs(end.range - at.range) <= ARRIVED) continue;
-        worth += left * outcome.chance / (1 - stay) * leaf(end, false, d, t, o, after);
+        worth += left * outcome.chance / (1 - stay) * leaf(end, "held", d, t, o, after);
       }
     }
     return worth;

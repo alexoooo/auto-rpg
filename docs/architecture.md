@@ -267,13 +267,15 @@ each a state with its chance, `Outcome`), its step, and a status.
   at an exit, or on its phase. The valued chooser prices each option by a search over the models,
   one or two deep, over its horizon (`ValuedConfig.horizon`): a line runs its option, then at each
   way it ends the best single option from there, and ends in the best of holding there, an option
-  that leaves the body where it began run again (its life each try, its orders once), and holding
-  reached at its site (`Option.sites`);
+  that leaves the body where it began run again (its life each try, its orders once), and a walk
+  to any Option's site (`Option.sites`), then the best held or run again there;
   each path is priced whole and a line's worth is its outcomes' worths by their chances.
 - **Where to walk**: an Option names its sites (`Option.sites`, `Site`), the spots it would begin
   from if not where the body stands: a strike whose readiness gives a window to be brought to
   (`Readiness`'s `position`) names a spot in it on each side of a body lying (`windowSpot`, `Side`),
   holding the nearest spot out of the foe's reach, holding at a place (`hold-at-place`) the place.
+  A body down reads no window: a strike's site there is the spot last read with the body up, moved
+  as its focus has moved since (`Stood`), so a state predicted standing finds its sites.
   The walk (`walk`, `walkBy`) is one Option a gait of the body's legs, meaning go to a place by that gait; its targets
   are the sites its mind's Options name (`Sites`), which it reads as spots (`Spot`) and knows
   nothing else of, and the search prices a walk to one by what it finds where the walk ends.

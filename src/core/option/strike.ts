@@ -84,10 +84,18 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * on offer; elsewhere, at one of its sites (`atSite`), or where the spot it stands at is within its
  * window now, ready or not (`windowAny`, `windowHolds`), its model there as it would be here.
  */
+/**
+ * **A strike's site as last read with the body up**, for the focus `focus` standing at `foe` (x, z):
+ * a body down reads no window, so its site there is this spot moved as its focus has moved since,
+ * and where it is in the window (`place`), as it was.
+ */
+interface Stood { readonly focus: string; readonly spot: Spot; readonly place: [number, number] | null; readonly foe: readonly [number, number] }
+
 export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure, name = action.name): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null,
-    // Each side's place beside a body lying (`HeldBeside`), and its spot as last read: at what time, for what focus, and where in its window (`placeInWindow`).
-    sides: SIDES.map(() => ({ beside: heldBeside(), time: NaN, focus: null as string | null, spot: null as Spot | null, place: null as [number, number] | null })),
+    // Each side's place beside a body lying (`HeldBeside`), and its spot as last read: at what time, for what focus, and where in its window (`placeInWindow`);
+    // and the spot last read with the body up (`Stood`).
+    sides: SIDES.map(() => ({ beside: heldBeside(), time: NaN, focus: null as string | null, spot: null as Spot | null, place: null as [number, number] | null, stood: null as Stood | null })),
     // Where in its window its blow under way was asked (`placeInWindow`), null with none.
     place: null as [number, number] | null };
   const { measured } = measure, found = profileFor(measure.profiles, measured);
@@ -193,11 +201,21 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     name: k === 0 ? `${name}'s window` : `${name}'s window, the other side`,
     spot(at) {
       if (live(at) || unfit(at)) return null;
-      const kept = state.sides[k]!, focus = at.focus?.id ?? null;
+      const kept = state.sides[k]!, foe = at.focus, focus = foe?.id ?? null;
       if (kept.time !== at.time || kept.focus !== focus) {
-        const { ready, placed } = offer(at), window = ready === null && placed?.readiness.kind === "position" ? placed.readiness.window : null;
-        kept.time = at.time; kept.focus = focus; kept.spot = window ? windowSpot(at.sight.view, window, at.sight.report.heading, side, kept.beside) : null;
-        kept.place = window && kept.spot ? placeInWindow(window, kept.spot.x, kept.spot.z, kept.spot.face) : null;
+        kept.time = at.time; kept.focus = focus;
+        if (at.sight.view.down) {
+          const stood = kept.stood?.focus === focus ? kept.stood : null;
+          kept.spot = stood && foe ? { x: stood.spot.x + foe.centre.x - stood.foe[0], z: stood.spot.z + foe.centre.z - stood.foe[1], face: stood.spot.face,
+            ...(stood.spot.facing === undefined ? {} : { facing: stood.spot.facing }) } : null;
+          kept.place = stood ? stood.place : null;
+        } else {
+          const { ready, placed } = offer(at), window = ready === null && placed?.readiness.kind === "position" ? placed.readiness.window : null;
+          kept.spot = window ? windowSpot(at.sight.view, window, at.sight.report.heading, side, kept.beside) : null;
+          kept.place = window && kept.spot ? placeInWindow(window, kept.spot.x, kept.spot.z, kept.spot.face) : null;
+          if (kept.spot && foe) kept.stood = { focus: foe.id, spot: { x: kept.spot.x, z: kept.spot.z, face: kept.spot.face, ...(kept.spot.facing === undefined ? {} : { facing: kept.spot.facing }) },
+            place: kept.place, foe: [foe.centre.x, foe.centre.z] };
+        }
       }
       return kept.spot;
     },
