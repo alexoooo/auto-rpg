@@ -5,7 +5,7 @@ import type { ChooserPart } from "./parts.ts";
 import { anyBody, slotOne, type PartConfig } from "../parts/parts.ts";
 import type { OfferTerms } from "../mind/engagement.ts";
 import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding, type Holding, type Selection } from "../mind/choice.ts";
-import { placed, type Option, type Situation } from "./option.ts";
+import { placed, placing, type Option, type Situation } from "./option.ts";
 import { FEW_TERMS_PART, type Objective, type Path } from "./objective.ts";
 import { cachedPressure, threatened, type Pressure } from "./percepts.ts";
 import { ARRIVED } from "../intent/movement.ts";
@@ -131,6 +131,7 @@ const keyOf = (leaves: Leaves, seconds: number): string => {
  * absolute over the same seconds and lines compare alike.
  */
 function space(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, horizon: number) {
+  const place = placing();
   const sites = new Set<string>();
   for (const option of options) if (option.sites) for (const site of option.sites) sites.add(site.name);
   const models = new Map<Situation, Map<Option, (Terms | null)[]>>(), offered = new Map<Situation, readonly Pair[]>(), children = new Map<Situation, Map<string, Situation>>();
@@ -162,7 +163,7 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     if (!made) children.set(at, made = new Map());
     const key = keyOf(leaves, seconds);
     let state = made.get(key);
-    if (!state) made.set(key, state = placed(at, leaves, seconds));
+    if (!state) made.set(key, state = place(at, leaves, seconds));
     return state;
   };
   const path = { dealt: 0, taken: 0, orders: 0, seconds: 0, end: root };

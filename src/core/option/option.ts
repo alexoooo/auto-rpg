@@ -122,27 +122,20 @@ export function along(at: Situation, range: number): Spot {
   return { x: focus.centre.x + x * to, z: focus.centre.z + z * to, face: atan2(-x, -z) };
 }
 
-/**
- * **The state `leaves` leaves the body in** (`Leaves`), from `at`, read through it: where it stands
- * (`where`), and from there its range centre to centre and head to head to the focus, the head as
- * far from the centre as at `at`, and its bearing around the focus, unless `leaves` names it; its
- * posture, down where it is not standing, and its velocity, its stance standing where that leaves
- * it still (`stride`, `still`). A state an Option leaves is later than
- * the blow coming and the body's own blows under way: no blow comes there (`incoming`,
- * `Predictions.danger`), none of its own is under way there (`SkillReport.actions`), and no ground
- * reading is read there (`ground`). Its grace (`Situation.grace`) is what `leaves` reckons; else
- * `at`'s: spent over the Option's `seconds` where both are within the focus's reach (one stretch in
- * reach counts the focus's latency once), restored over them where both are out of it (never past
- * the latency), and as it was where the body crosses the reach's edge, the crossing's time unknown.
- * The foe and every other percept are as `at` reads them.
- */
 /** No action under way: a state an Option leaves the body in (`placed`). */
 const NO_ACTIONS: Sight["report"]["actions"] = Object.freeze([]);
 
-export function placed(at: Situation, leaves: Leaves, seconds: number): Situation {
-  const report = Object.create(at.sight.report, { actions: { value: NO_ACTIONS } }) as Sight["report"];
-  const props: PropertyDescriptorMap = { ground: { value: null }, incoming: { value: null }, sight: { value: Object.create(at.sight, { report: { value: report } }) },
-    predictions: { value: Object.create(at.predictions, { danger: { value: 0 } }) } };
+/** A sight after its actions end, inheriting every other report and sight reading. */
+const afterActions = (sight: Sight): Sight => Object.create(sight, {
+  report: { value: Object.create(sight.report, { actions: { value: NO_ACTIONS } }) },
+});
+
+/** Predictions past the blow coming, inheriting every other prediction. */
+const afterDanger = (predictions: Predictions): Predictions => Object.create(predictions, { danger: { value: 0 } });
+
+/** A placement with the sight and predictions after the actions and blow coming end. */
+function placedWith(at: Situation, leaves: Leaves, seconds: number, sight: Sight, predictions: Predictions): Situation {
+  const props: PropertyDescriptorMap = { ground: { value: null }, incoming: { value: null }, sight: { value: sight }, predictions: { value: predictions } };
   const where = leaves.where, focus = at.focus;
   if (where) {
     props.where = { value: where };
@@ -161,6 +154,45 @@ export function placed(at: Situation, leaves: Leaves, seconds: number): Situatio
   const grace = leaves.grace ?? (within !== inReach(at) ? was : within ? Math.max(0, was - seconds) : Math.min(latency, was + seconds));
   Object.defineProperty(there, "grace", { value: grace });
   return there;
+}
+
+/**
+ * **The state `leaves` leaves the body in** (`Leaves`), from `at`, read through it: where it stands
+ * (`where`), and from there its range centre to centre and head to head to the focus, the head as
+ * far from the centre as at `at`, and its bearing around the focus, unless `leaves` names it; its
+ * posture, down where it is not standing, and its velocity, its stance standing where that leaves
+ * it still (`stride`, `still`). A state an Option leaves is later than
+ * the blow coming and the body's own blows under way: no blow comes there (`incoming`,
+ * `Predictions.danger`), none of its own is under way there (`SkillReport.actions`), and no ground
+ * reading is read there (`ground`). Its grace (`Situation.grace`) is what `leaves` reckons; else
+ * `at`'s: spent over the Option's `seconds` where both are within the focus's reach (one stretch in
+ * reach counts the focus's latency once), restored over them where both are out of it (never past
+ * the latency), and as it was where the body crosses the reach's edge, the crossing's time unknown.
+ * The foe and every other percept are as `at` reads them.
+ */
+export function placed(at: Situation, leaves: Leaves, seconds: number): Situation {
+  return placedWith(at, leaves, seconds, afterActions(at.sight), afterDanger(at.predictions));
+}
+
+/**
+ * Placements within one search, sharing read-only sights and predictions after their actions and
+ * incoming blow end. Each overlay maps to itself, so descendants keep the same overlay; geometry,
+ * posture and grace still belong to each situation. The scratch ends with the search.
+ */
+export function placing(): typeof placed {
+  const sights = new WeakMap<Sight, Sight>(), predictions = new WeakMap<Predictions, Predictions>();
+  return (at, leaves, seconds) => {
+    let sight = sights.get(at.sight), predicted = predictions.get(at.predictions);
+    if (!sight) {
+      sight = afterActions(at.sight);
+      sights.set(at.sight, sight); sights.set(sight, sight);
+    }
+    if (!predicted) {
+      predicted = afterDanger(at.predictions);
+      predictions.set(at.predictions, predicted); predictions.set(predicted, predicted);
+    }
+    return placedWith(at, leaves, seconds, sight, predicted);
+  };
 }
 
 /**

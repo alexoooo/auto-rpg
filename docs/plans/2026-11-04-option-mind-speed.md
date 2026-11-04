@@ -75,6 +75,15 @@ lookup. The pressure is read lazily, and the live situation and saved chooser st
 own predictions. Check: exact query results, eviction, decision isolation, the fingerprint and
 paired search and step timings.
 
+### Exact predicted situations
+
+Each search shares the read-only sight, report and prediction overlays that end the actions and
+incoming blow (`placing`, `src/core/option/option.ts`). Search-local weak maps find the overlay
+for each input sight or prediction, and map an overlay to itself so descendants reuse it.
+Each situation keeps its own geometry, posture and grace, with the same arithmetic and inherited
+readings. Check: complete placements, lazy getters, independent inputs and searches, the
+fingerprint and paired search and step timings.
+
 ### 2. A decision spread over steps
 
 A decision's runs are made a share a step (`runs` over a few steps) on one tree kept in the
