@@ -57,6 +57,15 @@ changes, and the cost reading before and after.
 and copying only changed branches. The copy stays a snapshot no later live write changes. A speed
 rewrite: no fingerprint case moves. Check: the cost reading; the worker tests replay to the bit.
 
+### Exact profile queries
+
+Each nearest-trial query (`src/core/skills/framework/profile.ts`) keeps the distances its
+selection computed in sample scratch and reuses them when aggregating the selected trials.
+Only the interval visited by that query is valid; trials admitted beyond it by the tie tolerance
+have their distances computed during aggregation. The distance arithmetic and trial order hold.
+Check: complete profile readings, interleaved queries, the fingerprint and paired search and step
+timings.
+
 ### 2. A decision spread over steps
 
 A decision's runs are made a share a step (`runs` over a few steps) on one tree kept in the

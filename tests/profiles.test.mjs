@@ -101,6 +101,36 @@ test("a strike's profile reads its trials by where in its window they began", ()
   assert.deepEqual(placeless.expect(at([.15, 0]), spec), placeless.expect(at([0, 0]), spec), "trials that record no place read alike wherever asked");
 });
 
+test("profile neighbours include pruned ties and isolate scratch across starts, phases and progress", () => {
+  const spec = modelSpec("workshop-fighter"), hp = spec.wounds.hp.value;
+  const trial = (range, dealt, extra = {}) => ({ start: { range, phase: "clear" }, done: true, dealt, taken: 0,
+    seconds: .25, recovers: .5, down: dealt === 3, end: "standing", exit: { range: 1 }, ...extra });
+  // Nine coincident trials, the tenth neighbour, a pruned trial inside the tie tolerance,
+  // and a trial outside it. The inside tie must contribute even on the first query.
+  const run = [...Array.from({ length: 9 }, () => trial(1, 1)), trial(1.1, 3), trial(1.1 + 5e-11, 5), trial(1.1 + 2e-10, 100)];
+  const letGo = [.1, .3].map(progress => trial(1, 0, { letGo: { progress, seconds: .5, taken: 2 } }));
+  const profile = { measured: { body: "", spec: "", skill: "synthetic", hz: 120, reaction: null }, target: null, trials: [...run, ...letGo] };
+  const reading = profileReading(profile, spec), at = { range: 1, phase: "clear", progress: .1 };
+  const expected = { done: 1, dealt: 17 / 11 / hp, seconds: .25, recovers: .5, down: 1 / 11,
+    ends: [{ at: "standing", share: 1 }], exit: { range: 1 }, letGo: { seconds: .5, taken: 2 / hp } };
+  assert.deepEqual(reading.expect(at, spec), expected);
+  assert.equal(reading.rate(at, spec), (17 / 11 / hp) / .75);
+  const other = profileReading({ ...profile, trials: run.slice(0, 3) }, spec);
+  for (const query of [{ range: 1.1, phase: "clear", velocity: [9, -9], window: [1, -1], progress: .3 },
+    at, { range: 1.05, phase: "unknown", progress: .2 }, { range: 2, phase: "clear" }, at]) {
+    other.expect(query, spec);
+    const fresh = profileReading(profile, spec);
+    assert.deepEqual(reading.expect(query, spec), fresh.expect(query, spec));
+    assert.equal(reading.rate(query, spec), fresh.rate(query, spec));
+    assert.equal(reading.peak(query.phase, spec), fresh.peak(query.phase, spec));
+    assert.equal(reading.fastest(query.phase), fresh.fastest(query.phase));
+  }
+  const empty = profileReading({ ...profile, trials: [] }, spec);
+  assert.deepEqual([empty.expect(at, spec), empty.rate(at, spec), empty.peak("clear", spec), empty.fastest("clear")], [null, null, 0, Infinity]);
+  assert.deepEqual(other.expect(at, spec), { done: 1, dealt: 1 / hp, seconds: .25, recovers: .5, down: 0,
+    ends: [{ at: "standing", share: 1 }], exit: { range: 1 } });
+});
+
 /**
  * **A strike priced by hand reads its tries of its own limb** (`record`): a stomp its executor gave
  * up on before committing (`stalled`) is a try that landed nothing, so a foot that keeps failing
