@@ -119,8 +119,9 @@ Option Mind as its hero.
 - The valued chooser, Option Mind's default, is indifferent to delay (a strike now ties the same
   strike after a second of following orders, so the measured stomp profiles wait), and a body
   lying where only flatten is on offer, three Options from standing, braces. The tree chooser
-  (`TREE_CHOOSER`) reaches both and wins the match against it, but stands up fewer times in the
-  match's bouts and its dearest steps cost more; its exploration is unswept.
+  (`TREE_CHOOSER`) reaches both and wins the match against it, but stood from fewer of the
+  stand-up evaluation's falls, a difference within one reading's interval, and its dearest steps
+  cost more; its exploration is unswept.
 - A predicted state reads the body's real view, then a predicted foe: begun when the tree's lost
   bouts recur on choices made from states mispredicted so.
 - A learned value at the tree's leaf, fitted to its own searched values: begun when its runs are
