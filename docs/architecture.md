@@ -236,7 +236,8 @@ each a state with its chance, `Outcome`), its step, and a status.
   both postures, and the velocity in its target's frame, `startVelocity`); a reading takes the
   trials nearest the start asked at, and a rate of blows reads each trial's run and its limb's way
   back to its guard. A blow the foe has not begun reaches the body only after the foe's latency
-  (`Pressure.latency`: its rethink, its command's delay and its fastest blow).
+  (`Pressure.latency`: its rethink, its command's delay and its fastest blow), spent as the body
+  stays within its reach and restored as it stays out (`reachMemory`).
 - **The objective** (`OBJECTIVES`): `few-terms` values a path in a share of a body's life: its
   orders at the person's `OBEDIENCE`, and the life it trades, valued as itself at the bout's start
   and by the lead it leaves at the clock's verdict at its end (`lateness`).
@@ -258,11 +259,11 @@ each a state with its chance, `Outcome`), its step, and a status.
   `landing`, `brace-tumbling`, `brace-down`), on offer where its skill admits the body as it lies.
   A way up is priced by its edge's expected seconds and chance, and where it ends by the search;
   lying is priced by the brace and the ways up that begin there; a reposition is on offer only from
-  a posture no way up before it begins from. Every Option's tries in the bout are kept in one record (`OptionRecord`), each priced by
-  hand (`Prior`) until its tries move it (`recorded`). The reader keeps what the rise needs of
-  them (`riseMemory`: whether it runs, the seconds braced tumbling, the steady's try). A config
-  whose ways up leave no route to standing from the back or from the front is a fault
-  (`standUpFaults`).
+  a posture no way up before it begins from. Every Option's tries in the bout are kept in one
+  record (`OptionRecord`), each priced by hand (`Prior`) until its tries move it (`recorded`). The
+  reader keeps what the rise needs of them (`riseMemory`: whether it runs, the seconds braced
+  tumbling, the steady's try). A config whose ways up leave no route to standing from the back or
+  from the front is a fault (`standUpFaults`).
 
 **The Option Reptile** is Option Mind over a frame (`FramePart`), the quadruped's
 (`QUADRUPED_FRAME`), with its own layers and options. A new family of bodies is a frame.

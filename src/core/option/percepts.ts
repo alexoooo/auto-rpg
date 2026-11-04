@@ -48,6 +48,8 @@ export interface Seen {
   readonly ward: Cover | null;
   readonly threats: Threats;
   readonly risen: RiseMemory;
+  /** What its reader keeps of the stretches the body has spent within and out of each foe's reach (`reachMemory`). */
+  readonly reach: ReachMemory;
 }
 
 type Threats = ReturnType<typeof threatReader>;
@@ -316,11 +318,41 @@ export const dealtAt = (pressure: Pressure, now: Situation, apart: number, secon
 export const inReach = (now: Situation): boolean => now.range < edgeOf(now, now.predictions.pressure);
 
 /**
- * **The seconds before the focus's pressure reaches the body at `now`**: what a state an Option
- * leaves the body in carries (`Situation.grace`); else, at the state now, none within its reach, and
- * its latency (`Pressure.latency`) out of it.
+ * **What a body's reader keeps of the focus's reach**: for each foe, the seconds a blow it has not
+ * begun would still take to reach the body (its grace), and when that was counted. Within the foe's
+ * reach the grace is spent as time passes, out of it restored as time passes, never past the foe's
+ * latency (`Pressure.latency`), which a foe first seen gives whole. It is counted when a decision
+ * reads it (`graceAt`), the body taken as within or out of reach since the last count as it is now.
  */
-export const graceAt = (now: Situation): number => now.grace ?? (inReach(now) ? 0 : now.predictions.pressure.latency);
+export function reachMemory() {
+  const state: Record<string, { grace: number; at: number }> = {};
+  return {
+    state,
+    /** The grace at `now`'s focus, counted to `now`. */
+    grace(now: Situation): number {
+      const focus = now.focus, latency = now.predictions.pressure.latency;
+      if (!focus || !Number.isFinite(latency)) return latency;
+      let kept = state[focus.id];
+      if (!kept) kept = state[focus.id] = { grace: latency, at: now.time };
+      if (kept.at !== now.time) {
+        const dt = now.time - kept.at;
+        kept.grace = inReach(now) ? Math.max(0, kept.grace - dt) : Math.min(latency, kept.grace + dt);
+        kept.at = now.time;
+      }
+      return Math.min(kept.grace, latency);
+    },
+  };
+}
+
+/** **A body's reach memory** (`reachMemory`). */
+export type ReachMemory = ReturnType<typeof reachMemory>;
+
+/**
+ * **The seconds before the focus's pressure reaches the body at `now`**: what a state an Option
+ * leaves the body in carries (`Situation.grace`); else, at the state now, what its reader keeps
+ * (`reachMemory`, `Situation.reached`).
+ */
+export const graceAt = (now: Situation): number => now.grace ?? now.reached.grace(now);
 
 /**
  * **The own life `seconds` s cost under the focus's pressure** (`Pressure`, `dealtAt`), standing
@@ -391,7 +423,8 @@ function downRateAtOf(seen: Seen): (posture: Position) => DownRate {
  * of its rise (`Seen.risen`): whether it runs, the ground as its rise reads it (`ground`, none where
  * no rise runs), the seconds the body has been braced tumbling in it (`tumbled`) and the seconds its
  * steady has held it in its try (`steadied`); where
- * on the ground it stands and the way it faces (`where`: its stance's centre and its heading); its
+ * on the ground it stands and the way it faces (`where`: its stance's centre and its heading); what
+ * its reader keeps of the stretches it has spent within each foe's reach (`reached`, `reachMemory`); its
  * orders; its focus; how far off the focus is, centre to centre
  * across the ground (Infinity with none), and head to head (`range`, Infinity with none); its
  * bearing around the focus, rad from the focus's forward (its `marks.base`'s +z), positive to its
@@ -415,6 +448,7 @@ export const PERCEPTS = Object.freeze({
   tumbled: { read: (seen) => seen.risen.state.tumbled } as Percept<number>,
   steadied: { read: (seen) => seen.risen.state.steadied } as Percept<number>,
   where: { read: ({ sight }) => ({ x: sight.view.stance.centre.x, z: sight.view.stance.centre.z, face: sight.report.heading }) } as Percept<Spot>,
+  reached: { read: (seen) => seen.reach } as Percept<ReachMemory>,
   orders: { read: (seen) => seen.orders, cue: (orders) => orders } as Percept<Orders | null>,
   focus: { read: (seen) => seen.focus, cue: (focus) => focus?.id ?? null } as Percept<BodySense | null>,
   apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity } as Percept<number>,

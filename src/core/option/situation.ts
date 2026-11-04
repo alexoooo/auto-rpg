@@ -8,7 +8,7 @@ import type { Sight } from "../mind/decider.ts";
 import { READINGS, threatReader } from "../perception/threat.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../parts/lookup.ts";
-import { perceiver, type ModelledStrike, type Seen } from "./percepts.ts";
+import { perceiver, reachMemory, type ModelledStrike, type Seen } from "./percepts.ts";
 import { optionRecord, type OptionRecord } from "./record.ts";
 import { riseMemory } from "./rise-memory.ts";
 
@@ -59,15 +59,15 @@ type SeenAt = { -readonly [K in "sight" | "orders" | "focus"]: Seen[K] } & { ste
  * The foes it may focus on are the one its orders name, else every foe in the fight; it reads at
  * the one it kept (`keep`) while that one is in the fight, else the nearest, and at each other one
  * as it is asked (`others`), so a chooser prices its options at every foe and keeps the situation
- * it chose. Its memory is the kept focus's id and what it keeps of the body's rise (`riseMemory`),
- * read as each step is.
+ * it chose. Its memory is the kept focus's id, what it keeps of the body's rise (`riseMemory`),
+ * read as each step is, and of each foe's reach (`reachMemory`), counted as a decision reads it.
  */
 export function situationReader(reading: Reading) {
   const { spec, hz, delay, rules, strikes, measured, ordersOf } = reading, rate = reading.rate ?? hz;
-  const risen = riseMemory(reading.record ?? optionRecord());
-  const threats = threatReader(), state = { focus: null as string | null, risen: risen.state }, perceiving = perceiver(reading.parts);
+  const risen = riseMemory(reading.record ?? optionRecord()), reach = reachMemory();
+  const threats = threatReader(), state = { focus: null as string | null, risen: risen.state, reach: reach.state }, perceiving = perceiver(reading.parts);
   /** What every `Seen` it makes holds of the reader: one prototype, its step's lazy inputs read through `SeenAt.step`. */
-  const base = Object.defineProperties({ spec, hz, rate, delay, rules, strikes, measured, threats, risen }, {
+  const base = Object.defineProperties({ spec, hz, rate, delay, rules, strikes, measured, threats, risen, reach }, {
     blow: { get(this: SeenAt): Seen["blow"] {
       const step = this.step;
       return step.blow === UNREAD ? step.blow = threats.blowOf(step.sight.view, READINGS.predicted) : step.blow;

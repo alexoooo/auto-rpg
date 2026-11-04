@@ -179,9 +179,8 @@ const WALK_READ = .05;
  * focus (`Walker.pace`; forward where it holds nothing that way); through the blow coming, and the
  * focus's pressure at each range the way passes within its reach, the body moving at the walk's
  * velocity against the focus's (`dealtAt`, read every
- * `WALK_READ` s), past its grace (`graceAt`: the latency counted once a stretch within its reach, and
- * afresh each time the way comes back within it); leaving the body still at the spot with what is
- * left of that grace, the focus turned toward it as far as it turns in that time
+ * `WALK_READ` s), past its grace (`graceAt`: spent as the way goes within its reach, restored as it
+ * goes out of it, never past the focus's latency); leaving the body still at the spot with that grace, the focus turned toward it as far as it turns in that time
  * (`Predictions.turns`), and, in a clinch (`CLINCH`), down in its chance of going down behind. A
  * gait's falls are its own profile's to measure; none is, so a walk is taken to stay up. With no
  * focus, the way at the gait's pace.
@@ -201,7 +200,7 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker)
         const moving = { x: dx / length * pace - focus.velocity.x, z: dz / length * pace - focus.velocity.z };
         for (let i = 0; i < pieces; i++) {
           const along = (i + .5) / pieces, tx = focus.centre.x - (x + along * dx), tz = focus.centre.z - (z + along * dz), apart = hypot(tx, tz);
-          if (apart >= reach) { grace = pressure.latency; continue; }
+          if (apart >= reach) { grace = Math.min(pressure.latency, grace + dt); continue; }
           const spent = Math.min(grace, dt);
           grace -= spent;
           taken += dealtAt(pressure, at, apart - offset, dt - spent, startVelocity({ x: tx, z: tz }, moving));
@@ -215,7 +214,7 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker)
   const apart = hypot(spot.x - focus.centre.x, spot.z - focus.centre.z), bearing = bearingAround(focus, spot.x, spot.z);
   const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - at.predictions.turns * duration);
   return { duration, dealt: 0, taken: at.predictions.danger + taken, orders: 0,
-    outcomes: upOrDown({ where, around, velocity: STILL, grace: apart < reach ? grace : pressure.latency }, apart >= CLINCH.within ? 0 : clinched(at, duration)) };
+    outcomes: upOrDown({ where, around, velocity: STILL, grace }, apart >= CLINCH.within ? 0 : clinched(at, duration)) };
 }
 
 /**

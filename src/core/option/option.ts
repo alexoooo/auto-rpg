@@ -103,10 +103,11 @@ export interface Option extends Choice<Situation> {
  * posture, down where it is not standing, and its velocity. A state an Option leaves is later than
  * the blow coming and the body's own blows under way: no blow comes there (`incoming`,
  * `Predictions.danger`), none of its own is under way there (`SkillReport.actions`), and no ground
- * reading is read there (`ground`). Its grace (`Situation.grace`) is what `leaves` reckons; else, within the
- * focus's reach, what is left of `at`'s after the Option's `seconds` where `at` is within it too
- * (one stretch in reach counts the focus's latency once), and the whole latency where the body has
- * just come within it or is out of it. The foe and every other percept are as `at` reads them.
+ * reading is read there (`ground`). Its grace (`Situation.grace`) is what `leaves` reckons; else
+ * `at`'s: spent over the Option's `seconds` where both are within the focus's reach (one stretch in
+ * reach counts the focus's latency once), restored over them where both are out of it (never past
+ * the latency), and as it was where the body crosses the reach's edge, the crossing's time unknown.
+ * The foe and every other percept are as `at` reads them.
  */
 /** No action under way: a state an Option leaves the body in (`placed`). */
 const NO_ACTIONS: Sight["report"]["actions"] = Object.freeze([]);
@@ -126,8 +127,8 @@ export function placed(at: Situation, leaves: Leaves, seconds: number): Situatio
   } else if (leaves.around !== undefined) props.around = { value: leaves.around };
   if (leaves.posture) { props.posture = { value: leaves.posture }; props.down = { value: leaves.posture !== "standing" }; }
   if (leaves.velocity) props.velocity = { value: leaves.velocity };
-  const there = Object.create(at, props) as Situation, latency = at.predictions.pressure.latency;
-  const grace = leaves.grace ?? (!inReach(there) ? latency : inReach(at) ? Math.max(0, graceAt(at) - seconds) : latency);
+  const there = Object.create(at, props) as Situation, latency = at.predictions.pressure.latency, was = graceAt(at), within = inReach(there);
+  const grace = leaves.grace ?? (within !== inReach(at) ? was : within ? Math.max(0, was - seconds) : Math.min(latency, was + seconds));
   Object.defineProperty(there, "grace", { value: grace });
   return there;
 }
