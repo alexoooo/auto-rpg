@@ -157,11 +157,11 @@ async function arena(recipe, { watch } = {}) {
 
 /**
  * `model` left standing for 11 s from as it is built: a humanoid under the command layers in
- * guard, the reptile under its Option Mind (`option-reptile`) with no orders.
+ * guard, the reptile under Option Mind with no orders.
  */
 async function stand(model) {
   const stand = await coreStand(modelSpec(model));
-  const body = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS["option-reptile"].config, { name: "stand", orders: () => null }).body : commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const body = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { name: "stand", orders: () => null }).body : commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
     if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) });
     const trace = traceOf([stand.built]);
@@ -378,11 +378,11 @@ const warriorMinds = () => [...new Set(HELDS.flatMap((held) => controlsFor("work
   .map((control) => [control, HELDS.filter((held) => controlsFor("workshop-fighter", rightHand(held)).includes(control))]);
 /**
  * A case for each mind a person may pick for a fight (`MINDS`, an entrant's among them) that the
- * run plays, the Warrior is not offered and no case above plays (the reptile's `option-reptile`): itself on
+ * run plays, the Warrior is not offered and no case above plays: itself on
  * both sides, on the first body it fits, holding the first of `HELDS` that body holds and the mind
  * takes. So every such mind a change moves is named by a case; one no fight takes (`controlsFor`) has none.
  */
-const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "option-reptile" && played(id) && warriorMinds().every(([control]) => control !== id)).flatMap(([id, { config }]) => {
+const elsewhere = () => Object.entries(MINDS).filter(([id]) => played(id) && warriorMinds().every(([control]) => control !== id)).flatMap(([id, { config }]) => {
   const model = BODY_MODELS.find((m) => HELDS.some((held) => controlsFor(m, rightHand(held)).includes(id)));
   if (!model) return [];
   const loadouts = both(HELDS.find((held) => controlsFor(model, rightHand(held)).includes(id)));
@@ -407,8 +407,8 @@ const CASES = [
   ...warriorMinds().flatMap(([control, helds]) =>
     helds.map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${rogueControl(control, held)}`, both(held)))),
   controlled("crypt-skeleton", "workshop-rogue", "option,option", both("sword")),
-  controlled("reptile", "reptile", "option-reptile,option-reptile", both("empty")),
-  controlled("reptile", "workshop-fighter", "option-reptile,option", { left: rightHand("empty"), right: rightHand("sword") }),
+  controlled("reptile", "reptile", "option,option", both("empty")),
+  controlled("reptile", "workshop-fighter", "option,option", { left: rightHand("empty"), right: rightHand("sword") }),
   ...elsewhere(),
   ...DATA_CASES,
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),

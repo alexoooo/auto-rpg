@@ -7,7 +7,8 @@ import type { Assist } from "./assist.ts";
 import type { Limb, Row } from "./bearing.ts";
 import { servoAsk, servoSolve, type ServoWork } from "./servo.ts";
 import { makeWholeBody, solveBody, type WholeBodyAsk } from "./solve.ts";
-import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
+import { stanceControl, type StanceControl, type StanceGoal, type StanceReading } from "./stance.ts";
+import type { SupportGoal } from "./supported-motor.ts";
 import type { BalanceMaker } from "./balance-part.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
 import { type ReadBody, type ReadSegment, rootSegment } from "../read-body.ts";
@@ -74,6 +75,10 @@ export interface PointTask {
 export interface MotorControl {
   /** The goals beyond a posture and pushes it carries out (`MotorGoal`): what it has the members for (`carrying`). */
   readonly carries: readonly MotorGoal[];
+  /** Read the body as it stands: its centre of mass and what bears it, into `reading`. A body reads this before its driver decides. */
+  read(): void;
+  /** What its last reading found and its last command asked of what bears the body (`StanceReading`). */
+  readonly reading: StanceReading;
   /** The controller for `driveMuscles`. */
   readonly control: MuscleController;
   /** Hold `pose` for every freedom no effector's goal owns, from `control`'s next call. */
@@ -102,10 +107,22 @@ export interface MotorUnmet {
 
 /**
  * **A goal a motor may carry out** beside a posture and pushes: effectors' places (`Reaching`),
- * driven points (`Pointing`) and a stance (`Balancing`). A motor says which (`MotorControl.carries`),
- * and what drives it asks for those it needs where it is made (`carrying`).
+ * driven points (`Pointing`), a stance (`Balancing`), a support over the ends a body bears on
+ * (`Supporting`) and freedoms carried along paths (`Pathing`). A motor says which
+ * (`MotorControl.carries`), and what drives it asks for those it needs where it is made (`carrying`).
  */
-type MotorGoal = "effectors" | "points" | "stance";
+type MotorGoal = "effectors" | "points" | "stance" | "support" | "paths";
+
+/**
+ * **A freedom carried along a path**: its angle, rad, its rate, rad/s, and its acceleration,
+ * rad/s^2, this step, followed at `seconds`' response where it names one, the motor's own else.
+ */
+export interface FreedomPath {
+  readonly angle: number;
+  readonly rate: number;
+  readonly acceleration: number;
+  readonly seconds?: number;
+}
 
 /** **A motor that takes effectors to places** (`EffectorGoal`). */
 interface Reaching {
@@ -144,11 +161,30 @@ interface Balancing {
   readonly stance: StanceControl;
 }
 
+/** **A motor that holds the body over the ends it bears on** (`SupportGoal`). */
+interface Supporting {
+  /** Hold the body as `goal` asks, or with null leave it to the posture, from `control`'s next call. */
+  setSupport(goal: SupportGoal | null): void;
+  /** The support goal it was last given, or null. */
+  readonly supported: SupportGoal | null;
+}
+
+/** **A motor that carries freedoms along paths** (`FreedomPath`). */
+interface Pathing {
+  /** Carry each freedom `paths` names, by channel, along its path from `control`'s next call, in place of those before. */
+  setPaths(paths: Readonly<Record<string, FreedomPath>>): void;
+}
+
 /** A motor with the members of each goal of `G`. */
-export type Carrying<G extends MotorGoal> = MotorControl & ("effectors" extends G ? Reaching : unknown) & ("points" extends G ? Pointing : unknown) & ("stance" extends G ? Balancing : unknown);
+export type Carrying<G extends MotorGoal> = MotorControl & ("effectors" extends G ? Reaching : unknown) & ("points" extends G ? Pointing : unknown)
+  & ("stance" extends G ? Balancing : unknown) & ("support" extends G ? Supporting : unknown) & ("paths" extends G ? Pathing : unknown);
 
 /** What a person calls each goal, in a refusal. */
-const GOAL_NAMES: Readonly<Record<MotorGoal, string>> = Object.freeze({ effectors: "effectors' places", points: "driven points", stance: "a stance" });
+const GOAL_NAMES: Readonly<Record<MotorGoal, string>> = Object.freeze({ effectors: "effectors' places", points: "driven points", stance: "a stance",
+  support: "a support over its ends", paths: "freedoms' paths" });
+
+/** Whether `motor` carries `goal`: it is then a motor with that goal's members. */
+export const carries = <G extends MotorGoal>(motor: MotorControl, goal: G): motor is Carrying<G> => motor.carries.includes(goal);
 
 /**
  * `motor` as one that carries `goals`, for `who` to drive it by them: a thrown error, where it is
@@ -159,11 +195,11 @@ export function carrying<G extends MotorGoal>(motor: MotorControl, goals: readon
   return motor as Carrying<G>;
 }
 
-/** **The whole-body solve**: every goal (`motorControl`). */
-export type WholeBody = Carrying<MotorGoal>;
+/** **The whole-body solve**: its effectors' places, driven points and a stance (`motorControl`). */
+export type WholeBody = Carrying<"effectors" | "points" | "stance">;
 
-/** Every goal. */
-const EVERY_GOAL: readonly MotorGoal[] = Object.freeze(["effectors", "points", "stance"]);
+/** The whole-body solve's goals. */
+const WHOLE_GOALS: readonly MotorGoal[] = Object.freeze(["effectors", "points", "stance"]);
 
 /**
  * Motor control of `built`, servoing at a time constant of `seconds`; its balance (`balance`, the
@@ -238,7 +274,7 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
   };
 
   return {
-    carries: EVERY_GOAL, control, effectors: tracker.models,
+    carries: WHOLE_GOALS, control, effectors: tracker.models, reading: stance.reading, read: () => stance.read(),
     setPosture(next) { state.pose = next; },
     reach: tracker.reach,
     release: tracker.release,
@@ -349,4 +385,4 @@ function pointNow(segment: ReadSegment, point: Vec3, at: Vector3): void {
  * muscles' reach (`forceVelocityReach`), so the motor pushes at its ceiling until the joint gets there.
  * A numeric setting: any speed no joint reaches does.
  */
-const UNREACHABLE = 1e3;
+export const UNREACHABLE = 1e3;

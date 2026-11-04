@@ -1,30 +1,24 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
-import type { OwnBody } from "../mind/mind.ts";
-import type { Orders, Heading } from "../intent/orders.ts";
-import type { Senses } from "../mind/senses.ts";
 import type { Skill } from "../skills/framework/skill.ts";
-import type { supportedMotor, SupportedCommand } from "../control/supported-motor.ts";
+import type { SupportedCommand } from "../control/supported-motor.ts";
 import type { EffectorGoal } from "../control/effector-tracker.ts";
+import type { ReadBody, ReadSegment } from "../read-body.ts";
 import { withinSupport } from "../control/support.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { REPTILE_CRAWL } from "./tuning.ts";
 import { deepFreeze } from "../state.ts";
 import { fitsPaws, type PawGaitPart } from "./parts.ts";
+import type { PawReading, PawView } from "./paws.ts";
 
-/** Resolved world travel for a quadruped's gait; navigation owns external movement objectives. */
-export interface TravelOrders extends Omit<Orders, "move"> { readonly move: Heading | null }
+/** A way over the ground, world (x, z): a direction, or a fraction of a gait's travel. */
+interface Heading { readonly x: number; readonly z: number }
+
+/** **What a paw gait is asked**: the way to travel, world, a fraction of its travel (none stands), and the way to face (none keeps its own). */
+export interface TravelOrders { readonly move: Heading | null; readonly face: Heading | null }
+
+/** Standing where it is, facing as it faces. */
 export const STAND_TRAVEL: TravelOrders = Object.freeze({ move: null, face: null });
-
-/** A quadruped's proprioception exposes support endpoints rather than fabricated hands. */
-export interface QuadrupedView {
-  readonly centre: Vector3;
-  readonly velocity: Vector3;
-  readonly feet: ReturnType<typeof supportedMotor>["state"]["endpoints"];
-  readonly senses: Senses;
-  readonly yaw: number;
-  readonly down: boolean;
-}
 
 /**
  * A paw's goal, root frame: its `point` to `at` and turned to `turn` in `seconds`, coming down
@@ -45,44 +39,47 @@ export function soleGoal(point: string, at: Vector3, seconds: number, sequence: 
  * frame, from the paws' mean: a settled stance puts the centre there, wherever the legs meet the
  * trunk.
  */
-export function overPaws(own: OwnBody, paws: readonly string[]): readonly [number, number] {
-  const mass = own.spec.mass.value, centre = own.spec.segments.reduce((c, p) => {
+export function overPaws(built: ReadBody, paws: readonly string[]): readonly [number, number] {
+  const mass = built.spec.mass.value, centre = built.spec.segments.reduce((c, p) => {
     const m = p.mass.value / mass, at = p.centreOfMass.value;
     return [c[0] + m * at[0], c[1] + m * at[2]] as [number, number];
   }, [0, 0] as [number, number]);
   let x = 0, z = 0;
-  for (const name of paws) { const sole = own.built.segments.get(name)!.spec.points!.sole!.value; x += sole[0]; z += sole[2]; }
+  for (const name of paws) { const sole = built.segments.get(name)!.spec.points!.sole!.value; x += sole[0]; z += sole[2]; }
   return [centre[0] - x / paws.length, centre[1] - z / paws.length];
 }
 
-/** One paw moves after the centre enters the other three paws' support triangle. */
-export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, names: readonly string[], T = REPTILE_CRAWL) {
-  const root = motor.root, nominal = names.map(name => own.built.segments.get(name)!.spec.points!.sole!.value);
-  const mass = own.spec.mass.value, reference = own.spec.segments.reduce((c, p) => {
+/**
+ * One paw moves after the centre enters the other three paws' support triangle: a gait of the body
+ * `built`, its trunk `root`, on its paws `names` as `paws` reads them.
+ */
+export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_CRAWL) {
+  const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
+  const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
     const m = p.mass.value / mass, at = p.centreOfMass.value;
     return [c[0] + m * at[0], c[1] + m * at[1], c[2] + m * at[2]] as Vec3;
   }, [0, 0, 0] as Vec3);
-  const over = overPaws(own, names), q = root.pose.rotation;
+  const over = overPaws(built, names), q = root.pose.rotation;
   const state = {
     phase: "settle" as "settle" | "shift" | "swing" | "land" | "return", time: 0, paw: 0, steps: 0, placed: 0, sequence: 0, yaw: 0, align: 0, standing: false, lifted: false,
-    centre: [motor.state.centre.x, reference[1], motor.state.centre.z] as [number, number, number],
-    anchors: motor.state.endpoints.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
+    centre: [paws.centre.x, reference[1], paws.centre.z] as [number, number, number],
+    anchors: paws.feet.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
     from: [0, 0, 0] as [number, number, number], to: [0, 0, 0] as [number, number, number],
     command: {
-      centre: [motor.state.centre.x, reference[1], motor.state.centre.z] as [number, number, number],
+      centre: [paws.centre.x, reference[1], paws.centre.z] as [number, number, number],
       velocity: [0, 0, 0] as [number, number, number], rotation: [q.x, q.y, q.z, q.w] as [number, number, number, number],
-      endpoints: motor.state.endpoints.map((e, i) => ({ target: [e.at.x, nominal[i]![1], e.at.z] as [number, number, number],
+      endpoints: paws.feet.map((e, i) => ({ target: [e.at.x, nominal[i]![1], e.at.z] as [number, number, number],
         bearing: true, rotation: [0, 0, 0, 1] as [number, number, number, number] })),
       posture: {} as Record<string, number>,
     },
   };
   const rotation = new Quaternion(), turned = new Quaternion(), support = names.map(() => ({ corners: [new Vector3()] }));
-  const resume = (view: QuadrupedView) => {
+  const resume = (view: PawView) => {
     state.phase = "settle"; state.time = 0; state.sequence++; state.yaw = view.yaw; state.standing = false; state.align = 0;
     state.centre[0] = view.centre.x; state.centre[2] = view.centre.z;
     view.feet.forEach((e, i) => { state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z; });
   };
-  const skill: Skill<QuadrupedView> & { readonly state: typeof state; command(view: QuadrupedView, intent: TravelOrders, dt: number, height?: number): SupportedCommand } = {
+  const skill: Skill<PawView> & { readonly state: typeof state; command(view: PawView, intent: TravelOrders, dt: number, height?: number): SupportedCommand } = {
     state, resume,
     command(view, intent, dt, height = T.crawlHeight) {
       const face = intent.face ?? intent.move;
@@ -166,7 +163,7 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
       rotation.multiplyToRef(root.rest, turned);
       state.command.rotation.splice(0, 4, turned.x, turned.y, turned.z, turned.w);
       state.command.endpoints.forEach((goal, i) => {
-        rotation.multiplyToRef(own.built.segments.get(names[i]!)!.rest, turned);
+        rotation.multiplyToRef(built.segments.get(names[i]!)!.rest, turned);
         goal.rotation.splice(0, 4, turned.x, turned.y, turned.z, turned.w);
         goal.target.splice(0, 3, ...state.anchors[i]!); goal.bearing = true;
         if (i === state.paw && (state.phase === "swing" || state.phase === "land" || state.phase === "return")) {
@@ -188,8 +185,11 @@ export const CRAWL_PART: PawGaitPart<CrawlConfig> = deepFreeze({
   role: "paw-gait", label: "Crawl", stage: "game", fields: [], slots: [], defaults: { kind: "paw-crawl" }, keys: { kind: true, tuning: true },
   tuning: Object.keys(REPTILE_CRAWL), fits: fitsPaws,
   faults: (config: CrawlConfig) => Object.values(config.tuning ?? {}).every(Number.isFinite) ? [] : ["invalid crawl setting"],
-  make(own: OwnBody, motor: ReturnType<typeof supportedMotor>, paws: readonly string[], config: CrawlConfig) {
-    const settings = { ...REPTILE_CRAWL, ...config.tuning }, skill = crawl(own, motor, paws, settings);
-    return { state: skill.state, settings, resume: skill.resume, command: skill.command };
+  make(built: ReadBody, root: ReadSegment, reading: PawReading, paws: readonly string[], config: CrawlConfig) {
+    const settings = { ...REPTILE_CRAWL, ...config.tuning }, skill = crawl(built, root, reading, paws, settings);
+    // A paw's step takes its settle, its shift, its swing and its plant; each paw steps once a stride, and a heading turns a yaw step a stride. It steps any way.
+    const stride = paws.length * (settings.settle + settings.shift + settings.swing + settings.plant);
+    const reach = { forward: settings.stride / stride, aside: 1, turn: settings.yawStep / stride };
+    return { state: skill.state, settings, reach, resume: skill.resume, command: skill.command };
   },
 });

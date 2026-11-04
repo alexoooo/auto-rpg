@@ -47,9 +47,14 @@ export interface EffectorFeedback {
   readonly completedStep?: number;
 }
 
-/** Trusted contact and motion sampler for any declared physical endpoint and its completed physics interval. */
+/**
+ * Trusted contact and motion sampler for any declared physical endpoint and its completed physics
+ * interval; each endpoint's touch is its segment's and, where `hung` names them, the segments that
+ * hang from it (a jaw from its head), read as its own.
+ */
 export function effectorFeedback(built: ReadBody, segments: readonly string[], identity?: ContactIdentity,
-  external?: (segment: string) => readonly EffectorContact[], points?: Readonly<Record<string, { readonly point: string; readonly regions?: readonly string[] }>>) {
+  external?: (segment: string) => readonly EffectorContact[], points?: Readonly<Record<string, { readonly point: string; readonly regions?: readonly string[] }>>,
+  hung?: (segment: string) => readonly string[]) {
   const make = () => ({ point: [0, 0, 0] as [number, number, number], velocity: [0, 0, 0] as [number, number, number],
     pairs: [] as EffectorContactPair[], episodes: new Map<string, boolean>(), completedStep: -1,
     impulse: 0, contactPoint: null as Vec3 | null, ...(identity || external ? { contact: null as EffectorContact | null } : {}),
@@ -64,7 +69,12 @@ export function effectorFeedback(built: ReadBody, segments: readonly string[], i
     const regions = points?.[name]?.regions;
     const shapes = regions && segment.rigid.owners.flatMap((owner, i) =>
       (owner.kind === "region" || owner.kind === "held-region") && regions.includes(owner.region.name) ? [i] : []);
-    return { name, segment, point, shapes, strike: declared.get("strike")?.value };
+    const carried = (hung?.(name) ?? []).map((other) => {
+      const part = built.segments.get(other);
+      if (!part) throw new Error(`no feedback segment ${other}`);
+      return part.body;
+    });
+    return { name, segment, point, shapes, strike: declared.get("strike")?.value, bodies: [segment.body, ...carried] };
   });
   const point = new Vector3(), velocity = new Vector3(), spin = new Vector3();
   const present = new Map<string, EffectorContactPair>();
@@ -98,7 +108,7 @@ export function effectorFeedback(built: ReadBody, segments: readonly string[], i
       out.impulse = 0; out.contactPoint = null; if (identity || external) out.contact = null;
       if (points) { out.obstructed = false; out.obstruction = null; out.contacts!.length = 0; }
       let strongest = 0;
-      for (const contact of built.physics.contactsOf(item.segment.body)) {
+      for (let b = 0; b < item.bodies.length; b++) for (const contact of built.physics.contactsOf(item.bodies[b]!)) {
         if (contact.other && own.has(contact.other)) continue;
         const permitted = identity?.(contact.other);
         const target: ContactTarget = contact.other ? permitted ?? { kind: "object", id: `physics-body:${contact.other.id}` }
@@ -107,7 +117,7 @@ export function effectorFeedback(built: ReadBody, segments: readonly string[], i
         observe(key, target, contact.point, contact.normal ?? [0, 0, 0], contact.impulse);
         if (!(contact.impulse > 0)) continue;
         if (points) out.contacts!.push({ ...(permitted ?? { kind: "world" as const }) });
-        const pairs = item.shapes ? contact.pairs.filter(pair => item.shapes!.includes(pair.mine)) : [contact];
+        const pairs = item.shapes && b === 0 ? contact.pairs.filter(pair => item.shapes!.includes(pair.mine)) : [contact];
         if (item.shapes && !pairs.length) {
           out.obstructed = true;
           if (contact.impulse > (out.obstruction?.impulse ?? 0)) out.obstruction = {

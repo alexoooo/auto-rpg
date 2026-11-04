@@ -36,7 +36,7 @@ export function crouchSteady(own, view, variant = {}) {
   const control = { on: true, t0: null, from: null, mid: null, depth: null, height: null, c0: null, climbed: false, ready: 0, handBack: null,
     lead: 0, steps: 0, asked: null, at: 0, short: 0, path: null, planned: null };
   const kit = kitOf(partLookup, own.spec), legs = locomotion(null);
-  const motor = carrying(kit.motor(own.built, variant.servo ?? SERVO_SECONDS, kit.posture, variant.tuning, own.assist), ["stance"], "the crouch steady");
+  const motor = carrying(kit.motor(own.built, own.muscles, variant.servo ?? SERVO_SECONDS, kit.posture, variant.tuning, own.assist), ["stance"], "the crouch steady");
   const channels = own.muscles.channels;
   const blend = k => Object.fromEntries(channels.map((c, i) => [c.name, control.from[i] + ((kit.posture[c.name] ?? 0) - control.from[i]) * k]));
   const feet = footStatesOf(own.built), middle = new Vector3();

@@ -6,6 +6,7 @@ import { choice } from "../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../parts/parts.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
 import { GAIT_CHOICES } from "../skills/locomotion/move-rule-part.ts";
+import { PAW_MOVE } from "../reptile/paw-legs.ts";
 import type { GaitName } from "../skills/locomotion/gaits.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
@@ -278,6 +279,9 @@ export const SWORD_THRUST_OPTION = strikeKind("sword-thrust", "Sword thrust", "h
 /** **The stomp** (`stomp`), with either foot. */
 export const STOMP_OPTION = strikeKind("stomp", "Stomp", "either-foot");
 
+/** **The bite** (`jaw-bite`), with the jaw. */
+export const BITE_OPTION = strikeKind("jaw-bite", "Bite", "jaw");
+
 /** **A walk's config**: the gait of its body's legs it goes by (`Gait.name`), and the navigation that plans its way (Visibility routes unless it names one). */
 export interface WalkConfig {
   readonly kind: "walk";
@@ -295,7 +299,7 @@ export const WALK_OPTION: OptionKindPart<WalkConfig> = deepFreeze({
   slots: [slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION)], defaults: { kind: "walk", gait: "braced" },
   keys: { kind: true, gait: true, navigation: true }, fits: anyBody, faults: () => [],
   skills: (config: WalkConfig) => ({ navigation: config.navigation ?? GAME_NAVIGATION }),
-  make: (config: WalkConfig, given: OptionsGiven) => gaitsOf(given.legs).filter((gait) => gait.name === config.gait).map((gait) => walkBy(gait, given.sites, given.walk)),
+  make: (config: WalkConfig, given: OptionsGiven) => gaitsOf(given.parts, given.legs).filter((gait) => gait.name === config.gait).map((gait) => walkBy(gait, given.sites, given.walk)),
 });
 
 /** **A place on the ground** to hold at: where it is, m, and how near its centre the body holds there. */
@@ -322,8 +326,12 @@ export const HOLD_OPTION = kind("hold-position", "Hold the position", (given) =>
 /** **The hands at their guard** (`guard`), a rest option over the body's hands, none for a body without. */
 export const GUARD_OPTION = kind("hands-at-guard", "Hands at guard", (given) => guardOf(given.spec));
 
-/** The walks of the stock gaits (`GAIT_CHOICES`), each its own Option: braced, then the run. */
-export const WALKS: readonly WalkConfig[] = deepFreeze(GAIT_CHOICES.map(([gait]) => ({ kind: "walk", gait })));
+/**
+ * The walks of the stock gaits, each its own Option: the soles' (`GAIT_CHOICES`), braced, then the
+ * run; then the paws' (`PAW_MOVE`), the trot, then the crawl. A body walks by those its legs go by.
+ */
+export const WALKS: readonly WalkConfig[] = deepFreeze([...GAIT_CHOICES.map(([gait]) => gait), ...PAW_MOVE.gaits!(PAW_MOVE.defaults).map((gait) => gait.name)]
+  .map((gait) => ({ kind: "walk", gait })));
 
 /** Its options as it starts, in rank order: orders, a walk by each gait, the rise (`RISE_OPTIONS`), covers, then the rest options; no blow, which a preset names (`StrikeConfig`). */
 export const OPTIONS: readonly PartConfig[] = deepFreeze([ORDERS_OPTION.defaults, ...WALKS, ...RISE_OPTIONS, ...[COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION].map((part) => part.defaults)]);

@@ -1,6 +1,6 @@
 /**
  * **The swap fixture's entrant** (`SWAP`): the toolkit's Option Mind under an experimental kind
- * of its own (`swap:option`), over its own kit or the quadruped's frame, a stub of each converted
+ * of its own (`swap:option`), a stub of each converted
  * role as its own parts (`swap:<kind>`), and presets holding its stubs, every part chosen by its
  * config. It is registered from here by one list line (`kinds.mjs`), as an entrant's folder is.
  */
@@ -9,11 +9,9 @@ import { STOCK_GAITS } from "../../../src/core/skills/locomotion/gaits.ts";
 import { WHOLE_BODY_MOTOR } from "../../../src/core/control/whole-body-motor.ts";
 import { OPTION_MIND } from "../../../src/core/option/mind.ts";
 import { RISE_OPTIONS } from "../../../src/core/option/rise.ts";
-import { QUADRUPED } from "../../../src/core/reptile/config.ts";
-import { QUADRUPED_VALUED } from "../../../src/core/reptile/frame.ts";
-import { QUADRUPED_OPTIONS } from "../../../src/core/reptile/options.ts";
 import { AIMED, STUB_AIM } from "./stub-aim.mjs";
-import { STUB_JAW, STUB_PAW_MOTOR, STUB_STALK, STUB_TROT } from "./stub-quadruped.mjs";
+import { STUB_BITE, STUB_JAW, STUB_PAW_MOTOR, STUB_TROT } from "./stub-quadruped.mjs";
+import { PAW_MOVE } from "../../../src/core/reptile/paw-legs.ts";
 import { OPTION_PRESETS } from "../../../src/entrants/option/mind.ts";
 import { STRAIGHT_NAVIGATION } from "./straight-navigation.mjs";
 import { STUB_GUARD } from "./stub-guard.mjs";
@@ -42,6 +40,9 @@ const WALK_AT = OPTION_DEFAULTS.options.findIndex((option) => option.kind === "w
 
 /** Where Option Mind's first strike is: the stub strike takes the place of every strike. */
 const STRIKE_AT = OPTION_DEFAULTS.options.findIndex((option) => option.kind.startsWith("strike-"));
+
+/** Where Option Mind's bite is: the stub bite takes its place. */
+const BITE_AT = OPTION_DEFAULTS.options.findIndex((option) => option.kind === "strike-jaw-bite");
 
 /** Whether `option` is a strike (`StrikeConfig`): one that names its executor. */
 const strikes = (option) => option.kind.startsWith("strike-") || option.kind === STUB_STRIKE.defaults.kind;
@@ -94,15 +95,17 @@ export const STUBS = Object.freeze([
     read: (_mind, body) => body.mind.host.motor.stance },
   { part: STUB_AIM, mind: "swap-option", at: `options.${RISE_OPTIONS.length + 1}.aim`,
     place: (config) => ({ ...config, options: [...config.options.filter((option) => option.kind !== PUNCH.kind), { ...PUNCH, aim: STUB_AIM.defaults }] }), read: () => AIMED },
-  ...[["motor", STUB_PAW_MOTOR, "motor"], ["travel", STUB_TROT, "travel"], ["bite", STUB_JAW, "bite"], ["tactics", STUB_STALK, "stalk"]].map(([at, part, held]) => (
-    { part, mind: "swap-quadruped", at: `frame.${at}`, place: (config) => ({ ...config, frame: { ...config.frame, [at]: part.defaults } }), read: (_mind, body) => body.mind.host[held] })),
+  { part: STUB_PAW_MOTOR, mind: "swap-quadruped", at: "tuning.parts.motor", place: (config) => passing(config, "motor", STUB_PAW_MOTOR.defaults),
+    read: (_mind, body) => body.mind.host.motor },
+  { part: STUB_TROT, mind: "swap-quadruped", at: "tuning.parts.legs.trot", place: (config) => passing(config, "legs", { ...PAW_MOVE.defaults, trot: STUB_TROT.defaults }),
+    read: (state) => state.skills.legs.legs.trot },
+  { part: STUB_JAW, mind: "swap-quadruped", at: `options.${BITE_AT}.skill`,
+    place: (config) => ({ ...config, options: config.options.map((option) => option.kind === "strike-jaw-bite" ? STUB_BITE.defaults : option) }),
+    read: (state) => state.skills.actions.executors.find((executor) => executor?.stub === STUB_JAW.defaults.kind) },
 ].map(Object.freeze));
 
-/** Option Mind over the quadruped's frame, as the reptile's entrant plays it: every layer the stock one, by worth over the quadruped's options. */
-const OVER_QUADRUPED = Object.freeze({ kind: "option", frame: QUADRUPED, chooser: QUADRUPED_VALUED.defaults, options: QUADRUPED_OPTIONS });
-
 /** Each fixture preset's game config: where its stubs are placed one at a time. */
-export const GAME_CONFIGS = Object.freeze({ "swap-stub": OPTION_DEFAULTS, "swap-option": OPTION_DEFAULTS, "swap-quadruped": OVER_QUADRUPED });
+export const GAME_CONFIGS = Object.freeze({ "swap-stub": OPTION_DEFAULTS, "swap-option": OPTION_DEFAULTS, "swap-quadruped": OPTION_DEFAULTS });
 
 /** Each fixture preset's kind of mind: the toolkit's under the swap entrant's scope. */
 const KINDS = Object.freeze({ "swap-stub": "swap:option", "swap-option": "swap:option", "swap-quadruped": "swap:option" });
@@ -116,8 +119,8 @@ export const SWAP_DEFAULTS = withStubs("swap-stub", OPTION_DEFAULTS, {});
 /** The Option Mind fixture: Option Mind with its chooser, option, balance and aim stubs. */
 export const SWAP_OPTION_DEFAULTS = withStubs("swap-option", OPTION_DEFAULTS, {});
 
-/** The quadruped fixture: Option Mind over the quadruped's frame, its motor, trot, bite and stalk each a stub. */
-export const SWAP_QUADRUPED_DEFAULTS = withStubs("swap-quadruped", OVER_QUADRUPED, {});
+/** The quadruped fixture: Option Mind on paws, its motor, trot and bite each a stub. */
+export const SWAP_QUADRUPED_DEFAULTS = withStubs("swap-quadruped", OPTION_DEFAULTS, {});
 
 /** Option Mind's straight punch alone: a bare-hand source on the Warrior. */
 const UNARMED = Object.freeze({ ...OPTION_DEFAULTS, kind: "swap:option",
@@ -130,7 +133,7 @@ const swapMind = (mind, label, defaults) => Object.freeze({ ...mind, label, stag
 export const SWAP = Object.freeze({
   name: "swap",
   minds: Object.freeze([swapMind(OPTION_MIND, "Swap Option Mind", SWAP_OPTION_DEFAULTS)]),
-  parts: Object.freeze([...new Set([...STUBS.map((stub) => stub.part), STUB_STRIKE])]),
+  parts: Object.freeze([...new Set([...STUBS.map((stub) => stub.part), STUB_STRIKE, STUB_BITE])]),
   presets: Object.freeze({
     "swap-stub": Object.freeze({ label: "Swap stubs", config: SWAP_DEFAULTS, models: Object.freeze(["workshop-fighter"]) }),
     "swap-unarmed": Object.freeze({ label: "Swap bare-hand scope", config: UNARMED, models: Object.freeze(["workshop-fighter"]) }),

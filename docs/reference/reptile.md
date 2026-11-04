@@ -106,7 +106,7 @@ The trot (`trot`, `src/core/reptile/trot.ts`) alternates diagonal pairs and carr
 about 1 m/s, upright at every heading and through half turns. What holds it:
 
 - **A swinging paw tracks its path at .025 s** (`swingResponse`), driven firm
-  (`EffectorGoal.firm`), its path kept on the ground (`src/core/reptile/layers.ts`).
+  (`EffectorGoal.firm`), its path kept on the ground (`pawLegs`, `src/core/reptile/paw-legs.ts`).
 - **A paw lands led by the step it took**: the travel through the last pair's swing and landing
   (`stride`), and half the time it then bears, no further than its room.
 - **Its room is its floor reach** (`stanceOf`): each pair's midpoint under the centre of mass, each
@@ -121,26 +121,31 @@ about 1 m/s, upright at every heading and through half turns. What holds it:
 
 ### The lunge
 
-The bite (`bite`, `src/core/reptile/bite.ts`) aims the selected tooth's mid-stroke point
-(`contactAt` of the opening) at the target, launches on an open jaw with the mouth within
-`biteAlign` of its aim, and lunges: through the stroke the head tracker and the lean still drive
-the mouth onto the aim while the jaw closes. The lean is bounded by `biteShift` from where the
-centre of mass stood when the chamber began, within the loaded paws' support (`biteInset`). An
-aligned tooth under load wounds whether or not the jaw is closing (`pointLoadDamage`).
+The bite (`jaw-bite`, `biteExecutor`, `src/core/reptile/bite.ts`) aims the tooth its aim names
+(`Aimed.with`) at the target by its mid-stroke point (`contactAt` of the opening), launches on an
+open jaw with the mouth within `biteAlign` of its aim, and lunges: through the stroke the head's
+goal and the lean still drive the mouth onto the aim while the jaw closes. The lean is bounded by
+`biteShift` from where the centre of mass stood when the bite began, within the loaded paws'
+support (`biteInset`, `pawLegs`). An aligned tooth under load wounds whether or not the jaw is
+closing (`pointLoadDamage`).
 
 ### Righting
 
-The rat rights itself by recipe (`rightingByRecipe`, `src/core/reptile/righting.ts`): three
-poses of its hips, knees and elbows, neck and tail base for the body on its right side, and three
-for it on its back (`assets/rat/righting.json`, its model's entry in `RIGHTING`; a mind's
-`tuning.righting` overrides it), found offline (`scripts/quadruped/righting.mjs`). It takes the
-body when the rat is down, or when its trunk's up stays under .85 for .5 s; holds the reference
-pose 1 s; reads how it lies (on its back where the trunk's up is under -.5, else on a side, the
-poses mirrored on its left); servos through the poses, each until held for its time or the trunk
-is up to its mark; and hands back once the last pose has held the trunk's up at .95 or more and
-the centre of mass under .1 m/s for .25 s. After 6 s of poses it settles and tries again. The
-reptile has no recipe and rights itself by routes (`recover`, `src/core/reptile/recover.ts`;
-[controller settings](#controller-settings)).
+A body on paws rights itself by two ways up (`src/core/reptile/righting.ts`), each a ground skill
+the rise runs (`way-up`), begun once the body lies settled:
+
+- **By recipe** (`righting-recipe`, `rightingByRecipe`), from lying on its back, a side or its
+  front, for a body with a record (`assets/core/righting.json`: the rat's three poses of its hips,
+  knees and elbows, neck and tail base for the body on its right side, and three for it on its
+  back; a research recipe in the config's `tuning` in its place), found offline
+  (`scripts/quadruped/righting.mjs`). It holds the reference pose 1 s; reads how it lies (on its
+  back where the trunk's up is under -.5, else on a side, the poses mirrored on its left); servos
+  through the poses, each until held for its time or the trunk is up to its mark; and is done once
+  the last pose has held the trunk's up at .95 or more and the centre of mass under .1 m/s for
+  .25 s, timed out after 6 s of poses. Its last pose leaves the body crouched on its paws.
+- **By routes** (`righting-routes`, `rightingByRoutes`), from lying, crouched on its paws or
+  between, for any body on paws: it rolls the body upright, places each paw by a clear route and
+  rises on its motor ([controller settings](#controller-settings)).
 
 The search (CMA-ES over each pose's 20 angles, its hold and its mark) plays each candidate
 through the game's mind and scores its worst start and its mean: the side's poses from the body
@@ -151,7 +156,7 @@ the body (`scripts/quadruped/righting-forks.mjs`); the back's from its back.
 
 Controller choices, held apart from the anatomy in `REPTILE_MOTOR`, `REPTILE_TRAVEL`,
 `REPTILE_TROT`, `REPTILE_CRAWL`, `REPTILE_RECOVERY` and `REPTILE_BITE`
-(`src/core/reptile/tuning.ts`), and the rat's righting recipe (`assets/rat/righting.json`). They
+(`src/core/reptile/tuning.ts`), and the rat's righting recipe (`assets/core/righting.json`). They
 are not a measured optimum or evidence of a real animal's locomotion. Times are seconds, lengths
 metres, angles radians, heights relative to the reference centre of mass.
 
@@ -168,7 +173,7 @@ lowest point.
 | Trot travel | speed 1.15 m/s, acceleration .5 m/s2, sideways .15 | Bounded velocity changes and slower lateral travel; never faster than the paws' reach allows |
 | Trot timing | swing .175, settle .025, plant .03 s; plantSpeed .2 m/s; touch .003 m | Alternating diagonal pairs; a paw within touch of the floor is down |
 | Trot swing | swingResponse .025 s | A swinging paw's path kept on the ground and tracked firm |
-| Trot heading | turnRate .6 rad/s, turnLead .2 rad, turnMoveAngle .2 rad, turnError .05 rad | Turn while travelling, the heading asked never further than turnLead ahead of the trunk's; the approach counts the trunk aligned with its way within turnMoveAngle |
+| Trot heading | turnRate .6 rad/s, turnLead .2 rad, turnError .05 rad | Turn while travelling, the heading asked never further than turnLead ahead of the trunk's |
 | Trot acquisition | liftConfirm .001 m, landingWait .1 s, placementLimit 3 s | Count a step only for a paw that lifted; end a swing once its pair bears, lifted or not; brake on delayed landing and return an unlanded pair to its anchors |
 | Resumed travel | resumeSpeed .1 m/s, resumeHold .3 s | Place each paw again through the crawl, then require quiet four-sole support before trotting |
 | Crawl geometry | crawlHeight .85, stride .035 m, lift .025 m | Lowered three-paw support and one-paw swing |
@@ -186,14 +191,13 @@ lowest point.
 | Jaw response | biteResponse .03 s during Swing and Return | Track the finite jaw path through the unchanged torque and speed ceilings |
 | Closing path | closeRate 4 rad/s | Retain closing velocity at the requested path endpoint; actual motion remains muscle limited |
 | Bite cycle | release .2 s, biteSlow .2 m/s, biteHold .03 s, biteTimeout 2 s, biteReturnLimit 8 s | Verified quiet release; the bound allows actual backward paw placements before reporting failure |
-| Bite approach | approach .3 m, braking .5 m/s2, creepNear .3 m | Reduce travel intent with remaining mouth clearance and stopping distance; crawl until the foe is within creepNear |
-| Righting by recipe (the rat's, `assets/rat/righting.json`) | settle 1 s, servo .15 s, upright .95, calm .1 m/s, still .25 s, limit 6 s, tilt .85, wait .5 s | Hold the reference pose, play the poses for how it lies, hand back on a trunk upright and still; take the body from a lasting tilt |
+| Righting by recipe (the rat's record, `assets/core/righting.json`) | settle 1 s, servo .15 s, upright .95, calm .1 m/s, still .25 s, limit 6 s | Hold the reference pose, play the poses for how it lies, done on a trunk upright and still |
 | Grounded righting | rightingGain 8 N m/rad, rightingDamping 4 N m s/rad, rightingEpsilon .000001 | Upright-error moment projected onto loaded hips, bounded by their muscles |
 | Clear leg route | foldHip 1.2, foldKnee 2.6, plantedKnee 1.4, sweepYaw 1.2, wrappedHip .5, unwindHip 2 rad | Move a wrapped paw around a trunk end before unfolding; interpolation spans the declared unwind interval |
 | Leg tracking | recoveryServo .06, placementServo .008 s, placementError .15 rad, foldWait .5 s | Separate holding and moving legs; require actual joint arrival and paw clearance |
 | Paw acquisition | pressWait .3 s, pressLever .15 m, pressDepth .002 m | A bounded joint servo lowers a paw; the lever is a controller approximation, not anatomy |
-| Recovery retry | routeLimit 10 s, recoveryLimit 30 s | Try the other trunk end, or restart from actual posture; neither reports success |
-| Supported handover | recoveryPath .5 s, recoveryHeight .8, recoveredSpeed .1 m/s, recovered .5 s, rollUpright .95 | Free-paw reacquisition and quiet four-sole support before resume |
+| Route limits | routeLimit 10 s, recoveryLimit 30 s | Try the other trunk end; time out |
+| Supported rise | recoveryPath .5 s, recoveryHeight .8, recoveredSpeed .1 m/s, recovered .5 s, rollUpright .95 | Place the paws once the trunk is upright; done on quiet four-sole support at height |
 
 What the settings serve:
 
@@ -207,12 +211,13 @@ What the settings serve:
   cleared the floor counts a step, and one not down within placementLimit returns to its anchors.
   **A settled stance** holds the centre of mass where the reference pose carries it over the
   paws' mean (`overPaws`), wherever the legs meet the trunk.
-- **The gait** (`src/core/reptile/layers.ts`) is the crawl while the body reacquires its paws,
-  withdraws from a bite or creeps in close, and the trot otherwise. A resumed body crawls each paw
-  into place and holds quiet four-sole support for resumeHold before trotting; the trot turns the
-  body to its heading before it accelerates (`turnMoveAngle`).
-- **The bite** takes the first exposed surface on a tooth's closing arc, keeps the material point in
-  the foe segment's frame while it prepares, and launches on an open jaw, a mouth near its aim and
+- **The gait** (`pawLegs`) is the one asked: a walk's (the trot or the crawl, each a walk Option),
+  the crawl while a bite runs; none asked, it trots to walk and keeps its gait to stand. A resumed
+  body crawls each paw into place and holds quiet four-sole support for resumeHold before
+  trotting.
+- **The bite** is aimed at the first exposed surface on a tooth's closing arc (`first-exposed`,
+  `src/core/reptile/jaw-aim.ts`), the material point kept in the foe segment's frame while it
+  prepares, and launches on an open jaw, a mouth near its aim and
   at most one paw unloaded. It freezes the chambered point and mouth aim at the snap and lunges
   ([the lunge](#the-lunge)). A stroke ends on its snap and follow-through clocks if it misses, on
   contactSeconds once in contact, and on cancellation, lost support, a fall, misalignment or a
@@ -221,7 +226,7 @@ What the settings serve:
   muscles, and crawls backward if contact persists past the release. Success needs an open jaw, a
   neutral neck, quiet jaw motion and no loaded head or jaw contact; a timeout is a failure and
   frees the bite for another target.
-- **Righting by routes** (`recover`, a body with no recipe) reads every fixed-ground contact but
+- **Righting by routes** (`rightingByRoutes`) reads every fixed-ground contact but
   pushes only through loaded leg chains, routing a wrapped leg round the trunk end its own hip and
   knee allow. It completes on four-paw sole contact, enough height, an upright body and a quiet
   centre of mass for half a second, and does not need that support to start.
@@ -233,8 +238,8 @@ footprint's radius, how near its target it stands to fight (`attackMetres`) and 
 ends its fight. A humanoid (`HUMANOID`) has a .35 m radius and stands 1.8 m off. A quadruped's
 radius is the furthest its colliders reach from its centre in the floor's plane, tail included,
 and it stands .52 m off; a character's own body scales both. No body's fall ends its fight: it
-stays in and gets up. The reptile and the rat have empty hands and Option Reptile by default
-(`modelInfo`, `src/core/models.ts`; `defaultMind`, `src/entrants/game.ts`).
+stays in and gets up. The reptile and the rat have empty hands and the game's Option Mind by
+default (`modelInfo`, `src/core/models.ts`; `defaultMind`, `src/entrants/game.ts`).
 
 Generated layouts alternate skeleton rooms and three-reptile packs (`ENCOUNTER_MODELS`,
 `populateEncounters`, `src/dungeon/encounters.ts`). `ENCOUNTERS` sets three bodies a pack, at

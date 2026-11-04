@@ -38,8 +38,8 @@ export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
   /** Its entry (`TechniqueRun.admits`) reads the body's motion and its raw position (`GroundReading.raw`): a stand-up begins it on a body still tumbling where it admits it, and braces one only where none does. */
   readonly moving: boolean;
-  /** A run of it on the body, driving it with the mind's motor and guard (`kit`). */
-  make(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit): TechniqueRun;
+  /** A run of it under `config` on the body, driving it with the mind's motor and guard (`kit`). */
+  make(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit, config: C): TechniqueRun;
 }
 
 /** Whether `part` is a way up: it takes the body between positions (its `edges`), where a mode of the ground holds it (none). */

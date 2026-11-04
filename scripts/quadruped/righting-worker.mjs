@@ -1,7 +1,8 @@
-// One righting trial for `scripts/quadruped/righting.mjs`: a quadruped's Option Reptile playing a
-// candidate recipe (`tuning.righting`), on a body built lying under stand orders (Node stand), or
-// in a fight forked where its righting took the body (Node Arena Duel). Rapier, 120 Hz, the game's
-// delay. As a child process it takes { id, ...trial } and answers { id, result }.
+// One righting trial for `scripts/quadruped/righting.mjs`: a quadruped's game mind playing a
+// candidate recipe (its way up by recipe's research `tuning`), on a body built lying under stand
+// orders (Node stand), or in a fight forked where its righting took the body (Node Arena Duel).
+// Rapier, 120 Hz, the game's delay. As a child process it takes { id, ...trial } and answers
+// { id, result }.
 import "../../tests/harness/preload-data.mjs";
 import { Quaternion, Vector3 } from "../../src/core/math/vector.ts";
 import { coreStand } from "../../tests/harness/core-stand.mjs";
@@ -14,11 +15,14 @@ import { loadState } from "../../src/core/state.ts";
 import { deserialize } from "node:v8";
 import { readFileSync } from "node:fs";
 
-/** The model's game mind, its righting `recipe`. */
+/** The model's game mind, its way up by recipe playing `recipe`. */
 const withRecipe = (model, recipe) => {
   const base = defaultMind(model);
-  return { ...base, frame: { ...base.frame, tuning: { ...base.frame.tuning, righting: { [model]: recipe } } } };
+  return { ...base, options: base.options.map((option) => option.skill?.kind === "righting-recipe" ? { ...option, skill: { kind: "righting-recipe", tuning: recipe } } : option) };
 };
+
+/** The righting by recipe's run in a mind's state (`rightingByRecipe`): its ground executor's. */
+export const rightingOf = (mind) => mind.skills.actions.executors.find((executor) => executor?.run && "mirrored" in executor.run).run;
 
 /** **The fight a fork is of**: `model`, bare, against the sword Warrior `gap` m away; its mind's righting `recipe` where one is given. */
 export const forkBout = (model, gap, recipe) => ({ left: model, right: "workshop-fighter", gap,
@@ -35,17 +39,19 @@ async function fightTrial(model, recipe, file, fork, seconds) {
   const { gap, save } = forksRead.get(file)[fork];
   const { duel, world, dispose } = await buildBout(forkBout(model, gap, recipe));
   world.physics.load(save.physics); loadState(duel.state, save.state); duel.senses.show(); world.loaded();
-  const body = duel.duelists.left.body, host = body.state.mind.host, trunk = body.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
-  const from = duel.clock, retries = host.righting.retries, last = 2;
-  let played = false, handed = null, down = 0, lie = null;
+  const body = duel.duelists.left.body, righting = rightingOf(duel.duelists.left.minded.state), trunk = body.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
+  const from = duel.clock, last = 2;
+  let played = false, handed = null, down = 0, lie = null, plays = 0, was = righting.phase;
   while (duel.clock < from + seconds && !duel.verdict) {
     world.step();
-    if (host.righting.phase === "play" && !played) { played = true; lie = host.righting.lie; }
-    if (played && handed === null && host.righting.phase === "idle" && !body.down) handed = duel.clock - from;
+    if (righting.phase === "play" && was !== "play") plays++;
+    was = righting.phase;
+    if (righting.phase === "play" && !played) { played = true; lie = righting.lie; }
+    if (played && handed === null && righting.phase === "idle" && !body.down) handed = duel.clock - from;
     if (duel.clock > from + seconds - last && body.down) down += 1 / 120;
   }
   up.set(0, 1, 0).applyRotationQuaternionToRef(trunk.pose.rotation.multiply(rest), up);
-  const result = { up: up.y, height: trunk.pose.position.y, down, handed, retries: host.righting.retries - retries, lie, verdict: duel.verdict ? duel.verdict.winner : null };
+  const result = { up: up.y, height: trunk.pose.position.y, down, handed, retries: Math.max(0, plays - 1), lie, verdict: duel.verdict ? duel.verdict.winner : null };
   dispose();
   return result;
 }
@@ -57,7 +63,7 @@ export const LYING = { back: [0, 0, 1, 0], left: [0, 0, Math.SQRT1_2, Math.SQRT1
  * A trial: `data` (a body file) built `lying` at `heading` rad, `seconds` played; or the `fork`th of
  * `forks` (`righting-forks.mjs`), its fight from where the righting took the body. Its record: the
  * trunk's up and height at the end, the seconds down in the last two, when the righting handed the
- * body back, how often it started again and how it first read the body lying; a fight's, its
+ * body back, how often it played its poses again and how it first read the body lying; a fight's, its
  * verdict.
  */
 export async function trial({ data, model, recipe, lying, heading = 0, forks, fork, seconds }) {
@@ -66,17 +72,19 @@ export async function trial({ data, model, recipe, lying, heading = 0, forks, fo
   const stand = await coreStand(reptileSpec(data, model, `${model}-anatomy`), { groundSize: 100, position: [0, .3, 0], rotation: turn.multiply(new Quaternion(...LYING[lying])).asArray() });
   const config = withRecipe(model, recipe);
   const mind = createMind(GAME, stand.built, stand.world, config, { name: model, orders: () => STAND_ORDERS });
-  const host = mind.body.state.mind.host, trunk = stand.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
+  const righting = rightingOf(mind.state), trunk = stand.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
   const steps = Math.round(seconds * 120), last = 240;
-  let played = false, handed = null, down = 0, lie = null;
+  let played = false, handed = null, down = 0, lie = null, plays = 0, was = righting.phase;
   for (let i = 1; i <= steps; i++) {
     stand.step();
-    if (host.righting.phase === "play" && !played) { played = true; lie = host.righting.lie; }
-    if (played && handed === null && host.righting.phase === "idle" && !mind.body.down) handed = i / 120;
+    if (righting.phase === "play" && was !== "play") plays++;
+    was = righting.phase;
+    if (righting.phase === "play" && !played) { played = true; lie = righting.lie; }
+    if (played && handed === null && righting.phase === "idle" && !mind.body.down) handed = i / 120;
     if (i > steps - last && mind.body.down) down += 1 / 120;
   }
   up.set(0, 1, 0).applyRotationQuaternionToRef(trunk.pose.rotation.multiply(rest), up);
-  const result = { up: up.y, height: trunk.pose.position.y, down, handed, retries: host.righting.retries, lie };
+  const result = { up: up.y, height: trunk.pose.position.y, down, handed, retries: Math.max(0, plays - 1), lie };
   stand.dispose();
   return result;
 }

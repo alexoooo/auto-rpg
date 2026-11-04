@@ -9,13 +9,16 @@
 // and its mean alike: the trunk's up and height at the end, less the time down in the last 2 s,
 // with a bonus for handing back early. --seed-from starts from a recipe's poses (its side's where
 // it has none of the part); --part back searches the poses for the body on its back, over --base's
-// recipe; --write keeps the best as
-// assets/<model>/righting.json. Options: --gens 50 --pop 24 --workers 19 --frames 3 --seconds 9
+// recipe; --write keeps the best as the model's
+// record in assets/core/righting.json (`research/skill-records.mjs`). Options: --gens 50 --pop 24 --workers 19 --frames 3 --seconds 9
 // --sigma .4 --seed 1.
 import { fork } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { deserialize } from "node:v8";
+import { writeRecord } from "../../research/skill-records.mjs";
+import { reptileSpec } from "../../src/core/reptile/spec.ts";
+import { bodyKey } from "../../src/core/spec/body.ts";
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? fallback : process.argv[i + 1]; };
 const MODEL = arg("model", "rat"), GENS = Number(arg("gens", 50)), POP = Number(arg("pop", 24)), WORKERS = Number(arg("workers", 19));
@@ -30,9 +33,8 @@ const standing = data.segments.find((s) => s.name === "trunk").proximal[1];
 
 // The recipe's settings the search does not choose: the reference pose held 1 s before it reads
 // how it lies, the reptile's posture servo time, the trunk's up and the centre's speed that it
-// holds .25 s to hand back, the seconds of poses before it starts again, and the tilt held .5 s that it rights
-// though not down.
-const FIXED = { settle: 1, servo: .15, upright: .95, calm: .1, still: .25, limit: 6, tilt: .85, wait: .5 };
+// holds .25 s to hand back, and the seconds of poses before it has timed out.
+const FIXED = { settle: 1, servo: .15, upright: .95, calm: .1, still: .25, limit: 6 };
 // The searched freedoms: the hips', the knees' and elbows', the neck's and the tail's base.
 const CHANNELS = data.joints.filter((j) => /^(girdle|bend)\.|^neck$|^tail\.base$/.test(j.name))
   .flatMap((j) => j.limits.map((limits, axis) => ({ name: `${j.name} axis${axis}`, limits })));
@@ -135,11 +137,13 @@ for (let gen = 0; gen < GENS; gen++) {
   console.log(`gen ${gen} best ${top.score.toFixed(3)} [${top.scores.map((s) => s.toFixed(2)).join(" ")}] all-time ${best.score.toFixed(3)} sigma ${sigma.toFixed(3)} ${((Date.now() - started) / 1000).toFixed(0)} s`);
 }
 for (const worker of pool) worker.kill();
-const record = { ...best.recipe, made: { by: "scripts/quadruped/righting.mjs", starts: STARTS.map((s, i) => ({ ...s, ...best.results[i] })), score: best.score } };
-console.log(JSON.stringify(record.made));
-if (process.argv.includes("--write")) writeFileSync(resolve(ROOT, `assets/${MODEL}/righting.json`), JSON.stringify(record, null, 2) + "\n");
-else {
+const starts = STARTS.map((s, i) => ({ ...s, ...best.results[i] }));
+console.log(JSON.stringify({ starts, score: best.score }));
+if (process.argv.includes("--write")) {
+  const made = `Found on the ${MODEL} by scripts/quadruped/righting.mjs: CMA-ES over each pose's angles of the hips, knees and elbows, the neck and the tail's base, its hold and its mark, each candidate played through the game's mind (Node stand, Rapier, 120 Hz) and scored on its worst start and its mean; ${STARTS.length} starts, score ${best.score.toFixed(2)}.`;
+  writeRecord("righting", bodyKey(reptileSpec(data, MODEL, `${MODEL}-anatomy`)), made, best.recipe);
+} else {
   const out = arg("out", resolve(ROOT, `.tmp/righting/${MODEL}.json`));
   mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, JSON.stringify(record, null, 2) + "\n");
+  writeFileSync(out, JSON.stringify(best.recipe, null, 2) + "\n");
 }

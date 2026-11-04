@@ -5,9 +5,9 @@
 import { motorControl } from "../../../src/core/control/motor.ts";
 import { anyBody } from "../../../src/core/parts/parts.ts";
 
-/** The whole-body solve as made by `motorControl`, its `control` counted in its state, everything else the solve's. */
-function counted(...made) {
-  const motor = motorControl(...made), state = { stub: "swap:stub-motor", steps: 0, solve: motor.state };
+/** The whole-body solve as made by `motorControl` (the muscles its own), its `control` counted in its state, everything else the solve's. */
+function counted(built, _muscles, ...made) {
+  const motor = motorControl(built, ...made), state = { stub: "swap:stub-motor", steps: 0, solve: motor.state };
   return Object.create(motor, {
     state: { value: state, enumerable: true },
     control: { value: (driver, dt) => { state.steps++; motor.control(driver, dt); }, enumerable: true },

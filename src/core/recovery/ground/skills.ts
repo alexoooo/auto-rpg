@@ -5,20 +5,32 @@ import { bodyEffectors } from "../../control/effectors.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { ActionClaim, ActionEnding, ActionRequest, Executor, LifecycleUpdate, Phase, Readiness, Resource } from "../../skills/framework/action.ts";
 import type { ActionBinding, ExecutorBinding } from "../../skills/framework/action-instances.ts";
-import type { Side } from "../../spec/body.ts";
+import { segmentOf, type BodySpec, type Side } from "../../spec/body.ts";
 import type { MindKit } from "../../mind/kit.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import { TECHNIQUES } from "./techniques.ts";
-import type { TechniqueEnd, TechniquePart, TechniqueRun } from "./technique.ts";
+import type { PartConfig } from "../../parts/parts.ts";
+import type { TechniqueEnd, TechniqueRun } from "./technique.ts";
 
-/** A side's effector: what a ground action names the side it is begun on by. */
-export const sideEffector = (side: Side): string => `foot.${side}`;
+/** Each body's side effectors (`sideEffectors`), by its spec. */
+const SIDE_EFFECTORS = new WeakMap<BodySpec, Readonly<Record<Side, string>>>();
 
-/** The effectors a ground action may be asked with: a side each. */
-const SIDES: readonly string[] = Object.freeze([sideEffector("left"), sideEffector("right")]);
-
-/** The side `effector` names (`sideEffector`). */
-const sideOf = (effector: string): Side => effector === sideEffector("right") ? "right" : "left";
+/**
+ * **What a ground action of a body of `spec` names the side it is begun on by**: each side's first
+ * end it stands on (`BodySpec.ends`, a foot or a paw), on that side of the body (its centre of
+ * mass's x: +x is the right). A thrown error for a body with none on a side, which no ground skill
+ * fits.
+ */
+export function sideEffectors(spec: BodySpec): Readonly<Record<Side, string>> {
+  let sides = SIDE_EFFECTORS.get(spec);
+  if (sides) return sides;
+  const on = (side: Side) => (spec.ends ?? []).find((end) => (end.kind === "foot" || end.kind === "paw")
+    && (segmentOf(spec, end.segment)!.centreOfMass.value[0] < 0 ? "left" : "right") === side)?.segment;
+  const left = on("left"), right = on("right");
+  if (!left || !right) throw new Error(`${spec.model} stands on no end on each side`);
+  SIDE_EFFECTORS.set(spec, sides = Object.freeze({ left, right }));
+  return sides;
+}
 
 /** Whether an executor of `kind` is a ground skill: a technique's, a way up or a mode of the ground (`TECHNIQUES`). */
 export const isGroundSkill = (kind: string): boolean => Object.hasOwn(TECHNIQUES, kind);
@@ -70,7 +82,7 @@ type GroundBody = ReturnType<typeof groundBody>;
  * does not, and released once ended, a run reaching its end done committing to it first. Its memory
  * is the action it runs, the run's and the shared body's.
  */
-function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock: Clock): ExecutorBinding {
+function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock: Clock, sideOf: (effector: string) => Side): ExecutorBinding {
   const state = { live: null as { id: number; phase: Phase; end: TechniqueEnd | null } | null, run: run.state, body: ground.state };
   const refused: Readiness = Object.freeze({ kind: "blocked", reason: `${name} does not admit the body as it lies` });
   const stepLive = (view: BodyView, dt: number): TechniqueEnd | null => { const g = view.ground; return g ? run.step(g, view.senses, dt) : null; };
@@ -108,15 +120,19 @@ function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock:
 }
 
 /**
- * **A body's ground skills**: an executor each of `techniques` (by kind, each a way up or a mode of
- * the ground) that fits the body, run with the mind's motor and guard (`kit`) on the body they share
- * (`groundBody`), and its action, named as the technique, asked on either side (`sideEffector`).
+ * **A body's ground skills**: an executor each of `techniques` (each a technique's config, a way up
+ * or a mode of the ground) that fits the body, run with the mind's motor and guard (`kit`) on the
+ * body they share (`groundBody`), and its action, named as the technique, asked on either side
+ * (`sideEffectors`).
  */
-export function groundSkills(body: Body, clock: Clock, kit: MindKit, techniques: readonly TechniquePart[]): { readonly executors: readonly ExecutorBinding[]; readonly actions: readonly ActionBinding[] } {
-  const fitting = techniques.filter((part) => part.fits(body.built.spec, part.defaults, kit.parts) === null);
+export function groundSkills(body: Body, clock: Clock, kit: MindKit, techniques: readonly PartConfig[]): { readonly executors: readonly ExecutorBinding[]; readonly actions: readonly ActionBinding[] } {
+  const fitting = techniques.filter((config) => kit.parts.of("technique", config).fits(body.built.spec, config, kit.parts) === null);
+  if (!fitting.length) return { executors: [], actions: [] };
   const runs: TechniqueRun[] = [];
   const ground = groundBody(body, runs);
-  for (const part of fitting) runs.push(part.make(ground.own, body.view, clock, kit));
-  const executors = fitting.map((part, i) => groundSkill(part.defaults.kind, runs[i]!, ground, clock));
-  return { executors, actions: executors.map((executor) => ({ name: executor.name, executor: executor.name, effectors: SIDES })) };
+  for (const config of fitting) runs.push(kit.parts.of("technique", config).make(ground.own, body.view, clock, kit, config));
+  const sides = sideEffectors(body.built.spec), effectors = Object.freeze([sides.left, sides.right]);
+  const sideOf = (effector: string): Side => effector === sides.right ? "right" : "left";
+  const executors = fitting.map((config, i) => groundSkill(config.kind, runs[i]!, ground, clock, sideOf));
+  return { executors, actions: executors.map((executor) => ({ name: executor.name, executor: executor.name, effectors })) };
 }

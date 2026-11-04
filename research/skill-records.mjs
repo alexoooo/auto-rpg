@@ -20,6 +20,7 @@ import { faceFault, validStraightPunch } from "../src/core/skills/strikes/straig
 import { validSwing } from "../src/core/skills/strikes/swing.ts";
 import { validRunCycle } from "../src/core/skills/locomotion/cycle-run.ts";
 import { validWalkRun } from "../src/core/skills/locomotion/walk-run.ts";
+import { wholeRecipe } from "../src/core/reptile/righting.ts";
 
 /** Whether `settings` holds exactly `keys`. */
 const whole = (settings, keys) => settings !== null && typeof settings === "object" && Object.keys(settings).sort().join() === [...keys].sort().join();
@@ -29,6 +30,7 @@ export const SKILLS = Object.freeze({
   stomp: (s) => whole(s, Object.keys(STOMP_PATH)) && validStompTuning(s),
   "step-up": validStepUp,
   "sit-back": validSitBack,
+  righting: (s) => s !== null && typeof s === "object" && wholeRecipe(s),
   "walk-run": (s) => whole(s, ["walk", "run"]) && validWalkRun(s.walk) && validRunCycle(s.run),
   "sword-thrust": (s) => s !== null && typeof s === "object" && validStraightPunch(s) && faceFault(s) === null,
   ...Object.fromEntries(["club-blow", "cut"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validSwing(s)])),

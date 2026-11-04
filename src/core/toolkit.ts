@@ -1,7 +1,6 @@
 import { BALANCES } from "./control/balances.ts";
 import { MOTORS } from "./control/motors.ts";
 import { AIMS } from "./skills/framework/aims.ts";
-import type { BiteConfig, PawGaitConfig, QuadrupedTacticsConfig, SupportMotorConfig } from "./reptile/config.ts";
 import type { AimConfig, ExecutorConfig, GaitConfig, GuardConfig, LocomotionConfig, SupportConfig } from "./skills/config.ts";
 import { EXECUTORS } from "./skills/framework/executors.ts";
 import type { TechniqueConfig } from "./recovery/ground/technique.ts";
@@ -19,16 +18,12 @@ import type { NavigationConfig } from "./navigation/navigator.ts";
 import { SUPPORTS } from "./skills/locomotion/supports.ts";
 import { catalogOf, type Catalog, type CatalogLists } from "./parts/catalog.ts";
 import type { ConfigOf, Part } from "./parts/parts.ts";
-import { BITES } from "./reptile/bites.ts";
-import { GAITS } from "./reptile/gaits.ts";
-import { QUADRUPED_PLANNERS } from "./reptile/planners.ts";
-import { SUPPORT_MOTORS } from "./reptile/support-motors.ts";
-import { QUADRUPED_FRAMES } from "./reptile/frames.ts";
+import { REPTILE_PARTS } from "./reptile/kinds.ts";
 import type { MoveRuleConfig } from "./skills/locomotion/move-part.ts";
 import { MOVE_RULES } from "./skills/locomotion/move-rules.ts";
 
 /** Every part's config below a mind, by kind. */
-type AnyPart = AimConfig | SupportMotorConfig | PawGaitConfig | BiteConfig | QuadrupedTacticsConfig | TechniqueConfig | ConfigOf<typeof MOTORS> | MoveRuleConfig | LocomotionConfig | GaitConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
+type AnyPart = AimConfig | ConfigOf<typeof REPTILE_PARTS> | TechniqueConfig | ConfigOf<typeof MOTORS> | MoveRuleConfig | LocomotionConfig | GaitConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
 
 /** A part for each kind a config below a mind names: a kind no list holds fails to compile. */
 type Covered = { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> };
@@ -52,7 +47,7 @@ function merged<L extends readonly Readonly<Record<string, Part>>[]>(...lists: L
  */
 export function toolkitLists(): CatalogLists {
   const below: Covered = merged(TECHNIQUES, MOVE_RULES, LOCOMOTIONS, GAIT_PARTS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
-    SUPPORT_MOTORS, GAITS, BITES, QUADRUPED_PLANNERS, CHOOSERS, OPTION_KINDS, OBJECTIVES, PREDICTIONS, QUADRUPED_FRAMES);
+    REPTILE_PARTS, CHOOSERS, OPTION_KINDS, OBJECTIVES, PREDICTIONS);
   return { minds: MIND_KINDS, parts: [below], entrants: [] };
 }
 

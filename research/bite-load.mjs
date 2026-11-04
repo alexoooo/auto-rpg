@@ -1,6 +1,10 @@
-import { mouthOf } from '../src/core/reptile/bite.ts';
+import { mouthOf } from '../src/core/reptile/jaw.ts';
+import { pawReader } from '../src/core/reptile/paws.ts';
 import { lifeTaken } from '../src/core/rules/blows.ts';
 import { channelName } from '../src/core/muscle/driver.ts';
+
+/** A fighter's bite, as its mind's skills hold it: the bite executor's state. */
+const biteOf = (f) => f.minded.state.skills.actions.executors.find((executor) => executor && 'launched' in executor);
 
 /** Physical bite cycles and their actual piercing-load wounds, including loaded withdrawal. */
 export function biteMeter(world, fighters) {
@@ -9,14 +13,14 @@ export function biteMeter(world, fighters) {
   const channels = fighters.map((f, i) => f.body.muscles.channel(channelName(mouthOf(f.body.built).hinge, 0)));
   return { cycles, end() { pending.forEach((cycle, i) => { if (cycle) { cycle.ended = world.time; pending[i] = null; } }); },
     before() { return Object.fromEntries(fighters.map((f, i) => {
-      const host = f.body.state.mind.host, bite = host.bite;
-      return [f.id, { rate: f.body.muscles.rate(channels[i]), phase: bite.cycle.phase,
+      const bite = biteOf(f);
+      return [f.id, { rate: f.body.muscles.rate(channels[i]), phase: bite.live?.cycle.phase ?? null,
         launched: bite.launched, returned: bite.returned, failed: bite.failed, aborted: bite.aborted,
-        target: structuredClone(host.tactics.target), support: host.motor.endpoints.filter(e => e.contact).length }];
+        target: structuredClone(bite.live?.target ?? null), support: pawReader(f.body.built).state.endpoints.filter(e => e.contact).length }];
     })); },
     after(before, blows) {
       fighters.forEach((f, i) => {
-        const bite = f.body.state.mind.host.bite, was = before[f.id];
+        const bite = biteOf(f), was = before[f.id];
         if (bite.launched > was.launched) {
           pending[i] = { launch: world.time, release: null, target: was.target, support: was.support, damage: 0, regions: [] };
           cycles[i].push(pending[i]);

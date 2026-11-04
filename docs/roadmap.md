@@ -55,7 +55,8 @@ Option Mind as its hero.
 - The reaction time, 0.15 s, beside a bout at `&senseDelay=0`.
 - The crowd fight and the Crypt with minds on workers (`npm run preview`): smooth, no slow motion.
 - The Skeleton in play (`?play=arena&matchup=crypt-skeleton,workshop-fighter`).
-- The Option Reptile against a Warrior and a Reptile; the Walker in the Lab (`&scenario=reach`).
+- The reptile and the rat on the game's Option Mind against a Warrior and a Reptile: the trot,
+  the bite, righting; the Walker in the Lab (`&scenario=reach`).
 - The Crypt's commands (H, X, Q, E, right click), the level-clearer (`&party=clearer`) and the mob.
 
 ## Open, by layer
@@ -93,6 +94,8 @@ Option Mind as its hero.
   recovery, armour and bows.
 - Grit, a rising assist, has no mechanism; movement and attack-and-defence assists are not built.
 - The reach solver runs to its cap on a cover the joints' ranges keep out of reach.
+- A body on paws righted does not stand: the routes stall (the rat placing its first paw, the
+  reptile rolled to a trunk's up of .88 under `rollUpright`).
 
 ### Blows and wounds
 

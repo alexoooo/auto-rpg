@@ -400,7 +400,8 @@ export function landingHeading(bearer: FootState, heading: number): number {
 /**
  * The centre of mass's height over the middle of `built`'s soles in the reference pose, m: the
  * height a body stands at whatever posture it was built in, from which the stance's height is
- * asked (`STANCE_LOWER`).
+ * asked (`STANCE_LOWER`). Its soles are those of the ends it stands on (`BodySpec.ends`): a
+ * foot's box's lowest corners (`soleCorners`), a paw's point it bears at.
  */
 export function standingHeight(built: ReadBody): number {
   let mass = 0, moment = 0;
@@ -409,14 +410,17 @@ export function standingHeight(built: ReadBody): number {
     moment += segment.rigid.mass * segment.rigid.centre[1];
   }
   let sole = 0, count = 0;
-  for (const side of ["left", "right"] as const) {
-    const foot = built.segments.get(`foot.${side}`);
-    if (!foot) throw new Error(`${built.spec.model} has no ${side} foot`);
-    for (const corner of soleCorners(foot, true)) {
+  for (const end of built.spec.ends ?? []) {
+    if (end.kind !== "foot" && end.kind !== "paw") continue;
+    const segment = built.segments.get(end.segment);
+    if (!segment) throw new Error(`${built.spec.model} has no segment ${end.segment} for its end ${end.name}`);
+    if (end.kind === "paw") { sole += segment.spec.points![end.point]!.value[1]; count += 1; continue; }
+    for (const corner of soleCorners(segment, true)) {
       sole += corner[1];
       count += 1;
     }
   }
+  if (count === 0) throw new Error(`${built.spec.model} has no foot or paw it stands on`);
   return moment / mass - sole / count;
 }
 

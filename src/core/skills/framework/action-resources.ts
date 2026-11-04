@@ -50,6 +50,7 @@ export function actionResources(channels: readonly string[], effectors: readonly
   const writes = (held: readonly string[], patch: Partial<BodyCommand>): void => {
     const owns = (slot: string): void => { if (!held.includes(slot)) throw new Error(`undeclared action write ${slot}`); };
     for (const channel in patch.posture) owns(`channel:${channel}`);
+    for (const channel in patch.paths) owns(`channel:${channel}`);
     for (const push of patch.pushes ?? []) owns(`channel:${push.channel}`);
     for (const segment in patch.effectors) owns(`effector:${segment}`);
     for (const task of patch.points ?? []) owns(`effector:${task.segment}`);

@@ -7,17 +7,17 @@ import { EXECUTORS } from "../src/core/skills/framework/executors.ts";
 import { TECHNIQUES } from "../src/core/recovery/ground/techniques.ts";
 
 /**
- * Every skill's settings are its body's record (`SkillRecord`, `src/core/skills/framework/records.ts`):
- * a body with none does not use the skill and says so, its executor's fit a returned refusal; a
- * body with one is not refused for want of it. The unrecorded body is the Warrior under another
- * model's name, so nothing but its key differs.
+ * A skill's settings are its body's record (`SkillRecord`, `src/core/skills/framework/records.ts`)
+ * where it reads one (`Part.reads`): a body with none does not use the skill and says so, its
+ * executor's fit a returned refusal; a body with one is not refused for want of it. The unrecorded
+ * body is the Warrior under another model's name, so nothing but its key differs.
  */
-test("every executor refuses a body with no record of its skill, and says so", () => {
+test("every executor that reads a record refuses a body with no record of its skill, and says so", () => {
   const warrior = modelSpec("workshop-fighter"), unrecorded = { ...warrior, model: "unrecorded" };
   const executors = Object.entries(allParts()).filter(([, part]) => part.role === "executor");
   const reached = executors.map(([kind]) => kind);
   assert.ok(Object.keys(EXECUTORS).every((kind) => reached.includes(kind)), `the catalog's executors reached: ${reached.join(", ")}`);
-  for (const [kind, part] of executors) {
+  for (const [kind, part] of executors.filter(([, part]) => part.reads?.(part.defaults).length)) {
     assert.equal(part.fits(warrior, part.defaults, partLookup), null, `${kind} fits the Warrior, which has its record`);
     assert.match(part.fits(unrecorded, part.defaults, partLookup) ?? "", new RegExp(`not tuned for ${bodyKey(unrecorded).replace("+", "\\+")}`),
       `${kind} refuses a body with no record of it`);

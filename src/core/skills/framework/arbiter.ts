@@ -4,9 +4,9 @@ import { stockClearance } from "../../navigation/clear-step.ts";
 import type { Intent } from "../../intent/intent.ts";
 import type { Body, BodyCommand, BodyView } from "../../body.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
-import type { EffectorGoal, MusclePush, PointTask } from "../../control/motor.ts";
+import type { EffectorGoal, FreedomPath, MusclePush, PointTask } from "../../control/motor.ts";
 import type { StanceGoal } from "../../control/stance.ts";
-import { footStatesOf } from "../../control/support.ts";
+import type { SupportGoal } from "../../control/supported-motor.ts";
 import type { HandPose } from "../../spec/body.ts";
 import type { ActionAround, ActionClaim } from "./action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "./action-instances.ts";
@@ -43,7 +43,9 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const { executors, actions } = services;
   const { legs, guard } = services, support = services.support ?? null;
   const navigation = services.navigation;
-  const models = bodyEffectors(body.built).map(e => e.model), feet = footStatesOf(body.built).map(f => ({ name: f.name, segment: f.segment.spec.name }));
+  // The ends the legs stand the body on: its feet, or its paws (`BodySpec.ends`).
+  const models = bodyEffectors(body.built).map(e => e.model), feet = (body.built.spec.ends ?? []).flatMap((end) =>
+    end.kind === "foot" || end.kind === "paw" ? [{ name: end.name, segment: end.segment }] : []);
   const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet, body.built.handPoses.model.map(hand => hand.segment));
   const allControls = resources.controls(Object.keys(resources.footprints)), legsControls = resources.controls(["legs"]);
   const on = attachment(body.built);
@@ -144,7 +146,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       const unstanced = legOwner?.claim.legs === null;
       if (state.unstanced && !unstanced) { legs.resume(view); guard.resume(view); support?.resume(view); navigation?.resume(); }
       state.unstanced = unstanced;
-      let stance: StanceGoal | null = null, held: number | undefined;
+      let stance: StanceGoal | null = null, supported: SupportGoal | null = null, held: number | undefined;
       if (asked) {
         // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
         let goal = legsGoal(asked, intent, view, legs.heading, { waiting: !!support && !support.walks() });
@@ -155,6 +157,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         const drive = legs.goal(view, goal, dt, { idleSettle: !legOwner });
         switch (drive.kind) {
           case "stance": stance = drive.goal; break;
+          case "support": supported = drive.goal; break;
           case "drive": {
             for (const [channel, angle] of Object.entries(drive.posture)) {
               if (!allControls.includes(`channel:${channel}`)) throw new Error(`unknown locomotion channel ${channel}`);
@@ -175,14 +178,17 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         if (!guard.hands.includes(model.segment) || !available(`effector:${model.segment}`) || effectors[model.segment]) continue;
         for (const channel of model.channels) if (swung[channel] !== undefined && available(`channel:${channel}`)) posture[channel] = swung[channel]!;
       }
+      const paths: Record<string, FreedomPath> = {};
       for (const { claim } of claims) {
         Object.assign(posture, claim.posture);
+        Object.assign(paths, claim.paths);
         pushes.push(...claim.pushes ?? []);
         points.push(...claim.points ?? []);
         Object.assign(effectors, claim.effectors);
         Object.assign(handPoses, claim.handPoses);
       }
-      const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance, ...(held === undefined ? {} : { held }) };
+      const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance, ...(supported ? { support: supported } : {}),
+        ...(Object.keys(paths).length ? { paths } : {}), ...(held === undefined ? {} : { held }) };
       if (command.stance) for (const end of command.stance.feet) {
         const segment = feet.find((foot) => foot.name === end)?.segment;
         if (segment !== undefined && command.effectors?.[segment]) throw new Error(`two controllers own ${segment}`);
@@ -205,7 +211,7 @@ function writes(claim: ActionClaim, control: string, legs: readonly string[], ch
   if (claim.legs !== undefined && legs.includes(control)) return true;
   const colon = control.indexOf(":"), kind = colon < 0 ? control : control.slice(0, colon), name = control.slice(colon + 1);
   switch (kind) {
-    case "channel": return claim.posture?.[name] !== undefined || (claim.pushes ?? []).some((push) => push.channel === name);
+    case "channel": return claim.posture?.[name] !== undefined || claim.paths?.[name] !== undefined || (claim.pushes ?? []).some((push) => push.channel === name);
     case "effector": return claim.effectors?.[name] !== undefined || (claim.points ?? []).some((task) => task.segment === name)
       || (chains[name] ?? []).some((channel) => writes(claim, `channel:${channel}`, legs, chains));
     case "pose": return claim.handPoses?.[name] !== undefined;

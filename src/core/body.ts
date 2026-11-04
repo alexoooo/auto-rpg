@@ -1,7 +1,9 @@
+import type { ContactIdentity } from "./control/effector-feedback.ts";
 import type { Quaternion, Vector3 } from "./math/vector.ts";
 import type { Assist } from "./control/assist.ts";
 import type { Frame } from "./control/kinematics.ts";
-import type { EffectorGoal, MotorUnmet, MusclePush, PointTask } from "./control/motor.ts";
+import type { EffectorGoal, FreedomPath, MotorUnmet, MusclePush, PointTask } from "./control/motor.ts";
+import type { SupportGoal } from "./control/supported-motor.ts";
 import type { Pose } from "./spec/pose.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
@@ -44,6 +46,8 @@ export interface Body {
   readonly assist: Assist;
   /** The steps between a driver's command and motor control carrying it out (`OwnBody.delay`). */
   readonly delay: number;
+  /** What a contact with another physics body is read as (`OwnBody.contactIdentity`), where the body is told; a skill that reads a touch of its own reads it so. */
+  readonly contactIdentity?: ContactIdentity;
   /**
    * Drive each control step; null keeps the command. Replaced, a driver's decisions not yet carried
    * out are dropped. `released` discards pending driver work on sub-mind takeover or idle.
@@ -117,6 +121,13 @@ export interface BodyCommand {
   readonly points?: readonly PointTask[];
   /** Stand on the ground so (`stance.ts`), or null to leave the legs to the posture. */
   readonly stance: StanceGoal | null;
+  /**
+   * Hold the body over the ends it bears on so (`SupportGoal`), for a motor that carries a support
+   * (`MotorControl.carries`) in place of a stance; absent or null, none.
+   */
+  readonly support?: SupportGoal | null;
+  /** Freedoms carried along paths (`FreedomPath`), by channel, for a motor that carries them; a freedom named here is not the posture's. */
+  readonly paths?: Readonly<Record<string, FreedomPath>>;
   /**
    * With no stance, the centre of mass's height over the ground, m, at which the body is held low
    * on purpose (a kneel): it is down only once that far under it as under its standing height

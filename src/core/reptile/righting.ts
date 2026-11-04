@@ -1,13 +1,28 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
-import type { OwnBody } from "../mind/mind.ts";
-import type { SubMind } from "../mind/sub-mind.ts";
-import type { effectorTracker } from "../control/effector-tracker.ts";
-import type { supportedMotor } from "../control/supported-motor.ts";
+import meta from "../../../assets/core/righting.meta.json" with { type: "json" };
+import type { BodyView } from "../body.ts";
+import type { Clock } from "../clock.ts";
+import type { Position } from "../control/ground-reading.ts";
+import { chainTo, rootFrameToRef, intoFrameToRef } from "../control/kinematics.ts";
+import { carries } from "../control/motor.ts";
 import { servo } from "../control/servo.ts";
+import { groundContact } from "../control/support.ts";
+import type { SupportGoal } from "../control/supported-motor.ts";
+import { dataOf } from "../data/store.ts";
+import { atan2, cos, hypot, sin } from "../math/real.ts";
+import type { MindKit } from "../mind/kit.ts";
+import type { OwnBody } from "../mind/mind.ts";
+import { channelName } from "../muscle/driver.ts";
+import { fitsAll, type KeysOf } from "../parts/parts.ts";
 import { turnOfToRef } from "../read-motion.ts";
-import type { QuadrupedView } from "./crawl.ts";
+import type { TechniqueEnd, TechniquePart, TechniqueRun } from "../recovery/ground/technique.ts";
+import { recordFault, tunedSettings, type SkillRecords } from "../skills/framework/records.ts";
+import type { Side } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
-import ratRighting from "../../../assets/rat/righting.json" with { type: "json" };
+import { soleGoal } from "./crawl.ts";
+import { fitsPaws } from "./parts.ts";
+import { pawEndpoints, pawReader } from "./paws.ts";
+import { REPTILE_CRAWL, REPTILE_MOTOR, REPTILE_RECOVERY as T } from "./tuning.ts";
 
 /**
  * One pose of a righting recipe: each freedom's angle by its channel's name, the rest at their
@@ -29,80 +44,277 @@ export interface RightingRecipe {
   readonly upright: number;
   readonly calm: number;
   readonly still: number;
-  /** Seconds of poses after which it settles and starts again. */
+  /** Seconds of poses after which it has timed out. */
   readonly limit: number;
-  /** A trunk whose up stays under `tilt` for `wait` s is righted though the body is not down: a crouch the gaits cannot lift. */
-  readonly tilt: number;
-  readonly wait: number;
   readonly side: readonly RightingFrame[];
   /** On its back, the trunk's up under -.5; without them, `side`'s. */
   readonly back?: readonly RightingFrame[];
 }
 
-/**
- * **Each body's own recipe** by its model, found by `scripts/quadruped/righting.mjs`
- * (`docs/reference/reptile.md#righting`); a mind's `tuning.righting` overrides it, and a body with
- * none rights itself by routes (`recover`).
- */
-export const RIGHTING: Readonly<Record<string, RightingRecipe>> = deepFreeze({ rat: ratRighting });
-
-/** A recipe's faults: none where it can be played. */
-export function rightingFaults(recipe: RightingRecipe): readonly string[] {
-  const frames = [...recipe.side, ...recipe.back ?? []];
-  const numbers = [recipe.settle, recipe.servo, recipe.upright, recipe.calm, recipe.still, recipe.limit, recipe.tilt, recipe.wait, ...frames.flatMap(f => [f.hold, f.up, ...Object.values(f.targets)])];
-  return recipe.side.length && recipe.back?.length !== 0 && numbers.every(Number.isFinite) && recipe.servo > 0 ? [] : ["invalid righting recipe"];
+declare module "../data/store.ts" {
+  interface DataOf {
+    /** Every body's righting recipe. */
+    "righting": SkillRecords<RightingRecipe>;
+  }
 }
+
+/** Whether `recipe` can be played: poses on its side, none or some on its back, every number finite, and its servo's time positive. */
+export function wholeRecipe(recipe: Partial<RightingRecipe>): boolean {
+  const side = recipe.side, back = recipe.back;
+  if (!Array.isArray(side) || side.length === 0 || back !== undefined && (!Array.isArray(back) || back.length === 0)) return false;
+  const frames = [...side, ...back ?? []];
+  const numbers = [recipe.settle, recipe.servo, recipe.upright, recipe.calm, recipe.still, recipe.limit, ...frames.flatMap((f) => [f.hold, f.up, ...Object.values(f.targets)])];
+  return numbers.every((n) => typeof n === "number" && Number.isFinite(n)) && recipe.servo! > 0;
+}
+
+/** The body lying, on its back, a side or its front. */
+const LYING: readonly Position[] = Object.freeze(["back", "left", "right", "front"]);
+
+/** Edges to standing from each of `from`. */
+const toStanding = (from: readonly Position[]) => deepFreeze(from.map((one) => ({ from: one, to: "standing" as const })));
+
+/** The sides a righting is begun on: it reads how the body lies itself. */
+const BOTH: readonly Side[] = Object.freeze(["left", "right"]);
 
 /**
  * **Righting by recipe**: the body held at its reference pose for `settle` s, then servoed through
- * its recipe's poses for how it lies, and handed back once its last pose has held the trunk upright
- * and calm for `still` s.
- * Lying on its left, each freedom takes its mirror image's angle: the freedom of the same name on
- * the other side, its sense kept about the body's x axis and turned about y and z, as a mirror in
- * the body's x turns a rotation.
+ * its recipe's poses for how it lies, and done once its last pose has held the trunk upright and
+ * calm for `still` s; timed out after `limit` s of poses. Lying on its left, each freedom takes its
+ * mirror image's angle: the freedom of the same name on the other side, its sense kept about the
+ * body's x axis and turned about y and z, as a mirror in the body's x turns a rotation. It yields
+ * while it settles.
  */
-export function rightingByRecipe(own: OwnBody, motor: ReturnType<typeof supportedMotor>, tracker: ReturnType<typeof effectorTracker>, view: QuadrupedView, recipe: RightingRecipe): SubMind {
-  const channels = own.muscles.channels, names = channels.map(c => c.name);
+function rightingByRecipe(own: OwnBody, recipe: RightingRecipe): TechniqueRun {
+  const channels = own.muscles.channels, names = channels.map((c) => c.name), root = own.muscles.dynamics.root.segment;
   const mirror = channels.map((c, i) => {
     const other = names.indexOf(names[i]!.replace(/\.left\b/, ".@").replace(/\.right\b/, ".left").replace(".@", ".right"));
     const a = c.joint.spec.dofs[c.index]!.axis.value;
     return { other: other < 0 ? i : other, sense: a[0] * a[0] - a[1] * a[1] - a[2] * a[2] };
   });
-  const state = { phase: "idle" as "idle" | "settle" | "play", time: 0, sequence: 0, retries: 0, frame: 0, since: 0, mirrored: false, lie: "side" as "side" | "back", tilted: -1, still: -1 };
+  const state = { phase: "idle" as "idle" | "settle" | "play", time: 0, frame: 0, since: 0, mirrored: false, lie: "side" as "side" | "back", still: -1 };
   const turn = new Quaternion(), up = new Vector3(), side = new Vector3();
-  const readTurn = () => { turnOfToRef(motor.root, turn); up.set(0, 1, 0).applyRotationQuaternionToRef(turn, up); side.set(1, 0, 0).applyRotationQuaternionToRef(turn, side); };
-  const begin = () => { tracker.reset(); motor.resume(); state.phase = "settle"; state.time = 0; state.frame = 0; state.tilted = -1; state.still = -1; state.sequence++; };
-  /** Whether the trunk has stayed tilted past the recipe's mark for its wait, at `time`. */
-  const tilted = (time: number) => {
-    readTurn();
-    if (up.y >= recipe.tilt) { state.tilted = -1; return false; }
-    if (state.tilted < 0) state.tilted = time;
-    return time - state.tilted >= recipe.wait;
-  };
-  return { name: "righting", state, wants: (senses) => view.down || state.phase !== "idle" || tilted(senses.time), begin,
-    end() { state.phase = "idle"; tracker.reset(); motor.resume(); },
-    step(_senses, dt) {
+  const readTurn = () => { turnOfToRef(root, turn); up.set(0, 1, 0).applyRotationQuaternionToRef(turn, up); side.set(1, 0, 0).applyRotationQuaternionToRef(turn, side); };
+  return {
+    state, get phase() { return state.phase; }, get yields() { return state.phase === "settle"; },
+    admits: () => true,
+    reached: (g, to) => g.position === to,
+    begin() { state.phase = "settle"; state.time = 0; state.frame = 0; state.since = 0; state.still = -1; },
+    end() { state.phase = "idle"; },
+    step(g, _senses, dt): TechniqueEnd | null {
       state.time += dt;
       readTurn();
       if (state.phase === "settle") {
         servo(own.muscles, () => 0, recipe.servo, dt);
-        if (state.time < recipe.settle) return;
+        if (state.time < recipe.settle) return null;
         // How it lies: on its back, or on a side, its right where the body's +x points down.
         state.lie = up.y < -.5 && recipe.back ? "back" : "side"; state.mirrored = side.y > 0;
         state.phase = "play"; state.time = 0; state.frame = 0; state.since = 0;
       }
       const frames = recipe[state.lie] ?? recipe.side, last = frames.length - 1;
       if (state.frame < last && (state.time - state.since >= frames[state.frame]!.hold || up.y >= frames[state.frame]!.up)) { state.frame++; state.since = state.time; }
-      const calm = state.frame === last && state.time - state.since >= frames[last]!.hold && up.y >= recipe.upright && view.velocity.lengthSquared() <= recipe.calm * recipe.calm;
+      const calm = state.frame === last && state.time - state.since >= frames[last]!.hold && up.y >= recipe.upright && g.velocity.lengthSquared() <= recipe.calm * recipe.calm;
       if (!calm) state.still = -1;
       else if (state.still < 0) state.still = state.time;
-      if (calm && state.time - state.still >= recipe.still) { state.phase = "idle"; return; }
-      if (state.time >= recipe.limit) { state.retries++; begin(); return; }
+      if (calm && state.time - state.still >= recipe.still) { state.phase = "idle"; return "done"; }
+      if (state.time >= recipe.limit) { state.phase = "idle"; return "timed-out"; }
       const targets = frames[state.frame]!.targets;
-      servo(own.muscles, i => {
+      servo(own.muscles, (i) => {
         if (!state.mirrored) return targets[names[i]!] ?? 0;
         const m = mirror[i]!;
         return (targets[names[m.other]!] ?? 0) * m.sense;
       }, recipe.servo, dt);
-    } };
+      return null;
+    },
+  };
 }
+
+/** A leg's joints by their place in the chain from the trunk out to its paw. */
+const HIP = 0, KNEE = 1;
+
+/**
+ * **Righting by routes**: grounded righting, clear leg routes, and a quiet supported rise, each leg
+ * the chain from the trunk out to its paw (`pawEndpoints`): a hip, a knee and an ankle; its side
+ * and its end where its paw is in the reference pose (+x the body's right, +z its front).
+ *
+ * - **Rolled upright**: the loaded hips push the trunk toward upright (`rightingGain`,
+ *   `rightingDamping`), the rest of the body at its reference pose, until its up passes
+ *   `rollUpright` on the ground.
+ * - **Placed**: one paw at a time is routed clear round the trunk (swept, folded, unwound, unfolded)
+ *   and pressed down, each placed paw held where it landed.
+ * - **Risen**: the mind's motor (`MindKit.motor`) carries the body up over its placed paws to the
+ *   crawl's height, each paw not bearing brought down where it stands, and it is done once the body
+ *   is up (`recoveryHeight`), on every paw flat and slow (`recoveredSpeed`) for `recovered` s.
+ *
+ * A route that takes too long (`routeLimit`) is tried the other way round the trunk; it times out
+ * after `recoveryLimit` s. It yields until its paws are placed.
+ */
+function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit): TechniqueRun {
+  const motor = kit.motor(own.built, own.muscles, clock.dt);
+  if (!carries(motor, "support")) throw new Error("righting by routes needs a motor that carries a support over its paws");
+  const reading = pawReader(own.built).state, feet = reading.endpoints, endpoints = pawEndpoints(own.built), root = own.muscles.dynamics.root.segment;
+  const names = endpoints.map((e) => e.segment), paws = names.map((name) => own.built.segments.get(name)!);
+  const legs = paws.map((paw) => chainTo(own.built, paw));
+  const supports = legs.map((chain) => chain.map((joint) => joint.child).reverse());
+  const parts = [...own.built.segments.values()];
+  const hip = legs.map((chain) => own.muscles.channel(channelName(chain[HIP]!, 2))), knee = legs.map((chain) => own.muscles.channel(channelName(chain[KNEE]!, 0)));
+  const sign = paws.map((paw) => paw.frame.origin[0] < 0 ? 1 : -1), fore = paws.map((paw) => paw.frame.origin[2] > 0 ? 1 : -1);
+  const channels = own.muscles.channels.map((channel) => {
+    const leg = legs.findIndex((chain) => chain.includes(channel.joint));
+    return { leg, joint: leg < 0 ? -1 : legs[leg]!.indexOf(channel.joint), axis: channel.index };
+  });
+  const reference = own.spec.segments.reduce((sum, part) => sum + part.mass.value * part.centreOfMass.value[1], 0) / own.spec.mass.value;
+  const state = { phase: "idle" as "idle" | "roll" | "place" | "rise", route: "start" as "start" | "sweep" | "fold" | "unwind" | "unfold" | "press",
+    time: 0, elapsed: 0, stable: 0, paw: 0, yaw: 0, ground: 0, sequence: 0,
+    placed: names.map(() => false), held: names.map(() => 0), loaded: names.map(() => false), direction: [...fore],
+    centre: [0, 0, 0] as [number, number, number], rotation: [0, 0, 0, 1] as [number, number, number, number],
+    targets: names.map(() => [0, 0, 0] as [number, number, number]), turns: names.map(() => [0, 0, 0, 1] as [number, number, number, number]) };
+  const turn = new Quaternion(), heading = new Quaternion(), inverse = new Quaternion(), flat = new Quaternion();
+  const vertical = new Vector3(0, 1, 0), lateral = new Vector3(1, 0, 0), forward = new Vector3(0, 0, 1), up = new Vector3(), side = new Vector3(), front = new Vector3(), spin = new Vector3(), moment = new Vector3();
+  const point = new Vector3(), descending = new Vector3(), frame = { position: new Vector3(), rotation: new Quaternion() };
+  const readTurn = () => { turnOfToRef(root, turn); vertical.applyRotationQuaternionToRef(turn, up); lateral.applyRotationQuaternionToRef(turn, side); forward.applyRotationQuaternionToRef(turn, front); };
+  const start = () => {
+    motor.reset(); readTurn(); state.phase = up.y >= T.rollUpright ? "place" : "roll";
+    state.route = "start"; state.time = 0; state.elapsed = 0; state.stable = 0; state.paw = 0; state.sequence++;
+    state.placed.fill(false); state.held.fill(0);
+  };
+  const nextRoute = (route: typeof state.route) => { state.route = route; state.time = 0; };
+  const startRise = () => {
+    state.phase = "rise"; state.time = 0; state.elapsed = 0; state.sequence++; motor.reset(); state.yaw = view.stance.facing;
+    heading.set(0, sin(state.yaw / 2), 0, cos(state.yaw / 2)).multiplyToRef(root.rest, turn);
+    state.rotation.splice(0, 4, turn.x, turn.y, turn.z, turn.w);
+    state.centre[0] = feet.reduce((sum, foot) => sum + foot.at.x / names.length, 0);
+    state.centre[2] = feet.reduce((sum, foot) => sum + foot.at.z / names.length, 0);
+    state.targets.forEach((target, i) => {
+      heading.multiplyToRef(paws[i]!.rest, turn); state.turns[i]!.splice(0, 4, turn.x, turn.y, turn.z, turn.w);
+      target.splice(0, 3, feet[i]!.at.x, state.ground, feet[i]!.at.z);
+    });
+  };
+  /** The rise this step: the body carried up over its placed paws, each not bearing brought down where it stands; whether it is done. */
+  const rise = (dt: number): TechniqueEnd | null => {
+    state.centre[1] = state.ground + reference * REPTILE_CRAWL.crawlHeight;
+    rootFrameToRef(root, frame); Quaternion.InverseToRef(frame.rotation, inverse);
+    inverse.multiplyToRef(heading.set(0, sin(state.yaw / 2), 0, cos(state.yaw / 2)), flat).normalize();
+    descending.set(0, -REPTILE_CRAWL.plantSpeed, 0).applyRotationQuaternionToRef(inverse, descending);
+    const goal: SupportGoal = { centre: state.centre, velocity: [0, 0, 0], rotation: state.rotation, hold: true, sequence: state.sequence,
+      ends: state.targets.map((target, i) => {
+        const bearing = feet[i]!.contact;
+        if (bearing) return { target, bearing, rotation: state.turns[i]!, swing: null };
+        intoFrameToRef(frame, target, point);
+        return { target, bearing, rotation: state.turns[i]!, swing: soleGoal(endpoints[i]!.point, point, T.recoveryPath, state.sequence, descending, flat) };
+      }) };
+    motor.setSupport(goal); motor.control(own.muscles, dt);
+    const stable = !view.down && reading.centre.y - state.ground >= reference * T.recoveryHeight && feet.every((foot) => foot.contact && foot.flat)
+      && reading.velocity.lengthSquared() < T.recoveredSpeed * T.recoveredSpeed;
+    state.stable = stable ? state.stable + dt : 0;
+    if (state.stable >= T.recovered) return "done";
+    return state.elapsed >= T.recoveryLimit ? "timed-out" : null;
+  };
+  return {
+    state, get phase() { return state.phase === "place" ? `place:${state.route}` : state.phase; }, get yields() { return state.phase === "roll"; },
+    admits: () => true,
+    reached: (g, to) => g.position === to,
+    begin() { start(); },
+    end() { state.phase = "idle"; motor.reset(); },
+    step(_g, _senses, dt): TechniqueEnd | null {
+      state.time += dt; state.elapsed += dt;
+      motor.read();
+      let ground = 0, contacts = 0;
+      for (const part of parts) for (const contact of own.built.physics.contactsOf(part.body))
+        if (groundContact(contact, REPTILE_MOTOR.supportNormal)) { ground += contact.point[1]; contacts++; }
+      if (contacts) state.ground = ground / contacts;
+      supports.forEach((chain, i) => { state.loaded[i] = chain.some((part) => own.built.physics.contactsOf(part.body)
+        .some((contact) => groundContact(contact, REPTILE_MOTOR.supportNormal))); });
+      readTurn();
+      if (state.phase === "roll" && up.y >= T.rollUpright && contacts) { state.phase = "place"; state.time = 0; state.elapsed = 0; }
+      if (state.phase === "rise") return rise(dt);
+      const size = hypot(up.x, up.z), angle = atan2(size, up.y), gain = size > T.rightingEpsilon ? T.rightingGain * angle / size : 0;
+      root.body.angularVelocityToRef(spin);
+      // A hip's child torque gives the opposite moment to the trunk. Only a loaded leg supplies
+      // this grounded push; the ordinary servo solves the other freedoms around it.
+      const bank = size <= T.rightingEpsilon && up.y < 0 ? T.rightingGain * atan2(0, -1) : 0;
+      moment.set(gain * up.z + bank * front.x + T.rightingDamping * spin.x, T.rightingDamping * spin.y,
+        -gain * up.x + bank * front.z + T.rightingDamping * spin.z);
+      const roll = atan2(side.y, up.y), moving = state.phase === "place" ? state.paw : -1;
+      if (moving >= 0 && state.route === "start") nextRoute(sign[moving]! * own.muscles.angle(hip[moving]!) < T.wrappedHip ? "unfold" : "sweep");
+      servo(own.muscles, (i) => {
+        const { leg, joint, axis } = channels[i]!;
+        if (leg < 0) return state.phase === "roll" ? 0 : own.muscles.angle(i);
+        const s = sign[leg]!, direction = state.direction[leg]!, h = own.muscles.angle(hip[leg]!), k = own.muscles.angle(knee[leg]!);
+        if (state.placed[leg]) {
+          if (joint === HIP) return axis === 2 ? state.held[leg]! : 0;
+          if (joint === KNEE) return s * T.plantedKnee;
+          return axis === 1 ? -state.held[leg]! - k - roll : 0;
+        }
+        if (leg === moving) {
+          let yaw = 0, pitch = 0, hipGoal = h, kneeGoal = s * T.plantedKnee;
+          switch (state.route) {
+            case "start": break;
+            case "sweep": yaw = -s * direction * T.sweepYaw; kneeGoal = k; break;
+            case "fold": yaw = -s * direction * T.sweepYaw; pitch = -direction * T.foldHip; kneeGoal = s * T.foldKnee; break;
+            case "unwind":
+              yaw = s * direction * T.sweepYaw * (1 - 2 * Math.max(0, Math.min(1, (s * h + T.foldHip) / (T.unwindHip + T.foldHip))));
+              pitch = -direction * T.foldHip; hipGoal = -s * T.foldHip; kneeGoal = s * T.foldKnee; break;
+            case "unfold": hipGoal = -s * T.foldHip; break;
+            case "press": hipGoal = h + s * (feet[leg]!.at.y - state.ground + T.pressDepth) / T.pressLever; break;
+            default: { const never: never = state.route; throw new Error(`unknown placement route ${never}`); }
+          }
+          if (joint === HIP) return axis === 0 ? yaw : axis === 1 ? pitch : hipGoal;
+          if (joint === KNEE) return kneeGoal;
+          return axis === 1 ? -h - k - roll : 0;
+        }
+        if (joint === HIP && state.loaded[leg]) {
+          const axis = own.muscles.dynamics.axis(i), torque = moment.x * axis[0] + moment.y * axis[1] + moment.z * axis[2];
+          const sense = torque >= 0 ? 1 : -1, strength = own.muscles.strength(i, sense);
+          own.muscles.velocity[i] = sense * Infinity; own.muscles.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque) / strength) : 0;
+          return undefined;
+        }
+        return state.phase === "roll" ? 0 : own.muscles.angle(i);
+      }, state.phase === "roll" ? REPTILE_MOTOR.posture : T.recoveryServo, dt,
+      { seconds: (i) => channels[i]!.leg === moving ? T.placementServo : state.phase === "roll" ? REPTILE_MOTOR.posture : T.recoveryServo, rate: () => 0, acceleration: () => 0 });
+      if (moving >= 0) {
+        const s = sign[moving]!, near = (joint: number, axis: number, target: number) =>
+          Math.abs(own.muscles.angle(own.muscles.channel(channelName(legs[moving]![joint]!, axis))) - target) < T.placementError;
+        if (state.route === "sweep" && state.time >= T.foldWait && near(HIP, 0, -s * state.direction[moving]! * T.sweepYaw)) nextRoute("fold");
+        else if (state.route === "fold" && state.time >= T.foldWait && !feet[moving]!.contact && feet[moving]!.low - state.ground > REPTILE_MOTOR.contactMargin) nextRoute("unwind");
+        else if (state.route === "unwind" && near(HIP, 2, -s * T.foldHip)) nextRoute("unfold");
+        else if (state.route === "unfold" && near(KNEE, 0, s * T.plantedKnee) && near(HIP, 1, 0)) nextRoute("press");
+        if (state.route === "press" && state.time >= T.pressWait && feet[moving]!.contact) {
+          state.placed[moving] = true; state.held[moving] = own.muscles.angle(hip[moving]!); state.paw++; nextRoute("start");
+          if (state.paw === names.length) startRise();
+        }
+        if (state.phase === "place" && state.time >= T.routeLimit) { state.direction[moving] *= -1; nextRoute("sweep"); }
+      }
+      return state.elapsed >= T.recoveryLimit ? "timed-out" : null;
+    },
+  };
+}
+
+/** **Righting by recipe**'s config: its kind, and an experiment's research `tuning`, a whole recipe in place of its body's, which a link does not carry. */
+interface RecipeConfig { readonly kind: "righting-recipe"; readonly tuning?: Partial<RightingRecipe> }
+
+/** What the rightings share: begun on either side, from where the body lies as it moves, to standing. */
+const RIGHTING = { role: "technique", stage: "game", moving: true, sides: BOTH, fields: [], slots: [] } as const;
+
+/**
+ * **Righting by recipe** (`rightingByRecipe`) as a way up from lying (`LYING`): a body on paws
+ * (`fitsPaws`) with a righting record of its own (`assets/core/righting.json`,
+ * `dataOf("righting")`), or a whole research recipe in its place. Its last pose leaves the body on
+ * its paws, crouched, for the routes to stand.
+ */
+export const RIGHTING_RECIPE: TechniquePart<RecipeConfig> = deepFreeze({
+  ...RIGHTING, edges: toStanding(LYING), label: "Right by recipe", defaults: { kind: "righting-recipe" }, keys: { kind: true, tuning: true } as KeysOf<RecipeConfig>, tuning: ["settle", "servo", "upright", "calm", "still", "limit", "side", "back"],
+  fits: fitsAll<RecipeConfig>(fitsPaws, recordFault("righting", deepFreeze(meta.bodies), wholeRecipe)),
+  faults: (config: RecipeConfig) => config.tuning === undefined || wholeRecipe(config.tuning) ? [] : ["invalid righting recipe"],
+  reads: () => ["righting"],
+  make: (own: OwnBody, _view: BodyView, _clock: Clock, _kit: MindKit, config: RecipeConfig) =>
+    rightingByRecipe(own, tunedSettings(dataOf("righting"), own.spec, config)),
+});
+
+/**
+ * **Righting by routes** (`rightingByRoutes`) as a way up from lying, crouched on its paws or
+ * between: a body on paws (`fitsPaws`), carried up by its mind's motor.
+ */
+export const RIGHTING_ROUTES: TechniquePart<{ readonly kind: "righting-routes" }> = deepFreeze({
+  ...RIGHTING, edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true }, fits: fitsPaws, faults: () => [],
+  make: (own: OwnBody, view: BodyView, clock: Clock, kit: MindKit) => rightingByRoutes(own, view, clock, kit),
+});

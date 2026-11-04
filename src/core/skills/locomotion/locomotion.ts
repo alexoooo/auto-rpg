@@ -4,6 +4,7 @@ import type { BodyView } from "../../body.ts";
 import { fastestTurning, paceToward, turnAt, type StanceEnvelope } from "../../control/stance-envelope.ts";
 import type { StanceGoal, SwingGoal } from "../../control/stance.ts";
 import type { MusclePush } from "../../control/motor.ts";
+import type { SupportGoal } from "../../control/supported-motor.ts";
 import type { Pose } from "../../spec/pose.ts";
 import type { BearingEnd, Side } from "../../spec/body.ts";
 import { STANCE_GAIT, type GaitTuning } from "../../control/stance-tuning.ts";
@@ -271,14 +272,15 @@ interface StanceWalk extends Locomotion {
 }
 
 /**
- * **What the legs ask** (`Locomotion.goal`): the stance's goal, or the legs
- * driven with no stance: some freedoms by their muscles alone, as pushes (`MusclePush`), and
- * the rest by the servo, toward the angles of `posture`, laid over the command's; legs that hold
- * the body low on purpose say the centre of mass's height they hold it at (`held`,
- * `BodyCommand.held`).
+ * **What the legs ask** (`Locomotion.goal`): the stance's goal; the body held over the ends it
+ * bears on as their gait asks (`SupportGoal`, `BodyCommand.support`); or the legs driven with no
+ * stance: some freedoms by their muscles alone, as pushes (`MusclePush`), and the rest by the
+ * servo, toward the angles of `posture`, laid over the command's; legs that hold the body low on
+ * purpose say the centre of mass's height they hold it at (`held`, `BodyCommand.held`).
  */
 export type LegsDrive =
   | { readonly kind: "stance"; readonly goal: StanceGoal | null }
+  | { readonly kind: "support"; readonly goal: SupportGoal | null }
   | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[]; readonly held?: number };
 
 /** **What the locomotion skill remembers.** */

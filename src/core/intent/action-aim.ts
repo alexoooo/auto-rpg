@@ -6,8 +6,12 @@ import type { BodySense } from "../mind/senses.ts";
 
 /** Estimates with unlike units are never ranked against one another. */
 interface AimEstimate { readonly unit: "opening" | "net"; readonly value: number }
-/** **Where an action aims**: a world point, the way it drives at it where its aim says, and how good the aim is where it says. */
-export interface Aimed { readonly at: Vec3; readonly direction?: Vec3; readonly estimate?: AimEstimate }
+/**
+ * **Where an action aims**: a world point, the way it drives at it where its aim says, how good the
+ * aim is where it says, and the part of its effector that meets it where the aim chose one (`with`:
+ * a jaw's tooth, by its contact region's name).
+ */
+export interface Aimed { readonly at: Vec3; readonly direction?: Vec3; readonly estimate?: AimEstimate; readonly with?: string }
 
 /** Each spec's regions as expanded (`regionSegments`), by region: a spec is immutable. */
 const REGIONS = new WeakMap<BodySpec, Map<string, readonly string[]>>();

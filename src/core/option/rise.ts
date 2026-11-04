@@ -2,7 +2,7 @@ import type { TargetRef } from "../skills/framework/action.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { deepFreeze } from "../state.ts";
-import { sideEffector } from "../recovery/ground/skills.ts";
+import { sideEffectors } from "../recovery/ground/skills.ts";
 import { tumbling, type GroundReading, type Position } from "../control/ground-reading.ts";
 import { isWayUp, type TechniquePart } from "../recovery/ground/technique.ts";
 import { REPOSITION, STAND_UP } from "../recovery/ground/stand-up.ts";
@@ -74,10 +74,10 @@ interface Asking { id: number | null; side: Side; from: Position | null }
 /** The action `memory` asks, as the skills last reported it; none before it is asked, or once it is gone. */
 const liveOf = (now: Situation, memory: Asking) => memory.id === null ? undefined : now.sight.report.actions.find((action) => action.id === memory.id);
 
-/** **A ground option's step**: the ground action `action` (`sideEffector`), asked on the side `memory` keeps, from the step it is first asked. */
-function asks(now: Situation, memory: Asking, action: string): Step {
+/** **A ground option's step**: the ground action `action`, asked on the side `memory` keeps (its effector of `sides`, `sideEffectors`), from the step it is first asked. */
+function asks(now: Situation, memory: Asking, action: string, sides: Readonly<Record<Side, string>>): Step {
   memory.id ??= now.sight.instance();
-  const asked = { move: null, face: now.sight.report.heading, actions: [{ id: memory.id, action, effector: sideEffector(memory.side), target: HERE }] };
+  const asked = { move: null, face: now.sight.report.heading, actions: [{ id: memory.id, action, effector: sides[memory.side], target: HERE }] };
   return { asked, holds: asking(now, asked) };
 }
 
@@ -94,14 +94,14 @@ function asks(now: Situation, memory: Asking, action: string): Step {
  * (`endings`). At a state an Option leaves the body in, where no ground is read, it is on offer
  * lying in a posture `toward` goes from.
  */
-function attempt(part: TechniquePart, edges: readonly Edge[], toward: (from: Position, g: GroundReading | null) => Position | null,
-  way: (from: Position) => Way, record: OptionRecord, extra: { readonly priced?: Option["priced"] }): Option {
-  const name = part.defaults.kind as string, memory: Asking = { id: null, side: "left", from: null };
+function attempt(given: OptionsGiven, part: TechniquePart, edges: readonly Edge[], toward: (from: Position, g: GroundReading | null) => Position | null,
+  way: (from: Position) => Way, extra: { readonly priced?: Option["priced"] }): Option {
+  const name = part.defaults.kind as string, memory: Asking = { id: null, side: "left", from: null }, record = given.record, sides = sideEffectors(given.spec);
   const UNOFFERED = blocked(`${name} does not admit the body as it lies`);
   const fromOf = (g: GroundReading): Position => part.moving && edges.some((edge) => edge.from === g.raw) ? g.raw : g.position;
   const sideOf = (now: Situation, g: GroundReading): Side | null => {
     for (const side of [g.side, "left", "right"] as const)
-      if (side && part.sides.includes(side) && now.sight.readiness(now.sight.view, name, sideEffector(side), HERE, around(now.sight)).kind !== "blocked") return side;
+      if (side && part.sides.includes(side) && now.sight.readiness(now.sight.view, name, sides[side], HERE, around(now.sight)).kind !== "blocked") return side;
     return null;
   };
   const note = (done: boolean): void => { if (memory.from !== null) record.note(name, memory.from, done); memory.from = null; };
@@ -135,7 +135,7 @@ function attempt(part: TechniquePart, edges: readonly Edge[], toward: (from: Pos
       memory.side = g ? sideOf(now, g) ?? "left" : "left";
     },
     end() { note(false); memory.id = null; },
-    step: (now) => asks(now, memory, name),
+    step: (now) => asks(now, memory, name, sides),
   };
 }
 
@@ -147,7 +147,7 @@ const wayBy = (name: string, prior: Prior, profile: Way | null, record: OptionRe
 function wayUp(given: OptionsGiven, config: GroundConfig<string>, part: TechniquePart, edges: readonly Edge[]): Option {
   const { expected, priced } = edgeExpected(given.spec, config.skill, given.hz, given.delay, given.tables.edges);
   const way = wayBy(part.defaults.kind as string, WAY_PRIOR, expected, given.record);
-  return attempt(part, edges, (from) => edges.find((edge) => edge.from === from)?.to ?? null, way, given.record,
+  return attempt(given, part, edges, (from) => edges.find((edge) => edge.from === from)?.to ?? null, way,
     { priced: () => expected ? "measured" : `by hand, ${priced}` });
 }
 
@@ -190,7 +190,7 @@ export const REPOSITION_OPTION = groundKind("reposition", "Reposition", "roll", 
 /** **Flatten** (`attempt`): the body laid flat on the side it lies on, priced as a way up by hand to that lie. */
 export const FLATTEN_OPTION = groundKind("flattening", "Flatten", "flatten", false, (given, _config, part) => {
   const way = wayBy(part.defaults.kind as string, WAY_PRIOR, null, given.record);
-  return [attempt(part, [], (_from, g) => g?.lie ?? null, way, given.record, {})];
+  return [attempt(given, part, [], (_from, g) => g?.lie ?? null, way, {})];
 });
 
 /**
@@ -201,7 +201,7 @@ export const FLATTEN_OPTION = groundKind("flattening", "Flatten", "flatten", fal
  */
 export const STEADY_OPTION = groundKind("steadying", "Steady", "steady", false, (given, _config, part) => {
   const name = part.defaults.kind as string, record = given.record, way = wayBy(name, STEADY_PRIOR, null, record);
-  const memory = { id: null as number | null, side: "left" as Side, from: null, steadied: 0 }, NOT_ON_FEET = blocked("not on its feet in a rise");
+  const memory = { id: null as number | null, side: "left" as Side, from: null, steadied: 0 }, sides = sideEffectors(given.spec), NOT_ON_FEET = blocked("not on its feet in a rise");
   return [{
     name: "steady", claims: WHOLE, state: memory,
     entry: (now) => { const g = now.ground; return g && onFeet(g) ? READY : NOT_ON_FEET; },
@@ -222,21 +222,21 @@ export const STEADY_OPTION = groundKind("steadying", "Steady", "steady", false, 
       // Its try ran out with the rise still on: noted, and begun afresh.
       if (now.steadied < memory.steadied) record.note(name, now.posture, false);
       memory.steadied = now.steadied;
-      return asks(now, memory, name);
+      return asks(now, memory, name, sides);
     },
   }];
 });
 
 /** **Landing**: the command carried on while the body, in its rise and off its feet, lands calm, its position not yet read; priced as lying where it is a step. */
 export const LAND_OPTION = groundKind("landing", "Land", "land", false, (given, _config, part) => {
-  const name = part.defaults.kind as string, memory = { id: null as number | null, side: "left" as Side, from: null }, NOT_LANDING = blocked("not landing");
+  const name = part.defaults.kind as string, memory = { id: null as number | null, side: "left" as Side, from: null }, sides = sideEffectors(given.spec), NOT_LANDING = blocked("not landing");
   return [{
     name, claims: WHOLE, state: memory,
     entry: (now) => { const g = now.ground; return g && !onFeet(g) && !g.settled && calm(now, g) ? READY : NOT_LANDING; },
     status: () => "yields",
     model: (at) => at.ground ? downTerms(at, 1 / given.hz, UNMOVED) : null,
     begin() { memory.id = null; }, end() { memory.id = null; },
-    step: (now) => asks(now, memory, name),
+    step: (now) => asks(now, memory, name, sides),
   }];
 });
 
@@ -246,14 +246,14 @@ export const LAND_OPTION = groundKind("landing", "Land", "land", false, (given, 
  * what is left of what a brace saves (`BRACED`).
  */
 export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while tumbling", "brace", false, (given, _config, part) => {
-  const name = part.defaults.kind as string, memory = { id: null as number | null, side: "left" as Side, from: null }, NOT_TUMBLING = blocked("not tumbling unbraced");
+  const name = part.defaults.kind as string, memory = { id: null as number | null, side: "left" as Side, from: null }, sides = sideEffectors(given.spec), NOT_TUMBLING = blocked("not tumbling unbraced");
   return [{
     name: "brace while tumbling", claims: WHOLE, state: memory,
     entry: (now) => { const g = now.ground; return g && !onFeet(g) && !calm(now, g) ? READY : NOT_TUMBLING; },
     status: () => "yields",
     model: (at) => at.ground ? downTerms(at, Math.max(1 / given.hz, BRACED - at.tumbled), UNMOVED) : null,
     begin() { memory.id = null; }, end() { memory.id = null; },
-    step: (now) => asks(now, memory, name),
+    step: (now) => asks(now, memory, name, sides),
   }];
 });
 
@@ -261,17 +261,20 @@ export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while t
 export const BRACE_OPTION: OptionKindPart<GroundConfig<"brace-down">> = deepFreeze({ ...groundKind("brace-down", "Brace", "brace", false, () => []),
   skills: (config: GroundConfig<"brace-down">, spec: BodySpec, parts: PartLookup): NamedSkills => fitting(config, spec, parts) ? { technique: config.skill } : {},
   make: (config: GroundConfig<"brace-down">, given: OptionsGiven) =>
-    [brace(fitting(config, given.spec, given.parts) ? { action: config.skill.kind, effector: sideEffector("left") } : null)] });
+    [brace(fitting(config, given.spec, given.parts) ? { action: config.skill.kind, effector: sideEffectors(given.spec).left } : null)] });
+
+/** **The righting**: the ways up a body on its paws rights itself by, its recipe where it has one, then its routes (`src/core/reptile/righting.ts`). */
+const RIGHTING: readonly PartConfig[] = deepFreeze([{ kind: "righting-recipe" }, { kind: "righting-routes" }]);
 
 /** The way-up options of `techniques`, each a way up of its own (`WAY_UP_OPTION`). */
 const waysUp = (kind: "way-up" | "reposition", techniques: readonly PartConfig[]): readonly PartConfig[] => techniques.map((skill) => ({ kind, skill }));
 
 /**
  * **The rise**, as options in rank order: brace while tumbling, the steady, a way up of each of the
- * game's Stand up's techniques (`STAND_UP`), a reposition by each of its repositions
- * (`REPOSITION`), flatten and landing.
+ * game's Stand up's techniques (`STAND_UP`) and of the righting's (`RIGHTING`), a reposition by
+ * each of its repositions (`REPOSITION`), flatten and landing.
  */
-export const RISE_OPTIONS: readonly PartConfig[] = deepFreeze([BRACE_TUMBLING_OPTION.defaults, STEADY_OPTION.defaults, ...waysUp("way-up", STAND_UP),
+export const RISE_OPTIONS: readonly PartConfig[] = deepFreeze([BRACE_TUMBLING_OPTION.defaults, STEADY_OPTION.defaults, ...waysUp("way-up", [...STAND_UP, ...RIGHTING]),
   ...waysUp("reposition", REPOSITION), FLATTEN_OPTION.defaults, LAND_OPTION.defaults]);
 
 /** Whether `option` is a way up (`WAY_UP_OPTION`). */

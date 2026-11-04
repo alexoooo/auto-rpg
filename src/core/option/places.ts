@@ -1,7 +1,7 @@
 import { cos, hypot, sin } from "../math/real.ts";
 import { approachSpot, atSpot, type Spot } from "../intent/action-window.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import { gaitsOfMove, type MoveConfig } from "../skills/locomotion/move-part.ts";
+import type { PartLookup } from "../parts/lookup.ts";
 import { startVelocity } from "../skills/framework/profile.ts";
 import { legsReadiness } from "../skills/locomotion/locomotion.ts";
 import { blocked, LEGS, READY, standing, still, type Option, type Sites, type Situation } from "./option.ts";
@@ -18,8 +18,8 @@ export interface GaitOf {
   readonly legs: PartConfig;
 }
 
-/** **The gaits `legs` go by**: Move's (`gaitsOfMove`); none for legs that go by no gait by name. */
-export const gaitsOf = (legs: PartConfig): readonly GaitOf[] => legs.kind === "move" ? gaitsOfMove(legs as MoveConfig) : [];
+/** **The gaits `legs` go by** (`LocomotionPart.gaits`); none for legs that go by no gait by name. */
+export const gaitsOf = (parts: PartLookup, legs: PartConfig): readonly GaitOf[] => parts.of("locomotion", legs).gaits?.(legs) ?? [];
 
 /** The time step a walk's way is read at, s: within the focus's reach, its pressure is read at the range of each step's middle (`walkTerms`). */
 const WALK_READ = .05;

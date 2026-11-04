@@ -1,5 +1,5 @@
 import type { BodyView } from "../../body.ts";
-import type { MusclePush, EffectorGoal, PointTask } from "../../control/motor.ts";
+import type { MusclePush, EffectorGoal, FreedomPath, PointTask } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
 import type { HandPose } from "../../spec/body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
@@ -121,6 +121,8 @@ export interface ActionClaim {
   readonly pushes?: readonly MusclePush[];
   readonly points?: readonly PointTask[];
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
+  /** Freedoms carried along paths, by channel (`BodyCommand.paths`). */
+  readonly paths?: Readonly<Record<string, FreedomPath>>;
   /** Hand poses by the hand's segment (`BodyCommand.handPoses`). */
   readonly handPoses?: Readonly<Partial<Record<string, HandPose>>>;
   /**

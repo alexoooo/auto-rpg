@@ -1,4 +1,4 @@
-import { anyBody, slotOne, type PartConfig } from "../parts/parts.ts";
+import { slotOne, type PartConfig } from "../parts/parts.ts";
 import { deepFreeze } from "../state.ts";
 import { motorControl } from "./motor.ts";
 import type { MotorPart } from "./motor-part.ts";
@@ -10,9 +10,10 @@ interface WholeBodyMotorConfig { readonly kind: "whole-body"; readonly balance: 
 export const WHOLE_BODY_MOTOR: MotorPart<WholeBodyMotorConfig> = deepFreeze({
   role: "motor", label: "Whole-body solve", stage: "game", fields: [], slots: [slotOne("balance", "Balance", "balance")],
   defaults: { kind: "whole-body", balance: { kind: "stance" } }, keys: { kind: true, balance: true },
-  fits: anyBody, faults: () => [],
+  // It fits a body its balance stands.
+  fits: (spec, config, parts) => parts.of("balance", config.balance).fits(spec, config.balance, parts), faults: () => [],
   make: (config, parts) => {
     const balance = parts.of("balance", config.balance).make(config.balance);
-    return (built, seconds, posture, stanceTuning, assist) => motorControl(built, seconds, posture, stanceTuning, assist, balance);
+    return (built, _muscles, seconds, posture, stanceTuning, assist) => motorControl(built, seconds, posture, stanceTuning, assist, balance);
   },
 });

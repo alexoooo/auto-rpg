@@ -171,11 +171,11 @@ test("an assisted bout with blows, fists and assist asks replays from its sheets
  * and the reptile against itself, whose bite reads its contacts. The first is the assisted one.
  */
 function mirrorRecipes() {
-  const { config, character } = PRESETS.option, reptile = PRESETS["option-reptile"].config;
+  const { config, character } = PRESETS.option;
   const assisted = { left: "workshop-fighter", right: "workshop-fighter", gap: GAP, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
   return [assisted,
     { ...assisted, right: "workshop-rogue", loadouts: { left: { left: "buckler", right: "sword" }, right: { left: "empty", right: "club" } } },
-    { left: "reptile", right: "reptile", gap: GAP, minds: { left: reptile, right: reptile }, entry: [] },
+    { left: "reptile", right: "reptile", gap: GAP, minds: { left: config, right: config }, entry: [] },
   ];
 }
 

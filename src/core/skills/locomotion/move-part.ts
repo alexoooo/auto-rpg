@@ -81,7 +81,7 @@ export const MOVE_PART: LocomotionPart<MoveConfig> = deepFreeze({
   role: "locomotion", label: "Move", stage: "game", defaults: GOING, keys: { kind: true, gaits: true, rules: true, otherwise: true },
   fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
   slots: [slotList("rules", "When", "move-rule")], fits: fitsSoles, uses: (config) => gaitsOf(config).map((gait) => gait.legs),
-  faults: gaitFaults,
+  faults: gaitFaults, gaits: gaitsOfMove,
   make(body, config, legs) {
     const walked = gaitsOf(config), names = walked.map((gait) => gait.name), built = new Map<string, Locomotion>();
     const gaits = walked.map((gait): MoveGait => {

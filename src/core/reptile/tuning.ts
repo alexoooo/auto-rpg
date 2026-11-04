@@ -1,4 +1,4 @@
-/** The reptile's controller settings, independent of its anatomy, one record per controller. */
+/** The controller settings of a body on paws, independent of its anatomy, one record per controller. */
 
 /** The floating-base support solve the paws are held by (`supportedMotor`), and what a paw's contact is read as: `docs/reference/reptile.md#controller-settings`. */
 export const REPTILE_MOTOR = Object.freeze({
@@ -17,11 +17,11 @@ export const REPTILE_CRAWL = Object.freeze({
 /** Diagonal travel and measured landing settings: `docs/reference/reptile.md#controller-settings`. */
 export const REPTILE_TROT = Object.freeze({
   crawlHeight: 1, lift: .025, liftConfirm: .001, swing: .175, settle: .025, plant: .03, plantSpeed: .2, placementLimit: 3, landingWait: .1, turnError: .05,
-  speed: 1.15, acceleration: .5, turnRate: .6, turnLead: .2, sideways: .15, turnMoveAngle: .2, resumeSpeed: .1, resumeHold: .3,
+  speed: 1.15, acceleration: .5, turnRate: .6, turnLead: .2, sideways: .15, resumeSpeed: .1, resumeHold: .3,
   reach: .9, touch: .003, swingResponse: .025,
 });
 
-/** Righting, placing the paws and rising (`recover`): `docs/reference/reptile.md#controller-settings`. */
+/** Righting by routes, placing the paws and rising (`rightingByRoutes`): `docs/reference/reptile.md#controller-settings`. */
 export const REPTILE_RECOVERY = Object.freeze({
   recoveryPath: .5, recovered: .5, recoveredSpeed: .1, recoveryHeight: .8, rollUpright: .95,
   rightingGain: 8, rightingDamping: 4, rightingEpsilon: .000001,
@@ -30,10 +30,9 @@ export const REPTILE_RECOVERY = Object.freeze({
   recoveryServo: .06, placementServo: .008,
 });
 
-/** The bite (`bite`, `quadrupedTactics`): the jaw's path, its reach and the strike cycle's limits: `docs/reference/reptile.md#controller-settings`. */
+/** The bite (`biteExecutor`) and its aim (`FIRST_EXPOSED_AIM`): the jaw's path, its reach and the strike cycle's limits: `docs/reference/reptile.md#controller-settings`. */
 export const REPTILE_BITE = Object.freeze({
   prepare: .25, snap: .12, release: .2, open: .65, jawError: .03, jawClosed: .001, biteTimeout: 2, biteEntry: .008, bitePrepareNear: .12, biteElevation: .15, biteNear: .04, biteSlow: .2, biteHold: .03, biteReturnLimit: 8,
-  approach: .3, braking: .5, creepNear: .3,
   contactAt: .5, closeRate: 4, biteResponse: .03, biteAlign: .04, biteShift: .04, biteInset: .02,
   contactSeconds: .25, biteSamples: 4, biteLead: .03, neckRetract: .3,
 });

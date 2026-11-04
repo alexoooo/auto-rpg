@@ -1,7 +1,7 @@
 /**
  * **A part of any converted role swaps in from outside the shared code** (Node, core world,
  * vendored Rapier, 120 Hz). The fixture entrant (`tests/fixtures/swap/`, `swap`), with an Option
- * Mind of its own, over its kit or the quadruped's frame, is registered by a line of the entrants list, outside
+ * Mind of its own is registered by a line of the entrants list, outside
  * `src/`, and holds a stub of each converted role as its own parts (`swap:<kind>`). For each,
  * chosen by its config alone: the catalog offers it in its own entrant's trees and no other's, a
  * tree that names it and another entrant's kinds is refused, the part its maker made is the part a bout
@@ -14,7 +14,7 @@
  * Crypt subject. The Lab opens a fixture mind for what it takes, not for its kind. The stub
  * evaluation, a folder and a line of the evaluations list, plays a lone body; the stub end rule, a
  * line of the end rules list, ends a bout whose recipe names it and its start arrangement. The
- * quadruped fixture, Option Mind over the quadruped's frame, holds a stub of each of the frame's roles (motor, gait, bite, stalk), and
+ * quadruped fixture, Option Mind on paws, holds a stub of its motor, its trot and its bite, and
  * the Option Mind fixture one aim, one chooser, one option and one balance.
  */
 import "./fixtures/swap/hooks.mjs";
@@ -222,8 +222,8 @@ test("a match admits complete pairs within named calibrations and preserves the 
   assert.throws(() => cases(resolveSubjects(evaluation, ["option"], "swap-skeleton", ["rate=30"]).subjects), /fits no condition/);
 });
 
-test("nested slot faults reach links with their path, another entrant's part however deep makes the tree two entrants', and a part made for another body layer is refused", () => {
-  const base = MINDS.option.config, reptile = MINDS["option-reptile"].config, warrior = modelSpec("workshop-fighter"), crawler = modelSpec("reptile");
+test("nested slot faults reach links with their path, and another entrant's part however deep makes the tree two entrants'", () => {
+  const base = MINDS.option.config, warrior = modelSpec("workshop-fighter");
   const option = STUBS.find(stub => stub.part.defaults.kind === "swap:stub-option").part, objective = STUBS.find(stub => stub.part.defaults.kind === "swap:stub-objective").part;
   for (const [config, faults] of [
     [{ ...base, chooser: { kind: "missing-chooser" } }, ['chooser: no part of kind "missing-chooser"']],
@@ -244,14 +244,6 @@ test("nested slot faults reach links with their path, another entrant's part how
     assert.deepEqual(treeFaults(config), faults);
     assert.deepEqual(parseMind(JSON.stringify(config), warrior, FIGHT_ENTRY), { config, faults });
   }
-  // A chooser or an option made for another body layer is refused where it is, through a link too: one of the kit's over the quadruped's frame, and the frame's over the kit.
-  for (const [config, spec, faults] of [
-    [{ ...reptile, options: [...reptile.options, option.defaults] }, crawler, [`options.${reptile.options.length}: swap:stub-option is made for Option Mind's own kit, not the quadruped frame`]],
-    [{ ...base, chooser: reptile.chooser }, warrior, ["chooser: quadruped-valued is made for the quadruped frame, not Option Mind's own kit"]],
-  ]) {
-    assert.deepEqual(treeFaults(config), faults);
-    assert.deepEqual(parseMind(JSON.stringify(config), spec, FIGHT_ENTRY), { config, faults });
-  }
 });
 
 for (const { part, mind, place } of STUBS) {
@@ -260,28 +252,32 @@ for (const { part, mind, place } of STUBS) {
     const offered = (tree) => kindsFor(part.role, spec, tree).some((one) => one.kind === kind);
     assert.ok(offered(MINDS[mind].config), "offered where the tree is the swap entrant's");
     assert.ok(!offered(game), "not offered where the tree names the toolkit's kinds alone");
-    assert.ok(!offered(MINDS["option-reptile"].config), "not offered where the tree is another entrant's");
     assert.equal(treeScope(place(game)), "swap", "placed, it makes the tree the swap entrant's");
   });
 }
 
 test("a body a mind's parts cannot drive refuses the mind for what the first of them lacks, at construction too, every legs for what they stand on, and leaves out a skill it cannot use", async () => {
-  const reptile = modelSpec("reptile"), soles = "needs a left and a right foot, each with a box sole";
+  const reptile = modelSpec("reptile"), footless = { ...reptile, ends: [] };
+  const soles = "needs a left and a right foot, each with a box sole", paws = "needs three paws or more, each at the end of a hip, a knee and an ankle";
   const option = MINDS.option.config;
-  // What lies under its skills is read first: the legs, which stand on the body's soles.
-  assert.equal(treeRefusal(reptile, option), `no locomotion part fits reptile: Move ${soles}`, "a skill the body cannot use refuses nothing; the legs name what they stand on");
+  assert.equal(treeRefusal(reptile, option), null, "the game's mind drives the reptile on its paws");
+  // What lies under its skills is read first: the motor, which stands the body on its ends.
+  const motors = kindsFor("motor", footless);
+  assert.ok(motors.length > 1 && motors.every(({ reason }) => reason !== null), "the fixture offers motors to refuse");
+  assert.equal(treeRefusal(footless, option), `no motor part fits reptile: ${motors.map(({ part, reason }) => `${part.label} ${reason}`).join("; ")}`,
+    "a skill the body cannot use refuses nothing; the motors name what they stand on");
   const skills = option.options.filter((one) => one.skill).map((one) => one.skill);
   assert.ok(skills.some((skill) => partOf(skill).role === "executor") && skills.some((skill) => partOf(skill).role === "technique"), "the mind names blows and skills on the ground");
-  assert.deepEqual(unusedParts(reptile, option), skills.flatMap((skill) => {
-    const refused = partOf(skill).fits(reptile, skill, partLookup);
+  assert.deepEqual(unusedParts(footless, option), skills.flatMap((skill) => {
+    const refused = partOf(skill).fits(footless, skill, partLookup);
     return refused === null ? [] : [`${partOf(skill).label}: ${refused}`];
   }), "each skill left out names what it needs");
-  assert.ok(unusedParts(reptile, option).some((left) => left.endsWith("to strike with")), "a blow left out names the limb it strikes with");
-  const legs = kindsFor("locomotion", reptile);
-  assert.ok(legs.length > 0, "the fixture offers legs to refuse");
-  for (const { kind, reason } of legs) assert.equal(reason, soles, kind);
+  assert.ok(unusedParts(footless, option).some((left) => left.endsWith("to strike with")), "a blow left out names the limb it strikes with");
+  const legs = kindsFor("locomotion", footless);
+  assert.ok(legs.length > 1, "the fixture offers legs to refuse");
+  for (const { kind, reason } of legs) assert.ok(reason === soles || reason === paws, `${kind}: ${reason}`);
   // Built on a body it cannot stand, the command layers' motor refuses it for what its stance lacks.
-  const stand = await coreStand(reptile);
+  const stand = await coreStand(footless);
   assert.throws(() => commandedBody(stand.built, stand.world, { servoSeconds: .1 }), (error) => error.message === `reptile: the stance ${soles}`);
 });
 
@@ -392,7 +388,7 @@ test("each part a bout runs is the one its config names, and the bout forks, res
 });
 
 test("each part a quadruped's config names is the one its mind runs, and its bout forks and resumes", async () => {
-  const minds = { left: SWAP_QUADRUPED_DEFAULTS, right: MINDS["option-reptile"].config };
+  const minds = { left: SWAP_QUADRUPED_DEFAULTS, right: MINDS.option.config };
   const { world, duel, dispose } = await buildBout({ left: "reptile", right: "reptile", gap: 1, minds }, { engine: BOUT_ENGINE });
   try {
     duel.play([]);
@@ -401,9 +397,9 @@ test("each part a quadruped's config names is the one its mind runs, and its bou
     run(FORK);
     const saved = duel.save(), tail = traceOf(builts);
     run(STEPS, tail);
-    const body = saveState(duel.duelists.left.minded.body.state);
+    const mind = saveState(duel.duelists.left.minded.state), body = saveState(duel.duelists.left.minded.body.state);
     for (const { part, read } of STUBS.filter((stub) => stub.mind === "swap-quadruped")) {
-      const own = read(null, body), kind = part.defaults.kind;
+      const own = read(mind, body), kind = part.defaults.kind;
       assert.equal(own?.stub, kind, `the ${part.role} the quadruped runs is its config's stub`);
       assert.ok(own.steps > 0, `the ${kind} stub was asked`);
     }

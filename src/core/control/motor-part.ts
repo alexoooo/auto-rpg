@@ -1,17 +1,18 @@
 import type { PartLookup } from "../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import type { ReadBody } from "../read-body.ts";
+import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
 import type { MotorControl } from "./motor.ts";
 import type { Pose } from "../spec/pose.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
 
 /**
- * **What makes a motor control**: from the body, its servo's time constant, its posture, its
- * stance's tuning and its assist, as `motorControl` is; it says the goals it carries out
+ * **What makes a motor control**: from the body, the muscles it drives, its servo's time constant,
+ * its posture, its stance's tuning and its assist; it says the goals it carries out
  * (`MotorControl.carries`).
  */
-export type MotorMaker = (built: ReadBody, seconds: number, posture?: Pose, stanceTuning?: StanceTuning, assist?: Assist | null) => MotorControl;
+export type MotorMaker = (built: ReadBody, muscles: MuscleDriver, seconds: number, posture?: Pose, stanceTuning?: StanceTuning, assist?: Assist | null) => MotorControl;
 
 /**
  * **A kind of motor control**: a part of role `motor` that owns its config's type, keys, defaults,

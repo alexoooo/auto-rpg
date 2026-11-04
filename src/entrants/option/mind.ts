@@ -1,6 +1,6 @@
 import type { MindPreset } from "../../core/mind/controller.ts";
 import { OPTION_MIND, type OptionMindConfig } from "../../core/option/mind.ts";
-import { CLUB_BLOW_OPTION, CUT_OPTION, OPTIONS, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../core/option/kinds.ts";
+import { BITE_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, OPTIONS, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../core/option/kinds.ts";
 import type { PartConfig } from "../../core/parts/parts.ts";
 import { deepFreeze } from "../../core/state.ts";
 
@@ -29,14 +29,17 @@ const HELD_BLOWS: readonly StrikeConfig[] = deepFreeze([CLUB_BLOW_OPTION, CUT_OP
  */
 const STOMP: StrikeConfig = STOMP_OPTION.defaults;
 
+/** **The bite**, with the jaw, at any part of a foe, aimed at the first surface its teeth meet as the jaw closes (`first-exposed`). */
+const BITE: StrikeConfig = deepFreeze({ ...BITE_OPTION.defaults, regions: [{ kind: "mark", mark: "any" }], aim: { kind: "first-exposed" } });
+
 /**
  * As it starts: the toolkit's Option Mind (`OPTION_MIND`) with every blow (the straight punch, the
- * held blows and the stomp) after following orders, then the standard options (`OPTIONS`). A body
+ * held blows, the stomp and the bite) after following orders, then the standard options (`OPTIONS`). A body
  * offers those whose skill it fits, with the limbs it has (`skillsOf`). It decides at 60 Hz, every
  * other control step (`OptionMindConfig.rate`), where its strike and gait profiles are measured.
  */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ ...(OPTION_MIND.defaults as OptionMindConfig), rate: 60,
-  options: [OPTIONS[0]!, STRAIGHT_PUNCH, ...HELD_BLOWS, STOMP, ...OPTIONS.slice(1)] });
+  options: [OPTIONS[0]!, STRAIGHT_PUNCH, ...HELD_BLOWS, STOMP, BITE, ...OPTIONS.slice(1)] });
 
 /** Its one config, on any body it fits. */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({

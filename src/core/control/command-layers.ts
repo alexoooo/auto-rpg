@@ -12,7 +12,7 @@ import { dot } from "../spec/vec.ts";
 import { effectorFeedback } from "./effector-feedback.ts";
 import { uprightness } from "./ground.ts";
 import { rootFrameToRef } from "./kinematics.ts";
-import { carrying, motorControl, type EffectorGoal, type PointTask } from "./motor.ts";
+import { carries, carrying, motorControl, type EffectorGoal, type FreedomPath, type PointTask } from "./motor.ts";
 import { stanceEnvelope } from "./stance-envelope.ts";
 import { standingHeight } from "./support.ts";
 
@@ -46,17 +46,24 @@ export interface CommandLayers extends HostMind {
  * labelled by the body's own contact labels (`OwnBody.contactIdentity`). They read the body as its
  * spec has it: a fist for each hand with knuckles (`fistOn`), the head where another body aims
  * high (`BodySpec.marks`), and what bears it on the ground (`groundReading`); what their motor
- * cannot drive, it refuses as it is made (the stance a body without soles). Their touch is read
+ * cannot drive, it refuses as it is made (the stance a body without soles), and a command that
+ * asks a goal their motor does not carry (`MotorControl.carries`), as it is given. Their touch is read
  * after each completed physics interval (`OwnBody.afterPhysics`), before any observer added after
  * them.
  */
 export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock): CommandLayers {
   const { servoSeconds, stance, feedback: feedbackEnabled, contacts, motor: makeMotor } = options;
   const { built, muscles } = own, late = own.delay > 0;
-  // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`).
-  const motor = carrying((makeMotor ?? motorControl)(built, servoSeconds, {}, stance, own.assist), ["effectors", "points", "stance"], "the command layers");
+  // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`): its effectors' places, and whichever of the rest it carries.
+  const made = (makeMotor ?? ((b, _m, s, p, t, a) => motorControl(b, s, p, t, a)))(built, muscles, servoSeconds, {}, stance, own.assist);
+  const motor = carrying(made, ["effectors"], "the command layers");
+  const pointing = carries(made, "points") ? made : null, balancing = carries(made, "stance") ? made : null;
+  const supporting = carries(made, "support") ? made : null, pathing = carries(made, "paths") ? made : null;
+  // An effector's touch is its segment's and that of the segments that hang from it and are no effector's: a head's, its jaw's.
+  const reaching = new Set(motor.effectors.map(e => e.segment));
+  const hung = (segment: string): string[] => built.spec.joints.flatMap((joint) => joint.parent === segment && !reaching.has(joint.child) ? [joint.child, ...hung(joint.child)] : []);
   const feedback = feedbackEnabled ? effectorFeedback(built, motor.effectors.map(e => e.segment), own.contactIdentity,
-    segment => contacts?.(segment) ?? []) : null;
+    segment => contacts?.(segment) ?? [], undefined, hung) : null;
   const fists = (["left", "right"] as const).flatMap((side) => { const hand = fistOn(own.spec, side); return hand ? [[side, fistOf(built, hand)] as const] : []; });
   const head = centreReading(built, own.spec.marks.high);
   const angles: Record<string, number> = {};
@@ -103,7 +110,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     fists: state.fists,
     root: state.root,
     head: head.centre,
-    stance: motor.stance.reading,
+    stance: motor.reading,
     unmet: motor.unmet,
     standing: standingHeight(built),
     get down() { return state.down; },
@@ -127,6 +134,9 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       return { hand, pose: pose! };
     }));
     motor.setPosture(command.posture);
+    const refused = command.points?.length && !pointing ? "driven points" : command.stance && !balancing ? "a stance" : command.support && !supporting ? "a support"
+      : command.paths && Object.keys(command.paths).length && !pathing ? "freedoms' paths" : null;
+    if (refused) throw new Error(`the command layers' motor carries no ${refused}`);
     for (const task of command.points ?? []) {
       if (command.effectors?.[task.segment]) throw new Error(`two controllers own ${task.segment}`);
       const chain = motor.effectors.find((model) => model.segment === task.segment)?.channels ?? [];
@@ -136,9 +146,11 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       if (![...task.accel ?? [], ...task.spin ?? []].every(Number.isFinite)) throw new Error(`a point driven on ${task.segment} needs a finite acceleration and spin`);
     }
     motor.setPushes(command.pushes);
-    motor.setPoints(command.points ?? NO_POINTS);
-    motor.setStance(command.stance);
-    state.held = command.stance ? null : command.held ?? null;
+    pointing?.setPoints(command.points ?? NO_POINTS);
+    balancing?.setStance(command.stance);
+    supporting?.setSupport(command.support ?? null);
+    pathing?.setPaths(command.paths ?? NO_PATHS);
+    state.held = command.stance || command.support ? null : command.held ?? null;
     for (const segment in goals) {
       const goal = command.effectors?.[segment] ?? null, was = goals[segment];
       if (!goal) { if (was) motor.release(segment); }
@@ -164,10 +176,10 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       Quaternion.InverseToRef(state.root.rotation, rootTurn).multiplyToRef(segmentTurn, out.rotation).normalize();
     }
     head.update();
-    motor.stance.read();
-    const standing = motor.standing;
+    motor.read();
+    const standing = balancing?.standing ?? null, held = standing !== null || (supporting?.supported ?? null) !== null;
     state.down = upright.down(standing ? standing.height : state.held ?? undefined, standing?.pose !== undefined);
-    state.groundActive = state.down || state.released || state.groundActive && standing === null;
+    state.groundActive = state.down || state.released || state.groundActive && !held;
     if (!state.groundActive) ground.reset();
     else ground.read();
   };
@@ -208,8 +220,10 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     released = onRelease;
   };
   own.afterPhysics((step) => { moved(); feedback?.read(step); });
-  const envelope = !options.measuring && Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(own.spec) : null;
-  const body: Body = { built, muscles, assist: own.assist, view, envelope, drive, afterPhysics: own.afterPhysics, delay: own.delay };
+  // What the stance holds walking, for a motor that stands the body by the stance.
+  const envelope = balancing && !options.measuring && Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(own.spec) : null;
+  const body: Body = { built, muscles, assist: own.assist, view, envelope, drive, afterPhysics: own.afterPhysics, delay: own.delay,
+    ...(own.contactIdentity ? { contactIdentity: own.contactIdentity } : {}) };
   return {
     name: COMMAND,
     view, body, look, act, move, state,
@@ -240,6 +254,9 @@ const carried = (_view: BodyView, command: unknown): BodyCommand | null => comma
 
 /** No point driven. */
 const NO_POINTS: readonly PointTask[] = Object.freeze([]);
+
+/** No freedom carried along a path. */
+const NO_PATHS: Readonly<Record<string, FreedomPath>> = Object.freeze({});
 
 /** A command that holds the reference pose. */
 const restCommand = (): BodyCommand => ({ posture: {}, pushes: [], stance: null });

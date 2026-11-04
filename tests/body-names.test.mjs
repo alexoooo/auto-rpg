@@ -10,11 +10,10 @@ import { BODY_MODELS } from "../src/core/models.ts";
  * control code names no model, as a string or an object's key, no model type or list, and reads no
  * body's model to compare it or look it up. Left out are the modules that build bodies (`human/`,
  * `reptile/spec.ts`, `reptile/physique.ts`), the models' list (`models.ts`) and the sources
- * (`sources.ts`); and `reptile/`, whose righting is looked up by its body's model (`RIGHTING`,
- * `reptile/righting.ts`, read in `reptile/layers.ts`).
+ * (`sources.ts`).
  */
 const CORE = "src/core";
-const LEFT_OUT = [/^human\//, /^reptile\//, /^models\.ts$/, /^sources\.ts$/];
+const LEFT_OUT = [/^human\//, /^reptile\/spec\.ts$/, /^reptile\/physique\.ts$/, /^models\.ts$/, /^sources\.ts$/];
 
 /** Every TypeScript module under `dir`, by its path from it. */
 const modules = (dir) => readdirSync(dir, { withFileTypes: true, recursive: true })

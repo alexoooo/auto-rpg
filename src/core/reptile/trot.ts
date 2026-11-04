@@ -1,37 +1,30 @@
 import { Quaternion } from "../math/vector.ts";
-import type { OwnBody } from "../mind/mind.ts";
-import type { Orders } from "../intent/orders.ts";
 import type { Skill } from "../skills/framework/skill.ts";
-import type { supportedMotor, SupportedCommand } from "../control/supported-motor.ts";
+import type { SupportedCommand } from "../control/supported-motor.ts";
+import type { ReadBody, ReadSegment } from "../read-body.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { REPTILE_TROT } from "./tuning.ts";
 import { deepFreeze } from "../state.ts";
 import { fitsPaws, type PawGaitPart } from "./parts.ts";
-import type { QuadrupedView, TravelOrders } from "./crawl.ts";
+import type { TravelOrders } from "./crawl.ts";
+import type { PawReading, PawView } from "./paws.ts";
 import { chainTo, reachWork, solveReach } from "../control/kinematics.ts";
-
-/** Travel admission reads the body's actual heading against the requested direction. */
-export function headingAligned(yaw: number, face: Orders["face"], maximum: number): boolean {
-  if (!face || !(face.x * face.x + face.z * face.z > 0)) return true;
-  const angle = atan2(face.x, face.z) - yaw;
-  return Math.abs(atan2(sin(angle), cos(angle))) <= maximum;
-}
 
 /**
  * Diagonal support pairs carry continuous travel; every counted paw clears and reloads the ground.
  * Each pair stands under the centre of mass (`stanceOf`) and lands led by the travel it will bear
  * through; the trunk goes no faster than its bearing paws' reach lets it, and turns as it travels.
  */
-export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, names: readonly string[], T = REPTILE_TROT) {
-  const root = motor.root, nominal = names.map(name => own.built.segments.get(name)!.spec.points!.sole!.value);
-  const mass = own.spec.mass.value, reference = own.spec.segments.reduce((c, p) => {
+export function trot(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_TROT) {
+  const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
+  const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
     const m = p.mass.value / mass, at = p.centreOfMass.value;
     return [c[0] + m * at[0], c[1] + m * at[1], c[2] + m * at[2]] as Vec3;
   }, [0, 0, 0] as Vec3);
   const q = root.pose.rotation;
   const groups = pairsOf(nominal);
-  const stance = stanceOf(own, names, nominal, groups, reference, T.lift), room = T.reach * stance.room, neutral = stance.neutral;
+  const stance = stanceOf(built, names, nominal, groups, reference, T.lift), room = T.reach * stance.room, neutral = stance.neutral;
   const over: readonly [number, number] = [reference[0] - neutral.reduce((s, n) => s + n[0], 0) / names.length, reference[2] - neutral.reduce((s, n) => s + n[1], 0) / names.length];
   /** The fastest the trot carries the body: a stance's sweep within the room at its cycle. */
   const fastest = 2 * room / (T.swing + T.settle);
@@ -40,7 +33,7 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
    * pair's swing and landing took `stride`) and half the time it then bears (a settle, the other
    * pair's swing and landing, and a settle), no further than the room.
    */
-  const place = (view: QuadrupedView, i: number, ground: number) => {
+  const place = (view: PawView, i: number, ground: number) => {
     const n = neutral[i]!, c = cos(state.yaw), s = sin(state.yaw), x = n[0] - reference[0], z = n[1] - reference[2], v = state.pace;
     const speed = Math.sqrt(v[0] * v[0] + v[2] * v[2]), half = (state.stride + 2 * T.settle) / 2, within = speed * half > room ? room / (speed * half) : 1;
     const ahead = state.stride + half * within;
@@ -50,30 +43,30 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
   };
   const state = {
     phase: "settle" as "settle" | "swing" | "land" | "return", time: 0, stride: T.swing as number, since: 0, paw: 0, steps: 0, placed: 0, sequence: 0, yaw: 0, standing: false,
-    centre: [motor.state.centre.x, reference[1], motor.state.centre.z] as [number, number, number],
-    anchors: motor.state.endpoints.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
-    targets: motor.state.endpoints.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
+    centre: [paws.centre.x, reference[1], paws.centre.z] as [number, number, number],
+    anchors: paws.feet.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
+    targets: paws.feet.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
     liftedPaws: names.map(() => false),
     pace: [0, 0, 0] as [number, number, number],
     command: {
-      centre: [motor.state.centre.x, reference[1], motor.state.centre.z] as [number, number, number],
+      centre: [paws.centre.x, reference[1], paws.centre.z] as [number, number, number],
       velocity: [0, 0, 0] as [number, number, number], rotation: [q.x, q.y, q.z, q.w] as [number, number, number, number],
-      endpoints: motor.state.endpoints.map((e, i) => ({ target: [e.at.x, nominal[i]![1], e.at.z] as [number, number, number],
+      endpoints: paws.feet.map((e, i) => ({ target: [e.at.x, nominal[i]![1], e.at.z] as [number, number, number],
         bearing: true, rotation: [0, 0, 0, 1] as [number, number, number, number] })),
       posture: {} as Record<string, number>,
     },
   };
   const rotation = new Quaternion(), turned = new Quaternion();
   /** A paw is down that touches the floor or rests within `touch` of it. */
-  const down = (e: QuadrupedView["feet"][number]) => e.contact || e.low - e.ground < T.touch;
-  const resume = (view: QuadrupedView) => {
+  const down = (e: PawView["feet"][number]) => e.contact || e.low - e.ground < T.touch;
+  const resume = (view: PawView) => {
     state.phase = "settle"; state.time = 0; state.sequence++; state.yaw = view.yaw; state.standing = false;
     state.centre[0] = view.centre.x; state.centre[2] = view.centre.z;
     state.command.velocity.fill(0); state.pace.fill(0);
     view.feet.forEach((e, i) => { state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z; });
   };
-  const skill: Skill<QuadrupedView> & { readonly state: typeof state; command(view: QuadrupedView, intent: TravelOrders, dt: number): SupportedCommand } = {
-    state, resume,
+  const skill: Skill<PawView> & { readonly state: typeof state; readonly fastest: number; command(view: PawView, intent: TravelOrders, dt: number): SupportedCommand } = {
+    state, resume, fastest,
     command(view, intent, dt) {
       const face = intent.face ?? intent.move;
       let error = 0;
@@ -166,7 +159,7 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
       rotation.multiplyToRef(root.rest, turned);
       state.command.rotation.splice(0, 4, turned.x, turned.y, turned.z, turned.w);
       state.command.endpoints.forEach((goal, i) => {
-        rotation.multiplyToRef(own.built.segments.get(names[i]!)!.rest, turned);
+        rotation.multiplyToRef(built.segments.get(names[i]!)!.rest, turned);
         goal.rotation.splice(0, 4, turned.x, turned.y, turned.z, turned.w);
         goal.target.splice(0, 3, ...state.anchors[i]!); goal.bearing = true;
         if (groups[state.paw]!.includes(i) && (state.phase === "swing" || state.phase === "land" || state.phase === "return")) {
@@ -195,8 +188,8 @@ function pairsOf(nominal: readonly Vec3[]): number[][] {
  * How far a paw's sole reaches along the body `height` above the floor, back and ahead of where it
  * stands, m: the trunk at its reference pose, the paw flat, its leg's freedoms within their ranges.
  */
-function floorReach(own: OwnBody, name: string, height: number): readonly [number, number] {
-  const segment = own.built.segments.get(name)!, sole = segment.spec.points!.sole!.value, chain = chainTo(own.built, segment);
+function floorReach(built: ReadBody, name: string, height: number): readonly [number, number] {
+  const segment = built.segments.get(name)!, sole = segment.spec.points!.sole!.value, chain = chainTo(built, segment);
   const free = chain.flatMap((joint, j) => joint.dofs.map((dof, k) => ({ joint: j, k, min: dof.spec.min.value, max: dof.spec.max.value, preferred: 0 })));
   const work = reachWork(free.length), flat = { target: new Quaternion(), lever: REACH_LEVER };
   const reaches = (along: number) => {
@@ -217,10 +210,10 @@ function floorReach(own: OwnBody, name: string, height: number): readonly [numbe
  * and at the swing's lift (`floorReach`), so that the least room either way is the most it can be. A pair whose reaches
  * cannot share a midpoint there stands each paw at its reach's middle.
  */
-function stanceOf(own: OwnBody, names: readonly string[], nominal: readonly Vec3[], groups: readonly number[][], centre: Vec3, lift: number) {
-  const floors = names.map(name => floorReach(own, name, 0));
+function stanceOf(built: ReadBody, names: readonly string[], nominal: readonly Vec3[], groups: readonly number[][], centre: Vec3, lift: number) {
+  const floors = names.map(name => floorReach(built, name, 0));
   const reach = names.map((name, i) => {
-    const floor = floors[i]!, lifted = floorReach(own, name, lift);
+    const floor = floors[i]!, lifted = floorReach(built, name, lift);
     return [Math.min(floor[0], lifted[0]), Math.min(floor[1], lifted[1])] as const;
   });
   const limits = floors.map(([back, ahead], i) => [nominal[i]![2] - back, nominal[i]![2] + ahead] as const);
@@ -253,8 +246,10 @@ export const TROT_PART: PawGaitPart<TrotConfig> = deepFreeze({
   role: "paw-gait", label: "Trot", stage: "game", fields: [], slots: [], defaults: { kind: "paw-trot" }, keys: { kind: true, tuning: true },
   tuning: Object.keys(REPTILE_TROT), fits: fitsPaws,
   faults: (config: TrotConfig) => Object.values(config.tuning ?? {}).every(Number.isFinite) ? [] : ["invalid trot setting"],
-  make(own: OwnBody, motor: ReturnType<typeof supportedMotor>, paws: readonly string[], config: TrotConfig) {
-    const settings = { ...REPTILE_TROT, ...config.tuning }, skill = trot(own, motor, paws, settings);
-    return { state: skill.state, settings, resume: skill.resume, command: skill.command };
+  make(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], config: TrotConfig) {
+    const settings = { ...REPTILE_TROT, ...config.tuning }, skill = trot(built, root, paws, names, settings);
+    // It carries the body forward at its speed, no faster than its stance's sweep lets it; aside and back at what it keeps of travel across its heading.
+    const reach = { forward: Math.min(settings.speed, skill.fastest), aside: settings.sideways, turn: settings.turnRate };
+    return { state: skill.state, settings, reach, resume: skill.resume, command: skill.command };
   },
 });

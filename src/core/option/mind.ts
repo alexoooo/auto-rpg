@@ -29,12 +29,10 @@ import { waysUpIn } from "./rise.ts";
  * order; `OPTIONS` where none are given), each naming the skill it uses and how it uses it. Its
  * body builds the skills its options name that it fits (`skillsOf`); what lies under every skill
  * (its motor, its legs, its guard) is the one game part of each that fits the body (`filledOf`),
- * unless an experiment passes one in (`tuning.parts`). This is Option Mind over its own body layer,
- * the toolkit's humanoid kit; over another, its config names a frame (`FramedOptionMindConfig`).
+ * unless an experiment passes one in (`tuning.parts`).
  */
 export interface OptionMindConfig {
   readonly kind: "option";
-  readonly frame?: null;
   readonly chooser: PartConfig;
   readonly options?: readonly PartConfig[] | null;
   readonly predictions?: PartConfig | null;
@@ -47,65 +45,13 @@ export interface OptionMindConfig {
 /** `config` on the legs `legs` (role `locomotion`) in place of those its body fits: an experiment's (`OptionMindConfig.tuning`). */
 export const withLegs = (config: OptionMindConfig, legs: PartConfig): OptionMindConfig => ({ ...config, tuning: { ...config.tuning, parts: { ...config.tuning?.parts, legs } } });
 
-/**
- * **Option Mind's config over a frame**: its chooser and its options, each made for the frame
- * (`ForFrame`), named, and the frame (a part of role `frame`, `FramePart`) whose body layer it
- * decides over; the frame says what else of deciding it reads (`FramePart.decidingFaults`).
- */
-export interface FramedOptionMindConfig {
-  readonly kind: "option";
-  readonly frame: PartConfig;
-  readonly chooser: PartConfig;
-  readonly options: readonly PartConfig[];
-  readonly predictions?: PartConfig | null;
-  readonly rate?: number;
-}
-
-/** **Any Option Mind's config**: over its own humanoid kit, or over a frame. */
-export type AnyOptionMindConfig = OptionMindConfig | FramedOptionMindConfig;
-
-/** Whether `config` decides over a frame rather than Option Mind's own kit. */
-export const framed = (config: AnyOptionMindConfig): config is FramedOptionMindConfig => config.frame != null;
-
 /** The smallest working config: by worth over the standard options (`OPTIONS`), which throw no blow. */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "valued", depth: 2 }, options: OPTIONS });
 
 /** Its slots: its chooser, its options and what it predicts from. */
 const SLOTS: readonly Slot[] = Object.freeze([
   slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("predictions", "Predictions", "predictions", true, MEASURED_PREDICTIONS.defaults),
-  slotOne("frame", "Frame", "frame", true),
 ]);
-
-/** Its slots over a frame: its chooser, its options, what it predicts from and the frame. */
-const FRAMED_SLOTS: readonly Slot[] = Object.freeze([
-  slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("predictions", "Predictions", "predictions", true),
-  slotOne("frame", "Frame", "frame", true),
-]);
-
-/** The frame `config`'s chooser and options are made for (`ForFrame`): its frame's kind, or none for its own kit. */
-const frameOf = (config: AnyOptionMindConfig): string | null => framed(config) ? config.frame.kind : null;
-
-/** Who a part made for `frame` is made for, as a sentence names it. */
-const its = (frame: string | null): string => frame === null ? "Option Mind's own kit" : `the ${frame} frame`;
-
-/** What is wrong with a chooser or an option `config` names that is made for another frame than its own (`ForFrame`), each a sentence. */
-function frameFaults(config: AnyOptionMindConfig, parts: PartLookup): readonly string[] {
-  const own = frameOf(config), named = (part: { readonly frame?: string }): string | null => part.frame ?? null;
-  const chooser = named(parts.of("chooser", config.chooser));
-  return [...chooser === own ? [] : [`chooser: ${config.chooser.kind} is made for ${its(chooser)}, not ${its(own)}`],
-    ...(config.options ?? []).flatMap((option, i) => {
-      const made = named(parts.of("option", option));
-      return made === own ? [] : [`options.${i}: ${option.kind} is made for ${its(made)}, not ${its(own)}`];
-    })];
-}
-
-/** What is wrong with a config over a frame, each a sentence: no options, or what of deciding its frame does not read (`FramePart.decidingFaults`). */
-function framedFaults(config: FramedOptionMindConfig, parts: PartLookup): readonly string[] {
-  const faults = [...frameFaults(config, parts)];
-  if (!Array.isArray(config.options) || config.options.length === 0) faults.push("options: a frame's options, named");
-  faults.push(...parts.of("frame", config.frame).decidingFaults(config, config.frame).map((fault) => `frame: ${fault}`));
-  return faults;
-}
 
 /** The navigation `option` walks by, where it is a walk (`WalkConfig`): its own, else the game's. */
 const navigationOf = (option: PartConfig): PartConfig | null => option.kind === "walk" ? (option as WalkConfig).navigation ?? GAME_NAVIGATION : null;
@@ -143,7 +89,7 @@ function tunedFaults(config: OptionMindConfig, parts: PartLookup): readonly stri
 
 /** What is wrong with `config`, each a sentence: its rate, its options together (`optionsFaults`), the parts it passes in, or no route up from the ground by the ways up its options name (`standUpFaults`). */
 function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly string[] {
-  const options = config.options ?? OPTIONS, faults = [...frameFaults(config, parts), ...optionsFaults(options, parts), ...tunedFaults(config, parts)];
+  const options = config.options ?? OPTIONS, faults = [...optionsFaults(options, parts), ...tunedFaults(config, parts)];
   if (config.rate !== undefined && !(Number.isFinite(config.rate) && config.rate > 0)) faults.push("rate: a positive number of times a second");
   const waysUp = waysUpIn(options).filter((technique) => isWayUp(parts.of("technique", technique))) as readonly TechniqueConfig[];
   faults.push(...standUpFaults(waysUp, parts).map((fault) => `options: ${fault}`));
@@ -163,7 +109,7 @@ function createOptionMind(host: BodyHost, config: OptionMindConfig, wiring: Mind
   const legs = filledOf(parts, spec, "legs", given), kit: SkillKit = { legs, navigation: named.navigation ?? GAME_NAVIGATION, guard: filledOf(parts, spec, "guard", given),
     executors: named.executors, actions: named.actions, support: named.support };
   const { body } = host.take((own) => commandedMind(own, kitBody(filledOf(parts, spec, "motor", given), parts), host.clock));
-  const ground = groundSkills(body, host.clock, kitOf(parts, spec, given), named.techniques.map((technique) => parts.of("technique", technique)));
+  const ground = groundSkills(body, host.clock, kitOf(parts, spec, given), named.techniques);
   let skills: Skills | undefined;
   const aims = configuredAims(parts, spec, kit.actions);
   const make = (made: Body) => kitSkills(made, host.clock, parts, kit, () => skills?.report.ledger ?? [], ground, aims);
@@ -176,34 +122,29 @@ function createOptionMind(host: BodyHost, config: OptionMindConfig, wiring: Mind
 }
 
 /**
- * **Option Mind**: a chooser over its options, on its percepts, over a body layer: its own, the
- * toolkit's humanoid kit, or the one a frame makes (`FramePart`), so a new family of bodies is a new
- * frame, not a new kind of mind. Its choosers, kinds of option, objectives, predictions and frames are
- * the toolkit's role lists (`CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES`, `PREDICTIONS`, `QUADRUPED_FRAMES`).
- * Over its own kit it fits a body with one part of each place under its skills (`filledRefusal`), is
- * built in its guard's posture, and uses what its guard covers with; its blows are its options'
- * (`Part.strikes`).
+ * **Option Mind**: a chooser over its options, on its percepts, over the toolkit's body layer, the
+ * same for every body: what lies under its skills is the part of each place its body fits. Its
+ * choosers, kinds of option, objectives and predictions are the toolkit's role lists (`CHOOSERS`,
+ * `OPTION_KINDS`, `OBJECTIVES`, `PREDICTIONS`). It fits a body with one part of each place under
+ * its skills (`filledRefusal`), is built in its guard's posture, and uses what its guard covers
+ * with; its blows are its options' (`Part.strikes`).
  */
-export const OPTION_MIND = controller<AnyOptionMindConfig>({
+export const OPTION_MIND = controller<OptionMindConfig>({
   role: "mind", label: "Option Mind", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
-  slotsFor: (config) => framed(config) ? FRAMED_SLOTS : SLOTS,
-  keys: { kind: true, frame: true, chooser: true, options: true, predictions: true, rate: true, tuning: true }, tuning: ["parts"],
-  // The options it starts with where its config names none, the navigation its walks go by where none names one, and every part that may lie under its skills: a frame's are named.
-  uses: (config, parts) => framed(config) ? [] : [...config.options ? [] : OPTIONS, GAME_NAVIGATION, ...Object.values(FILLED).flatMap((role) => parts.game(role)),
+  keys: { kind: true, chooser: true, options: true, predictions: true, rate: true, tuning: true }, tuning: ["parts"],
+  // The options it starts with where its config names none, the navigation its walks go by where none names one, and every part that may lie under its skills.
+  uses: (config, parts) => [...config.options ? [] : OPTIONS, GAME_NAVIGATION, ...Object.values(FILLED).flatMap((role) => parts.game(role)),
     ...Object.values(config.tuning?.parts ?? {})],
-  reads: (config) => framed(config) ? [] : ["strike-profiles", "edge-profiles"],
-  fits: (spec, config, parts) => framed(config) ? parts.of("frame", config.frame).fits(spec, config.frame, parts) : filledRefusal(parts, spec, config.tuning?.parts),
-  strikes: (spec, config, parts) => framed(config) ? parts.of("frame", config.frame).strikes?.(spec, config.frame, parts) : undefined,
+  reads: () => ["strike-profiles", "edge-profiles"],
+  fits: (spec, config, parts) => filledRefusal(parts, spec, config.tuning?.parts),
   supportedEquipment: (spec, config, parts) => {
-    if (framed(config)) return [];
     const guard = filledOf(parts, spec, "guard", config.tuning?.parts);
     return parts.of("guard", guard).supportedEquipment?.(spec, guard, parts) ?? [];
   },
-  faults: (config, parts) => framed(config) ? framedFaults(config, parts) : optionMindFaults(config, parts),
+  faults: (config, parts) => optionMindFaults(config, parts),
   builtIn: (spec, config, parts) => {
-    if (framed(config)) return parts.of("frame", config.frame).builtIn(spec, config.frame, parts);
     const guard = filledOf(parts, spec, "guard", config.tuning?.parts);
     return parts.of("guard", guard).posture(spec, guard);
   },
-  create: (host, config, wiring) => framed(config) ? host.parts.of("frame", config.frame).create(host, config, config.frame, wiring) : createOptionMind(host, config, wiring),
+  create: (host, config, wiring) => createOptionMind(host, config, wiring),
 });

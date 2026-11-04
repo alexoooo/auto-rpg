@@ -106,8 +106,8 @@ export interface Catalog {
   /**
    * **Why a body of `spec` cannot carry out what the tree `config` roots commands**, prefixed with
    * where (`subs.0: `), or null where it can: the first part that refuses it (`Part.fits`), a skill
-   * it cannot use aside (`Slot.skills`, left out). Fit is only that: what a scenario asks beyond it
-   * is its entry rules (`EntryRule`).
+   * it cannot use and the part that holds it aside (`Slot.skills`, left out). Fit is only that:
+   * what a scenario asks beyond it is its entry rules (`EntryRule`).
    */
   treeRefusal(spec: BodySpec, config: PartConfig, at?: string): string | null;
   /** **The skills of the tree `config` roots that a body of `spec` cannot use** (`Slot.skills`), left out on it: a sentence each, named. */
@@ -306,11 +306,12 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     const where = (reason: string) => at ? `${at}: ${reason}` : reason;
     const part = partOf(config), own = part.fits(spec, config, partLookup);
     if (own !== null) return where(own);
-    for (const { slot, parts } of held(config)) {
+    const slots = held(config);
+    // A skill the body cannot use is left out, not a refusal (`Slot.skills`), and the part that runs it with it, its other slots unread.
+    if (slots.some(({ slot, parts }) => slot.skills && parts.some((child) => isPart(child) && partOf(child).fits(spec, child, partLookup) !== null))) return null;
+    for (const { slot, parts } of slots) {
       const path = at ? `${at}.${slot.key}` : slot.key;
       for (const [i, child] of parts.entries()) {
-        // A skill the body cannot use is left out, not a refusal (`Slot.skills`).
-        if (slot.skills && isPart(child) && partOf(child).fits(spec, child, partLookup) !== null) continue;
         const refused = treeRefusal(spec, child as PartConfig, slot.many ? `${path}.${i}` : path);
         if (refused !== null) return refused;
       }

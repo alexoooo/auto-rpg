@@ -27,7 +27,7 @@ one below.
 | Motor control and the mind seam | `control/`, `mind/`, `body.ts`, `physical-body.ts`, `observation.ts`, `equipment.ts` | goals made muscle commands; a mind embodied, its host and senses |
 | Skills | `skills/`, `intent/`, `navigation/`, `perception/`, `mind/decider.ts`, `mind/engagement.ts`, `mind/choice.ts`, `mind/report.ts` | an intent made a body command; what a decider asks and reads |
 | Recovery | `recovery/`, `mind/kit.ts`, `skills/kit.ts` | getting up; a mind's kit of skills |
-| Minds and command | `option/`, `reptile/`, `command/`, `mind/config.ts`, `mind/controller.ts`, `mind/minds.ts`, `mind/apart.ts`, `parts/entrant.ts` | Option Mind, the quadruped, Commanders, making a mind from its config |
+| Minds and command | `option/`, `reptile/`, `command/`, `mind/config.ts`, `mind/controller.ts`, `mind/minds.ts`, `mind/apart.ts`, `parts/entrant.ts` | Option Mind, the parts of a body on paws, Commanders, making a mind from its config |
 | Top | `toolkit.ts`, `models.ts`, `combatant.ts` | the toolkit's catalog, the body models, enlisting a fighter |
 
 `tests/core-boundary.test.mjs` holds it: `LAYERS` is this table, the registries exempt.
@@ -126,8 +126,10 @@ driven points, a stance goal) into muscle commands.
   skills and deciders.
 - **The motor** is a part of role `motor` (`MOTORS`); the game's is the whole-body solve
   (`motorControl`, `solve.ts`): the bearing solve and the servo in one weighted least-squares
-  problem, a torque past strength pinned and solved again. It says what goals it carries and what
-  it left undone (`MotorControl.carries`, `unmet`).
+  problem, a torque past strength pinned and solved again. A body on paws has the paw support
+  (`pawMotor`, `src/core/reptile/paw-motor.ts`), which carries a support over its paws
+  (`SupportGoal`). A motor says what goals it carries and what it left undone
+  (`MotorControl.carries`, `unmet`).
 - **Effector goals** (`EffectorGoal`, `kinematics.ts`): named points of an effector follow
   minimum-jerk paths to places in the root's frame, `through` a place or `follows` a moving end; a
   `firm` goal braces the limb through what it strikes. Only the channels between an effector's base
@@ -161,16 +163,19 @@ arbiter releases every action when another mind takes the body.
   the legs, the guard) is the one game part of its role that fits the body (`PartLookup.fitting`,
   `filledOf`); two fitting is a fault of the build, and an experiment passes another in
   (`OptionMindConfig.tuning`).
-- **Tuned per body**: an executor's settings, and step up's and the sit-back's timings, are its
-  body's record (`SkillRecord`), read as mind data by `bodyKey` from `assets/core/<skill>.json`
-  (`dataOf`). A body with no record does not use the skill.
+- **Tuned per body**: a skill that reads a record (`Part.reads`: the blows of hands and feet, step
+  up's and the sit-back's timings, the righting's recipe) has its settings as its body's record
+  (`SkillRecord`), read as mind data by `bodyKey` from `assets/core/<skill>.json` (`dataOf`). A
+  body with no record does not use the skill.
 - **Locomotion** (`Locomotion`): legs take one goal (`LegsGoal`) and say what they left undone
   (`LegsUnmet`), their envelope and how fast they stop. `stance-walk` walks within the stance's
   envelope; `walk-run` hands over to a run cycle fitted to motion capture
   (`assets/core/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis,
   its settings its body's record (`assets/core/walk-run.json`) where it has one, else the defaults
   scaled to its leg (`scaledGait`); each is a gait part (role `gait`).
-  `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules.
+  `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. A body
+  on paws has `paw-move` (`src/core/reptile/paw-legs.ts`): the trot and the crawl, the support goal
+  each step for its motor.
 - **The straight punch** (`straight-punch.ts`) drives the arm flat out at a contact pose solved
   each step, on a timed schedule (`TimedPush`). Steered, a network (`learned-punch.ts`) adds to the
   trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
@@ -181,10 +186,14 @@ arbiter releases every action when another mind takes the body.
   either, `faceAligner` servos the wrist onto the face's line.
 - **The stomp** (`stomp.ts`) is a strike cycle down from a high chamber onto a body lying ahead. A
   strike's window (`strikeWindow`) keeps the two bodies clear.
+- **The bite** (`jaw-bite`, `src/core/reptile/bite.ts`) is a strike cycle of the jaw on a crawl:
+  the head driven to the mouth's goal, the jaw opened and closed on its path, aimed by the first
+  exposed surface along the jaw's arc (`first-exposed`, `jaw-aim.ts`), its tooth carried with the
+  aim (`Aimed.with`).
 - **The guard** (`GuardPart`) owns the arms' rest: where the body is built, where free hands go,
   where a blow returns; it may set a told hand between threat and target, or a buckler's face toward
-  the foe's weapon. **Low support** (`support-fold.ts`) folds the stance onto a planted base for low
-  blows.
+  the foe's weapon; a body with no hands has the guard at rest (`rest`), which holds nothing.
+  **Low support** (`support-fold.ts`) folds the stance onto a planted base for low blows.
 
 **Stand up** (`src/core/recovery/`). A body down rises by techniques (`TECHNIQUES`): the ways up,
 each with edges (`isWayUp`), and the modes of the ground, with none (brace, land, steady, flatten).
@@ -198,7 +207,10 @@ the ends that bear it. A way up names the postures it begins from and reaches (i
 the game's ways up (`STAND_UP`) reach standing from the back and the front (`standUpFaults`). The
 Option Mind prices each way up by its edges' measured profiles
 (`assets/core/edge-profiles.json`), as every Option is priced. The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
-(`rise/stages.ts`).
+(`rise/stages.ts`). A body on paws rights itself (`src/core/reptile/righting.ts`) by its recipe of
+poses from lying (`righting-recipe`, its record `assets/core/righting.json`) and by routes that
+roll it, place each paw and rise on its motor (`righting-routes`). A ground action names its side
+by the first end the body stands on there (`sideEffectors`).
 
 ## Minds
 
@@ -274,7 +286,7 @@ each a state with its chance, `Outcome`), its step, and a status.
   body's limb (`limbsOf`).
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
   `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-cut`,
-  `strike-sword-thrust`, `strike-stomp`), a strike (`strike`) of the action it asks of its
+  `strike-sword-thrust`, `strike-stomp`, `strike-jaw-bite`), a strike (`strike`) of the action it asks of its
   executor on its body (`strikeAction`), one Option a limb (`limbAction`): a punch on empty hands
   is two Options, each priced by its limb's profile. An action is named as its skill; where a mind
   uses one skill in two ways (a club's bonk at the head and its swipe at the trunk), each is its
@@ -296,8 +308,10 @@ each a state with its chance, `Outcome`), its step, and a status.
   tumbling, the steady's try). A config whose ways up leave no route to standing from the back or
   from the front is a fault (`standUpFaults`).
 
-**The Option Reptile** is Option Mind over a frame (`FramePart`), the quadruped's
-(`QUADRUPED_FRAME`), with its own layers and options. A new family of bodies is a frame.
+**Every body runs one Option Mind.** The game's preset serves the humanoids and the bodies on
+paws alike: what lies under the skills is the part of its role that fits the body, and a body
+builds the Options whose skills it fits. The parts of a body on paws are `REPTILE_PARTS`
+(`src/core/reptile/kinds.ts`). A new family of bodies is parts that fit it.
 
 **Entrants.** An `Entrant` (`src/core/parts/entrant.ts`) is one AI: its kinds of mind, parts and
 presets, each kind scoped `<name>:`, listed in `ENTRANTS` (`src/entrants/index.ts`). `GAME`

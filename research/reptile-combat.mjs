@@ -5,7 +5,7 @@ import { lifeTaken } from "../src/core/rules/blows.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
-import { mouthOf } from "../src/core/reptile/bite.ts";
+import { mouthOf } from "../src/core/reptile/jaw.ts";
 
 export const DEVELOPMENT_GAPS = Object.freeze([1.5, 2, 3, 4]);
 export const CONFIRMATION_GAPS = Object.freeze([1.75, 2.5, 3.5, 4.5]);

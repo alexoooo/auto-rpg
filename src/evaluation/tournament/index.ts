@@ -31,7 +31,7 @@ export const TOURNAMENT: Evaluation<TournamentCondition, BoutReading> = {
      */
     panel: [
       "option/workshop-fighter/buckler,club", "option/crypt-skeleton/buckler,sword", "option/workshop-rogue/buckler,sword",
-      "option-reptile/reptile/empty,empty", "option/workshop-fighter/empty,sword", "option/workshop-fighter/empty,empty",
+      "option/reptile/empty,empty", "option/workshop-fighter/empty,sword", "option/workshop-fighter/empty,empty",
       "option/workshop-rogue/empty,club", "option/crypt-skeleton/empty,sword",
     ],
     /**

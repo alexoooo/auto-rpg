@@ -15,7 +15,7 @@ import { withLoadout, type Held } from "../core/items/held.ts";
 import { humanoidSpec } from "../core/human/spec.ts";
 import { partLookup } from "../entrants/game.ts";
 import { kitOf } from "../core/mind/kit.ts";
-import { poseDrive, type TechniqueName, type TechniqueRun } from "../core/recovery/ground/technique.ts";
+import { poseDrive, type TechniqueName, type TechniquePart, type TechniqueRun } from "../core/recovery/ground/technique.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
 import type { GroundReading } from "../core/control/ground-reading.ts";
 import { stanceFeet } from "../core/control/support.ts";
@@ -123,7 +123,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
   let runs: TechniqueRun[] = [];
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec), drive = poseDrive(own.muscles);
-    runs = one.chain.map((name) => TECHNIQUES[name].make(own, view, clock, kit));
+    runs = one.chain.map((name) => { const part: TechniquePart = TECHNIQUES[name]; return part.make(own, view, clock, kit, part.defaults); });
     const command = { activation: new Float64Array(own.muscles.channels.length), velocity: new Float64Array(own.muscles.channels.length) };
     const remember = () => { command.activation.set(own.muscles.activation); command.velocity.set(own.muscles.velocity); };
     const carry = () => { own.muscles.activation.set(command.activation); own.muscles.velocity.set(command.velocity); };

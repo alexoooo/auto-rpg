@@ -1,5 +1,6 @@
 import type { Body } from "../../body.ts";
 import type { Locomotion } from "../locomotion/locomotion.ts";
+import type { GaitName } from "../locomotion/gaits.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 
@@ -24,6 +25,8 @@ export interface LocomotionPart<C extends PartConfig = PartConfig> extends Part<
   readonly keys: KeysOf<C>;
   /** The legs' skill of `config` for `body`; `legs` makes its gaits' legs. */
   make(body: Body, config: C, legs: Legs): Locomotion;
+  /** The gaits legs of `config` go by, by name (`LegsGoal.gait`), which a walk names; none for legs that go by no gait by name. */
+  gaits?(config: C): readonly { readonly name: GaitName; readonly label: string; readonly legs: PartConfig }[];
 }
 
 /**

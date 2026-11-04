@@ -18,7 +18,7 @@ import { stanceFeet } from "../core/control/support.ts";
 import { MINDS, partLookup } from "../entrants/game.ts";
 import { kitOf } from "../core/mind/kit.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
-import { isWayUp, type TechniqueName, type TechniqueRun } from "../core/recovery/ground/technique.ts";
+import { isWayUp, type TechniqueName, type TechniquePart, type TechniqueRun } from "../core/recovery/ground/technique.ts";
 import { OPTIONS } from "../core/option/kinds.ts";
 import { withWaysUp } from "../core/option/rise.ts";
 import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/models.ts";
@@ -143,8 +143,9 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
     predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, into) => {
     const kit = kitOf(partLookup, own.spec);
-    run = TECHNIQUES[technique].make(own, view, into, kit);
-    predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, kit) ?? null : null;
+    const part: TechniquePart = TECHNIQUES[technique], after: TechniquePart | undefined = job.after ? TECHNIQUES[job.after] : undefined;
+    run = part.make(own, view, into, kit, part.defaults);
+    predecessor = after?.make(own, view, into, kit, after.defaults) ?? null;
     if (job.after && !predecessor) throw new Error(`unknown predecessor ${job.after}`);
     return { name: `technique:${technique}`, state: { control, run: run.state, predecessor: predecessor?.state ?? null },
       wants: () => control.active,
