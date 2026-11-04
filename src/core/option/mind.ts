@@ -1,19 +1,18 @@
 import type { Body } from "../body.ts";
 import { aimsState, armedActions, configuredAims, usableSkills } from "../skills/action-config.ts";
-import { STAND_UP } from "../recovery/ground/stand-up.ts";
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { controller } from "../mind/controller.ts";
 import { everyOf } from "../mind/decider.ts";
 import { kitBody, kitSkills, kitFaults } from "../skills/kit.ts";
-import { groundExecutor } from "../recovery/ground/held.ts";
-import { REPOSITION, standUpFaults, techniquesOf } from "../recovery/ground/stand-up.ts";
-import type { TechniqueConfig } from "../recovery/ground/technique.ts";
+import { groundSkills } from "../recovery/ground/skills.ts";
+import { standUpFaults } from "../recovery/ground/stand-up.ts";
+import { isWayUp, type TechniqueConfig } from "../recovery/ground/technique.ts";
 import type { BodyHost } from "../mind/host.ts";
 import { GAME_MOTOR, kitOf } from "../mind/kit.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { MindWiring } from "../mind/minds.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
-import { anyBody, slotList, slotOne, slotSkills, type PartConfig, type Slot } from "../parts/parts.ts";
+import { anyBody, slotList, slotOne, slotSkills, slotsOf, type PartConfig, type Slot } from "../parts/parts.ts";
 import { driveBy } from "../mind/decider.ts";
 import { commandedMind } from "../mind/sub-mind.ts";
 import type { Skills } from "../skills/framework/skills.ts";
@@ -25,10 +24,10 @@ import { optionDecider, type DeciderMaking } from "./decider.ts";
 /**
  * **Option Mind's config**: its chooser, its options (each a part of role `option`, in rank order;
  * `OPTIONS` where none are given), what it predicts from (`predictions`, the measured profiles
- * unless given), the parts its body layer is made from (legs, navigation, guard, low support,
- * executors and the actions they carry out, motor) and the techniques it rises by from the ground, in
- * rank order. This is Option Mind over its own body layer, the toolkit's humanoid kit; over another,
- * its config names a frame (`FramedOptionMindConfig`).
+ * unless given) and the parts its body layer is made from (legs, navigation, guard, low support,
+ * executors and the actions they carry out, motor); the techniques it rises by from the ground are
+ * those its options name (`techniquesNamed`). This is Option Mind over its own body layer, the
+ * toolkit's humanoid kit; over another, its config names a frame (`FramedOptionMindConfig`).
  */
 export interface OptionMindConfig {
   readonly kind: "option";
@@ -42,7 +41,6 @@ export interface OptionMindConfig {
   readonly support: PartConfig | null;
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
-  readonly ground: readonly TechniqueConfig[];
   readonly motor?: PartConfig | null;
   /** The rate it decides at, Hz (`everyOf`, `Pace`): every control step unless given; its skills make the command every step from what it last decided. */
   readonly rate?: number;
@@ -71,16 +69,16 @@ export const framed = (config: AnyOptionMindConfig): config is FramedOptionMindC
 /** Its gaits (`move`): the one its options name (`Going`), braced where none does; no rule chooses one. */
 export const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
-/** The smallest working config: by worth over the standard options (`OPTIONS`), the gaits they name (`GOING`), the shield guard, no low support, no blow, and the game's edges up (`STAND_UP`). */
+/** The smallest working config: by worth over the standard options (`OPTIONS`), the gaits they name (`GOING`), the shield guard, no low support and no blow. */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "valued", depth: 2 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: null,
-  executors: [], actions: [], ground: STAND_UP.techniques });
+  executors: [], actions: [] });
 
-/** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
+/** Its slots: its chooser, its options and what it predicts from, a skill of each role and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([
   slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("predictions", "Predictions", "predictions", true, MEASURED_PREDICTIONS.defaults),
   slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION),
   slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotOne("support", "Low support", "support", true), slotSkills("executors", "Executors", "executor"),
-  slotList("ground", "Getting up", "technique"), slotOne("motor", "Motor control", "motor", true, GAME_MOTOR), slotOne("frame", "Frame", "frame", true),
+  slotOne("motor", "Motor control", "motor", true, GAME_MOTOR), slotOne("frame", "Frame", "frame", true),
 ]);
 
 /** Its slots over a frame: its chooser, its options, what it predicts from and the frame. */
@@ -114,34 +112,41 @@ function framedFaults(config: FramedOptionMindConfig, parts: PartLookup): readon
   return faults;
 }
 
-/** What is wrong with `config`, each a sentence: its kit's faults, or no route up from the ground (`standUpFaults`). */
+/** **The techniques `options` name**: each held in a slot of role `technique` of its kind, in their order. */
+function techniquesNamed(options: readonly PartConfig[], parts: PartLookup): readonly TechniqueConfig[] {
+  return options.flatMap((option) => slotsOf(parts.of("option", option), option).filter((slot) => slot.role === "technique").flatMap((slot) => {
+    const held = (option as unknown as Readonly<Record<string, unknown>>)[slot.key] as TechniqueConfig | readonly TechniqueConfig[] | null | undefined;
+    return held == null ? [] : Array.isArray(held) ? held : [held as TechniqueConfig];
+  }));
+}
+
+/** What is wrong with `config`, each a sentence: its kit's faults, or no route up from the ground by the ways up its options name (`standUpFaults`). */
 function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly string[] {
   const faults = [...kitFaults(config, parts), ...frameFaults(config, parts)];
   if (config.rate !== undefined && !(Number.isFinite(config.rate) && config.rate > 0)) faults.push("rate: a positive number of times a second");
-  if (!Array.isArray(config.ground) || config.ground.length === 0) faults.push("ground: a way up when down");
-  else faults.push(...standUpFaults(config.ground, parts).map((fault) => `ground: ${fault}`));
+  const waysUp = techniquesNamed(config.options ?? OPTIONS, parts).filter((technique) => isWayUp(parts.of("technique", technique)));
+  faults.push(...standUpFaults(waysUp, parts).map((fault) => `options: ${fault}`));
   return faults;
 }
 
 /**
  * **An Option Mind fighter**: its body with no sub-mind (`kitBody`), its skills the toolkit's body
- * layer (`kitSkills`) and the ground executor of its techniques
- * (`groundExecutor`), decided by its decider (`optionDecider`). Its blows are those its body
+ * layer (`kitSkills`) and a ground skill of each technique its options name (`groundSkills`,
+ * `techniquesNamed`), decided by its decider (`optionDecider`). Its blows are those its body
  * throws as armed (`armedActions`).
  */
 function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindWiring) {
   const parts = host.parts, config = { ...given, executors: usableSkills(parts, host.spec, given.executors, given.actions).executors,
     actions: armedActions(parts, host.spec, given.executors, given.actions) };
   const { body } = host.take((own) => commandedMind(own, kitBody(config, parts), host.clock));
-  const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
-  const ground = groundExecutor(body, host.clock, kitOf(parts, host.spec, config), registry);
+  const named = new Map(techniquesNamed(config.options ?? OPTIONS, parts).map((technique) => [technique.kind, parts.of("technique", technique)]));
+  const ground = groundSkills(body, host.clock, kitOf(parts, host.spec, config), [...named.values()]);
   let skills: Skills | undefined;
   const aims = configuredAims(parts, host.spec, config.actions);
-  const make = (made: Body) => kitSkills(made, host.clock, parts, config, () => skills?.report.ledger ?? [],
-    { executors: [ground.binding], actions: ground.actions }, aims);
-  const hz = Math.round(1 / host.clock.dt), every = everyOf(config.rate, hz), rising = { executor: ground, registry };
+  const make = (made: Body) => kitSkills(made, host.clock, parts, config, () => skills?.report.ledger ?? [], ground, aims);
+  const hz = Math.round(1 / host.clock.dt), every = everyOf(config.rate, hz);
   const making: DeciderMaking = { spec: host.spec, rules: host.rules, orders: (sight) => wiring.orders(sight.view.senses), parts };
-  const driven = driveBy(body, optionDecider(making, hz, config, host.seed, rising, host.phase, hz / every, body.delay), make, { every, phase: host.phase, orders: making.orders }, aimsState(aims));
+  const driven = driveBy(body, optionDecider(making, hz, config, host.seed, host.phase, hz / every, body.delay), make, { every, phase: host.phase, orders: making.orders }, aimsState(aims));
   skills = driven.skills;
   return driven;
 }
@@ -155,9 +160,9 @@ function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindW
 export const OPTION_MIND = controller<AnyOptionMindConfig>({
   role: "mind", label: "Option Mind", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
   slotsFor: (config) => framed(config) ? FRAMED_SLOTS : SLOTS,
-  keys: { kind: true, frame: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, ground: true, motor: true, rate: true },
+  keys: { kind: true, frame: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, motor: true, rate: true },
   // The options it starts with where its config names none; a frame's are named.
-  uses: (config) => framed(config) ? [] : config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
+  uses: (config) => framed(config) || config.options ? [] : OPTIONS,
   reads: (config) => framed(config) ? [] : ["strike-profiles", "edge-profiles", "gait-profiles"],
   fits: (spec, config, parts) => framed(config) ? parts.of("frame", config.frame).fits(spec, config.frame, parts) : anyBody(),
   strikes: (spec, config, parts) => framed(config) ? parts.of("frame", config.frame).strikes?.(spec, config.frame, parts)

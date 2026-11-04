@@ -268,7 +268,10 @@ for (const { part, mind, place } of STUBS) {
 test("a body a mind's parts cannot drive refuses the mind for what the first of them lacks, at construction too, every legs for what they stand on, and leaves out a skill it cannot use", async () => {
   const reptile = modelSpec("reptile"), soles = "needs a left and a right foot, each with a box sole";
   const option = MINDS.option.config;
-  assert.equal(treeRefusal(reptile, option), `locomotion: ${soles}`, "a blow the body cannot strike with refuses nothing; the legs name what they stand on");
+  // The first part read is its first Option's skill on the ground, which reads the body's position by its soles.
+  const grounded = option.options.findIndex((one) => one.technique);
+  assert.ok(grounded >= 0, "the fixture's mind names a skill on the ground");
+  assert.equal(treeRefusal(reptile, option), `options.${grounded}.technique: ${soles}`, "a blow the body cannot strike with refuses nothing; a skill on the ground names what it stands on");
   assert.deepEqual(unusedParts(reptile, option), option.executors.map((executor) => {
     const limbs = option.actions.find((action) => action.executor === executor.name).effectors.map((effector) => effector.split(".")[0]);
     return `${executor.name}: needs ${limbs[0]}.left or ${limbs[0]}.right to strike with`;
@@ -372,11 +375,12 @@ test("each part a bout runs is the one its config names, and the bout forks, res
   }
   for (const state of first.states.filter((state) => state.preset === "swap-stub")) {
     assert.deepEqual(read(STUB_BLOW, state).guard, STUB_POSTURE, "the executor is made with the configured guard's posture, where its blows return");
-    const ground = state.mind.skills.actions.executors.at(-1);
-    assert.equal(ground.steady.motor.stub, "swap:stub-motor", "the rise's steady is made with the configured motor");
-    const motors = Object.entries(ground.runs).filter(([, technique]) => technique.motor);
-    assert.ok(motors.length > 0, "the fixture's rise has a technique with a motor");
-    for (const [name, technique] of motors) assert.equal(technique.motor.stub, "swap:stub-motor", `its ${name} is made with the configured motor`);
+    // Each ground skill's executor keeps its technique's run (`groundSkills`).
+    const runs = state.mind.skills.actions.executors.flatMap((executor) => executor.run ? [executor.run] : []);
+    assert.equal(runs.find((run) => run.climb)?.motor.stub, "swap:stub-motor", "the rise's steady is made with the configured motor");
+    const motors = runs.filter((run) => run.motor);
+    assert.ok(motors.length > 1, "the fixture's rise has a technique with a motor beside its steady");
+    for (const [i, run] of motors.entries()) assert.equal(run.motor.stub, "swap:stub-motor", `its run ${i} with a motor is made with the configured motor`);
   }
   assert.equal(first.resumed, first.tail, "the bout forked and resumed is the bout");
   const replay = await played({ replay: first.sheets }, false);

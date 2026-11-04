@@ -1,0 +1,63 @@
+import type { BodyView } from "../body.ts";
+import { standReady, tumbling, type GroundReading } from "../control/ground-reading.ts";
+import type { Sight } from "../mind/decider.ts";
+import { braces, climbs, isMode, steadies } from "../recovery/ground/modes.ts";
+import type { OptionRecord } from "./record.ts";
+
+/** A body standing ready this long (`standReady`) with no try under way has risen, s: its rise is over. */
+const READY_HOLD = .1;
+
+/** **The steady's try**, s: how long the steady holds the body on its feet before its try is over, the rise over where it stands, else a try begun afresh. */
+export const STEADY_TRY = 2;
+
+/**
+ * How upright a body on its feet holds its trunk (`GroundReading.upright`, the cosine of its lean):
+ * a squat or a climb holds it above, a body lying on its back with its feet planted below, however
+ * its supports read on a step its trunk does not bear: on its feet means the trunk within 60
+ * degrees of upright.
+ */
+const TRUNK_UP = .5;
+
+/** **On its feet**: read standing or crouched, or its feet bearing it (`GroundReading.onFeet`) while its position is read between, its trunk up (`TRUNK_UP`). */
+export const onFeet = (g: GroundReading): boolean => (g.onFeet || g.position === "standing" || g.position === "crouch") && g.upright >= TRUNK_UP;
+
+/**
+ * **What a body's reader keeps of its rise**, read once a decision, each count a world step a
+ * decision (`hz`): whether its rise runs, from the decision the body is down until it has stood
+ * ready (`standReady`, `READY_HOLD`) with no try under way, an action neither ended nor a mode of
+ * the ground's (`isMode`), the steady not climbing
+ * (`climbs`), or its steady's try is over with the body standing; the seconds it has been braced
+ * tumbling off its feet (`braces`, `tumbling`) since the rise began or a try in `record` last
+ * ended; and the seconds the steady has held it in its try (`steadies`, `STEADY_TRY`).
+ */
+export function riseMemory(hz: number, record: OptionRecord) {
+  const dt = 1 / hz, state = { rising: false, ready: 0, tumbled: 0, steadied: 0, noted: record.state.version };
+  return {
+    state,
+    read(sight: Sight): void {
+      const view = sight.view, g = view.ground;
+      if (state.noted !== record.state.version) { state.noted = record.state.version; state.tumbled = 0; }
+      if (!state.rising && view.down) { state.rising = true; state.ready = 0; state.tumbled = 0; state.steadied = 0; }
+      if (!state.rising) return;
+      let steady = false, climbing = false, trying = false, bracing = false;
+      for (const action of sight.report.actions) {
+        if (steadies(action)) { steady = true; climbing ||= climbs(action); }
+        bracing ||= braces(action);
+        trying ||= !isMode(action) && !action.stage.startsWith("ended:");
+      }
+      state.steadied = steady ? state.steadied + dt : 0;
+      if (state.steadied >= STEADY_TRY) {
+        state.steadied = 0;
+        if (g?.position === "standing" && !view.down) { state.rising = false; return; }
+      }
+      if (bracing && g && !onFeet(g) && tumbling(g)) state.tumbled += dt;
+      state.ready = !trying && standReady(view) ? state.ready + dt : 0;
+      if (state.ready >= READY_HOLD && !climbing) state.rising = false;
+    },
+    /** The seconds until the body is braced: on its feet while its rise runs, what is left of the steady's try; else none. */
+    unbraced(view: BodyView): number { return state.rising && !view.down ? Math.max(0, STEADY_TRY - state.steadied) : 0; },
+  };
+}
+
+/** **A body's rise memory** (`riseMemory`). */
+export type RiseMemory = ReturnType<typeof riseMemory>;

@@ -181,8 +181,11 @@ arbiter releases every action when another mind takes the body.
   the foe's weapon. **Low support** (`support-fold.ts`) folds the stance onto a planted base for low
   blows.
 
-**Stand up** (`src/core/recovery/`). A body down rises by techniques (`TECHNIQUES`), run by the
-ground executor, which holds the whole body and asks no stance. The game's (`STAND_UP`) are edges
+**Stand up** (`src/core/recovery/`). A body down rises by techniques (`TECHNIQUES`): the ways up,
+each with edges (`isWayUp`), and the modes of the ground, with none (brace, land, steady, flatten).
+Each is a ground skill (`groundSkills`, `ground/skills.ts`), an executor holding the whole body and
+asking no stance; a ground action is prepared while its run yields and committed once it does
+not. The game's ways up (`STAND_UP`) are edges
 of a graph of positions (`graph.ts`), each `from` one position `to` another, begun `moving` or
 `still`, handing the body on at the first cut read slow enough (`CUTS`, `HAND_OVER`). The route is
 the least expected time to standing over the edges' measured profiles (`choose`,
@@ -237,9 +240,16 @@ options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Optio
   `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-cut`,
   `strike-sword-thrust`, `strike-stomp`), a strike (`strike`) of each action its executor of that
   kind carries out; what strikes share is `src/core/option/strike.ts`, which the kinds call.
-- **The rise** (`groundOptions`): each technique an option where its entry admits the body as it
-  lies, priced by its edge's expected seconds down; repositioning only from a posture no technique
-  begins from.
+- **The rise** (`RISE_OPTIONS`, `src/core/option/rise.ts`): each way up, reposition and mode of
+  the ground an Option naming its technique (`way-up`, `reposition`, `flattening`, `steadying`,
+  `landing`, `brace-tumbling`, `brace-down`), on offer where its skill admits the body as it lies.
+  A way up is priced by its edge's expected seconds down and the rise on from where it ends
+  (`risePrices`, `Predictions.rise`); a reposition only from a posture no way up before it begins
+  from. Every Option's tries in the bout are kept in one record (`OptionRecord`), each priced by
+  hand (`Prior`) until its tries move it (`recorded`). The reader keeps what the rise needs of
+  them (`riseMemory`: whether it runs, the seconds braced tumbling, the steady's try). A config
+  whose ways up leave no route to standing from the back or from the front is a fault
+  (`standUpFaults`).
 
 **The Option Reptile** is Option Mind over a frame (`FramePart`), the quadruped's
 (`QUADRUPED_FRAME`), with its own layers and options. A new family of bodies is a frame.

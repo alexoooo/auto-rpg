@@ -3,7 +3,7 @@ import { deepFreeze } from "../../state.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import type { GroundReading, Position } from "../../control/ground-reading.ts";
 import { armClearance } from "./clearance.ts";
-import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "./technique.ts";
+import { phaseClock, poseDrive, REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueRun } from "./technique.ts";
 
 /** Wide arms arrest rolling while the legs and trunk relax toward a loaded lie. */
 const FLAT = deepFreeze({ "shoulder.left abduction": 1.3, "shoulder.right abduction": 1.3,
@@ -32,3 +32,6 @@ export function flatten(own: OwnBody, _view: BodyView): TechniqueRun {
     },
   };
 }
+
+/** **Flatten**, a mode of the ground: the body laid flat on the side it lies on (`flatten`), begun on either side. */
+export const FLATTEN = technique("flatten", { label: "Flatten", stage: "game", sides: Object.freeze(["left", "right"] as const), edges: Object.freeze([]), make: flatten });

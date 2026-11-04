@@ -6,10 +6,12 @@ import { GROUND_RISES, labAddress, type GroundRise, type LabAddress } from "./sc
 import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "./ground-mode.ts";
 import { groundPlacement, groundPostures } from "./ground-starts.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
-import type { TechniqueConfig, TechniqueName, TechniquePart } from "../core/recovery/ground/technique.ts";
+import { isWayUp, type TechniqueName, type TechniquePart } from "../core/recovery/ground/technique.ts";
 import { partLookup } from "../entrants/game.ts";
 import { STAND_UP } from "../core/recovery/ground/stand-up.ts";
+import { waysUpIn, withWaysUp } from "../core/option/rise.ts";
 import type { MindConfig } from "../core/mind/config.ts";
+import type { PartConfig } from "../core/parts/parts.ts";
 import { recordHistory } from "./history.ts";
 import { createPlayer } from "./player.ts";
 import { shoveSound } from "./sound-log.ts";
@@ -29,17 +31,17 @@ import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 /** What each way of getting up is called in the menu. */
 const RISES: Readonly<Record<GroundRise, string>> = { mind: "As its mind says", "stand-up": "Stand up, as the game" };
 
-/** A mind that names the techniques it gets up by from the ground, in rank order (`OptionMindConfig.ground`). */
-type Rising = MindConfig & { readonly ground: readonly TechniqueConfig[] };
+/** A mind whose options name the ways up it gets up by from the ground, in rank order (`waysUpIn`). */
+type Rising = MindConfig & { readonly options: readonly PartConfig[] };
 
-/** Whether `mind` names the techniques it gets up by, so the Lab may give it others. */
-const rises = (mind: MindConfig): mind is Rising => Array.isArray((mind as Partial<Rising>).ground);
+/** Whether `mind` names the ways up it gets up by, so the Lab may give it others. */
+const rises = (mind: MindConfig): mind is Rising => Array.isArray((mind as Partial<Rising>).options) && waysUpIn((mind as Rising).options).length > 0;
 
-/** The techniques `rise` names, or `drive`'s alone: the game's Stand up's, or `own`. */
-function techniquesBy(own: readonly TechniqueConfig[], rise: GroundRise, drive: LabAddress["ground"]["drive"]): readonly TechniqueConfig[] {
-  if (drive !== "mind") return [{ kind: drive } as TechniqueConfig];
+/** The ways up `rise` names, or `drive`'s alone: the game's Stand up's, or `own`. */
+function techniquesBy(own: readonly PartConfig[], rise: GroundRise, drive: LabAddress["ground"]["drive"]): readonly PartConfig[] {
+  if (drive !== "mind") return [{ kind: drive }];
   switch (rise) {
-    case "stand-up": return STAND_UP.techniques;
+    case "stand-up": return STAND_UP;
     case "mind": return own;
     default: { const never: never = rise; throw new Error(`unknown rise ${String(never)}`); }
   }
@@ -71,8 +73,8 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
     impulse: { name: "Total help", unit: "N s / N m s" }, totals: { name: "Falls / stood / median / worst" }, status: { name: "Run" } });
   return {
     keys: new Set(),
-    // A mind that names its techniques gets up by those the address chooses; any other, as it says.
-    mind: (chosen, next) => rises(chosen) ? { ...chosen, ground: techniquesBy(chosen.ground, next.ground.rise, next.ground.drive) } : chosen,
+    // A mind that names its ways up gets up by those the address chooses (`withWaysUp`); any other, as it says.
+    mind: (chosen, next) => rises(chosen) ? { ...chosen, options: withWaysUp(chosen.options, techniquesBy(waysUpIn(chosen.options), next.ground.rise, next.ground.drive)) } : chosen,
     placement(spec, next) {
       address = next; shown = null; fault = "";
       try {
@@ -95,10 +97,10 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         when(() => address.ground.start === "shoved", slider("Shove direction", 0, 360, 5, () => groundShove(address).degrees, degrees => change({ degrees }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", slider("Shove impulse, N s", 40, 90, 1, () => groundShove(address).impulse, impulse => change({ impulse }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", action("Draw shove from seed", () => change({ degrees: null, impulse: null }))),
-        // A mind that names no techniques gets up only as it says.
+        // A mind that names no ways up gets up only as it says.
         following(() => `${address.model} ${rises(address.mind)}`, (key) => menu("Gets up by", key.endsWith("true") ? [
           ...GROUND_RISES.map((rise) => ({ value: `rise:${rise}`, name: RISES[rise] })),
-          ...Object.entries(TECHNIQUES as Readonly<Record<string, TechniquePart>>).filter(([, technique]) => technique.fits(loadoutSpec(address), technique.defaults, partLookup) === null).map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))]
+          ...Object.entries(TECHNIQUES as Readonly<Record<string, TechniquePart>>).filter(([, technique]) => isWayUp(technique) && technique.fits(loadoutSpec(address), technique.defaults, partLookup) === null).map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))]
           : [{ value: "rise:mind", name: RISES.mind }],
         () => !rises(address.mind) ? "rise:mind" : address.ground.drive === "mind" ? `rise:${address.ground.rise}` : `alone:${address.ground.drive}`,
         value => value.startsWith("rise:") ? change({ drive: "mind", rise: value.slice(5) as GroundRise }) : change({ drive: value.slice(6) as TechniqueName }))),

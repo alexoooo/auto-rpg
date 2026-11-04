@@ -1,24 +1,17 @@
 import { deepFreeze } from "../../state.ts";
 import { graphWork, reachable } from "./graph.ts";
-import type { TechniqueConfig, TechniquePart } from "./technique.ts";
+import type { TechniqueConfig } from "./technique.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 
-/** Preferred contracts for recovering the feet, in player order. */
-export interface StandUpConfig { readonly kind: "stand-up"; readonly techniques: readonly TechniqueConfig[] }
-
 /**
- * **The game's Stand up**: the edges a body rises by on its toes: the roll onto its front, then down onto hands and
- * knees and the sit-back, or the sit-back from the front, the route each body takes priced by its
- * edges' profiles.
+ * **The game's Stand up**: the ways up a body rises by on its toes, in player order: the roll onto
+ * its front, then down onto hands and knees and the sit-back, or the sit-back from the front, the
+ * route each body takes priced by its edges' profiles.
  */
-export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: [{ kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" }] });
+export const STAND_UP: readonly TechniqueConfig[] = deepFreeze([{ kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" }]);
 
-/** The techniques a stand-up repositions the body by where no route stands it up: onto its back from its front, else onto its front. */
-export const REPOSITION = deepFreeze([{ kind: "roll" }, { kind: "roll-back" }]);
-
-/** The techniques `config` routes through and those it repositions by, by kind, as `parts` finds them. */
-export const techniquesOf = (parts: PartLookup, config: StandUpConfig): Readonly<Record<string, TechniquePart>> =>
-  Object.fromEntries([...config.techniques, ...REPOSITION].map((technique) => [technique.kind, parts.of("technique", technique)]));
+/** The techniques a stand-up repositions the body by where no way up stands it: onto its back from its front, else onto its front. */
+export const REPOSITION: readonly TechniqueConfig[] = deepFreeze([{ kind: "roll" }, { kind: "roll-back" }]);
 
 /** What is wrong with `techniques` as a route up, each a sentence: a technique twice, or no route to standing from the back or the front. */
 export function standUpFaults(techniques: readonly TechniqueConfig[], parts: PartLookup): readonly string[] {

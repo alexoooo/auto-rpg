@@ -17,7 +17,9 @@ import { groundReading } from "../core/control/ground-reading.ts";
 import { MINDS, partLookup } from "../entrants/game.ts";
 import { kitOf } from "../core/mind/kit.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
-import type { TechniqueName, TechniqueRun } from "../core/recovery/ground/technique.ts";
+import { isWayUp, type TechniqueName, type TechniqueRun } from "../core/recovery/ground/technique.ts";
+import { OPTIONS } from "../core/option/kinds.ts";
+import { withWaysUp } from "../core/option/rise.ts";
 import { modelSpec, type HumanoidModel } from "../core/models.ts";
 import { guardPosture } from "../core/skills/guard/guard.ts";
 import type { Side } from "../core/spec/body.ts";
@@ -31,10 +33,10 @@ import { buildStandFall, checkFall, fallStart, strengthSpec, type FallCase, type
 import { cos, sin } from "../core/math/real.ts";
 import { medianOf } from "./stats.ts";
 
-/** The bed's riser: Option Mind (`option`) getting up by `techniques` in rank order, by its own (the game's Stand up's) where none are given. Gameplay presets are untouched. */
+/** The bed's riser: Option Mind (`option`) getting up by the ways up `techniques` in rank order (`withWaysUp`), by its own (the game's Stand up's) where none are given. Gameplay presets are untouched. */
 export function risingMind(techniques?: readonly TechniqueName[] | null): OptionMindConfig {
   const option = MINDS.option!.config as OptionMindConfig;
-  return techniques ? { ...option, ground: techniques.map((kind) => ({ kind })) } : option;
+  return techniques ? { ...option, options: withWaysUp(option.options ?? OPTIONS, techniques.map((kind) => ({ kind }))) } : option;
 }
 
 /** What a technique alone is played with (`kitOf`): Option Mind's guard and motor control. */
@@ -121,7 +123,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
   const model = job.model ?? "workshop-fighter", factor = job.factor ?? 1, cap = Math.min(8, job.cap ?? 8);
   if (!Number.isFinite(factor) || factor < 1 || factor > 1.5) throw new Error("research strength factor stays between 1 and 1.5");
   const technique = job.technique ?? "sit-back";
-  if (!TECHNIQUES[technique]) throw new Error(`unknown technique ${technique}`);
+  if (!TECHNIQUES[technique] || !isWayUp(TECHNIQUES[technique])) throw new Error(`no way up ${technique}`);
   const destination = TECHNIQUES[technique].edges[0]!.to;
   if (!["workshop-fighter", "workshop-rogue", "crypt-skeleton"].includes(model)) throw new Error(`unsupported humanoid technique model ${model}`);
   const spec = strengthSpec(armedWith(humanoidSpec(model as "workshop-fighter"), "right", job.held ?? "empty"), factor);
@@ -153,7 +155,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
         if (!predecessor) control.candidateFrom = into.time;
       },
       end() { if (!control.end) run.end(); },
-      // The techniques run in the motor part, on the body as it is, as the game's ground actions do (`groundExecutor`).
+      // The techniques run in the motor part, on the body as it is, as the game's ground skills do (`groundSkills`).
       step() {},
       move(dt) {
         const senses = view.senses;
@@ -299,7 +301,7 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
   const attempts = new Map<string, { technique: string; side: Side | null; begun: number; done: number; seconds: number }>();
   for (const row of rows) for (const attempt of row.attempts ?? []) {
     const name = (attempt.technique ?? attempt.controller)!;
-    if (name !== "flatten" && !Object.hasOwn(TECHNIQUES, name)) continue;
+    if (name !== "flatten" && !(Object.hasOwn(TECHNIQUES, name) && isWayUp(TECHNIQUES[name as TechniqueName]))) continue;
     const key = `${name}/${attempt.side ?? "unspecified"}`, stats = attempts.get(key) ?? { technique: name, side: attempt.side ?? null, begun: 0, done: 0, seconds: 0 };
     stats.begun++; stats.done += Number(attempt.end === "done"); stats.seconds += attempt.seconds; attempts.set(key, stats);
   }

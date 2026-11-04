@@ -24,6 +24,8 @@ export interface TechniqueRun {
   begin(side: Side): void;
   step(reading: GroundReading, senses: Senses, dt: number): TechniqueEnd | null;
   end(): void;
+  /** Forget what it had under way, as the body's ground skills begin afresh with none carried over (`groundBody`); absent where it keeps nothing past its run. */
+  forget?(): void;
 }
 /**
  * **A technique**: a part of role `technique` that a stand-up routes through (`standUp`): the sides
@@ -39,6 +41,9 @@ export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C
   /** A run of it on the body, driving it with the mind's motor and guard (`kit`). */
   make(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit): TechniqueRun;
 }
+
+/** Whether `part` is a way up: it takes the body between positions (its `edges`), where a mode of the ground holds it (none). */
+export const isWayUp = (part: Pick<TechniquePart, "edges">): boolean => part.edges.length > 0;
 
 /** A reached physical predicate must remain true this long; search settings cannot change it. */
 export const REACHED_SECONDS = .1;

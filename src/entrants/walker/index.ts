@@ -2,6 +2,8 @@ import type { Entrant } from "../../core/parts/entrant.ts";
 import type { MindPreset } from "../../core/mind/controller.ts";
 import type { PartConfig } from "../../core/parts/parts.ts";
 import { OPTION_MIND, type OptionMindConfig } from "../../core/option/mind.ts";
+import { GUARD_OPTION, HOLD_OPTION } from "../../core/option/kinds.ts";
+import { BRACE_OPTION, RISE_OPTIONS } from "../../core/option/rise.ts";
 import { deepFreeze } from "../../core/state.ts";
 
 /** Where it walks to, m on the ground from where it starts: ahead and to its left, so it turns on the way. */
@@ -11,10 +13,10 @@ const PLACE = deepFreeze({ x: 2, z: 6 });
 const WITHIN = .3;
 
 /**
- * Its options: walking to the place by each gait, the rise, and the rest options, with no blow and
+ * Its options: walking to the place by each gait, the rise (`RISE_OPTIONS`), and the rest options, with no blow and
  * nothing that answers a foe.
  */
-const OPTIONS: readonly PartConfig[] = deepFreeze([{ kind: "walk-to-place", ...PLACE, within: WITHIN }, { kind: "rise" }, { kind: "hold-position" }, { kind: "hands-at-guard" }, { kind: "brace" }]);
+const OPTIONS: readonly PartConfig[] = deepFreeze([{ kind: "walk-to-place", ...PLACE, within: WITHIN }, ...RISE_OPTIONS, HOLD_OPTION.defaults, GUARD_OPTION.defaults, BRACE_OPTION.defaults]);
 
 /**
  * The toolkit's Option Mind (`OPTION_MIND`) whose objective is reaching a place (`reach-place`),

@@ -21,7 +21,7 @@ import { groundRefusal } from "../core/control/ground-reading.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import { createSenses } from "../core/mind/senses.ts";
 import { STAND_ORDERS } from "../core/intent/orders.ts";
-import { GROUND } from "../core/recovery/ground/held.ts";
+import { isGroundSkill } from "../core/recovery/ground/skills.ts";
 import type { MindReport } from "../core/mind/report.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -256,13 +256,13 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
 interface GroundAttempt { readonly at: number; readonly seconds: number; readonly controller: string; readonly end: string }
 
 /**
- * **A mind's ground attempts from its report**: each ground action (`GROUND`'s, by its kit) it has
+ * **A mind's ground attempts from its report**: each ground action (`isGroundSkill`, by its kit) it has
  * ended, from its ledger (`MindReport.ended`), and those under way when read, ended `cap`. A mind
  * that runs the ground's actions as its own (Option Mind) is read so; one whose rise is a sub-mind's
  * is read by the ground meter instead. A completed action ends `done`.
  */
 function groundLedger(report: MindReport | null, clock: () => number) {
-  const ground = new Set((report?.kit ?? []).filter((entry) => entry.kind === GROUND).map((entry) => entry.action));
+  const ground = new Set((report?.kit ?? []).filter((entry) => isGroundSkill(entry.kind)).map((entry) => entry.action));
   const kept: GroundAttempt[] = [], begun = new Map<number, number>();
   let seen = 0;
   return {

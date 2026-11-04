@@ -4,9 +4,9 @@
  * role as its own parts (`swap:<kind>`), and presets holding its stubs, every part chosen by its
  * config. It is registered from here by one list line (`kinds.mjs`), as an entrant's folder is.
  */
-import { STAND_UP } from "../../../src/core/recovery/ground/stand-up.ts";
 import { MOVE } from "../../../src/core/skills/locomotion/move-part.ts";
 import { OPTION_MIND } from "../../../src/core/option/mind.ts";
+import { RISE_OPTIONS } from "../../../src/core/option/rise.ts";
 import { QUADRUPED } from "../../../src/core/reptile/config.ts";
 import { QUADRUPED_VALUED } from "../../../src/core/reptile/frame.ts";
 import { QUADRUPED_OPTIONS } from "../../../src/core/reptile/options.ts";
@@ -36,8 +36,8 @@ const OPTION_DEFAULTS = OPTION_PRESETS.option.config;
 /** Option Mind's first aimed action, where the stub aim goes. */
 const AIM_AT = OPTION_DEFAULTS.actions.findIndex((action) => action.aim?.kind === "surface");
 
-/** Where a stub technique goes: after the game's own. */
-const TECHNIQUE_AT = STAND_UP.techniques.length;
+/** Where a stub technique goes: a way up of its own after Option Mind's options (`WAY_UP_OPTION`), so its skill is the last its body makes. */
+const TECHNIQUE_AT = OPTION_DEFAULTS.options.length;
 
 
 /**
@@ -54,13 +54,16 @@ export const STUBS = Object.freeze([
   { part: STUB_MOTOR, mind: "swap-stub", at: "motor", place: (config) => ({ ...config, motor: STUB_MOTOR.defaults }), read: (_mind, body) => body.mind.host.motor },
   { part: STUB_RULE, mind: "swap-stub", at: "locomotion.rules.0", place: (config) => ({ ...config, locomotion: { ...MOVE, rules: [STUB_RULE.defaults], otherwise: "braced" } }), read: (state) => state.skills.legs.legs.walk.rules[0] },
   { part: STUB_LEGS, mind: "swap-stub", at: "locomotion", place: (config) => ({ ...config, locomotion: { ...STUB_LEGS.defaults, walk: config.locomotion } }), read: (state) => state.skills.legs.legs },
-  { part: STUB_TECHNIQUE, mind: "swap-stub", at: `ground.${TECHNIQUE_AT}`, place: (config) => ({ ...config, ground: [...STAND_UP.techniques, STUB_TECHNIQUE.defaults] }),
-    read: (state) => state.skills.actions.executors.at(-1).runs["swap:stub-technique"] },
+  { part: STUB_TECHNIQUE, mind: "swap-stub", at: `options.${TECHNIQUE_AT}.technique`,
+    place: (config) => ({ ...config, options: [...config.options, { kind: "way-up", technique: STUB_TECHNIQUE.defaults }] }),
+    read: (state) => state.skills.actions.executors.at(-1).run },
   { part: STUB_CHOOSER, mind: "swap-option", at: "chooser", place: (config) => ({ ...config, chooser: STUB_CHOOSER.defaults }), read: (state) => state.decider.chooser.counts },
   ...[[STUB_OBJECTIVE, (objective) => objective], [STUB_PERCEPT, (objective) => objective.percept], [STUB_PREDICTION, (objective) => objective.prediction]].map(([part, of]) => (
     { part, mind: "swap-option", at: "chooser.objective", place: (config) => ({ ...config, chooser: { ...config.chooser, objective: STUB_OBJECTIVE.defaults } }),
       read: (state) => of(state.decider.chooser.inner.objective) })),
-  { part: STUB_OPTION, mind: "swap-option", at: "options.0", place: (config) => ({ ...config, options: [STUB_OPTION.defaults] }), read: (state) => state.decider.options.at(-1).counts },
+  // The stub alone beside the rise's options, which a mind needs to get up by (`RISE_OPTIONS`).
+  { part: STUB_OPTION, mind: "swap-option", at: "options.0", place: (config) => ({ ...config, options: [STUB_OPTION.defaults, ...RISE_OPTIONS] }),
+    read: (state) => state.decider.options.find((option) => option.counts).counts },
   { part: STUB_BALANCE, mind: "swap-option", at: "motor.balance", place: (config) => ({ ...config, motor: { ...GAME_MOTOR, balance: STUB_BALANCE.defaults } }),
     read: (_mind, body) => body.mind.host.motor.stance },
   { part: STUB_AIM, mind: "swap-option", at: `actions.${AIM_AT}.aim`,

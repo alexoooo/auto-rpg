@@ -10,9 +10,13 @@ import { writeFile, appendFile } from "node:fs/promises";
 import { loadoutFaults, loadoutKey } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { TECHNIQUES } from "../src/core/recovery/ground/techniques.ts";
+import { isWayUp } from "../src/core/recovery/ground/technique.ts";
 import { partLookup } from "../src/entrants/game.ts";
 import { risingImplementation } from "./rising-provenance.mjs";
 import { risingJobs, risingMind, risingReport } from "../src/evaluation/rising.ts";
+
+/** The techniques a riser may get up by: the ways up (`isWayUp`). */
+const WAYS_UP = Object.keys(TECHNIQUES).filter((kind) => isWayUp(TECHNIQUES[kind]));
 
 const list = (text, allowed, name) => {
   const values = text.split(",");
@@ -46,9 +50,9 @@ export function risingOptions(args) {
         break;
       }
       case "--technique": case "--after":
-        if (!Object.hasOwn(TECHNIQUES, value)) throw new Error(`unknown technique: ${value}`);
+        if (!WAYS_UP.includes(value)) throw new Error(`no way up: ${value}`);
         options[key.slice(2)] = value; break;
-      case "--techniques": options.techniques = list(value, Object.keys(TECHNIQUES), "techniques"); break;
+      case "--techniques": options.techniques = list(value, WAYS_UP, "techniques"); break;
       case "--balance": options.balance = Number(value); if (!Number.isFinite(options.balance) || options.balance < 0) throw new Error(`invalid balance: ${value}`); break;
       case "--workers": options.workers = Number(value); if (!Number.isSafeInteger(options.workers) || options.workers < 1) throw new Error(`invalid workers: ${value}`); break;
       case "--out": options.out = value; break;

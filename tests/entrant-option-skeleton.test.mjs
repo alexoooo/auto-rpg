@@ -13,7 +13,7 @@ test("recovery retains an opportunity cost against a foe with no modelled hand a
       focus: { spec: foe, centre: new Vector3(0, 0.3, 1), segments: new Map(), down: false, time: 0 },
       sight: { view: { head: new Vector3(0, 1.7, 0), stance: { centre: new Vector3() },
         senses: { life: 1 }, time: 0.15 }, report: { ledger: [], actions: [] } },
-      riseFrom: () => ({ seconds, stands, shelter: 0 }) }).predictions.downCostAt("back");
+      rise: () => ({ seconds, stands, shelter: 0 }) }).predictions.downCostAt("back");
   };
   const ordinary = cost(2, 1);
   assert.ok(ordinary > 0, "losing the ability to attack must still make lying down costly");

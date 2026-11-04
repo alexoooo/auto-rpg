@@ -18,7 +18,7 @@ import { gaitsOf } from "../src/core/option/places.ts";
  * or edge that has none is priced by hand in silence. The bodies are each model at its defaults
  * holding each loadout it can; the skills, each preset's armed strikes on a body it fits
  * (`skillDigest`), each of its gaits stopping to throw one (`gaitDigest`), and each technique by
- * its kind and as a preset's ground holds it (`techniqueDigest`).
+ * its kind (`techniqueDigest`).
  */
 test("every measured profile is of a current skill on a current body", () => {
   const bodies = [];
@@ -31,7 +31,6 @@ test("every measured profile is of a current skill on a current body", () => {
   const techniques = Object.entries(allParts()).filter(([, part]) => part.role === "technique").map(([kind]) => techniqueDigest({ kind }));
   for (const preset of Object.values(MINDS)) {
     const config = preset.config, parts = treeLookup(config);
-    techniques.push(...(config.ground ?? []).map((technique) => techniqueDigest(technique)));
     if (!Array.isArray(config.executors) || !Array.isArray(config.actions)) continue;
     for (const { model, spec } of bodies) {
       if (!presetFitsModel(preset, model)) continue;

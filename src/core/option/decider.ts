@@ -3,9 +3,8 @@ import { chooserOf } from "./chooser.ts";
 import { OPTIONS, optionsOf, type OptionKindPart } from "./kinds.ts";
 import { MEASURED_PREDICTIONS, type ProfileTables } from "./predictions-part.ts";
 import { stepSet, type Option, type Situation } from "./option.ts";
-import type { GroundExecutor } from "../recovery/ground/held.ts";
-import type { TechniqueConfig, TechniquePart } from "../recovery/ground/technique.ts";
-import { groundOptions, type Ground } from "./ground.ts";
+import { optionRecord } from "./record.ts";
+import { risePrices } from "./rise.ts";
 import { situationReader } from "./situation.ts";
 import { walker } from "./walk.ts";
 import type { PartConfig } from "../parts/parts.ts";
@@ -38,14 +37,6 @@ export interface Deciding {
   readonly actions: readonly ActionConfig[];
   /** Its legs: the gaits its footwork goes by (`gaitsOf`). */
   readonly locomotion: LocomotionConfig;
-  /** Its techniques for getting up, in rank order. */
-  readonly ground: readonly TechniqueConfig[];
-}
-
-/** What it rises by: the ground executor (`groundExecutor`) of the techniques it was made with, `registry`. */
-export interface Rising {
-  readonly executor: GroundExecutor;
-  readonly registry: Readonly<Record<string, TechniquePart>>;
 }
 
 /**
@@ -62,13 +53,13 @@ function unmetDetail(legs: LegsUnmet, motor: MotorUnmet): EngagementDetail {
 }
 
 /**
- * How each option that reads a profile, the focus's strikes and the rise are priced as it last
- * decided, as an engagement's detail: by their measured profiles, or by hand and why
- * (`Option.priced`, `Pressure.priced`, `Ground.priced`).
+ * How each option that reads a profile and the focus's strikes are priced as it last decided, as
+ * an engagement's detail: by their measured profiles, or by hand and why (`Option.priced`,
+ * `Pressure.priced`).
  */
-function profileDetail(options: readonly Option[], ground: Ground, now: Situation): EngagementDetail {
+function profileDetail(options: readonly Option[], now: Situation): EngagementDetail {
   const own = options.flatMap((option) => option.priced ? [`${option.name}: ${option.priced(now)}`] : []);
-  return { label: "Profiles", value: [...own, `foe: ${now.predictions.pressure.priced}`, `rise: ${ground.priced}`].join("; ") };
+  return { label: "Profiles", value: [...own, `foe: ${now.predictions.pressure.priced}`].join("; ") };
 }
 
 /** No other foe's situation read. */
@@ -103,12 +94,11 @@ function prospect(prospects: Kept[], options: readonly Option[], now: Situation)
  * strike unready) walking where it is worth most, each place worth where it leaves the body and the
  * best option there (the chooser's look past it): each strike's window, ahead and behind the foe
  * (`windowPlaces`), and out of the foe's pressure (`outOfPressure`); and, down,
- * the rise's options (`groundOptions`), which read what happened since the last step before the
- * situation is read (`Ground.see`), count the body down on its feet until their steady braces it
- * (`here`), and price a fall (`downCost`); and the rest options, worth nothing, which
+ * the rise's options (`RISE_OPTIONS`); and the rest options, worth nothing, which
  * take what nothing else is worth more on: hold the position, the hands at their guard, and, down,
  * brace (`hold`, `guard`, `brace`), which the cover outbids on the hand on a blow's side while it
- * closes on the head (`covers`). The set's step is its members'
+ * closes on the head (`covers`). Its options keep one record of their tries (`optionRecord`), and
+ * lying is priced by the routes of those that are ways up (`Option.route`, `risePrices`). The set's step is its members'
  * (`stepSet`); each option that asks the legs keeps its walk out of a fallen body's reach and a
  * solid's clearance (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
  * what its controllers did not carry out as it last decided (`unmetDetail`) and how its options
@@ -116,28 +106,26 @@ function prospect(prospects: Kept[], options: readonly Option[], now: Situation)
  * (`Option.modelled`). Each time its chooser decides afresh it keeps what it expects of each foe it
  * priced (`prospects`, `prospect`): the focus, and each other foe the chooser read.
  */
-export function optionDecider(making: DeciderMaking, hz: number, deciding: Deciding, seed: number, rising: Rising, phase: number, rate: number, delay: number): Decider {
+export function optionDecider(making: DeciderMaking, hz: number, deciding: Deciding, seed: number, phase: number, rate: number, delay: number): Decider {
   const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
-  const ground = groundOptions(spec, hz, delay, rising.executor, deciding.ground, rising.registry, tables.edges);
-  const walk = walker(spec);
+  const walk = walker(spec), record = optionRecord();
   const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS,
-    { spec, hz, rate, delay, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions: deciding.actions, tables, ground });
+    { spec, hz, rate, delay, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions: deciding.actions, tables, record });
   const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap((option) => option.modelled ? [option.modelled] : []), measured: tables.strikes,
-    ordersOf: making.orders, riseFrom: ground.riseFrom, unbraced: ground.unbraced, parts });
+    ordersOf: making.orders, rise: risePrices(options.flatMap((option) => option.route ? [option.route] : []), record), record, parts });
   const chosen = chooserOf(parts, deciding.chooser, options, seed, phase);
-  const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), ground: ground.state, prospects: [] as Kept[] };
+  const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), record: record.state, prospects: [] as Kept[] };
   let last: Sight | null = null, lastNow: Situation | null = null;
   const engagement = {
     get phase() { return chosen.running[0]?.name ?? "hold"; },
     get offers() { return chosen.offers; },
-    get details() { return last && lastNow ? [unmetDetail(last.report.legs, last.view.unmet), profileDetail(options, ground, lastNow)] : []; },
+    get details() { return last && lastNow ? [unmetDetail(last.report.legs, last.view.unmet), profileDetail(options, lastNow)] : []; },
   };
   return {
     name: "option", state, engagement,
     get prospects(): readonly Prospect[] { return state.prospects; },
     decide(seen: Sight, dt: number) {
       last = seen;
-      ground.see(seen);
       const read = reader.read(seen);
       let priced: readonly Situation[] = NONE;
       const { set, at: now, fresh } = chosen.decide(read, () => priced = reader.others());

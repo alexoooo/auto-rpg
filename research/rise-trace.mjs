@@ -2,7 +2,7 @@
  * **Where a whole mind's rise spends its time**: the stand-up target's falls (`risingJobs`, the falls
  * `npm run evaluate -- rising-target` plays, turned by `--offsets`) on the fall bed (`buildFall`),
  * risen by a mind (Option Mind's preset unless `--mind` names a JSON file), each step reading the
- * mind's rise (`groundOptions`' memory) and the ground actions it runs. Node, core world, Rapier,
+ * mind's ground Options' memory (`attempt`, `rise.ts`) and the ground actions it runs (`groundSkills`). Node, core world, Rapier,
  * 120 Hz.
  *
  * For each fall: the time from takeover to verified standing (30 s for a fall not stood), and each
@@ -31,9 +31,12 @@ async function traceFall(job) {
   const tuning = stepUpTuning(job.fall.model), stepUp = stepUpRecipe(tuning).rise.map((one) => one.name), sitBack = stepUpRecipe(tuning, SIT_BACK).rise.map((one) => one.name);
   /** Each staged part's rise stage names from where it begins (`PARTS`, `staged-edges.ts`). */
   const names = { "staged-down": stepUp, "front-sit-back": sitBack, "sit-back": sitBack.slice(sitBack.indexOf("plant")) };
-  /** What ground action `name` is doing, as its run's state reads: its phase, and in a staged rise the stage. */
-  const stageOf = (mind, name, fallback) => {
-    const run = mind?.skills?.actions?.executors?.find((one) => one?.runs)?.runs?.[name];
+  /** The run's state of the ground skill running action `id` (`groundSkills`); none where no ground skill runs it. */
+  const runOf = (mind, id) => mind?.skills?.actions?.executors?.find((one) => one?.live?.id === id)?.run ?? null;
+  /** Where the ground Option asking action `id` began its try (`attempt`); null where none keeps one. */
+  const fromOf = (mind, id) => mind?.decider?.options?.find((one) => one?.id === id && one.from != null)?.from ?? null;
+  /** What ground action `name` is doing, as its run's state `run` reads: its phase, and in a staged rise the stage. */
+  const stageOf = (run, name, fallback) => {
     if (!run) return fallback;
     // A staged part's state: the roll's has no phase of its own and a rise each way over, a part of the rise's is "rise" or "steady".
     const rise = run.rise ?? run.rises?.[run.entry], rising = (run.phase ?? "rise") === "rise";
@@ -57,7 +60,7 @@ async function traceFall(job) {
       built.world.step();
       built.afterStep();
       const mind = built.combatant.minded.state, time = built.world.time;
-      const rise = mind?.decider?.ground?.rise, live = mind?.skills?.actions?.live ?? [];
+      const live = mind?.skills?.actions?.live ?? [];
       // Each idle settling begun: how far each sole stands from its target, m.
       const target = legs?.idle?.target ?? null;
       if (target && target !== idleTarget) {
@@ -70,19 +73,18 @@ async function traceFall(job) {
       // An action gone from the live list ended on the step it went: how, as its run's state says.
       for (const seen of order) if (seen.end === null && !seen.gone && !live.some((action) => action.id === seen.id)) {
         seen.gone = true;
-        const run = mind?.skills?.actions?.executors?.find((one) => one?.runs)?.runs?.[seen.name];
-        seen.end = run?.ended ?? null;
+        seen.end = seen.run?.ended ?? null;
       }
       for (const action of live) {
         let seen = actions.get(action.id);
         if (!seen) {
-          seen = { id: action.id, name: action.action, from: rise?.current?.id === action.id || rise?.current?.name === action.action ? rise.current.from : null,
-            at: time, until: time, stages: [], end: null };
+          seen = { id: action.id, name: action.action, from: fromOf(mind, action.id), run: runOf(mind, action.id), at: time, until: time, stages: [], end: null };
           actions.set(action.id, seen); order.push(seen);
         }
         seen.until = time;
-        if (seen.from === null && rise?.current?.name === action.action) seen.from = rise.current.from;
-        const stage = action.stage.startsWith("ended:") ? action.stage : stageOf(mind, action.action, action.stage);
+        seen.from ??= fromOf(mind, action.id);
+        seen.run ??= runOf(mind, action.id);
+        const stage = action.stage.startsWith("ended:") ? action.stage : stageOf(seen.run, action.action, action.stage);
         // How the body is as a staged rise hands it to the stance's steadying.
         if (stage === "steady" && !seen.handed) {
           const g = built.combatant.body.view.ground;

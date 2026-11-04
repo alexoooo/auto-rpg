@@ -1,5 +1,6 @@
-import { BRACE_OPTION, CLUB_BLOW_OPTION, COVER_OPTION, CUT_OPTION, GUARD_OPTION, HOLD_OPTION, ORDERS_OPTION, PLACE_WALK, PRESSURE_WALK, RISE_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION,
+import { CLUB_BLOW_OPTION, COVER_OPTION, CUT_OPTION, GUARD_OPTION, HOLD_OPTION, ORDERS_OPTION, PLACE_WALK, PRESSURE_WALK, STOMP_OPTION, STRAIGHT_PUNCH_OPTION,
   SWORD_THRUST_OPTION, WINDOWS_WALK } from "./kinds.ts";
+import { BRACE_OPTION, BRACE_TUMBLING_OPTION, FLATTEN_OPTION, LAND_OPTION, REPOSITION_OPTION, STEADY_OPTION, WAY_UP_OPTION } from "./rise.ts";
 
 /**
  * **Every kind of option, by its kind** (`OptionPart`), in the order a picker offers them: a line here
@@ -9,6 +10,7 @@ import { BRACE_OPTION, CLUB_BLOW_OPTION, COVER_OPTION, CUT_OPTION, GUARD_OPTION,
 export const OPTION_KINDS = {
   orders: ORDERS_OPTION, "strike-straight-punch": STRAIGHT_PUNCH_OPTION, "strike-club-blow": CLUB_BLOW_OPTION, "strike-cut": CUT_OPTION, "strike-sword-thrust": SWORD_THRUST_OPTION,
   "strike-stomp": STOMP_OPTION,
-  "walk-into-windows": WINDOWS_WALK, "walk-out-of-pressure": PRESSURE_WALK, "walk-to-place": PLACE_WALK, rise: RISE_OPTION, covers: COVER_OPTION,
-  "hold-position": HOLD_OPTION, "hands-at-guard": GUARD_OPTION, brace: BRACE_OPTION,
+  "walk-into-windows": WINDOWS_WALK, "walk-out-of-pressure": PRESSURE_WALK, "walk-to-place": PLACE_WALK,
+  "brace-tumbling": BRACE_TUMBLING_OPTION, steadying: STEADY_OPTION, "way-up": WAY_UP_OPTION, reposition: REPOSITION_OPTION, flattening: FLATTEN_OPTION, landing: LAND_OPTION,
+  covers: COVER_OPTION, "hold-position": HOLD_OPTION, "hands-at-guard": GUARD_OPTION, "brace-down": BRACE_OPTION,
 };

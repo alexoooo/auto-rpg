@@ -5,6 +5,7 @@ import type { Choice } from "../mind/choice.ts";
 import type { Cues, ModelledStrike, Percepts, Predictions } from "./percepts.ts";
 import type { PartConfig } from "../parts/parts.ts";
 import type { Place } from "./position.ts";
+import type { Route } from "./rise.ts";
 import type { Terms } from "./value.ts";
 
 /**
@@ -67,6 +68,8 @@ export interface Option extends Choice<Situation> {
   window?(now: Situation): Window | null;
   /** The strike its body is modelled by (`ModelledStrike`, `Seen.strikes`), where it is one. */
   readonly modelled?: ModelledStrike;
+  /** The edges it takes the body by on the ground and what it is expected to do from each (`Route`), where it is a way up: what lying is priced by (`risePrices`). */
+  readonly route?: Route;
   /**
    * What running it is expected to bring once the body stands where `place` leaves it (`Place.at`),
    * read at `there`, the situation that place predicts (`placed`): its entry there and its model

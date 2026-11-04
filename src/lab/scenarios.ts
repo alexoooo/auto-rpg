@@ -13,7 +13,7 @@ import type { MindConfig } from "../core/mind/config.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindFaults, mindText, readMind, type Staging } from "../ui/mind-link.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
-import type { TechniqueName } from "../core/recovery/ground/technique.ts";
+import { isWayUp, type TechniqueName } from "../core/recovery/ground/technique.ts";
 import { readAttributes, writeAttributes, legacyAttributes } from "../ui/attribute-link.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { loadoutAttributes, loadoutSpec } from "./loadout.ts";
@@ -220,7 +220,7 @@ export function labAddress(search: string): LabAddress {
   return {
     ground: {
       level: (Object.keys(GROUND_LEVELS) as GroundLevel[]).find(v => v === query.get("groundLevel")) ?? "open",
-      drive: (Object.keys(TECHNIQUES) as TechniqueName[]).find(v => v === query.get("groundDrive")) ?? "mind",
+      drive: (Object.keys(TECHNIQUES) as TechniqueName[]).find(v => v === query.get("groundDrive") && isWayUp(TECHNIQUES[v])) ?? "mind",
       rise: GROUND_RISES.find(v => v === query.get("groundRise")) ?? "mind",
       start: (["shoved", "dropped", "placed", "round"] as const).find(v => v === query.get("groundStart")) ?? "shoved",
       posture: GROUND_POSTURES.find(v => v === query.get("groundPosture")) ?? "back",

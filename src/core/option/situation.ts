@@ -11,14 +11,16 @@ import type { Position } from "../control/ground-reading.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { perceiver, type ModelledStrike, type Seen } from "./percepts.ts";
+import { optionRecord, type OptionRecord } from "./record.ts";
+import { riseMemory } from "./rise-memory.ts";
 
 /**
  * What a situation reader reads with: the body's `spec`, the world's rate `hz`, the fight's `rules`
  * (`BodyHost.rules`), its own strikes (`strikes`, each with its profile, its options' `Option.modelled`) and every striker's
  * (`measured`, `dataOf("strike-profiles")`), its orders read
- * through `ordersOf`, the prices of its ways up from the ground (`riseFrom`), and the seconds until
- * it is braced as its rise reads them (`unbraced`; absent, braced at once), and the lookup its
- * percept and prediction parts are found by (`parts`).
+ * through `ordersOf`, what a rise from each posture is priced at (`rise`; absent, none stands it),
+ * its Options' record of their tries (`record`; absent, none), whose ending a try its rise memory
+ * reads (`riseMemory`), and the lookup its percept and prediction parts are found by (`parts`).
  */
 export interface Reading {
   readonly spec: BodySpec;
@@ -31,8 +33,8 @@ export interface Reading {
   readonly strikes: readonly ModelledStrike[];
   readonly measured: readonly Profile[];
   readonly ordersOf: (sight: Sight) => Orders | null;
-  readonly riseFrom?: (posture: Position) => DownModel | null;
-  readonly unbraced?: (sight: Sight) => number;
+  readonly rise?: (posture: Position) => DownModel | null;
+  readonly record?: OptionRecord;
   readonly parts: PartLookup;
 }
 
@@ -61,13 +63,15 @@ type SeenAt = { -readonly [K in "sight" | "orders" | "focus"]: Seen[K] } & { ste
  * The foes it may focus on are the one its orders name, else every foe in the fight; it reads at
  * the one it kept (`keep`) while that one is in the fight, else the nearest, and at each other one
  * as it is asked (`others`), so a chooser prices its options at every foe and keeps the situation
- * it chose. Its memory is the kept focus's id.
+ * it chose. Its memory is the kept focus's id and what it keeps of the body's rise (`riseMemory`),
+ * read as each step is.
  */
 export function situationReader(reading: Reading) {
-  const { spec, hz, delay, rules, strikes, measured, ordersOf } = reading, rate = reading.rate ?? hz, riseFrom = reading.riseFrom ?? (() => null), unbraced = reading.unbraced ?? (() => 0);
-  const threats = threatReader(), state = { focus: null as string | null }, perceiving = perceiver(reading.parts);
+  const { spec, hz, delay, rules, strikes, measured, ordersOf } = reading, rate = reading.rate ?? hz, rise = reading.rise ?? (() => null);
+  const risen = riseMemory(hz, reading.record ?? optionRecord());
+  const threats = threatReader(), state = { focus: null as string | null, risen: risen.state }, perceiving = perceiver(reading.parts);
   /** What every `Seen` it makes holds of the reader: one prototype, its step's lazy inputs read through `SeenAt.step`. */
-  const base = Object.defineProperties({ spec, hz, rate, delay, rules, strikes, measured, threats, riseFrom, unbraced }, {
+  const base = Object.defineProperties({ spec, hz, rate, delay, rules, strikes, measured, threats, rise, risen }, {
     blow: { get(this: SeenAt): Seen["blow"] {
       const step = this.step;
       return step.blow === UNREAD ? step.blow = threats.blowOf(step.sight.view, READINGS.predicted) : step.blow;
@@ -101,8 +105,9 @@ export function situationReader(reading: Reading) {
   let last: Sensed | null = null, lastFocus: BodySense | null = null;
   return {
     state,
-    /** The situation at the focus (`focusOf`), now. */
+    /** The situation at the focus (`focusOf`), now, its rise memory read first. */
     read(sight: Sight): Situation {
+      risen.read(sight);
       const orders = ordersOf(sight);
       last = { sight, orders, blow: UNREAD, ward: UNREAD }; lastFocus = focusOf(sight, orders);
       return at(last, lastFocus);
