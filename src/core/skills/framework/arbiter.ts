@@ -28,7 +28,7 @@ export interface SkillParts {
   readonly legs: Locomotion;
   readonly guard: GuardSkill;
   /**
-   * What turns the tactics' movement requests into walks and keeps a walk asked clear of what is
+   * What turns the mind's movement requests into walks and keeps a walk asked clear of what is
    * sensed (`navigatorOf`); none, a movement request is refused and a walk goes as asked.
    */
   readonly navigation: Navigator | null;

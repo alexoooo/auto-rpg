@@ -236,7 +236,7 @@ export type StrikeReading = {
   /** The hit points the striker lost in its contacts with the target over the trial, any part on any part. */
   readonly taken: number;
   /**
-   * Where the drill let its action go (`DrillTacticsConfig.letGo`): when it let it go and when the
+   * Where the drill let its action go (`StillCondition.letGo`): when it let it go and when the
    * hand was back at its guard (`BACK`), s (null where it was not by the trial's end), and the hit
    * points the striker lost from the let-go until then; absent where it did not let one go.
    */

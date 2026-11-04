@@ -1,5 +1,5 @@
 import type { Body } from "../body.ts";
-import { aimsState, armedActions, configuredActionEstimates, configuredAims, usableSkills } from "../skills/action-config.ts";
+import { aimsState, armedActions, configuredAims, usableSkills } from "../skills/action-config.ts";
 import { STAND_UP } from "../recovery/ground/stand-up.ts";
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { controller } from "../mind/controller.ts";
@@ -20,7 +20,7 @@ import type { Skills } from "../skills/framework/skills.ts";
 import { deepFreeze } from "../state.ts";
 import { OPTIONS } from "./kinds.ts";
 import { MEASURED_PREDICTIONS } from "./predictions-part.ts";
-import { optionTactics, type TacticsMaking } from "./tactics.ts";
+import { optionDecider, type DeciderMaking } from "./decider.ts";
 
 /**
  * **Option Mind's config**: its chooser, its options (each a part of role `option`, in rank order;
@@ -126,7 +126,7 @@ function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly
 /**
  * **An Option Mind fighter**: its body with no sub-mind (`kitBody`), its skills the toolkit's body
  * layer (`kitSkills`) and the ground executor of its techniques
- * (`groundExecutor`), decided by its tactics (`optionTactics`). Its blows are those its body
+ * (`groundExecutor`), decided by its decider (`optionDecider`). Its blows are those its body
  * throws as armed (`armedActions`).
  */
 function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindWiring) {
@@ -140,9 +140,8 @@ function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindW
   const make = (made: Body) => kitSkills(made, host.clock, parts, config, () => skills?.report.ledger ?? [],
     { executors: [ground.binding], actions: ground.actions }, aims);
   const hz = Math.round(1 / host.clock.dt), every = everyOf(config.rate, hz), rising = { executor: ground, registry };
-  const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions, aims),
-    aims, orders: (sight) => wiring.orders(sight.view.senses), parts };
-  const driven = driveBy(body, optionTactics(making, hz, config, host.seed, rising, host.phase, hz / every, body.delay), make, { every, phase: host.phase, orders: making.orders }, aimsState(aims));
+  const making: DeciderMaking = { spec: host.spec, rules: host.rules, orders: (sight) => wiring.orders(sight.view.senses), parts };
+  const driven = driveBy(body, optionDecider(making, hz, config, host.seed, rising, host.phase, hz / every, body.delay), make, { every, phase: host.phase, orders: making.orders }, aimsState(aims));
   skills = driven.skills;
   return driven;
 }

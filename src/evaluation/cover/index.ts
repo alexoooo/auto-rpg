@@ -1,9 +1,8 @@
 /**
  * **The Cover drill**: does a body standing in guard keep a drill opponent's blows off its head,
  * and stay up? Each rung is a protocol (rung 1, `punched`: punches on a rhythm), its trials laid out by body, what the subject holds, offset and
- * range. The subject is a mind; the drill puts its own tactics in the mind's tactics slot, standing
- * and covering as Option Mind does, so the guard and the covers' choice are read on the mind's body and
- * parts.
+ * range. The subject is a mind, led by a stand Commander, standing and covering as it chooses, so
+ * the guard and the covers' choice are read on the mind's body and parts.
  */
 import { recordingKey } from "../../core/recording.ts";
 import type { Evaluation, Json } from "../evaluation.ts";

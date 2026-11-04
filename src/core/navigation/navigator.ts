@@ -15,7 +15,7 @@ export type NavigationStatus = "stopped" | "moving" | "arrived" | "unreachable" 
 
 /** Navigation reports observed progress separately from the existence of a geometric route. */
 export interface NavigationReport {
-  /** The request the rest of the report is of: the last one asked, which may be a tactic's rather than an order's. */
+  /** The request the rest of the report is of: the last one asked, which may be a mind's rather than an order's. */
   readonly request: MovementRequest | null;
   readonly status: NavigationStatus;
   readonly remaining: number | null;
@@ -43,7 +43,7 @@ export interface NavigationStep {
 
 /**
  * **A navigator**: what turns a movement request into a walk. It owns the geometry and its memory
- * of progress; whoever asks keeps facing and tactical priorities. Its `state` is plain data
+ * of progress; whoever asks keeps facing and its priorities. Its `state` is plain data
  * (`src/core/state.ts`); its `report` reads it.
  */
 export interface Navigator extends Clearance {

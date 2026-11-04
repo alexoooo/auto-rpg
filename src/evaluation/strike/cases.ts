@@ -154,7 +154,7 @@ export type Start = "settled" | "walking";
 
 /**
  * A fight's moments: the strikers' bodies; the foe, Option Mind fighting with empty hands on the
- * Warrior's body; which of the striker's tactics' actions the drill takes the place of, the
+ * Warrior's body; which of the striker's mind's actions the drill takes the place of, the
  * first asked being 1; the marks and the hands; the most speed the striker walks at to bring the foe
  * into its action's window, m/s; how long after the drill has the body it may wait
  * to be admitted, the longest a trial plays (the bout up to its moment included), and how long it

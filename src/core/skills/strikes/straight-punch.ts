@@ -33,7 +33,7 @@ const turnSense = (hand: Side): 1 | -1 => hand === "right" ? -1 : 1;
  * target is struck from in front of that shoulder rather than across the body),
  * the target no more than `reach` of the arm above or below the shoulder, nor more than `above` m
  * above it where given, and with `poised` its stance already quiet (`quietToStrike`), so that it never
- * waits to settle while a foe closes (`punchReadiness`: the tactics bring the body there), and stands for `settle` s with
+ * waits to settle while a foe closes (`punchReadiness`: the mind brings the body there), and stands for `settle` s with
  * both feet bearing (no foot swinging in a step), its fist set on the
  * line from the shoulder to the target `chamber` m from the shoulder (none at 0). Then the hips
  * turn its punching shoulder forward by `hips` rad (the stance's heading, `Claim.steer`), the

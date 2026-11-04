@@ -3,7 +3,7 @@ import { cos, hypot, sin } from "../math/real.ts";
 /** A horizontal world point or direction, m for a point and dimensionless for a direction. */
 export interface GroundPoint { readonly x: number; readonly z: number }
 
-/** A movement objective shared by external orders and a body's own tactics. Null requests a controlled stop. */
+/** A movement objective shared by external orders and a body's own mind. Null requests a controlled stop. */
 export type MovementRequest =
   | { readonly kind: "direct"; readonly direction: GroundPoint }
   /** `by`, the body it is a place by: navigation does not keep off that body where it lies (`fallenSolids`); the points are the way round it. */

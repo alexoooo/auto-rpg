@@ -17,21 +17,15 @@ import type { Sight, Decider } from "../mind/decider.ts";
 import type { MotorUnmet } from "../control/motor.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../skills/framework/skill.ts";
 import type { BodySpec } from "../spec/body.ts";
-import type { Aim } from "../skills/framework/aim-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { Orders } from "../intent/orders.ts";
-import type { ActionEstimates } from "../skills/framework/executor-part.ts";
 import type { Rulebook } from "../rules/rulebook.ts";
 
-/** What Option Mind's tactics are made for: the body, the fight's rules, the actions it may start and their estimates, a person's orders and the parts the tree names. */
-export interface TacticsMaking {
+/** What Option Mind's decider is made for: the body, the fight's rules, a person's orders and the parts the tree names. */
+export interface DeciderMaking {
   readonly spec: BodySpec;
   /** The rules the fight is played by (`BodyHost.rules`), which price a blow. */
   readonly rules: Rulebook;
-  readonly actions: readonly ActionConfig[];
-  readonly estimates: ActionEstimates;
-  /** Each aiming action's aim, by the action's name (`configuredAims`): where its blow would land, as its executor aims it. */
-  readonly aims: ReadonlyMap<string, Aim>;
   readonly orders: (sight: Sight) => Orders | null;
   readonly parts: PartLookup;
 }
@@ -101,7 +95,7 @@ function prospect(prospects: Kept[], strikes: readonly StrikeOption[], now: Situ
 }
 
 /**
- * **Option Mind's tactics**: one policy (`chooserOf`, deciding on the body's `phase`) selecting a set of options by what they claim,
+ * **Option Mind's decider**: one policy (`chooserOf`, deciding on the body's `phase`) selecting a set of options by what they claim,
  * at the foe it is worth most to act on (`Selection.decide`, each foe's situation read by
  * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given),
  * each kind making its options from what the mind gives it (`OptionsGiven`) and building what else it needs:
@@ -122,7 +116,7 @@ function prospect(prospects: Kept[], strikes: readonly StrikeOption[], now: Situ
  * were priced (`profileDetail`). Each time its chooser decides afresh it keeps what it expects of
 each foe it priced (`prospects`, `prospect`): the focus, and each other foe the chooser read.
  */
-export function optionTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising, phase: number, rate: number, delay: number): Decider {
+export function optionDecider(making: DeciderMaking, hz: number, deciding: Deciding, seed: number, rising: Rising, phase: number, rate: number, delay: number): Decider {
   const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
   const ground = groundOptions(spec, hz, delay, rising.executor, deciding.ground, rising.registry, tables.edges);
   const actions = deciding.actions;

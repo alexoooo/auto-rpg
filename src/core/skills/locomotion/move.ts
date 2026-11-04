@@ -78,7 +78,7 @@ const STILL: Reading = Object.freeze({ walking: false, foe: Infinity, destinatio
  * wanted, and the gait changes once it has given the legs back to the stance. Two gaits of one walk
  * change at once, the walk told whether it may run (`MoveGait.runs`). Before the body's first
  * step, and as it is resumed, it walks by the gait it would stand by with nothing near. Its
- * envelope, which tactics plan by, and its arms are the gait's it walks by; it says what each of its
+ * envelope, which minds plan by, and its arms are the gait's it walks by; it says what each of its
  * gaits holds (`envelopeOf`).
  */
 export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], otherwise: number): Locomotion {

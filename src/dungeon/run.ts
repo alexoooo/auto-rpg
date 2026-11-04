@@ -57,7 +57,7 @@ import { GAME, defaultMind } from "../entrants/game.ts";
  * - **The hero** is the Warrior unless the page picks another, **the companions** whom the page names,
  *   **the enemies** the map's encounters; point-only maps supply skeletons. Model defaults
  *   provide each body's mind and equipment.
- * - **The tactics** carry out the orders. Humanoids attack the target's head;
+ * - **The minds** carry out the orders. Humanoids attack the target's head;
  *   a reptile receives the nearest sensed collider surface within its mouth's reach.
  * - **Wounds** are the core's blows (`watchBlows`) under the dungeon's rulebook. A fighter is out
  *   of the fight once its pool has ended, or a fall ends that model's fight (`modelInfo`'s

@@ -4,7 +4,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import type { MovementRequest } from "./movement.ts";
 
 /**
- * **What tactics ask of their body**, each control step: how to move, which way to face, and what
+ * **What a mind asks of its body**, each control step: how to move, which way to face, and what
  * each hand does. It is the vocabulary a person's keys and an AI share (a person never commands
  * muscles), and it names no joint, pose or push: the skills
  * (`src/core/skills/framework/skills.ts`) decide how the body does it, and say how it is going

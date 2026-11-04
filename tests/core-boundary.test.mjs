@@ -430,12 +430,12 @@ test("the core's imports run down its layers and into a package only from what i
   assert.deepEqual(up, [...UP_STACK].sort(), "the imports up the layers are exactly those listed");
   // The control: a skill reaching Option Mind, a Commander reaching into the Option package, and a module in no layer, are found; a registry, and a mind built on the package, are not held to it.
   assert.deepEqual(layerCrossings([
-    ["skills/sly.ts", `import { optionTactics } from "../option/tactics.ts";\nimport type { MindConfig } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
+    ["skills/sly.ts", `import { optionDecider } from "../option/decider.ts";\nimport type { MindConfig } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
     ["nowhere/sly.ts", ""],
     ["mind/kinds.ts", `import { OPTION_MIND } from "../option/mind.ts";\n`],
-    ["command/sly.ts", `import { optionTactics } from "../option/tactics.ts";\n`],
-    ["option/sly.ts", `import { optionTactics } from "./tactics.ts";\n`],
-  ]), { up: ["command/sly.ts -> option/tactics.ts", "skills/sly.ts -> mind/config.ts", "skills/sly.ts -> option/tactics.ts"], unlayered: ["nowhere/sly.ts"] });
+    ["command/sly.ts", `import { optionDecider } from "../option/decider.ts";\n`],
+    ["option/sly.ts", `import { optionDecider } from "./decider.ts";\n`],
+  ]), { up: ["command/sly.ts -> option/decider.ts", "skills/sly.ts -> mind/config.ts", "skills/sly.ts -> option/decider.ts"], unlayered: ["nowhere/sly.ts"] });
 });
 
 /** The game's list of entrants and its catalog: the only modules that import every entrant. */

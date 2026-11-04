@@ -132,7 +132,7 @@ selection:
   (`at`), engagement or decision; `selectSet<S, T>(choices, appraise, deciding, cue, chance)` with
   `others` and the target chosen; `overlaps`, `NOTHING`, `WHOLE` with it. The terms an appraisal
   reports are its user's type (`T`): a body's (`OfferTerms`) for a mind, a team's for a Commander.
-  It reaches no body, skill or tactics module.
+  It reaches no body, skill or mind module.
 - **Option Mind's commit**: `Option` extends `Choice<Situation, OfferTerms>`; its chooser is
   `selectSet` with `eventOf`; `VALUED_CHOOSER` and `RANKED_CHOOSER` unchanged in behaviour.
 - Chance: the valued chooser draws only between offers within its `margin`, none by default, and

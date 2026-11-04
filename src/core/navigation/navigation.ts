@@ -66,7 +66,7 @@ type PlaceSearch = (here: GroundPoint, aim: GroundPoint, solids: readonly SolidS
 /**
  * **A walker**: a navigator (`Navigator`) for a body of `spec` that keeps a route to a place it
  * finds by `search`, and for a range finds the nearest open spot by visibility routes. It owns
- * geometry and progress memory; requesters retain facing and tactical priorities.
+ * geometry and progress memory; requesters retain facing and their priorities.
  */
 export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
   const baseRadius = bodyClearance(spec) + NAV.margin, carriedRadius = heldClearance(spec);

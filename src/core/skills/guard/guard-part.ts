@@ -19,7 +19,7 @@ export interface GuardPart<C extends PartConfig = PartConfig> extends Part<C> {
   make(built: ReadBody, config: C): GuardSkill;
 }
 
-/** **The cover guard**: the arms' posture (`guardPosture`), and a guarding hand's cover of what the tactics name (`guardSkill`). */
+/** **The cover guard**: the arms' posture (`guardPosture`), and a guarding hand's cover of what the mind names (`guardSkill`). */
 interface CoverGuardConfig {
   readonly kind: "cover-guard";
   readonly tuning?: {

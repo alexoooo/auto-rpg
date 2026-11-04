@@ -116,7 +116,7 @@ type TechniqueResult = RisingJob & {
   predecessor?: string | null; predecessorSeconds?: number; balance?: number; assist?: { force: number; moment: number }; error?: string;
 };
 
-/** Eight-second technique cap, followed by an independent two-second standing check on success; no tactic or combat preset takes part. */
+/** Eight-second technique cap, followed by an independent two-second standing check on success; no mind or combat preset takes part. */
 export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
   const model = job.model ?? "workshop-fighter", factor = job.factor ?? 1, cap = Math.min(8, job.cap ?? 8);
   if (!Number.isFinite(factor) || factor < 1 || factor > 1.5) throw new Error("research strength factor stays between 1 and 1.5");

@@ -56,6 +56,6 @@ export interface SkillReport {
   readonly navigation?: NavigationReport;
 }
 
-/** Continuous locomotion and the guard, with no action: a body's skills where its tactics throw nothing. */
+/** Continuous locomotion and the guard, with no action: a body's skills where its mind throws nothing. */
 export const standingSkills = (body: Body): Skills =>
   skillSet(body, { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope, { idleFooting: standingFooting(body.built) }), navigation: null, guard: guardSkill(body.built.spec), executors: [], actions: [] });

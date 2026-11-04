@@ -6,7 +6,7 @@ import type { Ended, TargetRef } from "./framework/action.ts";
 import type { ExecutorBinding } from "./framework/action-instances.ts";
 import type { Aim, AimPart } from "./framework/aim-part.ts";
 import type { ActionConfig, ExecutorEntry } from "./config.ts";
-import { ACTION_KEYS, type ActionEstimates, type ExecutorPart } from "./framework/executor-part.ts";
+import { ACTION_KEYS, type ExecutorPart } from "./framework/executor-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 
 /** How many blows `action` throws: its executor's count (`ExecutorPart.blows`), else one. */
@@ -20,7 +20,7 @@ function aimOf(parts: PartLookup, spec: BodySpec, action: ActionConfig): Aim | n
   return action.aim ? parts.of("aim", action.aim).make(spec, action.aim) : null;
 }
 
-/** **Each aiming action's aim**, by the action's name (`aimOf`): what its executor and its tactics ask where it strikes. */
+/** **Each aiming action's aim**, by the action's name (`aimOf`): what its executor and its mind ask where it strikes. */
 export function configuredAims(parts: PartLookup, spec: BodySpec, actions: readonly ActionConfig[]): ReadonlyMap<string, Aim> {
   return new Map(actions.flatMap((action) => {
     const aim = aimOf(parts, spec, action);
@@ -30,19 +30,6 @@ export function configuredAims(parts: PartLookup, spec: BodySpec, actions: reado
 
 /** What the aims of `aims` hold between steps (`Aim.state`): what a mind hangs on its state. */
 export const aimsState = (aims: ReadonlyMap<string, Aim>): readonly object[] => [...aims.values()].flatMap((aim) => aim.state ? [aim.state] : []);
-
-/** Compile the executors' measured estimates without exposing execution kinds to the selector; each action's aim is `aims`', the body's one (`configuredAims`). */
-export function configuredActionEstimates(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[],
-  aims: ReadonlyMap<string, Aim> = configuredAims(parts, spec, actions)): ActionEstimates {
-  const providers: Record<string, ActionEstimates[string]> = {};
-  for (const action of actions) {
-    const executor = executors.find(entry => entry.name === action.executor), aim = aims.get(action.name);
-    if (!executor || !aim) continue;
-    const provider = parts.of("executor", executor).estimate?.(spec, executor, action, aim, parts.of("aim", action.aim!).unit);
-    if (provider) providers[action.name] = provider;
-  }
-  return providers;
-}
 
 /**
  * **The skills of a kit a body of `spec` can use**: the executors whose part fits it

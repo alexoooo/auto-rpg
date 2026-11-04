@@ -6,10 +6,10 @@ Where the project is going and what is open. What is built is in the
 ## Where the project is going
 
 - **A testbed for AI-controlled bodies, built into a game**: muscle-driven bodies fight in an
-  Arena and a generated Crypt. Every layer advances (framework, motor control, skills, tactics,
+  Arena and a generated Crypt. Every layer advances (framework, motor control, skills, minds,
   command), each depending only on those below it ([the layers](architecture.md#the-layers)).
-- **Skills** in one shape, proved on drills the owner accepts, chosen by tactics from their entry
-  conditions and profiles ([Skills](architecture.md#skills)).
+- **Skills** in one shape, proved on drills the owner accepts, chosen by a mind's Options from their
+  entry conditions and profiles ([Skills](architecture.md#skills)).
 - **The fight is a black box**: at most two minutes, life draining from the first minute; nothing
   else ends or judges a bout.
 - **Real time**: a mind decides within its step from what it holds; search ahead is offline
@@ -110,7 +110,7 @@ Option Mind as its hero.
 - Warrior recovery after two rapid Lab shoves is slow.
 - The foe's phase reads `rising` in bursts only.
 - Nothing in the rules costs effort; fatigue only if a trained mind strikes without pause.
-- Tactics chosen by profile: targets after a guard, spacing, ground choices, obedience.
+- Options chosen by profile: targets after a guard, spacing, ground choices, obedience.
 - The stomp's walk to a place beside a lying body overruns it.
 - A learned mind; sight that is blocked; team bouts in the Arena.
 

@@ -4,9 +4,9 @@
  * 0, `still`: a still target; rung 1, `moving`: a pad carried on a rail; rungs 2 to 4, `stepping`, `guarding`, `punching`: a drill opponent;
  * rung 5, `walk`: one walked to, asked settled or still walking), its trials laid out by body, mark, hand, offset and range. The
  * subject is a mind and one of its actions (`option/straight-punch`), and what its striker holds where
- * it names a loadout (`option/club-blow@buckler,club`, its left hand first); the drill puts its own tactics in
- * the mind's tactics slot, so the skill, its executor's settings and the body's other parts are
- * the mind's.
+ * it names a loadout (`option/club-blow@buckler,club`, its left hand first); a drill Commander
+ * (`DrillCommanderConfig`) orders the action, so the skill, its executor's settings and the body's
+ * other parts are the mind's.
  */
 import type { AttributeOverrides } from "../../core/character-attributes.ts";
 import { MINDS } from "../../entrants/game.ts";

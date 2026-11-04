@@ -12,13 +12,13 @@ import { atan2, cos, hypot, sin } from "../core/math/real.ts";
 
 /**
  * **The lab's locomotion mode**: a human on its own feet going round a `Track`, or from one
- * destination to the next of random `Commands`, guard up, driven by tactics (`trackTactics`,
- * `commandsTactics`), as fast as it is asked and its legs take it. Whatever locomotion skill its
+ * destination to the next of random `Commands`, guard up, driven by a script (`trackScript`,
+ * `commandsScript`), as fast as it is asked and its legs take it. Whatever locomotion skill its
  * mind has carries the walk out.
  *
- * Each control step the tactics find the body on the track (`Track.nearest`, from where it last
- * was) and aim at the track's point ahead of that. On a track walked facing along it, they face
- * the point `AIM_ALONG` ahead and walk forward; the locomotion skill turns the heading toward it no faster
+ * Each control step the script finds the body on the track (`Track.nearest`, from where it last
+ * was) and aims at the track's point ahead of that. On a track walked facing along it, it faces
+ * the point `AIM_ALONG` ahead and walks forward; the locomotion skill turns the heading toward it no faster
  * than the body turns at the pace it walks. On a track walked facing one way (`TrackInfo.facing`,
  * the square), they face that way and walk toward the point `AIM_AHEAD` ahead in the body's own
  * frame: forward, sideways or back.
@@ -40,9 +40,9 @@ import { atan2, cos, hypot, sin } from "../core/math/real.ts";
  * it at a pace it turns at. The locomotion skill's own acceleration takes it from one pace to the
  * other.
  *
- * Sent to a destination, the tactics face it and walk forward, as on a track walked facing along it,
+ * Sent to a destination, the script faces it and walks forward, as on a track walked facing along it,
  * and brake to arrive at `CORNER_PACE`, telling the locomotion how far it has to go (`Intent.destination`);
- * there, they stand as long as the command says.
+ * there, it stands as long as the command says.
  *
  * Wind may blow on it (`wind.ts`), and its feet are metered (`gait-meter.ts`).
  *
@@ -110,18 +110,18 @@ const AIM_AHEAD = 1;
 const AIM_ALONG = 1.25;
 
 /**
- * How hard the tactics slow for a bend or a corner, m/s²: about as hard as the body slows;
+ * How hard the script slows for a bend or a corner, m/s²: about as hard as the body slows;
  * slowed harder, the body comes to a bend going faster than its pace there, and swings wide of it,
  * or carries on past a corner while its walk swings round to the next way.
  */
 const BRAKE = 0.3;
 /**
  * How long the body's speed trails the walk asked, s: slowed for a bend, it goes on at about the
- * speed it had for this long, so the tactics brake for a bend as if it were as much nearer as the body
+ * speed it had for this long, so the script brakes for a bend as if it were as much nearer as the body
  * goes in that time.
  */
 const LEAD = 0.3;
-/** The pace the tactics take a corner at, m/s: the slowest pace the envelopes measure. */
+/** The pace the script takes a corner at, m/s: the slowest pace the envelopes measure. */
 const CORNER_PACE = 0.2;
 
 /** How far ahead of `s` the next corner of `track` is, m (Infinity on a track with none). */
@@ -131,7 +131,7 @@ function toCorner(track: Track, s: number): number {
   return least;
 }
 
-/** How finely the tactics read the track ahead for its bends, m. */
+/** How finely the script reads the track ahead for its bends, m. */
 const LOOK_STEP = 0.05;
 
 /**
@@ -157,28 +157,28 @@ function fastestOf(envelope: StanceEnvelope | null, facing: number | undefined):
   return facing === undefined ? forward.value : Math.max(forward.value, right.value, back.value, left.value);
 }
 
-/** How the track's tactics go round. */
+/** How the track's script goes round. */
 interface TrackOptions {
   /** The fastest pace asked, m/s, in place of the envelope's fastest walk (`fastestOf`). */
   readonly top?: number;
-  /** A gait of their own: a pace, m/s, and a turn, rad/s, they ask no more than. */
+  /** A gait of its own: a pace, m/s, and a turn, rad/s, it asks no more than. */
   readonly pace?: number;
   readonly turn?: number;
-  /** The heading they face throughout, rad (`TrackInfo.facing`); none faces along the track. */
+  /** The heading it faces throughout, rad (`TrackInfo.facing`); none faces along the track. */
   readonly facing?: number;
 }
 
 /**
- * **The track's tactics**: round `track` as fast as the body's walk and turns take it, or as `top`
+ * **The track's script**: round `track` as fast as the body's walk and turns take it, or as `top`
  * asks; given a gait, walking no faster than its `pace` and turning no faster than its `turn` (it
  * asks to face no further round than that from the heading it has).
  */
-interface CourseTactics extends Script {
-  /** What the tactics know of the course at `time`, with the centre of mass at (x, z). */
+interface CourseScript extends Script {
+  /** What the script knows of the course at `time`, with the centre of mass at (x, z). */
   frame(time: number, x: number, z: number): Omit<LocomotionFrame, "speed" | "time" | "heading" | "fallen" | "walking" | "gait" | "wind" | "gusts">;
 }
 
-function trackTactics(track: Track, { top, pace: most, turn, facing }: TrackOptions = {}): CourseTactics {
+function trackScript(track: Track, { top, pace: most, turn, facing }: TrackOptions = {}): CourseScript {
   const turning = turn ?? Infinity;
   let along = 0, travelled = 0, laps = 0, lapFrom = 0, lastLap: number | null = null;
   let pace = 0, bending = false, aim: [number, number] = [0, 0], face = facing ?? 0, move: [number, number] = [0, 0];
@@ -254,12 +254,12 @@ function radiusTo(lag: number, reach: number): number {
 }
 
 /**
- * **The random commands' tactics**: to each of `commands`' destinations in turn, facing it and as
+ * **The random commands' script**: to each of `commands`' destinations in turn, facing it and as
  * fast as the body's walk and turns take it, or as `top` asks, braking to arrive at
- * `CORNER_PACE`; arrived (`ARRIVED`), standing as long as the command says. Their mean speed is
+ * `CORNER_PACE`; arrived (`ARRIVED`), standing as long as the command says. Its mean speed is
  * the straight distance from each place set off from to its destination, over the time spent walking.
  */
-function commandsTactics(commands: Commands, { top }: { readonly top?: number } = {}): CourseTactics {
+function commandsScript(commands: Commands, { top }: { readonly top?: number } = {}): CourseScript {
   let index = 0, reached = 0, lastLeg: number | null = null, legFrom = 0, done = 0, walked = 0, last: number | null = null;
   let pace = 0, bending = false, face = 0, standUntil: number | null = null, from: [number, number] = [0, 0], progress = 0;
   const stand = (): Intent => ({ move: null, face, guard: NO_COVER, actions: [] });
@@ -330,14 +330,14 @@ const isCommands = (course: Track | Commands): course is Commands => "area" in c
  */
 export function startLocomotion(actor: Actor, course: Track | Commands, { top, facing, wind }: LocomotionOptions = {}): LocomotionSession {
   const { body, world } = actor;
-  const tactics = isCommands(course) ? commandsTactics(course, { top }) : trackTactics(course, { top, facing });
-  const { report } = actor.drive(tactics).skills;
+  const script = isCommands(course) ? commandsScript(course, { top }) : trackScript(course, { top, facing });
+  const { report } = actor.drive(script).skills;
   const meter = startGaitMeter(body.built, world);
   const blowing = startWind(body.built, world, wind?.settings ?? { rate: 0, strength: 0 }, wind?.seed ?? 0);
   const frame = (): LocomotionFrame => {
     const s = body.view.stance, time = body.view.time;
     return {
-      ...tactics.frame(time, s.centre.x, s.centre.z), time, heading: report.heading, fallen: body.view.down, walking: report.pace ?? 0,
+      ...script.frame(time, s.centre.x, s.centre.z), time, heading: report.heading, fallen: body.view.down, walking: report.pace ?? 0,
       speed: hypot(s.velocity.x, s.velocity.z), gait: meter.reading(), wind: blowing.state.force, gusts: blowing.state.count,
     };
   };
