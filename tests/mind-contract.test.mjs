@@ -14,7 +14,7 @@ import { SIDES, senseDelayOf } from "../src/arena/duel.ts";
 import { reactionSteps } from "../src/core/rules/rulebook.ts";
 import { presetFitsModel } from "../src/core/mind/controller.ts";
 import { BODY_MODELS } from "../src/core/models.ts";
-import { FIGHT_ENTRY, GAME, treeObeys, CONTROLLERS, MINDS as PRESETS, modelRefusal, unusedParts } from "../src/entrants/game.ts";
+import { FIGHT_ENTRY, GAME, treeFaults, treeObeys, CONTROLLERS, MINDS as PRESETS, modelRefusal, unusedParts } from "../src/entrants/game.ts";
 import { DRILL_OPPONENTS } from "../src/evaluation/drill-opponents.ts";
 import { catalogOf } from "../src/core/parts/catalog.ts";
 import { toolkitLists } from "../src/core/toolkit.ts";
@@ -387,6 +387,25 @@ test("Option Mind's preset fits and is built on every humanoid with every loadou
   assert.deepEqual(refused, []);
   const named = [...left].flatMap(([at, unused]) => unused.filter((line) => !skills.has(line.slice(0, line.indexOf(":")))).map((line) => `${at}: ${line}`));
   assert.deepEqual(named, [], "only the preset's skills are left out");
+});
+
+test("Option Mind's two uses of one skill are two Options, each named for its use; one strike twice is a fault", async () => {
+  const config = PRESETS.option.config, club = config.options.find((one) => one.kind === "strike-club-blow");
+  const high = { kind: "mark", mark: "high" }, middle = { kind: "mark", mark: "middle" };
+  const bonk = { ...club, regions: [high] }, swipe = { ...club, regions: [middle] };
+  const using = (strikes) => ({ ...config, options: config.options.flatMap((one) => one === club ? strikes : [one]) });
+  const spec = modelHolding("workshop-fighter", { left: "empty", right: "club" });
+  assert.deepEqual(treeFaults(using([bonk, swipe])), [], "two uses of one skill are no fault");
+  assert.deepEqual(treeFaults(using([club, club])), ["options: two strikes by club-blow alike in limbs, regions and aim: one Option twice"]);
+  const both = using([bonk, swipe]), stand = await coreStand(spec, { joints: builtAngles(GAME, spec, both), engine: BOUT_ENGINE });
+  try {
+    const minded = createMind(GAME, stand.built, stand.world, both, { name: "two uses", orders: () => null });
+    stand.step(12);
+    assert.deepEqual(minded.report.kit.filter((entry) => entry.kind === "club-blow"), [
+      { action: "club-blow (high)", kind: "club-blow", limbs: ["hand.right"], regions: [high] },
+      { action: "club-blow (middle)", kind: "club-blow", limbs: ["hand.right"], regions: [middle] },
+    ]);
+  } finally { stand.dispose(); }
 });
 
 /** The command's delay a world is made with to show it: more than one step, so its ring is read through. */

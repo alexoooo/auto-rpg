@@ -17,6 +17,7 @@ import { driveBy } from "../mind/decider.ts";
 import { commandedMind } from "../mind/sub-mind.ts";
 import type { Skills } from "../skills/framework/skills.ts";
 import { deepFreeze } from "../state.ts";
+import { recordingKey } from "../recording.ts";
 import { OPTIONS, skillsOf, strikesIn, type StrikeConfig, type WalkConfig } from "./kinds.ts";
 import { MEASURED_PREDICTIONS } from "./predictions-part.ts";
 import { optionDecider, type DeciderMaking } from "./decider.ts";
@@ -110,14 +111,20 @@ function framedFaults(config: FramedOptionMindConfig, parts: PartLookup): readon
 const navigationOf = (option: PartConfig): PartConfig | null => option.kind === "walk" ? (option as WalkConfig).navigation ?? GAME_NAVIGATION : null;
 
 /**
- * What is wrong with `options` together, each a sentence: two strikes by one skill (a skill is one
- * Option's), or two low supports or two navigations among them (a body has one of each).
+ * What is wrong with `options` together, each a sentence: two strikes by one kind of skill set
+ * differently (a body builds one skill of a kind), two alike in skill and use (its limbs, regions
+ * and aim: one Option twice; two uses of one skill are two Options), or two low supports or two
+ * navigations among them (a body has one of each).
  */
 function optionsFaults(options: readonly PartConfig[], parts: PartLookup): readonly string[] {
-  const faults: string[] = [], skills = new Set<string>(), strikes = strikesIn(parts, options);
+  const faults: string[] = [], skills = new Map<string, string>(), uses = new Set<string>(), strikes = strikesIn(parts, options);
   for (const strike of strikes) {
-    if (skills.has(strike.skill.kind)) faults.push(`options: two strikes by ${strike.skill.kind}: a skill is one Option's`);
-    skills.add(strike.skill.kind);
+    const kind = strike.skill.kind, skill = recordingKey(strike.skill), had = skills.get(kind);
+    if (had !== undefined && had !== skill) faults.push(`options: two strikes by ${kind} set differently: a body has one ${kind}`);
+    skills.set(kind, skill);
+    const use = recordingKey([strike.skill, strike.limbs, strike.regions ?? null, strike.aim ?? null]);
+    if (uses.has(use)) faults.push(`options: two strikes by ${kind} alike in limbs, regions and aim: one Option twice`);
+    uses.add(use);
   }
   const one = (what: string, of: (option: PartConfig) => PartConfig | null | undefined): void => {
     const named = new Set(options.flatMap((option) => { const part = of(option); return part ? [JSON.stringify(part)] : []; }));
