@@ -40,7 +40,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   before (`npm run compare`, `--previous`, `npm run match`), kept or dropped with the reason in the
   commit message. A live alternative stays only while an open question uses it.
 - **A claim that a skill works is a drill link**
-  (`?play=ratings&evaluation=strike&subject=<mind>/<action>&version=<version>`), sent after
+  (`?play=ratings&evaluation=strike&subject=<mind>/<skill>&version=<version>`), sent after
   watching its reel, failures first, and saying what was seen.
 - **Only the owner accepts a rung**: an agent writes a drill's `accepted.json` only with what the
   owner said.
