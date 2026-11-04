@@ -154,13 +154,13 @@ const PRIOR = Object.freeze({ lands: .3, seconds: .6, weight: 3 });
 
 /**
  * What a body's own record says of an action of its, or of every action with none named, from its
- * ledger: the share of its committed blows that landed, and how long one ran, s; each with its
- * prior (`PRIOR`), so that the first blows move it and none leaves it the prior.
+ * ledger: the share of its committed blows (actions at a body) that landed, and how long one ran,
+ * s; each with its prior (`PRIOR`), so that the first blows move it and none leaves it the prior.
  */
 export function record(ledger: readonly Ended[], action: string | null): { readonly lands: number; readonly seconds: number } {
   let committed = 0, hits = 0, seconds = 0;
   for (const ended of ledger) {
-    if (action !== null && ended.action !== action || !ended.committed) continue;
+    if (action !== null && ended.action !== action || !ended.committed || ended.target.kind !== "body") continue;
     committed += 1; seconds += ended.ended - ended.began;
     if (landed(ended)) hits += 1;
   }
