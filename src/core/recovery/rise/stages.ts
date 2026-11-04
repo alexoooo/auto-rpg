@@ -545,7 +545,7 @@ const riseStage = (name: string): Stage => RISE.rise.find((stage) => stage.name 
  */
 const KNEEL_DOWN: Lowering = deepFreeze({
   ends: ["shin.left", "shin.right"],
-  footing: { "foot.left": 0.35, "foot.right": -0.45 },
+  footing: { "foot.left": 0.15, "foot.right": -0.35 },
   rests: 0.47,
   recipe: {
     ...RISE,
