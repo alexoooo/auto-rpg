@@ -73,7 +73,10 @@ chooser's is 0.
 Screened small (the Warrior empty-handed against bare), then the match: the count of runs set by
 the decision's cost against the step (8.33 ms at 120 Hz, every body's minds together in a bout),
 the exploration by a few values around the scaled default. Check: `npm run match` of the tree
-against the valued chooser, both as Option Mind; the lying readings; the cost.
+against the valued chooser, both as Option Mind; the lying readings; the cost. Each bout the tree
+loses is read for whether its choice came from a predicted state its prediction got wrong: the
+body's real view read where another posture or place was predicted (a strike's kept site,
+`Stood`), or the foe far from where every prediction holds it.
 
 ### 4. Holding only at the leaf
 
@@ -100,7 +103,13 @@ that name it (the Walker's, at depth 1).
 
 ## Not in it
 
-- A predicted state still reads the body's real view; a strike's site there is the one kept from
-  when the body last stood (`Stood`, `src/core/option/strike.ts`). A view predicted for the body
-  standing at a place is its own work.
-- A learned value at the leaf; a tree kept from one decision to the next.
+Each is its own plan, begun when its sign shows:
+
+- **A predicted view, then a predicted foe.** A predicted state reads the body's real view (a
+  strike's site there is the one kept from when the body last stood, `Stood`,
+  `src/core/option/strike.ts`), and every prediction holds the foe where it is. Its sign: the
+  bouts the tree loses (step 3) recur on choices made from states so mispredicted.
+- **A learned value at the leaf**, fitted to the tree's own values of the states it searched. Its
+  sign: holding only at the leaf loses (step 4), or the decision's cost caps the runs below what
+  reaches a strike from the ground.
+- A tree kept from one decision to the next.
