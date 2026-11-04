@@ -2,7 +2,7 @@
  * **The stand-up's time budget** on the stand-up target (Node stand, core world, Rapier, 120 Hz):
  * what of the target's median is spent before and after the rise. Two readings:
  *
- * - The target's 64 falls under the game's Stand up (`risingJobs`, the falls
+ * - The target's 240 falls under the game's Stand up (`risingJobs`, the falls
  *   `npm run evaluate -- rising-target` plays): each fall's lie when the body is first slow
  *   (centre of mass under 0.5 m/s and trunk spin under 1 rad/s, the brace's own test), when it
  *   first lands and first slows after takeover, the brace's length, and the hand-back: from the end
@@ -24,6 +24,7 @@ const LIES = new Set(["back", "front", "left", "right"]);
 async function targetFall(job) {
   const { risingTrial } = await import("../src/evaluation/rising.ts");
   const { commandsBody } = await import("../src/core/body.ts");
+  const { loadoutKey } = await import("../src/core/items/held.ts");
   const probe = { takeover: null, landed: null, slow: null, lie: null };
   const r = await risingTrial(job, { stop(world, _built, actor) {
     const body = actor.body, g = body.view.ground;
@@ -40,7 +41,7 @@ async function targetFall(job) {
     if (execute === null && entry.mode === "execute") execute = entry.at;
     if (verifiedAt !== null && entry.at <= verifiedAt && entry.phase === "rise" && next && next.phase !== "rise") riseEnd = next.at;
   }
-  return { reading: "fall", model: job.model, held: job.held, degrees: job.degrees, stood: r.stood, verified: r.verified,
+  return { reading: "fall", model: job.model, held: loadoutKey(job.loadout), degrees: job.degrees, stood: r.stood, verified: r.verified,
     lie: probe.lie, landed: probe.landed, slow: probe.slow, brace: execute !== null ? execute - r.takeover : null,
     handBack: verifiedAt !== null && riseEnd !== null ? verifiedAt - riseEnd : null };
 }

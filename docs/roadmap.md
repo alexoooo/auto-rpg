@@ -85,8 +85,8 @@ Option Mind as its hero.
 - Braking: the walk's pace ramp, and the stance envelope measured again at it.
 - The stance asked to stand a lying body diverges; no mind asks it.
 - Running toward 5 m/s on the Warrior, with stops and turns; the club throws the Rogue's run.
-- Stand-up on the [owner's target](reference/rising.md#the-owners-target) on every body within
-  10 s; the Rogue's arms on hands and knees; the Skeleton holding the club.
+- Stand-up on the [owner's target](reference/rising.md#the-owners-target), every body in every
+  loadout; the Rogue's arms on hands and knees; the Skeleton holding the club.
 - Strikes on every body: the punch, then sword, club and buckler; the stomp on the Warrior and
   the Rogue.
 - Holds and equipment: shield and weapon lines, two hands on one item (a closed chain), equipped

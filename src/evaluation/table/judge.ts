@@ -27,7 +27,7 @@ export interface Score { readonly value: number; readonly unit: string; readonly
  */
 const HELD_PACE = 3, PACED = .9, TRAIL = .35, HALT = 1.5;
 
-type Hit = { readonly speed: number | null; readonly foot: { readonly speed: number } | null; readonly held: { readonly value: number } | null };
+type Hit = { readonly speed: number | null; readonly energy: number; readonly closing: number; readonly held: { readonly value: number } | null };
 type Strike = { readonly outcome: string; readonly began: number | null; readonly down: boolean; readonly hit: Hit | null };
 type Fall = { readonly stood: boolean; readonly verified: number | null };
 type Walk = { readonly kind: string; readonly fell: boolean; readonly along: number | null };
@@ -90,12 +90,16 @@ export function verdictOf(judge: MetJudge, rows: readonly TableRow[]): Verdict {
   }
 }
 
-/** What a hit gives the figure `figure` reads (`HitFigure`). */
+/**
+ * What a hit gives the figure `figure` reads (`HitFigure`): a limb's speed over its last run in;
+ * the contact's energy; its closing speed; an edge's far end's speed, as its bar read it (`held`).
+ */
 function figureOf(figure: HitFigure, hit: Hit): number {
   switch (figure) {
-    case "fist": return hit.speed ?? 0;
-    case "foot": return hit.foot?.speed ?? 0;
-    case "energy": case "point": case "edge": return hit.held?.value ?? 0;
+    case "fist": case "foot": return hit.speed ?? 0;
+    case "energy": return hit.energy;
+    case "point": return hit.closing;
+    case "edge": return hit.held?.value ?? 0;
     default: { const never: never = figure; throw new Error(`no hit figure ${String(never)}`); }
   }
 }

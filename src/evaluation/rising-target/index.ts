@@ -1,10 +1,13 @@
 /**
- * **The stand-up target** (`docs/reference/rising.md#the-owners-target`): does a riser stand from the target's 64 falls within its bar?
- * A riser is Option Mind getting up by its techniques (`risingMind`): the game's Stand up's
- * (`STAND_UP`) unless others are named. The summary is the bed's report with the target's gates (`risingReport`).
+ * **The stand-up target** (`docs/reference/rising.md#the-owners-target`): does a riser stand from the target's 240 falls within its bar,
+ * on every body and loadout? A riser is a mind by its preset's or kind's name (`mindSubjects`), or
+ * Option Mind getting up by its techniques (`risingMind`): the game's Stand up's (`STAND_UP`)
+ * unless others are named. The summary is the bed's report with the target's gates (`risingReport`).
  */
 import { TECHNIQUES } from "../../core/recovery/ground/techniques.ts";
 import { isWayUp, type TechniqueName } from "../../core/recovery/ground/technique.ts";
+import { CONTROLLERS, MINDS } from "../../entrants/game.ts";
+import { mindSubjects } from "../locomotion/index.ts";
 import type { Evaluation, Figure, Json, Subject, SubjectChoice, Table } from "../evaluation.ts";
 import { FALL_CAP, type BuiltFall, type FallReading } from "../fall.ts";
 import { risingMind, risingReport, STAND_WITHIN, type RisingRow } from "../rising.ts";
@@ -20,7 +23,7 @@ const WAYS_UP = (Object.keys(TECHNIQUES) as TechniqueName[]).filter((kind) => is
  * The risers named: `game`, the game's Stand up (`STAND_UP`), `stand-up` with every way up, a way up's name
  * for a stand-up with it alone, or a mind given whole; the game's Stand up when none is.
  */
-export function riserSubjects(choice: SubjectChoice): readonly Subject[] {
+function riserSubjects(choice: SubjectChoice): readonly Subject[] {
   return (choice.length > 0 ? choice : ["game"]).map((one) => typeof one !== "string" ? riserSubject(one.id, one.label, one.value)
     : one === "game" ? riserSubject(one, "The game's Stand up", risingMind() as unknown as Json)
     : one === "stand-up" ? riserSubject(one, "Stand up, every technique", risingMind(WAYS_UP) as unknown as Json)
@@ -50,8 +53,9 @@ export function fallSummary<C extends Json>({ subjects, cases }: Table<C, FallRe
     return { subject: subject.id, mode, groups, gates, techniques, claims };
   });
   const lines = reports.flatMap(({ subject, groups, gates, claims }) => [
-    `${subject}:`, "", `| Group | Within ${STAND_WITHIN} s | Within 12 s | Stood | Median, s | No takeover |`, "|---|---|---|---|---|---|",
-    ...[...groups].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map((g) => `| ${g.key} | ${g.within}/${g.all} | ${g.within12}/${g.all} | ${g.stood}/${g.all} | ${g.median?.toFixed(2) ?? "none"} | ${g.noTakeover} |`),
+    `${subject}:`, "", `| Group | Within ${STAND_WITHIN} s | Within 12 s | Stood | Median, s | No takeover |${gates ? " Meets the target |" : ""}`, `|---|---|---|---|---|---|${gates ? "---|" : ""}`,
+    ...[...groups].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map((g) => `| ${g.key} | ${g.within}/${g.all} | ${g.within12}/${g.all} | ${g.stood}/${g.all} | ${g.median?.toFixed(2) ?? "none"} | ${g.noTakeover} |`
+      + (gates ? ` ${g.meets ? "yes" : "no"} |` : "")),
     ...(gates ? ["", `gates: ${Object.entries(gates).map(([gate, met]) => `${gate} ${met ? "met" : "not met"}`).join(", ")}`] : []),
     `meets the owner's target: ${claims.meetsOwnerTarget}`, "",
   ]);
@@ -62,12 +66,14 @@ export const RISING_TARGET: Evaluation<TargetCondition, FallReading, BuiltFall> 
   id: "rising-target",
   title: "The owner's stand-up target",
   group: "skills",
-  question: "Does a riser stand from the owner's 64 falls within the target's bar?",
+  question: "Does a riser stand from the owner's 240 falls, every body in every loadout, within the target's bar?",
   protocols: RISING_TARGET_CASES,
   defaultProtocol: "standard",
   schedule: "all",
   analysis: {},
-  subjects: riserSubjects,
+  /** A mind by its preset's or kind's name (`mindSubjects`), or a stand-up's riser by its name (`riserSubjects`); the game's Stand up where none is named. */
+  subjects: (choice) => choice.flatMap((one) => typeof one === "string" && (Object.hasOwn(MINDS, one) || Object.hasOwn(CONTROLLERS, one)) ? mindSubjects([one], []) : riserSubjects([one]))
+    .concat(choice.length ? [] : riserSubjects([])),
   figures: FALL_FIGURES,
   summary: (table) => fallSummary(table, true),
 };

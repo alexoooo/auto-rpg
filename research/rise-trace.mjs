@@ -12,7 +12,7 @@
  * the failures ended in.
  *
  *   node research/rise-trace.mjs [--model workshop-fighter] [--offsets 0,11.25] [--mind <file.json>]
- *     [--loadout <left>,<right>] [--only <held>/<degrees>,... or, with --loadout, <degrees>,...] [--workers N] [--out <rows.json>] [--falls]
+ *     [--loadout <left>,<right>] [--only <degrees>,...] [--workers N] [--out <rows.json>] [--falls]
  */
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -144,23 +144,19 @@ if (isMainThread) {
   const { MINDS } = await import("../src/entrants/game.ts");
   const mind = values.mind ? JSON.parse(readFileSync(values.mind, "utf8")) : MINDS.option.config;
   const only = values.only ? new Set(values.only.split(",")) : null;
-  const [left, right] = (values.loadout ?? "").split(",");
-  const jobs = values.loadout ? values.offsets.split(",").map(Number).flatMap((offset) => risingJobs({ loadouts: [{ left, right }], models: [values.model], offset }))
-    .filter((job) => !only || only.has(String(job.degrees)))
+  const { loadoutKey } = await import("../src/core/items/held.ts");
+  const jobs = values.offsets.split(",").map(Number).flatMap((offset) => risingJobs({ target: true, offset }))
+    .filter((job) => job.model === values.model && (!values.loadout || loadoutKey(job.loadout) === values.loadout) && (!only || only.has(String(job.degrees))))
     .map(({ model, loadout, seed, start, degrees, balance, grit, gusts }) => ({
-      key: { model, held: values.loadout, degrees }, fall: { model, loadout, seed, start, degrees, balance, grit, gusts, target: false, equipped: true, mind } }))
-    : values.offsets.split(",").map(Number).flatMap((offset) => risingJobs({ target: true, offset })
-    .filter((job) => job.model === values.model && (!only || only.has(`${job.held}/${job.degrees}`)))
-    .map(({ model, held, seed, start, degrees, balance, grit, gusts }) => ({
-      key: { model, held, degrees }, fall: { model, held, seed, start, degrees, balance, grit, gusts, target: true, mind } })));
+      key: { model, loadout: loadoutKey(loadout), degrees }, fall: { model, loadout, seed, start, degrees, balance, grit, gusts, target: true, mind } }));
   const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
   const started = Date.now();
   const rows = (await Promise.all(Array.from({ length: count }, (_, w) => new Promise((resolve, reject) => {
     const worker = new Worker(new URL(import.meta.url), { workerData: jobs.filter((_, i) => i % count === w) });
     worker.once("message", resolve); worker.once("error", reject);
-  })))).flat().sort((a, b) => a.held < b.held ? -1 : a.held > b.held ? 1 : a.degrees - b.degrees);
+  })))).flat().sort((a, b) => a.loadout < b.loadout ? -1 : a.loadout > b.loadout ? 1 : a.degrees - b.degrees);
   console.log(`rise trace: ${jobs.length} falls of ${values.model}, offsets ${values.offsets}; Node, core world, Rapier, 120 Hz; ${((Date.now() - started) / 1000).toFixed(0)} s\n`);
-  if (values.falls) for (const row of rows) console.log(`${row.held} ${row.degrees}: ${row.stood ? row.time.toFixed(2) : "not stood"}; ${row.actions.map((one) =>
+  if (values.falls) for (const row of rows) console.log(`${row.loadout} ${row.degrees}: ${row.stood ? row.time.toFixed(2) : "not stood"}; ${row.actions.map((one) =>
     `${one.name}${one.from ? `(${one.from})` : ""} ${one.at.toFixed(1)}+${one.seconds.toFixed(1)} ${one.end ?? "cut"}${one.end === "done" ? "" : `@${one.stages.at(-1)?.name ?? "?"}`}`).join(" > ")}`);
   if (values.falls) console.log("");
   summary(rows);

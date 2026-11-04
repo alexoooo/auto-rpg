@@ -6,7 +6,7 @@ const WARRIOR = "workshop-fighter", EMPTY = { left: "empty", right: "empty" }, C
 
 /** A strike trial: how it came out, whether it began, its hit (a fist's speed, a held blow's value), and whether the striker fell. */
 const strike = (outcome, { began = 1, speed = null, held = null, down = false } = {}) => ({ condition: { model: WARRIOR },
-  reading: { outcome, began: began ? 1 : null, down, hit: speed === null && held === null ? null : { speed, foot: null, held: held === null ? null : { value: held } } } });
+  reading: { outcome, began: began ? 1 : null, down, hit: speed === null && held === null ? null : { speed, energy: held ?? 0, closing: 0, held: held === null ? null : { value: held } } } });
 
 /**
  * A strike rung's score is the median of its hit's figure over the trials begun, a trial whose

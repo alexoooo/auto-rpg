@@ -5,7 +5,6 @@ import { COVER } from "./cover/index.ts";
 import { GAIT } from "./gait/index.ts";
 import { CRYPT_CLEAR } from "./crypt-clear/index.ts";
 import type { Evaluation } from "./evaluation.ts";
-import { EQUIPPED_RISE } from "./equipped-rise/index.ts";
 import { LOCOMOTION } from "./locomotion/index.ts";
 import { MATCH } from "./match/index.ts";
 import { RISE } from "./rise/index.ts";
@@ -22,7 +21,6 @@ export const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
   tournament: TOURNAMENT as unknown as Evaluation,
   unseen: UNSEEN as unknown as Evaluation,
   "rising-target": RISING_TARGET as unknown as Evaluation,
-  "equipped-rise": EQUIPPED_RISE as unknown as Evaluation,
   court: COURT as unknown as Evaluation,
   crowd: CROWD as unknown as Evaluation,
   "crypt-clear": CRYPT_CLEAR as unknown as Evaluation,

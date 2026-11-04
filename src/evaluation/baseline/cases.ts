@@ -103,13 +103,8 @@ const standUpCases = (): Cases<Json, BaselineReading, BuiltCase> => {
   return {
     arity: 1, play: { "stand-up": inner.play, riser: "the whole mind" }, seconds: inner.seconds, engine: inner.engine!,
     conditions: inner.conditions.filter((one) => one.model === BODY) as unknown as Json[],
-    faults: (value, condition, subject) => {
-      const { held } = condition as TargetCondition;
-      if (!presetFitsModel(subject ?? {}, BODY)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${BODY} is unavailable`];
-      return mindFaults(value as unknown as MindConfig, modelHolding(BODY, { left: "empty", right: held }, subject?.character), { entry: [] });
-    },
-    world: ([value], condition, engine, [character]) => ({ kind: "fall", engine,
-      fall: { ...(condition as TargetCondition), mind: value as unknown as MindConfig, ...(character && Object.keys(character).length > 0 ? { character } : {}) } }),
+    faults: (value, condition, subject) => inner.faults!(value, condition as TargetCondition, subject),
+    world: (values, condition, engine, characters) => inner.world(values, condition as TargetCondition, engine, characters),
     read: (built) => tagged("stand-up", readFall(built as never)),
   };
 };

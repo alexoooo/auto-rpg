@@ -1,16 +1,16 @@
 /**
  * **The rising bed's falls**: the riser's mind (`risingMind`), a fall played as a job (`risingTrial`), a technique
  * played alone (`techniqueTrial`), the bed's jobs (`risingJobs`: everyday starts, the
- * stand-up target's 64 falls, the obstacle levels and equipped falls) and its report with the target's gates
- * (`risingReport`). `research/rising-bed.mjs` runs them on workers; the fall evaluations
- * (`rising-target`, `equipped-rise`) play the same falls through `fall.ts`.
+ * stand-up target's 240 falls and the obstacle levels) and its report with the target's gates
+ * (`risingReport`, `targetGates`). `research/rising-bed.mjs` runs them on workers; the fall
+ * evaluation (`rising-target`) plays the same falls through `fall.ts`.
  */
 import { Vector3 } from "../core/math/vector.ts";
 import { commandedBody } from "../core/mind/host.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { humanoidSpec } from "../core/human/spec.ts";
-import { armedWith, loadoutKey, type Held, type Loadout } from "../core/items/held.ts";
+import { armedWith, loadoutKey, REPRESENTATIVE, type Held } from "../core/items/held.ts";
 import { OPTION_MIND, type OptionMindConfig } from "../core/option/mind.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { groundReading } from "../core/control/ground-reading.ts";
@@ -20,7 +20,7 @@ import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
 import { isWayUp, type TechniqueName, type TechniqueRun } from "../core/recovery/ground/technique.ts";
 import { OPTIONS } from "../core/option/kinds.ts";
 import { withWaysUp } from "../core/option/rise.ts";
-import { modelSpec, type HumanoidModel } from "../core/models.ts";
+import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/models.ts";
 import { guardPosture } from "../core/skills/guard/guard.ts";
 import type { Side } from "../core/spec/body.ts";
 import { deepFreeze } from "../core/state.ts";
@@ -216,7 +216,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
   } finally { body.dispose(); built.dispose(); world.dispose(); }
 }
 
-/** What the bed plays: its starts, bodies, loadouts, seeds and riser, or a fixed suite (`target`, `obstacles`, `loadouts`). */
+/** What the bed plays: its starts, bodies, loadouts, seeds and riser, or a fixed suite (`target`, `obstacles`). */
 interface RisingOptions {
   readonly starts?: readonly FallCase["start"][];
   readonly models?: readonly HumanoidModel[];
@@ -228,10 +228,9 @@ interface RisingOptions {
   readonly balance?: number;
   readonly gusts?: boolean;
   readonly target?: boolean;
-  /** The shoves turned this far, degrees: the target's fresh falls (`FRESH_OFFSET`), or a loadout's. */
+  /** The target's shoves turned this far, degrees: its fresh falls (`FRESH_OFFSET`). */
   readonly offset?: number;
   readonly obstacles?: boolean;
-  readonly loadouts?: readonly Loadout[] | null;
 }
 
 /**
@@ -265,23 +264,19 @@ export function targetGates(falls: readonly { readonly degrees: number; readonly
 }
 
 /**
- * The bed's jobs. The stand-up target: the Warrior and the Rogue, empty-handed and with the club,
- * each shoved sixteen ways, every direction once in each group, turned by `offset` for the fresh
- * falls. Equipped falls (`loadouts`): the
- * target's sixteen shoves on each loadout. Obstacle falls: the target's on every level but the open
- * floor. Everyday starts: eight shoves a seed, a drop, or each installed posture.
+ * The bed's jobs. The stand-up target: every body (`HUMANOID_MODELS`) in every rated loadout
+ * (`REPRESENTATIVE`), each shoved sixteen ways, every direction once in each group, turned by
+ * `offset` for the fresh falls. Obstacle falls: the target's on every level but the open floor.
+ * Everyday starts: eight shoves a seed, a drop, or each installed posture.
  */
 export function risingJobs(options: RisingOptions): (RisingJob & { id: number })[] {
   if (options.obstacles) return (Object.keys(GROUND_LEVELS) as GroundLevel[]).filter(level => level !== "open")
     .flatMap(level => risingJobs({ ...options, target: true, obstacles: false }).map(job => ({ ...job, target: false, obstacle: true, level })))
     .map((job, id) => ({ ...job, id }));
   const jobs: RisingJob[] = [], techniques = options.techniques ? { techniques: options.techniques } : {};
-  if (options.loadouts) {
-    for (const model of options.models!) for (const loadout of options.loadouts) for (let direction = 0; direction < 16; direction++)
-      jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: false, equipped: true, ...techniques });
-  } else if (options.target) {
-    for (const model of ["workshop-fighter", "workshop-rogue"] as const) for (const held of ["empty", "club"] as const) for (let direction = 0; direction < 16; direction++)
-      jobs.push({ model, held, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: true, ...techniques });
+  if (options.target) {
+    for (const model of HUMANOID_MODELS) for (const loadout of REPRESENTATIVE) for (let direction = 0; direction < 16; direction++)
+      jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: true, ...techniques });
   } else for (const model of options.models!) for (const held of options.held!) for (const seed of options.seeds!) for (const start of options.starts!) {
     const common: RisingJob = { model, held, seed, start, balance: options.balance ?? 0, grit: 0, gusts: options.gusts ?? false, target: false, ...techniques,
       ...(options.technique ? { technique: options.technique, after: options.after ?? null } : {}) };
@@ -295,9 +290,9 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
 /**
  * The bed's report: by start, body and loadout, the falls stood (verified on a fixed suite, else
  * handed back), within `STAND_WITHIN` and 12 s, the failure-inclusive median (a fall not stood counts at its
- * cap), and each technique's attempts. On the stand-up target, its gates: every direction once in
- * each group, 15 of 16 within `STAND_WITHIN` in each, 61 of 64 overall, every cardinal direction
- * within it, a median of at most 10 s.
+ * cap), and each technique's attempts. On the stand-up target, its gates: every fall of the
+ * target once, Balance 0 and Grit 0, and each body and loadout's own (`targetGates`), each group
+ * marked with whether it meets them (`meets`).
  */
 export function risingReport(rows: readonly RisingRow[], target = false) {
   if (target && rows.some(row => row.obstacle || row.level && row.level !== "open")) throw new Error("obstacle falls cannot satisfy the open-floor target");
@@ -308,9 +303,12 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
     grouped.get(key)!.push(row);
   }
   // A stand verified is timed so; on a bed that does not verify it, by the hand-back.
-  const time = (row: RisingRow): number | null => row.stood ? row.verified ?? (target || row.obstacle || row.equipped ? null : row.handback ?? null) : null;
+  const time = (row: RisingRow): number | null => row.stood ? row.verified ?? (target || row.obstacle ? null : row.handback ?? null) : null;
   const successful = (row: RisingRow, within = Infinity) => time(row) !== null && time(row)! <= within;
-  const groups = [...grouped].map(([key, cases]) => ({ key, all: cases.length, stood: cases.filter(row => successful(row)).length,
+  // The fresh falls are read against the same gates, their cardinals the directions just past each.
+  const offset = rows.length > 0 && rows.every(row => row.degrees! % 22.5 === FRESH_OFFSET) ? FRESH_OFFSET : 0;
+  const meets = (cases: readonly RisingRow[]): boolean => Object.values(targetGates(cases.map(row => ({ degrees: row.degrees!, time: time(row) })), offset).gates).every(Boolean);
+  const groups = [...grouped].map(([key, cases]) => ({ key, all: cases.length, ...(target ? { meets: meets(cases) } : {}), stood: cases.filter(row => successful(row)).length,
     reached: cases.filter(row => row.reached).length,
     within: cases.filter(row => successful(row, STAND_WITHIN)).length, within12: cases.filter(row => successful(row, 12)).length,
     median: medianOf(cases.map(row => time(row) ?? row.cap ?? 30)), rejected: cases.filter(row => row.status === ("rejected start" as string)).length,
@@ -327,23 +325,17 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
   }
   let gates: Record<string, boolean> | null = null;
   if (target) {
-    // The fresh falls are read against the same gates, their cardinals the directions just past each.
-    const offset = rows.length > 0 && rows.every(row => row.degrees! % 22.5 === FRESH_OFFSET) ? FRESH_OFFSET : 0;
-    const expected = risingJobs({ target: true, offset }).map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
-    const actual = rows.map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
-    const complete = JSON.stringify(actual) === JSON.stringify(expected);
-    gates = { completeUniqueDirections: complete, balanceZero: rows.every(row => row.balance === 0), gritZero: rows.every(row => row.grit === 0),
-      eachGroup15of16: complete && groups.every(group => group.within >= 15),
-      total61of64: complete && rows.filter(row => successful(row, STAND_WITHIN)).length >= 61,
-      allCardinals: complete && rows.filter(row => (row.degrees! - offset) % 90 === 0).every(row => successful(row, STAND_WITHIN)),
-      median10: complete && medianOf(rows.map(row => time(row) ?? 30))! <= 10 };
+    const fallOf = (row: RisingRow) => `${row.model}/${row.loadout ? loadoutKey(row.loadout) : row.held}/${row.degrees}`;
+    const expected = risingJobs({ target: true, offset }).map(fallOf).sort(), actual = rows.map(fallOf).sort();
+    gates = { completeUniqueDirections: JSON.stringify(actual) === JSON.stringify(expected), balanceZero: rows.every(row => row.balance === 0), gritZero: rows.every(row => row.grit === 0),
+      eachGroupMeets: [...grouped.values()].every(meets) };
   }
   const standalone = rows.length > 0 && rows.every(row => row.technique);
-  const obstacles = rows.length > 0 && rows.every(row => row.obstacle), equipped = rows.length > 0 && rows.every(row => row.equipped);
-  return { harness: "Node stand, core World, Rapier, 120 Hz", mode: target ? "owner target" : obstacles ? "obstacle falls" : equipped ? "equipped falls" : standalone ? "standalone technique" : "everyday bed", cap: standalone ? 8 : 30,
+  const obstacles = rows.length > 0 && rows.every(row => row.obstacle);
+  return { harness: "Node stand, core World, Rapier, 120 Hz", mode: target ? "owner target" : obstacles ? "obstacle falls" : standalone ? "standalone technique" : "everyday bed", cap: standalone ? 8 : 30,
     groups, gates, techniques: [...attempts.values()].map(({ seconds, ...stats }) => ({ ...stats, meanSeconds: seconds / stats.begun })),
     claims: { beatsSupportRecovery: "requires comparison with the saved reference on identical cases",
-      meetsOwnerTarget: gates === null ? obstacles ? "not evaluated by the obstacle suite" : equipped ? "not evaluated by the equipped falls" : "not evaluated by the everyday bed" : Object.values(gates).every(Boolean),
+      meetsOwnerTarget: gates === null ? obstacles ? "not evaluated by the obstacle suite" : "not evaluated by the everyday bed" : Object.values(gates).every(Boolean),
       assist: { balances: [...new Set(rows.map(row => row.balance))], grits: [...new Set(rows.map(row => row.grit))], forceImpulse: rows.reduce((sum, row) => sum + (row.assist?.forceImpulse ?? 0), 0),
         momentImpulse: rows.reduce((sum, row) => sum + (row.assist?.momentImpulse ?? 0), 0) } }, rows };
 }

@@ -38,9 +38,9 @@ import { labAddress, type LabAddress } from "../lab/scenarios.ts";
 import type { CaseWorld, Cases, Json, Reader, WorldKind } from "./evaluation.ts";
 
 /**
- * One fall, as plain data: the body (a model with an item in its right hand, or a loadout), the start and its seed, the level, the assists, and the riser's mind in full. `target`,
- * `obstacle` and `equipped` read the stand by its verification (`STAND_CHECK`) and shove by the
- * target's impulse; otherwise by the mind's hand-back. `factor` raises every muscle's peak torques
+ * One fall, as plain data: the body (a model with an item in its right hand, or a loadout), the start and its seed, the level, the assists, and the riser's mind in full. `target`
+ * and `obstacle` read the stand by its verification (`STAND_CHECK`) and shove by the target's
+ * impulse; otherwise by the mind's hand-back. `factor` raises every muscle's peak torques
  * (`strengthSpec`), a research experiment's, never the game's. `cap` is the recovery's, s.
  */
 export interface FallCase {
@@ -62,7 +62,6 @@ export interface FallCase {
   readonly cap?: number;
   readonly target?: boolean;
   readonly obstacle?: boolean;
-  readonly equipped?: boolean;
   readonly mind: MindConfig;
 }
 
@@ -95,9 +94,8 @@ export function strengthSpec(spec: BodySpec, factor: number): BodySpec {
       peakNegative: { ...dof.muscle.peakNegative, value: dof.muscle.peakNegative.value * factor } } })) })) };
 }
 
-/** Throws for a fall the bed does not play: a loadout on the target or one that does not fit, Grit, or the target off the open floor. */
+/** Throws for a fall the bed does not play: a loadout that does not fit, Grit, or the target off the open floor. */
 export function checkFall(fall: Pick<FallCase, "target" | "loadout" | "grit" | "level">): void {
-  if (fall.target && fall.loadout !== undefined) throw new Error("the owner target fixes its loadouts");
   if (fall.loadout !== undefined) {
     const faults = loadoutFaults(fall.loadout);
     if (faults.length) throw new Error(faults.join("; "));
@@ -144,14 +142,14 @@ export interface BuiltFall {
  * **The Lab's stand bed**, the research rising bed's: `fall`'s world on `engine`, from its start
  * (`fallStart`'s, unless given): the body built in its placement, its mind hosted as the Lab hosts
  * it with its balance's assist, and the
- * Stand-up mode started. It ends once the stand is verified or failed (`target`, `obstacle`,
- * `equipped`), else at hand-back or when the run stops; at `FALL_AFTER` s past the cap in any case.
+ * Stand-up mode started. It ends once the stand is verified or failed (`target`, `obstacle`),
+ * else at hand-back or when the run stops; at `FALL_AFTER` s past the cap in any case.
  */
 export async function buildStandFall(fall: FallCase, engine: EngineName, given: { start?: ReturnType<typeof fallStart> } = {}): Promise<BuiltFall> {
   const { start = fallStart(fall) } = given;
   const { spec, placement } = start;
   if ("refused" in placement) throw new Error(placement.refused);
-  const balance = fall.balance ?? 0, verifying = Boolean(fall.target || fall.obstacle || fall.equipped);
+  const balance = fall.balance ?? 0, verifying = Boolean(fall.target || fall.obstacle);
   const world = createWorld(await loadEngine(engine));
   addArenaSolids(world.physics);
   const body = buildBody(spec, world, placement);
@@ -198,7 +196,7 @@ function bedFaults(fall: Pick<FallCase, "start" | "obstacle" | "level">): readon
  * **The fall bed**, every evaluated fall's whatever its mind: `fall`'s body built standing in its
  * mind's posture, facing +z, and enlisted as a fight enlists it (`enlist`), alone, its orders the
  * stand's verification's; at `SHOVED.first` s its middle trunk is shoved (`shoveBody`) by the fall's
- * impulse (unless given: a target's fall and an equipped one by the target's, `targetImpulse`; else the Lab's draw from
+ * impulse (unless given: a target's fall by the target's, `targetImpulse`; else the Lab's draw from
  * its seed) at its degrees from +z, and again the same way while it holds the shove (`SHOVED`). Its
  * rise has taken it over once it is first down by the fight's rule (`PhysicalBody.down`), and its
  * stand is verified as the Lab verifies one (`standCheck`), the body its own at the end. A body not
@@ -223,7 +221,7 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
   check = standCheck({ body, world, takenOver: () => body.down, inCommand: () => true }, cap);
   const defaults = labAddress("?scenario=ground");
   const drawn = groundShove({ seed: fall.seed, ground: { ...defaults.ground, degrees: fall.degrees ?? null, impulse: fall.impulse ?? null } });
-  const degrees = drawn.degrees, impulse = (fall.target || fall.equipped) && fall.impulse == null ? targetImpulse(fighter.built) : drawn.impulse;
+  const degrees = drawn.degrees, impulse = fall.target && fall.impulse == null ? targetImpulse(fighter.built) : drawn.impulse;
   const shoving = shoveBody(body, world, () => 0);
   const wind = startWind(fighter.built, world, fall.gusts ? labGusts(fall.model) : CALM, fall.seed);
   const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;

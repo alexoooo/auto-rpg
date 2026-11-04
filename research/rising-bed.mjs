@@ -1,13 +1,12 @@
 /**
- * Seeded ground starts and the separate, fixed 64-fall target, on Node/Rapier at 120 Hz; with
- * `--loadouts left,right;...`, the target's sixteen shoves of each model on those loadouts instead,
- * which is not the target.
+ * Seeded ground starts and the separate, fixed 240-fall target (every body in every rated loadout),
+ * on Node/Rapier at 120 Hz.
  */
 import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { pathToFileURL } from "node:url";
 import { writeFile, appendFile } from "node:fs/promises";
-import { loadoutFaults, loadoutKey } from "../src/core/items/held.ts";
+import { loadoutKey } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { TECHNIQUES } from "../src/core/recovery/ground/techniques.ts";
 import { isWayUp } from "../src/core/recovery/ground/technique.ts";
@@ -27,7 +26,7 @@ const list = (text, allowed, name) => {
 /** Parse only explicit supported controls; the target's physical protocol cannot be overridden. */
 export function risingOptions(args) {
   const options = { starts: ["shoved", "dropped"], models: [...HUMANOID_MODELS], held: ["empty", "club"], seeds: [1, 2, 3, 4, 5, 6],
-    techniques: null, technique: null, after: null, balance: 0, gusts: false, target: false, obstacles: false, loadouts: null, workers: Math.max(1, availableParallelism() - 2), out: null };
+    techniques: null, technique: null, after: null, balance: 0, gusts: false, target: false, obstacles: false, workers: Math.max(1, availableParallelism() - 2), out: null };
   const specified = new Set();
   for (let i = 0; i < args.length; i++) {
     const key = args[i]; specified.add(key);
@@ -38,11 +37,6 @@ export function risingOptions(args) {
       case "--starts": options.starts = list(value, ["shoved", "dropped", "placed"], "starts"); break;
       case "--models": options.models = list(value, HUMANOID_MODELS, "models"); break;
       case "--held": options.held = list(value, ["empty", "club"], "held"); break;
-      case "--loadouts": {
-        options.loadouts = value.split(";").map((pair) => { const [left, right, ...rest] = pair.split(","); return rest.length ? null : { left, right }; });
-        if (options.loadouts.some((loadout) => loadout === null || loadoutFaults(loadout).length > 0) || new Set(options.loadouts.map(loadoutKey)).size !== options.loadouts.length) throw new Error(`invalid loadouts: ${value}`);
-        break;
-      }
       case "--seeds": {
         const match = /^(\d+)-(\d+)$/.exec(value);
         options.seeds = match ? Array.from({ length: Number(match[2]) - Number(match[1]) + 1 }, (_, k) => Number(match[1]) + k) : value.split(",").map(Number);
@@ -63,9 +57,6 @@ export function risingOptions(args) {
     throw new Error("--target fixes models, loadouts, directions, calm air and Balance 0");
   if (options.obstacles && (options.target || options.technique || ["--starts", "--models", "--held", "--seeds", "--gusts"].some(key => specified.has(key)) || options.balance !== 0))
     throw new Error("--obstacles is separate from --target and fixes models, loadouts, directions, calm air and Balance 0");
-  if (options.loadouts && (options.target || options.obstacles || options.technique || ["--starts", "--held", "--seeds", "--gusts"].some(key => specified.has(key)) || options.balance !== 0))
-    throw new Error("--loadouts plays the target's shoves on other loadouts: it fixes directions, calm air and Balance 0, and is not the target");
-  if (options.loadouts && !specified.has("--models")) options.models = ["workshop-fighter", "workshop-rogue"];
   if (options.after && !options.technique) throw new Error("--after requires --technique");
   if (options.techniques && options.technique) throw new Error("--techniques names the riser's techniques; --technique plays one alone");
   if (options.technique && (options.target || options.balance !== 0 || options.gusts)) throw new Error("standalone techniques use calm Balance 0 eight-second trials, separately from --target");
