@@ -14,11 +14,11 @@ first plays every reading not current and writes it. Node, core world, 120 Hz, e
 late (`COMMAND_DELAY`). Each reading below is its record's, read in that record's harness, and
 links its Ratings page.
 
-83 cells: 2 met, 23 short, 6 not read, 52 no baseline.
+83 cells: 3 met, 22 short, 6 not read, 52 no baseline.
 
 | Skill | Met | Short | Not read | No baseline |
 | --- | ---: | ---: | ---: | ---: |
-| stand-up | 2 | 13 | 0 | 0 |
+| stand-up | 3 | 12 | 0 | 0 |
 | walk | 0 | 0 | 0 | 15 |
 | run | 0 | 10 | 0 | 0 |
 | punch | 0 | 0 | 0 | 9 |
@@ -32,10 +32,9 @@ links its Ratings page.
 
 - **No scored cell has a baseline**: each is kept when the cell's work begins; until then a
   reading shows its score now and its best version's.
-- **Stand-up**: all fifteen body and loadout cells have target readings. The Warrior meets the
-  standard target empty-handed and with the club and buckler; its other loadouts, the Rogue and
-  the Skeleton remain short.
-  Fresh falls confirm each cell before its work is complete.
+- **Stand-up**: every cell has standard and fresh target readings. The Warrior meets both
+  protocols with empty hands and with the club. Its club and buckler loadout meets the standard
+  protocol alone. Its sword loadouts, the Rogue and the Skeleton remain short.
 - **The run**: no cell meets it; no run trial meets its bar on any body and loadout, and the
   Rogue falls in 0 to 22 of its 32 trials, the Warrior in 0 to 5.
 - **The cut is not read**: its walk and fight rungs have no rows under its subject
@@ -46,7 +45,7 @@ links its Ratings page.
 | Body | Loadout | stand-up | walk | run | punch | stomp | club-blow | cut | thrust | buckler-cover |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Warrior | empty,empty | met | no baseline | short | no baseline | no baseline | – | – | – | – |
-| Warrior | empty,club | short | no baseline | short | no baseline | no baseline | no baseline | – | – | – |
+| Warrior | empty,club | met | no baseline | short | no baseline | no baseline | no baseline | – | – | – |
 | Warrior | buckler,club | met | no baseline | short | – | no baseline | no baseline | – | – | no baseline |
 | Warrior | empty,sword | short | no baseline | short | no baseline | no baseline | – | not read | no baseline | – |
 | Warrior | buckler,sword | short | no baseline | short | – | no baseline | – | not read | no baseline | no baseline |
@@ -64,7 +63,7 @@ links its Ratings page.
 ### Warrior
 
 - **empty,empty, stand-up**: met
-  - rising-target/standard option: met, 16 of 16 stood, 16 within 10 s, median 8.4 s (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: met, 16 of 16 stood, 16 within 10 s, median 8.4 s (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **empty,empty, walk**: no baseline
   - locomotion/every option: 1 share not fallen, 0 of 47 fell, walk along 1.01 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
@@ -80,8 +79,8 @@ links its Ratings page.
 - **empty,empty, stomp**: no baseline
   - strike/stomping option/stomp: 4.183 m/s, 11 begun, 11 on the mark, 11 landed, 0 fell, 0 refused, 12 trials (90bdd549 2026-11-03, not the version now: `?play=ratings&evaluation=strike&subject=option%2Fstomp&version=249ee43c1310d34a`)
     - baseline none; best 4.983 m/s (`?play=ratings&evaluation=strike&subject=option%2Fstomp&version=d918ee1d92f0bff7`); the person's 3 m/s
-- **empty,club, stand-up**: short
-  - rising-target/standard option: short, 16 of 16 stood, 8 within 10 s, median 10.1 s; short: within, median (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+- **empty,club, stand-up**: met
+  - rising-target/standard option: met, 16 of 16 stood, 15 within 10 s, median 8.5 s (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **empty,club, walk**: no baseline
   - locomotion/every option: 0.979 share not fallen, 1 of 47 fell, walk along 1.02 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=ad519a8ef9bb565f`)
@@ -105,7 +104,7 @@ links its Ratings page.
   - strike/fight option/club-blow@empty,club: 0 J, 2 begun, 0 on the mark, 0 landed, 0 fell, 6 refused, 16 trials (91983216 2026-11-01, not the version now: `?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=15963d0b5ff800ac`)
     - baseline none; best 0 J (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=15963d0b5ff800ac`); the person's 64.8 J
 - **buckler,club, stand-up**: met
-  - rising-target/standard option: met, 16 of 16 stood, 15 within 10 s, median 7.9 s (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: met, 16 of 16 stood, 15 within 10 s, median 7.9 s (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **buckler,club, walk**: no baseline
   - locomotion/every option: 0.979 share not fallen, 1 of 47 fell, walk along 1.01 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=ad519a8ef9bb565f`)
@@ -127,7 +126,7 @@ links its Ratings page.
   - cover/sword option: 0.75 share of blows met by the buckler first, 27 of 36 blows, 0 fell, 6 trials (75f35fe3 2026-11-03, not the version now: `?play=ratings&evaluation=cover&subject=option&version=1178b3e9fc482fdb`)
     - baseline none; best 0.852 share of blows met by the buckler first (`?play=ratings&evaluation=cover&subject=option&version=1ec440f4da47ee35`)
 - **empty,sword, stand-up**: short
-  - rising-target/standard option: short, 16 of 16 stood, 12 within 10 s, median 8.6 s; short: within (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 16 of 16 stood, 12 within 10 s, median 8.6 s; short: within (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **empty,sword, walk**: no baseline
   - locomotion/every option: 1 share not fallen, 0 of 47 fell, walk along 1.01 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
@@ -158,7 +157,7 @@ links its Ratings page.
   - strike/fight option/sword-thrust@empty,sword: 0 m/s, 2 begun, 0 on the mark, 0 landed, 0 fell, 12 refused, 16 trials (91983216 2026-11-01, not the version now: `?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=602f098146aaee3e`)
     - baseline none; best 0 m/s (`?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=602f098146aaee3e`); the person's 4.6 m/s
 - **buckler,sword, stand-up**: short
-  - rising-target/standard option: short, 15 of 16 stood, 14 within 10 s, median 8.0 s; short: within (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 15 of 16 stood, 14 within 10 s, median 8.0 s; short: within (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **buckler,sword, walk**: no baseline
   - locomotion/every option: 0.979 share not fallen, 1 of 47 fell, walk along 1.02 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=ad519a8ef9bb565f`)
@@ -190,7 +189,7 @@ links its Ratings page.
 ### Rogue
 
 - **empty,empty, stand-up**: short
-  - rising-target/standard option: short, 16 of 16 stood, 9 within 10 s, median 9.6 s; short: within, cardinals (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 16 of 16 stood, 9 within 10 s, median 9.6 s; short: within, cardinals (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **empty,empty, walk**: no baseline
   - locomotion/every option: 1 share not fallen, 0 of 47 fell, walk along 0.98 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
@@ -207,7 +206,7 @@ links its Ratings page.
   - strike/stomping-bodies option/stomp: 6.71 m/s, 9 begun, 9 on the mark, 9 landed, 0 fell, 3 refused, 12 trials (b0f21223 2026-11-03, not the version now: `?play=ratings&evaluation=strike&subject=option%2Fstomp&version=1e9a1173bf3d22a1`)
     - baseline none; best 6.71 m/s (`?play=ratings&evaluation=strike&subject=option%2Fstomp&version=1e9a1173bf3d22a1`); the person's 3 m/s
 - **empty,club, stand-up**: short
-  - rising-target/standard option: short, 11 of 16 stood, 3 within 10 s, median 14.2 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 11 of 16 stood, 3 within 10 s, median 14.2 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **empty,club, walk**: no baseline
   - locomotion/every option: 1 share not fallen, 0 of 47 fell, walk along 0.99 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
@@ -231,7 +230,7 @@ links its Ratings page.
   - strike/fight-bodies option/club-blow@empty,club: 0 J, 0 begun, 0 on the mark, 0 landed, 0 fell, 16 refused, 16 trials (91983216 2026-11-01, not the version now: `?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=f6d7c8d2290ad368`)
     - baseline none; best 0 J (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=f6d7c8d2290ad368`); the person's 64.8 J
 - **buckler,club, stand-up**: short
-  - rising-target/standard option: short, 8 of 16 stood, 2 within 10 s, median 28.2 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 8 of 16 stood, 2 within 10 s, median 28.2 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **buckler,club, walk**: no baseline
   - locomotion/every option: 0.979 share not fallen, 1 of 47 fell, walk along 0.98 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=ad519a8ef9bb565f`)
@@ -253,7 +252,7 @@ links its Ratings page.
   - cover/sword option: 0.789 share of blows met by the buckler first, 15 of 19 blows, 0 fell, 6 trials (75f35fe3 2026-11-03, not the version now: `?play=ratings&evaluation=cover&subject=option&version=1178b3e9fc482fdb`)
     - baseline none; best 0.789 share of blows met by the buckler first (`?play=ratings&evaluation=cover&subject=option&version=1178b3e9fc482fdb`)
 - **empty,sword, stand-up**: short
-  - rising-target/standard option: short, 16 of 16 stood, 5 within 10 s, median 10.9 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 16 of 16 stood, 5 within 10 s, median 10.9 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **empty,sword, walk**: no baseline
   - locomotion/every option: 1 share not fallen, 0 of 47 fell, walk along 0.99 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
@@ -284,7 +283,7 @@ links its Ratings page.
   - strike/fight-bodies option/sword-thrust@empty,sword: 0 m/s, 0 begun, 0 on the mark, 0 landed, 0 fell, 12 refused, 16 trials (91983216 2026-11-01, not the version now: `?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=0ab5d39b17d82bb9`)
     - baseline none; best 0 m/s (`?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=0ab5d39b17d82bb9`); the person's 4.6 m/s
 - **buckler,sword, stand-up**: short
-  - rising-target/standard option: short, 14 of 16 stood, 3 within 10 s, median 13.0 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 14 of 16 stood, 3 within 10 s, median 13.0 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **buckler,sword, walk**: no baseline
   - locomotion/every option: 0.979 share not fallen, 1 of 47 fell, walk along 0.99 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=ad519a8ef9bb565f`)
@@ -316,7 +315,7 @@ links its Ratings page.
 ### Skeleton
 
 - **empty,empty, stand-up**: short
-  - rising-target/standard option: short, 16 of 16 stood, 4 within 10 s, median 12.5 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 16 of 16 stood, 4 within 10 s, median 12.5 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **empty,empty, walk**: no baseline
   - locomotion/every option: 0.979 share not fallen, 1 of 47 fell, walk along 1.00 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 0.979 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
@@ -328,7 +327,7 @@ links its Ratings page.
   - strike/fight-bodies option/straight-punch: 0 m/s, 0 begun, 0 on the mark, 0 landed, 0 fell, 0 refused, 16 trials (b43f4799 2026-11-02, not the version now: `?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d17b198620e27fa5`)
     - baseline none; best 0 m/s (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d17b198620e27fa5`); the person's 6.8 m/s rear hand, 5.3 m/s lead
 - **empty,club, stand-up**: short
-  - rising-target/standard option: short, 0 of 16 stood, 0 within 10 s, median 30.0 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 0 of 16 stood, 0 within 10 s, median 30.0 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **empty,club, walk**: no baseline
   - locomotion/every option: 0.979 share not fallen, 1 of 47 fell, walk along 1.17 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 0.979 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
@@ -347,7 +346,7 @@ links its Ratings page.
   - strike/fight-bodies option/club-blow@empty,club: 0 J, 0 begun, 0 on the mark, 0 landed, 0 fell, 0 refused, 16 trials (91983216 2026-11-01, not the version now: `?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=f6d7c8d2290ad368`)
     - baseline none; best 0 J (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=f6d7c8d2290ad368`); the person's 64.8 J
 - **buckler,club, stand-up**: short
-  - rising-target/standard option: short, 0 of 16 stood, 0 within 10 s, median 30.0 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 0 of 16 stood, 0 within 10 s, median 30.0 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **buckler,club, walk**: no baseline
   - locomotion/every option: 0.979 share not fallen, 1 of 47 fell, walk along 1.18 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=ad519a8ef9bb565f`)
@@ -364,7 +363,7 @@ links its Ratings page.
   - cover/sword option: 0.64 share of blows met by the buckler first, 16 of 25 blows, 1 fell, 6 trials (75f35fe3 2026-11-03, not the version now: `?play=ratings&evaluation=cover&subject=option&version=1178b3e9fc482fdb`)
     - baseline none; best 0.778 share of blows met by the buckler first (`?play=ratings&evaluation=cover&subject=option&version=5d1465a64b05da7c`)
 - **empty,sword, stand-up**: short
-  - rising-target/standard option: short, 5 of 16 stood, 0 within 10 s, median 30.0 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 5 of 16 stood, 0 within 10 s, median 30.0 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **empty,sword, walk**: no baseline
   - locomotion/every option: 0.936 share not fallen, 3 of 47 fell, walk along 1.15 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 0.979 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=ad519a8ef9bb565f`)
@@ -390,7 +389,7 @@ links its Ratings page.
   - strike/fight-bodies option/sword-thrust@empty,sword: 0 m/s, 0 begun, 0 on the mark, 0 landed, 0 fell, 0 refused, 16 trials (91983216 2026-11-01, not the version now: `?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=0ab5d39b17d82bb9`)
     - baseline none; best 0 m/s (`?play=ratings&evaluation=strike&subject=option%2Fsword-thrust%40empty%2Csword&version=0ab5d39b17d82bb9`); the person's 4.6 m/s
 - **buckler,sword, stand-up**: short
-  - rising-target/standard option: short, 5 of 16 stood, 1 within 10 s, median 30.0 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=80d3585566cdf3a3`)
+  - rising-target/standard option: short, 5 of 16 stood, 1 within 10 s, median 30.0 s; short: within, cardinals, median (`?play=ratings&evaluation=rising-target&subject=option&version=28559220b5e018b1`)
 - **buckler,sword, walk**: no baseline
   - locomotion/every option: 1 share not fallen, 0 of 47 fell, walk along 1.21 of the pace asked (median) (25d720b9 2026-11-03, not the version now: `?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
     - baseline none; best 1 share not fallen (`?play=ratings&evaluation=locomotion&subject=option&version=0908391abf4aaaab`)
