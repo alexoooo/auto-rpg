@@ -6,7 +6,7 @@ import { NOTHING_SENSED, type Senses } from "../mind/senses.ts";
 import type { HostMind } from "../mind/sub-mind.ts";
 import { centreReading } from "../observation.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
-import { groundReading, groundRefusal } from "./ground-reading.ts";
+import { groundReading } from "./ground-reading.ts";
 import { fistOn, type Side } from "../spec/body.ts";
 import { dot } from "../spec/vec.ts";
 import { effectorFeedback } from "./effector-feedback.ts";
@@ -45,10 +45,10 @@ export interface CommandLayers extends HostMind {
  * given), the view, and the effectors' touch where `options` asks for it (`LayerOptions.feedback`),
  * labelled by the body's own contact labels (`OwnBody.contactIdentity`). They read the body as its
  * spec has it: a fist for each hand with knuckles (`fistOn`), the head where another body aims
- * high (`BodySpec.marks`), and how it lies on the ground where a ground reading reads it
- * (`groundRefusal`); what their motor cannot drive, it refuses as it is made (the stance a body
- * without soles). Their touch is read after each completed physics interval
- * (`OwnBody.afterPhysics`), before any observer added after them.
+ * high (`BodySpec.marks`), and what bears it on the ground (`groundReading`); what their motor
+ * cannot drive, it refuses as it is made (the stance a body without soles). Their touch is read
+ * after each completed physics interval (`OwnBody.afterPhysics`), before any observer added after
+ * them.
  */
 export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock): CommandLayers {
   const { servoSeconds, stance, feedback: feedbackEnabled, contacts, motor: makeMotor } = options;
@@ -61,7 +61,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   const head = centreReading(built, own.spec.marks.high);
   const angles: Record<string, number> = {};
   const upright = uprightness(built);
-  const ground = groundRefusal(own.spec) === null ? groundReading(built, clock.dt) : null;
+  const ground = groundReading(built, clock.dt);
   const goals: Record<string, EffectorGoal | null> = Object.fromEntries(motor.effectors.map(e => [e.segment, null]));
   const effectors = Object.fromEntries(motor.effectors.map(e => [e.segment, {
     points: Object.fromEntries(Object.keys(e.points).map(name => [name, new Vector3()])), rotation: new Quaternion(),
@@ -78,7 +78,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     down: false,
     /** The height the last command held the body low at with no stance (`BodyCommand.held`), m, or null. */
     held: null as number | null,
-    ground: ground?.state ?? null,
+    ground: ground.state,
     /** Whether the layers are released (`HostMind.release`): another has the body, and the ground is read whatever the stance. */
     released: false,
     groundActive: false,
@@ -107,7 +107,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     unmet: motor.unmet,
     standing: standingHeight(built),
     get down() { return state.down; },
-    get ground() { return state.groundActive && ground ? ground.state.reading : null; },
+    get ground() { return state.groundActive ? ground.state.reading : null; },
     get resumed() { return state.resumed; },
     reading,
   };
@@ -168,10 +168,8 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     const standing = motor.standing;
     state.down = upright.down(standing ? standing.height : state.held ?? undefined, standing?.pose !== undefined);
     state.groundActive = state.down || state.released || state.groundActive && standing === null;
-    if (ground) {
-      if (!state.groundActive) ground.reset();
-      else ground.read();
-    }
+    if (!state.groundActive) ground.reset();
+    else ground.read();
   };
   const look = (senses: Senses): void => {
     // At a delay the motor part read the body before the look.

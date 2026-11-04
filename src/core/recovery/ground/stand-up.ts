@@ -1,6 +1,6 @@
 import { deepFreeze } from "../../state.ts";
-import { graphWork, reachable } from "./graph.ts";
-import type { TechniqueConfig } from "./technique.ts";
+import type { Position } from "../../control/ground-reading.ts";
+import type { TechniqueConfig, TechniquePart } from "./technique.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 
 /**
@@ -13,13 +13,25 @@ export const STAND_UP: readonly TechniqueConfig[] = deepFreeze([{ kind: "staged-
 /** The techniques a stand-up repositions the body by where no way up stands it: onto its back from its front, else onto its front. */
 export const REPOSITION: readonly TechniqueConfig[] = deepFreeze([{ kind: "roll" }, { kind: "roll-back" }]);
 
+/**
+ * Whether the edges of `ways` (`TechniquePart.edges`), each begun on a side it has, take a body at
+ * `from` to standing, whatever their entries will read of it.
+ */
+function reachable(ways: readonly Pick<TechniquePart, "sides" | "edges">[], from: Position): boolean {
+  const seen = new Set<Position>([from]), open = [from];
+  for (let at = open.pop(); at !== undefined; at = open.pop()) {
+    if (at === "standing") return true;
+    for (const way of ways) {
+      if (way.sides.length > 0) for (const edge of way.edges) if (edge.from === at && !seen.has(edge.to)) { seen.add(edge.to); open.push(edge.to); }
+    }
+  }
+  return false;
+}
+
 /** What is wrong with `techniques` as a route up, each a sentence: a technique twice, or no route to standing from the back or the front. */
 export function standUpFaults(techniques: readonly TechniqueConfig[], parts: PartLookup): readonly string[] {
   const order = techniques.map((technique) => technique.kind);
   if (new Set(order).size !== order.length) return ["a technique may appear only once"];
-  const graph = Object.fromEntries(techniques.map((technique) => {
-    const { sides, edges, moving } = parts.of("technique", technique);
-    return [technique.kind, { sides, edges, raw: moving, profile: null, admits: () => true }];
-  }));
-  return (["back", "front"] as const).filter(from => !reachable(order, from, graph, graphWork())).map(from => `no route to standing from ${from}`);
+  const ways = techniques.map((technique) => parts.of("technique", technique));
+  return (["back", "front"] as const).filter(from => !reachable(ways, from)).map(from => `no route to standing from ${from}`);
 }

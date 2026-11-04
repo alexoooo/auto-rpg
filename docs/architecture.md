@@ -187,12 +187,14 @@ arbiter releases every action when another mind takes the body.
 each with edges (`isWayUp`), and the modes of the ground, with none (brace, land, steady, flatten).
 Each is a ground skill (`groundSkills`, `ground/skills.ts`), an executor holding the whole body and
 asking no stance; a ground action is prepared while its run yields and committed once it does
-not. The game's ways up (`STAND_UP`) are edges
-of a graph of positions (`graph.ts`), each `from` one position `to` another, begun `moving` or
-`still`, handing the body on at the first cut read slow enough (`CUTS`, `HAND_OVER`). The route is
-the least expected time to standing over the edges' measured profiles (`choose`,
-`assets/core/edge-profiles.json`); an edge with no profile prices nothing, and a body no edge takes
-is rolled over. The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
+not. A posture (`Position`) names what bears the body, read each step by the ground reading
+(`groundReading`) from its spec's ends (`BodySpec.ends`), so any body has one: on the ends its
+stance stands on it stands, on its trunk it lies (named by the side up), and between it is named by
+the ends that bear it. A way up names the postures it begins from and reaches (its `edges`), begun
+`moving` or `still`, handing the body on at the first cut read slow enough (`CUTS`, `HAND_OVER`);
+the game's ways up (`STAND_UP`) reach standing from the back and the front (`standUpFaults`). The
+Option Mind prices each route by its edges' measured profiles (`risePrices`,
+`assets/core/edge-profiles.json`). The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
 (`rise/stages.ts`).
 
 ## Minds

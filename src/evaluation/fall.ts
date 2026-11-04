@@ -17,7 +17,7 @@ import type { MindConfig } from "../core/mind/config.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../core/models.ts";
 import type { HostedBody } from "../core/body.ts";
-import { groundRefusal } from "../core/control/ground-reading.ts";
+import { soleRefusal } from "../core/control/support.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import { createSenses } from "../core/mind/senses.ts";
 import { STAND_ORDERS } from "../core/intent/orders.ts";
@@ -65,8 +65,8 @@ export interface FallCase {
   readonly mind: MindConfig;
 }
 
-/** Whether the Lab's stand bed can play `fall`: a body the command layers read. */
-const onStandBed = (fall: Pick<FallCase, "model">): boolean => groundRefusal(modelSpec(fall.model)) === null;
+/** Whether the Lab's stand bed can play `fall`: a body the stance stands on its feet (`soleRefusal`). */
+const onStandBed = (fall: Pick<FallCase, "model">): boolean => soleRefusal(modelSpec(fall.model)) === null;
 
 /** The longest recovery a fall is given, s, and how long past it a fall may run. */
 export const FALL_CAP = 30, FALL_AFTER = 4;
@@ -114,7 +114,7 @@ function characterOf(fall: Pick<FallCase, "character">): AttributeOverrides {
 export function fallStart(fall: FallCase): { address: LabAddress; spec: BodySpec; placement: ReturnType<typeof groundPlacement> } {
   checkFall(fall);
   const defaults = labAddress("?scenario=ground"), balance = fall.balance ?? 0;
-  if (!onStandBed(fall)) throw new Error("the Lab's stand bed drives a body the command layers read");
+  if (!onStandBed(fall)) throw new Error("the Lab's stand bed drives a body the stance stands on its feet");
   const address: LabAddress = { ...defaults, model: fall.model as HumanoidModel, ...(fall.character ? { attributes: characterOf(fall) } : {}), right: fall.loadout?.right ?? fall.held ?? "empty", left: fall.loadout?.left ?? "empty", balance, seed: fall.seed,
     ground: { ...defaults.ground, level: fall.level ?? "open", start: fall.start, posture: fall.posture ?? "back", degrees: fall.degrees ?? null,
       impulse: fall.impulse ?? null, gusts: fall.gusts ?? false } };

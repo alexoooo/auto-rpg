@@ -8,7 +8,7 @@ import { lieOf, type Lie } from "../../control/ground-reading.ts";
 import { servoAsk, servoSolve } from "../../control/servo.ts";
 import { DOWN, footStatesOf, readSupport, withinSupport, type FootState } from "../../control/support.ts";
 import type { MuscleDriver } from "../../muscle/driver.ts";
-import type { BodySpec } from "../../spec/body.ts";
+import { bellyOf, type BodySpec } from "../../spec/body.ts";
 import { turnOfToRef } from "../../read-motion.ts";
 import { atan2 } from "../../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
@@ -164,7 +164,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
   const upright = uprightness(own.built), made = riseLimbs(own), ends = own.spec.ends ?? [];
   const feet = footStatesOf(own.built), footSegments: ReadonlySet<ReadSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
-  const lying = { turn: new Quaternion(), way: new Vector3() };
+  const lying = { turn: new Quaternion(), way: new Vector3() }, belly = bellyOf(own.spec);
   /**
    * Whether the body stands on its feet alone: every other segment more than `DOWN` over the
    * ground, and its centre of mass over the outline of its soles.
@@ -451,7 +451,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     },
     beginRising: rising,
     beginRolling() {
-      state.lie = lieOf(root, lying);
+      state.lie = lieOf(root, belly, lying);
       state.tries = 1; state.furthest = -1; state.raised = false;
       enter(state.lie === "front" ? "rise" : "roll", 0);
     },
@@ -468,7 +468,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
           const v = view.stance.velocity;
           state.still = v.x * v.x + v.y * v.y + v.z * v.z < settleSpeed * settleSpeed ? state.still + dt : 0;
           if (state.still + dt / 2 < settleSeconds) return;
-          state.lie = lieOf(root, lying);
+          state.lie = lieOf(root, belly, lying);
           state.tries++;
           enter(state.lie === "front" ? "rise" : "roll", 0);
           return;
@@ -477,7 +477,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
         case "rise": {
           // A body rolled from its back onto the side its roll does not go over goes on over that side.
           if (state.phase === "roll" && state.lie === "back") {
-            const over = recipe.roll.back[state.stage]!.over, now = lieOf(root, lying);
+            const over = recipe.roll.back[state.stage]!.over, now = lieOf(root, belly, lying);
             if (over && (now === "left" || now === "right") && now !== over && recipe.roll[now].length > 0) { state.lie = now; enter("roll", 0); }
           }
           const stage = playing(state.phase)[state.stage]!;

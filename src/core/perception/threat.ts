@@ -4,7 +4,7 @@ import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { hypot } from "../math/real.ts";
 import { aimOf } from "../skills/strikes/held-strike.ts";
-import { fistOn, frameOf, segmentOf, strikersOf, type BodySpec } from "../spec/body.ts";
+import { bellyOf, fistOn, frameOf, segmentOf, strikersOf, type BodySpec } from "../spec/body.ts";
 import { effectorAim } from "../control/effectors.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { dot, sub } from "../spec/vec.ts";
@@ -127,15 +127,17 @@ const SCRATCH = new Vector3();
 
 /**
  * **A sensed body's posture** (`Position`'s names): standing while it is not down; down, how it
- * lies by its root (`marks.base`, `lieBy`): its reference forward and left carried into its root's
- * frame (`frameOf`) and turned as the root is turned now; between where its root is not sensed.
+ * lies by its base (`marks.base`, `lieBy`): its reference belly (`bellyOf`) and left carried into
+ * its base's frame (`frameOf`) and turned as the base is turned now; between where its base is not
+ * sensed.
  */
 export function sensedPosture(other: BodySense): Position {
   if (!other.down) return "standing";
   const base = segmentOf(other.spec, other.spec.marks.base), rotation = other.segments.get(other.spec.marks.base)?.rotation;
   if (!base || !rotation) return "between";
-  const { x, y, z } = frameOf(base);
-  return lieBy(upOf(rotation, [x[2], y[2], z[2]]), upOf(rotation, [-x[0], -y[0], -z[0]]));
+  const { x, y, z } = frameOf(base), [bx, by, bz] = bellyOf(other.spec);
+  return lieBy(upOf(rotation, [x[0] * bx + x[1] * by + x[2] * bz, y[0] * bx + y[1] * by + y[2] * bz, z[0] * bx + z[1] * by + z[2] * bz]),
+    upOf(rotation, [-x[0], -y[0], -z[0]]));
 }
 
 /** How fast a fallen body's centre of mass goes up for it to read as rising, m/s. */

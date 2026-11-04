@@ -361,6 +361,29 @@ export function segmentOf(spec: BodySpec, name: string): SegmentSpec | undefined
   return named.get(name);
 }
 
+/** Each spec's belly (`bellyOf`), found once: a spec is immutable. */
+const BELLIES = new WeakMap<BodySpec, Vec3>();
+
+/**
+ * **The way `spec`'s belly faces in its reference pose**, unit: its right (+x) crossed with the
+ * reference axis, up or forward, its high mark (`Marks.high`) lies further along from its root
+ * (the segment no joint carries): a human's forward (+z), its head over its pelvis; a
+ * quadruped's down (-y), its head ahead of its trunk. What a body lies on its back with up.
+ */
+export function bellyOf(spec: BodySpec): Vec3 {
+  let belly = BELLIES.get(spec);
+  if (!belly) {
+    const carried = new Set(spec.joints.map((joint) => joint.child));
+    const root = spec.segments.find((segment) => !carried.has(segment.name)), high = segmentOf(spec, spec.marks.high);
+    if (!root || !high) throw new Error(`${spec.model} has no root or no ${spec.marks.high} to tell its belly by`);
+    const up = high.centreOfMass.value[1] - root.centreOfMass.value[1], ahead = high.centreOfMass.value[2] - root.centreOfMass.value[2];
+    // x cross y is z; x cross z is -y.
+    belly = Object.freeze(Math.abs(up) >= Math.abs(ahead) ? [0, 0, Math.sign(up)] : [0, -Math.sign(ahead), 0]) as unknown as Vec3;
+    BELLIES.set(spec, belly);
+  }
+  return belly;
+}
+
 /**
  * **A foot's toes**: a slab ahead of its box (`SegmentSpec.shape`, the foot from heel to ball),
  * hinged at the box's bottom front edge, that bends to lie along the ground (`src/core/build/toes.ts`).
