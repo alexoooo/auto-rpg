@@ -17,9 +17,9 @@
  *
  * A cell's trials: the share that landed; the life the rules take from the target for every contact
  * of the striker's on it, the contact's damage (`StrikeContact.damage`) at the struck segment's
- * cost in life under the recipe's rules (`lifeFactor`), and the damage the striker took in them; the seconds from the first step the
- * strike could be thrown to its end, over the trials that could (a cell with none, the trials'
- * own length); the share that ended down; and the range head to head where its strike ended
+ * cost in life under the recipe's rules (`lifeFactor`), and the damage the striker took in them; the seconds its action ran,
+ * from its start to its end, when its limb is free to begin another, over the trials whose action
+ * did (a cell with none, the trials' own length); the share that ended down; and the range head to head where its strike ended
  * (`exit.range`), over the trials whose strike did. Its cost of letting go, by progress, over the trials
  * let go there: the seconds from the let-go until the hand was back at its guard (the trial's end
  * where it was not), and the hit points the striker lost meanwhile.
@@ -110,7 +110,7 @@ for (const path of paths) {
     cell.taken += r.taken ?? 0;
     if (r.down) cell.down++;
     if (r.exit) { cell.ranged++; cell.exitRange += r.exit.range; }
-    if (r.ready !== null && r.ended !== null) { cell.timed++; cell.seconds += r.ended - r.ready; }
+    if (r.began !== null && r.ended !== null) { cell.timed++; cell.seconds += r.ended - r.began; }
     cell.length += (r.ended ?? r.seconds) - r.handed;
   }
 }

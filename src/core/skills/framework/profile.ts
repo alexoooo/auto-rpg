@@ -67,8 +67,8 @@ export interface Target {
  * many there were, and what they came to: the share done (a strike landed, an edge reached its
  * posture), the life its blows took from the body struck (each contact's damage at the struck
  * segment's cost in life, `lifeFactor`) and the hit points its own body lost, each a share of a
- * body's life once over that body's hit points, the seconds a
- * trial ran, the share that ended with the body down, and where those not done came to rest (an
+ * body's life once over that body's hit points, the seconds its skill ran (a strike's action from
+ * its start to its end, when its limb is free to begin another; an edge's run), the share that ended with the body down, and where those not done came to rest (an
  * edge's positions), each with its share; and, where its drill let it go from there before its
  * point of no return, what that cost at each progress of the motion it was let go at.
  */
@@ -138,7 +138,7 @@ interface ProfilePlace {
 /**
  * **What a skill is expected to bring from a place** (`ProfileReading.expect`), in life, a share
  * of a body's full life: the share done; the struck body's life its blows take; its own body's life
- * lost; the seconds a trial ran; the chance it ends down; where those not done came to rest; and,
+ * lost; the seconds its skill runs; the chance it ends down; where those not done came to rest; and,
  * where its drill let it go there, what letting it go at the place's progress cost (its nearest
  * measured: the seconds until the hand was back at its guard, and its own life lost meanwhile).
  */

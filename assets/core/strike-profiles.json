@@ -40,7 +40,7 @@
           "done": 0.75,
           "dealt": 1.2927,
           "taken": 0.0005,
-          "seconds": 1.5521,
+          "seconds": 0.2333,
           "down": 0,
           "ends": [],
           "exit": {
@@ -54,7 +54,7 @@
           "done": 1,
           "dealt": 1.7709,
           "taken": 0,
-          "seconds": 1.6083,
+          "seconds": 0.2396,
           "down": 0,
           "ends": [],
           "exit": {
@@ -68,7 +68,7 @@
           "done": 0.3571,
           "dealt": 0.2186,
           "taken": 0.329,
-          "seconds": 1.5942,
+          "seconds": 0.2392,
           "down": 0,
           "ends": [],
           "exit": {
@@ -89,7 +89,7 @@
           "done": 1,
           "dealt": 0.4398,
           "taken": 0,
-          "seconds": 0.2417,
+          "seconds": 0.2333,
           "down": 0,
           "ends": [],
           "exit": {
@@ -103,7 +103,7 @@
           "done": 0.7143,
           "dealt": 1.0555,
           "taken": 0.169,
-          "seconds": 1.7267,
+          "seconds": 0.235,
           "down": 0,
           "ends": [],
           "exit": {
@@ -135,7 +135,7 @@
           "done": 0.7143,
           "dealt": 0.9073,
           "taken": 0.086,
-          "seconds": 1.9367,
+          "seconds": 0.2333,
           "down": 0,
           "ends": [],
           "exit": {
@@ -156,7 +156,7 @@
           "done": 1,
           "dealt": 1.268,
           "taken": 0,
-          "seconds": 1.6083,
+          "seconds": 0.2333,
           "down": 0,
           "ends": [],
           "exit": {
@@ -191,7 +191,7 @@
           "done": 1,
           "dealt": 0.1976,
           "taken": 0,
-          "seconds": 6.2125,
+          "seconds": 4.2292,
           "down": 0,
           "ends": [],
           "exit": {
@@ -209,7 +209,7 @@
           "done": 1,
           "dealt": 0.5203,
           "taken": 0,
-          "seconds": 6.9771,
+          "seconds": 3.4854,
           "down": 0,
           "ends": [],
           "exit": {
@@ -248,7 +248,7 @@
           "done": 1,
           "dealt": 0.0731,
           "taken": 0,
-          "seconds": 7.5417,
+          "seconds": 5.5583,
           "down": 0,
           "ends": [],
           "exit": {
@@ -266,7 +266,7 @@
           "done": 0.75,
           "dealt": 0.0561,
           "taken": 0,
-          "seconds": 9.5167,
+          "seconds": 5.9639,
           "down": 0,
           "ends": [],
           "exit": {
@@ -284,7 +284,7 @@
           "done": 1,
           "dealt": 0.096,
           "taken": 0,
-          "seconds": 9.9,
+          "seconds": 5.5083,
           "down": 0,
           "ends": [],
           "exit": {
@@ -323,7 +323,7 @@
           "done": 0.75,
           "dealt": 0.3712,
           "taken": 0,
-          "seconds": 1.5708,
+          "seconds": 0.2396,
           "down": 0,
           "ends": [],
           "exit": {
@@ -337,7 +337,7 @@
           "done": 0,
           "dealt": 0.0937,
           "taken": 0,
-          "seconds": 1.3417,
+          "seconds": 0.2333,
           "down": 0,
           "ends": [],
           "exit": {
@@ -351,7 +351,7 @@
           "done": 0.5,
           "dealt": 0.1469,
           "taken": 0,
-          "seconds": 1.5958,
+          "seconds": 0.2375,
           "down": 0,
           "ends": [],
           "exit": {
@@ -365,7 +365,7 @@
           "done": 0,
           "dealt": 0.2735,
           "taken": 0,
-          "seconds": 1.6042,
+          "seconds": 0.2417,
           "down": 0,
           "ends": [],
           "exit": {
@@ -379,7 +379,7 @@
           "done": 0.25,
           "dealt": 0.2441,
           "taken": 0,
-          "seconds": 1.4083,
+          "seconds": 0.2375,
           "down": 0,
           "ends": [],
           "exit": {
@@ -393,7 +393,7 @@
           "done": 0,
           "dealt": 0.0521,
           "taken": 0,
-          "seconds": 1.5833,
+          "seconds": 0.25,
           "down": 0,
           "ends": [],
           "exit": {
@@ -407,7 +407,7 @@
           "done": 0.5,
           "dealt": 0.1268,
           "taken": 0,
-          "seconds": 1.4167,
+          "seconds": 0.2417,
           "down": 0,
           "ends": [],
           "exit": {
@@ -421,7 +421,7 @@
           "done": 0.5,
           "dealt": 0.4542,
           "taken": 0,
-          "seconds": 1.7687,
+          "seconds": 0.2354,
           "down": 0,
           "ends": [],
           "exit": {
@@ -456,7 +456,7 @@
           "done": 0,
           "dealt": 0.0663,
           "taken": 0.0045,
-          "seconds": 1.125,
+          "seconds": 0.2333,
           "down": 0,
           "ends": [],
           "exit": {
@@ -470,7 +470,7 @@
           "done": 0,
           "dealt": 0.063,
           "taken": 0.0054,
-          "seconds": 0.7812,
+          "seconds": 0.2375,
           "down": 0,
           "ends": [],
           "exit": {
@@ -484,7 +484,7 @@
           "done": 0,
           "dealt": 0.059,
           "taken": 0.0027,
-          "seconds": 0.6208,
+          "seconds": 0.2292,
           "down": 0,
           "ends": [],
           "exit": {
@@ -498,7 +498,7 @@
           "done": 0,
           "dealt": 0.0272,
           "taken": 0,
-          "seconds": 0.8375,
+          "seconds": 0.2333,
           "down": 0,
           "ends": [],
           "exit": {
@@ -512,7 +512,7 @@
           "done": 0,
           "dealt": 0.0497,
           "taken": 0.0045,
-          "seconds": 2.0604,
+          "seconds": 0.2375,
           "down": 0,
           "ends": [],
           "exit": {
@@ -526,7 +526,7 @@
           "done": 0,
           "dealt": 0.0299,
           "taken": 0.0025,
-          "seconds": 2.4333,
+          "seconds": 0.2375,
           "down": 0,
           "ends": [],
           "exit": {
@@ -540,7 +540,7 @@
           "done": 0,
           "dealt": 0.0452,
           "taken": 0.0022,
-          "seconds": 1.3417,
+          "seconds": 0.2333,
           "down": 0,
           "ends": [],
           "exit": {
@@ -554,7 +554,7 @@
           "done": 0,
           "dealt": 0.0223,
           "taken": 0.0041,
-          "seconds": 1.3292,
+          "seconds": 0.2271,
           "down": 0,
           "ends": [],
           "exit": {
