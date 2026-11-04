@@ -4,12 +4,12 @@ import { deepFreeze } from "../state.ts";
 import { legsReadiness } from "../skills/locomotion/locomotion.ts";
 import { shieldHands } from "../intent/cover-hand.ts";
 import type { Cover } from "../intent/intent.ts";
-import { asking, blocked, READY, standing, type Ask, type Option, type Situation } from "./option.ts";
+import { along, asking, blocked, LEGS, READY, standing, type Ask, type Option, type Site, type Situation } from "./option.ts";
 import { NOTHING, WHOLE, type Status } from "../mind/choice.ts";
-import { threatened } from "./percepts.ts";
+import { edgeOf, threatened } from "./percepts.ts";
 import { AS_IS, clinched, UNMOVED, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
-import { OUT_OF_PRESSURE } from "./places.ts";
+import { atan2, hypot } from "../math/real.ts";
 
 /**
  * **Holding the body as it is at `at`** for the seconds `ask` gives (`Ask.until`, none unless
@@ -31,11 +31,48 @@ export function holding(at: Situation, ask: Ask | undefined, coming = at.predict
  */
 const RESTING = { rest: true, open: true, status: (): Status => "yields", begin() {}, end() {} } as const;
 
-/** **Hold the position**, where the legs can carry the body (`legsReadiness`; on offer at a state where it stands, `standing`): the legs where they are, kept out of a fallen body's reach (`Walker.kept`), facing the focus or the way the body faces (`Walker.facing`). */
+/** What holding asks of the legs: where they are, kept out of a fallen body's reach (`Walker.kept`), facing the focus or the way the body faces (`Walker.facing`). */
+const still = (walk: Pick<Walker, "facing" | "kept">) => (now: Situation) => ({ asked: walk.kept(now, { move: null, face: walk.facing(now), actions: [] }), holds: NOTHING });
+
+/**
+ * **Out of the focus's reach**, holding's site (`Site`): on the line from the focus through where
+ * the body stands, where the focus's pressure reaches (`edgeOf`, `along`), facing the focus and
+ * moving with it; none with no focus or where the body stands out of its reach.
+ */
+const OUT_OF_REACH: Site = Object.freeze({
+  name: "the edge of the foe's reach",
+  spot(at: Situation) {
+    const focus = at.focus, edge = edgeOf(at, at.predictions.pressure);
+    return focus && at.range < edge ? { ...along(at, edge), velocity: focus.velocity } : null;
+  },
+});
+
+/**
+ * **Hold the position**, where the legs can carry the body (`legsReadiness`; on offer at a state
+ * where it stands, `standing`): the legs where they are (`still`). Its site is the nearest spot out
+ * of the focus's reach (`OUT_OF_REACH`), where holding costs less.
+ */
 export function hold(walk: Pick<Walker, "facing" | "kept">): Option {
-  return { name: "hold", claims: Object.freeze(["legs"]), state: {}, ...RESTING, site: OUT_OF_PRESSURE,
-    entry: (now) => legsReadiness(now.sight.view), model: (at, ask) => standing(at) ? holding(at, ask) : null,
-    step: (now) => ({ asked: walk.kept(now, { move: null, face: walk.facing(now), actions: [] }), holds: NOTHING }) };
+  return { name: "hold", claims: LEGS, state: {}, ...RESTING, sites: [OUT_OF_REACH],
+    entry: (now) => legsReadiness(now.sight.view), model: (at, ask) => standing(at) ? holding(at, ask) : null, step: still(walk) };
+}
+
+/**
+ * **Hold at a place**, (`x`, `z`) m on the ground, where the legs can carry the body there
+ * (`legsReadiness`; on offer at a state where it stands within `within` m of it, `standing`): the
+ * legs where they are (`still`). Its site is the place, the body there within `within`, facing its
+ * way there.
+ */
+export function holdAt(x: number, z: number, within: number, walk: Pick<Walker, "facing" | "kept">): Option {
+  const AWAY = blocked("away from its place"), off = (at: Situation): number => hypot(x - at.where.x, z - at.where.z);
+  const site: Site = Object.freeze({ name: `(${x}, ${z})`,
+    spot: (at: Situation) => ({ x, z, near: within, face: off(at) > 0 ? atan2(x - at.where.x, z - at.where.z) : at.where.face }) });
+  return { name: `hold at (${x}, ${z})`, claims: LEGS, state: {}, ...RESTING, sites: [site],
+    entry: (now) => {
+      const legs = legsReadiness(now.sight.view);
+      return legs.kind !== "ready" ? legs : off(now) <= within ? READY : AWAY;
+    },
+    model: (at, ask) => standing(at) && off(at) <= within ? holding(at, ask) : null, step: still(walk) };
 }
 
 /**

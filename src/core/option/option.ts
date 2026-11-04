@@ -1,9 +1,10 @@
-import type { Readiness, Resource, Window } from "../skills/framework/action.ts";
+import type { Readiness, Resource } from "../skills/framework/action.ts";
+import { SETTLED, type Spot } from "../intent/action-window.ts";
 import { intentOfSet, type Intent, type SelectedAsk } from "../intent/intent.ts";
 import type { Sight } from "../mind/decider.ts";
 import type { Choice } from "../mind/choice.ts";
 import { bearingAround, graceAt, inReach, type Cues, type ModelledStrike, type Percepts, type Predictions } from "./percepts.ts";
-import { hypot } from "../math/real.ts";
+import { atan2, cos, hypot, sin } from "../math/real.ts";
 import type { PartConfig } from "../parts/parts.ts";
 import type { Edge } from "./rise.ts";
 import type { Leaves, Terms } from "./value.ts";
@@ -69,8 +70,12 @@ export interface Option extends Choice<Situation> {
   model(at: Situation, ask?: Ask): Terms | null;
   /** It runs as long as it is held, never over of itself (hold, guard, brace, the cover): priced over the seconds it is asked (`Ask.until`), and nothing after it. */
   readonly open?: true;
-  /** Where it is held, where it names a place: the name of a walk's target (`Choice.targets`) that goes there, so the search reaches it there as well as where the body stands. */
-  readonly site?: string;
+  /**
+   * **Its sites** (`Site`): the spots it would begin from, if not where the body stands, each a
+   * target of every walk its mind has (`WALK_OPTION`), so the search reaches it there as well as
+   * where the body stands. Absent where it names none.
+   */
+  readonly sites?: readonly Site[];
   /**
    * How its model is priced now, a sentence: measured, where its profile prices it (and why
    * scaled, `ProfileReading.scaled`); else by hand, and why: no drill measured it, its profile is
@@ -83,11 +88,6 @@ export interface Option extends Choice<Situation> {
    * what it would deal in reach. Absent where it deals nothing.
    */
   rate?(now: Situation): number;
-  /**
-   * The window its legs are to be brought to for it now (`Readiness`'s `position`), null where it
-   * needs none now; what a walk into it goes to (`windowPlace`). Absent where its skill has none.
-   */
-  window?(now: Situation): Window | null;
   /** The strike its body is modelled by (`ModelledStrike`, `Seen.strikes`), where it is one. */
   readonly modelled?: ModelledStrike;
   /** The edges it takes the body by on the ground (`TechniquePart.edges`), where it is a way up. */
@@ -97,10 +97,40 @@ export interface Option extends Choice<Situation> {
 }
 
 /**
+ * **A site**: a spot an Option would begin from (`Option.sites`), by its name, unique among its
+ * mind's sites; where it is at the state `at` (`Spot`), null where there is none there.
+ */
+export interface Site {
+  readonly name: string;
+  spot(at: Situation): Spot | null;
+}
+
+/**
+ * **The sites a mind's options name** (`Option.sites`), in their order, and their names: filled
+ * once every option is made (`optionsOf`), so a walk made among them goes to each (`walkBy`).
+ */
+export interface Sites {
+  readonly all: readonly Site[];
+  readonly names: readonly string[];
+}
+
+/**
+ * **Where the body stands `range` m head to head from the focus of `at`**: on the line from the
+ * focus through where it stands at `at` (the way it faces, back, where it stands on the focus's
+ * centre), facing the focus.
+ */
+export function along(at: Situation, range: number): Spot {
+  const focus = at.focus!, where = at.where, apart = at.apart, to = Math.max(0, range + apart - at.range);
+  const x = apart > 0 ? (where.x - focus.centre.x) / apart : -sin(where.face), z = apart > 0 ? (where.z - focus.centre.z) / apart : -cos(where.face);
+  return { x: focus.centre.x + x * to, z: focus.centre.z + z * to, face: atan2(-x, -z) };
+}
+
+/**
  * **The state `leaves` leaves the body in** (`Leaves`), from `at`, read through it: where it stands
  * (`where`), and from there its range centre to centre and head to head to the focus, the head as
  * far from the centre as at `at`, and its bearing around the focus, unless `leaves` names it; its
- * posture, down where it is not standing, and its velocity. A state an Option leaves is later than
+ * posture, down where it is not standing, and its velocity, its stance standing where that leaves
+ * it still (`stride`, `still`). A state an Option leaves is later than
  * the blow coming and the body's own blows under way: no blow comes there (`incoming`,
  * `Predictions.danger`), none of its own is under way there (`SkillReport.actions`), and no ground
  * reading is read there (`ground`). Its grace (`Situation.grace`) is what `leaves` reckons; else
@@ -126,7 +156,10 @@ export function placed(at: Situation, leaves: Leaves, seconds: number): Situatio
     }
   } else if (leaves.around !== undefined) props.around = { value: leaves.around };
   if (leaves.posture) { props.posture = { value: leaves.posture }; props.down = { value: leaves.posture !== "standing" }; }
-  if (leaves.velocity) props.velocity = { value: leaves.velocity };
+  if (leaves.velocity) {
+    props.velocity = { value: leaves.velocity };
+    if (hypot(leaves.velocity.x, leaves.velocity.z) <= SETTLED) props.stride = { value: "stand" };
+  }
   const there = Object.create(at, props) as Situation, latency = at.predictions.pressure.latency, was = graceAt(at), within = inReach(there);
   const grace = leaves.grace ?? (within !== inReach(at) ? was : within ? Math.max(0, was - seconds) : Math.min(latency, was + seconds));
   Object.defineProperty(there, "grace", { value: grace });
@@ -138,6 +171,12 @@ export function placed(at: Situation, leaves: Leaves, seconds: number): Situatio
  * holding it otherwise (`posture` standing): where an Option that begins standing is on offer.
  */
 export const standing = (at: Situation): boolean => !at.down && at.posture === "standing";
+
+/**
+ * **Whether the body stands still at `at`**: its stance standing, not in a step (`stride`), and its
+ * centre moving no faster than a standing body's once its sway has died out (`SETTLED`).
+ */
+export const still = (at: Situation): boolean => at.stride === "stand" && hypot(at.velocity.x, at.velocity.z) <= SETTLED;
 
 /** An entry or exit that admits. */
 export const READY: Readiness = Object.freeze({ kind: "ready" });

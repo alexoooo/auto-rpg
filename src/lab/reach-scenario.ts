@@ -11,15 +11,15 @@ import { legend, readings } from "../ui/controls.ts";
 /**
  * **The Reach scenario**: the body alone on the floor, no foe and no orders, its mind deciding for
  * itself; a mind whose objective is reaching a place (`reach-place`, the Walker's) walks there and
- * stands. The place its objective names is marked on the ground, at the reach its walk counts as
- * there. The readout is what the mind is doing, how far its centre is from the place, its speed and
+ * stands. The place its objective names is marked on the ground, at the reach it holds there
+ * from. The readout is what the mind is doing, how far its centre is from the place, its speed and
  * when it first got there. The last 30 seconds are recorded (`history.ts`).
  */
 
 /** Seconds of the run the page keeps to scrub back through. */
 const HISTORY_SECONDS = 30;
 
-/** How near the place counts as there where the mind's walk names no reach, m: the walk's own default. */
+/** How near the place counts as there where the mind's holding at it names no reach, m: its own default. */
 const THERE = .3;
 
 const MARKS = {
@@ -32,15 +32,15 @@ interface Place { readonly x: number; readonly z: number; readonly within: numbe
 
 /**
  * The place `mind`'s objective names, if it is one of reaching a place (`reach-place` in its
- * chooser's objective slot), at the reach its walk to a place counts as there (`walk-to-place`).
+ * chooser's objective slot), at the reach its holding at a place holds there (`hold-at-place`).
  */
 function placeOf(mind: MindConfig): Place | null {
   const tree = mind as { readonly chooser?: { readonly objective?: { readonly kind?: string; readonly x?: number; readonly z?: number } };
     readonly options?: readonly { readonly kind?: string; readonly within?: number }[] | null };
   const objective = tree.chooser?.objective;
   if (objective?.kind !== "reach-place" || typeof objective.x !== "number" || typeof objective.z !== "number") return null;
-  const walk = tree.options?.find((option) => option.kind === "walk-to-place");
-  return { x: objective.x, z: objective.z, within: walk?.within ?? THERE };
+  const held = tree.options?.find((option) => option.kind === "hold-at-place");
+  return { x: objective.x, z: objective.z, within: held?.within ?? THERE };
 }
 
 /** What the history holds of each step. */

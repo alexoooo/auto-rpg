@@ -252,8 +252,15 @@ each a state with its chance, `Outcome`), its step, and a status.
   one or two deep, over its horizon (`ValuedConfig.horizon`): a line runs its option, then at each
   way it ends the best single option from there, and ends in the best of holding there, an option
   that leaves the body where it began run again (its life each try, its orders once), and holding
-  reached at its site (`Option.site`);
+  reached at its site (`Option.sites`);
   each path is priced whole and a line's worth is its outcomes' worths by their chances.
+- **Where to walk**: an Option names its sites (`Option.sites`, `Site`), the spots it would begin
+  from if not where the body stands: a strike whose readiness gives a window to be brought to
+  (`Readiness`'s `position`) names a spot in it on each side of a body lying (`windowSpot`, `Side`),
+  holding the nearest spot out of the foe's reach, holding at a place (`hold-at-place`) the place.
+  The walk (`walk`, `walkBy`) is one Option a gait, meaning go to a place by that gait; its targets
+  are the sites its mind's Options name (`Sites`), which it reads as spots (`Spot`) and knows
+  nothing else of, and the search prices a walk to one by what it finds where the walk ends.
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
   `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-cut`,
   `strike-sword-thrust`, `strike-stomp`), a strike (`strike`) of each action its executor of that

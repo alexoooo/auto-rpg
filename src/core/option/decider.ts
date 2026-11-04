@@ -89,9 +89,9 @@ function prospect(prospects: Kept[], options: readonly Option[], now: Situation)
  * each kind making its options from what the mind gives it (`OptionsGiven`) and building what else it needs:
  * following orders (to move, stand or face), each strike of its own kind (`strike`, from a limb
  * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and an
- * option a gait of its legs (`walkBy`, `gaitsOf`) walking where it is worth most, each place worth
- * what the chooser's search finds there: each strike's window (`windowPlace`), and out of the foe's
- * pressure (`outOfPressure`); and, down,
+ * option a gait of its legs (`walkBy`, `gaitsOf`) walking to the site it is worth most to walk to,
+ * each a spot an option names (`Option.sites`: a strike's window, holding's spot out of the foe's
+ * reach), worth what the chooser's search finds there; and, down,
  * the rise's options (`RISE_OPTIONS`); and the rest options, priced as keeping the body as it is
  * over the seconds asked (`holding`), which take what nothing else is worth more on: hold the
  * position, the hands at their guard, and, down, brace (`hold`, `guard`, `brace`), which the cover outbids on the hand on a blow's side while it

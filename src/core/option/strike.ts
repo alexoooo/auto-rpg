@@ -1,32 +1,20 @@
 import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../skills/framework/action.ts";
 import { STANCE_LOWER } from "../skills/locomotion/locomotion.ts";
 import { regionSegments } from "../intent/action-aim.ts";
-import { windowHolds, type Spot } from "../intent/action-window.ts";
+import { heldBeside, SIDES, windowHolds, windowSpot, type Side, type Spot } from "../intent/action-window.ts";
 import { orderAllows, orderedTarget } from "../intent/orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../skills/config.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../skills/framework/profile.ts";
 import type { Sight } from "../mind/decider.ts";
-import { asking, blocked, READY, standing, type Asked, type Situation, type Option } from "./option.ts";
+import { along, asking, blocked, READY, standing, type Asked, type Option, type Site, type Situation } from "./option.ts";
 import { startOf, threatened } from "./percepts.ts";
 import { clinched, record, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { BodySpec } from "../spec/body.ts";
-import { atan2, cos, sin } from "../math/real.ts";
 
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
-
-/**
- * **Where the body stands `range` m head to head from the focus of `at`**: on the line from the
- * focus through where it stands at `at` (the way it faces, back, where it stands on the focus's
- * centre), facing the focus.
- */
-function along(at: Situation, range: number): Spot {
-  const focus = at.focus!, where = at.where, apart = at.apart, to = Math.max(0, range + apart - at.range);
-  const x = apart > 0 ? (where.x - focus.centre.x) / apart : -sin(where.face), z = apart > 0 ? (where.z - focus.centre.z) / apart : -cos(where.face);
-  return { x: focus.centre.x + x * to, z: focus.centre.z + z * to, face: atan2(-x, -z) };
-}
 
 /** What an action's executor reads of the skills beside it, as the last step left them. */
 export const around = (sight: Sight): ActionAround => ({ heading: sight.report.heading, placed: sight.view.stance.phase === "stand",
@@ -54,19 +42,21 @@ function measuredProfile(measure: StrikeMeasure): Profile | null {
 }
 
 /**
- * **A strike option** (`strike`): how its model is priced (`Option.priced`); its window
- * (`Option.window`), the first of its limbs' that has one, where none is ready and no blow of its
- * own is under way; what it deals a second (`Option.rate`), the most any cell of its profile takes
- * at the focus's phase from any start (`ProfileReading.peak`) where its model reads its profile now, else its
- * prior's (`priorOf`); and the strike its body is modelled by (`Option.modelled`), its profile
- * where one is measured as its body reads it (`measuredProfile`).
+ * **A strike option** (`strike`): how its model is priced (`Option.priced`); its sites
+ * (`Option.sites`), the spots in its window; what it deals a second (`Option.rate`), the most any
+ * cell of its profile takes at the focus's phase from any start (`ProfileReading.peak`) where its
+ * model reads its profile now, else its prior's (`priorOf`); and the strike its body is modelled by
+ * (`Option.modelled`), its profile where one is measured as its body reads it (`measuredProfile`).
  */
-type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "window" | "modelled">>;
+type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" | "modelled">>;
 
 /**
  * **Strike**: `action` at the focus with the first of its limbs that is ready, on offer where one
  * is (its executor's readiness, which refuses a body down and a target out of its band). It
- * never walks: a walk into its window is a gait's, to a place (`windowPlace`). It asks for the blow once
+ * never walks: where no limb is ready and the first with a window says where it could begin (its
+ * readiness's `position`), its sites are the spots in that window, one each side of the body its
+ * target is on where that body lies (`windowSpot`, `SIDES`, each side's place held while it holds),
+ * which a walk goes to (`Option.sites`). It asks for the blow once
  * the limb is ready, and goes on asking until the blow is over: then it has run its course. A blow
  * asked for and refused, every limb out of its entry, or `PATIENCE` s without a blow also end it.
  * It yields until its blow is committed (let go, the blow is dropped) and again from its exit, its
@@ -92,7 +82,9 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "window" 
  * (`windowAny`, `windowHolds`), its model there as it would be here.
  */
 export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure): StrikeOption {
-  const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null };
+  const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null,
+    // Each side's place beside a body lying (`HeldBeside`), and its spot as last read: at what time, for what focus.
+    sides: SIDES.map(() => ({ beside: heldBeside(), time: NaN, focus: null as string | null, spot: null as Spot | null })) };
   const { measured } = measure, found = profileFor(measure.profiles, measured);
   /** Its profile, where it is read now: measured as the body reads it, its senses as late. */
   const profileNow = (now: Situation): Profile | null =>
@@ -186,13 +178,25 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const blow = Math.max(...action.effectors.map((limb) => now.predictions.blows(limb, struck)));
     return { done: lands, dealt: throws * lands * blow, seconds, recovers: 0, down: 0, ends: [] };
   };
-  /** Its window now (`Option.window`). */
-  const windowNow = (now: Situation): Window | null => {
-    if (live(now) || unfit(now)) return null;
-    const { ready, placed } = offer(now);
-    return ready === null && placed?.readiness.kind === "position" ? placed.readiness.window : null;
-  };
-  /** Where the body stands for it now, ready or not: the window of its limb ready, else `window`'s; null where a blow of its own is under way or none has one. */
+  /**
+   * Its site on `side` (`Site`), where no blow of its own is under way: where no limb is ready, the
+   * spot on that side in the window of the first limb that has one (`windowSpot`), read once a step
+   * for each focus.
+   */
+  const siteOn = (side: Side, k: number): Site => ({
+    name: k === 0 ? `${action.name}'s window` : `${action.name}'s window, the other side`,
+    spot(at) {
+      if (live(at) || unfit(at)) return null;
+      const kept = state.sides[k]!, focus = at.focus?.id ?? null;
+      if (kept.time !== at.time || kept.focus !== focus) {
+        const { ready, placed } = offer(at), window = ready === null && placed?.readiness.kind === "position" ? placed.readiness.window : null;
+        kept.time = at.time; kept.focus = focus; kept.spot = window ? windowSpot(at.sight.view, window, at.sight.report.heading, side, kept.beside) : null;
+      }
+      return kept.spot;
+    },
+  });
+  const sites = SIDES.map(siteOn);
+  /** Where the body stands for it now, ready or not: the window of its limb ready, else of the first limb that has one; null where a blow of its own is under way or none has one. */
   const windowAny = (now: Situation): Window | null => {
     if (live(now) || unfit(now)) return null;
     const { ready, placed } = offer(now);
@@ -204,7 +208,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     modelled: { name: action.name, limbs: action.effectors, profile: measuredProfile(measure) },
     entry,
     status: (now) => { if (state.over) return "over"; const phase = live(now)?.phase; return phase === "release" ? "exit" : phase === "commit" ? "committed" : "yields"; },
-    window: windowNow,
+    sites,
     begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; state.began = null; },
     end() { state.id = null; state.limb = null; state.target = null; state.began = null; },
     priced(now) {

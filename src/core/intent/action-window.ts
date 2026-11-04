@@ -15,7 +15,7 @@ import { hold, letGo, stillHeld, unheld, type Drift, type Held } from "../mind/h
 const RESPONSE = 1;
 
 /**
- * **The pace of a walk into a window**, m/s: `ceiling`, braking to arrive as it closes the `distance`
+ * **The pace of a walk to a spot**, m/s: `ceiling`, braking to arrive as it closes the `distance`
  * left, m, in `RESPONSE`, where the place it walks to moves along the way there at `drift` m/s (a
  * foe coming on, less than 0), so that the two closing on each other close it in that time; none
  * where the place comes on that fast itself. What the legs go on once asked to slow is the speed
@@ -103,7 +103,9 @@ export function straightSpot(window: Window, from: GroundPoint): { readonly x: n
 /**
  * **A spot**: where a walk ends on the ground (`x`, `z`) and the way the body faces there (`face`,
  * rad); where the walk goes round a body, the way there (`route`, its last point the spot) and that
- * body (`by`, `MovementRequest`'s).
+ * body (`by`, `MovementRequest`'s). The body stands there (`atSpot`) within `near` m of it
+ * (`ARRIVED` unless given), facing within `facing` rad of its way where that is given, and a walk to
+ * it (`approachSpot`) arrives there. Where the spot moves with a body, its `velocity` on the ground, m/s.
  */
 export interface Spot {
   readonly x: number;
@@ -111,6 +113,14 @@ export interface Spot {
   readonly face: number;
   readonly route?: readonly GroundPoint[];
   readonly by?: string;
+  readonly near?: number;
+  readonly facing?: number;
+  readonly velocity?: GroundPoint;
+}
+
+/** **Whether a body at (`x`, `z`) facing `heading` stands at `spot`** (`Spot`): within its `near`, facing within its `facing` where it names one. */
+export function atSpot(spot: Spot, x: number, z: number, heading: number): boolean {
+  return hypot(spot.x - x, spot.z - z) <= (spot.near ?? ARRIVED) && (spot.facing === undefined || Math.abs(wrap(spot.face - heading)) <= spot.facing);
 }
 
 type Offset = { readonly x: number; readonly z: number; readonly face: number };
@@ -155,23 +165,30 @@ export interface HeldBeside {
 export const heldBeside = (): HeldBeside => ({ held: unheld(), place: [], route: [] });
 
 /**
+ * **A side of a body's length**: 1 to its right, -1 to its left, as it lies facing along its length
+ * from its base to its head (`lyingAxis`). A window on a body lying has a spot on each; one on a
+ * body standing, one, side 1's (`windowSpot`).
+ */
+export type Side = 1 | -1;
+
+/** The sides of a body's length (`Side`). */
+export const SIDES: readonly Side[] = Object.freeze([1, -1]);
+
+/**
  * Where a walk into `window` on the body `lying` stands, and its way there: of the places turned
  * about the window's target, `LYING.bearings` of them from facing along that body (`lyingAxis`), so
  * they stay put while it lies still,
  * those where each foot, as far to its side as the soles stand now, keeps `LYING.footRadius` clear
  * of that body's colliders over its column (`stepObstacle`), backed off from the window's middle
  * `LYING.back` m a ring at a time where no place in the ring clears (so no place is over that body,
- * and where none in the window clears, the nearest clear one stands outside it), on the side of that
- * body's length its place is held on where one there clears (the place held in `kept`, until that
- * body or the window's target drifts; else the end of `going`, a walk under way to a place beside
- * that body), the one whose way
+ * and where none in the window clears, the nearest clear one stands outside it), on `side` of that
+ * body's length (`Side`; on either with none, where one there clears on the side `going`, a walk
+ * under way to a place beside that body, goes to), the one whose way
  * round that body over the column, from where the body's motion carries it `LYING.lead` s on, and turn from
  * `heading` to its facing cost least (a walk along its way, turning to it, keeps it the cheapest);
- * null where none is. With `kept`, the place it holds while it holds (`HeldBeside`). A walk keeps its
- * side so: found afresh each time, the cheapest place turns from one side to the other as the walker
- * moves.
+ * null where none is. With `kept`, the place it holds while it holds (`HeldBeside`).
  */
-function besideLying(view: BodyView, window: Window, lying: BodySense, heading: number, kept?: HeldBeside, going?: MovementRequest | null): Beside | null {
+function besideLying(view: BodyView, window: Window, lying: BodySense, heading: number, side: Side | null, kept?: HeldBeside, going?: MovementRequest | null): Beside | null {
   const obstacle = stepObstacle(view, lying), clear = obstacle.clear, axis = lyingAxis(lying), { ends, centre } = view.stance, y = view.stance.support.y;
   const [a, b] = Object.values(ends), width = hypot(a!.middle.x - b!.middle.x, a!.middle.z - b!.middle.z) / 2, velocity = view.stance.velocity;
   const from: Vec3 = [centre.x + velocity.x * LYING.lead, y, centre.z + velocity.z * LYING.lead];
@@ -209,16 +226,15 @@ function besideLying(view: BodyView, window: Window, lying: BodySense, heading: 
   // How far a point stands to one side of that body's length, m; the side its place is held on.
   const across = (x: number, z: number): number => (x - lying.centre.x) * cos(axis) - (z - lying.centre.z) * sin(axis);
   const end = going?.kind === "place" && going.by === lying.id ? going.points[going.points.length - 1] : undefined;
-  const side = kept && drift && kept.place.length > 0 && stillHeld(kept.held, view.time, Infinity, lying.id, drift, () => true) ? across(kept.place[0]!, kept.place[1]!)
-    : end ? across(end.x, end.z) : 0;
-  // The nearest ring back from the window's middle where a place clears: in the window where one does; on its side where one does.
-  for (const sided of [true, false]) for (let ring = 0; !best && ring * LYING.back <= LYING.farthest; ring++) {
+  const wanted = side ?? (end ? across(end.x, end.z) : 0);
+  // The nearest ring back from the window's middle where a place clears: in the window where one does; on its side, and where it names none, then on either.
+  for (const sided of side === null ? [true, false] : [true]) for (let ring = 0; !best && ring * LYING.back <= LYING.farthest; ring++) {
     const back = ring * LYING.back;
     for (let k = 0; k < LYING.bearings; k++) {
       const middle = offsetAt(view, window, axis + k * 2 * Math.PI / LYING.bearings), face = middle.face;
       const at: Offset = { x: middle.x - back * sin(face), z: middle.z - back * cos(face), face };
       const x = centre.x + at.x, z = centre.z + at.z;
-      if (sided && across(x, z) * side < 0 || !feetClear(x, z, face)) continue;
+      if (sided && across(x, z) * wanted < 0 || !feetClear(x, z, face)) continue;
       const route = groundRoute(obstacle, from, [x, y, z], LYING.footRadius, LYING.column);
       if (!route) continue;
       let walked = 0, past = from;
@@ -239,75 +255,52 @@ function besideLying(view: BodyView, window: Window, lying: BodySense, heading: 
 }
 
 /**
- * Where a walk into `window` stands: beside the body its target is on, where that body lies
- * (`besideLying`, held in `kept` where given); else straight (`windowOffset`), `beside` null. None
- * where that body lies and no place beside it clears the feet: the window's middle is then over
- * that body, where no walk stands. On the side `going` goes to beside that body, where given.
+ * Where a walk into `window` stands: beside the body its target is on, where that body lies, on
+ * `side` of it (`besideLying`, held in `kept` where given; on either with none, the side `going`
+ * goes to first where given); else straight (`windowOffset`), `beside` null, on side 1 or with none
+ * and nowhere on side -1. None where that body lies and no place beside it clears the feet: the
+ * window's middle is then over that body, where no walk stands.
  */
-function placeOf(view: BodyView, window: Window, heading: number, kept?: HeldBeside, going?: MovementRequest | null): { readonly offset: Offset; readonly beside: Beside | null } | null {
+function placeOf(view: BodyView, window: Window, heading: number, side: Side | null, kept?: HeldBeside, going?: MovementRequest | null): { readonly offset: Offset; readonly beside: Beside | null } | null {
   const lying = lyingUnder(view, window);
-  if (!lying) return { offset: windowOffset(view, window), beside: null };
-  const beside = besideLying(view, window, lying, heading, kept, going);
+  if (!lying) return side === -1 ? null : { offset: windowOffset(view, window), beside: null };
+  const beside = besideLying(view, window, lying, heading, side, kept, going);
   return beside ? { offset: beside.offset, beside } : null;
 }
 
 /**
- * **Where a walk into `window` stands** (`approachActionWindow`), from where the body stands facing
- * `heading`, as a spot: beside the body its target is on where that body lies, with the way round
- * it, held in `kept` where given (`HeldBeside`), else on the side `going` goes to, a walk under way
- * beside that body (`besideLying`); none where that body lies and no place beside it clears the feet
- * (`placeOf`).
+ * **Where a walk into `window` stands**, from where the body stands facing `heading`, as a spot:
+ * beside the body its target is on where that body lies, on `side` of it (`Side`), with the way
+ * round it, held in `kept` where given (`HeldBeside`), else, with no side, on the side `going`
+ * goes to, a walk under way beside that body, first (`besideLying`); none where that body lies and
+ * no place on the side asked clears the feet, or where it stands and side -1 is asked (`placeOf`).
+ * The body is there facing within the window's facing, and the spot moves with the body the
+ * window's target is on (`Window.on`), as the senses show it.
  */
-export function windowSpot(view: BodyView, window: Window, heading: number, kept?: HeldBeside, going?: MovementRequest | null): Spot | null {
-  const place = placeOf(view, window, heading, kept, going);
+export function windowSpot(view: BodyView, window: Window, heading: number, side: Side | null, kept?: HeldBeside, going?: MovementRequest | null): Spot | null {
+  const place = placeOf(view, window, heading, side, kept, going);
   if (!place) return null;
   const { offset: { x, z, face }, beside } = place, centre = view.stance.centre;
-  const at = { x: centre.x + x, z: centre.z + z, face };
+  const on = window.on === undefined ? undefined : view.senses.others.find((other) => other.id === window.on);
+  const at = { x: centre.x + x, z: centre.z + z, face, facing: window.facing, ...(on ? { velocity: { x: on.velocity.x, z: on.velocity.z } } : {}) };
   return beside ? { ...at, route: beside.route.map((point) => ({ x: point[0], z: point[2] })), by: beside.by } : at;
 }
 
 /**
- * **A walk to `spot`**, facing `face`: a place goal there (its route where it has one) under
- * `ceiling` and no faster than it closes in `RESPONSE`, which counts as arrived `near` m from it
- * (`stands`, as the navigator reads it).
+ * **A walk to `spot`** (`Spot`), facing its way: a place goal there (its route where it has one,
+ * round the body it names, which is not kept off as a fallen one, `MovementRequest`'s `by`) under
+ * `ceiling` and no faster than it closes in `RESPONSE`, the spot moving at its velocity along the way
+ * there (`approachPace`). It counts as arrived within the spot's `near` (`stands`, as the navigator
+ * reads it) once the body, facing `heading`, faces within its `facing`, and not before, since the
+ * legs turn only as they step.
  */
-export function approachSpot(view: BodyView, spot: Spot, ceiling: number, face: number, near = ARRIVED): {
+export function approachSpot(view: BodyView, spot: Spot, ceiling: number, heading: number): {
   readonly move: null; readonly face: number; readonly movement?: MovementRequest; readonly pace?: number;
 } {
-  const x = spot.x - view.stance.centre.x, z = spot.z - view.stance.centre.z, distance = hypot(x, z);
+  const x = spot.x - view.stance.centre.x, z = spot.z - view.stance.centre.z, distance = hypot(x, z), velocity = spot.velocity;
+  const drift = velocity && distance > 0 ? (velocity.x * x + velocity.z * z) / distance : 0;
+  const near = spot.facing !== undefined && Math.abs(wrap(spot.face - heading)) > spot.facing ? 0 : spot.near ?? ARRIVED;
   const movement: MovementRequest = spot.route ? { kind: "place", points: spot.route.map((point) => ({ x: point.x, z: point.z })), near, ...(spot.by === undefined ? {} : { by: spot.by }) }
     : placeMovement({ x: spot.x, z: spot.z }, near);
-  return { move: null, face, movement, pace: approachPace(ceiling, distance) };
-}
-
-/**
- * Bring a pending target into its declared entry window without taking an action's controls: a
- * place goal at the window's middle, under `ceiling` and no faster than it closes in `RESPONSE`,
- * the body its target is on (`Window.on`) coming on as the senses show it (`approachPace`);
- * while that place is more than `travel` m off, the body faces its way there (`travelFacing`), and
- * turns to the target within it. On a body lying, the place is beside it and the walk goes round it
- * (`besideLying`), held in `kept` where given (`HeldBeside`). The walk counts as arrived `near` m
- * from that place (`stands`, as the navigator reads it) once the body faces within the window's
- * facing, and not before, since the legs turn only as they step; it stands while the window admits the
- * body: a fight strikes the first step it is ready, and a body held standing outside the window
- * through its sway strikes later. Where the target's body lies and no place beside it clears the
- * feet (`placeOf`), it asks no walk.
- */
-export function approachActionWindow(view: BodyView, window: Window, heading: number, ceiling: number, travel = Infinity, near = ARRIVED, kept?: HeldBeside): {
-  readonly move: null; readonly face: number; readonly movement?: MovementRequest; readonly pace?: number; readonly travelFacing?: true;
-} {
-  const place = placeOf(view, window, heading, kept);
-  if (!place) return { move: null, face: heading };
-  const { offset: { x, z, face }, beside } = place, distance = hypot(x, z);
-  if (withinActionWindow(view, window, heading) || distance === 0) return { move: null, face };
-  // The place moves with the body its target is on, as the senses show that body moving along the way there.
-  const on = window.on === undefined ? undefined : view.senses.others.find((other) => other.id === window.on);
-  const drift = on ? (on.velocity.x * x + on.velocity.z * z) / distance : 0;
-  // Beside a body lying, its way round that body, which is not kept off as a fallen one (`MovementRequest`'s `by`).
-  // A body not yet facing the window's way steps on to turn.
-  const arrive = Math.abs(wrap(face - heading)) > window.facing ? 0 : near;
-  const movement: MovementRequest = beside ? { kind: "place", points: beside.route.map((point) => ({ x: point[0], z: point[2] })), near: arrive, by: beside.by }
-    : placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, arrive);
-  return { move: null, face, movement,
-    pace: approachPace(ceiling, distance, drift), ...(distance > travel ? { travelFacing: true as const } : {}) };
+  return { move: null, face: spot.face, movement, pace: approachPace(ceiling, distance, drift) };
 }

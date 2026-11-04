@@ -2,7 +2,7 @@ import type { MindConfig } from "../core/mind/config.ts";
 import type { BeatsConfig } from "../core/command/beats.ts";
 import type { CommanderConfig } from "../core/command/kind.ts";
 import type { OptionMindConfig } from "../core/option/mind.ts";
-import { ORDERS_OPTION, STANDING_OPTIONS, WINDOWS_WALK, PRESSURE_WALK, COVER_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../core/option/kinds.ts";
+import { ORDERS_OPTION, STANDING_OPTIONS, WALK_OPTION, COVER_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../core/option/kinds.ts";
 import { deepFreeze } from "../core/state.ts";
 import { MINDS } from "../entrants/game.ts";
 
@@ -26,7 +26,7 @@ const GUARDS: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defau
  */
 function striking(kinds: readonly StrikeKindPart[]): MindConfig {
   const executors = OPTION.executors.filter((executor) => kinds.some((kind) => kind.skill === executor.kind));
-  return deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...kinds.map((kind) => kind.defaults), WINDOWS_WALK.defaults, PRESSURE_WALK.defaults, ...STANDING_OPTIONS],
+  return deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...kinds.map((kind) => kind.defaults), WALK_OPTION.defaults, ...STANDING_OPTIONS],
     executors, actions: OPTION.actions.filter((action) => executors.some((executor) => executor.name === action.executor)) });
 }
 

@@ -6,11 +6,11 @@ import { anyBody, type KeysOf, type PartConfig } from "../parts/parts.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import { covers } from "./cover.ts";
-import type { Option } from "./option.ts";
+import type { Option, Site, Sites } from "./option.ts";
 import { followOrders } from "./orders.ts";
-import { gaitsOf, groundPlace, outOfPressure, walkBy, windowPlace, type Destination, type Windowed } from "./places.ts";
+import { gaitsOf, walkBy } from "./places.ts";
 import type { ProfileTables } from "./predictions-part.ts";
-import { guardOf, hold } from "./rest.ts";
+import { guardOf, hold, holdAt } from "./rest.ts";
 import type { OptionRecord } from "./record.ts";
 import { BRACE_OPTION, RISE_OPTIONS } from "./rise.ts";
 import { strike, strikeMeasure } from "./strike.ts";
@@ -20,9 +20,10 @@ import type { Walker } from "./walk.ts";
  * **What Option Mind gives each kind of its options** to make them from: its body's spec, the
  * world's rate (Hz) and the part lookup; its legs, executors and actions as its config names them,
  * and the profile tables it predicts from (`ProfileTables`); what the mind itself runs on: its walk
- * and its Options' record of their tries (`OptionRecord`); and the options the kinds before it made
- * (`made`). A kind builds anything else it needs from these, the strikes, the gaits, the hands'
- * covers and the rise among them.
+ * and its Options' record of their tries (`OptionRecord`); the options the kinds before it made
+ * (`made`); and the sites its options name (`Sites`, filled once every option is made). A kind
+ * builds anything else it needs from these, the strikes, the gaits, the hands' covers and the rise
+ * among them.
  */
 export interface OptionsGiven {
   readonly spec: BodySpec;
@@ -40,6 +41,7 @@ export interface OptionsGiven {
   readonly record: OptionRecord;
   /** The options the kinds before it in its mind's rank order made, in that order. */
   readonly made: readonly Option[];
+  readonly sites: Sites;
 }
 
 /** **A kind of Option Mind's options** (`OptionPart`): made from what Option Mind gives (`OptionsGiven`). */
@@ -86,41 +88,24 @@ export const SWORD_THRUST_OPTION = strikeKind("sword-thrust", "Sword thrust");
 export const STOMP_OPTION = strikeKind("stomp", "Stomp");
 
 /**
- * **Footwork to `destinations`**: an option of each gait its legs go by (`walkBy`, `gaitsOf`),
- * each going where it is worth most of them, priced as every walk is (`walkTerms`); none where there
- * is no destination. A kind of option of any mind's own makes its footwork with it, its places any
- * rule's (`placeBy`).
+ * **The walk** (`walkBy`): an option of each gait its legs go by (`gaitsOf`), each meaning go to a
+ * place by that gait, its places the sites its mind's options name (`Sites`).
  */
-export const walksTo = (given: OptionsGiven, destinations: readonly Destination[]): readonly Option[] =>
-  destinations.length === 0 ? [] : gaitsOf(given.locomotion).map((gait) => walkBy(gait, destinations, given.walk));
+export const WALK_OPTION = kind("walk", "Walk to a site", (given) => gaitsOf(given.locomotion).map((gait) => walkBy(gait, given.sites, given.walk)));
 
-/** A kind of footwork, `kind`, labelled `label`, to the places `places` makes (`walksTo`). */
-export const footwork = <K extends string>(name: K, label: string, places: (given: OptionsGiven) => readonly Destination[]) =>
-  kind(name, label, (given) => walksTo(given, places(given)));
-
-/** **Walking into a window**: footwork to the window of each option made before it that has one (`Option.window`, `windowPlace`), so a new strike adds its own place. */
-export const WINDOWS_WALK = footwork("walk-into-windows", "Walk into strike windows",
-  (given) => given.made.flatMap((option) => option.window ? [windowPlace(option as Windowed, given.walk)] : []));
-
-/** **Walking out of the focus's pressure**: footwork past where its modelled strikes reach (`outOfPressure`). */
-export const PRESSURE_WALK = footwork("walk-out-of-pressure", "Walk out of pressure", (given) => [outOfPressure(given.walk)]);
-
-/** **A place on the ground** to walk to: where it is, m, and how near its centre the body reaches it, m. */
-export interface PlaceConfig { readonly kind: "walk-to-place"; readonly x: number; readonly z: number; readonly within: number }
+/** **A place on the ground** to hold at: where it is, m, and how near its centre the body holds there. */
+export interface PlaceConfig { readonly kind: "hold-at-place"; readonly x: number; readonly z: number; readonly within: number }
 
 /** What is wrong with a place's config: a coordinate not finite, or a reach not above nothing. */
-export const placeFaults = (config: { readonly x: number; readonly z: number; readonly within: number }): readonly string[] => [
+const placeFaults = (config: PlaceConfig): readonly string[] => [
   ...Number.isFinite(config.x) && Number.isFinite(config.z) ? [] : ["x, z: a place, m"],
   ...Number.isFinite(config.within) && config.within > 0 ? [] : ["within: a distance above nothing, m"]];
 
-/**
- * **Walking to a place on the ground** (`groundPlace`), whatever the focus: footwork, one option a
- * gait (`walkBy`), to the place its config names, until the body's centre is within its reach.
- */
-export const PLACE_WALK: OptionKindPart<PlaceConfig> = deepFreeze({
-  role: "option", label: "Walk to a place", stage: "game", fields: [], slots: [], defaults: { kind: "walk-to-place", x: 0, z: 0, within: .3 },
+/** **Holding at a place on the ground** (`holdAt`), whatever the focus: a rest option at the place its config names, which is its site. */
+export const HOLD_AT_OPTION: OptionKindPart<PlaceConfig> = deepFreeze({
+  role: "option", label: "Hold at a place", stage: "game", fields: [], slots: [], defaults: { kind: "hold-at-place", x: 0, z: 0, within: .3 },
   keys: { kind: true, x: true, z: true, within: true }, fits: anyBody, faults: placeFaults,
-  make: (config: PlaceConfig, given: OptionsGiven) => walksTo(given, [groundPlace(config.x, config.z, config.within, given.walk)]),
+  make: (config: PlaceConfig, given: OptionsGiven) => [holdAt(config.x, config.z, config.within, given.walk)],
 });
 
 /** **The cover** of the head by the hand on the side a blow closes from (`covers`). */
@@ -132,16 +117,25 @@ export const HOLD_OPTION = kind("hold-position", "Hold the position", (given) =>
 /** **The hands at their guard** (`guard`), a rest option over the body's hands, none for a body without. */
 export const GUARD_OPTION = kind("hands-at-guard", "Hands at guard", (given) => guardOf(given.spec));
 
-/** Its options as it starts, in rank order: orders, each strike, footwork into the windows and out of pressure, the rise (`RISE_OPTIONS`), covers, then the rest options. */
+/** Its options as it starts, in rank order: orders, each strike, the walk, the rise (`RISE_OPTIONS`), covers, then the rest options. */
 export const OPTIONS: readonly PartConfig[] = deepFreeze([...[ORDERS_OPTION, STRAIGHT_PUNCH_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, SWORD_THRUST_OPTION, STOMP_OPTION,
-  WINDOWS_WALK, PRESSURE_WALK].map((part) => part.defaults), ...RISE_OPTIONS, ...[COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION].map((part) => part.defaults)]);
+  WALK_OPTION].map((part) => part.defaults), ...RISE_OPTIONS, ...[COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION].map((part) => part.defaults)]);
 
 /** **Standing where it is**: the rise (`RISE_OPTIONS`), holding the position, the hands at guard and the brace; a body under these alone strikes, walks and covers nothing. */
 export const STANDING_OPTIONS: readonly PartConfig[] = deepFreeze([...RISE_OPTIONS, ...[HOLD_OPTION, GUARD_OPTION, BRACE_OPTION].map((part) => part.defaults)]);
 
-/** The options `configs` name, each kind's as `of` finds it, made from `given` and the options the kinds before it made (`OptionsGiven.made`), in their order. */
-export function optionsOf(of: (config: PartConfig) => OptionKindPart, configs: readonly PartConfig[], given: Omit<OptionsGiven, "made">): readonly Option[] {
-  const made: Option[] = [];
-  for (const config of configs) made.push(...of(config).make(config, { ...given, made: Object.freeze([...made]) }));
+/**
+ * The options `configs` name, each kind's as `of` finds it, made from `given` and the options the
+ * kinds before it made (`OptionsGiven.made`), in their order; then the sites they name (`Sites`),
+ * each name once.
+ */
+export function optionsOf(of: (config: PartConfig) => OptionKindPart, configs: readonly PartConfig[], given: Omit<OptionsGiven, "made" | "sites">): readonly Option[] {
+  const all: Site[] = [], names: string[] = [], made: Option[] = [];
+  for (const config of configs) made.push(...of(config).make(config, { ...given, made: Object.freeze([...made]), sites: { all, names } }));
+  for (const option of made) for (const site of option.sites ?? []) {
+    if (names.includes(site.name)) throw new Error(`two sites are named ${site.name}`);
+    all.push(site); names.push(site.name);
+  }
+  Object.freeze(all); Object.freeze(names);
   return made;
 }

@@ -64,7 +64,7 @@ export function menuOf(kit: readonly KitEntry[], view: BodyView, around: ActionA
     if (regions.length === 0) { entries.push({ action, limb, foe: null, region: null, readiness: readiness(view, action, limb, SELF, around) }); continue; }
     for (const foe of foes) for (const region of regions) {
       const ready = readiness(view, action, limb, { kind: "body", body: foe.id, region }, around);
-      const spot = ready.kind === "position" || ready.kind === "ready" && ready.window ? windowSpot(view, ready.window!, around.heading, undefined, going) : null;
+      const spot = ready.kind === "position" || ready.kind === "ready" && ready.window ? windowSpot(view, ready.window!, around.heading, null, undefined, going) : null;
       if (ready.kind === "position" && !spot) { entries.push({ action, limb, foe: foe.id, region, readiness: NO_PLACE }); continue; }
       entries.push({ action, limb, foe: foe.id, region, readiness: ready, ...(spot ? { spot } : {}) });
     }

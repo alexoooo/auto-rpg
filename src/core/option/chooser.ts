@@ -115,7 +115,7 @@ const keyOf = (leaves: Leaves, seconds: number): string => {
  * `objective` at `obedience`, `depth` Options deep, over the `horizon`, s: each Option's line from
  * `root` at each of its targets (`line`). A line runs its Option (`Option.model`), then at each way
  * it ends (`Outcome`) the best single Option from there where the search goes deeper (`best`), and
- * ends at a leaf (`leaf`: the best open Option, held where the body is or at its site, `Option.site`)
+ * ends at a leaf (`leaf`: the best open Option, held where the body is or at its sites, `Option.sites`)
  * until the horizon; a line is cut at the horizon, so every worth is absolute over the same seconds
  * and depths compare alike. Each path is priced whole by the objective (`Path`) and weighed by its
  * chances. At `root` an Option with no targets is asked only where its entry admits (`onOffer`);
@@ -125,7 +125,7 @@ const keyOf = (leaves: Leaves, seconds: number): string => {
  */
 function search(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, depth: number, horizon: number): (option: Option, target: number) => Line | null {
   const sites = new Set<string>();
-  for (const option of options) if (option.open && option.site !== undefined) sites.add(option.site);
+  for (const option of options) if (option.open && option.sites) for (const site of option.sites) sites.add(site.name);
   const models = new Map<Situation, Map<Option, (Terms | null)[]>>(), offered = new Map<Situation, readonly Pair[]>(), children = new Map<Situation, Map<string, Situation>>();
   /** The model of `option` at `target` from `at`, asked once (an open one priced as an instant). */
   const modelAt = (option: Option, target: number, at: Situation): Terms | null => {
@@ -200,7 +200,7 @@ function search(root: Situation, options: readonly Option[], objective: Objectiv
    * **Where a line ends**, at `at`, `seconds` s into the horizon: the best, to the horizon, of each
    * Option on offer there that leaves the body where it began, run again and again (an open
    * Option, `Option.open`, held, the case of none; where `whole`, any other, `again`), and, where
-   * `whole`, of each open Option reached at its site (`Option.site`: a walk to it, then the best
+   * `whole`, of each open Option reached at its sites (`Option.sites`: a walk to one, then the best
    * held where that ends); the path as it is where none is.
    */
   const leaf = (at: Situation, whole: boolean, dealt: number, taken: number, orders: number, seconds: number): number => {
