@@ -91,15 +91,20 @@ defect.
   what bears the body, is a cue; no body decides every step for being down. The decider's builder
   names no kind of Option.
 - **An Option is a model.** Asked at a state, now or predicted, it says what running it from there
-  brings (the life it deals and takes, its seconds) and the state it leaves the body in, with the
-  chance that state is down. One call answers at any state (`Option.model` and `Option.at` become
-  one), so a search asks it again at the states it returns. An Option's record of failing from a
-  situation in the bout, and its price where no profile measures it, are the same for every Option.
+  brings (the life it deals and takes, its seconds) and its outcomes: each a state it leaves the
+  body in, with its chance (today, down or up). A predicted state carries what a profile reads a
+  start by: the range, the bearing, both bodies' postures and the body's velocity. One call answers
+  at any state (`Option.model` and `Option.at` become one), so a search asks it again at the states
+  it returns. An Option's record of failing from a situation in the bout, and its price where no
+  profile measures it, are the same for every Option.
 - **The chooser is a search over the models**, its depth its own config: depth 1 prices what an
-  Option brings and no more; depth 2 adds the best single Option from where it leaves the body; a
-  deeper search, or a tree search, is another chooser part asking the same models. Every line of
-  the search ends in holding to one common horizon, so a worth is absolute over that horizon and
-  depths compare alike. Where an Option leaves the body is worth what the search finds from there,
+  Option brings and no more; depth 2 adds, at each of its outcomes, the best single Option from
+  there; a deeper search, or a tree search, is another chooser part asking the same models. A
+  line's worth is its outcomes' worths weighed by their chances. Every line ends in holding until
+  the end of the longest line compared in that decision, so worths are absolute over one span and
+  depths compare alike. Each Option is priced by its own lines, and the set the chooser runs is
+  taken as today (`selectSet`): the best, then the best of the rest whose claims are still free.
+  Where an Option leaves the body is worth what the search finds from there,
   by no other rule: holding within the foe's reach loses life there, which prices a place; lying
   is priced by the Options that begin there, the ways up with their time down and their failures.
   So a blow that may fall and a way up that may fail are priced alike, by no table of the rise's
@@ -110,12 +115,13 @@ defect.
 - **Waiting is holding.** Where an Option leaves the body is a state, never a delay: each Option
   prices its own start from the state it is asked at, and until its entry admits, the body holds.
   No Option says how long it leaves another unready.
-- **A profile is an Option's on a body**, each cell keyed by where its trials began: the range,
-  the foe's phase, both bodies' postures, and the velocity at the start in the frame of the
-  Option's target (the body against its target, the target's own motion included), or in the
-  body's own frame (forward and sideways of its facing) for an Option with no target. Its drill
-  samples the starts (still, stepping in, backing off, sideways), and a reading is the nearest cell
-  over range and velocity. Its cells grow with its own trials, never with pairs of Options.
+- **A profile is an Option's on a body**: a sample of its trials, each keeping what it brought and
+  where it began: the range, the foe's phase, both bodies' postures, and the velocity at the start
+  in the frame of the Option's target (the body against its target, the target's own motion
+  included), or in the body's own frame (forward and sideways of its facing) for an Option with no
+  target. Its drill draws the starts at random (still, stepping in, backing off, sideways), and a
+  reading takes the trials nearest the state asked at. The sample grows with its own trials, never
+  with pairs of Options.
 - **Where to walk.** An Option may name its sites: the spots it would begin from, if not where the
   body stands. An Option whose skill cannot begin from here and says where it could (its readiness
   a window, `Readiness`'s `position`) names that window, and one shared rule makes a spot of a
@@ -165,13 +171,15 @@ defect.
 
 Each lands green on its own: `npm run check`, `npm test`, `npm run build` where browser code or
 assets change, and a toolkit change's message names the fingerprint cases it moves
-(`scripts/fingerprint.mjs`).
+(`scripts/fingerprint.mjs`). The plan's measuring, the baseline and the profiles' samples together,
+takes an hour at most.
 
 ### 1. The known bugs
 
-First, the table's stand-up and run cells are read and kept as rows: what the guards and the end
-of this plan compare against. Then each bug is fixed to its layer's contract, then what it breaks
-above:
+First, the table's stand-up and run cells are played again on the code as it is and kept as rows:
+what the guards and the end of this plan compare against. The play is priced from its first
+trials; past about 15 minutes, the rows the table holds are the baseline instead. Then each bug is
+fixed to its layer's contract, then what it breaks above:
 
 - **A walk's step ends on its time with its foot in the air**, and the next shift hands the weight
   to that foot. Landed as a catch's step lands, the Skeleton's shoved walk fell 59 of 600 against
@@ -209,10 +217,13 @@ Each piece lands on its own, in this order:
    unmeasured one (`BY_HAND`) become every Option's record and prior. A config that leaves the
    body no way up from its back or its front stays a fault.
 5. **An Option a model, the chooser a search.** `Option.model(now)` and `Option.at(now, there,
-   place)` become one call at a state, now or predicted, returning what the Option brings and the
-   state it leaves (`src/core/option/option.ts`; `placed` makes the predicted state). The valued
-   chooser searches the models to its depth and ends every line in holding to one horizon; worth
-   is absolute over that horizon, not beside holding where the body stands. What priced where an
+   place)` become one call at a state, now or predicted, returning what the Option brings and its
+   outcomes, each a state it leaves with its chance (`src/core/option/option.ts`; `placed` makes
+   the predicted state, the body's velocity and posture with its range and bearing). The valued
+   chooser searches the models to its depth, weighs each line's outcomes by their chances, and ends
+   every line in holding until the end of the longest line compared; worth is absolute over that
+   span, not beside holding where the body stands. The set it runs is taken as today
+   (`selectSet`). What priced where an
    Option leaves the body by other rules goes: the objective's guess of a place's worth from its
    range (`placeWorth`, `src/core/option/objective.ts`), which credits a walk with the strikes at
    its end as the look-ahead does as well; the look-ahead for walks alone (`lookingPast`,
@@ -226,10 +237,13 @@ Each piece lands on its own, in this order:
    (`src/core/option/position.ts`), the seconds until a rise braces the body (`unbraced`,
    `src/core/option/ground.ts`), and the gait profiles measured stopping to throw each strike
    (`assets/core/gait-profiles.json`, `src/core/data/gait-profiles.ts`) with the Gait drill that
-   measures them (`src/evaluation/gait/`). A profile cell records the velocity its trials began at,
-   in the frame of the Option's target or the body's own, and is read nearest over range and
-   velocity (`src/core/skills/framework/profile.ts`); each Option's drill samples its starts. A
-   gait's own profile (its pace, its falls) is measured as every Option's is. Check: no Option
+   measures them (`src/evaluation/gait/`). A profile becomes a sample of trials, each with its
+   start (the range, the foe's phase, both postures, the velocity in the frame of the Option's
+   target or the body's own), read by the trials nearest the state asked at
+   (`src/core/skills/framework/profile.ts`; `ProfileCell` goes, each of today's cells read as a
+   sample begun still, weighed by its trials, until fresh trials replace it); each Option's drill
+   draws its starts at random. A gait's own profile (its pace, its falls) is measured as every
+   Option's is. Check: no Option
    reads another's readiness; a reading of a strike begun stepping in differs from one begun still
    where their trials differ.
 7. **Where to walk.** Options name their sites: the window their skill's readiness gives, made a
@@ -296,8 +310,8 @@ named.
   as met or short, and every other cell as its score against its baseline (its first reading when
   its work begins, kept as a row), with the person's figure beside it and the version and drill
   link of its best. The Skeleton's stomp cells go.
-- **The owner's target on every body and loadout**: the `rising-target` evaluation takes the
-  Skeleton and the sword and buckler loadouts.
+- **The owner's target on every body and loadout**: the `rising-target` evaluation takes every
+  body in every loadout, and `equipped-rise`, which read those falls apart from the target, goes.
 
 Check: `npm test`; the table judged from the rows it holds; [rising](../reference/rising.md) and
 [the table](../reference/the-table.md) rewritten to match.
@@ -308,9 +322,9 @@ Check: `npm test`; the table judged from the rows it holds; [rising](../referenc
 - Option Mind is one loop for every body, its config a chooser, its predictions, its rate and its
   Options, each Option one act; the rise, the strikes, the walks and the quadrupeds' acts are
   Options chosen and priced as every Option is.
-- Every Option is a model asked at any state, its profile keyed by where its trials began, the
-  start's velocity included; the chooser searches the models to its own depth, and where an Option
-  leaves the body is priced by that search alone.
+- Every Option is a model asked at any state, its profile a sample of trials each keeping where it
+  began, the start's velocity included; the chooser searches the models to its own depth, and
+  where an Option leaves the body is priced by that search alone.
 - Every body family is commanded, driven and read through one body contract.
 - No body is named in control code; every difference between bodies is a record or a part only
   that body fits.
