@@ -289,41 +289,55 @@ function search(root: Situation, options: readonly Option[], objective: Objectiv
   };
 }
 
-/** **A state in the tree** (`treeSearch`): the state, the path to it (life dealt and taken, orders, s), the runs through it, and an edge for each Option on offer there, made when first run through. */
-interface TreeNode { readonly at: Situation; readonly dealt: number; readonly taken: number; readonly orders: number; readonly seconds: number; runs: number; edges: TreeEdge[] | null }
+/**
+ * **A state in the tree** (`treeSearch`): the state, the path to it (life dealt and taken, orders,
+ * s), the runs through it, an edge for each Option on offer there (made when first run through),
+ * what its leaf is worth (`floor`), and what it is worth (`worth`): the more of its floor and its
+ * best Option run.
+ */
+interface TreeNode { readonly at: Situation; readonly dealt: number; readonly taken: number; readonly orders: number; readonly seconds: number; readonly floor: number;
+  runs: number; worth: number; edges: TreeEdge[] | null }
 
-/** **An Option in the tree** (`treeSearch`), at its target from its state: its step (`Step`), the state each way it ends leads to, made when first drawn, and the runs through it and their worths' sum. */
-interface TreeEdge { readonly pair: Pair; readonly step: Step; readonly ends: (TreeNode | null)[]; runs: number; sum: number }
+/**
+ * **An Option in the tree** (`treeSearch`), at its target from its state: its step (`Step`), the
+ * state each way it ends leads to (made when first drawn), the runs through it, and what it is
+ * worth: cut, its ways of ending priced where they leave the body; else the worths of the states
+ * drawn by their chances among those drawn.
+ */
+interface TreeEdge { readonly pair: Pair; readonly step: Step; readonly ends: (TreeNode | null)[]; runs: number; worth: number }
 
 /**
  * **The tree chooser's search at `root`**: `runs` runs of a Monte Carlo tree search over the
  * states its Options' models lead to (`space`), `stream` drawing the ways they end. A run goes down
  * from `root`, at each state taking the first Option on offer there that no run has taken, else the
- * one of best bound (its mean worth and `exploration` times the spread of its siblings' means, by
- * how few of the state's runs it has had), the fewer runs on a tie; and at each Option one way it
- * ends, drawn by its chance. It ends at the first state it makes, priced at the leaf (`leaf`,
- * whole), where its Option is cut (`cutWorth`), or where no Option is on offer, and its path's worth
- * is counted on every Option it took. Every Option on offer at `root` is run at least once; an
- * Option's line at `root` is the mean worth of the runs through it.
+ * one of best bound (its worth and `exploration` times the spread of its siblings' worths, by how
+ * few of the state's runs it has had), the fewer runs on a tie; and at each Option one way it ends,
+ * drawn by its chance. It ends at the first state it makes, worth its leaf (`leaf`, whole), or where
+ * its Option is cut (`cutWorth`); then each Option and state it went through is worth again what
+ * lies below it (`TreeEdge`, `TreeNode`): the models are the mind's own, so a state is worth its best
+ * line found, never less than its leaf. Every Option on offer at `root` is run at least once.
  */
 function treeSearch(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, horizon: number, runs: number,
   exploration: number, stream: { next(): number }): Lines {
   const at = space(root, options, objective, obedience, horizon);
-  const top: TreeNode = { at: root, dealt: 0, taken: 0, orders: 0, seconds: 0, runs: 0, edges: null };
-  const edgesOf = (node: TreeNode): TreeEdge[] => node.edges ??= at.pairsAt(node.at).map((pair) => ({ pair, runs: 0, sum: 0, ends: [],
+  const nodeAt = (state: Situation, dealt: number, taken: number, orders: number, seconds: number): TreeNode => {
+    const floor = at.leaf(state, "whole", dealt, taken, orders, seconds);
+    return { at: state, dealt, taken, orders, seconds, floor, runs: 0, worth: floor, edges: null };
+  };
+  const top = nodeAt(root, 0, 0, 0, 0);
+  const edgesOf = (node: TreeNode): TreeEdge[] => node.edges ??= at.pairsAt(node.at).map((pair) => ({ pair, runs: 0, worth: 0, ends: [],
     step: at.stepOf(pair.option, pair.target, node.at, node.dealt, node.taken, node.orders, node.seconds) }));
   /** The edge a run takes from `node`. */
   const pick = (node: TreeNode, edges: readonly TreeEdge[]): TreeEdge => {
     let low = Infinity, high = -Infinity;
     for (const edge of edges) {
       if (edge.runs === 0) return edge;
-      const mean = edge.sum / edge.runs;
-      low = Math.min(low, mean); high = Math.max(high, mean);
+      low = Math.min(low, edge.worth); high = Math.max(high, edge.worth);
     }
     const scale = exploration * (high - low), total = log(node.runs);
     let chosen = edges[0]!, bound = -Infinity;
     for (const edge of edges) {
-      const value = edge.sum / edge.runs + scale * Math.sqrt(total / edge.runs);
+      const value = edge.worth + scale * Math.sqrt(total / edge.runs);
       if (value > bound || value === bound && edge.runs < chosen.runs) { chosen = edge; bound = value; }
     }
     return chosen;
@@ -335,34 +349,46 @@ function treeSearch(root: Situation, options: readonly Option[], objective: Obje
     for (let k = 0; k < outcomes.length - 1; k++) { u -= outcomes[k]!.chance; if (u < 0) return k; }
     return outcomes.length - 1;
   };
+  /** What `edge` is worth from the states drawn of its ways of ending (`TreeEdge`); a cut edge keeps its own. */
+  const reprice = (edge: TreeEdge): void => {
+    if (edge.step.cut) return;
+    let worth = 0, mass = 0;
+    edge.step.terms.outcomes.forEach((outcome, k) => {
+      const end = edge.ends[k];
+      if (end) { worth += outcome.chance * end.worth; mass += outcome.chance; }
+    });
+    edge.worth = worth / mass;
+  };
+  /** What `node` is worth (`TreeNode`): the more of its floor and its best edge run. */
+  const revalue = (node: TreeNode): void => {
+    let worth = node.floor;
+    for (const edge of node.edges ?? []) if (edge.runs > 0) worth = Math.max(worth, edge.worth);
+    node.worth = worth;
+  };
   const nodes: TreeNode[] = [], taken: TreeEdge[] = [];
-  /** One run from the top: down to its first new state, a cut or a state with nothing on offer; then its worth counted along its path. */
+  /** One run from the top: down to its first new state or a cut; then every edge and state it went through worth again what lies below. */
   const run = (): void => {
     nodes.length = 0; taken.length = 0;
-    let node = top, worth: number;
+    let node = top;
     for (;;) {
       nodes.push(node);
       const edges = edgesOf(node);
-      if (edges.length === 0) { worth = at.price(node.dealt, node.taken, node.orders, node.seconds, node.at); break; }
+      if (edges.length === 0) break;
       const edge = pick(node, edges), step = edge.step;
       taken.push(edge);
-      if (step.cut) { worth = at.cutWorth(node.at, step); break; }
+      if (step.cut) { if (edge.runs === 0) edge.worth = at.cutWorth(node.at, step); break; }
       const k = draw(step.terms), next = edge.ends[k];
       if (next) { node = next; continue; }
-      const made: TreeNode = { at: at.child(node.at, step.terms.outcomes[k]!.leaves, step.terms.duration), dealt: step.dealt, taken: step.taken, orders: step.orders,
-        seconds: step.after, runs: 0, edges: null };
-      edge.ends[k] = made;
-      nodes.push(made);
-      worth = at.leaf(made.at, "whole", made.dealt, made.taken, made.orders, made.seconds);
+      edge.ends[k] = nodeAt(at.child(node.at, step.terms.outcomes[k]!.leaves, step.terms.duration), step.dealt, step.taken, step.orders, step.after);
       break;
     }
+    for (let i = taken.length - 1; i >= 0; i--) { const edge = taken[i]!; edge.runs++; reprice(edge); revalue(nodes[i]!); }
     for (const visited of nodes) visited.runs++;
-    for (const edge of taken) { edge.runs++; edge.sum += worth; }
   };
   for (let k = 0; k < Math.max(runs, edgesOf(top).length); k++) run();
   return (option, target) => {
     const edge = top.edges!.find((one) => one.pair.option === option && one.pair.target === target);
-    return edge ? { worth: edge.sum / edge.runs, terms: edge.step.terms } : null;
+    return edge ? { worth: edge.worth, terms: edge.step.terms } : null;
   };
 }
 
@@ -454,13 +480,13 @@ export const VALUED_CHOOSER: OptionChooserPart<ValuedConfig> = deepFreeze({
 
 /**
  * How many runs the tree chooser makes a decision unless its config says (`TreeConfig.runs`): set
- * so that a decision fits its step.
+ * so that a step costs about what the valued chooser's two-deep search does.
  */
-const RUNS = 200;
+const RUNS = 100;
 
 /**
- * How far the tree chooser looks beyond an Option's mean worth unless its config says
- * (`TreeConfig.exploration`), in spreads of its siblings' means: set for the match.
+ * How far the tree chooser looks beyond an Option's worth unless its config says
+ * (`TreeConfig.exploration`), in spreads of its siblings' worths.
  */
 const EXPLORATION = 1;
 

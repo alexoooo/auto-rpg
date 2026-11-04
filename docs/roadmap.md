@@ -26,7 +26,6 @@ Where the project is going and what is open. What is built is in the
 | Plan | What it builds |
 | --- | --- |
 | [Option Mind general](plans/2026-11-03-option-mind-general.md) | the known bugs fixed; Option Mind one loop and one body contract for every body, every act an Option; bodies told apart in data; skills developed against their own baselines |
-| [Option Mind's tree search](plans/2026-11-04-option-tree-search.md) | a Monte Carlo tree search over the Options' models in place of the two-deep search and its leaf patterns, if it wins the match |
 | [Options trained body by body](plans/2026-11-03-options-training.md) | after Option Mind general: stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
 | [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |
@@ -117,11 +116,15 @@ Option Mind as its hero.
 - The foe's phase reads `rising` in bursts only.
 - Nothing in the rules costs effort; fatigue only if a trained mind strikes without pause.
 - Options chosen by profile: targets after a guard, spacing, ground choices, obedience.
-- The valued chooser is indifferent to delay: a strike now ties the same strike after a second
-  of following orders, so a stomp profile whose way back leaves the body outside its window walks
-  between sites; the measured stomp profiles wait on it.
-- A body lying where only flatten is on offer reaches standing three Options deep, past the
-  search's depth, and braces.
+- The valued chooser, Option Mind's default, is indifferent to delay (a strike now ties the same
+  strike after a second of following orders, so the measured stomp profiles wait), and a body
+  lying where only flatten is on offer, three Options from standing, braces. The tree chooser
+  (`TREE_CHOOSER`) reaches both and wins the match against it, but stands up fewer times in the
+  match's bouts and its dearest steps cost more; its exploration is unswept.
+- A predicted state reads the body's real view, then a predicted foe: begun when the tree's lost
+  bouts recur on choices made from states mispredicted so.
+- A learned value at the tree's leaf, fitted to its own searched values: begun when its runs are
+  capped below what reaches a strike from the ground.
 - A learned mind; sight that is blocked; team bouts in the Arena.
 
 ### The game

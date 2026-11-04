@@ -3,7 +3,7 @@
  * `src/evaluation/match/cases.ts`) of mind `a` against mind `b`, each on each side, read for `a`'s
  * body: its longest time down, its time down in all, and what its chooser had on offer while it lay
  * (`Engagement.offers`, read each second past `--after` s down), with the bout's winner. With
- * `--time`, each step's wall time too, the least, median, 99th percentile and most, ms: what the
+ * `--time`, each step's wall time too, the least, median, 99th and 99.9th percentiles and most, ms: what the
  * minds' deciding costs beside the step it runs in (read on a quiet machine, `--workers 1`).
  *
  *   node research/lying.mjs [--a option] [--b bare] [--cases 0,10,48] [--workers 12] [--after 20] [--time]
@@ -87,7 +87,7 @@ if (isMainThread) {
   }
   if (values.time) {
     const steps = rows.flatMap((row) => row.steps).sort((x, y) => x - y), at = (q) => steps[Math.min(steps.length - 1, Math.floor(q * steps.length))];
-    console.log(`step wall time, ms, over ${steps.length} steps: least ${steps[0].toFixed(2)}, median ${at(.5).toFixed(2)}, 99th ${at(.99).toFixed(2)}, most ${steps.at(-1).toFixed(2)}`);
+    console.log(`step wall time, ms, over ${steps.length} steps: least ${steps[0].toFixed(2)}, median ${at(.5).toFixed(2)}, 99th ${at(.99).toFixed(2)}, 99.9th ${at(.999).toFixed(2)}, most ${steps.at(-1).toFixed(2)}`);
   }
 } else {
   const { a, b, after, time } = workerData;

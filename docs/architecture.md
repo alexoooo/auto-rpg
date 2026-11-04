@@ -273,9 +273,11 @@ each a state with its chance, `Outcome`), its step, and a status.
   chooser prices each option by a Monte Carlo tree search over the same models and leaf
   (`treeSearch`): a fixed count of runs a decision, each going down by upper bounds scaled to the
   spread of its siblings' worths, drawing each option's way of ending by its chance from a stream
-  kept in its state, and an option worth the mean of the runs through it; it goes deep where few
-  options are on offer. `research/lying.mjs` reads a mind's time down in the match's bouts and the
-  cost of its steps.
+  kept in its state; an option is worth the states its drawn ways of ending lead to, by their
+  chances, and a state the more of its leaf and its best option run, so a search is never worth
+  less than its leaf. It goes deep where few options are on offer. Option Mind decides by the
+  valued chooser, two deep, unless its config names another. `research/lying.mjs` reads a mind's
+  time down in the match's bouts and the cost of its steps.
 - **Where to walk**: an Option names its sites (`Option.sites`, `Site`), the spots it would begin
   from if not where the body stands: a strike whose readiness gives a window to be brought to
   (`Readiness`'s `position`) names a spot in it on each side of a body lying (`windowSpot`, `Side`),
