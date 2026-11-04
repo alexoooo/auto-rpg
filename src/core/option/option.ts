@@ -2,22 +2,25 @@ import type { Readiness, Resource, Window } from "../skills/framework/action.ts"
 import { intentOfSet, type Intent, type SelectedAsk } from "../intent/intent.ts";
 import type { Sight } from "../mind/decider.ts";
 import type { Choice } from "../mind/choice.ts";
-import type { ModelledStrike, Percepts, Predictions } from "./percepts.ts";
+import type { Cues, ModelledStrike, Percepts, Predictions } from "./percepts.ts";
 import type { PartConfig } from "../parts/parts.ts";
 import type { Place } from "./position.ts";
 import type { Terms } from "./value.ts";
 
 /**
  * **What a decision reads**, once a control step: the body and its skills as the last step left
- * them, each percept (`PERCEPTS`), and the predictions, read as they are asked (`PREDICTIONS`);
- * and, by its config, a percept or prediction part's reading, read as it is asked: one an option
- * kind or an objective names in its `uses`. Those parts have no cue, and a place (`Place`) leaves
- * them as they are now.
+ * them, and each percept (`PERCEPTS`) and prediction (`PREDICTIONS`), read the first time it is
+ * asked and kept for the step; and, by its config, a percept or prediction part's reading, read as
+ * it is asked: one an option kind or an objective names in its `uses`. Those parts have no cue,
+ * and a place (`Place`) leaves them as they are now. Which cued percepts were asked for is counted
+ * for its chooser (`cues`).
  */
 export interface Situation extends Percepts {
   readonly sight: Sight;
   readonly time: number;
   readonly predictions: Predictions;
+  /** What its chooser watches: the cued percepts asked for of any situation its reader made (`Cues`). */
+  readonly cues: Cues;
   /** What the percept part `config` names reads now (`PerceptPart`). */
   perceive<V>(config: PartConfig): V;
   /** What the prediction part `config` names predicts now (`PredictionPart`). */
@@ -76,11 +79,12 @@ export interface Option extends Choice<Situation> {
 }
 
 /**
- * **The situation where `place` leaves the body**, as `now` reads it otherwise: its range and the
- * range centre to centre moved alike, and its bearing around the focus where it names one.
+ * **The situation where `place` leaves the body**, as `now` reads it otherwise, read through it:
+ * its range and the range centre to centre moved alike, and its bearing around the focus where it
+ * names one.
  */
-export const placed = (now: Situation, place: Place): Situation =>
-  ({ ...now, range: place.range, apart: now.apart + place.range - now.range, around: place.around ?? now.around });
+export const placed = (now: Situation, place: Place): Situation => Object.create(now, {
+  range: { value: place.range }, apart: { value: now.apart + place.range - now.range }, around: { value: place.around ?? now.around } }) as Situation;
 
 /** An entry or exit that admits. */
 export const READY: Readiness = Object.freeze({ kind: "ready" });

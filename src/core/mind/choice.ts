@@ -93,6 +93,18 @@ export interface Holding<S> {
   drift(other: S): readonly Drift[];
 }
 
+/**
+ * **What a selection watches of a situation** (`selectSet`): its event (`event`), a text whose
+ * change decides afresh at once. One that learns what to watch from what its decisions read is
+ * told as each decision afresh begins (`deciding`) and once it has decided (`decided`), its event
+ * then read again.
+ */
+export interface Cue<S> {
+  event(now: S): string;
+  deciding?(now: S): void;
+  decided?(now: S): void;
+}
+
 /** No chance: the best is taken, nothing drawn. */
 const NO_CHANCE: Chance = Object.freeze({ margin: 0, seed: 0 });
 
@@ -143,7 +155,7 @@ export const onOffer = <S>(choice: Choice<S>, now: S): boolean => choice.entry(n
 
 /**
  * **The one policy**: of `choices`, the set that runs, by worth as `appraise` prices each. Once a
- * time (`decide`), on an event (a change in what `cue` reads of the situation), when a choice
+ * time (`decide`), on an event (a change in what `cue` reads of the situation, `Cue`), when a choice
  * running is over or out of its entry, when the first chosen reaches its exit, or `rethink` s on,
  * it decides afresh: a running choice that does not yield keeps what it claims; with none, it
  * takes the situation (`now`, or one of `others`, another target) whose best choice is worth most,
@@ -154,12 +166,12 @@ export const onOffer = <S>(choice: Choice<S>, now: S): boolean => choice.entry(n
  * rest choice takes a resource nothing else is worth more on: it is chosen
  * with whichever of its claims are still free, the others all of theirs or not at all. Its memory
  * is which choices run (their places in `choices`, the first chosen first), when it decided, when
- * it next rethinks, the event it decided on, whether the first chosen was at its exit, the offers
+ * it next rethinks, the event at the situation it chose as it decided, whether the first chosen was at its exit, the offers
  * it chose from, its stream's word where it draws, each other situation's best held, and
  * `memory`'s entries, kept beside them.
  */
 export function selectSet<S extends { readonly time: number }, T, C extends Choice<S> = Choice<S>>(choices: readonly C[], appraise: Appraise<S, T, C>,
-  deciding: Deciding, cue: (now: S) => string, chance: Chance = NO_CHANCE, memory: Readonly<Record<string, object>> = {}, holding: Holding<S> | null = null): Selection<S, T, C> {
+  deciding: Deciding, cue: Cue<S>, chance: Chance = NO_CHANCE, memory: Readonly<Record<string, object>> = {}, holding: Holding<S> | null = null): Selection<S, T, C> {
   if (!(chance.margin >= 0) || !Number.isFinite(chance.margin)) throw new Error(`a selection's margin is finite and not negative, not ${chance.margin}`);
   const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
   const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Priced<T>[],
@@ -236,7 +248,7 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
   /** The best worth at `other`, another situation, at `time`: as held where `holding` holds it, else priced (`appraiseAt`) and held. */
   const otherBest = (other: S, time: number): number => {
     if (!holding) return appraiseAt(other);
-    const key = holding.key(other), event = `${cue(other)} ${state.running.join(",")}`, drift = holding.drift(other);
+    const key = holding.key(other), event = `${cue.event(other)} ${state.running.join(",")}`, drift = holding.drift(other);
     const others = state.others!;
     let kept = others[key];
     if (kept && stillHeld(kept.held, time, holding.rethink, event, drift, () => true)) return kept.best;
@@ -257,12 +269,12 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
       if (state.decided === now.time) return decided(result.at ?? now, result.fresh);
       let at = now;
       state.decided = now.time;
-      const event = cue(now);
+      const event = cue.event(now);
       let over = false;
       for (const i of state.running) if (done(choices[i]!, now)) over = true;
       const exiting = !over && exitingOf(now);
       if (!over && event === state.event && now.time < state.next && exiting === state.exiting) return decided(now, false);
-      state.event = event;
+      cue.deciding?.(now);
       state.next = nextDecision(deciding, now.time);
       // A choice over or out of its entry is ended: it may only be begun afresh.
       if (over) state.running = state.running.filter((i) => { const choice = choices[i]!, ended = done(choice, now); if (ended) choice.end(); return !ended; });
@@ -278,7 +290,6 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
         let top = appraiseAt(now);
         for (let k = 0; k < alternatives.length; k++) if (bests[k]! > top) { top = bests[k]!; at = alternatives[k]!; }
         if (at !== now) appraiseAt(at);
-        state.event = cue(at);
       } else appraiseAt(now);
       // The first, by chance where a margin is given: one drawn among those free worth more than the best free less the margin.
       const best = stream ? order.find(free) : undefined;
@@ -293,6 +304,8 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
       for (const i of chosen) if (aimed[i]! >= 0 && (!state.running.includes(i) || aimed[i] !== state.aims[i])) { state.aims[i] = aimed[i]!; state.since[i] = now.time; }
       state.running = [...chosen];
       state.exiting = exitingOf(at);
+      cue.decided?.(at);
+      state.event = cue.event(at);
       return decided(at, true);
     },
   };

@@ -6,18 +6,17 @@ import type { Profile } from "../skills/framework/profile.ts";
 import type { BodySense } from "../mind/senses.ts";
 import type { Sight } from "../mind/decider.ts";
 import { READINGS, threatReader } from "../perception/threat.ts";
-import { shieldHands } from "../intent/cover-hand.ts";
 import type { DownModel } from "./down.ts";
 import type { Position } from "../control/ground-reading.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../parts/lookup.ts";
-import { PERCEPTS, predictor, type ModelledStrike, type Seen } from "./percepts.ts";
+import { perceiver, type ModelledStrike, type Seen } from "./percepts.ts";
 
 /**
  * What a situation reader reads with: the body's `spec`, the world's rate `hz`, the fight's `rules`
  * (`BodyHost.rules`), its own strikes (`strikes`, each with its profile, its options' `Option.modelled`) and every striker's
  * (`measured`, `dataOf("strike-profiles")`), its orders read
- * through `ordersOf`, the prices of its ways up from the ground (`downs`), and the seconds until
+ * through `ordersOf`, the prices of its ways up from the ground (`riseFrom`), and the seconds until
  * it is braced as its rise reads them (`unbraced`; absent, braced at once), and the lookup its
  * percept and prediction parts are found by (`parts`).
  */
@@ -37,18 +36,47 @@ export interface Reading {
   readonly parts: PartLookup;
 }
 
+/** What a lazy input of a step's `Seen` holds before it is first asked for. */
+const UNREAD = Symbol("unread");
+
+/**
+ * **One step's sight read for every foe**: its orders, and the blow predicted to reach the head
+ * and a foe's weapon to ward off, each read the first time the step asks for it (`UNREAD` until
+ * then): what the situations at each foe share.
+ */
+interface Sensed {
+  readonly sight: Sight;
+  readonly orders: Orders | null;
+  blow: Seen["blow"] | typeof UNREAD;
+  ward: Seen["ward"] | typeof UNREAD;
+}
+
+/** A situation's `Seen` as the reader makes it: its step's (`Sensed`) at its focus. */
+type SeenAt = { -readonly [K in "sight" | "orders" | "focus"]: Seen[K] } & { step: Sensed };
+
 /**
  * **A body's situation reader** (`Situation`) with `reading` (`Reading`): each percept (`PERCEPTS`)
- * read once a step, and the predictions (`predictor`) read as they are asked, at a focus; a foe's
- * weapon to ward off (`READINGS.ward`) read only where a hand holds a covering face (`shieldHands`). The foes
- * it may focus on are the one its orders name, else every foe in the fight; it reads at the one it
- * kept (`keep`) while that one is in the fight, else the nearest, and at each other one as it is
- * asked (`others`), so a chooser prices its options at every foe and keeps the situation it chose.
- * Its memory is the kept focus's id.
+ * and prediction read the first time it is asked, at a focus (`perceiver`), and a foe's blow and
+ * weapon to ward off (`Seen.blow`, `Seen.ward`) the first time a step asks for either at any focus.
+ * The foes it may focus on are the one its orders name, else every foe in the fight; it reads at
+ * the one it kept (`keep`) while that one is in the fight, else the nearest, and at each other one
+ * as it is asked (`others`), so a chooser prices its options at every foe and keeps the situation
+ * it chose. Its memory is the kept focus's id.
  */
 export function situationReader(reading: Reading) {
   const { spec, hz, delay, rules, strikes, measured, ordersOf } = reading, rate = reading.rate ?? hz, riseFrom = reading.riseFrom ?? (() => null), unbraced = reading.unbraced ?? (() => 0);
-  const threats = threatReader(), state = { focus: null as string | null }, predicting = predictor(reading.parts), shielded = shieldHands(spec).length > 0;
+  const threats = threatReader(), state = { focus: null as string | null }, perceiving = perceiver(reading.parts);
+  /** What every `Seen` it makes holds of the reader: one prototype, its step's lazy inputs read through `SeenAt.step`. */
+  const base = Object.defineProperties({ spec, hz, rate, delay, rules, strikes, measured, threats, riseFrom, unbraced }, {
+    blow: { get(this: SeenAt): Seen["blow"] {
+      const step = this.step;
+      return step.blow === UNREAD ? step.blow = threats.blowOf(step.sight.view, READINGS.predicted) : step.blow;
+    } },
+    ward: { get(this: SeenAt): Seen["ward"] {
+      const step = this.step;
+      return step.ward === UNREAD ? step.ward = threats.threatOf(step.sight.view, READINGS.ward) : step.ward;
+    } },
+  });
   /** Whether `other` is a foe in the fight that `orders` let the body focus on. */
   const candidate = (sight: Sight, orders: Orders | null, other: BodySense): boolean =>
     !other.out && other.side !== sight.view.senses.side && (orders?.foe === undefined || other.id === orders.foe);
@@ -63,31 +91,29 @@ export function situationReader(reading: Reading) {
     }
     return near;
   };
-  /** The situation at `focus`, its predictions read through `predicting`. */
-  const at = (sight: Sight, orders: Orders | null, focus: BodySense | null, blow: Seen["blow"], ward: Seen["ward"], predicting: ReturnType<typeof predictor>): Situation => {
-    const seen: Seen = { sight, spec, hz, rate, delay, rules, strikes, measured, orders, focus, blow, ward, threats, riseFrom, unbraced };
-    predicting.reset(seen);
-    const read: Record<string, unknown> = { sight, time: sight.view.time, predictions: predicting.predictions, perceive: predicting.perceive, predict: predicting.predict };
-    for (const [name, percept] of Object.entries(PERCEPTS)) read[name] = percept.read(seen);
-    return read as unknown as Situation;
+  /** The situation `step` reads at `focus`. */
+  const at = (step: Sensed, focus: BodySense | null): Situation => {
+    const seen = Object.create(base) as SeenAt;
+    seen.sight = step.sight; seen.orders = step.orders; seen.focus = focus; seen.step = step;
+    return perceiving.at(seen as unknown as Seen);
   };
-  let last: { readonly sight: Sight; readonly orders: Orders | null; readonly focus: BodySense | null; readonly blow: Seen["blow"]; readonly ward: Seen["ward"] } | null = null;
+  /** The last `read`'s step and focus. */
+  let last: Sensed | null = null, lastFocus: BodySense | null = null;
   return {
     state,
     /** The situation at the focus (`focusOf`), now. */
     read(sight: Sight): Situation {
-      const orders = ordersOf(sight), focus = focusOf(sight, orders), blow = threats.blowOf(sight.view, READINGS.predicted);
-      const ward = shielded ? threats.threatOf(sight.view, READINGS.ward) : null;
-      last = { sight, orders, focus, blow, ward };
-      return at(sight, orders, focus, blow, ward, predicting);
+      const orders = ordersOf(sight);
+      last = { sight, orders, blow: UNREAD, ward: UNREAD }; lastFocus = focusOf(sight, orders);
+      return at(last, lastFocus);
     },
     /** The situation at each other foe it may focus on, as the last `read` saw them: none where it may focus on one alone. */
     others(): readonly Situation[] {
       if (!last) return NONE;
-      const { sight, orders, focus, blow, ward } = last;
+      const { sight, orders } = last;
       let others: Situation[] | null = null;
       for (const other of sight.view.senses.others)
-        if (other !== focus && candidate(sight, orders, other)) (others ??= []).push(at(sight, orders, other, blow, ward, predictor(reading.parts)));
+        if (other !== lastFocus && candidate(sight, orders, other)) (others ??= []).push(at(last, other));
       return others ?? NONE;
     },
     /** Keep `now`'s focus: the one it reads at while it is in the fight. */

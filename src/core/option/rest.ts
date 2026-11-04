@@ -40,7 +40,7 @@ export function guard(hands: readonly Resource[], shields: readonly Resource[] =
     entry: (now) => legsReadiness(now.sight.view), model: still,
     step: (now) => {
       const asked = { move: null, face: now.sight.report.heading, actions: [] };
-      if (!now.ward || !shields.length) return { asked, holds: NOTHING };
+      if (!shields.length || !now.ward) return { asked, holds: NOTHING };
       for (const hand of shields) covers[hand] = now.ward;
       return { asked: { ...asked, guard: covers }, holds: NOTHING };
     } };

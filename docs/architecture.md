@@ -222,15 +222,17 @@ options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Optio
 (`Readiness`), the resources it claims, its model (`Terms`: duration, what it deals and takes, the
 `Place` it leaves), its step, and a status.
 
-- **Percepts** (`PERCEPTS`) are read once a step into the `Situation`; **predictions**
-  (`PREDICTIONS`) price from measured profiles (`Profile`, `src/core/skills/framework/profile.ts`),
+- **Percepts** (`PERCEPTS`) and **predictions** (`PREDICTIONS`) are read into the `Situation`
+  the first time a step asks for each and kept for the step (`perceiver`); predictions price from
+  measured profiles (`Profile`, `src/core/skills/framework/profile.ts`),
   a stale one unread and a model with none priced by its prior.
 - **The objective** (`OBJECTIVES`): `few-terms` values an option in a share of a body's life
   beside its orders at the person's `OBEDIENCE`.
 - **The chooser** (`CHOOSERS`) runs the toolkit's set selection (`selectSet`,
   `src/core/mind/choice.ts`): the best option on offer, then the best whose claims are still free,
   rest options last; a running option that does not yield keeps its claims. The set's step is one
-  intent (`stepSet`). It decides afresh on a percept's cue, at an exit, or on its phase.
+  intent (`stepSet`). It decides afresh on the cue of a percept its last decision read (`Cues`),
+  at an exit, or on its phase.
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
   `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-cut`,
   `strike-sword-thrust`, `strike-stomp`), a strike (`strike`) of each action its executor of that

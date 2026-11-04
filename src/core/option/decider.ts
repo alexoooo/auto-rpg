@@ -103,8 +103,9 @@ function prospect(prospects: Kept[], options: readonly Option[], now: Situation)
  * strike unready) walking where it is worth most, each place worth where it leaves the body and the
  * best option there (the chooser's look past it): each strike's window, ahead and behind the foe
  * (`windowPlaces`), and out of the foe's pressure (`outOfPressure`); and, down,
- * the rise's options (`groundOptions`), which count the body down on its feet until their steady
- * braces it (`here`), and price a fall (`downCost`); and the rest options, worth nothing, which
+ * the rise's options (`groundOptions`), which read what happened since the last step before the
+ * situation is read (`Ground.see`), count the body down on its feet until their steady braces it
+ * (`here`), and price a fall (`downCost`); and the rest options, worth nothing, which
  * take what nothing else is worth more on: hold the position, the hands at their guard, and, down,
  * brace (`hold`, `guard`, `brace`), which the cover outbids on the hand on a blow's side while it
  * closes on the head (`covers`). The set's step is its members'
@@ -136,6 +137,7 @@ export function optionDecider(making: DeciderMaking, hz: number, deciding: Decid
     get prospects(): readonly Prospect[] { return state.prospects; },
     decide(seen: Sight, dt: number) {
       last = seen;
+      ground.see(seen);
       const read = reader.read(seen);
       let priced: readonly Situation[] = NONE;
       const { set, at: now, fresh } = chosen.decide(read, () => priced = reader.others());

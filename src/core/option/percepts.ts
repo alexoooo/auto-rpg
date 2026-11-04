@@ -20,10 +20,11 @@ import type { PartConfig } from "../parts/parts.ts";
 import { blowLife, limbReach, record } from "./value.ts";
 
 /**
- * What every percept reads from, once a step: the body's sight and spec, the world's rate (Hz), the
- * measured profiles of its own strikes and of every striker's, its orders, the foe it fights (its focus,
- * `situationReader`), the blow predicted to reach its head and the threat reader that predicted it,
- * and what a rise from each posture is priced at (`DownModel`; null where none stands it).
+ * What every percept and prediction reads from, a step's: the body's sight and spec, the world's
+ * rate (Hz), the measured profiles of its own strikes and of every striker's, its orders, the foe
+ * it fights (its focus, `situationReader`), the blow predicted to reach its head and a foe's weapon
+ * to ward off, each read the first time the step asks for it, and the threat reader that reads
+ * them, and what a rise from each posture is priced at (`DownModel`; null where none stands it).
  */
 export interface Seen {
   readonly sight: Sight;
@@ -42,7 +43,7 @@ export interface Seen {
   readonly orders: Orders | null;
   readonly focus: BodySense | null;
   readonly blow: ReturnType<Threats["blowOf"]>;
-  /** A foe's weapon to ward off, at the hand that holds it (`READINGS.ward`), read where a hand holds a covering face; null else. */
+  /** A foe's weapon to ward off, at the hand that holds it (`READINGS.ward`); null with none. */
   readonly ward: Cover | null;
   readonly threats: Threats;
   readonly riseFrom: (posture: Position) => DownModel | null;
@@ -66,9 +67,9 @@ export interface ModelledStrike {
 }
 
 /**
- * **A percept**: one named reading of what the body senses, read once a step (`situationReader`).
- * Its cue, where it has one, is what of it a chooser watches (`eventOf`): a change in the cue is an
- * event, on which the chooser decides at once.
+ * **A percept**: one named reading of what the body senses, read the first time a step asks for it
+ * (`perceiver`). Its cue, where it has one, is what of it a chooser watches where its last decision
+ * asked for it (`Cues`): a change in the cue is an event, on which the chooser decides at once.
  */
 export interface Percept<V> {
   read(seen: Seen): V;
@@ -386,14 +387,14 @@ function downCostAtOf(seen: Seen): (posture: Position) => number {
 const FALLEN: Position = "back";
 
 /**
- * **Every percept Option Mind reads**, by name, in the order they are read: what it reads of the senses
+ * **Every percept Option Mind reads**, by name: what it reads of the senses
  * and its own body with fixed geometry and kinematics, the same whatever a drill or the rules give.
  * Whether the body is down, how it lies (`Position`: standing on its feet), and the seconds until
  * it is braced (`Seen.unbraced`); its orders; its focus; how far off the focus is, centre to centre
  * across the ground (Infinity with none), and head to head (`range`, Infinity with none); its
  * bearing around the focus, rad from the focus's forward (its `marks.base`'s +z), positive to its
  * right (0 with none); a foe's blow predicted to reach the head (`READINGS.predicted`); a foe's
- * weapon near enough to ward off, with a hand that holds a covering face (`Seen.ward`); how late the senses show the focus (`reactionOf`), s; the
+ * weapon near enough to ward off (`Seen.ward`); how late the senses show the focus (`reactionOf`), s; the
  * lead (its own life less the focus's, 0 with none) and the time left before the clock's verdict
  * (`Senses.ends`, Infinity where none ends it), s. The gait's: where the stance is in a step
  * (`StanceReading.phase`), which feet the ground bears (`Bearing`) and the centre of mass's speed
@@ -430,7 +431,7 @@ export const PERCEPTS = Object.freeze({
 /**
  * **A prediction**: what data a drill, a training run or the rules make says of the situation,
  * stale with that data; read when an option or the position value asks for it, once a step at most
- * (`predictor`).
+ * (`perceiver`).
  */
 export interface Prediction<V> {
   read(seen: Seen): V;
@@ -459,52 +460,106 @@ export const PREDICTIONS = Object.freeze({
 /** What each prediction says, by its name. */
 export type Predictions = { readonly [K in keyof typeof PREDICTIONS]: typeof PREDICTIONS[K] extends Prediction<infer V> ? V : never };
 
-/** The predictions' names, in their order. */
-const PREDICTED = Object.freeze(Object.keys(PREDICTIONS) as (keyof typeof PREDICTIONS)[]);
-
-/**
- * **One body's predictions** (`Predictions`), each read from the step's `Seen` (`reset`) the first
- * time it is asked that step and kept until the next; and the percept and prediction parts an option
- * or an objective asks for by config (`perceive`, `predict`: a `PerceptPart`'s or `PredictionPart`'s,
- * made once a config through `parts`), read the same way. One object serves every step, so a
- * situation kept past its step reads the latest step's.
- */
-export function predictor(parts?: PartLookup) {
-  let seen: Seen | null = null;
-  const values: unknown[] = PREDICTED.map(() => undefined), read: boolean[] = PREDICTED.map(() => false);
-  const predictions = {} as Predictions;
-  PREDICTED.forEach((name, i) => Object.defineProperty(predictions, name, { enumerable: true, get() {
-    if (!read[i]) { values[i] = PREDICTIONS[name].read(seen!); read[i] = true; }
-    return values[i];
-  } }));
-  const made = new Map<PartConfig, Percept<unknown>>(), asked = new Map<PartConfig, unknown>();
-  /** What the part of `role` that `config` names reads now, once a step. */
-  const readPart = (role: "percept" | "prediction", config: PartConfig): unknown => {
-    if (asked.has(config)) return asked.get(config);
-    if (!parts) throw new Error(`a ${role} part read with no part lookup: ${config.kind}`);
-    let reading = made.get(config);
-    if (!reading) made.set(config, reading = parts.of(role, config).make(config) as Percept<unknown>);
-    const value = reading.read(seen!);
-    asked.set(config, value);
-    return value;
-  };
-  return {
-    predictions,
-    /** What the percept part `config` names reads now (`PerceptPart`). */
-    perceive: <V>(config: PartConfig): V => readPart("percept", config) as V,
-    /** What the prediction part `config` names predicts now (`PredictionPart`). */
-    predict: <V>(config: PartConfig): V => readPart("prediction", config) as V,
-    /** The step's `Seen`, each prediction to be read afresh. */
-    reset(next: Seen): void { seen = next; read.fill(false); asked.clear(); },
-  };
-}
-
 /** What each percept reads, by its name. */
 export type Percepts = { readonly [K in keyof typeof PERCEPTS]: typeof PERCEPTS[K] extends Percept<infer V> ? V : never };
 
-/** The percepts' names that have a cue, in their order. */
-const CUED = Object.freeze((Object.keys(PERCEPTS) as (keyof typeof PERCEPTS)[]).filter((name) => PERCEPTS[name].cue !== undefined));
+/** The percepts' names, in their order. */
+const PERCEIVED = Object.freeze(Object.keys(PERCEPTS) as (keyof typeof PERCEPTS)[]);
 
-/** **What changes the situation enough to decide at once** (`Percept.cue`): every cue's value, as one text a chooser compares with the last. */
-export const eventOf = (now: Percepts): string =>
-  JSON.stringify(CUED.map((name) => (PERCEPTS[name] as Percept<unknown>).cue!(now[name])));
+/** The predictions' names, in their order. */
+const PREDICTED = Object.freeze(Object.keys(PREDICTIONS) as (keyof typeof PREDICTIONS)[]);
+
+/** The percepts' names that have a cue, in their order. */
+const CUED = Object.freeze(PERCEIVED.filter((name) => PERCEPTS[name].cue !== undefined));
+
+/**
+ * **What a chooser watches of a body's situations** (`Situation.cues`): the cued percepts
+ * (`Percept.cue`) asked for since it last cleared them, of any situation its reader made, and the
+ * event those cues make.
+ */
+export interface Cues {
+  /** **What changes the situation enough to decide at once**: the cue of each of the percepts `watched` names at `now`, as one text a chooser compares with the last; reading them is not asking. */
+  event(now: Situation, watched: readonly string[]): string;
+  /** Count the cued percepts asked for afresh. */
+  clear(): void;
+  /** The cued percepts asked for since `clear`, by name, in their order. */
+  asked(): string[];
+}
+
+/** What a percept or prediction holds before it is first asked for. */
+const UNREAD = Symbol("unread");
+
+/** Where a situation and its predictions keep their `Memo`. */
+const MEMO = Symbol("memo");
+
+/**
+ * **One situation's reading**: what it reads from (`Seen`), what each percept and then each
+ * prediction read (`UNREAD` until asked), and what each part its config names read.
+ */
+interface Memo { readonly seen: Seen; readonly values: unknown[]; parts: Map<PartConfig, unknown> | null }
+
+/** A situation or its predictions, keeping its `Memo`. */
+type Memoized = Record<typeof MEMO, Memo>;
+
+/**
+ * **A body's situations** (`Situation`) read from a step's `Seen` (`at`): each percept and
+ * prediction read the first time it is asked and kept, and each percept and prediction part an
+ * option or an objective asks for by config (`perceive`, `predict`: a `PerceptPart`'s or
+ * `PredictionPart`'s, made once a config through `parts`), read the same way. Every situation's
+ * readings are getters on one prototype made here; a situation keeps its own, so one kept past
+ * its step reads its own step. Which cued percepts any of its situations was asked for is counted
+ * for a chooser (`Cues`).
+ */
+export function perceiver(parts?: PartLookup) {
+  /** The cued percepts asked for since `Cues.clear`, a bit each, by their place in `CUED`. */
+  let asked = 0;
+  const made = new Map<PartConfig, Percept<unknown>>();
+  /** What `reading` reads in `memo`'s situation, at `i` of its values: read the first time it is asked. */
+  const memoized = (memo: Memo, i: number, reading: { read(seen: Seen): unknown }): unknown => {
+    const value = memo.values[i];
+    return value === UNREAD ? memo.values[i] = reading.read(memo.seen) : value;
+  };
+  /** What the part of `role` that `config` names reads in `memo`'s situation, once. */
+  const readPart = (memo: Memo, role: "percept" | "prediction", config: PartConfig): unknown => {
+    const read = memo.parts ??= new Map();
+    if (read.has(config)) return read.get(config);
+    if (!parts) throw new Error(`a ${role} part read with no part lookup: ${config.kind}`);
+    let reading = made.get(config);
+    if (!reading) made.set(config, reading = parts.of(role, config).make(config) as Percept<unknown>);
+    const value = reading.read(memo.seen);
+    read.set(config, value);
+    return value;
+  };
+  const cues: Cues = {
+    event(now, watched) {
+      const was = asked, text = JSON.stringify(watched.map((name) => (PERCEPTS[name as keyof Percepts] as Percept<unknown>).cue!(now[name as keyof Percepts])));
+      asked = was;
+      return text;
+    },
+    clear() { asked = 0; },
+    asked: () => CUED.filter((_, c) => (asked & 1 << c) !== 0),
+  };
+  const situation = {
+    cues,
+    perceive(this: Memoized, config: PartConfig): unknown { return readPart(this[MEMO], "percept", config); },
+    predict(this: Memoized, config: PartConfig): unknown { return readPart(this[MEMO], "prediction", config); },
+  };
+  PERCEIVED.forEach((name, i) => {
+    const percept = PERCEPTS[name] as Percept<unknown>, bit = CUED.includes(name) ? 1 << CUED.indexOf(name) : 0;
+    Object.defineProperty(situation, name, { get(this: Memoized) { asked |= bit; return memoized(this[MEMO], i, percept); } });
+  });
+  const predictions = {};
+  PREDICTED.forEach((name, i) => Object.defineProperty(predictions, name, { get(this: Memoized) { return memoized(this[MEMO], PERCEIVED.length + i, PREDICTIONS[name]); } }));
+  return {
+    /** **The situation `seen` reads**, its percepts and predictions read as they are asked. */
+    at(seen: Seen): Situation {
+      const memo: Memo = { seen, values: new Array<unknown>(PERCEIVED.length + PREDICTED.length).fill(UNREAD), parts: null };
+      const now = Object.create(situation) as Memoized & { sight: Sight; time: number; predictions: Predictions };
+      now.sight = seen.sight; now.time = seen.sight.view.time; now[MEMO] = memo;
+      const said = Object.create(predictions) as Memoized;
+      said[MEMO] = memo;
+      now.predictions = said as unknown as Predictions;
+      return now as unknown as Situation;
+    },
+  };
+}

@@ -24,11 +24,11 @@ const STOPS = .6;
  */
 export function covers(spec: BodySpec): readonly Option[] {
   const state = { read: -Infinity, since: null as number | null, spent: false, hand: null as Side | null };
-  /** The run of blows at `now`, once a step: which hand covers it, or null where none does. */
+  /** The run of blows at `now`, once a step: which hand covers it, or null where none does. The blow is asked for at each call, so a chooser watches it (`Cues`). */
   const handAt = (now: Situation): Side | null => {
+    const threat = now.incoming;
     if (state.read === now.time) return state.hand;
     state.read = now.time; state.hand = null;
-    const threat = now.incoming;
     if (!threat) { state.since = null; state.spent = false; return null; }
     if (state.spent) return null;
     state.since ??= now.time;

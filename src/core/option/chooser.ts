@@ -4,9 +4,8 @@ import type { PartLookup } from "../parts/lookup.ts";
 import type { ChooserPart } from "./parts.ts";
 import { anyBody, slotOne, type PartConfig } from "../parts/parts.ts";
 import type { OfferTerms } from "../mind/engagement.ts";
-import { onOffer, selectSet, type Appraise, type Chance, type Deciding, type Holding, type Selection } from "../mind/choice.ts";
+import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding, type Holding, type Selection } from "../mind/choice.ts";
 import { placed, type Option, type Situation } from "./option.ts";
-import { eventOf } from "./percepts.ts";
 import { FEW_TERMS_PART, type Objective } from "./objective.ts";
 import type { Place } from "./position.ts";
 import { OBEDIENCE, STEADY, type Obedience, type ObedienceLevel } from "./value.ts";
@@ -33,19 +32,35 @@ const FOE_HOLDING: Holding<Situation> = Object.freeze({
 /**
  * **A chooser**: of a body's options, the set it runs, whose claims (`Option.claims`) do not
  * overlap: the toolkit's set selection (`selectSet`) over options, priced in a body's terms
- * (`OfferTerms`), each decision's event its percepts' cues (`eventOf`).
+ * (`OfferTerms`), each decision's event the cues of the percepts its last decision read (`watching`).
  */
 export type Chooser = Selection<Situation, OfferTerms, Option>;
 
 /**
- * **The one policy** (`selectSet`) over `options`, priced by `appraise`, its event the percepts'
- * cues (`eventOf`), drawn by `chance` where it gives a margin, each other foe's price held as
- * `holding` says where it is given; its memory the selection's, and the memory of the `objective`
+ * **What a chooser watches** (`Cue`): the cues of the cued percepts its last decision asked for
+ * (`Cues`), counted afresh as each decision begins. Its memory is their names.
+ */
+function watching(): Cue<Situation> & { readonly state: { watched: string[] } } {
+  const state = { watched: [] as string[] };
+  return {
+    state,
+    event: (now) => now.cues.event(now, state.watched),
+    deciding: (now) => now.cues.clear(),
+    decided: (now) => { state.watched = now.cues.asked(); },
+  };
+}
+
+/**
+ * **The one policy** (`selectSet`) over `options`, priced by `appraise`, its event the cues its last
+ * decision read (`watching`), drawn by `chance` where it gives a margin, each other foe's price held as
+ * `holding` says where it is given; its memory the selection's, what it watches, and the memory of the `objective`
  * it prices by, where that keeps one (`Objective.state`).
  */
 const chooser = (options: readonly Option[], appraise: Appraise<Situation, OfferTerms, Option>, deciding: Deciding, chance?: Chance, objective: Objective | null = null,
-  holding: Holding<Situation> | null = null): Chooser =>
-  selectSet<Situation, OfferTerms, Option>(options, appraise, deciding, eventOf, chance, objective?.state ? { objective: objective.state } : {}, holding);
+  holding: Holding<Situation> | null = null): Chooser => {
+  const cue = watching();
+  return selectSet<Situation, OfferTerms, Option>(options, appraise, deciding, cue, chance, { cue: cue.state, ...(objective?.state ? { objective: objective.state } : {}) }, holding);
+};
 
 /** **A kind of Option Mind's chooser** (`ChooserPart`): over its options (`Option`), the chooser it makes a `Chooser`. */
 export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C, Option, Chooser>;

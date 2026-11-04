@@ -122,7 +122,7 @@ Built: the protocol `alone` (`ALONE`, `scoreOf`, `src/evaluation/crypt-clear/cas
 
 Option Mind's set selection (`chooser`, `src/core/option/chooser.ts`) reads of its
 options their claims, rest mark, targets and aim, entry (`onOffer`), status, begin and end; of the
-situation its time and its cue (`eventOf`, Option Mind's); and it prices the other targets'
+situation its time and its cue (`Cue`; Option Mind's, the cues of the percepts its last decision read); and it prices the other targets'
 situations (`others`) and names the target chosen (`Chosen.at`). What an option is worth, the look
 past a walk among it (`lookingPast`), is its appraisal's, which stays Option Mind's. Lift the
 selection:
@@ -134,7 +134,7 @@ selection:
   reports are its user's type (`T`): a body's (`OfferTerms`) for a mind, a team's for a Commander.
   It reaches no body, skill or mind module.
 - **Option Mind's commit**: `Option` extends `Choice<Situation, OfferTerms>`; its chooser is
-  `selectSet` with `eventOf`; `VALUED_CHOOSER` and `RANKED_CHOOSER` unchanged in behaviour.
+  `selectSet` with its cue; `VALUED_CHOOSER` and `RANKED_CHOOSER` unchanged in behaviour.
 - Chance: the valued chooser draws only between offers within its `margin`, none by default, and
   the ranked never draws, so a Commander passes none and needs no seed.
 

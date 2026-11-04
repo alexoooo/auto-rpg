@@ -100,7 +100,7 @@ export const QUADRUPED_VALUED: ChooserPart<ValuedConfig, QuadrupedOption, (fight
       const terms = option.model(now), worth = objective.worth(terms, now);
       if (!Number.isFinite(worth)) throw new Error(`${option.name} is worth ${worth}`);
       return { name: option.name, worth, terms, moves: null, letGo: 0 };
-    }, { rethink: RETHINK, phase }, cueOf(fighting.window));
+    }, { rethink: RETHINK, phase }, { event: cueOf(fighting.window) });
   },
 });
 

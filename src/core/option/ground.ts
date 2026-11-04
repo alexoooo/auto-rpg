@@ -69,6 +69,8 @@ export interface Ground {
   riseFrom(posture: Position): DownModel | null;
   /** The seconds until the body is braced: on its feet while its rise runs, the steady's left; else none. */
   unbraced(sight: Sight): number;
+  /** Read what happened since the last step, once a step, before anything is asked of it. */
+  see(sight: Sight): void;
 }
 
 /** `way` as the rise's record of it says (`Tried`): its share done moved toward what its attempts did, a profile worth `BY_HAND.weight` attempts; its failures in proportion, the unaccounted resting where it began. */
@@ -255,7 +257,6 @@ export function groundOptions(spec: BodySpec, hz: number, delay: number, executo
       begin(now) { memory.id = null; begin?.(now); },
       end() { memory.id = null; },
       step(now) {
-        since(now.sight);
         step?.(now);
         if (memory.id === null) {
           memory.id = now.sight.instance(); memory.side = side(now);
@@ -266,7 +267,7 @@ export function groundOptions(spec: BodySpec, hz: number, delay: number, executo
       },
     };
   };
-  const live = (now: Situation): GroundReading | null => { since(now.sight); return state.active ? now.sight.view.ground : null; };
+  const live = (now: Situation): GroundReading | null => state.active ? now.sight.view.ground : null;
 
   const technique = (one: Technique): Option => {
     const UNOFFERED = blocked(`${one.name} does not admit the body as it lies`);
@@ -332,6 +333,7 @@ export function groundOptions(spec: BodySpec, hz: number, delay: number, executo
     options, rest: brace(lying, { action: "brace", effector: sideEffector("left") }), priced: pricedBy,
     state: { rise: state, options: options.map((one) => one.state) },
     riseFrom: riseAt,
-    unbraced(sight) { since(sight); return state.active && !sight.view.down ? Math.max(0, BY_HAND.steady.seconds - state.steady) : 0; },
+    see: since,
+    unbraced(sight) { return state.active && !sight.view.down ? Math.max(0, BY_HAND.steady.seconds - state.steady) : 0; },
   };
 }
