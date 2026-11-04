@@ -92,9 +92,9 @@ function prospect(prospects: Kept[], options: readonly Option[], now: Situation)
  * option a gait of its legs (`walkBy`, `gaitsOf`) walking where it is worth most, each place worth
  * what the chooser's search finds there: each strike's window (`windowPlace`), and out of the foe's
  * pressure (`outOfPressure`); and, down,
- * the rise's options (`RISE_OPTIONS`); and the rest options, worth nothing, which
- * take what nothing else is worth more on: hold the position, the hands at their guard, and, down,
- * brace (`hold`, `guard`, `brace`), which the cover outbids on the hand on a blow's side while it
+ * the rise's options (`RISE_OPTIONS`); and the rest options, priced as keeping the body as it is
+ * over the seconds asked (`holding`), which take what nothing else is worth more on: hold the
+ * position, the hands at their guard, and, down, brace (`hold`, `guard`, `brace`), which the cover outbids on the hand on a blow's side while it
  * closes on the head (`covers`). Its options keep one record of their tries (`optionRecord`). The set's step is its members'
  * (`stepSet`); each option that asks the legs keeps its walk out of a fallen body's reach and a
  * solid's clearance (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,

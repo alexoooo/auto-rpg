@@ -224,8 +224,9 @@ open list (`RoleParts`). `treeFaults` names each fault by path; `tuning` never t
 
 **Option Mind** (`src/core/option/`, `OPTION_MIND`) is the reference mind. It chooses among
 options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Option`): its entry
-(`Readiness`), the resources it claims, its model (`Terms`: duration, what it deals and takes, the
-`Place` it leaves), its step, and a status.
+(`Readiness`), the resources it claims, its model at the state now or one an Option leaves the
+body in (`Option.model`, `placed`; `Terms`: duration, what it deals and takes, and the ways it ends,
+each a state with its chance, `Outcome`), its step, and a status.
 
 - **Percepts** (`PERCEPTS`) and **predictions** (`PREDICTIONS`) are read into the `Situation`
   the first time a step asks for each and kept for the step (`perceiver`); predictions price from
@@ -234,14 +235,20 @@ options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Optio
   drill's trials, each keeping what it brought and where it began (the range, the foe's phase,
   both postures, and the velocity in its target's frame, `startVelocity`); a reading takes the
   trials nearest the start asked at, and a rate of blows reads each trial's run and its limb's way
-  back to its guard.
-- **The objective** (`OBJECTIVES`): `few-terms` values an option in a share of a body's life
-  beside its orders at the person's `OBEDIENCE`.
+  back to its guard. A blow the foe has not begun reaches the body only after the foe's latency
+  (`Pressure.latency`: its rethink, its command's delay and its fastest blow).
+- **The objective** (`OBJECTIVES`): `few-terms` values a path in a share of a body's life: its
+  orders at the person's `OBEDIENCE`, and the life it trades, valued as itself at the bout's start
+  and by the lead it leaves at the clock's verdict at its end (`lateness`).
 - **The chooser** (`CHOOSERS`) runs the toolkit's set selection (`selectSet`,
   `src/core/mind/choice.ts`): the best option on offer, then the best whose claims are still free,
   rest options last; a running option that does not yield keeps its claims. The set's step is one
   intent (`stepSet`). It decides afresh on the cue of a percept its last decision read (`Cues`),
-  at an exit, or on its phase.
+  at an exit, or on its phase. The valued chooser prices each option by a search over the models,
+  one or two deep, over its horizon (`ValuedConfig.horizon`): a line runs its option, then at each
+  way it ends the best single option from there, and ends in the best of holding there, an option
+  that leaves the body where it began run again, and holding reached at its site (`Option.site`);
+  each path is priced whole and a line's worth is its outcomes' worths by their chances.
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
   `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-cut`,
   `strike-sword-thrust`, `strike-stomp`), a strike (`strike`) of each action its executor of that
@@ -249,9 +256,9 @@ options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Optio
 - **The rise** (`RISE_OPTIONS`, `src/core/option/rise.ts`): each way up, reposition and mode of
   the ground an Option naming its technique (`way-up`, `reposition`, `flattening`, `steadying`,
   `landing`, `brace-tumbling`, `brace-down`), on offer where its skill admits the body as it lies.
-  A way up is priced by its edge's expected seconds down and the rise on from where it ends
-  (`risePrices`, `Predictions.rise`); a reposition only from a posture no way up before it begins
-  from. Every Option's tries in the bout are kept in one record (`OptionRecord`), each priced by
+  A way up is priced by its edge's expected seconds and chance, and where it ends by the search;
+  lying is priced by the brace and the ways up that begin there; a reposition is on offer only from
+  a posture no way up before it begins from. Every Option's tries in the bout are kept in one record (`OptionRecord`), each priced by
   hand (`Prior`) until its tries move it (`recorded`). The reader keeps what the rise needs of
   them (`riseMemory`: whether it runs, the seconds braced tumbling, the steady's try). A config
   whose ways up leave no route to standing from the back or from the front is a fault

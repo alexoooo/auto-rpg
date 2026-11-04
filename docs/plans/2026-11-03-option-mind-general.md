@@ -100,16 +100,20 @@ defect.
 - **The chooser is a search over the models**, its depth its own config: depth 1 prices what an
   Option brings and no more; depth 2 adds, at each of its outcomes, the best single Option from
   there; a deeper search, or a tree search, is another chooser part asking the same models. A
-  line's worth is its outcomes' worths weighed by their chances. Every line ends in holding until
-  the end of the longest line compared in that decision, so worths are absolute over one span and
-  depths compare alike. Each Option is priced by its own lines, and the set the chooser runs is
+  line's worth is its outcomes' worths weighed by their chances. Every line is priced over the
+  chooser's horizon (`ValuedConfig.horizon`, 20 s unless its config says), cut there, so worths are
+  absolute over one span and depths compare alike; a line ends in the best of an open Option held
+  to the horizon, an Option that leaves the body where it began run again to it, and holding
+  reached at its site. Each Option is priced by its own lines, and the set the chooser runs is
   taken as today (`selectSet`): the best, then the best of the rest whose claims are still free.
   Where an Option leaves the body is worth what the search finds from there,
   by no other rule: holding within the foe's reach loses life there, which prices a place; lying
   is priced by the Options that begin there, the ways up with their time down and their failures.
   So a blow that may fall and a way up that may fail are priced alike, by no table of the rise's
-  and no guess of a place's worth from its range. Late in a bout, what a lead held within the
-  foe's reach puts at stake is the objective's valuation of life. A predicted state keeps the foe
+  and no guess of a place's worth from its range. A blow the foe has not begun reaches the body
+  only after the foe's latency (its rethink, its command's delay and its fastest blow), counted
+  once a stretch within its reach. The objective values the life a path trades as itself at the
+  bout's start and, as the bout ends, by the lead it leaves at the clock's verdict. A predicted state keeps the foe
   as it is; moving it, which a search past two Options needs, is a predictions part's, not built
   here.
 - **Waiting is holding.** Where an Option leaves the body is a state, never a delay: each Option
@@ -220,17 +224,21 @@ Each piece lands on its own, in this order:
    place)` become one call at a state, now or predicted, returning what the Option brings and its
    outcomes, each a state it leaves with its chance (`src/core/option/option.ts`; `placed` makes
    the predicted state, the body's velocity and posture with its range and bearing). The valued
-   chooser searches the models to its depth, weighs each line's outcomes by their chances, and ends
-   every line in holding until the end of the longest line compared; worth is absolute over that
-   span, not beside holding where the body stands. The set it runs is taken as today
-   (`selectSet`). What priced where an
+   chooser searches the models to its depth, weighs each line's outcomes by their chances, and
+   prices every line over its horizon (`ValuedConfig.horizon`), cut there: a line ends in the best
+   of an open Option held to the horizon, an Option that leaves the body where it began run again
+   to it, and holding reached at its site; worth is absolute over that span, not beside holding
+   where the body stands. A blow the foe has not begun reaches the body only after the foe's
+   latency (`Pressure.latency`), counted once a stretch within its reach, and a walk reads the
+   pressure along its way. The set it runs is taken as today (`selectSet`). What priced where an
    Option leaves the body by other rules goes: the objective's guess of a place's worth from its
    range (`placeWorth`, `src/core/option/objective.ts`), which credits a walk with the strikes at
    its end as the look-ahead does as well; the look-ahead for walks alone (`lookingPast`,
    `src/core/option/chooser.ts`); the time-down table (`riseFrom`, `src/core/option/ground.ts`;
    `downCost`, `downCostAt`, `src/core/option/percepts.ts`), lying priced instead by the ways up
    that begin there. The late bout's stake of a lead within the foe's reach moves into the
-   objective's valuation of life.
+   objective's valuation of life: the life a path trades is valued as itself at the bout's start
+   and by the lead it leaves at the clock's verdict as the bout ends (`lateness`).
 6. **Exits are states; profiles by the start's velocity.** What an Option says it leaves another
    unready goes: a gait's seconds until each strike is ready (`Going`'s `ready` and `braced`,
    `goings`, `src/core/option/places.ts`), the walk's `readies`, `Place`'s `ready` and `unbraced`
@@ -239,10 +247,11 @@ Each piece lands on its own, in this order:
    (`assets/core/gait-profiles.json`, `src/core/data/gait-profiles.ts`) with the Gait drill that
    measures them (`src/evaluation/gait/`). A profile becomes a sample of trials, each with its
    start (the range, the foe's phase, both postures, the velocity in the frame of the Option's
-   target or the body's own), read by the trials nearest the state asked at
-   (`src/core/skills/framework/profile.ts`; `ProfileCell` goes, a trial from a record that holds
-   no start velocity read as begun still, until fresh trials replace it); each Option's drill
-   draws its starts at random. A gait's own profile (its pace, its falls) is measured as every
+   target or the body's own), read by the trials nearest the state asked at, ties included
+   (`NEAREST`, `src/core/skills/framework/profile.ts`; `ProfileCell` goes, a trial from a record
+   that holds no start velocity read as begun still, until fresh trials replace it); a strike's
+   trial keeps the seconds until its limb is back at its guard and the range once it is, and its
+   model runs that whole cycle; each Option's drill draws its starts at random. A gait's own profile (its pace, its falls) is measured as every
    Option's is. Check: no Option
    reads another's readiness; a reading of a strike begun stepping in differs from one begun still
    where their trials differ.
