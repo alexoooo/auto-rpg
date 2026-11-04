@@ -6,7 +6,6 @@ import { turnOfToRef } from "../../read-motion.ts";
 import { atan2, cos, sin } from "../../math/real.ts";
 import { SERVO_SECONDS, type BodyView } from "../../body.ts";
 import { locomotion, STANCE_LOWER, stanceOf } from "../../skills/locomotion/locomotion.ts";
-import type { Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { MindKit } from "../../mind/kit.ts";
 import type { OwnBody } from "../../mind/mind.ts";
@@ -32,8 +31,6 @@ export const brace = (drive: ReturnType<typeof poseDrive>): void => drive(BRACE,
  * (`StanceGoal.pose`, followed at `response` s); then the stance's own goal at standing height.
  */
 const CLIMB = deepFreeze({ seconds: .6, response: .08, below: .9 });
-/** Both feet. */
-const BOTH: readonly Side[] = deepFreeze(["left", "right"]);
 
 /**
  * **The steady**: a body on its feet held by its own stance (its mind's motor, `kit`, carrying the
@@ -42,7 +39,7 @@ const BOTH: readonly Side[] = deepFreeze(["left", "right"]);
  */
 export function steadying(own: OwnBody, view: BodyView, kit: MindKit) {
   const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the steady");
-  const legs = locomotion(stanceFeetOf(own.spec), null);
+  const feet = stanceFeetOf(own.spec), legs = locomotion(feet, null), both = Object.keys(feet);
   const state = {
     climb: { on: false, done: false, time: 0, centre: [0, 0], velocity: [0, 0], to: [0, 0], height: 0, rise: 0, pitch: 0,
       from: new Float64Array(own.muscles.channels.length) },
@@ -70,7 +67,7 @@ export function steadying(own: OwnBody, view: BodyView, kit: MindKit) {
     motor.setPosture(climbPose);
     const at = c.time;
     c.time += dt;
-    return { feet: BOTH, heading: h, centre: [quintic(c.centre[0]!, c.velocity[0]!, c.to[0]!, T, at), quintic(c.centre[1]!, c.velocity[1]!, c.to[1]!, T, at)],
+    return { feet: both, heading: h, centre: [quintic(c.centre[0]!, c.velocity[0]!, c.to[0]!, T, at), quintic(c.centre[1]!, c.velocity[1]!, c.to[1]!, T, at)],
       height: quintic(c.height, c.rise, top, T, at), pose: { pitch: quintic(c.pitch, 0, 0, T, at), seconds: CLIMB.response } };
   };
   return {
@@ -113,6 +110,7 @@ const STEADY_OFF = .3;
  * timed out past `STEADY_LIMIT`.
  */
 export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stance">, climb: number) {
+  const feet = Object.keys(stanceFeetOf(own.spec));
   const state = { time: 0, off: 0, reached: 0, height: 0, heading: 0 };
   const work = { turn: new Quaternion(), across: new Vector3() };
   return {
@@ -123,8 +121,9 @@ export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stan
       work.across.set(1, 0, 0).applyRotationQuaternionToRef(work.turn, work.across);
       state.heading = atan2(-work.across.z, work.across.x);
       motor.reset(); motor.stance.read();
-      const soles = motor.stance.reading.soles;
-      state.height = g.centre.y - Math.min(soles.left.y, soles.right.y);
+      let lowest = Infinity;
+      for (const end of feet) lowest = Math.min(lowest, motor.stance.reading.ends[end]!.middle.y);
+      state.height = g.centre.y - lowest;
       state.time = 0; state.off = 0; state.reached = 0;
     },
     step(g: GroundReading, dt: number): TechniqueEnd | null {
@@ -134,7 +133,7 @@ export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stan
       if (state.time > STEADY_LIMIT) return "timed-out";
       const w = Math.min(1, state.time / climb), smooth = w * w * (3 - 2 * w), top = view.standing - .03;
       motor.stance.read();
-      motor.setStance({ feet: ["left", "right"], centre: null, height: state.height + (top - state.height) * smooth, heading: state.heading });
+      motor.setStance({ feet, centre: null, height: state.height + (top - state.height) * smooth, heading: state.heading });
       motor.control(own.muscles, dt);
       state.reached = standReady({ down: view.down, ground: g }) ? state.reached + dt : 0;
       return state.reached + 1e-9 >= REACHED_SECONDS ? "done" : null;

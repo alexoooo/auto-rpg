@@ -172,8 +172,8 @@ export const heldBeside = (): HeldBeside => ({ held: unheld(), place: [], route:
  * moves.
  */
 function besideLying(view: BodyView, window: Window, lying: BodySense, heading: number, kept?: HeldBeside, going?: MovementRequest | null): Beside | null {
-  const obstacle = stepObstacle(view, lying), clear = obstacle.clear, axis = lyingAxis(lying), { soles, centre } = view.stance, y = view.stance.support.y;
-  const width = hypot(soles.left.x - soles.right.x, soles.left.z - soles.right.z) / 2, velocity = view.stance.velocity;
+  const obstacle = stepObstacle(view, lying), clear = obstacle.clear, axis = lyingAxis(lying), { ends, centre } = view.stance, y = view.stance.support.y;
+  const [a, b] = Object.values(ends), width = hypot(a!.middle.x - b!.middle.x, a!.middle.z - b!.middle.z) / 2, velocity = view.stance.velocity;
   const from: Vec3 = [centre.x + velocity.x * LYING.lead, y, centre.z + velocity.z * LYING.lead];
   const stands = (x: number, z: number): boolean => {
     for (let h = 0; h <= 2; h++) {

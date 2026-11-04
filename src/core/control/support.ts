@@ -13,7 +13,7 @@ import { SUPPORT_INSET } from "./stance-tuning.ts";
 import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../spec/constants.ts";
 import { acos, asin, atan2, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
-import { segmentOf, type BodySpec, type JointSpec, type MuscleSpec, type SegmentSpec, type Side } from "../spec/body.ts";
+import { segmentOf, type BearingEnd, type BodySpec, type FootLimb, type JointSpec, type MuscleSpec, type SegmentSpec, type Side } from "../spec/body.ts";
 import type { ReadBody, ReadJoint, ReadSegment, ReadContact } from "../read-body.ts";
 import { dot } from "../spec/vec.ts";
 
@@ -62,12 +62,12 @@ export interface FootMemory {
   readonly hip: Vector3;
   /**
    * The ground's height under the sole, m: its lowest corner's (`lowestCorner`) where the ground
-   * last pressed it (`StanceReading.touching`, the stance's `read`), or the ground a rising body
+   * last pressed it (`StanceEnd.touching`, the stance's `read`), or the ground a rising body
    * is given. A foot in the air keeps the ground it left.
    */
   ground: number;
   /**
-   * How long the ground has not pressed the sole, s (`StanceReading.touching`, the stance's
+   * How long the ground has not pressed the sole, s (`StanceEnd.touching`, the stance's
    * `command`): 0 while it does. A sole of a stance on both feet that the ground has not pressed
    * for longer than the height's constant, or that has risen off its ground (`soleHeight`,
    * `DOWN`), has left it (`holding`): a landed sole that bounces is pressed again within both,
@@ -92,6 +92,8 @@ export const soleHeight = (foot: FootState): number => lowestCorner(foot) - foot
  * ball, once they are bent further (`fitSole`).
  */
 export interface FootState {
+  /** The end it is among its body's (`BodySpec.ends`), by name: what a stance goal and reading name it by. */
+  readonly name: BearingEnd;
   readonly side: Side;
   readonly segment: ReadSegment;
   /**
@@ -130,7 +132,7 @@ export interface FootState {
   /** How far `hold` reaches from under the ankle toward the toes and the heel, and to each side, m, at the whole weight. */
   holdReach: { readonly toe: number; readonly heel: number; readonly side: number };
   readonly memory: FootMemory;
-  /** The sole's corners and middle, world, as last read (the reading's `soles`). */
+  /** The sole's corners and middle, world, as last read (the reading's `StanceEnd.middle`). */
   readonly corners: Vector3[];
   readonly middle: Vector3;
   /**
@@ -187,27 +189,50 @@ interface HeldRegions {
   readonly heel: Sole;
 }
 
+/** Each spec's stance feet (`stanceFeet`), found once: a spec is immutable. */
+const FEET = new WeakMap<BodySpec, readonly { readonly end: FootLimb; readonly side: Side }[]>();
+
 /**
- * `built`'s two feet as a stance reads them, left then right, each read as the body stands now.
- * What is a foot's own (its sole, its ends' corners, its heel's height flat) is the
- * reference pose's, whatever pose the body is in.
+ * **The feet a stance stands on**: `spec`'s foot ends (`FootLimb`, `BodySpec.ends`), in its spec's
+ * order, each with its side: the side its segment's centre of mass is on (+x the right).
  */
-/** What a body of `spec` lacks for the stance to stand it, a sentence, or null where it has a left and a right foot, each with a box sole. */
-export function soleRefusal(spec: BodySpec): string | null {
-  return (["left", "right"] as const).every((side) => segmentOf(spec, `foot.${side}`)?.shape.kind === "box") ? null : "needs a left and a right foot, each with a box sole";
+export function stanceFeet(spec: BodySpec): readonly { readonly end: FootLimb; readonly side: Side }[] {
+  let feet = FEET.get(spec);
+  if (!feet) FEET.set(spec, feet = Object.freeze((spec.ends ?? []).flatMap((end) => end.kind === "foot"
+    ? [Object.freeze({ end, side: (segmentOf(spec, end.segment)?.centreOfMass.value[0] ?? 0) < 0 ? "left" as const : "right" as const })] : [])));
+  return feet;
 }
 
+/** The name of `spec`'s stance foot on `side` (`stanceFeet`): what a skill of a two-footed body reads that foot by. */
+export function footOn(spec: BodySpec, side: Side): BearingEnd {
+  const foot = stanceFeet(spec).find((one) => one.side === side);
+  if (!foot) throw new Error(`${spec.model} has no foot on its ${side}`);
+  return foot.end.name;
+}
+
+/** What a body of `spec` lacks for the stance to stand it, a sentence, or null where it has a left and a right foot (`stanceFeet`), each with a box sole. */
+export function soleRefusal(spec: BodySpec): string | null {
+  const feet = stanceFeet(spec);
+  return feet.length === 2 && feet[0]!.side === "left" && feet[1]!.side === "right" && feet.every((foot) => segmentOf(spec, foot.end.segment)?.shape.kind === "box")
+    ? null : "needs a left and a right foot, each with a box sole";
+}
+
+/**
+ * `built`'s feet as a stance reads them (`stanceFeet`), left then right on a body the stance stands
+ * (`soleRefusal`), each read as the body stands now. What is a foot's own (its sole, its ends'
+ * corners, its heel's height flat) is the reference pose's, whatever pose the body is in.
+ */
 export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[] {
   const parts = partsOn(built), weight = parts().mass * STANDARD_GRAVITY.value;
-  const feet = (["left", "right"] as const).map((side): FootState => {
-    const segment = built.segments.get(`foot.${side}`);
-    if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
+  const feet = stanceFeet(built.spec).map(({ end, side }): FootState => {
+    const segment = built.segments.get(end.segment);
+    if (!segment) throw new Error(`${built.spec.model} has no segment ${end.segment} for its foot ${end.name}`);
     const chain = chainTo(built, segment), strength = new Float64Array(chain.reduce((sum, joint) => sum + joint.dofs.length, 0));
     strengthOf(chain, strength);
     const fits = fitsOf(segment, chain, weight, inset), flat = fits.flat;
     const held = flat.hold.map(() => new Vector3());
     const regions = (o: number): HeldRegions => ({ all: { corners: held.slice(o, o + 4) }, toe: { corners: [held[o]!, held[o + 1]!, held[o + 4]!, held[o + 5]!] }, heel: { corners: [held[o + 2]!, held[o + 3]!, held[o + 4]!, held[o + 5]!] } });
-    return { ...flat, fits, read: { parts, weight, inset, strength }, toesFlat: true, turns: turnsOf(chain[0]!), side, segment, chain,
+    return { ...flat, fits, read: { parts, weight, inset, strength }, toesFlat: true, turns: turnsOf(chain[0]!), name: end.name, side, segment, chain,
       memory: { channels: [] as number[], rolled: null, hip: new Vector3(), ground: 0, lifted: 0 },
       corners: flat.sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       held: { points: held, under: new Vector3(), ankle: held[12]!, full: regions(0), half: regions(6) },

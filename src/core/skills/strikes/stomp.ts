@@ -10,9 +10,9 @@ import { turnAboutToRef } from "../../math/turn.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { STRIKE_EVENT } from "./strike-cycle.ts";
 import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
-import type { Side } from "../../spec/body.ts";
+import type { BearingEnd, Side } from "../../spec/body.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
-import { footEnd, type LegsGoal } from "../framework/skill.ts";
+import type { LegsGoal } from "../framework/skill.ts";
 import { withinActionWindow } from "../../intent/action-window.ts";
 import { otherSide, segmentOf } from "../../spec/body.ts";
 /** The stomp's settings: the keys every body's record holds, each record whole, and the values the records share outside each body's stroke and window: `docs/reference/front-kicks.md#execution-settings`. */
@@ -38,6 +38,8 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
   resolve: TargetResolver): Executor {
   if (!validStompTuning(tuning)) throw new Error("invalid stomp executor settings");
   const feet = footStatesOf(body.built), support = supportReadiness(body.built), middle = new Vector3();
+  /** The name of the foot on `side` (`FootState.name`). */
+  const nameOf = (side: Side): BearingEnd => feet.find((foot) => foot.side === side)!.name;
   const local = new Vector3(), world = new Vector3(), turn = new Quaternion(), inverse = new Quaternion(), rotation = new Quaternion(), axis = new Vector3();
   const limits = Object.freeze({ ...tuning, impact: tuning });
   const strikeOf = (side: Side) => effectorStrike({ effector: `foot.${side}`, point: "strike", limits, firm: true, brace: tuning.brace,
@@ -117,7 +119,7 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
       const foot = sideOf(effector), hip = body.built.spec.joints.find(j => j.name === `hip.${foot}`)!.centre.value;
       const sole = segmentOf(body.built.spec, `foot.${foot}`)!.distal.value;
       const reach = hypot(hip[0] - sole[0], hip[1] - sole[1], hip[2] - sole[2]);
-      const soleAt = view.stance.soles[foot];
+      const soleAt = view.stance.ends[nameOf(foot)]!.middle;
       if (at[1] < soleAt.y - tuning.near || at[1] > soleAt.y + tuning.top * reach) return { kind: "blocked", reason: "target is outside the leg's height band" };
       const dx = soleAt.x - view.stance.centre.x, dz = soleAt.z - view.stance.centre.z;
       const ahead = dx * sin(around.heading) + dz * cos(around.heading), across = dx * cos(around.heading) - dz * sin(around.heading);
@@ -135,7 +137,7 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
       if (!target) throw new Error("stomp target has no aim");
       const initial = capture(view, foot, around.heading, target), bearing = capture(view, other, around.heading, target);
       // The stance it stomps from: the stomping foot where it stands, where its window was read from, and the bearing foot a hip's width beside it, square to the heading.
-      const x = view.stance.soles[foot].x, z = view.stance.soles[foot].z, across = foot === "left" ? hipWidth : -hipWidth;
+      const x = view.stance.ends[nameOf(foot)]!.middle.x, z = view.stance.ends[nameOf(foot)]!.middle.z, across = foot === "left" ? hipWidth : -hipWidth;
       const beside: readonly [number, number] = [x + across * cos(around.heading), z - across * sin(around.heading)];
       state.live = { request: { ...request }, foot, stage: "admitting", phase: "prepare", time: 0, held: 0, heading: around.heading,
         height: view.standing - around.lower - tuning.lower, target: [...target], initial, back: null, withdrawn: false, ending: { kind: "completed" },
@@ -164,7 +166,7 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
         case "admitting": stage("setup"); break;
         case "setup": {
           if (live.time >= tuning.setupLimit) { release({ kind: "stalled", reason: "support setup deadline" }, "recenter"); break; }
-          const far = (side: Side) => hypot(view.stance.soles[side].x - live.footing[side][0], view.stance.soles[side].z - live.footing[side][1]);
+          const far = (side: Side) => hypot(view.stance.ends[nameOf(side)]!.middle.x - live.footing[side][0], view.stance.ends[nameOf(side)]!.middle.z - live.footing[side][1]);
           if (live.setting && view.stance.phase === "stand" && far(live.setting) <= tuning.near) live.setting = null;
           if (!live.setting) live.setting = far("left") > tuning.near ? "left" : far("right") > tuning.near ? "right" : null;
           live.held = !live.setting && plantedSupport(support.state) && view.stance.phase === "stand" && support.state.speed <= tuning.transferSlow ? live.held + dt : 0;
@@ -229,12 +231,12 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
       const foot = live.foot, other = otherSide(foot), strike = strikes[foot];
       const centred = live.stage === "admitting" || live.stage === "setup" || live.stage === "recenter";
       const both = centred || live.stage === "transfer";
-      const standing: LegsGoal = { walk: null, feet: both ? [footEnd("left"), footEnd("right")] : [footEnd(other)], centre: centred ? null : [live.bearing[0], live.bearing[2]],
+      const standing: LegsGoal = { walk: null, feet: both ? [nameOf("left"), nameOf("right")] : [nameOf(other)], centre: centred ? null : [live.bearing[0], live.bearing[2]],
         height: live.height + (centred || live.stage === "place" || strike.state.phase === "return" ? tuning.lower : 0), heading: live.heading,
         ...(live.stage === "setup" && live.setting ? {} : { pose: { pitch: centred || live.stage === "place" ? 0 : tuning.lean, seconds: tuning.transferSeconds,
-          ...(both ? {} : { anchors: { [footEnd(other)]: { position: live.bearing, rotation: live.bearingRotation } } }) },
+          ...(both ? {} : { anchors: { [nameOf(other)]: { position: live.bearing, rotation: live.bearingRotation } } }) },
         }),
-        ...(live.stage === "setup" && live.setting ? { swing: { foot: footEnd(live.setting), to: live.footing[live.setting], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift } } : {}) };
+        ...(live.stage === "setup" && live.setting ? { swing: { foot: nameOf(live.setting), to: live.footing[live.setting], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift } } : {}) };
       let goal: EffectorGoal | null = null;
       // Held `hover` over where it stood: clear of the ground at the toes with the foot pitched as the trunk leans on one leg.
       if (live.stage === "unload") goal = place(view, live, [live.initial.sole[0], live.initial.sole[1] + tuning.hover, live.initial.sole[2]]);

@@ -5,7 +5,7 @@ import { fastestTurning, paceToward, turnAt, type StanceEnvelope } from "../../c
 import type { StanceGoal, SwingGoal } from "../../control/stance.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
-import type { Side } from "../../spec/body.ts";
+import type { BearingEnd, Side } from "../../spec/body.ts";
 import { STANCE_GAIT, type GaitTuning } from "../../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../../math/real.ts";
 import { wrap } from "../../math/turn.ts";
@@ -112,7 +112,7 @@ interface LegsMemory {
   carriage: Carriage;
 }
 
-function stanceLegs(state: LegsMemory): StanceLegs {
+function stanceLegs(state: LegsMemory, feet: readonly BearingEnd[]): StanceLegs {
   return {
     goal(view, heading, walk, asked) {
       // The reference height is the body's (`BodyView.standing`), taken at the first view after a step.
@@ -131,7 +131,7 @@ function stanceLegs(state: LegsMemory): StanceLegs {
       const across = walk
         ? [walk[0] * sin(heading) + walk[1] * cos(heading), walk[0] * cos(heading) - walk[1] * sin(heading)] as const
         : null;
-      return { feet: ["left", "right"], centre: null, height, heading, walk: across };
+      return { feet, centre: null, height, heading, walk: across };
     },
   };
 }
@@ -333,7 +333,11 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
   if (!validCarriage(carriage)) throw new Error("locomotion carriage needs a positive width or none, and a finite stagger and lowering");
   const state: LocomotionState = { reference: null, rising: null, carriage, heading: 0, pace: 0, going: 0, placing: null, placed: false, stood: null, idle: { seconds: 0, target: null },
     asked: null, askedHeight: null, unmet: { ...ALL_MET }, ...(turnStartup ? { walkTime: 0 } : {}) };
-  const legs = stanceLegs(state);
+  const names = Object.freeze(Object.keys(feet)), legs = stanceLegs(state, names);
+  /** The stance's foot on each side, by name (`StanceFeet`). */
+  const ends = { left: names.find((end) => feet[end] === "left")!, right: names.find((end) => feet[end] === "right")! };
+  /** The middle of the sole on `side`, world, as the stance last read it (`StanceEnd.middle`). */
+  const soleOf = (view: BodyView, side: Side) => view.stance.ends[ends[side]]!.middle;
   const acrossScratch = new Vector3(), footTurn = new Quaternion();
   /** A sole's yaw relative to a heading (the legs' unless given), rad. Effectors report turns relative to the body frame. */
   const turned = (view: BodyView, side: Side, heading = state.heading): number => {
@@ -364,16 +368,16 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     if (placing.step) {
       // A step is over when the stance, having taken it, stands again.
       if (s.phase !== "stand") placing.lifted = true;
-      else if (placing.lifted && s.touching[placing.step.foot]) { placing.stepped[placing.step.foot] = true; placing.step = null; }
+      else if (placing.lifted && s.ends[placing.step.foot]!.touching) { placing.stepped[feet[placing.step.foot]!] = true; placing.step = null; }
       if (placing.step) return { ...base, swing: placing.step };
     }
     state.placed = false;
     // A step of the stance's own under way is finished first.
     if (s.phase !== "stand") return base;
-    const off = (foot: Side): number => placing.stepped[foot] ? 0 : Math.max(apart([s.soles[foot].x, s.soles[foot].z], placing.footing[foot]), alignment === undefined ? 0 : turned(view, foot) * near / alignment);
+    const off = (foot: Side): number => placing.stepped[foot] ? 0 : Math.max(apart([soleOf(view, foot).x, soleOf(view, foot).z], placing.footing[foot]), alignment === undefined ? 0 : turned(view, foot) * near / alignment);
     const foot: Side = off("left") >= off("right") ? "left" : "right";
     if (off(foot) <= near) { state.placed = true; return base; }
-    placing.step = { foot, to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true };
+    placing.step = { foot: ends[foot], to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true };
     placing.lifted = false;
     return { ...base, swing: placing.step };
   };
@@ -454,19 +458,19 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
       if (state.placed) reset();
       return result;
     }
-    if (state.rising || !still(view) || !s.touching.left || !s.touching.right || s.own) { idle.seconds = 0; return null; }
+    if (state.rising || !still(view) || names.some((end) => !s.ends[end]!.touching) || s.own) { idle.seconds = 0; return null; }
     idle.seconds = Math.min(0.2, idle.seconds + dt);
     if (idle.seconds + dt / 2 < 0.2) return null;
     // The footing is read about a planted sole, which sway never moves: the foot nearer the centre
     // of mass, turned within the tolerance, stays, and the other steps to the reference spacing
     // from it. Where neither is turned within it, about the soles' midpoint, and both step.
     const h = facing(view), rx = cos(h), rz = -sin(h), fx = sin(h), fz = cos(h);
-    const sole = (side: Side): readonly [number, number] => [s.soles[side].x, s.soles[side].z];
-    const nearer = (side: Side): number => hypot(s.soles[side].x - s.centre.x, s.soles[side].z - s.centre.z);
+    const sole = (side: Side): readonly [number, number] => [soleOf(view, side).x, soleOf(view, side).z];
+    const nearer = (side: Side): number => hypot(soleOf(view, side).x - s.centre.x, soleOf(view, side).z - s.centre.z);
     const level = (["left", "right"] as const).filter(side => turned(view, side, h) <= 0.2);
     const stays: Side | null = level.length === 2 ? (nearer("left") <= nearer("right") ? "left" : "right") : level[0] ?? null;
     const [ax, az] = stays ? idleFooting.offsets[stays] : [0, 0];
-    const c = stays ? s.soles[stays] : s.support;
+    const c = stays ? soleOf(view, stays) : s.support;
     const at = (side: Side): readonly [number, number] => {
       const x = idleFooting.offsets[side][0] - ax, z = idleFooting.offsets[side][1] - az;
       return [c.x + rx * x + fx * z, c.z + rz * x + fz * z];

@@ -258,7 +258,7 @@ test("a body is down by the fight's rule of the body alone, whatever height its 
   const built = buildBody(spec, world, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
   const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS });
   try {
-    body.drive(() => ({ posture: poseAngles(spec, GUARD), pushes: [], stance: { feet: ["left", "right"], centre: null, height: 0.02, heading: 0 } }));
+    body.drive(() => ({ posture: poseAngles(spec, GUARD), pushes: [], stance: { feet: ["foot.left", "foot.right"], centre: null, height: 0.02, heading: 0 } }));
     world.step(world.hz);
     assert.ok(body.physical.height < body.view.standing - 0.5, `the fixture is not lying: its centre of mass is ${body.physical.height.toFixed(2)} m over its lowest point`);
     assert.deepEqual({ itsMind: body.view.down, theFight: body.down }, { itsMind: false, theFight: true });

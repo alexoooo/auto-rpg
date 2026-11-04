@@ -14,6 +14,7 @@ import { armedWith, loadoutKey, REPRESENTATIVE, type Held } from "../core/items/
 import { OPTION_MIND, type OptionMindConfig } from "../core/option/mind.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { groundReading } from "../core/control/ground-reading.ts";
+import { stanceFeet } from "../core/control/support.ts";
 import { MINDS, partLookup } from "../entrants/game.ts";
 import { kitOf } from "../core/mind/kit.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
@@ -173,7 +174,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
         if (control.end) { control.active = false; control.ended = into.time; }
       } };
   }]);
-  body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
+  body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: stanceFeet(spec).map((foot) => foot.end.name), centre: null, height: view.standing - .03, heading: 0 } }));
   const trail: TrailEntry[] = [], saturation: Record<string, { peak: number; saturatedSeconds: number }> = {}, last = { phase: "", position: "" };
   let survived = false, verified = false;
   try {

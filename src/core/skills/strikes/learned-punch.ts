@@ -7,6 +7,7 @@ import type { MusclePush } from "../../control/motor.ts";
 import type { Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import { otherSide } from "../../spec/body.ts";
+import { footOn } from "../../control/support.ts";
 
 /*
  * **The learned punch's steer**: a straight punch's timed drive (`StraightPunch.timed`) steered by a
@@ -170,8 +171,8 @@ export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: 
   framed(view, target[0]!, target[1]!, target[2]!, point);
   framed(view, target[0]! + aimed[0]!, target[1]! + aimed[1]!, target[2]! + aimed[2]!, moved);
   read[k++] = (moved.x - point.x) * side; read[k++] = moved.y - point.y; read[k++] = moved.z - point.z;
-  const touched = view.stance.touching, phase = view.stance.phase;
-  read[k++] = touched[hand] ? 1 : 0; read[k++] = touched[otherSide(hand)] ? 1 : 0;
+  const ends = view.stance.ends, phase = view.stance.phase, spec = body.built.spec;
+  read[k++] = ends[footOn(spec, hand)]!.touching ? 1 : 0; read[k++] = ends[footOn(spec, otherSide(hand))]!.touching ? 1 : 0;
   read[k++] = phase === "shift" ? 1 : 0; read[k++] = phase === "swing" ? 1 : 0;
   const { readings, inputs, inputSenses, speeds } = channels;
   for (let i = 0; i < readings.length; i++) {

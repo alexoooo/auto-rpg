@@ -43,7 +43,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const { executors, actions } = services;
   const { legs, guard } = services, support = services.support ?? null;
   const navigation = services.navigation;
-  const models = bodyEffectors(body.built).map(e => e.model), feet = footStatesOf(body.built).map(f => f.segment.spec.name);
+  const models = bodyEffectors(body.built).map(e => e.model), feet = footStatesOf(body.built).map(f => ({ name: f.name, segment: f.segment.spec.name }));
   const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet, body.built.handPoses.model.map(hand => hand.segment));
   const allControls = resources.controls(Object.keys(resources.footprints)), legsControls = resources.controls(["legs"]);
   const on = attachment(body.built);
@@ -183,7 +183,10 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         Object.assign(handPoses, claim.handPoses);
       }
       const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance, ...(held === undefined ? {} : { held }) };
-      if (command.stance) for (const side of command.stance.feet) if (command.effectors?.[`foot.${side}`]) throw new Error(`two controllers own foot.${side}`);
+      if (command.stance) for (const end of command.stance.feet) {
+        const segment = feet.find((foot) => foot.name === end)?.segment;
+        if (segment !== undefined && command.effectors?.[segment]) throw new Error(`two controllers own ${segment}`);
+      }
       for (const control of allControls) if (available(control)) state.owners[control] = "default";
       state.command = immutableCommand(command);
       instances.snapshot();

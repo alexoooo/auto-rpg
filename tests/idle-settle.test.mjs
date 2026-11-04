@@ -11,8 +11,8 @@ const feet = { "foot.left": "left", "foot.right": "right" };
 function fixture(scale = 1) {
   const view = { born: 0, time: 1, standing: scale, down: false, root: { rotation: Quaternion.Identity() }, effectors: {},
     stance: { centre: new Vector3(0, scale, 0), support: new Vector3(), place: new Vector3(), plan: new Vector3(), planVelocity: new Vector3(), velocity: new Vector3(),
-      soles: { left: new Vector3(-.15 * scale, 0, .15 * scale), right: new Vector3(.15 * scale, 0, -.15 * scale) },
-      phase: "stand", touching: { left: true, right: true }, own: null } };
+      ends: { "foot.left": { middle: new Vector3(-.15 * scale, 0, .15 * scale), touching: true }, "foot.right": { middle: new Vector3(.15 * scale, 0, -.15 * scale), touching: true } },
+      phase: "stand", own: null } };
   const legs = locomotion(feet, null, { idleFooting: { offsets: { left: [-.15 * scale, 0], right: [.15 * scale, 0] }, length: .25 * scale } });
   const ask = (goal = {}, context) => { view.time += 1 / 120; return legs.goal(view, { walk: null, face: 0, ...goal }, 1 / 120, context).goal; };
   return { view, legs, ask };
@@ -45,8 +45,8 @@ test("idle legs correct a physically established stagger and stop stepping", asy
   try {
     // The stagger along the way the body was built facing.
     const s = made.view.stance, fx = Math.sin(made.start.heading), fz = Math.cos(made.start.heading);
-    const stagger = () => (s.soles.left.x - s.soles.right.x) * fx + (s.soles.left.z - s.soles.right.z) * fz;
-    const footing = { "foot.left": [s.soles.left.x + .15 * fx, s.soles.left.z + .15 * fz], "foot.right": [s.soles.right.x - .15 * fx, s.soles.right.z - .15 * fz] };
+    const stagger = () => (s.ends["foot.left"].middle.x - s.ends["foot.right"].middle.x) * fx + (s.ends["foot.left"].middle.z - s.ends["foot.right"].middle.z) * fz;
+    const footing = { "foot.left": [s.ends["foot.left"].middle.x + .15 * fx, s.ends["foot.left"].middle.z + .15 * fz], "foot.right": [s.ends["foot.right"].middle.x - .15 * fx, s.ends["foot.right"].middle.z - .15 * fz] };
     made.run(3, () => ({ legs: { footing } }));
     assert.ok(!made.view.down && Math.abs(stagger()) > .2, "fixture must establish an upright stagger");
     made.run(.5, () => ({}));
@@ -57,20 +57,20 @@ test("idle legs correct a physically established stagger and stop stepping", asy
     assert.ok(Math.abs(stagger()) < .06, `remaining stagger ${stagger()} m, limit .06`);
     made.run(1, () => ({}));
     assert.equal(s.phase, "stand");
-    assert.ok(s.touching.left && s.touching.right);
+    assert.ok(s.ends["foot.left"].touching && s.ends["foot.right"].touching);
   } finally { made.dispose(); }
 });
 
 
 test("idle settling ignores body sway but steps a turned sole even at the right position", () => {
   const { view, ask } = fixture();
-  view.stance.soles.left.z = 0; view.stance.soles.right.z = 0;
+  view.stance.ends["foot.left"].middle.z = 0; view.stance.ends["foot.right"].middle.z = 0;
   for (let i = 0; i < 90; i++) {
     view.stance.centre.x = .1 * Math.sin(i);
     assert.equal(ask().swing, undefined, "centre-of-mass sway must not start another foot placement");
   }
   view.effectors["foot.left"] = { rotation: turnAboutToRef(new Vector3(0, 1, 0), .5, new Quaternion()) };
-  assert.equal(ask().swing.foot, "left", "a turned foot needs a corrective step even when its middle is correctly placed");
+  assert.equal(ask().swing.foot, "foot.left", "a turned foot needs a corrective step even when its middle is correctly placed");
 });
 
 test("idle placement untwists a physically turned footing", async () => {
@@ -87,7 +87,7 @@ test("idle placement untwists a physically turned footing", async () => {
   const off = side => Math.abs(Math.atan2(Math.sin(yaw(side) - facing()), Math.cos(yaw(side) - facing())));
   try {
     const s = made.view.stance, h = made.start.heading;
-    const footing = { "foot.left": [s.soles.left.x + .1 * Math.sin(h), s.soles.left.z + .1 * Math.cos(h)], "foot.right": [s.soles.right.x + .1 * Math.sin(h), s.soles.right.z + .1 * Math.cos(h)] };
+    const footing = { "foot.left": [s.ends["foot.left"].middle.x + .1 * Math.sin(h), s.ends["foot.left"].middle.z + .1 * Math.cos(h)], "foot.right": [s.ends["foot.right"].middle.x + .1 * Math.sin(h), s.ends["foot.right"].middle.z + .1 * Math.cos(h)] };
     made.run(3, () => ({ legs: { footing, heading: h + .4 } }));
     // The pelvis turned back over the planted feet: the soles are twisted from it.
     made.run(1, () => ({ legs: { footing, heading: h } }));
@@ -143,7 +143,7 @@ test("two manual Lab shoves release recovery back to settling on the gameplay en
     let quiet = 0;
     for (let i = 0; i < stand.seconds(STAND_CHECK.standing + STAND_CHECK.walking) && quiet < STAND_CHECK.quiet; i++) {
       stand.step(); const s = actor.body.view.stance;
-      quiet = s.phase === "stand" && s.touching.left && s.touching.right && !actor.body.view.down ? quiet + stand.world.dt : 0;
+      quiet = s.phase === "stand" && s.ends["foot.left"].touching && s.ends["foot.right"].touching && !actor.body.view.down ? quiet + stand.world.dt : 0;
     }
     assert.ok(quiet >= STAND_CHECK.quiet, "after the check's walk, idle legs must finish their steps and hold standing");
   } finally { run.dispose(); stand.dispose(); }
@@ -156,7 +156,7 @@ test("a disturbance cancels idle foot placement and gives catch steps priority",
     let command; for (let i = 0; i < 25; i++) command = ask();
     assert.ok(command.swing, "fixture must begin a settling step");
     view.stance.phase = "swing";
-    if (caught) view.stance.own = { foot: "right" };
+    if (caught) view.stance.own = { foot: "foot.right" };
     else view.stance.velocity.x = 1;
     const yielded = ask(walking ? { walk: [1, 0] } : {});
     assert.equal(yielded.swing, undefined, "default settling must not keep its stale swing after a catch or unplanned motion");
@@ -170,7 +170,7 @@ test("idle placement takes the body's current facing after recovery turns it", (
     const { view, legs, ask } = fixture();
     view.root.rotation = turnAboutToRef(Vector3.Up(), heading, new Quaternion());
     for (const side of ["left", "right"]) {
-      view.stance.soles[side].applyRotationQuaternionToRef(view.root.rotation, view.stance.soles[side]);
+      view.stance.ends[`foot.${side}`].middle.applyRotationQuaternionToRef(view.root.rotation, view.stance.ends[`foot.${side}`].middle);
       view.effectors[`foot.${side}`] = { rotation: Quaternion.Identity() };
     }
     let goal; for (let i = 0; i < 25; i++) goal = ask();
@@ -196,7 +196,7 @@ test("a requested step releases the preceding catch's recovery heading", async (
   const hosted = commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS,
     motor: (built, seconds, posture, tuning, assist) => motorControl(built, seconds, posture, tuning, assist,
       (built, tuning, assist) => balance = stanceControl(built, tuning, assist)) });
-  hosted.drive(view => ({ posture: guard, pushes: [], stance: { feet: ["left", "right"], centre: null,
+  hosted.drive(view => ({ posture: guard, pushes: [], stance: { feet: ["foot.left", "foot.right"], centre: null,
     height: view.standing - .03, heading, walk: null, ...(swing ? { swing } : {}) } }));
   try {
     stand.step(60);
@@ -210,8 +210,8 @@ test("a requested step releases the preceding catch's recovery heading", async (
     assert.ok(caught && landed && !hosted.view.down && balance.state.step.recovering,
       "fixture must finish an upright catch before requesting an ordinary step");
     heading = .3;
-    const sole = hosted.view.stance.soles.left;
-    swing = { foot: "left", to: [sole.x, sole.z + .06], seconds: .3, lift: .05, shift: true };
+    const sole = hosted.view.stance.ends["foot.left"].middle;
+    swing = { foot: "foot.left", to: [sole.x, sole.z + .06], seconds: .3, lift: .05, shift: true };
     // Motor control takes the step once it carries the command out, the world's delay after it is given.
     stand.step(1 + stand.world.delay);
     assert.equal(balance.state.step.recovering, false, "the requested step must leave recovery control");

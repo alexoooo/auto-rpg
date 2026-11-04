@@ -1,4 +1,4 @@
-import { standingFooting } from "../../control/support.ts";
+import { footOn, standingFooting } from "../../control/support.ts";
 import { Quaternion } from "../../math/vector.ts";
 import type { Body, BodyView } from "../../body.ts";
 import { paceToward, quickened, walkRunEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";
@@ -170,7 +170,10 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick);
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
-  const legs = locomotion(stanceFeetOf(body.built.spec), body.envelope, { idleFooting: standingFooting(body.built) });
+  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, body.envelope, { idleFooting: standingFooting(body.built) });
+  /** Whether the ground bore the foot on `side` in the last step (`StanceEnd.touching`). */
+  const ends = { left: footOn(body.built.spec, "left"), right: footOn(body.built.spec, "right") };
+  const touching = (view: BodyView, side: Side): boolean => view.stance.ends[ends[side]]!.touching;
   // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
   const pays = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
   const memory: WalkRunMemory = { may: may && pays, running: false, swinging: null, bearing: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
@@ -255,17 +258,17 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         // A step of the stance's walk ends as its foot lands: the run takes over from that foot. A step
         // whose landing was given up in the air has not landed until its sole is on the ground.
         let landed: Side | null = null;
-        if (s.phase === "swing") memory.swinging = s.own ? s.own.foot : null;
-        else if (memory.swinging !== null && s.touching[memory.swinging]) { landed = memory.swinging; memory.swinging = null; }
+        if (s.phase === "swing") memory.swinging = s.own ? feet[s.own.foot]! : null;
+        else if (memory.swinging !== null && touching(view, memory.swinging)) { landed = memory.swinging; memory.swinging = null; }
         // Heading for the run, the walk turns to face the way asked and walks it forward, as the run will.
         memory.facing = memory.capped > 0 ? memory.facing + wrap(s.facing - memory.facing) * Math.min(1, dt / RUN_SWITCH.sway) : s.facing;
         const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face, facing = Math.abs(wrap(way - memory.facing)) <= RUN_SWITCH.facing;
         memory.faced = memory.capped > 0 && facing ? memory.faced + dt : 0;
         if (landed && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.swayed && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) memory.bearing = landed;
         // A sole that leaves the ground again before it bears alone has not landed; one asked no longer to run waits no more.
-        if (memory.bearing !== null && !s.touching[memory.bearing]) { memory.swinging = memory.bearing; memory.bearing = null; }
+        if (memory.bearing !== null && !touching(view, memory.bearing)) { memory.swinging = memory.bearing; memory.bearing = null; }
         if (memory.capped === 0) memory.bearing = null;
-        if (memory.bearing !== null && !s.touching[otherSide(memory.bearing)]) { runFrom(view, memory.bearing, way); memory.bearing = null; }
+        if (memory.bearing !== null && !touching(view, otherSide(memory.bearing))) { runFrom(view, memory.bearing, way); memory.bearing = null; }
         else return legs.goal(view, { ...goal, walk: walkable(memory.capped > 0 ? [speed, 0] : asked), face: way }, dt, context);
       }
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past

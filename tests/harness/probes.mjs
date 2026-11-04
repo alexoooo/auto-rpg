@@ -54,7 +54,7 @@ export async function rig({ legs: legsConfig = { kind: "stance-walk" }, motor = 
   // The first step builds the stance's reference; what the probes read from is the body standing after it.
   stand.step(1);
   const view = hosted.view, s = view.stance;
-  const start = { heading: s.facing, standing: view.standing, soles: { left: [s.soles.left.x, s.soles.left.z], right: [s.soles.right.x, s.soles.right.z] },
+  const start = { heading: s.facing, standing: view.standing, soles: { left: [s.ends["foot.left"].middle.x, s.ends["foot.left"].middle.z], right: [s.ends["foot.right"].middle.x, s.ends["foot.right"].middle.z] },
     support: [s.support.x, s.support.z], guard };
   return {
     view, legs, start, channels: hosted.muscles.channels.map((channel) => channel.name),
@@ -126,7 +126,7 @@ export const LEGS_PROBES = Object.freeze({
   footing: { field: "footing", run: async (rig) => {
     const h = rig.start.heading, footing = { "foot.left": ahead(rig.start.soles.left, h, 0.1), "foot.right": ahead(rig.start.soles.right, h, 0.1) };
     rig.run(2, () => ({ legs: { footing } }));
-    const s = rig.view.stance, off = Math.max(apart([s.soles.left.x, s.soles.left.z], footing["foot.left"]), apart([s.soles.right.x, s.soles.right.z], footing["foot.right"]));
+    const s = rig.view.stance, off = Math.max(apart([s.ends["foot.left"].middle.x, s.ends["foot.left"].middle.z], footing["foot.left"]), apart([s.ends["foot.right"].middle.x, s.ends["foot.right"].middle.z], footing["foot.right"]));
     return reading(off <= 0.04 && !rig.view.down, listed(rig, "footing"), `the farther sole ${round(off)} m from its footing, limit 0.04`);
   } },
   gait: { field: "gait", run: async (rig) => {
@@ -142,7 +142,7 @@ export const LEGS_PROBES = Object.freeze({
     const left = rig.start.soles.left, lifted = { "hip.right flexion": 0.5, "knee.right flexion": 0.9 };
     rig.run(1, () => ({ legs: { centre: left } }));
     rig.run(1, () => ({ legs: { feet: ["foot.left"], centre: left }, posture: lifted }));
-    const s = rig.view.stance, up = s.soles.right.y - s.soles.left.y;
+    const s = rig.view.stance, up = s.ends["foot.right"].middle.y - s.ends["foot.left"].middle.y;
     return reading(up >= 0.025 && !rig.view.down, listed(rig, "feet"), `the free sole ${round(up)} m over the bearing one, limit 0.025`);
   } },
   height: { field: "height", run: async (rig) => {
@@ -191,7 +191,7 @@ export const LEGS_PROBES = Object.freeze({
   swing: { field: "swing", run: async (rig) => {
     const to = ahead(rig.start.soles.right, rig.start.heading, 0.15);
     rig.run(1.5, () => ({ legs: { feet: ["foot.left"], swing: { foot: "foot.right", to, seconds: 0.4, lift: 0.05, shift: true } } }));
-    const r = rig.view.stance.soles.right, off = apart([r.x, r.z], to);
+    const r = rig.view.stance.ends["foot.right"].middle, off = apart([r.x, r.z], to);
     return reading(off <= 0.03 && !rig.view.down, listed(rig, "swing"), `the right sole ${round(off)} m from its landing, limit 0.03`);
   } },
   halt: { field: "halt", run: async (rig) => {

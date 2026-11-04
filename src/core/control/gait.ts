@@ -12,16 +12,19 @@ import { DOWN, bearingOf, clearAcross, clearAlong, heldBy, landingHeading, legLe
 import { swingSeconds, swingWaySeconds, withinReach, reachableSole, landingLean } from "./swing-leg.ts";
 import { sin, cos, cosh, exp, hypot, sinh } from "../math/real.ts";
 
+import { otherSide, type BearingEnd, type Side } from "../spec/body.ts";
+
 /** The feet of a stance that hold it (`holding`): a scratch, read before the next call. */
 const HOLDING: FootState[] = [];
-import type { Side } from "../spec/body.ts";
-import { otherSide } from "../spec/body.ts";
+
+/** The foot of `feet` that is the end `name` (`FootState.name`). */
+const named = (feet: readonly FootState[], name: BearingEnd): FootState => feet.find((foot) => foot.name === name)!;
 
 /**
  * A walk's step under way, for its re-aim: its foot, the pivot the body falls about, the swing's
  * time left, and the swing leg's reaction folded over it (`SwingShift.capture`).
  */
-interface Underway { readonly foot: Side; readonly pivot: Vector3; readonly remaining: number; readonly shift: readonly [number, number] }
+interface Underway { readonly foot: BearingEnd; readonly pivot: Vector3; readonly remaining: number; readonly shift: readonly [number, number] }
 
 /** What planning a step tells besides the step: whether the leg lands the whole of its landing (`reachableStep`). */
 interface StepPlan { within: boolean }
@@ -40,7 +43,7 @@ function across(feet: readonly FootState[], heading: number): number {
 function settleStep(feet: readonly FootState[], last: Side, heading: number, width: number, tuning: GaitTuning): SwingGoal {
   const side: Side = otherSide(last), bearer = feet.find((f) => f.side === last)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
-  return { foot: side, to: [b.x + sign * width * rx, b.z + sign * width * rz], seconds: tuning.seconds, lift: tuning.lift, shift: true };
+  return { foot: feet.find((f) => f.side === side)!.name, to: [b.x + sign * width * rx, b.z + sign * width * rz], seconds: tuning.seconds, lift: tuning.lift, shift: true };
 }
 
 /**
@@ -105,9 +108,9 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
     return [lx, lz];
   };
   if (under) {
-    const foot = feet.find((f) => f.side === under.foot)!, bearer = feet.find((f) => f !== foot)!, p = under.pivot;
+    const foot = feet.find((f) => f.name === under.foot)!, bearer = feet.find((f) => f !== foot)!, p = under.pivot;
     const [tx, tz] = landing(bearer, foot, p.x, p.z, Math.max(under.remaining, 0), 1);
-    return { foot: foot.side, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false, early: true };
+    return { foot: foot.name, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false, early: true };
   }
   const [hx, hz] = withinSupport(heldBy(holding), xi, zi, 0);
   if (holding.length === feet.length && hypot(xi - hx, zi - hz) <= tuning.margin + held) return null;
@@ -126,7 +129,7 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
     if (short && tuning.fast !== undefined) { seconds = tuning.fast; [tx, tz] = planned(bearer, foot, seconds); }
     const need = swingWaySeconds(foot.leg, hypot(tx - foot.middle.x, tz - foot.middle.z), effort);
     if (need > seconds) { seconds = need; [tx, tz] = planned(bearer, foot, seconds); }
-    return { foot: foot.side, to: [tx, tz], seconds, lift: tuning.lift, shift: false, early: true };
+    return { foot: foot.name, to: [tx, tz], seconds, lift: tuning.lift, shift: false, early: true };
   };
   // How far a step's landing is from where the capture point will be as it lands, run about the
   // point of its bearer's sole nearest it, m.
@@ -233,7 +236,7 @@ function holding(s: Stance): readonly FootState[] {
   const { feet } = s, { height } = s.tuning.seconds, { step, reading } = s.state;
   const swung = step.lifted && reading.own ? reading.own.foot : null;
   HOLDING.length = 0;
-  for (const foot of feet) if (foot.side !== swung && foot.memory.lifted <= height && soleHeight(foot) <= DOWN) HOLDING.push(foot);
+  for (const foot of feet) if (foot.name !== swung && foot.memory.lifted <= height && soleHeight(foot) <= DOWN) HOLDING.push(foot);
   if (HOLDING.length === 0) for (const foot of feet) HOLDING.push(foot);
   return HOLDING;
 }
@@ -407,7 +410,7 @@ function startingSide(feet: readonly FootState[], walk: readonly [number, number
  */
 function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
   tuning: GaitTuning, hip: number, held: number, bend: number | null, last: Side | null, under?: Underway, plan?: StepPlan): SwingGoal {
-  const side: Side = under?.foot ?? (last ? otherSide(last) : startingSide(feet, walk, heading));
+  const side: Side = under ? named(feet, under.foot).side : last ? otherSide(last) : startingSide(feet, walk, heading);
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
@@ -440,7 +443,7 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   if (plan) plan.within = within;
   [tx, tz] = clearOfBearer(bearer, foot, b.x + wx, b.z + wz, tuning.clearance, false);
   const [lx, lz] = at(tx - b.x, tz - b.z);
-  return { foot: side, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz],
+  return { foot: foot.name, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz],
     lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) };
 }
 
@@ -472,7 +475,7 @@ const PREVIEW_STEPS = 8;
  */
 function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
   tuning: GaitTuning, hip: number, held: number, bend: number | null, last: Side | null, under?: Underway, plan?: StepPlan): SwingGoal {
-  const side: Side = under?.foot ?? (last === "left" ? "right" : "left");
+  const side: Side = under ? named(feet, under.foot).side : last === "left" ? "right" : "left";
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
   // The height's floor, 1 mm, is a numeric setting.
@@ -518,7 +521,7 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   if (plan) plan.within = within;
   [tx, tz] = clearOfBearer(bearer, foot, b.x + wx, b.z + wz, tuning.clearance, false);
   const capture = reference(tx, tz), [lx, lz] = [cx0, cz0];
-  return { foot: side, to: [tx, tz], seconds: Tss, lift: tuning.lift, transfer: Tds,
+  return { foot: foot.name, to: [tx, tz], seconds: Tss, lift: tuning.lift, transfer: Tds,
     capture, handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)], lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) };
 }
 
@@ -593,14 +596,14 @@ export function paceToward(s: Stance, walk: readonly [number, number] | null | u
 export function catchStep(s: Stance): boolean {
   const { feet, state } = s, { reading, step, gait } = state, { recovery } = s.tuning, swing = step.swing;
   if (!recovery || reading.phase !== "shift" || !swing || swing.transfer) return false;
-  const g = gravityOf(s), bearer = feet.find((f) => f.side !== swing.foot)!, off = outside(feet, reading.centre, reading.velocity, g, [bearer]);
+  const g = gravityOf(s), bearer = feet.find((f) => f.name !== swing.foot)!, off = outside(feet, reading.centre, reading.velocity, g, [bearer]);
   const away = off > step.off;
   step.off = off;
   const held = assistReach(s), hold = holding(s), carried = carriedVelocity(s);
   if (!away || outside(feet, reading.centre, carried, g, hold) <= recovery.margin + held) return false;
   reading.own = recoveryStep(feet, hold, reading.centre, carried, g, recovery, gait, reading.facing, hipHeight(s) - gait.crouch, held)!;
   step.recovering = true;
-  state.stride = state.striding ? reading.own.foot : null;
+  state.stride = state.striding ? named(feet, reading.own.foot).side : null;
   reading.recoveries += 1;
   return true;
 }
@@ -675,7 +678,7 @@ export function ownStep(s: Stance, heading: number, hip: number, halted: boolean
       step.recovering = reading.own !== null;
       if (reading.own) reading.recoveries += 1;
     }
-    state.stride = state.striding && reading.own ? reading.own.foot : null;
+    state.stride = state.striding && reading.own ? named(feet, reading.own.foot).side : null;
   } else if (reading.own && step.recovering) {
     aimRecovery(s);
   } else if (reading.own && state.striding && reading.phase === "swing" && step.lifted && step.swing === reading.own) {

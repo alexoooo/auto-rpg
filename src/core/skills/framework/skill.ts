@@ -1,6 +1,7 @@
 import type { BodyView } from "../../body.ts";
 import type { StanceGoal, SwingGoal } from "../../control/stance.ts";
 import type { BearingEnd, BodySpec, Side } from "../../spec/body.ts";
+import { stanceFeet } from "../../control/support.ts";
 import type { GaitName } from "../locomotion/gaits.ts";
 import type { CarriageName, Footing } from "../locomotion/locomotion.ts";
 import type { SupportReport } from "../locomotion/support-fold.ts";
@@ -44,27 +45,18 @@ export interface LegsGoal {
   readonly height?: number;
   readonly heading?: number;
   readonly centre?: readonly [number, number] | null;
-  readonly pose?: LegsPose;
-  readonly swing?: LegsSwing | null;
+  readonly pose?: StanceGoal["pose"];
+  readonly swing?: SwingGoal | null;
   readonly halt?: boolean;
 }
 
-/** A supported root pitch as the legs are asked it (`StanceGoal.pose`), each anchor keyed by its end. */
-type LegsPose = Omit<NonNullable<StanceGoal["pose"]>, "anchors"> & { readonly anchors?: Readonly<Partial<Record<BearingEnd, NonNullable<NonNullable<StanceGoal["pose"]>["anchors"]>[Side]>>> };
-
-/** A step's swing as the legs are asked it (`SwingGoal`): the end carried, by name. */
-type LegsSwing = Omit<SwingGoal, "foot"> & { readonly foot: BearingEnd };
-
-/** **The ends a stance stands on**, by name: each foot end of a body's spec on a foot the stance has (`foot.left`, `foot.right`), and its side. */
+/** **The ends a stance stands on**, by name, each with its side (`stanceFeet`). */
 export type StanceFeet = Readonly<Record<BearingEnd, Side>>;
 
-/** The end a stance's foot on `side` is, as a human's spec names it: for its segment (`foot.left`). */
-export const footEnd = (side: Side): BearingEnd => `foot.${side}`;
-
 /** The ends `spec` names that a stance stands on (`StanceFeet`). */
-export function stanceFeetOf(spec: Pick<BodySpec, "ends">): StanceFeet {
+export function stanceFeetOf(spec: BodySpec): StanceFeet {
   const feet: Record<BearingEnd, Side> = {};
-  for (const end of spec.ends ?? []) for (const side of ["left", "right"] as const) if (end.kind === "foot" && end.segment === `foot.${side}`) feet[end.name] = side;
+  for (const { end, side } of stanceFeet(spec)) feet[end.name] = side;
   return Object.freeze(feet);
 }
 
@@ -120,17 +112,12 @@ export function setIn(goal: LegsGoal, mask: number): number {
 /** A legs goal with its walk and facing filled in: what the legs are given (`Locomotion.goal`). */
 export type LegsAsked = LegsGoal & { readonly walk: readonly [forward: number, right: number] | null; readonly face: number };
 
-/** **A legs goal on a stance's feet**: its ends made the feet they are, by side (`onStanceFeet`). */
-export type SidedAsk<G extends LegsGoal = LegsAsked> = Omit<G, "feet" | "footing" | "pose" | "swing"> & {
-  readonly feet?: readonly Side[];
-  readonly footing?: Footing;
-  readonly pose?: StanceGoal["pose"];
-  readonly swing?: SwingGoal | null;
-};
+/** **A legs goal on a stance's feet**: its footing by side (`onStanceFeet`). */
+export type SidedAsk<G extends LegsGoal = LegsAsked> = Omit<G, "footing"> & { readonly footing?: Footing };
 
 /**
- * `goal`'s ends made the stance's feet by side (`feet`), and the mask of the fields that name an
- * end the stance does not stand on, which are left out for the legs to report unmet.
+ * `goal` on the stance's feet: its footing by side (`Footing`), and the mask of the fields that
+ * name an end the stance does not stand on, which are left out for the legs to report unmet.
  */
 export function onStanceFeet<G extends LegsGoal>(goal: G, feet: StanceFeet): { readonly goal: SidedAsk<G>; readonly refused: number } {
   let refused = 0;
@@ -138,8 +125,7 @@ export function onStanceFeet<G extends LegsGoal>(goal: G, feet: StanceFeet): { r
   const { feet: ends, footing, pose, swing, ...rest } = goal;
   const out: { -readonly [K in keyof SidedAsk]?: SidedAsk[K] } = { ...rest };
   if (ends !== undefined) {
-    const sides = ends.map(sideOf);
-    if (sides.every((side) => side !== undefined)) out.feet = sides as Side[]; else refused |= FIELD_BIT.feet;
+    if (ends.every((end) => sideOf(end) !== undefined)) out.feet = ends; else refused |= FIELD_BIT.feet;
   }
   if (footing !== undefined) {
     const placed: Partial<Record<Side, readonly [number, number]>> = {};
@@ -148,14 +134,10 @@ export function onStanceFeet<G extends LegsGoal>(goal: G, feet: StanceFeet): { r
     if (fits && placed.left && placed.right) out.footing = { left: placed.left, right: placed.right }; else refused |= FIELD_BIT.footing;
   }
   if (pose !== undefined) {
-    const anchors: Partial<Record<Side, NonNullable<NonNullable<StanceGoal["pose"]>["anchors"]>[Side]>> = {};
-    let fits = true;
-    for (const [end, anchor] of Object.entries(pose.anchors ?? {})) { const side = sideOf(end); if (side === undefined) fits = false; else anchors[side] = anchor; }
-    if (fits) out.pose = { ...pose, ...(pose.anchors === undefined ? {} : { anchors }) }; else refused |= FIELD_BIT.pose;
+    if (Object.keys(pose.anchors ?? {}).every((end) => sideOf(end) !== undefined)) out.pose = pose; else refused |= FIELD_BIT.pose;
   }
   if (swing !== undefined) {
-    const side = swing === null ? null : sideOf(swing.foot);
-    if (swing === null) out.swing = null; else if (side === undefined) refused |= FIELD_BIT.swing; else out.swing = { ...swing, foot: side! };
+    if (swing === null || sideOf(swing.foot) !== undefined) out.swing = swing; else refused |= FIELD_BIT.swing;
   }
   return { goal: out as SidedAsk<G>, refused };
 }

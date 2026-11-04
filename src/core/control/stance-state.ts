@@ -6,13 +6,13 @@ import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { Assist } from "./assist.ts";
 import type { Limb, LimbTask } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
-import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
+import type { StanceEnd, StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
 import { makeSwingShiftWork, type SwingShift, type SwingShiftWork } from "./swing-leg.ts";
 import type { SwingBow } from "./swing-path.ts";
 import { resolveStance, SUPPORT_INSET, type GaitTuning, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, restWidth, soleRefusal, type FootMemory, type FootState } from "./support.ts";
 import { massOf, partsOn, type Parts } from "../read-motion.ts";
-import type { Side } from "../spec/body.ts";
+import type { BearingEnd, Side } from "../spec/body.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
 
 /**
@@ -33,8 +33,8 @@ interface StanceState {
   striding: readonly [number, number] | null;
   /** Each channel the last command drove, 1, or 0. */
   owned: Uint8Array;
-  /** The feet the last command had bear the body; null if it asked for no stance. */
-  last: readonly Side[] | null;
+  /** The feet the last command had bear the body, by name; null if it asked for no stance. */
+  last: readonly BearingEnd[] | null;
   /** The step pattern of the goal last commanded (`StanceGoal.gait`), or the stance's own. */
   gait: GaitTuning;
   /** The walk's pace, world (x, z), m/s: toward the goal's at the gait's acceleration, toward none standing. */
@@ -79,8 +79,9 @@ interface StanceState {
    * assist gave (the last solve's shortfall and help): the plan goes on from what the body could get.
    */
   readonly plan: { on: boolean; readonly at: Vector3; readonly velocity: Vector3; readonly missed: Vector3 };
-  /** What the last reading and command found and asked (`StanceControl.reading`); its `soles` are the feet's `middle`s. */
-  readonly reading: { -readonly [K in Exclude<keyof StanceReading, "touching">]: StanceReading[K] } & { readonly touching: Record<Side, boolean> };
+  /** What the last reading and command found and asked (`StanceControl.reading`); its ends' `middle`s are the feet's. */
+  readonly reading: { -readonly [K in Exclude<keyof StanceReading, "ends">]: StanceReading[K] }
+    & { readonly ends: Readonly<Record<BearingEnd, { -readonly [K in keyof StanceEnd]: StanceEnd[K] }>> };
   /**
    * The torque stance's aims for this step (`command`): the root's angular acceleration and the
    * centre of mass's, and each leg's foot's, its sole's middle's and its spin's; then (`solveBody`) the
@@ -147,6 +148,8 @@ export interface Stance {
   readonly parts: () => Parts;
   /** The feet, left then right. */
   readonly feet: readonly FootState[];
+  /** The feet's names (`FootState.name`), in their order. */
+  readonly names: readonly BearingEnd[];
   /** Each foot's leg as the solve takes it, in the feet's order: its task is the state's. */
   readonly limbs: readonly Limb[];
   /** The asks as the whole-body solve takes them (`StanceControl.ask`): the root's acceleration into `state.aim.root`, and `state.helped` and the reading's shortfall. */
@@ -178,9 +181,9 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
     plan: { on: false, at: new Vector3(), velocity: new Vector3(), missed: new Vector3() },
     reading: { centre: new Vector3(), velocity: new Vector3(), momentum: new Vector3(), support: new Vector3(), place: new Vector3(),
       plan: new Vector3(), planVelocity: new Vector3(),
-      facing: 0, phase: "stand", soles: { left: feet[0]!.middle, right: feet[1]!.middle }, touching: { left: false, right: false }, own: null, recoveries: 0, strides: 0, pace,
+      facing: 0, phase: "stand", own: null, recoveries: 0, strides: 0, pace,
       shortfall: { force: new Vector3(), moment: new Vector3() },
-      asked: { left: { at: new Vector3(), force: new Vector3(), moment: new Vector3() }, right: { at: new Vector3(), force: new Vector3(), moment: new Vector3() } } },
+      ends: Object.fromEntries(feet.map((foot) => [foot.name, { middle: foot.middle, touching: false, asked: { at: new Vector3(), force: new Vector3(), moment: new Vector3() } }])) },
     aim: { on: false, spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) },
     helped: { force: new Vector3(), moment: new Vector3() },
     tasks: feet.map((foot): LimbTask => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(),
@@ -193,9 +196,9 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
   }));
   return {
     built, assist, tuning: resolved, pelvis: feet[0]!.chain[0]!.parent, parts: partsOn(built),
-    feet, rest: restWidth(feet), rise, limbs,
+    feet, names: Object.freeze(feet.map((foot) => foot.name)), rest: restWidth(feet), rise, limbs,
     ask: { aim: state.aim, limbs, lever: 0, root: state.aim.root, helped: state.helped, shortfall: state.reading.shortfall,
-      asked: feet.map((foot) => state.reading.asked[foot.side]) },
+      asked: feet.map((foot) => state.reading.ends[foot.name]!.asked) },
     state,
     scratch: {
       path: new Vector3(), along: new Vector3(), sole: new Vector3(), v: new Vector3(),

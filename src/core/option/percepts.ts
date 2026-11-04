@@ -1,10 +1,10 @@
 import type { MotorUnmet } from "../control/motor.ts";
 import { stanceEnvelopeOf, turnAt } from "../control/stance-envelope.ts";
-import type { StancePhase } from "../control/stance.ts";
+import type { StancePhase, StanceReading } from "../control/stance.ts";
 import { atan2, hypot } from "../math/real.ts";
 import type { Rulebook } from "../rules/rulebook.ts";
 import type { LegsUnmet } from "../skills/framework/skill.ts";
-import { strikersOf, type BodySpec, type Side } from "../spec/body.ts";
+import { strikersOf, type BearingEnd, type BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { Cover } from "../intent/intent.ts";
 import type { Orders } from "../intent/orders.ts";
@@ -88,12 +88,11 @@ const heads = ({ focus, sight }: Seen) => ({ mine: sight.view.head, theirs: focu
  */
 const LANDS = .3, RATE = 1;
 
-/** Which feet the ground bears (`StanceReading.touching`): both, one, or none. */
-type Bearing = "both" | "left" | "right" | "none";
+/** The stance's feet the ground bears (`StanceEnd.touching`), by name, in the stance's order. */
+type Bearing = readonly BearingEnd[];
 
-/** The feet `touching` says the ground bears. */
-const bearingOf = (touching: Readonly<Record<Side, boolean>>): Bearing =>
-  touching.left ? touching.right ? "both" : "left" : touching.right ? "right" : "none";
+/** The feet of `ends` the ground bears. */
+const bearingOf = (ends: StanceReading["ends"]): Bearing => Object.keys(ends).filter((end) => ends[end]!.touching);
 
 /** Each spec's turn standing measured on its body, rad/s, found once; Infinity where none was measured. */
 const TURNS = new WeakMap<BodySpec, number>();
@@ -460,7 +459,7 @@ export const PERCEPTS = Object.freeze({
   lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,
   lateness: { read: ({ sight }) => { const { begins, ends, time } = sight.view.senses; return begins === undefined || ends === undefined || !(ends > begins) ? 0 : Math.min(1, Math.max(0, (time - begins) / (ends - begins))); } } as Percept<number>,
   stride: { read: ({ sight }) => sight.view.stance.phase } as Percept<StancePhase>,
-  bearing: { read: ({ sight }) => bearingOf(sight.view.stance.touching) } as Percept<Bearing>,
+  bearing: { read: ({ sight }) => bearingOf(sight.view.stance.ends) } as Percept<Bearing>,
   velocity: { read: ({ sight }) => ({ x: sight.view.stance.velocity.x, z: sight.view.stance.velocity.z }) } as Percept<Ground>,
   legsUnmet: { read: ({ sight }) => sight.report.legs } as Percept<LegsUnmet>,
   motorUnmet: { read: ({ sight }) => sight.view.unmet } as Percept<MotorUnmet>,

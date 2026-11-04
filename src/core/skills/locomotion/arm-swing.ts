@@ -3,7 +3,8 @@ import type { BodyView } from "../../body.ts";
 import type { SwingGoal } from "../../control/stance.ts";
 import { swingProgressToRef } from "../../control/swing-path.ts";
 import type { Pose } from "../../spec/pose.ts";
-import type { Side } from "../../spec/body.ts";
+import type { BodySpec, Side } from "../../spec/body.ts";
+import { footOn } from "../../control/support.ts";
 import { GUARD } from "../guard/guard.ts";
 import { sin, cos } from "../../math/real.ts";
 import { otherSide } from "../../spec/body.ts";
@@ -30,14 +31,15 @@ interface Swinging {
  * each arm is turned by the half the other side's sole leads its own by instead, so the arms swing
  * against each other about the hanging whatever the soles' mean lead, which a run carries behind.
  */
-export function armSwing(gain: number, centred = false): (view: BodyView, heading: number, swinging: Swinging) => Pose {
-  const progress = new Vector3();
+export function armSwing(spec: BodySpec, gain: number, centred = false): (view: BodyView, heading: number, swinging: Swinging) => Pose {
+  const progress = new Vector3(), feet = { left: footOn(spec, "left"), right: footOn(spec, "right") };
   return (view, heading, { step, swung, off }) => {
     const s = view.stance, fx = sin(heading), fz = cos(heading);
     const eased = (t: number): number => swingProgressToRef(t, step?.ramp, progress).x;
     const lead = (side: Side): number => {
-      let x = s.soles[side].x, z = s.soles[side].z;
-      if (step && step.foot === side && off) {
+      const sole = s.ends[feet[side]]!.middle;
+      let x = sole.x, z = sole.z;
+      if (step && step.foot === feet[side] && off) {
         const from = eased(Math.min(swung / step.seconds, 1)), to = eased(Math.min((swung + ARM_LEAD) / step.seconds, 1));
         const k = from < 1 ? (to - from) / (1 - from) : 0;
         x += (step.to[0] - x) * k;

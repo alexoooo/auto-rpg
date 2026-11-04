@@ -2,6 +2,7 @@ import type { BodyCommand } from "../../body.ts";
 import type { EffectorModel } from "../../control/effectors.ts";
 import { deepFreeze } from "../../state.ts";
 import type { ActionClaim, Resource } from "./action.ts";
+import type { BearingEnd } from "../../spec/body.ts";
 
 /** One compiled map serves both admission conflicts and command-write validation. */
 export interface ResourceMap {
@@ -12,8 +13,13 @@ export interface ResourceMap {
   validatePatch(resources: readonly Resource[], patch: Partial<BodyCommand>): void;
 }
 
-/** Compile anatomical chains, the posable hands (by segment) and the stance's support limbs into concrete control slots. */
-export function actionResources(channels: readonly string[], effectors: readonly EffectorModel[], support: readonly string[], posable: readonly string[]): ResourceMap {
+/**
+ * Compile anatomical chains, the posable hands (by segment) and the stance's support limbs (its
+ * feet, each by its end's name and its segment) into concrete control slots.
+ */
+export function actionResources(channels: readonly string[], effectors: readonly EffectorModel[], feet: readonly { readonly name: BearingEnd; readonly segment: string }[],
+  posable: readonly string[]): ResourceMap {
+  const support = feet.map((foot) => foot.segment);
   const footprints: Record<string, readonly string[]> = Object.create(null) as Record<string, readonly string[]>, limbChannels = new Set<string>();
   for (const effector of effectors) {
     if (effector.segment === "legs" || effector.segment === "trunk" || footprints[effector.segment]) throw new Error("duplicate or reserved effector resource");
@@ -50,8 +56,9 @@ export function actionResources(channels: readonly string[], effectors: readonly
     for (const segment of support) if (patch.effectors?.[segment] && !held.includes("stance")) throw new Error("a support effector needs legs");
     for (const segment in patch.handPoses) owns(`pose:${segment}`);
     if (patch.stance !== undefined) owns("stance");
-    if (patch.stance) for (const side of patch.stance.feet) {
-      if (patch.effectors?.[`foot.${side}`]) throw new Error(`two controllers own foot.${side}`);
+    if (patch.stance) for (const end of patch.stance.feet) {
+      const segment = feet.find((foot) => foot.name === end)?.segment;
+      if (segment !== undefined && patch.effectors?.[segment]) throw new Error(`two controllers own ${segment}`);
     }
   };
   return {

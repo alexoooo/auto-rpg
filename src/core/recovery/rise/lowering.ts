@@ -1,6 +1,5 @@
 import type { Body, BodyView } from "../../body.ts";
 import type { MusclePush } from "../../control/motor.ts";
-import { footStatesOf } from "../../control/support.ts";
 import { cos, sin } from "../../math/real.ts";
 import type { LegsDrive, Locomotion, LocomotionContext } from "../../skills/locomotion/locomotion.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, type LegsAsked, type LegsUnmet } from "../../skills/framework/skill.ts";
@@ -38,12 +37,6 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
   const own = heldBody(body, command.activation, command.velocity);
   const playable = lowerings.filter((one) => stageFaults(one.recipe, spec).length === 0);
   const players = playable.map((one) => stagedRise(own, body.view, one.recipe));
-  const feet = footStatesOf(body.built);
-  /** The side of the foot an end of the spec's bears on, or null for an end that is no foot. */
-  const sideOf = (end: string) => {
-    const segment = spec.ends?.find((one) => one.name === end && one.kind === "foot")?.segment;
-    return feet.find((foot) => foot.segment.spec.name === segment)?.side ?? null;
-  };
   const state = {
     /** What the legs do: their own, set the feet for a lowering, lower the body, or report a lowering failed. */
     phase: "legs" as "legs" | "placing" | "lowering" | "failed",
@@ -100,9 +93,8 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
         // Each foot's end set ahead of where its sole stands, along the way the legs face.
         const h = legs.heading, x = sin(h), z = cos(h);
         for (const [end, ahead] of Object.entries(chosen.footing)) {
-          const side = sideOf(end);
-          if (side === null) throw new Error(`a lowering sets ${end}, which is no foot`);
-          const sole = view.stance.soles[side];
+          const sole = view.stance.ends[end]?.middle;
+          if (!sole) throw new Error(`a lowering sets ${end}, which is no foot`);
           state.footing[end] = [sole.x + ahead * x, sole.z + ahead * z];
         }
         state.phase = "placing";

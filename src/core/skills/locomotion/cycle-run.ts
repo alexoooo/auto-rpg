@@ -8,6 +8,7 @@ import { atan2, cos, sin } from "../../math/real.ts";
 import { STANDARD_GRAVITY } from "../../spec/constants.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
 import { armSwing } from "./arm-swing.ts";
+import { footOn } from "../../control/support.ts";
 import { otherSide } from "../../spec/body.ts";
 
 /**
@@ -254,7 +255,9 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
   const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, touching: { left: true, right: true }, root: new Quaternion(), heading: 0, lean: 0, bank: 0 };
   const scratch = { up: new Vector3(), spin: new Vector3(), target: new Quaternion(), pitch: new Quaternion(), roll: new Quaternion(), error: new Vector3(), relative: new Vector3(),
     speeds: [0, 0, 0] as [number, number, number] };
-  const runner = armSwing(p.arms, true);
+  const runner = armSwing(spec, p.arms, true), feet = { left: footOn(spec, "left"), right: footOn(spec, "right") };
+  /** Whether the ground bore the foot on `side` in the last step (`StanceEnd.touching`). */
+  const touching = (view: BodyView, side: Side): boolean => view.stance.ends[feet[side]]!.touching;
   const own = (side: Side): number => { const x = side === "left" ? memory.phase : memory.phase - 0.5; return x - Math.floor(x); };
 
   /** The speeds of a hip's three freedoms that give it the relative spin `spin` (world), by Cramer's rule; zero where the axes are all but flat. */
@@ -277,8 +280,8 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       memory.waited = 0;
       memory.pace = Math.max(0, s.velocity.x * fx + s.velocity.z * fz);
       memory.trim = 0;
-      memory.touching.left = s.touching.left;
-      memory.touching.right = s.touching.right;
+      memory.touching.left = touching(view, "left");
+      memory.touching.right = touching(view, "right");
       memory.root.copyFrom(view.root.rotation);
       memory.heading = heading;
       memory.lean = p.lean;
@@ -293,22 +296,22 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       let next = memory.phase + dt / blended.period, landed: Side | null = null;
       for (const side of ["left", "right"] as const) {
         const o = own(side);
-        if (s.touching[side] && !memory.touching[side]) {
+        if (touching(view, side) && !memory.touching[side]) {
           landed = side;
           if (o >= 1 - p.early) { next = memory.phase + (1 - o); memory.waited = 0; }
         }
       }
       for (const side of ["left", "right"] as const) {
         const o = own(side);
-        if (o + (next - memory.phase) >= 1 && o >= 1 - p.early && !s.touching[side] && memory.waited < p.wait) { next = memory.phase + (1 - 1e-6 - o); memory.waited += dt; }
+        if (o + (next - memory.phase) >= 1 && o >= 1 - p.early && !touching(view, side) && memory.waited < p.wait) { next = memory.phase + (1 - 1e-6 - o); memory.waited += dt; }
       }
-      memory.touching.left = s.touching.left;
-      memory.touching.right = s.touching.right;
+      memory.touching.left = touching(view, "left");
+      memory.touching.right = touching(view, "right");
       memory.phase = next - Math.floor(next);
       const stanceSide: Side = own("left") < 0.5 ? "left" : "right", swingSide: Side = otherSide(stanceSide);
       const st = legs[stanceSide], sw = legs[swingSide], out = stanceSide === "left" ? 1 : -1;
       const os = own(stanceSide), ow = own(swingSide);
-      const bearing = s.touching[stanceSide] && os < blended.leaves + 0.05;
+      const bearing = touching(view, stanceSide) && os < blended.leaves + 0.05;
       // The pelvis in the world: its lean forward and to the right of the heading, and its spin.
       const turn = view.root.rotation;
       const up = scratch.up.set(0, 1, 0).applyRotationQuaternionToRef(turn, scratch.up);
@@ -328,7 +331,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       at(ow);
       const feedback = ow >= p.late || ow < 0.5 ? p.cv * error + p.cd * ((c.x - a[0]!) * fx + (c.z - a[2]!) * fz) + memory.trim : 0;
       drive(sw.names.hip[0], sw.hip[0], angle("hip") - sw.bind.hip - blended.lean + p.hipAdd + feedback + pitch, p.swing, rate("hip"));
-      const hp = dynamics.pivot(sw.hip[0]), height = Math.max(0.3, hp[1]! - Math.min(s.soles.left.y, s.soles.right.y));
+      const hp = dynamics.pivot(sw.hip[0]), height = Math.max(0.3, hp[1]! - Math.min(s.ends[feet.left]!.middle.y, s.ends[feet.right]!.middle.y));
       const aside = ((c.x - hp[0]!) * rx + (c.z - hp[2]!) * rz + across * (p.contact / 2 + p.gainSide)) * out;
       const landOut = atan2(aside + p.width, height) + p.cdSide * ((c.x - a[0]!) * rx + (c.z - a[2]!) * rz) * out;
       drive(sw.names.hip[1], sw.hip[1], landOut + out * roll - sw.spread, p.swing);

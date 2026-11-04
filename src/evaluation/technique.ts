@@ -19,6 +19,7 @@ import { kitOf } from "../core/mind/kit.ts";
 import { poseDrive, type TechniqueName, type TechniqueRun } from "../core/recovery/ground/technique.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
 import type { GroundReading } from "../core/control/ground-reading.ts";
+import { stanceFeet } from "../core/control/support.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { HumanoidModel } from "../core/models.ts";
 import { guardPosture } from "../core/skills/guard/guard.ts";
@@ -175,7 +176,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
         else state.phase = "over";
       } };
   }]);
-  body.drive(() => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: body.view.standing - .03, heading: 0 } }));
+  body.drive(() => ({ posture: guardPosture(spec), pushes: [], stance: { feet: stanceFeet(spec).map((foot) => foot.end.name), centre: null, height: body.view.standing - .03, heading: 0 } }));
   const root = built.segments.get("middleTrunk")!, mass = [...built.segments.values()].reduce((sum, part) => sum + part.rigid.mass, 0);
   let shoved = false;
   const shoving = world.beforeStep(() => {

@@ -3,7 +3,7 @@ import type { Body, BodyView } from "../../body.ts";
 import { uprightness } from "../../control/ground.ts";
 import { footStatesOf, readSupport, withinSupport } from "../../control/support.ts";
 import { STANCE_LOWER } from "./locomotion.ts";
-import { footEnd, type LegsAsked, type LegsGoal, type Skill } from "../framework/skill.ts";
+import type { LegsAsked, LegsGoal, Skill } from "../framework/skill.ts";
 
 /**
  * The fold and its gates: `lower`, m, the deepest the centre of mass goes under its standing
@@ -50,7 +50,7 @@ export const foldCarries = (goal: LegsGoal): boolean =>
 
 /** A planted-foot fold behind the neutral requested lowering, using the common body and muscle limits. */
 export function supportFold(body: Body): SupportSkill {
-  const feet = footStatesOf(body.built), upright = uprightness(body.built), middle = new Vector3();
+  const feet = footStatesOf(body.built), names = feet.map((foot) => foot.name), upright = uprightness(body.built), middle = new Vector3();
   const others = new Set([...body.built.segments.values()].filter(p => !/^(head|.*Trunk)$/.test(p.spec.name)));
   const clamp = (name: string, goal: number) => {
     const dof = body.muscles.channels.find(c => c.name === name)?.dof.spec;
@@ -94,7 +94,7 @@ export function supportFold(body: Body): SupportSkill {
     state.posture = state.active ? { "lumbar flexion": flexion["lumbar flexion"] * state.depth, "thoracic flexion": flexion["thoracic flexion"] * state.depth } : {};
   }, lay(view, goal) {
     if (!state.active) return { ...goal, height: undefined };
-    return { ...goal, feet: [footEnd("left"), footEnd("right")], centre: null, heading: state.heading, halt: false,
+    return { ...goal, feet: names, centre: null, heading: state.heading, halt: false,
       height: view.standing - STANCE_LOWER - (COMBAT_FOLD.lower - STANCE_LOWER) * state.depth,
       pose: { pitch: COMBAT_FOLD.pitch * state.depth, seconds: COMBAT_FOLD.response } };
   } };

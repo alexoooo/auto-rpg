@@ -212,11 +212,10 @@ function footClearanceOf(shapes: ReturnType<typeof worldShapes>, bounds: readonl
   });
 }
 
-/** Sweep both observed soles by a world translation against the opponent's physical bounds. */
+/** Sweep every sole of the stance (`StanceReading.ends`) by a world translation against the opponent's physical bounds. */
 export function clearFootTranslation(view: BodyView, foe: BodySense, dx: number, dz: number, radius: number): boolean {
   const clear = stepObstacle(view, foe).clear;
-  return [view.stance.soles.left, view.stance.soles.right].every(sole => !!sole && clear(
-    [sole.x, sole.y, sole.z], [sole.x + dx, sole.y, sole.z + dz], radius));
+  return Object.values(view.stance.ends).every(({ middle: sole }) => clear([sole.x, sole.y, sole.z], [sole.x + dx, sole.y, sole.z + dz], radius));
 }
 
 /** A sensed head centre lower than this over the body's own support is a low opponent, m. */
