@@ -96,9 +96,9 @@ function adopts(config: Pick<DrillCommanderConfig, "action" | "limb" | "region">
 /**
  * How a spot beside a body lying is held (`Held`): chosen again once that body's middle moves
  * `moved` m, or, while the walk has not yet held in its window, `rethink` s on. The menu reads its
- * spot afresh at each ask, and a window read from where a sole stands moves with each stride, which
- * would turn the walk from one side to the other, and step a member held in its window after each
- * new spot, never settled.
+ * spot afresh at each ask, on the side of that body the walk goes to, and a window read from where a
+ * sole stands moves with each stride, which would step a member held in its window after each new
+ * spot, never settled.
  */
 const HELD_SPOT = Object.freeze({ moved: .3, rethink: 1 });
 

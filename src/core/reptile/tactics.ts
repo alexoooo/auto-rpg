@@ -44,8 +44,8 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
   const tooth = lower.spec.contacts!.find(c => c.surface.directed?.mechanism === "point")!.surface.directed!;
   const dx = contact.x - lip[0], dz = contact.z - lip[2];
   const entry = Math.sqrt(dx * dx + dz * dz) + T.biteEntry;
-  /** The trot's limits as the speed rule reads them: no envelope, and it stops at the rate it speeds up. */
-  const trot: GaitLimits = { envelope: null, stopping: REPTILE_TROT.acceleration };
+  /** The trot's limits as the speed rule reads them: no envelope, it stops at the rate it speeds up, and it goes on nothing once asked to slow. */
+  const trot: GaitLimits = { envelope: null, stopping: REPTILE_TROT.acceleration, lag: 0 };
   return { name: "reptile", state, decide(sight, dt = 0) {
     const view = sight.view;
     const returned = state.phase === "return" && sight.bite.phase === null;

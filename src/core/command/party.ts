@@ -116,7 +116,7 @@ export function partyCommander(host: TeamHost, config: PartyConfig): Commander {
       // One fighting on the way goes nowhere with the rest; a forced route passes every foe.
       if (!member.fighting || (its.kind !== "attack-move" && its.kind !== "force") || its.together !== sent || its.kind === "attack-move" && mind.target) continue;
       going++;
-      if (member.gait) pace = Math.min(pace, travelSpeed(member.gait, [1, 0], Infinity, []));
+      if (member.gait) pace = Math.min(pace, travelSpeed(member.gait, [1, 0], Infinity, [], 0));
     }
     return going > 1 && Number.isFinite(pace) ? pace : undefined;
   };

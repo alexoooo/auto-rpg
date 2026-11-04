@@ -81,6 +81,13 @@ const RISING_SECONDS = 1.3;
 export const STANCE_STOPPING = 0.5;
 
 /**
+ * How long the stance's walk goes on at its speed once asked to slow, s (`Locomotion.lag`): the step
+ * under way lands where it was planned and the next is planned at the pace the walk has come down
+ * to, so it goes on through a swing and a double support (`STANCE_GAIT`'s).
+ */
+const STANCE_LAG = STANCE_GAIT.seconds + (STANCE_GAIT.transfer ?? 0);
+
+/**
  * **A body's legs, under the stance**: both feet bearing, the centre of mass held at a height
  * (its carriage's `lower` under the height it stands at in the reference pose, where none is asked), the
  * pelvis facing a heading, and walking at a velocity or standing. What it remembers (`LegsMemory`)
@@ -171,6 +178,11 @@ export interface Locomotion extends Skill {
    * place and a corner (`travelSpeed`, `src/core/intent/travel.ts`); 0 for legs that do not walk, which the speed rule takes nowhere.
    */
   readonly stopping: number;
+  /**
+   * How long it goes on at its speed once asked to slow, s, before it slows at `stopping`: what the
+   * speed rule counts before a place and a corner (`travelSpeed`).
+   */
+  readonly lag: number;
   /** Its memory (`src/core/state.ts`). */
   readonly state: object;
   /** The walk's speed asked, m/s (0 standing); absent, legs that do not say. */
@@ -366,7 +378,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     return { ...base, swing: placing.step };
   };
   return {
-    state, envelope, stopping: STANCE_STOPPING,
+    state, envelope, stopping: STANCE_STOPPING, lag: STANCE_LAG,
     get heading() { return state.heading; },
     get pace() { return state.pace; },
     get reference() { return state.reference; },

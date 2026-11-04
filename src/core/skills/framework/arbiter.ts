@@ -90,10 +90,10 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const kit = kitOf(executors, actions);
   return {
     state, report, resume, instance: instances.instance, readiness: instances.readiness, needs: instances.needs,
-    kit, menu: () => menuOf(kit, body.view, around, instances.readiness),
+    kit, menu: () => menuOf(kit, body.view, around, instances.readiness, navigation?.report.request ?? null),
     clearance: navigation ?? stockClearance(body.built.spec),
     get envelope() { return legs.envelope ?? null; },
-    gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; } },
+    gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; }, get lag() { return legs.lag; } },
     envelopeOf: (gait: GaitName) => legs.envelopeOf?.(gait) ?? null,
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {
       instances.interrupt(view, reason); legs.resume(view); guard.resume(view); support?.resume(view);
@@ -237,7 +237,7 @@ function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" | "lower
  * movement kept clear of the solids sensed. Nothing walks where the legs are not `available`, and
  * with no navigation the walk goes as asked.
  */
-function navigated(navigation: Navigator | null, sight: NavigationSight, legs: Pick<Locomotion, "heading" | "envelope" | "stopping">, envelope: StanceEnvelope | null,
+function navigated(navigation: Navigator | null, sight: NavigationSight, legs: Pick<Locomotion, "heading" | "envelope" | "stopping" | "lag">, envelope: StanceEnvelope | null,
   requested: Intent, dt: number, available: boolean): Intent {
   const { view } = sight, h = legs.heading, velocity = requested.move;
   const request = requested.movement ?? (velocity ? directMovement(velocity[0] * sin(h) + velocity[1] * cos(h), velocity[0] * cos(h) - velocity[1] * sin(h)) : null);

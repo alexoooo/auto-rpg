@@ -124,6 +124,7 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     state,
     get envelope() { return now().envelope; },
     get stopping() { return now().stopping; },
+    get lag() { return now().lag; },
     get heading() { return now().heading; },
     get pace() { return now().pace; },
     get reference() { return now().reference; },

@@ -15,8 +15,8 @@ export interface Legs {
 /**
  * **A kind of locomotion**: a part of role `locomotion` that owns its config's type, keys,
  * defaults, faults and fit, and makes the legs' skill. The legs it makes state their limits to the
- * speed rule (`travelSpeed`, `src/core/intent/travel.ts`): what they hold (`Locomotion.envelope`) and
- * how fast they stop (`Locomotion.stopping`).
+ * speed rule (`travelSpeed`, `src/core/intent/travel.ts`): what they hold (`Locomotion.envelope`), how
+ * long they go on once asked to slow (`Locomotion.lag`) and how fast they stop (`Locomotion.stopping`).
  */
 export interface LocomotionPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "locomotion";

@@ -65,7 +65,8 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
 /**
  * How fast the walk and run states it stops while it may run, m/s² (`Locomotion.stopping`): under
  * its run's `brake`, since the run goes faster than the pace asked and slows from it late. Set so
- * that a run to a place stops close past it; a higher rate overshoots.
+ * that a run to a place stops close past it with how long it goes on before it slows counted in, so
+ * it states no lag of its own (`Locomotion.lag`); a higher rate overshoots.
  */
 const RUN_STOPPING = 0.2;
 
@@ -229,6 +230,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     state,
     get envelope() { return envelopeNow(); },
     get stopping() { return memory.may ? RUN_STOPPING : legs.stopping; },
+    get lag() { return memory.may ? 0 : legs.lag; },
     runs(may) { memory.may = may && pays; },
     envelopeRunning: (may) => may && pays ? runEnvelope : body.envelope,
     get heading() { return memory.running ? memory.heading : legs.heading; },

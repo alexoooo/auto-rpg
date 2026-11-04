@@ -110,7 +110,7 @@ Option Mind as its hero.
 - The foe's phase reads `rising` in bursts only.
 - Nothing in the rules costs effort; fatigue only if a trained mind strikes without pause.
 - Options chosen by profile: targets after a guard, spacing, ground choices, obedience.
-- The stomp's walk to a place beside a lying body overruns it.
+- The stomp's place beside a lying Skeleton moves with each stride of the walk there, and the Warrior's walk does not settle in its window.
 - A learned mind; sight that is blocked; team bouts in the Arena.
 
 ### The game

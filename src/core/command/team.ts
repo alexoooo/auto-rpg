@@ -89,7 +89,7 @@ export interface MemberView {
   readonly home: GroundPoint;
   /** Its Mind's navigation report, of whichever request it walks (`NavigationReport.request`); null where its Mind has none. */
   readonly navigation: NavigationReport | null;
-  /** The limits its legs state (`Locomotion.envelope`, `Locomotion.stopping`), which the speed rule reads (`travelSpeed`); null where its Mind states none. */
+  /** The limits its legs state (`Locomotion.envelope`, `Locomotion.stopping`, `Locomotion.lag`), which the speed rule reads (`travelSpeed`); null where its Mind states none. */
   readonly gait: GaitLimits | null;
   /** The way its legs face, radians from +z toward +x (`SkillReport.heading`); null where its Mind reports none. */
   readonly heading: number | null;

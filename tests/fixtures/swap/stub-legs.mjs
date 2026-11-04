@@ -1,6 +1,6 @@
 /**
  * **A stub locomotion**: the legs its `walk` slot names, the steps it is asked for counted. It
- * gives only what every legs give (`Locomotion`): its heading, stopping and what it did not carry
+ * gives only what every legs give (`Locomotion`): its heading, stopping, lag and what it did not carry
  * out are its walk's, and what a stance walk says besides it does not say. Its state names it, so a test can read that the legs
  * a config names are the legs that ran, made through the lookup (`Legs.make`).
  */
@@ -16,6 +16,7 @@ export const STUB_LEGS = Object.freeze({
       state,
       get heading() { return walk.heading; },
       get stopping() { return walk.stopping; },
+      get lag() { return walk.lag; },
       get unmet() { return walk.unmet; },
       resume: (view) => walk.resume(view),
       goal: (...asked) => { state.steps++; return walk.goal(...asked); },

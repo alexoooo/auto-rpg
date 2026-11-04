@@ -145,9 +145,10 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
         const most = hypot(crowd.x, crowd.z);
         return { move: clearMove(centre, solids, report.heading, along(crowd.x, crowd.z, most), radius, .5), face: most > 0 ? atan2(crowd.x, crowd.z) : atan2(x, z) };
       };
-      /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead. */
+      /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead, from the speed the body has that way. */
       const going = (x: number, z: number, left: number, corners: readonly Corner[]): number => {
-        const h = report.heading, speed = travelSpeed(gait, [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, ceiling);
+        const h = report.heading, way = hypot(x, z), velocity = view.stance.velocity, on = way > 0 ? (velocity.x * x + velocity.z * z) / way : 0;
+        const speed = travelSpeed(gait, [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, on, ceiling);
         return Number.isFinite(speed) ? speed : 0;
       };
       if (request.kind === "direct") {
