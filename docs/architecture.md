@@ -269,7 +269,13 @@ each a state with its chance, `Outcome`), its step, and a status.
   way it ends the best single option from there, and ends in the best of holding there, an option
   that leaves the body where it began run again (its life each try, its orders once), and a walk
   to any Option's site (`Option.sites`), then the best held or run again there;
-  each path is priced whole and a line's worth is its outcomes' worths by their chances.
+  each path is priced whole and a line's worth is its outcomes' worths by their chances. The tree
+  chooser prices each option by a Monte Carlo tree search over the same models and leaf
+  (`treeSearch`): a fixed count of runs a decision, each going down by upper bounds scaled to the
+  spread of its siblings' worths, drawing each option's way of ending by its chance from a stream
+  kept in its state, and an option worth the mean of the runs through it; it goes deep where few
+  options are on offer. `research/lying.mjs` reads a mind's time down in the match's bouts and the
+  cost of its steps.
 - **Where to walk**: an Option names its sites (`Option.sites`, `Site`), the spots it would begin
   from if not where the body stands: a strike whose readiness gives a window to be brought to
   (`Readiness`'s `position`) names a spot in it on each side of a body lying (`windowSpot`, `Side`),
