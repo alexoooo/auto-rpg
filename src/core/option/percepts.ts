@@ -382,37 +382,23 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
 }
 
 /**
- * **What a second down costs**, own life a second (`downRateOf`): the blows of a foe standing over
- * the body as it lies, and what a second on its feet is worth.
+ * **What a second costs the body down in `posture`**, own life, against a foe of `foe` as it is
+ * (`sensedPosture`; standing with no focus), as the foe's pressure reads it: the blows of the foe
+ * over it (`Pressure.peak`: the foe's strikes read at its posture and a target lying in that
+ * posture, in the phase down; a foe lying deals none by hand, `placingAt`). What a second on its
+ * feet brings is priced by the Options that begin there, as the search reaches them.
  */
-export interface DownRate { readonly blows: number; readonly standing: number }
-
-/**
- * **What a second costs the body down in `posture` rather than on its feet** (`DownRate`) against
- * a foe of `foe` as it is (`sensedPosture`; standing with no focus), as the foe's pressure reads
- * it: the blows of the foe over it (`Pressure.peak`: the foe's strikes read at its posture and a
- * target lying in that posture, in the phase down; a foe lying deals none by hand, `placingAt`),
- * and what a second on its feet is worth: the most its own strikes take of the foe as it is a
- * second less the most the foe's take of it standing, each read at the phase the other is in now,
- * none below nothing, since a body on its feet can keep out of reach.
- */
-function downRateOf(seen: Seen, foe: BodySpec, posture: Position): DownRate {
-  const { focus, spec } = seen, foeAt = focus ? sensedPosture(focus) : "standing", over: Placing = placingAt(foeAt) && "over";
-  const blows = pressureBy(seen, foeModel(seen, foe, { own: foeAt, target: posture }), "down", foe, spec, over).peak;
-  const theirs = pressureBy(seen, foeModel(seen, foe, { own: foeAt, target: "standing" }), ownPhase(seen), foe, spec, over).peak;
-  const own = pressureBy(seen, ownModel(seen, { own: "standing", target: foeAt }), focus ? foePhase(focus, seen.blow) : "clear", spec, foe, "over").peak;
-  return { blows, standing: Math.max(0, own - theirs) };
+function downRateOf(seen: Seen, foe: BodySpec, posture: Position): number {
+  const foeAt = seen.focus ? sensedPosture(seen.focus) : "standing";
+  return pressureBy(seen, foeModel(seen, foe, { own: foeAt, target: posture }), "down", foe, seen.spec, placingAt(foeAt) && "over").peak;
 }
 
-/** **What a second down costs** at `rate` (`DownRate`), own life: the blows of a foe standing over the body and what a second on its feet is worth. */
-export const downSecond = (rate: DownRate): number => rate.blows + rate.standing;
-
 /** **What a second down costs in each posture** (`downRateOf`) against the focus, and with none one of its own kind; each found once a posture. */
-function downRateAtOf(seen: Seen): (posture: Position) => DownRate {
-  const foe = seen.focus?.spec ?? seen.spec, rates = new Map<Position, DownRate>();
+function downRateAtOf(seen: Seen): (posture: Position) => number {
+  const foe = seen.focus?.spec ?? seen.spec, rates = new Map<Position, number>();
   return (posture) => {
     let rate = rates.get(posture);
-    if (!rate) rates.set(posture, rate = downRateOf(seen, foe, posture));
+    if (rate === undefined) rates.set(posture, rate = downRateOf(seen, foe, posture));
     return rate;
   };
 }
@@ -490,7 +476,7 @@ export const PREDICTIONS = Object.freeze({
   danger: { read: (seen) => lifeOf(seen, seen.blow) } as Prediction<number>,
   pressure: { read: pressureOf } as Prediction<Pressure>,
   pressing: { read: pressingOf } as Prediction<Pressure>,
-  downRate: { read: downRateAtOf } as Prediction<(posture: Position) => DownRate>,
+  downRate: { read: downRateAtOf } as Prediction<(posture: Position) => number>,
   turns: { read: ({ focus }) => focus ? turnOf(focus.spec) : Infinity } as Prediction<number>,
   blows: { read: ({ focus, spec, rules }) => (limb: string, segment: string): number => focus ? blowLife(rules, spec, limb, focus.spec, undefined, segment) : 0 } as Prediction<(limb: string, segment: string) => number>,
 });

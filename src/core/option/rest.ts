@@ -6,7 +6,7 @@ import { shieldHands } from "../intent/cover-hand.ts";
 import type { Cover } from "../intent/intent.ts";
 import { asking, blocked, READY, standing, type Ask, type Option, type Situation } from "./option.ts";
 import { NOTHING, WHOLE, type Status } from "../mind/choice.ts";
-import { downSecond, threatened } from "./percepts.ts";
+import { threatened } from "./percepts.ts";
 import { AS_IS, clinched, UNMOVED, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import { OUT_OF_PRESSURE } from "./places.ts";
@@ -14,13 +14,13 @@ import { OUT_OF_PRESSURE } from "./places.ts";
 /**
  * **Holding the body as it is at `at`** for the seconds `ask` gives (`Ask.until`, none unless
  * given), through `coming` of the blow coming (the whole, `Predictions.danger`, unless given):
- * down, each second costing what a second down in its posture costs (`downSecond`), leaving it
- * where it lies; standing, under the focus's pressure where it stands (`threatened`), and in a
- * clinch its falls (`clinched`), lying where a fall leaves it (`upOrDown`).
+ * down, each second costing what a second down in its posture costs (`Predictions.downRate`),
+ * leaving it where it lies; standing, under the focus's pressure where it stands (`threatened`),
+ * and in a clinch its falls (`clinched`), lying where a fall leaves it (`upOrDown`).
  */
 export function holding(at: Situation, ask: Ask | undefined, coming = at.predictions.danger): Terms {
   const seconds = ask?.until ?? 0;
-  if (at.down) return { duration: seconds, dealt: 0, orders: 0, taken: coming + downSecond(at.predictions.downRate(at.posture)) * seconds, outcomes: UNMOVED };
+  if (at.down) return { duration: seconds, dealt: 0, orders: 0, taken: coming + at.predictions.downRate(at.posture) * seconds, outcomes: UNMOVED };
   return { duration: seconds, dealt: 0, orders: 0, taken: coming + threatened(at, seconds), outcomes: upOrDown(AS_IS, clinched(at, seconds)) };
 }
 
