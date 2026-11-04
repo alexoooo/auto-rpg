@@ -1,159 +1,87 @@
+import stepUpMeta from "../../../../assets/core/step-up.meta.json" with { type: "json" };
+import sitBackMeta from "../../../../assets/core/sit-back.meta.json" with { type: "json" };
+import { dataOf } from "../../data/store.ts";
+import type { SkillRecords } from "../../skills/framework/records.ts";
 import { deepFreeze } from "../../state.ts";
-import type { HumanoidModel } from "../../human/spec.ts";
-import type { Side } from "../../spec/body.ts";
+import { bodyKey, type BodySpec, type Side } from "../../spec/body.ts";
 import type { stagedRise } from "../rise/staged.ts";
 import { RISE, rollOver, type BearStage, type Recipe, type RollPoses, type Stage } from "../rise/stages.ts";
 
 /** How one of the recipe's stages is played: its time scaled, and a bearing stage's completion. */
 interface StageTiming { readonly scale: number; readonly progress?: NonNullable<BearStage["progress"]> }
+/** Stages' timings by name, a roll's stages as `roll <name>`. */
+type StageTimings = Readonly<Record<string, StageTiming>>;
 /**
  * **Step up's settings**, found by search: how still a body lies
  * before it reads its lie, the stance's climb from where the rise leaves the body to standing
- * height, s, and each of the recipe's stages by name, a roll's stages as `roll <name>`; and, where
+ * height, s, and each of the recipe's stages by name (`StageTimings`); and, where
  * a body's bearing stages come to rest short of their aims, how long at rest and within how many
  * times their tolerances hands them on (`Recipe.progress`);
  * and the side a body's roll from its back goes over where it is not the recipe's, and its poses where
  * they are not the game's (`rollOver`).
  */
-interface StepUpTuning {
+export interface StepUpTuning {
   readonly settle: { readonly speed: number; readonly seconds: number };
   readonly climb: number;
   readonly rest?: { readonly seconds: number; readonly widen: number };
   readonly over?: Side;
   readonly roll?: RollPoses;
-  readonly stages: Readonly<Record<string, StageTiming>>;
+  readonly stages: StageTimings;
 }
 
-/**
- * Each humanoid's settings, searched on its own target falls (Node stand, Rapier, 120 Hz,
- * Balance 0): eight shove directions offset from the target's, empty
- * and with the club, a fall's score its verified standing and how soon.
- */
-export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze({
-  "workshop-fighter": {
-    settle: { speed: .372, seconds: .05337 }, climb: .614,
-    stages: {
-      "roll wind": { scale: .1809 },
-      "roll swing": { scale: .8712 },
-      "roll over": { scale: 1.107 },
-      "roll flat": { scale: .8898 },
-      "fold": { scale: .2467 },
-      "tuck": { scale: .2144 },
-      "prop": { scale: .1271 },
-      "fours": { scale: .5909, progress: { speed: .17, near: .05486, turn: .531 } },
-      "sit": { scale: 1.492 },
-      "kneel 0": { scale: .7367 },
-      "kneel 1": { scale: 1.392 },
-      "kneel 2": { scale: .16 },
-      "arms": { scale: .2216 },
-      "hold": { scale: .1655 },
-      "tall 0": { scale: .22 },
-      "tall 1": { scale: .983 },
-      "tall 2": { scale: .1726 },
-      "tall": { scale: .2026 },
-      "shift": { scale: .5538 },
-      "lift": { scale: .408 },
-      "swing": { scale: .8013 },
-      "reach": { scale: .3797 },
-      "half kneel": { scale: 1.191, progress: { speed: .2234, near: .161, turn: .2199 } },
-      "onto the toes": { scale: .9522, progress: { speed: .3333, near: .05398, turn: .1675 } },
-      "lunge 0": { scale: .867, progress: { speed: .5266, near: .1677, turn: .1118 } },
-      "lunge 1": { scale: .8092, progress: { speed: .2455, near: .08638, turn: .1486 } },
-      "lunge 2": { scale: .8463, progress: { speed: .4328, near: .2012, turn: .1099 } },
-      "lunge 3": { scale: .4512, progress: { speed: .1212, near: .2286, turn: .13 } },
-      "even": { scale: .497, progress: { speed: .612, near: .08728, turn: .1333 } },
-    },
-  },
-  "workshop-rogue": {
-    // Rolls over its left side, so its right hand, which holds the club, comes over rather than under.
-    settle: { speed: .06004, seconds: .05 }, climb: 1.159, rest: { seconds: .3, widen: 2 }, over: "left",
-    stages: {
-      "roll wind": { scale: .923 },
-      "roll swing": { scale: 1.605 },
-      "roll over": { scale: .9005 },
-      "roll flat": { scale: 1.514 },
-      "fold": { scale: .1159 },
-      "tuck": { scale: .3375 },
-      "prop": { scale: 1 },
-      "fours": { scale: .4367, progress: { speed: .07216, near: .05769, turn: .4826 } },
-      "sit": { scale: .3438 },
-      "kneel 0": { scale: 1.384 },
-      "kneel 1": { scale: 1.973 },
-      "kneel 2": { scale: .1985 },
-      "arms": { scale: .8101 },
-      "hold": { scale: .2351 },
-      "tall 0": { scale: .245 },
-      "tall 1": { scale: .2293 },
-      "tall 2": { scale: .1909 },
-      "tall": { scale: .2909 },
-      "shift": { scale: .458 },
-      "lift": { scale: .3509 },
-      "swing": { scale: .8147 },
-      "reach": { scale: .1908 },
-      "half kneel": { scale: 1.072, progress: { speed: .417, near: .1917, turn: .09824 } },
-      "onto the toes": { scale: .7601, progress: { speed: .1586, near: .03883, turn: .1178 } },
-      "lunge 0": { scale: .6562, progress: { speed: .6775, near: .1093, turn: .2658 } },
-      "lunge 1": { scale: .7861, progress: { speed: .3806, near: .06896, turn: .1322 } },
-      "lunge 2": { scale: .479, progress: { speed: .2848, near: .1259, turn: .08817 } },
-      "lunge 3": { scale: .8628, progress: { speed: .177, near: .2051, turn: .1741 } },
-      "even": { scale: .7697, progress: { speed: .1495, near: .08575, turn: .1282 } },
-    },
-  },
-  "crypt-skeleton": {
-    settle: { speed: .1881, seconds: .05626 }, climb: 1.6377,
-    // Its own roll and sit-back, found by CMA-ES on its body (`research/cma.mjs`).
-    over: "right",
-    roll: {
-      wind: { "hip.far flexion": 1.481, "hip.far abduction": .216, "hip.near flexion": -.284, "shoulder.near flexion": 1.632, "shoulder.far flexion": 2.832 },
-      swing: { "hip.far flexion": 1.59, "hip.far internal rotation": -.261, "hip.near abduction": .019, "lumbar flexion": .716, "shoulder.far flexion": 2.022, "shoulder.near flexion": .931, "shoulder.near abduction": .796, "knee.far flexion": .388, "lumbar rotation near": .001, "thoracic rotation near": -.338, "shoulder.far abduction": .293 },
-      over: { "hip.far flexion": 1.577, "hip.far abduction": .142, "shoulder.near flexion": 2.978, "knee.far flexion": .113, "shoulder.far flexion": 1.935 },
-      flat: { "shoulder.near flexion": 2.689, "shoulder.far internal rotation": -.844, "elbow.far flexion": 1.579, "shoulder.far flexion": -.368, "elbow.near flexion": .28, "shoulder.near abduction": .002 },
-    },
-    stages: {
-      "up": { scale: 1.0063 },
-      "sit back": { scale: 1.1391 },
-      "plant": { scale: .7391 },
-      "roll wind": { scale: .7776 },
-      "roll swing": { scale: .5243 },
-      "roll over": { scale: 2.165 },
-      "roll flat": { scale: .7084 },
-      "fold": { scale: .2391 },
-      "tuck": { scale: .4884 },
-      "prop": { scale: .7831 },
-      "fours": { scale: .737, progress: { speed: .7269, near: .2155, turn: .3278 } },
-      "sit": { scale: 1.447 },
-      "kneel 0": { scale: .8964 },
-      "kneel 1": { scale: .3324 },
-      "kneel 2": { scale: .2436 },
-      "arms": { scale: .1 },
-      "hold": { scale: .2277 },
-      "tall 0": { scale: .1728 },
-      "tall 1": { scale: 1.138 },
-      "tall 2": { scale: .1523 },
-      "tall": { scale: .1462 },
-      "shift": { scale: .4499 },
-      "lift": { scale: .1713 },
-      "swing": { scale: .5783 },
-      "reach": { scale: .166 },
-      "half kneel": { scale: .4378, progress: { speed: .7257, near: .1478, turn: .1643 } },
-      "onto the toes": { scale: .6301, progress: { speed: .5705, near: .09171, turn: .135 } },
-      "lunge 0": { scale: .648, progress: { speed: .4866, near: .06807, turn: .1505 } },
-      "lunge 1": { scale: 1.672, progress: { speed: .1627, near: .03906, turn: .1152 } },
-      "lunge 2": { scale: .4692, progress: { speed: .3038, near: .1747, turn: .09124 } },
-      "lunge 3": { scale: .4, progress: { speed: .1609, near: .25, turn: .1354 } },
-      "even": { scale: .6327, progress: { speed: .05685, near: .0998, turn: .1247 } },
-    },
-  },
-});
+/** **The sit-back's settings**: the timings of its own stages (`SIT_BACK`'s `plant`, `sit back` and `up`). */
+export interface SitBackTuning { readonly stages: StageTimings }
+
+declare module "../../data/store.ts" {
+  interface DataOf {
+    /** Every body's step-up record. */
+    "step-up": SkillRecords<StepUpTuning>;
+    /** Every body's sit-back record. */
+    "sit-back": SkillRecords<SitBackTuning>;
+  }
+}
+
+/** The bodies with a step-up record (`assets/core/step-up.json`), known before it loads. */
+export const STEP_UP_BODIES: readonly string[] = deepFreeze(stepUpMeta.bodies);
+/** The bodies with a sit-back record (`assets/core/sit-back.json`), known before it loads. */
+export const SIT_BACK_BODIES: readonly string[] = deepFreeze(sitBackMeta.bodies);
+
+const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
+const validTimings = (stages: unknown): boolean => isObject(stages) && Object.values(stages).every((timing) => isObject(timing) && finite(timing.scale) && timing.scale > 0
+  && (timing.progress === undefined || isObject(timing.progress) && ["speed", "near", "turn"].every((key) => finite((timing.progress as Record<string, unknown>)[key]))));
+
+/** Whether `settings` are step up's whole and valid: its settling, climb and stage timings, a side to roll over where named. */
+export const validStepUp = (settings: unknown): boolean => isObject(settings) && isObject(settings.settle)
+  && finite(settings.settle.speed) && settings.settle.speed > 0 && finite(settings.settle.seconds) && settings.settle.seconds >= 0
+  && finite(settings.climb) && settings.climb > 0 && validTimings(settings.stages)
+  && (settings.over === undefined || settings.over === "left" || settings.over === "right");
+
+/** The sit-back's own stages, each timed by its record (`SitBackTuning`). */
+const SIT_BACK_STAGES: readonly string[] = Object.freeze(["plant", "sit back", "up"]);
+
+/** Whether `settings` are the sit-back's whole and valid: timings of its own stages and no others. */
+export const validSitBack = (settings: unknown): boolean => isObject(settings) && Object.keys(settings).join() === "stages" && validTimings(settings.stages)
+  && Object.keys(settings.stages as object).every((name) => SIT_BACK_STAGES.includes(name));
+
+/** Each body's tuning by `bodyKey`, made once: a recipe is made once for each tuning (`stepUpRecipe`). */
+const byBody = new Map<string, StepUpTuning>();
 
 /**
- * The step-up's tuning for `model`; a model it has none for cannot play it. It is the model's
- * whatever its feet: a toed body plays the flat foot's stages, which stand none of its falls (a
- * swung foot hangs its toes at a right angle and lands on end on them).
+ * **The step-up's tuning for a body of `spec`**: its record's (`dataOf("step-up")`), its sit-back
+ * record's stages with them where it has one. A body with no step-up record has none, and is
+ * refused the techniques that read it (`STEP_UP_BODIES`).
  */
-export function stepUpTuning(model: string): StepUpTuning {
-  if (!Object.hasOwn(STEP_UP, model)) throw new Error(`the step-up has no tuning for ${model}`);
-  return STEP_UP[model as HumanoidModel];
+export function stepUpTuning(spec: Pick<BodySpec, "model" | "segments">): StepUpTuning {
+  const key = bodyKey(spec);
+  let tuning = byBody.get(key);
+  if (!tuning) {
+    const own = dataOf("step-up")[key]?.settings;
+    if (!own) throw new Error(`the step-up has no record for ${key}`);
+    const sitBack = dataOf("sit-back")[key]?.settings;
+    byBody.set(key, tuning = deepFreeze({ ...own, stages: { ...own.stages, ...sitBack?.stages } }));
+  }
+  return tuning;
 }
 
 /** Each tuning's recipe of each base (`stepUpRecipe`): tunings and recipes are data, never changed once made. */

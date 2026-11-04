@@ -1,0 +1,462 @@
+{
+  "crypt-skeleton+toes": {
+    "made": "Searched on its own target falls (Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty and with the club, a fall's score its verified standing and how soon. Its roll's side and poses found by CMA-ES on its body (research/cma.mjs).",
+    "settings": {
+      "settle": {
+        "speed": 0.1881,
+        "seconds": 0.05626
+      },
+      "climb": 1.6377,
+      "over": "right",
+      "roll": {
+        "wind": {
+          "hip.far flexion": 1.481,
+          "hip.far abduction": 0.216,
+          "hip.near flexion": -0.284,
+          "shoulder.near flexion": 1.632,
+          "shoulder.far flexion": 2.832
+        },
+        "swing": {
+          "hip.far flexion": 1.59,
+          "hip.far internal rotation": -0.261,
+          "hip.near abduction": 0.019,
+          "lumbar flexion": 0.716,
+          "shoulder.far flexion": 2.022,
+          "shoulder.near flexion": 0.931,
+          "shoulder.near abduction": 0.796,
+          "knee.far flexion": 0.388,
+          "lumbar rotation near": 0.001,
+          "thoracic rotation near": -0.338,
+          "shoulder.far abduction": 0.293
+        },
+        "over": {
+          "hip.far flexion": 1.577,
+          "hip.far abduction": 0.142,
+          "shoulder.near flexion": 2.978,
+          "knee.far flexion": 0.113,
+          "shoulder.far flexion": 1.935
+        },
+        "flat": {
+          "shoulder.near flexion": 2.689,
+          "shoulder.far internal rotation": -0.844,
+          "elbow.far flexion": 1.579,
+          "shoulder.far flexion": -0.368,
+          "elbow.near flexion": 0.28,
+          "shoulder.near abduction": 0.002
+        }
+      },
+      "stages": {
+        "roll wind": {
+          "scale": 0.7776
+        },
+        "roll swing": {
+          "scale": 0.5243
+        },
+        "roll over": {
+          "scale": 2.165
+        },
+        "roll flat": {
+          "scale": 0.7084
+        },
+        "fold": {
+          "scale": 0.2391
+        },
+        "tuck": {
+          "scale": 0.4884
+        },
+        "prop": {
+          "scale": 0.7831
+        },
+        "fours": {
+          "scale": 0.737,
+          "progress": {
+            "speed": 0.7269,
+            "near": 0.2155,
+            "turn": 0.3278
+          }
+        },
+        "sit": {
+          "scale": 1.447
+        },
+        "kneel 0": {
+          "scale": 0.8964
+        },
+        "kneel 1": {
+          "scale": 0.3324
+        },
+        "kneel 2": {
+          "scale": 0.2436
+        },
+        "arms": {
+          "scale": 0.1
+        },
+        "hold": {
+          "scale": 0.2277
+        },
+        "tall 0": {
+          "scale": 0.1728
+        },
+        "tall 1": {
+          "scale": 1.138
+        },
+        "tall 2": {
+          "scale": 0.1523
+        },
+        "tall": {
+          "scale": 0.1462
+        },
+        "shift": {
+          "scale": 0.4499
+        },
+        "lift": {
+          "scale": 0.1713
+        },
+        "swing": {
+          "scale": 0.5783
+        },
+        "reach": {
+          "scale": 0.166
+        },
+        "half kneel": {
+          "scale": 0.4378,
+          "progress": {
+            "speed": 0.7257,
+            "near": 0.1478,
+            "turn": 0.1643
+          }
+        },
+        "onto the toes": {
+          "scale": 0.6301,
+          "progress": {
+            "speed": 0.5705,
+            "near": 0.09171,
+            "turn": 0.135
+          }
+        },
+        "lunge 0": {
+          "scale": 0.648,
+          "progress": {
+            "speed": 0.4866,
+            "near": 0.06807,
+            "turn": 0.1505
+          }
+        },
+        "lunge 1": {
+          "scale": 1.672,
+          "progress": {
+            "speed": 0.1627,
+            "near": 0.03906,
+            "turn": 0.1152
+          }
+        },
+        "lunge 2": {
+          "scale": 0.4692,
+          "progress": {
+            "speed": 0.3038,
+            "near": 0.1747,
+            "turn": 0.09124
+          }
+        },
+        "lunge 3": {
+          "scale": 0.4,
+          "progress": {
+            "speed": 0.1609,
+            "near": 0.25,
+            "turn": 0.1354
+          }
+        },
+        "even": {
+          "scale": 0.6327,
+          "progress": {
+            "speed": 0.05685,
+            "near": 0.0998,
+            "turn": 0.1247
+          }
+        }
+      }
+    }
+  },
+  "workshop-fighter+toes": {
+    "made": "Searched on its own target falls (Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty and with the club, a fall's score its verified standing and how soon.",
+    "settings": {
+      "settle": {
+        "speed": 0.372,
+        "seconds": 0.05337
+      },
+      "climb": 0.614,
+      "stages": {
+        "roll wind": {
+          "scale": 0.1809
+        },
+        "roll swing": {
+          "scale": 0.8712
+        },
+        "roll over": {
+          "scale": 1.107
+        },
+        "roll flat": {
+          "scale": 0.8898
+        },
+        "fold": {
+          "scale": 0.2467
+        },
+        "tuck": {
+          "scale": 0.2144
+        },
+        "prop": {
+          "scale": 0.1271
+        },
+        "fours": {
+          "scale": 0.5909,
+          "progress": {
+            "speed": 0.17,
+            "near": 0.05486,
+            "turn": 0.531
+          }
+        },
+        "sit": {
+          "scale": 1.492
+        },
+        "kneel 0": {
+          "scale": 0.7367
+        },
+        "kneel 1": {
+          "scale": 1.392
+        },
+        "kneel 2": {
+          "scale": 0.16
+        },
+        "arms": {
+          "scale": 0.2216
+        },
+        "hold": {
+          "scale": 0.1655
+        },
+        "tall 0": {
+          "scale": 0.22
+        },
+        "tall 1": {
+          "scale": 0.983
+        },
+        "tall 2": {
+          "scale": 0.1726
+        },
+        "tall": {
+          "scale": 0.2026
+        },
+        "shift": {
+          "scale": 0.5538
+        },
+        "lift": {
+          "scale": 0.408
+        },
+        "swing": {
+          "scale": 0.8013
+        },
+        "reach": {
+          "scale": 0.3797
+        },
+        "half kneel": {
+          "scale": 1.191,
+          "progress": {
+            "speed": 0.2234,
+            "near": 0.161,
+            "turn": 0.2199
+          }
+        },
+        "onto the toes": {
+          "scale": 0.9522,
+          "progress": {
+            "speed": 0.3333,
+            "near": 0.05398,
+            "turn": 0.1675
+          }
+        },
+        "lunge 0": {
+          "scale": 0.867,
+          "progress": {
+            "speed": 0.5266,
+            "near": 0.1677,
+            "turn": 0.1118
+          }
+        },
+        "lunge 1": {
+          "scale": 0.8092,
+          "progress": {
+            "speed": 0.2455,
+            "near": 0.08638,
+            "turn": 0.1486
+          }
+        },
+        "lunge 2": {
+          "scale": 0.8463,
+          "progress": {
+            "speed": 0.4328,
+            "near": 0.2012,
+            "turn": 0.1099
+          }
+        },
+        "lunge 3": {
+          "scale": 0.4512,
+          "progress": {
+            "speed": 0.1212,
+            "near": 0.2286,
+            "turn": 0.13
+          }
+        },
+        "even": {
+          "scale": 0.497,
+          "progress": {
+            "speed": 0.612,
+            "near": 0.08728,
+            "turn": 0.1333
+          }
+        }
+      }
+    }
+  },
+  "workshop-rogue+toes": {
+    "made": "Searched on its own target falls (Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty and with the club, a fall's score its verified standing and how soon. It rolls over its left side, so its right hand, which holds the club, comes over rather than under.",
+    "settings": {
+      "settle": {
+        "speed": 0.06004,
+        "seconds": 0.05
+      },
+      "climb": 1.159,
+      "rest": {
+        "seconds": 0.3,
+        "widen": 2
+      },
+      "over": "left",
+      "stages": {
+        "roll wind": {
+          "scale": 0.923
+        },
+        "roll swing": {
+          "scale": 1.605
+        },
+        "roll over": {
+          "scale": 0.9005
+        },
+        "roll flat": {
+          "scale": 1.514
+        },
+        "fold": {
+          "scale": 0.1159
+        },
+        "tuck": {
+          "scale": 0.3375
+        },
+        "prop": {
+          "scale": 1
+        },
+        "fours": {
+          "scale": 0.4367,
+          "progress": {
+            "speed": 0.07216,
+            "near": 0.05769,
+            "turn": 0.4826
+          }
+        },
+        "sit": {
+          "scale": 0.3438
+        },
+        "kneel 0": {
+          "scale": 1.384
+        },
+        "kneel 1": {
+          "scale": 1.973
+        },
+        "kneel 2": {
+          "scale": 0.1985
+        },
+        "arms": {
+          "scale": 0.8101
+        },
+        "hold": {
+          "scale": 0.2351
+        },
+        "tall 0": {
+          "scale": 0.245
+        },
+        "tall 1": {
+          "scale": 0.2293
+        },
+        "tall 2": {
+          "scale": 0.1909
+        },
+        "tall": {
+          "scale": 0.2909
+        },
+        "shift": {
+          "scale": 0.458
+        },
+        "lift": {
+          "scale": 0.3509
+        },
+        "swing": {
+          "scale": 0.8147
+        },
+        "reach": {
+          "scale": 0.1908
+        },
+        "half kneel": {
+          "scale": 1.072,
+          "progress": {
+            "speed": 0.417,
+            "near": 0.1917,
+            "turn": 0.09824
+          }
+        },
+        "onto the toes": {
+          "scale": 0.7601,
+          "progress": {
+            "speed": 0.1586,
+            "near": 0.03883,
+            "turn": 0.1178
+          }
+        },
+        "lunge 0": {
+          "scale": 0.6562,
+          "progress": {
+            "speed": 0.6775,
+            "near": 0.1093,
+            "turn": 0.2658
+          }
+        },
+        "lunge 1": {
+          "scale": 0.7861,
+          "progress": {
+            "speed": 0.3806,
+            "near": 0.06896,
+            "turn": 0.1322
+          }
+        },
+        "lunge 2": {
+          "scale": 0.479,
+          "progress": {
+            "speed": 0.2848,
+            "near": 0.1259,
+            "turn": 0.08817
+          }
+        },
+        "lunge 3": {
+          "scale": 0.8628,
+          "progress": {
+            "speed": 0.177,
+            "near": 0.2051,
+            "turn": 0.1741
+          }
+        },
+        "even": {
+          "scale": 0.7697,
+          "progress": {
+            "speed": 0.1495,
+            "near": 0.08575,
+            "turn": 0.1282
+          }
+        }
+      }
+    }
+  }
+}

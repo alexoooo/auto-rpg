@@ -158,9 +158,9 @@ arbiter releases every action when another mind takes the body.
 - **Parts.** Each kind is a line of its role's list (`EXECUTORS`, `GUARDS` and the like), its
   module owning its config's keys, defaults, faults, fit and maker. `usableSkills` builds only the
   executors the body can use, naming the rest.
-- **Tuned per body**: an executor's settings are its body's record (`SkillRecord`), read as mind
-  data by `bodyKey` from `assets/core/<skill>.json` (`dataOf`). A body with no record does not use
-  the skill.
+- **Tuned per body**: an executor's settings, and step up's and the sit-back's timings, are its
+  body's record (`SkillRecord`), read as mind data by `bodyKey` from `assets/core/<skill>.json`
+  (`dataOf`). A body with no record does not use the skill.
 - **Locomotion** (`Locomotion`): legs take one goal (`LegsGoal`) and say what they left undone
   (`LegsUnmet`), their envelope and how fast they stop. `stance-walk` walks within the stance's
   envelope; `walk-run` hands over to a run cycle fitted to motion capture

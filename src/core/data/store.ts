@@ -1,12 +1,12 @@
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
-export type DataKey = "straight-punch" | "stomp" | "club-blow" | "cut" | "sword-thrust" | "strike-profiles" | "edge-profiles" | "gait-profiles";
+export type DataKey = "straight-punch" | "stomp" | "club-blow" | "cut" | "sword-thrust" | "strike-profiles" | "edge-profiles" | "gait-profiles" | "step-up" | "sit-back";
 
 /**
  * **What each key's data is, as its reader declares it**: the module that reads a key adds it here
  * (`declare module` of this module, `interface DataOf`), so the store names no reader's types:
  * every body's straight punch record (`PunchRecords`, `skills/strikes/punch-records.ts`), every
  * body's record of each other skill tuned per body (`SkillRecords`, `skills/framework/records.ts`,
- * declared by the skill's part), and what
+ * declared by the skill's part or module), and what
  * the Strike, Rise and Gait drills measured every strike, ground edge and gait to bring (`Profile`,
  * `skills/framework/profile.ts`). A key is read (`dataOf`) only as declared.
  */
@@ -27,6 +27,8 @@ const LOADERS: { readonly [K in DataKey]: () => Promise<unknown> } = {
   "strike-profiles": () => import("./strike-profiles.ts").then((m) => m.STRIKE_PROFILES),
   "edge-profiles": () => import("./edge-profiles.ts").then((m) => m.EDGE_PROFILES),
   "gait-profiles": () => import("./gait-profiles.ts").then((m) => m.GAIT_PROFILES),
+  "step-up": () => import("./step-up.ts").then((m) => m.STEP_UP_RECORDS),
+  "sit-back": () => import("./sit-back.ts").then((m) => m.SIT_BACK_RECORDS),
 };
 
 /** Every key, in `LOADERS`' order. */

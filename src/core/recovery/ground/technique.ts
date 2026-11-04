@@ -7,7 +7,7 @@ import type { OwnBody } from "../../mind/mind.ts";
 import type { MindKit } from "../../mind/kit.ts";
 import type { Senses } from "../../mind/senses.ts";
 import type { GroundReading, Position } from "../../control/ground-reading.ts";
-import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
+import { fitsAll, type KeysOf, type Part, type PartConfig } from "../../parts/parts.ts";
 import type { TECHNIQUES } from "./techniques.ts";
 
 /** A physical event completes a technique; other ends remain failures in the bed. */
@@ -101,9 +101,12 @@ export function mirrorPosture(posture: Readonly<Record<string, number>>): Readon
 /** A technique's `fits`: a body whose position on the ground is read (`groundRefusal`): its soles and the limbs it bears on. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */
 const fitsHumanoid = (spec: BodySpec): string | null => groundRefusal(spec);
 
-/** A technique part of `kind` with no settings of its own. */
-export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "sides" | "edges" | "make"> & { reads?: Part["reads"]; moving?: boolean }): TechniquePart<{ readonly kind: K }> =>
-  Object.freeze({ moving: false, ...part, role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [], fits: fitsHumanoid, faults: () => [] });
+/** A technique part of `kind` with no settings of its own, fitted to a body whose position on the ground is read and, where `fits` is given, that `fits` admits. */
+export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "sides" | "edges" | "make"> & { reads?: Part["reads"]; moving?: boolean; fits?: (spec: BodySpec) => string | null }): TechniquePart<{ readonly kind: K }> => {
+  const { fits, ...rest } = part;
+  return Object.freeze({ moving: false, ...rest, role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [],
+    fits: fits ? fitsAll(fitsHumanoid, fits) : fitsHumanoid, faults: () => [] });
+};
 
 /** The positions a body stands up from: every edge from them goes to standing. */
 export const TO_STANDING = Object.freeze((["front", "back", "left", "right", "fours", "half-kneel", "kneeling", "sitting", "between"] as const)

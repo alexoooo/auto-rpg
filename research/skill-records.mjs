@@ -14,6 +14,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { validSitBack, validStepUp } from "../src/core/recovery/ground/step-up.ts";
 import { STOMP_PATH, validStompTuning } from "../src/core/skills/strikes/stomp.ts";
 import { faceFault, validStraightPunch } from "../src/core/skills/strikes/straight-punch.ts";
 import { validSwing } from "../src/core/skills/strikes/swing.ts";
@@ -24,6 +25,8 @@ const whole = (settings, keys) => settings !== null && typeof settings === "obje
 /** Each skill tuned per body: whether settings are its whole and valid. */
 export const SKILLS = Object.freeze({
   stomp: (s) => whole(s, Object.keys(STOMP_PATH)) && validStompTuning(s),
+  "step-up": validStepUp,
+  "sit-back": validSitBack,
   "sword-thrust": (s) => s !== null && typeof s === "object" && validStraightPunch(s) && faceFault(s) === null,
   ...Object.fromEntries(["club-blow", "cut"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validSwing(s)])),
 });

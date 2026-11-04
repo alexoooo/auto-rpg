@@ -1,13 +1,14 @@
 import type { BodyView } from "../../body.ts";
 import type { Clock } from "../../clock.ts";
 import { carrying } from "../../control/motor.ts";
-import type { Side } from "../../spec/body.ts";
+import type { BodySpec, Side } from "../../spec/body.ts";
 import type { MindKit } from "../../mind/kit.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import { stagedRise } from "../rise/staged.ts";
 import { SIT_BACK, derivedRecipe, type Recipe } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "../../control/ground-reading.ts";
-import { LIMIT, LOW, stepUpRecipe, stepUpTuning, type StepUpRise } from "./step-up.ts";
+import { recordFault } from "../../skills/framework/records.ts";
+import { LIMIT, LOW, SIT_BACK_BODIES, STEP_UP_BODIES, stepUpRecipe, stepUpTuning, type StepUpRise, type StepUpTuning } from "./step-up.ts";
 import { stanceSteady } from "./steady.ts";
 import { REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueRun } from "./technique.ts";
 import { otherSide } from "../../spec/body.ts";
@@ -33,7 +34,7 @@ const handsOver = (g: GroundReading): boolean =>
  * **A part of a staged route**: the recipe it plays (absent, step up's, `stepUpRecipe`), where in its rise
  * it begins (none: the roll alone), the positions it is begun from, the one it takes the body to,
  * and how slow a body it is begun on is: `moving`, under `HAND_OVER`; `still`, under the speed its
- * body's step up lies still at before it reads its lie (`STEP_UP`'s `settle`).
+ * body's step up lies still at before it reads its lie (`StepUpTuning`'s `settle`).
  */
 interface Part {
   readonly recipe?: Recipe;
@@ -52,12 +53,12 @@ const PARTS = Object.freeze({
 } as const satisfies Record<string, Part>);
 type StagedKind = keyof typeof PARTS;
 
-/** Whether body `model` moves slowly enough for part `kind` to be begun on it (`Part.entry`). */
-const slowFor = (kind: StagedKind, model: string, g: GroundReading): boolean => {
+/** Whether a body of step up's `tuning` moves slowly enough for part `kind` to be begun on it (`Part.entry`). */
+const slowFor = (kind: StagedKind, tuning: StepUpTuning, g: GroundReading): boolean => {
   const entry = PARTS[kind].entry;
   switch (entry) {
     case "moving": return handsOver(g);
-    case "still": { const speed = stepUpTuning(model).settle.speed; return g.velocity.lengthSquared() < speed * speed && g.spin < HAND_OVER.spin; }
+    case "still": { const speed = tuning.settle.speed; return g.velocity.lengthSquared() < speed * speed && g.spin < HAND_OVER.spin; }
     default: { const never: never = entry; throw new Error(`no entry ${String(never)}`); }
   }
 };
@@ -67,18 +68,18 @@ const partFrom = (at: Position): StagedKind | undefined =>
   (Object.keys(PARTS) as StagedKind[]).find(kind => (PARTS[kind].from as readonly Position[]).includes(at));
 
 /**
- * **A part's entry**: begun on the left, body `model` read in a position it is begun from, as it
+ * **A part's entry**: begun on the left, a body of step up's `tuning` read in a position it is begun from, as it
  * reads this step (`GroundReading.raw`) or as it last settled (`GroundReading.position`, where the
  * part before it is read to have handed it over, `reads`), and slow enough for it (`Part.entry`),
  * still or not.
  */
-const stagedEntry = (kind: StagedKind, model: string, g: GroundReading, side: Side): boolean => {
+const stagedEntry = (kind: StagedKind, tuning: StepUpTuning, g: GroundReading, side: Side): boolean => {
   const from: readonly Position[] = PARTS[kind].from;
-  return side === "left" && (from.includes(g.raw) || from.includes(g.position)) && slowFor(kind, model, g);
+  return side === "left" && (from.includes(g.raw) || from.includes(g.position)) && slowFor(kind, tuning, g);
 };
 
 /**
- * **A part of step up's route as a technique**, its stages timed as step up's (`STEP_UP`), begun on
+ * **A part of step up's route as a technique**, its stages timed by its body's step-up record (`stepUpTuning`), begun on
  * the body as it is, moving or not (`stagedEntry`): the roll (`rollPart`) or a part of the rise
  * (`risePart`). A rise that falls back to lying slack, or onto its back, fails; one longer than
  * step up's whole attempt (`LIMIT`) times out.
@@ -87,10 +88,10 @@ function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind)
   return PARTS[kind].first === null ? rollPart(own, view, kind) : risePart(own, view, kit, kind);
 }
 
-/** Whether body `model` is read in position `to`, slow enough for the part begun there (`slowFor`), else to hand over (`handsOver`). */
-const readsAt = (model: string, g: GroundReading, to: Position): boolean => {
+/** Whether a body of step up's `tuning` is read in position `to`, slow enough for the part begun there (`slowFor`), else to hand over (`handsOver`). */
+const readsAt = (tuning: StepUpTuning, g: GroundReading, to: Position): boolean => {
   const next = partFrom(to);
-  return g.position === to && (next ? slowFor(next, model, g) : handsOver(g));
+  return g.position === to && (next ? slowFor(next, tuning, g) : handsOver(g));
 };
 
 /**
@@ -101,7 +102,7 @@ const readsAt = (model: string, g: GroundReading, to: Position): boolean => {
  * settling and rolling again are its own until it reads on its front.
  */
 function rollPart(own: OwnBody, view: BodyView, kind: StagedKind): TechniqueRun {
-  const model = own.spec.model, tuning = stepUpTuning(model), whole = stepUpRecipe(tuning, (PARTS[kind] as Part).recipe);
+  const tuning = stepUpTuning(own.spec), whole = stepUpRecipe(tuning, (PARTS[kind] as Part).recipe);
   const across = otherSide(tuning.over ?? "right");
   // `other`: the roll over the other side.
   const rises: Record<"whole" | "other", StepUpRise> = {
@@ -115,8 +116,8 @@ function rollPart(own: OwnBody, view: BodyView, kind: StagedKind): TechniqueRun 
   return {
     state, get phase() { return rises[state.entry].state.phase; },
     get yields() { return state.ended !== null || rises[state.entry].state.phase === "settle" && !state.rolled; },
-    admits: (g, side) => stagedEntry(kind, model, g, side),
-    reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : readsAt(model, g, to),
+    admits: (g, side) => stagedEntry(kind, tuning, g, side),
+    reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : readsAt(tuning, g, to),
     begin() {
       state.flip = state.ended === "failed" || state.ended === "timed-out" ? !state.flip : false;
       state.entry = state.flip ? "other" : "whole"; state.rolled = false; state.ended = null; state.elapsed = 0; state.reached = 0;
@@ -132,7 +133,7 @@ function rollPart(own: OwnBody, view: BodyView, kind: StagedKind): TechniqueRun 
       rise.step(senses, dt);
       const now: string = rise.state.phase;
       if (now === "roll") state.rolled = true;
-      state.reached = state.rolled && now !== "roll" && readsAt(model, g, "front") ? state.reached + dt : 0;
+      state.reached = state.rolled && now !== "roll" && readsAt(tuning, g, "front") ? state.reached + dt : 0;
       if (state.reached + 1e-9 < REACHED_SECONDS) return null;
       rise.end();
       return finish("done");
@@ -149,7 +150,7 @@ function rollPart(own: OwnBody, view: BodyView, kind: StagedKind): TechniqueRun 
  */
 function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind): TechniqueRun {
   const part: Part = PARTS[kind];
-  const model = own.spec.model, tuning = stepUpTuning(model), whole = stepUpRecipe(tuning, part.recipe);
+  const tuning = stepUpTuning(own.spec), whole = stepUpRecipe(tuning, part.recipe);
   const at = (name: string): number => {
     const index = whole.rise.findIndex(stage => stage.name === name);
     if (index < 0) throw new Error(`the rise has no ${JSON.stringify(name)} stage`);
@@ -170,8 +171,8 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind):
   return {
     state, get phase() { return state.phase === "steady" ? "steady" : rise.state.phase; },
     get yields() { return state.ended !== null || rise.state.phase === "settle"; },
-    admits: (g, side) => stagedEntry(kind, model, g, side),
-    reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : readsAt(model, g, to),
+    admits: (g, side) => stagedEntry(kind, tuning, g, side),
+    reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : readsAt(tuning, g, to),
     begin() {
       state.phase = "rise"; state.rose = false; state.ended = null;
       state.elapsed = 0; state.cut = -1; state.reached = 0;
@@ -198,7 +199,7 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind):
           for (let k = 0; k < cuts.length; k++) if (cuts[k]!.index <= now) cut = k;
           if (cut !== state.cut) { state.cut = cut; state.reached = 0; }
           if (cut < 0) return null;
-          state.reached = readsAt(model, g, cuts[cut]!.at) ? state.reached + dt : 0;
+          state.reached = readsAt(tuning, g, cuts[cut]!.at) ? state.reached + dt : 0;
           if (now <= cuts[cut]!.index || state.reached + 1e-9 < REACHED_SECONDS) return null;
           rise.end();
           return finish("done");
@@ -213,8 +214,15 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind):
   };
 }
 
+/** A body has step up's route where it has a step-up record; the sit-back's parts (`SIT_BACK`), where it has a sit-back record as well. */
+const fitsStepUp = recordFault<never>("step up", STEP_UP_BODIES, () => false);
+const fitsSitBack = recordFault<never>("sit-back", SIT_BACK_BODIES, () => false);
+const fitsPart = (kind: StagedKind) => (spec: BodySpec): string | null =>
+  ((PARTS[kind] as Part).recipe === SIT_BACK ? fitsSitBack(spec, {}) : null) ?? fitsStepUp(spec, {});
+
 const routeTechnique = <K extends StagedKind>(kind: K, label: string) => technique(kind, { label, stage: "experimental", moving: true,
   sides: Object.freeze(["left"] as const), edges: Object.freeze(PARTS[kind].from.map(from => Object.freeze({ from, to: PARTS[kind].to as Position }))),
+  fits: fitsPart(kind), reads: () => ["step-up", "sit-back"],
   make: (own, view, _clock: Clock, kit) => routePart(own, view, kit, kind) });
 
 /** **Staged roll**: from the back or a side onto the front, as step up rolls. */

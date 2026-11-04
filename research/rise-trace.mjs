@@ -28,7 +28,8 @@ async function traceFall(job) {
   const { buildFall } = await import("../src/evaluation/fall.ts");
   const { stepUpRecipe, stepUpTuning } = await import("../src/core/recovery/ground/step-up.ts");
   const { SIT_BACK } = await import("../src/core/recovery/rise/stages.ts");
-  const tuning = stepUpTuning(job.fall.model), stepUp = stepUpRecipe(tuning).rise.map((one) => one.name), sitBack = stepUpRecipe(tuning, SIT_BACK).rise.map((one) => one.name);
+  const { humanoidSpec } = await import("../src/core/human/spec.ts");
+  const tuning = stepUpTuning(humanoidSpec(job.fall.model)), stepUp = stepUpRecipe(tuning).rise.map((one) => one.name), sitBack = stepUpRecipe(tuning, SIT_BACK).rise.map((one) => one.name);
   /** Each staged part's rise stage names from where it begins (`PARTS`, `staged-edges.ts`). */
   const names = { "staged-down": stepUp, "front-sit-back": sitBack, "sit-back": sitBack.slice(sitBack.indexOf("plant")) };
   /** The run's state of the ground skill running action `id` (`groundSkills`); none where no ground skill runs it. */
