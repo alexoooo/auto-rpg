@@ -1,5 +1,5 @@
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
-export type DataKey = "straight-punch" | "stomp" | "club-blow" | "cut" | "sword-thrust" | "strike-profiles" | "edge-profiles" | "gait-profiles" | "step-up" | "sit-back";
+export type DataKey = "straight-punch" | "stomp" | "club-blow" | "cut" | "sword-thrust" | "strike-profiles" | "edge-profiles" | "gait-profiles" | "step-up" | "sit-back" | "walk-run";
 
 /**
  * **What each key's data is, as its reader declares it**: the module that reads a key adds it here
@@ -29,6 +29,7 @@ const LOADERS: { readonly [K in DataKey]: () => Promise<unknown> } = {
   "gait-profiles": () => import("./gait-profiles.ts").then((m) => m.GAIT_PROFILES),
   "step-up": () => import("./step-up.ts").then((m) => m.STEP_UP_RECORDS),
   "sit-back": () => import("./sit-back.ts").then((m) => m.SIT_BACK_RECORDS),
+  "walk-run": () => import("./walk-run.ts").then((m) => m.WALK_RUN_RECORDS),
 };
 
 /** Every key, in `LOADERS`' order. */

@@ -164,7 +164,9 @@ arbiter releases every action when another mind takes the body.
 - **Locomotion** (`Locomotion`): legs take one goal (`LegsGoal`) and say what they left undone
   (`LegsUnmet`), their envelope and how fast they stop. `stance-walk` walks within the stance's
   envelope; `walk-run` hands over to a run cycle fitted to motion capture
-  (`assets/core/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis;
+  (`assets/core/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis,
+  its settings its body's record (`assets/core/walk-run.json`) where it has one, else the defaults
+  scaled to its leg (`scaledGait`);
   `move` chooses among gaits by rules or by name.
 - **The straight punch** (`straight-punch.ts`) drives the arm flat out at a contact pose solved
   each step, on a timed schedule (`TimedPush`). Steered, a network (`learned-punch.ts`) adds to the

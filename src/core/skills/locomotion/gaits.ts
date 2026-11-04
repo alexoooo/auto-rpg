@@ -1,6 +1,5 @@
 import type { LocomotionConfig } from "../config.ts";
 import { deepFreeze } from "../../state.ts";
-import { WALK_RUN } from "./walk-run.ts";
 
 /**
  * **A gait**: what a body gets about by, as Move walks by it (`MoveConfig.gaits`): its name, which
@@ -25,8 +24,8 @@ export type GaitName = string;
  * its next landing.
  */
 export const GAITS = deepFreeze({
-  "braced": { label: "Braced", legs: { kind: "walk-run", ...WALK_RUN, runs: false } },
-  "run": { label: "Run", legs: { kind: "walk-run", ...WALK_RUN } },
+  "braced": { label: "Braced", legs: { kind: "walk-run", runs: false } },
+  "run": { label: "Run", legs: { kind: "walk-run" } },
 } satisfies Readonly<Record<string, { readonly label: string; readonly legs: LocomotionConfig }>>);
 
 /** Every stock gait's name, in `GAITS`' order. */

@@ -269,18 +269,25 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
       ...(formed ? partOf(config).faults(config, partLookup).map((fault) => where(fault)) : []), ...slots] };
   }
 
+  /** `visit` each part of the tree `config` roots, the root first: what a part runs besides its slots (`Part.uses`), and an empty slot's fallback (`Slot.fallback`) included. */
+  function eachPart(config: PartConfig, visit: (one: PartConfig) => void): void {
+    const walk = (one: PartConfig): void => {
+      visit(one);
+      for (const used of partOf(one).uses?.(one) ?? []) walk(used);
+      for (const { slot, parts } of held(one)) {
+        if (parts.length === 0 && slot.fallback) walk(slot.fallback);
+        for (const child of parts) if (isPart(child)) walk(child);
+      }
+    };
+    walk(config);
+  }
+
   function treeKinds(config: PartConfig): readonly string[] {
     const kinds = new Set<string>();
-    const visit = (one: PartConfig): void => {
+    eachPart(config, (one) => {
       kinds.add(one.kind);
-      for (const used of partOf(one).uses?.(one) ?? []) visit(used);
-      for (const { slot, parts } of held(one)) {
-        if (parts.length === 0 && slot.fallback) visit(slot.fallback);
-        for (const child of parts) if (isPart(child)) visit(child);
-      }
       for (const { aim } of aimsOf(one, "")) if (isPart(aim)) kinds.add(aim.kind);
-    };
-    visit(config);
+    });
     return [...kinds];
   }
 
@@ -422,11 +429,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     phaseLabels: (config: PartConfig): Readonly<Record<string, string | null>> => Object.assign({}, ...treeKinds(config).map((kind) => partOf({ kind }).phases ?? {})),
     treeData(config: PartConfig): readonly DataKey[] {
       const keys = new Set<DataKey>();
-      const visit = (one: PartConfig): void => {
-        for (const key of partOf(one).reads?.(one) ?? []) keys.add(key);
-        for (const { parts } of held(one)) for (const child of parts) if (isPart(child)) visit(child);
-      };
-      visit(config);
+      eachPart(config, (one) => { for (const key of partOf(one).reads?.(one) ?? []) keys.add(key); });
       return [...keys];
     },
     treeRefusal,
