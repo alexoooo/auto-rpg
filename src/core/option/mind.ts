@@ -45,8 +45,8 @@ export interface OptionMindConfig {
 /** `config` on the legs `legs` (role `locomotion`) in place of those its body fits: an experiment's (`OptionMindConfig.tuning`). */
 export const withLegs = (config: OptionMindConfig, legs: PartConfig): OptionMindConfig => ({ ...config, tuning: { ...config.tuning, parts: { ...config.tuning?.parts, legs } } });
 
-/** The smallest working config: by worth over the standard options (`OPTIONS`), which throw no blow. */
-const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "valued", depth: 2 }, options: OPTIONS });
+/** The smallest working config: by tree (`TREE_CHOOSER`) over the standard options (`OPTIONS`), which throw no blow. */
+const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "tree" }, options: OPTIONS });
 
 /** Its slots: its chooser, its options and what it predicts from. */
 const SLOTS: readonly Slot[] = Object.freeze([

@@ -278,8 +278,8 @@ each a state with its chance, `Outcome`), its step, and a status.
   kept in its state; an option is worth the states its drawn ways of ending lead to, by their
   chances, and a state the more of its leaf and its best option run, so a search is never worth
   less than its leaf. It goes deep where few options are on offer. Option Mind decides by the
-  valued chooser, two deep, unless its config names another. `research/lying.mjs` reads a mind's
-  time down in the match's bouts and the cost of its steps.
+  tree unless its config names another. `research/lying.mjs` reads a mind's time down in the
+  match's bouts and the cost of its steps.
 - **Where to walk**: an Option names its sites (`Option.sites`, `Site`), the spots it would begin
   from if not where the body stands: a strike whose readiness gives a window to be brought to
   (`Readiness`'s `position`) names a spot in it on each side of a body lying (`windowSpot`, `Side`),

@@ -116,11 +116,12 @@ Option Mind as its hero.
 - The foe's phase reads `rising` in bursts only.
 - Nothing in the rules costs effort; fatigue only if a trained mind strikes without pause.
 - Options chosen by profile: targets after a guard, spacing, ground choices, obedience.
-- The valued chooser, Option Mind's default, is indifferent to delay (a strike now ties the same
-  strike after a second of following orders, so the measured stomp profiles wait), and a body
-  lying where only flatten is on offer, three Options from standing, braces. The tree chooser
-  (`TREE_CHOOSER`) reaches both, wins the match against it and stands from as many of the
-  stand-up evaluation's falls, but its dearest steps cost more.
+- Option Mind's tree chooser (`TREE_CHOOSER`, 100 runs a decision) costs a bout with an Option
+  Mind on each side 17.8 ms a step at the 99th percentile, against a target of 8.33 ms (the valued
+  chooser 9.7 ms; Node, core world, 120 Hz): a search begins about one mind-step in seven, and
+  scoring each state it reaches (its leaf, the strike profiles read there) is most of a search.
+- The measured stomp profiles, which waited on a chooser that prefers a strike sooner, are read
+  again under the tree.
 - A predicted state reads the body's real view, then a predicted foe: begun when the tree's lost
   bouts recur on choices made from states mispredicted so.
 - A learned value at the tree's leaf, fitted to its own searched values: begun when its runs are

@@ -480,7 +480,7 @@ export const VALUED_CHOOSER: OptionChooserPart<ValuedConfig> = deepFreeze({
 
 /**
  * How many runs the tree chooser makes a decision unless its config says (`TreeConfig.runs`): set
- * so that a step costs about what the valued chooser's two-deep search does.
+ * for what it finds; at 20 or fewer it stands the body from fewer falls.
  */
 const RUNS = 100;
 
