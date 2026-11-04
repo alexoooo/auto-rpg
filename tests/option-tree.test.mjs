@@ -10,6 +10,7 @@ import { TREE_CHOOSER, VALUED_CHOOSER } from "../src/core/option/chooser.ts";
 import { FEW_TERMS_PART } from "../src/core/option/objective.ts";
 import { READY, blocked } from "../src/core/option/option.ts";
 import { UNMOVED } from "../src/core/option/value.ts";
+import { pressureAt } from "../src/core/option/percepts.ts";
 
 const NOT = blocked("not from here");
 
@@ -71,4 +72,27 @@ test("a tree decision is the same from the same state and seed, and its stream m
   assert.deepEqual(again.offers, first.offers);
   assert.equal(again.state, first.state);
   assert.notEqual(first.state, JSON.stringify({ word: 7 }), "the decision drew from its stream");
+});
+
+test("tree models share exact pressure queries only within their decision", () => {
+  let reads = 0, rate = .25;
+  const pressure = { model: [{ reach: () => 10, rate: () => { reads++; return rate; } }], phase: "clear", struck: null, latency: 1, peak: 1, priced: "measured" };
+  const hold = stub("hold", { from: "side", open: true, rest: true }), model = hold.model;
+  hold.model = (at, ask) => {
+    const terms = model(at, ask);
+    return { ...terms, taken: pressureAt(at.predictions.pressure, 1, [0, 0], terms.duration)
+      + pressureAt(at.predictions.pressure, 1, [0, 0], .5) };
+  };
+  const tree = TREE_CHOOSER.make({ kind: "tree", runs: 5 }, [hold], 7, PARTS);
+  const now = (time) => ({ ...lying(time), predictions: { danger: 0, pressure } });
+  const first = now(1);
+  tree.decide(first);
+  assert.equal(reads, 1, "model, leaf and tree edge share one profile read");
+  assert.deepEqual(offered(tree), { hold: -5.125 });
+  assert.equal(first.predictions.pressure, pressure);
+  assert.equal(pressure.rateAt, undefined, "the search never writes into the live prediction");
+  rate = .5;
+  tree.decide(now(2));
+  assert.equal(reads, 2, "a new decision recomputes even when given the same pressure object");
+  assert.deepEqual(offered(tree), { hold: -10.25 });
 });

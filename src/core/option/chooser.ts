@@ -7,7 +7,7 @@ import type { OfferTerms } from "../mind/engagement.ts";
 import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding, type Holding, type Selection } from "../mind/choice.ts";
 import { placed, type Option, type Situation } from "./option.ts";
 import { FEW_TERMS_PART, type Objective, type Path } from "./objective.ts";
-import { threatened } from "./percepts.ts";
+import { cachedPressure, threatened, type Pressure } from "./percepts.ts";
 import { ARRIVED } from "../intent/movement.ts";
 import { exp, log } from "../math/real.ts";
 import { randomStream } from "../math/random.ts";
@@ -319,6 +319,11 @@ interface TreeEdge { readonly pair: Pair; readonly step: Step; readonly ends: (T
  */
 function treeSearch(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, horizon: number, runs: number,
   exploration: number, stream: { next(): number }): Lines {
+  const predictions = root.predictions;
+  let pressure: Pressure | undefined;
+  root = Object.create(root, { predictions: { value: Object.create(predictions, {
+    pressure: { get: () => pressure ??= cachedPressure(predictions.pressure) },
+  }) } }) as Situation;
   const at = space(root, options, objective, obedience, horizon);
   const nodeAt = (state: Situation, dealt: number, taken: number, orders: number, seconds: number): TreeNode => {
     const floor = at.leaf(state, "whole", dealt, taken, orders, seconds);

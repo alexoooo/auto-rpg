@@ -66,6 +66,15 @@ have their distances computed during aggregation. The distance arithmetic and tr
 Check: complete profile readings, interleaved queries, the fingerprint and paired search and step
 timings.
 
+### Exact pressure queries
+
+Each tree decision reads its pressure through a private cache of exact range and velocity starts
+(`cachedPressure`, `src/core/option/percepts.ts`). Fixed arrays hold at most 256 rates in four-way
+hash buckets; a bucket evicts its least recently used start. Duration is applied after each
+lookup. The pressure is read lazily, and the live situation and saved chooser state retain their
+own predictions. Check: exact query results, eviction, decision isolation, the fingerprint and
+paired search and step timings.
+
 ### 2. A decision spread over steps
 
 A decision's runs are made a share a step (`runs` over a few steps) on one tree kept in the

@@ -216,6 +216,8 @@ export interface Pressure {
   readonly peak: number;
   readonly latency: number;
   readonly priced: string;
+  /** The rate at an exact start, where a search keeps query scratch (`cachedPressure`). */
+  readonly rateAt?: (range: number, velocity: readonly [number, number]) => number;
 }
 
 /** No pressure: no focus. */
@@ -271,13 +273,53 @@ function pressingOf(seen: Seen): Pressure {
  * (`edgeOf`: the reach is where the body is out of it).
  */
 export function pressureAt(pressure: Pressure, range: number, velocity: readonly [number, number], seconds: number): number {
+  return (pressure.rateAt ? pressure.rateAt(range, velocity) : pressureRateAt(pressure, range, velocity)) * seconds;
+}
+
+/** The most life a second the measured strikes of `pressure` deal at this start. */
+function pressureRateAt(pressure: Pressure, range: number, velocity: readonly [number, number]): number {
   let rate = 0;
   for (const reading of pressure.model) {
     if (range >= reading.reach(pressure.phase)) continue;
     const expected = reading.rate({ range, phase: pressure.phase, velocity }, pressure.struck);
     if (expected !== null) rate = Math.max(rate, expected);
   }
-  return rate * seconds;
+  return rate;
+}
+
+/** Query scratch holds at most this many exact starts; four ways share each hash bucket. */
+const PRESSURE_CACHE = Object.freeze({ buckets: 64, ways: 4 });
+
+/**
+ * `pressure` with bounded exact rate queries for one search. The arrays belong to that search,
+ * never to its saved state. A bucket evicts its least recently used start; a miss reads the
+ * original profiles in their order. Duration is applied by `pressureAt` on both hits and misses.
+ */
+export function cachedPressure(pressure: Pressure): Pressure {
+  const { buckets, ways } = PRESSURE_CACHE, size = buckets * ways;
+  const ranges = new Float64Array(size), forward = new Float64Array(size), across = new Float64Array(size), rates = new Float64Array(size), ages = new Float64Array(size);
+  const values = new Float64Array(3), words = new Uint32Array(values.buffer);
+  let clock = 0;
+  return { ...pressure, rateAt(range, velocity) {
+    const x = velocity[0], z = velocity[1];
+    if (!Number.isFinite(range) || !Number.isFinite(x) || !Number.isFinite(z)) return pressureRateAt(pressure, range, velocity);
+    values[0] = range; values[1] = x; values[2] = z;
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < words.length; i++) hash = Math.imul(hash ^ words[i]!, 0x01000193);
+    // Fold high bits into the bucket: nearby floating point values often share their low bits.
+    const from = ((hash ^ hash >>> 16) & (buckets - 1)) * ways;
+    let oldest = from;
+    for (let i = from; i < from + ways; i++) {
+      if (ages[i]! > 0 && Object.is(ranges[i], range) && Object.is(forward[i], x) && Object.is(across[i], z)) {
+        ages[i] = ++clock;
+        return rates[i]!;
+      }
+      if (ages[i]! < ages[oldest]!) oldest = i;
+    }
+    const rate = pressureRateAt(pressure, range, velocity);
+    ranges[oldest] = range; forward[oldest] = x; across[oldest] = z; rates[oldest] = rate; ages[oldest] = ++clock;
+    return rate;
+  } };
 }
 
 /** Still: the start's velocity with no focus. */
