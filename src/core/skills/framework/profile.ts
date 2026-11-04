@@ -586,17 +586,21 @@ export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: num
   return { fresh, stale: stale ?? `no drill measured the strikes of a ${body}` };
 }
 
+/** The postures a ground technique's trial began at (`Start.postures`): its body lying in position `from`, with no foe. */
+export const groundStart = (from: string): Postures => ({ own: from, target: "none" });
+
 /**
- * **What the rise's edge `technique` is expected to bring a body of `spec` at `hz`, its command
- * `delay` steps late**: its profile
- * among `profiles` (`dataOf("edge-profiles")` unless given) read through `readProfile`, from where it begins (`expected`); and how it is
- * priced, a sentence (`priced`): measured, or not, and why (no drill measured it, or its profile is
- * stale, `staleness`).
+ * **What the ground technique `technique` is expected to bring a body of `spec` at `hz`, its command
+ * `delay` steps late**, by where it is begun: its profile among `profiles` (`dataOf("edge-profiles")`
+ * unless given) read through `readProfile` at its trials begun there (`groundStart`, `expected`),
+ * null from a position none began at; and how it is priced, a sentence (`priced`): measured, or not,
+ * and why (no drill measured it, or its profile is stale, `staleness`).
  */
-export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, delay: number, profiles: readonly Profile[] = dataOf("edge-profiles")): { readonly expected: Expected | null; readonly priced: string } {
+export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, delay: number, profiles: readonly Profile[] = dataOf("edge-profiles")): {
+  readonly expected: ((from: string) => Expected | null) | null; readonly priced: string } {
   const found = profileFor(profiles, measuredOn(spec, techniqueDigest(technique), hz, null, hz, delay));
   if (!found) return { expected: null, priced: "no drill measured it" };
   if (found.stale !== null) return { expected: null, priced: found.stale };
-  const expected = readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null);
-  return { expected, priced: expected ? "measured" : "no trial of its profile reads from where it begins" };
+  const profile = found.profile;
+  return { expected: (from) => readProfile(profile, spec, groundStart(from)).expect({ range: 0, phase: "clear" }, null), priced: "measured" };
 }

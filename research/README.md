@@ -18,7 +18,7 @@ it reads by.
 |---|---|---|
 | `physiques.mjs` | the physique grid and its ranges (`PHYSIQUE_GRID`, `physiqueRanges`, `physiqueGrid`) | |
 | `core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/core/<legs>-envelope.json` |
-| `strike-profiles.mjs`, `edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground edge's from the Rise drill's, naming what they were measured on | `assets/core/strike-profiles.json`, `assets/core/edge-profiles.json` |
+| `strike-profiles.mjs`, `edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on | `assets/core/strike-profiles.json`, `assets/core/edge-profiles.json` |
 | `skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/core/<skill>.json`, `.meta.json`, every run |
 | `skill-search.mjs` | a skill's settings (the stomp's, `SEARCHES`) searched on one body by CMA-ES on its task's trials; `--confirm` keeps the best only where it beats the start on fresh trials | `--out`; with `--confirm --write`, the body's row (through `skill-records.mjs`) |
 | `swing-drill.mjs` | a swung blow (`cut`, `club-blow`) searched on the Strike drill's still rung: each channel's windup and push, where it stands, how long it settles; `--verify` plays a found one | `--out` |

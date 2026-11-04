@@ -4,7 +4,7 @@ import { anyBody } from "../parts/parts.ts";
 import type { Profile } from "../skills/framework/profile.ts";
 import { deepFreeze } from "../state.ts";
 
-/** **What Option Mind predicts from**: the profiles its drills measured, of strikes (any striker's) and the rise's edges; a model with none of its own reads its prior. */
+/** **What Option Mind predicts from**: the measured profiles of strikes (any striker's, by their drills) and of its ground Options (by its own tries in falls); a model with none of its own reads its prior. */
 export interface ProfileTables {
   readonly strikes: readonly Profile[];
   readonly edges: readonly Profile[];

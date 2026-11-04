@@ -205,8 +205,10 @@ stance stands on it stands, on its trunk it lies (named by the side up), and bet
 the ends that bear it. A way up names the postures it begins from and reaches (its `edges`), begun
 `moving` or `still`, handing the body on at the first cut read slow enough (`CUTS`, `HAND_OVER`);
 the game's ways up (`STAND_UP`) reach standing from the back and the front (`standUpFaults`). The
-Option Mind prices each way up by its edges' measured profiles
-(`assets/core/edge-profiles.json`), as every Option is priced. The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
+Option Mind prices each way up, flatten and a brace that waits for one by their profiles from
+where each was begun (`assets/core/edge-profiles.json`, `research/edge-profiles.mjs`: its own tries
+in falls the stand-up target does not play, each until its next choice), as every Option is
+priced. The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
 (`rise/stages.ts`). A body on paws rights itself (`src/core/reptile/righting.ts`) by its recipe of
 poses from lying (`righting-recipe`, its record `assets/core/righting.json`) and by routes that
 roll it, place each paw and rise on its motor (`righting-routes`). A ground action names its side
@@ -310,10 +312,13 @@ each a state with its chance, `Outcome`), its step, and a status.
 - **The rise** (`RISE_OPTIONS`, `src/core/option/rise.ts`): each way up, reposition and mode of
   the ground an Option naming its technique (`way-up`, `reposition`, `flattening`, `steadying`,
   `landing`, `brace-tumbling`, `brace-down`), on offer where its skill admits the body as it lies.
-  A way up is priced by its edge's expected seconds and chance, and where it ends by the search;
-  lying is priced by the brace and the ways up that begin there; a reposition is on offer only from
-  a posture none of its mind's ways up that fit the body begins from. Every Option's tries in the bout are kept in one
-  record (`OptionRecord`), each priced by hand (`Prior`) until its tries move it (`recorded`). The
+  A way up is priced by its profile from where it is begun (seconds, chance, where its failures
+  rest), and where it ends by the search; lying is priced by the brace and the ways up that begin
+  there; a brace while tumbling is also on offer where a way up begins but none admits the body yet,
+  priced as the wait until one does; a reposition is on offer only from a posture none of its
+  mind's ways up that fit the body begins from. Every Option's tries in the bout are kept in one
+  record (`OptionRecord`), each priced by its profile, else by hand (`Prior`), until its tries move
+  it (`recorded`). The
   reader keeps what the rise needs of them (`riseMemory`: whether it runs, the seconds braced
   tumbling, the steady's try). A config whose ways up leave no route to standing from the back or
   from the front is a fault (`standUpFaults`).
