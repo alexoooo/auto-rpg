@@ -238,8 +238,9 @@ each a state with its chance, `Outcome`), its step, and a status.
   measured profiles (`Profile`, `src/core/skills/framework/profile.ts`),
   a stale one unread and a model with none priced by its prior. A profile is a sample of its
   drill's trials, each keeping what it brought and where it began (the range, the foe's phase,
-  both postures, and the velocity in its target's frame, `startVelocity`); a reading takes the
-  trials nearest the start asked at, its velocity read within the span its trials began at, and a
+  both postures, the velocity in its target's frame, `startVelocity`, and, for a skill begun from
+  a window, where in it the body stood, `placeInWindow`); a reading takes the trials nearest the
+  start asked at, its velocity and place read within the spans its trials began at, and a
   rate of blows reads each trial's run and its limb's way back to its guard. A blow the foe has not
   begun reaches the body only after the foe's latency (`Pressure.latency`: its rethink, its
   command's delay and its fastest blow), spent as the body stays within its reach and restored as

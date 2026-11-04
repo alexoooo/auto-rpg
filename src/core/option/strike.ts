@@ -1,7 +1,7 @@
 import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../skills/framework/action.ts";
 import { STANCE_LOWER } from "../skills/locomotion/locomotion.ts";
 import { regionSegments } from "../intent/action-aim.ts";
-import { heldBeside, SIDES, windowHolds, windowSpot, type Side, type Spot } from "../intent/action-window.ts";
+import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side, type Spot } from "../intent/action-window.ts";
 import { orderAllows, orderedTarget } from "../intent/orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../skills/config.ts";
 import type { PartLookup } from "../parts/lookup.ts";
@@ -86,23 +86,25 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  */
 export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure, name = action.name): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null,
-    // Each side's place beside a body lying (`HeldBeside`), and its spot as last read: at what time, for what focus.
-    sides: SIDES.map(() => ({ beside: heldBeside(), time: NaN, focus: null as string | null, spot: null as Spot | null })) };
+    // Each side's place beside a body lying (`HeldBeside`), and its spot as last read: at what time, for what focus, and where in its window (`placeInWindow`).
+    sides: SIDES.map(() => ({ beside: heldBeside(), time: NaN, focus: null as string | null, spot: null as Spot | null, place: null as [number, number] | null })),
+    // Where in its window its blow under way was asked (`placeInWindow`), null with none.
+    place: null as [number, number] | null };
   const { measured } = measure, found = profileFor(measure.profiles, measured);
   /** Its profile, where it is read now: measured as the body reads it, its senses as late. */
   const profileNow = (now: Situation): Profile | null =>
     found && staleness(found.profile, { ...measured, reaction: now.reaction }) === null ? found.profile : null;
   /**
-   * What its profile expects begun where the body stands now and as it moves (`startOf`), and, its
-   * motion `progress` s under way, what letting it go there costs (`ProfileReading.expect`); null
-   * where none prices it.
+   * What its profile expects begun where the body stands now, as it moves (`startOf`) and at
+   * `place` in its window (`placeInWindow`; its middle unless given), and, its motion `progress` s
+   * under way, what letting it go there costs (`ProfileReading.expect`); null where none prices it.
    */
-  const expected = (now: Situation, progress?: number): Expected | null => {
+  const expected = (now: Situation, place?: readonly [number, number] | null, progress?: number): Expected | null => {
     const profile = profileNow(now), focus = now.focus;
     if (!profile || !focus) return null;
     const reading = readProfile(profile, measure.spec, { own: "standing", target: now.foePosture });
     return reading.expect({ range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, velocity: startOf(now),
-      ...(progress === undefined ? {} : { progress }) }, focus.spec);
+      ...(place ? { window: place } : {}), ...(progress === undefined ? {} : { progress }) }, focus.spec);
   };
   const targetOf = (now: Situation): TargetRef | null => {
     const focus = now.focus;
@@ -154,16 +156,17 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     return ready?.readiness ?? UNREADY;
   };
   /**
-   * Its model (`Terms`) at `at`. Its blow under way, short of its exit, it is priced from where it
+   * Its model (`Terms`) at `at`, begun at `place` in its window (`placeInWindow`; its blow under
+   * way's where one is). Its blow under way, short of its exit, it is priced from where it
    * is: the time its motion has left, and its payoff unless its blow has met the target. Its chance
    * of ending down is its profile's where one measures it (its trials' falls, in a clinch or not),
    * else the clinch's (`clinched`).
    */
-  const priceOf = (at: Situation): Terms => {
+  const priceOf = (at: Situation, place: readonly [number, number] | null): Terms => {
     const apart = at.range;
     const running = live(at), under = running !== undefined && running.phase !== "release";
     const progress = under && state.began !== null ? at.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
-    const preparing = running?.phase === "prepare", measured = expected(at, preparing ? progress : undefined), e = measured ?? priorOf(at);
+    const preparing = running?.phase === "prepare", measured = expected(at, running ? state.place : place, preparing ? progress : undefined), e = measured ?? priorOf(at);
     const duration = Math.max(0, e.seconds + e.recovers - progress);
     const letGo = preparing && e.letGo ? { letGo: e.letGo } : {};
     return { duration, dealt: met ? 0 : e.dealt, taken: at.predictions.danger + threatened(at, duration), orders: 0,
@@ -194,11 +197,17 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
       if (kept.time !== at.time || kept.focus !== focus) {
         const { ready, placed } = offer(at), window = ready === null && placed?.readiness.kind === "position" ? placed.readiness.window : null;
         kept.time = at.time; kept.focus = focus; kept.spot = window ? windowSpot(at.sight.view, window, at.sight.report.heading, side, kept.beside) : null;
+        kept.place = window && kept.spot ? placeInWindow(window, kept.spot.x, kept.spot.z, kept.spot.face) : null;
       }
       return kept.spot;
     },
   });
   const sites = SIDES.map(siteOn);
+  /** Where in the window of its limb ready the body stands now (`placeInWindow`), as its limbs are; null where none is ready, or its readiness names no window. */
+  const placeOf = (now: Situation): [number, number] | null => {
+    const ready = offer(now).ready?.readiness, where = now.where;
+    return ready?.kind === "ready" && ready.window ? placeInWindow(ready.window, where.x, where.z, where.face) : null;
+  };
   /** Where the body stands for it now, ready or not: the window of its limb ready, else of the first limb that has one; null where a blow of its own is under way or none has one. */
   const windowAny = (now: Situation): Window | null => {
     if (live(now) || unfit(now)) return null;
@@ -207,12 +216,12 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     return readied ?? (placed?.readiness.kind === "position" ? placed.readiness.window : null);
   };
   /**
-   * Whether the body stands at one of its sites as last read for the focus (`siteOn`): a site is
-   * where it begins, though the window it was read in moves with each stride.
+   * The site the body stands at, of its sites as last read for the focus (`siteOn`), else undefined:
+   * a site is where it begins, though the window it was read in moves with each stride.
    */
-  const atSite = (at: Situation): boolean => {
+  const atSite = (at: Situation) => {
     const focus = at.focus?.id ?? null, where = at.where;
-    return state.sides.some((kept) => kept.time === at.time && kept.focus === focus && kept.spot !== null
+    return state.sides.find((kept) => kept.time === at.time && kept.focus === focus && kept.spot !== null
       && kept.spot.x === where.x && kept.spot.z === where.z && kept.spot.face === where.face);
   };
   return {
@@ -221,8 +230,8 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     entry,
     status: (now) => { if (state.over) return "over"; const phase = live(now)?.phase; return phase === "release" ? "exit" : phase === "commit" ? "committed" : "yields"; },
     sites,
-    begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; state.began = null; },
-    end() { state.id = null; state.limb = null; state.target = null; state.began = null; },
+    begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; state.began = null; state.place = null; },
+    end() { state.id = null; state.limb = null; state.target = null; state.began = null; state.place = null; },
     priced(now) {
       if (!found) return "by hand, no drill measured it";
       const stale = staleness(found.profile, { ...measured, reaction: now.reaction });
@@ -234,10 +243,11 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     model(at) {
       if (!at.focus || !standing(at)) return null;
       const where = at.where, centre = at.sight.view.stance.centre;
-      if (where.x === centre.x && where.z === centre.z) return entry(at).kind === "ready" ? priceOf(at) : null;
-      if (atSite(at)) return priceOf(at);
+      if (where.x === centre.x && where.z === centre.z) return entry(at).kind === "ready" ? priceOf(at, placeOf(at)) : null;
+      const site = atSite(at);
+      if (site) return priceOf(at, site.place);
       const window = windowAny(at);
-      return window && windowHolds(window, where.x, where.z, where.face) ? priceOf(at) : null;
+      return window && windowHolds(window, where.x, where.z, where.face) ? priceOf(at, placeInWindow(window, where.x, where.z, where.face)) : null;
     },
     rate(now) {
       const profile = profileNow(now), focus = now.focus;
@@ -253,13 +263,13 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const face = walk.facing(now), still = { move: null, face, actions: [] };
     const running = live(now);
     // Kept at its exit, it strikes again: the blow under way is let go, and the next is asked once a limb is ready.
-    if (running?.phase === "release") { state.id = null; state.since = now.time; state.began = null; return still; }
+    if (running?.phase === "release") { state.id = null; state.since = now.time; state.began = null; state.place = null; return still; }
     if (running) state.began ??= now.time;
     if (running) return { ...still, actions: [{ id: running.id, action: running.action, effector: running.effector, target: structuredClone(running.target) }] };
     if (state.id !== null || !state.target || now.time - state.since >= PATIENCE) { state.over = true; return still; }
     const chosen = scan(now, state.target).ready;
     if (!chosen) { state.over = true; return still; }
-    state.limb = chosen.limb;
+    state.limb = chosen.limb; state.place = placeOf(now);
     state.id = now.sight.instance();
     return { ...still, actions: [{ id: state.id, action: action.name, effector: chosen.limb, target: structuredClone(state.target) }] };
   }

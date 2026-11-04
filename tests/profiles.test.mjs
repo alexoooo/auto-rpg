@@ -79,6 +79,29 @@ test("a strike's profile reads its trials by the start's velocity, and its rate 
 });
 
 /**
+ * **A profile is read by where in its window a trial began** (`Start.window`): a strike begun at its
+ * window's edge reads its trials begun there where they differ from those begun at its middle, a
+ * reading that names no place is read at the middle, and a profile whose trials record no place
+ * reads alike wherever it is asked. Synthetic trials, still, at one range: at the middle, dealing
+ * 6 HP in 0.25 s; 0.15 m ahead of it, dealing none in 0.6 s.
+ */
+test("a strike's profile reads its trials by where in its window they began", () => {
+  const spec = modelSpec("workshop-fighter"), hp = spec.wounds.hp.value;
+  const trial = (window, dealt, seconds) => ({ start: { range: .9, phase: "clear", velocity: [0, 0], ...(window ? { window } : {}) }, done: dealt > 0, dealt, taken: 0, seconds, recovers: null, down: false });
+  const middle = Array.from({ length: 10 }, () => trial([0, 0], 6, .25)), edge = Array.from({ length: 10 }, () => trial([.15, 0], 0, .6));
+  const measured = { body: "", spec: "", skill: "synthetic", hz: 120, reaction: null };
+  const reading = profileReading({ measured, target: null, trials: [...middle, ...edge] }, spec);
+  const at = (window) => ({ range: .9, phase: "clear", velocity: [0, 0], ...(window ? { window } : {}) });
+  const near = (x) => Number(x.toFixed(9));
+  const read = (window) => { const e = reading.expect(at(window), spec); return e && { dealt: near(e.dealt * hp), seconds: near(e.seconds) }; };
+  assert.deepEqual(read([0, 0]), { dealt: 6, seconds: .25 }, "begun at its window's middle, its middle trials");
+  assert.deepEqual(read([.15, 0]), { dealt: 0, seconds: .6 }, "begun at its window's edge, its edge trials");
+  assert.deepEqual(read(undefined), read([0, 0]), "a start that names no place is read at the middle");
+  const placeless = profileReading({ measured, target: null, trials: middle.map((one) => trial(undefined, one.dealt, one.seconds)) }, spec);
+  assert.deepEqual(placeless.expect(at([.15, 0]), spec), placeless.expect(at([0, 0]), spec), "trials that record no place read alike wherever asked");
+});
+
+/**
  * **A strike priced by hand reads its tries of its own limb** (`record`): a stomp its executor gave
  * up on before committing (`stalled`) is a try that landed nothing, so a foot that keeps failing
  * from where it stands is priced down, not retried from there forever; the other foot's record is

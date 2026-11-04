@@ -25,6 +25,7 @@ import type { HostedBody } from "../../core/body.ts";
 import type { BodySpec } from "../../core/spec/body.ts";
 import { modelSpec } from "../../core/models.ts";
 import { startVelocity } from "../../core/skills/framework/profile.ts";
+import { placeInWindow } from "../../core/intent/action-window.ts";
 import type { Reader } from "../evaluation.ts";
 
 export type Mark = "high" | "middle" | "legs";
@@ -220,6 +221,12 @@ export type StrikeReading = {
    * and across the line to it, positive to the striker's right, m/s; null where it never sensed it.
    */
   readonly foeAt: { readonly posture: string; readonly apart: number; readonly velocity: readonly [number, number] } | null;
+  /**
+   * Where the striker stood then in the window of the drill's choice, as its menu read it
+   * (`MenuEntry.readiness`): the target's offset from the window's middle, ahead and to its right,
+   * m (`placeInWindow`); null where its readiness named no window.
+   */
+  readonly inWindow: readonly [number, number] | null;
   readonly reason: string;
   /** When the drill had the body, s: the bout's start, or the moment its fight was handed to it; null where it never was. */
   readonly handed: number | null;
@@ -368,7 +375,18 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
     return Math.sqrt(dx * dx + dz * dz);
   };
   let exit: StrikeReading["exit"] = null;
-  type Sensed = { readonly phase: string; readonly at: StrikeReading["foeAt"] };
+  type Sensed = { readonly phase: string; readonly at: StrikeReading["foeAt"]; readonly window: StrikeReading["inWindow"] };
+  /** The skill the drill orders, where its Commander names one. */
+  const drilled = (duel.recipe.commanders?.left as { readonly skill?: string } | undefined)?.skill;
+  /** Where the striker stands now in the window of the drill's choice (`placeInWindow`), as its menu reads it; null where it names none. */
+  const placed = (): StrikeReading["inWindow"] => {
+    if (!view) return null;
+    const entry = skills.menu().find((one) => one.limb === effector && one.foe === duel.duelists.right.id && one.region?.kind === "mark" && one.region.mark === mark
+      && (drilled === undefined || one.skill === drilled));
+    const ready = entry?.readiness;
+    return (ready?.kind === "ready" || ready?.kind === "position") && ready.window
+      ? placeInWindow(ready.window, view.stance.centre.x, view.stance.centre.z, skills.report.heading) : null;
+  };
   const velocity = new Vector3(), segments = [...left.built.segments.values()], mass = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0);
   /** The striker's centre of mass's velocity over the ground, as this step left it, m/s. */
   const moving = (): { readonly x: number; readonly z: number } => {
@@ -385,10 +403,10 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
     head.update();
     const at = left.body.observe().centre, senses = left.senses(), other = senses.others.find((one) => one.id === duel.duelists.right.id);
     const phase = sensedPhase({ senses, head: head.centre, stance: { centre: centre.set(at[0], at[1], at[2]) } }, duel.duelists.right.id);
-    if (!other) return { phase, at: null };
+    if (!other) return { phase, at: null, window: null };
     const dx = other.centre.x - at[0], dz = other.centre.z - at[2], own = moving();
     return { phase, at: { posture: sensedPosture(other), apart: Math.sqrt(dx * dx + dz * dz),
-      velocity: startVelocity({ x: dx, z: dz }, { x: own.x - other.velocity.x, z: own.z - other.velocity.z }) } };
+      velocity: startVelocity({ x: dx, z: dz }, { x: own.x - other.velocity.x, z: own.z - other.velocity.z }) }, window: placed() };
   };
   /** Which feet bear on the ground, and the centre of mass's speed over it, as this step left them. */
   const footing = (): NonNullable<StrikeReading["asked"]> => {
@@ -535,7 +553,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         : byLimb.length ? byLimb.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
       const foe = foeBegan ?? atHand;
-      return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, contacts: touches.map(({ contact }) => contact), taken,
+      return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, inWindow: foe?.window ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, contacts: touches.map(({ contact }) => contact), taken,
         ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }),
         recovers: watching !== null && again !== null ? again - watching : null, nearest, exit, down, seconds: world.time };
     },

@@ -5,8 +5,9 @@
  * foe, centre to centre across the ground, m; the foe's phase as the striker sensed it (the `phase`
  * percept, `sensedPhase`); how the two bodies stood; and the velocity at the start, in the frame of
  * the skill's target (`startVelocity`), or, for a skill with no target, the body's own (forward and
- * to its right of its facing). A reading takes the trials nearest the start asked at (`NEAREST`),
- * its velocity within the span its trials began at (`within`). A
+ * to its right of its facing); and, for a skill begun from a window, where in it the body stood. A
+ * reading takes the trials nearest the start asked at (`NEAREST`), its velocity and its place in
+ * its window within the spans its trials began at (`within`). A
  * skill with no foe, a ground edge, begins at no range, clear. A profile names what it was measured
  * on (`Measured`) and the body it was measured against (`Target`, none for a skill with no foe); one
  * read for another body, skill, rate or reaction time is stale (`staleness`), and a chooser prices
@@ -78,18 +79,22 @@ export const STANDING: Postures = Object.freeze({ own: "standing", target: "stan
 
 /**
  * **Where a trial began**, or a reading is asked at: the range, m, and the foe's phase; how the
- * bodies stood (`Postures`; absent, both standing); and the velocity at the start, m/s, in the
+ * bodies stood (`Postures`; absent, both standing); the velocity at the start, m/s, in the
  * target's frame (`startVelocity`: closing on it and across the line to it) or, with no target,
- * the body's own (forward and to its right); absent where its drill did not record it, read as still.
+ * the body's own (forward and to its right), absent where its drill did not record it, read as
+ * still; and, for a skill begun from a window (`Window`), where in it the body stood
+ * (`placeInWindow`: the target's offset from the window's middle, ahead and to the right, m),
+ * absent where it begins from none or its drill did not record it, read as at the middle.
  */
 export interface Start {
   readonly range: number;
   readonly phase: string;
   readonly postures?: Postures;
   readonly velocity?: readonly [number, number];
+  readonly window?: readonly [number, number];
 }
 
-/** Still: the velocity a start that records none is read at. */
+/** Still, or at the window's middle: the velocity and the place a start that records none is read at. */
 const STILL: readonly [number, number] = Object.freeze([0, 0]) as readonly [number, number];
 
 /**
@@ -199,11 +204,12 @@ export interface ProfileReading {
 /**
  * **The trials a reading takes** (`ProfileReading.expect`): the nearest the start asked at, nearer
  * first and ties together, until there are `trials` of them, so a lone trial is read with its
- * neighbours; nearness the distance in range over `range` m and in velocity over `speed` m/s
- * together, each the span over which trials are taken as alike. Tuned: about a stride's worth of
- * neighbours on the range a strike's window spans, and a step's change of pace.
+ * neighbours; nearness the distance in range over `range` m, in velocity over `speed` m/s and in
+ * the place in its window over `place` m together, each the span over which trials are taken as
+ * alike. Tuned: about a stride's worth of neighbours on the range a strike's window spans, a step's
+ * change of pace, and a quarter of the depth of a stomp's window.
  */
-const NEAREST = Object.freeze({ trials: 10, range: .1, speed: .25 });
+const NEAREST = Object.freeze({ trials: 10, range: .1, speed: .25, place: .1 });
 
 /** How near two distances are taken as one: the nearest trials' ties. */
 const TIE = 1e-9;
@@ -227,42 +233,54 @@ export function readProfile(profile: Profile, striker: BodySpec, postures: Postu
   return reading;
 }
 
+/** A start's velocity and place in its window, read as a reading reads them (`within`): closing, across, ahead and aside. */
+type Read = readonly [number, number, number, number];
+
 /**
  * **Trials sorted by the range they began at**, with their starts in arrays made once, so the
  * nearest to a start are found by walking out from its range (`nearestOf`); and the span of their
- * starts' velocities, closing and across (`low`, `high`), which a start is read within (`within`).
+ * starts' velocities, closing and across, and of their places in their window, ahead and aside
+ * (`low`, `high`, in that order, `Read`), which a start is read within (`within`).
  */
 interface Sample {
   readonly trials: readonly Trial[];
   readonly range: Float64Array;
   readonly closing: Float64Array;
   readonly across: Float64Array;
-  readonly low: readonly [number, number];
-  readonly high: readonly [number, number];
+  readonly ahead: Float64Array;
+  readonly aside: Float64Array;
+  readonly low: Read;
+  readonly high: Read;
 }
 
 function sampleOf(trials: readonly Trial[]): Sample {
   const sorted = [...trials].sort((a, b) => a.start.range - b.start.range), n = sorted.length;
-  const range = new Float64Array(n), closing = new Float64Array(n), across = new Float64Array(n);
-  const low: [number, number] = [Infinity, Infinity], high: [number, number] = [-Infinity, -Infinity];
+  const range = new Float64Array(n), closing = new Float64Array(n), across = new Float64Array(n), ahead = new Float64Array(n), aside = new Float64Array(n);
+  const low: [number, number, number, number] = [Infinity, Infinity, Infinity, Infinity], high: [number, number, number, number] = [-Infinity, -Infinity, -Infinity, -Infinity];
   sorted.forEach((trial, i) => {
-    const velocity = trial.start.velocity ?? STILL;
-    range[i] = trial.start.range; closing[i] = velocity[0]; across[i] = velocity[1];
-    for (const k of [0, 1] as const) { low[k] = Math.min(low[k], velocity[k]); high[k] = Math.max(high[k], velocity[k]); }
+    const velocity = trial.start.velocity ?? STILL, place = trial.start.window ?? STILL, at: Read = [velocity[0], velocity[1], place[0], place[1]];
+    range[i] = trial.start.range; closing[i] = at[0]; across[i] = at[1]; ahead[i] = at[2]; aside[i] = at[3];
+    for (const k of [0, 1, 2, 3] as const) { low[k] = Math.min(low[k], at[k]); high[k] = Math.max(high[k], at[k]); }
   });
-  return { trials: sorted, range, closing, across, low, high };
+  return { trials: sorted, range, closing, across, ahead, aside, low, high };
 }
 
 /**
- * **The velocity `at` is read at in `sample`**, closing and across: its own, each within the span
- * its trials began at (`Sample.low`, `high`). A velocity no trial began at says nothing the nearest
- * measured one does not: read as it is, its distance would outweigh the range's and take the few
- * trials begun at the sample's extreme, from whatever range they began at.
+ * **The velocity and place in its window `at` is read at in `sample`** (`Read`): its own, each
+ * within the span its trials began at (`Sample.low`, `high`). A start no trial began at says
+ * nothing the nearest measured one does not: read as it is, its distance would outweigh the
+ * range's and take the few trials begun at the sample's extreme, from whatever range they began at.
  */
-function within(sample: Sample, at: Start): readonly [number, number] {
-  const [closing, across] = at.velocity ?? STILL;
-  return [Math.min(sample.high[0], Math.max(sample.low[0], closing)), Math.min(sample.high[1], Math.max(sample.low[1], across))];
+function within(sample: Sample, at: Start): Read {
+  const [closing, across] = at.velocity ?? STILL, [ahead, aside] = at.window ?? STILL, { low, high } = sample;
+  return [Math.min(high[0], Math.max(low[0], closing)), Math.min(high[1], Math.max(low[1], across)),
+    Math.min(high[2], Math.max(low[2], ahead)), Math.min(high[3], Math.max(low[3], aside))];
 }
+
+/** How far `sample`'s trial `i` lies from a start at `range` read at `read` (`within`), each part over its span (`NEAREST`). */
+const apart = (sample: Sample, i: number, range: number, read: Read): number =>
+  hypot(hypot((sample.range[i]! - range) / NEAREST.range, (sample.closing[i]! - read[0]) / NEAREST.speed, (sample.across[i]! - read[1]) / NEAREST.speed),
+    (sample.ahead[i]! - read[2]) / NEAREST.place, (sample.aside[i]! - read[3]) / NEAREST.place);
 
 /** The first index of `sample` whose range is at least `range`. */
 function firstFrom(sample: Sample, range: number): number {
@@ -282,9 +300,8 @@ const BEST = new Float64Array(NEAREST.trials);
 function nearestOf(sample: Sample, at: Start): { readonly from: number; readonly to: number; readonly bound: number } | null {
   const n = sample.range.length;
   if (n === 0) return null;
-  const [closing, across] = within(sample, at), want = Math.min(NEAREST.trials, n);
-  const distance = (i: number): number => hypot((sample.range[i]! - at.range) / NEAREST.range,
-    (sample.closing[i]! - closing) / NEAREST.speed, (sample.across[i]! - across) / NEAREST.speed);
+  const read = within(sample, at), want = Math.min(NEAREST.trials, n);
+  const distance = (i: number): number => apart(sample, i, at.range, read);
   let found = 0;
   const keep = (d: number): void => {
     if (found === want && d >= BEST[want - 1]!) return;
@@ -304,11 +321,10 @@ function nearestOf(sample: Sample, at: Start): { readonly from: number; readonly
 function eachNearest(sample: Sample, at: Start, each: (trial: Trial) => void): number {
   const near = nearestOf(sample, at);
   if (!near) return 0;
-  const [closing, across] = within(sample, at);
+  const read = within(sample, at);
   let n = 0;
   for (let i = near.from; i < near.to; i++) {
-    const d = hypot((sample.range[i]! - at.range) / NEAREST.range, (sample.closing[i]! - closing) / NEAREST.speed, (sample.across[i]! - across) / NEAREST.speed);
-    if (d <= near.bound) { each(sample.trials[i]!); n++; }
+    if (apart(sample, i, at.range, read) <= near.bound) { each(sample.trials[i]!); n++; }
   }
   return n;
 }

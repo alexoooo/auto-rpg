@@ -9,10 +9,11 @@
  * whose action never began measures the drill's walk, not the strike).
  *
  * A trial's start (`Start`) is where the striker sensed the target as it began (the reading's
- * `foeAt` and `foePhase`): the range centre to centre, the target's phase and posture, and the
- * striker's velocity against the target's (`foeAt.velocity`; absent in a record from before the
- * reading held it). A profile with trials that record their velocity keeps those alone: fresh trials
- * replace the older. A record that does not hold the phase is refused: its rung is played again. The
+ * `foeAt` and `foePhase`): the range centre to centre, the target's phase and posture, the
+ * striker's velocity against the target's (`foeAt.velocity`), and where it stood in its strike's
+ * window (`inWindow`); each absent in a record from before the reading held it. A profile keeps
+ * the trials that record the most of their start alone: fresh trials replace the older. A record
+ * that does not hold the phase is refused: its rung is played again. The
  * `walk` rung is left out: it was asked of a body still walking at no start the drill sets.
  *
  * What a trial brought: whether it landed; the life the rules take from the target for every
@@ -120,7 +121,7 @@ for (const path of paths) {
     if (r.foePhase === null || r.foeAt === null || r.began === null) continue;
     const posture = r.foeAt.posture ?? "standing";
     const start = { range: round(r.foeAt.apart), phase: r.foePhase, ...(posture === "standing" ? {} : { postures: { own: "standing", target: posture } }),
-      ...(r.foeAt.velocity ? { velocity: r.foeAt.velocity.map(round) } : {}) };
+      ...(r.foeAt.velocity ? { velocity: r.foeAt.velocity.map(round) } : {}), ...(r.inWindow ? { window: r.inWindow.map(round) } : {}) };
     if (drill.letGo !== undefined) {
       // Past its point of no return, a strike is not let go: such a trial prices nothing.
       if (r.letGo) profile.trials.push({ start, done: false, dealt: 0, taken: round(r.taken ?? 0), seconds: round((r.ended ?? r.seconds) - r.began), recovers: null, down: r.down,
@@ -135,7 +136,12 @@ for (const path of paths) {
   }
 }
 
-for (const profile of profiles.values()) if (profile.trials.some((t) => t.start.velocity)) profile.trials = profile.trials.filter((t) => t.start.velocity);
+/** How much of its start a trial records: its velocity, and where it stood in its window. */
+const recorded = (trial) => (trial.start.velocity ? 1 : 0) + (trial.start.window ? 1 : 0);
+for (const profile of profiles.values()) {
+  const most = Math.max(...profile.trials.map(recorded));
+  profile.trials = profile.trials.filter((trial) => recorded(trial) === most);
+}
 const order = (a, b) => (a.start.postures?.target ?? "").localeCompare(b.start.postures?.target ?? "") || a.start.phase.localeCompare(b.start.phase) || a.start.range - b.start.range;
 const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles.values()].map((profile) => ({ measured: profile.measured, target: profile.target,
   limbs: profile.effectors.filter((limb) => profile.limbs.has(limb)), trials: [...profile.trials].sort(order) })) };
@@ -144,9 +150,11 @@ for (const profile of profiles.values()) {
   console.log(`${profile.label} (${m.body}, spec ${m.spec}, skill ${m.skill}, ${m.hz} Hz${m.rate ? `, its mind at ${m.rate} Hz` : ""}${m.delay ? `, its command ${m.delay} steps late` : ""}, senses ${m.reaction} s late)`);
   if (!run.length) { console.log(`  no trial run; ${lets} let go`); continue; }
   const ranges = run.map((t) => t.start.range), closing = run.map((t) => t.start.velocity?.[0] ?? 0), across = run.map((t) => t.start.velocity?.[1] ?? 0);
+  const ahead = run.map((t) => t.start.window?.[0] ?? 0), aside = run.map((t) => t.start.window?.[1] ?? 0);
   const recovered = run.filter((t) => t.recovers !== null).map((t) => t.recovers), seconds = run.map((t) => t.seconds), dealing = run.filter((t) => t.dealt > 0);
   const cycle = seconds.reduce((s, x) => s + x, 0) / seconds.length + (recovered.length ? recovered.reduce((s, x) => s + x, 0) / recovered.length : 0);
   console.log(`  ${run.length} trials run (${lets} let go): range ${Math.min(...ranges)} to ${Math.max(...ranges)} m, closing ${round(Math.min(...closing))} to ${round(Math.max(...closing))} m/s, across ${round(Math.min(...across))} to ${round(Math.max(...across))} m/s;`
+    + ` in its window ${round(Math.min(...ahead))} to ${round(Math.max(...ahead))} m ahead, ${round(Math.min(...aside))} to ${round(Math.max(...aside))} m to its right;`
     + ` landed ${round(run.filter((t) => t.done).length / run.length)}, dealt ${round(dealing.length / run.length)} of them, down ${round(run.filter((t) => t.down).length / run.length)};`
     + ` run median ${round(median(seconds))} s; recovers ${recovered.length ? `median ${round(median(recovered))} s, ${round(Math.min(...recovered))} to ${round(Math.max(...recovered))} s, in ${recovered.length} of ${run.length}` : "recorded by none"}; cycle ${round(cycle)} s`);
 }

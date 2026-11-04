@@ -1,6 +1,7 @@
 /**
  * **The Strike drill's cases**: one strike skill thrown once, at a still body (`still`, and from
- * starts drawn at random, moving or still, `sampled`), at one
+ * starts drawn at random, moving or still, `sampled`), at one lying (`stomping`, and from starts
+ * drawn at random, `stomping-sampled`), at one
  * carried past on a rail (`moving`), at one walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
  * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`). The striker is the
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
@@ -155,6 +156,18 @@ const STOMPING = deepFreeze({ ...OPPONENT, hands: [] as Hand[], feet: ["left", "
   marks: ["middle"] as Mark[], opponent: "bare", settled: 2, patience: 12, seconds: 25, laid: LAID });
 
 /**
+ * **Stomping from starts drawn at random**, the `stomping-sampled` rung: the stomping rung's trials
+ * at a Warrior lying, each foot by turns, begun from starts drawn as the sampled rung's are, on
+ * the Warrior's and the Rogue's bodies: the target's gap ahead and offset across, either side, drawn from `gaps`
+ * (stepping in, from `closer`) and `across`, m. The striker walks round to the body lying and
+ * strikes the first step it is ready, where its walk enters its window, unless it began still, when
+ * it settles at its window's middle first: where in its window it began is what the trial records
+ * (`StrikeReading.inWindow`).
+ */
+const STOMPING_SAMPLED = deepFreeze({ ...STOMPING, models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
+  targets: ["workshop-fighter"] as BodyModel[], trials: 80, seed: 1, gaps: [.8, 1.2], closer: [1.2, 1.8], across: [-.2, .2], speeds: [.3, 1], times: [.3, 1] });
+
+/**
  * Rung 1, a moving target: the opponent rungs' trials at a pad on a rail (`Rail`, `src/arena/rail.ts`),
  * the Warrior's body held rigid as it was built under the bare mind, lifted `height` m and carried
  * in a line at each speed, m/s, toward the striker, away from it or across its front from its right
@@ -239,18 +252,21 @@ function railOf(moving: Moving, settled: number, direction: Direction, speed: nu
 }
 
 /**
- * **The sampled rung's trials** (`SAMPLED`): on each body, `trials` starts drawn in turn from one
- * stream, the same for every body, each drawn to the millimetre and the hundredth.
+ * **A sampled rung's trials** (`SAMPLED`, `STOMPING_SAMPLED`): on each body, `trials` starts drawn
+ * in turn from one stream, the same for every body, each drawn to the millimetre and the
+ * hundredth; its limbs, its hands then its feet, by turns, and its marks and targets by turns of them.
  */
-function sampledConditions(protocol: typeof SAMPLED): StillCondition[] {
+function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[] }): StillCondition[] {
   const conditions: StillCondition[] = [], within = ([low, high]: readonly number[], at: number) => low! + at * (high! - low!);
+  const limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
   for (const model of protocol.models) {
     const stream = randomStream(protocol.seed);
     for (let k = 0; k < protocol.trials; k++) {
-      const way = APPROACHES[k % APPROACHES.length]!, hand = protocol.hands[k % protocol.hands.length]!, mark = protocol.marks[Math.floor(k / protocol.hands.length) % protocol.marks.length]!;
+      const way = APPROACHES[k % APPROACHES.length]!, limb = limbs[k % limbs.length]!, turn = Math.floor(k / limbs.length), mark = protocol.marks[turn % protocol.marks.length]!;
+      const target = protocol.targets?.[turn % protocol.targets.length];
       const gap = within(way === 0 ? protocol.closer : protocol.gaps, stream.next()), across = within(protocol.across, stream.next());
       const speed = within(protocol.speeds, stream.next()), seconds = within(protocol.times, stream.next());
-      conditions.push({ model, mark, hand, across: Math.round(across * 1000) / 1000, gap: Math.round(gap * 1000) / 1000,
+      conditions.push({ model, mark, ...limb, ...(target === undefined ? {} : { target }), across: Math.round(across * 1000) / 1000, gap: Math.round(gap * 1000) / 1000,
         ...(way === null ? {} : { approach: { way, speed: Math.round(speed * 100) / 100, seconds: Math.round(seconds * 100) / 100 } }) });
     }
   }
@@ -328,5 +344,6 @@ export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, Strike
   moving: stillCases(MOVING), walk: stillCases(WALK),
   stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
   letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
+  "stomping-sampled": stillCases(STOMPING_SAMPLED, sampledConditions(STOMPING_SAMPLED)),
   "still-bodies": stillCases(onOtherBodies(STILL)), "walk-bodies": stillCases(onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
   "stomping-bodies": stillCases(onOtherBodies(STOMPING)) });

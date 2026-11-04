@@ -91,6 +91,16 @@ export function windowHolds(window: Window, x: number, z: number, heading: numbe
 }
 
 /**
+ * **Where in `window` a body at (`x`, `z`) on the ground, facing `heading`, stands**: its target's
+ * offset from the window's middle, ahead along `heading` and across to its right, m, as
+ * `windowHolds` reads the two (0, 0 at the middle).
+ */
+export function placeInWindow(window: Window, x: number, z: number, heading: number): [number, number] {
+  const dx = window.at[0] - x, dz = window.at[2] - z;
+  return [dx * sin(heading) + dz * cos(heading) - (window.along[0] + window.along[1]) / 2, dx * cos(heading) - dz * sin(heading) - (window.across[0] + window.across[1]) / 2];
+}
+
+/**
  * **Where a body at `from` stands with `window`'s middle on it**, walking straight: the ground point
  * and the way it faces there, rad. What a body tells of its window, a leader can walk it to.
  */
