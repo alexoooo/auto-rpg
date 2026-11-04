@@ -183,12 +183,20 @@ function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb) {
   const { muscles } = own, names = limbChannels(spec, own.spec)!;
   const channels = names.chain.map((name) => muscles.channel(name)), takes = names.chain.map((name) => spec.kind === "foot" || spec.takes.includes(name));
   const ahead = channels.map(() => NaN), toward = channels.map(() => 0), within = spec.kind === "foot" ? 0 : 1 / TAKES_SECONDS;
+  const jointAcceleration = new Float64Array(channels.length);
   return {
     channels, stem: names.stem.map((name) => muscles.channel(name)), ahead, toward,
     ask(goal: ArrayLike<number>, rate: number, transfer: boolean): void {
       for (let k = 0; k < channels.length; k++) {
         const i = channels[k]!, r = !transfer && takes[k] && within > 0 ? within : rate;
-        toward[k] = r * r * (goal[i]! - muscles.angle(i)) - 2 * r * muscles.rate(i);
+        jointAcceleration[k] = r * r * (goal[i]! - muscles.angle(i)) - 2 * r * muscles.rate(i);
+      }
+      // The posture closes joint angles; the bearing task and dynamics use motor-axis speeds.
+      for (let k = 0; k < channels.length; k++) {
+        const i = channels[k]!, channel = muscles.channels[i]!, first = k - channel.index;
+        let acceleration = 0;
+        for (let j = 0; j < channel.joint.dofs.length; j++) acceleration += muscles.turning(i, j) * jointAcceleration[first + j]!;
+        toward[k] = acceleration;
         ahead[k] = takes[k] ? NaN : toward[k]!;
       }
     },
