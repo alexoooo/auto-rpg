@@ -164,9 +164,9 @@ arbiter releases every action when another mind takes the body.
   `filledOf`); two fitting is a fault of the build, and an experiment passes another in
   (`OptionMindConfig.tuning`).
 - **Tuned per body**: a skill that reads a record (`Part.reads`: the blows, step up's and the
-  sit-back's timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
+  sit-back's poses and timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
   read as mind data by `bodyKey` from `assets/core/<skill>.json` (`dataOf`). A body with no record
-  does not use the skill.
+  does not use the skill. Step up's record may adjust the recovery poses and timings by loadout.
 - **Locomotion** (`Locomotion`): legs take one goal (`LegsGoal`) and say what they left undone
   (`LegsUnmet`), their envelope and how fast they stop. `stance-walk` walks within the stance's
   envelope; `walk-run` hands over to a run cycle fitted to motion capture

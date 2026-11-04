@@ -177,7 +177,7 @@
     }
   },
   "workshop-fighter+toes": {
-    "made": "Searched on its own target falls (Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty and with the club, a fall's score its verified standing and how soon.",
+    "made": "Recovery timings and loadout poses searched by research/rise-search.mjs for unassisted recovery within 10 s.",
     "settings": {
       "settle": {
         "speed": 0.372,
@@ -310,6 +310,176 @@
             "speed": 0.612,
             "near": 0.08728,
             "turn": 0.1333
+          }
+        }
+      },
+      "loadouts": {
+        "empty,club": {
+          "settle": {
+            "speed": 0.372,
+            "seconds": 0.05337
+          },
+          "climb": 0.58614,
+          "stages": {
+            "fold": {
+              "scale": 0.39359
+            },
+            "tuck": {
+              "scale": 0.21368
+            },
+            "prop": {
+              "scale": 0.25522
+            },
+            "fours": {
+              "scale": 0.33157,
+              "progress": {
+                "speed": 0.17,
+                "near": 0.05486,
+                "turn": 0.531
+              }
+            },
+            "up": {
+              "scale": 1,
+              "posture": {
+                "hip.left flexion": 0.60605,
+                "hip.right flexion": 0.60605
+              }
+            },
+            "plant": {
+              "scale": 1,
+              "posture": {
+                "knee.left flexion": 2.03436,
+                "knee.right flexion": 2.03436,
+                "hip.left flexion": 1.89916,
+                "hip.right flexion": 1.89916
+              }
+            }
+          }
+        },
+        "empty,sword": {
+          "settle": {
+            "speed": 0.372,
+            "seconds": 0.05337
+          },
+          "climb": 0.58614,
+          "stages": {
+            "fold": {
+              "scale": 0.39359
+            },
+            "tuck": {
+              "scale": 0.21368
+            },
+            "prop": {
+              "scale": 0.25522
+            },
+            "fours": {
+              "scale": 0.33157,
+              "progress": {
+                "speed": 0.17,
+                "near": 0.05486,
+                "turn": 0.531
+              }
+            },
+            "up": {
+              "scale": 1,
+              "posture": {
+                "hip.left flexion": 0.60605,
+                "hip.right flexion": 0.60605
+              }
+            },
+            "plant": {
+              "scale": 1,
+              "posture": {
+                "knee.left flexion": 2.03436,
+                "knee.right flexion": 2.03436,
+                "hip.left flexion": 1.89916,
+                "hip.right flexion": 1.89916
+              }
+            }
+          }
+        },
+        "buckler,club": {
+          "settle": {
+            "speed": 0.372,
+            "seconds": 0.05337
+          },
+          "climb": 0.74919,
+          "stages": {
+            "fold": {
+              "scale": 0.19361
+            },
+            "tuck": {
+              "scale": 0.27458
+            },
+            "prop": {
+              "scale": 0.25225
+            },
+            "fours": {
+              "scale": 0.3,
+              "progress": {
+                "speed": 0.17,
+                "near": 0.05486,
+                "turn": 0.531
+              }
+            },
+            "up": {
+              "scale": 1,
+              "posture": {
+                "hip.left flexion": 0.51392,
+                "hip.right flexion": 0.51392
+              }
+            },
+            "plant": {
+              "scale": 1,
+              "posture": {
+                "knee.left flexion": 2.06381,
+                "knee.right flexion": 2.06381,
+                "hip.left flexion": 2.00246,
+                "hip.right flexion": 2.00246
+              }
+            }
+          }
+        },
+        "buckler,sword": {
+          "settle": {
+            "speed": 0.372,
+            "seconds": 0.05337
+          },
+          "climb": 0.63972,
+          "stages": {
+            "fold": {
+              "scale": 0.48084
+            },
+            "tuck": {
+              "scale": 0.22922
+            },
+            "prop": {
+              "scale": 0.29327
+            },
+            "fours": {
+              "scale": 0.38714,
+              "progress": {
+                "speed": 0.17,
+                "near": 0.05486,
+                "turn": 0.531
+              }
+            },
+            "up": {
+              "scale": 1,
+              "posture": {
+                "hip.left flexion": 0.60943,
+                "hip.right flexion": 0.60943
+              }
+            },
+            "plant": {
+              "scale": 1,
+              "posture": {
+                "knee.left flexion": 2.04108,
+                "knee.right flexion": 2.04108,
+                "hip.left flexion": 1.74278,
+                "hip.right flexion": 1.74278
+              }
+            }
           }
         }
       }

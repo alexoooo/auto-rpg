@@ -13,9 +13,9 @@
  * Each profile names what it was measured on: the body as the fall builds it, the technique's
  * config, the world's rate and the command's delay. Node, core world, Rapier, 120 Hz.
  *
- *   node research/edge-profiles.mjs [--offsets 5.625,16.875] [--workers N] [--write]
+ *   node research/edge-profiles.mjs [--model <model>] [--offsets 5.625,16.875] [--workers N] [--write]
  */
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
@@ -32,7 +32,7 @@ const round = (x) => Number(x.toFixed(3));
 async function trialsOf(job) {
   await import("../tests/harness/preload-data.mjs");
   const { buildFall } = await import("../src/evaluation/fall.ts");
-  const { MINDS } = await import("../src/entrants/game.ts");
+  const { MINDS, partLookup } = await import("../src/entrants/game.ts");
   const { OPTIONS } = await import("../src/core/option/kinds.ts");
   const { TECHNIQUES } = await import("../src/core/recovery/ground/techniques.ts");
   const { tumbling } = await import("../src/core/control/ground-reading.ts");
@@ -86,17 +86,20 @@ async function trialsOf(job) {
     }
     const r = built.reading(), stood = r.stood && r.verified !== null, g = built.combatant.body.view.ground, t = built.world.time;
     for (const trial of [...open, ...waiting]) close(trial, t, g, stood, null);
-    return trials.map((trial) => ({ ...trial, measured: measuredOn(spec, techniqueDigest(trial.skill), hz, null, hz, delay), postures: groundStart(trial.from) }));
+    return trials.map((trial) => ({ ...trial, measured: measuredOn(spec, techniqueDigest(partLookup, spec, trial.skill), hz, null, hz, delay), postures: groundStart(trial.from) }));
   } finally { built.dispose(); }
 }
 
 if (isMainThread) {
-  const { values } = parseArgs({ options: { offsets: { type: "string", default: "5.625,16.875" }, workers: { type: "string" }, write: { type: "boolean", default: false } } });
+  const { values } = parseArgs({ options: { model: { type: "string" }, offsets: { type: "string", default: "5.625,16.875" }, workers: { type: "string" }, write: { type: "boolean", default: false } } });
   await import("../tests/harness/preload-data.mjs");
   const { risingJobs } = await import("../src/evaluation/rising.ts");
   const offsets = values.offsets.split(",").map(Number);
-  const jobs = offsets.flatMap((offset) => risingJobs({ target: true, offset })).map(({ model, loadout, seed, start, degrees, balance, grit, gusts }) =>
+  const jobs = offsets.flatMap((offset) => risingJobs({ target: true, offset })).filter((job) => !values.model || job.model === values.model).map(({ model, loadout, seed, start, degrees, balance, grit, gusts }) =>
     ({ model, loadout, seed, start, degrees, balance, grit, gusts, target: true }));
+  if (!jobs.length) throw new Error(`no profile falls for ${values.model}`);
+  const retained = values.model ? JSON.parse(readFileSync(OUT, "utf8")) : null;
+  if (retained && JSON.stringify(retained.source.offsets) !== JSON.stringify(offsets)) throw new Error("a body's profile refresh keeps the existing offsets");
   const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 2)));
   // Each fall's trials kept by its place among the falls, so the profiles do not depend on which worker ends first.
   const started = Date.now(), byFall = [], queue = jobs.map((job, i) => [i, job]);
@@ -122,7 +125,11 @@ if (isMainThread) {
     for (const t of p.trials) { const f = byFrom.get(t.start.postures.own) ?? { n: 0, done: 0, seconds: 0 }; f.n++; f.done += t.done ? 1 : 0; f.seconds += t.seconds; byFrom.set(t.start.postures.own, f); }
     console.log(`${p.label} ${p.measured.spec}: ${[...byFrom].map(([from, f]) => `from ${from} ${f.done}/${f.n} done, ${(f.seconds / f.n).toFixed(2)} s`).join("; ")}`);
   }
-  const out = { source: { script: "research/edge-profiles.mjs", falls: "rising-target", offsets }, profiles: sorted.map((p) => ({ measured: p.measured, target: null, trials: p.trials })) };
+  const { modelSpec } = await import("../src/core/models.ts"), { bodyKey } = await import("../src/core/spec/body.ts");
+  const body = values.model ? bodyKey(modelSpec(values.model)) : null;
+  const refreshed = sorted.map((p) => ({ measured: p.measured, target: null, trials: p.trials }));
+  const out = { source: { script: "research/edge-profiles.mjs", falls: "rising-target", offsets },
+    profiles: [...(retained?.profiles.filter((p) => p.measured.body !== body) ?? []), ...refreshed] };
   // A trial a line: the file stays readable at a few thousand trials.
   const text = `{\n  "source": ${JSON.stringify(out.source)},\n  "profiles": [\n${out.profiles.map((p) =>
     `    { "measured": ${JSON.stringify(p.measured)}, "target": null, "trials": [\n${p.trials.map((t) => `      ${JSON.stringify(t)}`).join(",\n")}\n    ] }`).join(",\n")}\n  ]\n}\n`;

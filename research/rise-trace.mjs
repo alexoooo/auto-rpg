@@ -65,7 +65,8 @@ async function traceFall(job) {
       // Each idle settling begun: how far each sole stands from its target, m.
       const target = legs?.idle?.target ?? null;
       if (target && target !== idleTarget) {
-        const soles = built.combatant.body.view.stance.soles;
+        const ends = built.combatant.body.view.stance.ends;
+        const soles = { left: ends["foot.left"].middle, right: ends["foot.right"].middle };
         const off = (side) => Math.hypot(soles[side].x - target[side][0], soles[side].z - target[side][1]);
         idles.push({ at: time, left: +off("left").toFixed(3), right: +off("right").toFixed(3),
           apart: +Math.hypot(soles.left.x - soles.right.x, soles.left.z - soles.right.z).toFixed(3) });

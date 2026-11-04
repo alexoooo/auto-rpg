@@ -149,7 +149,7 @@ function attempt(given: OptionsGiven, part: TechniquePart, edges: readonly Edge[
  * the body lies now (`priced`).
  */
 function groundWay(given: OptionsGiven, skill: PartConfig, name: string, prior: Prior): { readonly way: (from: Position) => Way; readonly priced: (now: Situation) => string } {
-  const { expected, priced } = edgeExpected(given.spec, skill, given.hz, given.delay, given.tables.edges);
+  const { expected, priced } = edgeExpected(given.parts, given.spec, skill, given.hz, given.delay, given.tables.edges);
   const measured = (from: Position): Way | null => expected?.(from) ?? null;
   return {
     way: (from) => recordedWay(measured(from) ?? { ...prior, ends: [] }, given.record.of(name, from), from),

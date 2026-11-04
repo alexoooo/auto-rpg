@@ -18,7 +18,7 @@ it reads by.
 |---|---|---|
 | `physiques.mjs` | the physique grid and its ranges (`PHYSIQUE_GRID`, `physiqueRanges`, `physiqueGrid`) | |
 | `core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/core/<legs>-envelope.json` |
-| `strike-profiles.mjs`, `edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on | `assets/core/strike-profiles.json`, `assets/core/edge-profiles.json` |
+| `strike-profiles.mjs`, `edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on; `edge-profiles --model` refreshes one body's at the existing offsets | `assets/core/strike-profiles.json`, `assets/core/edge-profiles.json` |
 | `skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/core/<skill>.json`, `.meta.json`, every run |
 | `skill-search.mjs` | a skill's settings (the stomp's, `SEARCHES`) searched on one body by CMA-ES on its task's trials; `--confirm` keeps the best only where it beats the start on fresh trials | `--out`; with `--confirm --write`, the body's row (through `skill-records.mjs`) |
 | `swing-drill.mjs` | a swung blow (`cut`, `club-blow`) searched on the Strike drill's still rung: each channel's windup and push, where it stands, how long it settles; `--verify` plays a found one | `--out` |
@@ -33,6 +33,7 @@ it reads by.
 | `core-rise.mjs`, `-trials.mjs`, `-worker.mjs` | the battery of falls: every model shoved sixteen ways (`--shoves`, `--turn`), with the club and without, watched (`--watch`) under a mind (`--mind`): how many rose, how fast, the furthest stage | |
 | `core-rise-poses.mjs` | stages played on a body toppled stiff (`--lie`, `--degrees`): how it lies at each stage's end | |
 | `rise-trace.mjs` | where a whole mind's rise spends its time on the stand-up target's falls: each ground action, where it began, how long, its stages and how it ended | `--out` |
+| `rise-search.mjs` | one body's staged recovery timings and poses searched through immutable technique tunings on a subset of target falls; fresh falls reserved for confirmation | `--out`: settings, trial readings and CMA checkpoint |
 | `rise-witness.mjs` | whether a fast rise exists on the body as built: CMA-ES for one trajectory of pose and bearing phases from a placed start to verified standing within the target's allowance | `--out`: `.best.json`, `.jsonl` |
 | `climb.mjs` | no measurement: Stand up's steady (`standUp`) with research variants, for `crouch-steady.mjs` and `rise-witness.mjs` | |
 | `crouch-steady.mjs` | the steady from the Warrior's stored squat, under `climb.mjs`'s variants: the time to verified standing | |

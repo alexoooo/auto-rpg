@@ -31,7 +31,8 @@ Where the project is going and what is open. What is built is in the
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
 | [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |
 
-Now: Option Mind general. After it: Options trained body by body, the rat's open steps, fights
+Now: the Warrior's stand-up within 10 s in every loadout, held on fresh falls. After it: the
+remaining Options trained body by body, the rat's open steps, fights
 the owner watches, the Strike drill's rungs, Footwork's rungs, the Commander in the Crypt with
 Option Mind as its hero.
 

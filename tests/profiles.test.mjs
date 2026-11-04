@@ -2,12 +2,12 @@ import "./harness/preload-data.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { allParts, MINDS, treeLookup } from "../src/entrants/game.ts";
+import { allParts, MINDS, partLookup, treeLookup } from "../src/entrants/game.ts";
 import { presetFitsModel } from "../src/core/mind/controller.ts";
 import { BODY_MODELS, modelHolds, resolveCharacter } from "../src/core/models.ts";
 import { LOADOUTS, loadoutFaults, withLoadout } from "../src/core/items/held.ts";
 import { limbAction, skillsOf } from "../src/core/option/kinds.ts";
-import { profileReading, skillDigest, specDigest, techniqueDigest } from "../src/core/skills/framework/profile.ts";
+import { edgeExpected, groundStart, measuredOn, profileReading, skillDigest, specDigest, techniqueDigest } from "../src/core/skills/framework/profile.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 import { record } from "../src/core/option/value.ts";
 import { modelSpec } from "../src/core/models.ts";
@@ -28,7 +28,7 @@ test("every measured profile is of a current skill on a current body", () => {
   }
   const on = (spec, skill) => `${bodyKey(spec)} ${specDigest(spec)} ${skill}`;
   const keys = { strike: new Set(), edge: new Set() };
-  const techniques = Object.entries(allParts()).filter(([, part]) => part.role === "technique").map(([kind]) => techniqueDigest({ kind }));
+  const techniques = Object.entries(allParts()).filter(([, part]) => part.role === "technique").map(([kind]) => ({ kind }));
   for (const preset of Object.values(MINDS)) {
     const config = preset.config, parts = treeLookup(config);
     if (config.frame || !Array.isArray(config.options)) continue;
@@ -38,7 +38,7 @@ test("every measured profile is of a current skill on a current body", () => {
       for (const action of actions) for (const limb of action.effectors) keys.strike.add(on(spec, skillDigest(parts, spec, executors, limbAction(action, limb))));
     }
   }
-  for (const { spec } of bodies) for (const technique of techniques) keys.edge.add(on(spec, technique));
+  for (const { spec } of bodies) for (const technique of techniques) keys.edge.add(on(spec, techniqueDigest(partLookup, spec, technique)));
   assert.ok(keys.strike.size > 0 && keys.edge.size > 0, "the presets reached strikes and techniques to key profiles by");
   const stale = [];
   for (const kind of Object.keys(keys)) {
@@ -48,6 +48,18 @@ test("every measured profile is of a current skill on a current body", () => {
       stale.push(`${kind}: ${measured.body} (spec ${measured.spec}), skill ${measured.skill}`);
   }
   assert.deepEqual(stale, [], "profiles keyed to no current skill on a current body: measure them again (research/<kind>-profiles.mjs)");
+});
+
+test("a ground profile is refused when its technique starts reading a body's recovery record", () => {
+  const spec = modelSpec("workshop-fighter"), technique = { kind: "front-sit-back" };
+  const before = { of: () => ({ reads: () => [] }) }, after = { of: () => ({ reads: () => ["step-up"] }) };
+  const skill = techniqueDigest(before, spec, technique);
+  const profile = { measured: measuredOn(spec, skill, 120, null, 120, 1), target: null,
+    trials: [{ start: { range: 0, phase: "clear", postures: groundStart("front") }, done: true, dealt: 0, taken: 0, seconds: 2, recovers: null, down: false }] };
+  assert.ok(edgeExpected(before, spec, technique, 120, 1, [profile]).expected?.("front"), "the profile is readable before the technique depends on the record");
+  assert.notEqual(techniqueDigest(after, spec, technique), skill);
+  assert.notEqual(techniqueDigest(after, spec, technique), techniqueDigest(after, { ...spec, model: "unrecorded" }, technique), "the digest reads this body's record");
+  assert.deepEqual(edgeExpected(after, spec, technique, 120, 1, [profile]), { expected: null, priced: "no drill measured it" });
 });
 
 /**
