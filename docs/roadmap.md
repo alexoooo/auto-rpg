@@ -26,7 +26,7 @@ Where the project is going and what is open. What is built is in the
 | Plan | What it builds |
 | --- | --- |
 | [Option Mind general](plans/2026-11-03-option-mind-general.md) | the known bugs fixed; Option Mind one loop and one body contract for every body, every act an Option; bodies told apart in data; skills developed against their own baselines |
-| [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | the tree's decisions within a step's 8.33 ms at the 99th percentile at 100 runs: the report copied once it changes, a decision spread over steps, the tree kept, the profiles read from a table, a learned leaf |
+| [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | the tree's decisions within a step's 8.33 ms at the 99th percentile at 100 runs: a decision spread over steps, the tree kept, the profiles read from a table, a learned leaf |
 | [Options trained body by body](plans/2026-11-03-options-training.md) | after Option Mind general: stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
 | [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |

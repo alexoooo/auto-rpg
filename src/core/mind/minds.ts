@@ -71,7 +71,7 @@ export function createMind(catalog: Catalog, built: BuiltBody, world: World, con
     return { state: MIND_APART, report: apart.report, kind: config.kind, body: physicalBody(built, apart.held, world, apart.has, apart.state, apart.dispose) };
   }
   let mind: MindMade | null = null, said: Omit<ReportNow, "engagement"> | null = null;
-  const { host, made } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { said = saidOf(mind!.report); } });
+  const { host, made } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { said = saidOf(mind!.report, said); } });
   mind = catalog.controllerOf(config).create(host, config, wiring);
   const live = mind.report;
   if (!live) return { ...mind, kind: config.kind, body: made() };
@@ -80,11 +80,40 @@ export function createMind(catalog: Catalog, built: BuiltBody, world: World, con
 }
 
 /** What `report` says now, its menu and engagement aside, as plain data that what it goes on to do leaves as it is: as a mind apart's crosses. */
-const saidOf = (report: MindReport | undefined): Omit<ReportNow, "engagement"> | null => {
+const saidOf = (report: MindReport | undefined, previous: Omit<ReportNow, "engagement"> | null = null): Omit<ReportNow, "engagement"> | null => {
   if (!report) return null;
   const { kit, gait, engagement: _shown, ...rest } = reportNow(report);
-  return { ...structuredClone(rest), kit, gait };
+  return { ...snapshot(rest, previous) as typeof rest, kit, gait };
 };
+
+/**
+ * An answer's records and arrays, detached from the live report: each unchanged branch keeps its
+ * previous snapshot, and each changed branch copies only the path to its changed values. Report
+ * fields are compared by value, including through getters: a producer may mutate them in place.
+ */
+function snapshot(value: unknown, previous: unknown): unknown {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    const was = Array.isArray(previous) ? previous : [];
+    let copy: unknown[] | null = Array.isArray(previous) && was.length === value.length ? null : new Array(value.length);
+    for (let i = 0; i < value.length; i++) {
+      const item = snapshot(value[i], was[i]);
+      if (!copy && !Object.is(item, was[i])) copy = was.slice();
+      if (copy) copy[i] = item;
+    }
+    return copy ?? was;
+  }
+  const now = value as Record<string, unknown>;
+  const was = previous !== null && typeof previous === "object" && !Array.isArray(previous) ? previous as Record<string, unknown> : null;
+  const keys = Object.keys(now), before = was ? Object.keys(was) : [];
+  let copy: Record<string, unknown> | null = was && keys.length === before.length && keys.every((key, i) => key === before[i]) ? null : {};
+  for (const key of keys) {
+    const item = snapshot(now[key], was?.[key]);
+    if (!copy && !Object.is(item, was![key])) copy = { ...was };
+    if (copy) copy[key] = item;
+  }
+  return copy ?? was;
+}
 
 /** A mind's report read from what it last said (`said`), and what it shows a person and its menu from `live`, which only a page reads. */
 function saidReport(said: () => Omit<ReportNow, "engagement">, live: MindReport): MindReport {

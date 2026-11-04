@@ -233,7 +233,9 @@ world. It is made with its own body (`OwnBody`); its memory is its `state`. A pe
   make the command every step from the intent last decided.
 - **The report** (`MindReport`, `report.ts`) says what a mind is engaged in, weighing and doing,
   read without moving its state. Screens and Commanders read the report, never a mind's kind or
-  state.
+  state. Each answer snapshots its prospects, heading, navigation, actions and endings (`saidOf`,
+  `minds.ts`), reusing unchanged branches by value; subsequent live writes leave retained
+  snapshots unchanged. Engagement, the menu, the kit and the gait read their live sources.
 
 **A mind is its config.** A `MindConfig` is plain data tagged by kind; `createMind` (`minds.ts`)
 makes it by the kind's `Controller` found in a `Catalog` (`src/core/parts/catalog.ts`). A mind is a

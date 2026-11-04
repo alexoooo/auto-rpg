@@ -14,7 +14,6 @@ Where a bout's time goes (one CPU profile over three match bouts, Node, core wor
 | The tree's searches | about 23 % |
 | ... of which scoring each new state (its leaf) | about 21 % |
 | ... of which reading the strike profiles (`pressureAt`, `dealtAt`, nearest trials) | about 9 % |
-| Copying each mind's report every step (`structuredClone` in `saidOf`, `src/core/mind/minds.ts`) | about 10 % |
 | The physics (Rapier) | about 22 % |
 
 A search begins about one mind-step in seven (2800 in the three bouts), its median 3.9 ms and its
@@ -54,8 +53,8 @@ changes, and the cost reading before and after.
 
 ### 1. The report copied once it changes
 
-`saidOf` clones every mind's report every step. It copies only what changed since the step
-before, or what a reader takes, so the copy stays a snapshot no later step writes into. A speed
+`saidOf` snapshots every mind's report with each answer, comparing records and arrays by value
+and copying only changed branches. The copy stays a snapshot no later live write changes. A speed
 rewrite: no fingerprint case moves. Check: the cost reading; the worker tests replay to the bit.
 
 ### 2. A decision spread over steps
