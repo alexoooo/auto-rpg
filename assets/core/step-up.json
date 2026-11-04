@@ -481,6 +481,48 @@
               }
             }
           }
+        },
+        "empty,empty": {
+          "settle": {
+            "speed": 0.372,
+            "seconds": 0.05337
+          },
+          "climb": 0.75878,
+          "stages": {
+            "fold": {
+              "scale": 0.28804
+            },
+            "tuck": {
+              "scale": 0.17818
+            },
+            "prop": {
+              "scale": 0.22093
+            },
+            "fours": {
+              "scale": 0.50465,
+              "progress": {
+                "speed": 0.17,
+                "near": 0.05486,
+                "turn": 0.531
+              }
+            },
+            "up": {
+              "scale": 1,
+              "posture": {
+                "hip.left flexion": 0.60488,
+                "hip.right flexion": 0.60488
+              }
+            },
+            "plant": {
+              "scale": 1,
+              "posture": {
+                "knee.left flexion": 2.12692,
+                "knee.right flexion": 2.12692,
+                "hip.left flexion": 2.03348,
+                "hip.right flexion": 2.03348
+              }
+            }
+          }
         }
       }
     }
