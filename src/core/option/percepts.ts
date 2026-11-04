@@ -389,16 +389,18 @@ export interface DownRate { readonly blows: number; readonly standing: number }
 
 /**
  * **What a second costs the body down in `posture` rather than on its feet** (`DownRate`) against
- * a foe of `foe`: the blows of the foe standing over it (`Pressure.peak`: the foe's strikes read
- * at a target lying in that posture, in the phase down), and what a second on its feet is worth:
- * the most its own strikes take of the foe a second less the most the foe's take of it, the two
- * standing, each read at the phase the other is in now, none below nothing, since a body on its
- * feet can keep out of reach.
+ * a foe of `foe` as it is (`sensedPosture`; standing with no focus), as the foe's pressure reads
+ * it: the blows of the foe over it (`Pressure.peak`: the foe's strikes read at its posture and a
+ * target lying in that posture, in the phase down; a foe lying deals none by hand, `placingAt`),
+ * and what a second on its feet is worth: the most its own strikes take of the foe as it is a
+ * second less the most the foe's take of it standing, each read at the phase the other is in now,
+ * none below nothing, since a body on its feet can keep out of reach.
  */
 function downRateOf(seen: Seen, foe: BodySpec, posture: Position): DownRate {
-  const { focus, spec } = seen, blows = pressureBy(seen, foeModel(seen, foe, { own: "standing", target: posture }), "down", foe, spec, "over").peak;
-  const theirs = pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, "over").peak;
-  const own = pressureBy(seen, ownModel(seen), focus ? foePhase(focus, seen.blow) : "clear", spec, foe, "over").peak;
+  const { focus, spec } = seen, foeAt = focus ? sensedPosture(focus) : "standing", over: Placing = placingAt(foeAt) && "over";
+  const blows = pressureBy(seen, foeModel(seen, foe, { own: foeAt, target: posture }), "down", foe, spec, over).peak;
+  const theirs = pressureBy(seen, foeModel(seen, foe, { own: foeAt, target: "standing" }), ownPhase(seen), foe, spec, over).peak;
+  const own = pressureBy(seen, ownModel(seen, { own: "standing", target: foeAt }), focus ? foePhase(focus, seen.blow) : "clear", spec, foe, "over").peak;
   return { blows, standing: Math.max(0, own - theirs) };
 }
 
