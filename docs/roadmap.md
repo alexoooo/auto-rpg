@@ -26,6 +26,7 @@ Where the project is going and what is open. What is built is in the
 | Plan | What it builds |
 | --- | --- |
 | [Option Mind general](plans/2026-11-03-option-mind-general.md) | the known bugs fixed; Option Mind one loop and one body contract for every body, every act an Option; bodies told apart in data; skills developed against their own baselines |
+| [Option Mind's tree search](plans/2026-11-04-option-tree-search.md) | a Monte Carlo tree search over the Options' models in place of the two-deep search and its leaf patterns, if it wins the match |
 | [Options trained body by body](plans/2026-11-03-options-training.md) | after Option Mind general: stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
 | [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |
