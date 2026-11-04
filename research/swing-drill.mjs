@@ -93,7 +93,7 @@ export function settingsOf({ wound, timed, reach, settle }, hand) {
 export function swinger(decoded, hand, blow, mark) {
   const preset = MINDS.option.config, other = hand === "left" ? "right" : "left", tuning = settingsOf(decoded, hand);
   const options = preset.options.map((option) => option.kind.startsWith("strike-") && option.skill.kind === blow ? { ...option, skill: { ...option.skill, tuning }, regions: [{ kind: "mark", mark }] } : option);
-  return { mind: { ...preset, options }, action: blow,
+  return { mind: { ...preset, options }, skill: blow,
     held: { [hand]: SWINGS[blow].item, [other]: "buckler" } };
 }
 

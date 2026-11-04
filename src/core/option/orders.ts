@@ -18,7 +18,7 @@ const fights = (now: Situation): boolean => now.orders?.foe !== undefined && (no
 /**
  * **Follow orders**: walk or stop and face as ordered (`orderedIntent`), and nothing else: it asks
  * no blow, so an ordered foe is struck by the strike options (`strike`, which keep to the orders'
- * region, action and limb, `orderedTarget`, `orderAllows`). On offer while the legs can carry the
+ * region, skill and limb, `orderedTarget`, `orderAllows`). On offer while the legs can carry the
  * body (`legsReadiness`) and it has an explicit movement, stop or facing order. It claims the legs
  * and the trunk, and holds the legs and what its walk holds; it yields, but to firm orders to move
  * or stand that name no foe (`Orders.firm`), which it keeps: a foe's are its strikes' to carry out.

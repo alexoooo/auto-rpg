@@ -40,7 +40,7 @@ const CROWDED = Object.freeze({ metres: 2.5, headway: 0.1, seconds: 3 });
 const IDLE: TeamOrder = Object.freeze({ kind: "idle" });
 
 /** What `of` names of how to strike, and nothing it leaves out. */
-const choiceOf = (of: StrikeChoice): StrikeChoice => ({ ...(of.action === undefined ? {} : { action: of.action }),
+const choiceOf = (of: StrikeChoice): StrikeChoice => ({ ...(of.skill === undefined ? {} : { skill: of.skill }),
   ...(of.limb === undefined ? {} : { limb: of.limb }), ...(of.region === undefined ? {} : { region: structuredClone(of.region) }) });
 
 /** What the party remembers of a member. */

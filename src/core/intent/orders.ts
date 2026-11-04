@@ -11,7 +11,7 @@ export type Heading = GroundPoint;
  * **What a body is told to do**, by a person, a team's plan or its own mind: plain data, in
  * the world's frame, naming no joint or camera, and a pace only as a ceiling. A mind that takes orders carries them out
  * (`Part.obeys`); the body defends itself meanwhile. An order says as much as it likes: what it
- * leaves out its mind chooses (no `foe`, whom it fights; a `foe` and no `region`, `action` or
+ * leaves out its mind chooses (no `foe`, whom it fights; a `foe` and no `region`, `skill` or
  * `limb`, where and how it strikes it), and what it names the mind keeps to (`orderAllows`,
  * `orderedRegions`, `orderedTarget`).
  */
@@ -30,11 +30,11 @@ export interface Orders {
   readonly face: Heading | null;
   /** Attack this sensed body (`BodySense.id`) where the mind chooses on it. */
   readonly foe?: string;
-  /** Aim at this region of the ordered body, a mark or a segment (`Region`); absent, at the regions each action aims at. */
+  /** Aim at this region of the ordered body, a mark or a segment (`Region`); absent, at the regions each strike aims at. */
   readonly region?: Region;
-  /** Strike the ordered body with this action, by the name the mind's kit gives it (`KitEntry.action`: an Option Mind's strike is named by its skill, `strikeAction`); absent, with any. */
-  readonly action?: string;
-  /** Strike it with this limb, an effector (`hand.right`, `foot.left`); absent, with any. */
+  /** Strike the ordered body by this skill the body has, its executor's kind (`KitEntry.kind`: `straight-punch`, `club-blow`); absent, by any. */
+  readonly skill?: string;
+  /** Strike it with this limb, an effector (`hand.right`, `foot.left`); absent, with any limb that fits the skill. */
   readonly limb?: string;
   /** Carry them out first: a mind that weighs orders against its own judgement puts them before it. Absent, as the mind weighs them. */
   readonly firm?: true;
@@ -43,13 +43,13 @@ export interface Orders {
 export const STAND_ORDERS: Orders = Object.freeze({ move: null, face: null });
 
 /**
- * Whether `orders` allow `action` with `limb` at `foe`: always, but where they move or stand the
- * body and name no foe (the hands are held from blows), or name that foe and another action or
- * another limb.
+ * Whether `orders` allow a strike by `skill` (its executor's kind) with `limb` at `foe`: always,
+ * but where they move or stand the body and name no foe (the hands are held from blows), or name
+ * that foe and another skill or another limb.
  */
-export const orderAllows = (orders: Orders | null, foe: string, action: string, limb: string): boolean =>
+export const orderAllows = (orders: Orders | null, foe: string, skill: string, limb: string): boolean =>
   orders === null || (orders.foe === undefined ? orders.move === undefined
-    : orders.foe !== foe || (orders.action === undefined || orders.action === action) && (orders.limb === undefined || orders.limb === limb));
+    : orders.foe !== foe || (orders.skill === undefined || orders.skill === skill) && (orders.limb === undefined || orders.limb === limb));
 
 /** The regions to aim at at `foe`: the region `orders` name there, else `regions`, an action's own. */
 export const orderedRegions = (orders: Orders | null, foe: string, regions: readonly Region[]): readonly Region[] =>
@@ -60,10 +60,6 @@ export function orderedTarget(orders: Orders | null, foe: { readonly id: string;
   const region = orderedRegions(orders, foe.id, regions).find((r) => regionSegments(foe.spec, r).length > 0);
   return region ? { kind: "body", body: foe.id, region } : null;
 }
-
-/** What `orders` name of a strike, as one string: a mind that keeps what it chose for an order chooses again when this changes. */
-export const struckKey = (orders: Orders | null): string | null =>
-  orders?.foe === undefined ? null : JSON.stringify([orders.foe, orders.region ?? null, orders.action ?? null, orders.limb ?? null]);
 
 const MARKS: readonly string[] = ["high", "middle", "legs", "any"];
 
@@ -81,14 +77,14 @@ const isHeading = (value: unknown): value is Heading => typeof value === "object
 /** Whether `value` is orders: what orders read from outside the program must be before a body is given them. */
 export function isOrders(value: unknown): value is Orders {
   if (typeof value !== "object" || value === null) return false;
-  const { move, pace, walk, gait, lower, face, foe, region, action, limb, firm } = value as Record<string, unknown>;
+  const { move, pace, walk, gait, lower, face, foe, region, skill, limb, firm } = value as Record<string, unknown>;
   const named = (one: unknown) => one === undefined || typeof one === "string" && one.length > 0 && foe !== undefined;
   return (move === undefined || move === null || isMovement(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
     && (lower === undefined || typeof lower === "number" && Number.isFinite(lower) && lower >= 0)
     && (walk === undefined || walk === true) && (firm === undefined || firm === true) && (gait === undefined || (GAIT_NAMES as readonly unknown[]).includes(gait))
     && (foe === undefined || typeof foe === "string" && foe.length > 0)
-    && (region === undefined || isRegion(region) && foe !== undefined) && named(action) && named(limb)
-    && Object.keys(value).every(key => ["move", "pace", "walk", "gait", "lower", "face", "foe", "region", "action", "limb", "firm"].includes(key));
+    && (region === undefined || isRegion(region) && foe !== undefined) && named(skill) && named(limb)
+    && Object.keys(value).every(key => ["move", "pace", "walk", "gait", "lower", "face", "foe", "region", "skill", "limb", "firm"].includes(key));
 }
 
 /** Whether two orders, or two absences of them, say the same thing. */

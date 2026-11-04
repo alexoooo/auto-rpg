@@ -3,14 +3,14 @@ import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArriva
 import { ARRIVED, directMovement, placeMovement, SWAY } from "../intent/movement.ts";
 import { isRegion, type Orders } from "../intent/orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../skills/framework/action.ts";
-import type { MenuEntry } from "../skills/framework/menu.ts";
+import { skillOf, type KitEntry, type MenuEntry } from "../skills/framework/menu.ts";
 import { deepFreeze } from "../state.ts";
 import { hold, letGo, stillHeld, unheld } from "../mind/held.ts";
 import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamView } from "./team.ts";
 
 /**
- * **A drill Commander's config**: one action with one limb at one region of the nearest foe, asked
+ * **A drill Commander's config**: one skill with one limb at one region of the nearest foe, asked
  * once; where it leaves one of the three out, the first choice of its member's menu that fits the
  * rest and could start or be walked to, kept once taken. It stands `after` s; with `approach`, walks
  * its way off the line to the foe, ordering the strike the first step it is ready; walks into the
@@ -23,8 +23,8 @@ import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, Tea
  */
 export interface DrillCommanderConfig extends CommanderConfig {
   readonly kind: "drill";
-  /** The action, by the name its member's kit gives it (`KitEntry.action`); absent, any. */
-  readonly action?: string;
+  /** The skill, its executor's kind (`KitEntry.kind`, as an order names it, `Orders.skill`); absent, any. */
+  readonly skill?: string;
   /** The limb, an effector (`hand.right`, `foot.left`); absent, any. */
   readonly limb?: string;
   /** The region of the foe, a mark or a segment; absent, any the action aims at. */
@@ -84,11 +84,11 @@ const sameRegion = (a: Region | null, b: Region | null): boolean => a !== null &
 
 /**
  * **Whether a drill asking `config`'s choice takes `action` as its own**: an action under way at a
- * body, the action, limb and region its config names (each where it names one). At its moment the
- * drill carries such an action on rather than letting it go and ordering it again.
+ * body, by the skill (as `kit` has it), limb and region its config names (each where it names one).
+ * At its moment the drill carries such an action on rather than letting it go and ordering it again.
  */
-function adopts(config: Pick<DrillCommanderConfig, "action" | "limb" | "region">, action: ActionStatus): boolean {
-  return action.target.kind === "body" && (config.action === undefined || action.action === config.action)
+function adopts(config: Pick<DrillCommanderConfig, "skill" | "limb" | "region">, action: ActionStatus, kit: readonly KitEntry[]): boolean {
+  return action.target.kind === "body" && (config.skill === undefined || skillOf(kit, action.action) === config.skill)
     && (config.limb === undefined || action.effector === config.limb)
     && (config.region === undefined || sameRegion(action.target.region, config.region));
 }
@@ -102,8 +102,8 @@ function adopts(config: Pick<DrillCommanderConfig, "action" | "limb" | "region">
  */
 const HELD_SPOT = Object.freeze({ moved: .3, rethink: 1 });
 
-/** The choice a drill orders: an action, a limb and a region. */
-type Choice = { readonly action: string; readonly limb: string; readonly region: Region };
+/** The choice a drill orders: a skill, a limb and a region. */
+type Choice = { readonly skill: string; readonly limb: string; readonly region: Region };
 
 /** **The drill Commander** (`DrillCommanderConfig`): it leads its team's first member. */
 function drillCommander(config: DrillCommanderConfig): Commander {
@@ -146,12 +146,12 @@ function drillCommander(config: DrillCommanderConfig): Commander {
   };
   /** The menu's entry for its choice at `foe`, or, before it has one, the first that fits its config and could start or be walked to (which it then keeps), else the first that fits. */
   const ordered = (member: MemberView, foe: string): MenuEntry | null => {
-    const fits = (entry: MenuEntry, want: Partial<Choice>) => entry.foe === foe && entry.region !== null && (want.action === undefined || entry.action === want.action)
+    const fits = (entry: MenuEntry, want: Partial<Choice>) => entry.foe === foe && entry.region !== null && (want.skill === undefined || entry.skill === want.skill)
       && (want.limb === undefined || entry.limb === want.limb) && (want.region === undefined || sameRegion(entry.region, want.region));
     const menu = member.menu ?? [];
     if (state.choice) return menu.find((entry) => fits(entry, state.choice!)) ?? null;
     const open = menu.find((entry) => fits(entry, config) && (entry.readiness.kind === "ready" || entry.readiness.kind === "position"));
-    if (open) state.choice = { action: open.action, limb: open.limb, region: open.region! };
+    if (open) state.choice = { skill: open.skill, limb: open.limb, region: open.region! };
     return open ?? menu.find((entry) => fits(entry, config)) ?? null;
   };
   /**
@@ -182,8 +182,9 @@ function drillCommander(config: DrillCommanderConfig): Commander {
         state.since = view.time - config.after;
         // The moment's own action, where it is the choice asked, is carried on as the drill's.
         const own = member.actions?.find((action) => action.id === state.begun[(config.moment ?? 0) - 1]);
-        if (own && own.target.kind === "body" && adopts(config, own)) {
-          state.choice = { action: own.action, limb: own.effector, region: own.target.region };
+        const skill = own ? skillOf(member.kit ?? [], own.action) : null;
+        if (own && own.target.kind === "body" && skill !== null && adopts(config, own, member.kit ?? [])) {
+          state.choice = { skill, limb: own.effector, region: own.target.region };
           state.struck = own.target.body; state.id = own.id; state.began = view.time; state.phase = "under way";
         }
       }
@@ -192,7 +193,7 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       state.focus = foe?.id ?? null;
       if (state.phase === "striking") {
         // The step it first sees its strike begun, it reads it as under way, a let-go included.
-        const begun = member.actions?.find((action) => action.action === state.choice!.action && action.effector === state.choice!.limb && !state.begun.includes(action.id));
+        const begun = member.actions?.find((action) => skillOf(member.kit ?? [], action.action) === state.choice!.skill && action.effector === state.choice!.limb && !state.begun.includes(action.id));
         if (!begun) return decided(member, strike(state.struck!, state.set));
         state.id = begun.id; state.began = view.time; state.phase = "under way";
       }
@@ -266,8 +267,8 @@ function drillCommander(config: DrillCommanderConfig): Commander {
 
   /** The order to strike `foe` as the drill asks, standing and facing `face` (as it stands where none). */
   function strike(foe: string, face: number | null): Orders {
-    const { action, limb, region } = state.choice!;
-    return { move: null, face: face === null ? null : heading(face), foe, region, action, limb };
+    const { skill, limb, region } = state.choice!;
+    return { move: null, face: face === null ? null : heading(face), foe, region, skill, limb };
   }
 }
 
@@ -280,14 +281,14 @@ const approachFine = (value: unknown): boolean => {
 };
 const time = (value: unknown): boolean => typeof value === "number" && Number.isFinite(value) && value >= 0;
 
-/** **A drill** (`drillCommander`): one action with one limb at one region of the nearest foe. It leads no side of a Crypt run. */
+/** **A drill** (`drillCommander`): one skill with one limb at one region of the nearest foe. It leads no side of a Crypt run. */
 export const DRILL: CommanderEntry = deepFreeze({
   label: "Drill", sides: [], defaults: { kind: "drill", after: .5, pace: 1 },
   faults: (config: CommanderConfig) => {
-    const given = config as Partial<DrillCommanderConfig>, keys = ["kind", "action", "limb", "region", "after", "pace", "walking", "approach", "letGo", "moment"];
+    const given = config as Partial<DrillCommanderConfig>, keys = ["kind", "skill", "limb", "region", "after", "pace", "walking", "approach", "letGo", "moment"];
     return [
       ...Object.keys(config).filter((key) => !keys.includes(key)).map((key) => `${key}: not a setting of drill`),
-      ...given.action === undefined || named(given.action) ? [] : ["action: an action's name, or absent"],
+      ...given.skill === undefined || named(given.skill) ? [] : ["skill: a skill's kind, or absent"],
       ...given.limb === undefined || named(given.limb) ? [] : ["limb: an effector, or absent"],
       ...given.region === undefined || isRegion(given.region) ? [] : ["region: a mark (high, middle, legs, any) or a segment, or absent"],
       ...time(given.after) ? [] : ["after: a finite time, s, not negative"],

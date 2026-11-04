@@ -97,20 +97,21 @@ for (const path of paths) {
   const { hz, delay } = rule;
   for (const row of rows) {
     const rung = row.condition.rung ?? header.protocol, recipe = row.world?.recipe, mind = recipe?.minds?.left, led = recipe?.commanders?.left;
-    // The drill Commander's config, or, in a record from before it, the drill's tactics in the mind.
-    const drill = led?.kind === "drill" ? { kind: "drill", action: led.action, effector: led.limb, letGo: led.letGo } : partIn(mind, "drill");
+    // The drill Commander's config (naming its skill, or, in a record from before orders named skills, its action), or, in a record from before it, the drill's tactics in the mind.
+    const drill = led?.kind === "drill" ? { kind: "drill", skill: led.skill, action: led.action, effector: led.limb, letGo: led.letGo } : partIn(mind, "drill");
     if (row.fault || !row.reading || row.world.kind !== "bout" || drill?.kind !== "drill" || rung === "walk") continue;
-    const spec = specOf(recipe), { executors, actions } = strikesOf(spec, mind), action = actions.find((one) => one.name === drill.action);
+    const spec = specOf(recipe), { executors, actions } = strikesOf(spec, mind);
+    const action = actions.find((one) => drill.skill === undefined ? one.name === drill.action : executors.find((executor) => executor.name === one.executor)?.kind === drill.skill);
     // A body that does not throw the action (a rung's other model) was refused it, and measures nothing.
     if (!action && row.reading.outcome === "refused" && row.reading.reason === "no such choice on its menu") continue;
-    if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
+    if (!action) throw new Error(`${path}: ${drill.skill ?? drill.action} is not a strike its body throws`);
     if (!action.effectors.includes(drill.effector)) continue;
     const limbed = limbAction(action, drill.effector), marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
     const measured = measuredOn(spec, skillDigest(partLookup, spec, executors, limbed), hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
-    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} with ${drill.effector} on ${struck.model}`, effectors: limbed.effectors, limbs: new Set(), records: new Set(), trials: [] };
+    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector} on ${struck.model}`, effectors: limbed.effectors, limbs: new Set(), records: new Set(), trials: [] };
     profiles.set(key, profile);
     profile.records.add(path);
     profile.limbs.add(drill.effector);

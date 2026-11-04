@@ -35,10 +35,10 @@ import { opponentOf, opposed } from "../drill-opponents.ts";
 import type { Rail } from "../../arena/rail.ts";
 
 /**
- * A subject's value: a mind given whole, the name of the action it drills, and what its striker
- * holds in each hand, empty hands where it names nothing.
+ * A subject's value: a mind given whole, the skill it drills (its executor's kind, as an order
+ * names it, `Orders.skill`), and what its striker holds in each hand, empty hands where it names nothing.
  */
-export type StrikeSubject = { readonly mind: MindConfig; readonly action: string; readonly held?: Loadout };
+export type StrikeSubject = { readonly mind: MindConfig; readonly skill: string; readonly held?: Loadout };
 
 /**
  * A bout recipe's `loadouts` for the striker holding what `subject` names, the target empty-handed;
@@ -48,16 +48,16 @@ export const loadoutsOf = (subject: StrikeSubject) => subject.held === undefined
 
 /**
  * The striker's side of a bout recipe: the subject's mind as given, led by the drill Commander
- * ordering `action` with `effector` (`hand.right`, `foot.left`) at `mark`, standing `after` s first
+ * ordering `skill` with `effector` (`hand.right`, `foot.left`) at `mark`, standing `after` s first
  * and walking it to its action's window no faster than `pace` (ordering it, with `walking`, the
  * first step it is ready), or, at a `moment`, ordering nothing until the mind begins that many
  * actions; with `approach`, moving so first (`Approach`); with `letGo`, ordering a stand that long after it began.
  */
-export function striker({ mind, action }: StrikeSubject, effector: string, mark: Mark,
+export function striker({ mind, skill }: StrikeSubject, effector: string, mark: Mark,
   { after = STILL.settled, pace, walking, approach, letGo, moment }: { readonly after?: number; readonly pace?: number; readonly walking?: boolean; readonly approach?: Approach;
     readonly letGo?: number; readonly moment?: number } = {},
 ): { readonly mind: MindConfig; readonly commander: DrillCommanderConfig } {
-  const commander: DrillCommanderConfig = { kind: "drill", action, limb: effector, region: { kind: "mark", mark }, after, ...(pace === undefined ? {} : { pace }),
+  const commander: DrillCommanderConfig = { kind: "drill", skill, limb: effector, region: { kind: "mark", mark }, after, ...(pace === undefined ? {} : { pace }),
     ...(walking ? { walking: true } : {}), ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }), ...(moment === undefined ? {} : { moment }) };
   return deepFreeze({ mind, commander });
 }
@@ -209,7 +209,7 @@ export const limbOf = (condition: StrikeCondition): string => effectorOf(conditi
 /** Why `value` is no subject, or what keeps its mind from `model` holding what it names (`mindFaults`). */
 export function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
   const given = value as Partial<StrikeSubject> | null;
-  if (!given || typeof given !== "object" || Array.isArray(given) || typeof given.action !== "string") return ["a subject is a mind and the action it drills"];
+  if (!given || typeof given !== "object" || Array.isArray(given) || typeof given.skill !== "string") return ["a subject is a mind and the skill it drills"];
   if (given.held !== undefined) {
     const faults = loadoutFaults(given.held);
     if (faults.length) return faults.map((fault) => `held: ${fault}`);

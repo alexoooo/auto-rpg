@@ -17,16 +17,19 @@ export interface KitEntry {
   readonly regions: readonly Region[];
 }
 
+/** **The skill `action` of `kit` is by** (`KitEntry.kind`), null where the kit has no such action. */
+export const skillOf = (kit: readonly KitEntry[], action: string): string | null => kit.find((entry) => entry.action === action)?.kind ?? null;
+
 /**
- * **A choice a body has now**: an action of its kit with one of its limbs, at a foe's region (both
- * null for an action on the body itself), and whether it could start from where the body stands
+ * **A choice a body has now**: a skill it has (`KitEntry.kind`, what an order names) with one of its
+ * limbs, at a foe's region (both null for a skill on the body itself), and whether it could start from where the body stands
  * (`Readiness`: ready; out of position, with the window; waiting; refused, with the reason); where
  * it names a window, where the body would stand in its middle (`spot`, `windowSpot`: beside a body
  * lying, with the way round it, chosen afresh at each read on the side the walk under way goes to), which a leader can walk it to. Out of position where no place
  * beside the body lying clears the feet, it is refused (`NO_PLACE`).
  */
 export interface MenuEntry {
-  readonly action: string;
+  readonly skill: string;
   readonly limb: string;
   readonly foe: string | null;
   readonly region: Region | null;
@@ -52,21 +55,28 @@ export function kitOf(executors: readonly ExecutorBinding[], actions: readonly A
 
 /**
  * **The menu**: for each action of `kit`, each of its limbs, each foe `view` senses (in the fight,
- * of another side) and each region it aims at, or once for an action on the body itself, its
- * readiness as `readiness` reads it from `around`, and its spot, the place beside a body lying
+ * of another side) and each region it aims at, or once for an action on the body itself, its skill
+ * with that limb and target (once: of two actions by one skill, the first's), its readiness as
+ * `readiness` reads it from `around`, and its spot, the place beside a body lying
  * chosen afresh (`windowSpot`, none held) on the side of it `going`, the walk under way, goes to: a
  * reader that wants a place to stay its choice holds it, and its walk there keeps the side.
  */
 export function menuOf(kit: readonly KitEntry[], view: BodyView, around: ActionAround,
   readiness: (view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround) => Readiness, going: MovementRequest | null): readonly MenuEntry[] {
   const foes = view.senses.others.filter((other) => !other.out && other.side !== view.senses.side), entries: MenuEntry[] = [];
-  for (const { action, limbs, regions } of kit) for (const limb of limbs) {
-    if (regions.length === 0) { entries.push({ action, limb, foe: null, region: null, readiness: readiness(view, action, limb, SELF, around) }); continue; }
+  const listed = (skill: string, limb: string, foe: string | null, region: Region | null): boolean =>
+    entries.some((entry) => entry.skill === skill && entry.limb === limb && entry.foe === foe && JSON.stringify(entry.region) === JSON.stringify(region));
+  for (const { action, kind: skill, limbs, regions } of kit) for (const limb of limbs) {
+    if (regions.length === 0) {
+      if (!listed(skill, limb, null, null)) entries.push({ skill, limb, foe: null, region: null, readiness: readiness(view, action, limb, SELF, around) });
+      continue;
+    }
     for (const foe of foes) for (const region of regions) {
+      if (listed(skill, limb, foe.id, region)) continue;
       const ready = readiness(view, action, limb, { kind: "body", body: foe.id, region }, around);
       const spot = ready.kind === "position" || ready.kind === "ready" && ready.window ? windowSpot(view, ready.window!, around.heading, null, undefined, going) : null;
-      if (ready.kind === "position" && !spot) { entries.push({ action, limb, foe: foe.id, region, readiness: NO_PLACE }); continue; }
-      entries.push({ action, limb, foe: foe.id, region, readiness: ready, ...(spot ? { spot } : {}) });
+      if (ready.kind === "position" && !spot) { entries.push({ skill, limb, foe: foe.id, region, readiness: NO_PLACE }); continue; }
+      entries.push({ skill, limb, foe: foe.id, region, readiness: ready, ...(spot ? { spot } : {}) });
     }
   }
   return entries;

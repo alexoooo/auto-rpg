@@ -72,7 +72,7 @@ import { choicePanel } from "../ui/choices.ts";
  * the camera reaches a mind.
  *
  * Each side shows its choices (`MenuEntry`, `choicePanel`); the person picks one of their side's,
- * ordered as an attack with its action, limb and region, or lets the mind fight its own way. With
+ * ordered as an attack with its skill, limb and region, or lets the mind fight its own way. With
  * pause on choice, the bout holds at the step where their side has a new one (`choiceWatch`), so a
  * bout plays turn by turn, its orders on its tape.
  *

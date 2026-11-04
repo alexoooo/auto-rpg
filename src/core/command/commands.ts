@@ -1,8 +1,8 @@
 import type { GroundPoint } from "../intent/movement.ts";
 import type { Orders } from "../intent/orders.ts";
 
-/** **How to strike a foe**, each part optional: an action of the member's kit, a limb and a region (`Orders`'s). */
-export type StrikeChoice = Pick<Orders, "action" | "limb" | "region">;
+/** **How to strike a foe**, each part optional: a skill the member has, a limb and a region (`Orders`'s). */
+export type StrikeChoice = Pick<Orders, "skill" | "limb" | "region">;
 
 /** **A route a person draws**: its points grow while it is drawn (`drawing`), and every member sent along it walks the same points. */
 export interface DrawnRoute {
@@ -17,7 +17,7 @@ export interface DrawnRoute {
  * - `go`: to a point, fighting what is met on the way (`destination`), or along a drawn route past
  *   every foe (`route`). Several sent together take slots about its end, no faster than the slowest
  *   of them goes.
- * - `attack`: fight this sensed foe, by id, following it while it is seen; where it names an action,
+ * - `attack`: fight this sensed foe, by id, following it while it is seen; where it names a skill,
  *   a limb or a region (`StrikeChoice`), strike it so.
  * - `face`: toward a ground point (`toward`), or turned from the way it faces by `turn` radians,
  *   positive from +z toward +x.

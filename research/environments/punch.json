@@ -4,8 +4,8 @@
   "part": "mind.options.1.skill",
   "layout": "assets/core/learned-punch.layout.json",
   "subjects": [
-    {"where": {"model": "workshop-fighter", "hand": "right"}, "value": {"mind": {"preset": "option", "action": "straight-punch", "steered": true}, "action": "straight-punch"}},
-    {"where": {"model": "workshop-fighter", "hand": "left"}, "value": {"mind": {"preset": "option", "action": "straight-punch", "steered": true}, "action": "straight-punch"}}
+    {"where": {"model": "workshop-fighter", "hand": "right"}, "value": {"mind": {"preset": "option", "skill": "straight-punch", "steered": true}, "skill": "straight-punch"}},
+    {"where": {"model": "workshop-fighter", "hand": "left"}, "value": {"mind": {"preset": "option", "skill": "straight-punch", "steered": true}, "skill": "straight-punch"}}
   ],
   "places": [
     {"protocol": "still", "draw": {"model": "workshop-fighter", "mark": ["middle"], "hand": ["right", "left"], "across": {"between": [-0.15, 0.3]}, "gap": {"between": [0.6, 1.3]}}},

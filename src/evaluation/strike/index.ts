@@ -3,9 +3,9 @@
  * the mark it was asked, and come back without felling the striker? Each rung is a protocol (rung
  * 0, `still`: a still target, and `sampled`, its starts drawn at random, moving or still; rung 1, `moving`: a pad carried on a rail; rungs 2 to 4, `stepping`, `guarding`, `punching`: a drill opponent;
  * rung 5, `walk`: one walked to, asked settled or still walking), its trials laid out by body, mark, hand, offset and range. The
- * subject is a mind and one of its actions (`option/straight-punch`), and what its striker holds where
+ * subject is a mind and one of its skills (`option/straight-punch`), and what its striker holds where
  * it names a loadout (`option/club-blow@buckler,club`, its left hand first); a drill Commander
- * (`DrillCommanderConfig`) orders the action, so the skill, its executor's settings and the body's
+ * (`DrillCommanderConfig`) orders the skill, so the skill, its executor's settings and the body's
  * other parts are the mind's.
  */
 import type { AttributeOverrides } from "../../core/character-attributes.ts";
@@ -28,7 +28,7 @@ import { barScore } from "./score.ts";
 const DRILLED = ["option/straight-punch"];
 
 /**
- * A subject given whole (a file or JSON): its mind and action, and the character its bodies take
+ * A subject given whole (a file or JSON): its mind and skill, and the character its bodies take
  * where it names one (`character`, as a preset's).
  */
 function givenSubject(one: { readonly id: string; readonly label: string; readonly value: Json }): Subject {
@@ -44,27 +44,26 @@ function loadoutNamed(key: string): Loadout {
   return loadout;
 }
 
-/** A strike named (`<mind>/<action>`, `actionSubject`) or given whole (`givenSubject`), as a subject; `none` where nothing is named. */
+/** A strike named (`<mind>/<skill>`, `skillSubject`) or given whole (`givenSubject`), as a subject; `none` where nothing is named. */
 export const strikeSubjects = (choice: SubjectChoice, none: readonly string[]): readonly Subject[] =>
-  (choice.length > 0 ? choice : none).map((one) => typeof one !== "string" ? givenSubject(one) : actionSubject(one));
+  (choice.length > 0 ? choice : none).map((one) => typeof one !== "string" ? givenSubject(one) : skillSubject(one));
 
 /**
- * A preset's strike as a subject: `<mind>/<action>`, the action its Option asks of its skill named
- * by the skill (`strikeAction`), its parts the mind's config and the action's name; with
- * `@<left>,<right>`, its striker holding that loadout, a part of its own.
+ * A preset's strike as a subject: `<mind>/<skill>`, a skill its Options strike by, its parts the
+ * mind's config and the skill; with `@<left>,<right>`, its striker holding that loadout, a part of its own.
  */
-function actionSubject(name: string): Subject {
+function skillSubject(name: string): Subject {
   const at = name.lastIndexOf("@"), named = at < 0 ? name : name.slice(0, at), held = at < 0 ? undefined : loadoutNamed(name.slice(at + 1));
   const slash = named.indexOf("/"), id = slash < 0 ? named : named.slice(0, slash), preset = Object.hasOwn(MINDS, id) ? MINDS[id]! : null;
-  if (!preset) throw new Error(`${name} is no strike: name a mind and its action, <mind>/<action>[@<left>,<right>] (${Object.keys(MINDS).join(", ")})`);
+  if (!preset) throw new Error(`${name} is no strike: name a mind and its skill, <mind>/<skill>[@<left>,<right>] (${Object.keys(MINDS).join(", ")})`);
   const { options, frame } = preset.config as { readonly options?: readonly PartConfig[] | null; readonly frame?: unknown };
-  const actions = frame || !Array.isArray(options) ? [] : strikesIn(partLookup, options).map((strike) => strike.skill.kind);
-  const action = slash < 0 ? actions[0] : named.slice(slash + 1);
-  if (action === undefined || !actions.includes(action)) throw new Error(`${id} has no action ${action ?? ""}: one of ${actions.join(", ") || "none"}`);
-  const value = { mind: preset.config as unknown as Json, action, ...(held === undefined ? {} : { held }) };
+  const skills = frame || !Array.isArray(options) ? [] : [...new Set(strikesIn(partLookup, options).map((strike) => strike.skill.kind))];
+  const skill = slash < 0 ? skills[0] : named.slice(slash + 1);
+  if (skill === undefined || !skills.includes(skill)) throw new Error(`${id} has no skill ${skill ?? ""}: one of ${skills.join(", ") || "none"}`);
+  const value = { mind: preset.config as unknown as Json, skill, ...(held === undefined ? {} : { held }) };
   const subject = mindSubject(id, preset.label, value.mind, preset), holding = held === undefined ? "" : loadoutKey(held);
-  return { ...subject, id: `${id}/${action}${held === undefined ? "" : `@${holding}`}`, label: `${preset.label}: ${action}${held === undefined ? "" : `, holding ${holding}`}`,
-    parts: [...subject.parts, { id: "action", value: action }, ...(held === undefined ? [] : [{ id: "held", value: held }])], value };
+  return { ...subject, id: `${id}/${skill}${held === undefined ? "" : `@${holding}`}`, label: `${preset.label}: ${skill}${held === undefined ? "" : `, holding ${holding}`}`,
+    parts: [...subject.parts, { id: "skill", value: skill }, ...(held === undefined ? [] : [{ id: "held", value: held }])], value };
 }
 
 /**

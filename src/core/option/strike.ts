@@ -66,7 +66,9 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * limb ready. It claims what its blow needs with the limb it strikes with (`Sight.needs`): its blow
  * under way's, else the limb ready's, else the first with a window's; and holds what its blow holds
  * (`asking`). Its legs are kept out of every fallen body's reach but the focus's (`Walker.kept`). The region struck is what the
- * orders name on the focus, else the first of the action's regions the focus has.
+ * orders name on the focus, else the first of the action's regions the focus has; orders at the
+ * focus that name a skill or a limb admit only its limbs of that skill (its executor, named by its
+ * kind) and limb (`orderAllows`).
  *
  * Its model, where its drill measured it as it is read now (its profile among its measure's,
  * found by `measure`, read at the senses' reaction time): what the profile expects at the range
@@ -113,7 +115,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   const scan = (now: Situation, target: TargetRef): { ready: Limb | null; placed: Limb | null } => {
     let placed: Limb | null = null;
     for (const limb of action.effectors) {
-      if (target.kind === "body" && !orderAllows(now.orders ?? null, target.body, action.name, limb)) continue;
+      if (target.kind === "body" && !orderAllows(now.orders ?? null, target.body, action.executor, limb)) continue;
       const ready = readiness(now, limb, target);
       if (ready.kind === "ready") return { ready: { limb, readiness: ready }, placed: null };
       if (ready.kind === "position") placed ??= { limb, readiness: ready };

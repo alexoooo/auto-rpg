@@ -37,6 +37,7 @@ import { uprightness } from "../src/core/control/ground.ts";
 import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { HUMANOID_MODELS } from "../src/core/human/spec.ts";
 import { mindWorkers } from "../src/node/minds.ts";
+import { skillOf } from "../src/core/skills/framework/menu.ts";
 
 /** The bout's steps, the step it is forked at, and the gap its sides start at, m: near enough for a blow. */
 const STEPS = 180, FORK = 90, GAP = 0.9;
@@ -325,7 +326,7 @@ async function strikesAt(preset, strikes, order = () => null) {
     while (duel.steps < ORDERED.steps && begun.size < strikes) {
       world.step();
       for (const action of report.actions) if (struck.has(action.action) && !begun.has(action.id))
-        begun.set(action.id, JSON.parse(JSON.stringify({ action: action.action, limb: action.effector, target: action.target })));
+        begun.set(action.id, JSON.parse(JSON.stringify({ skill: skillOf(report.kit, action.action), limb: action.effector, target: action.target })));
     }
     return { menu, begun: [...begun.values()] };
   } finally { dispose(); }
@@ -338,10 +339,10 @@ for (const [id, preset] of MINDS.filter(([, preset]) => treeObeys(preset.config)
     const [first] = own.begun;
     // The last choice at the foe that its body could start or walk to, other than the strike it begins by itself, where it begins one.
     const choice = own.menu.filter((entry) => entry.foe === "right" && (entry.readiness.kind === "ready" || entry.readiness.kind === "position")
-      && !(first && entry.action === first.action && entry.limb === first.limb)).at(-1);
+      && !(first && entry.skill === first.skill && entry.limb === first.limb)).at(-1);
     if (!choice) { t.skip(`${on} has no choice at a still foe on its menu but the strike it begins by itself`); return; }
-    const asked = { action: choice.action, limb: choice.limb, target: { kind: "body", body: "right", region: choice.region } };
-    const ordered = await strikesAt(preset, ORDERED.strikes, () => ({ foe: "right", region: choice.region, action: choice.action, limb: choice.limb }));
+    const asked = { skill: choice.skill, limb: choice.limb, target: { kind: "body", body: "right", region: choice.region } };
+    const ordered = await strikesAt(preset, ORDERED.strikes, () => ({ foe: "right", region: choice.region, skill: choice.skill, limb: choice.limb }));
     assert.ok(ordered.begun.length > 0, `${on}, ordered ${JSON.stringify(asked)}, began no strike in ${ORDERED.steps} steps; unordered it began ${JSON.stringify(first ?? "none")}`);
     for (const one of ordered.begun) assert.deepEqual(one, asked, `${on} began what it was not ordered`);
   });

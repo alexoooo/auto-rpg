@@ -12,10 +12,10 @@
       "value": {
         "mind": {
           "preset": "option",
-          "action": "sword-thrust",
+          "skill": "sword-thrust",
           "steered": true
         },
-        "action": "sword-thrust",
+        "skill": "sword-thrust",
         "held": {
           "right": "sword",
           "left": "buckler"

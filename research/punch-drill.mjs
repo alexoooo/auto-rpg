@@ -98,11 +98,11 @@ export function timedPuncher({ pushes, lead, through, beneath, fire, brake }, ha
   if (blow) {
     const other = hand === "left" ? "right" : "left";
     const options = preset.options.map((option) => struck(option) && option.skill.kind === blow ? { ...option, skill: { ...option.skill, tuning }, ...(mark ? { regions: [{ kind: "mark", mark }] } : {}) } : option);
-    return { mind: { ...preset, options }, action: blow, held: { [hand]: HELD_BLOWS[blow].item, [other]: "buckler" } };
+    return { mind: { ...preset, options }, skill: blow, held: { [hand]: HELD_BLOWS[blow].item, [other]: "buckler" } };
   }
   const punch = preset.options.find((option) => option.kind === "strike-straight-punch");
   const strike = { ...punch, skill: { ...punch.skill, tuning }, ...(aim ? { aim, regions: [{ kind: "mark", mark: "middle" }] } : {}) };
-  return { mind: { ...preset, options: preset.options.map((option) => option === punch ? strike : option).filter((option) => !struck(option) || option === strike) }, action: punch.skill.kind };
+  return { mind: { ...preset, options: preset.options.map((option) => option === punch ? strike : option).filter((option) => !struck(option) || option === strike) }, skill: punch.skill.kind };
 }
 
 /**
@@ -155,7 +155,7 @@ export async function drillTrial(subject, condition, hz) {
   try {
     // The executor's place among those the striker's body builds of its Options (`skillsOf`), as its skills' state lists them.
     const used = skillsOf(partLookup, built.duel.duelists.left.built.spec, subject.mind.options).executors;
-    const at = Math.max(0, used.findIndex((one) => one.name === subject.action));
+    const at = Math.max(0, used.findIndex((one) => one.name === subject.skill));
     const reader = cases.read(built, condition), motion = built.duel.duelists.left.minded.skills.state.actions.executors[at].motion, body = built.duel.duelists.left.body;
     let nearest = Infinity, committed = null;
     built.duel.play(world.tape);

@@ -22,7 +22,7 @@
  *   fall, which ends the episode.
  *
  * The learner is found in the world's hosted minds (`WorldKind.hosted`) of the subject's kind (its
- * own, or its `mind`'s: a drill's subject that names its action beside its mind), one in all. An
+ * own, or its `mind`'s: a drill's subject that names its skill beside its mind), one in all. An
  * episode starts at its first decision while it runs (`running`, `decisions`) and plays one
  * decision a step: the trainer's outputs (through tanh) written, the world stepped until
  * the learner decides again; it ends with its case's reader, with the learner no longer running
@@ -82,23 +82,23 @@ const matches = (condition, where = {}) => Object.entries(where).every(([key, va
 
 /**
  * The mind `given` names: `preset`, a mind preset's config as the game holds it (`MINDS`,
- * `src/entrants/game.ts`); with `action`, kept to that action and its executor, first; with
+ * `src/entrants/game.ts`); with `skill`, kept to the strike by that skill, first; with
  * `steered`, that executor in learning mode, its settings its body's record's and its trainer
  * steering it (a research `tuning` of `{ steered: true }`). Anything else is refused: a mind written
  * out, or a setting over the record, learns a skill the game does not throw.
  */
 export function presetMind(given) {
-  const extra = given && typeof given === 'object' ? Object.keys(given).filter((key) => !['preset', 'action', 'steered'].includes(key)) : [];
+  const extra = given && typeof given === 'object' ? Object.keys(given).filter((key) => !['preset', 'skill', 'steered'].includes(key)) : [];
   if (!given || typeof given.preset !== 'string' || extra.length)
-    throw new Error(`an environment's mind is a preset, its action and whether it is steered ({ "preset", "action", "steered" }), not ${JSON.stringify(given).slice(0, 120)}`);
+    throw new Error(`an environment's mind is a preset, its skill and whether it is steered ({ "preset", "skill", "steered" }), not ${JSON.stringify(given).slice(0, 120)}`);
   const preset = MINDS[given.preset]?.config;
   if (!preset) throw new Error(`no mind preset ${given.preset}: ${Object.keys(MINDS).join(', ')}`);
-  if (given.action === undefined) {
-    if (given.steered !== undefined) throw new Error('a steered mind names the action whose executor it steers');
+  if (given.skill === undefined) {
+    if (given.steered !== undefined) throw new Error('a steered mind names the skill whose executor it steers');
     return preset;
   }
-  const strike = (option) => option.kind.startsWith('strike-'), struck = preset.options?.find((option) => strike(option) && option.skill.kind === given.action);
-  if (!struck) throw new Error(`the ${given.preset} preset has no strike by ${given.action}`);
+  const strike = (option) => option.kind.startsWith('strike-'), struck = preset.options?.find((option) => strike(option) && option.skill.kind === given.skill);
+  if (!struck) throw new Error(`the ${given.preset} preset has no strike by ${given.skill}`);
   if (given.steered !== undefined && given.steered !== true) throw new Error('`steered` is true where given');
   const alone = given.steered ? { ...struck, skill: { ...struck.skill, tuning: { steered: true } } } : struck;
   return { ...preset, options: preset.options.flatMap((option) => option === struck ? [alone] : strike(option) ? [] : [option]) };

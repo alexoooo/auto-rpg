@@ -67,11 +67,11 @@ function tagged<R extends Json>(part: BaselinePart, reader: Reader<R>): Reader<B
   return { afterStep: () => reader.afterStep(), get ended() { return reader.ended; }, reading: () => ({ ...(reader.reading() as object), part }) as BaselineReading };
 }
 
-/** The subject's first strike, as the Strike drill's subject, its action named by its skill (`strikeAction`); null for a mind with none. */
+/** The subject's first strike, as the Strike drill's subject, by its skill; null for a mind with none. */
 function strikeSubject(value: Json): StrikeSubject | null {
   const { options, frame } = (value ?? {}) as { readonly options?: readonly PartConfig[] | null; readonly frame?: unknown };
-  const action = frame || !Array.isArray(options) ? undefined : strikesIn(partLookup, options)[0]?.skill.kind;
-  return action === undefined ? null : { mind: value as unknown as MindConfig, action };
+  const skill = frame || !Array.isArray(options) ? undefined : strikesIn(partLookup, options)[0]?.skill.kind;
+  return skill === undefined ? null : { mind: value as unknown as MindConfig, skill };
 }
 
 const walkCases = (): Cases<Json, BaselineReading, BuiltCase> => {

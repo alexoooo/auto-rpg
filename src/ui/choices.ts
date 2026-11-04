@@ -7,11 +7,11 @@ import { partLabel } from "./part-label.ts";
 /** How long a choice stays ready before it counts as a new one to pause on, s: a readiness that flickers for a step or two is no choice. */
 const HOLD = 0.2;
 
-/** A choice's identity: its action, limb, foe and region. */
-const choiceKey = (entry: MenuEntry): string => JSON.stringify([entry.action, entry.limb, entry.foe, entry.region]);
+/** A choice's identity: its skill, limb, foe and region. */
+const choiceKey = (entry: MenuEntry): string => JSON.stringify([entry.skill, entry.limb, entry.foe, entry.region]);
 
-/** An action's name as a person reads it: `straight-punch`, Straight punch. */
-const actionText = (action: string): string => { const words = action.replaceAll("-", " "); return words.charAt(0).toUpperCase() + words.slice(1); };
+/** A skill's name as a person reads it: `straight-punch`, Straight punch. */
+const skillText = (skill: string): string => { const words = skill.replaceAll("-", " "); return words.charAt(0).toUpperCase() + words.slice(1); };
 const regionText = (region: Region): string => region.kind === "mark" ? region.mark : partLabel(region.segment).toLowerCase();
 const limbText = (limb: string): string => partLabel(limb).toLowerCase();
 
@@ -32,7 +32,7 @@ const NEARNESS: Readonly<Record<Readiness["kind"], number>> = { ready: 0, positi
 /** What a person picking a choice orders: an attack on a foe, naming what the choice names of how. */
 type PickedStrike = StrikeChoice & { readonly foe: string };
 
-/** Whether an order can name `entry`: a strike at a foe's region, not an action on the body itself. */
+/** Whether an order can name `entry`: a strike at a foe's region, not a skill on the body itself. */
 const orderable = (entry: MenuEntry): entry is MenuEntry & { readonly foe: string; readonly region: Region } => entry.foe !== null && entry.region !== null;
 
 /**
@@ -72,21 +72,21 @@ export function choiceWatch() {
   };
 }
 
-/** One action at one target (a foe's region, or the body itself), with each limb it may use. */
+/** One skill at one target (a foe's region, or the body itself), with each limb it may use. */
 interface Group {
-  readonly action: string;
+  readonly skill: string;
   readonly foe: string | null;
   readonly region: Region | null;
   readonly entries: MenuEntry[];
 }
 
-/** `menu` by action and target, in its order. */
+/** `menu` by skill and target, in its order. */
 function grouped(menu: readonly MenuEntry[]): Group[] {
   const groups = new Map<string, Group>();
   for (const entry of menu) {
-    const key = JSON.stringify([entry.action, entry.foe, entry.region]);
+    const key = JSON.stringify([entry.skill, entry.foe, entry.region]);
     let group = groups.get(key);
-    if (!group) groups.set(key, group = { action: entry.action, foe: entry.foe, region: entry.region, entries: [] });
+    if (!group) groups.set(key, group = { skill: entry.skill, foe: entry.foe, region: entry.region, entries: [] });
     group.entries.push(entry);
   }
   return [...groups.values()];
@@ -102,14 +102,14 @@ function groupReadiness(group: Group): string {
   return texts.every((text) => text === texts[0]) ? texts[0]! : group.entries.map((entry, i) => `${limbText(entry.limb)} ${texts[i]}`).join("; ");
 }
 
-/** `group`'s action and target in words, its foe named by `name`. */
+/** `group`'s skill and target in words, its foe named by `name`. */
 const groupText = (group: Group, name: (foe: string) => string): string =>
-  `${actionText(group.action)}${group.foe === null ? "" : ` at ${name(group.foe)} ${regionText(group.region!)}`}`;
+  `${skillText(group.skill)}${group.foe === null ? "" : ` at ${name(group.foe)} ${regionText(group.region!)}`}`;
 
 /**
  * **A side's choices, listed** (`choicePanel`), read while the list is open, which a pause on a
- * choice opens (`refresh`'s `opens`): first each strike that could start or be walked to, an action
- * at a foe's region a line with its limbs, or why none can; then, folded, the rest (actions on the
+ * choice opens (`refresh`'s `opens`): first each strike that could start or be walked to, a skill
+ * at a foe's region a line with its limbs, or why none can; then, folded, the rest (skills on the
  * body itself, and strikes refused). On a side a person leads (`picks`), each strike's limbs that
  * are not refused are buttons that order it with that limb, with one to leave the limb to the mind
  * where it has several, and one for each such foe to attack it as the mind chooses; each calls
@@ -147,8 +147,8 @@ export function choicePanel(name: (foe: string) => string, pick: (strike: Picked
           const buttons = document.createElement("div");
           buttons.className = "choice-limbs";
           for (const entry of limbs) if (orderable(entry))
-            buttons.append(button(partLabel(entry.limb), () => pick({ foe: entry.foe, action: entry.action, limb: entry.limb, region: structuredClone(entry.region) }, [entry])));
-          if (limbs.length > 1) buttons.append(button("Either", () => pick({ foe: group.foe!, action: group.action, region: structuredClone(group.region!) }, limbs)));
+            buttons.append(button(partLabel(entry.limb), () => pick({ foe: entry.foe, skill: entry.skill, limb: entry.limb, region: structuredClone(entry.region) }, [entry])));
+          if (limbs.length > 1) buttons.append(button("Either", () => pick({ foe: group.foe!, skill: group.skill, region: structuredClone(group.region!) }, limbs)));
           row.append(buttons);
         }
         list.append(row);

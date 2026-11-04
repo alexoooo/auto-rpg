@@ -16,6 +16,7 @@ import { effectorAim } from "../../core/control/effectors.ts";
 import { sensedPosture } from "../../core/perception/threat.ts";
 import { acos, cos } from "../../core/math/real.ts";
 import { EXECUTORS } from "../../core/skills/framework/executors.ts";
+import { skillOf } from "../../core/skills/framework/menu.ts";
 import { faceOf } from "../../core/skills/strikes/held-blow.ts";
 import type { Mechanism } from "../../core/rules/rulebook.ts";
 import type { Duel } from "../../arena/duel.ts";
@@ -436,8 +437,8 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
           ?? (drill.phase === "under way" ? [...skills.report.actions].reverse().find((one) => one.effector === effector && one.target.kind === "body") : undefined);
       if (action && id === null) {
         id = action.id; times.began = world.time; asked = footing(); foeBegan ??= sensed();
-        const kind = skills.kit.find((one) => one.action === action.action)?.kind;
-        meets = (kind !== undefined && Object.hasOwn(EXECUTORS, kind) ? EXECUTORS[kind as keyof typeof EXECUTORS].meets : undefined) ?? "blunt";
+        const kind = skillOf(skills.kit, action.action);
+        meets = (kind !== null && Object.hasOwn(EXECUTORS, kind) ? EXECUTORS[kind as keyof typeof EXECUTORS].meets : undefined) ?? "blunt";
         const face = armed && hand !== null ? faceOf(spec, hand, meets) : null;
         if (face) aim = points.get(face.point)!.value;
         againstChest(rest);

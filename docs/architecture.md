@@ -279,7 +279,9 @@ each a state with its chance, `Outcome`), its step, and a status.
   uses one skill in two ways (a club's bonk at the head and its swipe at the trunk), each is its
   own strike, named by the skill and what tells its use apart (`strikeName`: `club-blow (high)`).
   Two strikes alike in skill, limbs, regions and aim, or by one kind of skill set two ways, are a
-  fault of the config. What strikes share is
+  fault of the config. A person's order, and a drill's, names a skill the body has, its limb and
+  its target (`Orders`: `skill`, `limb`, `region`; no limb, any that fits), which every strike of
+  that skill with that limb keeps to (`orderAllows`). What strikes share is
   `src/core/option/strike.ts`, which the kinds call.
 - **The rise** (`RISE_OPTIONS`, `src/core/option/rise.ts`): each way up, reposition and mode of
   the ground an Option naming its technique (`way-up`, `reposition`, `flattening`, `steadying`,

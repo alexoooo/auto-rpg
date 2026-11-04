@@ -54,7 +54,7 @@ const stomper = (settings) => ({ ...OPTION_MIND.defaults, support: { kind: "supp
 
 /** One stomping trial of whole `settings`: the drill's bar and the hit points dealt. */
 async function stompTrial(settings, { condition }) {
-  const reading = await play(STRIKE_CASES.stomping, { mind: stomper(settings), action: "stomp" }, condition);
+  const reading = await play(STRIKE_CASES.stomping, { mind: stomper(settings), skill: "stomp" }, condition);
   const dealt = reading.contacts.reduce((sum, contact) => sum + contact.damage, 0);
   return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt, foot: reading.hit?.foot?.speed ?? null };
 }
