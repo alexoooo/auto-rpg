@@ -1,5 +1,5 @@
 import { standingFooting } from "../../control/support.ts";
-import type { LocomotionPart } from "../framework/locomotion-part.ts";
+import type { GaitPart } from "../framework/locomotion-part.ts";
 import { stanceFeetOf } from "../framework/skill.ts";
 import { fitsSoles } from "../../control/stance-balance.ts";
 import { deepFreeze } from "../../state.ts";
@@ -19,8 +19,8 @@ interface StanceWalkConfig {
 }
 
 /** **Walk in the stance** (`locomotion`): it holds the body's stance envelope (`Body.envelope`) and stops at `STANCE_STOPPING`. */
-export const STANCE_WALK_PART: LocomotionPart<StanceWalkConfig> = deepFreeze({
-  role: "locomotion", label: "Walk in the stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance-walk" },
+export const STANCE_WALK_PART: GaitPart<StanceWalkConfig> = deepFreeze({
+  role: "gait", label: "Walk in the stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance-walk" },
   keys: { kind: true, tuning: true, carriage: true }, tuning: ["turnLimit", "turnStartup"], fits: fitsSoles,
   faults: (config) => [
     ...(validTurnLimit(config.tuning?.turnLimit) ? [] : ["locomotion turn limit must be finite and positive"]),

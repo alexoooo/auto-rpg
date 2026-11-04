@@ -6,12 +6,11 @@ import { checkedLayout, type PunchLayout } from "./learned-punch.ts";
 import { dataOf } from "../../data/store.ts";
 import { heldBy, type Held } from "../../items/held.ts";
 import { fitsAll, fitsWhen, strikesWithOneOf } from "../../parts/parts.ts";
-import { text } from "../../parts/fields.ts";
 import type { Mechanism } from "../../rules/rulebook.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { deepFreeze } from "../../state.ts";
-import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../framework/executor-part.ts";
+import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../framework/records.ts";
 import { faceFault, STRAIGHT_PUNCH_KEYS, straightPunchExecutor, straightPunchFits, timedChannelFault, validStraightPunch, validStraightPunchPart,
   type StraightPunch, type StrikingFace } from "./straight-punch.ts";
@@ -75,12 +74,11 @@ function blowFace(spec: BodySpec, effector: string, kind: HeldBlowKind): Strikin
 }
 
 /**
- * A held blow's config: its kind, its name, and a research `tuning` over its body's record, which
+ * A held blow's config: its kind, and a research `tuning` over its body's record, which
  * a link does not carry (all of its settings where the body has none).
  */
 interface Config<K extends HeldBlowKind = HeldBlowKind> {
   readonly kind: K;
-  readonly name: string;
   readonly tuning?: Partial<StraightPunch>;
 }
 
@@ -96,14 +94,14 @@ interface Config<K extends HeldBlowKind = HeldBlowKind> {
 function heldBlowPart<K extends HeldBlowKind>(kind: K): ExecutorPart<Config<K>> {
   const blow = HELD_BLOWS[kind];
   return {
-    role: "executor", label: blow.label, stage: "game", defaults: { kind, name: kind } as Config<K>,
-    keys: { kind: true, name: true, tuning: true }, tuning: STRAIGHT_PUNCH_KEYS,
-    fields: [text("name", "Name")], slots: [],
+    role: "executor", label: blow.label, stage: "game", defaults: { kind } as Config<K>,
+    keys: { kind: true, tuning: true }, tuning: STRAIGHT_PUNCH_KEYS,
+    fields: [], slots: [],
     fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint"),
       recordFault(blow.label.toLowerCase(), deepFreeze(blow.bodies), validStraightPunch),
       (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) ?? faceFault(config.tuning) : null),
     faults: (config) => config.tuning === undefined || validStraightPunchPart(config.tuning) ? [] : [`invalid ${blow.label.toLowerCase()} tuning`],
-    reads: () => [kind], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS, meets: blow.mechanism,
+    reads: () => [kind], effectors: ["hand.left", "hand.right"], aims: true, meets: blow.mechanism,
     strikesWith: (spec, _config, effector) => blowFace(spec, effector, kind) !== null,
     make({ body, guard, aim }, config, actions) {
       const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};

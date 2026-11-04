@@ -131,10 +131,10 @@ function rockerFoot(foot, radius, facets) {
 }
 
 async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, seconds, side, radius, distance, area, legs, stance, physique, probe, stop = null, played = false }) {
-  const [{ modelSpec }, { labActor }, { startLocomotion }, { TRACKS, trackOf }, { commandsOf }, { LAB_MIND }, { STANCE_GAIT }, { coreStand }, { armedWith }] = await Promise.all([
+  const [{ modelSpec }, { labActor }, { startLocomotion }, { TRACKS, trackOf }, { commandsOf }, { LAB_MIND }, { STANCE_GAIT }, { coreStand }, { armedWith }, { withLegs }] = await Promise.all([
     import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/locomotion-mode.ts"), import("../src/lab/track.ts"),
     import("../src/lab/commands.ts"), import("../src/lab/scenarios.ts"), import("../src/core/control/stance-tuning.ts"), import("../tests/harness/core-stand.mjs"),
-    import("../src/core/items/held.ts"),
+    import("../src/core/items/held.ts"), import("../src/core/option/mind.ts"),
   ]);
   const line = LINES[id];
   const info = id === "random" ? { facing: undefined } : line === undefined ? TRACKS[id] : { pieces: [{ kind: "corner", metres: 0, turn: line }, { kind: "straight", metres: 80 }], facing: 0 };
@@ -146,7 +146,7 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
   const spec = probe ? probed(held, probe) : held;
   const stand = await coreStand(spec, { ground: true, groundSize: GROUND, ...(probe?.hz ? { hz: probe.hz } : {}) });
   if (probe?.rocker) for (const side of ["left", "right"]) rockerFoot(stand.built.segments.get(`foot.${side}`), probe.rocker, probe.facets ?? 12);
-  const mind = { ...LAB_MIND, ...(legs ? { locomotion: legs } : {}) };
+  const mind = legs ? withLegs(LAB_MIND, legs) : LAB_MIND;
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
   const actor = labActor(stand.built, stand.world, { mind, experiment: { ...(tuning ? { stance: tuning } : {}), measuring: !played }, ...(probe?.assist ? { assist: probe.assist } : {}) });
   // Asked to stop, the track's tactics are asked for no walk.

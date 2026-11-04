@@ -1,12 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
-import { armedActions } from "../src/core/skills/action-config.ts";
-import { partLookup, MINDS } from "../src/entrants/game.ts";
+import { MINDS } from "../src/entrants/game.ts";
 import { withLoadout } from "../src/core/items/held.ts";
 import { regionSegments } from "../src/core/intent/action-aim.ts";
 import { dummyPart, dummyParts, dummySpec } from "../src/lab/dummy-spec.ts";
-import { attackTargetPart, attackTargetWarnings } from "../src/lab/attack-target.ts";
+import { attackTargetPart, attackTargetWarnings, strikeActions } from "../src/lab/attack-target.ts";
 import { labAddress, labHref } from "../src/lab/scenarios.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { startAttack } from "../src/lab/attack-mode.ts";
@@ -35,21 +34,22 @@ test("Lab dummy choices construct their real part, preserve anatomical regions, 
   }
 });
 
-test("Attack compatibility uses declared regions and armed actions without rewriting the kit", () => {
+test("Attack compatibility uses declared regions and the strikes a body's Options name without rewriting the mind", () => {
   const spec = modelSpec("workshop-fighter"), config = MINDS.option.config, before = JSON.stringify(config);
   const middle = spec.marks.middle[0], leg = spec.marks.legs[0];
-  const usable = armedActions(partLookup, spec, config.executors, config.actions);
-  assert.ok(usable.length > 0, "the fixture has bare-hand actions");
-  assert.equal(attackTargetWarnings(spec, config, spec.marks.high).length, usable.length);
-  assert.deepEqual(attackTargetWarnings(spec, config, middle), []);
-  const aimed = regions => ({ ...config, actions: [{ ...usable[0], regions }] });
+  const usable = strikeActions(spec, config);
+  assert.ok(usable.length > 0, "the fixture has bare-hand strikes");
+  assert.equal(attackTargetWarnings(spec, usable, spec.marks.high).length, usable.length);
+  assert.deepEqual(attackTargetWarnings(spec, usable, middle), []);
+  const punch = config.options.find(option => option.kind === "strike-straight-punch");
+  const aimed = regions => strikeActions(spec, { ...config, options: [{ ...punch, regions }] });
   assert.deepEqual(attackTargetWarnings(spec, aimed([{ kind: "mark", mark: "legs" }]), leg), []);
   assert.deepEqual(attackTargetWarnings(spec, aimed([{ kind: "segment", segment: middle }]), middle), []);
   assert.equal(attackTargetWarnings(spec, aimed([{ kind: "segment", segment: "missing" }]), middle).length, 1);
-  assert.match(attackTargetWarnings(spec, { ...config, executors: [], actions: [] }, middle)[0], /No actions are available/);
+  assert.match(attackTargetWarnings(spec, strikeActions(spec, { ...config, options: config.options.filter(option => !option.kind.startsWith("strike-")) }), middle)[0], /No actions are available/);
   const held = withLoadout(spec, { left: "empty", right: "club" });
-  assert.ok(armedActions(partLookup, held, config.executors, config.actions).some(action => action.name === "club-blow"), "the club's blow is armed where the hand holds the club");
-  assert.deepEqual(attackTargetWarnings(held, config, middle), []);
+  assert.ok(strikeActions(held, config).some(action => action.name === "club-blow"), "the club's blow is a strike where the hand holds the club");
+  assert.deepEqual(attackTargetWarnings(held, strikeActions(held, config), middle), []);
   assert.equal(JSON.stringify(config), before);
 });
 

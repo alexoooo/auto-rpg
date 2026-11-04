@@ -5,7 +5,8 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { massOf } from "../core/read-motion.ts";
-import { MOVE } from "../core/skills/locomotion/move-part.ts";
+import { GOING, MOVE } from "../core/skills/locomotion/move-part.ts";
+import { withLegs, type OptionMindConfig } from "../core/option/mind.ts";
 import { STOCK_GAITS, type GaitName } from "../core/skills/locomotion/gaits.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
@@ -63,12 +64,12 @@ const COURSES: Readonly<Record<CourseId, { readonly name: string; readonly size?
 };
 
 /**
- * What the body gets about by, in the locomotion slot of the mind the page chose: Move as the
- * game plays it (`MOVE`), one gait alone, or the mind's own.
+ * What the body gets about by, in place of its mind's legs (`OptionMindConfig.tuning`): Move by
+ * its rules (`MOVE`), one gait alone, or the mind's own.
  */
 type Legs = "move" | GaitName | "mind";
 const LEGS: readonly Entry<Legs>[] = [
-  { value: "move", name: "Move, as the game" },
+  { value: "move", name: "Move by its rules", title: "The gait chosen by where the body is" },
   ...STOCK_GAITS.map((gait) => ({ value: gait.name, name: gait.label })),
   { value: "mind", name: "As its mind says", title: "The locomotion of the mind under Character" },
 ];
@@ -152,7 +153,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
       ],
       readout: [shown, legend([MARKS.track, MARKS.centre, MARKS.aim, MARKS.wind])],
     },
-    mind: (mind) => legs === "mind" || !("locomotion" in mind) ? mind : { ...mind, locomotion: legs === "move" ? MOVE : { kind: "move", rules: [], otherwise: legs } },
+    mind: (mind) => legs === "mind" || mind.kind !== "option" ? mind : withLegs(mind as OptionMindConfig, legs === "move" ? MOVE : { ...GOING, otherwise: legs }),
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ actor, puppet, changed, clock, address }) {
       const { world } = actor, { built } = actor.body;

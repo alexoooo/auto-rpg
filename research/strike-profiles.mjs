@@ -2,7 +2,7 @@
  * **The strikes' profiles** (`src/core/skills/framework/profile.ts`, `assets/core/strike-profiles.json`): from
  * Strike drill records (`assets/evaluations/strike/`, and the baseline's punch rows, whose `rung`
  * names theirs), each strike's trials on a mark its action aims at, with a limb that throws it with
- * what it holds (`armedActions`). A profile a skill on a body against a target: its measured-on read
+ * what it holds (`strikesOf`). A profile a skill on a body against a target: its measured-on read
  * from each row's world (the left body's spec as the bout builds it, the skill's digest as the mind
  * holds it, the harness's rate and command delay (`harnessRule`), the recipe's sense delay, the rate
  * its mind decides at), its target the right body's; its trials those whose strike began (a trial
@@ -35,7 +35,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { EMPTY_LOADOUT, withLoadout } from "../src/core/items/held.ts";
 import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/entrants/game.ts";
-import { armedActions } from "../src/core/skills/action-config.ts";
+import { skillsOf } from "../src/core/option/kinds.ts";
 import { measuredOn, skillDigest, specDigest } from "../src/core/skills/framework/profile.ts";
 import { everyOf } from "../src/core/mind/decider.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
@@ -67,6 +67,23 @@ function specOf(recipe, side = "left") {
   return specs.get(key);
 }
 
+/**
+ * **The strikes a record's `mind` throws on a body of `spec`**, its executors and their actions: as
+ * its Options name them (`skillsOf`), or, in a record whose mind lists its executors and actions,
+ * those the body can use, each on the limbs its executor strikes with as the body holds what it holds.
+ */
+function strikesOf(spec, mind) {
+  if (Array.isArray(mind.options) && !mind.executors) return skillsOf(partLookup, spec, mind.options);
+  const executors = mind.executors.filter((executor) => partLookup.of("executor", executor).fits(spec, executor, partLookup) === null);
+  const has = (limb) => spec.effectors?.some((one) => one.segment === limb) ?? false;
+  return { executors, actions: (mind.actions ?? []).flatMap((action) => {
+    const executor = executors.find((one) => one.name === action.executor);
+    if (!executor) return [];
+    const part = partLookup.of("executor", executor), effectors = action.effectors.filter((limb) => has(limb) && (part.strikesWith?.(spec, executor, limb) ?? true));
+    return effectors.length === action.effectors.length ? [action] : effectors.length ? [{ ...action, effectors }] : [];
+  }) };
+}
+
 /** The marks `action` aims at, or null where it aims at other regions too. */
 const marksOf = (action) => (action.regions ?? []).every((region) => region.kind === "mark") ? action.regions.map((region) => region.mark) : null;
 
@@ -82,7 +99,7 @@ for (const path of paths) {
     // The drill Commander's config, or, in a record from before it, the drill's tactics in the mind.
     const drill = led?.kind === "drill" ? { kind: "drill", action: led.action, effector: led.limb, letGo: led.letGo } : partIn(mind, "drill");
     if (row.fault || !row.reading || row.world.kind !== "bout" || drill?.kind !== "drill" || rung === "walk") continue;
-    const spec = specOf(recipe), actions = armedActions(partLookup, spec, mind.executors, mind.actions), action = actions.find((one) => one.name === drill.action);
+    const spec = specOf(recipe), { executors, actions } = strikesOf(spec, mind), action = actions.find((one) => one.name === drill.action);
     // A body that does not throw the action (a rung's other model) was refused it, and measures nothing.
     if (!action && row.reading.outcome === "refused" && row.reading.reason === "no such choice on its menu") continue;
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
@@ -91,7 +108,7 @@ for (const path of paths) {
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
-    const measured = measuredOn(spec, skillDigest(partLookup, spec, mind.executors, action), hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
+    const measured = measuredOn(spec, skillDigest(partLookup, spec, executors, action), hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
     const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} on ${struck.model}`, effectors: action.effectors, limbs: new Set(), records: new Set(), trials: [] };
     profiles.set(key, profile);
     profile.records.add(path);

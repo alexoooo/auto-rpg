@@ -396,7 +396,7 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "option-re
 const DATA_CASES = [
   { name: "data: straight-punch", run: () => {
     const option = MINDS.option.config, mind = { ...option,
-      executors: option.executors.filter((executor) => executor.kind === "straight-punch"), actions: option.actions.filter((action) => action.name === "straight-punch") };
+      options: option.options.filter((one) => !one.kind.startsWith("strike-") || one.kind === "strike-straight-punch") };
     return arena({ left: "workshop-fighter", right: "workshop-fighter", loadouts: both("empty"), minds: { left: mind, right: mind } });
   } },
 ];

@@ -156,8 +156,11 @@ arbiter releases every action when another mind takes the body.
   actions overlap where reservations allow. An executor runs `prepare`, `commit` and `release` and
   ends once (`Ended`). It never closes distance; the decider does.
 - **Parts.** Each kind is a line of its role's list (`EXECUTORS`, `GUARDS` and the like), its
-  module owning its config's keys, defaults, faults, fit and maker. `usableSkills` builds only the
-  executors the body can use, naming the rest.
+  module owning its config's keys, defaults, faults, fit and maker. A body builds only the skills
+  it fits (`Slot.skills`), naming the rest (`unusedParts`). What lies under every skill (the motor,
+  the legs, the guard) is the one game part of its role that fits the body (`PartLookup.fitting`,
+  `filledOf`); two fitting is a fault of the build, and an experiment passes another in
+  (`OptionMindConfig.tuning`).
 - **Tuned per body**: an executor's settings, and step up's and the sit-back's timings, are its
   body's record (`SkillRecord`), read as mind data by `bodyKey` from `assets/core/<skill>.json`
   (`dataOf`). A body with no record does not use the skill.
@@ -166,8 +169,8 @@ arbiter releases every action when another mind takes the body.
   envelope; `walk-run` hands over to a run cycle fitted to motion capture
   (`assets/core/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis,
   its settings its body's record (`assets/core/walk-run.json`) where it has one, else the defaults
-  scaled to its leg (`scaledGait`);
-  `move` chooses among gaits by rules or by name.
+  scaled to its leg (`scaledGait`); each is a gait part (role `gait`).
+  `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules.
 - **The straight punch** (`straight-punch.ts`) drives the arm flat out at a contact pose solved
   each step, on a timed schedule (`TimedPush`). Steered, a network (`learned-punch.ts`) adds to the
   trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
@@ -258,19 +261,27 @@ each a state with its chance, `Outcome`), its step, and a status.
   from if not where the body stands: a strike whose readiness gives a window to be brought to
   (`Readiness`'s `position`) names a spot in it on each side of a body lying (`windowSpot`, `Side`),
   holding the nearest spot out of the foe's reach, holding at a place (`hold-at-place`) the place.
-  The walk (`walk`, `walkBy`) is one Option a gait, meaning go to a place by that gait; its targets
+  The walk (`walk`, `walkBy`) is one Option a gait of the body's legs, meaning go to a place by that gait; its targets
   are the sites its mind's Options name (`Sites`), which it reads as spots (`Spot`) and knows
   nothing else of, and the search prices a walk to one by what it finds where the walk ends.
+- **Its config is Options** (`OptionMindConfig`): its chooser, what it predicts from, its rate and
+  its Options in rank order. Each Option names the skill it uses and how: a strike its executor
+  (`skill`), its limbs by role (`LimbRole`: either hand, a free hand, the holding hand, either foot,
+  the jaw), its regions, its aim and its low support; a way up or a mode of the ground its
+  technique; a walk its gait and its navigation. A body builds the skills its Options name that it
+  fits (`skillsOf`), an Option whose skill it does not fit is not on offer, and no config names a
+  body's limb (`limbsOf`).
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
   `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-cut`,
-  `strike-sword-thrust`, `strike-stomp`), a strike (`strike`) of each action its executor of that
-  kind carries out; what strikes share is `src/core/option/strike.ts`, which the kinds call.
+  `strike-sword-thrust`, `strike-stomp`), a strike (`strike`) of the action it asks of its
+  executor on its body (`strikeAction`), named as the skill; what strikes share is
+  `src/core/option/strike.ts`, which the kinds call.
 - **The rise** (`RISE_OPTIONS`, `src/core/option/rise.ts`): each way up, reposition and mode of
   the ground an Option naming its technique (`way-up`, `reposition`, `flattening`, `steadying`,
   `landing`, `brace-tumbling`, `brace-down`), on offer where its skill admits the body as it lies.
   A way up is priced by its edge's expected seconds and chance, and where it ends by the search;
   lying is priced by the brace and the ways up that begin there; a reposition is on offer only from
-  a posture no way up before it begins from. Every Option's tries in the bout are kept in one
+  a posture none of its mind's ways up that fit the body begins from. Every Option's tries in the bout are kept in one
   record (`OptionRecord`), each priced by hand (`Prior`) until its tries move it (`recorded`). The
   reader keeps what the rise needs of them (`riseMemory`: whether it runs, the seconds braced
   tumbling, the steady's try). A config whose ways up leave no route to standing from the back or

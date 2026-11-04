@@ -10,7 +10,7 @@ import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { REPTILE_CRAWL } from "./tuning.ts";
 import { deepFreeze } from "../state.ts";
-import { fitsPaws, type GaitPart } from "./parts.ts";
+import { fitsPaws, type PawGaitPart } from "./parts.ts";
 
 /** Resolved world travel for a quadruped's gait; navigation owns external movement objectives. */
 export interface TravelOrders extends Omit<Orders, "move"> { readonly move: Heading | null }
@@ -184,8 +184,8 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
 interface CrawlConfig { readonly kind: "paw-crawl"; readonly tuning?: Partial<typeof REPTILE_CRAWL> }
 
 /** **The crawl** as a gait: the quadruped's close and careful steps. */
-export const CRAWL_PART: GaitPart<CrawlConfig> = deepFreeze({
-  role: "gait", label: "Crawl", stage: "game", fields: [], slots: [], defaults: { kind: "paw-crawl" }, keys: { kind: true, tuning: true },
+export const CRAWL_PART: PawGaitPart<CrawlConfig> = deepFreeze({
+  role: "paw-gait", label: "Crawl", stage: "game", fields: [], slots: [], defaults: { kind: "paw-crawl" }, keys: { kind: true, tuning: true },
   tuning: Object.keys(REPTILE_CRAWL), fits: fitsPaws,
   faults: (config: CrawlConfig) => Object.values(config.tuning ?? {}).every(Number.isFinite) ? [] : ["invalid crawl setting"],
   make(own: OwnBody, motor: ReturnType<typeof supportedMotor>, paws: readonly string[], config: CrawlConfig) {

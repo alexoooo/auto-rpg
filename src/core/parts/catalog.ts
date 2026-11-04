@@ -87,7 +87,7 @@ export interface Catalog {
   treeLookup(config: PartConfig): PartLookup;
   /**
    * **What is wrong with the tree `config` roots**, each a sentence. A part's own faults come first, then each slot's, each prefixed with where it is
-   * (`ground.0: `). A slot that holds what is no part, a
+   * (`options.0: `). A slot that holds what is no part, a
    * part of another role, or nothing where it must hold one is a fault; a part's own faults
    * (`Part.faults`) are read only once every descendant slot holds parts of its role. A tree that
    * names the kinds of two entrants is a fault (`treeScope`).
@@ -206,12 +206,24 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     if (!found) throw new Error(`no mind of kind ${JSON.stringify(config.kind)}`);
     return found;
   }
+  /** Every game part of `role`, the toolkit's, as its config (`PartLookup.game`). */
+  const game = (role: Role): readonly PartConfig[] => Object.entries(registered().parts)
+    .filter(([kind, part]) => part.role === role && part.stage === "game" && scopeOf(kind) === null).map(([, part]) => part.defaults);
+  /** The one game part of `role` that fits a body of `spec` (`PartLookup.fitting`), or why not one does: each one's refusal, or the two that fit. */
+  const fitting = (role: Role, spec: BodySpec): PartConfig | string => {
+    const refusals = game(role).map((config) => ({ config, refused: partOf(config).fits(spec, config, partLookup) })), fit = refusals.filter(({ refused }) => refused === null);
+    if (fit.length === 1) return fit[0]!.config;
+    return fit.length === 0 ? `no ${role} part fits ${spec.model}: ${refusals.map(({ config, refused }) => `${partOf(config).label} ${refused}`).join("; ")}`
+      : `${fit.map(({ config }) => config.kind).join(" and ")} both fit ${spec.model} as its ${role}: one of a role fits a body`;
+  };
   const partLookup: PartLookup = Object.freeze({
     of<R extends Role>(role: R, config: PartConfig): RoleParts[R] {
       const part = partOf(config);
       if (part.role !== role) throw new Error(`a ${part.role} part cannot go where a ${role} part goes`);
       return part as never;
     },
+    fitting,
+    game,
   });
 
   /** What each slot of `config` holds, by the slot, as a list: a single slot's part or none, or a list slot's parts. */
@@ -219,19 +231,6 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     return slotsOf(partOf(config), config).map((slot) => {
       const value = (config as unknown as Record<string, unknown>)[slot.key];
       return { slot, parts: slot.many ? (Array.isArray(value) ? value : [value]) : value === null || value === undefined ? [] : [value] };
-    });
-  }
-
-  /**
-   * The aims `config`'s actions name (`ActionConfig.aim`), each with its path: parts its tree
-   * holds outside its slots, whose settings its actions' checks read (`actionFaults`).
-   */
-  function aimsOf(config: PartConfig, at: string): { readonly path: string; readonly aim: unknown }[] {
-    const actions = (config as { readonly actions?: unknown }).actions;
-    if (!Array.isArray(actions)) return [];
-    return actions.flatMap((action: unknown, i) => {
-      const aim = (action as { readonly aim?: unknown } | null)?.aim;
-      return aim === undefined || aim === null ? [] : [{ path: `${at ? `${at}.` : ""}actions.${i}.aim`, aim }];
     });
   }
 
@@ -273,7 +272,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
   function eachPart(config: PartConfig, visit: (one: PartConfig) => void): void {
     const walk = (one: PartConfig): void => {
       visit(one);
-      for (const used of partOf(one).uses?.(one) ?? []) walk(used);
+      for (const used of partOf(one).uses?.(one, partLookup) ?? []) walk(used);
       for (const { slot, parts } of held(one)) {
         if (parts.length === 0 && slot.fallback) walk(slot.fallback);
         for (const child of parts) if (isPart(child)) walk(child);
@@ -284,10 +283,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
 
   function treeKinds(config: PartConfig): readonly string[] {
     const kinds = new Set<string>();
-    eachPart(config, (one) => {
-      kinds.add(one.kind);
-      for (const { aim } of aimsOf(one, "")) if (isPart(aim)) kinds.add(aim.kind);
-    });
+    eachPart(config, (one) => { kinds.add(one.kind); });
     return [...kinds];
   }
 
@@ -417,6 +413,8 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
           if (!named.has(part.kind)) throw new Error(`${partOf(config).label} looks up ${part.kind}, a part its tree does not name`);
           return partLookup.of(role, part);
         },
+        fitting,
+        game,
       });
     },
     treeFaults(config: PartConfig, at = ""): readonly string[] {

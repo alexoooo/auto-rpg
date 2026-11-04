@@ -1,4 +1,3 @@
-import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { chooserOf } from "./chooser.ts";
 import { OPTIONS, optionsOf, type OptionKindPart } from "./kinds.ts";
 import { MEASURED_PREDICTIONS, type ProfileTables } from "./predictions-part.ts";
@@ -26,16 +25,14 @@ export interface DeciderMaking {
   readonly parts: PartLookup;
 }
 
-/** What Option Mind decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the actions and executors its options carry out. */
+/** What Option Mind decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the legs its body goes by. */
 export interface Deciding {
   readonly chooser: PartConfig;
   /** What it predicts from (a part of role `predictions`; the measured profiles, `MEASURED_PREDICTIONS`, unless given). */
   readonly predictions?: PartConfig | null;
   readonly options?: readonly PartConfig[] | null;
-  readonly executors: readonly ExecutorEntry[];
-  readonly actions: readonly ActionConfig[];
-  /** Its legs: the gaits its footwork goes by (`gaitsOf`). */
-  readonly locomotion: LocomotionConfig;
+  /** Its body's legs: the gaits its walks go by (`gaitsOf`). */
+  readonly legs: PartConfig;
 }
 
 /**
@@ -88,8 +85,8 @@ function prospect(prospects: Kept[], options: readonly Option[], now: Situation)
  * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given),
  * each kind making its options from what the mind gives it (`OptionsGiven`) and building what else it needs:
  * following orders (to move, stand or face), each strike of its own kind (`strike`, from a limb
- * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and an
- * option a gait of its legs (`walkBy`, `gaitsOf`) walking to the site it is worth most to walk to,
+ * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and a
+ * walk by each gait of its legs its config names (`walkBy`, `gaitsOf`) to the site it is worth most to walk to,
  * each a spot an option names (`Option.sites`: a strike's window, holding's spot out of the foe's
  * reach), worth what the chooser's search finds there; and, down,
  * the rise's options (`RISE_OPTIONS`); and the rest options, priced as keeping the body as it is
@@ -107,7 +104,7 @@ export function optionDecider(making: DeciderMaking, hz: number, deciding: Decid
   const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
   const walk = walker(spec), record = optionRecord();
   const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS,
-    { spec, hz, rate, delay, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions: deciding.actions, tables, record });
+    { spec, hz, rate, delay, parts, walk, legs: deciding.legs, tables, record });
   const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap((option) => option.modelled ? [option.modelled] : []), measured: tables.strikes,
     ordersOf: making.orders, record, parts });
   const chosen = chooserOf(parts, deciding.chooser, options, seed, phase);

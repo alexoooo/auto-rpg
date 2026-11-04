@@ -4,7 +4,9 @@
  * role as its own parts (`swap:<kind>`), and presets holding its stubs, every part chosen by its
  * config. It is registered from here by one list line (`kinds.mjs`), as an entrant's folder is.
  */
-import { MOVE } from "../../../src/core/skills/locomotion/move-part.ts";
+import { GOING } from "../../../src/core/skills/locomotion/move-part.ts";
+import { STOCK_GAITS } from "../../../src/core/skills/locomotion/gaits.ts";
+import { WHOLE_BODY_MOTOR } from "../../../src/core/control/whole-body-motor.ts";
 import { OPTION_MIND } from "../../../src/core/option/mind.ts";
 import { RISE_OPTIONS } from "../../../src/core/option/rise.ts";
 import { QUADRUPED } from "../../../src/core/reptile/config.ts";
@@ -16,7 +18,7 @@ import { OPTION_PRESETS } from "../../../src/entrants/option/mind.ts";
 import { STRAIGHT_NAVIGATION } from "./straight-navigation.mjs";
 import { STUB_GUARD } from "./stub-guard.mjs";
 import { STUB_SUPPORT } from "./stub-support.mjs";
-import { STUB_BLOW } from "./stub-blow.mjs";
+import { STUB_BLOW, STUB_STRIKE } from "./stub-blow.mjs";
 import { STUB_MOTOR } from "./stub-motor.mjs";
 import { STUB_LEGS } from "./stub-legs.mjs";
 import { STUB_RULE } from "./stub-rule.mjs";
@@ -27,14 +29,28 @@ import { STUB_PERCEPT } from "./stub-percept.mjs";
 import { STUB_PREDICTION } from "./stub-prediction.mjs";
 import { STUB_TECHNIQUE } from "./stub-technique.mjs";
 import { STUB_BALANCE } from "./stub-balance.mjs";
-import { GAME_MOTOR } from "../../../src/core/mind/kit.ts";
 
 /** Option Mind as its entrant plays it. */
 const OPTION_DEFAULTS = OPTION_PRESETS.option.config;
 
 
-/** Option Mind's first aimed action, where the stub aim goes. */
-const AIM_AT = OPTION_DEFAULTS.actions.findIndex((action) => action.aim?.kind === "surface");
+/** Option Mind's straight punch, aimed by the surface: the strike the stub aim aims, after the options already placed. */
+const PUNCH = OPTION_DEFAULTS.options.find((option) => option.kind === "strike-straight-punch");
+
+/** Option Mind's first walk, the first that names the navigation every walk goes by. */
+const WALK_AT = OPTION_DEFAULTS.options.findIndex((option) => option.kind === "walk");
+
+/** Where Option Mind's first strike is: the stub strike takes the place of every strike. */
+const STRIKE_AT = OPTION_DEFAULTS.options.findIndex((option) => option.kind.startsWith("strike-"));
+
+/** Whether `option` is a strike (`StrikeConfig`): one that names its executor. */
+const strikes = (option) => option.kind.startsWith("strike-") || option.kind === STUB_STRIKE.defaults.kind;
+
+/** `config` with `part` passed in under its skills in `place` (`OptionMindConfig.tuning`). */
+const passing = (config, place, part) => ({ ...config, tuning: { ...config.tuning, parts: { ...config.tuning?.parts, [place]: part } } });
+
+/** The legs `config` passes in, else the game's (`GOING`). */
+const legsOf = (config) => config.tuning?.parts?.legs ?? GOING;
 
 /** Where a stub technique goes: a way up of its own after Option Mind's options (`WAY_UP_OPTION`), so its skill is the last its body makes. */
 const TECHNIQUE_AT = OPTION_DEFAULTS.options.length;
@@ -47,15 +63,25 @@ const TECHNIQUE_AT = OPTION_DEFAULTS.options.length;
  * may wrap what an earlier placed (the stub legs walk by Move with the stub rule).
  */
 export const STUBS = Object.freeze([
-  { part: STRAIGHT_NAVIGATION, mind: "swap-stub", at: "navigation", place: (config) => ({ ...config, navigation: STRAIGHT_NAVIGATION.defaults }), read: (state) => state.skills.navigation },
-  { part: STUB_GUARD, mind: "swap-stub", at: "guard", place: (config) => ({ ...config, guard: STUB_GUARD.defaults }), read: (state) => state.skills.guard },
-  { part: STUB_SUPPORT, mind: "swap-stub", at: "support", place: (config) => ({ ...config, support: STUB_SUPPORT.defaults }), read: (state) => state.skills.support },
-  { part: STUB_BLOW, mind: "swap-stub", at: "executors.0", place: (config) => ({ ...config, executors: [STUB_BLOW.defaults] }), read: (state) => state.skills.actions.executors[0] },
-  { part: STUB_MOTOR, mind: "swap-stub", at: "motor", place: (config) => ({ ...config, motor: STUB_MOTOR.defaults }), read: (_mind, body) => body.mind.host.motor },
-  { part: STUB_RULE, mind: "swap-stub", at: "locomotion.rules.0", place: (config) => ({ ...config, locomotion: { ...MOVE, rules: [STUB_RULE.defaults], otherwise: "braced" } }), read: (state) => state.skills.legs.legs.walk.rules[0] },
-  { part: STUB_LEGS, mind: "swap-stub", at: "locomotion", place: (config) => ({ ...config, locomotion: { ...STUB_LEGS.defaults, walk: config.locomotion } }), read: (state) => state.skills.legs.legs },
-  { part: STUB_TECHNIQUE, mind: "swap-stub", at: `options.${TECHNIQUE_AT}.technique`,
-    place: (config) => ({ ...config, options: [...config.options, { kind: "way-up", technique: STUB_TECHNIQUE.defaults }] }),
+  { part: STRAIGHT_NAVIGATION, mind: "swap-stub", at: `options.${WALK_AT}.navigation`,
+    place: (config) => ({ ...config, options: config.options.map((option) => option.kind === "walk" ? { ...option, navigation: STRAIGHT_NAVIGATION.defaults } : option) }),
+    read: (state) => state.skills.navigation },
+  { part: STUB_GUARD, mind: "swap-stub", at: "tuning.parts.guard", place: (config) => passing(config, "guard", STUB_GUARD.defaults), read: (state) => state.skills.guard },
+  { part: STUB_BLOW, mind: "swap-stub", at: `options.${STRIKE_AT}.skill`,
+    place: (config) => ({ ...config, options: [...config.options.slice(0, STRIKE_AT).filter((option) => !strikes(option)), STUB_STRIKE.defaults,
+      ...config.options.slice(STRIKE_AT).filter((option) => !strikes(option))] }),
+    read: (state) => state.skills.actions.executors[0] },
+  { part: STUB_SUPPORT, mind: "swap-stub", at: `options.${STRIKE_AT}.support`,
+    place: (config) => ({ ...config, options: config.options.map((option) => strikes(option) ? { ...option, support: STUB_SUPPORT.defaults } : option) }),
+    read: (state) => state.skills.support },
+  { part: STUB_MOTOR, mind: "swap-stub", at: "tuning.parts.motor", place: (config) => passing(config, "motor", STUB_MOTOR.defaults), read: (_mind, body) => body.mind.host.motor },
+  { part: STUB_RULE, mind: "swap-stub", at: "tuning.parts.legs.rules.0", place: (config) => passing(config, "legs", { ...legsOf(config), rules: [STUB_RULE.defaults] }),
+    read: (state) => state.skills.legs.legs.rules[0] },
+  { part: STUB_LEGS, mind: "swap-stub", at: "tuning.parts.legs.gaits.0.legs",
+    place: (config) => passing(config, "legs", { ...legsOf(config), gaits: STOCK_GAITS.map((gait) => gait.name === "braced" ? { ...gait, legs: STUB_LEGS.defaults } : gait) }),
+    read: (state) => state.skills.legs.legs.gaits.find((gait) => gait?.stub === STUB_LEGS.defaults.kind) },
+  { part: STUB_TECHNIQUE, mind: "swap-stub", at: `options.${TECHNIQUE_AT}.skill`,
+    place: (config) => ({ ...config, options: [...config.options, { kind: "way-up", skill: STUB_TECHNIQUE.defaults }] }),
     read: (state) => state.skills.actions.executors.at(-1).run },
   { part: STUB_CHOOSER, mind: "swap-option", at: "chooser", place: (config) => ({ ...config, chooser: STUB_CHOOSER.defaults }), read: (state) => state.decider.chooser.counts },
   ...[[STUB_OBJECTIVE, (objective) => objective], [STUB_PERCEPT, (objective) => objective.percept], [STUB_PREDICTION, (objective) => objective.prediction]].map(([part, of]) => (
@@ -64,10 +90,10 @@ export const STUBS = Object.freeze([
   // The stub alone beside the rise's options, which a mind needs to get up by (`RISE_OPTIONS`).
   { part: STUB_OPTION, mind: "swap-option", at: "options.0", place: (config) => ({ ...config, options: [STUB_OPTION.defaults, ...RISE_OPTIONS] }),
     read: (state) => state.decider.options.find((option) => option.counts).counts },
-  { part: STUB_BALANCE, mind: "swap-option", at: "motor.balance", place: (config) => ({ ...config, motor: { ...GAME_MOTOR, balance: STUB_BALANCE.defaults } }),
+  { part: STUB_BALANCE, mind: "swap-option", at: "tuning.parts.motor.balance", place: (config) => passing(config, "motor", { ...WHOLE_BODY_MOTOR.defaults, balance: STUB_BALANCE.defaults }),
     read: (_mind, body) => body.mind.host.motor.stance },
-  { part: STUB_AIM, mind: "swap-option", at: `actions.${AIM_AT}.aim`,
-    place: (config) => ({ ...config, actions: config.actions.map((action, i) => i === AIM_AT ? { ...action, aim: STUB_AIM.defaults } : action) }), read: () => AIMED },
+  { part: STUB_AIM, mind: "swap-option", at: `options.${RISE_OPTIONS.length + 1}.aim`,
+    place: (config) => ({ ...config, options: [...config.options.filter((option) => option.kind !== PUNCH.kind), { ...PUNCH, aim: STUB_AIM.defaults }] }), read: () => AIMED },
   ...[["motor", STUB_PAW_MOTOR, "motor"], ["travel", STUB_TROT, "travel"], ["bite", STUB_JAW, "bite"], ["tactics", STUB_STALK, "stalk"]].map(([at, part, held]) => (
     { part, mind: "swap-quadruped", at: `frame.${at}`, place: (config) => ({ ...config, frame: { ...config.frame, [at]: part.defaults } }), read: (_mind, body) => body.mind.host[held] })),
 ].map(Object.freeze));
@@ -85,9 +111,7 @@ const KINDS = Object.freeze({ "swap-stub": "swap:option", "swap-option": "swap:o
 const withStubs = (preset, base, more) => Object.freeze({ ...STUBS.filter((stub) => stub.mind === preset).reduce((config, stub) => stub.place(config), base), kind: KINDS[preset], ...more });
 
 /** The body-layer fixture: Option Mind with every body-layer stub at once, its one blow the stub executor's, rising by the game's techniques and the stub's. */
-export const SWAP_DEFAULTS = withStubs("swap-stub", OPTION_DEFAULTS, {
-  actions: Object.freeze([{ name: "stub-blow", executor: STUB_BLOW.defaults.name, effectors: ["hand.right", "hand.left"] }]),
-});
+export const SWAP_DEFAULTS = withStubs("swap-stub", OPTION_DEFAULTS, {});
 
 /** The Option Mind fixture: Option Mind with its chooser, option, balance and aim stubs. */
 export const SWAP_OPTION_DEFAULTS = withStubs("swap-option", OPTION_DEFAULTS, {});
@@ -97,7 +121,7 @@ export const SWAP_QUADRUPED_DEFAULTS = withStubs("swap-quadruped", OVER_QUADRUPE
 
 /** Option Mind's straight punch alone: a bare-hand source on the Warrior. */
 const UNARMED = Object.freeze({ ...OPTION_DEFAULTS, kind: "swap:option",
-  executors: OPTION_DEFAULTS.executors.filter((executor) => executor.name === "punch"), actions: OPTION_DEFAULTS.actions.filter((action) => action.executor === "punch") });
+  options: OPTION_DEFAULTS.options.filter((option) => !strikes(option) || option.kind === "strike-straight-punch") });
 
 /** A toolkit mind `mind` as the swap entrant's experimental kind, starting as `defaults`. */
 const swapMind = (mind, label, defaults) => Object.freeze({ ...mind, label, stage: "experimental", defaults });
@@ -106,7 +130,7 @@ const swapMind = (mind, label, defaults) => Object.freeze({ ...mind, label, stag
 export const SWAP = Object.freeze({
   name: "swap",
   minds: Object.freeze([swapMind(OPTION_MIND, "Swap Option Mind", SWAP_OPTION_DEFAULTS)]),
-  parts: Object.freeze([...new Set(STUBS.map((stub) => stub.part))]),
+  parts: Object.freeze([...new Set([...STUBS.map((stub) => stub.part), STUB_STRIKE])]),
   presets: Object.freeze({
     "swap-stub": Object.freeze({ label: "Swap stubs", config: SWAP_DEFAULTS, models: Object.freeze(["workshop-fighter"]) }),
     "swap-unarmed": Object.freeze({ label: "Swap bare-hand scope", config: UNARMED, models: Object.freeze(["workshop-fighter"]) }),

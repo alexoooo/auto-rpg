@@ -11,7 +11,7 @@ import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { humanoidSpec } from "../core/human/spec.ts";
 import { armedWith, loadoutKey, REPRESENTATIVE, type Held } from "../core/items/held.ts";
-import { OPTION_MIND, type OptionMindConfig } from "../core/option/mind.ts";
+import type { OptionMindConfig } from "../core/option/mind.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { groundReading } from "../core/control/ground-reading.ts";
 import { stanceFeet } from "../core/control/support.ts";
@@ -39,9 +39,6 @@ export function risingMind(techniques?: readonly TechniqueName[] | null): Option
   const option = MINDS.option!.config as OptionMindConfig;
   return techniques ? { ...option, options: withWaysUp(option.options ?? OPTIONS, techniques.map((kind) => ({ kind }))) } : option;
 }
-
-/** What a technique alone is played with (`kitOf`): Option Mind's guard and motor control. */
-const TECHNIQUE_KIT = OPTION_MIND.defaults as OptionMindConfig;
 
 /**
  * A job of the bed: a fall (`FallCase`, its mind given or Option Mind getting up by `techniques`), or with
@@ -145,7 +142,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
   const control = { active: start !== "shoved", end: null as string | null, from: null as number | null, ended: null as number | null,
     predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, into) => {
-    const kit = kitOf(partLookup, own.spec, TECHNIQUE_KIT);
+    const kit = kitOf(partLookup, own.spec);
     run = TECHNIQUES[technique].make(own, view, into, kit);
     predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, kit) ?? null : null;
     if (job.after && !predecessor) throw new Error(`unknown predecessor ${job.after}`);

@@ -19,8 +19,9 @@
  * names the first subject's parent: the newest recorded version of that id, else that subject here;
  * against a panel it is the baseline of the panel report, and in a battery the subject's figures are
  * read against it, condition by condition. `--ablate` makes the first subject the `--previous` mind
- * with one slot of its skills (`SkillKit`) replaced by the JSON given: `support=null`, `guard={...}`,
- * or one named executor or action, `actions.<name>=null` to remove it.
+ * with one slot or setting of its parts replaced by the JSON given: an Option's, by its kind
+ * (`options.strike-straight-punch.support=null`, `options.strike-stomp=null` to remove it), or a
+ * part passed in under its skills (`tuning.parts.guard={...}`).
  * Baseline configurations run on current code. Historical implementations are compared from
  * their saved records with `npm run compare`, without rebuilding them here.
  * An evaluation that plays every protocol (`Evaluation.every`: the baseline) plays each in turn, a

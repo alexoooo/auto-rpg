@@ -46,8 +46,8 @@ export function quadrupedLayers(own: OwnBody, parts: PartLookup, config: Quadrup
   const paws: readonly SupportEndpoint[] = pawsOf(own.spec).map(paw => ({ segment: paw.segment, point: paw.point, sole: paw.sole }));
   const senses = own.senses, built = own.built, upright = uprightness(built), down = (): boolean => upright.down();
   const motorConfig = config.motor ?? QUADRUPED_PARTS.motor, support = parts.of("support-motor", motorConfig).make(own, paws, motorConfig), motor = support.motor;
-  const travelConfig = config.travel ?? QUADRUPED_PARTS.travel, travel = parts.of("gait", travelConfig).make(own, motor, paws.map(p => p.segment), travelConfig);
-  const crawlConfig = config.crawl ?? QUADRUPED_PARTS.crawl, creep = parts.of("gait", crawlConfig).make(own, motor, paws.map(p => p.segment), crawlConfig);
+  const travelConfig = config.travel ?? QUADRUPED_PARTS.travel, travel = parts.of("paw-gait", travelConfig).make(own, motor, paws.map(p => p.segment), travelConfig);
+  const crawlConfig = config.crawl ?? QUADRUPED_PARTS.crawl, creep = parts.of("paw-gait", crawlConfig).make(own, motor, paws.map(p => p.segment), crawlConfig);
   const gait = { kind: "travel" as "travel" | "crawl", reacquire: false, homeAt: 0, stable: 0 };
   const locomotion = { travel, crawl: creep };
   const tracker = effectorTracker(built, motor.root, { seedActual: true }), frame = { position: new Vector3(), rotation: new Quaternion() }, target = new Vector3();

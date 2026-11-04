@@ -1,8 +1,7 @@
 import meta from "../../../../assets/core/stomp.meta.json" with { type: "json" };
 import { dataOf } from "../../data/store.ts";
 import { fitsAll, strikesWithOneOf } from "../../parts/parts.ts";
-import { text } from "../../parts/fields.ts";
-import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../framework/executor-part.ts";
+import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../framework/records.ts";
 import { deepFreeze } from "../../state.ts";
 import { stompExecutor, STOMP_PATH, validStompTuning, type StompTuning } from "./stomp.ts";
@@ -14,10 +13,9 @@ declare module "../../data/store.ts" {
   }
 }
 
-/** A stomp's config: its kind and name, and an experiment's research `tuning`, which a link does not carry. */
+/** A stomp's config: its kind, and an experiment's research `tuning`, which a link does not carry. */
 interface Config {
   readonly kind: "stomp";
-  readonly name: string;
   readonly tuning?: Partial<StompTuning>;
 }
 
@@ -36,10 +34,10 @@ const validStompPart = (tuning: Partial<StompTuning>): boolean =>
  * body has none.
  */
 export const STOMP_PART: ExecutorPart<Config> = {
-  role: "executor", label: "Stomp", stage: "experimental", defaults: { kind: "stomp", name: "stomp" },
-  keys: { kind: true, name: true, tuning: true }, fields: [text("name", "Name")], slots: [], tuning: Object.keys(STOMP_PATH),
+  role: "executor", label: "Stomp", stage: "experimental", defaults: { kind: "stomp" },
+  keys: { kind: true, tuning: true }, fields: [], slots: [], tuning: Object.keys(STOMP_PATH),
   fits: fitsAll(strikesWithOneOf("foot.left", "foot.right"), recordFault("stomp", deepFreeze(meta.bodies), wholeStomp)),
   faults: (config) => config.tuning === undefined || validStompPart(config.tuning) ? [] : ["invalid stomp tuning"],
-  reads: () => ["stomp"], effectors: ["foot.left", "foot.right"], ...AIMED_ACTIONS,
+  reads: () => ["stomp"], effectors: ["foot.left", "foot.right"], aims: true,
   make: ({ body, aim }, config, actions) => stompExecutor(body, actions.map(a => a.name), tunedSettings(dataOf("stomp"), body.built.spec, config), aimedPoint(aim)),
 };

@@ -15,15 +15,18 @@ import { STUB_MOTOR } from "./fixtures/swap/stub-motor.mjs";
 import { BALANCES } from "../src/core/control/balances.ts";
 import { MOTORS } from "../src/core/control/motors.ts";
 import { MOVE } from "../src/core/skills/locomotion/move-part.ts";
-import { GAME_MOTOR } from "../src/core/mind/kit.ts";
+import { WHOLE_BODY_MOTOR } from "../src/core/control/whole-body-motor.ts";
 import { GAITS } from "../src/core/skills/locomotion/gaits.ts";
 import { ALL_MET } from "../src/core/skills/framework/skill.ts";
+
+/** The game's motor control: the whole-body solve on the stance. */
+const GAME_MOTOR = WHOLE_BODY_MOTOR.defaults;
 
 const lookup = lookupWith({ "swap:stub-legs": STUB_LEGS, "swap:stub-balance": STUB_BALANCE, "swap:stub-motor": STUB_MOTOR });
 
 /**
  * Each implementation probed, by name: the rig's configs, and the probes that ask what it carries
- * out. Legs stand on the game's motor and balance (`GAME_MOTOR`, the stance), and the stance walk on
+ * out. Legs stand on the game's motor and balance (the whole-body solve on the stance), and the stance walk on
  * each other balance.
  */
 const PROBED = [

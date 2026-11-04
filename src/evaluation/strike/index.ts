@@ -9,7 +9,9 @@
  * other parts are the mind's.
  */
 import type { AttributeOverrides } from "../../core/character-attributes.ts";
-import { MINDS } from "../../entrants/game.ts";
+import { MINDS, partLookup } from "../../entrants/game.ts";
+import { strikesIn } from "../../core/option/kinds.ts";
+import type { PartConfig } from "../../core/parts/parts.ts";
 import { HELD, loadoutFaults, loadoutKey, type Held, type Loadout } from "../../core/items/held.ts";
 import { recordingKey } from "../../core/recording.ts";
 import { mindSubject, type Evaluation, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
@@ -47,14 +49,16 @@ export const strikeSubjects = (choice: SubjectChoice, none: readonly string[]): 
   (choice.length > 0 ? choice : none).map((one) => typeof one !== "string" ? givenSubject(one) : actionSubject(one));
 
 /**
- * A preset's action as a subject: `<mind>/<action>`, its parts the mind's config and the action's
- * name; with `@<left>,<right>`, its striker holding that loadout, a part of its own.
+ * A preset's strike as a subject: `<mind>/<action>`, the action its Option asks of its skill named
+ * by the skill (`strikeAction`), its parts the mind's config and the action's name; with
+ * `@<left>,<right>`, its striker holding that loadout, a part of its own.
  */
 function actionSubject(name: string): Subject {
   const at = name.lastIndexOf("@"), named = at < 0 ? name : name.slice(0, at), held = at < 0 ? undefined : loadoutNamed(name.slice(at + 1));
   const slash = named.indexOf("/"), id = slash < 0 ? named : named.slice(0, slash), preset = Object.hasOwn(MINDS, id) ? MINDS[id]! : null;
   if (!preset) throw new Error(`${name} is no strike: name a mind and its action, <mind>/<action>[@<left>,<right>] (${Object.keys(MINDS).join(", ")})`);
-  const config = preset.config as { readonly actions?: readonly { readonly name: string }[] }, actions = (config.actions ?? []).map((action) => action.name);
+  const { options, frame } = preset.config as { readonly options?: readonly PartConfig[] | null; readonly frame?: unknown };
+  const actions = frame || !Array.isArray(options) ? [] : strikesIn(partLookup, options).map((strike) => strike.skill.kind);
   const action = slash < 0 ? actions[0] : named.slice(slash + 1);
   if (action === undefined || !actions.includes(action)) throw new Error(`${id} has no action ${action ?? ""}: one of ${actions.join(", ") || "none"}`);
   const value = { mind: preset.config as unknown as Json, action, ...(held === undefined ? {} : { held }) };

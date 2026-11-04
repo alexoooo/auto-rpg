@@ -7,7 +7,7 @@ import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { REPTILE_TROT } from "./tuning.ts";
 import { deepFreeze } from "../state.ts";
-import { fitsPaws, type GaitPart } from "./parts.ts";
+import { fitsPaws, type PawGaitPart } from "./parts.ts";
 import type { QuadrupedView, TravelOrders } from "./crawl.ts";
 import { chainTo, reachWork, solveReach } from "../control/kinematics.ts";
 
@@ -249,8 +249,8 @@ const REACH_SEARCH = .5, REACH_STEPS = 16;
 interface TrotConfig { readonly kind: "paw-trot"; readonly tuning?: Partial<typeof REPTILE_TROT> }
 
 /** **The trot** as a gait: the quadruped's travel. */
-export const TROT_PART: GaitPart<TrotConfig> = deepFreeze({
-  role: "gait", label: "Trot", stage: "game", fields: [], slots: [], defaults: { kind: "paw-trot" }, keys: { kind: true, tuning: true },
+export const TROT_PART: PawGaitPart<TrotConfig> = deepFreeze({
+  role: "paw-gait", label: "Trot", stage: "game", fields: [], slots: [], defaults: { kind: "paw-trot" }, keys: { kind: true, tuning: true },
   tuning: Object.keys(REPTILE_TROT), fits: fitsPaws,
   faults: (config: TrotConfig) => Object.values(config.tuning ?? {}).every(Number.isFinite) ? [] : ["invalid trot setting"],
   make(own: OwnBody, motor: ReturnType<typeof supportedMotor>, paws: readonly string[], config: TrotConfig) {

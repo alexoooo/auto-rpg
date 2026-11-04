@@ -1,27 +1,24 @@
-import { armedActions } from "../core/skills/action-config.ts";
 import { regionSegments } from "../core/intent/action-aim.ts";
+import { skillsOf } from "../core/option/kinds.ts";
+import type { PartConfig } from "../core/parts/parts.ts";
 import { partLookup } from "../entrants/game.ts";
-import type { SkillKit } from "../core/skills/config.ts";
+import type { ActionConfig } from "../core/skills/config.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { dummyPart, dummyParts, dummySpec } from "./dummy-spec.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 
+/** What `mind`'s Options ask of its strikes on a body of `spec` (`skillsOf`), where its config names Options; null where it names none. */
+export function strikeActions(spec: BodySpec, mind: MindConfig): readonly ActionConfig[] | null {
+  const { options } = mind as { readonly options?: readonly PartConfig[] | null };
+  return Array.isArray(options) ? skillsOf(partLookup, spec, options).actions : null;
+}
+
 /** Anatomical compatibility only: readiness, reach and the planner's choices remain runtime decisions. */
-export function attackTargetWarnings(spec: BodySpec, kit: StrikeKit, requested: string): readonly string[] {
+export function attackTargetWarnings(spec: BodySpec, actions: readonly ActionConfig[], requested: string): readonly string[] {
   const part = dummyPart(spec, requested), target = dummySpec(spec, part);
-  const actions = armedActions(partLookup, spec, kit.executors, kit.actions);
   if (!actions.length) return ["No actions are available. Change the loadout."];
   return actions.filter(action => action.regions && !action.regions.some(region => regionSegments(target, region).length > 0))
     .map(action => `${action.name}: no target region matches ${part}. Choose another target part or edit its target regions.`);
-}
-
-/** What of a mind's skills strikes: its executors and its actions. */
-type StrikeKit = Pick<SkillKit, "executors" | "actions">;
-
-/** `mind`'s strikes, where its config carries its executors and actions, as a fighter's and the Option Mind's do; null where it does not. */
-export function strikeKit(mind: MindConfig): StrikeKit | null {
-  const { executors, actions } = mind as Partial<SkillKit>;
-  return Array.isArray(executors) && Array.isArray(actions) ? { executors, actions } : null;
 }
 
 /**
@@ -30,9 +27,8 @@ export function strikeKit(mind: MindConfig): StrikeKit | null {
  * of its actions can aim at (`regionSegments`); the high part where it names no strikes.
  */
 export function attackTargetPart(spec: BodySpec, mind: MindConfig): string {
-  const kit = strikeKit(mind), parts = dummyParts(spec);
-  if (!kit || parts.length === 0) return spec.marks.high;
-  const actions = armedActions(partLookup, spec, kit.executors, kit.actions);
+  const actions = strikeActions(spec, mind), parts = dummyParts(spec);
+  if (!actions || parts.length === 0) return spec.marks.high;
   let chosen = spec.marks.high, most = -1;
   for (const part of [spec.marks.high, ...parts]) {
     if (!parts.includes(part)) continue;

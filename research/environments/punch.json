@@ -1,7 +1,7 @@
 {
   "kind": "cases",
   "evaluation": "strike",
-  "part": "mind.executors.0",
+  "part": "mind.options.1.skill",
   "layout": "assets/core/learned-punch.layout.json",
   "subjects": [
     {"where": {"model": "workshop-fighter", "hand": "right"}, "value": {"mind": {"preset": "option", "action": "straight-punch", "steered": true}, "action": "straight-punch"}},

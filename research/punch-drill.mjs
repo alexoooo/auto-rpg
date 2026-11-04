@@ -29,7 +29,7 @@ import { parseArgs } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../tests/harness/preload-data.mjs";
 import { MINDS, partLookup } from "../src/entrants/game.ts";
-import { usableSkills } from "../src/core/skills/action-config.ts";
+import { skillsOf } from "../src/core/option/kinds.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { STRIKE_CASES } from "../src/evaluation/strike/cases.ts";
 import { barScore as scoreOf } from "../src/evaluation/strike/score.ts";
@@ -94,15 +94,15 @@ export function decode(x, hand, gap, without = new Set(), { fire = false, brake 
  */
 export function timedPuncher({ pushes, lead, through, beneath, fire, brake }, hand, aim = null, blow = null, mark = null, window = {}) {
   const tuning = { ...AROUND, ...window, lead, through, ...beneath, ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
+  const preset = MINDS.option.config, struck = (option) => option.kind.startsWith("strike-");
   if (blow) {
-    const preset = MINDS.option.config, other = hand === "left" ? "right" : "left";
-    const actions = mark ? preset.actions.map((action) => action.name === blow ? { ...action, regions: [{ kind: "mark", mark }] } : action) : preset.actions;
-    return { mind: { ...preset, actions, executors: preset.executors.map((one) => one.kind === blow ? { ...one, tuning } : one) }, action: blow,
-      held: { [hand]: HELD_BLOWS[blow].item, [other]: "buckler" } };
+    const other = hand === "left" ? "right" : "left";
+    const options = preset.options.map((option) => struck(option) && option.skill.kind === blow ? { ...option, skill: { ...option.skill, tuning }, ...(mark ? { regions: [{ kind: "mark", mark }] } : {}) } : option);
+    return { mind: { ...preset, options }, action: blow, held: { [hand]: HELD_BLOWS[blow].item, [other]: "buckler" } };
   }
-  const preset = MINDS.option.config, punch = preset.executors.find((one) => one.kind === "straight-punch");
-  const action = preset.actions.find((one) => one.executor === punch.name), strike = aim ? { ...action, aim, regions: [{ kind: "mark", mark: "middle" }] } : action;
-  return { mind: { ...preset, actions: [strike], executors: [{ ...punch, tuning }] }, action: strike.name };
+  const punch = preset.options.find((option) => option.kind === "strike-straight-punch");
+  const strike = { ...punch, skill: { ...punch.skill, tuning }, ...(aim ? { aim, regions: [{ kind: "mark", mark: "middle" }] } : {}) };
+  return { mind: { ...preset, options: preset.options.map((option) => option === punch ? strike : option).filter((option) => !struck(option) || option === strike) }, action: punch.skill.kind };
 }
 
 /**
@@ -153,9 +153,9 @@ export async function drillTrial(subject, condition, hz) {
   const cases = STRIKE_CASES.still, world = cases.world([subject], condition, undefined, [{}]);
   const built = await buildBout(world.recipe, { hz });
   try {
-    // The executor's place among those the striker's body uses (`usableSkills`), as its skills' state lists them.
-    const used = usableSkills(partLookup, built.duel.duelists.left.built.spec, subject.mind.executors, subject.mind.actions ?? []).executors;
-    const at = Math.max(0, used.findIndex((one) => one.name === subject.mind.actions?.find((action) => action.name === subject.action)?.executor));
+    // The executor's place among those the striker's body builds of its Options (`skillsOf`), as its skills' state lists them.
+    const used = skillsOf(partLookup, built.duel.duelists.left.built.spec, subject.mind.options).executors;
+    const at = Math.max(0, used.findIndex((one) => one.name === subject.action));
     const reader = cases.read(built, condition), motion = built.duel.duelists.left.minded.skills.state.actions.executors[at].motion, body = built.duel.duelists.left.body;
     let nearest = Infinity, committed = null;
     built.duel.play(world.tape);

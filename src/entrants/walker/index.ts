@@ -2,7 +2,7 @@ import type { Entrant } from "../../core/parts/entrant.ts";
 import type { MindPreset } from "../../core/mind/controller.ts";
 import type { PartConfig } from "../../core/parts/parts.ts";
 import { OPTION_MIND, type OptionMindConfig } from "../../core/option/mind.ts";
-import { GUARD_OPTION, HOLD_OPTION, WALK_OPTION } from "../../core/option/kinds.ts";
+import { GUARD_OPTION, HOLD_OPTION, WALKS } from "../../core/option/kinds.ts";
 import { BRACE_OPTION, RISE_OPTIONS } from "../../core/option/rise.ts";
 import { deepFreeze } from "../../core/state.ts";
 
@@ -14,10 +14,10 @@ const WITHIN = .3;
 
 /**
  * Its options: holding at the place, which names it as its site (`hold-at-place`), the walk to the
- * sites by each gait (`WALK_OPTION`), the rise (`RISE_OPTIONS`), and the rest options, with no blow
+ * sites by each gait (`WALKS`), the rise (`RISE_OPTIONS`), and the rest options, with no blow
  * and nothing that answers a foe.
  */
-const OPTIONS: readonly PartConfig[] = deepFreeze([{ kind: "hold-at-place", ...PLACE, within: WITHIN }, WALK_OPTION.defaults, ...RISE_OPTIONS,
+const OPTIONS: readonly PartConfig[] = deepFreeze([{ kind: "hold-at-place", ...PLACE, within: WITHIN }, ...WALKS, ...RISE_OPTIONS,
   HOLD_OPTION.defaults, GUARD_OPTION.defaults, BRACE_OPTION.defaults]);
 
 /**

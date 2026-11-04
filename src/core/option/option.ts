@@ -6,7 +6,6 @@ import type { Choice } from "../mind/choice.ts";
 import { bearingAround, graceAt, inReach, type Cues, type ModelledStrike, type Percepts, type Predictions } from "./percepts.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import type { Edge } from "./rise.ts";
 import type { Leaves, Terms } from "./value.ts";
 
 /**
@@ -90,8 +89,6 @@ export interface Option extends Choice<Situation> {
   rate?(now: Situation): number;
   /** The strike its body is modelled by (`ModelledStrike`, `Seen.strikes`), where it is one. */
   readonly modelled?: ModelledStrike;
-  /** The edges it takes the body by on the ground (`TechniquePart.edges`), where it is a way up. */
-  readonly route?: readonly Edge[];
   /** What it asks this step, and what that holds. */
   step(now: Situation, dt: number): Step;
 }

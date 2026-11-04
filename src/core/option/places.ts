@@ -1,7 +1,6 @@
 import { cos, hypot, sin } from "../math/real.ts";
 import { approachSpot, atSpot, type Spot } from "../intent/action-window.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import type { LocomotionConfig } from "../skills/config.ts";
 import { gaitsOfMove, type MoveConfig } from "../skills/locomotion/move-part.ts";
 import { startVelocity } from "../skills/framework/profile.ts";
 import { legsReadiness } from "../skills/locomotion/locomotion.ts";
@@ -12,18 +11,15 @@ import { CLINCH, clinched, STILL, upOrDown, type Terms } from "./value.ts";
 import type { GaitName } from "../skills/locomotion/gaits.ts";
 import type { Walker } from "./walk.ts";
 
-/** A gait as Option Mind's legs go by it: its name (null for legs that walk by none), its label and its legs' config. */
+/** A gait as Option Mind's legs go by it: its name, its label and its legs' config. */
 export interface GaitOf {
-  readonly name: GaitName | null;
+  readonly name: GaitName;
   readonly label: string;
   readonly legs: PartConfig;
 }
 
-/** **The gaits `legs` go by**: Move's (`gaitsOfMove`), else the legs as one gait that names none. */
-export function gaitsOf(legs: LocomotionConfig): readonly GaitOf[] {
-  if (legs.kind === "move") return gaitsOfMove(legs as MoveConfig);
-  return [{ name: null, label: "Walk", legs }];
-}
+/** **The gaits `legs` go by**: Move's (`gaitsOfMove`); none for legs that go by no gait by name. */
+export const gaitsOf = (legs: PartConfig): readonly GaitOf[] => legs.kind === "move" ? gaitsOfMove(legs as MoveConfig) : [];
 
 /** The time step a walk's way is read at, s: within the focus's reach, its pressure is read at the range of each step's middle (`walkTerms`). */
 const WALK_READ = .05;
@@ -111,7 +107,7 @@ export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker)
     step: (now) => {
       const spot = away(now, state.at), heading = now.sight.report.heading;
       const asked = spot ? approachSpot(now.sight.view, spot, now.orders?.pace ?? Infinity, heading) : { move: null, face: walk.facing(now) };
-      return { asked: { ...walk.kept(now, asked, spot?.by ?? null), actions: [], ...(gait.name === null ? {} : { gait: gait.name }) }, holds: LEGS };
+      return { asked: { ...walk.kept(now, asked, spot?.by ?? null), actions: [], gait: gait.name }, holds: LEGS };
     },
   };
 }

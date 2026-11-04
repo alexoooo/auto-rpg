@@ -6,7 +6,7 @@
  * - `evaluation`; `subject`, or `subjects`, each a `value` for the conditions whose fields equal
  *   its `where`'s: a subject as the evaluation takes one, its mind named by preset (`presetMind`),
  *   never written out, so that it learns the part the game plays; `part`, the path of the learnable
- *   part in each (`mind.executors.0`; none for the config itself), which must name an object;
+ *   part in each (`mind.options.1.skill`; none for the config itself), which must name an object;
  *   `character`.
  * - `layout`, a file of the part's input and output names (`{ inputs, outputs }`), which the
  *   learner's own must match in number (its outputs where it holds any before the trainer writes
@@ -97,10 +97,11 @@ export function presetMind(given) {
     if (given.steered !== undefined) throw new Error('a steered mind names the action whose executor it steers');
     return preset;
   }
-  const action = preset.actions?.find((one) => one.name === given.action), executor = preset.executors?.find((one) => one.name === action?.executor);
-  if (!action || !executor) throw new Error(`the ${given.preset} preset has no action ${given.action} and executor for it`);
+  const strike = (option) => option.kind.startsWith('strike-'), struck = preset.options?.find((option) => strike(option) && option.skill.kind === given.action);
+  if (!struck) throw new Error(`the ${given.preset} preset has no strike by ${given.action}`);
   if (given.steered !== undefined && given.steered !== true) throw new Error('`steered` is true where given');
-  return { ...preset, actions: [action], executors: [given.steered ? { ...executor, tuning: { steered: true } } : executor] };
+  const alone = given.steered ? { ...struck, skill: { ...struck.skill, tuning: { steered: true } } } : struck;
+  return { ...preset, options: preset.options.flatMap((option) => option === struck ? [alone] : strike(option) ? [] : [option]) };
 }
 
 /** `value` with its mind built from its preset (`presetMind`): a drill's subject's `mind`, or the value itself. */

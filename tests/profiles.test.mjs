@@ -6,7 +6,7 @@ import { allParts, MINDS, treeLookup } from "../src/entrants/game.ts";
 import { presetFitsModel } from "../src/core/mind/controller.ts";
 import { BODY_MODELS, modelHolds, resolveCharacter } from "../src/core/models.ts";
 import { LOADOUTS, loadoutFaults, withLoadout } from "../src/core/items/held.ts";
-import { armedActions } from "../src/core/skills/action-config.ts";
+import { skillsOf } from "../src/core/option/kinds.ts";
 import { profileReading, skillDigest, specDigest, techniqueDigest } from "../src/core/skills/framework/profile.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 import { modelSpec } from "../src/core/models.ts";
@@ -16,7 +16,7 @@ import { modelSpec } from "../src/core/models.ts";
  * it builds: a profile is read only where its body, spec digest and skill digest are the reader's
  * (`staleness`), so one keyed to a skill or body that has moved on is never read, and a strike or
  * edge that has none is priced by hand in silence. The bodies are each model at its defaults
- * holding each loadout it can; the skills, each preset's armed strikes on a body it fits
+ * holding each loadout it can; the skills, the strikes each preset's Options name on a body it fits (`skillsOf`)
  * (`skillDigest`), and each technique by its kind (`techniqueDigest`).
  */
 test("every measured profile is of a current skill on a current body", () => {
@@ -30,12 +30,11 @@ test("every measured profile is of a current skill on a current body", () => {
   const techniques = Object.entries(allParts()).filter(([, part]) => part.role === "technique").map(([kind]) => techniqueDigest({ kind }));
   for (const preset of Object.values(MINDS)) {
     const config = preset.config, parts = treeLookup(config);
-    if (!Array.isArray(config.executors) || !Array.isArray(config.actions)) continue;
+    if (config.frame || !Array.isArray(config.options)) continue;
     for (const { model, spec } of bodies) {
       if (!presetFitsModel(preset, model)) continue;
-      for (const action of armedActions(parts, spec, config.executors, config.actions)) {
-        keys.strike.add(on(spec, skillDigest(parts, spec, config.executors, action)));
-      }
+      const { executors, actions } = skillsOf(parts, spec, config.options);
+      for (const action of actions) keys.strike.add(on(spec, skillDigest(parts, spec, executors, action)));
     }
   }
   for (const { spec } of bodies) for (const technique of techniques) keys.edge.add(on(spec, technique));

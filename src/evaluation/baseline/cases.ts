@@ -16,7 +16,9 @@
  */
 import { CAP_SECONDS, SIDES } from "../../arena/duel.ts";
 import { REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/items/held.ts";
-import { FIGHT_ENTRY, MINDS } from "../../entrants/game.ts";
+import { FIGHT_ENTRY, MINDS, partLookup } from "../../entrants/game.ts";
+import { strikesIn } from "../../core/option/kinds.ts";
+import type { PartConfig } from "../../core/parts/parts.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
@@ -65,11 +67,11 @@ function tagged<R extends Json>(part: BaselinePart, reader: Reader<R>): Reader<B
   return { afterStep: () => reader.afterStep(), get ended() { return reader.ended; }, reading: () => ({ ...(reader.reading() as object), part }) as BaselineReading };
 }
 
-/** The subject's first action, as the Strike drill's subject; null for a mind with none. */
+/** The subject's first strike, as the Strike drill's subject, its action named by its skill (`strikeAction`); null for a mind with none. */
 function strikeSubject(value: Json): StrikeSubject | null {
-  const actions = (value as { readonly actions?: readonly { readonly name?: unknown }[] } | null)?.actions;
-  const action = Array.isArray(actions) ? actions[0]?.name : undefined;
-  return typeof action === "string" ? { mind: value as unknown as MindConfig, action } : null;
+  const { options, frame } = (value ?? {}) as { readonly options?: readonly PartConfig[] | null; readonly frame?: unknown };
+  const action = frame || !Array.isArray(options) ? undefined : strikesIn(partLookup, options)[0]?.skill.kind;
+  return action === undefined ? null : { mind: value as unknown as MindConfig, action };
 }
 
 const walkCases = (): Cases<Json, BaselineReading, BuiltCase> => {

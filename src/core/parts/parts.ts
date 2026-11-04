@@ -30,8 +30,8 @@ export interface Slot {
   /** The part an optional slot runs where it holds none: what a case's code holds of it (`treeKinds`) and a person is shown; none, it runs nothing. */
   readonly fallback?: PartConfig;
   /**
-   * A list of skills (`slotSkills`): a part in it that a body cannot use (`Part.fits`) is left out
-   * on that body (`Catalog.unusedParts`), not a refusal of the part holding it.
+   * A skill (`slotSkill`): a part in it that a body cannot use (`Part.fits`) is left out on that
+   * body (`Catalog.unusedParts`), and what holds it with it, not a refusal of the part holding it.
    */
   readonly skills?: boolean;
 }
@@ -50,8 +50,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   readonly slots: readonly Slot[];
   /** The slots a config of it has where they depend on what it holds: a subset of `slots`, or all of them where absent (`slotsOf`). */
   slotsFor?(config: C): readonly Slot[];
-  /** The parts a config of it runs beside those its slots hold: what a case's code holds of it (`treeKinds`). */
-  uses?(config: C): readonly PartConfig[];
+  /** The parts a config of it runs beside those its slots hold, any of them as `parts` offers it (`PartLookup.game`): what a case's code holds of it (`treeKinds`). */
+  uses?(config: C, parts: PartLookup): readonly PartConfig[];
   /** The config a slot set to this kind takes. */
   readonly defaults: C;
   /** The keys a config of it may hold (`KeysOf`): a key outside them is a fault (`treeFaults`). */
@@ -99,8 +99,8 @@ export type ConfigOf<R> = { [K in keyof R]: R[K] extends { readonly defaults: in
 /** A slot of a ranked list of parts of `role`. */
 export const slotList = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: true, optional: true });
 
-/** A slot of a list of skills of `role`, each used on a body that can use it (`Slot.skills`). */
-export const slotSkills = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: true, optional: true, skills: true });
+/** A slot of one skill of `role`, used on a body that can use it (`Slot.skills`). */
+export const slotSkill = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: false, optional: false, skills: true });
 
 /** A slot of one part of `role`, or of none where it is `optional`, which runs `fallback` where it names one. */
 export const slotOne = (key: string, label: string, role: Role, optional = false, fallback?: PartConfig): Slot =>

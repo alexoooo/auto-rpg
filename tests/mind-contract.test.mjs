@@ -18,7 +18,6 @@ import { FIGHT_ENTRY, GAME, treeObeys, CONTROLLERS, MINDS as PRESETS, modelRefus
 import { DRILL_OPPONENTS } from "../src/evaluation/drill-opponents.ts";
 import { catalogOf } from "../src/core/parts/catalog.ts";
 import { toolkitLists } from "../src/core/toolkit.ts";
-import { OPTION_MIND } from "../src/core/option/mind.ts";
 import { EMPTY_LOADOUT } from "../src/core/items/held.ts";
 import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
@@ -51,10 +50,10 @@ for (const [kind, controller] of Object.entries(CONTROLLERS)) if (!MINDS.some(([
 test("the game's catalog has no fault, and refuses an entrant's unscoped kind, a preset id twice and a preset of two entrants' kinds", () => {
   assert.deepEqual(GAME.faults, []);
   // The control: each planted defect is named, and the entry at fault left out.
-  const guard = OPTION_MIND.defaults.guard, sly = { ...guard, kind: "sly:guard" }, option = PRESETS.option;
+  const guard = { kind: "cover-guard" }, sly = { ...guard, kind: "sly:guard" }, option = PRESETS.option;
   const planted = catalogOf(() => ({ ...toolkitLists(), entrants: [
     { name: "sly", parts: [{ ...GAME.partOf(guard), defaults: sly }, { ...GAME.partOf(guard), defaults: { ...guard, kind: "low-guard" } }], presets: { option } },
-    { name: "copy", presets: { option, mixed: { label: "Mixed", config: { ...option.config, guard: sly } } } },
+    { name: "copy", presets: { option, mixed: { label: "Mixed", config: { ...option.config, tuning: { parts: { guard: sly } } } } } },
   ] }));
   assert.deepEqual(planted.faults, [
     `sly's guard part "low-guard" is not scoped sly:`,
@@ -211,10 +210,9 @@ test("a bout with every mind apart, on two minds' threads, is the bout with ever
 });
 
 test("a mind that draws by chance plays apart on two bout seeds, and a seed's bout forks and resumes to the bit", async () => {
-  // Option Mind with a punch of each hand, the two near alike in worth, and a margin wide enough that either may be drawn.
-  const { config, character } = PRESETS.option, [strike] = config.actions;
-  const hands = ["hand.right", "hand.left"].map((hand) => ({ ...strike, name: hand, effectors: [hand] }));
-  const mind = (margin) => ({ ...config, actions: hands, chooser: { ...config.chooser, margin } });
+  // Option Mind with a margin wide enough that any of its options near the best in worth may be drawn.
+  const { config, character } = PRESETS.option;
+  const mind = (margin) => ({ ...config, chooser: { ...config.chooser, margin } });
   const recipe = (margin, seed) => ({ left: "workshop-fighter", right: "workshop-fighter", gap: GAP, seed, minds: { left: mind(margin), right: config }, entry: [], ...bothAs(character) });
   const [one, two] = [await played(recipe(1000, 1), {}, true), await played(recipe(1000, 2), {}, false)];
   assert.notEqual(two.end.digest, one.end.digest, "two seeds play apart: with a margin, a draw changed a choice");
@@ -372,7 +370,7 @@ test("Option Mind's preset fits and is built on every humanoid with every loadou
   // A mind is a choice of skills: on a body, it runs the chosen skills the body can use, and the
   // mind panel names the rest (`unusedParts`); a skill a body cannot use never refuses the mind.
   const config = PRESETS.option.config, refused = [], left = new Map();
-  const executors = new Set(config.executors.map((one) => one.name ?? one.kind));
+  const skills = new Set(config.options.flatMap((one) => one.skill ? [GAME.partOf(one.skill).label] : []));
   for (const model of HUMANOID_MODELS) for (const loadout of LOADOUTS) {
     const at = `${model}/${loadoutKey(loadout)}`, refusal = modelRefusal(model, config, loadout, []);
     if (refusal !== null) { refused.push(`${at}: ${refusal}`); continue; }
@@ -387,7 +385,7 @@ test("Option Mind's preset fits and is built on every humanoid with every loadou
   }
   assert.ok([...left.values()].some((unused) => unused.length > 0), "the fixture reaches a body that leaves a skill out");
   assert.deepEqual(refused, []);
-  const named = [...left].flatMap(([at, unused]) => unused.filter((line) => !executors.has(line.slice(0, line.indexOf(":")))).map((line) => `${at}: ${line}`));
+  const named = [...left].flatMap(([at, unused]) => unused.filter((line) => !skills.has(line.slice(0, line.indexOf(":")))).map((line) => `${at}: ${line}`));
   assert.deepEqual(named, [], "only the preset's skills are left out");
 });
 

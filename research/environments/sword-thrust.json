@@ -1,7 +1,7 @@
 {
   "kind": "cases",
   "evaluation": "strike",
-  "part": "mind.executors.0",
+  "part": "mind.options.1.skill",
   "layout": "assets/core/sword-thrust.layout.json",
   "subjects": [
     {

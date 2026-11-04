@@ -3,11 +3,10 @@ import cutMeta from "../../../../assets/core/cut.meta.json" with { type: "json" 
 import { dataOf } from "../../data/store.ts";
 import { heldBy, type Held } from "../../items/held.ts";
 import { fitsAll, strikesWithOneOf } from "../../parts/parts.ts";
-import { text } from "../../parts/fields.ts";
 import type { Mechanism } from "../../rules/rulebook.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
-import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../framework/executor-part.ts";
+import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../framework/records.ts";
 import { faceOf } from "./held-blow.ts";
 import type { StrikingFace } from "./straight-punch.ts";
@@ -39,10 +38,9 @@ function swingFace(spec: BodySpec, effector: string, kind: SwingKind): StrikingF
   return hand && heldBy(spec, hand) === swing.item ? faceOf(spec, hand, swing.mechanism) : null;
 }
 
-/** A swing's config: its kind, its name, and a research `tuning` over its body's record (all of its settings where the body has none). */
+/** A swing's config: its kind, and a research `tuning` over its body's record (all of its settings where the body has none). */
 interface Config<K extends SwingKind = SwingKind> {
   readonly kind: K;
-  readonly name: string;
   readonly tuning?: Partial<Swing>;
 }
 
@@ -56,13 +54,13 @@ interface Config<K extends SwingKind = SwingKind> {
 function swingPart<K extends SwingKind>(kind: K): ExecutorPart<Config<K>> {
   const swing = SWINGS[kind];
   return {
-    role: "executor", label: swing.label, stage: "game", defaults: { kind, name: kind } as Config<K>,
-    keys: { kind: true, name: true, tuning: true }, tuning: SWING_KEYS,
-    fields: [text("name", "Name")], slots: [],
+    role: "executor", label: swing.label, stage: "game", defaults: { kind } as Config<K>,
+    keys: { kind: true, tuning: true }, tuning: SWING_KEYS,
+    fields: [], slots: [],
     fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), recordFault(swing.label.toLowerCase(), deepFreeze(swing.bodies), validSwing),
       (spec, config) => config.tuning ? swingChannelFault(spec, config.tuning) : null),
     faults: (config) => config.tuning === undefined || validSwingPart(config.tuning) ? [] : [`invalid ${swing.label.toLowerCase()} tuning`],
-    reads: () => [kind], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS, meets: swing.mechanism,
+    reads: () => [kind], effectors: ["hand.left", "hand.right"], aims: true, meets: swing.mechanism,
     strikesWith: (spec, _config, effector) => swingFace(spec, effector, kind) !== null,
     make({ body, guard, aim }, config, actions) {
       const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};

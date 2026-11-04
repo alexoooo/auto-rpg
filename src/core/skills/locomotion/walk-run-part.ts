@@ -1,5 +1,5 @@
 import { dataOf } from "../../data/store.ts";
-import type { LocomotionPart } from "../framework/locomotion-part.ts";
+import type { GaitPart } from "../framework/locomotion-part.ts";
 import type { SkillRecords } from "../framework/records.ts";
 import { fitsSoles } from "../../control/stance-balance.ts";
 import { bodyKey } from "../../spec/body.ts";
@@ -44,8 +44,8 @@ const DEFAULTS: WalkRunRecord = deepFreeze({ walk: WALK_RUN, run: WALK_RUN_CYCLE
  * it may run, its run's (`walkRunEnvelope`), and stops as the stance's walk does, or at
  * `RUN_STOPPING` while it may run.
  */
-export const WALK_RUN_PART: LocomotionPart<WalkRunConfig> = deepFreeze({
-  role: "locomotion", label: "Walk and run", stage: "game", fields: [], slots: [], defaults: { kind: "walk-run" },
+export const WALK_RUN_PART: GaitPart<WalkRunConfig> = deepFreeze({
+  role: "gait", label: "Walk and run", stage: "game", fields: [], slots: [], defaults: { kind: "walk-run" },
   keys: { kind: true, tuning: true, runs: true },
   tuning: ["walk", "run"], fits: fitsSoles,
   faults: (config) => {

@@ -92,8 +92,8 @@ export function settingsOf({ wound, timed, reach, settle }, hand) {
 /** Option Mind throwing its swung blow of `blow` alone, so set, `hand` holding its item and the other the buckler, at `mark`. */
 export function swinger(decoded, hand, blow, mark) {
   const preset = MINDS.option.config, other = hand === "left" ? "right" : "left", tuning = settingsOf(decoded, hand);
-  const actions = preset.actions.map((action) => action.name === blow ? { ...action, regions: [{ kind: "mark", mark }] } : action);
-  return { mind: { ...preset, actions, executors: preset.executors.map((one) => one.kind === blow ? { ...one, tuning } : one) }, action: blow,
+  const options = preset.options.map((option) => option.kind.startsWith("strike-") && option.skill.kind === blow ? { ...option, skill: { ...option.skill, tuning }, regions: [{ kind: "mark", mark }] } : option);
+  return { mind: { ...preset, options }, action: blow,
     held: { [hand]: SWINGS[blow].item, [other]: "buckler" } };
 }
 

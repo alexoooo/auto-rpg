@@ -2,7 +2,7 @@ import type { MotorPart } from "../control/motor-part.ts";
 import type { BalancePart } from "../control/balance-part.ts";
 import type { Controller } from "../mind/controller.ts";
 import type { ExecutorPart } from "../skills/framework/executor-part.ts";
-import type { LocomotionPart } from "../skills/framework/locomotion-part.ts";
+import type { GaitPart, LocomotionPart } from "../skills/framework/locomotion-part.ts";
 import type { NavigatorPart } from "../navigation/navigator.ts";
 import type { PartConfig, Role } from "./parts.ts";
 import type { TechniquePart } from "../recovery/ground/technique.ts";
@@ -10,6 +10,7 @@ import type { GuardPart } from "../skills/guard/guard-part.ts";
 import type { SupportPart } from "../skills/locomotion/support-part.ts";
 import type { MoveRulePart } from "../skills/locomotion/move-rule-part.ts";
 import type { AimPart } from "../skills/framework/aim-part.ts";
+import type { BodySpec } from "../spec/body.ts";
 
 /**
  * **Each role's kind of part**: what a lookup of the role gives (`PartLookup.of`), its maker
@@ -24,6 +25,7 @@ export interface RoleParts {
   readonly "move-rule": MoveRulePart;
   readonly navigation: NavigatorPart;
   readonly locomotion: LocomotionPart;
+  readonly gait: GaitPart;
   readonly guard: GuardPart;
   readonly executor: ExecutorPart;
   readonly support: SupportPart;
@@ -41,4 +43,12 @@ export interface RoleParts {
 export interface PartLookup {
   /** The part `config` names; a thrown error where no part has its kind or the part is not of `role`. */
   of<R extends Role>(role: R, config: PartConfig): RoleParts[R];
+  /**
+   * **The part that fills `role` on a body of `spec`**, as its config (its defaults): the one game
+   * part of the role (`Part.stage`, the toolkit's) that fits the body; why none does, or which two
+   * do, a sentence, where not one does: two fitting one body is a fault of the build, never a pick.
+   */
+  fitting(role: Role, spec: BodySpec): PartConfig | string;
+  /** **Every game part of `role`** (the toolkit's), as its config: what a role filled by fit (`fitting`) may be. */
+  game(role: Role): readonly PartConfig[];
 }

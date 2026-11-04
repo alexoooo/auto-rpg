@@ -192,8 +192,8 @@ function quadrupedOptionMind(host: BodyHost, deciding: OptionDeciding, config: Q
  */
 export const QUADRUPED_FRAME: FramePart<QuadrupedConfig> = deepFreeze({
   role: "frame", label: "Quadruped", stage: "game", fields: [], defaults: QUADRUPED, tuning: ["bite", "righting"],
-  slots: [slotOne("motor", "Motor", "support-motor", true, QUADRUPED_PARTS.motor), slotOne("travel", "Travel", "gait", true, QUADRUPED_PARTS.travel),
-    slotOne("crawl", "Crawl", "gait", true, QUADRUPED_PARTS.crawl), slotOne("bite", "Bite", "bite", true, QUADRUPED_PARTS.bite),
+  slots: [slotOne("motor", "Motor", "support-motor", true, QUADRUPED_PARTS.motor), slotOne("travel", "Travel", "paw-gait", true, QUADRUPED_PARTS.travel),
+    slotOne("crawl", "Crawl", "paw-gait", true, QUADRUPED_PARTS.crawl), slotOne("bite", "Bite", "bite", true, QUADRUPED_PARTS.bite),
     slotOne("tactics", "Stalk", "quadruped-tactics", true, QUADRUPED_PARTS.tactics), slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION)],
   keys: { kind: true, motor: true, travel: true, crawl: true, bite: true, tactics: true, navigation: true, tuning: true },
   fits: fitsQuadruped,

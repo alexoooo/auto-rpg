@@ -57,9 +57,9 @@ export interface Gait extends Skill<QuadrupedView> {
   command(view: QuadrupedView, orders: TravelOrders, dt: number, height?: number): SupportedCommand;
 }
 
-/** **A kind of gait**: a part of role `gait`, made over the paws a body stands on, in the order it lifts them. */
-export interface GaitPart<C extends PartConfig = PartConfig> extends Part<C> {
-  readonly role: "gait";
+/** **A kind of paw gait**: a part of role `paw-gait`, made over the paws a body stands on, in the order it lifts them. */
+export interface PawGaitPart<C extends PartConfig = PartConfig> extends Part<C> {
+  readonly role: "paw-gait";
   make(own: OwnBody, motor: SupportMotor["motor"], paws: readonly string[], config: C): Gait;
 }
 
@@ -137,7 +137,7 @@ export const fitsQuadruped = fitsAll(fitsPaws, fitsJaw);
 declare module "../parts/lookup.ts" {
   interface RoleParts {
     readonly "support-motor": SupportMotorPart;
-    readonly gait: GaitPart;
+    readonly "paw-gait": PawGaitPart;
     readonly bite: BitePart;
     readonly "quadruped-tactics": QuadrupedTacticsPart;
   }

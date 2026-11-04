@@ -1,40 +1,42 @@
-import type { ActionConfig, ExecutorEntry } from "../../core/skills/config.ts";
 import type { MindPreset } from "../../core/mind/controller.ts";
 import { OPTION_MIND, type OptionMindConfig } from "../../core/option/mind.ts";
+import { CLUB_BLOW_OPTION, CUT_OPTION, OPTIONS, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../core/option/kinds.ts";
+import type { PartConfig } from "../../core/parts/parts.ts";
 import { deepFreeze } from "../../core/state.ts";
 
-/** The straight punch, as its body's record has it (`PunchRecord`): the toed Warrior's is trained. */
-const PUNCH: ExecutorEntry = deepFreeze({ name: "punch", kind: "straight-punch" });
-
-/** **The straight punch**: its punch with either hand at the trunk's opening, aimed as the learned puncher aims. */
-const STRAIGHT_PUNCH_ACTION: ActionConfig = deepFreeze({ name: "straight-punch", executor: "punch", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }],
-  aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } } });
+/** Its low support, under every blow of its hands: the support fold. */
+const SUPPORT: PartConfig = deepFreeze({ kind: "support-fold" });
 
 /**
- * **The stomp's stroke**, as its body's record has it (`assets/core/stomp.json`): its chamber
- * high over the target, its height band low, so it strikes down on a body lying ahead
- * and nothing standing.
+ * **The straight punch** (`assets/core/straight-punch.json`, the toed Warrior's trained): with
+ * either hand at the trunk's opening, aimed as the learned puncher aims, from its low support.
  */
-const STOMP: ExecutorEntry = deepFreeze({ name: "stomp", kind: "stomp" });
-
-/** **The stomp**: its stroke with either foot at the trunk's middle, aimed at its centre. */
-const STOMP_ACTION: ActionConfig = deepFreeze({ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }],
-  aim: { kind: "centre", lead: 0 } });
-
-/** The held blows, each as its body's record has it (`assets/core/<kind>.json`): the club's swing, the sword's cut and its thrust. */
-const HELD_BLOWS: readonly ExecutorEntry[] = deepFreeze((["club-blow", "cut", "sword-thrust"] as const).map((kind) => ({ name: kind, kind })));
-
-/** **The held blows**: each with the hand that holds its item, aimed at the trunk's opening as the straight punch is. */
-const HELD_BLOW_ACTIONS: readonly ActionConfig[] = deepFreeze(HELD_BLOWS.map(({ name }) => ({ ...STRAIGHT_PUNCH_ACTION, name, executor: name })));
+const STRAIGHT_PUNCH: StrikeConfig = deepFreeze({ ...STRAIGHT_PUNCH_OPTION.defaults,
+  aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } }, support: SUPPORT });
 
 /**
- * As it starts: the toolkit's Option Mind (`OPTION_MIND`) with every skill (the straight punch, the
- * held blows and the stomp) and the support fold. A body uses those it can
- * (`usableSkills`): those tuned for it, as it holds what it holds. It decides at 60 Hz, every other
- * control step (`OptionMindConfig.rate`), where its strike and gait profiles are measured.
+ * **The held blows**, each as its body's record has it (`assets/core/<kind>.json`): the club's
+ * swing, the sword's cut and its thrust, each with the hand that holds its item, aimed at the trunk's
+ * opening as the straight punch is.
  */
-const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ ...(OPTION_MIND.defaults as OptionMindConfig), support: { kind: "support-fold" }, rate: 60,
-  executors: [PUNCH, ...HELD_BLOWS, STOMP], actions: [STRAIGHT_PUNCH_ACTION, ...HELD_BLOW_ACTIONS, STOMP_ACTION] });
+const HELD_BLOWS: readonly StrikeConfig[] = deepFreeze([CLUB_BLOW_OPTION, CUT_OPTION, SWORD_THRUST_OPTION].map((part) =>
+  ({ ...part.defaults, aim: STRAIGHT_PUNCH.aim, support: SUPPORT })));
+
+/**
+ * **The stomp** (`assets/core/stomp.json`): its chamber high over the target, its height band low,
+ * so it strikes down on a body lying ahead and nothing standing; with either foot at the trunk's
+ * middle, aimed at its centre.
+ */
+const STOMP: StrikeConfig = STOMP_OPTION.defaults;
+
+/**
+ * As it starts: the toolkit's Option Mind (`OPTION_MIND`) with every blow (the straight punch, the
+ * held blows and the stomp) after following orders, then the standard options (`OPTIONS`). A body
+ * offers those whose skill it fits, with the limbs it has (`skillsOf`). It decides at 60 Hz, every
+ * other control step (`OptionMindConfig.rate`), where its strike and gait profiles are measured.
+ */
+const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ ...(OPTION_MIND.defaults as OptionMindConfig), rate: 60,
+  options: [OPTIONS[0]!, STRAIGHT_PUNCH, ...HELD_BLOWS, STOMP, ...OPTIONS.slice(1)] });
 
 /** Its one config, on any body it fits. */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({

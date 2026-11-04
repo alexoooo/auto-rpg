@@ -2,7 +2,7 @@ import type { MindConfig } from "../core/mind/config.ts";
 import type { BeatsConfig } from "../core/command/beats.ts";
 import type { CommanderConfig } from "../core/command/kind.ts";
 import type { OptionMindConfig } from "../core/option/mind.ts";
-import { ORDERS_OPTION, STANDING_OPTIONS, WALK_OPTION, COVER_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../core/option/kinds.ts";
+import { ORDERS_OPTION, STANDING_OPTIONS, WALKS, COVER_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../core/option/kinds.ts";
 import { deepFreeze } from "../core/state.ts";
 import { MINDS } from "../entrants/game.ts";
 
@@ -10,7 +10,7 @@ import { MINDS } from "../entrants/game.ts";
 const OPTION = MINDS.option!.config as OptionMindConfig;
 
 /** Who is struck: Option Mind standing where it is (`STANDING_OPTIONS`), its hands at guard, throwing nothing and taking no orders. */
-export const STANDS: MindConfig = deepFreeze({ ...OPTION, options: STANDING_OPTIONS, executors: [], actions: [] });
+export const STANDS: MindConfig = deepFreeze({ ...OPTION, options: STANDING_OPTIONS });
 
 /** A body that goes where it is ordered, its hands held at guard, and throws nothing. */
 export const MOVES: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...STANDING_OPTIONS] });
@@ -20,14 +20,12 @@ const GUARDS: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defau
 
 /**
  * A body that goes where it is ordered and, ordered at its foe, walks into the window of one of
- * the strikes of `kinds` and throws it, each by Option Mind's executors of its skill and their
- * actions as its entrant configures them (each body's record), and out of its foe's reach as
- * Option Mind does, its hands otherwise at guard.
+ * the strikes of `kinds` and throws it, each as Option Mind's entrant configures it (each body's
+ * record), and out of its foe's reach as Option Mind does, its hands otherwise at guard.
  */
 function striking(kinds: readonly StrikeKindPart[]): MindConfig {
-  const executors = OPTION.executors.filter((executor) => kinds.some((kind) => kind.skill === executor.kind));
-  return deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...kinds.map((kind) => kind.defaults), WALK_OPTION.defaults, ...STANDING_OPTIONS],
-    executors, actions: OPTION.actions.filter((action) => executors.some((executor) => executor.name === action.executor)) });
+  const strikes = (OPTION.options ?? []).filter((option) => kinds.some((kind) => kind.defaults.kind === option.kind));
+  return deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...strikes, ...WALKS, ...STANDING_OPTIONS] });
 }
 
 /** Option Mind's straight punch with either hand, at the trunk's middle. */

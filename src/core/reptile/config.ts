@@ -11,7 +11,7 @@ import type { REPTILE_BITE } from "./tuning.ts";
 export type SupportMotorConfig = ConfigOf<typeof SUPPORT_MOTORS>;
 
 /** **A stock config of a quadruped's gait**, by kind (`GAITS`). */
-export type GaitConfig = ConfigOf<typeof GAITS>;
+export type PawGaitConfig = ConfigOf<typeof GAITS>;
 
 /** **A stock config of a quadruped's bite**, by kind (`BITES`). */
 export type BiteConfig = ConfigOf<typeof BITES>;
@@ -29,9 +29,9 @@ export interface QuadrupedConfig {
   /** Its motor over the paws: what holds the body up as the gaits ask. */
   readonly motor?: SupportMotorConfig | PartConfig;
   /** Its gait to travel: the gait it carries the body with at speed. */
-  readonly travel?: GaitConfig | PartConfig;
+  readonly travel?: PawGaitConfig | PartConfig;
   /** Its gait to crawl: the gait close in, and while it places its paws again. */
-  readonly crawl?: GaitConfig | PartConfig;
+  readonly crawl?: PawGaitConfig | PartConfig;
   /** Its bite. */
   readonly bite?: BiteConfig | PartConfig;
   /** Its tactics: where it goes and when it bites. */

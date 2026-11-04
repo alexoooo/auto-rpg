@@ -1,14 +1,15 @@
 import { BALANCES } from "./control/balances.ts";
 import { MOTORS } from "./control/motors.ts";
 import { AIMS } from "./skills/framework/aims.ts";
-import type { BiteConfig, GaitConfig, QuadrupedTacticsConfig, SupportMotorConfig } from "./reptile/config.ts";
-import type { AimConfig, ExecutorConfig, GuardConfig, LocomotionConfig, SupportConfig } from "./skills/config.ts";
+import type { BiteConfig, PawGaitConfig, QuadrupedTacticsConfig, SupportMotorConfig } from "./reptile/config.ts";
+import type { AimConfig, ExecutorConfig, GaitConfig, GuardConfig, LocomotionConfig, SupportConfig } from "./skills/config.ts";
 import { EXECUTORS } from "./skills/framework/executors.ts";
 import type { TechniqueConfig } from "./recovery/ground/technique.ts";
 import { TECHNIQUES } from "./recovery/ground/techniques.ts";
 import { GUARDS } from "./skills/guard/guards.ts";
 import { MIND_KINDS } from "./mind/kinds.ts";
 import { LOCOMOTIONS } from "./skills/framework/locomotions.ts";
+import { GAIT_PARTS } from "./skills/framework/gait-parts.ts";
 import { NAVIGATIONS } from "./navigation/navigations.ts";
 import { CHOOSERS } from "./option/choosers.ts";
 import { OPTION_KINDS } from "./option/option-kinds.ts";
@@ -27,7 +28,7 @@ import type { MoveRuleConfig } from "./skills/locomotion/move-part.ts";
 import { MOVE_RULES } from "./skills/locomotion/move-rules.ts";
 
 /** Every part's config below a mind, by kind. */
-type AnyPart = AimConfig | SupportMotorConfig | GaitConfig | BiteConfig | QuadrupedTacticsConfig | TechniqueConfig | ConfigOf<typeof MOTORS> | MoveRuleConfig | LocomotionConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
+type AnyPart = AimConfig | SupportMotorConfig | PawGaitConfig | BiteConfig | QuadrupedTacticsConfig | TechniqueConfig | ConfigOf<typeof MOTORS> | MoveRuleConfig | LocomotionConfig | GaitConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
 
 /** A part for each kind a config below a mind names: a kind no list holds fails to compile. */
 type Covered = { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> };
@@ -50,7 +51,7 @@ function merged<L extends readonly Readonly<Record<string, Part>>[]>(...lists: L
  * list of parts below a mind, read when asked so a part's module may be read in any order.
  */
 export function toolkitLists(): CatalogLists {
-  const below: Covered = merged(TECHNIQUES, MOVE_RULES, LOCOMOTIONS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
+  const below: Covered = merged(TECHNIQUES, MOVE_RULES, LOCOMOTIONS, GAIT_PARTS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
     SUPPORT_MOTORS, GAITS, BITES, QUADRUPED_PLANNERS, CHOOSERS, OPTION_KINDS, OBJECTIVES, PREDICTIONS, QUADRUPED_FRAMES);
   return { minds: MIND_KINDS, parts: [below], entrants: [] };
 }

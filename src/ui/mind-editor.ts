@@ -1,10 +1,10 @@
 import { editorRow as row, editorPicker as picker, editorButton as button, partFieldInput as fieldInput } from "./editor-inputs.ts";
 import { techniqueEditor } from "./mind-ground.ts";
 import { isKind, kindsFor, partOf, unusedParts, type EntryRule } from "../entrants/game.ts";
-import { actionEditor } from "./mind-actions.ts";
+import { regionsEditor } from "./mind-regions.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import type { ActionConfig, SkillKit } from "../core/skills/config.ts";
-import { slotsOf, type Part, type PartConfig, type Slot } from "../core/parts/parts.ts";
+import type { Region } from "../core/skills/framework/action.ts";
+import { slotOne, slotsOf, type Part, type PartConfig, type Slot } from "../core/parts/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindFaults } from "./mind-link.ts";
 
@@ -31,6 +31,9 @@ interface EditorOptions {
   /** What is said after the faults: what the screen does with a mind that has one. */
   readonly onFault?: string;
 }
+
+/** Where a strike aims (`StrikeConfig.aim`): a setting beside its regions, not a slot, drawn as one. */
+const AIM: Slot = slotOne("aim", "Aim", "aim");
 
 /** What a person calls `part`, its stage said where it is research. */
 const named = (part: Part): string => part.stage === "experimental" ? `${part.label} (experimental)` : part.label;
@@ -73,8 +76,10 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       shown.className = "mind-tuning"; shown.textContent = `Research tuning, read-only\n${JSON.stringify(tuning, null, 1)}`;
       block.append(shown);
     }
-    // A part whose slots hold executors pairs its actions with them (`ActionConfig`): the action editor is the executor role's.
-    if (slotsOf(part, config).some((slot) => slot.role === "executor") && "actions" in config) block.append(actionEditor(config as SkillKit & PartConfig, write, readOnly));
+    // A strike's regions and its aim, where it aims (`StrikeConfig`): a list of places on the target, and the aim's part.
+    const { regions, aim } = config as { regions?: readonly Region[]; aim?: PartConfig };
+    if (Array.isArray(regions)) block.append(regionsEditor(regions, (next) => write({ ...config, regions: next } as PartConfig), readOnly));
+    if (aim) block.append(drawSlot(config, AIM, write));
     for (const slot of slotsOf(part, config)) block.append(slot.role === "technique" && slot.many
       ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, current),
         (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)
@@ -100,29 +105,15 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
     list.forEach((child, i) => {
       const item = document.createElement("div"), line = document.createElement("div");
       item.className = "mind-item"; line.className = "mind-item-line";
-      const replace = (next: PartConfig) => {
-        if (slot.role === "executor") {
-          const before = child as PartConfig & { name: string }, after = next as PartConfig & { name: string }, kit = config as SkillKit & PartConfig;
-          write({ ...kit, executors: list.map((other, j) => j === i ? next : other),
-            actions: kit.actions.map((action): ActionConfig => action.executor === before.name ? { ...action, executor: after.name } : action) } as PartConfig);
-        } else set(list.map((other, j) => j === i ? next : other));
-      };
-      line.append(picker(choices(slot), child.kind, (kind) => replace(slot.role === "executor" ? { ...defaultsOf(kind), name: (child as PartConfig & { name: string }).name } as PartConfig : defaultsOf(kind)), readOnly),
+      const replace = (next: PartConfig) => set(list.map((other, j) => j === i ? next : other));
+      line.append(picker(choices(slot), child.kind, (kind) => replace(defaultsOf(kind)), readOnly),
         button("↑", `Move ${slot.label.toLowerCase()} ${i + 1} up`, () => set(list.map((other, j) => j === i - 1 ? child : j === i ? list[i - 1]! : other)), readOnly || i === 0),
         button("✕", `Remove ${slot.label.toLowerCase()} ${i + 1}`, () => set(list.filter((_, j) => j !== i)), readOnly));
       item.append(line, drawPart(child, replace));
       holder.append(item);
     });
     if (!readOnly) {
-      const add = picker([{ value: "", text: "Add…" }, ...choices(slot)], "", (kind) => { if (kind) {
-        let next = defaultsOf(kind);
-        if (slot.role === "executor") {
-          const base = (next as PartConfig & { name: string }).name; let name = base, suffix = 2;
-          while (list.some(entry => (entry as PartConfig & { name: string }).name === name)) name = `${base}-${suffix++}`;
-          next = { ...next, name } as PartConfig;
-        }
-        set([...list, next]);
-      } }, readOnly);
+      const add = picker([{ value: "", text: "Add…" }, ...choices(slot)], "", (kind) => { if (kind) set([...list, defaultsOf(kind)]); }, readOnly);
       add.setAttribute("aria-label", `Add to ${slot.label.toLowerCase()}`);
       holder.append(add);
     }
