@@ -41,7 +41,7 @@ short sequence per place stating its phase order. No new observation representat
 and no per-step allocation at the boundary.
 
 Every slice keeps the fingerprint, command timing, sensing delay, replay and supported forks
-exact, read as Evidence says, but for the one change slice 5 names. Tuning, algorithms and the
+exact, read as Evidence says. Tuning, algorithms and the
 command layers' inside are out of scope; so are orders, which stay a reader the Option Mind calls
 when it thinks (`MindWiring.orders`).
 [Project organization](project-organization.md) owns where files live;
@@ -76,8 +76,8 @@ export interface Mind {
    * The slow part: choose what to do next, from what it can see of the fight (`senses`, which
    * show other bodies late by the rules' reaction time, `Rulebook.reaction`), and write the
    * choice into its memory.
-   * The next `act` carries it out. In a worker, `think` runs while the world steps the physics,
-   * so a long decision does not hold the world up.
+   * The next `act` carries it out. In a worker, `think` runs while the world steps the physics;
+   * a `think` that takes longer than that delays the next step.
    */
   think(senses: Senses): void;
   /** Something else has taken over the body: stop what it was doing, but keep what it has learnt. */
@@ -220,7 +220,8 @@ function think(mind: Mind, mirror: Mirror): void {
 A bout forks through one state graph (`saveState`, `loadState`), as every module's memory does: a
 mind exposes `state` and has no save or load of its own. The graph holds the mind's `state`, its
 command (`MirrorCommand`, which `BodyControl` views), what its senses last showed it (`Mirror.seen`),
-the body side and the muscles. A load refreshes the mirror (`world.onLoad`, the runtime's). A mind
+the body side and the muscles. A save loads into any bout built from the same recipe
+(`Duel.load`), not only the one it came from. A load refreshes the mirror (`world.onLoad`, the runtime's). A mind
 gets no load notification: what it keeps outside `state` is fixed at construction or rebuilt from
 `state` where it is used; no mind subscribes to a load now. Worker-hosted minds still refuse to fork.
 
@@ -239,9 +240,9 @@ allocations sit at the boundary now, and their slice removes them:
 | a request array for each hand request, and its checked copy (`checkHandPoses`) | the command layers, `mirror.requestHandPoses`, `commandWay.request` | 4 |
 | a frozen detached observation and a checked action, each step | `policyMind`, the bare entrant | 5 |
 
-A slice that touches the step reads `node research/step-garbage.mjs --sites` before and after to
-confirm its sites are gone and none is added, and `node research/step-time.mjs` paired, on the
-harness its doc comment names. The simulation is held to exact equality; step time varies run to
+A slice that changes the step (Evidence names which) reads `node research/step-garbage.mjs
+--sites` before and after to confirm its sites are gone and none is added, and
+`node research/step-time.mjs` paired, on the harness its doc comment names. The simulation is held to exact equality; step time varies run to
 run, so a slice lands when its paired readings show no regression beyond their spread.
 `step-garbage` plays the default minds in process; slice 5 gives it a bare-entrant recipe to read
 its sites. Making the mirror's write and refresh cheaper is a speed change of its own: the same
@@ -249,21 +250,22 @@ operations in the same order ([step cost](../reference/step-cost.md)).
 
 ## Evidence
 
-Each slice reads every row before and after:
+A slice reads the rows its change can move, before and after; slice 5's commit reads every row
+against the readings taken before slice 1.
 
-| Kept | Read by |
-| --- | --- |
-| The simulation, every mind | `node scripts/fingerprint.mjs --experimental --json`, then `--compare` |
-| Command timing and delivery, a body leaving `full`, a save and load with commands in flight | [`tests/mind-contract.test.mjs`](../../tests/mind-contract.test.mjs) |
-| Minds in workers as in process | [`research/minds-apart.mjs`](../../research/minds-apart.mjs) `--cases sword,hands --threads 1,2 --seconds 20` |
-| Supported forks | `minds-apart.mjs --fork <s>`, which slice 1 adds: each in-process playing loaded from its save at `s` and played on, its hashes each second the same as the playing not loaded |
-| The bare entrant | a fingerprint case with a fixed network, its weights from a seed, so its pulls are not zero; slice 5 adds it before it changes the entrant, and only that case moves |
-| Allocation and step time | Performance |
+| Kept | Read by | Slices |
+| --- | --- | --- |
+| The simulation, every mind | `node scripts/fingerprint.mjs --experimental --json`, then `--compare` | all |
+| Command timing and delivery, a body leaving `full`, a save and load with commands in flight | [`tests/mind-contract.test.mjs`](../../tests/mind-contract.test.mjs), in `npm test` | all |
+| Minds in workers as in process | [`research/minds-apart.mjs`](../../research/minds-apart.mjs) `--cases sword,hands --threads 1,2 --seconds 20` | 1–4, which change what runs in a worker |
+| Supported forks | `minds-apart.mjs --fork <s>`, which slice 1 adds: each in-process playing saved at `s`, loaded into a bout built fresh from the same recipe and played on, its hashes each second the same as the original's. A fresh bout holds only what construction gives it, so memory kept outside `state` shows as a difference. | 2, 4 and 5, which change what a mind or its command keeps |
+| The bare entrant | a fingerprint case with a fixed network, its weights from a seed, so its pulls are not zero; slice 1 adds it | all, in the fingerprint |
+| Allocation and step time | Performance | 1, 3, 4 and 5 |
 
 ## Slices
 
-Each lands on main by itself with `npm run check`, `npm test` and every row of Evidence
-unchanged.
+Each lands on main by itself with `npm run check`, `npm test` and the Evidence rows it reads
+unchanged. Each slice's contract is complete for its own code, so none needs a temporary adapter.
 
 1. **One path.** `createWorld` refuses a command delay under one step: one check for every world,
    as no world, with minds or without, asks for less but `sit-back.mjs`. Delete `embody`'s
@@ -274,31 +276,33 @@ unchanged.
    live mode for research scripts that drive muscles without a mind. In `research/`:
    `step-time.mjs` loses `--mirrored`, `mind-split-hook.mjs` times `answer` and `think` in place
    of the deleted call, `sit-back.mjs --delay` takes one step or more, and `minds-apart.mjs`
-   gains `--fork`, read before the slice changes anything.
-2. **Required members and an explicit construction result.** `Mind` and `SubMind` take the
-   contract's four members. A maker returns `{ mind, name, has(), dispose() }` and its own typed
+   gains `--fork`. The fork check and the bare entrant's fingerprint case are added and read
+   before the slice changes anything.
+2. **Required members and an explicit construction result.** `Mind` and `SubMind` take four
+   required members: `state`, `think(senses)`, `act()` and `interrupt()`. Here `act` takes no
+   argument and writes through the outputs `OwnBody` holds now, and `OwnBody` keeps `senses()`
+   and `afterPhysics`; slices 3 and 4 take those away. A maker returns `{ mind, name, has(), dispose() }` and its own typed
    extras (the Option Mind's report, the command layers for the Lab); `hostBody` stops reading
    `mind.body`. `Experiment` moves to the command layers' options, carried in the mind's recipe to
    workers. The command layers' and sub-minds' own phases (`HostMind`'s `act` and `move`,
    `SubMind`'s `step` and `move`) take the names `think` and `act`.
-3. **Senses as an argument.** Senses arrive in `think` and `OwnBody.first`; `OwnBody.senses`,
-   `afterPhysics` and `motorPart` are deleted, and the command layers own the observers as
+3. **Senses only through `think`.** `OwnBody.first` is added; `OwnBody.senses`, `afterPhysics`
+   and `motorPart` are deleted, and the command layers own the observers as
    Execution says. `heldBody` (the recovery skills' held bodies) passes its host's senses through
    `think`. The fight's `held` reader (`physicalBody`'s observation) gets a type of its own.
-4. **Output in one place.** The `BodyControl` given to `act` replaces `requestHandPoses`,
+4. **Output in one place.** `act` takes the `BodyControl`, which replaces `requestHandPoses`,
    `Assist.ask` and the muscles' command for minds, and `heldBody` makes a control over its held
    arrays. The command's `hands` becomes request pairs, and the answer's numbers with it; a request
    is checked as a hand and a pose, with no array. The writers move to it: motor control
    (`solve.ts`, `bearing.ts`, `supported-motor.ts`), the gait assist, the recovery skills
    (`staged.ts`, `steady.ts`), the reptile's righting, the replayed sheets and
    `evaluation/technique.ts`. The Option Mind's writes found so far (motor control, the hand
-   requests, the replayed sheets) run in the fast phase now; a write found in the decision phase
-   moves to `act`, and the fingerprint cases it moves are named in the commit.
-5. **The bare entrant as a Mind.** `act` writes the pulls its learner holds; `think` reads its
-   inputs and decides new pulls. A decision then goes out with the next answer, one step sooner
-   than now, the same lag as the Option Mind's queue (`pending`). This is the plan's
-   one change in behaviour: the bare entrant's fingerprint case moves by that step, and its commit
-   says so. `policyMind`, `Policy` and the action checks are deleted where no other importer
+   requests, the replayed sheets) run in the fast phase now. A write found in the decision phase
+   keeps its timing: `think` keeps what it would write in the mind's memory, and `act` writes it
+   before anything else, so it goes out with the same answer as now.
+5. **The bare entrant as a Mind.** `think` first keeps the pulls its learner holds, in an array
+   made once, then reads its inputs and decides new pulls; `act` writes the kept pulls into
+   `control.muscles`. A decision goes out when it does now. `policyMind`, `Policy` and the action checks are deleted where no other importer
    remains, with `policyMind`'s unused equipment parameter. `observeBody` stays for inspection
    (`PhysicalBody.observe`, the Lab).
 
@@ -314,35 +318,3 @@ The architecture's Mind section changes with slices 2–4.
 - Every row of Evidence reads as it did before slice 1.
 - The boundary's allocation sites in the table are gone, and paired step-time readings show no
   regression beyond their spread.
-
-## Review items
-
-Keep the architecture: the mirror boundary, four-member `Mind`, worker sequence, command storage
-and observer ownership form a coherent contract. Tighten the migration in these places:
-
-- **Preserve delivery timing in slice 4.** A write found in the decision phase needs its existing
-  delivery timing preserved when it moves behind `act`. Resolve that timing before landing;
-  naming a changed fingerprint in the commit does not satisfy the preservation goal. The bare
-  entrant is the only declared exception.
-- **Make each slice independently implementable.** Slice 2 adopts `act(control)`, but slice 4
-  introduces `BodyControl`. Let slice 2 establish the names and required members with the existing
-  arguments and capabilities; slices 3 and 4 establish the final arguments and separate readings
-  from commands. State these intermediate contracts so implementation needs no temporary adapters.
-- **Make the fork recipe expose missing memory.** Load the save at `s` into a freshly built bout
-  of the same recipe and compare its continuation with the original. An immediate save and load
-  into the source can retain omitted memory and pass. The existing command-contract test covers
-  advancing and rewinding one instance; the fork diagnostic should establish reconstruction in
-  another instance.
-- **Match diagnostics to each slice.** Keep the required checks and fingerprints per slice. Run
-  worker, fork and allocation diagnostics where the affected behavior warrants them, and run the
-  complete evidence set at the end. A slice that only renames members needs no allocation profile.
-  Replace the blanket requirement to read every evidence row before and after every slice with
-  these specific obligations.
-- **Separate the bare entrant's migration from its timing choice.** Removing `policyMind` and its
-  allocations serves this boundary. Prefer preserving delivery timing during that migration and
-  considering the one-step advance separately. If the advance stays in scope, state its exception
-  consistently in the Goal, Evidence, Slices and Done when: the blanket requirements for unchanged
-  evidence currently contradict slice 5.
-- **Describe the worker overlap precisely.** `think` can overlap the current physics step, but
-  unfinished work can delay the next answer. Replace the contract comment's claim that a long
-  decision does not hold the world up with that bounded guarantee.
