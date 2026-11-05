@@ -74,7 +74,8 @@ export interface Mind {
   act(control: BodyControl): void;
   /**
    * The slow part: choose what to do next, from what it can see of the fight (`senses`, which
-   * arrive 0.15 s late, like a person's reaction time), and write the choice into its memory.
+   * show other bodies late by the rules' reaction time, `Rulebook.reaction`), and write the
+   * choice into its memory.
    * The next `act` carries it out. In a worker, `think` runs while the world steps the physics,
    * so a long decision does not hold the world up.
    */
@@ -295,7 +296,7 @@ unchanged.
    moves to `act`, and the fingerprint cases it moves are named in the commit.
 5. **The bare entrant as a Mind.** `act` writes the pulls its learner holds; `think` reads its
    inputs and decides new pulls. A decision then goes out with the next answer, one step sooner
-   than now, which is the Option Mind's lag too (its queue at a delay of one). This is the plan's
+   than now, the same lag as the Option Mind's queue (`pending`). This is the plan's
    one change in behaviour: the bare entrant's fingerprint case moves by that step, and its commit
    says so. `policyMind`, `Policy` and the action checks are deleted where no other importer
    remains, with `policyMind`'s unused equipment parameter. `observeBody` stays for inspection
