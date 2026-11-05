@@ -76,7 +76,36 @@ Placements that are not obvious from the table:
 | `core/recovery/`, `core/navigation/` | `skills/recovery/`, `skills/locomotion/` |
 | `assets/core/<skill>.json` | `assets/skills/<capability>/<implementation>/` |
 
-Step 1 of the migration places every remaining directory.
+[`PLACEMENTS`](../../scripts/source-boundary.mjs) maps every source module to its destination;
+`SPLITS` identifies modules whose contracts, composition or adapters have separate owners. Run
+`node scripts/source-boundary.mjs` to report the target layer, runtime and entrant crossings before
+moving a slice. `--actual --strict` checks the implemented paths. The architectural gate requires
+every source module to have a placement; `SOURCE_BOUNDARY_REPORT=1` prints the target crossings and
+`SOURCE_BOUNDARY_STRICT=1` makes them failures.
+
+The remaining directory placements are:
+
+| Today | Target |
+| --- | --- |
+| `core/math/`, `core/learning/` | `core/math/`, with the numeric learner under `learning/` |
+| `core/engine/` | `core/physics/` |
+| `core/spec/`, `core/human/`, `core/items/`, `core/build/`, `core/muscle/` | `core/bodies/`, retaining each subdirectory |
+| `core/reptile/spec.ts`, `core/reptile/physique.ts` | `core/bodies/quadruped/` |
+| `core/world.ts`, `core/state.ts`, `core/clock.ts`, `core/recording.ts`, `core/command-delay.ts` | `core/world/` |
+| `core/read-body.ts`, `core/read-motion.ts`, `core/equipment.ts`, `core/models.ts`, `core/character-attributes.ts`, `core/sources.ts` | `core/bodies/` |
+| `core/body.ts`, `core/observation.ts` | command/view and observation contracts in `control/`; hosted-body contracts in `minds/` |
+| `core/skills/`, `core/intent/`, `core/perception/` | `skills/`, `skills/intent/`, `skills/perception/` |
+| `core/reptile/` control and skill implementations | the paw motor and its private rules in `control/quadruped/`; gaits and jaw skills in `skills/quadruped/`; righting in `skills/recovery/righting/` |
+| `core/command/` | `minds/command/` |
+| `core/mind/kit.ts`, `core/skills/kit.ts`, `core/mind/held-body.ts`, `core/mind/held.ts` | `skills/kit.ts`, `skills/assembly.ts`, `skills/recovery/held-body.ts`, `control/held.ts` |
+| `core/data/` | the store stays in `core/data/`; each loader moves beside its skill's records |
+| `arena/`, `dungeon/`, `lab/`, `environment/` | runtime-neutral gameplay and scenario recipes in `game/`; rendering, controls and page setup in `app/browser/` |
+| `render/`, `ui/`, `audio/` | browser adapters in `app/browser/`; shared appearance data, attribute links and sound cues in `game/`; mind-config links in `minds/` |
+| `apart/`, `worker/` | runtime-neutral protocols and composition in `app/`; browser transport and worker entry points in `app/browser/` |
+| `node/` | `app/node/` |
+| `entrants/index.ts`, `entrants/game.ts` | `app/entrants.ts`, `app/catalog.ts` |
+| `ratings/`, `character-lab/`, `physics-bench/`, root page modules and styles | `app/browser/` |
+| `rng.ts`, `build-identity.ts` | `core/math/rng.ts`; separate Node and injected browser build-identity adapters |
 
 ## Runtime
 

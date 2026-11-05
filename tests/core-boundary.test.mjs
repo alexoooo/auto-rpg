@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import { sourceCrossings, sourceFiles, targetPath } from "../scripts/source-boundary.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const CORE = "src/core/";
@@ -386,7 +387,7 @@ function layerCrossings(files) {
   return { up: [...up].sort(), unlayered };
 }
 
-test("the core's imports run down its layers and into a package only from what is built on it: any other is one of today's, listed, and the list is exact", () => {
+test("the core's imports run down its layers and into a package only from what is built on it: any other is one of today's, listed, and the list is exact", (t) => {
   const files = filesUnder(CORE).filter((file) => file.endsWith(".ts")).map((file) => [file.slice(CORE.length), fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(files.length > 100, "fewer than a hundred core modules read, so this test would pass on nothing");
   const { up, unlayered } = layerCrossings(files);
@@ -400,6 +401,25 @@ test("the core's imports run down its layers and into a package only from what i
     ["command/sly.ts", `import { optionDecider } from "../option/decider.ts";\n`],
     ["option/sly.ts", `import { optionDecider } from "./decider.ts";\n`],
   ]), { up: ["command/sly.ts -> option/decider.ts", "skills/sly.ts -> mind/config.ts", "skills/sly.ts -> option/decider.ts"], unlayered: ["nowhere/sly.ts"] });
+  const target = sourceCrossings(sourceFiles(), { place: targetPath });
+  assert.deepEqual(target.unplaced, [], "every source module has a target placement");
+  if (process.env.SOURCE_BOUNDARY_REPORT === "1") for (const [kind, found] of Object.entries(target)) {
+    t.diagnostic(`target ${kind}: ${found.length}${found.length ? `\n${found.join("\n")}` : ""}`);
+  }
+  if (process.env.SOURCE_BOUNDARY_STRICT === "1") assert.deepEqual(target, { unplaced: [], layers: [], runtimes: [], ownership: [] });
+  // The all-source scan checks paths, including modules no world builder reaches.
+  assert.deepEqual(sourceCrossings([
+    ["src/skills/private.ts", `import { thinker } from "../minds/private.ts";`],
+    ["src/game/alone.ts", `import { draw } from "../app/browser/draw.ts";`],
+    ["src/entrants/one/mind.ts", `import { other } from "../two/mind.ts";`],
+    ["src/core/bodies/alone.ts", `export const seen = document.hidden;`],
+    ["src/app/browser/alone.ts", `import fs from "node:fs";`],
+  ]), {
+    unplaced: [],
+    layers: ["src/game/alone.ts -> src/app/browser/draw.ts", "src/skills/private.ts -> src/minds/private.ts"],
+    runtimes: ["src/app/browser/alone.ts -> node:fs", "src/core/bodies/alone.ts: browser name document", "src/game/alone.ts -> src/app/browser/draw.ts"],
+    ownership: ["src/entrants/one/mind.ts -> src/entrants/two/mind.ts"],
+  });
 });
 
 /** The game's list of entrants and its catalog: the only modules that import every entrant. */
