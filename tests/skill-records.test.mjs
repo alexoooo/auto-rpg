@@ -129,6 +129,28 @@ test("a roll admitted by a previous side reading hands over when already on its 
   } finally { body.dispose(); stand.dispose(); }
 });
 
+test("a lagging ground label never admits a staged ground action on a standing body", async () => {
+  const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec);
+  const runs = {};
+  const previous = { "staged-roll": "back", "staged-down": "front", "front-sit-back": "front", "sit-back": "fours" };
+  const body = commandedBody(stand.built, stand.world, {}, [(own, view, clock) => {
+    for (const kind of Object.keys(previous)) runs[kind] = TECHNIQUES[kind].make(own, view, clock, kitOf(partLookup, spec), { kind });
+    return { name: "standing admission", state: {}, wants: () => false, begin() {}, end() {}, step() {} };
+  }]);
+  try {
+    const reader = groundReading(stand.built, stand.world.dt), speed = stepUpTuning(spec).settle.speed;
+    let g;
+    for (let i = 0; i < 120; i++) {
+      stand.world.step(); g = reader.read();
+      if (g.position === "standing" && g.raw === "standing" && g.velocity.length() < speed && g.spin < 2) break;
+    }
+    assert.ok(g.position === "standing" && g.raw === "standing" && g.velocity.length() < speed && g.spin < 2,
+      "the fixture must stand slowly enough that only its posture can refuse the actions");
+    assert.deepEqual(Object.fromEntries(Object.entries(runs).map(([kind, run]) => [kind, run.admits({ ...g, position: previous[kind] }, "left")])),
+      { "staged-roll": false, "staged-down": false, "front-sit-back": false, "sit-back": false });
+  } finally { body.dispose(); stand.dispose(); }
+});
+
 test("staged down hands the next skill the hands-and-knees posture its edge promises", async () => {
   const r = await techniqueTrial({ model: "workshop-fighter", held: "empty", seed: 1, start: "placed", posture: "front", technique: "staged-down" });
   assert.equal(r.candidateBegun, true, "placed-front seed 1 must begin staged down before its exit is checked");

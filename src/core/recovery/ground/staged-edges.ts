@@ -75,7 +75,7 @@ const partFrom = (at: Position): StagedKind | undefined =>
  */
 const stagedEntry = (kind: StagedKind, tuning: StepUpTuning, g: GroundReading, side: Side): boolean => {
   const from: readonly Position[] = PARTS[kind].from;
-  return side === "left" && (from.includes(g.raw) || from.includes(g.position)) && slowFor(kind, tuning, g);
+  return side === "left" && g.raw !== "standing" && (from.includes(g.raw) || from.includes(g.position)) && slowFor(kind, tuning, g);
 };
 
 /**
