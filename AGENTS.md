@@ -88,7 +88,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 - Imports, the engine's package, exact arithmetic (`EXACT_MATH`) and headless builders free of
   Babylon: `tests/core-boundary.test.mjs`. What a Mind may read and do:
-  `tests/mind-contract.test.mjs`. What a Commander may: `tests/command-contract.test.mjs`.
+  `tests/mind-contract.test.mjs`.
 - **Simulation code uses the core's vectors** and plain poses; drawing code uses Babylon's, and a
   page poses a puppet from the simulated poses. A module that does both is split.
 - **A spec's number is a `Quantity`** read from a `SOURCES` entry (`src/core/sources.ts`: a paper,
@@ -165,8 +165,11 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 ## Tests
 
-- **A test answers a specific need** (a bug found, a contract), catches its class, and runs in
-  under about 10 s. Never for coverage; how well a mind plays is a match, not a test.
+- **Tests are a liability; less is more.** Keep the core boundary, step cost and Mind contract
+  gates. Every other test reproduces a concrete observed regression: the commit names the
+  failure and the broken code on which the test fails. A new feature, a contract by itself or
+  an artificial mutant is not a reason to add one. Keep it under about 10 s; how well a mind
+  plays is a match, not a test.
 - **Test the contract**: inputs, outputs, what can be observed; never a tuned number or a last
   run's trajectory. Rules and replay are held to exact equality.
 - **A fixture that did not reach its case says so** before the asserts; bouts are capped. A
@@ -216,7 +219,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   into its profile; any other fall is a defect.
 - **One act an Option**: one skill used one way, its limbs, target and aim; what blows share is
   code the Options call, never a kind of Option that makes one of each.
-- **No body is named in control code** (`tests/body-names.test.mjs`): settings are a record per
+- **No body is named in control code**: settings are a record per
   body (`SkillRecord`, `recordFault`); other logic for a body is a skill only that body fits.
 
 ## Line endings

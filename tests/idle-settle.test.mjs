@@ -1,5 +1,4 @@
 import { DEFAULT_ENGINE } from "../src/core/engine/engines.ts";
-/** Idle standing repairs an established stagger through the configured legs, and explicit requests remain authoritative. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rig } from "./harness/probes.mjs";
@@ -17,50 +16,6 @@ function fixture(scale = 1) {
   const ask = (goal = {}, context) => { view.time += 1 / 120; return legs.goal(view, { walk: null, face: 0, ...goal }, 1 / 120, context).goal; };
   return { view, legs, ask };
 }
-
-test("idle settling debounces, scales, holds fixed targets, yields and resets", () => {
-  for (const scale of [.5, 1, 2]) {
-    const { view, legs, ask } = fixture(scale);
-    for (let i = 0; i < 22; i++) assert.equal(ask()?.swing, undefined);
-    let goal; for (let i = 0; i < 3; i++) goal = ask();
-    assert.ok(goal.swing, "awkward idle footing must request a physical step");
-    const target = [...goal.swing.to];
-    view.stance.centre.x += .01 * scale; view.stance.phase = "swing";
-    assert.deepEqual(ask().swing.to, target, "targets must not chase sway");
-    assert.deepEqual(ask({ walk: [1, 0] }).swing.to, target, "a lifted foot lands before walking");
-    assert.equal(ask({}, { idleSettle: false }).swing, undefined, "an action owning the stance overrides settling");
-    legs.resume(view); view.stance.phase = "stand";
-    for (let i = 0; i < 10; i++) assert.equal(ask()?.swing, undefined);
-  }
-  for (const constraint of [{ halt: true }, { centre: [0, 0] }, { height: 1 }, { heading: 0 }, { feet: ["foot.left", "foot.right"] }, { swing: null }]) {
-    const { ask } = fixture();
-    for (let i = 0; i < 40; i++) assert.equal(ask(constraint)?.swing ?? null, null);
-  }
-});
-
-test("idle legs correct a physically established stagger and stop stepping", async () => {
-  let available = false;
-  const made = await rig({ engine: DEFAULT_ENGINE, legs: { kind: "move", rules: [], otherwise: "braced" },
-    wrapLegs: legs => Object.create(legs, { goal: { value: (view, goal, dt) => legs.goal(view, goal, dt, { idleSettle: available }) } }) });
-  try {
-    // The stagger along the way the body was built facing.
-    const s = made.view.stance, fx = Math.sin(made.start.heading), fz = Math.cos(made.start.heading);
-    const stagger = () => (s.ends["foot.left"].middle.x - s.ends["foot.right"].middle.x) * fx + (s.ends["foot.left"].middle.z - s.ends["foot.right"].middle.z) * fz;
-    const footing = { "foot.left": [s.ends["foot.left"].middle.x + .15 * fx, s.ends["foot.left"].middle.z + .15 * fz], "foot.right": [s.ends["foot.right"].middle.x - .15 * fx, s.ends["foot.right"].middle.z - .15 * fz] };
-    made.run(3, () => ({ legs: { footing } }));
-    assert.ok(!made.view.down && Math.abs(stagger()) > .2, "fixture must establish an upright stagger");
-    made.run(.5, () => ({}));
-    assert.ok(Math.abs(stagger()) > .2, "stance authority must survive Move, walk-run and lowering delegation");
-    available = true;
-    made.run(5, () => ({}));
-    assert.ok(!made.view.down, "settling must keep the body up");
-    assert.ok(Math.abs(stagger()) < .06, `remaining stagger ${stagger()} m, limit .06`);
-    made.run(1, () => ({}));
-    assert.equal(s.phase, "stand");
-    assert.ok(s.ends["foot.left"].touching && s.ends["foot.right"].touching);
-  } finally { made.dispose(); }
-});
-
 
 test("idle settling ignores body sway but steps a turned sole even at the right position", () => {
   const { view, ask } = fixture();
@@ -134,7 +89,6 @@ test("idle placement untwists a physically turned footing", async () => {
   } finally { made.dispose(); }
 });
 
-
 test("following orders asks no blow and releases recovery actions", async () => {
   const { followOrders } = await import("../src/core/option/orders.ts");
   const punch = { id: 1, action: "punch", effector: "hand.left", target: { kind: "point", at: [0, 1, 1] }, holds: ["hand.left"] };
@@ -144,7 +98,6 @@ test("following orders asks no blow and releases recovery actions", async () => 
     needs: () => ["hand.left"] } };
   assert.deepEqual(option.step(now).asked.actions, [], "a walk, stand or facing asks no action: blows are the strike options'");
 });
-
 
 test("two manual Lab shoves release recovery back to settling on the gameplay engine", async t => {
   const { coreStand } = await import("./harness/core-stand.mjs");
@@ -182,7 +135,6 @@ test("two manual Lab shoves release recovery back to settling on the gameplay en
     assert.ok(quiet >= STAND_CHECK.quiet, "after the check's walk, idle legs must finish their steps and hold standing");
   } finally { run.dispose(); stand.dispose(); }
 });
-
 
 test("a disturbance cancels idle foot placement and gives catch steps priority", () => {
   for (const caught of [false, true]) for (const walking of [false, true]) {

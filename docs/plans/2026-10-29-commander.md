@@ -186,8 +186,8 @@ runs (`MemberReport.task`). It hears no command yet; a person's commands come la
 their own. The generator's means (the route from start to exit in `findPath` metres, encounters a
 metre, over seeds 1 to 30) are read once by a script and cited where the value reads them.
 
-Check: the gate, with `tests/command-contract.test.mjs` leading an Arena bout with it as a team of
-one, sending its member at the foe, and replaying it from its orders.
+Check: the gate and a team-of-one Arena bout sending its member at the foe, replayed from its
+orders.
 
 ### 5. Read against the clearer
 

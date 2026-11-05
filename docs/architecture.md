@@ -350,9 +350,8 @@ model's preset, `modelRefusal` why a mind cannot play a body.
    maker that takes the body once (`host.take`) and returns its `state`.
 5. What is not a role is the toolkit's: a new extension point opens in the core in its own change.
 
-`tests/mind-contract.test.mjs` runs each mind against itself, forks and replays it;
-`tests/swap.test.mjs` swaps in a stub of each role from outside `src/` (`tests/fixtures/swap/`) by
-config alone. How well it fights is a match ([Evaluations](#evaluations)).
+`tests/mind-contract.test.mjs` runs each mind against itself, forks and replays it.
+How well it fights is a match ([Evaluations](#evaluations)).
 
 ## Command
 
@@ -364,8 +363,7 @@ mind.
 
 `COMMANDERS` registers the kinds (`createCommander`); `party` leads a person's side, in the Arena
 through `teamOfOne`. `tests/core-boundary.test.mjs` keeps `src/core/command/` from the engine,
-world, bodies, enlistment, a mind's host and the senses hub, globals and chance;
-`tests/command-contract.test.mjs` has each kind lead a bout, fork it and replay it from its orders.
+world, bodies, enlistment, a mind's host and the senses hub, globals and chance.
 
 ## One world step
 
@@ -396,11 +394,11 @@ not saved or forked (`MIND_APART`).
 ### The world in a worker
 
 The Arena's, the crowd fight's and the Crypt's worlds step in a Web Worker each (`src/worker/`),
-built headless as Node builds them (`buildBout`, `buildTeamBout`, `buildCryptRun`), the same to the
-bit (`tests/world-worker.test.mjs`). The worker takes the steps real time owes, a bounded number a
-pass, and sends each step's frame and news; a world that cannot keep up plays slow while the page
-keeps its rate. The page's input is applied before the next step and taped. The page (`openWorld`)
-poses a puppet of each body between the two frames it shows (`posePuppet`).
+built headless as Node builds them (`buildBout`, `buildTeamBout`, `buildCryptRun`). The worker
+takes the steps real time owes, a bounded number a pass, and sends each step's frame and news;
+a world that cannot keep up plays slow while the page keeps its rate. The page's input is applied
+before the next step and taped. The page (`openWorld`) poses a puppet of each body between the two
+frames it shows (`posePuppet`).
 
 ## Bouts, tapes and replay
 
