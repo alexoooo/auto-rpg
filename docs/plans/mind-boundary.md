@@ -299,9 +299,9 @@ equivalence, interruption/resumption and severing with unchanged outputs and fin
 
 Read exact continuation from supported snapshots with decisions and commands in flight,
 interrupted control, observed/unobserved severing and retained inputs/outputs. Require each recipe
-to reach its named case. Reuse the existing core boundary, Mind-contract and step-cost gates;
-additional tests follow the repository's observed-regression rule. Do not replace expectations
-or relax checks to accommodate a refactor.
+to reach its named case. Reuse the core boundary and command-queue checks, and run the relevant
+fingerprint, worker and step-cost diagnostics explicitly. Additional tests follow the repository's
+observed-regression rule. Do not replace expectations or relax checks to accommodate a refactor.
 
 ### Account for the cost and finish the boundary
 

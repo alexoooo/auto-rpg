@@ -101,3 +101,10 @@ test("a match admits complete pairs within named calibrations and preserves the 
   assert.throws(() => cases(evaluation.subjects(["swap-skeleton", "option"])), /fits no condition.*named calibration allows crypt-skeleton/);
   assert.throws(() => cases(resolveSubjects(evaluation, ["option"], "swap-skeleton", ["rate=30"]).subjects), /fits no condition/);
 });
+
+test("every evaluation's default panel names entrants it has", () => {
+  const panels = Object.values(EVALUATIONS).filter((evaluation) => evaluation.analysis?.panel?.length);
+  assert.ok(panels.length > 0, "an evaluation has a default panel");
+  for (const evaluation of panels) for (const id of evaluation.analysis.panel)
+    assert.doesNotThrow(() => evaluation.subjects([id]), `${evaluation.id}'s panel names ${id}`);
+});

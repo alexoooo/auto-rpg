@@ -20,7 +20,8 @@ decision is made or how its value is estimated.
   says otherwise.
 - **Determinism and forks hold**: a fixed amount of work a step, never a time budget; what a step
   keeps is in the chooser's state (`src/core/state.ts`), so a bout forked mid-decision plays on to
-  the bit (the Mind contract, `tests/mind-contract.test.mjs`).
+  the bit. Read continuation on the affected chooser path with pending work; the command-queue
+  check in `tests/mind-contract.test.mjs` does not establish search-state completeness.
 - **A speed rewrite** does the same operations in the same order and moves no fingerprint case
   ([step cost](../reference/step-cost.md)). A step that changes what is computed (a decision spread
   over steps, a kept tree, a profile table, a learned leaf) is a change of the mind: its moved

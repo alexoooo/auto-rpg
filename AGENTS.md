@@ -88,9 +88,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 ## The core (`src/core/`)
 
-- Imports, the engine's package, exact arithmetic (`EXACT_MATH`) and headless builders free of
-  Babylon: `tests/core-boundary.test.mjs`. What a Mind may read and do:
-  `tests/mind-contract.test.mjs`.
+- Imports, the engine's package, exact arithmetic (`EXACT_MATH`), headless builders free of
+  Babylon and what a Mind may read and do: `tests/core-boundary.test.mjs`.
 - **Simulation code uses the core's vectors** and plain poses; drawing code uses Babylon's, and a
   page poses a puppet from the simulated poses. A module that does both is split.
 - **A spec's number is a `Quantity`** read from a `SOURCES` entry (`src/core/sources.ts`: a paper,
@@ -127,7 +126,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   frozen.
 - **The step's dear functions work in arrays made once**; a speed rewrite does the same
   operations in the same order, moves no fingerprint, and reads its time before and after
-  (`tests/core-step-cost.test.mjs`, [step cost](docs/reference/step-cost.md)).
+  ([step cost](docs/reference/step-cost.md)).
 - **A screen is an explicit argument**, never inferred from a state machine. Pause freezes the
   world, not the camera.
 - **Two watchers on one body**: set a flag in the callback; act on it at the next control step.
@@ -167,11 +166,13 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 ## Tests
 
-- **Tests are a liability; less is more.** Keep the core boundary, step cost and Mind contract
-  gates. Every other test reproduces a concrete observed regression: the commit names the
-  failure and the broken code on which the test fails. A new feature, a contract by itself or
-  an artificial mutant is not a reason to add one. Keep it under about 10 s; how well a mind
-  plays is a match, not a test.
+- **Tests are a liability; less is more.** Each retained case has a concrete failure and a reason
+  capability drills or existing diagnostics do not establish it, in [the test inventory](tests/README.md).
+  Skill behaviour belongs in drills and paired evaluations; allocation profiling and broad replay
+  batteries are explicit diagnostics. No test file has a blanket exemption. A new test reproduces
+  a concrete observed regression: its commit names the failure and the broken code on which it
+  fails. A new feature, a contract by itself or an artificial mutant is not a reason to add one.
+  Keep it under about 10 s; how well a mind plays is a match, not a test.
 - **Test the contract**: inputs, outputs, what can be observed; never a tuned number or a last
   run's trajectory. Rules and replay are held to exact equality.
 - **A fixture that did not reach its case says so** before the asserts; bouts are capped. A

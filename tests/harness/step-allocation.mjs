@@ -1,7 +1,6 @@
 /**
- * **One reading of what a body's step allocates**, KiB, printed: `stepAllocation`
- * (`tests/harness/garbage.mjs`) runs it in a process of its own. Node, the core world, Rapier,
- * 120 Hz.
+ * **One reading of what a body's step allocates**, KiB, printed. Run each fixture in a process
+ * of its own. Node, the core world, Rapier, 120 Hz.
  *
  *   node tests/harness/step-allocation.mjs standing|standing-array|down|mind <id> <model> <held>
  *

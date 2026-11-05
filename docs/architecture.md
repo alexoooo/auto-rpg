@@ -71,9 +71,8 @@ computes with `+ - * /`, `Math.sqrt` and its own functions (`src/core/math/real.
 operation for operation; `turn.ts`). A power is written as products. `EXACT_MATH` in
 `tests/core-boundary.test.mjs` names the members of `Math` allowed.
 
-The step's dear solves work in arrays made once with the body, which carry nothing between calls;
-`tests/core-step-cost.test.mjs` holds a step's time and allocation
-([step cost](reference/step-cost.md)).
+The step's dear solves work in arrays made once with the body, which carry nothing between calls.
+Time, allocation and heavy work are read with the [step-cost diagnostics](reference/step-cost.md).
 
 ## Build and engine
 
@@ -352,8 +351,9 @@ model's preset, `modelRefusal` why a mind cannot play a body.
    maker that takes the body once (`host.take`) and returns its `state`.
 5. What is not a role is the toolkit's: a new extension point opens in the core in its own change.
 
-`tests/mind-contract.test.mjs` runs each mind against itself, forks and replays it.
-How well it fights is a match ([Evaluations](#evaluations)).
+`tests/mind-contract.test.mjs` checks delayed command delivery, queue clearing on suspension and
+restoration with commands in flight. Broader execution equivalence is read with the fingerprint
+and `research/minds-apart.mjs`. How well a mind fights is a match ([Evaluations](#evaluations)).
 
 ## Command
 

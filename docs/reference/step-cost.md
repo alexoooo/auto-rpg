@@ -1,9 +1,8 @@
 # What a step costs
 
 What one world step (`World.step`, `src/core/world.ts`) takes in time and memory, and how to read
-it. `tests/core-step-cost.test.mjs` holds the step's allocation under ceilings
-([below](#allocation-ceilings)), and the opening and route searches a body makes a step under
-`SEARCHES`.
+it with explicit diagnostics. Name the cost question before choosing a fixture; run allocation
+profiling and heavy-work counts when a change affects those costs.
 
 ## Reading a step
 
@@ -36,22 +35,22 @@ node research/mind-split.mjs --threads 1,3,4,5 --cap 60    # what splitting the 
 node research/minds-apart.mjs                              # minds on worker threads, the same to the bit
 ```
 
-## Allocation ceilings
+## Allocation readings
 
-`CEILING` in `tests/core-step-cost.test.mjs`, in KiB a body a step, read by V8's sampling heap
-profiler (`allocatedIn`, `tests/harness/garbage.mjs`), each reading in a process of its own
-(`tests/harness/step-allocation.mjs`):
+V8's sampling heap profiler (`allocatedIn`, `tests/harness/garbage.mjs`) reads KiB a body a step.
+Run each fixture in a process of its own (`tests/harness/step-allocation.mjs`), so another
+fixture's optimization does not affect the reading:
 
-| Ceiling | Fixture |
+| Argument | Fixture |
 |---|---|
 | `standing` | two skeletons standing (`standBodies`), 240 steps read from 3 s |
 | `down` | the Warrior lying on its back under its ground reader, 240 steps read from 3 s |
-| `mind` | each game mind (`GAME_MINDS`) on both sides of a bout of the first body it fits, 3 m apart, holding the first of a sword, nothing and a club it takes, 240 steps read from 2 s |
+| `mind <id> <model> <held>` | the named preset on both sides of a bout of the named body, 3 m apart, each holding the named item in its right hand, 240 steps read from 2 s |
 
-A ceiling is the highest of five readings plus a quarter, rounded up. One `mind` ceiling holds
-every game mind, the highest of them, so a mind added is read without a number of its own. A change
-that goes over a ceiling takes its allocation out of the step or, where the allocation is the
-feature's, raises the ceiling by this rule and says why in its commit.
+Compare the affected fixture before and after the change with matching code/data identity and
+protocol. Keep allocation evidence separate from uninstrumented mean and tail timings; a lower
+allocation reading alone does not establish faster execution. Read opening and route searches
+with `research/call-count.mjs` and `research/crypt-plan.mjs` when their frequency is the question.
 
 ```powershell
 node tests/harness/step-allocation.mjs standing

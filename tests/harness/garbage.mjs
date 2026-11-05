@@ -1,6 +1,4 @@
-import { spawn, spawnSync } from "node:child_process";
 import { Session } from "node:inspector/promises";
-import { fileURLToPath } from "node:url";
 import { SERVO_SECONDS } from "../../src/core/body.ts";
 import { commandedBody } from "../../src/core/mind/host.ts";
 import { buildBody } from "../../src/core/build/build-body.ts";
@@ -17,15 +15,14 @@ import { poseAngles } from "../../src/core/control/kinematics.ts";
 /**
  * `count` bodies of `model` with the club on a ground in a world of their own, on a square grid
  * 3 m apart, each under the command layers with an order to stand: what a step allocates is read
- * on them (`tests/core-step-cost.test.mjs`, `research/step-garbage.mjs`). With `only`, the world
- * holds that one of them alone, at its place on the grid.
+ * on them (`research/step-garbage.mjs`).
  */
-export async function standBodies(count, model = "crypt-skeleton", { only } = {}) {
+export async function standBodies(count, model = "crypt-skeleton") {
   const spec = armed(modelSpec(model), "right", woodenClub());
   const world = createWorld(await freshEngine());
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const side = Math.ceil(Math.sqrt(count));
-  const bodies = Array.from({ length: count }, (_, i) => i).filter((i) => only === undefined || i === only).map((i) => {
+  const bodies = Array.from({ length: count }, (_, i) => {
     const body = commandedBody(buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] }), world, { servoSeconds: SERVO_SECONDS });
     driveBy(body, { name: "stand", decide: () => standIntent(0) });
     return body;
@@ -96,29 +93,3 @@ function allocationOf(profile) {
   walk(profile.head, []);
   return { bytes, self, within, files };
 }
-
-/**
- * KiB a body's step allocates in `fixture` (`tests/harness/step-allocation.mjs`), read in a process
- * of its own: what a step allocates depends on how far V8 has optimized the code it runs, so a
- * reading after another fixture in one process reads less than one alone.
- */
-export function stepAllocation(fixture, ...args) {
-  const child = spawnSync(process.execPath, [ALLOCATION, fixture, ...args], { encoding: "utf8" });
-  if (child.status !== 0) throw new Error(child.stderr);
-  return Number(child.stdout);
-}
-
-/** `stepAllocation` read in a process of its own without waiting on it: several at once. */
-export function stepAllocationAsync(fixture, ...args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [ALLOCATION, fixture, ...args]);
-    let out = "", err = "";
-    child.stdout.on("data", (data) => { out += data; });
-    child.stderr.on("data", (data) => { err += data; });
-    child.on("error", reject);
-    child.on("close", (code) => code === 0 ? resolve(Number(out)) : reject(new Error(`${fixture} ${args.join(" ")}: ${err}`)));
-  });
-}
-
-/** The fixture script a reading runs. */
-const ALLOCATION = fileURLToPath(new URL("./step-allocation.mjs", import.meta.url));
