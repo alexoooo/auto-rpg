@@ -6,10 +6,12 @@ The pages draw what the physics did.
 
 - **Babylon.js draws; Rapier simulates.** Rapier is vendored
   ([vendor/rapier](../vendor/rapier/README.md)).
-- **Everything that fights is the core's** (`src/core/`). The screens build on it; it never imports
-  them, nor Babylon: it has its own vectors and plain poses (`Pose`), and a page draws a puppet it
-  poses from them (`followBody`, `src/render/puppet.ts`).
-- **One world step** (`World.step`, 120 Hz) owns physics, control, combat and the clock.
+- **The core** (`src/core/`) holds bodies, physics, muscles, rules, skills and minds. Bouts, the
+  Crypt's run and evaluations build on it outside it (`src/arena/`, `src/dungeon/`,
+  `src/evaluation/`). It never imports them, nor Babylon: it has its own vectors and plain poses
+  (`Pose`), and a page draws a puppet it poses from them (`followBody`, `src/render/puppet.ts`).
+- **One world step** (`World.step`, 120 Hz) owns physics, the clock and the order of its hooks;
+  minds, control and blows run as hooks.
 
 ## The layers
 
