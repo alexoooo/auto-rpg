@@ -1,3 +1,4 @@
+import type { BodyControl } from "../body-control.ts";
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import meta from "../../../assets/skills/recovery/righting/righting.meta.json" with { type: "json" };
 import type { BodyView } from "../body.ts";
@@ -100,11 +101,11 @@ function rightingByRecipe(own: OwnBody, recipe: RightingRecipe): TechniqueRun {
     reached: (g, to) => g.position === to,
     begin() { state.phase = "settle"; state.time = 0; state.frame = 0; state.since = 0; state.still = -1; },
     end() { state.phase = "idle"; },
-    step(g, _senses, dt): TechniqueEnd | null {
+    step(g, _senses, control, dt): TechniqueEnd | null {
       state.time += dt;
       readTurn();
       if (state.phase === "settle") {
-        servo(own.muscles, () => 0, recipe.servo, dt);
+        servo(own.muscles, control.muscles, () => 0, recipe.servo, dt);
         if (state.time < recipe.settle) return null;
         // How it lies: on its back, or on a side, its right where the body's +x points down.
         state.lie = up.y < -.5 && recipe.back ? "back" : "side"; state.mirrored = side.y > 0;
@@ -118,7 +119,7 @@ function rightingByRecipe(own: OwnBody, recipe: RightingRecipe): TechniqueRun {
       if (calm && state.time - state.still >= recipe.still) { state.phase = "idle"; return "done"; }
       if (state.time >= recipe.limit) { state.phase = "idle"; return "timed-out"; }
       const targets = frames[state.frame]!.targets;
-      servo(own.muscles, (i) => {
+      servo(own.muscles, control.muscles, (i) => {
         if (!state.mirrored) return targets[names[i]!] ?? 0;
         const m = mirror[i]!;
         return (targets[names[m.other]!] ?? 0) * m.sense;
@@ -194,7 +195,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
     });
   };
   /** The rise this step: the body carried up over its placed paws, each not bearing brought down where it stands; whether it is done. */
-  const rise = (dt: number): TechniqueEnd | null => {
+  const rise = (control: BodyControl, dt: number): TechniqueEnd | null => {
     state.centre[1] = state.ground + reference * REPTILE_CRAWL.crawlHeight;
     rootFrameToRef(root, frame); Quaternion.InverseToRef(frame.rotation, inverse);
     inverse.multiplyToRef(heading.set(0, sin(state.yaw / 2), 0, cos(state.yaw / 2)), flat).normalize();
@@ -206,7 +207,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
         intoFrameToRef(frame, target, point);
         return { target, bearing, rotation: state.turns[i]!, swing: soleGoal(endpoints[i]!.point, point, T.recoveryPath, state.sequence, descending, flat) };
       }) };
-    motor.setSupport(goal); motor.control(own.muscles, dt);
+    motor.setSupport(goal); motor.control(own.muscles, control, dt);
     const stable = !view.down && reading.centre.y - state.ground >= reference * T.recoveryHeight && feet.every((foot) => foot.contact && foot.flat)
       && reading.velocity.lengthSquared() < T.recoveredSpeed * T.recoveredSpeed;
     state.stable = stable ? state.stable + dt : 0;
@@ -219,7 +220,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
     reached: (g, to) => g.position === to,
     begin() { start(); },
     end() { state.phase = "idle"; motor.reset(); },
-    step(g, _senses, dt): TechniqueEnd | null {
+    step(g, _senses, control, dt): TechniqueEnd | null {
       state.time += dt; state.elapsed += dt;
       motor.read();
       let ground = 0, contacts = 0;
@@ -231,7 +232,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
       readTurn();
       if (state.phase === "roll" && (g.position === "front" || g.position === "crouch")) { state.phase = "place"; state.time = 0; state.elapsed = 0; }
       else if (state.phase === "place" && ROLLED.includes(g.position)) { state.phase = "roll"; state.paw = 0; state.placed.fill(false); nextRoute("start"); }
-      if (state.phase === "rise") return rise(dt);
+      if (state.phase === "rise") return rise(control, dt);
       const size = hypot(up.x, up.z), angle = atan2(size, up.y), gain = size > T.rightingEpsilon ? T.rightingGain * angle / size : 0;
       root.body.angularVelocityToRef(spin);
       // A hip's child torque gives the opposite moment to the trunk. Only a loaded leg supplies
@@ -241,7 +242,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
         -gain * up.x + bank * front.z + T.rightingDamping * spin.z);
       const roll = atan2(side.y, up.y), moving = state.phase === "place" ? state.paw : -1;
       if (moving >= 0 && state.route === "start") nextRoute(sign[moving]! * own.muscles.angle(hip[moving]!) < T.wrappedHip ? "unfold" : "sweep");
-      servo(own.muscles, (i) => {
+      servo(own.muscles, control.muscles, (i) => {
         const { leg, joint, axis } = channels[i]!;
         if (leg < 0) return state.phase === "roll" ? 0 : own.muscles.angle(i);
         const s = sign[leg]!, direction = state.direction[leg]!, h = own.muscles.angle(hip[leg]!), k = own.muscles.angle(knee[leg]!);
@@ -270,7 +271,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
         if (joint === HIP && state.loaded[leg]) {
           const axis = own.muscles.dynamics.axis(i), torque = moment.x * axis[0] + moment.y * axis[1] + moment.z * axis[2];
           const sense = torque >= 0 ? 1 : -1, strength = own.muscles.strength(i, sense);
-          own.muscles.velocity[i] = sense * Infinity; own.muscles.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque) / strength) : 0;
+          control.muscles.velocity[i] = sense * Infinity; control.muscles.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque) / strength) : 0;
           return undefined;
         }
         return state.phase === "roll" ? 0 : own.muscles.angle(i);

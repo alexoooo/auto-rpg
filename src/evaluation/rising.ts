@@ -158,12 +158,12 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
       // The techniques run in the motor part, on the body as it is, as the game's ground skills do (`groundSkills`).
       think() {},
       interrupt() {},
-      act() {
+      act(bodyControl) {
         const dt = own.dt;
         const senses = view.senses;
         if (!view.ground) return;
         if (control.predecessor === "running") {
-          let end: string | null = predecessor!.step(view.ground, senses, dt);
+          let end: string | null = predecessor!.step(view.ground, senses, bodyControl, dt);
           if (!end && into.time - control.from! >= 8) { predecessor!.end(); end = "timed-out"; }
           if (end) {
             control.predecessor = end; control.predecessorSeconds = into.time - control.from!;
@@ -171,7 +171,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
           }
           return;
         }
-        control.end = run.step(view.ground, senses, dt);
+        control.end = run.step(view.ground, senses, bodyControl, dt);
         if (control.end) { control.active = false; control.ended = into.time; }
       } } };
   }]);

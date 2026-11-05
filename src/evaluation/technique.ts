@@ -1,3 +1,4 @@
+import type { BodyControl } from "../core/body-control.ts";
 /**
  * **Techniques in turn as a case**: one body on the arena's solids, started placed in a posture or
  * standing and shoved, its stand-up techniques (`TechniquePart`) played one after another without
@@ -119,14 +120,15 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
   for (const joint of spec.joints) joint.dofs.forEach((dof, k) => { held[`${joint.name} ${dof.positive}`] = (placement.joints?.[joint.name]?.[k] ?? 0) + dof.bind.value; });
   const lying = one.start.kind === "shoved" || LYING.includes(one.start.posture);
   const state = { link: 0, phase: "start" as "start" | "wait" | "run" | "rest" | "stood" | "over", since: 0, down: false,
+    command: { activation: new Float64Array(spec.joints.reduce((n,j)=>n+j.dofs.length,0)), velocity: new Float64Array(spec.joints.reduce((n,j)=>n+j.dofs.length,0)) },
     links: [] as LinkReading[], entry: null as LinkReading["entry"], last: "between" };
   let runs: TechniqueRun[] = [];
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec), drive = poseDrive(own.muscles);
     runs = one.chain.map((name) => { const part: TechniquePart = TECHNIQUES[name]; return part.make(own, view, clock, kit, part.defaults); });
-    const command = { activation: new Float64Array(own.muscles.channels.length), velocity: new Float64Array(own.muscles.channels.length) };
-    const remember = () => { command.activation.set(own.muscles.activation); command.velocity.set(own.muscles.velocity); };
-    const carry = () => { own.muscles.activation.set(command.activation); own.muscles.velocity.set(command.velocity); };
+    const command = state.command;
+    const remember = (control: BodyControl) => { command.activation.set(control.muscles.activation); command.velocity.set(control.muscles.velocity); };
+    const carry = (control: BodyControl) => { control.muscles.activation.set(command.activation); control.muscles.velocity.set(command.velocity); };
     const close = (end: LinkEnd, g: GroundReading | null) => {
       state.links.push({ technique: one.chain[state.link]!, end, seconds: state.phase === "run" ? clock.time - state.since : 0, entry: state.entry, position: g?.position ?? "between" });
       state.entry = null;
@@ -134,18 +136,18 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
     const name = "technique case";
     return { name, has: () => name, dispose() {}, mind: { state,
       wants: () => state.phase !== "over" && state.phase !== "stood" && (one.start.kind === "placed" || state.down),
-      begin() { state.phase = "wait"; state.since = clock.time; if (lying) { own.muscles.activation.fill(0); own.muscles.velocity.fill(0); } else drive(held); remember(); },
+      begin() { state.phase = "wait"; state.since = clock.time; if (lying) { command.activation.fill(0); command.velocity.fill(0); } else drive(command, held); },
       end() { if (state.phase === "run") { runs[state.link]!.end(); close("interrupted", view.ground); state.phase = "over"; } },
       // The chain runs in the motor part, on the body as it is, as the game's ground skills do (`groundSkills`).
       think() {},
       interrupt() {},
-      act() {
+      act(control) {
         const dt = own.dt;
         const g = view.ground, senses = view.senses;
-        if (!g) { carry(); return; }
+        if (!g) { carry(control); return; }
         if (state.phase === "rest") {
           // A technique that ended short: the body lies slack until it comes to rest, read there.
-          own.muscles.activation.fill(0); own.muscles.velocity.fill(0);
+          control.muscles.activation.fill(0); control.muscles.velocity.fill(0);
           if (g.settled && g.velocity.lengthSquared() < TECHNIQUE_LIMITS.still * TECHNIQUE_LIMITS.still || clock.time - state.since + dt / 2 >= TECHNIQUE_LIMITS.rest) {
             const last = state.links.length - 1;
             state.links[last] = { ...state.links[last]!, position: g.position }; state.phase = "over";
@@ -158,17 +160,17 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
             state.entry = { position: g.raw, speed: Math.sqrt(g.velocity.lengthSquared()), spin: g.spin, waited: clock.time - state.since };
             state.phase = "run"; state.since = clock.time; run.begin(side);
           } else {
-            if (state.link === 0 && !lying) drive(held); else carry();
-            remember();
+            if (state.link === 0 && !lying) drive(control.muscles, held); else carry(control);
+            remember(control);
             if (clock.time - state.since + dt / 2 >= TECHNIQUE_LIMITS.admit) { close("not entered", g); state.phase = "over"; }
             return;
           }
         }
-        carry();
+        carry(control);
         const run = runs[state.link]!;
-        let end: LinkEnd | null = run.step(g, senses, dt);
+        let end: LinkEnd | null = run.step(g, senses, control, dt);
         if (!end && clock.time - state.since >= TECHNIQUE_LIMITS.run) { run.end(); end = "timed-out"; }
-        remember();
+        remember(control);
         if (!end) return;
         const stands = TECHNIQUES[one.chain[state.link]!].edges.some((edge) => edge.to === "standing") && end === "done";
         close(end, g);

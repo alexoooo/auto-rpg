@@ -50,7 +50,7 @@ export function crouchSteady(own, view, variant = {}) {
   };
   const resume = () => { motor.stance.read(); legs.resume({ ...view, stance: motor.stance.reading }); };
   return { control, state: { motor: motor.state, legs: legs.state, control },
-    step(dt) {
+    step(output, dt) {
       if (control.t0 === null) { control.t0 = view.time; control.from = channels.map((_, i) => own.muscles.angle(i)); resume(); }
       const t = view.time - control.t0;
       motor.stance.read();
@@ -148,7 +148,7 @@ export function crouchSteady(own, view, variant = {}) {
       control.lead = (r.centre.x - r.support.x) * fx + (r.centre.z - r.support.z) * fz; control.steps = r.recoveries + r.strides;
       control.asked = goal ? goal.height : null; control.at = r.centre.y - r.support.y; control.short = r.shortfall.force.length();
       motor.setStance(goal);
-      motor.control(own.muscles, dt);
+      motor.control(own.muscles, output, dt);
       control.ready = standReady(view) ? control.ready + dt : 0;
       if (control.ready + 1e-9 >= READY + (variant.keep ?? 0)) { control.on = false; control.handBack = view.time; }
     } };

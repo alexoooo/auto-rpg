@@ -13,6 +13,9 @@ import type { World } from "../world.ts";
  */
 export interface HandPoseRequest { readonly hand: "left" | "right"; readonly pose: HandPose }
 
+/** Hand-pose names in their command and mirror encoding order. */
+export const HAND_POSES: readonly HandPose[] = Object.freeze(["open", "fist", "grip"]);
+
 /** Detached requests; an applied pose changes only at an unloaded, clear world-step boundary. */
 export interface HandPoses {
   /** Each posable hand: its name in a request, the segment it is, and its poses. */
@@ -20,6 +23,7 @@ export interface HandPoses {
   readonly state: Record<string, { applied: HandPose; requested: HandPose }>;
   check(requests: readonly HandPoseRequest[]): readonly HandPoseRequest[];
   request(requests: readonly HandPoseRequest[]): void;
+  requestOne(hand: "left" | "right", pose: HandPose): void;
   dispose(): void;
 }
 
@@ -34,16 +38,23 @@ function poseBlocked(world: World, part: BuiltSegment, collider: ColliderShape):
 /** **Each posable hand of a body of `segments`**, as a hand pose request names it, the segment it is and its poses (`HandPoses.model`): a hand segment with poses. */
 export function handPoseModel(segments: readonly SegmentSpec[]): HandPoses["model"] {
   return deepFreeze((["left", "right"] as const).flatMap((hand) => segments.some((segment) => segment.name === `hand.${hand}` && segment.handPoses)
-    ? [{ hand, segment: `hand.${hand}`, poses: ["open", "fist", "grip"] as HandPose[] }] : []));
+    ? [{ hand, segment: `hand.${hand}`, poses: HAND_POSES }] : []));
 }
 
-/** **`requests` as the hands of `model` take them** (`HandPoses.check`): each a known hand once with a known pose; any other is refused, a throw. */
+/** A hand and pose admitted by the body's model, checked without constructing a request. */
+export function checkHandPose(model: HandPoses["model"], hand: "left" | "right", pose: HandPose): void {
+  let known = false;
+  for (let i = 0; i < model.length; i++) if (model[i]!.hand === hand) { known = true; break; }
+  if (!known || (pose !== "open" && pose !== "fist" && pose !== "grip")) throw new Error("invalid or duplicate hand pose request");
+}
+
+/** Detached requests checked together, with each hand occurring once. */
 export function checkHandPoses(model: HandPoses["model"], requests: readonly HandPoseRequest[]): readonly HandPoseRequest[] {
   if (!Array.isArray(requests)) throw new Error("hand pose requests must be an array");
   const seen = new Set<string>();
   return deepFreeze(requests.map(request => {
-    if (!request || !model.some(h => h.hand === request.hand) || seen.has(request.hand)
-      || !["open", "fist", "grip"].includes(request.pose)) throw new Error("invalid or duplicate hand pose request");
+    if (!request || seen.has(request.hand)) throw new Error("invalid or duplicate hand pose request");
+    checkHandPose(model, request.hand, request.pose);
     seen.add(request.hand); return { ...request };
   }));
 }
@@ -71,5 +82,7 @@ export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, Bu
     }
   });
   return { model, state, check,
-    request(requests) { for (const request of check(requests)) state[request.hand]!.requested = request.pose; }, dispose: () => hook?.dispose() };
+    request(requests) { for (const request of check(requests)) state[request.hand]!.requested = request.pose; },
+    requestOne(hand, pose) { checkHandPose(model, hand, pose); state[hand]!.requested = pose; },
+    dispose: () => hook?.dispose() };
 }

@@ -162,6 +162,15 @@ export interface MuscleDriver {
   dispose(): void;
 }
 
+/** The muscle actuator's readings, without commands, lifecycle or saved memory. */
+export type MuscleReading = Omit<MuscleDriver, "activation" | "velocity" | "state" | "level" | "setLevel" | "dispose">;
+
+/** The activation and requested velocity for each muscle channel. */
+export interface MuscleCommand {
+  readonly activation: Float64Array;
+  readonly velocity: Float64Array;
+}
+
 /** **Each freedom of `read`'s joints as a muscle channel** (`MuscleChannel`), in its joints' order and each joint's freedoms': the driver's and its mirror's alike. */
 export function muscleChannels(read: Pick<ReadBody, "joints">): MuscleChannel[] {
   return [...read.joints.values()].flatMap((joint) => joint.dofs.map((dof, index) => {

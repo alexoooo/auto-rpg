@@ -27,9 +27,9 @@ export function flatten(own: OwnBody, _view: BodyView): TechniqueRun {
     reached,
     begin() { state.ended = null; clock.reset(); },
     end() { state.ended = "interrupted"; },
-    step(g, _senses, dt) {
+    step(g, _senses, control, dt) {
       if (state.ended) return state.ended;
-      drive(FLAT, .35, 2, .35);
+      drive(control.muscles, FLAT, .35, 2, .35);
       state.ended = clock.step({ inside: g.height < 1 && g.spin < 15,
         event: reached(g, g.lie), hold: REACHED_SECONDS, deadline: 3 }, dt);
       return state.ended;

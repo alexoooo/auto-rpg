@@ -7,6 +7,7 @@ import type { BodyView } from "../../../body.ts";
 import type { OwnBody } from "../../../mind/mind.ts";
 import { standReady, type GroundReading } from "../../../control/ground-reading.ts";
 import { REACHED_SECONDS, type TechniqueEnd } from "../../ground/technique.ts";
+import type { BodyControl } from "../../../body-control.ts";
 
 /** The longest the climb after a rise (`stanceSteady`) may take, s. */
 const STEADY_LIMIT = 3;
@@ -38,7 +39,7 @@ export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stan
       state.height = g.centre.y - lowest;
       state.time = 0; state.off = 0; state.reached = 0;
     },
-    step(g: GroundReading, dt: number): TechniqueEnd | null {
+    step(g: GroundReading, control: BodyControl, dt: number): TechniqueEnd | null {
       state.time += dt;
       state.off = g.onFeet ? 0 : state.off + dt;
       if (state.off > STEADY_OFF && state.time > .5) return "failed";
@@ -46,7 +47,7 @@ export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stan
       const w = Math.min(1, state.time / climb), smooth = w * w * (3 - 2 * w), top = view.standing - .03;
       motor.stance.read();
       motor.setStance({ feet, centre: null, height: state.height + (top - state.height) * smooth, heading: state.heading });
-      motor.control(own.muscles, dt);
+      motor.control(own.muscles, control, dt);
       state.reached = standReady({ down: view.down, ground: g }) ? state.reached + dt : 0;
       return state.reached + 1e-9 >= REACHED_SECONDS ? "done" : null;
     },

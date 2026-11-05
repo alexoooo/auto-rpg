@@ -43,6 +43,7 @@ import "../tests/harness/preload-data.mjs";
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
 import { commandedBody } from "../src/core/mind/host.ts";
+import { pendingControl } from "./pending-control.mjs";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { humanSpec, humanoidSpec } from "../src/core/human/spec.ts";
@@ -226,7 +227,7 @@ function bearer(own, view) {
       const length = work.toward.length();
       if (length > 1e-6) work.toward.scaleInPlace(1 / length); else work.toward.set(0, 0, 1);
     },
-    step(phase, g, dt) {
+    step(phase, g, output, dt) {
       for (let i = 0; i < muscles.channels.length; i++) {
         const c = muscles.channels[i], spec = c.dof.spec;
         work.goal[i] = Math.max(spec.min.value, Math.min(spec.max.value, (phase.posture[c.name] ?? 0) - spec.bind.value));
@@ -251,9 +252,9 @@ function bearer(own, view) {
       work.yaw.multiplyToRef(work.pitch, work.turn).multiplyInPlace(root.rest);
       spinBetweenToRef(root.pose.rotation, work.turn, phase.response, work.spin);
       work.aim.spin.copyFrom(work.spin).scaleInPlace(n).subtractInPlace(work.rootSpin.scaleInPlace(2 * n));
-      const asked = servoAsk(muscles, i => work.goal[i], WITHIN, dt), lever = muscles.dynamics.root.centre[1] - ground;
+      const asked = servoAsk(muscles, output.muscles, i => work.goal[i], WITHIN, dt), lever = muscles.dynamics.root.centre[1] - ground;
       const carried = carryRoot(solve, muscles, asked, work.aim, lever);
-      limbMotion(solve, asked, work.moved); servoSolve(muscles, asked, carried, work.moved); bearLimbs(solve, muscles, asked, lever, true);
+      limbMotion(solve, asked, work.moved); servoSolve(muscles, output.muscles, asked, carried, work.moved); bearLimbs(solve, muscles, output, asked, lever, true);
     },
   };
 }
@@ -270,25 +271,27 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
   const control = { active: true, time: 0, phase: -1, steady: false, ready: 0, from: null };
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view) => {
     const drive = poseDrive(own.muscles), bearing = bearer(own, view), steadying = crouchSteady(own, view, steady);
+    const pending = pendingControl(own.muscles.channels.length);
     control.steadying = steadying.control;
     return { name: `witness:${move}`, has: () => `witness:${move}`, dispose() {}, mind: {
-      state: { control, bearing: bearing.state, steady: steadying.state }, wants: () => control.active, begin() {}, end() {}, act() {}, interrupt() {},
+      state: { control, bearing: bearing.state, steady: steadying.state, pending: pending.state }, wants: () => control.active, begin() {}, end() {}, act: pending.act, interrupt: pending.interrupt,
       think() {
         const dt = own.dt;
+        pending.think();
         if (control.time < handover) {
           let at = control.time, k = 0;
           while (k < plan.length - 1 && at >= plan[k].duration) { at -= plan[k].duration; k++; }
           const phase = plan[k], g = view.ground ?? reader.read();
-          if (phase.kind === "pose") drive(phase.posture, WITHIN, phase.top, phase.activation);
+          if (phase.kind === "pose") drive(pending.control.muscles, phase.posture, WITHIN, phase.top, phase.activation);
           else {
             if (control.phase < 0 || plan[control.phase].kind !== "bear") bearing.begin(g);
-            bearing.step(phase, g, dt);
+            bearing.step(phase, g, pending.control, dt);
           }
           control.phase = k;
         } else {
           const first = !control.steady;
           control.steady = true;
-          steadying.step(dt);
+          steadying.step(pending.control, dt);
           if (first && process.env.HANDOVER) handoverState(steadying.control, view, seed);
           control.active = steadying.control.on;
         }

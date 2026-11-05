@@ -171,7 +171,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
     const taking: { made: MindConstruction | null } = { made: null };
     const own: OwnBody = {
       spec, dt: recipe.dt, delay: statics.delay, built: mirror.read, muscles: mirror.muscles, assist: mirror.assist,
-      requestHandPoses: mirror.requestHandPoses, first: mirror.senses,
+      first: mirror.senses,
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}),
     };
     const host: BodyHost = Object.freeze({

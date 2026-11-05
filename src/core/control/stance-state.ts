@@ -3,7 +3,7 @@
  * next (`StanceState`), and the values its functions work in (`StanceScratch`).
  */
 import { Quaternion, Vector3 } from "../math/vector.ts";
-import type { Assist } from "./assist.ts";
+import type { AssistReading } from "./assist.ts";
 import type { Limb, LimbTask } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
 import type { StanceEnd, StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
@@ -140,7 +140,7 @@ interface StanceScratch {
 export interface Stance {
   readonly built: ReadBody;
   /** What gives the root what the soles miss, within its ceiling (`Assist`); null, nothing does. */
-  readonly assist: Assist | null;
+  readonly assist: AssistReading | null;
   readonly tuning: ResolvedStance;
   /** The segment the legs hang from. */
   readonly pelvis: ReadSegment;
@@ -165,7 +165,7 @@ export interface Stance {
   readonly scratch: StanceScratch;
 }
 
-export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist | null): Stance {
+export function makeStance(built: ReadBody, tuning: StanceTuning, assist: AssistReading | null): Stance {
   const refused = soleRefusal(built.spec);
   if (refused) throw new Error(`${built.spec.model}: the stance ${refused}`);
   const feet = footStatesOf(built, tuning.supportInset ?? SUPPORT_INSET);

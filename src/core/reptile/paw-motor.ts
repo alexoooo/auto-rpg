@@ -1,3 +1,4 @@
+import type { BodyControl } from "../body-control.ts";
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { MotorPart } from "../control/motor-part.ts";
 import { UNREACHABLE, type Carrying, type FreedomPath, type MotorUnmet, type MusclePush } from "../control/motor.ts";
@@ -6,10 +7,10 @@ import { servoAsk, servoSolve } from "../control/servo.ts";
 import type { StanceEnd, StanceReading } from "../control/stance.ts";
 import { supportedMotor, type SupportGoal } from "../control/supported-motor.ts";
 import { atan2 } from "../math/real.ts";
-import type { MuscleDriver } from "../muscle/driver.ts";
+import type { MuscleReading } from "../muscle/driver.ts";
 import { angularMomentumToRef, partsOn, turnOfToRef } from "../read-motion.ts";
 import type { Pose } from "../spec/pose.ts";
-import type { Assist } from "../control/assist.ts";
+import type { AssistReading } from "../control/assist.ts";
 import type { ReadBody } from "../read-body.ts";
 import { deepFreeze } from "../state.ts";
 import { fitsPaws } from "./parts.ts";
@@ -37,7 +38,7 @@ const NO_PUSHES: readonly MusclePush[] = Object.freeze([]), NO_PATHS: Readonly<R
  * the body as a stance reads it (`StanceReading`): a paw touches where the ground bears it; the
  * support is the touching paws' middle; the place, the plan and the pace are the support goal's.
  */
-function pawMotor(built: ReadBody, muscles: MuscleDriver, posture: Pose = {}, assist: Assist | null = null): Carrying<"effectors" | "support" | "paths"> {
+function pawMotor(built: ReadBody, muscles: MuscleReading, posture: Pose = {}, assist: AssistReading | null = null): Carrying<"effectors" | "support" | "paths"> {
   const endpoints = pawEndpoints(built), reader = pawReader(built), names = endpoints.map((end) => end.segment);
   const supported = supportedMotor({ built, muscles, assist }, endpoints, REPTILE_MOTOR, reader);
   const root = supported.root, tracker = effectorTracker(built, root, { seedActual: true });
@@ -79,7 +80,7 @@ function pawMotor(built: ReadBody, muscles: MuscleDriver, posture: Pose = {}, as
       reading.pace[0] = 0; reading.pace[1] = 0; reading.phase = "stand";
     }
   };
-  const control = (driver: MuscleDriver, dt: number): void => {
+  const control = (driver: MuscleReading, command: BodyControl, dt: number): void => {
     const goal = state.goal, pushes = state.pushes;
     unmet.pushes.fill(0);
     if (goal) {
@@ -87,24 +88,24 @@ function pawMotor(built: ReadBody, muscles: MuscleDriver, posture: Pose = {}, as
       const tracked = tracker.step(driver, state.pose, dt);
       // A support's solve drives every freedom: a push asked beside it is not carried out.
       for (const push of pushes) unmet.pushes[muscles.channel(push.channel)] = 1;
-      supported.control({ centre: goal.centre, velocity: goal.velocity, rotation: goal.rotation, endpoints: goal.ends, posture: state.pose }, dt,
+      supported.control({ centre: goal.centre, velocity: goal.velocity, rotation: goal.rotation, endpoints: goal.ends, posture: state.pose }, command, dt,
         (i) => along(i) ?? tracked(i), goal.hold ? REPTILE_MOTOR : REPTILE_TRAVEL,
         (i) => path(i)?.seconds ?? tracker.response(channels[i]!.name), (i) => tracker.firm(i));
       return;
     }
     const tracked = tracker.step(driver, state.pose, dt);
-    const work = servoAsk(driver, (i) => {
+    const work = servoAsk(driver, command.muscles, (i) => {
       const name = channels[i]!.name, push = pushes.find((p) => p.channel === name);
       if (!push) return path(i)?.angle ?? tracked(i)?.[0] ?? state.pose[name] ?? 0;
-      driver.velocity[i] = push.speed ?? push.sense * UNREACHABLE;
-      driver.activation[i] = push.level;
+      command.muscles.velocity[i] = push.speed ?? push.sense * UNREACHABLE;
+      command.muscles.activation[i] = push.level;
       return undefined;
     }, REPTILE_MOTOR.posture, dt, {
       seconds: (i) => path(i)?.seconds ?? tracker.response(channels[i]!.name) ?? REPTILE_MOTOR.posture,
       rate: (i) => along(i)?.[1] ?? tracked(i)?.[1] ?? 0,
       acceleration: (i) => along(i)?.[2] ?? tracked(i)?.[2] ?? 0,
     });
-    servoSolve(driver, work);
+    servoSolve(driver, command.muscles, work);
   };
   read();
   return {

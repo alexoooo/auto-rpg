@@ -40,6 +40,9 @@ export interface Assist {
   readonly withdrawn: boolean;
 }
 
+/** The assist's ceilings and measurements, without permission to ask or withdraw it. */
+export type AssistReading = Omit<Assist, "ask" | "withdraw">;
+
 /** `v` shortened to `limit` into `out` (`Assist.clipToRef`): none where it is not finite, nothing, or the limit is none. */
 export function clipToRef(v: Vector3, limit: number, out: Vector3): void {
   const size = v.length();

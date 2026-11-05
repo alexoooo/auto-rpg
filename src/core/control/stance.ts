@@ -1,8 +1,8 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { anglesOf, rotationOfToRef } from "../build/joint-state.ts";
-import { channelName, type MuscleDriver } from "../muscle/driver.ts";
-import type { Assist } from "./assist.ts";
+import { channelName, type MuscleCommand, type MuscleReading } from "../muscle/driver.ts";
+import type { AssistReading } from "./assist.ts";
 import type { Limb } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
 import { rotationAtToRef } from "./kinematics.ts";
@@ -128,7 +128,7 @@ export interface SwingGoal {
   readonly push?: number;
   /**
    * The push-off as a torque: the ankle of the foot that lifts next plantarflexes at least at
-   * `share` of what it can give that way (`MuscleDriver.strength`), from `lead` s before the step
+   * `share` of what it can give that way (`MuscleReading.strength`), from `lead` s before the step
    * before it lands, through the double support (`transfer`), to its lift; the rest of the body is
    * solved as if it did not. None, the ankle is the solve's.
    */
@@ -214,15 +214,15 @@ export interface StanceControl {
    * stance leg's foot's accelerations. The stance legs' channels are marked in `owned`, for the
    * servo to leave. With no goal nothing is asked.
    */
-  command(driver: MuscleDriver, goal: StanceGoal | null, dt: number): void;
+  command(driver: MuscleReading, goal: StanceGoal | null, dt: number): void;
   /**
    * The last command's asks as the whole-body solve takes them (`solveBody`, `solve.ts`): the
    * root's aims, each driven leg's task at its point, and the records the solve leaves what it
    * finds in; null if the stance asks nothing.
    */
-  ask(driver: MuscleDriver): WholeBodyAsk | null;
+  ask(driver: MuscleReading): WholeBodyAsk | null;
   /** The push-off as a torque (`SwingGoal.launch`), written over the solve's command once it has run. */
-  launch(driver: MuscleDriver): void;
+  launch(command: MuscleCommand): void;
   /**
    * Forget the stance under way: nothing is driven or asked, no step is being taken, and the next
    * command begins from the body as it is. The steps counted stay.
@@ -649,7 +649,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
 }
 
 /** Each foot's leg's channels, found once the driver's are known. */
-function bindChannels(s: Stance, muscles: MuscleDriver): void {
+function bindChannels(s: Stance, muscles: MuscleReading): void {
   const { state } = s;
   if (state.owned.length === muscles.channels.length) return;
   state.owned = new Uint8Array(muscles.channels.length);
@@ -791,7 +791,7 @@ function leverOf(s: Stance, height: number): number {
  * toes or its heel is asked its centre of pressure halfway to that end (`bearingSole`), and the
  * other end comes down.
  */
-function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleDriver): void {
+function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleReading): void {
   const { reading, step, gait } = s.state, { bend, spare, seconds, soleMargin } = s.tuning, { task, work } = limb, { ahead } = work;
   // The point: bearing, where the foot bears, as last read; swinging, its sole's middle, now.
   if (task.bearing) work.at.copyFrom(bearingEdge(foot)?.middle ?? foot.middle);
@@ -853,7 +853,7 @@ function soleOnGround(s: Stance, foot: FootState): boolean {
  * bearing one late in a swing, the trailing one through a walk's double support -- given at least
  * the asked share of its plantarflexion's strength, where the stance drives its leg.
  */
-function pushOff(s: Stance, muscles: MuscleDriver): void {
+function pushOff(s: Stance, command: MuscleCommand): void {
   const { reading, step, tasks } = s.state, swing = step.swing, launch = swing?.launch;
   if (!swing || !launch) return;
   const f = reading.phase === "shift" && swing.transfer ? s.feet.findIndex((foot) => foot.name === swing.foot)
@@ -861,9 +861,9 @@ function pushOff(s: Stance, muscles: MuscleDriver): void {
   if (f < 0 || !tasks[f]!.on || !tasks[f]!.bearing) return;
   const foot = s.feet[f]!, i = foot.memory.channels[foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length]!;
   // The ankle's first freedom is its dorsiflexion: plantarflexion pulls it the negative way.
-  if (muscles.velocity[i]! < 0 && muscles.activation[i]! >= launch.share) return;
-  muscles.velocity[i] = -Infinity;
-  muscles.activation[i] = launch.share;
+  if (command.velocity[i]! < 0 && command.activation[i]! >= launch.share) return;
+  command.velocity[i] = -Infinity;
+  command.activation[i] = launch.share;
 }
 
 /** Nothing is driven and nothing asked: where every command begins, and what a reset leaves. */
@@ -884,7 +884,7 @@ function askNothing(s: Stance): void {
   for (const task of state.tasks) task.on = false;
 }
 
-export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist: Assist | null = null): StanceControl {
+export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist: AssistReading | null = null): StanceControl {
   const s = makeStance(built, tuning, assist);
   return {
     reset() {
@@ -919,8 +919,8 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       s.ask.lever = leverOf(s, muscles.dynamics.root.centre[1]);
       return s.ask;
     },
-    launch(muscles) {
-      if (s.state.aim.on && !s.state.pose) pushOff(s, muscles);
+    launch(command) {
+      if (s.state.aim.on && !s.state.pose) pushOff(s, command);
     },
     read(which) {
       const { feet, pelvis } = s, { segments, mass } = s.parts(), { reading } = s.state, { p, v, turn, target, whole } = s.scratch;

@@ -46,6 +46,7 @@ import { parseArgs } from "node:util";
 import "../tests/harness/preload-data.mjs";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
 import { commandedBody } from "../src/core/mind/host.ts";
+import { pendingControl } from "./pending-control.mjs";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { humanSpec, humanoidSpec } from "../src/core/human/spec.ts";
@@ -89,10 +90,11 @@ export async function steady({ model = "workshop-fighter", held = "empty", seed,
   let control = null;
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view) => {
     const steadying = crouchSteady(own, view, variant);
+    const pending = pendingControl(own.muscles.channels.length);
     control = steadying.control;
     return { name: "crouch steady", has: () => "crouch steady", dispose() {}, mind: {
-      state: steadying.state, wants: () => control.on, begin() {}, end() {}, act() {}, interrupt() {},
-      think: () => steadying.step(own.dt),
+      state: { steady: steadying.state, pending: pending.state }, wants: () => control.on, begin() {}, end() {}, act: pending.act, interrupt: pending.interrupt,
+      think() { pending.think(); steadying.step(pending.control, own.dt); },
     } };
   }]);
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));

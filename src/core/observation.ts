@@ -2,7 +2,7 @@ import { Vector3 } from "./math/vector.ts";
 import { jointTracker } from "./build/joint-state.ts";
 import { uprightness } from "./control/ground.ts";
 import { centreOfToRef, massCentreToRef, partsOn, pointOfToRef } from "./read-motion.ts";
-import type { MuscleDriver } from "./muscle/driver.ts";
+import type { BodyLevel, MuscleReading } from "./muscle/driver.ts";
 import type { Senses } from "./mind/senses.ts";
 import type { SolidSense } from "./mind/object-senses.ts";
 import type { ObjectSense } from "./mind/object-senses.ts";
@@ -26,7 +26,7 @@ interface SegmentObservation {
 export interface BodyObservation {
   readonly handPoses: Readonly<Record<string, { readonly applied: import("./spec/body.ts").HandPose; readonly requested: import("./spec/body.ts").HandPose }>>;
   readonly time: number;
-  readonly level: MuscleDriver["level"];
+  readonly level: BodyLevel;
   readonly model: string;
   /** Only equipment granted to this controller; absent when no equipment port is configured. */
   readonly equipment?: readonly EquipmentObservation[];
@@ -109,11 +109,13 @@ interface ObserveOptions {
   readonly equipment?: () => readonly EquipmentObservation[];
   readonly down?: () => boolean;
   readonly contactPatches?: boolean;
+  /** The trusted body's level; a mind runs only at full level. */
+  readonly level?: () => BodyLevel;
 }
 
 /** Snapshot on demand, including current joint motion even while the muscles are idle. */
-export function observeBody(built: ReadBody, muscles: MuscleDriver, clock: Clock, senses: () => Senses,
-  { equipment, down, contactPatches = false }: ObserveOptions = {}): () => BodyObservation {
+export function observeBody(built: ReadBody, muscles: MuscleReading, clock: Clock, senses: () => Senses,
+  { equipment, down, contactPatches = false, level = () => "full" }: ObserveOptions = {}): () => BodyObservation {
   const read = physicalReading(built, down), p = new Vector3(), v = new Vector3();
   const spins = new Map([...built.segments.values()].map((part) => [part, new Vector3()]));
   const trackers = [...built.joints.values()].map((joint) => ({ joint, tracker: jointTracker(joint) }));
@@ -144,7 +146,7 @@ export function observeBody(built: ReadBody, muscles: MuscleDriver, clock: Clock
           .flatMap(m => m.points.map(p => ({ point: [...p.point] as Vec3, normal: [...m.normal] as Vec3, distance: p.distance }))) } : {}),
       }));
     });
-    return deepFreeze({ time: clock.time, level: muscles.level, model: built.spec.model,
+    return deepFreeze({ time: clock.time, level: level(), model: built.spec.model,
       handPoses: structuredClone(built.handPoses.state),
       ...(equipment ? { equipment: equipment() } : {}),
       centre: tuple(physical.centre), head: built.segments.has("head") ? tuple(physical.head) : null,

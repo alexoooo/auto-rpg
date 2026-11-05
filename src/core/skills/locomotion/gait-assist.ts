@@ -1,5 +1,6 @@
 import { Quaternion, Vector3 } from "../../math/vector.ts";
-import type { Assist } from "../../control/assist.ts";
+import type { AssistReading } from "../../control/assist.ts";
+import type { BodyControl } from "../../body-control.ts";
 import type { BodyView } from "../../body.ts";
 import { cos, sin } from "../../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
@@ -28,6 +29,7 @@ interface GaitAim {
 export interface GaitAssistMemory {
   root: Quaternion;
   read: boolean;
+  request: BodyControl["assist"];
 }
 
 /** The world's right, +x: the axis a pelvis leans forward about; and its forward, +z: the axis it banks about. */
@@ -38,23 +40,23 @@ const RIGHT = new Vector3(1, 0, 0), FORWARD = new Vector3(0, 0, 1);
  * `aim` wants of the body as `view` finds it, and `rest` forgets the pelvis's turn as the gait gives
  * the legs back.
  */
-export function gaitAssist(assist: Assist, mass: number, settings: typeof GAIT_ASSIST = GAIT_ASSIST) {
-  const scratch = { force: new Vector3(), moment: new Vector3(), spin: new Vector3(), wanted: new Vector3(), target: new Quaternion(), pitch: new Quaternion(), roll: new Quaternion() };
+export function gaitAssist(assist: AssistReading, mass: number, settings: typeof GAIT_ASSIST = GAIT_ASSIST) {
+  const scratch = { spin: new Vector3(), wanted: new Vector3(), target: new Quaternion(), pitch: new Quaternion(), roll: new Quaternion() };
   return {
-    ask(view: BodyView, aim: GaitAim, memory: GaitAssistMemory, dt: number): void {
+    ask(view: BodyView, aim: GaitAim, memory: GaitAssistMemory, dt: number): BodyControl["assist"] | null {
       const turn = view.root.rotation;
-      if (!assist.on) { memory.root.copyFrom(turn); memory.read = true; return; }
+      if (!assist.on) { memory.root.copyFrom(turn); memory.read = true; return null; }
       const spin = memory.read ? spinBetweenToRef(memory.root, turn, dt, scratch.spin) : scratch.spin.setAll(0);
       memory.root.copyFrom(turn);
       memory.read = true;
       turnAboutToRef(Vector3.UpReadOnly, aim.heading, scratch.target).multiplyInPlace(turnAboutToRef(RIGHT, aim.lean, scratch.pitch))
         .multiplyInPlace(turnAboutToRef(FORWARD, aim.bank, scratch.roll));
       const wanted = spinBetweenToRef(turn, scratch.target, settings.settle, scratch.wanted);
-      const moment = scratch.moment.copyFrom(wanted).subtractInPlace(spin).scaleInPlace(mass * settings.gyration * settings.gyration / settings.settle);
+      const moment = memory.request.moment.copyFrom(wanted).subtractInPlace(spin).scaleInPlace(mass * settings.gyration * settings.gyration / settings.settle);
       // About the heading's right, a positive moment leans the pelvis forward: that part is left out.
       const rx = cos(aim.heading), rz = -sin(aim.heading), forward = moment.x * rx + moment.z * rz;
       if (forward > 0) { moment.x -= forward * rx; moment.z -= forward * rz; }
-      assist.ask(scratch.force, moment);
+      return memory.request;
     },
     rest(memory: GaitAssistMemory): void { memory.read = false; },
   };

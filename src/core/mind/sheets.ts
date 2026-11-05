@@ -1,4 +1,3 @@
-import { Vector3 } from "../math/vector.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { HandPoseRequest } from "../build/hand-poses.ts";
 import type { AssistCeiling } from "../control/assist.ts";
@@ -55,16 +54,16 @@ function sheetAt(sheets: readonly Sheet[], step: number): number {
  */
 export function replayedBody(built: BuiltBody, world: World, log: SheetLog, grants: { readonly identity: RecordingIdentity; readonly senses?: () => Senses; readonly assist?: AssistCeiling }): PhysicalBody {
   requireRecordingIdentity(log.identity, grants.identity);
-  const senses = grants.senses ?? clockSenses(world), force = new Vector3(), moment = new Vector3();
+  const senses = grants.senses ?? clockSenses(world);
   const state = { steps: 0 };
   // The sheets are what its body took each step, so they are written as a motor part writes, taken at once (`Mind.act`).
-  const embodied = embody(built, world, (own) => ({ name: "replay", has: () => "replay", dispose() {}, mind: { state, think() {}, interrupt() {}, act() {
+  const embodied = embody(built, world, () => ({ name: "replay", has: () => "replay", dispose() {}, mind: { state, think() {}, interrupt() {}, act(control) {
     const index = sheetAt(log.sheets, world.steps);
     if (index < 0) throw new Error(`no order sheet for step ${world.steps}`);
     const sheet = log.sheets[index]!;
-    own.muscles.activation.set(sheet.activation); own.muscles.velocity.set(sheet.velocity);
-    own.assist.ask(force.set(...sheet.force), moment.set(...sheet.moment));
-    if (sheet.hands.length > 0) own.requestHandPoses(sheet.hands);
+    control.muscles.activation.set(sheet.activation); control.muscles.velocity.set(sheet.velocity);
+    control.assist.force.set(...sheet.force); control.assist.moment.set(...sheet.moment);
+    for (const request of sheet.hands) control.hands.request(request.hand, request.pose);
     state.steps++;
   } } }), { senses, assist: grants.assist });
   return physicalBody(built, embodied.held, world, () => "replay", embodied.state, embodied.dispose);

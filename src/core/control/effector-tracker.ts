@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
-import { channelName, type MuscleDriver } from "../muscle/driver.ts";
+import { channelName, type MuscleReading } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance } from "../spec/vec.ts";
 import { bodyEffectors, type Freedom } from "./effectors.ts";
@@ -244,7 +244,7 @@ export function effectorTracker(built: ReadBody, root: ReadSegment, settings: Tr
       if (!follows) m.started = false;
   };
   /** The driver of the step last taken, whose channels `owned` reads by index. */
-  let driving: MuscleDriver | null = null;
+  let driving: MuscleReading | null = null;
   /** Channel `i`'s goal angle, rate and acceleration this step, if a limb's path owns it. */
   const owned = (i: number): [number, number, number] | undefined => {
     const name = driving!.channels[i]!.name;
@@ -271,7 +271,7 @@ export function effectorTracker(built: ReadBody, root: ReadSegment, settings: Tr
       if (!limb || !at) throw new Error(`no effector point ${segment}/${point}`);
       return pointNowToRef(limb.segment, root, at, out);
     },
-    step(driver: MuscleDriver, pose: Readonly<Record<string, number>>, dt: number, fromActual = actualByDefault) {
+    step(driver: MuscleReading, pose: Readonly<Record<string, number>>, dt: number, fromActual = actualByDefault) {
     driving = driver;
     for (const limb of all) {
       const m = limb.memory;

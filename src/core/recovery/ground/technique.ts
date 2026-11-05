@@ -1,6 +1,7 @@
 import type { BodyView } from "../../body.ts";
 import { soleRefusal } from "../../control/support.ts";
-import type { MuscleDriver } from "../../muscle/driver.ts";
+import type { MuscleReading, MuscleCommand } from "../../muscle/driver.ts";
+import type { BodyControl } from "../../body-control.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../../mind/mind.ts";
@@ -23,7 +24,7 @@ export interface TechniqueRun {
   admits(reading: GroundReading, side: Side): boolean;
   reached(reading: GroundReading, to: Position): boolean;
   begin(side: Side): void;
-  step(reading: GroundReading, senses: Senses, dt: number): TechniqueEnd | null;
+  step(reading: GroundReading, senses: Senses, control: BodyControl, dt: number): TechniqueEnd | null;
   end(): void;
   /** Forget what it had under way, as the body's ground skills begin afresh with none carried over (`groundBody`); absent where it keeps nothing past its run. */
   forget?(): void;
@@ -74,9 +75,9 @@ export function phaseClock() {
 }
 
 /** Rate goals use the joint's actual turning map before they become motor speeds. Work is per body. */
-export function poseDrive(muscles: MuscleDriver) {
+export function poseDrive(muscles: MuscleReading) {
   const rates = new Float64Array(muscles.channels.length);
-  return (posture: Readonly<Record<string, number>>, within = .2, top = 3, activation = 1): void => {
+  return (command: MuscleCommand, posture: Readonly<Record<string, number>>, within = .2, top = 3, activation = 1): void => {
     for (let i = 0; i < rates.length; i++) {
       const channel = muscles.channels[i]!, dof = channel.dof.spec;
       const goal = Math.max(dof.min.value, Math.min(dof.max.value, (posture[channel.name] ?? 0) - dof.bind.value));
@@ -86,7 +87,7 @@ export function poseDrive(muscles: MuscleDriver) {
       const channel = muscles.channels[i]!, first = i - channel.index;
       let speed = 0;
       for (let k = 0; k < channel.joint.dofs.length; k++) speed += muscles.turning(i, k) * rates[first + k]!;
-      muscles.velocity[i] = speed; muscles.activation[i] = activation;
+      command.velocity[i] = speed; command.activation[i] = activation;
     }
   };
 }

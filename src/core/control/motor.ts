@@ -1,9 +1,10 @@
+import type { BodyControl } from "../body-control.ts";
 import { effectorTracker, type EffectorGoal } from "./effector-tracker.ts";
 import { bodyEffectors, type EffectorModel } from "./effectors.ts";
 import { Quaternion, Vector3 } from "../math/vector.ts";
-import { channelName, type MuscleController, type MuscleDriver } from "../muscle/driver.ts";
+import { channelName, type MuscleReading } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { Assist } from "./assist.ts";
+import type { AssistReading } from "./assist.ts";
 import type { Limb, Row } from "./bearing.ts";
 import { servoAsk, servoSolve, type ServoWork } from "./servo.ts";
 import { makeWholeBody, solveBody, type WholeBodyAsk } from "./solve.ts";
@@ -80,7 +81,7 @@ export interface MotorControl {
   /** What its last reading found and its last command asked of what bears the body (`StanceReading`). */
   readonly reading: StanceReading;
   /** The controller for `driveMuscles`. */
-  readonly control: MuscleController;
+  control(muscles: MuscleReading, control: BodyControl, dt: number): void;
   /** Hold `pose` for every freedom no effector's goal owns, from `control`'s next call. */
   setPosture(pose: Pose): void;
   /** Drive `pushes` flat out from `control`'s next call, in place of those before. */
@@ -205,7 +206,7 @@ const WHOLE_GOALS: readonly MotorGoal[] = Object.freeze(["effectors", "points", 
  * Motor control of `built`, servoing at a time constant of `seconds`; its balance (`balance`, the
  * stance unless given) asks `assist` for what the soles miss.
  */
-export function motorControl(built: ReadBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null,
+export function motorControl(built: ReadBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: AssistReading | null = null,
   balance: BalanceMaker = stanceControl): WholeBody {
   const stance = balance(built, stanceTuning, assist);
   const root = rootSegment(built);
@@ -223,19 +224,19 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
   const firm = new Float64Array(freedoms);
   const state = { pose: posture, pushes: [] as readonly MusclePush[], points: [] as readonly PointTask[], standing: null as StanceGoal | null,
     effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state, unmet };
-  const control: MuscleController = (driver: MuscleDriver, dt: number) => {
+  const control = (driver: MuscleReading, command: BodyControl, dt: number) => {
     const { pose, pushes, standing } = state;
     const owned = tracker.step(driver, pose, dt, !!standing?.pose);
     stance.command(driver, standing, dt);
     unmet.pushes.fill(0);
-    const work = servoAsk(driver, (i) => {
+    const work = servoAsk(driver, command.muscles, (i) => {
       const name = driver.channels[i]!.name;
       const push = pushes.find((p) => p.channel === name);
       if (!push) return standing && stance.owned[i] ? undefined : owned(i)?.[0] ?? pose[name] ?? 0;
       // The stance's solve gives a freedom its legs drive its own torque, over the push.
       if (standing && stance.owned[i]) unmet.pushes[i] = 1;
-      driver.velocity[i] = push.speed ?? push.sense * UNREACHABLE;
-      driver.activation[i] = push.level;
+      command.muscles.velocity[i] = push.speed ?? push.sense * UNREACHABLE;
+      command.muscles.activation[i] = push.level;
       return undefined;
     }, seconds, dt, {
       seconds: (i) => {
@@ -261,15 +262,15 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
         for (const one of points) aimPoint(one, state.points, driver, work);
         asked = driven;
       }
-      solveBody(whole ??= makeWholeBody(freedoms, 2, points.length), driver, work, asked, assist);
-      stance.launch(driver);
+      solveBody(whole ??= makeWholeBody(freedoms, 2, points.length), driver, command, work, asked, assist);
+      stance.launch(command.muscles);
     }
-    else servoSolve(driver, work, undefined, standing?.pose ? stance.owned : undefined);
+    else servoSolve(driver, command.muscles, work, undefined, standing?.pose ? stance.owned : undefined);
     // A firm freedom is a velocity motor toward the speed asked, at its muscles' full strength.
     if (anyFirm) for (let i = 0; i < freedoms; i++) {
       if (Number.isNaN(firm[i]!)) continue;
-      driver.velocity[i] = firm[i]!;
-      driver.activation[i] = 1;
+      command.muscles.velocity[i] = firm[i]!;
+      command.muscles.activation[i] = 1;
     }
   };
 
@@ -354,7 +355,7 @@ function drivenAsk(ask: WholeBodyAsk, points: readonly PointLimb[]): WholeBodyAs
  * `one`'s task for the step, from the point task on its segment among `tasks`: on, its point where
  * it is and its acceleration asked, its freedoms drawn toward what the servo asks them; off with none.
  */
-function aimPoint(one: PointLimb, tasks: readonly PointTask[], driver: MuscleDriver, work: ServoWork): void {
+function aimPoint(one: PointLimb, tasks: readonly PointTask[], driver: MuscleReading, work: ServoWork): void {
   const { limb } = one, task = tasks.find((t) => t.segment === limb.segment.spec.name);
   limb.task.on = task !== undefined;
   if (!task) return;

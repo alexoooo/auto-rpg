@@ -11,6 +11,8 @@ import type { MindKit } from "../../../mind/kit.ts";
 import type { OwnBody } from "../../../mind/mind.ts";
 import { quietOnFeet } from "../../../control/ground-reading.ts";
 import { poseDrive } from "../../ground/technique.ts";
+import type { MuscleCommand } from "../../../muscle/driver.ts";
+import type { BodyControl } from "../../../body-control.ts";
 
 /** Protective flexion keeps the chin tucked and the forearms before the face while falling. */
 const BRACE = deepFreeze({ "cervical flexion": .3, "shoulder.left flexion": .8, "shoulder.right flexion": .8,
@@ -21,7 +23,7 @@ const BRACE = deepFreeze({ "cervical flexion": .3, "shoulder.left flexion": .8, 
 const BRACING = deepFreeze({ within: .3, top: 2, activation: .4 });
 
 /** Drive the brace (`BRACE`, `BRACING`) with `drive` (`poseDrive`). */
-export const brace = (drive: ReturnType<typeof poseDrive>): void => drive(BRACE, BRACING.within, BRACING.top, BRACING.activation);
+export const brace = (drive: ReturnType<typeof poseDrive>, command: MuscleCommand): void => drive(command, BRACE, BRACING.within, BRACING.top, BRACING.activation);
 
 /**
  * **The climb** from a crouch quiet on both feet (`quietOnFeet`, lower than `below` of standing
@@ -80,11 +82,11 @@ export function steadying(own: OwnBody, view: BodyView, kit: MindKit) {
       motor.stance.read(); legs.resume({ ...view, stance: motor.stance.reading });
     },
     /** Steady the body a step of `dt` s; whether it is climbing. */
-    step(dt: number): boolean {
+    step(control: BodyControl, dt: number): boolean {
       motor.stance.read();
       const goal = stanceOf(legs.goal({ ...view, stance: motor.stance.reading }, { walk: null, face: legs.heading }, dt));
       motor.setStance(goal && climbing(goal, dt));
-      motor.control(own.muscles, dt);
+      motor.control(own.muscles, control, dt);
       return state.climb.on;
     },
   };

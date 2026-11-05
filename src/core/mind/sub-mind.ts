@@ -3,6 +3,7 @@ import type { Clock } from "../clock.ts";
 import { commandLayers } from "../control/command-layers.ts";
 import type { Mind, MindConstruction, OwnBody } from "./mind.ts";
 import type { Senses } from "./senses.ts";
+import type { BodyControl } from "../body-control.ts";
 
 /** A computation that can take a body from its host. */
 export interface SubMind extends Mind {
@@ -15,7 +16,7 @@ export interface SubMind extends Mind {
 /** The host reads its body before deciding who controls it. */
 export interface HostMind extends Mind {
   look(senses: Senses): void;
-  observe(): void;
+  observe(control: BodyControl): void;
   feel(): void;
   release(reason?: "takeover" | "idle"): void;
   resume(): void;
@@ -47,10 +48,10 @@ export function hosting(host: HostMind & { readonly name: string; dispose(): voi
       if (want < 0) host.think(senses);
       else subs[want]!.mind.think(senses);
     },
-    act() {
-      host.observe();
-      if (state.has === HOST) host.act();
-      else if (state.has >= 0) { host.feel(); subs[state.has]!.mind.act(); }
+    act(control) {
+      host.observe(control);
+      if (state.has === HOST) host.act(control);
+      else if (state.has >= 0) { host.feel(); subs[state.has]!.mind.act(control); }
     },
     interrupt() { giveUp("idle"); state.has = NOBODY; },
   };

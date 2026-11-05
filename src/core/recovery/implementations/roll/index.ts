@@ -36,7 +36,7 @@ export function rollToFront(own: OwnBody, _view: BodyView): TechniqueRun {
     reached,
     begin(side) { state.side = side; state.stage = 0; state.elapsed = 0; state.reached = 0; state.ended = null; state.yieldPending = true; clock.reset(); },
     end() { finish("interrupted"); },
-    step(g, _senses, dt) {
+    step(g, _senses, control, dt) {
       if (state.ended !== null) return state.ended;
       state.elapsed += dt;
       if (state.elapsed > 5) return finish("timed-out");
@@ -44,7 +44,7 @@ export function rollToFront(own: OwnBody, _view: BodyView): TechniqueRun {
       state.reached = reached(g, "front") ? state.reached + dt : 0;
       if (state.reached + 1e-9 >= REACHED_SECONDS) return finish("done");
       const poses = sides[state.side], pose = poses[state.stage]!, indices = channels[state.side][state.stage]!;
-      drive(pose.posture, .2, 3);
+      drive(control.muscles, pose.posture, .2, 3);
       let error = 0;
       for (const i of indices) {
         const c = own.muscles.channels[i]!, target = Math.max(c.dof.spec.min.value, Math.min(c.dof.spec.max.value, (pose.posture[c.name] ?? 0) - c.dof.spec.bind.value));

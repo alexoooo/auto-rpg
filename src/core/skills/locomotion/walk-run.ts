@@ -1,5 +1,5 @@
 import { footOn, standingFooting } from "../../control/support.ts";
-import { Quaternion } from "../../math/vector.ts";
+import { Quaternion, Vector3 } from "../../math/vector.ts";
 import type { Body, BodyView } from "../../body.ts";
 import { paceToward, quickened, walkRunEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";
 import { hasteOver } from "../../human/attributes.ts";
@@ -177,7 +177,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
   const pays = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
   const memory: WalkRunMemory = { may: may && pays, running: false, swinging: null, bearing: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
-    assisted: { root: new Quaternion(), read: false }, unmet: { ...ALL_MET } };
+    assisted: { root: new Quaternion(), read: false, request: { force: new Vector3(), moment: new Vector3() } }, unmet: { ...ALL_MET } };
   const state = { legs: legs.state, walkRun: memory, run: cycle.state };
 
   /** The run gives the legs back to the stance's walk, which takes the body up as it is. */
@@ -293,8 +293,8 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       aim.heading = h;
       aim.lean = cycle.state.lean;
       aim.bank = cycle.state.bank;
-      steady.ask(view, aim, memory.assisted, dt);
-      return { kind: "drive", posture: driven.posture, pushes: driven.pushes };
+      const assist = steady.ask(view, aim, memory.assisted, dt);
+      return { kind: "drive", posture: driven.posture, pushes: driven.pushes, ...(assist ? { assist } : {}) };
     },
   };
 }

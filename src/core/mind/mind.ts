@@ -1,11 +1,13 @@
+import type { BodyControl } from "../body-control.ts";
 import type { Vector3 } from "../math/vector.ts";
 import type { Body, LayerOptions } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
-import type { HandPoseRequest } from "../build/hand-poses.ts";
+import { HAND_POSES, checkHandPose, type HandPoseRequest } from "../build/hand-poses.ts";
+import type { HandPose } from "../spec/body.ts";
 import { rootSegment, type ReadBody } from "../read-body.ts";
-import { createAssist, NO_ASSIST, type Assist, type AssistCeiling } from "../control/assist.ts";
+import { createAssist, NO_ASSIST, type AssistReading, type AssistCeiling } from "../control/assist.ts";
 import type { ContactIdentity } from "../control/effector-feedback.ts";
-import { driveMuscles, type MuscleDriver } from "../muscle/driver.ts";
+import { driveMuscles, type MuscleDriver, type MuscleReading } from "../muscle/driver.ts";
 import { mirrorBody, mirrorStatics, mirrorWriter, type Mirror, type MirrorStatics, type MirrorWriter } from "./mirror.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
@@ -20,7 +22,7 @@ export type MindState = object;
 /** A computation whose fast action precedes its next decision. */
 export interface Mind {
   readonly state: MindState;
-  act(): void;
+  act(control: BodyControl): void;
   think(senses: Senses): void;
   interrupt(): void;
 }
@@ -35,24 +37,16 @@ export interface MindConstruction<M extends Mind = Mind> {
   readonly body?: Body;
 }
 
-/**
- * **What a mind is made with: its own body, whole.** The spec with what it holds; its segments
- * and joints as read (`ReadBody`), whose poses, motion and contacts are its proprioception; its
- * muscles, which read each freedom (angle, rate, speed, strength, the body's dynamics) and take
- * the command; its assist, which takes an ask; its hands, which take a pose; its first senses; and how it
- * labels what it touches.
- */
+/** Fixed body facts, live readings and the senses shown before its first decision. */
 export interface OwnBody {
   readonly spec: BodySpec;
   readonly dt: number;
   /** The steps between its mind's step and its motor part carrying out what the step decided (`World.delay`, `Mind.act`). */
   readonly delay: number;
   readonly built: ReadBody;
-  readonly muscles: MuscleDriver;
+  readonly muscles: MuscleReading;
   /** The force and the moment on its root that it is allowed beyond its muscles (`Assist`): none unless it was given a ceiling. */
-  readonly assist: Assist;
-  /** Ask each named hand for a pose, which the body applies when the hand has room (`HandPoses.request`). */
-  requestHandPoses(requests: readonly HandPoseRequest[]): void;
+  readonly assist: AssistReading;
   /** The senses shown at construction, before its first decision. */
   readonly first: Senses;
   /** How it labels the other side of a contact (`ContactIdentity`), where its fight grants one. */
@@ -112,7 +106,7 @@ export function embody<M extends MindConstruction>(built: BuiltBody, world: Worl
   const mirror = mirrorBody(statics, writer.channel);
   const own: OwnBody = { spec: built.spec, dt: world.dt, delay: world.delay,
     built: mirror.read, muscles: mirror.muscles, assist: mirror.assist,
-    requestHandPoses: mirror.requestHandPoses, first: mirror.senses,
+    first: mirror.senses,
     ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}),
   };
   const made = (() => {
@@ -152,23 +146,29 @@ function commandWay(built: BuiltBody, world: World, log: SheetLog | undefined, c
   // The hand poses asked since the last sheet, which the next sheet carries.
   const hands: HandPoseRequest[] = [];
   // The hand poses asked since the mind's last step, and those sent and not yet asked of the hands, a slot a step the rings hold them (`heldSteps`) and one more.
-  const line = delayLine(heldSteps(world.delay)), posed = { asked: [] as HandPoseRequest[], sent: Array.from({ length: line.size }, () => [] as HandPoseRequest[]), line: line.state };
+  const line = delayLine(heldSteps(world.delay)), posed = { asked: [] as number[], sent: Array.from({ length: line.size }, () => [] as number[]), line: line.state };
   return {
     posed,
     help,
-    request(requests: readonly HandPoseRequest[]) {
-      for (const { hand, pose } of built.handPoses.check(requests)) posed.asked.push({ hand, pose });
-      if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
+    request(hand: "left" | "right", pose: HandPose) {
+      checkHandPose(built.handPoses.model, hand, pose);
+      posed.asked.push(hand === "left" ? 0 : 1, HAND_POSES.indexOf(pose));
+      if (log) hands.push({ hand, pose });
     },
     settle(driver: MuscleDriver) {
       if (log) record(log, world.steps, driver, help.asked, hands);
       help.apply();
       const slot = posed.sent[line.written()]!;
       slot.length = 0;
-      for (const one of posed.asked.splice(0)) slot.push(one);
+      for (let i = 0; i < posed.asked.length; i++) slot.push(posed.asked[i]!);
+      posed.asked.length = 0;
       const due = line.applied();
       line.advance();
-      if (due >= 0 && posed.sent[due]!.length > 0) built.handPoses.request(posed.sent[due]!.splice(0));
+      if (due >= 0) {
+        const requests = posed.sent[due]!;
+        for (let i = 0; i < requests.length; i += 2) built.handPoses.requestOne(requests[i] === 0 ? "left" : "right", HAND_POSES[requests[i + 1]!]!);
+        requests.length = 0;
+      }
     },
     reset() {
       help.reset();
@@ -213,7 +213,7 @@ export function mirrorDriven(built: BuiltBody, world: World, allocate: (length: 
 /** Refresh the body, carry the chosen action out and send its command. */
 export function answer(mind: Mind, mirror: Mirror): void {
   mirror.refresh({ dynamics: true });
-  mind.act();
+  mind.act(mirror.control);
   mirror.answer();
 }
 

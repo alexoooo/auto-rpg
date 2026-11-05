@@ -124,13 +124,13 @@ function rollPart(own: OwnBody, view: BodyView, kind: StagedKind, tuning: StepUp
       rises[state.entry].beginRolling();
     },
     end() { if (state.ended === null) { rises[state.entry].end(); finish("interrupted"); } },
-    step(g, senses, dt) {
+    step(g, senses, control, dt) {
       if (state.ended !== null) return state.ended;
       state.elapsed += dt;
       const rise = rises[state.entry];
       if (state.elapsed > LIMIT) { rise.end(); return finish("timed-out"); }
       // Already on its front at entry, or rolled there: slow enough to hand over.
-      rise.step(senses, dt);
+      rise.step(senses, control, dt);
       const now: string = rise.state.phase;
       if (now === "roll") state.rolled = true;
       state.reached = now !== "roll" && readsAt(tuning, g, "front") ? state.reached + dt : 0;
@@ -180,7 +180,7 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, 
       motor.reset();
     },
     end() { if (state.ended === null) { rise.end(); finish("interrupted"); } },
-    step(g, senses, dt) {
+    step(g, senses, control, dt) {
       if (state.ended !== null) return state.ended;
       state.elapsed += dt;
       if (state.phase === "rise") {
@@ -190,7 +190,7 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, 
         else if (state.rose && rise.state.phase === "settle") { rise.end(); return finish("failed"); }
         if (rise.state.phase === "rise" && g.lie === "back" && g.height < LOW) { rise.end(); return finish("failed"); }
         if (rise.state.phase !== "idle") {
-          rise.step(senses, dt);
+          rise.step(senses, control, dt);
           // A rise fallen back to lying slack has failed, read at the next step.
           const after: string = rise.state.phase;
           if (after === "settle") return null;
@@ -209,7 +209,7 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, 
         steady.begin(g);
         state.phase = "steady";
       }
-      const end = steady.step(g, dt);
+      const end = steady.step(g, control, dt);
       return end === null ? null : finish(end);
     },
   };

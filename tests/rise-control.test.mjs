@@ -27,6 +27,7 @@ test("bearing posture accelerations use the joint turning map, including damping
     }
     stand.step();
     const muscles = own.muscles, limbs = riseLimbs(own);
+    const command = { activation: new Float64Array(muscles.channels.length), velocity: new Float64Array(muscles.channels.length) };
     const goals = Float64Array.from(muscles.channels, (_, i) => muscles.angle(i) + [.1, -.2, .05][i % 3]);
     assert.ok(muscles.channels.some((_, i) => Math.abs(muscles.rate(i)) > 1e-8), "the fixture exercises damping at nonzero joint rates");
     let different = false;
@@ -36,7 +37,7 @@ test("bearing posture accelerations use the joint turning map, including damping
       for (const transfer of [false, true]) {
         limbs.bear(index, goals, 2, -10, 1, transfer);
         const seconds = i => !transfer && end.takes.includes(muscles.channels[i].name) ? .1 : .5;
-        const reference = servoAsk(muscles, i => goals[i], .5, stand.world.dt,
+        const reference = servoAsk(muscles, command, i => goals[i], .5, stand.world.dt,
           { seconds, rate: () => 0, acceleration: () => 0 });
         for (let k = 0; k < limb.memory.channels.length; k++) {
           const i = limb.memory.channels[k], rate = 1 / seconds(i);

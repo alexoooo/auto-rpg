@@ -1,3 +1,4 @@
+import type { BodyControl } from "../body-control.ts";
 /**
  * **The whole-body solve**: one body's accelerations, every freedom's and its root's, that give
  * what it is asked, as nearly as its muscles, its assist and the ground can give them, and the
@@ -40,8 +41,8 @@
  * call writes every entry it reads, and keeps nothing.
  */
 import { Vector3 } from "../math/vector.ts";
-import type { MuscleDriver } from "../muscle/driver.ts";
-import type { Assist } from "./assist.ts";
+import type { MuscleReading } from "../muscle/driver.ts";
+import type { AssistReading } from "./assist.ts";
 import { bearsNow, carried, give, jacobianTo, keepRows, type Limb, type Row } from "./bearing.ts";
 import { groundWrenchWork, patchPlace, shareGroundWrench, type GroundWrenchWork, type Patch } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
@@ -197,7 +198,7 @@ const MISSED = 1e-12;
  * torques it holds, within the ground's, the assist's and the muscles' bounds, and every freedom
  * no push holds given its torque. `assist` is asked for what the ground misses.
  */
-export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, ask: WholeBodyAsk, assist: Assist | null): void {
+export function solveBody(b: WholeBody, muscles: MuscleReading, control: BodyControl, work: ServoWork, ask: WholeBodyAsk, assist: AssistReading | null): void {
   const dynamics = muscles.dynamics, R = dynamics.root, n = b.count, { inLimb, free, carries, pinned, known, x } = b;
   inLimb.fill(0);
   free.fill(0);
@@ -269,7 +270,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
     if (!clipped || last) break;
   }
   // The commands: every freedom but a pushed one.
-  for (let i = 0; i < n; i++) if (!(work.fixed[i] && !inLimb[i])) give(muscles, i, b.torque[i]!);
+  for (let i = 0; i < n; i++) if (!(work.fixed[i] && !inLimb[i])) give(muscles, control.muscles, i, b.torque[i]!);
   for (let k = 0; k < ask.limbs.length; k++) {
     const limb = ask.limbs[k]!, { task } = limb, channels = limb.memory.channels, out = ask.asked[k]!;
     const share = bearsNow(limb) ? b.shares[b.bearing.indexOf(limb)]! : null;
@@ -282,7 +283,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
   }
   for (let r = 0; r < 6; r++) ask.root[r] = x[r]!;
   for (let i = 0; i < n; i++) work.accel[i] = x[6 + i]!;
-  if (assist?.on) assist.ask(ask.helped.force, ask.helped.moment);
+  if (assist?.on) { control.assist.force.copyFrom(ask.helped.force); control.assist.moment.copyFrom(ask.helped.moment); }
 }
 
 /**
@@ -290,7 +291,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
  * that it stands at (`STOP_NEAR`), held there: its acceleration known, none (`stopped`). Whether
  * any was.
  */
-function holdStops(b: WholeBody, muscles: MuscleDriver): boolean {
+function holdStops(b: WholeBody, muscles: MuscleReading): boolean {
   const { inLimb, stopped, pinned, known, x } = b;
   let held = false;
   for (let i = 0; i < b.count; i++) {
@@ -309,7 +310,7 @@ function holdStops(b: WholeBody, muscles: MuscleDriver): boolean {
  * Its stem is not pinned: a pinned freedom is an unknown, and a trunk of unknowns lets the root
  * spin to give the point what the arm does not. Whether any was.
  */
-function pinFree(b: WholeBody, muscles: MuscleDriver, work: ServoWork): boolean {
+function pinFree(b: WholeBody, muscles: MuscleReading, work: ServoWork): boolean {
   const { free, inLimb, pinned, stopped, torque } = b;
   torques(b, muscles, NONE);
   let clipped = false;
@@ -343,7 +344,7 @@ function openRow(b: WholeBody, r: number, y: number, w: number): number {
  * The rows every pass solves, from the first: the root's aims, the limbs' tasks and the pushed
  * freedoms' torques. Returns how many.
  */
-function baseRows(b: WholeBody, muscles: MuscleDriver, work: ServoWork, ask: WholeBodyAsk): number {
+function baseRows(b: WholeBody, muscles: MuscleReading, work: ServoWork, ask: WholeBodyAsk): number {
   const dynamics = muscles.dynamics, R = dynamics.root, n = b.count, { A, inLimb } = b;
   let rows = 0;
   // The root's spin, and the centre of mass: the root's linear rows are the whole body's momentum's,
@@ -372,7 +373,7 @@ function baseRows(b: WholeBody, muscles: MuscleDriver, work: ServoWork, ask: Who
  * rows the task keeps of the six; each freedom asked ahead of the task held to it; and with
  * `toward`, each of the others drawn toward it.
  */
-function limbRows(b: WholeBody, rows: number, muscles: MuscleDriver, R: MuscleDriver["dynamics"]["root"], limb: Limb): number {
+function limbRows(b: WholeBody, rows: number, muscles: MuscleReading, R: MuscleReading["dynamics"]["root"], limb: Limb): number {
   const { task, work } = limb, { at, ahead } = work, channels = limb.memory.channels, stem = limb.stem, m = channels.length, s = stem.length;
   const { A, J, S, B, k0, lin, ang } = b, p0 = R.centre;
   jacobianTo(channels, at, muscles, J);
@@ -428,7 +429,7 @@ function spinRow(row: Row): boolean {
  * Freedom `i`'s torque held at `torque`, as a row: C_i' a_root + M_i u' = torque - bias_i +
  * gravity_i + contact_i, in units of its strength (the greater way, or 1 with none).
  */
-function torqueRow(b: WholeBody, rows: number, muscles: MuscleDriver, i: number, torque: number, contact: number): number {
+function torqueRow(b: WholeBody, rows: number, muscles: MuscleReading, i: number, torque: number, contact: number): number {
   const dynamics = muscles.dynamics, R = dynamics.root, n = b.count, { A } = b;
   const scale = 1 / (Math.max(muscles.strength(i, 1), muscles.strength(i, -1)) || 1);
   const at = openRow(b, rows++, (torque - dynamics.bias[i]! + dynamics.gravity[i]! + contact) * scale, WEIGHT.torque);
@@ -442,7 +443,7 @@ function torqueRow(b: WholeBody, rows: number, muscles: MuscleDriver, i: number,
  * The root's rows held to the wrench `given`: root.mass a_root + coupling u' = given + gravity -
  * bias, each in the body's weight, a moment's at `lever`.
  */
-function rootRows(b: WholeBody, rows: number, R: MuscleDriver["dynamics"]["root"], lever: number): number {
+function rootRows(b: WholeBody, rows: number, R: MuscleReading["dynamics"]["root"], lever: number): number {
   const n = b.count, { A, given } = b, g = R.gravity;
   const weight = Math.sqrt(g[3]! * g[3]! + g[4]! * g[4]! + g[5]! * g[5]!);
   for (let r = 0; r < 6; r++) {
@@ -501,7 +502,7 @@ function solveRows(b: WholeBody, rows: number): void {
  * spin found, `x`, turned as the wrench missed (the scratch's `missed`) turns the body moving as a
  * rigid one, the root's block of the mass matrix the body's inertia.
  */
-function rigidTurn(b: WholeBody, R: MuscleDriver["dynamics"]["root"], x: Float64Array): void {
+function rigidTurn(b: WholeBody, R: MuscleReading["dynamics"]["root"], x: Float64Array): void {
   const { rigid, lost, turn, missed } = b;
   for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) rigid[r * 6 + c] = R.mass[r]![c]!;
   lost[0] = missed.moment.x; lost[1] = missed.moment.y; lost[2] = missed.moment.z;
@@ -511,7 +512,7 @@ function rigidTurn(b: WholeBody, R: MuscleDriver["dynamics"]["root"], x: Float64
 }
 
 /** The wrench the ground must give for the motion found, about the root's centre, into `W`: the root's rows less gravity's. */
-function groundWrenchTo(b: WholeBody, R: MuscleDriver["dynamics"]["root"]): void {
+function groundWrenchTo(b: WholeBody, R: MuscleReading["dynamics"]["root"]): void {
   const n = b.count, { x, W } = b;
   for (let r = 0; r < 6; r++) {
     let sum = R.bias[r]! - R.gravity[r]!;
@@ -523,7 +524,7 @@ function groundWrenchTo(b: WholeBody, R: MuscleDriver["dynamics"]["root"]): void
 }
 
 /** `bearing`'s patches' shares of the scratch's `force` and `moment` about the root's centre, into its `shares` and `missed`. */
-function shareAmong(b: WholeBody, bearing: readonly Limb[], R: MuscleDriver["dynamics"]["root"], lever: number): void {
+function shareAmong(b: WholeBody, bearing: readonly Limb[], R: MuscleReading["dynamics"]["root"], lever: number): void {
   const { wrench, patches, parts, shares, missed, at } = b;
   for (let k = 0; k < bearing.length; k++) { patches[k] = bearing[k]!.work.patch!; parts[k] = bearing[k]!.work.share; }
   patches.length = bearing.length;
@@ -537,7 +538,7 @@ function shareAmong(b: WholeBody, bearing: readonly Limb[], R: MuscleDriver["dyn
  * gives of it into its `helped`; the scratch's `missed` is left as what the two give beyond what
  * was asked. Returns whether the two give it all.
  */
-function shortfall(b: WholeBody, bearing: readonly Limb[], R: MuscleDriver["dynamics"]["root"], ask: WholeBodyAsk, assist: Assist | null): boolean {
+function shortfall(b: WholeBody, bearing: readonly Limb[], R: MuscleReading["dynamics"]["root"], ask: WholeBodyAsk, assist: AssistReading | null): boolean {
   const { W, missed } = b;
   b.force.set(W[3]!, W[4]!, W[5]!);
   b.moment.set(W[0]!, W[1]!, W[2]!);
@@ -557,7 +558,7 @@ function shortfall(b: WholeBody, bearing: readonly Limb[], R: MuscleDriver["dyna
  * Every freedom's torque for the motion found, into the scratch's `torque`: its inverse dynamics,
  * less the ground's wrench on each bearing limb that carries it, from its patch (`contact`).
  */
-function torques(b: WholeBody, muscles: MuscleDriver, bearing: readonly Limb[]): void {
+function torques(b: WholeBody, muscles: MuscleReading, bearing: readonly Limb[]): void {
   const dynamics = muscles.dynamics, R = dynamics.root, n = b.count, { x, contact, torque, shares } = b;
   contact.fill(0);
   for (let k = 0; k < bearing.length; k++) {

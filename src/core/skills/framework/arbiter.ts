@@ -147,6 +147,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       if (state.unstanced && !unstanced) { legs.resume(view); guard.resume(view); support?.resume(view); navigation?.resume(); }
       state.unstanced = unstanced;
       let stance: StanceGoal | null = null, supported: SupportGoal | null = null, held: number | undefined;
+      let assist: BodyCommand["assist"];
+      for (const { claim } of claims) if (claim.assist) assist = claim.assist;
       if (asked) {
         // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
         let goal = legsGoal(asked, intent, view, legs.heading, { waiting: !!support && !support.walks() });
@@ -159,6 +161,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
           case "stance": stance = drive.goal; break;
           case "support": supported = drive.goal; break;
           case "drive": {
+            if (drive.assist) assist = drive.assist;
             for (const [channel, angle] of Object.entries(drive.posture)) {
               if (!allControls.includes(`channel:${channel}`)) throw new Error(`unknown locomotion channel ${channel}`);
               if (available(`channel:${channel}`)) posture[channel] = angle;
@@ -187,7 +190,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         Object.assign(effectors, claim.effectors);
         Object.assign(handPoses, claim.handPoses);
       }
-      const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance, ...(supported ? { support: supported } : {}),
+      const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance, ...(assist ? { assist } : {}), ...(supported ? { support: supported } : {}),
         ...(Object.keys(paths).length ? { paths } : {}), ...(held === undefined ? {} : { held }) };
       if (command.stance) for (const end of command.stance.feet) {
         const segment = feet.find((foot) => foot.name === end)?.segment;

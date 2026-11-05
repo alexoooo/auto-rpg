@@ -1,5 +1,5 @@
 import type { Body, BodyView } from "../../body.ts";
-import { heldBody } from "../../mind/held-body.ts";
+import { heldBody, heldCommand } from "../../mind/held-body.ts";
 import type { Clock } from "../../clock.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import type { MusclePush } from "../../control/motor.ts";
@@ -7,7 +7,6 @@ import type { ActionClaim, ActionEnding, ActionRequest, Executor, LifecycleUpdat
 import type { ActionBinding, ExecutorBinding } from "../../skills/framework/action-instances.ts";
 import { segmentOf, type BodySpec, type Side } from "../../spec/body.ts";
 import type { MindKit } from "../../mind/kit.ts";
-import type { OwnBody } from "../../mind/mind.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { TechniqueEnd, TechniqueRun } from "./technique.ts";
 
@@ -43,26 +42,26 @@ const endingOf = (end: TechniqueEnd | null): ActionEnding => end === null ? { ki
  */
 function groundBody(body: Body, runs: readonly TechniqueRun[]) {
   const n = body.muscles.channels.length;
-  const state = { activation: new Float64Array(n), velocity: new Float64Array(n), carriedAt: -Infinity };
-  const own: OwnBody = heldBody(body, state.activation, state.velocity);
+  const state = { ...heldCommand(n), carriedAt: -Infinity };
+  const held = heldBody(body, state), { own, control } = held;
   const needs: readonly Resource[] = Object.freeze([...bodyEffectors(body.built).map((effector) => effector.model.segment), "legs", "trunk"]);
   return {
-    state, own, needs,
+    state, own, control, needs,
     /** A ground action runs at `view`'s step. */
-    carry(view: BodyView): void { state.carriedAt = view.time; },
+    carry(view: BodyView): void { state.carriedAt = view.time; held.reset(); },
     /** Back from another mind: nothing is carried over. */
     drop(): void { state.carriedAt = -Infinity; },
     /** Begin a ground action at `view`'s step: the command carried on where one ran this step, else the muscles' taken and every run's memory forgotten. */
     take(view: BodyView): void {
       if (state.carriedAt === view.time) return;
-      state.activation.set(body.muscles.activation); state.velocity.set(body.muscles.velocity);
+      held.take();
       for (const run of runs) run.forget?.();
     },
     /** What a ground action pushes: every muscle as its run commanded it, at its activation and toward its speed, asking no stance. */
     claim(): ActionClaim {
       const pushes: MusclePush[] = [];
       for (let i = 0; i < n; i++) pushes.push({ channel: own.muscles.channels[i]!.name, sense: state.velocity[i]! < 0 ? -1 : 1, level: state.activation[i]!, speed: state.velocity[i]! });
-      return { pushes, legs: null };
+      return { pushes, legs: null, ...(state.assistAsked ? { assist: state.assist } : {}) };
     },
   };
 }
@@ -81,7 +80,7 @@ type GroundBody = ReturnType<typeof groundBody>;
 function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock: Clock, sideOf: (effector: string) => Side): ExecutorBinding {
   const state = { live: null as { id: number; phase: Phase; end: TechniqueEnd | null } | null, run: run.state, body: ground.state };
   const refused: Readiness = Object.freeze({ kind: "blocked", reason: `${name} does not admit the body as it lies` });
-  const stepLive = (view: BodyView, dt: number): TechniqueEnd | null => { const g = view.ground; return g ? run.step(g, view.senses, dt) : null; };
+  const stepLive = (view: BodyView, dt: number): TechniqueEnd | null => { const g = view.ground; return g ? run.step(g, view.senses, ground.control, dt) : null; };
   const letGo = (): void => { if (state.live!.end === null) run.end(); state.live = null; };
   const executor: Executor = {
     state,

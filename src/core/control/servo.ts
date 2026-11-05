@@ -1,4 +1,4 @@
-import type { MuscleDriver } from "../muscle/driver.ts";
+import type { MuscleCommand, MuscleReading } from "../muscle/driver.ts";
 
 /**
  * **The joint servo**: freedoms pulled toward goal angles by their own muscles, each as a
@@ -46,16 +46,16 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * hands in its rate and acceleration (`ServoFeed`), and is followed with the error's damped motion
  * about it.
  */
-export function servo(driver: MuscleDriver, goal: (channel: number) => number | undefined, seconds: number, dt: number,
+export function servo(driver: MuscleReading, command: MuscleCommand, goal: (channel: number) => number | undefined, seconds: number, dt: number,
   feed?: ServoFeed): void {
-  servoSolve(driver, servoAsk(driver, goal, seconds, dt, feed));
+  servoSolve(driver, command, servoAsk(driver, command, goal, seconds, dt, feed));
 }
 
 /**
  * The servo's first half: each servoed freedom's acceleration asked over the step, and each freedom
  * the goal leaves be marked fixed at its command's torque (`ServoWork`).
  */
-export function servoAsk(driver: MuscleDriver, goal: (channel: number) => number | undefined, seconds: number, dt: number,
+export function servoAsk(driver: MuscleReading, command: MuscleCommand, goal: (channel: number) => number | undefined, seconds: number, dt: number,
   feed?: ServoFeed): ServoWork {
   const count = driver.channels.length;
   let work = scratch.get(driver);
@@ -72,8 +72,8 @@ export function servoAsk(driver: MuscleDriver, goal: (channel: number) => number
       ? dt * (feed.acceleration(i) + n * n * (g - driver.angle(i)) + 2 * n * (feed.rate(i) - driver.rate(i)))
       : dt * (n * n * (g - driver.angle(i)) - 2 * n * driver.rate(i));
     if (g === undefined) {
-      const push = driver.velocity[i]! - driver.speed(i), sense = push >= 0 ? 1 : -1;
-      torque[i] = sense * Math.max(0, Math.min(1, driver.activation[i]!)) * driver.strength(i, sense);
+      const push = command.velocity[i]! - driver.speed(i), sense = push >= 0 ? 1 : -1;
+      torque[i] = sense * Math.max(0, Math.min(1, command.activation[i]!)) * driver.strength(i, sense);
     }
   }
   // Each servoed freedom's acceleration: its joint's changes of rate, turned into its speed.
@@ -99,7 +99,7 @@ export function servoAsk(driver: MuscleDriver, goal: (channel: number) => number
  * bearing limb's and its stem's, `limbMotion`, `bearing.ts`): their accelerations are taken as
  * `work` has them, and none is held at its strength here, its torque being that solve's to give.
  */
-export function servoSolve(driver: MuscleDriver, work: ServoWork, root?: ArrayLike<number>, moved?: ArrayLike<number>): void {
+export function servoSolve(driver: MuscleReading, command: MuscleCommand, work: ServoWork, root?: ArrayLike<number>, moved?: ArrayLike<number>): void {
   const count = driver.channels.length;
   const { mass, gravity } = driver.dynamics;
   const { change, accel, torque, fixed } = work;
@@ -125,8 +125,8 @@ export function servoSolve(driver: MuscleDriver, work: ServoWork, root?: ArrayLi
   for (let i = 0; i < count; i++) {
     if (!Number.isNaN(change[i]!)) {
       const sense = torque[i]! >= 0 ? 1 : -1, strength = driver.strength(i, sense);
-      driver.velocity[i] = sense * Infinity;
-      driver.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque[i]!) / strength) : 0;
+      command.velocity[i] = sense * Infinity;
+      command.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque[i]!) / strength) : 0;
     }
   }
 }
@@ -148,7 +148,7 @@ interface ServoFeed {
  * goal leaves the channel be), the acceleration, the torque, and whether it is fixed.
  */
 export interface ServoWork { change: Float64Array; accel: Float64Array; torque: Float64Array; fixed: Uint8Array; bias: Float64Array }
-const scratch = new WeakMap<MuscleDriver, ServoWork>();
+const scratch = new WeakMap<MuscleReading, ServoWork>();
 
 /**
  * With M u' + bias = torque + gravity: the fixed freedoms' accelerations from their torques and the

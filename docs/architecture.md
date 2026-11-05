@@ -222,13 +222,18 @@ by the first end the body stands on there (`sideEffectors`).
 
 ## Minds
 
-**The seam.** A `Mind` (`src/core/mind/mind.ts`) requires `state`, `act()`, `think(senses)` and
+**The seam.** A `Mind` (`src/core/mind/mind.ts`) requires `state`, `act(control)`, `think(senses)` and
 `interrupt()`. Each step its fast action sends commands before its next decision. It is made with
 its own body (`OwnBody`), fixed step duration and first senses; subsequent senses arrive only in
 `think`. Its memory is plain saved data in `state`.
 Construction metadata (`MindConstruction`) owns its name, ownership reader, disposal and any
 command layers exposed to drivers. A person gives `Orders`
 (`src/core/intent/orders.ts`), never muscle commands.
+
+`OwnBody` holds fixed facts, body and actuator readings, and first senses. `BodyControl` views the
+saved mirror command directly: muscle arrays, assist vectors and ordered hand-pose pairs. Only
+`act` receives it. A hand request updates its requested pose immediately and refuses a duplicate
+before the answer; the answer clears the pairs. The body-side rings carry commands into physics.
 
 - **The host** (`BodyHost`, `host.ts`) is all a mind's maker gets: the spec, the clock, the parts
   its config may name (`PartLookup`), the seed (its only chance, through `randomStream`), its phase,

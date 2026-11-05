@@ -1,4 +1,5 @@
 import type { BodyView } from "../../body.ts";
+import type { BodyControl } from "../../body-control.ts";
 import type { MusclePush, EffectorGoal, FreedomPath, PointTask } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
 import type { HandPose } from "../../spec/body.ts";
@@ -117,6 +118,8 @@ export type LifecycleUpdate = { readonly id: number; readonly phase: Phase; read
 
 /** Sparse writes owned by one instance; a held control it leaves unwritten is the defaults' (`skillSet`). */
 export interface ActionClaim {
+  /** An assist request made while this action drives its body. */
+  readonly assist?: BodyControl["assist"];
   readonly posture?: Pose;
   readonly pushes?: readonly MusclePush[];
   readonly points?: readonly PointTask[];

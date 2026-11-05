@@ -1,17 +1,18 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
-import { clipToRef, type Assist } from "../control/assist.ts";
+import { clipToRef, type Assist, type AssistReading } from "../control/assist.ts";
+import type { BodyControl } from "../body-control.ts";
 import type { ContactIdentity, ContactTarget } from "../control/effector-feedback.ts";
 import type { ContactPair, ContactSink, MassProperties } from "../engine/engine.ts";
 import { NOTHING_SENSED, OFF_BODY, shownSegments, type BodySense, type Senses } from "./senses.ts";
 import type { ObjectSense, SolidSense } from "./object-senses.ts";
-import { muscleChannels, strengthAt, type BodyLevel, type MuscleDriver } from "../muscle/driver.ts";
+import { muscleChannels, strengthAt, type BodyLevel, type MuscleDriver, type MuscleReading } from "../muscle/driver.ts";
 import type { BodyRef, ReadBody, ReadContact, ReadJoint, ReadManifold, ReadPhysics, ReadSegment, ReadSegmentBody } from "../read-body.ts";
 import type { BodySpec, HandPose } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import { bodyDynamics } from "../build/dynamics.ts";
-import { checkHandPoses, handPoseModel, type HandPoseRequest } from "../build/hand-poses.ts";
+import { HAND_POSES as POSES, checkHandPose, checkHandPoses, handPoseModel, type HandPoseRequest } from "../build/hand-poses.ts";
 import { jointKinematics } from "../build/joint-kinematics.ts";
 import { segmentShapes } from "../build/segment-shapes.ts";
 
@@ -98,7 +99,6 @@ const SENSED_BODY = 10;
 const SENSED_OBJECT = 19;
 
 const LEVELS: readonly BodyLevel[] = ["full", "limp", "held"];
-const POSES: readonly HandPose[] = ["open", "fist", "grip"];
 const poseCode = (pose: HandPose | undefined): number => pose === undefined ? -1 : POSES.indexOf(pose);
 
 /** Where each section of a body's numbers starts, made once from its statics. */
@@ -156,7 +156,7 @@ export interface MirrorWriter {
    */
   write(options?: { readonly sensing: false }): void;
   /** Carry out the command the channel's outbound numbers hold: the muscles', the assist's ask, the hands' poses, each request also given to `asked`. */
-  carry(asked: (requests: readonly HandPoseRequest[]) => void): void;
+  carry(asked: (hand: "left" | "right", pose: HandPose) => void): void;
 }
 
 /**
@@ -313,12 +313,8 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
       assist.asked.force.set(out[2 * n]!, out[2 * n + 1]!, out[2 * n + 2]!);
       assist.asked.moment.set(out[2 * n + 3]!, out[2 * n + 4]!, out[2 * n + 5]!);
       let at = layout.command;
-      const calls = out[at++]!;
-      for (let call = 0; call < calls; call++) {
-        const count = out[at++]!, requests: HandPoseRequest[] = [];
-        for (let r = 0; r < count; r++, at += 2) requests.push({ hand: out[at] === 0 ? "left" : "right", pose: POSES[out[at + 1]!]! });
-        asked(requests);
-      }
+      const count = out[at++]!;
+      for (let r = 0; r < count; r++, at += 2) asked(out[at] === 0 ? "left" : "right", POSES[out[at + 1]!]!);
     },
   };
 }
@@ -331,13 +327,13 @@ export interface Mirror {
   readonly read: ReadBody;
   /** How its fight labels what it touches, as the numbers last read tell it, where it labels any (`MirrorStatics.labelled`). */
   readonly contactIdentity?: ContactIdentity;
-  readonly muscles: MuscleDriver;
-  readonly assist: Assist;
+  readonly muscles: MuscleReading;
+  readonly assist: AssistReading;
+  readonly control: BodyControl;
   readonly senses: Senses;
   /** The steps and time of the numbers last read. */
   readonly steps: number;
   readonly time: number;
-  requestHandPoses(requests: readonly HandPoseRequest[]): void;
   /**
    * Read the body from the channel's inbound numbers; with `dynamics`, read the body's dynamics
    * from them as its muscles do before their mind steps. What it senses is read apart (`sense`).
@@ -363,12 +359,12 @@ export interface Mirror {
   idle(): void;
 }
 
-/** What a mirror's mind has asked: its muscles' command, its assist's ask and each call's hand requests since the last answer. */
+/** What a mirror's mind has asked: its muscles' command, assist and hand/pose pairs in request order. */
 export interface MirrorCommand {
   readonly activation: Float64Array;
   readonly velocity: Float64Array;
   readonly asked: { readonly force: Vector3; readonly moment: Vector3 };
-  readonly hands: (readonly HandPoseRequest[])[];
+  readonly hands: number[];
 }
 
 /** What a mirror's senses show, as it last read them: the time, whether its body is out, its life, each other body by its id and its numbers, and the objects. */
@@ -489,10 +485,9 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const motion_ = { spin: (segment: ReadSegment) => spins.get(segment)! };
   let dynamics: ReturnType<typeof bodyDynamics> | null = null;
   const byName = new Map(channels.map((c, i) => [c.name, i]));
-  const muscles: MuscleDriver = {
-    channels, state, activation: state.activation, velocity: state.velocity, ceiling: state.ceiling, pulled: state.pulled, bounds: state.bounds,
+  const muscles: MuscleReading = {
+    channels, ceiling: state.ceiling, pulled: state.pulled, bounds: state.bounds,
     get dynamics() { return dynamics!; },
-    get level() { return state.level; },
     angle: (i) => angles[i]!, rate: (i) => rates[i]!, speed: (i) => speeds[i]!, turning: (i, k) => turning[3 * i + k]!,
     strength: (i, sense) => strengthAt(channels[i]!, sense, speeds[i]!),
     channel(name) {
@@ -500,13 +495,11 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       if (i === undefined) throw new Error(`${spec.model} has no muscle channel "${name}"`);
       return i;
     },
-    setLevel() { throw new Error("a mirror's level is its body's"); },
-    dispose() { throw new Error("a mirror is its body's to dispose"); },
   };
 
   const asked = { force: new Vector3(), moment: new Vector3() };
   const help = { most: { force: 0, moment: 0 }, given: { force: new Vector3(), moment: new Vector3() }, meter: { steps: 0, force: 0, moment: 0 }, withdrawn: false };
-  const assist: Assist = {
+  const assist: AssistReading = {
     get on() { return !help.withdrawn && (help.most.force > 0 || help.most.moment > 0); },
     get withdrawn() { return help.withdrawn; },
     most: help.most, given: help.given, meter: help.meter,
@@ -514,8 +507,6 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       clipToRef(force, help.withdrawn ? 0 : help.most.force, givenForce);
       clipToRef(moment, help.withdrawn ? 0 : help.most.moment, givenMoment);
     },
-    ask(force, moment) { asked.force.copyFrom(force); asked.moment.copyFrom(moment); },
-    withdraw() { throw new Error("a mirror's assist is withdrawn by its fight"); },
   };
 
   const clock = { steps: 0, time: 0, solids: undefined as readonly SolidSense[] | undefined };
@@ -532,9 +523,18 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   // Where the last refresh found the senses' own life, and the bodies and objects they show.
   let lifeAt = 0, sensesAt = 0;
 
-  /** Each call's hand requests since the last answer, in order. */
-  const hands: (readonly HandPoseRequest[])[] = [];
+  /** Hand and pose codes in request order since the last answer. */
+  const hands: number[] = [];
   const command: MirrorCommand = { activation: state.activation, velocity: state.velocity, asked, hands };
+  const control: BodyControl = { muscles: { activation: state.activation, velocity: state.velocity }, assist: asked,
+    hands: { request(hand, pose) {
+      checkHandPose(model, hand, pose);
+      const code = hand === "left" ? 0 : 1;
+      for (let i = 0; i < hands.length; i += 2) if (hands[i] === code) throw new Error("invalid or duplicate hand pose request");
+      handState[hand]!.requested = pose;
+      hands.push(code, poseCode(pose));
+    } },
+  };
   /** Each label told, by its code; the world's, and each touched body's, as the numbers last read tell them. */
   const targets: ContactTarget[] = [], labelled = { world: -1, bodies: new Map<number, number>() };
   const label = (code: number | undefined): ContactTarget | null => code === undefined || code < 0 ? null : targets[code]!;
@@ -564,14 +564,9 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
     }
   };
   const mirror: Mirror = {
-    read, muscles, assist, senses,
+    read, muscles, assist, control, senses,
     ...(statics.labelled ? { contactIdentity: (other: BodyRef | null) => other === null ? label(labelled.world) : label(labelled.bodies.get(other.id)) } : {}),
     get steps() { return clock.steps; }, get time() { return clock.time; },
-    requestHandPoses(requests) {
-      const checked = checkHandPoses(model, requests);
-      for (const request of checked) handState[request.hand]!.requested = request.pose;
-      hands.push(checked);
-    },
     refresh({ dynamics: reading }) {
       hear();
       const a = channel.inbound;
@@ -684,19 +679,14 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       }
     },
     answer() {
-      let calls = 0, size = 0;
-      for (const call of hands) { calls += 1; size += 1 + 2 * call.length; }
-      channel.outbound = grown(channel.outbound, layout.command + 1 + size, channel.allocate);
+      channel.outbound = grown(channel.outbound, layout.command + 1 + hands.length, channel.allocate);
       const out = channel.outbound;
       out.set(state.activation, 0); out.set(state.velocity, n);
       out[2 * n] = asked.force.x; out[2 * n + 1] = asked.force.y; out[2 * n + 2] = asked.force.z;
       out[2 * n + 3] = asked.moment.x; out[2 * n + 4] = asked.moment.y; out[2 * n + 5] = asked.moment.z;
       let at = layout.command;
-      out[at++] = calls;
-      for (const call of hands) {
-        out[at++] = call.length;
-        for (const request of call) { out[at++] = request.hand === "left" ? 0 : 1; out[at++] = POSES.indexOf(request.pose); }
-      }
+      out[at++] = hands.length / 2;
+      for (let i = 0; i < hands.length; i++) out[at++] = hands[i]!;
       hands.length = 0;
     },
     command, seen,

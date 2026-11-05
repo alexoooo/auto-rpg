@@ -3,7 +3,7 @@ import type { MusclePush } from "../../../control/motor.ts";
 import { cos, sin } from "../../../math/real.ts";
 import type { LegsDrive, Locomotion, LocomotionContext } from "../../../skills/locomotion/locomotion.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, type LegsAsked, type LegsUnmet } from "../../../skills/framework/skill.ts";
-import { heldBody } from "../../../mind/held-body.ts";
+import { heldBody, heldCommand } from "../../../mind/held-body.ts";
 import { stagedRise } from "./staged.ts";
 import { LOWERINGS, stageFaults, type Lowering } from "./stages.ts";
 
@@ -33,8 +33,8 @@ const sameEnds = (asked: readonly string[], ends: readonly string[]): boolean =>
  */
 export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lowering[] = LOWERINGS): Locomotion {
   const n = body.muscles.channels.length, spec = body.built.spec;
-  const command = { activation: new Float64Array(n), velocity: new Float64Array(n) };
-  const own = heldBody(body, command.activation, command.velocity);
+  const command = heldCommand(n);
+  const held = heldBody(body, command), { own, control } = held;
   const playable = lowerings.filter((one) => stageFaults(one.recipe, spec).length === 0);
   const players = playable.map((one) => stagedRise(own, body.view, one.recipe));
   const state = {
@@ -106,19 +106,20 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
         const v = view.stance.velocity, still = legs.placed && view.stance.phase === "stand" && v.x * v.x + v.y * v.y + v.z * v.z < SETTLE.speed * SETTLE.speed;
         state.still = still ? state.still + dt : 0;
         if (state.still + dt / 2 < SETTLE.seconds) return drive;
-        command.activation.set(body.muscles.activation);
-        command.velocity.set(body.muscles.velocity);
+        held.take();
         players[asked]!.beginRising();
         state.phase = "lowering";
       }
       const player = players[asked]!;
-      player.step(view.senses, dt);
+      held.reset();
+      player.step(view.senses, control, dt);
       if (player.state.phase !== "rise") {
         state.phase = "failed";
         legs.resume(view);
         return legs.goal(view, { ...goal, feet: undefined }, dt, context);
       }
-      return { kind: "drive", posture: {}, pushes: pushes(), held: chosen.rests * view.standing };
+      return { kind: "drive", posture: {}, pushes: pushes(), held: chosen.rests * view.standing,
+        ...(command.assistAsked ? { assist: command.assist } : {}) };
     },
   };
 }

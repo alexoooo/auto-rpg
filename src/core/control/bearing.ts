@@ -1,3 +1,4 @@
+import type { BodyControl } from "../body-control.ts";
 /**
  * **The bearing solve**: a body borne on the ground through limbs. A limb is a chain of freedoms
  * from the root to a segment, with a task at a point of that segment: to bear there on a patch of
@@ -16,8 +17,8 @@ import { Vector3 } from "../math/vector.ts";
 import type { BodyDynamics } from "../build/dynamics.ts";
 import { boundedLeastSquaresTo, boundedWork, fixedSolveTo, fixedWork, linearWork, solveLinearTo, type BoundedWork, type FixedWork, type LinearWork } from "../math/flat.ts";
 import { solveLinear } from "../math/linalg.ts";
-import type { MuscleDriver } from "../muscle/driver.ts";
-import type { Assist } from "./assist.ts";
+import type { MuscleCommand, MuscleReading } from "../muscle/driver.ts";
+import type { AssistReading } from "./assist.ts";
 import { groundWrenchWork, patchPlace, shareGroundWrench, type GroundWrenchWork, type Patch, type ShareEffort } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
 import { LEG_DAMPING } from "./stance-tuning.ts";
@@ -179,7 +180,7 @@ interface BearingScratch {
  * torque, and what of the ground's wrench the patches cannot give.
  */
 interface Bearing {
-  readonly assist: Assist | null;
+  readonly assist: AssistReading | null;
   readonly damping: number;
   readonly limbs: readonly Limb[];
   readonly root: Float64Array;
@@ -195,7 +196,7 @@ interface Bearing {
  * muscles that carry it can most easily give it (`weighEffort`), besides as their shares ask.
  * What the solve works in is made at its first call: a body makes many solves it may never call.
  */
-export function makeBearing(assist: Assist | null, limbs: readonly Limb[],
+export function makeBearing(assist: AssistReading | null, limbs: readonly Limb[],
   out: Pick<Bearing, "root" | "helped" | "held" | "shortfall">, { effort = false, damping = LEG_DAMPING }: { readonly effort?: boolean; readonly damping?: number } = {}): Bearing {
   let scratch: BearingScratch | null = null;
   return {
@@ -223,7 +224,7 @@ function bearingScratch(limbs: readonly Limb[], effort: boolean): BearingScratch
 }
 
 /** The Jacobian of `channels` at `point`, world, into `out` (6 by the channels): a segment they carry's spin's rows, then the point's velocity's, a column a freedom. */
-export function jacobianTo(channels: readonly number[], point: Vector3, driver: MuscleDriver, out: Float64Array): Float64Array {
+export function jacobianTo(channels: readonly number[], point: Vector3, driver: MuscleReading, out: Float64Array): Float64Array {
   const dynamics = driver.dynamics, m = channels.length;
   for (let c = 0; c < m; c++) {
     const i = channels[c]!, axis = dynamics.axis(i), pivot = dynamics.pivot(i);
@@ -269,7 +270,7 @@ export function keepRows(asked: readonly Row[], from: Float64Array, width: numbe
  * the root's centre, and `asked` every freedom's acceleration as the servo asks it, which the
  * limb's stem moves at.
  */
-function solveLimb(b: Bearing, index: number, muscles: MuscleDriver, p0: readonly [number, number, number], asked: Float64Array): void {
+function solveLimb(b: Bearing, index: number, muscles: MuscleReading, p0: readonly [number, number, number], asked: Float64Array): void {
   const limb = b.limbs[index]!, solve = b.scratch.solves[index]!;
   const { task, work } = limb, { at, ahead } = work, { lin, ang } = b.scratch, channels = limb.memory.channels, m = channels.length;
   const { J, B, k0 } = solve;
@@ -439,7 +440,7 @@ function shareAmong(b: Bearing, bearing: readonly Limb[], at: Vector3, force: Ve
  * strength weighs as the body's weight borne on a patch does. A freedom with no strength either
  * way has no row.
  */
-function weighEffort(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bearing: readonly Limb[]): ShareEffort {
+function weighEffort(b: Bearing, muscles: MuscleReading, accel: Float64Array, bearing: readonly Limb[]): ShareEffort {
   const effort = b.scratch.effort!, n = muscles.channels.length;
   if (b.scratch.rowed.length !== n) b.scratch.rowed = new Uint8Array(n);
   const rowed = b.scratch.rowed.fill(0);
@@ -452,7 +453,7 @@ function weighEffort(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bea
 }
 
 /** Freedom `i`'s row of `weighEffort`, the next of the scratch's `effort`, unless `rowed` has it or it has no strength. */
-function effortRow(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bearing: readonly Limb[], rowed: Uint8Array, i: number): void {
+function effortRow(b: Bearing, muscles: MuscleReading, accel: Float64Array, bearing: readonly Limb[], rowed: Uint8Array, i: number): void {
   if (rowed[i]) return;
   rowed[i] = 1;
   const strong = Math.sqrt(muscles.strength(i, 1) * muscles.strength(i, -1));
@@ -528,7 +529,7 @@ function limitToPatches(b: Bearing, p0: readonly [number, number, number], lever
  * as their tasks have them and the rest of the body as `work` asks: into `b.root`, and returned.
  * `lever` weighs a missed moment against a missed force (`shareGroundWrench`).
  */
-export function carryRoot(b: Bearing, muscles: MuscleDriver, work: ServoWork,
+export function carryRoot(b: Bearing, muscles: MuscleReading, work: ServoWork,
   aim: { readonly spin: Vector3; readonly centre: Vector3 }, lever: number): Float64Array {
   const dynamics = muscles.dynamics, R = dynamics.root, p0 = R.centre, n = muscles.channels.length, { scratch } = b;
   if (scratch.inLimb.length !== n) scratch.inLimb = new Uint8Array(n);
@@ -589,7 +590,7 @@ export function limbMotion(b: Bearing, work: ServoWork, moved: Uint8Array): void
  *
  * `accel` is every freedom's acceleration, which this limb's are written into, with its task's.
  */
-function boundFree(limb: Limb, solve: LimbSolve, muscles: MuscleDriver, accel: Float64Array, root: Float64Array): void {
+function boundFree(limb: Limb, solve: LimbSolve, muscles: MuscleReading, accel: Float64Array, root: Float64Array): void {
   const { task } = limb, dynamics = muscles.dynamics, R = dynamics.root, n = muscles.channels.length;
   const { mass, gravity: weight, bias } = dynamics;
   const channels = limb.memory.channels, m = channels.length;
@@ -674,10 +675,10 @@ export function carried(dynamics: BodyDynamics, i: number, limb: Limb, share: { 
 }
 
 /** Freedom `i` given `torque` as a torque source. */
-export function give(muscles: MuscleDriver, i: number, torque: number): void {
+export function give(muscles: MuscleReading, command: MuscleCommand, i: number, torque: number): void {
   const sense = torque >= 0 ? 1 : -1, strength = muscles.strength(i, sense);
-  muscles.velocity[i] = sense * Infinity;
-  muscles.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque) / strength) : 0;
+  command.velocity[i] = sense * Infinity;
+  command.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque) / strength) : 0;
 }
 
 /**
@@ -686,7 +687,7 @@ export function give(muscles: MuscleDriver, i: number, torque: number): void {
  * patch's share, in `bearing`'s order), carried from its patch. A stem's freedoms' likewise, less
  * the share of every bearing limb that hangs from them.
  */
-function limbTorques(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bearing: readonly Limb[]): void {
+function limbTorques(b: Bearing, muscles: MuscleReading, command: MuscleCommand, accel: Float64Array, bearing: readonly Limb[]): void {
   const { root, limbs } = b, { shares } = b.scratch;
   const dynamics = muscles.dynamics, n = muscles.channels.length;
   let bearingAt = 0;
@@ -699,7 +700,7 @@ function limbTorques(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bea
       const i = channels[k]!;
       let torque = inverseTorque(dynamics, root, accel, n, i);
       if (share) torque -= carried(dynamics, i, limb, share);
-      give(muscles, i, torque);
+      give(muscles, command, i, torque);
     }
   }
   // Each stem's freedom once, where a driven limb first names it.
@@ -709,7 +710,7 @@ function limbTorques(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bea
       if (stemmedBefore(limbs, l, i)) continue;
       let torque = inverseTorque(dynamics, root, accel, n, i);
       for (let k = 0; k < bearing.length; k++) if (bearing[k]!.stem.includes(i)) torque -= carried(dynamics, i, bearing[k]!, shares[k]!);
-      give(muscles, i, torque);
+      give(muscles, command, i, torque);
     }
   }
 }
@@ -726,7 +727,7 @@ function stemmedBefore(limbs: readonly Limb[], l: number, i: number): boolean {
  * patch's share of the ground's wrench. `bounded` keeps a free limb within its muscles' strength
  * (`boundFree`).
  */
-export function bearLimbs(b: Bearing, muscles: MuscleDriver, work: ServoWork, lever: number, bounded: boolean): void {
+export function bearLimbs(b: Bearing, muscles: MuscleReading, control: BodyControl, work: ServoWork, lever: number, bounded: boolean): void {
   const { assist, limbs, held, helped, root } = b, { at, force, moment, W, solves } = b.scratch;
   const R = muscles.dynamics.root, n = muscles.channels.length;
   // Every freedom's acceleration: the limbs' from their tasks, the rest as the servo left them:
@@ -759,6 +760,6 @@ export function bearLimbs(b: Bearing, muscles: MuscleDriver, work: ServoWork, le
     at.set(R.centre[0], R.centre[1], R.centre[2]);
     shareAmong(b, bearing, at, force, moment, lever, b.scratch.effort ? weighEffort(b, muscles, accel, bearing) : undefined);
   }
-  limbTorques(b, muscles, accel, bearing);
-  if (assist?.on) assist.ask(helped.force, helped.moment);
+  limbTorques(b, muscles, control.muscles, accel, bearing);
+  if (assist?.on) { control.assist.force.copyFrom(helped.force); control.assist.moment.copyFrom(helped.moment); }
 }

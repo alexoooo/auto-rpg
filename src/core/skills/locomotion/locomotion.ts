@@ -14,6 +14,7 @@ import { deepFreeze } from "../../state.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, setIn, onStanceFeet, type LegsAsked, type LegsField, type LegsUnmet, type SidedAsk, type StanceFeet, type Skill } from "../framework/skill.ts";
 import type { GaitName } from "./gaits.ts";
 import type { Readiness } from "../framework/action.ts";
+import type { BodyControl } from "../../body-control.ts";
 
 /**
  * How far under its reference height a body's centre of mass is held, m: the height the stance's
@@ -281,7 +282,7 @@ interface StanceWalk extends Locomotion {
 export type LegsDrive =
   | { readonly kind: "stance"; readonly goal: StanceGoal | null }
   | { readonly kind: "support"; readonly goal: SupportGoal | null }
-  | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[]; readonly held?: number };
+  | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[]; readonly held?: number; readonly assist?: BodyControl["assist"] };
 
 /** **What the locomotion skill remembers.** */
 interface LocomotionState extends LegsMemory {

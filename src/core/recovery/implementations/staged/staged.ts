@@ -7,7 +7,8 @@ import { uprightness } from "../../../control/ground.ts";
 import { lieOf, type Lie } from "../../../control/ground-reading.ts";
 import { servoAsk, servoSolve } from "../../../control/servo.ts";
 import { DOWN, footStatesOf, readSupport, withinSupport, type FootState } from "../../../control/support.ts";
-import type { MuscleDriver } from "../../../muscle/driver.ts";
+import type { MuscleReading } from "../../../muscle/driver.ts";
+import type { BodyControl } from "../../../body-control.ts";
 import { bellyOf, type BodySpec } from "../../../spec/body.ts";
 import { turnOfToRef } from "../../../read-motion.ts";
 import { atan2 } from "../../../math/real.ts";
@@ -78,7 +79,7 @@ interface RiseTables {
 const TABLES = new WeakMap<Recipe, WeakMap<BodySpec, RiseTables>>();
 
 /** `recipe`'s tables for a body of `spec`, whose muscles' `channels` and `feet` they are read by: made once for each recipe and spec. */
-function riseTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["channels"], feet: readonly FootState[]): RiseTables {
+function riseTables(recipe: Recipe, spec: BodySpec, channels: MuscleReading["channels"], feet: readonly FootState[]): RiseTables {
   let bySpec = TABLES.get(recipe);
   if (!bySpec) TABLES.set(recipe, bySpec = new WeakMap());
   let tables = bySpec.get(spec);
@@ -86,7 +87,7 @@ function riseTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["chan
   return tables;
 }
 
-function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["channels"], feet: readonly FootState[]): RiseTables {
+function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleReading["channels"], feet: readonly FootState[]): RiseTables {
   const ends = spec.ends ?? [];
   const goalsOf = new Map<Stage, Float64Array>();
   const bearsOf = new Map<BearStage, { readonly on: readonly boolean[]; readonly share: readonly number[]; readonly leaves: readonly boolean[]; readonly toes: readonly boolean[]; readonly keeps: boolean }>();
@@ -157,7 +158,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   wants(): boolean;
   begin(): void;
   end(): void;
-  step(senses: Senses, dt: number): void;
+  step(senses: Senses, control: BodyControl, dt: number): void;
   /** How many stages `phase` plays, as the body lies now. */
   stages(phase: "roll" | "rise"): number;
   /** Join the rise at its first bearing stage, its supports bearing and the trunk clear; false, nothing begun, where they are not. */
@@ -262,9 +263,9 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     });
   };
 
-  const slack = (): void => {
-    muscles.activation.fill(0);
-    muscles.velocity.fill(0);
+  const slack = (control: BodyControl): void => {
+    control.muscles.activation.fill(0);
+    control.muscles.velocity.fill(0);
   };
   const settle = (): void => {
     state.phase = "settle";
@@ -297,7 +298,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     state.transfer.setAll(0);
     if (phase === "rise" && index > state.furthest) state.furthest = index;
   };
-  const pose = (stage: PoseStage, dt: number): void => {
+  const pose = (stage: PoseStage, control: BodyControl, dt: number): void => {
     const top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS, { pace, press, level, follow } = stage;
     let goals = goalsOf.get(stage)!;
     if (pace || press || level || follow) {
@@ -337,18 +338,18 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       goals = asked;
     }
     for (let i = 0; i < goals.length; i++) {
-      muscles.velocity[i] = Math.max(-top, Math.min(top, (goals[i]! - muscles.angle(i)) / within));
-      muscles.activation[i] = 1;
+      control.muscles.velocity[i] = Math.max(-top, Math.min(top, (goals[i]! - muscles.angle(i)) / within));
+      control.muscles.activation[i] = 1;
     }
     if (!stage.drive?.turning) return;
     // Each freedom's rate asked of its joint as the joint turns it.
     const rates = work.rates;
-    rates.set(muscles.velocity);
+    rates.set(control.muscles.velocity);
     for (let i = 0; i < count; i++) {
       const channel = muscles.channels[i]!, first = i - channel.index;
       let speed = 0;
       for (let k = 0; k < channel.joint.dofs.length; k++) speed += muscles.turning(i, k) * rates[first + k]!;
-      muscles.velocity[i] = speed;
+      control.muscles.velocity[i] = speed;
     }
   };
   /** Whether the readings `until` names hold for pose `stage`, its balls read this step. */
@@ -367,7 +368,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     return away.y < stage.hold.turned;
   };
   /** A step of `stage`; whether its limbs are down, those it leaves let go, the centre of mass at its aim and slow, and the pelvis turned to its. */
-  const bear = (stage: BearStage, dt: number): boolean => {
+  const bear = (stage: BearStage, control: BodyControl, dt: number): boolean => {
     const { aim } = state.bear, { place, target, across, spin, rootSpin, turn, yaw, pitch, moved } = work;
     const seconds = stage.seconds, n = 1 / seconds;
     const goals = goalsOf.get(stage)!, { on, share, leaves, toes, keeps } = bearsOf.get(stage)!;
@@ -423,13 +424,13 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // Motor control's order: the servo's asks, the root's acceleration, the servo's solve around
     // the limbs' motion, and the limbs' torques. Every freedom is asked toward the posture: a
     // bearing limb's are then the solve's, and its stem moves as the servo asked.
-    const asked = servoAsk(muscles, (i) => goals[i], stage.postureSeconds ?? stage.seconds, dt);
+    const asked = servoAsk(muscles, control.muscles, (i) => goals[i], stage.postureSeconds ?? stage.seconds, dt);
     // A moment the patches miss is weighed as a force missed at the root's height over the ground.
     const lever = muscles.dynamics.root.centre[1] - ground;
     const carried = carryRoot(solve, muscles, asked, aim, lever);
     limbMotion(solve, asked, moved);
-    servoSolve(muscles, asked, carried, moved);
-    bearLimbs(solve, muscles, asked, lever, true);
+    servoSolve(muscles, control.muscles, asked, carried, moved);
+    bearLimbs(solve, muscles, control, asked, lever, true);
     const dx = place.x - c.x, dy = target.y - c.y, dz = place.z - c.z;
     // `spin` closes the pelvis's turn in the stage's time constant: the turn left is the two's product.
     const tolerance = stage.progress?.turn ?? turnTolerance;
@@ -481,15 +482,15 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       enter(state.lie === "front" ? "rise" : "roll", 0);
     },
     end() { state.phase = "idle"; },
-    step(_senses, dt) {
+    step(_senses, control, dt) {
       switch (state.phase) {
         case "idle":
           // Its rise is over and the body is still down: it lies slack and begins another.
           settle();
-          slack();
+          slack(control);
           return;
         case "settle": {
-          slack();
+          slack(control);
           const v = view.stance.velocity;
           state.still = v.x * v.x + v.y * v.y + v.z * v.z < settleSpeed * settleSpeed ? state.still + dt : 0;
           if (state.still + dt / 2 < settleSeconds) return;
@@ -511,7 +512,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
             if (gap > RAISED && state.stage >= borne) state.raised = true;
             else if (state.raised && gap <= DOWN) {
               settle();
-              slack();
+              slack(control);
               return;
             }
           }
@@ -519,7 +520,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
           switch (stage.kind) {
             case "pose": {
               if (stage.pace || stage.press || stage.until?.balls !== undefined) readBalls();
-              pose(stage, dt);
+              pose(stage, control, dt);
               state.time += dt;
               if (stage.until) {
                 // Ended by its reading, held; past its time, the attempt is over.
@@ -533,7 +534,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
               return;
             }
             case "bear": {
-              const there = bear(stage, dt);
+              const there = bear(stage, control, dt);
               state.time += dt;
               // A recipe that holds its last stage stays in it.
               if (recipe.holds && state.phase === "rise" && state.stage === recipe.rise.length - 1) return;

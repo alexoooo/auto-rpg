@@ -1,3 +1,4 @@
+import type { BodyControl } from "../body-control.ts";
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { OwnBody } from "../mind/mind.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -159,7 +160,7 @@ export function supportedMotor(own: Pick<OwnBody, "built" | "muscles"> & { reado
     });
   };
   read();
-  return { state, root, read, resume() { state.motion.started = false; state.motion.acceleration.fill(0); }, control(command: SupportedCommand, dt: number, tracked: (channel: number) => readonly [number, number, number] | undefined = () => undefined, timing: Pick<Response, "centre" | "endpoint" | "turn" | "posture"> = response,
+  return { state, root, read, resume() { state.motion.started = false; state.motion.acceleration.fill(0); }, control(command: SupportedCommand, control: BodyControl, dt: number, tracked: (channel: number) => readonly [number, number, number] | undefined = () => undefined, timing: Pick<Response, "centre" | "endpoint" | "turn" | "posture"> = response,
     trackingSeconds?: (channel: number) => number | undefined, firm?: (channel: number) => boolean) {
     if (command.endpoints.length !== limbs.length) throw new Error("support goal count differs from anatomy");
     const ne = 1 / timing.endpoint;
@@ -177,7 +178,7 @@ export function supportedMotor(own: Pick<OwnBody, "built" | "muscles"> & { reado
       if (goal.rotation) turnToRef(limb.segment.pose.rotation, scratch.target.set(...goal.rotation), timing.endpoint, scratch.angular, task.angular);
       else task.angular.copyFrom(scratch.angular).scaleInPlace(-2 * ne);
     });
-    const work = servoAsk(muscles, i => tracked(i)?.[0] ?? command.posture[muscles.channels[i]!.name] ?? 0, timing.posture, dt,
+    const work = servoAsk(muscles, control.muscles, i => tracked(i)?.[0] ?? command.posture[muscles.channels[i]!.name] ?? 0, timing.posture, dt,
       { rate: i => tracked(i)?.[1] ?? 0, acceleration: i => tracked(i)?.[2] ?? 0,
         seconds: i => trackingSeconds?.(i) ?? timing.posture });
     definitions.forEach((d, i) => { for (let k = 0; k < d.channels.length; k++) toward[i]![k] = work.accel[d.channels[k]!]!; });
@@ -201,13 +202,13 @@ export function supportedMotor(own: Pick<OwnBody, "built" | "muscles"> & { reado
       scratch.firm[i] = firm && !work.fixed[i] && !scratch.moved[i] && firm(i) ? muscles.speed(i) + work.accel[i]! * dt : NaN;
       if (!Number.isNaN(scratch.firm[i]!)) anyFirm = true;
     }
-    servoSolve(muscles, work, motion.acceleration, scratch.moved);
-    bearLimbs(bearing, muscles, work, response.lever, true);
+    servoSolve(muscles, control.muscles, work, motion.acceleration, scratch.moved);
+    bearLimbs(bearing, muscles, control, work, response.lever, true);
     // A firm freedom is a velocity motor toward the speed asked, at its muscles' full strength.
     if (anyFirm) for (let i = 0; i < scratch.firm.length; i++) {
       if (Number.isNaN(scratch.firm[i]!)) continue;
-      muscles.velocity[i] = scratch.firm[i]!;
-      muscles.activation[i] = 1;
+      control.muscles.velocity[i] = scratch.firm[i]!;
+      control.muscles.activation[i] = 1;
     }
   } };
 }

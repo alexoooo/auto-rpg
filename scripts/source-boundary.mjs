@@ -64,6 +64,7 @@ export const PLACEMENTS = Object.freeze([
   ["src/core/sources.ts", "src/core/bodies/sources.ts"],
   ["src/core/character-attributes.ts", "src/core/bodies/character-attributes.ts"],
   ["src/core/read-body.ts", "src/core/bodies/read-body.ts"],
+  ["src/core/body-control.ts", "src/core/bodies/control.ts"],
   ["src/core/read-motion.ts", "src/core/bodies/read-motion.ts"],
   ["src/core/equipment.ts", "src/core/bodies/equipment.ts"],
   ["src/core/observation.ts", "src/control/observation.ts"],

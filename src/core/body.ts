@@ -1,6 +1,7 @@
+import type { BodyControl } from "./body-control.ts";
 import type { ContactIdentity } from "./control/effector-feedback.ts";
 import type { Quaternion, Vector3 } from "./math/vector.ts";
-import type { Assist } from "./control/assist.ts";
+import type { AssistReading } from "./control/assist.ts";
 import type { Frame } from "./control/kinematics.ts";
 import type { EffectorGoal, FreedomPath, MotorUnmet, MusclePush, PointTask } from "./control/motor.ts";
 import type { SupportGoal } from "./control/supported-motor.ts";
@@ -10,7 +11,7 @@ import type { StanceTuning } from "./control/stance-tuning.ts";
 import type { StanceEnvelope } from "./control/stance-envelope.ts";
 import type { Embodying } from "./mind/mind.ts";
 import type { Senses } from "./mind/senses.ts";
-import type { MuscleDriver } from "./muscle/driver.ts";
+import type { MuscleReading } from "./muscle/driver.ts";
 import type { MotorMaker } from "./control/motor-part.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import type { EffectorContact, EffectorFeedback } from "./control/effector-feedback.ts";
@@ -32,9 +33,10 @@ import type { ReadBody } from "./read-body.ts";
  */
 export interface Body {
   readonly dt: number;
+  readCommand(out: Pick<BodyControl, "muscles" | "assist">): void;
   readonly built: ReadBody;
   /** The muscles, for readings (a view of the torques); a driver commands through `drive`. */
-  readonly muscles: MuscleDriver;
+  readonly muscles: MuscleReading;
   /** The view as the last step left it, or as built before the first. */
   readonly view: BodyView;
   /**
@@ -44,7 +46,7 @@ export interface Body {
    */
   readonly envelope: StanceEnvelope | null;
   /** Its assist (`Assist`), for its meter; a fight withdraws it. */
-  readonly assist: Assist;
+  readonly assist: AssistReading;
   /** The steps between a driver's command and motor control carrying it out (`OwnBody.delay`). */
   readonly delay: number;
   /** What a contact with another physics body is read as (`OwnBody.contactIdentity`), where the body is told; a skill that reads a touch of its own reads it so. */
@@ -100,6 +102,7 @@ export interface SplitDriver<T> {
  * and the freedoms pushed flat out.
  */
 export interface BodyCommand {
+  readonly assist?: BodyControl["assist"];
   /** A coarse contact configuration, by the hand's segment; omitted hands retain their pending request. */
   readonly handPoses?: Readonly<Partial<Record<string, HandPose>>>;
   /** Angles by channel; a freedom not named is held at its reference angle. */

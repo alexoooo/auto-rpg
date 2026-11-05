@@ -24,7 +24,7 @@ const MODE = deepFreeze({ yields: true, admits: () => true, reached: () => false
 export const BRACE_MODE = technique("brace", { label: "Brace", stage: "game", sides: ONE_SIDE, edges: NO_EDGES,
   make: (own): TechniqueRun => {
     const drive = poseDrive(own.muscles);
-    return { ...MODE, state: {}, phase: "brace", begin() {}, step() { brace(drive); return null; } };
+    return { ...MODE, state: {}, phase: "brace", begin() {}, step(_g, _senses, control) { brace(drive, control.muscles); return null; } };
   } });
 
 /** **Land**, a mode of the ground: the command carried on as it is while the body lands. */
@@ -43,7 +43,7 @@ export const STEADY_MODE = technique("steady", { label: "Steady", stage: "game",
   make: (own, view, _clock, kit): TechniqueRun => {
     const steady = steadying(own, view, kit);
     return { ...MODE, state: steady.state, get phase() { return steady.state.climb.on ? CLIMBING : "steady"; },
-      begin() { steady.begin(); }, step(_g, _senses, dt) { steady.step(dt); return null; }, forget() { steady.reset(); } };
+      begin() { steady.begin(); }, step(_g, _senses, control, dt) { steady.step(control, dt); return null; }, forget() { steady.reset(); } };
   } });
 
 /** The modes of the ground: each holds the body as it is, taking it nowhere. */

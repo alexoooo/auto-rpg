@@ -48,13 +48,13 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
     return { name: technique, has: () => technique, dispose() {}, mind: { state: { trial }, wants: () => trial.end === null, begin() {}, end() {}, interrupt() {},
       // The technique runs in the motor part, on the body as it is, as the game's ground actions do.
       think() {},
-      act() {
+      act(control) {
         const dt = own.dt;
         const senses = view.senses;
         reader ??= groundReading(own.built, dt);
         const g = reader.read();
         if (!begun) { run.begin("left"); begun = true; }
-        const end = run.step(g, senses, dt);
+        const end = run.step(g, senses, control, dt);
         if (trial.stage.at(-1) !== run.phase) trial.stage.push(run.phase);
         if (end === null) return;
         trial.end = end; trial.at = view.time;

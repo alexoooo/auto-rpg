@@ -1,4 +1,4 @@
-import type { MuscleDriver } from "../muscle/driver.ts";
+import type { MuscleCommand, MuscleReading } from "../muscle/driver.ts";
 import { deepFreeze } from "../state.ts";
 
 /** Channel order is the body's declared actuator order. Commands never change anatomical limits. */
@@ -23,16 +23,16 @@ export function checkedAction(action: ActuatorAction, count: number): ActuatorAc
 }
 
 /** Enforce the same muscle envelope for direct velocity and torque policies. Input is checked at the action boundary. */
-export function applyAction(muscles: MuscleDriver, action: ActuatorAction): void {
+export function applyAction(muscles: MuscleReading, command: MuscleCommand, action: ActuatorAction): void {
   switch (action.kind) {
     case "velocity":
-      muscles.activation.set(action.activation); muscles.velocity.set(action.velocity);
+      command.activation.set(action.activation); command.velocity.set(action.velocity);
       return;
     case "torque":
       for (let i = 0; i < muscles.channels.length; i++) {
         const torque = action.torque[i]!, capacity = muscles.strength(i, torque >= 0 ? 1 : -1);
-        muscles.activation[i] = capacity > 0 ? Math.min(1, Math.abs(torque) / capacity) : 0;
-        muscles.velocity[i] = torque > 0 ? Infinity : torque < 0 ? -Infinity : 0;
+        command.activation[i] = capacity > 0 ? Math.min(1, Math.abs(torque) / capacity) : 0;
+        command.velocity[i] = torque > 0 ? Infinity : torque < 0 ? -Infinity : 0;
       }
       return;
     default: throw new Error(`unknown action ${(action satisfies never as ActuatorAction).kind}`);

@@ -327,7 +327,7 @@ const LAYERS = [
   ["spec/", "human/", "items/", "reptile/spec.ts", "reptile/physique.ts", "character-attributes.ts"],
   ["engine/", "world.ts", "recording.ts"],
   ["build/", "read-body.ts", "read-motion.ts", "clock.ts"],
-  ["muscle/", "rules/", "touches.ts", "control/assist.ts"],
+  ["muscle/", "rules/", "touches.ts", "control/assist.ts", "body-control.ts"],
   ["parts/", "data/", "learning/"],
   ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts"],
   ["skills/", "intent/", "navigation/", "perception/", "mind/decider.ts", "mind/engagement.ts", "mind/choice.ts", "mind/report.ts"],

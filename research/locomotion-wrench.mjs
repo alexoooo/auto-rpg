@@ -306,7 +306,8 @@ async function swaying(stand, hz) {
   // Motor control reads the body's one view, as the driver's channels and dynamics do (`driveMuscles`).
   const motor = motorControl(readView(stand.built), 0.1, {});
   // The stance reads the body before each command, as a body's own step has it (`src/core/body.ts`).
-  const driver = driveMuscles(stand.built, stand.world, (muscles, dt) => { motor.stance.read(); motor.control(muscles, dt); }), reading = motor.stance.reading;
+  const driver = driveMuscles(stand.built, stand.world, (muscles, dt) => { motor.read(); motor.control(muscles, control, dt); });
+  const control = { muscles: driver, assist: { force: new Vector3(), moment: new Vector3() }, hands: { request() { throw new Error("the sway fixture requests no hand pose"); } } }, reading = motor.reading;
   const height = standingHeight(stand.built) - STANCE_LOWER, feet = ["left", "right"];
   motor.setStance({ feet, centre: null, height, heading: 0 });
   stand.step(stand.seconds(SETTLE));

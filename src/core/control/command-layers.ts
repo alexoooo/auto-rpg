@@ -1,3 +1,4 @@
+import type { BodyControl } from "../body-control.ts";
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import { COMMAND, type Body, type BodyCommand, type BodyView, type Fist, type LayerOptions, type SplitDriver } from "../body.ts";
 import type { Clock } from "../clock.ts";
@@ -117,18 +118,20 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   let driver: SplitDriver<unknown> | null = null;
   let released: ((view: BodyView, reason: "takeover" | "idle" | "replaced") => void) | undefined;
 
-  const obey = (command: BodyCommand): void => {
+  let current: BodyControl | null = null;
+  const obey = (command: BodyCommand, control?: BodyControl): void => {
+    if (command.assist && control) { control.assist.force.copyFrom(command.assist.force); control.assist.moment.copyFrom(command.assist.moment); }
     for (const [segment, goal] of Object.entries(command.effectors ?? {})) {
       if (!(segment in goals)) throw new Error(`no effector ${segment}`);
       if (goal && command.stance?.feet.some(side => segment === `foot.${side}`)) throw new Error(`two controllers own ${segment}`);
     }
     // A motor asked a speed or level that is not a number would leave its body's island to the engine, which gives it up; an unbounded speed is directional (`MusclePush`).
     for (const push of command.pushes) if (!Number.isFinite(push.level) || Number.isNaN(push.speed)) throw new Error(`a push on ${push.channel} needs a finite level and a speed`);
-    if (command.handPoses) own.requestHandPoses(Object.entries(command.handPoses).map(([segment, pose]) => {
+    if (command.handPoses && control) for (const segment in command.handPoses) {
       const hand = posable.get(segment);
       if (!hand) throw new Error(`no posable hand ${segment}`);
-      return { hand, pose: pose! };
-    }));
+      control.hands.request(hand, command.handPoses[segment]!);
+    }
     motor.setPosture(command.posture);
     const refused = command.points?.length && !pointing ? "driven points" : command.stance && !balancing ? "a stance" : command.support && !supporting ? "a support"
       : command.paths && Object.keys(command.paths).length && !pathing ? "freedoms' paths" : null;
@@ -191,7 +194,8 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     state.resumed = false;
     moved();
   };
-  const act = (): void => {
+  const act = (control: BodyControl): void => {
+    current = control;
     const dt = clock.dt;
     feel(clock.time);
     state.felt = true;
@@ -199,9 +203,9 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       const due = state.pending.shift();
       if (due !== null && due !== undefined) state.born ??= clock.time;
       const next = due === null || due === undefined ? null : driver?.carry(view, due, dt);
-      if (next) obey(next);
+      if (next) obey(next, control);
     }
-    motor.control(muscles, dt);
+    motor.control(muscles, control, dt);
     moved();
   };
   const drive: Body["drive"] = (next, onRelease) => {
@@ -214,12 +218,18 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   const afterPhysics: Body["afterPhysics"] = listener => { listeners.add(listener); return () => { listeners.delete(listener); }; };
   // What the stance holds walking, for a motor that stands the body by the stance.
   const envelope = balancing && !options.measuring && Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(own.spec) : null;
-  const body: Body = { dt: clock.dt, built, muscles, assist: own.assist, view, envelope, drive, afterPhysics, delay: own.delay,
+  const body: Body = { dt: clock.dt,
+    readCommand(out) {
+      if (!current) { out.muscles.activation.fill(0); out.muscles.velocity.fill(0); out.assist.force.setAll(0); out.assist.moment.setAll(0); return; }
+      out.muscles.activation.set(current.muscles.activation); out.muscles.velocity.set(current.muscles.velocity);
+      out.assist.force.copyFrom(current.assist.force); out.assist.moment.copyFrom(current.assist.moment);
+    }, built, muscles, assist: own.assist, view, envelope, drive, afterPhysics, delay: own.delay,
     ...(own.contactIdentity ? { contactIdentity: own.contactIdentity } : {}) };
   return {
     name: COMMAND,
     view, body, look, think, act, state,
-    observe() {
+    observe(control) {
+      current = control;
       moved(); feedback?.read(clock.steps);
       for (const listener of listeners) listener(clock.steps, clock.time);
     },

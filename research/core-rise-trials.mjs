@@ -22,6 +22,7 @@ import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { GAME, defaultMind } from "../src/entrants/game.ts";
+import { pendingControl } from "./pending-control.mjs";
 
 export const RISE_HARNESS = "Node, core world (src/core/world.ts), Rapier, 120 Hz";
 /** How long a fall is watched, s, and how long a body must stay up to have risen, s. */
@@ -139,13 +140,16 @@ const STIFF_SECONDS = 1.5;
 export async function toppled(shove, subs) {
   const until = (world) => Math.round((STAND_SECONDS + STIFF_SECONDS) * world.hz);
   const fall = await felled(shove, (made, into) => {
-    const stiff = (own) => ({ name: "stiff", has: () => "stiff", dispose() {}, mind: {
-      state: {}, wants: () => into.steps < until(into), begin() {}, end() {}, act() {}, interrupt() {},
+    const stiff = (own) => {
+      const pending = pendingControl(own.muscles.channels.length), command = pending.control.muscles;
+      return { name: "stiff", has: () => "stiff", dispose() {}, mind: {
+      state: pending.state, wants: () => into.steps < until(into), begin() {}, end() {}, act: pending.act, interrupt: pending.interrupt,
       think() {
-        own.muscles.activation.fill(1);
-        for (let i = 0; i < own.muscles.velocity.length; i++) own.muscles.velocity[i] = Math.max(-3, Math.min(3, -own.muscles.angle(i) / 0.2));
+        pending.think();
+        command.activation.fill(1);
+        for (let i = 0; i < command.velocity.length; i++) command.velocity[i] = Math.max(-3, Math.min(3, -own.muscles.angle(i) / 0.2));
       },
-    } });
+    } }; };
     return commandedBody(made, into, { servoSeconds: SERVO_SECONDS }, [stiff, ...subs]);
   });
   while (fall.world.steps < until(fall.world)) fall.world.step();

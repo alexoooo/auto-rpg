@@ -36,14 +36,14 @@ export function rollBack(own: OwnBody, _view: BodyView): TechniqueRun {
     reached,
     begin(side) { state.side = side; state.stage = 0; state.elapsed = 0; state.reached = 0; state.ended = null; state.yieldPending = true; clock.reset(); },
     end() { state.ended = "interrupted"; },
-    step(g, _senses, dt) {
+    step(g, _senses, control, dt) {
       if (state.ended) return state.ended;
       state.elapsed += dt;
       if (state.elapsed > 5) return state.ended = "timed-out";
       state.reached = reached(g, "back") ? state.reached + dt : 0;
       if (state.reached + 1e-9 >= REACHED_SECONDS) return state.ended = "done";
       const pose = sides[state.side][state.stage]!, indices = channels[state.side];
-      drive(pose);
+      drive(control.muscles, pose);
       let error = 0;
       for (const i of indices) {
         const c = own.muscles.channels[i]!, dof = c.dof.spec;
