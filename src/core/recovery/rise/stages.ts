@@ -39,10 +39,14 @@ export interface PoseStage {
    * pelvis's axis toward its other side points up, of 1), and at most `most` times `seconds`.
    */
   readonly hold?: { readonly turned: number; readonly most: number };
+  /** Skip this roll pose on entry when constant spin carries the body past its side hold or onto its front. */
+  readonly coast?: true;
   /** What ends it, read each step; `seconds` is then the longest it may take, past which the attempt is over. Absent, its time ends it. */
   readonly until?: Until;
   /** Its posture approached at a pace the feet allow; absent, driven toward at once. */
   readonly pace?: Pace;
+  /** Selected channels approach their goals as every named leading channel crosses its span up to `past`, rad from its own zero. */
+  readonly follow?: { readonly channels: readonly string[]; readonly past: Posture; readonly span: number };
   /** Channels asked past its posture while a foot's ball is up. */
   readonly press?: Press;
   /** Channels asked past its posture as the body tips onto a side. */
@@ -157,6 +161,8 @@ export type Stage = PoseStage | BearStage;
  * segments and joints of the bodies it is for, and nothing in the player does.
  */
 export interface Recipe {
+  /** Use loaded item contacts as force patches under nearby hands; absent, use the hands' geometric ends. */
+  readonly heldSupport?: "loaded";
   /** Intermediate transition tolerances; final standing is verified by the recovery host. */
   readonly progress?: {
     readonly speed?: number;
@@ -545,7 +551,7 @@ const riseStage = (name: string): Stage => RISE.rise.find((stage) => stage.name 
  */
 const KNEEL_DOWN: Lowering = deepFreeze({
   ends: ["shin.left", "shin.right"],
-  footing: { "foot.left": 0.35, "foot.right": -0.45 },
+  footing: { "foot.left": 0.15, "foot.right": -0.35 },
   rests: 0.47,
   recipe: {
     ...RISE,
@@ -726,7 +732,13 @@ function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
       case "pose": {
         postureFaults(stage, stage.posture);
         if (stage.drive && !(stage.drive.speed > 0 && stage.drive.within > 0)) faults.push(`stage ${stage.name} drives at ${stage.drive.speed} rad/s within ${stage.drive.within} s`);
-        const { until, pace, press, level } = stage;
+        const { until, pace, press, level, follow } = stage;
+        if (follow) {
+          if (!(follow.span > 0 && Number.isFinite(follow.span))) faults.push(`stage ${stage.name} follows across ${follow.span} rad`);
+          if (!follow.channels.length || !Object.keys(follow.past).length) faults.push(`stage ${stage.name} follows no channels`);
+          for (const channel of [...follow.channels, ...Object.keys(follow.past)]) if (!ranges.has(channel)) faults.push(`stage ${stage.name} follows ${channel}, which ${spec.model} lacks`);
+          for (const angle of Object.values(follow.past)) if (!Number.isFinite(angle)) faults.push(`stage ${stage.name} follows past ${angle} rad`);
+        }
         if (until && stage.hold) faults.push(`stage ${stage.name} is both held and ended by a reading`);
         if (until) {
           if (!(until.for >= 0) || !Number.isFinite(until.for)) faults.push(`stage ${stage.name} holds its end ${until.for} s`);

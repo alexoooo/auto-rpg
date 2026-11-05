@@ -15,9 +15,9 @@ import { hypot } from "../../math/real.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { handShapeAt, type HandPose, type ShapeSpec } from "../../spec/body.ts";
 import type { OwnBody } from "../../mind/mind.ts";
-import { limbChannels } from "./stages.ts";
+import { limbChannels, type Recipe } from "./stages.ts";
 import type { EndLimb, FootLimb, ProppedLimb } from "../../spec/body.ts";
-import type { ReadBody, ReadSegment } from "../../read-body.ts";
+import type { ReadBody, ReadContact, ReadSegment } from "../../read-body.ts";
 
 
 /**
@@ -80,14 +80,14 @@ interface Part {
 }
 
 /** The bearing ends of `own`'s body (`BodySpec.ends`) as limbs, in its spec's order, which a rise can play (`stageFaults`). */
-export function riseLimbs(own: OwnBody): RiseLimbs {
+export function riseLimbs(own: OwnBody, options: Pick<Recipe, "heldSupport"> = {}): RiseLimbs {
   const ends = own.spec.ends ?? [];
   const feet = ends.some((limb) => limb.kind === "propped" || limb.kind === "foot") ? footStatesOf(own.built) : [];
   const footOf = (segment: string): FootState => feet.find((foot) => foot.segment.spec.name === segment)!;
   const support = new Vector3();
   const parts = ends.map((limb): Part => {
     switch (limb.kind) {
-      case "end": return endLimb(own, limb);
+      case "end": return endLimb(own, limb, options);
       case "propped": return proppedLimb(own, limb, footOf(limb.prop));
       case "foot": return footLimb(own, limb, footOf(limb.segment));
       // A rise bears on no paw: its stages' faults refuse a body that bears on one (`stageFaults`).
@@ -183,12 +183,20 @@ function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb) {
   const { muscles } = own, names = limbChannels(spec, own.spec)!;
   const channels = names.chain.map((name) => muscles.channel(name)), takes = names.chain.map((name) => spec.kind === "foot" || spec.takes.includes(name));
   const ahead = channels.map(() => NaN), toward = channels.map(() => 0), within = spec.kind === "foot" ? 0 : 1 / TAKES_SECONDS;
+  const jointAcceleration = new Float64Array(channels.length);
   return {
     channels, stem: names.stem.map((name) => muscles.channel(name)), ahead, toward,
     ask(goal: ArrayLike<number>, rate: number, transfer: boolean): void {
       for (let k = 0; k < channels.length; k++) {
         const i = channels[k]!, r = !transfer && takes[k] && within > 0 ? within : rate;
-        toward[k] = r * r * (goal[i]! - muscles.angle(i)) - 2 * r * muscles.rate(i);
+        jointAcceleration[k] = r * r * (goal[i]! - muscles.angle(i)) - 2 * r * muscles.rate(i);
+      }
+      // The posture closes joint angles; the bearing task and dynamics use motor-axis speeds.
+      for (let k = 0; k < channels.length; k++) {
+        const i = channels[k]!, channel = muscles.channels[i]!, first = k - channel.index;
+        let acceleration = 0;
+        for (let j = 0; j < channel.joint.dofs.length; j++) acceleration += muscles.turning(i, j) * jointAcceleration[first + j]!;
+        toward[k] = acceleration;
         ahead[k] = takes[k] ? NaN : toward[k]!;
       }
     },
@@ -199,29 +207,42 @@ function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb) {
  * A segment's end where it touches the ground. On a capsule: a point a radius under its lower
  * end's centre, or, both its ends down (within `DOWN` of the ground), under the middle of the two.
  * On a hand pose's hull: the middle of its corners that are down, or its lowest corner if none
- * is. A segment that holds something and is not down by its own shape is down where its rigid body
- * presses the ground (`pressedOn`): a hand on a club's end or a buckler's rim bears through it. Held,
- * the segment turning about it as the body moves. Some freedoms of its chain take the
+ * is. A hand held off the ground bears through the rigid body's loaded contact (`pressedOn`):
+ * a hand on a club's end or a buckler's rim bears through it. With loaded held support, that
+ * contact is the force patch even under a nearby hand. Its motion is held at its own end
+ * while that end is down, otherwise at the loaded contact. The segment turns about the held point
+ * as the body moves. Some freedoms of its chain take the
  * point, as near the posture as the point lets them; the others are asked toward the posture
  * ahead of it. Its reach is its own shape's capsule radius, whatever pose its hand is in.
  */
-function endLimb(own: OwnBody, spec: EndLimb): Part {
+function endLimb(own: OwnBody, spec: EndLimb, support: Pick<Recipe, "heldSupport">): Part {
   const { built } = own, segment = built.segments.get(spec.segment)!;
+  const loaded = support.heldSupport === "loaded";
   const chain = chainOf(own, spec), reach = capsuleEnds(built, segment, segment.spec.shape).radius;
   const shape = byPose(built, segment, (s): EndShape => s.kind === "hull"
     ? { kind: "hull", corners: lowsOf(s, segment.frame).map((low) => low.at) }
     : { kind: "capsule", ...capsuleEnds(built, segment, s) });
-  const at = new Vector3(), other = new Vector3(), corner = new Vector3(), patch: BearingPoint = { kind: "point", at };
+  const at = new Vector3(), contact = new Vector3(), other = new Vector3(), corner = new Vector3(), patch: BearingPoint = { kind: "point", at: contact };
   const limb: Limb = {
     segment, memory: { channels: chain.channels }, stem: chain.stem, reach, task: taskOf(chain.channels.length),
     work: { at, rows: POINT_ROWS, ahead: chain.ahead, toward: chain.toward, patch, share: 1 },
   };
+  const heldContact = (contact: ReadContact): boolean => contact.pairs.some(pair => {
+    const kind = segment.rigid.owners[pair.mine]!.kind;
+    return pair.impulse > 0 && (kind === "held" || kind === "held-region");
+  });
   return {
     limb, over: at,
     read(ground) {
       readEnd(ground);
-      // A segment that holds something bears where what it holds presses the ground, its own end held off it.
-      if (at.y - ground >= DOWN && segment.rigid.shapes.length > 1) pressedOn(own, segment, at);
+      contact.copyFrom(at);
+      // The loaded variant reads item force separately from a nearby hand's motion target.
+      if (segment.rigid.shapes.length > 1) {
+        if (at.y - ground >= DOWN) {
+          pressedOn(own, segment, at);
+          contact.copyFrom(at);
+        } else if (loaded) pressedOn(own, segment, contact, heldContact);
+      }
     },
     bear(goal, rate, ground, transfer) {
       hold(limb, rate, ground);
@@ -258,13 +279,13 @@ function endLimb(own: OwnBody, spec: EndLimb): Part {
 }
 
 /**
- * Where `segment`'s rigid body presses the ground, into `at`: its ground contacts' points weighed by
- * the impulse each was pushed with; `at` as it was where none pressed.
+ * Where `segment`'s rigid body presses the ground in the contacts `accepts` admits, into `at`:
+ * their points weighed by the impulse each was pushed with; `at` as it was where none pressed.
  */
-function pressedOn(own: OwnBody, segment: ReadSegment, at: Vector3): void {
+function pressedOn(own: OwnBody, segment: ReadSegment, at: Vector3, accepts?: (contact: ReadContact) => boolean): void {
   let x = 0, y = 0, z = 0, sum = 0;
   for (const contact of own.built.physics.contactsOf(segment.body, (other) => other === null)) {
-    if (!(contact.impulse > 0)) continue;
+    if (!(contact.impulse > 0) || accepts && !accepts(contact)) continue;
     x += contact.impulse * contact.point[0]; y += contact.impulse * contact.point[1]; z += contact.impulse * contact.point[2];
     sum += contact.impulse;
   }

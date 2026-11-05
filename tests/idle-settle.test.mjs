@@ -73,6 +73,40 @@ test("idle settling ignores body sway but steps a turned sole even at the right 
   assert.equal(ask().swing.foot, "foot.left", "a turned foot needs a corrective step even when its middle is correctly placed");
 });
 
+test("a footing step that lands short stays unplaced and retries its fixed target", () => {
+  const { view, legs, ask } = fixture();
+  const footing = { "foot.left": [-.15, .15], "foot.right": [.15, .15] };
+  const first = ask({ footing }).swing;
+  assert.ok(first && first.foot === "foot.right", "the fixture must request the foot that is 0.3 m short");
+  view.stance.phase = "swing"; ask({ footing });
+  view.stance.phase = "stand";
+  assert.equal(ask({ footing }).swing, null, "release the completed swing before requesting the same target again");
+  assert.equal(legs.placed, false, "an ended swing is not proof that the foot reached its target");
+  const retry = ask({ footing }).swing;
+  assert.deepEqual(retry, first, "the correction keeps the requested target instead of reanchoring it");
+  view.stance.phase = "swing"; ask({ footing });
+  view.stance.ends["foot.right"].middle.z = footing["foot.right"][1];
+  view.stance.phase = "stand";
+  assert.equal(ask({ footing }).swing, undefined);
+  assert.equal(legs.placed, true, "the feet are placed once the physical sole reaches the footing");
+});
+
+test("idle placement retries a landed sole that is still turned from its target heading", () => {
+  const { view, ask } = fixture();
+  for (const side of ["left", "right"]) view.stance.ends[`foot.${side}`].middle.z = 0;
+  view.effectors["foot.left"] = { rotation: turnAboutToRef(Vector3.Up(), .5, new Quaternion()) };
+  let first; for (let i = 0; i < 25; i++) first = ask().swing;
+  assert.ok(first && first.foot === "foot.left", "the fixture must request a turn at an already correct position");
+  view.stance.phase = "swing"; ask();
+  view.stance.phase = "stand";
+  assert.equal(ask().swing, null, "an unfinished turn releases the completed swing for a retry");
+  assert.deepEqual(ask().swing, first, "contact at the target position cannot complete an unfinished turn");
+  view.stance.phase = "swing"; ask();
+  view.effectors["foot.left"].rotation = Quaternion.Identity();
+  view.stance.phase = "stand";
+  assert.equal(ask().swing, undefined, "the correction ends once the landed sole also faces its heading");
+});
+
 test("idle placement untwists a physically turned footing", async () => {
   const made = await rig({ engine: DEFAULT_ENGINE });
   const yaw = side => {

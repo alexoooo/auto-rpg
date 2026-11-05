@@ -17,6 +17,7 @@ import type { SubMind } from "../../mind/sub-mind.ts";
 import { riseLimbs } from "./limbs.ts";
 import { RISE, stageFaults, stagesOf, type BearStage, type PoseStage, type Recipe, type Stage, type Until } from "./stages.ts";
 import type { ReadSegment } from "../../read-body.ts";
+import { rollCoast } from "./roll-coast.ts";
 
 /**
  * The pose drive: a freedom is asked the speed that would close its error in `POSE_SECONDS`, no
@@ -70,6 +71,7 @@ interface RiseTables {
   readonly pressOf: ReadonlyMap<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>;
   /** For a pose stage that levels, the left side's channels then the right's, and how hard each, rad. */
   readonly levelOf: ReadonlyMap<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>;
+  readonly followOf: ReadonlyMap<PoseStage, { readonly channels: readonly number[]; readonly leads: readonly { readonly index: number; readonly angle: number }[] }>;
 }
 
 /** Each recipe's tables for each spec (`riseTables`): recipes and specs are data, so every body of a spec shares them. */
@@ -94,7 +96,12 @@ function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["chan
   const pastOf = new Map<PoseStage, readonly { readonly index: number; readonly angle: number }[]>();
   const pressOf = new Map<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>();
   const levelOf = new Map<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>();
+  const followOf = new Map<PoseStage, { readonly channels: readonly number[]; readonly leads: readonly { readonly index: number; readonly angle: number }[] }>();
   for (const stage of stagesOf(recipe)) {
+    if (stage.kind === "pose" && stage.follow) followOf.set(stage, {
+      channels: stage.follow.channels.map(channelOf),
+      leads: Object.entries(stage.follow.past).map(([name, angle]) => { const index = channelOf(name); return { index, angle: angle - channels[index]!.dof.spec.bind.value }; }),
+    });
     if (stage.kind === "pose" && stage.until?.past) {
       pastOf.set(stage, Object.entries(stage.until.past).map(([name, angle]) => { const index = channelOf(name); return { index, angle: angle - channels[index]!.dof.spec.bind.value }; }));
     }
@@ -113,7 +120,7 @@ function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["chan
     bearsOf.set(stage, { on: shares.map((share) => share !== undefined), share: shares.map((share) => share?.share ?? 0), leaves,
       toes: ends.map((limb) => stage.toes?.includes(limb.name) ?? false), keeps: stage.leave.length === 0 });
   }
-  return Object.freeze({ goalsOf, bearsOf, balls: Object.freeze(balls), pastOf, pressOf, levelOf });
+  return Object.freeze({ goalsOf, bearsOf, balls: Object.freeze(balls), pastOf, pressOf, levelOf, followOf });
 }
 
 /**
@@ -162,9 +169,10 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const settleSpeed = recipe.progress?.settleSpeed ?? SLOW, settleSeconds = recipe.progress?.settleSeconds ?? STILL_SECONDS;
   const restSeconds = recipe.progress?.restSeconds ?? null, restWiden = recipe.progress?.restWiden ?? 1;
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
-  const upright = uprightness(own.built), made = riseLimbs(own), ends = own.spec.ends ?? [];
+  const upright = uprightness(own.built), made = riseLimbs(own, recipe), ends = own.spec.ends ?? [];
   const feet = footStatesOf(own.built), footSegments: ReadonlySet<ReadSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
   const lying = { turn: new Quaternion(), way: new Vector3() }, belly = bellyOf(own.spec);
+  const coasts = rollCoast();
   /**
    * Whether the body stands on its feet alone: every other segment more than `DOWN` over the
    * ground, and its centre of mass over the outline of its soles.
@@ -181,7 +189,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const notTrunk: ReadonlySet<ReadSegment> = new Set([...own.built.segments.entries()].filter(([name]) => !recipe.trunk.includes(name)).map(([, segment]) => segment));
   /** The rise's first bearing stage: before it the pose stages carry the body up from lying, and the trunk is not yet raised. */
   const borne = recipe.rise.findIndex((stage) => stage.kind === "bear");
-  const { goalsOf, bearsOf, balls, pastOf, pressOf, levelOf } = riseTables(recipe, own.spec, muscles.channels, feet);
+  const { goalsOf, bearsOf, balls, pastOf, pressOf, levelOf, followOf } = riseTables(recipe, own.spec, muscles.channels, feet);
 
   const state = {
     /** What it is doing: nothing (the body is not its own, or its rise is over), lying slack, rolling, or rising. */
@@ -189,7 +197,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     lie: "front" as Lie,
     /** The stage under way, in the roll or the rise; the time in it, s; how long it has lain still, s; how long a bearing stage's body has rested short of its aims, s. */
     stage: 0, time: 0, still: 0, rested: 0,
-    /** A pose stage's reading held toward its end, s; a paced one's way along, of 1, and whether it has read the posture it began in, `from`. */
+    /** A pose stage's reading held toward its end, s; a paced one's way along, of 1, and whether pacing or following has read its entry posture, `from`. */
     reached: 0, along: 0, paced: false, from: new Float64Array(count),
     /** How many attempts this fall has had, and the furthest stage of the rise any reached, -1 for none. */
     tries: 0, furthest: -1,
@@ -268,6 +276,12 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       else state.phase = "idle";
       return;
     }
+    const stage = playing(phase)[index]!;
+    if (phase === "roll" && stage.kind === "pose" && stage.coast
+      && coasts(turnOfToRef(root, lying.turn), root.body.angularVelocityToRef(work.rootSpin), stage, belly)) {
+      enter(phase, index + 1);
+      return;
+    }
     state.phase = phase;
     state.stage = index;
     state.time = 0;
@@ -280,19 +294,26 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     if (phase === "rise" && index > state.furthest) state.furthest = index;
   };
   const pose = (stage: PoseStage, dt: number): void => {
-    const top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS, { pace, press, level } = stage;
+    const top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS, { pace, press, level, follow } = stage;
     let goals = goalsOf.get(stage)!;
-    if (pace || press || level) {
+    if (pace || press || level || follow) {
       const asked = work.goals;
       asked.set(goals);
+      if ((pace || follow) && !state.paced) { for (let i = 0; i < count; i++) state.from[i] = muscles.angle(i); state.paced = true; }
       if (pace) {
         // The way on from the posture it began in, while the balls are down and the body slow.
-        if (!state.paced) { for (let i = 0; i < count; i++) state.from[i] = muscles.angle(i); state.paced = true; }
         const v = view.stance.velocity;
         let down = v.x * v.x + v.y * v.y + v.z * v.z < pace.slow * pace.slow;
         for (let k = 0; k < feet.length; k++) if (work.heights[k]! >= pace.lift) down = false;
         if (down) state.along = Math.min(1, state.along + pace.rate * dt);
         for (let i = 0; i < count; i++) asked[i] = state.from[i]! + (goals[i]! - state.from[i]!) * state.along;
+      }
+      // Following channels retain their entry pose until every lead enters its angle span.
+      if (follow) {
+        const table = followOf.get(stage)!;
+        let along = 1;
+        for (const lead of table.leads) along = Math.min(along, Math.max(0, 1 + (muscles.angle(lead.index) - lead.angle) / follow.span));
+        for (const i of table.channels) asked[i] = state.from[i]! + (asked[i]! - state.from[i]!) * along;
       }
       // Each ball that is up presses its channels.
       if (press) pressOf.get(stage)!.forEach((gains, k) => {

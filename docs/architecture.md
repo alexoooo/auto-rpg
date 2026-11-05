@@ -164,9 +164,9 @@ arbiter releases every action when another mind takes the body.
   `filledOf`); two fitting is a fault of the build, and an experiment passes another in
   (`OptionMindConfig.tuning`).
 - **Tuned per body**: a skill that reads a record (`Part.reads`: the blows, step up's and the
-  sit-back's timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
+  sit-back's poses and timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
   read as mind data by `bodyKey` from `assets/core/<skill>.json` (`dataOf`). A body with no record
-  does not use the skill.
+  does not use the skill. Step up's record may adjust the recovery poses and timings by loadout.
 - **Locomotion** (`Locomotion`): legs take one goal (`LegsGoal`) and say what they left undone
   (`LegsUnmet`), their envelope and how fast they stop. `stance-walk` walks within the stance's
   envelope; `walk-run` hands over to a run cycle fitted to motion capture
@@ -209,7 +209,9 @@ Option Mind prices each way up, flatten and a brace that waits for one by their 
 where each was begun (`assets/core/edge-profiles.json`, `research/edge-profiles.mjs`: its own tries
 in falls the stand-up target does not play, each until its next choice), as every Option is
 priced. The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
-(`rise/stages.ts`). A body on paws rights itself (`src/core/reptile/righting.ts`) by its recipe of
+(`rise/stages.ts`); a pose's selected channels can follow other joints folding across an angle
+span (`PoseStage.follow`), keeping their entry pose until every leading joint enters that span.
+A body on paws rights itself (`src/core/reptile/righting.ts`) by its recipe of
 poses from lying (`righting-recipe`, its record `assets/core/righting.json`) and by routes that
 roll it, place each paw and rise on its motor (`righting-routes`). A ground action names its side
 by the first end the body stands on there (`sideEffectors`).
@@ -252,7 +254,8 @@ each a state with its chance, `Outcome`), its step, and a status.
 - **Percepts** (`PERCEPTS`) and **predictions** (`PREDICTIONS`) are read into the `Situation`
   the first time a step asks for each and kept for the step (`perceiver`); predictions price from
   measured profiles (`Profile`, `src/core/skills/framework/profile.ts`),
-  a stale one unread and a model with none priced by its prior. A profile is a sample of its
+  a stale one unread and a model with none priced by its prior. A measured predictor may receive
+  immutable ground profiles (`edges`) for the skill settings an experiment runs. A profile is a sample of its
   drill's trials, each keeping what it brought and where it began (the range, the foe's phase,
   both postures, the velocity in its target's frame, `startVelocity`, and, for a skill begun from
   a window, where in it the body stood, `placeInWindow`); a reading takes the trials nearest the

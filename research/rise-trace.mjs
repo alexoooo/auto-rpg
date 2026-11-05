@@ -12,7 +12,7 @@
  * the failures ended in.
  *
  *   node research/rise-trace.mjs [--model workshop-fighter] [--offsets 0,11.25] [--mind <file.json>]
- *     [--loadout <left>,<right>] [--only <degrees>,...] [--workers N] [--out <rows.json>] [--falls]
+ *     [--loadout <left>,<right>] [--only <degrees>,...] [--seeds <n>,...] [--workers N] [--out <rows.json>] [--falls]
  */
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -65,7 +65,8 @@ async function traceFall(job) {
       // Each idle settling begun: how far each sole stands from its target, m.
       const target = legs?.idle?.target ?? null;
       if (target && target !== idleTarget) {
-        const soles = built.combatant.body.view.stance.soles;
+        const ends = built.combatant.body.view.stance.ends;
+        const soles = { left: ends["foot.left"].middle, right: ends["foot.right"].middle };
         const off = (side) => Math.hypot(soles[side].x - target[side][0], soles[side].z - target[side][1]);
         idles.push({ at: time, left: +off("left").toFixed(3), right: +off("right").toFixed(3),
           apart: +Math.hypot(soles.left.x - soles.right.x, soles.left.z - soles.right.z).toFixed(3) });
@@ -139,24 +140,26 @@ function summary(rows) {
 
 if (isMainThread) {
   const { values } = parseArgs({ options: { model: { type: "string", default: "workshop-fighter" }, offsets: { type: "string", default: "0" },
-    mind: { type: "string" }, loadout: { type: "string" }, only: { type: "string" }, workers: { type: "string" }, out: { type: "string" }, falls: { type: "boolean", default: false } } });
+    mind: { type: "string" }, loadout: { type: "string" }, only: { type: "string" }, seeds: { type: "string", default: "1" }, workers: { type: "string" }, out: { type: "string" }, falls: { type: "boolean", default: false } } });
   const { risingJobs } = await import("../src/evaluation/rising.ts");
   const { MINDS } = await import("../src/entrants/game.ts");
   const mind = values.mind ? JSON.parse(readFileSync(values.mind, "utf8")) : MINDS.option.config;
   const only = values.only ? new Set(values.only.split(",")) : null;
+  const seeds = values.seeds.split(",").map(Number);
+  if (seeds.some(seed => !Number.isSafeInteger(seed) || seed < 1)) throw new Error('--seeds needs positive integers');
   const { loadoutKey } = await import("../src/core/items/held.ts");
   const jobs = values.offsets.split(",").map(Number).flatMap((offset) => risingJobs({ target: true, offset }))
     .filter((job) => job.model === values.model && (!values.loadout || loadoutKey(job.loadout) === values.loadout) && (!only || only.has(String(job.degrees))))
-    .map(({ model, loadout, seed, start, degrees, balance, grit, gusts }) => ({
-      key: { model, loadout: loadoutKey(loadout), degrees }, fall: { model, loadout, seed, start, degrees, balance, grit, gusts, target: true, mind } }));
+    .flatMap(({ model, loadout, start, degrees, balance, grit, gusts }) => seeds.map(seed => ({
+      key: { model, loadout: loadoutKey(loadout), degrees, seed }, fall: { model, loadout, seed, start, degrees, balance, grit, gusts, target: true, mind } })));
   const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
   const started = Date.now();
   const rows = (await Promise.all(Array.from({ length: count }, (_, w) => new Promise((resolve, reject) => {
     const worker = new Worker(new URL(import.meta.url), { workerData: jobs.filter((_, i) => i % count === w) });
     worker.once("message", resolve); worker.once("error", reject);
-  })))).flat().sort((a, b) => a.loadout < b.loadout ? -1 : a.loadout > b.loadout ? 1 : a.degrees - b.degrees);
-  console.log(`rise trace: ${jobs.length} falls of ${values.model}, offsets ${values.offsets}; Node, core world, Rapier, 120 Hz; ${((Date.now() - started) / 1000).toFixed(0)} s\n`);
-  if (values.falls) for (const row of rows) console.log(`${row.loadout} ${row.degrees}: ${row.stood ? row.time.toFixed(2) : "not stood"}; ${row.actions.map((one) =>
+  })))).flat().sort((a, b) => a.loadout < b.loadout ? -1 : a.loadout > b.loadout ? 1 : a.degrees - b.degrees || a.seed - b.seed);
+  console.log(`rise trace: ${jobs.length} falls of ${values.model}, offsets ${values.offsets}, seeds ${values.seeds}; Node, core world, Rapier, 120 Hz; ${((Date.now() - started) / 1000).toFixed(0)} s\n`);
+  if (values.falls) for (const row of rows) console.log(`${row.loadout} ${row.degrees} seed ${row.seed}: ${row.stood ? row.time.toFixed(2) : "not stood"}; ${row.actions.map((one) =>
     `${one.name}${one.from ? `(${one.from})` : ""} ${one.at.toFixed(1)}+${one.seconds.toFixed(1)} ${one.end ?? "cut"}${one.end === "done" ? "" : `@${one.stages.at(-1)?.name ?? "?"}`}`).join(" > ")}`);
   if (values.falls) console.log("");
   summary(rows);

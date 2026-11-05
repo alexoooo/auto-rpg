@@ -39,11 +39,10 @@ on the way is fixed to its own layer's contract before the training goes on.
 
 ### 1. Stand-up
 
-To the target on every body and loadout; the shortest first: the Skeleton holding an item (the
-club stands 0 of 15), the Rogue (a median of 13.6 s empty-handed; her arms do not straighten on
-hands and knees, so a route that does not push up on straight arms), then the Warrior's speed (a
-median of 8.7 to 10.7 s). A body gets its own technique where the shared one's ceiling on it is
-read short. A ground technique bears on the ends it needs from where the body is (`BodySpec.ends`,
+The Warrior first, reliably within 10 s on the target in every loadout and on fresh falls; then
+the Rogue and the Skeleton. A recovery record may adjust its poses and timings by loadout. A body
+gets its own technique where the shared one's ceiling on it is read short. A ground technique
+bears on the ends it needs from where the body is (`BodySpec.ends`,
 `carryRoot`, `bearLimbs`, `src/core/control/bearing.ts`) and holds only the limbs it moves. Check:
 the target on every body and loadout, and on fresh falls; rising in fights no worse; the owner
 looks in the Lab's Stand-up mode.

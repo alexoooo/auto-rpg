@@ -143,7 +143,7 @@ export type Footing = Readonly<Record<Side, readonly [number, number]>>;
 /**
  * **How the feet are placed** (`LegsGoal.footing`): a foot further than `near` (m) from its place
  * steps there, as a walk's step is taken (`STANCE_GAIT`'s swing time and lift, the weight shifted
- * off it first); one step a foot for each footing asked.
+ * off it first); a step that lands short is asked again at the same target.
  */
 const PLACING = { near: 0.02 } as const;
 
@@ -367,16 +367,24 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     const s = view.stance, was = state.placing;
     if (was && (apart(was.footing.left, footing.left) > PLACING.near || apart(was.footing.right, footing.right) > PLACING.near)) state.placing = null;
     const placing = state.placing ??= { footing, stepped: { left: false, right: false }, step: null, lifted: false };
+    const error = (foot: Side): number => Math.max(apart([soleOf(view, foot).x, soleOf(view, foot).z], placing.footing[foot]),
+      alignment === undefined ? 0 : turned(view, foot) * near / alignment);
     if (placing.step) {
-      // A step is over when the stance, having taken it, stands again.
+      // The stance ending a swing proves contact, not that the foot reached its place or heading.
       if (s.phase !== "stand") placing.lifted = true;
-      else if (placing.lifted && s.ends[placing.step.foot]!.touching) { placing.stepped[feet[placing.step.foot]!] = true; placing.step = null; }
+      else if (placing.lifted && s.ends[placing.step.foot]!.touching) {
+        const side = feet[placing.step.foot]!;
+        placing.stepped[side] = error(side) <= near;
+        placing.step = null;
+        // The stance keeps an identical swing completed until its command is released.
+        if (!placing.stepped[side]) { state.placed = false; return { ...base, swing: null }; }
+      }
       if (placing.step) return { ...base, swing: placing.step };
     }
     state.placed = false;
     // A step of the stance's own under way is finished first.
     if (s.phase !== "stand") return base;
-    const off = (foot: Side): number => placing.stepped[foot] ? 0 : Math.max(apart([soleOf(view, foot).x, soleOf(view, foot).z], placing.footing[foot]), alignment === undefined ? 0 : turned(view, foot) * near / alignment);
+    const off = (foot: Side): number => placing.stepped[foot] ? 0 : error(foot);
     const foot: Side = off("left") >= off("right") ? "left" : "right";
     if (off(foot) <= near) { state.placed = true; return base; }
     placing.step = { foot: ends[foot], to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true };

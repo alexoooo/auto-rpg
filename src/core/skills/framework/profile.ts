@@ -155,6 +155,36 @@ export interface Profile {
   readonly limbs?: readonly string[];
 }
 
+const profileObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
+const profileNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+const profileNonnegative = (value: unknown): boolean => profileNumber(value) && value >= 0;
+const profileText = (value: unknown): boolean => typeof value === "string" && value.length > 0;
+const profilePair = (value: unknown): boolean => Array.isArray(value) && value.length === 2 && value.every(profileNumber);
+const profilePostures = (value: unknown): boolean => profileObject(value) && profileText(value.own) && profileText(value.target);
+const profileTarget = (value: unknown): boolean => profileObject(value) && profileText(value.body) && profileText(value.spec);
+const profileMeasured = (value: unknown): boolean => profileTarget(value) && profileObject(value)
+  && profileText(value.skill) && profileNumber(value.hz) && value.hz > 0
+  && (value.reaction === null || profileNonnegative(value.reaction))
+  && (value.rate === undefined || profileNumber(value.rate) && value.rate > 0)
+  && (value.delay === undefined || profileNonnegative(value.delay) && Number.isSafeInteger(value.delay));
+const profileTrial = (value: unknown): boolean => profileObject(value) && profileObject(value.start)
+  && profileNumber(value.start.range) && profileText(value.start.phase)
+  && (value.start.postures === undefined || profilePostures(value.start.postures))
+  && (value.start.velocity === undefined || profilePair(value.start.velocity))
+  && (value.start.window === undefined || profilePair(value.start.window))
+  && typeof value.done === "boolean" && typeof value.down === "boolean"
+  && profileNonnegative(value.dealt) && profileNonnegative(value.taken) && profileNonnegative(value.seconds)
+  && (value.recovers === null || profileNonnegative(value.recovers))
+  && (value.end === undefined || profileText(value.end))
+  && (value.exit === undefined || profileObject(value.exit) && Object.values(value.exit).every(profileNumber))
+  && (value.letGo === undefined || profileObject(value.letGo) && [value.letGo.progress, value.letGo.seconds, value.letGo.taken].every(profileNonnegative));
+
+/** Whether supplied profiles have finite measurements and the trial fields their readers use. */
+export const validProfiles = (value: unknown): value is readonly Profile[] => Array.isArray(value) && value.every(profile => profileObject(profile)
+  && profileMeasured(profile.measured) && (profile.target === null || profileTarget(profile.target))
+  && Array.isArray(profile.trials) && profile.trials.every(profileTrial)
+  && (profile.limbs === undefined || Array.isArray(profile.limbs) && profile.limbs.every(profileText)));
+
 /**
  * **What a skill is expected to bring from a start** (`ProfileReading.expect`), in life, a share
  * of a body's full life: the share done; the struck body's life its blows take; the seconds its
@@ -550,8 +580,12 @@ function readSkillDigest(part: ReturnType<typeof executorPart> | null, spec: Bod
   return digestOf({ action: does, executor: executor && (({ name: _, ...rest }) => rest)(executor), data });
 }
 
-/** A ground technique's digest: its config, as its stand-up holds it. */
-export const techniqueDigest = (technique: PartConfig): string => digestOf(technique);
+/** A ground technique's digest: its config and the body's records its part reads. */
+export function techniqueDigest(parts: PartLookup, spec: BodySpec, technique: PartConfig): string {
+  const keys = parts.of("technique", technique).reads?.(technique) ?? [];
+  const body = bodyKey(spec), data = keys.map((key) => digestOf((dataOf(key) as Readonly<Record<string, unknown>>)[body] ?? null));
+  return data.length ? digestOf({ technique, data }) : digestOf(technique);
+}
 
 /** What a profile of a skill of digest `skill`, read by a body of `spec` at `hz`, its senses `reaction` s late (null for none), its mind's driver at `rate` Hz, its command `delay` steps late, must have been measured on. */
 export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null, rate: number, delay: number): Measured =>
@@ -624,9 +658,9 @@ export const groundStart = (from: string): Postures => ({ own: from, target: "no
  * null from a position none began at; and how it is priced, a sentence (`priced`): measured, or not,
  * and why (no drill measured it, or its profile is stale, `staleness`).
  */
-export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, delay: number, profiles: readonly Profile[] = dataOf("edge-profiles")): {
+export function edgeExpected(parts: PartLookup, spec: BodySpec, technique: PartConfig, hz: number, delay: number, profiles: readonly Profile[] = dataOf("edge-profiles")): {
   readonly expected: ((from: string) => Expected | null) | null; readonly priced: string } {
-  const found = profileFor(profiles, measuredOn(spec, techniqueDigest(technique), hz, null, hz, delay));
+  const found = profileFor(profiles, measuredOn(spec, techniqueDigest(parts, spec, technique), hz, null, hz, delay));
   if (!found) return { expected: null, priced: "no drill measured it" };
   if (found.stale !== null) return { expected: null, priced: found.stale };
   const profile = found.profile;
