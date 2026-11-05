@@ -131,6 +131,57 @@ test("profile neighbours include pruned ties and isolate scratch across starts, 
     ends: [{ at: "standing", share: 1 }], exit: { range: 1 } });
 });
 
+test("nested profile reads keep clamped coordinates for pruned ties", () => {
+  const spec = modelSpec("workshop-fighter"), hp = spec.wounds.hp.value;
+  const trial = (range, dealt) => ({ start: { range, phase: "clear" }, done: true, dealt, taken: 0,
+    seconds: .25, recovers: .5, down: false, end: "standing" });
+  const measured = { body: "", spec: "", skill: "synthetic", hz: 120, reaction: null };
+  const inner = profileReading({ measured, target: null, trials: Array.from({ length: 10 }, () => ({
+    ...trial(0, 2), start: { range: 0, phase: "clear", velocity: [9, -9], window: [1, -1] },
+  })) }, spec);
+  let nested = 0;
+  const first = { ...trial(1, 1), get dealt() {
+    nested++;
+    assert.equal(inner.rate({ range: 0, phase: "clear", velocity: [9, -9], window: [1, -1] }, spec), (2 / hp) / .75);
+    return 1;
+  } };
+  const outer = profileReading({ measured, target: null, trials: [first,
+    ...Array.from({ length: 8 }, () => trial(1, 1)), trial(1.1, 3), trial(1.1 + 5e-11, 5), trial(1.1 + 2e-10, 100),
+  ] }, spec);
+  const actual = outer.expect({ range: 1, phase: "clear" }, spec);
+  assert.ok(nested > 0, "the outer aggregation queries the other sample before its pruned tie");
+  assert.deepEqual(actual, { done: 1, dealt: 17 / 11 / hp, seconds: .25, recovers: .5, down: 0,
+    ends: [{ at: "standing", share: 1 }] });
+});
+
+test("nested profile reads keep the outer neighbours and returned readings", () => {
+  const spec = modelSpec("workshop-fighter"), hp = spec.wounds.hp.value;
+  const trial = (range, dealt) => ({ start: { range, phase: "clear" }, done: true, dealt, taken: 0,
+    seconds: .25, recovers: .5, down: false, end: "standing", exit: { range } });
+  const measured = { body: "", spec: "", skill: "synthetic", hz: 120, reaction: null };
+  const inner = profileReading({ measured, target: null, trials: [
+    ...Array.from({ length: 10 }, () => trial(0, 1)), ...Array.from({ length: 10 }, () => trial(3, 50)),
+  ] }, spec);
+  const expected = (dealt, range) => ({ done: 1, dealt: dealt / hp, seconds: .25, recovers: .5, down: 0,
+    ends: [{ at: "standing", share: 1 }], exit: { range } });
+  let nested = 0;
+  const first = { ...trial(1, 2), get dealt() {
+    nested++;
+    assert.deepEqual(inner.expect({ range: 3, phase: "clear" }, spec), expected(50, 3));
+    return 2;
+  } };
+  const outer = profileReading({ measured, target: null, trials: [first,
+    ...Array.from({ length: 9 }, () => trial(1, 2)), ...Array.from({ length: 10 }, () => trial(2, 20)),
+  ] }, spec);
+  const at = { range: 1, phase: "clear" }, held = outer.expect(at, spec);
+  assert.ok(nested > 0, "the outer aggregation reaches the nested profile read");
+  assert.deepEqual(held, expected(2, 1));
+  assert.equal(outer.rate(at, spec), (2 / hp) / .75);
+  assert.deepEqual(outer.expect({ range: 2, phase: "clear" }, spec), expected(20, 2));
+  assert.deepEqual(inner.expect({ range: 0, phase: "clear" }, spec), expected(1, 0));
+  assert.deepEqual(held, expected(2, 1));
+});
+
 /**
  * **A strike priced by hand reads its tries of its own limb** (`record`): a stomp its executor gave
  * up on before committing (`stalled`) is a try that landed nothing, so a foot that keeps failing
