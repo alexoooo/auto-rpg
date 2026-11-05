@@ -20,7 +20,8 @@ import { turnAboutToRef } from "../math/turn.ts";
  * **Solver conditioning** (`SOLVER`): the solver's iteration counts are named here and nowhere
  * else (`physics-bakeoff`). Bodies never sleep: a sleeping body reads a perfect zero.
  *
- * **A save** is each body's pose, each link's handle and release (`Link`) and Rapier's snapshot.
+ * **A save** is each body's pose and pending-force reset, each link's handle and release (`Link`)
+ * and Rapier's snapshot.
  * The snapshot restores as a new world, so the module holds handles and finds its objects again on
  * a load (`rebinds`, `joints`), each link's joint checked to be of its type between its bodies. The poses
  * are in it because Rapier holds a pose in single precision: a pose the solver has written is its
@@ -32,7 +33,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 type Rapier = typeof RAPIER;
 
 /** The vendored archive's identity (`vendor/rapier/README.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-12/sha256:317197f478ddd9b7a09846c1683269ed52d583e91f7f283e009e689e25e75318";
+const REVISION = "rapier/adapter-13/sha256:317197f478ddd9b7a09846c1683269ed52d583e91f7f283e009e689e25e75318";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -79,12 +80,12 @@ const SHAPES_MOST = 65536;
  * shape in. A numeric setting.
  */
 const SHAPE_TEST_MARGIN = 0.01;
-/** The numbers of a body's pose in a save: its position and its turn. A numeric setting. */
-const SAVED_POSE = 7;
+/** A body's saved numbers: its position, turn and its place among the next step's force resets. */
+const SAVED_BODY = 8;
 
 /** A save's header, in doubles: its version (`SAVE_VERSION`), the body count, the grip count, the anatomical joint count and the world's digest. */
 const HEADER = 5;
-const SAVE_VERSION = -5;
+const SAVE_VERSION = -6;
 
 /** A 53-bit digest of `text` (cyrb53): exact in a double, and the same in every engine. */
 function digest(text: string): number {
@@ -585,16 +586,19 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     engine: profileName(coordinateAngularLimits, pointContactFriction), revision, rapier: R, get raw() { setMotors(); return raw; }, gravity: g,
     save() {
       setMotors();
-      // Rapier's snapshot follows the header, body poses, and each link's handle and release exclusion, grips then
+      // Rapier's snapshot follows the header, body poses and pending-force resets, and each link's handle and release exclusion, grips then
       // joints: the solver holds a pose in single precision, and a pose before its first step is as it was built.
       const links = [...grips, ...jointSlots];
-      const snapshot = raw.takeSnapshot(), poses = new Float64Array(HEADER + SAVED_POSE * bodies.size + 2 * links.length);
+      const forceOrder = new Map([...forced].map((body, i) => [body, i + 1]));
+      const snapshot = raw.takeSnapshot(), poses = new Float64Array(HEADER + SAVED_BODY * bodies.size + 2 * links.length);
       poses[0] = SAVE_VERSION; poses[1] = bodies.size; poses[2] = grips.length; poses[3] = jointSlots.length; poses[4] = worldDigest();
       let k = HEADER;
-      for (const { pose } of bodies) {
+      for (const body of bodies) {
+        const { pose } = body;
         const p = pose.position, q = pose.rotation;
         poses[k++] = p.x; poses[k++] = p.y; poses[k++] = p.z;
         poses[k++] = q.x; poses[k++] = q.y; poses[k++] = q.z; poses[k++] = q.w;
+        poses[k++] = forceOrder.get(body) ?? 0;
       }
       for (const link of links) poses[k++] = link.handle ?? -1;
       for (const link of links) poses[k++] = link.suppressed ? 1 : 0;
@@ -611,11 +615,12 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       if (header[0]! < 0 && header[0]! > SAVE_VERSION) throw new Error("that save is in an older format: make it again");
       if (header[0] === SAVE_VERSION && header[4] !== worldDigest()) throw new Error("that save has other bodies, joints or colliders, or a different physics configuration: it was made in a world built otherwise");
       const isCount = (n: number): boolean => Number.isInteger(n) && n >= 0;
-      const links = [...grips, ...jointSlots], linkCount = gripCount + jointCount, head = 8 * (HEADER + SAVED_POSE * count + 2 * linkCount);
+      const links = [...grips, ...jointSlots], linkCount = gripCount + jointCount, head = 8 * (HEADER + SAVED_BODY * count + 2 * linkCount);
       const next = header[0] === SAVE_VERSION && isCount(count) && isCount(gripCount) && isCount(jointCount)
         && head < bytes.length ? R.World.restoreSnapshot(bytes.subarray(head)) : null;
       if (!next) throw new Error("these bytes are not a Rapier world");
-      const linkData = new Float64Array(bytes.slice(8 * (HEADER + SAVED_POSE * count), head).buffer);
+      const bodyData = new Float64Array(bytes.slice(8 * HEADER, 8 * (HEADER + SAVED_BODY * count)).buffer);
+      const linkData = new Float64Array(bytes.slice(8 * (HEADER + SAVED_BODY * count), head).buffer);
       const handles = linkData.subarray(0, linkCount), suppressed = linkData.subarray(linkCount);
       const restored = [...handles].filter((h) => h !== -1);
       // Every impulse joint the save holds is one of its links, of the type the link was made with, between its two bodies.
@@ -624,6 +629,14 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         && next.integrationParameters.pointContactFriction === pointContactFriction
         && count === bodies.size && gripCount === grips.length && jointCount === jointSlots.length
         && new Set(restored).size === restored.length && next.impulseJoints.len() === restored.length;
+      const pending: RapierBody[] = [];
+      let bodyIndex = 0;
+      for (const body of bodies) {
+        const order = bodyData[bodyIndex++ * SAVED_BODY + SAVED_BODY - 1]!;
+        if (!Number.isInteger(order) || order < 0 || order > count || (order > 0 && pending[order - 1] !== undefined)) { same = false; break; }
+        if (order > 0) pending[order - 1] = body;
+      }
+      for (let i = 0; same && i < pending.length; i++) same &&= pending[i] !== undefined;
       // Rapier's own set reads a handle whole; its JavaScript set reads the index alone, and takes a body made in a removed one's place for it.
       for (const body of bodies) same &&= next.bodies.raw.contains(body.rigid.handle);
       for (let i = 0; same && i < links.length; i++) {
@@ -651,13 +664,15 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         links[i]!.handle = handles[i] === -1 ? null : handles[i]!;
         links[i]!.suppressed = suppressed[i] === 1;
       }
-      // A save may hold a force asked for its next step; every body's is reset after that step.
-      for (const body of bodies) forced.add(body);
-      const poses = new Float64Array(bytes.slice(8 * HEADER, 8 * (HEADER + SAVED_POSE * count)).buffer);
+      // Reset exactly the pending bodies in request order, including an explicit zero ask.
+      forced.clear();
+      for (const body of pending) forced.add(body);
       let k = 0;
-      for (const { pose } of bodies) {
-        pose.position.set(poses[k++]!, poses[k++]!, poses[k++]!);
-        pose.rotation.set(poses[k++]!, poses[k++]!, poses[k++]!, poses[k++]!);
+      for (const body of bodies) {
+        const { pose } = body;
+        pose.position.set(bodyData[k++]!, bodyData[k++]!, bodyData[k++]!);
+        pose.rotation.set(bodyData[k++]!, bodyData[k++]!, bodyData[k++]!, bodyData[k++]!);
+        k++;
       }
     },
     addBody(pose, shapes, mass, { ccd = false, materials: givenMaterials = [] } = {}) {

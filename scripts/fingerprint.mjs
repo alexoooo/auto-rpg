@@ -60,6 +60,7 @@ import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
+import { seededBareRecipe } from "../research/bare-recipe.mjs";
 import { surface } from "./character-lab/contact.mjs";
 import {
   contactPatch, forearmExpansion, gripDistances, gripGap, skinPart, skinRegions, surfaceIndex, wristAreaRatio,
@@ -411,6 +412,7 @@ const CASES = [
   controlled("reptile", "workshop-fighter", "option,option", { left: rightHand("empty"), right: rightHand("sword") }),
   ...elsewhere(),
   ...DATA_CASES,
+  { name: "bare: seeded nonzero network", run: () => arena(seededBareRecipe()) },
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),
   ...[1, 2].map((seed) => ({ name: `crypt fight, seed ${seed}`, run: () => cryptFight(seed) })),
   ...["workshop-fighter", "workshop-rogue"].flatMap((model) => [

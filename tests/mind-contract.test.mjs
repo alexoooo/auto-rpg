@@ -1,7 +1,7 @@
 /** Command delivery, suspension and restoration, independent of skill capability. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Vector3 } from "../src/core/math/vector.ts";
+import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { poseAngles } from "../src/core/control/kinematics.ts";
 import { GUARD } from "../src/core/skills/guard/guard.ts";
@@ -60,4 +60,30 @@ test("a body's command is applied the world's delay after it is sent, none befor
   assert.deepEqual(played(14, 5, 8), after);
   assert.deepEqual(after, wanted(14, 5, 8));
   embodied.dispose(); world.dispose();
+});
+
+test("a fresh physics fork resets exactly the forces pending at its save", async () => {
+  const engine = await freshEngine("rapier");
+  const make = () => {
+    const world = engine.createPhysics({ hz: 120, gravity: false });
+    const bodies = [0, 3, 6].map((x, i) => world.addBody(
+      { name: `box ${i}`, position: new Vector3(x, 2, 0), rotation: Quaternion.Identity() },
+      [{ kind: "box", centre: [0, 0, 0], size: [1, 1, 1] }],
+      { mass: 1, centre: [0, 0, 0], moments: [1, 1, 1], orientation: Quaternion.Identity() },
+    ));
+    return { world, bodies };
+  };
+  const original = make(), fork = make();
+  try {
+    original.world.step(1 / 120);
+    original.bodies[1].applyForce(new Vector3(), original.bodies[1].pose.position);
+    original.bodies[0].applyForce(new Vector3(2, 0, 0), original.bodies[0].pose.position);
+    original.bodies[0].applyTorque(new Vector3(0, 1, 0));
+    fork.world.load(original.world.save());
+    assert.deepEqual(fork.world.save(), original.world.save());
+    for (let i = 0; i < 3; i++) {
+      original.world.step(1 / 120); fork.world.step(1 / 120);
+      assert.deepEqual(fork.world.save(), original.world.save(), `continuation step ${i + 1}`);
+    }
+  } finally { original.world.dispose(); fork.world.dispose(); }
 });

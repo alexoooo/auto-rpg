@@ -11,7 +11,7 @@
  * With `--sites` it plays one arena bout instead and prints where its steps allocate: by file, by
  * function (its own body's), and by function with everything it calls.
  *
- *   node research/step-garbage.mjs --sites [--left workshop-fighter] [--right workshop-rogue]
+ *   node research/step-garbage.mjs --sites [--left workshop-fighter] [--right workshop-rogue] [--bare]
  *
  * The bytes and the counts are the same on any machine. The times are wall time on the machine it
  * runs on: read them on a quiet one, and compare rows of one run.
@@ -25,11 +25,13 @@ import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
 import { allocatedIn, standBodies } from "../tests/harness/garbage.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
+import { seededBareRecipe } from "./bare-recipe.mjs";
 
 const { values } = parseArgs({ options: {
   model: { type: "string", default: "crypt-skeleton" }, bodies: { type: "string", default: "2,8,16,32,48" }, steps: { type: "string", default: "1200" },
   one: { type: "string" }, sites: { type: "boolean", default: false },
   left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
+  bare: { type: "boolean", default: false },
 } });
 const steps = Number(values.steps), SAMPLED = 240, MIB = 1048576;
 
@@ -64,7 +66,8 @@ async function row(count) {
 
 /** Where one bout's steps allocate. */
 async function sites() {
-  const { world, duel, dispose } = await buildBout({ left: values.left, right: values.right, capSeconds: 60 }, { engine: BOUT_ENGINE });
+  const recipe = values.bare ? seededBareRecipe(values.left) : { left: values.left, right: values.right };
+  const { world, duel, dispose } = await buildBout({ ...recipe, capSeconds: 60 }, { engine: BOUT_ENGINE });
   world.step(2 * world.hz);
   let taken = 0;
   const { bytes, self, within, files } = await allocatedIn(() => { while (!duel.verdict) { world.step(); taken++; } });
@@ -72,7 +75,7 @@ async function sites() {
   const line = ([name, size]) => `| ${(size / taken / 1024).toFixed(1)} | ${(100 * size / bytes).toFixed(1)} | ${name} |`;
   const top = (map, most) => [...map].sort((a, b) => b[1] - a[1]).slice(0, most).map(line).join("\n");
   const head = "| KiB a step | Of all, % | Where |\n|---|---|---|";
-  console.log(`Node, an arena bout in the core world, ${CORE_ENGINE}, 120 Hz; ${values.left} against ${values.right}, ${taken} steps to its verdict; ${(bytes / taken / 1024).toFixed(0)} KiB allocated a step\n`);
+  console.log(`Node, an arena bout in the core world, ${CORE_ENGINE}, 120 Hz; ${recipe.left} against ${recipe.right}${values.bare ? ", seeded bare networks" : ""}, ${taken} steps to its verdict; ${(bytes / taken / 1024).toFixed(0)} KiB allocated a step\n`);
   console.log(`By file, each function's own body\n\n${head}\n${top(files, 16)}\n`);
   console.log(`By function, its own body\n\n${head}\n${top(self, 30)}\n`);
   console.log(`By function, with everything it calls\n\n${head}\n${top(within, 45)}`);

@@ -36,6 +36,7 @@ commands, without a planner or skill-selection sweep.
 | Case | Concrete justification |
 | --- | --- |
 | `a body's command is applied the world's delay after it is sent, none before, none again after its level leaves full, and across a save and load` | Check muscle activation, assist force and hand requests at exact queue positions; check that suspension discards old commands and saving restores in-flight values. A body can meet a skill's outcome with an early, late or stale command, so a drill cannot establish this timing contract. |
+| `a fresh physics fork resets exactly the forces pending at its save` | Detect extra or reordered force resets after loading into a fresh world, which alter Rapier's saved modification flags despite matching body poses. Compare whole saved worlds across steps with a nonzero force, an explicit zero ask and an untouched body; a skill drill does not establish exact saved continuation. |
 
 ## Calculation and data regressions
 
