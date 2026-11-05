@@ -78,6 +78,17 @@ test("a recovery loadout variant has its own cached settings and leaves the empt
   assert.deepEqual(first, saved);
 });
 
+test("a recovery record selects loaded held support without changing the base recipe", () => {
+  const base = stepUpTuning(modelSpec("workshop-fighter")), tuning = { ...base, heldSupport: "loaded" };
+  assert.deepEqual(TECHNIQUES["front-sit-back"].faults({ kind: "front-sit-back", tuning }, partLookup), []);
+  assert.equal(stepUpRecipe(tuning).heldSupport, "loaded");
+  assert.equal(stepUpRecipe(tuning, SIT_BACK).heldSupport, "loaded");
+  assert.equal(stepUpRecipe(base).heldSupport, undefined);
+  for (const heldSupport of [true, "any", ""]) assert.deepEqual(
+    TECHNIQUES["front-sit-back"].faults({ kind: "front-sit-back", tuning: { ...base, heldSupport } }, partLookup),
+    ["tuning: invalid step-up settings"]);
+});
+
 test("momentum-aware side entries preserve the back roll and recipes without side rolls", () => {
   const base = stepUpTuning(modelHolding("workshop-fighter", { left: "buckler", right: "sword" }));
   const tuning = { ...base, sideSwing: "momentum" }, before = stepUpRecipe(base), after = stepUpRecipe(tuning);

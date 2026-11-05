@@ -29,6 +29,7 @@ interface StepUpSettings {
   readonly roll?: RollPoses;
   /** On a side, swing first when the body's momentum would take it back. */
   readonly sideSwing?: "momentum";
+  readonly heldSupport?: Recipe["heldSupport"];
   readonly stages: StageTimings;
 }
 
@@ -66,6 +67,7 @@ export const validStepUp = (settings: unknown): boolean => isObject(settings) &&
   && finite(settings.climb) && settings.climb > 0 && validTimings(settings.stages)
   && (settings.over === undefined || settings.over === "left" || settings.over === "right")
   && (settings.sideSwing === undefined || settings.sideSwing === "momentum")
+  && (settings.heldSupport === undefined || settings.heldSupport === "loaded")
   && (settings.loadouts === undefined || isObject(settings.loadouts) && Object.values(settings.loadouts).every(validStepUp));
 
 /** The sit-back's own stages, each timed by its record (`SitBackTuning`). */
@@ -124,7 +126,7 @@ function tunedRecipe(tuning: StepUpTuning, base: Recipe): Recipe {
     const time = timed("roll ");
     return stages.map(stage => time(tuning.sideSwing && stage.name === "swing" ? { ...stage, coast: true as const } : stage));
   };
-  return deepFreeze({ ...base, progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds,
+  return deepFreeze({ ...base, ...(tuning.heldSupport ? { heldSupport: tuning.heldSupport } : {}), progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds,
     ...(tuning.rest ? { restSeconds: tuning.rest.seconds, restWiden: tuning.rest.widen } : {}) },
     roll: { back: (tuning.over || tuning.roll ? rollOver(tuning.over ?? "right", tuning.roll) : base.roll.back).map(timed("roll ")),
       left: sideRoll("left"), right: sideRoll("right") },

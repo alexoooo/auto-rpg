@@ -159,6 +159,8 @@ export type Stage = PoseStage | BearStage;
  * segments and joints of the bodies it is for, and nothing in the player does.
  */
 export interface Recipe {
+  /** Use loaded item contacts as force patches under nearby hands; absent, use the hands' geometric ends. */
+  readonly heldSupport?: "loaded";
   /** Intermediate transition tolerances; final standing is verified by the recovery host. */
   readonly progress?: {
     readonly speed?: number;

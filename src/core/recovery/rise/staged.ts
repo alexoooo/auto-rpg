@@ -163,7 +163,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const settleSpeed = recipe.progress?.settleSpeed ?? SLOW, settleSeconds = recipe.progress?.settleSeconds ?? STILL_SECONDS;
   const restSeconds = recipe.progress?.restSeconds ?? null, restWiden = recipe.progress?.restWiden ?? 1;
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
-  const upright = uprightness(own.built), made = riseLimbs(own), ends = own.spec.ends ?? [];
+  const upright = uprightness(own.built), made = riseLimbs(own, recipe), ends = own.spec.ends ?? [];
   const feet = footStatesOf(own.built), footSegments: ReadonlySet<ReadSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
   const lying = { turn: new Quaternion(), way: new Vector3() }, belly = bellyOf(own.spec);
   const coasts = rollCoast();
