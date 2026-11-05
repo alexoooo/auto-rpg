@@ -112,9 +112,10 @@ export interface OwnBody {
 | `hands.request(hand, pose)` | a request into slots made once, one per posable hand |
 
 The runtime owns the storage and the mind writes it. Its contents persist between steps: what
-`decide` writes goes out with the next step's answer, as now. A hand request keeps
-today's meaning: it is checked as it is made, sets the hand's `requested` pose at once, keeps its
-order for the sheet, and a second request for one hand within a step is refused, a throw. The
+`decide` writes goes out with the next step's answer, as now. The proposed hand request
+is checked as it is made, sets the hand's `requested` pose at once, keeps its order for the sheet,
+and refuses a second request for one hand within a step, a throw. This restricts the current
+contract, which rejects duplicate hands within one call but accepts separate calls in order. The
 answer clears the requests. `MuscleReading` is `MuscleDriver` without the command, the level and
 the memory; motor control takes the reading and `control.muscles`. `BodyControl` carries no
 equipment: `equipmentPort` has no caller.
@@ -235,3 +236,48 @@ The architecture's Mind section changes with slices 2–4.
 - The fingerprint, command timing, sensing delay, replay and supported forks are unchanged.
 - The boundary's allocation sites in the table are gone and step time is unchanged in paired
   readings.
+
+## Review
+
+The problem is clear and the direction is sensible. The central problem is the entanglement of
+input, output, memory, lifecycle and scheduling; optional members and the mixed `OwnBody` are
+symptoms. Making the existing mirror the single execution boundary removes a scheduling path
+without adding an observation representation. Separating readings from commands, requiring
+explicit memory and moving reporting and disposal to the construction result support that goal.
+Keep the four-member `Mind`, orders outside this work and the five-slice breakdown. Resolve these
+points before implementing the affected slices:
+
+- **Hand requests and fixed storage.** The [validator](../../src/core/build/hand-poses.ts)
+  rejects duplicate hands within one request array; the [mirror](../../src/core/mind/mirror.ts)
+  retains separate calls in order. One slot per hand with refusal of subsequent requests changes
+  accepted behavior. Preserve the call semantics or justify the restriction as a separate behavior
+  change; it cannot satisfy the promise that every slice preserves behavior exactly.
+- **Worker sequencing and ownership.** Show the main-thread and seat sequences separately: the
+  writer and mirror live on different threads, so the proposed `answer` function cannot run whole
+  in the seat. State the synchronization invariant explicitly: the main thread cannot overwrite
+  inbound numbers while the previous decision can still read them. The
+  [preparing hook](../../src/core/mind/minds.ts) waits before writing for this reason. Share the
+  body-side construction and motor, answer and decision operations where their ownership permits
+  it; keep the cross-thread wait visible in the sequence.
+- **Restoration and command state.** Specify how a mind with derived caches learns of a load:
+  the proposed contract gives it neither the world nor a load notification. Choose ordinary-call
+  reconstruction or an explicit restoration hook on the construction result. Distinguish the
+  `BodyControl` interface from its saved plain storage: `hands.request` is a function and cannot
+  enter the state graph. Name the saved hand-request count and order, and the command arrays'
+  aliases, so loading preserves pending output.
+- **Observer ownership and timing.** Specify how skill observers register, unsubscribe and keep
+  their order under the command layers' `observe`. Define the first observation and the first
+  step after interruption. Moving the call into `hosting.move` preserves the listener set's
+  behavior only if these details remain explicit, whoever has the body.
+- **Evidence for preservation.** Map each claim to existing evidence. The
+  [command-contract test](../../tests/mind-contract.test.mjs) covers delivery, suspension and
+  restoration with commands in flight; selected cases from the
+  [worker-equivalence diagnostic](../../research/minds-apart.mjs) cover scheduling across threads.
+  Name the continuation recipe for supported forks. Give the bare entrant a nonzero recipe that
+  exercises its network and preserves its output-before-decision timing; zero outputs provide
+  weak evidence. The default fingerprint alone does not establish all of these claims.
+- **Performance acceptance.** Require no measurable step-time regression under the named paired
+  protocol. Exact equality applies to simulation results; elapsed time varies between runs.
+- **Minimum delay's scope.** Removing zero-delay mind execution is justified by the supported
+  callers. Enforce the minimum at embodiment unless a concrete requirement also justifies
+  restricting worlds that run muscles without minds.
