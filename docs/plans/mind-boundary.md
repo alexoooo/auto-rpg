@@ -90,7 +90,11 @@ export interface OwnBody {
   readonly spec: BodySpec;
   /** How long one step is, in seconds. */
   readonly dt: number;
-  /** How many steps it takes for a command to reach the body. At least 1. */
+  /**
+   * The world's command delay (`World.delay`), at least 1: a choice `think` makes moves the body
+   * this many steps later. What `act` writes waits one step less (`heldSteps`), so at a delay of
+   * 1 it moves the body in the same step.
+   */
   readonly delay: number;
   /** The body as it is now: where each part is and how it moves. Updated before each call. */
   readonly built: ReadBody;
@@ -301,7 +305,8 @@ unchanged. Each slice's contract is complete for its own code, so none needs a t
    keeps its timing: `think` keeps what it would write in the mind's memory, and `act` writes it
    before anything else, so it goes out with the same answer as now.
 5. **The bare entrant as a Mind.** `think` first keeps the pulls its learner holds, in an array
-   made once, then reads its inputs and decides new pulls; `act` writes the kept pulls into
+   in its `state`, made once (they wait there from one step's `think` to the next step's `act`, so
+   a save must carry them), then reads its inputs and decides new pulls; `act` writes the kept pulls into
    `control.muscles`. A decision goes out when it does now. `policyMind`, `Policy` and the action checks are deleted where no other importer
    remains, with `policyMind`'s unused equipment parameter. `observeBody` stays for inspection
    (`PhysicalBody.observe`, the Lab).
