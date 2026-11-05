@@ -81,3 +81,9 @@ export function navigatorOf(parts: PartLookup, spec: BodySpec, config: PartConfi
   const chosen = config ?? GAME_NAVIGATION;
   return parts.of("navigation", chosen).make(spec, chosen);
 }
+
+declare module "../parts/lookup.ts" {
+  interface RoleParts {
+    readonly navigation: NavigatorPart;
+  }
+}

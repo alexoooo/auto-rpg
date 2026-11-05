@@ -1,5 +1,4 @@
 import { Vector3 } from "../core/math/vector.ts";
-import { loadData } from "../core/data/store.ts";
 import type { EngineName } from "../core/engine/engines.ts";
 import type { Heading } from "../core/intent/orders.ts";
 import type { StrikeChoice } from "../core/command/commands.ts";
@@ -8,7 +7,7 @@ import { physicalReading } from "../core/observation.ts";
 import { attachment } from "../core/read-body.ts";
 import type { Side } from "../core/spec/body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
-import { defaultMind, treeData } from "../entrants/game.ts";
+import { defaultMind, treeData, loadData, phaseLabels } from "../entrants/game.ts";
 import { SIDES, type Duel, type DuelRecipe, type OrdersEntry, type Verdict } from "../arena/duel.ts";
 import { arenaPlayback } from "../arena/playback.ts";
 import { teamOfOne, type TeamOfOne } from "../arena/team.ts";
@@ -18,8 +17,8 @@ import { fighterReading, type FighterReading } from "../arena/fighter-readout.ts
 import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues, type SoundCue } from "../audio/cues.ts";
 import { buildBout } from "../evaluation/bout.ts";
-import { choiceWatch } from "../ui/choices.ts";
-import type { Inspected } from "../ui/mind-inspector.ts";
+import { choiceWatch } from "../arena/choice-watch.ts";
+import type { Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
 import type { Stage } from "./stage.ts";
 
@@ -154,7 +153,7 @@ export async function duelStage(start: DuelStart): Promise<Stage<DuelCard, DuelI
   duel.play(start.tape);
   if (other && beside) other.duel.play(beside.tape);
   const led: TeamOfOne | null = start.person ? teamOfOne(duel, start.person, { kind: "party", picks: false }) : null;
-  const readings = Object.fromEntries(SIDES.map((side) => [side, fighterReading(duel.duelists[side], () => duel.blows)])) as Record<Side, ReturnType<typeof fighterReading>>;
+  const readings = Object.fromEntries(SIDES.map((side) => [side, fighterReading(duel.duelists[side], () => duel.blows, phaseLabels(duel.duelists[side].mind))])) as Record<Side, ReturnType<typeof fighterReading>>;
   const time = () => duel.state.start + (duel.verdict?.time ?? duel.clock);
   let feedStopped = false;
   const sampling = world.afterStep(() => {

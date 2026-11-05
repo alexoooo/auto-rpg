@@ -7,7 +7,7 @@ import type { BodyHost } from "./host.ts";
 import type { Experiment, Mind, OwnBody } from "./mind.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import { mirrorBody, type Mirror, type MirrorChannel, type MirrorStatics } from "./mirror.ts";
-import { answerOn, decideOn, motorPart } from "./mind.ts";
+import { answer, think, motorPart } from "./mind.ts";
 import { deriveSensed } from "../perception/openings.ts";
 import { specDigest } from "../skills/framework/profile.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -60,7 +60,7 @@ export type ReportNow = Omit<MindReport, "menu">;
 
 /**
  * **What a seat's mind says of itself**: who has its body (`Mind.has`) and its report, as it was
- * made and then with each answer (`answerOn`), before the step's decision, so that what the world
+ * made and then with each answer (`answer`), before the step's decision, so that what the world
  * reads of it never waits on a decision. What it shows a person (`MindReport.engagement`) is said
  * as it is made and with the answer to a step asked with `shown`, and is otherwise as it last said
  * it: no rule or Commander reads it.
@@ -107,7 +107,7 @@ export interface Seat {
   /** Ask it `ask`, after every ask before it. */
   ask(ask: SeatAsk): void;
   /**
-   * Wait until its last step ask is answered (`answerOn`): with a delay, its motor part and its
+   * Wait until its last step ask is answered (`answer`): with a delay, its motor part and its
    * command, while its mind may still decide; with none, its whole step.
    */
   answer(): void;
@@ -128,7 +128,7 @@ interface Seated {
   readonly moves: ReturnType<typeof motorPart>;
   readonly made: MindMade;
   menu?: readonly MenuEntry[] | null;
-  /** Whether its last step's decision is still to come (`decideOn`). */
+  /** Whether its last step's decision is still to come (`think`). */
   deciding: boolean;
 }
 
@@ -136,7 +136,7 @@ interface Seated {
 export interface SeatHost {
   /**
    * Carry out `ask` for seat `seat`, whose numbers are `channel`'s: a step at a delay as far as its
-   * answer (`answerOn`), its decision left to come before anything else asked of the seat
+   * answer (`answer`), its decision left to come before anything else asked of the seat
    * (`decide`).
    */
   handle(seat: number, ask: SeatAsk, channel: MirrorChannel): void;
@@ -201,7 +201,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
   const decide = (seated: Seated | undefined): void => {
     if (!seated?.deciding) return;
     seated.deciding = false;
-    decideOn(seated.mind, seated.mirror, seated.recipe.dt);
+    think(seated.mind, seated.mirror, seated.recipe.dt);
   };
   return {
     decide: (seat) => decide(seats.get(seat)),
@@ -218,7 +218,8 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
           if (ask.orders !== undefined) seated.orders.now = ask.orders;
           seated.mirror.refresh({ dynamics: true });
           for (const listener of seated.listeners) listener(ask.at.steps, ask.at.time);
-          seated.deciding = answerOn(seated.mind, seated.moves, seated.mirror, seated.recipe.statics.delay, seated.recipe.dt);
+          answer(seated.mind, seated.moves, seated.mirror, seated.recipe.dt);
+          seated.deciding = true;
           return;
         }
         case "idle": {

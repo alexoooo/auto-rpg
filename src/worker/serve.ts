@@ -2,6 +2,7 @@ import type { FromWorker, ToWorker, WorldInput } from "./protocol.ts";
 import { teamStage, type Stage } from "./stage.ts";
 import { duelStage } from "./duel-stage.ts";
 import { cryptStage } from "./crypt-stage.ts";
+import { pageMinds } from "./minds.ts";
 
 /** The most real time one pass steps the world through, s: a frame of a screen at 30 fps. Behind it the world plays in slow motion. */
 const CATCH_UP_SECONDS = 1 / 30;
@@ -80,13 +81,13 @@ export function serve(port: Port, close: () => void): void {
   port.addEventListener("message", ({ data }) => {
     switch (data.kind) {
       case "team":
-        build(teamStage(data.recipe, data.aftermath));
+        build(teamStage(data.recipe, data.aftermath, { minds: pageMinds }));
         return;
       case "duel":
         build(duelStage(data.start));
         return;
       case "crypt":
-        build(cryptStage(data.start));
+        build(cryptStage(data.start, { minds: pageMinds }));
         return;
       case "input":
         try {

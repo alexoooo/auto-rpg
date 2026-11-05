@@ -1,4 +1,4 @@
-import type { DataKey } from "../data/store.ts";
+import { loadData, type DataKey, type DataLoaders } from "../data/store.ts";
 import type { MindConfig } from "../mind/config.ts";
 import type { Controller, MindPreset } from "../mind/controller.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -12,6 +12,7 @@ import { slotsOf, type Part, type PartConfig, type Role } from "./parts.ts";
  * the order a picker offers them.
  */
 export interface CatalogLists {
+  readonly data?: readonly DataLoaders[];
   readonly minds: readonly Controller[];
   readonly parts: readonly Readonly<Record<string, Part>>[];
   readonly entrants: readonly Entrant[];
@@ -50,6 +51,10 @@ export function partIn(config: unknown, kind: string): PartConfig | null {
  * (`src/core/toolkit.ts`).
  */
 export interface Catalog {
+  /** Every registered data key, in registration order. */
+  readonly dataKeys: readonly DataKey[];
+  /** Load registered data before building a mind that reads it. */
+  loadData(keys: Iterable<DataKey>): Promise<void>;
   /**
    * **Every controller, by its mind's kind** (its defaults' `kind`): the toolkit's, then each
    * entrant's; the one place a kind is made, matched to a body.
@@ -133,6 +138,7 @@ export interface Catalog {
 
 /** Every part, by its kind; every controller by its kind; every preset by id, with its entrant's name; what is wrong with the lists. */
 interface Registry {
+  readonly data: DataLoaders;
   readonly parts: Readonly<Record<string, Part>>;
   readonly controllers: Readonly<Record<string, Controller>>;
   readonly presets: Readonly<Record<string, MindPreset>>;
@@ -149,9 +155,16 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
   let registry: Registry | null = null;
   const registered = (): Registry => {
     if (registry) return registry;
-    const { minds, parts: roles, entrants } = lists();
+    const { minds, parts: roles, entrants, data: dataLists = [] } = lists();
     const parts: Record<string, Part> = {}, controllers: Record<string, Controller> = {}, presets: Record<string, MindPreset> = {}, entrantOf: Record<string, string> = {};
     const faults: string[] = [], names = new Set<string>();
+    const data: Partial<Record<DataKey, () => Promise<unknown>>> = {};
+    for (const loaders of [...dataLists, ...entrants.map((entrant) => entrant.data ?? {})]) {
+      for (const [key, loader] of Object.entries(loaders) as [DataKey, () => Promise<unknown>][]) {
+        if (Object.hasOwn(data, key)) faults.push(`two registrations supply mind data ${JSON.stringify(key)}`);
+        else data[key] = loader;
+      }
+    }
     const add = (kind: string, part: Part, what: string, scope: string | null) => {
       if (scopeOf(kind) !== scope) faults.push(scope === null ? `${what} ${JSON.stringify(kind)} is scoped, and the toolkit's kinds are not` : `${what} ${JSON.stringify(kind)} is not scoped ${scope}:`);
       else if (Object.hasOwn(parts, kind)) faults.push(`${what} ${JSON.stringify(kind)} is another part's kind`);
@@ -178,7 +191,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
         else { presets[id] = preset; entrantOf[id] = entrant.name; }
       }
     }
-    return registry = { parts: Object.freeze(parts), controllers: Object.freeze(controllers), presets: Object.freeze(presets), entrantOf: Object.freeze(entrantOf), faults: Object.freeze(faults) };
+    return registry = { data: Object.freeze(data), parts: Object.freeze(parts), controllers: Object.freeze(controllers), presets: Object.freeze(presets), entrantOf: Object.freeze(entrantOf), faults: Object.freeze(faults) };
   };
   let faults: readonly string[] | null = null;
   /** The lists' faults, then each preset whose tree is not one of parts in their slots (`treeValidation`), or names another entrant's kinds. */
@@ -399,6 +412,8 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
   }
 
   return Object.freeze({
+    get dataKeys() { return Object.freeze(Object.keys(registered().data) as DataKey[]); },
+    loadData: (keys: Iterable<DataKey>) => loadData(keys, registered().data),
     get controllers() { return registered().controllers; },
     get minds() { return registered().presets; },
     get faults() { return faultsOf(); },

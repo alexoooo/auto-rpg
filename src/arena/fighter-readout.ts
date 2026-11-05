@@ -1,6 +1,5 @@
 import { commandsBody } from "../core/body.ts";
 import type { Combatant } from "../core/combatant.ts";
-import { phaseLabels } from "../entrants/game.ts";
 import type { PhysicalBody } from "../core/physical-body.ts";
 import { woundedIn, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -200,9 +199,9 @@ export interface FighterReading {
 }
 
 /** `fighter`'s damage, by its pool and the blows of `blows`, and its recent actions, sampled after each step (`sample`) and read as its HUD shows them (`read`). */
-export function fighterReading(fighter: Combatant, blows: () => readonly LandedBlow[]) {
+export function fighterReading(fighter: Combatant, blows: () => readonly LandedBlow[], labels: Readonly<Record<string, string | null>>) {
   const damage = damageReadout(fighter, blows), history = actionFeed();
-  history.label(phaseLabels(fighter.mind));
+  history.label(labels);
   return {
     /** Sample at `time`, the bout's s; the actions too unless `actions` is false. */
     sample(time: number, actions = true): void {

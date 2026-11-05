@@ -1,38 +1,12 @@
-import type { MotorPart } from "../control/motor-part.ts";
-import type { BalancePart } from "../control/balance-part.ts";
-import type { Controller } from "../mind/controller.ts";
-import type { ExecutorPart } from "../skills/framework/executor-part.ts";
-import type { GaitPart, LocomotionPart } from "../skills/framework/locomotion-part.ts";
-import type { NavigatorPart } from "../navigation/navigator.ts";
 import type { PartConfig, Role } from "./parts.ts";
-import type { TechniquePart } from "../recovery/ground/technique.ts";
-import type { GuardPart } from "../skills/guard/guard-part.ts";
-import type { SupportPart } from "../skills/locomotion/support-part.ts";
-import type { MoveRulePart } from "../skills/locomotion/move-rule-part.ts";
-import type { AimPart } from "../skills/framework/aim-part.ts";
 import type { BodySpec } from "../spec/body.ts";
 
 /**
  * **Each role's kind of part**: what a lookup of the role gives (`PartLookup.of`), its maker
- * included where the role's parts make themselves. These are the toolkit's roles; a package with
- * roles of its own (the option framework's, `src/core/option/parts.ts`; the quadruped's,
- * `src/core/reptile/parts.ts`) adds them where it declares them, by augmenting this interface, so
- * that no role is named here for one mind or body.
+ * included where the role's parts make themselves. Each role augments this interface beside its
+ * contract, so the lookup depends on no role's owner.
  */
-export interface RoleParts {
-  readonly mind: Controller;
-  readonly technique: TechniquePart;
-  readonly "move-rule": MoveRulePart;
-  readonly navigation: NavigatorPart;
-  readonly locomotion: LocomotionPart;
-  readonly gait: GaitPart;
-  readonly guard: GuardPart;
-  readonly executor: ExecutorPart;
-  readonly support: SupportPart;
-  readonly motor: MotorPart;
-  readonly balance: BalancePart;
-  readonly aim: AimPart;
-}
+export interface RoleParts {}
 
 /**
  * **The parts a tree may name, by kind** (`partLookup`, `catalog.ts`): what a part whose checks

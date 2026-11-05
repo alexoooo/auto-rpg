@@ -16,8 +16,8 @@
 import { Vector3 } from "../src/core/math/vector.ts";
 import { centreOfToRef } from "../src/core/read-motion.ts";
 import { lieOf } from "../src/core/control/ground-reading.ts";
-import { stagedRise } from "../src/core/recovery/rise/staged.ts";
-import { RISE } from "../src/core/recovery/rise/stages.ts";
+import { stagedRise } from "../src/core/recovery/implementations/staged/staged.ts";
+import { RISE } from "../src/core/recovery/implementations/staged/stages.ts";
 import { RISE_HARNESS, riserOf, toppled } from "./core-rise-trials.mjs";
 
 /** How many of a stage's freedoms are read: those furthest from its posture. */

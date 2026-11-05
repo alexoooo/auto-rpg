@@ -42,3 +42,10 @@ export interface GaitPart<C extends PartConfig = PartConfig> extends Part<C> {
   /** The walk of `config` for `body`. */
   make(body: Body, config: C): Locomotion;
 }
+
+declare module "../../parts/lookup.ts" {
+  interface RoleParts {
+    readonly locomotion: LocomotionPart;
+    readonly gait: GaitPart;
+  }
+}

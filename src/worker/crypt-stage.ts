@@ -1,8 +1,6 @@
-import { pageMinds } from "./minds.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import type { Command, DrawnRoute } from "../core/command/commands.ts";
 import type { CommanderConfig } from "../core/command/kind.ts";
-import { loadData } from "../core/data/store.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import type { GroundPoint } from "../core/intent/movement.ts";
 import { armedWith } from "../core/items/held.ts";
@@ -12,14 +10,14 @@ import { physicalReading } from "../core/observation.ts";
 import { attachment } from "../core/read-body.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
-import { defaultMind, treeData } from "../entrants/game.ts";
+import { defaultMind, treeData, loadData } from "../entrants/game.ts";
 import { debrisCues, type SoundCue, type SoundPoint } from "../audio/cues.ts";
 import { hearRun } from "../dungeon/hearing.ts";
 import { cellKey, type DungeonMap } from "../dungeon/map.ts";
 import { DungeonRun, prepareDungeonCharacters, runMap, runParticipants, type Participant, type RunStatus } from "../dungeon/run.ts";
-import type { Inspected } from "../ui/mind-inspector.ts";
+import type { Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
-import type { Stage } from "./stage.ts";
+import type { Stage, StageRuntime } from "./stage.ts";
 
 /**
  * **A Crypt run as its page starts it** (`cryptStage`), plain data: the run's options, each
@@ -129,17 +127,17 @@ export const cryptSpec = (character: { readonly spec: BodySpec }, model: BodyMod
 
 /**
  * `start`'s run built as its page plays it, with no look,
- * its minds' data loaded first, its minds apart where the page is isolated (`pageMinds`), and the
+ * its minds' data loaded first, using the supplied minds adapter, and the
  * person's lead applied; `cues` is given what a blow takes
  * off where the party sees.
  */
-export async function buildCryptRun(start: CryptStart, cues: SoundCue[] = []) {
+export async function buildCryptRun(start: CryptStart, { cues = [], minds: makeMinds }: StageRuntime & { readonly cues?: SoundCue[] } = {}) {
   const fielded = { seed: start.seed, layout: start.layout ? structuredClone(start.layout) : runMap(start),
     ...start.hero ? { hero: start.hero } : {}, ...start.companions ? { companions: start.companions } : {},
     attributes: (participant: Participant) => start.attributes[participant.id] ?? {} };
   const mind = (participant: Participant) => start.minds[participant.id] ?? null;
   await loadData(runParticipants(fielded.layout, fielded).flatMap((participant) => treeData(mind(participant) ?? defaultMind(participant.model))));
-  const prepared = prepareDungeonCharacters(fielded.layout, fielded), minds = pageMinds();
+  const prepared = prepareDungeonCharacters(fielded.layout, fielded), minds = makeMinds?.();
   const seen = (point: Vec3) => run.visible.has(cellKey(run.map, { x: point[0], z: point[2] }));
   const run: DungeonRun = new DungeonRun({ ...fielded, prepared, engine: await loadEngine(start.engine), mind,
     ...start.party ? { party: start.party } : {}, ...start.enemies ? { enemies: start.enemies } : {}, ...minds ? { minds } : {},
@@ -199,9 +197,9 @@ const UNBUILT = Object.freeze({ pose: Object.freeze({ position: Object.freeze({ 
  * applied before the next step and kept on the run's tape, so a run a person played replays from
  * its start and its tape.
  */
-export async function cryptStage(start: CryptStart): Promise<Stage<CryptCard, CryptInput>> {
+export async function cryptStage(start: CryptStart, runtime: StageRuntime = {}): Promise<Stage<CryptCard, CryptInput>> {
   const cues: SoundCue[] = [];
-  const { run, prepared, apply, dispose } = await buildCryptRun(start, cues);
+  const { run, prepared, apply, dispose } = await buildCryptRun(start, { ...runtime, cues });
   const hearing = hearRun(run, (cue) => { cues.push(cue); });
   const tape: CryptTapeEntry[] = [];
   const roster = run.actors.map((actor) => ({ id: actor.id,

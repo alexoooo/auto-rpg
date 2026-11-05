@@ -2,7 +2,7 @@ import { replyBox } from "../apart/box.ts";
 import { encodeExact } from "../apart/codec.ts";
 import { mindThread } from "../apart/thread.ts";
 import { ANSWERED, DONE, type Batch, type Reply } from "../apart/wire.ts";
-import { DATA_KEYS, loadData } from "../core/data/store.ts";
+import { GAME } from "../entrants/game.ts";
 import type { MindWorkerStart } from "./minds.ts";
 
 /**
@@ -13,7 +13,7 @@ import type { MindWorkerStart } from "./minds.ts";
  * makes anew are made in the arena, one after another, and cross by where they lie.
  */
 const scope = self as unknown as { onmessage: ((event: MessageEvent<MindWorkerStart | Batch>) => void) | null; close(): void };
-const ready = loadData(DATA_KEYS);
+const ready = GAME.loadData(GAME.dataKeys);
 let started: { readonly control: Int32Array; readonly put: (text: string) => void; readonly encode: (reply: Reply) => string; readonly count: (steps: number) => void; readonly thread: ReturnType<typeof mindThread> } | null = null;
 let made = 0, chain: Promise<void> = ready;
 

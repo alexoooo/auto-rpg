@@ -8,12 +8,13 @@ import type { MindKit } from "../../mind/kit.ts";
 import type { Senses } from "../../mind/senses.ts";
 import type { GroundReading, Position } from "../../control/ground-reading.ts";
 import { fitsAll, type KeysOf, type Part, type PartConfig } from "../../parts/parts.ts";
-import type { TECHNIQUES } from "./techniques.ts";
 
 /** A physical event completes a technique; other ends remain failures in the bed. */
 export type TechniqueEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted";
-/** **A technique's config**, by kind (`TECHNIQUES`). */
-export type TechniqueConfig = { [K in keyof typeof TECHNIQUES]: (typeof TECHNIQUES)[K]["defaults"] }[keyof typeof TECHNIQUES];
+/** Each implementation declares its configuration under its kind. */
+export interface TechniqueConfigs {}
+/** A registered technique's configuration. */
+export type TechniqueConfig = TechniqueConfigs[keyof TechniqueConfigs];
 export type TechniqueName = TechniqueConfig["kind"];
 export interface TechniqueRun {
   readonly state: object;
@@ -107,3 +108,9 @@ export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "
   return Object.freeze({ moving: false, ...rest, role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [],
     fits: fits ? fitsAll(fitsStance, fits) : fitsStance, faults: () => [] });
 };
+
+declare module "../../parts/lookup.ts" {
+  interface RoleParts {
+    readonly technique: TechniquePart;
+  }
+}

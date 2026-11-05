@@ -54,3 +54,9 @@ export const NO_POSTURE: Pose = Object.freeze({});
 export function controller<C extends MindConfig>(entry: Controller<C>): Controller {
   return entry as unknown as Controller;
 }
+
+declare module "../parts/lookup.ts" {
+  interface RoleParts {
+    readonly mind: Controller;
+  }
+}

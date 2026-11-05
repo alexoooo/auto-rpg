@@ -1,5 +1,5 @@
 /**
- * **The ground Options' profiles** (`assets/core/edge-profiles.json`, in the profiles' one type,
+ * **The ground Options' profiles** (`assets/skills/recovery/edge-profiles.json`, in the profiles' one type,
  * `src/core/skills/framework/profile.ts`): Option Mind, the game's preset on its priors alone and
  * choosing by chance among the Options near the best (`MARGIN`), rising from the stand-up target's falls (`risingJobs`) turned by offsets neither of its protocols
  * plays (`--offsets`), every body in every loadout; each try of a ground technique it runs is a
@@ -25,7 +25,7 @@ import { parseArgs } from "node:util";
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { BUILD_IDENTITY } from "../scripts/build-identity.mjs";
 
-const OUT = new URL("../assets/core/edge-profiles.json", import.meta.url);
+const OUT = new URL("../assets/skills/recovery/edge-profiles.json", import.meta.url);
 import { edgeTrial, edgeProfiles } from "./edge-profile-trial.mjs";
 
 if (isMainThread) {

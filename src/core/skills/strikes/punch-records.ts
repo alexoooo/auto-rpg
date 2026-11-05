@@ -1,4 +1,4 @@
-import meta from "../../../../assets/core/straight-punch.meta.json" with { type: "json" };
+import meta from "../../../../assets/skills/strikes/straight-punch/straight-punch.meta.json" with { type: "json" };
 import type { Network } from "../../learning/recovery-network.ts";
 import { deepFreeze } from "../../state.ts";
 import type { SkillRecord } from "../framework/records.ts";
@@ -6,7 +6,7 @@ import type { StraightPunch } from "./straight-punch.ts";
 
 /**
  * **A straight punch's record for one body** (`dataOf("straight-punch")`,
- * `assets/core/straight-punch.json`, by `bodyKey`): the settings it was tuned to on that body,
+ * `assets/skills/strikes/straight-punch/straight-punch.json`, by `bodyKey`): the settings it was tuned to on that body,
  * whole, and the network that steers it where it was trained (`punchFeatures` in, its steer out,
  * as `PUNCH_LAYOUT` lays them out and `recoveryNetwork` evaluates it), or null; `made` says how
  * (`research/punch-export.mjs` writes it). A body throws the straight punch by its own record or
@@ -26,5 +26,5 @@ declare module "../../data/store.ts" {
   }
 }
 
-/** **The bodies with a straight punch record**, known before the records load (`assets/core/straight-punch.meta.json`). */
+/** **The bodies with a straight punch record**, known before the records load (`assets/skills/strikes/straight-punch/straight-punch.meta.json`). */
 export const PUNCH_BODIES: readonly string[] = deepFreeze(meta.bodies);

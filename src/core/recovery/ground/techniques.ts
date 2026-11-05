@@ -1,8 +1,8 @@
-import { FLATTEN } from "./flatten.ts";
-import { BRACE_MODE, LAND_MODE, STEADY_MODE } from "./modes.ts";
-import { ROLL_BACK } from "./roll-back.ts";
-import { ROLL } from "./roll.ts";
-import { STAGED_DOWN, STAGED_ROLL, SIT_BACK_EDGE, FRONT_SIT_BACK } from "./staged-edges.ts";
+import { FLATTEN } from "../implementations/flatten/index.ts";
+import { BRACE_MODE, LAND_MODE, STEADY_MODE } from "../implementations/modes/index.ts";
+import { ROLL_BACK } from "../implementations/roll-back/index.ts";
+import { ROLL } from "../implementations/roll/index.ts";
+import { STAGED_DOWN, STAGED_ROLL, SIT_BACK_EDGE, FRONT_SIT_BACK } from "../implementations/staged/techniques.ts";
 
 /**
  * **Every technique, by its kind** (`TechniquePart`), in the order a picker offers them: the ways

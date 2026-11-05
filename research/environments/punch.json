@@ -2,7 +2,7 @@
   "kind": "cases",
   "evaluation": "strike",
   "part": "mind.options.1.skill",
-  "layout": "assets/core/learned-punch.layout.json",
+  "layout": "assets/skills/strikes/straight-punch/learned-punch.layout.json",
   "subjects": [
     {"where": {"model": "workshop-fighter", "hand": "right"}, "value": {"mind": {"preset": "option", "skill": "straight-punch", "steered": true}, "skill": "straight-punch"}},
     {"where": {"model": "workshop-fighter", "hand": "left"}, "value": {"mind": {"preset": "option", "skill": "straight-punch", "steered": true}, "skill": "straight-punch"}}

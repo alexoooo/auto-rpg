@@ -1,6 +1,6 @@
 import { standReady, tumbling, type GroundReading } from "../control/ground-reading.ts";
 import type { Sight } from "../mind/decider.ts";
-import { braces, climbs, isMode, steadies } from "../recovery/ground/modes.ts";
+import { braces, climbs, isMode, steadies } from "../recovery/implementations/modes/index.ts";
 import type { OptionRecord } from "./record.ts";
 
 /** A body standing ready this long (`standReady`) with no try under way has risen, s: its rise is over. */

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { coreStand } from "./harness/core-stand.mjs";
 import { modelSpec } from "../src/core/models.ts";
 import { commandedBody } from "../src/core/mind/host.ts";
-import { riseLimbs } from "../src/core/recovery/rise/limbs.ts";
+import { riseLimbs } from "../src/core/recovery/implementations/staged/limbs.ts";
 import { servoAsk } from "../src/core/control/servo.ts";
 import { Vector3 } from "../src/core/math/vector.ts";
 

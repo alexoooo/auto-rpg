@@ -1,12 +1,12 @@
 /**
  * **The sit-back's reproduction**: the technique
- * (`sit-back`, `src/core/recovery/ground/staged-edges.ts`) played alone from hands and knees at rest on
+ * (`sit-back`, `src/core/recovery/implementations/staged/techniques.ts`) played alone from hands and knees at rest on
  * toes, the start the toes' stand-up was measured from (`placement("push-off-bear")`,
  * `research/rise-witness.mjs`), and the body watched to verified standing (`STAND_CHECK`): quiet on
  * its feet `STAND_CHECK.quiet` s. A seed moves the start's joints; the technique runs in the motor part, as the game's ground actions do. Node stand, core world, Rapier,
  * 120 Hz, calm, no assist; the stance holds the body once the technique is done.
  *
- *   node research/sit-back.mjs [--model workshop-fighter] [--held empty] [--seeds 1-32] [--each] [--delay <steps>]
+ *   node research/sit-back.mjs [--model workshop-fighter] [--held empty] [--seeds 1-32] [--each] [--delay <steps, at least 1>]
  *
  * Prints how many stood within 6 s and the median time to verified standing, failures counted
  * last; `--each` a line a seed.

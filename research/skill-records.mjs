@@ -1,8 +1,8 @@
 /**
  * **A skill's records**: each body's settings of a skill tuned per body (`SkillRecord`,
  * `src/core/skills/framework/records.ts`), written as the core reads them into
- * `assets/core/<skill>.json`, each by its body's key (`bodyKey`: `workshop-fighter+toes`) beside the
- * records already there, and the bodies with one into `assets/core/<skill>.meta.json`. A row is
+ * `assets/skills/<capability>/<implementation>/<skill>.json`, each by its body's key (`bodyKey`: `workshop-fighter+toes`) beside the
+ * records already there, and the bodies with one into `assets/skills/<capability>/<implementation>/<skill>.meta.json`. A row is
  * refused unless its settings are the skill's whole and valid. A search that tunes a skill on a
  * body writes its row through `writeRecord` (`research/skill-search.mjs`); by hand, a row is
  * written from a file of settings and says how they were made.
@@ -14,7 +14,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { validSitBack, validStepUp } from "../src/core/recovery/ground/step-up.ts";
+import { validSitBack, validStepUp } from "../src/core/recovery/implementations/staged/records.ts";
 import { STOMP_PATH, validStompTuning } from "../src/core/skills/strikes/stomp.ts";
 import { faceFault, validStraightPunch } from "../src/core/skills/strikes/straight-punch.ts";
 import { validSwing } from "../src/core/skills/strikes/swing.ts";
@@ -38,7 +38,11 @@ export const SKILLS = Object.freeze({
   ...Object.fromEntries(["club-blow", "cut"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validSwing(s)])),
 });
 
-const pathOf = (skill) => `assets/core/${skill}`;
+const pathOf = (skill) => {
+  const directory = skill === "step-up" || skill === "sit-back" ? "recovery/staged"
+    : skill === "righting" ? "recovery/righting" : skill === "walk-run" ? "locomotion/walk-run" : `strikes/${skill}`;
+  return `assets/skills/${directory}/${skill}`;
+};
 
 /** Every body's records of `skill`, as its file holds them now. */
 export const recordsOf = (skill) => existsSync(`${pathOf(skill)}.json`) ? JSON.parse(readFileSync(`${pathOf(skill)}.json`, "utf8")) : {};

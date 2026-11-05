@@ -1,5 +1,5 @@
 /**
- * **The strikes' profiles** (`src/core/skills/framework/profile.ts`, `assets/core/strike-profiles.json`): from
+ * **The strikes' profiles** (`src/core/skills/framework/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
  * Strike drill records (`assets/evaluations/strike/`, and the baseline's punch rows, whose `rung`
  * names theirs), each strike's trials on a mark its action aims at, with a limb that throws it with
  * what it holds (`strikesOf`). A profile a skill on a body against a target: its measured-on read
@@ -45,7 +45,7 @@ import { harnessRule } from "../src/evaluation/record.ts";
 import { lifeFactor } from "../src/core/rules/pool.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 
-const OUT = "assets/core/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";
+const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";
 const write = process.argv.includes("--write");
 const named = process.argv.slice(2).filter((arg) => arg !== "--write");
 const paths = named.length ? named : JSON.parse(readFileSync(OUT, "utf8")).source.records;

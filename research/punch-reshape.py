@@ -1,5 +1,5 @@
 """Reshape a steered punch's training run (research/run-train.py's model.zip and normalize.pkl) from
-one layout of the learned punch to another (assets/core/learned-punch.layout.json, `PunchLayout`),
+one layout of the learned punch to another (assets/skills/strikes/straight-punch/learned-punch.layout.json, `PunchLayout`),
 input by input and output by output by name. What both name keeps its weights, its spread and its
 optimiser moments; an input only the new layout reads starts with zero weight, its normalisation at
 mean 0 and variance 1; an output only it has starts at zero, its spread `spread` (a standard

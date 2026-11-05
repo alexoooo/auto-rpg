@@ -1,5 +1,5 @@
-import clubMeta from "../../../../assets/core/club-blow.meta.json" with { type: "json" };
-import cutMeta from "../../../../assets/core/cut.meta.json" with { type: "json" };
+import clubMeta from "../../../../assets/skills/strikes/club-blow/club-blow.meta.json" with { type: "json" };
+import cutMeta from "../../../../assets/skills/strikes/cut/cut.meta.json" with { type: "json" };
 import { dataOf } from "../../data/store.ts";
 import { heldBy, type Held } from "../../items/held.ts";
 import { fitsAll, strikesWithOneOf } from "../../parts/parts.ts";
@@ -46,7 +46,7 @@ interface Config<K extends SwingKind = SwingKind> {
 
 /**
  * **A swung blow** (`swingExecutor`): its item swung on an arc that meets the target with its face
- * (`faceOf`), its settings its body's record of the swing (`assets/core/<kind>.json`): the windup
+ * (`faceOf`), its settings its body's record of the swing (`assets/skills/strikes/<kind>/<kind>.json`): the windup
  * and the schedule of pushes searched for that body. A body with no record does not throw it; a
  * hand holding another item, or nothing, does not. A research `tuning` sets settings over the
  * record's.

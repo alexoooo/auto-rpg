@@ -43,3 +43,9 @@ export interface ExecutorPart<C extends PartConfig = PartConfig> extends Part<C>
   blows?(config: C): number;
   make(making: ExecutorMaking, config: C, actions: readonly ActionConfig[]): Executor;
 }
+
+declare module "../../parts/lookup.ts" {
+  interface RoleParts {
+    readonly executor: ExecutorPart;
+  }
+}

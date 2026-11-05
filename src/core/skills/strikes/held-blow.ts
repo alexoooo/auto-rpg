@@ -1,5 +1,5 @@
-import thrustMeta from "../../../../assets/core/sword-thrust.meta.json" with { type: "json" };
-import thrustLayout from "../../../../assets/core/sword-thrust.layout.json" with { type: "json" };
+import thrustMeta from "../../../../assets/skills/strikes/sword-thrust/sword-thrust.meta.json" with { type: "json" };
+import thrustLayout from "../../../../assets/skills/strikes/sword-thrust/sword-thrust.layout.json" with { type: "json" };
 import { recoveryNetwork, type Network } from "../../learning/recovery-network.ts";
 import { bodyKey } from "../../spec/body.ts";
 import { checkedLayout, type PunchLayout } from "./learned-punch.ts";
@@ -19,7 +19,7 @@ import { faceFault, STRAIGHT_PUNCH_KEYS, straightPunchExecutor, straightPunchFit
  * **The held blows driven straight**, by kind: what each is thrown with (`item`, by `HELD`'s name),
  * what it meets the target with as the rules read the contact (`mechanism`: the sword's thrust its
  * point), the bodies with a record of it, and how its steer reads and pushes (`layout`,
- * `assets/core/<kind>.layout.json`). A blow an item gives on an arc is a swing (`swing-part.ts`).
+ * `assets/skills/strikes/<kind>/<kind>.layout.json`). A blow an item gives on an arc is a swing (`swing-part.ts`).
  */
 export const HELD_BLOWS = deepFreeze({
   "sword-thrust": { label: "Sword thrust", item: "sword" as Held, mechanism: "point" as Mechanism, bodies: thrustMeta.bodies, layout: checkedLayout(thrustLayout as PunchLayout) },
@@ -27,7 +27,7 @@ export const HELD_BLOWS = deepFreeze({
 export type HeldBlowKind = keyof typeof HELD_BLOWS;
 
 /**
- * **A held blow's record for one body** (`dataOf(<kind>)`, `assets/core/<kind>.json`, by
+ * **A held blow's record for one body** (`dataOf(<kind>)`, `assets/skills/strikes/<kind>/<kind>.json`, by
  * `bodyKey`): its settings, whole, and the network that steers it where it was trained (its
  * layout's inputs in, its outputs out, `recoveryNetwork`), or null.
  */
@@ -85,7 +85,7 @@ interface Config<K extends HeldBlowKind = HeldBlowKind> {
 /**
  * **A held item's blow** (`straightPunchExecutor`): the straight punch's whole-body drive thrown
  * with the face of what the hand holds (`faceOf`), its settings its body's record of the blow
- * (`SkillRecord`, `assets/core/<kind>.json`): a schedule of the trunk's, legs' and arm's pushes, the
+ * (`SkillRecord`, `assets/skills/strikes/<kind>/<kind>.json`): a schedule of the trunk's, legs' and arm's pushes, the
  * arm held at its contact pose, the face along the line from the shoulder to the target, steered
  * by its network where it has one. A body with no record does not throw it; a hand holding another
  * item, or nothing, does not. A research `tuning` sets settings over the record's, and then no

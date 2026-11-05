@@ -135,7 +135,7 @@ A body on paws rights itself by two ways up (`src/core/reptile/righting.ts`), ea
 the rise runs (`way-up`), begun once the body lies settled:
 
 - **By recipe** (`righting-recipe`, `rightingByRecipe`), from lying on its back, a side or its
-  front, for a body with a record (`assets/core/righting.json`: the rat's three poses of its hips,
+  front, for a body with a record (`assets/skills/recovery/righting/righting.json`: the rat's three poses of its hips,
   knees and elbows, neck and tail base for the body on its right side, and three for it on its
   back; a research recipe in the config's `tuning` in its place), found offline
   (`scripts/quadruped/righting.mjs`). It holds the reference pose 1 s; reads how it lies (on its
@@ -159,8 +159,8 @@ the body (`scripts/quadruped/righting-forks.mjs`); the back's from its back.
 
 Controller choices, held apart from the anatomy in `REPTILE_MOTOR`, `REPTILE_TRAVEL`,
 `REPTILE_TROT`, `REPTILE_CRAWL` and `REPTILE_RECOVERY` (`src/core/reptile/tuning.ts`), each
-body's bite settings (`assets/core/bite.json`, the rat's the reptile's) and the rat's righting
-recipe (`assets/core/righting.json`). They
+body's bite settings (`assets/skills/strikes/bite/bite.json`, the rat's the reptile's) and the rat's righting
+recipe (`assets/skills/recovery/righting/righting.json`). They
 are not a measured optimum or evidence of a real animal's locomotion. Times are seconds, lengths
 metres, angles radians, heights relative to the reference centre of mass.
 
@@ -195,7 +195,7 @@ lowest point.
 | Jaw response | biteResponse .03 s during Swing and Return | Track the finite jaw path through the unchanged torque and speed ceilings |
 | Closing path | closeRate 4 rad/s | Retain closing velocity at the requested path endpoint; actual motion remains muscle limited |
 | Bite cycle | release .2 s, biteSlow .2 m/s, biteHold .03 s, biteTimeout 2 s, biteReturnLimit 8 s | Verified quiet release; the bound allows actual backward paw placements before reporting failure |
-| Righting by recipe (the rat's record, `assets/core/righting.json`) | settle 1 s, servo .15 s, upright .95, calm .1 m/s, still .25 s, limit 6 s | Hold the reference pose, play the poses for how it lies, done on a trunk upright and still |
+| Righting by recipe (the rat's record, `assets/skills/recovery/righting/righting.json`) | settle 1 s, servo .15 s, upright .95, calm .1 m/s, still .25 s, limit 6 s | Hold the reference pose, play the poses for how it lies, done on a trunk upright and still |
 | Grounded righting | rightingGain 8 N m/rad, rightingDamping 4 N m s/rad, rightingEpsilon .000001 | Upright-error moment projected onto loaded hips, bounded by their muscles |
 | Clear leg route | foldHip 1.2, foldKnee 2.6, plantedKnee 1.4, sweepYaw 1.2, wrappedHip .5, unwindHip 2 rad | Move a wrapped paw around a trunk end before unfolding; interpolation spans the declared unwind interval |
 | Leg tracking | recoveryServo .06, placementServo .008 s, placementError .15 rad, foldWait .5 s | Separate holding and moving legs; require actual joint arrival and paw clearance |

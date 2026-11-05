@@ -26,3 +26,9 @@ export interface MotorPart<C extends PartConfig = PartConfig> extends Part<C> {
   /** What makes a motor control of `config`, the parts it names (its balance) as `parts` finds them. */
   make(config: C, parts: PartLookup): MotorMaker;
 }
+
+declare module "../parts/lookup.ts" {
+  interface RoleParts {
+    readonly motor: MotorPart;
+  }
+}

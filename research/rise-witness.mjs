@@ -61,7 +61,7 @@ import { servoAsk, servoSolve } from "../src/core/control/servo.ts";
 import { turnOfToRef } from "../src/core/read-motion.ts";
 import { atan2 } from "../src/core/math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../src/core/math/turn.ts";
-import { riseLimbs } from "../src/core/recovery/rise/limbs.ts";
+import { riseLimbs } from "../src/core/recovery/implementations/staged/limbs.ts";
 import { STAND_CHECK } from "../src/lab/ground-mode.ts";
 
 /** A pose phase: its seed posture, and its settings where not `POSE_SEED`. */

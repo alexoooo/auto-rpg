@@ -8,7 +8,6 @@ import type { ActionBinding, ExecutorBinding } from "../../skills/framework/acti
 import { segmentOf, type BodySpec, type Side } from "../../spec/body.ts";
 import type { MindKit } from "../../mind/kit.ts";
 import type { OwnBody } from "../../mind/mind.ts";
-import { TECHNIQUES } from "./techniques.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { TechniqueEnd, TechniqueRun } from "./technique.ts";
 
@@ -31,9 +30,6 @@ export function sideEffectors(spec: BodySpec): Readonly<Record<Side, string>> {
   SIDE_EFFECTORS.set(spec, sides = Object.freeze({ left, right }));
   return sides;
 }
-
-/** Whether an executor of `kind` is a ground skill: a technique's, a way up or a mode of the ground (`TECHNIQUES`). */
-export const isGroundSkill = (kind: string): boolean => Object.hasOwn(TECHNIQUES, kind);
 
 /** An action's end as its record shows it: a technique done completes, one that failed stalls; one let go before its end is cancelled. */
 const endingOf = (end: TechniqueEnd | null): ActionEnding => end === null ? { kind: "cancelled", reason: "let go" } : end === "done" ? { kind: "completed" } : { kind: "stalled", reason: end };

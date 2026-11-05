@@ -142,7 +142,7 @@ export interface EmbodiedApart {
 
 /**
  * **Give `built` a mind apart from `world`**, made in `place` from `recipe` read in `catalog`: the
- * world's side of a mind on its mirror (`embody`, `World.mirrored`) whose mind runs where `place`
+ * world's side of a mind on its mirror (`embody`) whose mind runs where `place`
  * runs it (`MindPlace`). As each step is prepared the body is written to its channel and the mind
  * asked to step, with `orders` as its fight gives them now where they have changed; its command is
  * carried out on the body as the step's controls run, once the mind has made it, and what it says

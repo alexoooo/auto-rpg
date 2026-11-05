@@ -12,7 +12,7 @@ export const GAME: Catalog = catalogOf(() => {
   return { ...toolkit, entrants: ENTRANTS };
 });
 
-export const { controllers: CONTROLLERS, minds: MINDS, controllerOf, allParts, isKind, partOf, partLookup, treeLookup, treeFaults,
+export const { controllers: CONTROLLERS, minds: MINDS, loadData, controllerOf, allParts, isKind, partOf, partLookup, treeLookup, treeFaults,
   treeScope, treeKinds, treeObeys, phaseLabels, treeData, treeRefusal, unusedParts, stageRefusal, withoutTuning, kindsFor, replacedAt } = GAME;
 
 export { FIGHT_ENTRY, partIn, type EntryRule, type Offered } from "../core/parts/catalog.ts";

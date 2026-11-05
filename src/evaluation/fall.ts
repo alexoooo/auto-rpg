@@ -21,7 +21,7 @@ import { soleRefusal } from "../core/control/support.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import { createSenses } from "../core/mind/senses.ts";
 import { STAND_ORDERS } from "../core/intent/orders.ts";
-import { isGroundSkill } from "../core/recovery/ground/skills.ts";
+import { isGroundSkill } from "../core/recovery/ground/registered.ts";
 import type { MindReport } from "../core/mind/report.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import type { BodySpec } from "../core/spec/body.ts";

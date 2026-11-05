@@ -446,7 +446,7 @@ export const SOURCES = Object.freeze({
       + "rate where it has converged.",
   },
   "core-stance-envelope": {
-    kind: "asset", file: "assets/core/stance-envelope.json",
+    kind: "asset", file: "assets/skills/locomotion/stance/stance-envelope.json",
     what: "What the core stance held with each body as a fight plays it (in the guard, under its character's "
       + "balance, with a club and empty-handed) at the game's rate: the gait battery's walks at "
       + "0.2-0.7 m/s five ways and the turn battery's half-turns at 0.25-4 rad/s both ways, walking at each "
@@ -456,7 +456,7 @@ export const SOURCES = Object.freeze({
       + "harness it names.",
   },
   "walk-run-envelope": {
-    kind: "asset", file: "assets/core/walk-run-envelope.json",
+    kind: "asset", file: "assets/skills/locomotion/walk-run/walk-run-envelope.json",
     what: "How fast the walk and run (src/core/skills/locomotion/walk-run.ts) free to run walked each way with each body as a fight "
       + "plays it, with each thing held: the fastest speed, 0.2-4.5 m/s, at which every walk held, calm and in the lab's "
       + "5 N gusts on four seeds; written by research/core-stance-envelope.mjs --legs walk-run --walks "

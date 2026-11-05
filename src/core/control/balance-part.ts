@@ -22,3 +22,9 @@ export interface BalancePart<C extends PartConfig = PartConfig> extends Part<C> 
   /** What makes a balance of `config`. */
   make(config: C): BalanceMaker;
 }
+
+declare module "../parts/lookup.ts" {
+  interface RoleParts {
+    readonly balance: BalancePart;
+  }
+}

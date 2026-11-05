@@ -38,7 +38,7 @@ const tunedOver = (base: WalkRunRecord, config: WalkRunConfig): WalkRunRecord =>
 const DEFAULTS: WalkRunRecord = deepFreeze({ walk: WALK_RUN, run: WALK_RUN_CYCLE });
 
 /**
- * **The walk and run** (`walkRun`): its settings its body's record (`assets/core/walk-run.json`,
+ * **The walk and run** (`walkRun`): its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`,
  * `dataOf("walk-run")`), else the defaults (`WALK_RUN`, `WALK_RUN_CYCLE`) scaled to its leg, a
  * research `tuning` over either. It holds the stance's walk's envelope (`Body.envelope`) and, while
  * it may run, its run's (`walkRunEnvelope`), and stops as the stance's walk does, or at

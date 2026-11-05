@@ -32,7 +32,7 @@ export const ART = Object.freeze({
 /**
  * How far the body carries its head above the art's, rad, about the neck (`ART.neck`): standing,
  * the rat's mouth is about 0.05 m off the floor as the art holds it, and its jaw, opened to the
- * bite's gape (its `open`, `assets/core/bite.json`), drops its incisors about 0.1 m, into the floor. Raised
+ * bite's gape (its `open`, `assets/skills/strikes/bite/bite.json`), drops its incisors about 0.1 m, into the floor. Raised
  * 0.5 rad, the mouth stands at about 0.17 m and the open incisors 0.09 m clear.
  */
 export const HEAD_RAISE = 0.5;

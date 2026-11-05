@@ -1,7 +1,7 @@
 # The stomp's settings
 
 The stomp's executor (`stompExecutor`, `src/core/skills/strikes/stomp.ts`) takes its settings
-from its body's record (`assets/core/stomp.json`, by `bodyKey`), and each record is whole: it holds
+from its body's record (`assets/skills/strikes/stomp/stomp.json`, by `bodyKey`), and each record is whole: it holds
 every key `STOMP_PATH` names (`research/skill-records.mjs` writes no other). A body with no record
 throws no stomp (`recordFault`, `src/core/skills/framework/records.ts`), unless an experiment's
 research `tuning` is whole in its place (`wholeStomp`, `stomp-part.ts`); a research `tuning` sets
@@ -49,7 +49,7 @@ steps to catch the body. A deadline ends it as `stalled`.
 
 ## Stomp settings
 
-Each toed body's row of `assets/core/stomp.json` differs from `STOMP_PATH` in these settings and
+Each toed body's row of `assets/skills/strikes/stomp/stomp.json` differs from `STOMP_PATH` in these settings and
 agrees with it in the rest. Each is set for a blow down on a body lying ahead: its stroke and window
 (`contactSpeed`, `swingSeconds`, `chamberSeconds`, `lift`, `over`, `alongNear`, `alongFar` and
 `brace`) searched on the Strike drill's `stomping` rung

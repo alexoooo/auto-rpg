@@ -6,9 +6,9 @@ and run from the repository root; batteries spread their trials over worker thre
 one stand a trial. A figure is read with its harness: Node, the stand or the module it drives, the
 engine and the rate. A script that writes a data file the core reads does so only when asked
 (`--write`, or `core-stance-envelope.mjs`'s `--add`); without it, it prints. Three always write:
-`run-cycle.mjs` (`assets/core/run-cycle.json`, or `--out`), `skill-records.mjs`
-(`assets/core/<skill>.json` and `.meta.json`) and `punch-export.mjs`
-(`assets/core/straight-punch.json`, or a held blow's `assets/core/<kind>.json`, with its
+`run-cycle.mjs` (`assets/skills/locomotion/cycle-run/run-cycle.json`, or `--out`), `skill-records.mjs`
+(`assets/skills/<capability>/<implementation>/<skill>.json` and `.meta.json`) and `punch-export.mjs`
+(`assets/skills/strikes/straight-punch/straight-punch.json`, or a held blow's `assets/skills/strikes/<kind>/<kind>.json`, with its
 `.meta.json`; or `--out`). Each script's doc comment gives its options, what it prints and the rule
 it reads by.
 
@@ -17,12 +17,12 @@ it reads by.
 | Script | What it measures | Writes |
 |---|---|---|
 | `physiques.mjs` | the physique grid and its ranges (`PHYSIQUE_GRID`, `physiqueRanges`, `physiqueGrid`) | |
-| `core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/core/<legs>-envelope.json` |
+| `core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/skills/locomotion/<legs>/<legs>-envelope.json` |
 | `strike-profiles.mjs`, `edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on; `edge-profiles --model` refreshes one body's at the existing offsets | core profiles with `--write`; ground falls and trials cached in `research/runs/edge-profiles/`, or `--rows` |
-| `skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/core/<skill>.json`, `.meta.json`, every run |
+| `skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/skills/<capability>/<implementation>/<skill>.json`, `.meta.json`, every run |
 | `skill-search.mjs` | a skill's settings (the stomp's, `SEARCHES`) searched on one body by CMA-ES on its task's trials; `--confirm` keeps the best only where it beats the start on fresh trials | `--out`; with `--confirm --write`, the body's row (through `skill-records.mjs`) |
 | `swing-drill.mjs` | a swung blow (`cut`, `club-blow`) searched on the Strike drill's still rung: each channel's windup and push, where it stands, how long it settles; `--verify` plays a found one | `--out` |
-| `sword-thrust-search.json` | the sword thrust's searched schedule (`punch-drill.mjs --blow sword-thrust --chamber --near`), which `assets/core/sword-thrust.json` names as how it was made | |
+| `sword-thrust-search.json` | the sword thrust's searched schedule (`punch-drill.mjs --blow sword-thrust --chamber --near`), which `assets/skills/strikes/sword-thrust/sword-thrust.json` names as how it was made | |
 | `learned-puncher.json` | a mind whose one action is the straight punch, thrown by the punch executor: a subject the Strike drill's records name | |
 | `punch-reshape.py` | no measurement: a steered punch's training run (`run-train.py`'s model and normalisation) carried from one learned-punch layout to another, input and output by name | the new run's directory |
 | `core-stance-sweep.mjs`, `core-stance-trials.mjs`, `core-stance-worker.mjs` | the stance's batteries (stand, edge, step, walk, gait, shove) over tunings (`--variants`) | |

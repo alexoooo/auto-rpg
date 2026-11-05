@@ -1,5 +1,5 @@
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
-export type DataKey = "straight-punch" | "stomp" | "club-blow" | "cut" | "sword-thrust" | "strike-profiles" | "edge-profiles" | "step-up" | "sit-back" | "walk-run" | "righting" | "bite";
+export type DataKey = keyof DataOf;
 
 /**
  * **What each key's data is, as its reader declares it**: the module that reads a key adds it here
@@ -18,35 +18,21 @@ export interface DataOf {}
  * needs import attributes in Node, and the bundle keeps such an import's path unresolved. A loader
  * yields the data as its file holds it; its reader's declaration says what that is (`DataOf`).
  */
-const LOADERS: { readonly [K in DataKey]: () => Promise<unknown> } = {
-  "straight-punch": () => import("./straight-punch.ts").then((m) => m.STRAIGHT_PUNCH_RECORDS),
-  "stomp": () => import("./stomp.ts").then((m) => m.STOMP_RECORDS),
-  "club-blow": () => import("./club-blow.ts").then((m) => m.CLUB_BLOW_RECORDS),
-  "cut": () => import("./cut.ts").then((m) => m.CUT_RECORDS),
-  "sword-thrust": () => import("./sword-thrust.ts").then((m) => m.SWORD_THRUST_RECORDS),
-  "strike-profiles": () => import("./strike-profiles.ts").then((m) => m.STRIKE_PROFILES),
-  "edge-profiles": () => import("./edge-profiles.ts").then((m) => m.EDGE_PROFILES),
-  "step-up": () => import("./step-up.ts").then((m) => m.STEP_UP_RECORDS),
-  "sit-back": () => import("./sit-back.ts").then((m) => m.SIT_BACK_RECORDS),
-  "walk-run": () => import("./walk-run.ts").then((m) => m.WALK_RUN_RECORDS),
-  "righting": () => import("./righting.ts").then((m) => m.RIGHTING_RECORDS),
-  "bite": () => import("./bite.ts").then((m) => m.BITE_RECORDS),
-};
-
-/** Every key, in `LOADERS`' order. */
-export const DATA_KEYS = Object.freeze(Object.keys(LOADERS) as DataKey[]);
+export type DataLoaders = Readonly<Partial<Record<DataKey, () => Promise<unknown>>>>;
 
 /** What has loaded, and what is loading, by key: a cache of frozen data, not a bout's state. */
 const loaded = new Map<DataKey, unknown>();
 const loading = new Map<DataKey, Promise<void>>();
 
 /** Load `keys`; a key loads once a realm, and a failed load can be asked again. */
-export function loadData(keys: Iterable<DataKey>): Promise<void> {
+export function loadData(keys: Iterable<DataKey>, loaders: DataLoaders): Promise<void> {
   return Promise.all([...new Set(keys)].map((key) => {
     if (loaded.has(key)) return undefined;
     let pending = loading.get(key);
     if (!pending) {
-      pending = LOADERS[key]().then(
+      const load = loaders[key];
+      if (!load) throw new Error(`mind data ${JSON.stringify(key)} has no registered loader`);
+      pending = load().then(
         (data) => { loaded.set(key, data); loading.delete(key); },
         (error: unknown) => { loading.delete(key); throw error; });
       loading.set(key, pending);

@@ -77,3 +77,9 @@ export const SHIELD_GUARD: GuardPart<ShieldGuardConfig> = {
   supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment),
   posture: (spec) => guardPosture(spec), make: coverMaker,
 };
+
+declare module "../../parts/lookup.ts" {
+  interface RoleParts {
+    readonly guard: GuardPart;
+  }
+}

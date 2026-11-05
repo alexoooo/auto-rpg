@@ -1,5 +1,5 @@
-import measured from "../../../assets/core/stance-envelope.json" with { type: "json" };
-import walkRunMeasured from "../../../assets/core/walk-run-envelope.json" with { type: "json" };
+import measured from "../../../assets/skills/locomotion/stance/stance-envelope.json" with { type: "json" };
+import walkRunMeasured from "../../../assets/skills/locomotion/walk-run/walk-run-envelope.json" with { type: "json" };
 import { heldBy } from "../items/held.ts";
 import type { SourceKey } from "../sources.ts";
 import { bodyKey, type BodySpec } from "../spec/body.ts";
@@ -8,7 +8,7 @@ import { derive, sourced, type Quantity } from "../spec/quantity.ts";
 /**
  * **What the stance can do with a body**, measured, so that a caller asks for "your fastest walk"
  * and not for a number that held on one engine. The numbers are
- * `assets/core/stance-envelope.json`, which `research/core-stance-envelope.mjs --write` writes from
+ * `assets/skills/locomotion/stance/stance-envelope.json`, which `research/core-stance-envelope.mjs --write` writes from
  * the gait battery (`research/core-stance-trials.mjs`' walk, five ways at each speed) and the turn
  * battery (its turn: half round each way at each rate, walking at each of the gait battery's speeds
  * up to the fastest walk, from the walk's setting off and through its first strides as well as
@@ -261,7 +261,7 @@ export const stanceEnvelopeOf = (spec: BodySpec): StanceEnvelope | null => Objec
 
 /**
  * The measured envelope of `spec`'s body (`bodyKey`) walking by the walk and run (`src/core/skills/locomotion/walk-run.ts`)
- * free to run: `assets/core/walk-run-envelope.json`, each way's walks by the rule
+ * free to run: `assets/skills/locomotion/walk-run/walk-run-envelope.json`, each way's walks by the rule
  * (`research/core-stance-envelope.mjs --legs walk-run`), and its turns.
  */
 export function walkRunEnvelope(spec: BodySpec): StanceEnvelope {

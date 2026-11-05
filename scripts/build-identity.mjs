@@ -182,7 +182,7 @@ function readFileTable() {
       if (CUTS.kinds.includes(file)) entry.kinds = listOf(file, read);
       if (file === CUTS.worlds) entry.worlds = listOf(file, read);
       if (CUTS.roles.includes(file)) entry.parts = listOf(file, read);
-      if (file === CUTS.store) entry.data = storeModules(file, read);
+      if (file.endsWith("/data/registration.ts") || file.startsWith("src/entrants/")) entry.data = storeModules(file, read);
     }
     files[file] = entry;
   }
@@ -209,7 +209,7 @@ export function closureOf(files, entries, { cut = true } = {}) {
     if (!entry) throw new Error(`${file} is in a case's closure and is no build input`);
     if (entry.computed > 0) throw new Error(`${file} imports a module it names by no literal, so its closure cannot be read`);
     closure.add(file);
-    stack.push(...entry.imports ?? [], ...cut && file === CUTS.store ? [] : entry.loads ?? []);
+    stack.push(...entry.imports ?? [], ...cut && (file === CUTS.store || file.endsWith("/data/registration.ts")) ? [] : entry.loads ?? []);
   }
   return closure;
 }
@@ -265,7 +265,7 @@ export function caseCoder(files, caseModule, kinds) {
     return owned.get(key);
   };
   const read = (key) => {
-    const module = files[CUTS.store]?.data?.[key];
+    const module = Object.values(files).map((entry) => entry.data?.[key]).find(Boolean);
     if (!module) throw new Error(`the store has no data ${JSON.stringify(key)}`);
     if (!data.has(key)) data.set(key, beyond(module));
     return data.get(key);

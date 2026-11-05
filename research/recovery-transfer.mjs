@@ -1,9 +1,9 @@
 import { pathToFileURL } from 'node:url';
 import { Vector3 } from '../src/core/math/vector.ts';
 import { toppled, riserOf } from './core-rise-trials.mjs';
-import { riseLimbs } from '../src/core/recovery/rise/limbs.ts';
-import { stagedRise } from '../src/core/recovery/rise/staged.ts';
-import { RISE } from '../src/core/recovery/rise/stages.ts';
+import { riseLimbs } from '../src/core/recovery/implementations/staged/limbs.ts';
+import { stagedRise } from '../src/core/recovery/implementations/staged/staged.ts';
+import { RISE } from '../src/core/recovery/implementations/staged/stages.ts';
 import { uprightness } from '../src/core/control/ground.ts';
 import { withinSupport } from '../src/core/control/support.ts';
 import { centreOfToRef } from '../src/core/read-motion.ts';

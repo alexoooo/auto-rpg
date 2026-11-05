@@ -141,7 +141,7 @@ driven points, a stance goal) into muscle commands.
 - **Balance** is a part of role `balance` (`BALANCES`); the game's is the stance
   (`stance-balance.ts`): the centre of mass kept inside the support by forces the ground can give,
   steps placed from the capture point, a body without box soles refused. What a body was measured
-  to hold is its envelope, read by `bodyKey` from `assets/core/*-envelope.json`.
+  to hold is its envelope, read by `bodyKey` from its implementation in `assets/skills/locomotion/`.
 - **The assist** (`Assist`, `assist.ts`) is a force at the root and a moment that no muscle gives:
   asked by the mind, shortened to the body's ceiling, applied through the solver step, metered. The
   ceiling is the character's balance, a per cent of its weight (`Rulebook.balance`,
@@ -166,13 +166,16 @@ arbiter releases every action when another mind takes the body.
   (`OptionMindConfig.tuning`).
 - **Tuned per body**: a skill that reads a record (`Part.reads`: the blows, step up's and the
   sit-back's poses and timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
-  read as mind data by `bodyKey` from `assets/core/<skill>.json` (`dataOf`). A body with no record
+  read as mind data by `bodyKey` from its implementation in `assets/skills/` (`dataOf`). A body with no record
   does not use the skill. Step up's record may adjust the recovery poses and timings by loadout.
+  Implementations register loaders in `data/registration.ts`; an entrant adds its loaders to its
+  manifest's `data`. The catalog supplies those loaders to the store (`DataKey`, `keyof DataOf`)
+  through `Catalog.loadData`, with the same registrations in Node and the page.
 - **Locomotion** (`Locomotion`): legs take one goal (`LegsGoal`) and say what they left undone
   (`LegsUnmet`), their envelope and how fast they stop. `stance-walk` walks within the stance's
   envelope; `walk-run` hands over to a run cycle fitted to motion capture
-  (`assets/core/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis,
-  its settings its body's record (`assets/core/walk-run.json`) where it has one, else the defaults
+  (`assets/skills/locomotion/cycle-run/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis,
+  its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`) where it has one, else the defaults
   scaled to its leg (`scaledGait`); each is a gait part (role `gait`).
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. A body
   on paws has `paw-move` (`src/core/reptile/paw-legs.ts`): the trot and the crawl, the support goal
@@ -207,13 +210,13 @@ the ends that bear it. A way up names the postures it begins from and reaches (i
 `moving` or `still`, handing the body on at the first cut read slow enough (`CUTS`, `HAND_OVER`);
 the game's ways up (`STAND_UP`) reach standing from the back and the front (`standUpFaults`). The
 Option Mind prices each way up, flatten and a brace that waits for one by their profiles from
-where each was begun (`assets/core/edge-profiles.json`, `research/edge-profiles.mjs`: its own tries
+where each was begun (`assets/skills/recovery/edge-profiles.json`, `research/edge-profiles.mjs`: its own tries
 in falls the stand-up target does not play, each until its next choice), as every Option is
 priced. The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
 (`rise/stages.ts`); a pose's selected channels can follow other joints folding across an angle
 span (`PoseStage.follow`), keeping their entry pose until every leading joint enters that span.
 A body on paws rights itself (`src/core/reptile/righting.ts`) by its recipe of
-poses from lying (`righting-recipe`, its record `assets/core/righting.json`) and by routes that
+poses from lying (`righting-recipe`, its record `assets/skills/recovery/righting/righting.json`) and by routes that
 roll it, place each paw and rise on its motor (`righting-routes`). A ground action names its side
 by the first end the body stands on there (`sideEffectors`).
 

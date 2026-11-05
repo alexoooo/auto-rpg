@@ -19,7 +19,7 @@ import { gapePoints, jawOf, mouthOf, mouthToRef } from "./jaw.ts";
 import { fitsJaw } from "./parts.ts";
 import { pawReader } from "./paws.ts";
 import { REPTILE_TROT } from "./tuning.ts";
-import meta from "../../../assets/core/bite.meta.json" with { type: "json" };
+import meta from "../../../assets/skills/strikes/bite/bite.meta.json" with { type: "json" };
 import { dataOf } from "../data/store.ts";
 import { fitsAll, type PartConfig } from "../parts/parts.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../skills/framework/records.ts";

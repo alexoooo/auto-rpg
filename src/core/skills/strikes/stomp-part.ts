@@ -1,4 +1,4 @@
-import meta from "../../../../assets/core/stomp.meta.json" with { type: "json" };
+import meta from "../../../../assets/skills/strikes/stomp/stomp.meta.json" with { type: "json" };
 import { dataOf } from "../../data/store.ts";
 import { fitsAll, strikesWithOneOf } from "../../parts/parts.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
@@ -28,7 +28,7 @@ const validStompPart = (tuning: Partial<StompTuning>): boolean =>
 
 /**
  * **The stomp** (`stompExecutor`): a stroke of either foot down from a high chamber on a body lying
- * ahead, its settings its body's record (`assets/core/stomp.json`, `dataOf("stomp")`; the Warrior's,
+ * ahead, its settings its body's record (`assets/skills/strikes/stomp/stomp.json`, `dataOf("stomp")`; the Warrior's,
  * [stomp settings](../../../../docs/reference/front-kicks.md#stomp-settings)): a body with none
  * does not throw it. A research `tuning` sets settings over the record's, all of them where the
  * body has none.

@@ -6,7 +6,7 @@
  * reshaping a cell. A skill has a cell where its body does it (`Skill.bodies`) and the loadout
  * leaves it the limb it uses (`Skill.limbs`).
  */
-import stompMeta from "../../../assets/core/stomp.meta.json" with { type: "json" };
+import stompMeta from "../../../assets/skills/strikes/stomp/stomp.meta.json" with { type: "json" };
 import { loadoutKey, REPRESENTATIVE, type Held, type Loadout } from "../../core/items/held.ts";
 import { modelSpec, type HumanoidModel } from "../../core/models.ts";
 import { bodyKey } from "../../core/spec/body.ts";
@@ -84,7 +84,7 @@ const blowRungs = (action: string, hit: HitFigure, body: HumanoidModel, loadout:
 /** The stand-up's reading: the stand-up target's falls of the body holding the loadout, risen by the table's mind. */
 const STAND_UP: MetReading = Object.freeze({ drill: "rising-target", protocol: "standard", subject: TABLE_MIND, judge: "target", byLoadout: true });
 
-/** The bodies with a stomp record (`assets/core/stomp.json`): the stomp's fit refuses the rest. */
+/** The bodies with a stomp record (`assets/skills/strikes/stomp/stomp.json`): the stomp's fit refuses the rest. */
 const STOMPERS: readonly HumanoidModel[] = Object.freeze(TABLE_BODIES.filter((body) => stompMeta.bodies.includes(bodyKey(modelSpec(body)))));
 
 /**

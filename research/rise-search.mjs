@@ -17,7 +17,7 @@ import { dirname } from 'node:path';
 import { cmaSearch, workerPool } from './cma.mjs';
 import { risingJobs, targetGates } from '../src/evaluation/rising.ts';
 import { buildFall } from '../src/evaluation/fall.ts';
-import { stepUpTuning } from '../src/core/recovery/ground/step-up.ts';
+import { stepUpTuning } from '../src/core/recovery/implementations/staged/records.ts';
 import { modelHolding } from '../src/core/models.ts';
 import { MINDS } from '../src/entrants/game.ts';
 import { BUILD_IDENTITY } from '../scripts/build-identity.mjs';
@@ -81,7 +81,7 @@ if(!isMainThread) {
   const offsets=values.offsets.split(',').map(Number);
   const trainingOffset=offset=>Number.isFinite(offset)&&Math.abs(((offset%22.5)+22.5)%22.5-11.25)>=1e-9;
   if(offsets.some(offset=>!trainingOffset(offset))) throw new Error('training offsets must be finite and leave the fresh protocol unused');
-  const profileOffsets=JSON.parse(readFileSync('assets/core/edge-profiles.json','utf8')).source.offsets;
+  const profileOffsets=JSON.parse(readFileSync('assets/skills/recovery/edge-profiles.json','utf8')).source.offsets;
   if(!Array.isArray(profileOffsets)||!profileOffsets.length||profileOffsets.some(offset=>!trainingOffset(offset))) throw new Error('calibration offsets must leave the fresh protocol unused');
   const selected=job=>job.model===values.model&&`${job.loadout.left},${job.loadout.right}`===values.loadout;
   const jobs=offsets.flatMap(offset=>risingJobs({target:true,offset})).filter(selected);

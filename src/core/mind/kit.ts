@@ -9,7 +9,7 @@ import type { Legs } from "../skills/framework/locomotion-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { PartConfig } from "../parts/parts.ts";
 
-import { lowering } from "../recovery/rise/lowering.ts";
+import { lowering } from "../recovery/implementations/staged/lowering.ts";
 
 /**
  * **What lies under every skill of a body**, by the name an experiment passes it in by: what turns

@@ -53,7 +53,7 @@ export interface CommandLayers extends HostMind {
  */
 export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock): CommandLayers {
   const { servoSeconds, stance, feedback: feedbackEnabled, contacts, motor: makeMotor } = options;
-  const { built, muscles } = own, late = own.delay > 0;
+  const { built, muscles } = own;
   // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`): its effectors' places, and whichever of the rest it carries.
   const made = (makeMotor ?? ((b, _m, s, p, t, a) => motorControl(b, s, p, t, a)))(built, muscles, servoSeconds, {}, stance, own.assist);
   const motor = carrying(made, ["effectors"], "the command layers");
@@ -165,7 +165,6 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     moved();
     state.time = time;
     // At a delay the body is born on the first step its driver's decision is carried out.
-    if (!late) state.born ??= time;
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     for (let i = 0; i < fists.length; i++) fists[i]![1].update();
     rootFrameToRef(motor.root, state.root);
@@ -191,17 +190,11 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     view.senses = senses;
   };
   const act = (dt: number): void => {
-    if (late) state.pending.push(driver ? driver.decide(view, dt) : null);
-    else {
-      const next = driver?.carry(view, driver.decide(view, dt), dt);
-      if (next) obey(next);
-      motor.control(muscles, dt);
-    }
+    state.pending.push(driver ? driver.decide(view, dt) : null);
     state.resumed = false;
     moved();
   };
   const move = (dt: number): void => {
-    if (!late) return;
     feel(clock.time);
     state.felt = true;
     if (state.pending.length >= own.delay) {
@@ -228,8 +221,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     name: COMMAND,
     view, body, look, act, move, state,
     feel() {
-      if (!late) return;
-      feel(clock.time);
+        feel(clock.time);
       state.felt = true;
     },
     firstLook() {

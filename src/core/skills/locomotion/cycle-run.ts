@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "../../math/vector.ts";
-import cycles from "../../../../assets/core/run-cycle.json" with { type: "json" };
+import cycles from "../../../../assets/skills/locomotion/cycle-run/run-cycle.json" with { type: "json" };
 import type { Body, BodyView } from "../../body.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
@@ -116,7 +116,7 @@ export function validRunCycle(run: RunCycleSettings): boolean {
     && early > 0 && early < 0.5 && wait >= 0 && paceMost >= 0 && leanMost >= 0 && short >= 0 && short <= 1;
 }
 
-/** A clip's cycle as `research/run-cycle.mjs` writes it (`assets/core/run-cycle.json`): its leg's three series and when its sole leaves. */
+/** A clip's cycle as `research/run-cycle.mjs` writes it (`assets/skills/locomotion/cycle-run/run-cycle.json`): its leg's three series and when its sole leaves. */
 interface Cycle {
   readonly leg: number;
   readonly speed: number;
@@ -170,7 +170,7 @@ interface RunCycleMemory {
 /**
  * **A run that tracks a person's** (the tracking of a captured cycle, Lee, Kim and Lee 2010,
  * "Data-driven biped control"): each leg's hip, knee and ankle follow a clip's run cycle as a
- * Fourier series in the leg's own phase (`assets/core/run-cycle.json`, `research/run-cycle.mjs`),
+ * Fourier series in the leg's own phase (`assets/skills/locomotion/cycle-run/run-cycle.json`, `research/run-cycle.mjs`),
  * blended by the pace between the two clips whose paces bracket it, the swing grown and the cycle
  * quickened past `gainsFrom`, and shortened under the slowest one's pace (`short`). The cycles' speeds and times go to the body's leg by Froude (`k`, the
  * body's leg over the clip's); the settings come scaled to it.

@@ -1,25 +1,12 @@
+import type { Inspected } from "../worker/inspection.ts";
 import { partOf } from "../entrants/game.ts";
 import { commandsBody } from "../core/body.ts";
-import type { PhysicalBody } from "../core/physical-body.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { PartConfig } from "../core/parts/parts.ts";
 import type { Staging } from "./mind-link.ts";
-import type { SkillReport } from "../core/skills/framework/skills.ts";
-import type { MindReport } from "../core/mind/report.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindEditor } from "./mind-editor.ts";
 import { actionReadout } from "./action-readout.ts";
-
-/**
- * A mind's public ownership and execution facts, with no executor-specific state: what holds the
- * body (its skills' report), and what the mind reports doing (`MindReport`). Plain data where a
- * worker sends it.
- */
-export interface Inspected {
-  readonly body: Pick<PhysicalBody, "has" | "level">;
-  readonly skills?: { readonly report: Partial<Pick<SkillReport, "holders" | "actions">> } | null;
-  readonly report?: Pick<MindReport, "engagement" | "actions" | "ended"> | null;
-}
 
 /** Representative controls for the body's continuous services and hand endpoints; any other effector its skills hold gets a row of its own when first held. */
 const HELD = [["stance", "Legs"], ["channel:lumbar flexion", "Trunk"], ["effector:hand.left", "Left hand"], ["effector:hand.right", "Right hand"]] as const;

@@ -14,8 +14,8 @@
  * that skill by hand.
  *
  * Profiles are data scripts write from drill records: the strikes' from the Strike drill
- * (`research/strike-profiles.mjs`, `assets/core/strike-profiles.json`) and the ground edges' from
- * the Rise drill (`research/edge-profiles.mjs`, `assets/core/edge-profiles.json`). A mind reaches
+ * (`research/strike-profiles.mjs`, `assets/skills/strikes/strike-profiles/strike-profiles.json`) and the ground edges' from
+ * the Rise drill (`research/edge-profiles.mjs`, `assets/skills/recovery/edge-profiles.json`). A mind reaches
  * them as mind data (`dataOf("strike-profiles")`, `"edge-profiles"`), which the parts that read
  * them declare (`Part.reads`), and reads one through `readProfile`, never a skill's code.
  */

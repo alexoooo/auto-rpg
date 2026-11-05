@@ -1,5 +1,6 @@
 import type { Controller, MindPreset } from "../mind/controller.ts";
 import type { Part } from "./parts.ts";
+import type { DataLoaders } from "../data/store.ts";
 
 /**
  * **An entrant**: one AI, as a folder above the core (`src/entrants/<name>/index.ts`) and a line in
@@ -8,6 +9,8 @@ import type { Part } from "./parts.ts";
  * tree names the toolkit's kinds and its own entrant's, never another's (`Catalog.faults`).
  */
 export interface Entrant {
+  /** The entrant's data, loaded by the same catalog in Node and the page. */
+  readonly data?: DataLoaders;
   /** Its folder's name, and the scope of every kind it registers. */
   readonly name: string;
   /** Its kinds of mind, where it brings any; most entrants configure the toolkit's. */

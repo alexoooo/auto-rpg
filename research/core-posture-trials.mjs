@@ -487,7 +487,7 @@ export const rowName = (row, height) => (height === undefined ? row.name : `${ro
 /**
  * The postures the search starts from, by name: the root's pitch, rad, and channels' angles from
  * their own zero (`@` both sides), the rest at the reference pose. `fours` is the riser's own
- * (`FOURS`, `src/core/recovery/rise/stages.ts`); the others are guesses the search corrects.
+ * (`FOURS`, `src/core/recovery/implementations/staged/stages.ts`); the others are guesses the search corrects.
  */
 export const SEEDS = Object.freeze({
   stand: { pitch: 0, angles: {} },

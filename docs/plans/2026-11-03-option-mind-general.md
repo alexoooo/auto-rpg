@@ -299,7 +299,7 @@ rat and the reptile, laid on a side and on the back, right themselves and trot o
 
 ### 3. Bodies told apart in data
 
-- Stand-up's settings by body (`STEP_UP`'s table in `src/core/recovery/ground/step-up.ts`, the
+- Stand-up's settings by body (`STEP_UP`'s table in `src/core/recovery/implementations/staged/records.ts`, the
   Skeleton's own roll with them) become records per body under `assets/`, and a technique only one
   body's settings time (the sit-back) is fitted by that body alone.
 - The walk's and run's settings (`src/core/skills/locomotion/walk-run.ts`, `cycle-run.ts`, searched

@@ -21,6 +21,11 @@ import type { ConfigOf, Part } from "./parts/parts.ts";
 import { REPTILE_PARTS } from "./reptile/kinds.ts";
 import type { MoveRuleConfig } from "./skills/locomotion/move-part.ts";
 import { MOVE_RULES } from "./skills/locomotion/move-rules.ts";
+import { STRIKE_DATA } from "./skills/strikes/data/registration.ts";
+import { LOCOMOTION_DATA } from "./skills/locomotion/data/registration.ts";
+import { STAGED_DATA } from "./recovery/implementations/staged/data/registration.ts";
+import { RECOVERY_DATA } from "./recovery/data/registration.ts";
+import { PAW_DATA } from "./reptile/data/registration.ts";
 
 /** Every part's config below a mind, by kind. */
 type AnyPart = AimConfig | ConfigOf<typeof REPTILE_PARTS> | TechniqueConfig | ConfigOf<typeof MOTORS> | MoveRuleConfig | LocomotionConfig | GaitConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
@@ -48,7 +53,7 @@ function merged<L extends readonly Readonly<Record<string, Part>>[]>(...lists: L
 export function toolkitLists(): CatalogLists {
   const below: Covered = merged(TECHNIQUES, MOVE_RULES, LOCOMOTIONS, GAIT_PARTS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
     REPTILE_PARTS, CHOOSERS, OPTION_KINDS, OBJECTIVES, PREDICTIONS);
-  return { minds: MIND_KINDS, parts: [below], entrants: [] };
+  return { minds: MIND_KINDS, parts: [below], entrants: [], data: [STRIKE_DATA, LOCOMOTION_DATA, STAGED_DATA, RECOVERY_DATA, PAW_DATA] };
 }
 
 /** **The toolkit's catalog**: what the core's own tasks make a mind from; the game's is composed above the core (`src/entrants/game.ts`). */

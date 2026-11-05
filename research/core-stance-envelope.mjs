@@ -17,7 +17,7 @@
  *     [--physique '{"speed":1.25}']
  *
  * `--legs` names the walk measured: the stance's own (`stance`, the default), or the walk and run
- * free to run; `--write` writes `assets/core/<legs>-envelope.json`, `--out`
+ * free to run; `--write` writes `assets/skills/locomotion/<legs>/<legs>-envelope.json`, `--out`
  * that file in place of it. `--models` and `--holds` screen a few bodies or things held first.
  * `--walks` measures the walks alone, with no turns. `--gusts rate:strength:seeds` walks each walk
  * calm and again in the lab's gusts (`startWind`) on each seed, and a speed holds only if every one
@@ -198,7 +198,7 @@ const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the
   + (WINDS.length > 1 ? ", each walk calm and in each of `winds`" : "") + "; each way's and speed's fastest is the fastest at which every trial held, searched down from the fastest, and a level not played through is null",
   ...(walker ? { legs } : {}), ...TIMES_OF[legs], hz, measured: today,
   speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, turnings: TURNINGS, holds, afters: AFTERS, ...(WINDS.length > 1 ? { winds: WINDS.slice(1) } : {}), models: all };
-const asset = new URL(`../assets/core/${legs}-envelope.json`, import.meta.url);
+const asset = new URL(`../assets/skills/locomotion/${legs}/${legs}-envelope.json`, import.meta.url);
 if (values.add) {
   // The asset as it stands takes this run's bodies, its grid unchanged: a body measured on another grid is no body of it.
   const kept = JSON.parse(await readFile(asset, "utf8"));

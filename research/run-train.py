@@ -9,7 +9,7 @@ stays as policy-<steps>.json: the training return does not choose a policy (a ru
 on rising as its battery falls), its battery does.
 
 `--start` begins from a trained network (an exported `Network`, or a record whose one entry holds
-a `network`, assets/core/<blow>.json), its inputs and outputs matched to this run's by name
+a `network`, assets/skills/strikes/<blow>/<blow>.json), its inputs and outputs matched to this run's by name
 through `--start-layout` and the environment's `layout`: a weight of an input the source does not
 read starts at zero and an output it lacks starts at zero, so the run starts steering as the source
 did. Before anything learns, the source steers `--stats` messages so that the normalisation starts

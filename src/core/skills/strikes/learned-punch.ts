@@ -1,4 +1,4 @@
-import layoutFile from "../../../../assets/core/learned-punch.layout.json" with { type: "json" };
+import layoutFile from "../../../../assets/skills/strikes/straight-punch/learned-punch.layout.json" with { type: "json" };
 import { Vector3 } from "../../math/vector.ts";
 import type { Body, BodyView } from "../../body.ts";
 import { intoFrameToRef } from "../../control/kinematics.ts";
@@ -12,7 +12,7 @@ import { footOn } from "../../control/support.ts";
 /*
  * **The learned punch's steer**: a straight punch's timed drive (`StraightPunch.timed`) steered by a
  * ReLU network of two hidden layers of 256, its inputs and outputs named by its layout
- * (`PUNCH_LAYOUT`) and its weights in its body's record (`network`, `assets/core/straight-punch.json`).
+ * (`PUNCH_LAYOUT`) and its weights in its body's record (`network`, `assets/skills/strikes/straight-punch/straight-punch.json`).
  * Every `PUNCH_DECIDE` it reads the punch (`punchFeatures`), adds levels to the drive's pushes
  * (`steerPushes`) and asks the legs goal for a heading and a centre of mass (`stanceAsks`). Only
  * the bodies with a record (`PUNCH_BODIES`) throw it. Trained by PPO (`research/run-train.py`
@@ -56,8 +56,8 @@ type PunchOutput =
   | { readonly term: "walk" };
 
 /**
- * **A learned punch's layout** (`assets/core/learned-punch.layout.json`; a held blow's,
- * `assets/core/<kind>.layout.json`): its inputs by name, each a reading (`READINGS`) or
+ * **A learned punch's layout** (`assets/skills/strikes/straight-punch/learned-punch.layout.json`; a held blow's,
+ * `assets/skills/strikes/<kind>/<kind>.layout.json`): its inputs by name, each a reading (`READINGS`) or
  * `angle <channel>` and `speed <channel>`, rad and rad/s, for the right hand's blow; the leg its
  * distances' full scales are for, m (`legOf`); and its outputs. A held blow reads its striking
  * point where the punch reads its fist (`punchFeatures`).

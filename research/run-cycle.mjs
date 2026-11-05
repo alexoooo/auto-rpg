@@ -1,7 +1,7 @@
 /**
  * **A person's run cycle, from a clip**: the angles a leg's hip, knee and ankle go through from one
  * landing of its sole to the next, as a Fourier series in the cycle's phase, written to
- * `assets/core/run-cycle.json` for the run that tracks it (`src/core/skills/locomotion/cycle-run.ts`).
+ * `assets/skills/locomotion/cycle-run/run-cycle.json` for the run that tracks it (`src/core/skills/locomotion/cycle-run.ts`).
  *
  * Each clip is read as `research/run-feasibility.mjs` reads it (`clipMotion`, `feasibility`: its
  * longest steady stretch, filtered at `--cutoff` Hz, in the plane the run goes in), the Warrior's
@@ -13,7 +13,7 @@
  * cycle's period, the phase its sole leaves at, and the pelvis's mean lean forward of its zero
  * pose. Times and speeds are the clip's own; a body of another leg takes them by Froude.
  *
- *   node research/run-cycle.mjs <clip.bvh>[@rate] [...] [--cutoff 8] [--out assets/core/run-cycle.json]
+ *   node research/run-cycle.mjs <clip.bvh>[@rate] [...] [--cutoff 8] [--out assets/skills/locomotion/cycle-run/run-cycle.json]
  *
  * The clips are the CMU Graphics Lab's (mocap.cs.cmu.edu), which places no restriction on use, in
  * cgspeed's BVH conversion (github.com/Shriinivas/cmubvh), which adds none: 16_35, 16_45 and
@@ -86,7 +86,7 @@ function cycleOf(file, rate, cutoff, body) {
 }
 
 const { values: options, positionals } = parseArgs({ allowPositionals: true, options: {
-  cutoff: { type: "string", default: "8" }, out: { type: "string", default: "assets/core/run-cycle.json" },
+  cutoff: { type: "string", default: "8" }, out: { type: "string", default: "assets/skills/locomotion/cycle-run/run-cycle.json" },
 } });
 if (!positionals.length) throw new Error("usage: node research/run-cycle.mjs <clip.bvh>[@rate] [...] [--cutoff hz] [--out file]");
 const body = bodyModel(modelSpec("workshop-fighter"));

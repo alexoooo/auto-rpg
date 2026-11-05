@@ -13,7 +13,6 @@
  *   node research/step-time.mjs [--left workshop-fighter] [--right workshop-rogue] [--runs 4] [--over 3]
  *   node research/step-time.mjs --link "?matchup=...&control=option,option&left.loadout=empty,sword" [--cap 60]
  *   node research/step-time.mjs --crowd [--seed 0] [--cap 120]
- *   ... --mirrored                     every mind on its mirror (`World.mirrored`)
  *   ... --minds 3                      every mind apart, on that many worker threads (`mindWorkers`, `src/node/minds.ts`)
  *
  * `--link` plays the bout an Arena link names (`recipeOf`); `--crowd` the crowd fight
@@ -43,9 +42,8 @@ const { values } = parseArgs({ options: {
   left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
   runs: { type: "string", default: "4" }, over: { type: "string", default: "3" }, profile: { type: "boolean", default: false },
   link: { type: "string" }, crowd: { type: "boolean", default: false }, seed: { type: "string", default: "0" },
-  cap: { type: "string" }, skip: { type: "string", default: "2" }, mirrored: { type: "boolean", default: false }, minds: { type: "string" },
+  cap: { type: "string" }, skip: { type: "string", default: "2" }, minds: { type: "string" },
 } });
-const mirrored = values.mirrored ? { mirrored: true } : {};
 const cap = values.cap === undefined ? undefined : Number(values.cap), over = Number(values.over), skip = Number(values.skip);
 const recipe = values.link ? { ...recipeOf(values.link, { left: {}, right: {} }, "open"), capSeconds: cap ?? 60 } : { left: values.left, right: values.right, capSeconds: cap ?? 60 };
 const crowd = values.crowd ? { ...crowdFight(Number(values.seed)), ...(cap === undefined ? {} : { capSeconds: cap }) } : null;
@@ -54,8 +52,8 @@ const named = crowd ? `the crowd fight, seed ${values.seed}` : values.link ? `th
 const build = async () => {
   const place = values.minds ? mindWorkers(Number(values.minds)) : null, minds = place ? { minds: place } : {};
   const stop = (dispose) => () => { dispose(); place?.dispose(); };
-  if (crowd) { const { world, bout, dispose } = await buildTeamBout(crowd, { engine: BOUT_ENGINE, ...mirrored, ...minds }); return { world, over: () => bout.verdict !== null, reach: () => [], dispose: stop(dispose) }; }
-  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, ...mirrored, ...minds });
+  if (crowd) { const { world, bout, dispose } = await buildTeamBout(crowd, { engine: BOUT_ENGINE, ...minds }); return { world, over: () => bout.verdict !== null, reach: () => [], dispose: stop(dispose) }; }
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, ...minds });
   return { world, over: () => duel.verdict !== null, reach: () => place ? [] : SIDES.map((side) => ({ side, ...duel.duelists[side].body.state.mind.host.motor.reach })), dispose: stop(dispose) };
 };
 

@@ -1,6 +1,6 @@
 import { receiveMessageOnPort, workerData, type MessagePort } from "node:worker_threads";
 import { mindThread } from "../apart/thread.ts";
-import { DATA_KEYS, loadData } from "../core/data/store.ts";
+import { GAME } from "../entrants/game.ts";
 import { ANSWERED, DONE, POSTED, SHARED_NUMBERS, waitPast, type Batch, type Reply } from "../apart/wire.ts";
 
 /**
@@ -9,7 +9,7 @@ import { ANSWERED, DONE, POSTED, SHARED_NUMBERS, waitPast, type Batch, type Repl
  * with each step's answer before the answer is counted, until it is told to stop. Every mind's data is loaded before the first batch is read (`loadData`).
  */
 const { port, control } = workerData as { readonly port: MessagePort; readonly control: Int32Array };
-await loadData(DATA_KEYS);
+await GAME.loadData(GAME.dataKeys);
 const thread = mindThread(SHARED_NUMBERS, { say: (reply) => port.postMessage(reply), answered: count });
 
 /** Count `steps` step asks answered (`ANSWERED`). */

@@ -1,13 +1,12 @@
 import { physicalReading } from "../core/observation.ts";
 import { attachment } from "../core/read-body.ts";
-import { loadData } from "../core/data/store.ts";
 import type { EngineName } from "../core/engine/engines.ts";
-import { defaultMind, treeData } from "../entrants/game.ts";
+import { defaultMind, treeData, loadData } from "../entrants/game.ts";
 import { SIDES, type Verdict } from "../arena/duel.ts";
 import type { TeamRecipe } from "../arena/team-bout.ts";
 import type { Side } from "../core/spec/body.ts";
 import { buildTeamBout } from "../evaluation/bout.ts";
-import { pageMinds } from "./minds.ts";
+import type { MindPlace } from "../core/mind/apart.ts";
 import type { DuelNews } from "./duel-stage.ts";
 import type { CryptNews } from "./crypt-stage.ts";
 import type { TapeEntry } from "./protocol.ts";
@@ -47,17 +46,21 @@ export interface Stage<Card = unknown, Input = never> {
   dispose(): void;
 }
 
+/** Runtime adapters supplied by the application's worker or Node composition. */
+export interface StageRuntime {
+  readonly minds?: () => MindPlace | undefined;
+}
+
 /** A body of a team bout as the page makes its spec: its side, whose `TeamSide` names it (`teamSpec`). */
 export interface TeamCard { readonly side: Side }
 
 /**
  * **A team bout's stage**: `recipe`'s bout built by `buildTeamBout` on `engine`, its minds' data
- * loaded first, played until `aftermath` s past its verdict; its minds apart where the page is
- * isolated (`pageMinds`).
+ * loaded first, played until `aftermath` s past its verdict, using the runtime's minds adapter.
  */
-export async function teamStage(recipe: TeamRecipe, aftermath: number, engine?: EngineName): Promise<Stage<TeamCard>> {
+export async function teamStage(recipe: TeamRecipe, aftermath: number, { engine, minds: makeMinds }: StageRuntime & { readonly engine?: EngineName } = {}): Promise<Stage<TeamCard>> {
   await loadData(SIDES.flatMap((side) => treeData(recipe[side].mind ?? defaultMind(recipe[side].model))));
-  const minds = pageMinds(), built = await buildTeamBout(recipe, { ...engine === undefined ? {} : { engine }, ...minds ? { minds } : {} });
+  const minds = makeMinds?.(), built = await buildTeamBout(recipe, { ...engine === undefined ? {} : { engine }, ...minds ? { minds } : {} });
   const { world, bout } = built, dispose = () => { built.dispose(); minds?.dispose(); };
   const roster = bout.members.map((member) => ({ id: member.id, segments: [...member.built.segments.keys()], card: { side: member.side } }));
   const { length } = frameLayout(roster);

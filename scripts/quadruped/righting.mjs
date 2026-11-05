@@ -10,7 +10,7 @@
 // with a bonus for handing back early. --seed-from starts from a recipe's poses (its side's where
 // it has none of the part); --part back searches the poses for the body on its back, over --base's
 // recipe; --write keeps the best as the model's
-// record in assets/core/righting.json (`research/skill-records.mjs`). Options: --gens 50 --pop 24 --workers 19 --frames 3 --seconds 9
+// record in assets/skills/recovery/righting/righting.json (`research/skill-records.mjs`). Options: --gens 50 --pop 24 --workers 19 --frames 3 --seconds 9
 // --sigma .4 --seed 1.
 import { fork } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";

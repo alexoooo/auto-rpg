@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
-import meta from "../../../assets/core/righting.meta.json" with { type: "json" };
+import meta from "../../../assets/skills/recovery/righting/righting.meta.json" with { type: "json" };
 import type { BodyView } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { Position } from "../control/ground-reading.ts";
@@ -302,7 +302,7 @@ const RIGHTING = { role: "technique", stage: "game", moving: true, sides: BOTH, 
 
 /**
  * **Righting by recipe** (`rightingByRecipe`) as a way up from lying (`LYING`): a body on paws
- * (`fitsPaws`) with a righting record of its own (`assets/core/righting.json`,
+ * (`fitsPaws`) with a righting record of its own (`assets/skills/recovery/righting/righting.json`,
  * `dataOf("righting")`), or a whole research recipe in its place. It is done once its last pose
  * holds the trunk upright and still, wherever its legs bear.
  */

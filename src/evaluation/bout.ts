@@ -19,8 +19,6 @@ interface BoutOptions {
   readonly actuation?: World["actuation"];
   /** The command's delay, steps (`World.delay`): the game's unless a study asks for another. */
   readonly delay?: number;
-  /** Each mind on its mirror (`World.mirrored`); on its body unless given. */
-  readonly mirrored?: true;
   /** Where its minds run (`World.minds`); in the world's thread unless given. */
   readonly minds?: MindPlace;
   readonly hooks?: ConstructorParameters<typeof Duel>[2];
@@ -35,8 +33,8 @@ export interface BuiltBout {
 }
 
 /** A world with the arena's solids and `recipe`'s bout in it. */
-export async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, mirrored, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
-  const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
+export async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
+  const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(minds ? { minds } : {}) });
   const solids = arenaSolids(recipe.level);
   const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
   try {
@@ -59,8 +57,8 @@ export const BOUT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "bout" }>
 };
 
 /** A world with the arena's solids and `recipe`'s team bout in it. */
-export async function buildTeamBout(recipe: TeamRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, mirrored, minds }: Omit<BoutOptions, "hooks" | "actuation"> = {}): Promise<{ readonly world: World; readonly bout: TeamBout; dispose(): void }> {
-  const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
+export async function buildTeamBout(recipe: TeamRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, minds }: Omit<BoutOptions, "hooks" | "actuation"> = {}): Promise<{ readonly world: World; readonly bout: TeamBout; dispose(): void }> {
+  const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, ...(minds ? { minds } : {}) });
   const solids = arenaSolids(recipe.level);
   addArenaSolids(world.physics, solids);
   try {

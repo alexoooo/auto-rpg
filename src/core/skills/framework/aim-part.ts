@@ -26,3 +26,9 @@ export interface AimPart<C extends PartConfig = PartConfig> extends Part<C> {
   /** Its aim on a body of `spec`. */
   make(spec: BodySpec, config: C): Aim;
 }
+
+declare module "../../parts/lookup.ts" {
+  interface RoleParts {
+    readonly aim: AimPart;
+  }
+}

@@ -48,7 +48,7 @@ import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
 import { choice, following, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
-import { keysToMove } from "./orders-input.ts";
+import { keysToMove } from "./keys-input.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";

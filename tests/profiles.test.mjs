@@ -12,7 +12,7 @@ import { bodyKey } from "../src/core/spec/body.ts";
 import { record } from "../src/core/option/value.ts";
 
 /**
- * Every measured profile (`assets/core/<kind>-profiles.json`) is of a skill the game has, on a body
+ * Every measured profile (`assets/skills/strikes/<kind>/<kind>-profiles.json`) is of a skill the game has, on a body
  * it builds: a profile is read only where its body, spec digest and skill digest are the reader's
  * (`staleness`), so one keyed to a skill or body that has moved on is never read, and a strike or
  * edge that has none is priced by hand in silence. The bodies are each model at its defaults
@@ -41,8 +41,9 @@ test("every measured profile is of a current skill on a current body", () => {
   assert.ok(keys.strike.size > 0 && keys.edge.size > 0, "the presets reached strikes and techniques to key profiles by");
   const stale = [];
   for (const kind of Object.keys(keys)) {
-    const { profiles } = JSON.parse(readFileSync(new URL(`../assets/core/${kind}-profiles.json`, import.meta.url), "utf8"));
-    assert.ok(profiles.length > 0, `assets/core/${kind}-profiles.json holds profiles`);
+    const path = kind === "strike" ? "../assets/skills/strikes/strike-profiles/strike-profiles.json" : "../assets/skills/recovery/edge-profiles.json";
+    const { profiles } = JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+    assert.ok(profiles.length > 0, `${path} holds profiles`);
     for (const { measured } of profiles) if (!keys[kind].has(`${measured.body} ${measured.spec} ${measured.skill}`))
       stale.push(`${kind}: ${measured.body} (spec ${measured.spec}), skill ${measured.skill}`);
   }

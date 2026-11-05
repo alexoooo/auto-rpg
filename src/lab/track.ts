@@ -107,7 +107,7 @@ export function trackOf(pieces: readonly Piece[]): Track {
 /**
  * The big circle's radius by default, m: about 25 m a lap. Walked at
  * 0.5 m/s it asks the heading to turn 0.125 rad/s, inside the turn each body holds walking at its
- * fastest (`Body.envelope`, `assets/core/stance-envelope.json`). The scenario's slider sets another.
+ * fastest (`Body.envelope`, `assets/skills/locomotion/stance/stance-envelope.json`). The scenario's slider sets another.
  */
 const CIRCLE_RADIUS = 4;
 /**
