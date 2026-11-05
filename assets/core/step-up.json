@@ -450,8 +450,8 @@
         },
         "buckler,sword": {
           "settle": {
-            "speed": 0.372,
-            "seconds": 0.05337
+            "speed": 0.37563,
+            "seconds": 0.04649
           },
           "climb": 0.63972,
           "stages": {
@@ -489,7 +489,16 @@
               }
             },
             "roll flat": {
-              "scale": 0.6
+              "scale": 0.58764
+            },
+            "roll wind": {
+              "scale": 0.19992
+            },
+            "roll swing": {
+              "scale": 0.79218
+            },
+            "roll over": {
+              "scale": 1.15743
             }
           }
         },
