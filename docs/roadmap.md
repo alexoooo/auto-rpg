@@ -26,7 +26,7 @@ Where the project is going and what is open. What is built is in the
 | Plan | What it builds |
 | --- | --- |
 | [Option Mind general](plans/2026-11-03-option-mind-general.md) | the known bugs fixed; Option Mind one loop and one body contract for every body, every act an Option; bodies told apart in data; skills developed against their own baselines |
-| [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | the tree's decisions within a step's 8.33 ms at the 99th percentile at 100 runs: a decision spread over steps, the tree kept, the profiles read from a table, a learned leaf |
+| [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
 | [Options trained body by body](plans/2026-11-03-options-training.md) | after Option Mind general: stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
 | [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |
@@ -118,10 +118,8 @@ Option Mind as its hero.
 - The foe's phase reads `rising` in bursts only.
 - Nothing in the rules costs effort; fatigue only if a trained mind strikes without pause.
 - Options chosen by profile: targets after a guard, spacing, ground choices, obedience.
-- Option Mind's tree chooser (`TREE_CHOOSER`, 100 runs a decision) costs a bout with an Option
-  Mind on each side 17.8 ms a step at the 99th percentile, against a target of 8.33 ms (the valued
-  chooser 9.7 ms; Node, core world, 120 Hz): a search begins about one mind-step in seven, and
-  scoring each state it reaches (its leaf, the strike profiles read there) is most of a search
+- Option Mind's decision cost: reduce mean and tail time at 100 tree runs, and justify the
+  ownership and lifetime of search-path allocations
   ([Option Mind's speed](plans/2026-11-04-option-mind-speed.md)).
 - The measured stomp profiles, which waited on a chooser that prefers a strike sooner, are read
   again under the tree.
