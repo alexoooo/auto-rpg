@@ -1,6 +1,6 @@
 # Layer boundary and invariant audit
 
-The [clean-boundaries plan](../plans/clean-layer-boundaries.md) owns corrective work. This record
+The [clean-boundaries plan](../plans/2026-11-05-clean-layer-boundaries.md) owns corrective work. This record
 contains 103 confirmed findings and 2 unresolved questions. A confirmed finding
 can be a misplaced responsibility, an inconsistent public contract, or a reproduced failure;
 its evidence states which. Source review and passing gates do not prove the absence of defects.
@@ -12,7 +12,7 @@ The review reads all 891 tracked first-party executable, template and stylesheet
 in the inventory, totalling 105,799 lines, plus the three authored Rapier overlay/build
 files. It follows relevant callers, registered declarations, private state, data providers and
 failure cleanup. Authored build and research configuration receives a supplemental review.
-The [file ledger](layer-boundary-files.md) gives every path a responsibility and review outcome.
+The [file ledger](2026-11-05-layer-boundary-files.md) gives every path a responsibility and review outcome.
 An outcome with no finding means that this review records none for that file.
 
 Small disposable probes check contract failures without training or a gameplay battery. They

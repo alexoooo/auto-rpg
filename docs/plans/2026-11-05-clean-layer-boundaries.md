@@ -7,8 +7,8 @@ implementations own their anatomy requirements, algorithms, tuning and data. App
 selects the implementations. Validation, execution, inspection and evidence consume the same facts.
 Durable simulation memory belongs to an explicit saved state graph.
 
-The [audit](../analysis/layer-boundary-audit.md) is the corrective backlog, including the findings
-from the Mind and project organization review. Its [file ledger](../analysis/layer-boundary-files.md)
+The [audit](../analysis/2026-11-05-layer-boundary-audit.md) is the corrective backlog, including the findings
+from the Mind and project organization review. Its [file ledger](../analysis/2026-11-05-layer-boundary-files.md)
 covers first-party source, tools, authored configuration and the authored Rapier overlay. Every
 confirmed finding is in scope. The unresolved questions require a demonstrated resolution.
 [AGENTS.md](../../AGENTS.md) supplies the engineering invariants.
