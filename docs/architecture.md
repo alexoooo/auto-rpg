@@ -209,7 +209,9 @@ Option Mind prices each way up, flatten and a brace that waits for one by their 
 where each was begun (`assets/core/edge-profiles.json`, `research/edge-profiles.mjs`: its own tries
 in falls the stand-up target does not play, each until its next choice), as every Option is
 priced. The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
-(`rise/stages.ts`). A body on paws rights itself (`src/core/reptile/righting.ts`) by its recipe of
+(`rise/stages.ts`); a pose's selected channels can follow other joints folding across an angle
+span (`PoseStage.follow`), keeping their entry pose until every leading joint enters that span.
+A body on paws rights itself (`src/core/reptile/righting.ts`) by its recipe of
 poses from lying (`righting-recipe`, its record `assets/core/righting.json`) and by routes that
 roll it, place each paw and rise on its motor (`righting-routes`). A ground action names its side
 by the first end the body stands on there (`sideEffectors`).

@@ -6,10 +6,11 @@ import { deepFreeze } from "../../state.ts";
 import { bodyKey, type BodySpec, type Side } from "../../spec/body.ts";
 import { heldBy, loadoutKey } from "../../items/held.ts";
 import type { stagedRise } from "../rise/staged.ts";
-import { RISE, rollOver, type BearStage, type Posture, type Recipe, type RollPoses, type Stage } from "../rise/stages.ts";
+import { RISE, rollOver, type BearStage, type PoseStage, type Posture, type Recipe, type RollPoses, type Stage } from "../rise/stages.ts";
 
-/** How one of the recipe's stages is played: its time scaled, its body's pose adjustments, and a bearing stage's completion. */
-interface StageTiming { readonly scale: number; readonly posture?: Posture; readonly progress?: NonNullable<BearStage["progress"]> }
+/** How one of the recipe's stages is played: its time scaled, pose and joint coordination, and a bearing stage's completion. */
+interface StageTiming { readonly scale: number; readonly posture?: Posture; readonly progress?: NonNullable<BearStage["progress"]>;
+  readonly follow?: PoseStage["follow"] }
 /** Stages' settings by name, a roll's stages as `roll <name>`. */
 type StageTimings = Readonly<Record<string, StageTiming>>;
 /**
@@ -59,6 +60,9 @@ const finite = (value: unknown): value is number => typeof value === "number" &&
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
 const validTimings = (stages: unknown): boolean => isObject(stages) && Object.values(stages).every((timing) => isObject(timing) && finite(timing.scale) && timing.scale > 0
   && (timing.posture === undefined || isObject(timing.posture) && Object.values(timing.posture).every(finite))
+  && (timing.follow === undefined || isObject(timing.follow) && Array.isArray(timing.follow.channels) && timing.follow.channels.length > 0
+    && timing.follow.channels.every(name => typeof name === "string") && isObject(timing.follow.past) && Object.keys(timing.follow.past).length > 0
+    && Object.values(timing.follow.past).every(finite) && finite(timing.follow.span) && timing.follow.span > 0)
   && (timing.progress === undefined || isObject(timing.progress) && ["speed", "near", "turn"].every((key) => finite((timing.progress as Record<string, unknown>)[key]))));
 
 /** Whether `settings` are step up's whole and valid: its settling, climb and stage timings, a side to roll over where named. */
@@ -118,7 +122,7 @@ function tunedRecipe(tuning: StepUpTuning, base: Recipe): Recipe {
     if (!timing) return stage;
     const posture = timing.posture ? { ...(stage.posture === "reference" ? {} : stage.posture), ...timing.posture } : stage.posture;
     return stage.kind === "bear" ? { ...stage, posture, seconds: stage.seconds * timing.scale, ...(timing.progress ? { progress: timing.progress } : {}) }
-      : { ...stage, posture: posture as Posture, seconds: stage.seconds * timing.scale };
+      : { ...stage, posture: posture as Posture, seconds: stage.seconds * timing.scale, ...(timing.follow ? { follow: timing.follow } : {}) };
   };
   const sideRoll = (side: Side) => {
     const stages = base.roll[side].length && (tuning.roll || tuning.sideSwing)

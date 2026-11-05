@@ -45,6 +45,8 @@ export interface PoseStage {
   readonly until?: Until;
   /** Its posture approached at a pace the feet allow; absent, driven toward at once. */
   readonly pace?: Pace;
+  /** Selected channels approach their goals as every named leading channel crosses its span up to `past`, rad from its own zero. */
+  readonly follow?: { readonly channels: readonly string[]; readonly past: Posture; readonly span: number };
   /** Channels asked past its posture while a foot's ball is up. */
   readonly press?: Press;
   /** Channels asked past its posture as the body tips onto a side. */
@@ -730,7 +732,13 @@ function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
       case "pose": {
         postureFaults(stage, stage.posture);
         if (stage.drive && !(stage.drive.speed > 0 && stage.drive.within > 0)) faults.push(`stage ${stage.name} drives at ${stage.drive.speed} rad/s within ${stage.drive.within} s`);
-        const { until, pace, press, level } = stage;
+        const { until, pace, press, level, follow } = stage;
+        if (follow) {
+          if (!(follow.span > 0 && Number.isFinite(follow.span))) faults.push(`stage ${stage.name} follows across ${follow.span} rad`);
+          if (!follow.channels.length || !Object.keys(follow.past).length) faults.push(`stage ${stage.name} follows no channels`);
+          for (const channel of [...follow.channels, ...Object.keys(follow.past)]) if (!ranges.has(channel)) faults.push(`stage ${stage.name} follows ${channel}, which ${spec.model} lacks`);
+          for (const angle of Object.values(follow.past)) if (!Number.isFinite(angle)) faults.push(`stage ${stage.name} follows past ${angle} rad`);
+        }
         if (until && stage.hold) faults.push(`stage ${stage.name} is both held and ended by a reading`);
         if (until) {
           if (!(until.for >= 0) || !Number.isFinite(until.for)) faults.push(`stage ${stage.name} holds its end ${until.for} s`);

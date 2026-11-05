@@ -7,6 +7,39 @@ import { commandedBody } from "../src/core/mind/host.ts";
 import { riseLimbs } from "../src/core/recovery/rise/limbs.ts";
 import { servoAsk } from "../src/core/control/servo.ts";
 import { Vector3 } from "../src/core/math/vector.ts";
+import { stagedRise } from "../src/core/recovery/rise/staged.ts";
+import { RISE } from "../src/core/recovery/rise/stages.ts";
+
+test("following pose channels wait for every lead while other channels keep moving", async () => {
+  const stand = await coreStand(modelSpec("workshop-fighter"), { gravity: false, ground: false, posture: { "elbow.left flexion": 1.8 } });
+  let own;
+  const host = commandedBody(stand.built, stand.world, {}, [(body) => {
+    own = body;
+    return { name: "following pose", state: {}, wants: () => false, begin() {}, end() {}, step() {} };
+  }]);
+  try {
+    const m = own.muscles, names = m.channels.map(c => c.name), elbow = names.indexOf("elbow.left flexion"), hip = names.indexOf("hip.left flexion");
+    let left = 1, right = 1, elbowAngle = 1.8;
+    const muscles = { ...m, angle: i => names[i] === "knee.left flexion" ? left - m.channels[i].dof.spec.bind.value
+      : names[i] === "knee.right flexion" ? right - m.channels[i].dof.spec.bind.value
+      : i === elbow ? elbowAngle - m.channels[i].dof.spec.bind.value : i === hip ? .3 - m.channels[i].dof.spec.bind.value : m.angle(i) };
+    const pose = { kind: "pose", name: "follow", seconds: 10, posture: { "elbow.left flexion": 1, "hip.left flexion": .5 },
+      follow: { channels: ["elbow.left flexion"], past: { "knee.left flexion": 2, "knee.right flexion": 2 }, span: 1 } };
+    const recipe = { ...RISE, rise: [pose, RISE.rise.find(s => s.kind === "bear")] };
+    const rise = stagedRise({ ...own, muscles }, host.view, recipe);
+    rise.beginRising();
+    for (const [a, b, expected] of [[1, 1, 0], [2, 1, 0], [2, 1.5, -2], [2, 2, -3], [2, 1.25, -1]]) {
+      left = a; right = b;
+      rise.step({}, stand.world.dt);
+      assert.ok(Math.abs(m.velocity[elbow] - expected) < 1e-5, `leads ${a},${b}: elbow ${m.velocity[elbow]}, expected ${expected}`);
+      assert.ok(Math.abs(m.velocity[hip] - 1) < 1e-5, `independent hip ${m.velocity[hip]}`);
+      assert.equal(rise.state.phase, "rise");
+    }
+    rise.end(); elbowAngle = 1.4; rise.beginRising(); left = right = 1;
+    rise.step({}, stand.world.dt);
+    assert.ok(Math.abs(m.velocity[elbow]) < 1e-5, "a new attempt captures its entry pose again");
+  } finally { host.dispose(); stand.dispose(); }
+});
 
 test("loaded held support follows item contact without moving a nearby hand's target", async () => {
   const stand = await coreStand(modelHolding("workshop-fighter", { left: "empty", right: "sword" }), { gravity: false, ground: false });

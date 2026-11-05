@@ -177,7 +177,7 @@
     }
   },
   "workshop-fighter+toes": {
-    "made": "Recovery timings and loadout poses searched by research/rise-search.mjs for unassisted recovery within 10 s.",
+    "made": "Recovery timings, loadout poses and joint coordination searched for unassisted recovery within 10 s.",
     "settings": {
       "settle": {
         "speed": 0.372,
@@ -373,7 +373,18 @@
               "scale": 0.21368
             },
             "prop": {
-              "scale": 0.25522
+              "scale": 0.43988,
+              "follow": {
+                "channels": [
+                  "elbow.left flexion",
+                  "elbow.right flexion"
+                ],
+                "past": {
+                  "knee.left flexion": 2.05097,
+                  "knee.right flexion": 2.05097
+                },
+                "span": 1.26193
+              }
             },
             "fours": {
               "scale": 0.33157,

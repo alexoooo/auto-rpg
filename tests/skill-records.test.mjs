@@ -78,6 +78,20 @@ test("a recovery loadout variant has its own cached settings and leaves the empt
   assert.deepEqual(first, saved);
 });
 
+test("a recovery record supplies joint following without changing the base recipe", () => {
+  const base = stepUpTuning(modelSpec("workshop-fighter")), before = structuredClone(stepUpRecipe(base));
+  const follow = { channels: ["elbow.left flexion"], past: { "knee.left flexion": 2 }, span: .5 };
+  const tuning = { ...base, stages: { ...base.stages, prop: { ...base.stages.prop, follow } } };
+  assert.deepEqual(TECHNIQUES["front-sit-back"].faults({ kind: "front-sit-back", tuning }, partLookup), []);
+  assert.deepEqual(stepUpRecipe(tuning, SIT_BACK).rise.find(s => s.name === "prop").follow, follow);
+  assert.deepEqual(stepUpRecipe(base), before);
+  for (const invalid of [{ ...follow, span: 0 }, { ...follow, span: Infinity }, { ...follow, channels: [] },
+    { ...follow, channels: [1] }, { ...follow, past: {} }, { ...follow, past: { "knee.left flexion": NaN } }]) {
+    const bad = { ...base, stages: { prop: { scale: 1, follow: invalid } } };
+    assert.deepEqual(TECHNIQUES["front-sit-back"].faults({ kind: "front-sit-back", tuning: bad }, partLookup), ["tuning: invalid step-up settings"]);
+  }
+});
+
 test("a recovery record selects loaded held support without changing the base recipe", () => {
   const base = stepUpTuning(modelSpec("workshop-fighter")), tuning = { ...base, heldSupport: "loaded" };
   assert.deepEqual(TECHNIQUES["front-sit-back"].faults({ kind: "front-sit-back", tuning }, partLookup), []);
