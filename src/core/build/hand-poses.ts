@@ -21,8 +21,6 @@ export interface HandPoses {
   /** Each posable hand: its name in a request, the segment it is, and its poses. */
   readonly model: readonly { readonly hand: "left" | "right"; readonly segment: string; readonly poses: readonly HandPose[] }[];
   readonly state: Record<string, { applied: HandPose; requested: HandPose }>;
-  check(requests: readonly HandPoseRequest[]): readonly HandPoseRequest[];
-  request(requests: readonly HandPoseRequest[]): void;
   requestOne(hand: "left" | "right", pose: HandPose): void;
   dispose(): void;
 }
@@ -48,17 +46,6 @@ export function checkHandPose(model: HandPoses["model"], hand: "left" | "right",
   if (!known || (pose !== "open" && pose !== "fist" && pose !== "grip")) throw new Error("invalid or duplicate hand pose request");
 }
 
-/** Detached requests checked together, with each hand occurring once. */
-export function checkHandPoses(model: HandPoses["model"], requests: readonly HandPoseRequest[]): readonly HandPoseRequest[] {
-  if (!Array.isArray(requests)) throw new Error("hand pose requests must be an array");
-  const seen = new Set<string>();
-  return deepFreeze(requests.map(request => {
-    if (!request || seen.has(request.hand)) throw new Error("invalid or duplicate hand pose request");
-    checkHandPose(model, request.hand, request.pose);
-    seen.add(request.hand); return { ...request };
-  }));
-}
-
 /** Rigid-hand articulation uses the body's existing mass properties, never a shape's inferred mass. */
 export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, BuiltSegment>, world: World): HandPoses {
   const state: HandPoses["state"] = {};
@@ -69,7 +56,6 @@ export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, Bu
     return [{ hand, part, poses: part.poses, held: !!spec.held?.some(item => item.segment === part.spec.name) }];
   });
   const model = handPoseModel([...segments.values()].filter((segment) => segment.handPose && segment.poses).map((segment) => segment.spec));
-  const check: HandPoses["check"] = requests => checkHandPoses(model, requests);
   const hook = hands.length === 0 ? null : world.prepare(() => {
     for (const hand of hands) {
       const pose = state[hand.hand]!;
@@ -81,8 +67,7 @@ export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, Bu
       hand.part.body.changeShape(0, collider); pose.applied = desired;
     }
   });
-  return { model, state, check,
-    request(requests) { for (const request of check(requests)) state[request.hand]!.requested = request.pose; },
+  return { model, state,
     requestOne(hand, pose) { checkHandPose(model, hand, pose); state[hand]!.requested = pose; },
     dispose: () => hook?.dispose() };
 }

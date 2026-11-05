@@ -6,6 +6,9 @@ import { deepFreeze } from "./state.ts";
 import { attachmentRows } from "./build/constrained-mass.ts";
 import type { World } from "./world.ts";
 
+/** A detached reading of an independently simulated item's pose and grips. */
+export type EquipmentObservation = ReturnType<ReturnType<typeof createEquipment>["observe"]>;
+
 interface Frame {
   readonly position: Vec3;
   readonly rotation: readonly [number, number, number, number];

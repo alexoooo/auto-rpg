@@ -26,9 +26,10 @@ import { LOCOMOTION_DATA } from "./skills/locomotion/data/registration.ts";
 import { STAGED_DATA } from "./recovery/implementations/staged/data/registration.ts";
 import { RECOVERY_DATA } from "./recovery/data/registration.ts";
 import { PAW_DATA } from "./reptile/data/registration.ts";
+import { LEG_ADAPTERS } from "./recovery/leg-adapters.ts";
 
 /** Every part's config below a mind, by kind. */
-type AnyPart = AimConfig | ConfigOf<typeof REPTILE_PARTS> | TechniqueConfig | ConfigOf<typeof MOTORS> | MoveRuleConfig | LocomotionConfig | GaitConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
+type AnyPart = AimConfig | ConfigOf<typeof LEG_ADAPTERS> | ConfigOf<typeof REPTILE_PARTS> | TechniqueConfig | ConfigOf<typeof MOTORS> | MoveRuleConfig | LocomotionConfig | GaitConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
 
 /** A part for each kind a config below a mind names: a kind no list holds fails to compile. */
 type Covered = { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> };
@@ -51,7 +52,7 @@ function merged<L extends readonly Readonly<Record<string, Part>>[]>(...lists: L
  * list of parts below a mind, read when asked so a part's module may be read in any order.
  */
 export function toolkitLists(): CatalogLists {
-  const below: Covered = merged(TECHNIQUES, MOVE_RULES, LOCOMOTIONS, GAIT_PARTS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
+  const below: Covered = merged(TECHNIQUES, LEG_ADAPTERS, MOVE_RULES, LOCOMOTIONS, GAIT_PARTS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
     REPTILE_PARTS, CHOOSERS, OPTION_KINDS, OBJECTIVES, PREDICTIONS);
   return { minds: MIND_KINDS, parts: [below], entrants: [], data: [STRIKE_DATA, LOCOMOTION_DATA, STAGED_DATA, RECOVERY_DATA, PAW_DATA] };
 }

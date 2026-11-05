@@ -8,8 +8,7 @@ import type { Locomotion } from "../skills/locomotion/locomotion.ts";
 import type { Legs } from "../skills/framework/locomotion-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { PartConfig } from "../parts/parts.ts";
-
-import { lowering } from "../recovery/implementations/staged/lowering.ts";
+import { adaptLegs } from "../skills/framework/leg-adapter.ts";
 
 /**
  * **What lies under every skill of a body**, by the name an experiment passes it in by: what turns
@@ -53,18 +52,18 @@ function legsFrom(parts: PartLookup): Legs {
 
 /**
  * **The legs' skill** `config` names for `body`, as `parts` finds it (`LocomotionPart.make`), which
- * also lower the body onto the ends a lowering of its bears on (`lowering`).
+ * extended by the leg capabilities registered with the catalog (`adaptLegs`).
  */
 export function legsOf(parts: PartLookup, body: Body, config: PartConfig): Locomotion {
-  return lowering(body, parts.of("locomotion", config).make(body, config, legsFrom(parts)));
+  return adaptLegs(parts, body, parts.of("locomotion", config).make(body, config, legsFrom(parts)));
 }
 
 /**
  * **A gait's legs alone** `config` names for `body`, as `parts` finds it (`GaitPart.make`), lowering
- * the body as the legs do (`legsOf`): what a rig that walks by one gait stands on.
+ * the registered leg capabilities as the legs do (`legsOf`).
  */
 export function gaitLegsOf(parts: PartLookup, body: Body, config: PartConfig): Locomotion {
-  return lowering(body, parts.of("gait", config).make(body, config));
+  return adaptLegs(parts, body, parts.of("gait", config).make(body, config));
 }
 
 /**

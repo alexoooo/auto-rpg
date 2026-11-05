@@ -133,7 +133,7 @@ export const OPTION_MIND = controller<OptionMindConfig>({
   role: "mind", label: "Option Mind", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
   keys: { kind: true, chooser: true, options: true, predictions: true, rate: true, tuning: true }, tuning: ["parts"],
   // The options it starts with where its config names none, the navigation its walks go by where none names one, and every part that may lie under its skills.
-  uses: (config, parts) => [...config.options ? [] : OPTIONS, GAME_NAVIGATION, ...Object.values(FILLED).flatMap((role) => parts.game(role)),
+  uses: (config, parts) => [...config.options ? [] : OPTIONS, GAME_NAVIGATION, ...Object.values(FILLED).flatMap((role) => parts.game(role)), ...parts.game("leg-adapter"),
     ...Object.values(config.tuning?.parts ?? {})],
   reads: () => ["strike-profiles", "edge-profiles"],
   fits: (spec, config, parts) => filledRefusal(parts, spec, config.tuning?.parts),

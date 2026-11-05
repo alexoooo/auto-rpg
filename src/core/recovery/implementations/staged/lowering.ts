@@ -6,6 +6,8 @@ import { ALL_MET, FIELD_BIT, fieldsOf, type LegsAsked, type LegsUnmet } from "..
 import { heldBody, heldCommand } from "../../../mind/held-body.ts";
 import { stagedRise } from "./staged.ts";
 import { LOWERINGS, stageFaults, type Lowering } from "./stages.ts";
+import type { LegAdapterPart } from "../../../skills/framework/leg-adapter.ts";
+import { anyBody } from "../../../parts/parts.ts";
 
 /** What legs report of a goal whose ends they could not bear on: its feet. */
 const FEET_UNMET: LegsUnmet = Object.freeze({ fields: fieldsOf(FIELD_BIT.feet), centre: 0, height: 0 });
@@ -123,3 +125,10 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
     },
   };
 }
+
+/** The staged lowering routes offered beside a body's ordinary legs. */
+export const STAGED_LOWERING = Object.freeze<LegAdapterPart<{ readonly kind: "staged-lowering" }>>({
+  role: "leg-adapter", label: "Staged lowering", stage: "game", fields: [], slots: [],
+  defaults: { kind: "staged-lowering" }, keys: { kind: true }, fits: anyBody, faults: () => [],
+  make: (body, legs) => lowering(body, legs),
+});

@@ -6,7 +6,7 @@ import type { BodyLevel, MuscleReading } from "./muscle/driver.ts";
 import type { Senses } from "./mind/senses.ts";
 import type { SolidSense } from "./mind/object-senses.ts";
 import type { ObjectSense } from "./mind/object-senses.ts";
-import type { EquipmentObservation } from "./mind/equipment-port.ts";
+import type { EquipmentObservation } from "./equipment.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import { deepFreeze } from "./state.ts";
 import type { Clock } from "./clock.ts";
@@ -28,7 +28,7 @@ export interface BodyObservation {
   readonly time: number;
   readonly level: BodyLevel;
   readonly model: string;
-  /** Only equipment granted to this controller; absent when no equipment port is configured. */
+  /** Only the equipment explicitly granted to this observer. */
   readonly equipment?: readonly EquipmentObservation[];
   readonly centre: Vec3;
   readonly head: Vec3 | null;
@@ -101,8 +101,7 @@ export function centreReading(built: ReadBody, name: string): { centre: Vector3;
 const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }): Vec3 => [v.x, v.y, v.z];
 
 /**
- * What an observation reads beside the body: the equipment granted to its controller
- * (`equipment`), whether the body is down by its host's rule (`down`, else by its own
+ * What an observation reads beside the body: whether the body is down by its host's rule (`down`, else by its own
  * uprightness), and each ground contact's patch (`contactPatches`).
  */
 interface ObserveOptions {

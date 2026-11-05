@@ -1,7 +1,6 @@
 import type { BuiltBody } from "./build/build-body.ts";
 import type { Assist } from "./control/assist.ts";
 import type { Senses } from "./mind/senses.ts";
-import type { EquipmentPort } from "./mind/equipment-port.ts";
 import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import { observeBody, physicalReading, type BodyObservation } from "./observation.ts";
 import type { World } from "./world.ts";
@@ -34,8 +33,7 @@ export interface PhysicalBody {
 }
 
 /** Adapt an embodied mind, observed on its own senses, without constructing any stance, skill or motion controller. */
-export function physicalBody(built: BuiltBody, own: HeldReading, world: World, has: () => string, state: object, dispose: () => void,
-  equipment?: EquipmentPort): PhysicalBody {
+export function physicalBody(built: BuiltBody, own: HeldReading, world: World, has: () => string, state: object, dispose: () => void): PhysicalBody {
   const read = physicalReading(built), physical = read();
   const hook = world.beforeStep(() => { if (own.muscles.level === "full") read(); });
   return {
@@ -44,7 +42,7 @@ export function physicalBody(built: BuiltBody, own: HeldReading, world: World, h
     get has() { return own.muscles.level === "full" ? has() : "nobody"; },
     get level() { return own.muscles.level; },
     setLevel: (level) => own.muscles.setLevel(level),
-    observe: observeBody(built, own.muscles, world, own.senses, { equipment: equipment ? () => equipment.observe() : undefined, level: () => own.muscles.level }),
+    observe: observeBody(built, own.muscles, world, own.senses, { level: () => own.muscles.level }),
     dispose() { hook.dispose(); dispose(); },
   };
 }

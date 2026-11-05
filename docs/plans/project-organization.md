@@ -163,13 +163,10 @@ entry points and composition roots.
 
 ## Migration
 
-Establish the target placements and checks first, then land [the mind boundary](mind-boundary.md)
-at the current paths before moving boundary code or packaging entrants. That plan owns the Mind
-contract, construction result, command-layer phase and observer wiring, and shared worker execution;
-this migration places and registers the resulting implementations without redesigning those contracts.
-Its preservation promise applies to that completed boundary, including its removal of zero-delay
-worlds and its hand-request refusal timing. Recovery ownership can proceed independently where it
-does not change this wiring.
+The [Mind contract and execution phases](../architecture.md#minds) define construction, command-layer
+observation and shared worker execution. Complete ownership registration before moving boundary code
+or packaging entrants; this migration places the implementations and preserves those contracts,
+including a command delay of at least one step and hand-request refusal before answering.
 
 1. Place every directory. Write the layer and runtime checks against the target, reporting only
    until each slice lands.

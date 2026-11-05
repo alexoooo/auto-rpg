@@ -98,9 +98,9 @@ and bias), `contactMass` and `contactGive`.
 
 - **Toes** (`src/core/build/toes.ts`): a massless slab hinged at the ball, bending as the heel
   lifts; the stance reads the sole from the box and the toes (`src/core/control/support.ts`).
-- **Separate items** (`src/core/equipment.ts`, unused by the game's fighters): an item as its own
-  body gripped by joints after geometric capture, reached only through a granted port
-  (`equipment-port.ts`); a refused grip refuses the whole action.
+- **Separate items** (`createEquipment`, `src/core/equipment.ts`): an item as its own body,
+  gripped by joints after geometric capture. Trusted world code owns its lifecycle and supplies
+  equipment observations where an inspector needs them.
 
 ## Muscles
 
@@ -241,7 +241,8 @@ before the answer; the answer clears the pairs. The body-side rings carry comman
 - **Senses** (`Senses`, `senses.ts`): the clock, its side and life, and every other body
   (`BodySense`), read once before any mind (`createSenses`), others late by `Rulebook.reaction`.
 - **What a mind builds**: the command layers (`commandedMind`), sub-minds that take the body in rank
-  order (`SubMind`, `hosting`), or a policy on detached observations (`policyMind`).
+  order (`SubMind`, `hosting`), or its own computation. The bare entrant reads network inputs
+  directly and saves pending pulls for its next `act`; `observeBody` supplies detached inspection.
 - **Deciding.** A decider (`Decider`, `decider.ts`) decides an intent at its pace (`Pace`), and at
   once when the body is back from another mind, its orders change or an action ends; the skills
   make the command every step from the intent last decided.

@@ -1,52 +1,32 @@
-/**
- * **The bare mind**: a body under a network and nothing of the toolkit's control: its own body
- * observed (`BodyObservation`) in, each muscle's pull out (`host.policy`). It is the testbed's most
- * general route, a mind from the senses to the muscles, which a trainer's bout drives as it drives
- * a skill's steer.
- *
- * Every `every` control steps it reads its inputs (`bareLayout`: each channel's angle and rate, its
- * root's up, its centre of mass's height, its root's velocity and spin, the nearest other body's place and
- * velocity, its orders' direction and pace), each vector in its heading's frame (along, up, across
- * its root's yaw), and decides each channel's pull, -1 to 1: a channel pulls at that share of its
- * strength toward its positive motion (above 0) or its negative one. A decision acts from the
- * control step after the one it reads. With a network (`BareConfig.network`), the network decides;
- * with none, the pulls its learner holds stand (zero, limp, unless something writes them: a
- * trainer, which reads its inputs and writes its outputs, `Learner`).
- */
+/** A bare mind reads its body and senses into its network, and carries saved pulls in its fast phase. */
 import { networkFaults, recoveryNetwork, type Network } from "../../core/learning/recovery-network.ts";
-import type { BodyObservation } from "../../core/observation.ts";
 import type { BodySpec } from "../../core/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { controller, NO_POSTURE, type Controller, type MindPreset } from "../../core/mind/controller.ts";
-import type { BodyAction } from "../../core/mind/body-actions.ts";
-import { policyMind } from "../../core/mind/direct.ts";
 import type { MindWiring } from "../../core/mind/minds.ts";
-import { NOTHING_SENSED } from "../../core/mind/senses.ts";
+import type { MindConstruction, OwnBody } from "../../core/mind/mind.ts";
+import type { Senses } from "../../core/mind/senses.ts";
 import { learnerOf, type Learner } from "../../core/learning/learner.ts";
+import { Vector3 } from "../../core/math/vector.ts";
+import { jointTracker } from "../../core/build/joint-state.ts";
+import { rootSegment, type ReadSegment } from "../../core/read-body.ts";
+import { massCentreToRef, partsOn } from "../../core/read-motion.ts";
 
-/** **The bare mind's config**: its network, or none (its pulls written from outside), and how many control steps apart it decides. */
 interface BareConfig {
   readonly kind: "bare:mind";
   readonly network: Network | null;
   readonly every: number;
 }
 
-/** The bare mind's memory: control steps taken, and its learner (`Learner`): the inputs it last read, and the pulls it holds, its outputs. */
+/** Pulls wait between think and act; learning survives an interruption. */
 interface BareState {
   steps: number;
   readonly learner: Learner;
+  readonly keptPulls: Float64Array;
 }
 
-/** Each channel's name, `joint positive-motion`, in the order the muscle driver lays them (`channelName`). */
 const channelsOf = (spec: BodySpec): string[] => spec.joints.flatMap((joint) => joint.dofs.map((dof) => `${joint.name} ${dof.positive}`));
 
-/** The root segment: the one no joint moves. */
-const rootOf = (spec: BodySpec): string => {
-  const children = new Set(spec.joints.map((joint) => joint.child));
-  return spec.segments.find((segment) => !children.has(segment.name))!.name;
-};
-
-/** **What a bare mind of a body of `spec` reads and decides**, by name, in order: its inputs and its outputs (a pull a channel). */
 function bareLayout(spec: BodySpec): { readonly inputs: readonly string[]; readonly outputs: readonly string[] } {
   const channels = channelsOf(spec), frame = (name: string) => [`${name} along`, `${name} up`, `${name} across`];
   return {
@@ -58,12 +38,10 @@ function bareLayout(spec: BodySpec): { readonly inputs: readonly string[]; reado
 
 const BARE: BareConfig = deepFreeze({ kind: "bare:mind", network: null, every: 2 });
 
-/** Its one config, with no network, on no menu: its pulls are its learner's outputs. */
 export const BARE_PRESETS: Readonly<Record<string, MindPreset<BareConfig>>> = deepFreeze({
   bare: { label: "Bare (no network)", config: BARE, offered: false },
 });
 
-/** Why a body of `spec` cannot carry `config`'s network: its inputs and outputs are the body's layout's. */
 function fits(spec: BodySpec, config: BareConfig): string | null {
   if (!config.network) return null;
   const layout = bareLayout(spec), { inputs } = networkFaults(config.network);
@@ -71,72 +49,101 @@ function fits(spec: BodySpec, config: BareConfig): string | null {
     ? `its network reads ${inputs} inputs for ${config.network.actions} pulls; this body gives ${layout.inputs.length} for ${layout.outputs.length}` : null;
 }
 
-/** The pulls of `state` as a body action: each channel at the pull's share of its strength, toward its sign's motion. */
-function actionOf(pulls: readonly number[]): BodyAction {
-  return { kind: "velocity", activation: pulls.map((pull) => Math.min(1, Math.abs(pull))), velocity: pulls.map((pull) => pull > 0 ? Infinity : pull < 0 ? -Infinity : 0) };
+/** Append one world vector in the heading frame, retaining the input array's storage. */
+function writeFrame(into: number[], at: number, vx: number, vy: number, vz: number, fx: number, fz: number): number {
+  into[at] = vx * fx + vz * fz; into[at + 1] = vy; into[at + 2] = vx * fz - vz * fx;
+  return at + 3;
 }
 
-/**
- * `observation` read into `into` in `bareLayout`'s order, the root at `root` among its segments,
- * `orders` its move and pace. The heading is the root's turn about the vertical alone (its swing
- * left out), forward +z of the root.
- */
-function read(into: number[], observation: BodyObservation, root: number, orders: ReturnType<MindWiring["orders"]>): void {
-  into.length = 0;
-  for (const joint of observation.joints) into.push(joint.angle);
-  for (const joint of observation.joints) into.push(joint.rate);
-  const segment = observation.segments[root]!, [x, y, z, w] = segment.rotation, twist = w * w + y * y;
-  const fx = twist > 1e-12 ? 2 * w * y / twist : 0, fz = twist > 1e-12 ? (w * w - y * y) / twist : 1;
-  const frame = (vx: number, vy: number, vz: number) => { into.push(vx * fx + vz * fz, vy, vx * fz - vz * fx); };
-  frame(2 * (x * y - w * z), 1 - 2 * (x * x + z * z), 2 * (y * z + w * x));
-  into.push(observation.centre[1]);
-  frame(...segment.velocity);
-  frame(...segment.spin);
-  const own = observation.centre;
-  let nearest: BodyObservation["senses"]["others"][number] | null = null, best = Infinity;
-  for (const other of observation.senses.others) {
-    if (other.out) continue;
-    const dx = other.centre[0] - own[0], dz = other.centre[2] - own[2], d = dx * dx + dz * dz;
-    if (d < best) { best = d; nearest = other; }
-  }
-  into.push(nearest ? 1 : 0);
-  if (nearest) { frame(nearest.centre[0] - own[0], nearest.centre[1] - own[1], nearest.centre[2] - own[2]); frame(...nearest.velocity); }
-  else into.push(0, 0, 0, 0, 0, 0);
-  const move = orders?.move, direct = move?.kind === "direct" ? move.direction : null, length = direct ? Math.sqrt(direct.x * direct.x + direct.z * direct.z) : 0;
-  into.push(direct ? 1 : 0);
-  if (direct && length > 0) into.push((direct.x * fx + direct.z * fz) / length, (direct.x * fz - direct.z * fx) / length);
-  else into.push(0, 0);
-  into.push(orders?.pace ?? 0);
+/** Body and senses inputs in bareLayout order; every workspace value is overwritten by a read. */
+function inputsOf(own: OwnBody, orders: MindWiring["orders"]): (into: number[], senses: Senses) => void {
+  const root = rootSegment(own.built), parts = partsOn(own.built);
+  const centre = new Vector3(), point = new Vector3(), velocity = new Vector3();
+  const spins = [...own.built.segments.values()].map((part) => ({ part, spin: new Vector3() }));
+  const spinOf = new Map(spins.map(({ part, spin }) => [part, spin]));
+  const trackers = [...own.built.joints.values()].map((joint) => jointTracker(joint));
+  const angular = (part: ReadSegment) => spinOf.get(part)!;
+  const rootSpin = angular(root);
+  return (into, senses) => {
+    let at = 0;
+    const current = parts();
+    massCentreToRef(current.segments, current.mass, centre, point);
+    for (let i = 0; i < spins.length; i++) { const reading = spins[i]!; reading.part.body.angularVelocityToRef(reading.spin); }
+    for (let i = 0; i < trackers.length; i++) {
+      const tracker = trackers[i]!; tracker.update(angular);
+      for (let k = 0; k < tracker.angles.length; k++) into[at++] = tracker.angles[k]!;
+    }
+    for (let i = 0; i < trackers.length; i++) {
+      const rates = trackers[i]!.rates;
+      for (let k = 0; k < rates.length; k++) into[at++] = rates[k]!;
+    }
+    const { x, y, z, w } = root.pose.rotation, twist = w * w + y * y;
+    const fx = twist > 1e-12 ? 2 * w * y / twist : 0, fz = twist > 1e-12 ? (w * w - y * y) / twist : 1;
+    at = writeFrame(into, at, 2 * (x * y - w * z), 1 - 2 * (x * x + z * z), 2 * (y * z + w * x), fx, fz);
+    into[at++] = centre.y;
+    root.body.linearVelocityToRef(velocity); at = writeFrame(into, at, velocity.x, velocity.y, velocity.z, fx, fz);
+    at = writeFrame(into, at, rootSpin.x, rootSpin.y, rootSpin.z, fx, fz);
+    let nearest: Senses["others"][number] | null = null, best = Infinity;
+    for (let i = 0; i < senses.others.length; i++) {
+      const other = senses.others[i]!;
+      if (other.out) continue;
+      const dx = other.centre.x - centre.x, dz = other.centre.z - centre.z, distance = dx * dx + dz * dz;
+      if (distance < best) { best = distance; nearest = other; }
+    }
+    into[at++] = nearest ? 1 : 0;
+    if (nearest) {
+      at = writeFrame(into, at, nearest.centre.x - centre.x, nearest.centre.y - centre.y, nearest.centre.z - centre.z, fx, fz);
+      at = writeFrame(into, at, nearest.velocity.x, nearest.velocity.y, nearest.velocity.z, fx, fz);
+    } else { for (let i = 0; i < 6; i++) into[at++] = 0; }
+    const given = orders(senses), move = given?.move;
+    const direct = move?.kind === "direct" ? move.direction : null, length = direct ? Math.sqrt(direct.x * direct.x + direct.z * direct.z) : 0;
+    into[at++] = direct ? 1 : 0;
+    if (direct && length > 0) {
+      into[at++] = (direct.x * fx + direct.z * fz) / length;
+      into[at++] = (direct.x * fz - direct.z * fx) / length;
+    } else { into[at++] = 0; into[at++] = 0; }
+    into[at] = given?.pace ?? 0;
+  };
 }
 
 export const BARE_MIND: Controller = controller<BareConfig>({
   role: "mind", label: "Bare", stage: "experimental", fields: [], slots: [], defaults: BARE,
   keys: { kind: true, network: true, every: true },
   fits: (spec, config) => fits(spec, config),
-  // It strikes with whatever its pulls swing: every effector the body has, and what each holds.
   strikes: (spec) => (spec.effectors ?? []).map((effector) => effector.segment),
   faults: (config) => [...(Number.isSafeInteger(config.every) && config.every >= 1 ? [] : ["it decides every whole number of control steps, 1 or more"]),
     ...(config.network ? networkFaults(config.network).faults : [])],
   builtIn: () => NO_POSTURE,
   create: (host, config, wiring) => {
-    const layout = bareLayout(host.spec), rootName = rootOf(host.spec);
-    let root = -1;
-    const decide = config.network ? recoveryNetwork(config.network) : null, senses = wiring.senses ?? (() => NOTHING_SENSED);
-    const state: BareState = { steps: 0, learner: learnerOf(layout.outputs.length, true) };
-    host.take((own) => policyMind(own, (model) => {
-      if (model.channels.map((channel) => channel.name).join("\n") !== channelsOf(host.spec).join("\n")) throw new Error("the bare layout's channels are not the body's");
-      return { name: "bare", state, step(observation) {
-        const { learner } = state, action = actionOf(learner.outputs);
-        if (state.steps % config.every === 0) {
-          if (root < 0) root = observation.segments.findIndex((segment) => segment.name === rootName);
-          read(learner.inputs, observation, root, wiring.orders(senses()));
-          learner.decisions++;
-          if (decide) { const pulls = decide(learner.inputs); for (let i = 0; i < pulls.length; i++) learner.outputs[i] = pulls[i]!; }
-        }
-        state.steps++;
-        return action;
-      } };
-    }, host.clock));
+    const layout = bareLayout(host.spec), decide = config.network ? recoveryNetwork(config.network) : null;
+    const learner = { ...learnerOf(layout.outputs.length, true), inputs: new Array<number>(layout.inputs.length).fill(0) };
+    const state: BareState = { steps: 0, learner, keptPulls: new Float64Array(layout.outputs.length) };
+    host.take((own) => {
+      if (own.muscles.channels.map((channel) => channel.name).join("\n") !== channelsOf(host.spec).join("\n")) throw new Error("the bare layout's channels are not the body's");
+      const read = inputsOf(own, wiring.orders);
+      return { name: "bare", has: () => "bare", dispose() {}, mind: {
+        state,
+        act(control) {
+          const { keptPulls } = state;
+          for (let i = 0; i < keptPulls.length; i++) {
+            const pull = keptPulls[i]!;
+            control.muscles.activation[i] = Math.min(1, Math.abs(pull));
+            control.muscles.velocity[i] = pull > 0 ? Infinity : pull < 0 ? -Infinity : 0;
+          }
+        },
+        think(senses) {
+          const { learner, keptPulls } = state;
+          keptPulls.set(learner.outputs);
+          if (state.steps % config.every === 0) {
+            read(learner.inputs, senses);
+            learner.decisions++;
+            if (decide) { const pulls = decide(learner.inputs); for (let i = 0; i < pulls.length; i++) learner.outputs[i] = pulls[i]!; }
+          }
+          state.steps++;
+        },
+        interrupt() { state.keptPulls.fill(0); },
+      } } satisfies MindConstruction;
+    });
     return { state };
   },
 });

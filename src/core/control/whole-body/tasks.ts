@@ -1,6 +1,8 @@
-import type { GripAction } from "../../mind/equipment-port.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { deepFreeze } from "../../state.ts";
+
+/** A request for a named item's grip. */
+interface GripAction { readonly item: string; readonly grip: string; readonly attached: boolean }
 
 /** A named physical frame; neither the objective nor its author receives a mutable body. */
 type MotionFrame = { readonly kind: "segment"; readonly name: string } | { readonly kind: "item"; readonly id: string };

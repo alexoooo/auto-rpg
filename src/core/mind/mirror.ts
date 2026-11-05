@@ -12,7 +12,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import { bodyDynamics } from "../build/dynamics.ts";
-import { HAND_POSES as POSES, checkHandPose, checkHandPoses, handPoseModel, type HandPoseRequest } from "../build/hand-poses.ts";
+import { HAND_POSES as POSES, checkHandPose, handPoseModel } from "../build/hand-poses.ts";
 import { jointKinematics } from "../build/joint-kinematics.ts";
 import { segmentShapes } from "../build/segment-shapes.ts";
 
@@ -475,7 +475,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const model = handPoseModel(spec.segments);
   const handState = Object.fromEntries(model.map(({ hand, segment }) => [hand, records[statics.segments.findIndex((s) => s.name === segment)]!.handPose!]));
   const read: ReadBody = Object.freeze({ spec, physics, segments, joints,
-    handPoses: Object.freeze({ model, state: Object.freeze(handState), check: (requests: readonly HandPoseRequest[]) => checkHandPoses(model, requests) }) });
+    handPoses: Object.freeze({ model, state: Object.freeze(handState) }) });
 
   const n = layout.channels, channels = muscleChannels(read);
   const angles = new Float64Array(n), speeds = new Float64Array(n), rates = new Float64Array(n), turning = new Float64Array(3 * n);
