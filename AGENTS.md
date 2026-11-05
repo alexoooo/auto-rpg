@@ -29,7 +29,9 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   effect in play the owner can judge.
 - **Checks by change**: code, `npm run check` and `npm test`; browser code, assets, dependencies
   or build config, also `npm run build`; a refactor claiming no behaviour change, the fingerprint;
-  documents only, `npm test` (the links), `git diff --check` and the line-ending gate.
+  prose-only documents, `node --test tests/documents.test.mjs` (the links), `git diff --check`
+  and the line-ending gate. Run only these gates for prose-only changes; executable examples,
+  commands or configuration changes also get the checks their behaviour requires.
 - **No measurement unless the question is a measurement.** A feature lands without a battery or a
   fingerprint. Look in a browser, briefly, when the change is something to see.
 - **A run answers a decision**: name the question and what each answer would change first. Play
