@@ -314,3 +314,35 @@ The architecture's Mind section changes with slices 2–4.
 - Every row of Evidence reads as it did before slice 1.
 - The boundary's allocation sites in the table are gone, and paired step-time readings show no
   regression beyond their spread.
+
+## Review items
+
+Keep the architecture: the mirror boundary, four-member `Mind`, worker sequence, command storage
+and observer ownership form a coherent contract. Tighten the migration in these places:
+
+- **Preserve delivery timing in slice 4.** A write found in the decision phase needs its existing
+  delivery timing preserved when it moves behind `act`. Resolve that timing before landing;
+  naming a changed fingerprint in the commit does not satisfy the preservation goal. The bare
+  entrant is the only declared exception.
+- **Make each slice independently implementable.** Slice 2 adopts `act(control)`, but slice 4
+  introduces `BodyControl`. Let slice 2 establish the names and required members with the existing
+  arguments and capabilities; slices 3 and 4 establish the final arguments and separate readings
+  from commands. State these intermediate contracts so implementation needs no temporary adapters.
+- **Make the fork recipe expose missing memory.** Load the save at `s` into a freshly built bout
+  of the same recipe and compare its continuation with the original. An immediate save and load
+  into the source can retain omitted memory and pass. The existing command-contract test covers
+  advancing and rewinding one instance; the fork diagnostic should establish reconstruction in
+  another instance.
+- **Match diagnostics to each slice.** Keep the required checks and fingerprints per slice. Run
+  worker, fork and allocation diagnostics where the affected behavior warrants them, and run the
+  complete evidence set at the end. A slice that only renames members needs no allocation profile.
+  Replace the blanket requirement to read every evidence row before and after every slice with
+  these specific obligations.
+- **Separate the bare entrant's migration from its timing choice.** Removing `policyMind` and its
+  allocations serves this boundary. Prefer preserving delivery timing during that migration and
+  considering the one-step advance separately. If the advance stays in scope, state its exception
+  consistently in the Goal, Evidence, Slices and Done when: the blanket requirements for unchanged
+  evidence currently contradict slice 5.
+- **Describe the worker overlap precisely.** `think` can overlap the current physics step, but
+  unfinished work can delay the next answer. Replace the contract comment's claim that a long
+  decision does not hold the world up with that bounded guarantee.
