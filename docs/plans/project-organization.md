@@ -67,7 +67,8 @@ Placements that are not obvious from the table:
 | `core/rules/` except `levels.ts`, `core/touches.ts` | `combat/` |
 | `core/rules/levels.ts`, `core/combatant.ts` (`enlist`) | `game/` |
 | `core/control/assist.ts` | `core/bodies/`: an actuator the rulebook caps |
-| `core/mind/mind.ts` | split: what control reads of a body (`OwnBody`, `Senses`) to `core/bodies/`; the mirror, sheets and hosting stay in `minds/` |
+| `core/mind/mind.ts` | split: body contracts (`OwnBody`, `Senses`, and the mind boundary's `BodyControl`, `MuscleReading`, `AssistReading`) to `core/bodies/`; `Mind`, the mirror, sheets and hosting to `minds/` |
+| `core/control/command-layers.ts` | reusable control mechanisms to `control/`; the Mind adapter implementing `HostMind` to `minds/`, so control never imports minds |
 | `core/parts/parts.ts`, `core/parts/lookup.ts` | `parts/`; each role adds its contract to `RoleParts` by `declare module`, as readers add to `DataOf` |
 | `core/parts/catalog.ts`, `core/parts/entrant.ts` | `minds/`: they name mind contracts |
 | `core/toolkit.ts` | `app/` |
@@ -132,6 +133,14 @@ check from a list of builders to paths. The architecture documents the permitted
 entry points and composition roots.
 
 ## Migration
+
+Establish the target placements and checks first, then land [the mind boundary](mind-boundary.md)
+at the current paths before moving boundary code or packaging entrants. That plan owns the Mind
+contract, construction result, command-layer phase and observer wiring, and shared worker execution;
+this migration places and registers the resulting implementations without redesigning those contracts.
+Its preservation promise applies to that completed boundary, including its removal of zero-delay
+worlds and its hand-request refusal timing. Recovery ownership can proceed independently where it
+does not change this wiring.
 
 1. Place every directory. Write the layer and runtime checks against the target, reporting only
    until each slice lands.

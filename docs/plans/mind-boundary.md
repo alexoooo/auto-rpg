@@ -44,7 +44,8 @@ Every slice keeps the fingerprint, command timing, sensing delay, replay and sup
 exact, read as Evidence says. Tuning, algorithms and the
 command layers' inside are out of scope; so are orders, which stay a reader the Option Mind calls
 when it thinks (`MindWiring.orders`).
-[Project organization](project-organization.md) owns where files live;
+[Project organization](project-organization.md#migration) owns target placement and the sequencing
+between the plans;
 [Option Mind's speed](2026-11-04-option-mind-speed.md) owns search cost.
 
 ## The contract
