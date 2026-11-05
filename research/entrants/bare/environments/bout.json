@@ -1,0 +1,8 @@
+{
+  "kind": "cases",
+  "evaluation": "baseline",
+  "subject": { "preset": "bare" },
+  "layout": "research/entrants/bare/environments/bare-warrior.layout.json",
+  "places": [{ "protocol": "fight" }],
+  "reward": { "effort": 0.001, "end": { "score": 1, "margin": 1 } }
+}
