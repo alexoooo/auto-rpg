@@ -36,11 +36,13 @@ input and browser workers. Both bind the same `applicationContext` and `evaluati
 `GameContext` supplies the catalog, build identity, default mind, body refusal and the exact
 registered technique set. Gameplay and evaluations receive it as an argument.
 
-`tests/core-boundary.test.mjs` and `scripts/source-boundary.mjs` check every source module by path,
-with strict dependency, runtime and ownership rules. Shared libraries never import entrants;
+`tests/core-boundary.test.mjs` and `scripts/source-boundary.mjs` check declared import directions,
+runtime paths and public entry points across source modules. Shared libraries never import entrants;
 application composition imports their public manifests. Entrants import published library APIs
 and themselves. Recovery's shared wiring never imports implementations; each implementation owns
-its algorithms, tuning, data and caches. Concrete role lists live in `src/app/registration/`.
+its algorithms, tuning, data and caches. Motor, support, gait, guard, balance, navigation and aim
+registrations live in `src/app/registration/`. Option component lists live in `src/minds/option/`;
+Commander registration and lookup live in `src/minds/command/`.
 
 The public APIs for entrant authors are:
 
@@ -385,7 +387,7 @@ each a state with its chance, `Outcome`), its step, and a status.
   tumbling, the steady's try). A config whose ways up leave no route to standing from the back or
   from the front is a fault (`standUpFaults`).
 
-**Every body runs one Option Mind.** The game's preset serves the humanoids and the bodies on
+**The game's default presets use the Option Mind.** They serve the humanoids and the bodies on
 paws alike: what lies under the skills is the part of its role that fits the body, and a body
 builds the Options whose skills it fits. The parts of a body on paws are `REPTILE_PARTS`
 (`src/app/quadruped-parts.ts`). A new family of bodies is parts that fit it.
@@ -432,8 +434,10 @@ hands' and toes' shapes, each mind's mirror answer and decision); dispatch to mi
 hooks (`World.beforeStep`: carry the answer into each body's `driveMuscles` and set the motors);
 one solver step and the clock; the post-physics observations
 (`World.afterPhysics`); the after-step hooks (`World.afterStep`: blows, readings). A page advances
-by real time (`World.advance`); `scene.render()` never steps. What a step writes is plain data in
-one `state` object a module (`src/core/world/state.ts`), so a bout forks by copying its state.
+by real time (`World.advance`); `scene.render()` never steps. Local bouts serialize their registered
+state roots through `saveState` and restore them through `loadState` (`src/core/world/state.ts`).
+Durable simulation values must be reachable from those roots to survive a fresh load; runtime
+links and derived caches must be rebuilt from the restored values.
 
 ### The command delay
 

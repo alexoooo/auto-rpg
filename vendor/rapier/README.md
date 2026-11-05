@@ -6,7 +6,7 @@ here from Rapier's source at commit `b716d375efc0201003f0cd9ef7168eee0b62c177`
 
 - Package `0.21.0-auto-rpg.10`, archive SHA256
   `317197f478ddd9b7a09846c1683269ed52d583e91f7f283e009e689e25e75318`. The adapter's snapshot
-  revision, `REVISION` in `src/core/engine/rapier.ts`, is `adapter-12` and that hash: a snapshot
+  revision, `REVISION` in `src/core/physics/rapier.ts`, is `adapter-13` and that hash: a snapshot
   loads only into the package and adapter that wrote it.
 - `package.json` and the lockfile name the archive, with SHA512 integrity from its bytes;
   `npm ci` installs it. Rust is needed only to rebuild.
@@ -110,7 +110,7 @@ above, and commit only an archive whose hash matches; otherwise restore the arch
 1. Change Rapier in the work tree's clone (or a clone of your own at the tag), and write the patch
    again: `git diff js-v0.21.0 > <repo>/vendor/rapier/auto-rpg.patch`.
 2. Raise `VERSION` in `build.sh` (`0.21.0-auto-rpg.N`), and run it. Set `REVISION` in
-   `src/core/engine/rapier.ts` (`rapier/adapter-<n>/sha256:<archive hash>`) to the new archive's
+   `src/core/physics/rapier.ts` (`rapier/adapter-<n>/sha256:<archive hash>`) to the new archive's
    SHA256, and this README's package and hash with it.
 3. Point `package.json` at the new tarball. Update the matching root dependency and installed
    package record in `package-lock.json`, including the tarball's SHA512 integrity, then run
