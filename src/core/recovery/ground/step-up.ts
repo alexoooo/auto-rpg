@@ -27,6 +27,8 @@ interface StepUpSettings {
   readonly rest?: { readonly seconds: number; readonly widen: number };
   readonly over?: Side;
   readonly roll?: RollPoses;
+  /** On a side, swing first when the body's momentum would take it back. */
+  readonly sideSwing?: "momentum";
   readonly stages: StageTimings;
 }
 
@@ -63,6 +65,7 @@ export const validStepUp = (settings: unknown): boolean => isObject(settings) &&
   && finite(settings.settle.speed) && settings.settle.speed > 0 && finite(settings.settle.seconds) && settings.settle.seconds >= 0
   && finite(settings.climb) && settings.climb > 0 && validTimings(settings.stages)
   && (settings.over === undefined || settings.over === "left" || settings.over === "right")
+  && (settings.sideSwing === undefined || settings.sideSwing === "momentum")
   && (settings.loadouts === undefined || isObject(settings.loadouts) && Object.values(settings.loadouts).every(validStepUp));
 
 /** The sit-back's own stages, each timed by its record (`SitBackTuning`). */
@@ -115,11 +118,16 @@ function tunedRecipe(tuning: StepUpTuning, base: Recipe): Recipe {
     return stage.kind === "bear" ? { ...stage, posture, seconds: stage.seconds * timing.scale, ...(timing.progress ? { progress: timing.progress } : {}) }
       : { ...stage, posture: posture as Posture, seconds: stage.seconds * timing.scale };
   };
+  const sideRoll = (side: Side) => {
+    const stages = base.roll[side].length && (tuning.roll || tuning.sideSwing)
+      ? rollOver(side, tuning.roll).slice(tuning.sideSwing ? 1 : 2) : base.roll[side];
+    const time = timed("roll ");
+    return stages.map(stage => time(tuning.sideSwing && stage.name === "swing" ? { ...stage, coast: true as const } : stage));
+  };
   return deepFreeze({ ...base, progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds,
     ...(tuning.rest ? { restSeconds: tuning.rest.seconds, restWiden: tuning.rest.widen } : {}) },
     roll: { back: (tuning.over || tuning.roll ? rollOver(tuning.over ?? "right", tuning.roll) : base.roll.back).map(timed("roll ")),
-      left: (tuning.roll && base.roll.left.length ? rollOver("left", tuning.roll).slice(2) : base.roll.left).map(timed("roll ")),
-      right: (tuning.roll && base.roll.right.length ? rollOver("right", tuning.roll).slice(2) : base.roll.right).map(timed("roll ")) },
+      left: sideRoll("left"), right: sideRoll("right") },
     rise: base.rise.map(timed("")) });
 }
 

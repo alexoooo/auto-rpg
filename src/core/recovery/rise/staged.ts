@@ -17,6 +17,7 @@ import type { SubMind } from "../../mind/sub-mind.ts";
 import { riseLimbs } from "./limbs.ts";
 import { RISE, stageFaults, stagesOf, type BearStage, type PoseStage, type Recipe, type Stage, type Until } from "./stages.ts";
 import type { ReadSegment } from "../../read-body.ts";
+import { rollCoast } from "./roll-coast.ts";
 
 /**
  * The pose drive: a freedom is asked the speed that would close its error in `POSE_SECONDS`, no
@@ -165,6 +166,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const upright = uprightness(own.built), made = riseLimbs(own), ends = own.spec.ends ?? [];
   const feet = footStatesOf(own.built), footSegments: ReadonlySet<ReadSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
   const lying = { turn: new Quaternion(), way: new Vector3() }, belly = bellyOf(own.spec);
+  const coasts = rollCoast();
   /**
    * Whether the body stands on its feet alone: every other segment more than `DOWN` over the
    * ground, and its centre of mass over the outline of its soles.
@@ -266,6 +268,12 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     if (index >= playing(phase).length) {
       if (phase === "roll") settle();
       else state.phase = "idle";
+      return;
+    }
+    const stage = playing(phase)[index]!;
+    if (phase === "roll" && stage.kind === "pose" && stage.coast
+      && coasts(turnOfToRef(root, lying.turn), root.body.angularVelocityToRef(work.rootSpin), stage, belly)) {
+      enter(phase, index + 1);
       return;
     }
     state.phase = phase;

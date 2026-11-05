@@ -39,6 +39,8 @@ export interface PoseStage {
    * pelvis's axis toward its other side points up, of 1), and at most `most` times `seconds`.
    */
   readonly hold?: { readonly turned: number; readonly most: number };
+  /** Skip this roll pose on entry when constant spin carries the body past its side hold or onto its front. */
+  readonly coast?: true;
   /** What ends it, read each step; `seconds` is then the longest it may take, past which the attempt is over. Absent, its time ends it. */
   readonly until?: Until;
   /** Its posture approached at a pace the feet allow; absent, driven toward at once. */

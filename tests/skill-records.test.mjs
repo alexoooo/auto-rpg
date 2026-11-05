@@ -78,6 +78,21 @@ test("a recovery loadout variant has its own cached settings and leaves the empt
   assert.deepEqual(first, saved);
 });
 
+test("momentum-aware side entries preserve the back roll and recipes without side rolls", () => {
+  const base = stepUpTuning(modelHolding("workshop-fighter", { left: "buckler", right: "sword" }));
+  const tuning = { ...base, sideSwing: "momentum" }, before = stepUpRecipe(base), after = stepUpRecipe(tuning);
+  assert.deepEqual(after.roll.back, before.roll.back);
+  for (const side of ["left", "right"]) {
+    assert.equal(after.roll[side][0].name, "swing");
+    assert.equal(after.roll[side][0].coast, true);
+    assert.deepEqual(after.roll[side].slice(1), before.roll[side]);
+    assert.ok(Object.isFrozen(after.roll[side]));
+  }
+  assert.deepEqual(stepUpRecipe(tuning, SIT_BACK).roll, stepUpRecipe(base, SIT_BACK).roll);
+  assert.deepEqual(TECHNIQUES["staged-roll"].faults({ kind: "staged-roll", tuning }, partLookup), []);
+  assert.deepEqual(TECHNIQUES["staged-roll"].faults({ kind: "staged-roll", tuning: { ...tuning, sideSwing: "always" } }, partLookup), ["tuning: invalid step-up settings"]);
+});
+
 test("a roll admitted by a previous side reading hands over when already on its front", async () => {
   const { spec, placement } = fallStart({ model: "workshop-fighter", seed: 1, start: "placed", posture: "front", mind: { kind: "option", chooser: { kind: "tree" } } });
   assert.ok(!("refused" in placement), "the front placement reaches the roll's already-complete case");
