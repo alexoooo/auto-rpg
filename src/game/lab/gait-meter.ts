@@ -1,8 +1,9 @@
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { groundContact } from "../../control/support.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import type { World } from "../../core/world/world.ts";
 import { hypot } from "../../core/math/real.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /**
  * **The lab's gait meter**: what a walk or a run does with its feet, read from the ground's contacts

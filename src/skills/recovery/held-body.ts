@@ -19,7 +19,7 @@ export function heldBody(body: Pick<Body, "built" | "muscles" | "assist" | "view
   const control: BodyControl = {
     muscles,
     get assist() { command.assistAsked = true; return command.assist; },
-    hands: { request() { throw new Error("a held body asks no hand a pose"); } },
+    configurations: { request() { throw new Error("a held body asks no segment a configuration"); } },
   };
   const own: OwnBody = { spec: body.built.spec, dt: body.dt, delay: body.delay,
     built: body.built, muscles: body.muscles, assist: body.assist, first: body.view.senses };

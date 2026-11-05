@@ -12,7 +12,8 @@ import { DOWN, bearingOf, clearAcross, clearAlong, heldBy, landingHeading, legLe
 import { swingSeconds, swingWaySeconds, withinReach, reachableSole, landingLean } from "./swing-leg.ts";
 import { sin, cos, cosh, exp, hypot, sinh } from "../core/math/real.ts";
 
-import { otherSide, type BearingEnd, type Side } from "../core/bodies/spec/body.ts";
+import { type BearingEnd } from "../core/bodies/spec/body.ts";
+import { otherSide, type Side } from "../core/bodies/bilateral.ts";
 
 /** The feet of a stance that hold it (`holding`): a scratch, read before the next call. */
 const HOLDING: FootState[] = [];
@@ -446,7 +447,6 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   return { foot: foot.name, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz],
     lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) };
 }
-
 
 /**
  * How many footsteps past the step under way a walk with a double support plans (`transferStep`):

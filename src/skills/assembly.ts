@@ -30,8 +30,10 @@ const NO_MORE: MoreSkills = Object.freeze({ executors: Object.freeze([]), action
 export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, ledger: () => readonly Ended[],
   more: MoreSkills = NO_MORE, aims?: ReadonlyMap<string, Aim>): Skills {
   const guard = parts.of("guard", config.guard).make(made.built, config.guard);
+  const legs = legsOf(parts, made, config.legs);
+  const navigation = navigatorOf(parts, made.built.spec, config.navigation);
   return skillSet(made, {
-    legs: legsOf(parts, made, config.legs), navigation: navigatorOf(parts, made.built.spec, config.navigation), guard,
+    legs, navigation, clearance: navigation, guard,
     support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
     executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger, aims), ...more.executors],
     actions: [...config.actions, ...more.actions],

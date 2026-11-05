@@ -9,8 +9,9 @@
 import { Vector3 } from "../../core/math/vector.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { cos, sin } from "../../core/math/real.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import type { Hook, World } from "../../core/world/world.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /**
  * **A shove**: the side shoved, the segment it meets (`middleTrunk`), its size, N s, and the way it

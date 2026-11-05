@@ -1,10 +1,11 @@
 import { cos, sin } from "../../core/math/real.ts";
-import type { BodySpec, Side } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { coveringHand } from "../../skills/intent/cover-hand.ts";
 import type { Resource } from "../../skills/framework/action.ts";
 import { blocked, READY, type Situation, type Option } from "./option.ts";
 import { NOTHING } from "../choice.ts";
 import { holding } from "./rest.ts";
+import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 
 /** The longest cover holds a hand up against one run of blows, s. */
 const LONGEST = 1;
@@ -40,7 +41,7 @@ export function covers(spec: BodySpec): readonly Option[] {
   };
   const OFF = blocked("no blow for a hand to cover"), HELD = blocked("an action holds the covering hand");
   const claims: Readonly<Record<Side, readonly Resource[]>> = { left: Object.freeze(["hand.left"]), right: Object.freeze(["hand.right"]) };
-  const sides = (["left", "right"] as const).filter((side) => spec.segments.some((segment) => segment.name === `hand.${side}`));
+  const sides = SIDES.filter((side) => spec.segments.some((segment) => segment.name === `hand.${side}`));
   const option: Option = {
     name: "cover", state,
     /** The hand on the blow's side, as the entry last read it. */

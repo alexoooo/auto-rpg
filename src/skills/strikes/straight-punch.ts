@@ -1,3 +1,4 @@
+import { HAND_CONFIGURATION } from "../../core/bodies/human/hand-configurations.ts";
 import { Vector3 } from "../../core/math/vector.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import { bodyEffectors, copyFreedoms, type Freedom } from "../../control/effectors.ts";
@@ -6,7 +7,7 @@ import type { MusclePush } from "../../control/motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
 import { channelName } from "../../core/bodies/muscle/driver.ts";
-import type { BodySpec, Side } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetResolver } from "../framework/action.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
@@ -17,9 +18,11 @@ import { closesToStrike } from "./held-strike.ts";
 import { keepsWalk, PUNCH_DECIDE, PUNCH_LAYOUT, punchChannels, punchFeatures, stanceAsks, steerPushes, type PunchLayout } from "./learned-punch.ts";
 import { learnerOf } from "../../core/math/learning/learner.ts";
 import { legOf } from "../locomotion/gait-scale.ts";
-import { fistOn, otherSide } from "../../core/bodies/spec/body.ts";
+
+import { fistOn } from "../../core/bodies/human/endpoints.ts";
 import { heldFrame } from "../../core/bodies/build/rigid.ts";
 import { faceAligner } from "./face-aligner.ts";
+import { type Side, otherSide, SIDES } from "../../core/bodies/bilateral.ts";
 
 /** The turn about up that brings `hand`'s shoulder forward: a turn of a positive angle about up carries a body's right (+x) back (-z). */
 const turnSense = (hand: Side): 1 | -1 => hand === "right" ? -1 : 1;
@@ -164,9 +167,7 @@ interface Limb {
 /** Where a straight punch is: standing at its stand-off, driven, or coming back. */
 type Phase = "settle" | "swing" | "return";
 
-
-
-const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
+const HANDS: readonly Side[] = SIDES;
 
 /** The most a component of the target's velocity counts, m/s: a foe's lunge is under it, the aim's jump from one opening to another is cut to it. */
 const AIM_SPEED = 4;
@@ -324,7 +325,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
     for (const g of limb.goals) push(g.channel, g.angle);
     if (state.firedFor !== state.began) { state.firedFor = state.began; state.fired = null; state.decided = -Infinity; state.steeredAt = -Infinity; state.learner.outputs.length = 0; }
     if (settings.fire !== undefined && state.fired === null && since < settings.lead) {
-      const fist = view.fists[hand]!.position, dx = state.target[0] - fist.x, dy = state.target[1] - fist.y, dz = state.target[2] - fist.z;
+      const fist = view.pointMotion[fistOn(spec, hand)!]!.knuckles!.position, dx = state.target[0] - fist.x, dy = state.target[1] - fist.y, dz = state.target[2] - fist.z;
       if (Math.sqrt(dx * dx + dy * dy + dz * dz) <= settings.fire * limb.arm) state.fired = since;
     }
     const start = state.fired ?? settings.lead;
@@ -392,7 +393,6 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
 
 /** A stopped approach must establish its local stroke within this many seconds. */
 const PUNCH_PREPARE_LIMIT = 6;
-
 
 /**
  * Whether `hand`'s straight punch at `at` (`technique`'s, with `settings`) can be thrown from where
@@ -526,8 +526,8 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const steer = live.phase === "commit" ? sense * settings.hips + turn : 0, support = view.stance.support;
       // A walk under way kept where the steer keeps it (`keepsWalk`), else stood, and halted where the steer or `halts` says.
       const keeps = live.phase === "commit" ? keepsWalk(technique.steeredChannels[live.hand], motion.learner.outputs) : null;
-      const hand = faces?.[live.hand] ? "grip" as const : closesToStrike(body.built.spec, live.hand) ? "fist" as const : null;
-      return { posture: sparse(posture, live.hand), pushes, ...(hand ? { handPoses: { [`hand.${live.hand}`]: hand } } : {}),
+      const hand = faces?.[live.hand] ? HAND_CONFIGURATION.grip : closesToStrike(body.built.spec, live.hand) ? HAND_CONFIGURATION.fist : null;
+      return { posture: sparse(posture, live.hand), pushes, ...(hand ? { configurations: { [`hand.${live.hand}`]: hand } } : {}),
         legs: { ...(keeps ? {} : { walk: null }), face: motion.face, ...((keeps === null ? settings.halts : !keeps) ? { halt: true } : {}), height: view.standing - live.lower,
           ...(steer ? { heading: around.heading + steer } : {}),
           ...(shift[0] === 0 && shift[1] === 0 ? {} : { centre: [support.x + shift[0], support.z + shift[1]] as const }) } };

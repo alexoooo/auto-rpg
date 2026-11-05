@@ -1,6 +1,6 @@
 import { hypot } from "../../core/math/real.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /** A blow's path by its shape: what an opening is searched for (`openingSelector`). */
 export type BlowFamily = "straight" | "cross" | "hook" | "downward" | "overhand" | "uppercut";

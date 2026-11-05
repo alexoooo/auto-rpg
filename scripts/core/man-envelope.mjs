@@ -31,6 +31,7 @@ import { losslessModelPath } from "../art/paths.mjs";
 import { fromGltf, hand, hullOf, PATCH, patchOf, rigBone, round, SUFFIX } from "./hand-envelope.mjs";
 import { convexHull } from "../../src/core/bodies/spec/hull.ts";
 import { add, cross, dot, normalize, scale, sub } from "../../src/core/bodies/spec/vec.ts";
+import { SIDES } from "../../src/core/bodies/bilateral.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const MAN_GEOMETRY_FILE = path.join(ROOT, "assets", "humanoid", "man-contact-geometry.json");
@@ -139,13 +140,13 @@ export async function manContactGeometry() {
       + "whose header gives the rules.",
     model: MODEL, patch: PATCH,
   };
-  for (const side of ["left", "right"]) out[side] = { ...await manHand(side), ...await foot(side) };
+  for (const side of SIDES) out[side] = { ...await manHand(side), ...await foot(side) };
   return out;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const geometry = await manContactGeometry();
-  for (const side of ["left", "right"]) {
+  for (const side of SIDES) {
     const g = geometry[side];
     console.log(`${side}: palm ${g.palm.hull.length} corners, patch ${g.palm.patch.outline.length}; fist ${g.fist.hull.length}; `
       + `foot ${g.foot.hull.length} (${(g.foot.solid.volume * 1e6).toFixed(0)} cm3); toes ${g.toes.hull.length} (${(g.toes.solid.volume * 1e6).toFixed(0)} cm3); `

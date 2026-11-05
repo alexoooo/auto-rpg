@@ -208,7 +208,8 @@ export async function cryptStage(context: GameContext, start: CryptStart, runtim
     card: { id: actor.id, side: actor.side, model: actor.model } }));
   const { length } = frameLayout(roster);
   const bodies: FramedBody[] = run.actors.map((actor, k) => {
-    const unbuilt = new Map(roster[k]!.segments.map((name) => [name, UNBUILT]));
+    const spec = cryptSpec(prepared.characters.get(actor.id)!, actor.model);
+    const unbuilt = new Map(spec.segments.map((segment) => [segment.name, { ...UNBUILT, spec: segment }]));
     let reading: ReturnType<typeof physicalReading> | null = null, on: ReturnType<typeof attachment> | null = null;
     const read = () => {
       if (reading) return reading();

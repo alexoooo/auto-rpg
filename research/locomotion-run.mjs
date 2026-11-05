@@ -69,6 +69,7 @@ import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { PERSON_PACE, personStep } from "../src/core/bodies/human/gait.ts";
 import { WENT } from "../src/control/stance-envelope.ts";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 /**
  * The straight lines a body walks facing +z, each 80 m from the origin: forward, to its right, back
@@ -145,7 +146,7 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
   const held = hold === "empty" ? modelSpec(model, physique ?? undefined) : armedWith(modelSpec(model, physique ?? undefined), "right", hold);
   const spec = probe ? probed(held, probe) : held;
   const stand = await coreStand(spec, { ground: true, groundSize: GROUND, ...(probe?.hz ? { hz: probe.hz } : {}) });
-  if (probe?.rocker) for (const side of ["left", "right"]) rockerFoot(stand.built.segments.get(`foot.${side}`), probe.rocker, probe.facets ?? 12);
+  if (probe?.rocker) for (const side of SIDES) rockerFoot(stand.built.segments.get(`foot.${side}`), probe.rocker, probe.facets ?? 12);
   const mind = legs ? withLegs(LAB_MIND, legs) : LAB_MIND;
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
   const actor = labActor(stand.built, stand.world, { mind, experiment: { ...(tuning ? { stance: tuning } : {}), measuring: !played }, ...(probe?.assist ? { assist: probe.assist } : {}) });

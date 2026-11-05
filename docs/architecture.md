@@ -70,6 +70,12 @@ its axis, range and muscle; effectors (a named point on a segment and the ancest
 chain moves it); bearing ends; wounds; the down rule (`DownSpec`); and anything held. `bodyKey`
 names a body for everything measured on it.
 
+Segments declare named collision `configurations`, their initial configuration and any attachment
+retention rule. `BodyControl.configurations` addresses a segment and a configuration in its spec;
+the mirror and delayed transport encode those declared names. Human hand configuration meanings
+live in `src/core/bodies/human/hand-configurations.ts`. Command views expose named point motion by
+effector segment (`BodyView.pointMotion`).
+
 - **Models** (`BODY_MODELS`, `modelSpec`, `src/core/bodies/models.ts`): the humans are built in
   `src/core/bodies/human/spec.ts`, the quadrupeds in `src/core/bodies/quadruped/spec.ts`.
 - **A character** (`CharacterConfig`, `resolveCharacter`) is a model plus its attributes
@@ -181,7 +187,7 @@ beneath, executors running discrete actions over them. Every skill answers `Skil
 arbiter releases every action when another mind takes the body.
 
 - **An action** (`ActionRequest`, `action.ts`) has an id, a name, an effector and a sensed target
-  region. Admission reads readiness and reserves resources (joints, effectors, hand pose, legs);
+  region. Admission reads readiness and reserves resources (joints, effectors, segment configurations, support limbs);
   actions overlap where reservations allow. An executor runs `prepare`, `commit` and `release` and
   ends once (`Ended`). It never closes distance; the decider does.
 - **Parts.** Each kind is a line of its role's list (`EXECUTORS`, `GUARDS` and the like), its
@@ -198,7 +204,8 @@ arbiter releases every action when another mind takes the body.
   manifest's `data`. The catalog supplies those loaders to the store (`DataKey`, `keyof DataOf`)
   through `Catalog.loadData`, with the same registrations in Node and the page.
 - **Locomotion** (`Locomotion`): legs take one goal (`LegsGoal`) and say what they left undone
-  (`LegsUnmet`), their envelope and how fast they stop. `stance-walk` walks within the stance's
+  (`LegsUnmet`), their envelope and how fast they stop. Each declares the bearing ends
+  it controls (`supports`) and its default lowering (`lower`). `stance-walk` walks within the stance's
   envelope; `walk-run` hands over to a run cycle fitted to motion capture
   (`assets/skills/locomotion/cycle-run/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis,
   its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`) where it has one, else the defaults
@@ -259,8 +266,8 @@ Construction metadata (`MindConstruction`) owns its name, ownership reader and d
 (`src/skills/intent/orders.ts`), never muscle commands.
 
 `OwnBody` holds fixed facts, body and actuator readings, and first senses. `BodyControl` views the
-saved mirror command directly: muscle arrays, assist vectors and ordered hand-pose pairs. Only
-`act` receives it. A hand request updates its requested pose immediately and refuses a duplicate
+saved mirror command directly: muscle arrays, assist vectors and ordered segment/configuration pairs. Only
+`act` receives it. A configuration request updates its requested value immediately and refuses a duplicate
 before the answer; the answer clears the pairs. The body-side rings carry commands into physics.
 `embodiment.ts` wires the world and mirror, `execution.ts` defines the shared `answer` and `think`
 phases, and `src/core/bodies/command-pipeline.ts` owns delayed physical actuation. Command-layer
@@ -275,7 +282,8 @@ research settings belong to `LayerOptions` in `src/control/body.ts`.
   order (`SubMind`, `hosting`), or its own computation. The bare entrant reads network inputs
   directly and saves pending pulls for its next `act`; `observeBody` supplies detached inspection.
   A stateful driver supplies `SplitDriver.state`, retained under the command-layer Mind's saved
-  state; `driveBy` includes its skills, decider, pace and aim memory there.
+  state; `driveBy` includes its supplied skills, decider, pace and aim memory there.
+  Stock standalone probes compose their skills in `src/app/standing-skills.ts`.
 - **Deciding.** A decider (`Decider`, `decider.ts`) decides an intent at its pace (`Pace`), and at
   once when the body is back from another mind, its orders change or an action ends; the skills
   make the command every step from the intent last decided.
@@ -430,7 +438,7 @@ one `state` object a module (`src/core/world/state.ts`), so a bout forks by copy
 ### The command delay
 
 What a mind sends is applied `World.delay` steps later (`COMMAND_DELAY`, one step in the game): its
-muscles' command, assist ask and hand poses, each through a ring (`src/core/world/command-delay.ts`) that
+muscles' command, assist ask and segment configurations, each through a ring (`src/core/world/command-delay.ts`) that
 is state, so a bout forks with commands in flight. A body's time starts at its first decision
 carried out (`BodyView.born`).
 

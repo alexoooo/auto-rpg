@@ -5,11 +5,11 @@ import { sameOrders, type Orders } from "../../skills/intent/orders.ts";
 import type { Command } from "../../minds/command/commands.ts";
 import type { Commander, MemberView, TeamLevel, TeamView } from "../../minds/command/team.ts";
 import { hypot } from "../../core/math/real.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import type { Hook } from "../../core/world/world.ts";
 import { cryptModel } from "../dungeon/actors.ts";
 import type { Duel } from "./duel.ts";
-import { otherSide } from "../../core/bodies/spec/body.ts";
+import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
 
 /**
  * The arena's ground as a team of one knows it: every body within range in sight, no door, nothing

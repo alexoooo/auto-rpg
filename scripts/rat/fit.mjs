@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { at, HEAD_RAISE, mm, standing, turnUp } from "./landmarks.mjs";
+import { SIDES } from "../../src/core/bodies/bilateral.ts";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 /** The art's landmarks as the body stands. */
@@ -81,7 +82,7 @@ end.proximal = round(at(ART.tail.bend)); end.distal = round(at(ART.tail.tip)); e
 joint("tail.base").centre = base.proximal; joint("tail.tip").centre = end.proximal;
 
 // The legs: hips under the trunk, elbows behind and knees ahead of the paws, bending about x.
-for (const end of ["front", "hind"]) for (const side of ["left", "right"]) {
+for (const end of ["front", "hind"]) for (const side of SIDES) {
   const leg = ART[end], mirror = (p) => side === "left" ? p : [-p[0], p[1], p[2]];
   const girdle = at(mirror(leg.girdle)), bend = at(mirror(leg.bend)), ankle = at(mirror(leg.ankle)), sole = [ankle[0], 0, ankle[2]];
   const upper = segment(`upper.${end}.${side}`), lower = segment(`lower.${end}.${side}`), paw = segment(`paw.${end}.${side}`);

@@ -1,6 +1,6 @@
 import type { OwnBody } from "../core/bodies/own-body.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
-import type { HandPoseRequest } from "../core/bodies/build/hand-poses.ts";
+import type { ConfigurationRequest } from "../core/bodies/build/configurations.ts";
 import type { ContactIdentity } from "../core/bodies/contact-identity.ts";
 import { commandPipeline } from "../core/bodies/command-pipeline.ts";
 import { NO_ASSIST, type AssistCeiling } from "../core/bodies/assist.ts";
@@ -47,7 +47,7 @@ export interface Embodying {
 /**
  * Give `built` a mind on its mirror. Preparation writes the body, observes the completed interval,
  * sends the motor command, reads the report, then decides. The body side carries the answer into
- * the muscles, assist and hand-pose rings before physics. A load refreshes the mirror and recalls
+ * the muscles, assist and configuration rings before physics. A load refreshes the mirror and recalls
  * the senses held by the last decision.
  */
 export function embody<M extends MindConstruction>(built: BuiltBody, world: World, make: MindMaker<M>,
@@ -82,13 +82,13 @@ export function embody<M extends MindConstruction>(built: BuiltBody, world: Worl
   });
   const shown = world.onLoad(() => { writer.write(); mirror.refresh({ dynamics: false }); mirror.recall(); });
   return { own, held: { muscles, assist: help.assist, senses: sense }, mind: made,
-    state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, posed, toes: built.toes, strength: built.strength,
+    state: { muscles: muscles.state, assist: help.state, configurations: built.configurations.state, posed, toes: built.toes, strength: built.strength,
       mind: made.mind.state, asked: mirror.command, seen: mirror.seen },
     dispose() { made.dispose(); shown.dispose(); thinking.dispose(); muscles.dispose(); },
   };
 }
 
-/** **A body driven from its mirror's answers** (`mirrorDriven`): its muscles and assist, the hand poses in flight, the numbers written for its mind and what they are first told, and its senses. */
+/** **A body driven from its mirror's answers** (`mirrorDriven`): its muscles and assist, the segment configurations in flight, the numbers written for its mind and what they are first told, and its senses. */
 export interface MirrorDriven {
   readonly muscles: MuscleDriver;
   readonly help: ReturnType<typeof commandPipeline>["help"];
@@ -108,12 +108,12 @@ export interface MirrorDriven {
 export function mirrorDriven(built: BuiltBody, world: World, allocate: (length: number) => Float64Array, { answered, idle }: { answered(): void; idle(): void },
   { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log }: Embodying = {}): MirrorDriven {
   const way = commandPipeline(built, world.delay, ceiling);
-  const hands: HandPoseRequest[] = [];
-  const request: typeof way.request = log ? (hand, pose) => { way.request(hand, pose); hands.push({ hand, pose }); } : way.request;
+  const configurations: ConfigurationRequest[] = [];
+  const request: typeof way.request = log ? (segment, configuration) => { way.request(segment, configuration); configurations.push({ segment, configuration }); } : way.request;
   const muscles = driveMuscles(built, world, (driver) => {
     answered();
     writer.carry(request);
-    if (log) record(log, world.steps, driver, way.help.asked, hands);
+    if (log) record(log, world.steps, driver, way.help.asked, configurations);
     way.settle();
   }, () => { idle(); way.reset(); }, { dynamics: false, prepared: true, delay: heldSteps(world.delay) });
   const statics = mirrorStatics(built, contactIdentity !== undefined, world.delay);
@@ -122,11 +122,11 @@ export function mirrorDriven(built: BuiltBody, world: World, allocate: (length: 
   return { muscles, help: way.help, posed: way.posed, writer, statics, senses: sense };
 }
 
-/** Write `driver`'s command, the assist's ask and the hand poses asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */
-function record(log: SheetLog, step: number, driver: MuscleDriver, asked: { readonly force: Vector3; readonly moment: Vector3 }, hands: HandPoseRequest[]): void {
+/** Write `driver`'s command, the assist's ask and the segment configurations asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */
+function record(log: SheetLog, step: number, driver: MuscleDriver, asked: { readonly force: Vector3; readonly moment: Vector3 }, configurations: ConfigurationRequest[]): void {
   const sheets = log.sheets;
   while (sheets.length > 0 && sheets[sheets.length - 1]!.step >= step) sheets.pop();
   sheets.push({ step, activation: driver.activation.slice(), velocity: driver.velocity.slice(),
     force: [asked.force.x, asked.force.y, asked.force.z], moment: [asked.moment.x, asked.moment.y, asked.moment.z],
-    hands: hands.splice(0) });
+    configurations: configurations.splice(0) });
 }

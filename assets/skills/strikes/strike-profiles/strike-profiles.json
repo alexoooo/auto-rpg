@@ -24,7 +24,7 @@
     {
       "measured": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1",
+        "spec": "e853e5fbd782db31",
         "skill": "60541d18ba14fa6e",
         "hz": 120,
         "reaction": 0.15,
@@ -33,7 +33,7 @@
       },
       "target": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1"
+        "spec": "e853e5fbd782db31"
       },
       "limbs": [
         "hand.left"
@@ -1116,7 +1116,7 @@
     {
       "measured": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1",
+        "spec": "e853e5fbd782db31",
         "skill": "e69076d3848497d1",
         "hz": 120,
         "reaction": 0.15,
@@ -1125,7 +1125,7 @@
       },
       "target": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1"
+        "spec": "e853e5fbd782db31"
       },
       "limbs": [
         "hand.right"
@@ -2208,7 +2208,7 @@
     {
       "measured": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1",
+        "spec": "e853e5fbd782db31",
         "skill": "a4ef69c14b590047",
         "hz": 120,
         "reaction": 0.15,
@@ -2217,7 +2217,7 @@
       },
       "target": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1"
+        "spec": "e853e5fbd782db31"
       },
       "limbs": [
         "foot.left"
@@ -2291,7 +2291,7 @@
     {
       "measured": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1",
+        "spec": "e853e5fbd782db31",
         "skill": "a4ef69c14b590047",
         "hz": 120,
         "reaction": 0.15,
@@ -2300,7 +2300,7 @@
       },
       "target": {
         "body": "crypt-skeleton+toes",
-        "spec": "ec3659ce6a003918"
+        "spec": "c8ef7504c2bcbed6"
       },
       "limbs": [
         "foot.left"
@@ -2368,7 +2368,7 @@
     {
       "measured": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1",
+        "spec": "e853e5fbd782db31",
         "skill": "dfebb71e782fd80c",
         "hz": 120,
         "reaction": 0.15,
@@ -2377,7 +2377,7 @@
       },
       "target": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1"
+        "spec": "e853e5fbd782db31"
       },
       "limbs": [
         "foot.right"
@@ -2431,7 +2431,7 @@
     {
       "measured": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1",
+        "spec": "e853e5fbd782db31",
         "skill": "dfebb71e782fd80c",
         "hz": 120,
         "reaction": 0.15,
@@ -2440,7 +2440,7 @@
       },
       "target": {
         "body": "crypt-skeleton+toes",
-        "spec": "ec3659ce6a003918"
+        "spec": "c8ef7504c2bcbed6"
       },
       "limbs": [
         "foot.right"
@@ -2489,7 +2489,7 @@
     {
       "measured": {
         "body": "workshop-rogue+toes",
-        "spec": "1180813b4be370c1",
+        "spec": "74fcfe6993a0c3cf",
         "skill": "03d2f267ccab0d35",
         "hz": 120,
         "reaction": 0.15,
@@ -2498,7 +2498,7 @@
       },
       "target": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1"
+        "spec": "e853e5fbd782db31"
       },
       "limbs": [
         "hand.left"
@@ -2946,7 +2946,7 @@
     {
       "measured": {
         "body": "workshop-rogue+toes",
-        "spec": "1180813b4be370c1",
+        "spec": "74fcfe6993a0c3cf",
         "skill": "099f1a1427323622",
         "hz": 120,
         "reaction": 0.15,
@@ -2955,7 +2955,7 @@
       },
       "target": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1"
+        "spec": "e853e5fbd782db31"
       },
       "limbs": [
         "hand.right"
@@ -3403,7 +3403,7 @@
     {
       "measured": {
         "body": "crypt-skeleton+toes",
-        "spec": "ec3659ce6a003918",
+        "spec": "c8ef7504c2bcbed6",
         "skill": "1a25512af79f508c",
         "hz": 120,
         "reaction": 0.15,
@@ -3412,7 +3412,7 @@
       },
       "target": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1"
+        "spec": "e853e5fbd782db31"
       },
       "limbs": [
         "hand.left"
@@ -3663,7 +3663,7 @@
     {
       "measured": {
         "body": "crypt-skeleton+toes",
-        "spec": "ec3659ce6a003918",
+        "spec": "c8ef7504c2bcbed6",
         "skill": "a53884b1c01d38b3",
         "hz": 120,
         "reaction": 0.15,
@@ -3672,7 +3672,7 @@
       },
       "target": {
         "body": "workshop-fighter+toes",
-        "spec": "b88042dbfb9ad1f1"
+        "spec": "e853e5fbd782db31"
       },
       "limbs": [
         "hand.right"

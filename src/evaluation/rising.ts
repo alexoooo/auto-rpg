@@ -20,7 +20,7 @@ import { isWayUp, type TechniqueName, type TechniquePart, type TechniqueRun } fr
 import { withWaysUp } from "../minds/option/rise.ts";
 import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/bodies/models.ts";
 import { guardPosture } from "../skills/guard/guard.ts";
-import type { Side } from "../core/bodies/spec/body.ts";
+
 import { deepFreeze } from "../core/world/state.ts";
 import { createWorld, type World } from "../core/world/world.ts";
 import type { Actor } from "../game/lab/actor.ts";
@@ -31,6 +31,7 @@ import { cos, sin } from "../core/math/real.ts";
 import { medianOf } from "./stats.ts";
 import { createFall, checkFall, FALL_CAP, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
 import { type GameContext } from "../game/arena/context.ts";
+import type { Side } from "../core/bodies/bilateral.ts";
 
 /**
  * A job of the bed: a fall (`FallCase`, its mind given or Option Mind getting up by `techniques`), or with

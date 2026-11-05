@@ -44,6 +44,7 @@ import { humanSpec } from "../src/core/bodies/human/spec.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
 import { standIntent } from "../src/skills/intent/intent.ts";
 import { driveBy } from "../src/minds/decider.ts";
+import { standingSkills } from "../src/app/standing-skills.ts";
 import { partOf, MINDS, GAME } from "../src/app/catalog.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
 import { createMind } from "../src/minds/minds.ts";
@@ -165,7 +166,7 @@ async function stand(model) {
   const stand = await coreStand(modelSpec(model));
   const body = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { name: "stand", orders: () => null }).body : commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
-    if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) });
+    if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills);
     const trace = traceOf([stand.built]);
     for (let i = 0; i < stand.seconds(11); i++) { stand.step(); trace.take(); }
     const pose = trace.digest();

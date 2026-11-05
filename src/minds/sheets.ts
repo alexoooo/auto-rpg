@@ -1,5 +1,5 @@
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
-import type { HandPoseRequest } from "../core/bodies/build/hand-poses.ts";
+import type { ConfigurationRequest } from "../core/bodies/build/configurations.ts";
 import type { AssistCeiling } from "../core/bodies/assist.ts";
 import { physicalBody, type PhysicalBody } from "./physical-body.ts";
 import type { World } from "../core/world/world.ts";
@@ -10,8 +10,8 @@ import { type Senses } from "../core/bodies/senses.ts";
 
 /**
  * **A body's order sheet as its mind left it at a step**: its muscles' command (`MuscleDriver.activation`,
- * `.velocity`), its assist's ask about the root's centre of mass, world, N and N m, and the hand
- * poses it asked.
+ * `.velocity`), its assist's ask about the root's centre of mass, world, N and N m, and the segment
+ * configurations it asked.
  */
 interface Sheet {
   readonly step: number;
@@ -19,7 +19,7 @@ interface Sheet {
   readonly velocity: Float64Array;
   readonly force: readonly [number, number, number];
   readonly moment: readonly [number, number, number];
-  readonly hands: readonly HandPoseRequest[];
+  readonly configurations: readonly ConfigurationRequest[];
 }
 
 /**
@@ -64,7 +64,7 @@ export function replayedBody(built: BuiltBody, world: World, log: SheetLog, gran
     const sheet = log.sheets[index]!;
     control.muscles.activation.set(sheet.activation); control.muscles.velocity.set(sheet.velocity);
     control.assist.force.set(...sheet.force); control.assist.moment.set(...sheet.moment);
-    for (const request of sheet.hands) control.hands.request(request.hand, request.pose);
+    for (const request of sheet.configurations) control.configurations.request(request.segment, request.configuration);
     state.steps++;
   } } }), { senses, assist: grants.assist });
   return physicalBody(built, embodied.held, world, () => "replay", embodied.state, embodied.dispose);

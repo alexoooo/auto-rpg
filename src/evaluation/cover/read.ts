@@ -4,10 +4,12 @@
  * took, and whether the subject went down.
  */
 import { regionSegments } from "../../skills/intent/action-aim.ts";
-import { strikersOf, type BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs.ts";
 import type { Duel } from "../../game/arena/duel.ts";
 import type { World } from "../../core/world/world.ts";
 import type { Reader } from "../evaluation.ts";
+import { SIDES } from "../../core/bodies/bilateral.ts";
 
 /** Where a touch met the subject: its head (the high mark's segments), its guard (its arms, hand to upper arm, or what a hand holds), or the rest of it. */
 export type Met = "head" | "guard" | "body";
@@ -51,13 +53,13 @@ function armOf(spec: BodySpec, hand: string): readonly string[] {
 }
 
 /**
- * What a body of `spec` strikes with, by segment: each limb it strikes with (`strikersOf`) and the
+ * What the drill counts as a striking segment: each limb in the default attack model (`defaultStrikeLimbs`) and the
  * segment that limb hangs from (a hand's forearm, a foot's shank). What a hand holds strikes too.
  * Nothing else of it touches in a blow: a fallen opponent's head on a foot is none.
  */
 function strikesWith(spec: BodySpec): ReadonlySet<string> {
   const segments = new Set<string>();
-  for (const limb of strikersOf(spec)) {
+  for (const limb of defaultStrikeLimbs(spec)) {
     segments.add(limb);
     const parent = spec.joints.find((joint) => joint.child === limb)?.parent;
     if (parent !== undefined) segments.add(parent);
@@ -70,7 +72,7 @@ export function readCover({ world, duel }: { readonly world: World; readonly due
   const left = duel.duelists.left, skills = left.minded.skills, striking = strikesWith(duel.duelists.right.built.spec);
   if (!skills) throw new Error("the subject runs no skills");
   const spec = left.built.spec, head = new Set(regionSegments(spec, { kind: "mark", mark: "high" }));
-  const guard = new Set(["left", "right"].flatMap((side) => armOf(spec, `hand.${side}`)));
+  const guard = new Set(SIDES.flatMap((side) => armOf(spec, `hand.${side}`)));
   const shield = spec.held?.find((held) => held.segment === "hand.left")?.item.name ?? null;
   let down = false, covering = 0, last = world.time;
   return {

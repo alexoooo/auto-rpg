@@ -1,3 +1,4 @@
+import { SIDES } from "../../src/core/bodies/bilateral.ts";
 // Poly Haven's Street Rat (Sean Buckley, CC0) measured: the landmarks the body is fitted to and the
 // skin is weighted by. They are read off orthographic views of the published mesh (side, top,
 // front, the legs close up and from below), in its own millimetres and axes: x the rat's left,
@@ -73,7 +74,7 @@ export function standing() {
     const paw = (q) => add(q, sub(reached, ankle));
     return { upper, lower, paw, stretch: k };
   };
-  for (const end of ["front", "hind"]) for (const side of ["left", "right"]) legs[`${end}.${side}`] = posedLeg(ART[end], side);
+  for (const end of ["front", "hind"]) for (const side of SIDES) legs[`${end}.${side}`] = posedLeg(ART[end], side);
   const leg = (end) => {
     const { upper, lower, paw } = legs[`${end}.left`], at = ART[end];
     return { ...at, girdle: upper(at.girdle), bend: upper(at.bend), ankle: lower(at.ankle), toe: paw(at.toe) };

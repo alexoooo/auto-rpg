@@ -2,7 +2,7 @@ import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, dot, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extent, Extents, TrunkSegment } from "./envelope.ts";
 import type { HandFigure, HumanFigure } from "./figure.ts";
-import { SIDES } from "./landmarks.ts";
+import { SIDES } from "../bilateral.ts";
 
 /**
  * **A physique**: how a body differs from its model's figure, each attribute a factor on what it

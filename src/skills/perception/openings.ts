@@ -1,3 +1,4 @@
+import { fistOn } from "../../core/bodies/human/endpoints.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { BodyView } from "../../control/body.ts";
 import { attackPathToRef, attackPathWork, ATTACK_PATH } from "../strikes/attack-path.ts";
@@ -6,13 +7,14 @@ import { intoFrameToRef } from "../../control/kinematics.ts";
 import type { BlowFamily } from "../strikes/attack-path.ts";
 import { aimOf } from "../strikes/held-strike.ts";
 import { placedReach, shoulderFromHead } from "../strikes/arm-reach.ts";
-import { type Side, frameOf, type BodySpec, type SegmentSpec, segmentOf } from "../../core/bodies/spec/body.ts";
+import { frameOf, type BodySpec, type SegmentSpec, segmentOf } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { add, dot, length, scale, sub } from "../../core/bodies/spec/vec.ts";
 import { hypot } from "../../core/math/real.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import { convexHull } from "../../core/bodies/spec/hull.ts";
 import { hullEntry } from "./hull-entry.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /**
  * **How an opening is ranked** among the foe's head, upper-trunk and middle-trunk surfaces, lowest
@@ -367,7 +369,6 @@ function segmentsOf(spec: BodySpec): ReadonlyMap<string, SegmentSpec> {
 }
 
 /** Each hand's effector by side. */
-const HANDS: Readonly<Record<Side, string>> = Object.freeze({ left: "hand.left", right: "hand.right" });
 
 /** A sensed segment's pose and motion, as a foe's senses give it. */
 type Sensed = BodySense["segments"] extends ReadonlyMap<string, infer S> ? S : never;
@@ -423,6 +424,7 @@ export function openingNow(view: BodyView, foe: BodySense, name: string, local: 
 const NOW = new Vector3();
 
 export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}) {
+  const hands = { left: fistOn(spec, "left"), right: fistOn(spec, "right") };
   if (!validOpeningTuning(tuning)) throw new Error("opening preferences must be finite and headLateral must be in [0,1]");
   const settings = { ...OPENINGS, ...tuning };
   /** The preference for a part by its segment's name (`OpeningTuning`'s `head`, `upperTrunk`, `middleTrunk`); none, 0. */
@@ -434,7 +436,9 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}) {
   const termsOf = (family: BlowFamily) => { let found = terms.get(family); if (!found) terms.set(family, found = familyTerms(family, settings)); return found; };
   // How near a blow's line may pass a guarding limb beyond its radius, by hand: a share of that hand's own radius.
   const marginOf = (hand: Side): number => {
-    const handShape = segmentsOf(spec).get(HANDS[hand])!.shape;
+    const segment = hands[hand];
+    if (segment === undefined) return 0;
+    const handShape = segmentsOf(spec).get(segment)!.shape;
     return (handShape.kind === "capsule" || handShape.kind === "sphere" ? handShape.radius.value : 0) * OPENINGS.handMargin;
   };
   const margins: Readonly<Record<Side, number>> = { left: marginOf("left"), right: marginOf("right") };
@@ -499,7 +503,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}) {
         const contactDirection = terms.vertical !== 0 ? scratch.set(0, terms.vertical, 0)
           .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), scratch) : null;
         if (contactDirection) { direction[0] = contactDirection.x; direction[1] = contactDirection.y; direction[2] = contactDirection.z; }
-        const p = view.effectors[HANDS[hand]]!.points[search.aim]!; home[0] = p.x; home[1] = p.y; home[2] = p.z;
+        const p = view.effectors[hands[hand]!]!.points[search.aim]!; home[0] = p.x; home[1] = p.y; home[2] = p.z;
         attackPathToRef(home, end, hand, family, ATTACK_PATH, contactDirection ? direction : undefined, path);
         from.position = path.chamber;
         worldToRef(view, path.chamber, previous); blocked = false;
@@ -522,10 +526,12 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}) {
   };
   return (view: BodyView, foe: BodySense, hand: Side, blockedSurface: string | null = null, repertoire: "linear" | "mixed" | "vertical" | "boxing" = "linear",
     selection?: { readonly family: BlowFamily; readonly segments: readonly string[]; readonly blocked?: readonly string[] }): Opening | null => {
+    const segment = hands[hand];
+    if (segment === undefined) return null;
     const margin = margins[hand];
-    const observed = view.effectors[HANDS[hand]]!.feedback?.point;
+    const observed = view.effectors[hands[hand]!]!.feedback?.point;
     if (observed) { start[0] = observed[0]; start[1] = observed[1]; start[2] = observed[2]; }
-    else { const fist = view.fists[hand]!.position; start[0] = fist.x; start[1] = fist.y; start[2] = fist.z; }
+    else { const fist = view.pointMotion[segment]!.knuckles!.position; start[0] = fist.x; start[1] = fist.y; start[2] = fist.z; }
     const guards = guardsOf(foe.spec);
     let count = 0;
     for (let k = 0; k < guards.length; k++) {

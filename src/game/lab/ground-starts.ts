@@ -5,7 +5,7 @@ import { rigidOf } from "../../core/bodies/build/rigid.ts";
 import { lowsOf } from "../../control/ground.ts";
 import { pointAtToRef, poseAngles, specChainTo } from "../../control/kinematics.ts";
 import { guardPosture } from "../../skills/guard/guard.ts";
-import { frameOf, handShapeAt, type BodySpec } from "../../core/bodies/spec/body.ts";
+import { frameOf, configurationShapeAt, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { mulberry32 } from "../../core/math/rng.ts";
 import type { LabAddress } from "./scenarios.ts";
 import { groundEnvironment } from "./ground-environment.ts";
@@ -93,7 +93,7 @@ function geometry(spec: BodySpec, placement: Placement): Convex[] {
   const rotation = new Quaternion(...(placement.rotation ?? [0, 0, 0, 1])).normalize();
   const translated = new Vector3(...placement.position), out: Convex[] = [];
   for (const original of spec.segments) {
-    const segment = { ...original, shape: handShapeAt(spec, original, spec.held?.some(h => h.segment === original.name) ? "grip" : "open") };
+    const segment = { ...original, shape: configurationShapeAt(spec, original, spec.held?.some(h => h.segment === original.name) ? "grip" : "open") };
     const chain = specChainTo(spec, segment.name), angles = chain.map(j => placement.joints?.[j.spec.name] ?? j.dofs.map(() => 0));
     for (const shape of rigidOf(spec, segment).shapes) {
       const lows = lowsOf(shape, frameOf(segment));

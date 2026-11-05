@@ -12,8 +12,9 @@ import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { centreOfToRef } from "../../core/bodies/read-motion.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import { spinBetweenToRef } from "../../core/math/turn.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import type { Hook, World } from "../../core/world/world.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /**
  * A rail's path, on the floor, from where the body was built (x, z, m): `line`, to `along` and

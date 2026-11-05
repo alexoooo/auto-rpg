@@ -68,7 +68,9 @@ export function effectorFeedback(built: ReadBody, segments: readonly string[], i
       if (!part) throw new Error(`no feedback segment ${other}`);
       return part.body;
     });
-    return { name, segment, point, shapes, strike: declared.get("strike")?.value, bodies: [segment.body, ...carried] };
+    const aim = segment.spec.configurations?.aim;
+    const posedPoints = aim && Object.fromEntries(Object.entries(aim).map(([configuration, name]) => [configuration, declared.get(name)?.value ?? point]));
+    return { name, segment, point, shapes, posedPoints, bodies: [segment.body, ...carried] };
   });
   const point = new Vector3(), velocity = new Vector3(), spin = new Vector3();
   const present = new Map<string, EffectorContactPair>();
@@ -95,7 +97,10 @@ export function effectorFeedback(built: ReadBody, segments: readonly string[], i
         present.set(key, { key, target: { ...target }, point: [...strongest.point], normal: [...strongest.normal],
           impulse: total, loaded: total > 0, onset: total > 0 && !out.episodes.get(key) });
       };
-      pointOfToRef(item.segment, item.segment.handPose?.applied === "fist" && item.strike ? item.strike : item.point, point);
+      const configuration = item.segment.configuration?.applied;
+      const posed = configuration !== undefined && item.posedPoints && Object.hasOwn(item.posedPoints, configuration)
+        ? item.posedPoints[configuration]! : item.point;
+      pointOfToRef(item.segment, posed, point);
       motionAtToRef(item.segment, point, velocity, spin);
       out.point[0] = point.x; out.point[1] = point.y; out.point[2] = point.z;
       out.velocity[0] = velocity.x; out.velocity[1] = velocity.y; out.velocity[2] = velocity.z;

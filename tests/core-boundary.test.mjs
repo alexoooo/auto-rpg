@@ -260,7 +260,7 @@ const MIND_ADAPTERS = new Set([
 ]);
 
 /** What a mind's source never imports: the engine, the world, the builder, the read view's maker and the hands' port. */
-const MIND_BARRED = ["src/core/physics/", "src/core/world/world.ts", "src/core/bodies/build/build-body.ts", "src/core/bodies/build/read-view.ts", "src/core/bodies/build/hand-poses.ts"];
+const MIND_BARRED = ["src/core/physics/", "src/core/world/world.ts", "src/core/bodies/build/build-body.ts", "src/core/bodies/build/read-view.ts", "src/core/bodies/build/configurations.ts"];
 
 /** The folder a Commander is written in, which meets its team through the view and the orders alone. */
 const COMMAND_FOLDERS = ["src/minds/command/"];

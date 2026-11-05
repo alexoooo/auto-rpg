@@ -1,5 +1,5 @@
 import type { TargetRef } from "../../skills/framework/action.ts";
-import type { BodySpec, Side } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 import { sideEffectors } from "../../skills/recovery/skills.ts";
@@ -16,6 +16,7 @@ import { onFeet, STEADY_TRY } from "./rise-memory.ts";
 import { recorded, type Prior, type Tried } from "./record.ts";
 import { STILL, UNMOVED, type Outcome } from "./value.ts";
 import type { NamedSkills, OptionKindPart, OptionsGiven } from "./kinds.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /** What a way up is taken to do where no drill measured it (`Prior`), set by hand: it runs 5 s and stands the body seven times in ten. */
 const WAY_PRIOR: Prior = deepFreeze({ seconds: 5, done: .7 });
@@ -68,7 +69,6 @@ function endings(way: Way, from: Position, to: Position): readonly Outcome[] {
 
 /** Whether a way up may be begun on the body: not tumbling, or braced its while (`BRACED`, `Situation.tumbled`) since its rise began or its last try ended. */
 const calm = (now: Situation, g: GroundReading): boolean => !tumbling(g) || now.tumbled >= BRACED;
-
 
 /** A ground option's memory: the action it asks (none until its first step), the side it asks it on, and where its try began (none where it keeps no record). */
 interface Asking { id: number | null; side: Side; from: Position | null }

@@ -64,6 +64,7 @@ import { atan2 } from "../../../../src/core/math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../../../src/core/math/turn.ts";
 import { riseLimbs } from "../../../../src/skills/recovery/implementations/staged/limbs.ts";
 import { STAND_CHECK } from "../../../../src/game/lab/ground-mode.ts";
+import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
 
 /** A pose phase: its seed posture, and its settings where not `POSE_SEED`. */
 const pose = (seed, settings = {}) => ({ kind: "pose", seed, settings: { ...POSE_SEED, ...settings } });
@@ -298,7 +299,7 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
         control.time += dt;
       } } };
   }]);
-  body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
+  body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: SIDES, centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const table = [], path = [], window = new Float64Array(Math.round(HELD / world.dt));
   let steps = 0, quiet = 0, verified = null, fell = false, progress = 0, last = "";

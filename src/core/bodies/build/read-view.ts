@@ -1,6 +1,6 @@
 import type { Vector3 } from "../../math/vector.ts";
 import type { Contact, ContactManifold, SegmentBody } from "../../physics/engine.ts";
-import type { HandPose } from "../spec/body.ts";
+import type { ConfigurationName } from "../spec/body.ts";
 import type { BodyRef, ReadBody, ReadContact, ReadJoint, ReadPhysics, ReadSegment, ReadSegmentBody } from "../read-body.ts";
 import type { BuiltBody, BuiltSegment } from "./build-body.ts";
 
@@ -40,11 +40,11 @@ function segmentView(segment: BuiltSegment): ReadSegment {
   });
   engineOf.set(readBody, body);
   refs.set(body, readBody);
-  const hand = segment.handPose;
-  const handPose = hand ? Object.freeze({ get applied(): HandPose { return hand.applied; }, get requested(): HandPose { return hand.requested; } }) : undefined;
+  const configured = segment.configuration;
+  const configuration = configured ? Object.freeze({ get applied(): ConfigurationName { return configured.applied; }, get requested(): ConfigurationName { return configured.requested; } }) : undefined;
   return Object.freeze({
     spec: segment.spec, frame: segment.frame, pose, body: readBody, rest: segment.rest, get rigid() { return segment.rigid; },
-    ...(handPose ? { handPose } : {}), ...(segment.poses ? { poses: segment.poses } : {}), ...(segment.toes ? { toes: segment.toes } : {}),
+    ...(configuration ? { configuration } : {}), ...(segment.poses ? { poses: segment.poses } : {}), ...(segment.toes ? { toes: segment.toes } : {}),
   });
 }
 
@@ -82,11 +82,11 @@ export function readView(built: BuiltBody): ReadBody {
     contactManifoldsOf: (body: ReadSegmentBody, wanted?: (other: BodyRef | null) => boolean) =>
       named(physics.contactManifoldsOf(engine(body), wantedOf(wanted)) as ContactManifold[]),
   });
-  const poses = built.handPoses;
-  const state = Object.freeze(Object.fromEntries(Object.entries(poses.state).map(([hand, pose]) => [hand,
-    Object.freeze({ get applied(): HandPose { return pose.applied; }, get requested(): HandPose { return pose.requested; } })])));
+  const poses = built.configurations;
+  const state = Object.freeze(Object.fromEntries(Object.entries(poses.state).map(([segment, pose]) => [segment,
+    Object.freeze({ get applied(): ConfigurationName { return pose.applied; }, get requested(): ConfigurationName { return pose.requested; } })])));
   const view: ReadBody = Object.freeze({
-    spec: built.spec, physics: read, segments, joints, handPoses: Object.freeze({ model: poses.model, state }),
+    spec: built.spec, physics: read, segments, joints, configurations: Object.freeze({ model: poses.model, state }),
   });
   views.set(built, view);
   return view;

@@ -1,0 +1,23 @@
+import type { BodyView } from "../../control/body.ts";
+import type { LegsAsked, LegsGoal, Skill } from "./skill.ts";
+
+/** A support service's transition and the posture it asks of each channel's owner. */
+export interface SupportReport {
+  readonly stage: string;
+  readonly ready: boolean;
+  readonly posture: Readonly<Record<string, number>>;
+}
+
+/** A service that carries eligible legs goals through its supported transition. */
+export interface SupportSkill extends Skill {
+  readonly state: object;
+  readonly report: SupportReport;
+  /** Whether this service carries the goal's requested support. */
+  carries(goal: LegsGoal): boolean;
+  /** Whether the legs may walk while this service carries them. */
+  walks(): boolean;
+  /** Move toward the requested height, or the legs' own height where omitted. */
+  tick(view: BodyView, height: number | undefined, moving: boolean, dt: number): void;
+  /** The goal as this service's current supported transition carries it. */
+  lay(view: BodyView, goal: LegsAsked): LegsAsked;
+}

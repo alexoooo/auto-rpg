@@ -7,6 +7,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fit, HEAD_RAISE } from "./pose.mjs";
+import { SIDES } from "../../src/core/bodies/bilateral.ts";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const authored = JSON.parse(readFileSync(resolve(ROOT, "assets/quadruped/authored-body.json"), "utf8"));
@@ -81,7 +82,7 @@ base.weight = 0.15; end.weight = 0.08; joint("tail.base").peak = 1.5; joint("tai
 // bends about the normal of its upper and lower leg's plane, the right's mirroring the left's.
 const sub = (a, b) => a.map((x, i) => x - b[i]), cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const unit = (a) => { const l = Math.hypot(...a); return a.map((x) => x / l); };
-for (const e of ["front", "hind"]) for (const side of ["left", "right"]) {
+for (const e of ["front", "hind"]) for (const side of SIDES) {
   const leg = fit.legs[`${e}.${side}`], { girdle, bend, ankle } = leg;
   const upper = segment(`upper.${e}.${side}`), lower = segment(`lower.${e}.${side}`), paw = segment(`paw.${e}.${side}`);
   upper.proximal = round(girdle); upper.distal = round(bend); upper.radius = round(leg.upper);

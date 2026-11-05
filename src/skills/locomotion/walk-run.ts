@@ -3,14 +3,16 @@ import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import { paceToward, quickened, walkRunEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";
 import { hasteOver } from "../../core/bodies/human/attributes.ts";
-import { otherSide, type Side } from "../../core/bodies/spec/body.ts";
+
 import { atan2, cos, sin } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
 import { runCycle, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { legOf, quickness, scaledGait } from "./gait-scale.ts";
-import { ALL_MET, fieldsOf, maskOf, setIn, type LegsField, stanceFeetOf } from "../framework/skill.ts";
+import { stanceFeetOf } from "./stance-feet.ts";
+import { ALL_MET, fieldsOf, maskOf, setIn, type LegsField } from "../framework/skill.ts";
+import { otherSide, type Side } from "../../core/bodies/bilateral.ts";
 
 /** **The walk and run's settings** (`walkRun`): when it runs, and how its heading turns running. */
 export interface WalkRunSettings {
@@ -231,6 +233,8 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
 
   return {
     state,
+    supports: legs.supports,
+    get lower() { return legs.lower; },
     get envelope() { return envelopeNow(); },
     get stopping() { return memory.may ? RUN_STOPPING : legs.stopping; },
     get lag() { return memory.may ? 0 : legs.lag; },

@@ -13,9 +13,10 @@ import { SUPPORT_INSET } from "./stance-tuning.ts";
 import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../core/bodies/spec/constants.ts";
 import { acos, asin, atan2, cos, hypot } from "../core/math/real.ts";
 import { wrap } from "../core/math/turn.ts";
-import { segmentOf, type BearingEnd, type BodySpec, type FootLimb, type JointSpec, type MuscleSpec, type SegmentSpec, type Side } from "../core/bodies/spec/body.ts";
+import { segmentOf, type BearingEnd, type BodySpec, type FootLimb, type JointSpec, type MuscleSpec, type SegmentSpec } from "../core/bodies/spec/body.ts";
 import type { ReadBody, ReadJoint, ReadSegment, ReadContact } from "../core/bodies/read-body.ts";
 import { dot } from "../core/bodies/spec/vec.ts";
+import type { Side } from "../core/bodies/bilateral.ts";
 
 /** Whether `contact` is the ground bearing a body: a fixed collider that pushed this step, its normal (from the body into it) more than `minUp` down. */
 export const groundContact = (contact: ReadContact, minUp: number): boolean =>

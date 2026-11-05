@@ -29,6 +29,7 @@ import { convexHull } from "../../src/core/bodies/spec/hull.ts";
 import { add, dot, normalize, orthogonalTo, scale, sub } from "../../src/core/bodies/spec/vec.ts";
 import { PATCH } from "../core/hand-envelope.mjs";
 import bind from "../../assets/skeleton/bind.json" with { type: "json" };
+import { SIDES } from "../../src/core/bodies/bilateral.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OUT = path.join(ROOT, "assets", "skeleton", "bones.json");
@@ -158,7 +159,7 @@ for (const [segment, pieces] of bySegment) {
 }
 
 const hands = {}, feet = {};
-for (const side of ["left", "right"]) {
+for (const side of SIDES) {
   const arm = side === "right" ? "primary" : "secondary";
   const palm = placed(`${arm}.wrist.bare`, `${arm}.wrist`).points, fingers = placed(`${arm}.fist`, `${arm}.fist`).points;
   const WJC = partEnd(`${arm}.rollRing`, -1), MET3 = partEnd(`${arm}.wrist`, -1), along = normalize(sub(MET3, WJC));
@@ -180,7 +181,7 @@ for (const [name, s] of Object.entries(segments)) {
     + `centroid ${s.centroid.join(", ")}  corners ${s.hull.length}  spread ${s.spread.diagonal.map((x) => (x * 1e4).toFixed(2)).join("/")} cm2`);
 }
 console.log(`total ${(total * 1e6).toFixed(1)} cm3`);
-for (const side of ["left", "right"]) console.log(side, "palm", hands[side].palm.join(", "), " strike", hands[side].strike.join(", "), " foot", feet[side].min.join(", "), "..", feet[side].max.join(", "));
+for (const side of SIDES) console.log(side, "palm", hands[side].palm.join(", "), " strike", hands[side].strike.join(", "), " foot", feet[side].min.join(", "), "..", feet[side].max.join(", "));
 if (process.argv.includes("--write")) {
   fs.writeFileSync(OUT, JSON.stringify(record, null, 1) + "\n");
   console.log(`wrote ${path.relative(ROOT, OUT)}`);

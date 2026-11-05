@@ -4,7 +4,7 @@
  * readings every page and sub-mind takes of it.
  */
 import { Vector3, Quaternion } from "../core/math/vector.ts";
-import type { DownSpec, HandPose, SegmentFrame, ShapeSpec } from "../core/bodies/spec/body.ts";
+import type { DownSpec, ConfigurationName, SegmentFrame, ShapeSpec } from "../core/bodies/spec/body.ts";
 import type { Vec3 } from "../core/bodies/spec/quantity.ts";
 import { partsOn, turnOfToRef } from "../core/bodies/read-motion.ts";
 import type { ReadBody, ReadSegment } from "../core/bodies/read-body.ts";
@@ -161,10 +161,10 @@ function readUprightness(built: ReadBody): Uprightness {
     moment += segment.rigid.mass * centre[1];
     for (const low of lows) lowest = Math.min(lowest, low.at[1] - low.radius);
     const base = packed(lows);
-    const poses = segment.poses && Object.fromEntries((Object.keys(segment.poses) as HandPose[]).map(name =>
+    const poses = segment.poses && Object.fromEntries((Object.keys(segment.poses) as ConfigurationName[]).map(name =>
       [name, packed(lowsOf(segment.poses![name].shape, segment.frame))]));
     parts.push({ segment, mass: segment.rigid.mass, centre: from(centre),
-      get lows() { return poses && segment.handPose ? poses[segment.handPose.applied]! : base; } });
+      get lows() { return poses && segment.configuration ? poses[segment.configuration.applied]! : base; } });
   }
   if (parts.length === 0) throw new Error(`${built.spec.model} has no segment to stand on`);
   const standing = moment / mass - lowest;

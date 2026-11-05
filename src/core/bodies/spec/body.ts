@@ -1,12 +1,6 @@
 import type { Quantity, Vec3 } from "./quantity.ts";
 import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
 
-/** One side of a bilateral body: a hand, a foot, a limb, a corner of a bout. */
-export type Side = "left" | "right";
-
-/** The side across from `side`. */
-export const otherSide = (side: Side): Side => side === "left" ? "right" : "left";
-
 /** An end a body bears its weight on, by its name among its spec's ends (`BodySpec.ends`): a human's `foot.left`, `hand.right`, `shin.left`. */
 export type BearingEnd = string;
 
@@ -54,7 +48,7 @@ export interface FootLimb {
 /**
  * **A paw, bearing at its named point**: an end the body stands and walks on with legs of its own
  * (`supportedMotor`, `src/control/supported-motor.ts`), on its box's sole where `sole`. A paw
- * carries the body and never strikes (`strikersOf`).
+ * carries the body.
  */
 export interface PawLimb {
   readonly kind: "paw";
@@ -160,37 +154,8 @@ interface EffectorSpec {
   readonly point: string;
 }
 
-/**
- * **The hand of `spec` on `side` that makes a fist**: the effector whose segment has knuckles
- * (`SegmentSpec.points`), on that side of the body (its centre of mass's x: +x is the right), or
- * undefined where it has none.
- */
-export function fistOn(spec: BodySpec, side: Side): string | undefined {
-  for (const effector of spec.effectors ?? []) {
-    const segment = segmentOf(spec, effector.segment);
-    if (segment?.points?.knuckles && (segment.centreOfMass.value[0] < 0 ? "left" : "right") === side) return effector.segment;
-  }
-  return undefined;
-}
-
 /** **The paws `spec` stands on** (`PawLimb`, `BodySpec.ends`), in its spec's order: the order a crawl lifts them. */
 export const pawsOf = (spec: BodySpec): readonly PawLimb[] => (spec.ends ?? []).filter((end): end is PawLimb => end.kind === "paw");
-
-/** Each spec's striking limbs, found once: a spec is immutable. */
-const STRIKERS = new WeakMap<BodySpec, readonly string[]>();
-
-/**
- * **The limbs `spec` strikes with**: the segments of its effectors (`BodySpec.effectors`) that are
- * not paws (`pawsOf`), which it can swing at another body: a human's hands and feet, a reptile's mouth.
- */
-export function strikersOf(spec: BodySpec): readonly string[] {
-  let limbs = STRIKERS.get(spec);
-  if (!limbs) {
-    const paws = pawsOf(spec).map((paw) => paw.segment);
-    STRIKERS.set(spec, limbs = Object.freeze((spec.effectors ?? []).filter((effector) => !paws.includes(effector.segment)).map((effector) => effector.segment)));
-  }
-  return limbs;
-}
 
 /** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
 export type Substance = "flesh" | "bone" | "wood" | "metal" | "stone";
@@ -329,8 +294,8 @@ export interface SegmentSpec {
    * are set on the body explicitly, so a shape can be sized for contact without moving them.
    */
   readonly shape: ShapeSpec;
-  /** Coarse hand envelopes in the same reference frame; articulation retains the stated mass properties. */
-  readonly handPoses?: Readonly<Record<HandPose, ShapeSpec>>;
+  /** Named collision configurations in the reference frame; changing one retains the stated mass properties. */
+  readonly configurations?: ConfigurationSpec;
   readonly surface: SurfaceSpec;
   /** Additional anatomical contact shapes; their mass is included in the segment's stated mass properties. */
   readonly contacts?: readonly ContactRegionSpec[];
@@ -393,13 +358,23 @@ export interface ContactRegionSpec<Shape extends ShapeSpec = ShapeSpec> {
   readonly surface: SurfaceSpec;
 }
 
-/** A rigid hand's contact configuration, independent of its controller. */
-export type HandPose = "open" | "fist" | "grip";
+/** A configuration's name within its segment's declared shapes. */
+export type ConfigurationName = string;
 
-/** Compound equipment retains its qualified hand envelope; separate pose requests use the declared envelopes. */
-export function handShapeAt(body: BodySpec, segment: SegmentSpec, pose: HandPose): ShapeSpec {
-  return pose === "grip" && body.held?.some(item => item.segment === segment.name)
-    ? segment.shape : segment.handPoses?.[pose] ?? segment.shape;
+/** Collision configurations and attachment constraints declared by a segment. */
+export interface ConfigurationSpec {
+  readonly initial: ConfigurationName;
+  readonly shapes: Readonly<Record<ConfigurationName, ShapeSpec>>;
+  /** An attached object retains this configuration; a release request waits for detachment. */
+  readonly holding?: { readonly configuration: ConfigurationName; readonly release: ConfigurationName };
+  /** A configuration's physical endpoint overrides the effector's default named point. */
+  readonly aim?: Readonly<Record<ConfigurationName, string>>;
+}
+
+/** Equipment retains its compound envelope in its declared holding configuration. */
+export function configurationShapeAt(body: BodySpec, segment: SegmentSpec, configuration: ConfigurationName): ShapeSpec {
+  return configuration === segment.configurations?.holding?.configuration && body.held?.some(item => item.segment === segment.name)
+    ? segment.shape : segment.configurations?.shapes[configuration] ?? segment.shape;
 }
 
 /**

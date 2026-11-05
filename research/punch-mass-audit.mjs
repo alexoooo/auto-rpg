@@ -8,14 +8,14 @@ import {commandedBody} from "../src/app/commanded-body.ts";
 import {contactMass} from "../src/core/bodies/build/contact-mass.ts";
 import {motionAtToRef,pointOfToRef} from "../src/core/bodies/read-motion.ts";
 import {rigidPoints} from "../src/core/bodies/build/rigid.ts";
-import {standingSkills} from "../src/skills/framework/skills.ts";
+import {standingSkills} from "../src/app/standing-skills.ts";
 import {standIntent} from "../src/skills/intent/intent.ts";
 import {DEFAULT_ENGINE} from "../src/core/physics/engines.ts";
 async function pulse(mode,hand,impulse,hz){
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,gravity:mode==='grounded',ground:mode==='grounded'});
  const body=commandedBody(s.built,s.world,{servoSeconds:SERVO_SECONDS}),skills=standingSkills(body);
- body.drive((view,dt)=>mode==='grounded'?{...skills.command(view,standIntent(),dt),handPoses:{'hand.left':'fist','hand.right':'fist'}}:
-  {posture:{},pushes:[],stance:null,handPoses:{'hand.left':'fist','hand.right':'fist'}});
+ body.drive((view,dt)=>mode==='grounded'?{...skills.command(view,standIntent(),dt),configurations:{'hand.left':'fist','hand.right':'fist'}}:
+  {posture:{},pushes:[],stance:null,configurations:{'hand.left':'fist','hand.right':'fist'}});
  try{s.step(mode==='grounded'?2*hz:2);if(mode==='free')body.setLevel('limp');
  const segment=s.built.segments.get(`hand.${hand}`),point=pointOfToRef(segment,rigidPoints(s.built.spec,segment.spec).get('strike').value,new Vector3()),
   v=new Vector3(),spin=new Vector3(),mass=contactMass(s.built);mass.update();

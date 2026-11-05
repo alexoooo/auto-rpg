@@ -3,7 +3,7 @@ import rogueHull from "../../../../assets/humanoid/workshop-rogue-trunk-hull.jso
 import type { SourceKey } from "../sources.ts";
 import { sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import type { WorkshopModel } from "./rig.ts";
-import type { Side } from "../spec/body.ts";
+import type { Side } from "../bilateral.ts";
 
 /**
  * **The workshop models' clothed envelope**, as `scripts/core/workshop-envelope.mjs` measures it

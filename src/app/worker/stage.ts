@@ -4,13 +4,14 @@ import type { EngineName } from "../../core/physics/engines.ts";
 import type { GameContext } from "../../game/arena/context.ts";
 import { SIDES, type Verdict } from "../../game/arena/duel.ts";
 import type { TeamRecipe } from "../../game/arena/team-bout.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import { createBout } from "../../evaluation/bout.ts";
 import type { MindPlace } from "../../minds/apart.ts";
 import type { DuelNews } from "./duel-stage.ts";
 import type { CryptNews } from "./crypt-stage.ts";
 import type { TapeEntry } from "./protocol.ts";
 import { frameLayout, packFrame, type FramedBody, type RosterBody } from "./frame.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /** What a stage tells the page beside its frames. */
 export interface StageNews {

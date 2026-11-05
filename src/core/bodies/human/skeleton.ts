@@ -6,7 +6,8 @@ import type { Extents } from "./envelope.ts";
 import type { FittedSegment, HandFigure, HumanFigure, LimbFigure } from "./figure.ts";
 import { HUMAN_HASTE } from "./attributes.ts";
 import { dividedTrunk } from "./landmarks.ts";
-import type { BodySpec, ForceVelocitySpec, MuscleSpec, Side } from "../spec/body.ts";
+import type { BodySpec, ForceVelocitySpec, MuscleSpec } from "../spec/body.ts";
+import { type Side, SIDES } from "../bilateral.ts";
 
 /**
  * **The crypt skeleton as a human figure, fitted to its bones.** Its art is Blender Studio's
@@ -112,7 +113,7 @@ const SEGMENTS = bones.segments as Readonly<Record<string, SegmentFile>>;
  * and a shank's stay capsules as wide as their bones: a grip seats against the one, and a knee
  * bears on the other's end (`src/skills/recovery/implementations/staged/stages.ts`).
  */
-const HULLED = new Set(["head", ...(["left", "right"] as const).flatMap((side) => ["upperArm", "forearm", "thigh"].map((row) => `${row}.${side}`))]);
+const HULLED = new Set(["head", ...SIDES.flatMap((side) => ["upperArm", "forearm", "thigh"].map((row) => `${row}.${side}`))]);
 
 function fittedSegment(name: string): FittedSegment {
   const file = SEGMENTS[name];

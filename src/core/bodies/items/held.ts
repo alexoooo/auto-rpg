@@ -1,8 +1,9 @@
 import { armed, canHold } from "../human/grip.ts";
-import type { BodySpec, ItemSpec, Side } from "../spec/body.ts";
+import type { BodySpec, ItemSpec } from "../spec/body.ts";
 import { woodenClub } from "./club.ts";
 import { buckler } from "./buckler.ts";
 import { shortSword } from "./sword.ts";
+import { type Side, SIDES } from "../bilateral.ts";
 
 /** Every one-handed item the shared loadout catalog offers, and an empty hand. */
 export const HELD = ["empty", "club", "buckler", "sword"] as const;
@@ -31,7 +32,7 @@ export function loadoutFaults(loadout: Loadout): readonly string[] {
   if (typeof loadout !== "object" || loadout === null) return ["a loadout names both hands"];
   return [
     ...Object.keys(loadout).filter((key) => key !== "left" && key !== "right").map((key) => `no hand called ${key}`),
-    ...(["left", "right"] as const).filter((hand) => !HELD.includes(loadout[hand])).map((hand) => `${hand} hand holds no item called ${String(loadout[hand])}`),
+    ...SIDES.filter((hand) => !HELD.includes(loadout[hand])).map((hand) => `${hand} hand holds no item called ${String(loadout[hand])}`),
   ];
 }
 

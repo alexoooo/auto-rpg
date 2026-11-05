@@ -4,6 +4,7 @@ import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
 import { armClearance } from "./clearance.ts";
 import { phaseClock, poseDrive, REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueRun } from "../../technique.ts";
+import { SIDES } from "../../../../core/bodies/bilateral.ts";
 
 declare module "../../technique.ts" {
   interface TechniqueConfigs { readonly flatten: { readonly kind: "flatten" } }
@@ -38,4 +39,4 @@ export function flatten(own: OwnBody, _view: BodyView): TechniqueRun {
 }
 
 /** **Flatten**, a mode of the ground: the body laid flat on the side it lies on (`flatten`), begun on either side. */
-export const FLATTEN = technique("flatten", { label: "Flatten", stage: "game", sides: Object.freeze(["left", "right"] as const), edges: Object.freeze([]), make: flatten });
+export const FLATTEN = technique("flatten", { label: "Flatten", stage: "game", sides: SIDES, edges: Object.freeze([]), make: flatten });

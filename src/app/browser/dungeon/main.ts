@@ -428,7 +428,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })));
     stillShown();
     const dress = (actor: ViewActor) => {
-      const puppet = actor.puppet!, hands = handsOf(puppet.handPoses.state);
+      const puppet = actor.puppet!, hands = handsOf(puppet.configurations.state);
       const skin = dressers.get(actor.model)!(puppet, { clothing: page.clothing, closure: hands.closure }), held = drawHeld(puppet, scene);
       const shapes = drawBody(puppet, scene, Color3.FromHexString(MODEL_DISPLAY[actor.model].tint));
       bodies.push({ skin, shapes });

@@ -1,5 +1,5 @@
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
-import type { Side } from "../../../core/bodies/spec/body.ts";
+import type { Side } from "../../../core/bodies/bilateral.ts";
 
 /** Presentation only: clothing changes no physics; fingers follow the body's applied contact pose. */
 export interface Clothing { readonly boots: boolean; readonly armour: boolean }

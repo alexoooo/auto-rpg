@@ -19,7 +19,7 @@ import type { Pool } from "../../combat/pool.ts";
 import { seedOf } from "../../core/math/random.ts";
 import { phaseOf } from "../../minds/host.ts";
 import { reactionSteps, rulebook, type Rulebook, type RulebookOverride } from "../../combat/rulebook.ts";
-import type { BodySpec, Side } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { derive, type Vec3 } from "../../core/bodies/spec/quantity.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../../core/world/state.ts";
@@ -31,7 +31,7 @@ import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-ru
 import { carryOnRail, railFaults, type Rail } from "./rail.ts";
 import { shoveFaults, shoveOnCue, type Shove } from "./shove.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "../../core/world/recording.ts";
-import { otherSide } from "../../core/bodies/spec/body.ts";
+import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
 
 /**
  * **A bout in the arena**: two bodies, each carrying what the recipe names (`DuelRecipe.loadouts`,

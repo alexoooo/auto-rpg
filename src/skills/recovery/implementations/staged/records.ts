@@ -3,10 +3,11 @@ import sitBackMeta from "../../../../../assets/skills/recovery/staged/sit-back.m
 import { dataOf } from "../../../../core/data/store.ts";
 import type { SkillRecords } from "../../../framework/records.ts";
 import { deepFreeze } from "../../../../core/world/state.ts";
-import { bodyKey, type BodySpec, type Side } from "../../../../core/bodies/spec/body.ts";
+import { bodyKey, type BodySpec } from "../../../../core/bodies/spec/body.ts";
 import { heldBy, loadoutKey } from "../../../../core/bodies/items/held.ts";
 import type { stagedRise } from "./staged.ts";
 import { RISE, rollOver, type BearStage, type PoseStage, type Posture, type Recipe, type RollPoses, type Stage } from "./stages.ts";
+import type { Side } from "../../../../core/bodies/bilateral.ts";
 
 /** How one of the recipe's stages is played: its time scaled, pose and joint coordination, and a bearing stage's completion. */
 interface StageTiming { readonly scale: number; readonly posture?: Posture; readonly progress?: NonNullable<BearStage["progress"]>;

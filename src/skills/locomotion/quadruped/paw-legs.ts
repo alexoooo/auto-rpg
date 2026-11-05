@@ -18,6 +18,7 @@ import { fitsPaws } from "../../../control/quadruped/fit.ts";
 import { type Gait, type GaitReach } from "./parts.ts";
 import { pawEndpoints, pawReader, pawView } from "../../../control/quadruped/paws.ts";
 import { REPTILE_CRAWL, REPTILE_TROT } from "./tuning.ts";
+import { pawsOf } from "../../../core/bodies/spec/body.ts";
 
 /** **The paw legs**' config: the gait it travels by and the one it crawls by (`PawGaitPart`), the stock ones where it names none. */
 interface PawMoveConfig { readonly kind: "paw-move"; readonly trot?: PartConfig; readonly crawl?: PartConfig }
@@ -144,6 +145,8 @@ function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
   };
   return {
     state,
+    supports: Object.freeze(pawsOf(built.spec).map(paw => paw.name)),
+    lower: 0,
     get heading() { return view.stance.facing; },
     get stopping() { return REPTILE_TROT.acceleration; },
     lag: 0,

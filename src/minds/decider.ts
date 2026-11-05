@@ -1,7 +1,7 @@
 import type { Clearance } from "../skills/locomotion/navigation/clear-step.ts";
 import type { Body, BodyView } from "../control/body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
-import { standingSkills, type SkillReport, type Skills } from "../skills/framework/skills.ts";
+import type { SkillReport, Skills } from "../skills/framework/skills.ts";
 import type { Intent } from "../skills/intent/intent.ts";
 import { sameOrders, type Orders } from "../skills/intent/orders.ts";
 import type { Engagement } from "./engagement.ts";
@@ -89,15 +89,15 @@ export const everyOf = (rate: number | undefined, hz: number): number => rate ==
 /**
  * Hand `body` to `decider`: on its `pace`'s steps (every step unless given), and on the step the
  * body is back from another mind, its orders change or an action ends, it decides on the body's view and the skills' report,
- * `dt` the time since it last decided; each control step the skills `make` makes (legs and guard
- * with no action, `standingSkills`, unless given) make the command from what it last decided, on
+ * `dt` the time since it last decided; each control step the skills supplied by `make` turn its
+ * last decision into a command, on
  * the body as it is when the body carries the decision out (`SplitDriver`): an
  * action asked again by its id goes on (`Intent.actions`), and an interrupt asked again of an
  * action ended is passed over; what its `aims` hold (`Aim.state`) is the mind's too. Returns the mind so driven (`Driven`). On the step the body is back from another mind
  * (`BodyView.resumed`) the skills are resumed before the decider decides, so the report it reads
  * is of the body as it is.
  */
-export function driveBy(body: Body, decider: Decider, make: (body: Body) => Skills = standingSkills, pace: Pace = EVERY_STEP, aims?: readonly object[]): Driven {
+export function driveBy(body: Body, decider: Decider, make: (body: Body) => Skills, pace: Pace = EVERY_STEP, aims?: readonly object[]): Driven {
   const { every, phase, orders } = pace;
   if (!Number.isInteger(every) || every < 1 || !(phase >= 0 && phase < 1)) throw new Error(`a decider decides every whole number of steps on a phase in [0, 1), not every ${every} on ${phase}`);
   const skills = make(body), offset = Math.floor(phase * every);

@@ -5,7 +5,7 @@
  */
 import type { EngineName } from "../core/physics/engines.ts";
 import { recordingKey } from "../core/world/recording.ts";
-import type { Side } from "../core/bodies/spec/body.ts";
+
 import { boutSeedOf, senseDelayOf } from "../game/arena/duel.ts";
 import type { CaseWorld, Evaluation, Json, Subject, Table } from "./evaluation.ts";
 import { runLanes, type Spawn } from "./lanes.ts";
@@ -13,6 +13,7 @@ import { pairsOf, type Schedule } from "./schedule.ts";
 import type { Row } from "./play.ts";
 import { sha256Text } from "./sha256.ts";
 import { mean, median, pairBootstrap, wilson, type Estimate } from "./stats.ts";
+import type { Side } from "../core/bodies/bilateral.ts";
 
 /** One case: its subjects by id (a contest's left first), condition and world; how long it may last, s; its key and code. */
 export interface Case {

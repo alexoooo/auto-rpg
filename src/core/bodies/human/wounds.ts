@@ -3,8 +3,7 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
 import type { HumanFigure } from "./figure.ts";
 import type { WorkshopModel } from "./rig.ts";
 import { SKELETON_MODEL } from "./skeleton.ts";
-
-const SIDES = ["left", "right"] as const;
+import { SIDES } from "../bilateral.ts";
 
 /** A limb (`owner-life`): its segments, its bar's share of full life, and what its loss does. */
 const limb = (name: string, segments: readonly string[], share: number, lost: LimbSpec["lost"]): LimbSpec =>

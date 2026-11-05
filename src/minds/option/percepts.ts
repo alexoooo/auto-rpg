@@ -4,7 +4,8 @@ import type { StancePhase, StanceReading } from "../../control/stance.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
 import type { LegsUnmet } from "../../skills/framework/skill.ts";
-import { strikersOf, type BearingEnd, type BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BearingEnd, BodySpec } from "../../core/bodies/spec/body.ts";
+import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 import type { Cover } from "../../skills/intent/intent.ts";
 import type { Orders } from "../../skills/intent/orders.ts";
@@ -177,14 +178,14 @@ function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySp
  * **The strikes a foe of `foe` is modelled by**: those a drill measured on its body (`profilesOn`),
  * else this body's own measured (`Seen.strikes`), each fresh at the senses' reaction time and
  * this mind's rate (`Seen.rate`: a foe's mind is taken for one like it) and thrown with the limbs it names (`Profile.limbs`); and each other limb the foe strikes with
- * (`strikersOf`), by its prior. A foe's strikes are not sensed, so its limbs stand for them: a limb
+ * (`defaultStrikeLimbs`), by its prior. A foe's strikes are not sensed, so its limbs stand for them: a limb
  * no measured strike throws is priced by hand while the others are measured.
  */
 function foeModel(seen: Seen, foe: BodySpec, postures: Postures = STANDING): Model {
   const reaction = reactionOf(seen), on = profilesOn(seen.measured, foe, seen.hz, reaction, seen.rate, seen.delay);
   const strikes: readonly ModelledStrike[] = on.fresh.length ? on.fresh.map((profile) => ({ name: profile.measured.skill, limbs: profile.limbs ?? [], profile }))
     : seen.strikes.filter((strike) => byHand(strike, reaction, seen.hz) === null);
-  const thrown = new Set(strikes.flatMap((strike) => strike.limbs)), limbs = strikersOf(foe).filter((limb) => !thrown.has(limb));
+  const thrown = new Set(strikes.flatMap((strike) => strike.limbs)), limbs = defaultStrikeLimbs(foe).filter((limb) => !thrown.has(limb));
   const model = modelOf(seen, [...strikes, ...limbs.map((limb) => ({ name: limb, limbs: [limb], profile: null }))], foe, postures);
   const source = on.fresh.length ? "measured" : strikes.length ? `as its own strikes, ${on.stale}` : `by hand, ${on.stale}`;
   return { ...model, priced: limbs.length && strikes.length ? `${source}; by hand: ${limbs.join(", ")}` : source };

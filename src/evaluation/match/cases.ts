@@ -8,11 +8,12 @@ import { REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/bodies/item
 import { presetFitsModel } from "../../minds/controller.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import { readBout, type BoutReading } from "../contest.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /**
  * What a match plays: each body a mind may have against each the other may have, each loadout, and

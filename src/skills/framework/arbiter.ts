@@ -1,19 +1,19 @@
 import { kitOf, menuOf } from "./menu.ts";
 import type { GaitName } from "../locomotion/gaits.ts";
-import { stockClearance } from "../locomotion/navigation/clear-step.ts";
+import type { Clearance } from "../locomotion/navigation/clear-step.ts";
 import type { Intent } from "../intent/intent.ts";
 import type { Body, BodyCommand, BodyView } from "../../control/body.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import type { EffectorGoal, FreedomPath, MusclePush, PointTask } from "../../control/motor.ts";
 import type { StanceGoal } from "../../control/stance.ts";
 import type { SupportGoal } from "../../control/supported-motor.ts";
-import type { HandPose } from "../../core/bodies/spec/body.ts";
+import type { ConfigurationName } from "../../core/bodies/spec/body.ts";
 import type { ActionAround, ActionClaim } from "./action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "./action-instances.ts";
 import { actionResources } from "./action-resources.ts";
 import type { GuardSkill } from "../guard/guard.ts";
-import { STANCE_LOWER, type Locomotion } from "../locomotion/locomotion.ts";
-import { foldCarries, type SupportSkill } from "../locomotion/support-fold.ts";
+import type { Locomotion } from "../locomotion/locomotion.ts";
+import type { SupportSkill } from "./support.ts";
 import type { NavigationSight, Navigator } from "../locomotion/navigation/navigator.ts";
 import { ALL_MET, type LegsAsked, type LegsGoal } from "./skill.ts";
 import type { StanceEnvelope } from "../../control/stance-envelope.ts";
@@ -32,6 +32,8 @@ export interface SkillParts {
    * sensed (`navigatorOf`); none, a movement request is refused and a walk goes as asked.
    */
   readonly navigation: Navigator | null;
+  /** The supplied clearance policy; a navigator may supply its own. */
+  readonly clearance: Clearance;
   readonly support?: SupportSkill | null;
 }
 
@@ -43,10 +45,12 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const { executors, actions } = services;
   const { legs, guard } = services, support = services.support ?? null;
   const navigation = services.navigation;
-  // The ends the legs stand the body on: its feet, or its paws (`BodySpec.ends`).
-  const models = bodyEffectors(body.built).map(e => e.model), feet = (body.built.spec.ends ?? []).flatMap((end) =>
-    end.kind === "foot" || end.kind === "paw" ? [{ name: end.name, segment: end.segment }] : []);
-  const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet, body.built.handPoses.model.map(hand => hand.segment));
+  const models = bodyEffectors(body.built).map(e => e.model), feet = legs.supports.map(name => {
+    const end = body.built.spec.ends?.find(end => end.name === name);
+    if (!end) throw new Error(`unknown locomotion support ${name}`);
+    return { name, segment: end.segment };
+  });
+  const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet, body.built.configurations.model.map(hand => hand.segment));
   const allControls = resources.controls(Object.keys(resources.footprints)), legsControls = resources.controls(["legs"]);
   const on = attachment(body.built);
   const instances = actionInstances(executors, actions, resources, { attached: (effector) => on(body.built.segments.get(effector)!) }), guarding = guard.posture;
@@ -63,8 +67,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const claims: { id: number; claim: ActionClaim; controls: readonly string[]; unwritten: readonly string[] }[] = [];
   const contacts: ActionContact[] = [];
   const around: ActionAround = { get heading() { return legs.heading; }, get placed() { return legs.placed ?? false; },
-    support: support?.report ?? null, walk: null, lower: STANCE_LOWER };
-  const context = (intent: Intent): ActionAround => ({ ...around, walk: intent.move, lower: intent.lower ?? STANCE_LOWER });
+    support: support?.report ?? null, walk: null, get lower() { return legs.lower; } };
+  const context = (intent: Intent): ActionAround => ({ ...around, walk: intent.move, lower: intent.lower ?? legs.lower });
   const free = (slot: string): boolean => state.reservations[slot] === undefined;
   /** Whether the defaults write `slot`: no action holds it, or the one that holds it leaves it unwritten. */
   const available = (slot: string): boolean => {
@@ -93,7 +97,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   return {
     state, report, resume, instance: instances.instance, readiness: instances.readiness, needs: instances.needs,
     kit, menu: () => menuOf(kit, body.view, around, instances.readiness, navigation?.report.request ?? null),
-    clearance: navigation ?? stockClearance(body.built.spec),
+    clearance: services.clearance,
     get envelope() { return legs.envelope ?? null; },
     gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; }, get lag() { return legs.lag; } },
     envelopeOf: (gait: GaitName) => legs.envelopeOf?.(gait) ?? null,
@@ -129,15 +133,15 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       const legsAsked = claims.find(item => item.controls.includes("stance"))?.claim.legs;
       state.walkable = legsAsked ? legsAsked.walk === undefined && legsAsked.footing === undefined : available("stance");
       const posture: Record<string, number> = {}, pushes: MusclePush[] = [], points: PointTask[] = [], effectors: Record<string, EffectorGoal | null> = {};
-      const handPoses: Partial<Record<string, HandPose>> = {};
+      const configurations: Partial<Record<string, ConfigurationName>> = {};
       for (const [channel, angle] of Object.entries(guarding)) if (available(`channel:${channel}`)) posture[channel] = angle;
       const covers = guard.command(view, intent.guard);
       state.covering.length = 0;
       for (const hand of guard.hands) {
         if (available(`effector:${hand}`)) effectors[hand] = covers[hand] ?? null;
         if (effectors[hand]) state.covering.push(hand);
-        const pose = available(`pose:${hand}`) ? guard.handPose?.(hand) ?? null : null;
-        if (pose) handPoses[hand] = pose;
+        const pose = available(`pose:${hand}`) ? guard.configuration?.(hand) ?? null : null;
+        if (pose) configurations[hand] = pose;
         const held = !effectors[hand] && available(`effector:${hand}`) ? guard.hold?.(hand) : null;
         if (held) points.push(held);
       }
@@ -152,7 +156,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       if (asked) {
         // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
         let goal = legsGoal(asked, intent, view, legs.heading, { waiting: !!support && !support.walks() });
-        if (support && foldCarries(goal)) {
+        if (support && support.carries(goal)) {
           support.tick(view, goal.height, !!goal.walk, dt);
           goal = support.lay(view, goal);
         }
@@ -188,9 +192,9 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         pushes.push(...claim.pushes ?? []);
         points.push(...claim.points ?? []);
         Object.assign(effectors, claim.effectors);
-        Object.assign(handPoses, claim.handPoses);
+        Object.assign(configurations, claim.configurations);
       }
-      const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance, ...(assist ? { assist } : {}), ...(supported ? { support: supported } : {}),
+      const command: BodyCommand = { posture, pushes, points, effectors, configurations, stance, ...(assist ? { assist } : {}), ...(supported ? { support: supported } : {}),
         ...(Object.keys(paths).length ? { paths } : {}), ...(held === undefined ? {} : { held }) };
       if (command.stance) for (const end of command.stance.feet) {
         const segment = feet.find((foot) => foot.name === end)?.segment;
@@ -217,7 +221,7 @@ function writes(claim: ActionClaim, control: string, legs: readonly string[], ch
     case "channel": return claim.posture?.[name] !== undefined || claim.paths?.[name] !== undefined || (claim.pushes ?? []).some((push) => push.channel === name);
     case "effector": return claim.effectors?.[name] !== undefined || (claim.points ?? []).some((task) => task.segment === name)
       || (chains[name] ?? []).some((channel) => writes(claim, `channel:${channel}`, legs, chains));
-    case "pose": return claim.handPoses?.[name] !== undefined;
+    case "pose": return claim.configurations?.[name] !== undefined;
     case "stance": return claim.legs !== undefined;
     default: throw new Error(`no control ${control}`);
   }

@@ -5,13 +5,14 @@
  * from a record, give the same answer. A battery's comparison is its figures' paired differences.
  */
 import { recordingKey } from "../core/world/recording.ts";
-import type { Side } from "../core/bodies/spec/body.ts";
+
 import type { BoutReading } from "./contest.ts";
 import type { Figure, Json, Table } from "./evaluation.ts";
 import type { Row } from "./play.ts";
 import type { Unit } from "./run.ts";
 import { settle, type SettleRule, type Settled } from "./settle.ts";
 import { mean, pairBootstrap, wilson, type Estimate } from "./stats.ts";
+import type { Side } from "../core/bodies/bilateral.ts";
 
 /** A subject and its counterpart, each against one panel member at one condition. */
 interface Slot {

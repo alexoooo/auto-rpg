@@ -5,10 +5,11 @@ import { bodyEffectors } from "../../control/effectors.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { ActionClaim, ActionEnding, ActionRequest, Executor, LifecycleUpdate, Phase, Readiness, Resource } from "../framework/action.ts";
 import type { ActionBinding, ExecutorBinding } from "../framework/action-instances.ts";
-import { segmentOf, type BodySpec, type Side } from "../../core/bodies/spec/body.ts";
+import { segmentOf, type BodySpec } from "../../core/bodies/spec/body.ts";
 import type { MindKit } from "../kit.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { TechniqueEnd, TechniqueRun } from "./technique.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /** Each body's side effectors (`sideEffectors`), by its spec. */
 const SIDE_EFFECTORS = new WeakMap<BodySpec, Readonly<Record<Side, string>>>();

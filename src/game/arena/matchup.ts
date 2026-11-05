@@ -6,11 +6,12 @@ import { presetFitsModel } from "../../minds/controller.ts";
 import { SIDES, type DuelRecipe } from "./duel.ts";
 import { EMPTY_LOADOUT, HELD, type Loadout } from "../../core/bodies/items/held.ts";
 import { appearanceFor, type Appearance } from "../appearance/appearance.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import { mindLinks, type LinkedMind } from "../../minds/config-link.ts";
 import { legacyAttributes, readAttributes } from "../attribute-link.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { gapFits, LEVELS, type ArenaLevel } from "./levels.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /** A link chooses a named stage; malformed UI input starts on the open stage. */
 export function readLevel(search: string): ArenaLevel {
@@ -139,7 +140,6 @@ export function createMatchup(context: GameContext) {
   const { defaultMind, modelRefusal } = context;
   const MINDS = context.catalog.minds;
   const { parseMind, writeMind } = mindLinks(context.catalog);
-
 
   /** The selectable controllers' names on the page, by id. */
   const CONTROLS: Readonly<Record<Control, string>> = Object.freeze(Object.fromEntries(Object.entries(MINDS).map(([id, mind]) => [id, mind.label])));

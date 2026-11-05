@@ -1,16 +1,13 @@
-import { standingFooting } from "../../control/support.ts";
 import type { KitEntry, MenuEntry } from "./menu.ts";
 import type { Clearance } from "../locomotion/navigation/clear-step.ts";
-import type { Body, BodyCommand, BodyView } from "../../control/body.ts";
+import type { BodyCommand, BodyView } from "../../control/body.ts";
 import type { StanceEnvelope } from "../../control/stance-envelope.ts";
 import type { GaitName } from "../locomotion/gaits.ts";
 import type { Intent } from "../intent/intent.ts";
 import { type ActionAround, type ActionStatus, type Ended, type Readiness, type Resource, type TargetRef } from "./action.ts";
-import { skillSet, type Holders } from "./arbiter.ts";
-import { guardSkill } from "../guard/guard.ts";
-import { locomotion } from "../locomotion/locomotion.ts";
-import { stanceFeetOf, type LegsUnmet, type Skill } from "./skill.ts";
-import type { SupportReport } from "../locomotion/support-fold.ts";
+import type { Holders } from "./arbiter.ts";
+import type { LegsUnmet, Skill } from "./skill.ts";
+import type { SupportReport } from "./support.ts";
 import type { NavigationReport } from "../locomotion/navigation/navigator.ts";
 import type { GaitLimits } from "../intent/travel.ts";
 
@@ -23,7 +20,7 @@ export interface Skills extends Skill {
   envelopeOf(gait: GaitName): StanceEnvelope | null;
   /** The limits its legs state, which the speed rule reads (`travelSpeed`): what a team reads of how fast it goes. */
   readonly gait: GaitLimits;
-  /** How its planner keeps the body clear of the solids sensed: its navigator's (`Navigator`), or the stock navigators' where it has none (`stockClearance`). */
+  /** How its planner keeps the body clear of the solids sensed: the policy supplied with its services. */
   readonly clearance: Clearance;
   readonly state: object;
   instance(): number;
@@ -55,7 +52,3 @@ export interface SkillReport {
   readonly reservations: Readonly<Record<string, number>>;
   readonly navigation?: NavigationReport;
 }
-
-/** Continuous locomotion and the guard, with no action: a body's skills where its mind throws nothing. */
-export const standingSkills = (body: Body): Skills =>
-  skillSet(body, { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope, { idleFooting: standingFooting(body.built) }), navigation: null, guard: guardSkill(body.built.spec), executors: [], actions: [] });

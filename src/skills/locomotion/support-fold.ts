@@ -3,7 +3,8 @@ import type { Body, BodyView } from "../../control/body.ts";
 import { uprightness } from "../../control/ground.ts";
 import { footStatesOf, readSupport, withinSupport } from "../../control/support.ts";
 import { STANCE_LOWER } from "./locomotion.ts";
-import type { LegsAsked, LegsGoal, Skill } from "../framework/skill.ts";
+import type { LegsGoal } from "../framework/skill.ts";
+import type { SupportSkill } from "../framework/support.ts";
 
 /**
  * The fold and its gates: `lower`, m, the deepest the centre of mass goes under its standing
@@ -16,36 +17,11 @@ import type { LegsAsked, LegsGoal, Skill } from "../framework/skill.ts";
 const COMBAT_FOLD = Object.freeze({ lower: .5, pitch: .9, response: .5, transition: 2,
   lumbar: .89, thoracic: .368, footGap: .015, clearance: .15, slow: .1, hold: .05, normal: .9 });
 
-/** The executor's actual supported transition; policies read readiness before requesting a stroke. */
-export interface SupportReport {
-  readonly stage: "stand" | "wait" | "lower" | "low" | "rise";
-  readonly ready: boolean;
-  /** The trunk's flexion the fold asks of whatever holds the trunk, rad by channel; none while it stands. */
-  readonly posture: Readonly<Record<string, number>>;
-}
-
-/**
- * **A support skill**: fighting from low support. It carries a legs goal that leaves the stance's
- * shape to the legs (`foldCarries`) down to the height that goal asks, and asks the trunk's
- * flexion of the trunk's owner (`SupportReport.posture`).
- */
-export interface SupportSkill extends Skill {
-  readonly state: object;
-  readonly report: SupportReport;
-  /** Whether the legs may walk under it as it stands: not while a fold is under way. */
-  walks(): boolean;
-  /** Move toward `height`, the centre of mass's over the soles, m (the legs' own where none), the body `moving` or not. */
-  tick(view: BodyView, height: number | undefined, moving: boolean, dt: number): void;
-  /**
-   * `goal` as the fold under way carries it: folded, both feet bearing, the centre of mass over
-   * their middle, at the fold's heading, height and pitch, and no halt; standing, at the legs' own
-   * height.
-   */
-  lay(view: BodyView, goal: LegsAsked): LegsAsked;
-}
+/** The planted fold's transition stages. */
+type FoldStage = "stand" | "wait" | "lower" | "low" | "rise";
 
 /** Whether the fold carries `goal`: one that leaves the stance's shape to the legs, naming no bearing feet, footing, swing or pose. */
-export const foldCarries = (goal: LegsGoal): boolean =>
+const foldCarries = (goal: LegsGoal): boolean =>
   goal.feet === undefined && goal.footing === undefined && goal.swing === undefined && goal.pose === undefined;
 
 /** A planted-foot fold behind the neutral requested lowering, using the common body and muscle limits. */
@@ -58,7 +34,7 @@ export function supportFold(body: Body): SupportSkill {
   };
   const flexion = { "lumbar flexion": clamp("lumbar flexion", COMBAT_FOLD.lumbar),
     "thoracic flexion": clamp("thoracic flexion", COMBAT_FOLD.thoracic) };
-  const state = { stage: "stand" as SupportReport["stage"], ready: false, active: false,
+  const state = { stage: "stand" as FoldStage, ready: false, active: false,
     depth: 0, from: 0, to: 0, time: 0, quiet: 0, heading: 0, posture: {} as Record<string, number> };
   const supported = (view: BodyView) => {
     readSupport(feet, feet, middle);
@@ -70,7 +46,7 @@ export function supportFold(body: Body): SupportSkill {
     const c = view.stance.centre, nearest = withinSupport(feet, c.x, c.z);
     return nearest[0] === c.x && nearest[1] === c.z;
   };
-  return { state, report: state, walks: () => state.stage === "stand" || state.stage === "wait", resume() {
+  return { state, report: state, carries: foldCarries, walks: () => state.stage === "stand" || state.stage === "wait", resume() {
     state.stage = "stand"; state.ready = false; state.active = false;
     state.depth = 0; state.from = 0; state.to = 0; state.time = 0; state.quiet = 0; state.posture = {};
   }, tick(view, height, moving, dt) {

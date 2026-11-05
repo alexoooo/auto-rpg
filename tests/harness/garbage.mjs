@@ -7,6 +7,7 @@ import { modelSpec } from "../../src/core/bodies/models.ts";
 import { woodenClub } from "../../src/core/bodies/items/club.ts";
 import { standIntent } from "../../src/skills/intent/intent.ts";
 import { driveBy } from "../../src/minds/decider.ts";
+import { standingSkills } from "../../src/app/standing-skills.ts";
 import { createWorld } from "../../src/core/world/world.ts";
 import { freshEngine } from "./core-stand.mjs";
 import { GUARD } from "../../src/skills/guard/guard.ts";
@@ -24,7 +25,7 @@ export async function standBodies(count, model = "crypt-skeleton") {
   const side = Math.ceil(Math.sqrt(count));
   const bodies = Array.from({ length: count }, (_, i) => {
     const body = commandedBody(buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] }), world, { servoSeconds: SERVO_SECONDS });
-    driveBy(body, { name: "stand", decide: () => standIntent(0) });
+    driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills);
     return body;
   });
   return { world, bodies, dispose() { world.dispose(); } };

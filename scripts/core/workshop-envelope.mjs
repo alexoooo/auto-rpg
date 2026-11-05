@@ -24,6 +24,7 @@ import { segmentFrame } from "../../src/core/bodies/spec/body.ts";
 import { dot, sub } from "../../src/core/bodies/spec/vec.ts";
 import { trunkLandmarks } from "../../src/core/bodies/human/landmarks.ts";
 import { convexHull } from "../../src/core/bodies/spec/hull.ts";
+import { SIDES } from "../../src/core/bodies/bilateral.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -95,7 +96,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   for (const model of ["workshop-fighter", "workshop-rogue"]) {
     const hulls = trunkHulls(model);
     for (const [segment, corners] of Object.entries(hulls)) console.log(`${model} ${segment} trunk: ${corners.length} corners`);
-    for (const side of ["left", "right"]) show(`${model} ${side} foot`, footprint(model, side));
+    for (const side of SIDES) show(`${model} ${side} foot`, footprint(model, side));
     if (process.argv.includes("--write")) {
       fs.writeFileSync(trunkHullFile(model), `${JSON.stringify({
         about: `${model}'s trunk segments' surfaces: the convex hull corners of the clothed envelope's trunk vertices, `

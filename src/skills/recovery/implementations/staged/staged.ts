@@ -19,6 +19,7 @@ import { riseLimbs } from "./limbs.ts";
 import { RISE, stageFaults, stagesOf, type BearStage, type PoseStage, type Recipe, type Stage, type Until } from "./stages.ts";
 import type { ReadSegment } from "../../../../core/bodies/read-body.ts";
 import { rollCoast } from "./roll-coast.ts";
+import { SIDES } from "../../../../core/bodies/bilateral.ts";
 
 /**
  * The pose drive: a freedom is asked the speed that would close its error in `POSE_SECONDS`, no
@@ -112,7 +113,7 @@ function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleReading["cha
     }
     if (stage.kind === "pose" && stage.level) {
       const gains = stage.level.gains;
-      levelOf.set(stage, (["left", "right"] as const).map((side) => Object.entries(gains).map(([name, gain]) => ({ index: channelOf(name.replace("@", side)), gain }))));
+      levelOf.set(stage, SIDES.map((side) => Object.entries(gains).map(([name, gain]) => ({ index: channelOf(name.replace("@", side)), gain }))));
     }
     const posture = stage.posture;
     goalsOf.set(stage, Float64Array.from(channels, (channel) => (posture === "reference" ? 0 : (posture[channel.name] ?? 0) - channel.dof.spec.bind.value)));

@@ -32,6 +32,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { parseArgs } from "node:util";
 import { dot, readClip, size, sub, unit } from "./bvh.mjs";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 /** The shares of a step each quantity is read at. */
 const PHASES = 16;
@@ -50,7 +51,7 @@ const restLean = (() => { const spine = unit(sub(zero[index("Spine1")], zero[J.h
 
 // Landings: a sole's first frame on the ground after at least 0.1 s off it.
 const landings = [];
-for (const side of ["left", "right"]) {
+for (const side of SIDES) {
   let off = 0;
   for (let f = 1; f < frames; f++) {
     if (!contact[side][f]) { off += dt; continue; }

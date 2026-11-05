@@ -13,6 +13,7 @@ import { freshEngine, coreStand } from "../harness/core-stand.mjs";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
 import { commandedMind } from "../../src/minds/sub-mind.ts";
 import { driveBy } from "../../src/minds/decider.ts";
+import { standingSkills } from "../../src/app/standing-skills.ts";
 import { standIntent } from "../../src/skills/intent/intent.ts";
 import { wholeBodyMotor } from "../../src/control/whole-body-motor.ts";
 import { isOrdersEntry } from "../../src/game/arena/duel.ts";
@@ -23,13 +24,21 @@ import { PAW_MOVE } from "../../src/skills/locomotion/quadruped/paw-legs.ts";
 const SHOWN_DELAY = 2;
 
 test("a body's command is applied the world's delay after it is sent, none before, none again after its level leaves full, and across a save and load", async () => {
-  const spec = modelSpec("workshop-fighter");
+  // A body-declared actuator away from a bilateral hand name, with its own configuration names.
+  const stock = modelSpec("workshop-fighter");
+  const spec = JSON.parse(JSON.stringify(stock).replaceAll('"hand.right"', '"tool.central"'));
+  const tool = spec.segments.find(segment => segment.name === "tool.central");
+  const shapes = tool.configurations.shapes;
+  tool.configurations = { initial: "extended", shapes: { extended: shapes.open, retracted: shapes.fist, latched: shapes.grip },
+    holding: { configuration: "latched", release: "extended" } };
   const world = createWorld(await freshEngine(), { actuation: "directional", delay: SHOWN_DELAY });
   const built = buildBody(spec, world, { position: [0, 1, 0], joints: poseAngles(spec, GUARD) });
   // Held in place, every muscle's strength is the one at rest, so a ceiling reads the activation that set it; its weight sets its assist's ceiling.
   for (const segment of built.segments.values()) segment.body.setFixed(true);
-  const right = built.handPoses.model.find((hand) => hand.hand === "right"), poses = right.poses.slice(0, 2);
-  assert.equal(poses.length, 2, "the fixture needs a hand with two poses");
+  const actuator = built.configurations.model.find(entry => entry.segment === tool.name);
+  assert.ok(actuator, "the body must expose its declared actuator regardless of its segment name");
+  const poses = actuator.configurations.slice(0, 2);
+  assert.equal(poses.length, 2, "the fixture needs an actuator with two configurations");
   const sent = [], level = (k) => 0.05 + 0.1 * (k % 7), push = (k) => [k + 1, 0, 0];
   const embodied = embody(built, world, () => {
     const state = { pending: -1 };
@@ -41,7 +50,7 @@ test("a body's command is applied the world's delay after it is sent, none befor
         if (k < 0) return;
         control.muscles.activation.fill(level(k)); control.muscles.velocity.fill(0);
         control.assist.force.set(...push(k)); control.assist.moment.setAll(0);
-        control.hands.request("right", poses[k % 2]);
+        control.configurations.request(tool.name, poses[k % 2]);
       },
     } };
   }, { assist: { force: 10, moment: 10 } });
@@ -50,12 +59,12 @@ test("a body's command is applied the world's delay after it is sent, none befor
   assert.ok(channel >= 0, "the fixture needs a channel without a tendon");
   // What the body was given on the step just taken: the activation its ceiling reads, the assist's push and the hand's pose asked.
   const given = () => ({ activation: Math.round(1e9 * muscles.bounds.positive[channel] / muscles.strength(channel, 1)) / 1e9,
-    push: embodied.held.assist.given.force.x, pose: built.handPoses.state.right.requested });
+    push: embodied.held.assist.given.force.x, pose: built.configurations.state[tool.name].requested });
   const expected = (k, since) => k - since < SHOWN_DELAY ? { activation: 0, push: 0, pose: null }
     : { activation: Math.round(1e9 * level(k - SHOWN_DELAY)) / 1e9, push: push(k - SHOWN_DELAY)[0], pose: poses[(k - SHOWN_DELAY) % 2] };
   // A hand keeps the pose it was last asked: where none is due, the reading names none if the hand holds the one it held as the steps began.
   const played = (from, steps, since) => {
-    const held = built.handPoses.state.right.requested;
+    const held = built.configurations.state[tool.name].requested;
     return Array.from({ length: steps }, (_, i) => {
       world.step();
       const reading = given(), want = expected(from + i, since);
@@ -111,7 +120,7 @@ test("a commanded Mind restores its driver's memory from its own state", async (
     driveBy(embodied.mind.body, { name: "counted stand", state: memory, decide() {
       memory.decisions++;
       return standIntent(0);
-    } });
+    } }, standingSkills);
     return { stand, embodied, memory, dispose() { embodied.dispose(); stand.dispose(); } };
   };
   const original = await make(), fork = await make();

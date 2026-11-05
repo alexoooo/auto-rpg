@@ -1,9 +1,10 @@
 /** **A bout as a contest's case**: what is read of it, and the figures every contest reports. */
 import type { DuelEnding } from "../game/arena/duel.ts";
 import { isClash } from "../combat/blows.ts";
-import type { Side } from "../core/bodies/spec/body.ts";
+
 import type { BuiltBout } from "./bout.ts";
 import type { ContestReading, Figure, Reader } from "./evaluation.ts";
+import type { Side } from "../core/bodies/bilateral.ts";
 
 /**
  * What a bout came to: the winner (null a draw) and how, when, how many blows landed (clashes not

@@ -12,8 +12,9 @@ import type { SwingBow } from "./swing-path.ts";
 import { resolveStance, SUPPORT_INSET, type GaitTuning, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, restWidth, soleRefusal, type FootMemory, type FootState } from "./support.ts";
 import { massOf, partsOn, type Parts } from "../core/bodies/read-motion.ts";
-import type { BearingEnd, Side } from "../core/bodies/spec/body.ts";
+import type { BearingEnd } from "../core/bodies/spec/body.ts";
 import type { ReadBody, ReadSegment } from "../core/bodies/read-body.ts";
+import type { Side } from "../core/bodies/bilateral.ts";
 
 /**
  * **What a stance remembers**: everything a step writes that a later step, or a reader between

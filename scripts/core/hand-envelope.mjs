@@ -31,6 +31,7 @@ import { add, cross, dot, length, normalize, orthogonalTo, scale, sub } from "..
 import { transcribed } from "./workshop-envelope.mjs";
 import fighterRig from "../../assets/humanoid/workshop-fighter.json" with { type: "json" };
 import rogueRig from "../../assets/humanoid/workshop-rogue.json" with { type: "json" };
+import { SIDES } from "../../src/core/bodies/bilateral.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const RIGS = { "workshop-fighter": fighterRig, "workshop-rogue": rogueRig };
@@ -155,14 +156,14 @@ export async function handGeometry(model) {
       + "Written by scripts/core/hand-envelope.mjs --write, whose header gives the rules.",
     model, patch: PATCH,
   };
-  for (const side of ["left", "right"]) out[side] = await hand(model, side);
+  for (const side of SIDES) out[side] = await hand(model, side);
   return out;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   for (const model of HAND_MODELS) {
     const geometry = await handGeometry(model);
-    for (const side of ["left", "right"]) {
+    for (const side of SIDES) {
       const { palm, fist } = geometry[side];
       console.log(`${model} ${side}: palm ${palm.hull.length} corners, patch ${palm.patch.outline.length} at ${JSON.stringify(palm.patch.centre)}; `
         + `fist ${fist.hull.length}, knuckles ${JSON.stringify(fist.knuckles)}, strike ${JSON.stringify(fist.strike)}`);

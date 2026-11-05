@@ -122,6 +122,8 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
   };
   return {
     state,
+    supports: Object.freeze([...new Set(walks.flatMap(walk => walk.supports))]),
+    get lower() { return now().lower; },
     get envelope() { return now().envelope; },
     get stopping() { return now().stopping; },
     get lag() { return now().lag; },

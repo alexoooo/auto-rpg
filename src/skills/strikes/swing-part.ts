@@ -4,13 +4,14 @@ import { dataOf } from "../../core/data/store.ts";
 import { heldBy, type Held } from "../../core/bodies/items/held.ts";
 import { fitsAll, strikesWithOneOf } from "../../parts/parts.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
-import type { BodySpec, Side } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../framework/records.ts";
 import { faceOf } from "./held-blow.ts";
 import type { StrikingFace } from "./straight-punch.ts";
 import { swingChannelFault, swingExecutor, SWING_KEYS, validSwing, validSwingPart, type Swing } from "./swing.ts";
+import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 
 /**
  * **The swung blows**, by kind: what each is swung with (`item`, by `HELD`'s name), what it meets
@@ -64,7 +65,7 @@ function swingPart<K extends SwingKind>(kind: K): ExecutorPart<Config<K>> {
     strikesWith: (spec, _config, effector) => swingFace(spec, effector, kind) !== null,
     make({ body, guard, aim }, config, actions) {
       const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
-      for (const hand of ["left", "right"] as const) { const face = swingFace(spec, `hand.${hand}`, kind); if (face) faces[hand] = face; }
+      for (const hand of SIDES) { const face = swingFace(spec, `hand.${hand}`, kind); if (face) faces[hand] = face; }
       return swingExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf(kind), spec, config), aimedPoint(aim), faces,
         { align: swing.mechanism === "edge" });
     },

@@ -1,10 +1,12 @@
+import { fistOn } from "../../core/bodies/human/endpoints.ts";
 import { predictIntercept } from "../../control/whole-body/intercept.ts";
 import { Vector3, type Quaternion } from "../../core/math/vector.ts";
 import type { BodyView } from "../../control/body.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { hypot } from "../../core/math/real.ts";
 import { aimOf } from "../strikes/held-strike.ts";
-import { bellyOf, fistOn, frameOf, segmentOf, strikersOf, type BodySpec } from "../../core/bodies/spec/body.ts";
+import { bellyOf, frameOf, segmentOf, type BodySpec } from "../../core/bodies/spec/body.ts";
+import { defaultStrikeLimbs } from "./default-strike-limbs.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { dot, sub } from "../../core/bodies/spec/vec.ts";
@@ -70,14 +72,14 @@ interface Threat {
 interface Striking { readonly limb: string; readonly local: Vec3; readonly grip: Vec3 | null }
 
 /**
- * **What a blow of a body of `spec` is read from**: each limb it strikes with (`strikersOf`) but
+ * **What a blow of a body of `spec` is read from**: each limb in its default attack model (`defaultStrikeLimbs`) but
  * the feet it stands on, whose steps are no blow (a human's hands, a reptile's mouth), and the point
  * each strikes with, in its own frame: a hand's aim (`aimOf`: what it holds, else its knuckles),
  * another limb's (`effectorAim`). A limb with no such point is left out.
  */
 function strikingPoints(spec: BodySpec): readonly Striking[] {
   const feet = (spec.ends ?? []).flatMap((end) => end.kind === "foot" ? [end.segment] : []);
-  return strikersOf(spec).filter((limb) => !feet.includes(limb)).flatMap((limb): Striking[] => {
+  return defaultStrikeLimbs(spec).filter((limb) => !feet.includes(limb)).flatMap((limb): Striking[] => {
     const segment = segmentOf(spec, limb), hand = fistOn(spec, "left") === limb ? "left" : fistOn(spec, "right") === limb ? "right" : null;
     const points = segment && rigidPoints(spec, segment), at = points && points.get(hand ? aimOf(spec, hand) : effectorAim(spec, limb));
     if (!segment || !points || !at) return [];

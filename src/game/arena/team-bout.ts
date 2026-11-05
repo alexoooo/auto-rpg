@@ -12,7 +12,7 @@ import type { Pool } from "../../combat/pool.ts";
 import { seedOf } from "../../core/math/random.ts";
 import { phaseOf } from "../../minds/host.ts";
 import { reactionSteps, rulebook, type Rulebook } from "../../combat/rulebook.ts";
-import { otherSide, type BodySpec, type Side } from "../../core/bodies/spec/body.ts";
+import { type BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import type { Hook, World } from "../../core/world/world.ts";
@@ -21,6 +21,7 @@ import { arenaSolids } from "./solids.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
 import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";
 import { CAP_SECONDS, SIDES, senseDelayOf, type Verdict } from "./duel.ts";
+import { otherSide, type Side } from "../../core/bodies/bilateral.ts";
 
 /**
  * **A team bout in the arena**: a team a side, each body under the mind its side names (its

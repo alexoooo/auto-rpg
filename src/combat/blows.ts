@@ -198,7 +198,7 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
   };
   /** Each fighter's bare limbs, which a blow on a body's own surface spares up to `Rulebook.fist`: its hands and its feet (`owner-foot-threshold`). */
   const limbs = new Map(fighters.map(fighter => [fighter, new Set([
-    ...fighter.built.spec.segments.filter(segment => segment.handPoses).map(segment => segment.name),
+    ...fighter.built.spec.segments.filter(segment => segment.configurations).map(segment => segment.name),
     ...(fighter.built.spec.ends ?? []).flatMap(end => end.kind === "foot" ? [end.segment] : []),
   ])]));
   const land =(first: Part<Fighter>, second: Part<Fighter>, pair: ContactPair, location: Pick<ContactPair, "point" | "normal">, energy: number,

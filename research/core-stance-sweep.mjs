@@ -33,6 +33,7 @@ import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 const { values } = parseArgs({ options: {
   variants: { type: "string", default: "[{}]" }, batteries: { type: "string", default: "stand,edge,step,walk,shove" },
@@ -52,7 +53,7 @@ variants.forEach((stance, v) => { for (const model of models) {
   const add = (trial, extra) => jobs.push({ v, model, trial, stance, hz, balance, ...extra });
   if (batteries.includes("stand")) add("stand", {});
   if (batteries.includes("edge")) for (const degrees of [0, 90, 180, 270]) add("edge", { degrees });
-  if (batteries.includes("step")) for (const foot of ["left", "right"]) for (const [dx, dz] of [[0, 0.15], [0, 0.25], [0, -0.15], [foot === "left" ? -0.1 : 0.1, 0]]) add("step", { foot, dx, dz });
+  if (batteries.includes("step")) for (const foot of SIDES) for (const [dx, dz] of [[0, 0.15], [0, 0.25], [0, -0.15], [foot === "left" ? -0.1 : 0.1, 0]]) add("step", { foot, dx, dz });
   if (batteries.includes("walk")) for (const degrees of [0, 90, 180]) add("walk", { degrees, speed: 0.3 });
   if (batteries.includes("gait")) for (const speed of values.speeds.split(",").map(Number)) for (const degrees of values.ways.split(",").map(Number)) add("walk", { degrees, speed, gait: true });
   // stop: the gait battery's walks, each empty-handed and holding the club, calm and in the lab's gusts on each seed of `--gusts`, read for the stop.

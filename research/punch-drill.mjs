@@ -1,3 +1,4 @@
+import { fistOn } from "../src/core/bodies/human/endpoints.ts";
 /**
  * **A timed punch searched on the Strike drill**: Option Mind's straight punch with its drive on a
  * schedule (`StraightPunch.timed`): each of the pushed channels (`ceilingChannels`: the trunk, both
@@ -35,11 +36,12 @@ import { STRIKE_CASES } from "../src/app/node/evaluation.ts";
 import { barScore as scoreOf } from "../src/evaluation/strike/score.ts";
 import { cmaSearch, workerPool } from "./cma.mjs";
 import { HELD_BLOWS } from "../src/skills/strikes/held-blow.ts";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 /** The pushed channels, as the punch's ceiling pushes them (`punch-ceiling.mjs`): the trunk, both legs and the striking arm; with `wrist`, its wrist's too. */
 export function ceilingChannels(hand, wrist = false) {
   return ["thoracic rotation right", "lumbar rotation right", "thoracic flexion", "lumbar flexion",
-    ...["left", "right"].flatMap((side) => [`hip.${side} flexion`, `hip.${side} abduction`, `hip.${side} internal rotation`, `knee.${side} flexion`, `ankle.${side} dorsiflexion`]),
+    ...SIDES.flatMap((side) => [`hip.${side} flexion`, `hip.${side} abduction`, `hip.${side} internal rotation`, `knee.${side} flexion`, `ankle.${side} dorsiflexion`]),
     `shoulder.${hand} flexion`, `shoulder.${hand} abduction`, `shoulder.${hand} internal rotation`, `elbow.${hand} flexion`,
     ...(wrist ? [`wrist.${hand} flexion`, `wrist.${hand} radial deviation`, `wrist.${hand} pronation`] : [])];
 }
@@ -165,7 +167,7 @@ export async function drillTrial(subject, condition, hz) {
       reader.afterStep();
       if (committed === null && built.duel.duelists.left.minded.skills.report.actions.some((action) => action.phase === "commit")) committed = built.duel.clock;
       if (!subject.held && motion.phase === "swing") {
-        const f = body.view.fists[condition.hand].position, t = motion.target;
+        const f = body.view.pointMotion[fistOn(body.built.spec, condition.hand)].knuckles.position, t = motion.target;
         nearest = Math.min(nearest, Math.sqrt((f.x - t[0]) * (f.x - t[0]) + (f.y - t[1]) * (f.y - t[1]) + (f.z - t[2]) * (f.z - t[2])));
       }
     }

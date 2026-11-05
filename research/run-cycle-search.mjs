@@ -48,6 +48,7 @@ import { coreStand } from "../tests/harness/core-stand.mjs";
 import { TURNED } from "../src/control/stance-envelope.ts";
 import { startWind } from "../src/game/lab/wind.ts";
 import { guardPosture } from "../src/skills/guard/guard.ts";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 /** Each setting searched and its range. */
 const DIMS = {
@@ -134,7 +135,7 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
       if (i === stopAt + 1) asked = null;
       stand.step(1);
       const s = body.view.stance;
-      for (const side of ["left", "right"]) {
+      for (const side of SIDES) {
         if (s.touching[side] && !was[side] && from !== null && i > at + stand.seconds(GAIT.after) && i <= gaitTo)
           landings.push({ side, i, across: s.soles[side].x * Math.cos(face) - s.soles[side].z * Math.sin(face), along: s.centre.z });
         was[side] = s.touching[side];

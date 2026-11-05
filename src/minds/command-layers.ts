@@ -1,6 +1,7 @@
+import { rigidPoints } from "../core/bodies/build/rigid.ts";
 import type { BodyControl } from "../core/bodies/body-control.ts";
 import { Quaternion, Vector3 } from "../core/math/vector.ts";
-import { COMMAND, type Body, type BodyCommand, type BodyView, type Fist, type LayerOptions, type SplitDriver } from "../control/body.ts";
+import { COMMAND, type Body, type BodyCommand, type BodyView, type PointMotion, type LayerOptions, type SplitDriver } from "../control/body.ts";
 import type { Clock } from "../core/world/clock.ts";
 import type { OwnBody } from "../core/bodies/own-body.ts";
 import { NOTHING_SENSED, type Senses } from "../core/bodies/senses.ts";
@@ -8,7 +9,6 @@ import type { HostMind } from "./sub-mind.ts";
 import { centreReading } from "../control/observation.ts";
 import type { ReadBody, ReadSegment } from "../core/bodies/read-body.ts";
 import { groundReading } from "../control/ground-reading.ts";
-import { fistOn, type Side } from "../core/bodies/spec/body.ts";
 import { dot } from "../core/bodies/spec/vec.ts";
 import { effectorFeedback } from "../control/effector-feedback.ts";
 import { uprightness } from "../control/ground.ts";
@@ -40,7 +40,7 @@ export interface CommandLayers extends HostMind {
  * drives them, on `clock`: motor control of the maker `options` names, the view, and the effectors'
  * touch where `options` asks for it (`LayerOptions.feedback`),
  * labelled by the body's own contact labels (`OwnBody.contactIdentity`). They read the body as its
- * spec has it: a fist for each hand with knuckles (`fistOn`), the head where another body aims
+ * spec has it: motion of each effector's named points, the head where another body aims
  * high (`BodySpec.marks`), and what bears it on the ground (`groundReading`); what their motor
  * cannot drive, it refuses as it is made (the stance a body without soles), and a command that
  * asks a goal their motor does not carry (`MotorControl.carries`), as it is given. Their touch is read
@@ -60,7 +60,16 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   const hung = (segment: string): string[] => built.spec.joints.flatMap((joint) => joint.parent === segment && !reaching.has(joint.child) ? [joint.child, ...hung(joint.child)] : []);
   const feedback = feedbackEnabled ? effectorFeedback(built, motor.effectors.map(e => e.segment), own.contactIdentity,
     segment => contacts?.(segment) ?? [], undefined, hung) : null;
-  const fists = (["left", "right"] as const).flatMap((side) => { const hand = fistOn(own.spec, side); return hand ? [[side, fistOf(built, hand)] as const] : []; });
+  const points = (own.spec.effectors ?? []).flatMap((effector) => {
+    const segment = built.segments.get(effector.segment);
+    if (!segment) throw new Error(`no effector segment ${effector.segment}`);
+    return [...rigidPoints(own.spec, segment.spec).keys()]
+      .map((name) => ({ segment: effector.segment, name, sample: pointMotionOf(built, effector.segment, name) }));
+  });
+  const pointMotion = Object.fromEntries((own.spec.effectors ?? []).map((effector) => [effector.segment,
+    Object.fromEntries(points.filter((point) => point.segment === effector.segment).map((point) => [point.name, point.sample.motion]))]));
+  const endSegments = new Map((own.spec.ends ?? []).map((end) => [end.name, end.segment]));
+  const bears = (command: BodyCommand, segment: string): boolean => command.stance?.feet.some((end) => endSegments.get(end) === segment) ?? false;
   const head = centreReading(built, own.spec.marks.high);
   const angles: Record<string, number> = {};
   const upright = uprightness(built);
@@ -74,7 +83,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   // The view's own fields are the state's: between steps a view shows the step its state is of.
   const state = {
     goals, effectors, time: 0, born: null as number | null, angles,
-    fists: Object.fromEntries(fists.map(([side, reading]) => [side, reading.fist])) as Partial<Record<Side, Fist>>,
+    pointMotion,
     root: { position: new Vector3(), rotation: new Quaternion() },
     head: head.centre,
     motor: motor.state,
@@ -93,19 +102,17 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     /** The registered driver's memory, including its skills, decider and pacing. */
     driver: null as object | null,
   };
-  // A hand is asked its pose by its segment; the port names it by its own name.
-  const posable = new Map(built.handPoses.model.map((hand) => [hand.segment, hand.hand]));
   // The step's reading: its stamp moves wherever the view may, so it is no state and carries nothing on.
   let stamp = 0;
   const moved = (): void => { stamp++; };
   const reading = { get stamp() { return stamp; } };
   const view = {
-    handPoses: Object.fromEntries(built.handPoses.model.map((hand) => [hand.segment, built.handPoses.state[hand.hand]!])), effectors,
+    configurations: built.configurations.state, effectors,
     get time() { return state.time; },
     get born() { return state.born ?? state.time; },
     senses: NOTHING_SENSED,
     angles,
-    fists: state.fists,
+    pointMotion: state.pointMotion,
     root: state.root,
     head: head.centre,
     stance: motor.reading,
@@ -124,14 +131,12 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     if (command.assist && control) { control.assist.force.copyFrom(command.assist.force); control.assist.moment.copyFrom(command.assist.moment); }
     for (const [segment, goal] of Object.entries(command.effectors ?? {})) {
       if (!(segment in goals)) throw new Error(`no effector ${segment}`);
-      if (goal && command.stance?.feet.some(side => segment === `foot.${side}`)) throw new Error(`two controllers own ${segment}`);
+      if (goal && bears(command, segment)) throw new Error(`two controllers own ${segment}`);
     }
     // A motor asked a speed or level that is not a number would leave its body's island to the engine, which gives it up; an unbounded speed is directional (`MusclePush`).
     for (const push of command.pushes) if (!Number.isFinite(push.level) || Number.isNaN(push.speed)) throw new Error(`a push on ${push.channel} needs a finite level and a speed`);
-    if (command.handPoses && control) for (const segment in command.handPoses) {
-      const hand = posable.get(segment);
-      if (!hand) throw new Error(`no posable hand ${segment}`);
-      control.hands.request(hand, command.handPoses[segment]!);
+    if (command.configurations && control) for (const segment in command.configurations) {
+      control.configurations.request(segment, command.configurations[segment]!);
     }
     motor.setPosture(command.posture);
     const refused = command.points?.length && !pointing ? "driven points" : command.stance && !balancing ? "a stance" : command.support && !supporting ? "a support"
@@ -141,7 +146,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       if (command.effectors?.[task.segment]) throw new Error(`two controllers own ${task.segment}`);
       const chain = motor.effectors.find((model) => model.segment === task.segment)?.channels ?? [];
       if (command.pushes.some((push) => chain.includes(push.channel))) throw new Error(`a push on ${task.segment}'s chain while its point is driven`);
-      if (command.stance?.feet.some(side => task.segment === `foot.${side}`)) throw new Error(`two controllers own ${task.segment}`);
+      if (bears(command, task.segment)) throw new Error(`two controllers own ${task.segment}`);
       if (!task.accel && !task.spin) throw new Error(`a point driven on ${task.segment} needs an acceleration or a spin`);
       if (![...task.accel ?? [], ...task.spin ?? []].every(Number.isFinite)) throw new Error(`a point driven on ${task.segment} needs a finite acceleration and spin`);
     }
@@ -166,7 +171,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     state.time = time;
     // At a delay the body is born on the first step its driver's decision is carried out.
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
-    for (let i = 0; i < fists.length; i++) fists[i]![1].update();
+    for (let i = 0; i < points.length; i++) points[i]!.sample.update();
     rootFrameToRef(motor.root, state.root);
     for (const segment in effectors) {
       const out = effectors[segment]!, part = built.segments.get(segment)!;
@@ -279,33 +284,27 @@ const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>
   && a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length
   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));
 
-/**
- * The knuckles (`SegmentSpec.points`) of the hand `segment`, where a fist strikes, and their velocity from the
- * hand body's: its centre's (the engine's linear velocity is the centre of mass's), plus its spin
- * across the arm from the centre to the knuckles. Not the segment's far end: the hand segment runs
- * on to the fingertips, where a whip of the wrist would read as a punch. Not differenced from the
- * poses: the engine moves a body by more than its velocity when it corrects a constraint's error.
- */
-function fistOf(built: ReadBody, segment: string): { fist: Fist; update(): void } {
-  const hand: ReadSegment | undefined = built.segments.get(segment);
-  const knuckles = hand?.spec.points?.knuckles;
-  if (!hand || !knuckles) throw new Error(`${built.spec.model} has no hand with knuckles at ${segment}`);
-  const { origin, x, y, z } = hand.frame;
+/** A segment's named point and its rigid-body velocity, without differencing corrected poses. */
+function pointMotionOf(built: ReadBody, segment: string, point: string): { motion: PointMotion; update(): void } {
+  const part: ReadSegment | undefined = built.segments.get(segment);
+  const named = part && rigidPoints(built.spec, part.spec).get(point);
+  if (!part || !named) throw new Error(`${built.spec.model} has no point ${point} at ${segment}`);
+  const { origin, x, y, z } = part.frame;
   const local = (p: readonly number[]) => { const o = p.map((c, i) => c - origin[i]!); return new Vector3(dot(o, x), dot(o, y), dot(o, z)); };
-  // The centre of mass (of the hand and what it holds), and from it to the knuckles, in the hand's own frame.
-  const centre = local(hand.rigid.centre);
-  const arm = local(knuckles.value).subtractInPlace(centre);
+  // The rigid body's centre, and from it to the named point, in the segment's frame.
+  const centre = local(part.rigid.centre);
+  const arm = local(named.value).subtractInPlace(centre);
   const lever = new Vector3(), angular = new Vector3();
-  const fist: Fist = { position: new Vector3(), velocity: new Vector3() };
+  const motion: PointMotion = { position: new Vector3(), velocity: new Vector3() };
   return {
-    fist,
+    motion,
     update() {
-      const turn = hand.pose.rotation;
+      const turn = part.pose.rotation;
       arm.applyRotationQuaternionToRef(turn, lever);
-      centre.applyRotationQuaternionToRef(turn, fist.position).addInPlace(hand.pose.position).addInPlace(lever);
-      hand.body.linearVelocityToRef(fist.velocity);
-      hand.body.angularVelocityToRef(angular);
-      fist.velocity.addInPlace(Vector3.CrossToRef(angular, lever, angular));
+      centre.applyRotationQuaternionToRef(turn, motion.position).addInPlace(part.pose.position).addInPlace(lever);
+      part.body.linearVelocityToRef(motion.velocity);
+      part.body.angularVelocityToRef(angular);
+      motion.velocity.addInPlace(Vector3.CrossToRef(angular, lever, angular));
     },
   };
 }

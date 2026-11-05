@@ -7,20 +7,20 @@ import { NOTHING_SENSED, OFF_BODY, shownSegments, type BodySense, type Senses } 
 import type { ObjectSense, SolidSense } from "../core/bodies/object-senses.ts";
 import { muscleChannels, strengthAt, type BodyLevel, type MuscleDriver, type MuscleReading } from "../core/bodies/muscle/driver.ts";
 import type { BodyRef, ReadBody, ReadContact, ReadJoint, ReadManifold, ReadPhysics, ReadSegment, ReadSegmentBody } from "../core/bodies/read-body.ts";
-import type { BodySpec, HandPose } from "../core/bodies/spec/body.ts";
+import type { BodySpec, ConfigurationName } from "../core/bodies/spec/body.ts";
 import type { Vec3 } from "../core/bodies/spec/quantity.ts";
 import { deepFreeze } from "../core/world/state.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import { bodyDynamics } from "../core/bodies/build/dynamics.ts";
-import { checkHandPose, handPoseModel, handAt, handCode, handPoseAt, handPoseCode as poseCode } from "../core/bodies/build/hand-poses.ts";
+import { checkConfiguration, configurationModel, configurationAt, configurationCode } from "../core/bodies/build/configurations.ts";
 import { jointKinematics } from "../core/bodies/build/joint-kinematics.ts";
 import { segmentShapes } from "../core/bodies/build/segment-shapes.ts";
 
 /**
  * **A body's mirror**: the body as its mind reads it (`ReadBody`, its muscles' reading side, its
- * assist, its hands and its senses), made from its spec and what the world tells it once
+ * assist, its segment configurations and its senses), made from its spec and what the world tells it once
  * (`MirrorStatics`), and refreshed from numbers the world writes (`MirrorChannel.inbound`); what its
- * mind asks (the muscles' command, the assist's ask, the hands' poses) goes back as numbers
+ * mind asks (the muscles' command, the assist's ask, segment configurations) goes back as numbers
  * (`MirrorChannel.outbound`). Nothing of it reaches the engine, the world or the built body, so a
  * mind on its mirror runs wherever the numbers can be carried.
  *
@@ -28,7 +28,7 @@ import { segmentShapes } from "../core/bodies/build/segment-shapes.ts";
  * is observed (`CommandLayers.observe`), and before the mind steps, so the mirror reads what the body
  * would have answered at each moment (`mirrorWriter`).
  *
- * Its numbers, by section (`layoutOf`): the clock and level; each segment's pose, motion, hand, toes
+ * Its numbers, by section (`layoutOf`): the clock and level; each segment's pose, motion, configuration, toes
  * and mass; each joint's angles, speeds, rates and turning as the muscles last read them; the
  * muscles' ceilings, delivered torque, bounds and strength (`BuiltBody.strength`); the assist's ceiling, gift, meter and withdrawal; the senses' own life; then, of variable length, each segment's contacts and manifolds,
  * each other body and object the senses show, and, where its fight labels what it touches
@@ -81,7 +81,7 @@ const channelFor = (layout: Layout, allocate: (length: number) => Float64Array):
 
 /** The clock and level: the steps, the time, the level (`LEVELS`). */
 const HEAD = 3;
-/** A segment's numbers: position 3, turn 4, velocity 3, spin 3, the hand's applied and requested pose (`handPoseCode`), the toes' bend, mass 1, centre 3, moments 3, orientation 4. */
+/** A segment's numbers: position 3, turn 4, velocity 3, spin 3, the segment's applied and requested configuration (`configurationCode`), the toes' bend, mass 1, centre 3, moments 3, orientation 4. */
 const SEGMENT = 27;
 /** The assist's numbers: its ceilings 2, its gift 6, its meter 3, whether withdrawn. */
 const ASSIST = 12;
@@ -91,7 +91,7 @@ const CONTACT = 10;
 const PAIR = 9;
 /** A manifold's numbers before its points: the other, the fixed, mine, theirs, normal 3, impulse, its points' count. */
 const MANIFOLD = 9;
-/** A sensed segment's numbers, each of its body's spec's: its hand's pose (`handPoseCode`, -1 none, `OFF_BODY` off its body), position 3, turn 4, centre 3, velocity 3, spin 3. */
+/** A sensed segment's numbers, each of its body's spec's: its configuration (`configurationCode`, -1 none, `OFF_BODY` off its body), position 3, turn 4, centre 3, velocity 3, spin 3. */
 const SENSED_SEGMENT = 17;
 /** A sensed body's numbers after its segments: centre 3, velocity 3, out, down, life, time (NaN unread). */
 const SENSED_BODY = 10;
@@ -111,7 +111,7 @@ interface Layout {
   readonly senses: number;
   /** Where the numbers of variable length begin. */
   readonly fixed: number;
-  /** The command's fixed numbers: activation and velocity, the assist's ask 6; the hands' requests follow. */
+  /** The command's fixed numbers: activation and velocity, the assist's ask 6; configuration requests follow. */
   readonly command: number;
 }
 
@@ -154,8 +154,8 @@ export interface MirrorWriter {
    * `inbound` from then: a mind still deciding on the last writing's numbers reads them as they were.
    */
   write(options?: { readonly sensing: false }): void;
-  /** Carry out the command the channel's outbound numbers hold: the muscles', the assist's ask, the hands' poses, each request also given to `asked`. */
-  carry(asked: (hand: "left" | "right", pose: HandPose) => void): void;
+  /** Carry out the command the channel's outbound numbers hold: the muscles', the assist's ask, segment configurations, each request also given to `asked`. */
+  carry(asked: BodyControl["configurations"]["request"]): void;
 }
 
 /**
@@ -244,9 +244,9 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
       }
       room(1 + SENSED_SEGMENT * other.spec.segments.length + SENSED_BODY);
       put(key);
-      for (const { name } of other.spec.segments) {
-        const s = other.segments.get(name);
-        if (s) { put(poseCode(s.handPose)); vec(s.position); quat(s.rotation); vec(s.centre); vec(s.velocity); vec(s.spin); }
+      for (const segment of other.spec.segments) {
+        const s = other.segments.get(segment.name);
+        if (s) { put(configurationCode(segment, s.configuration)); vec(s.position); quat(s.rotation); vec(s.centre); vec(s.velocity); vec(s.spin); }
         else { put(OFF_BODY); for (let i = 1; i < SENSED_SEGMENT; i++) put(0); }
       }
       vec(other.centre); vec(other.velocity); put(other.out ? 1 : 0); put(other.down ? 1 : 0); put(other.life); put(other.time ?? NaN);
@@ -278,7 +278,7 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
         const pose = segment.pose, mass: MassProperties = segment.body.massProperties;
         vec(pose.position); quat(pose.rotation);
         vec(segment.body.linearVelocityToRef(v)); vec(segment.body.angularVelocityToRef(v));
-        put(poseCode(segment.handPose?.applied)); put(poseCode(segment.handPose?.requested)); put(segment.toes?.bend ?? 0);
+        put(configurationCode(segment.spec, segment.configuration?.applied)); put(configurationCode(segment.spec, segment.configuration?.requested)); put(segment.toes?.bend ?? 0);
         put(mass.mass); triple(mass.centre); triple(mass.moments); quat(mass.orientation);
       }
       let c = 0;
@@ -313,7 +313,10 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
       assist.asked.moment.set(out[2 * n + 3]!, out[2 * n + 4]!, out[2 * n + 5]!);
       let at = layout.command;
       const count = out[at++]!;
-      for (let r = 0; r < count; r++, at += 2) asked(handAt(out[at]!), handPoseAt(out[at + 1]!));
+      for (let r = 0; r < count; r++, at += 2) {
+        const entry = built.configurations.model[out[at]!]!;
+        asked(entry.segment, entry.configurations[out[at + 1]!]!);
+      }
     },
   };
 }
@@ -347,7 +350,7 @@ export interface Mirror {
   readonly seen: MirrorSeen;
   /** Show what its senses show (`seen`) as its senses, as after a load: each body it shows that its numbers have told it of. */
   recall(): void;
-  /** Write what its mind asked into the channel's outbound numbers, and forget the hands' requests sent. */
+  /** Write what its mind asked into the channel's outbound numbers, and forget configuration requests sent. */
   answer(): void;
   /**
    * **What its mind has asked and not yet answered**, plain data its bout saves (`MirrorCommand`):
@@ -358,12 +361,12 @@ export interface Mirror {
   idle(): void;
 }
 
-/** What a mirror's mind has asked: its muscles' command, assist and hand/pose pairs in request order. */
+/** What a mirror's mind has asked: its muscles' command, assist and segment/configuration pairs in request order. */
 export interface MirrorCommand {
   readonly activation: Float64Array;
   readonly velocity: Float64Array;
   readonly asked: { readonly force: Vector3; readonly moment: Vector3 };
-  readonly hands: number[];
+  readonly configurations: number[];
 }
 
 /** What a mirror's senses show, as it last read them: the time, whether its body is out, its life, each other body by its id and its numbers, and the objects. */
@@ -399,14 +402,14 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       angularVelocityToRef: (out: Vector3) => out.copyFrom(angular),
       get massProperties() { return motion.mass; },
     });
-    const handPose: { applied: HandPose; requested: HandPose } | undefined = poses ? { applied: initial, requested: initial } : undefined;
+    const configuration: { applied: ConfigurationName; requested: ConfigurationName } | undefined = poses ? { applied: initial!, requested: initial! } : undefined;
     const toes = bent ? { bend: 0 } : undefined;
     const rest = Quaternion.RotationQuaternionFromAxis(new Vector3(frame.x[0], frame.x[1], frame.x[2]), new Vector3(frame.y[0], frame.y[1], frame.y[2]), new Vector3(frame.z[0], frame.z[1], frame.z[2]));
-    const segment: ReadSegment = Object.freeze({ spec: segmentSpec, frame, pose, body, rest, get rigid() { return rigidAt(handPose?.applied, toes); },
-      ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}), ...(toes ? { toes } : {}) });
+    const segment: ReadSegment = Object.freeze({ spec: segmentSpec, frame, pose, body, rest, get rigid() { return rigidAt(configuration?.applied, toes); },
+      ...(configuration ? { configuration } : {}), ...(poses ? { poses } : {}), ...(toes ? { toes } : {}) });
     byId.set(id, body);
     spins.set(segment, angular);
-    return { segment, pose, linear, angular, motion, handPose, toes };
+    return { segment, pose, linear, angular, motion, configuration, toes };
   });
   const segments = new Map(records.map((record, i) => [statics.segments[i]!.name, record.segment]));
   const jointSpecs = new Map(spec.joints.map((joint) => [joint.name, joint]));
@@ -471,10 +474,10 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       return out.length === 0 ? EMPTY : out;
     },
   });
-  const model = handPoseModel(spec.segments);
-  const handState = Object.fromEntries(model.map(({ hand, segment }) => [hand, records[statics.segments.findIndex((s) => s.name === segment)]!.handPose!]));
+  const model = configurationModel(spec.segments);
+  const configurationState = Object.fromEntries(model.map(({ segment }) => [segment, records[statics.segments.findIndex((s) => s.name === segment)]!.configuration!]));
   const read: ReadBody = Object.freeze({ spec, physics, segments, joints,
-    handPoses: Object.freeze({ model, state: Object.freeze(handState) }) });
+    configurations: Object.freeze({ model, state: Object.freeze(configurationState) }) });
 
   const n = layout.channels, channels = muscleChannels(read);
   const angles = new Float64Array(n), speeds = new Float64Array(n), rates = new Float64Array(n), turning = new Float64Array(3 * n);
@@ -522,16 +525,15 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   // Where the last refresh found the senses' own life, and the bodies and objects they show.
   let lifeAt = 0, sensesAt = 0;
 
-  /** Hand and pose codes in request order since the last answer. */
-  const hands: number[] = [];
-  const command: MirrorCommand = { activation: state.activation, velocity: state.velocity, asked, hands };
+  /** Segment and configuration codes in request order since the last answer. */
+  const configurations: number[] = [];
+  const command: MirrorCommand = { activation: state.activation, velocity: state.velocity, asked, configurations };
   const control: BodyControl = { muscles: { activation: state.activation, velocity: state.velocity }, assist: asked,
-    hands: { request(hand, pose) {
-      checkHandPose(model, hand, pose);
-      const code = handCode(hand);
-      for (let i = 0; i < hands.length; i += 2) if (hands[i] === code) throw new Error("invalid or duplicate hand pose request");
-      handState[hand]!.requested = pose;
-      hands.push(code, poseCode(pose));
+    configurations: { request(segment, configuration) {
+      const code = checkConfiguration(model, segment, configuration);
+      for (let i = 0; i < configurations.length; i += 2) if (configurations[i] === code) throw new Error(`duplicate configuration request for ${segment}`);
+      configurationState[segment]!.requested = configuration;
+      configurations.push(code, model[code]!.configurations.indexOf(configuration));
     } },
   };
   /** Each label told, by its code; the world's, and each touched body's, as the numbers last read tell them. */
@@ -576,7 +578,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         record.pose.rotation.set(a[k + 3]!, a[k + 4]!, a[k + 5]!, a[k + 6]!);
         record.linear.set(a[k + 7]!, a[k + 8]!, a[k + 9]!);
         record.angular.set(a[k + 10]!, a[k + 11]!, a[k + 12]!);
-        if (record.handPose) { record.handPose.applied = handPoseAt(a[k + 13]!); record.handPose.requested = handPoseAt(a[k + 14]!); }
+        if (record.configuration) { record.configuration.applied = configurationAt(record.segment.spec, a[k + 13]!); record.configuration.requested = configurationAt(record.segment.spec, a[k + 14]!); }
         if (record.toes) record.toes.bend = a[k + 15]!;
         const m = record.motion.mass, o = m.orientation;
         if (m.mass !== a[k + 16] || m.centre[0] !== a[k + 17] || m.centre[1] !== a[k + 18] || m.centre[2] !== a[k + 19]
@@ -661,7 +663,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         for (let i = 0; i < view.all.length; i++) {
           const s = view.all[i]!, pose = a[k]!;
           view.mark(i, pose !== OFF_BODY);
-          if (pose >= 0) s.handPose = handPoseAt(pose);
+          if (pose >= 0) s.configuration = configurationAt(other.spec.segments[i]!, pose);
           s.position.set(a[k + 1]!, a[k + 2]!, a[k + 3]!);
           s.rotation.set(a[k + 4]!, a[k + 5]!, a[k + 6]!, a[k + 7]!);
           s.centre.set(a[k + 8]!, a[k + 9]!, a[k + 10]!);
@@ -678,21 +680,21 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       }
     },
     answer() {
-      channel.outbound = grown(channel.outbound, layout.command + 1 + hands.length, channel.allocate);
+      channel.outbound = grown(channel.outbound, layout.command + 1 + configurations.length, channel.allocate);
       const out = channel.outbound;
       out.set(state.activation, 0); out.set(state.velocity, n);
       out[2 * n] = asked.force.x; out[2 * n + 1] = asked.force.y; out[2 * n + 2] = asked.force.z;
       out[2 * n + 3] = asked.moment.x; out[2 * n + 4] = asked.moment.y; out[2 * n + 5] = asked.moment.z;
       let at = layout.command;
-      out[at++] = hands.length / 2;
-      for (let i = 0; i < hands.length; i++) out[at++] = hands[i]!;
-      hands.length = 0;
+      out[at++] = configurations.length / 2;
+      for (let i = 0; i < configurations.length; i++) out[at++] = configurations[i]!;
+      configurations.length = 0;
     },
     command, seen,
     idle() {
       state.activation.fill(0); state.velocity.fill(0);
       asked.force.setAll(0); asked.moment.setAll(0);
-      hands.length = 0;
+      configurations.length = 0;
     },
   };
   // Its dynamics are made as its muscles make theirs, from the body as it first stands.

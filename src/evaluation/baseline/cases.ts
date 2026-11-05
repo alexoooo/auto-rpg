@@ -21,7 +21,7 @@ import type { PartConfig } from "../../parts/parts.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { presetFitsModel } from "../../minds/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import { deepFreeze } from "../../core/world/state.ts";
 import { readBout } from "../contest.ts";
 import type { BuiltCase, Cases, Json, Reader, Subject } from "../evaluation.ts";
@@ -30,12 +30,13 @@ import { readFall, type FallReading } from "../fall.ts";
 import type { LocomotionReading } from "../locomotion/read.ts";
 import type { StrikeReading } from "../strike/read.ts";
 import type { BuiltBout } from "../bout.ts";
-import { otherSide } from "../../core/bodies/spec/body.ts";
+
 import { FIGHT_ENTRY } from "../../minds/catalog.ts";
 import { createLocomotionCases, type LocomotionCondition } from "../locomotion/cases.ts";
 import { createRisingTargetCases, type TargetCondition } from "../rising-target/cases.ts";
 import { createStrikeCases, type StillCondition, type StrikeSubject } from "../strike/cases.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
+import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
 
 /** The body every competence is read on. */
 export const BODY: BodyModel = "workshop-fighter";

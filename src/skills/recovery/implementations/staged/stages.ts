@@ -5,9 +5,10 @@
  */
 import type { BearingEndSpec, BodySpec, JointSpec } from "../../../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../../../core/world/state.ts";
-import { otherSide, segmentOf } from "../../../../core/bodies/spec/body.ts";
+import { segmentOf } from "../../../../core/bodies/spec/body.ts";
 import type { Lie } from "../../../../control/ground-reading.ts";
 import { takesOf, type BearingPolicy } from "./bearing-policy.ts";
+import { otherSide, SIDES, type Side } from "../../../../core/bodies/bilateral.ts";
 
 /**
  * **A posture**: goal angles by channel name, rad, each from its freedom's own zero (a human's,
@@ -155,7 +156,6 @@ export interface BearStage {
 /** A stage of a rise, by kind. */
 export type Stage = PoseStage | BearStage;
 
-
 /**
  * **A rise**: the limbs its bearing stages may name, the stages that turn the body onto its front
  * from each other way it lies, and the stages that stand it up from its front. It names channels,
@@ -192,9 +192,6 @@ export interface Recipe {
   /** Whether its last stage, a bearing one, holds the body there once reached, its time unlimited; absent, the rise ends there. */
   readonly holds?: boolean;
 }
-
-const SIDES = ["left", "right"] as const;
-type Side = (typeof SIDES)[number];
 
 /** `posture` with each channel written `name.@ motion` given to both sides. */
 function bothSides(posture: Posture): Posture {
@@ -632,12 +629,12 @@ function limbFaults(spec: BodySpec, policy: BearingPolicy | undefined): string[]
       faults.push(`limb ${limb.name} is on ${limb.segment}, which ${spec.model} lacks`);
       return;
     }
-    /** A limb on a capsule's end, or an end limb on a hand pose's hull: the shape, its chain, and the channels that take its task of `rows` rows, its chain's, each once. */
+    /** A limb on a capsule's end, or an end limb on a configuration's hull: the shape, its chain, and the channels that take its task of `rows` rows, its chain's, each once. */
     const onEnd = (on: Extract<BearingEndSpec, { readonly kind: "end" | "propped" }>, rows: number): void => {
       const takes = takesOf(on, policy);
       if (segment.shape.kind !== "capsule") faults.push(`limb ${on.name} bears on an end of ${on.segment}, a ${segment.shape.kind}`);
-      // An end limb bears on a hand pose's capsule ends or its hull's corners; a propped one on a capsule's end.
-      for (const [pose, shape] of Object.entries(segment.handPoses ?? {})) {
+      // An end limb bears on a configuration's capsule ends or its hull's corners; a propped one on a capsule's end.
+      for (const [pose, shape] of Object.entries(segment.configurations?.shapes ?? {})) {
         if (shape.kind !== "capsule" && (on.kind === "propped" || shape.kind !== "hull")) faults.push(`limb ${on.name} bears on ${on.segment}, whose ${pose} pose is a ${shape.kind}`);
       }
       const channels = limbChannels(on, spec);

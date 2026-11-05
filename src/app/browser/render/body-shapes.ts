@@ -117,7 +117,7 @@ export function drawBody(built: DrawnBody, scene: Scene, tint: Color3): BodyShap
     mesh.material = material;
     const regions = regionsOf(segment, material);
     meshes.push(mesh, ...regions);
-    if (segment.handPose || segment.toes) changing.push({ segment, mesh, regions, rigid: segment.rigid });
+    if (segment.configuration || segment.toes) changing.push({ segment, mesh, regions, rigid: segment.rigid });
   }
   const observer = scene.onBeforeRenderObservable.add(() => {
     for (const item of changing) {

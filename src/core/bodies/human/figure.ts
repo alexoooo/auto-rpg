@@ -1,9 +1,10 @@
-import type { Side, Substance, ToesSpec } from "../spec/body.ts";
+import type { Substance, ToesSpec } from "../spec/body.ts";
 import type { Quantity, Vec3 } from "../spec/quantity.ts";
 import type { Extents, TrunkSegment } from "./envelope.ts";
 import type { LimbLandmarks, TrunkLandmarks } from "./landmarks.ts";
 import type { DeLevaSegment, Sex } from "./tables/de-leva-1996.ts";
 import type { Exertion } from "./tables/joint-torques.ts";
+import type { Side } from "../bilateral.ts";
 
 /**
  * **A human figure**: everything the human body-plan code (`segments.ts`, `joints.ts`,

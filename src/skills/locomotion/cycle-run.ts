@@ -3,13 +3,13 @@ import cycles from "../../../assets/skills/locomotion/cycle-run/run-cycle.json" 
 import type { Body, BodyView } from "../../control/body.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import { atan2, cos, sin } from "../../core/math/real.ts";
 import { STANDARD_GRAVITY } from "../../core/bodies/spec/constants.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../core/math/turn.ts";
 import { armSwing } from "./arm-swing.ts";
 import { footOn } from "../../control/support.ts";
-import { otherSide } from "../../core/bodies/spec/body.ts";
+import { type Side, otherSide, SIDES } from "../../core/bodies/bilateral.ts";
 
 /**
  * **A run that tracks a person's run cycle's settings** (`runCycle`). Angles are rad; times s;
@@ -294,14 +294,14 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       blend(memory.pace);
       // The phase: on at the cycle's rate, set to a landing near its own, held a while for one late.
       let next = memory.phase + dt / blended.period, landed: Side | null = null;
-      for (const side of ["left", "right"] as const) {
+      for (const side of SIDES) {
         const o = own(side);
         if (touching(view, side) && !memory.touching[side]) {
           landed = side;
           if (o >= 1 - p.early) { next = memory.phase + (1 - o); memory.waited = 0; }
         }
       }
-      for (const side of ["left", "right"] as const) {
+      for (const side of SIDES) {
         const o = own(side);
         if (o + (next - memory.phase) >= 1 && o >= 1 - p.early && !touching(view, side) && memory.waited < p.wait) { next = memory.phase + (1 - 1e-6 - o); memory.waited += dt; }
       }

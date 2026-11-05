@@ -28,7 +28,7 @@ import { impactEnergy } from "../src/combat/impact.ts";
 import { blowDamage, rulebook } from "../src/combat/rulebook.ts";
 import { energyShares } from "../src/combat/share.ts";
 import { guardPosture } from "../src/skills/guard/guard.ts";
-import { standingSkills } from "../src/skills/framework/skills.ts";
+import { standingSkills } from "../src/app/standing-skills.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 /** How long the struck body stands in guard before it is read, s. */

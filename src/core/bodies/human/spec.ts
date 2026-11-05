@@ -12,6 +12,7 @@ import { jointSpeed } from "./speed.ts";
 import { toedFigure } from "./toes.ts";
 import { workshopFigure } from "./workshop.ts";
 import { humanWounds } from "./wounds.ts";
+import { SIDES } from "../bilateral.ts";
 
 /**
  * **A workshop human, whole**: its segments, the joints and muscle between them, its wounds and its
@@ -38,7 +39,7 @@ function figureSpec(figure: HumanFigure): BodySpec {
   const segments = humanSegments(figure);
   return {
     model: figure.model, mass: figure.mass, stature: figure.stature, segments,
-    effectors: ["left", "right"].flatMap(side => [
+    effectors: SIDES.flatMap(side => [
       { segment: `hand.${side}`, base: "upperTrunk", point: "knuckles" },
       { segment: `foot.${side}`, base: "lowerTrunk", point: "strike" },
     ]),
@@ -50,7 +51,7 @@ function figureSpec(figure: HumanFigure): BodySpec {
       within: sourced(0.03, "m", "touch-bar", "Touching") },
     marks: { high: "head", middle: ["upperTrunk", "middleTrunk"], base: "lowerTrunk", legs: ["shank.left", "shank.right"],
       guards: ["hand.left", "hand.right", "forearm.left", "forearm.right"] },
-    ends: (["left", "right"] as const).flatMap((side): BearingEndSpec[] => [
+    ends: SIDES.flatMap((side): BearingEndSpec[] => [
       // A body on its knees: the shank on its upper end, the toes tucked under and holding the ankle up.
       { kind: "propped", name: `shin.${side}`, segment: `shank.${side}`, end: "near", from: `hip.${side}`, prop: `foot.${side}` },
       // A hand's arm chain begins at the shoulder; both arms hang from the trunk.

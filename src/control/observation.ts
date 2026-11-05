@@ -13,7 +13,7 @@ import type { Clock } from "../core/world/clock.ts";
 import { attachment, type ReadBody } from "../core/bodies/read-body.ts";
 
 interface SegmentObservation {
-  readonly handPose?: import("../core/bodies/spec/body.ts").HandPose;
+  readonly configuration?: import("../core/bodies/spec/body.ts").ConfigurationName;
   readonly name: string;
   readonly position: Vec3;
   readonly rotation: readonly [number, number, number, number];
@@ -24,7 +24,7 @@ interface SegmentObservation {
 
 /** Detached measurements: no engine objects, mutable live arrays, goals or controller memory. */
 export interface BodyObservation {
-  readonly handPoses: Readonly<Record<string, { readonly applied: import("../core/bodies/spec/body.ts").HandPose; readonly requested: import("../core/bodies/spec/body.ts").HandPose }>>;
+  readonly configurations: Readonly<Record<string, { readonly applied: import("../core/bodies/spec/body.ts").ConfigurationName; readonly requested: import("../core/bodies/spec/body.ts").ConfigurationName }>>;
   readonly time: number;
   readonly level: BodyLevel;
   readonly model: string;
@@ -60,7 +60,7 @@ export interface BodyObservation {
 /** Physical readings for trusted game code; all fields are overwritten from physics on each read. */
 export function physicalReading(built: ReadBody, down?: () => boolean) {
   const upright = uprightness(built), point = new Vector3();
-  const head = built.segments.has("head") ? centreReading(built, "head") : null;
+  const head = built.segments.has(built.spec.marks.high) ? centreReading(built, built.spec.marks.high) : null;
   const reading = { centre: new Vector3(), head: new Vector3(), height: 0, down: false };
   const parts = partsOn(built);
   return () => {
@@ -123,7 +123,7 @@ export function observeBody(built: ReadBody, muscles: MuscleReading, clock: Cloc
     const segments = [...built.segments.values()].map((part) => {
       const q = part.pose.rotation;
       part.body.angularVelocityToRef(spins.get(part)!);
-      return { name: part.spec.name, ...(part.handPose ? { handPose: part.handPose.applied } : {}), position: tuple(part.pose.position), rotation: [q.x, q.y, q.z, q.w] as const,
+      return { name: part.spec.name, ...(part.configuration ? { configuration: part.configuration.applied } : {}), position: tuple(part.pose.position), rotation: [q.x, q.y, q.z, q.w] as const,
         centre: tuple(centreOfToRef(part, p)), velocity: tuple(part.body.linearVelocityToRef(v)), spin: tuple(spins.get(part)!) };
     });
     let index = 0;
@@ -146,7 +146,7 @@ export function observeBody(built: ReadBody, muscles: MuscleReading, clock: Cloc
       }));
     });
     return deepFreeze({ time: clock.time, level: level(), model: built.spec.model,
-      handPoses: structuredClone(built.handPoses.state),
+      configurations: structuredClone(built.configurations.state),
       ...(equipment ? { equipment: equipment() } : {}),
       centre: tuple(physical.centre), head: built.segments.has("head") ? tuple(physical.head) : null,
       height: physical.height, down: physical.down, segments, joints, contacts,
@@ -154,7 +154,7 @@ export function observeBody(built: ReadBody, muscles: MuscleReading, clock: Cloc
         ...(external.solids ? { solids: structuredClone(external.solids) } : {}),
         ...(external.objects ? { objects: structuredClone(external.objects) } : {}), others: external.others.map((other) => ({
         id: other.id, ...(other.time !== undefined ? { time: other.time } : {}), side: other.side, model: other.spec.model, out: other.out, centre: tuple(other.centre), velocity: tuple(other.velocity),
-        segments: [...other.segments].map(([name, s]) => ({ name, ...(s.handPose ? { handPose: s.handPose } : {}), position: tuple(s.position),
+        segments: [...other.segments].map(([name, s]) => ({ name, ...(s.configuration ? { configuration: s.configuration } : {}), position: tuple(s.position),
           rotation: [s.rotation.x, s.rotation.y, s.rotation.z, s.rotation.w] as const,
           centre: tuple(s.centre), velocity: tuple(s.velocity), spin: tuple(s.spin) })),
       })) },

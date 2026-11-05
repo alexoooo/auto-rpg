@@ -1,7 +1,7 @@
 import type { BodyView, StepReading } from "../../../control/body.ts";
 import { Vector3 } from "../../../core/math/vector.ts";
 import { rigidOf } from "../../../core/bodies/build/rigid.ts";
-import { frameOf, handShapeAt, type HandPose, type BodySpec, type SegmentSpec, type ShapeSpec } from "../../../core/bodies/spec/body.ts";
+import { frameOf, configurationShapeAt, type ConfigurationName, type BodySpec, type SegmentSpec, type ShapeSpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
 import { add, dot, scale, sub } from "../../../core/bodies/spec/vec.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
@@ -61,10 +61,10 @@ function localsOf(spec: BodySpec): NonNullable<ReturnType<typeof LOCAL.get>> {
       })];
     }));
     LOCAL.set(spec, locals);
-    POSES.set(spec, new Map(spec.segments.filter(s => s.handPoses).map(segment => {
+    POSES.set(spec, new Map(spec.segments.filter(s => s.configurations).map(segment => {
       const frame = frameOf(segment);
-      return [segment.name, Object.fromEntries((Object.keys(segment.handPoses!) as HandPose[]).map(pose => {
-        const data = pointsOf(handShapeAt(spec, segment, pose), segment);
+      return [segment.name, Object.fromEntries((Object.keys(segment.configurations!.shapes) as ConfigurationName[]).map(pose => {
+        const data = pointsOf(configurationShapeAt(spec, segment, pose), segment);
         return [pose, { radius: data.radius, points: data.points.map(p => {
           const d = sub(p, frame.origin); return [dot(d, frame.x), dot(d, frame.y), dot(d, frame.z)] as Vec3;
         }) }];
@@ -82,7 +82,7 @@ function worldShapes(foe: BodySense) {
     const sensed = foe.segments.get(name);
     if (!sensed) continue;
     localsOf.forEach((original, index) => {
-      const shape = index === 0 ? POSES.get(foe.spec)?.get(name)?.[sensed.handPose ?? "open"] ?? original : original;
+      const shape = index === 0 ? POSES.get(foe.spec)?.get(name)?.[sensed.configuration ?? ""] ?? original : original;
       shapes.push({ name: `${foe.id}/${name}/${index}`, radius: shape.radius,
         points: shape.points.map(p => {
           scratch.set(...p).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
@@ -116,7 +116,7 @@ export function sensedNearest(foe: BodySense, x: number, z: number, ax: number, 
     if (!sensed) continue;
     const q = sensed.rotation, p = sensed.position;
     for (let m = 0; m < segment.shapes.length; m++) {
-      const shape = m === 0 ? segment.poses?.[sensed.handPose ?? "open"] ?? segment.shapes[0]! : segment.shapes[m]!, points = shape.points;
+      const shape = m === 0 ? segment.poses?.[sensed.configuration ?? ""] ?? segment.shapes[0]! : segment.shapes[m]!, points = shape.points;
       for (let n = 0; n < points.length; n++) {
         const vx = points[n]![0], vy = points[n]![1], vz = points[n]![2];
         // The point turned by the segment's quaternion: v + w t + q × t, t = 2 q × v; its ground part.

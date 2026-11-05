@@ -1,3 +1,4 @@
+import { HAND_CONFIGURATION } from "../../../core/bodies/human/hand-configurations.ts";
 import type { Clothing, SkinView } from "./skin-view.ts";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
 import { sceneModel } from "./asset-cache.ts";
@@ -16,10 +17,11 @@ import type { WorkshopModel } from "../../../core/bodies/human/rig.ts";
 import { visiblePart } from "../../../game/appearance/characters.ts";
 import { CLUB_GRIP } from "./club-grip.ts";
 import { FIST, fistTurns, type RestBone } from "./fist.ts";
-import type { Side } from "../../../core/bodies/spec/body.ts";
+
 import { skinReference } from "./body-deformation.ts";
 import { modelSpec } from "../../../core/bodies/models.ts";
 import { skinApart } from "./skin-apart.ts";
+import type { Side } from "../../../core/bodies/bilateral.ts";
 
 /**
  * **The body as the world sees it**: the workshop model's skinned mesh, each bone carried by
@@ -187,14 +189,14 @@ export function dressBody(built: DrawnBody, container: AssetContainer, scene: Sc
     for (const { mesh, part } of parting) if (mesh.isEnabled()) part();
     achieved.clear();
     const physicalClosure = (hand: Side): number => {
-      const pose = built.handPoses.state[hand]?.applied;
-      return closure ? closure(hand) : pose === "open" ? 0 : 1;
+      const pose = built.configurations.state[`hand.${hand}`]?.applied;
+      return closure ? closure(hand) : pose === HAND_CONFIGURATION.open ? 0 : 1;
     };
     const shut = { left: holding.left ? 1 : physicalClosure("left"), right: holding.right ? 1 : physicalClosure("right") };
     for (const row of rows) {
       if (row.finger) {
         const { hand, scaling, rotation, position, open, fist, grip } = row.finger;
-        Quaternion.SlerpToRef(open, built.handPoses.state[hand]?.applied === "grip" ? grip : fist, shut[hand], turn);
+        Quaternion.SlerpToRef(open, built.configurations.state[`hand.${hand}`]?.applied === HAND_CONFIGURATION.grip ? grip : fist, shut[hand], turn);
         rotation.multiplyToRef(turn, curled);
         Matrix.ComposeToRef(scaling, curled, position, row.held);
       }

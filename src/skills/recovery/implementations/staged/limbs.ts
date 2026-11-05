@@ -13,7 +13,7 @@ import { DOWN, type FootState, bearingSole, footStatesOf, readSupport, rolledEdg
 import { motionAtToRef, pointOfToRef } from "../../../../core/bodies/read-motion.ts";
 import { hypot } from "../../../../core/math/real.ts";
 import type { Vec3 } from "../../../../core/bodies/spec/quantity.ts";
-import { handShapeAt, type HandPose, type ShapeSpec } from "../../../../core/bodies/spec/body.ts";
+import { configurationShapeAt, type ConfigurationName, type ShapeSpec } from "../../../../core/bodies/spec/body.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { limbChannels, type Recipe } from "./stages.ts";
 import { takesOf, type BearingPolicy } from "./bearing-policy.ts";
@@ -154,9 +154,9 @@ function capsuleEnds(built: ReadBody, segment: ReadSegment, shape: ShapeSpec): {
 /** `read` of a segment's shape and of each of its hand's poses; what it gives is the applied pose's, or the shape's for a segment without poses. */
 function byPose<T>(built: ReadBody, segment: ReadSegment, read: (shape: ShapeSpec) => T): () => T {
   const base = read(segment.spec.shape);
-  const poses = segment.spec.handPoses && Object.fromEntries((Object.keys(segment.spec.handPoses) as HandPose[]).map(name =>
-    [name, read(handShapeAt(built.spec, segment.spec, name))]));
-  return () => poses && segment.handPose ? poses[segment.handPose.applied]! : base;
+  const poses = segment.spec.configurations && Object.fromEntries((Object.keys(segment.spec.configurations.shapes) as ConfigurationName[]).map(name =>
+    [name, read(configurationShapeAt(built.spec, segment.spec, name))]));
+  return () => poses && segment.configuration ? poses[segment.configuration.applied]! : base;
 }
 
 /** A capsule's end as a limb bears on it: the end's centre, body frame, reference pose, and the capsule's radius. */
@@ -206,7 +206,7 @@ function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb, policy?: 
 /**
  * A segment's end where it touches the ground. On a capsule: a point a radius under its lower
  * end's centre, or, both its ends down (within `DOWN` of the ground), under the middle of the two.
- * On a hand pose's hull: the middle of its corners that are down, or its lowest corner if none
+ * On a configuration's hull: the middle of its corners that are down, or its lowest corner if none
  * is. A hand held off the ground bears through the rigid body's loaded contact (`pressedOn`):
  * a hand on a club's end or a buckler's rim bears through it. With loaded held support, that
  * contact is the force patch even under a nearby hand. Its motion is held at its own end
@@ -250,7 +250,7 @@ function endLimb(own: OwnBody, spec: EndLimb, support: Pick<Recipe, "heldSupport
     },
   };
 
-  /** The end's point by its own shape: a capsule's or a hand pose's hull's, as the limb's comment says. */
+  /** The end's point by its own shape: a capsule's or a configuration's hull's, as the limb's comment says. */
   function readEnd(ground: number): void {
     const now = shape();
     switch (now.kind) {

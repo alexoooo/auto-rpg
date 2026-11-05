@@ -1,7 +1,8 @@
 import type { Body } from "../../control/body.ts";
 import { fitsSoles } from "../../control/stance-balance.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
-import { supportFold, type SupportSkill } from "./support-fold.ts";
+import { supportFold } from "./support-fold.ts";
+import type { SupportSkill } from "../framework/support.ts";
 
 /** **A kind of low support**: a part of role `support` that makes the skill a body fights from low support by. */
 export interface SupportPart<C extends PartConfig = PartConfig> extends Part<C> {

@@ -1,10 +1,11 @@
 import fighterHands from "../../../../assets/humanoid/workshop-fighter-hands.json" with { type: "json" };
 import rogueHands from "../../../../assets/humanoid/workshop-rogue-hands.json" with { type: "json" };
 import type { SourceKey } from "../sources.ts";
-import type { Side } from "../spec/body.ts";
+
 import { sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import type { HandFigure } from "./figure.ts";
 import type { WorkshopModel } from "./rig.ts";
+import type { Side } from "../bilateral.ts";
 
 /**
  * **A workshop model's hands**, as `scripts/core/hand-envelope.mjs` measures them from its skin

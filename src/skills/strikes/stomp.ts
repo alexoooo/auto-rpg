@@ -10,11 +10,13 @@ import { turnAboutToRef } from "../../core/math/turn.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { STRIKE_EVENT } from "./strike-cycle.ts";
 import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
-import type { BearingEnd, Side } from "../../core/bodies/spec/body.ts";
+import type { BearingEnd } from "../../core/bodies/spec/body.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
 import type { LegsGoal } from "../framework/skill.ts";
 import { withinActionWindow } from "../intent/action-window.ts";
-import { otherSide, segmentOf } from "../../core/bodies/spec/body.ts";
+import { segmentOf } from "../../core/bodies/spec/body.ts";
+import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
+
 /** The stomp's settings: the keys every body's record holds, each record whole, and the values the records share outside each body's stroke and window: `docs/reference/front-kicks.md#execution-settings`. */
 export const STOMP_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
   lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, brace: 0, soleTurn: .2,

@@ -2,12 +2,13 @@ import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import { uprightness } from "./ground.ts";
 import { footStatesOf, soleMiddleToRef, withinSupport, type FootState } from "./support.ts";
 import { centreOfToRef, massCentreToRef, partsOn, turnOfToRef } from "../core/bodies/read-motion.ts";
-import { bellyOf, type BearingEndSpec, type Side } from "../core/bodies/spec/body.ts";
+import { bellyOf, type BearingEndSpec } from "../core/bodies/spec/body.ts";
 import type { Vec3 } from "../core/bodies/spec/quantity.ts";
 import { attachment, rootSegment, type ReadBody, type ReadSegment } from "../core/bodies/read-body.ts";
+import type { Side } from "../core/bodies/bilateral.ts";
 
 /** How a body lies: on its front, its back, or a side (the side that is down). */
-export type Lie = "front" | "back" | "left" | "right";
+export type Lie = "front" | "back" | Side;
 
 /**
  * How far the root's belly points up, or down, for the body to be on its back, or its front: its

@@ -1,3 +1,4 @@
+import { configurationCode, configurationAt } from "../bodies/build/configurations.ts";
 import { NOTHING_SENSED, OFF_BODY, shownSegments, type Senses, type BodySense } from "../bodies/senses.ts";
 import { Vector3 } from "../math/vector.ts";
 import type { BuiltBody, BuiltSegment } from "../bodies/build/build-body.ts";
@@ -48,7 +49,7 @@ export function clockSenses(world: World): () => Senses {
 
 /**
  * How many numbers one reading of a body of `segments` holds, in the order `read` writes them and
- * `show` takes them: each segment's position, turn, centre, velocity, spin and hand pose or
+ * `show` takes them: each segment's position, turn, centre, velocity, spin and configuration or
  * `OFF_BODY`, then the centre of the parts on the body, its velocity, whether it is out, whether
  * it is down, its life and its observation time.
  */
@@ -84,14 +85,7 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
       frame[k++] = v.x; frame[k++] = v.y; frame[k++] = v.z;
       frame[k++] = w.x; frame[k++] = w.y; frame[k++] = w.z;
       if (!entry.attached(segment)) { frame[k++] = OFF_BODY; continue; }
-      const pose = segment.handPose?.applied;
-      switch (pose) {
-        case undefined: frame[k++] = -1; break;
-        case "open": frame[k++] = 0; break;
-        case "fist": frame[k++] = 1; break;
-        case "grip": frame[k++] = 2; break;
-        default: { const never: never = pose; throw new Error(`unknown hand pose ${never}`); }
-      }
+      frame[k++] = configurationCode(segment.spec, segment.configuration?.applied);
       mass += m; cx += m * p.x; cy += m * p.y; cz += m * p.z; vx += m * v.x; vy += m * v.y; vz += m * v.z;
     }
     frame[k++] = cx / mass; frame[k++] = cy / mass; frame[k++] = cz / mass;
@@ -114,7 +108,7 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
       s.spin.set(frame[k++]!, frame[k++]!, frame[k++]!);
       const pose = frame[k++]!;
       view.mark(i, pose !== OFF_BODY);
-      if (pose >= 0) s.handPose = pose === 1 ? "fist" : pose === 2 ? "grip" : "open";
+      if (pose >= 0) s.configuration = configurationAt(entry.segments[i]!.spec, pose);
     }
     entry.shown.segments = view.settle();
     entry.shown.centre.set(frame[k++]!, frame[k++]!, frame[k++]!);

@@ -5,7 +5,7 @@ import type { StrikeChoice } from "../../minds/command/commands.ts";
 import type { MenuEntry } from "../../skills/framework/menu.ts";
 import { physicalReading } from "../../control/observation.ts";
 import { attachment } from "../../core/bodies/read-body.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import type { GameContext } from "../../game/arena/context.ts";
 import { SIDES, type Duel, type DuelRecipe, type OrdersEntry, type Verdict } from "../../game/arena/duel.ts";
@@ -21,6 +21,7 @@ import { choiceWatch } from "../../game/arena/choice-watch.ts";
 import type { Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
 import type { Stage } from "./stage.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /** A bout played beside the duel, step for step: a recorded trial at another version. */
 interface BesideStart {

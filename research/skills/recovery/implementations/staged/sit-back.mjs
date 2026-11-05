@@ -30,6 +30,7 @@ import { groundReading } from "../../../../../src/control/ground-reading.ts";
 import { TECHNIQUES } from "../../../../../src/app/recovery-techniques.ts";
 import { STAND_CHECK } from "../../../../../src/game/lab/ground-mode.ts";
 import { placement } from "../../witness/rise-witness.mjs";
+import { SIDES } from "../../../../../src/core/bodies/bilateral.ts";
 
 /** How soon a trial must stand to count, s, and the most a trial is watched, s. */
 const WITHIN = 6, CAP = 12;
@@ -63,7 +64,7 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
         trial.heading = Math.atan2(-across.z, across.x);
       } } };
   }]);
-  body.drive((view) => ({ posture: {}, pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: trial.heading } }));
+  body.drive((view) => ({ posture: {}, pushes: [], stance: { feet: SIDES, centre: null, height: view.standing - .03, heading: trial.heading } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   let quiet = 0, verified = null, fell = false;
   try {

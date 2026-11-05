@@ -15,6 +15,7 @@ import { parseArgs } from "node:util";
 import { commandedBody } from "../src/app/commanded-body.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 const { values } = parseArgs({ options: {
   models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, across: { type: "string", default: "0.3" },
@@ -37,7 +38,7 @@ for (const model of values.models.split(",")) for (const hz of values.hz.split("
   let goal = null, lifted = false, from = null, to = null, landed = null, slid = 0, slidStepping = 0, speed = 0;
   body.drive((view) => {
     const s = view.stance;
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 };
+    if (!goal && view.time > 0) goal = { feet: SIDES, centre: null, height: view.standing - 0.03, heading: 0 };
     if (goal && !from && view.time >= BEFORE) {
       from = foot.clone();
       to = [s.soles.left.x + across, s.soles.left.z - back];

@@ -1,3 +1,4 @@
+import { fistOn } from "../src/core/bodies/human/endpoints.ts";
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -86,7 +87,7 @@ export async function combatTrial(config) {
       const report = actions.find(action => action.effector.startsWith('hand.'));
       const relativeSpeed = {}, relativeVelocity = {};
       for (const hand of ['left', 'right']) {
-        const point = d.body.view?.fists[hand].position;
+        const point = d.body.view?.pointMotion[fistOn(d.body.built.spec, hand)].knuckles.position;
         if (!point) { relativeSpeed[hand] = 0; relativeVelocity[hand] = [0, 0, 0]; continue; }
         motionAtToRef(d.built.segments.get(`hand.${hand}`), point, vector, spin);
         vector.subtractInPlace(d.body.view.stance.velocity);

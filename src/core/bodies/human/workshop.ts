@@ -8,7 +8,7 @@ import { bodyMass, FIT_SCALE, stature, WORKSHOP_SEX } from "./model.ts";
 import { rigPoint, type WorkshopModel } from "./rig.ts";
 import { HUMAN_HASTE, WORKSHOP_EXERTIONS, workshopBalance } from "./attributes.ts";
 import { workshopHitPoints } from "./wounds.ts";
-import type { Side } from "../spec/body.ts";
+import type { Side } from "../bilateral.ts";
 
 /**
  * **A workshop model as a human figure**: its rig's landmarks (`landmarks.ts`), its clothed

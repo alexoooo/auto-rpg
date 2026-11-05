@@ -1,13 +1,15 @@
+import { fistOn } from "../../core/bodies/human/endpoints.ts";
 import layoutFile from "../../../assets/skills/strikes/straight-punch/learned-punch.layout.json" with { type: "json" };
 import { Vector3 } from "../../core/math/vector.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import { intoFrameToRef } from "../../control/kinematics.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import type { MusclePush } from "../../control/motor.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import { deepFreeze } from "../../core/world/state.ts";
-import { otherSide } from "../../core/bodies/spec/body.ts";
+
 import { footOn } from "../../control/support.ts";
+import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
 
 /*
  * **The learned punch's steer**: a straight punch's timed drive (`StraightPunch.timed`) steered by a
@@ -153,7 +155,7 @@ const framed = (view: BodyView, x: number, y: number, z: number, out: Vector3): 
  */
 export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: PunchChannels, since: number, fromShoulder: Vector3, target: readonly number[],
   aimed: readonly number[], touching: boolean, arm: number, out: number[], strike: Vector3 | null = null): number[] {
-  const side = hand === "right" ? 1 : -1, fist = view.fists[hand]!, muscles = body.muscles, at = strike ?? fist.position;
+  const side = hand === "right" ? 1 : -1, fist = view.pointMotion[fistOn(body.built.spec, hand)!]!.knuckles!, muscles = body.muscles, at = strike ?? fist.position;
   let k = 0;
   read[k++] = since;
   read[k++] = fromShoulder.x * side; read[k++] = fromShoulder.y; read[k++] = fromShoulder.z;

@@ -3,11 +3,11 @@ import type { BodyView } from "../../control/body.ts";
 import type { SwingGoal } from "../../control/stance.ts";
 import { swingProgressToRef } from "../../control/swing-path.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
-import type { BodySpec, Side } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { footOn } from "../../control/support.ts";
 import { GUARD } from "../guard/guard.ts";
 import { sin, cos } from "../../core/math/real.ts";
-import { otherSide } from "../../core/bodies/spec/body.ts";
+import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
 
 /**
  * **The arms swinging** against the legs, each from the guard (`GUARD`): the upper arm hanging,

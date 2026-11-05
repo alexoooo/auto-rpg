@@ -4,13 +4,14 @@
  */
 import { loadoutKey } from "../../core/bodies/items/held.ts";
 import { recordingKey } from "../../core/world/recording.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import { mindSubject, type Evaluation, type Json, type Table } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import { CONTEST_FIGURES, type BoutReading } from "../contest.ts";
-import { otherSide } from "../../core/bodies/spec/body.ts";
+
 import { createMatchCases, type MatchCondition } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
+import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
 
 const digest = (value: Json | string): string => sha256Text(typeof value === "string" ? value : recordingKey(value)).slice(0, 16);
 

@@ -1,5 +1,5 @@
 /** Body facts and readings published to entrant computations. */
-export type { BodySpec, HandPose } from "./spec/body.ts";
+export type { BodySpec, ConfigurationName } from "./spec/body.ts";
 export type { OwnBody } from "./own-body.ts";
 export type { BodyControl } from "./body-control.ts";
 export type { Senses, BodySense } from "./senses.ts";

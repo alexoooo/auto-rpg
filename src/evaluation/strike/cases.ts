@@ -33,6 +33,7 @@ import { effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type S
 import type { Rail } from "../../game/arena/rail.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
+import { SIDES } from "../../core/bodies/bilateral.ts";
 
 /**
  * A subject's value: a mind given whole, the skill it drills (its executor's kind, as an order
@@ -80,7 +81,7 @@ const STILL = deepFreeze({
   across: [0, .2],
   toward: "hand",
   marks: ["high", "middle"] as Mark[],
-  hands: ["left", "right"] as Hand[],
+  hands: [...SIDES] as Hand[],
   settled: .5, pace: 1, patience: 8, seconds: 11, settle: .5, recover: 2,
 });
 
@@ -156,7 +157,7 @@ const LAID = deepFreeze({ segment: "middleTrunk", speed: .5 });
  * standing `settled` s first, walks round to its side; longer than the others, for that walk and
  * the stomp's slow preparation.
  */
-const STOMPING = deepFreeze({ ...OPPONENT, hands: [] as Hand[], feet: ["left", "right"] as Hand[], targets: ["workshop-fighter", "crypt-skeleton"] as BodyModel[],
+const STOMPING = deepFreeze({ ...OPPONENT, hands: [] as Hand[], feet: [...SIDES] as Hand[], targets: ["workshop-fighter", "crypt-skeleton"] as BodyModel[],
   marks: ["middle"] as Mark[], opponent: "bare", settled: 2, patience: 12, seconds: 25, laid: LAID });
 
 /**
@@ -202,7 +203,7 @@ const FIGHT = deepFreeze({
   foes: ["option"],
   moments: [1, 2, 3, 4],
   marks: ["high", "middle"] as Mark[],
-  hands: ["left", "right"] as Hand[],
+  hands: [...SIDES] as Hand[],
   settled: 0, pace: 1, patience: 2, seconds: 30, settle: .5, recover: 2,
 });
 

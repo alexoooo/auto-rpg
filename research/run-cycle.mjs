@@ -25,6 +25,7 @@ import { basename } from "node:path";
 import { parseArgs } from "node:util";
 import { bodyModel, clipMotion, feasibility } from "./run-feasibility.mjs";
 import { modelSpec } from "../src/core/bodies/models.ts";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 /** The harmonics each channel's series has. */
 const HARMONICS = 6;
@@ -51,7 +52,7 @@ function cycleOf(file, rate, cutoff, body) {
   const dt = motion.dt;
   // Each sole's landings, and the left leg's phase at each: 0 at its own, 0.5 at the right's, a turn more each time round.
   const marks = [];
-  for (let i = 1; i < rows.length; i++) for (const side of ["left", "right"]) {
+  for (let i = 1; i < rows.length; i++) for (const side of SIDES) {
     if (!rows[i].bore.includes(side) || rows[i - 1].bore.includes(side)) continue;
     const want = side === "left" ? 0 : 0.5;
     let turns = marks.length ? Math.floor(marks.at(-1).phase) : 0;

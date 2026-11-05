@@ -70,7 +70,7 @@ surface's share is 0; two rigid surfaces share nothing.
 even chance of injury, F²/2k at 3.0 kN (`carpanen-2019`, the metacarpophalangeal joints' axial
 force at 50 % risk) on the hand's 122.3 N/mm (`CONTACT_STIFFNESS.hand`), 36.8 J, all of it the
 threshold (`owner-fist-threshold`). It is a deductible: a share of 50 J costs the hand 13.2 J's
-worth. It holds where a segment with hand poses meets a body's own surface and neither side holds
+worth. It holds where a segment with collision configurations meets a body's own surface and neither side holds
 an item there; against an item (a club, a blade, armour) the hand takes its whole share.
 
 **A bare foot has the fist's threshold** (`owner-foot-threshold`): a foot is a segment its body

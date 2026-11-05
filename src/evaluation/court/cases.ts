@@ -12,14 +12,15 @@ import { loadoutKey } from "../../core/bodies/items/held.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { presetFitsModel } from "../../minds/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import { deepFreeze } from "../../core/world/state.ts";
 import { PHYSICS_HZ } from "../../core/world/world.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
-import { otherSide } from "../../core/bodies/spec/body.ts";
+
 import { FIGHT_ENTRY } from "../../minds/catalog.ts";
 import { createDrillOpponents } from "../drill-opponents.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
+import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
 
 /**
  * The protocol: the strikers' bodies, the gaps, m, the sides they start on and the targets; how

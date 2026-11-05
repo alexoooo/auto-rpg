@@ -1,12 +1,13 @@
-import { type Side, segmentFrame, type DofSpec, type ForceVelocitySpec, type JointSpec, type SegmentSpec } from "../spec/body.ts";
+import { segmentFrame, type DofSpec, type ForceVelocitySpec, type JointSpec, type SegmentSpec } from "../spec/body.ts";
 import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { angleAbout, cross, dot, normalize, orthogonalTo, scale, sub } from "../spec/vec.ts";
 import type { HumanFigure } from "./figure.ts";
-import { SIDES } from "./landmarks.ts";
+
 import { segmentName } from "./segments.ts";
 import type { Exertion } from "./tables/joint-torques.ts";
 import { rangeOfMotion, type RangeRow } from "./tables/range-of-motion.ts";
 import { acos } from "../../math/real.ts";
+import { type Side, SIDES } from "../bilateral.ts";
 
 /**
  * **The human joints**: fifteen, one wherever `HUMAN_PARENTS` joins two segments, each at the point

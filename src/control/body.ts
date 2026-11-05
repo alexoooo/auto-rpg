@@ -15,7 +15,7 @@ import type { BodyLevel, MuscleReading } from "../core/bodies/muscle/driver.ts";
 import type { MotorMaker } from "./motor-part.ts";
 
 import type { EffectorContact, EffectorFeedback } from "./effector-feedback.ts";
-import type { Side, HandPose } from "../core/bodies/spec/body.ts";
+import type { ConfigurationName } from "../core/bodies/spec/body.ts";
 import type { GroundReading } from "./ground-reading.ts";
 import type { ReadBody } from "../core/bodies/read-body.ts";
 
@@ -99,7 +99,7 @@ export interface SplitDriver<T> {
 export interface BodyCommand {
   readonly assist?: BodyControl["assist"];
   /** A coarse contact configuration, by the hand's segment; omitted hands retain their pending request. */
-  readonly handPoses?: Readonly<Partial<Record<string, HandPose>>>;
+  readonly configurations?: Readonly<Partial<Record<string, ConfigurationName>>>;
   /** Angles by channel; a freedom not named is held at its reference angle. */
   readonly posture: Pose;
   /**
@@ -143,7 +143,7 @@ export interface BodyView {
    */
   readonly effectors: Readonly<Record<string, { readonly points: Readonly<Record<string, Vector3>>; readonly rotation: Quaternion; readonly feedback?: EffectorFeedback }>>;
   /** Each posable hand's pose, by its segment: the one it has and the one it was asked. */
-  readonly handPoses: Readonly<Record<string, { readonly applied: HandPose; readonly requested: HandPose }>>;
+  readonly configurations: Readonly<Record<string, { readonly applied: ConfigurationName; readonly requested: ConfigurationName }>>;
   /** Seconds of the world's clock. */
   readonly time: number;
   /**
@@ -157,8 +157,8 @@ export interface BodyView {
   readonly senses: Senses;
   /** Each freedom's angle, rad, by channel name (`jointAngles`). */
   readonly angles: Readonly<Record<string, number>>;
-  /** Each hand's knuckles in the world, by its side, for each hand with knuckles (`fistOn`): where a fist strikes, and how fast. */
-  readonly fists: Readonly<Partial<Record<Side, Fist>>>;
+  /** Each effector's named points in the world, and their rigid-body velocities. */
+  readonly pointMotion: Readonly<Record<string, Readonly<Record<string, PointMotion>>>>;
   /**
    * The body frame in the world, as the last step left it: the root segment's place and turn
    * (`rootFrameToRef`), the frame an effector's goal is set in. A world point is brought into it with
@@ -205,8 +205,8 @@ export interface StepReading {
   readonly stamp: number;
 }
 
-/** Where a fist's knuckles are and how they move, in the world, as the last step left them. */
-export interface Fist {
+/** Where a named point is and how it moves in the world, as the last step left it. */
+export interface PointMotion {
   readonly position: Vector3;
   readonly velocity: Vector3;
 }

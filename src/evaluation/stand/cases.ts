@@ -24,6 +24,7 @@ import { readStand, type StandReading } from "./read.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { createStrikeCases, loadoutsOf, striker, type StrikeSubject } from "../strike/cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
+import { SIDES } from "../../core/bodies/bilateral.ts";
 
 /** Where on the trunk a shove meets the body: its lower, middle or upper trunk's centre of mass. */
 export type Height = "low" | "middle" | "high";
@@ -76,7 +77,7 @@ const WALKING: StandRung = deepFreeze({ state: "walking", models: ["workshop-fig
 
 /** The Strike drill's still rung at 1 m, the middle mark, shoved once the striking hand flies from the chest at 2.5 m/s. */
 const STRIKING: StandRung = deepFreeze({ state: "striking", models: ["workshop-fighter"] as BodyModel[], ways: [0, 90, 180, 270], heights: ["middle"] as Height[],
-  impulses: [20, 40], hands: ["left", "right"] as Hand[], mark: "middle", gap: 1, at: .5, limb: 2.5, after: .5, pace: 1, watch: 5, seconds: 12,
+  impulses: [20, 40], hands: [...SIDES] as Hand[], mark: "middle", gap: 1, at: .5, limb: 2.5, after: .5, pace: 1, watch: 5, seconds: 12,
   aim: "still", within: .05, window: .5 });
 
 /** The Commander that leads a standing subject: stand facing the foe, and strike nothing. */

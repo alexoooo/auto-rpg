@@ -13,6 +13,7 @@ import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../src/skills/locomotion/walk
 import "../tests/harness/preload-data.mjs";
 import { startWind } from "../src/game/lab/wind.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 export const CORE_STANCE_HARNESS = "Node core stand (tests/harness/core-stand.mjs), Rapier";
 
@@ -37,7 +38,7 @@ async function body(model, stance, hz, held = null, actuation, physique, { balan
   const stand = await coreStand(spec, { ground: true, groundSize: GROUND, hz, actuation, ...(held === null ? {} : { posture: guardPosture(spec) }) });
   const assist = held === null && balance === null ? undefined : balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
   const built = commandedBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: !envelope, assist });
-  return { stand, body: built, guard: guardPosture(spec), feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
+  return { stand, body: built, guard: guardPosture(spec), feet: SIDES.map((side) => stand.built.segments.get(`foot.${side}`)) };
 }
 
 /** The seconds stood at which `stand` reads the centre of mass's speed as the body settles. */
@@ -49,7 +50,7 @@ export async function stand({ model, stance, hz = 120, balance = null }) {
   let goal = null, from = null;
   b.drive((view) => {
     const s = view.stance;
-    if (!goal && view.time > 0) { goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 }; from = feet.map((f) => f.pose.position.clone()); }
+    if (!goal && view.time > 0) { goal = { feet: SIDES, centre: null, height: view.standing - 0.03, heading: 0 }; from = feet.map((f) => f.pose.position.clone()); }
     return { posture: GUARD, pushes: [], stance: goal };
   });
   try {
@@ -78,7 +79,7 @@ export async function edge({ model, degrees, stance, hz = 120, balance = null })
   b.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) {
-      goal = { feet: ["left", "right"], centre: [s.support.x + 0.3 * Math.sin(way), s.support.z + 0.3 * Math.cos(way)], height: view.standing - 0.03, heading: 0 };
+      goal = { feet: SIDES, centre: [s.support.x + 0.3 * Math.sin(way), s.support.z + 0.3 * Math.cos(way)], height: view.standing - 0.03, heading: 0 };
       from = feet.map((f) => f.pose.position.clone());
     }
     return { posture: {}, pushes: [], stance: goal };
@@ -99,7 +100,7 @@ export async function step({ model, foot, dx, dz, stance, hz = 120, balance = nu
   let goal = null, swing = null, to = null, bearing = null, lifted = null, turned = null;
   b.drive((view) => {
     const s = view.stance;
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 };
+    if (!goal && view.time > 0) goal = { feet: SIDES, centre: null, height: view.standing - 0.03, heading: 0 };
     if (goal && !swing && view.time >= 1) {
       to = [s.soles[foot].x + dx, s.soles[foot].z + dz];
       bearing = s.soles[other].clone();
@@ -138,7 +139,7 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
   let goal = null, pace = null;
   b.drive((view) => {
     const s = view.stance;
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 };
+    if (!goal && view.time > 0) goal = { feet: SIDES, centre: null, height: view.standing - 0.03, heading: 0 };
     return { posture: held === null ? {} : guard, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
@@ -215,7 +216,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
     const posture = held === null ? {} : guard;
     // The walk in the body's frame, facing +z: forward along z, right along x.
     if (skill) return skillCommand(skill, view, pace && [pace[1], pace[0]], 0, dt, posture, (next) => { goal = next ?? goal; return goal; });
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 };
+    if (!goal && view.time > 0) goal = { feet: SIDES, centre: null, height: view.standing - 0.03, heading: 0 };
     return { posture, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
@@ -230,7 +231,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
         if (goal) low = Math.max(low, goal.height - (s.centre.y - Math.min(s.soles.left.y, s.soles.right.y)));
         down ||= b.view.down;
         // The soles' distance apart across the way walked as each lands, over the walk measured.
-        for (const side of ["left", "right"]) {
+        for (const side of SIDES) {
           if (measuring && s.touching[side] && !was[side]) widths.push(Math.abs((s.soles.left.x - s.soles.right.x) * uz - (s.soles.left.z - s.soles.right.z) * ux));
           was[side] = s.touching[side];
         }
@@ -286,7 +287,7 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
     const way = onto && turning ? sense * round : heading, f = Math.cos(way - heading), r = Math.sin(way - heading);
     const across = onto ? (onto.side > 0 ? r / onto.side : r === 0 ? 0 : Infinity) : 0, pace = Math.min(speed, 1 / Math.sqrt((f / speed) ** 2 + across ** 2));
     if (skill) return skillCommand(skill, view, walking ? [pace * f, pace * r] : null, heading, dt, posture, (next) => { goal = next ?? goal; return goal; });
-    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03 };
+    if (!goal && view.time > 0) goal = { feet: SIDES, centre: null, height: view.standing - 0.03 };
     const walk = walking ? [pace * Math.sin(way), pace * Math.cos(way)] : null;
     return { posture, pushes: [], stance: goal && { ...goal, heading, walk } };
   });

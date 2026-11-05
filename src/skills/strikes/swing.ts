@@ -1,8 +1,9 @@
+import { HAND_CONFIGURATION } from "../../core/bodies/human/hand-configurations.ts";
 import type { Body } from "../../control/body.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import { atan2 } from "../../core/math/real.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
-import { otherSide, type BodySpec, type Side } from "../../core/bodies/spec/body.ts";
+import { type BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
 import { placedHeightFits } from "./arm-reach.ts";
 import { faceAligner } from "./face-aligner.ts";
@@ -11,6 +12,7 @@ import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";
 import { sensedActionTarget } from "../intent/action-aim.ts";
 import { timedPushes, validPush, type TimedPush } from "./timed-push.ts";
+import { otherSide, type Side, SIDES } from "../../core/bodies/bilateral.ts";
 
 /**
  * **A swing's settings.** It is admitted with the body moving no faster than `pace` m/s, facing
@@ -39,7 +41,7 @@ export interface Swing {
   readonly recover: number;
 }
 
-const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
+const HANDS: readonly Side[] = SIDES;
 
 /** The settings every swing names; the rest are its options. */
 const REQUIRED = ["pace", "reach", "band", "aside", "settle", "follow", "longest", "recover"] as const;
@@ -208,7 +210,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
         for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
         if (x * x + y * y + z * z >= ALIGN_SPEED * ALIGN_SPEED) aligner.ask(view, live.path, posture, pushes);
       }
-      return { posture, pushes, handPoses: { [`hand.${live.hand}`]: "grip" },
+      return { posture, pushes, configurations: { [`hand.${live.hand}`]: HAND_CONFIGURATION.grip },
         legs: { walk: null, face: live.face, ...(settings.halts ? { halt: true } : {}), height: view.standing - live.lower } };
     },
   };

@@ -47,6 +47,7 @@ import { basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { dot, readClip, size, sub } from "./bvh.mjs";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 const G = 9.81;
 /** Haste factors tried, lowest first. */
@@ -148,7 +149,7 @@ export function clipMotion(file, rate, cutoff) {
   const names = [...new Set(Object.values(UPPER).flat())];
   const joints = Object.fromEntries(names.map((name) => [name, track((f) => p(f, index(name)))]));
   const restOf = Object.fromEntries(Object.entries(UPPER).map(([piece, [a, b]]) => [piece, angle(less(rested(index(b)), rested(index(a))))]));
-  const legs = Object.fromEntries(["left", "right"].map((side) => {
+  const legs = Object.fromEntries(SIDES.map((side) => {
     const j = J[side];
     // The foot at rest falls from ankle to toe as the importer reads it: its pitch is -(pi/2 - rest).
     const restFoot = -(Math.PI / 2 - rest[side]);
@@ -224,7 +225,7 @@ export function feasibility(motion, body) {
     });
     const trunk = pieces.find((u) => u.name === PELVIS).turn;
     const legs = {};
-    for (const side of ["left", "right"]) {
+    for (const side of SIDES) {
       const L = motion.legs[side], dFoot = L.foot[f];
       const Hs = [L.hip.x[f], L.hip.y[f]], K = [L.knee.x[f], L.knee.y[f]], A = [L.ankle.x[f], L.ankle.y[f]];
       const thighTurn = angle(less(K, Hs)), shankTurn = angle(less(A, K));
@@ -248,7 +249,7 @@ export function feasibility(motion, body) {
   });
   const pelvisAt = body.upper.findIndex((u) => u.name === PELVIS);
   poses.forEach((q) => { q.trunk = q.pieces[pelvisAt].turn; });
-  for (const side of ["left", "right"]) for (const k of ["thigh", "shank"]) {
+  for (const side of SIDES) for (const k of ["thigh", "shank"]) {
     const turns = unwrap(poses.map((q) => q.legs[side][k].turn));
     poses.forEach((q, f) => {
       const leg = q.legs[side], shift = turns[f] - leg[k].turn;
@@ -264,7 +265,7 @@ export function feasibility(motion, body) {
   const weight = body.mass * G;
   const from = Math.max(EDGE, motion.first), to = Math.min(n - 1 - EDGE, motion.last);
   // Each ankle's lowest over the stretch, its 5 % quantile, and how high and fast it is.
-  const floorOf = Object.fromEntries(["left", "right"].map((side) => {
+  const floorOf = Object.fromEntries(SIDES.map((side) => {
     const ys = []; for (let f = from; f <= to; f++) ys.push(poses[f].legs[side].A[1]);
     ys.sort((a, b) => a - b);
     return [side, ys[Math.floor(0.05 * (ys.length - 1))]];
@@ -278,7 +279,7 @@ export function feasibility(motion, body) {
   for (let f = from; f <= to; f++) {
     const pose = poses[f];
     const all = [...pose.pieces.map((_, i) => ({ get: (q) => q.pieces[i] })),
-      ...["left", "right"].flatMap((side) => ["thigh", "shank", "foot"].map((k) => ({ get: (q) => q.legs[side][k] })))];
+      ...SIDES.flatMap((side) => ["thigh", "shank", "foot"].map((k) => ({ get: (q) => q.legs[side][k] })))];
     // The ground's force and the moment it must give, about the origin: the body's rates of momentum less gravity's.
     let F = [0, 0], M = 0, mass = 0, centre = [0, 0];
     for (const { get } of all) {
@@ -294,10 +295,10 @@ export function feasibility(motion, body) {
     if (F[1] <= BEARS * weight) bearing = [];
     else if (!bearing.length) bearing = [lower];
     else {
-      for (const side of ["left", "right"]) if (!bearing.includes(side) && height(pose, side) < SOLE.land * small && slow(side)) bearing = [...bearing, side];
+      for (const side of SIDES) if (!bearing.includes(side) && height(pose, side) < SOLE.land * small && slow(side)) bearing = [...bearing, side];
       if (bearing.length === 2) { const kept = bearing.filter(slow); bearing = kept.length ? kept : bearing; }
     }
-    const clear = ["left", "right"].every((side) => height(pose, side) > SOLE.clear * small);
+    const clear = SIDES.every((side) => height(pose, side) > SOLE.clear * small);
     // A sole the force, aimed through the centre of mass, cannot pass through is not bearing it: the
     // filter has spread the force past the sole's leaving. Such a frame is unexplained and not read.
     const level = (side) => floorOf[side] + (body.foot.sole - body.ankle[1]) * small;
@@ -305,7 +306,7 @@ export function feasibility(motion, body) {
     const fits = (side) => { const x = aimedAt(side) - pose.legs[side].A[0]; return x >= sole.heel - MARGIN * small && x <= sole.toe + MARGIN * small; };
     const unexplained = bearing.length === 1 && !fits(bearing[0]);
     const row = { f, bearing: unexplained ? [] : bearing, bore: bearing, unexplained, clear, force: F, trunk: pose.trunk, legs: {} };
-    for (const side of ["left", "right"]) {
+    for (const side of SIDES) {
       const leg = pose.legs[side], on = !unexplained && bearing.length === 1 && bearing[0] === side;
       let ground = [0, 0], cop = null;
       if (on) {
@@ -374,7 +375,7 @@ function summarise(result, body) {
   for (const c of CHANNELS) {
     const dof = body.dofs[c.name];
     // Both legs; a frame on both feet is left out of the stance leg's reading, since the ground's force there is not split.
-    const samples = rows.flatMap((r) => ["left", "right"].filter((side) => !(r.bearing.length === 2)).map((side) => ({
+    const samples = rows.flatMap((r) => SIDES.filter((side) => !(r.bearing.length === 2)).map((side) => ({
       stance: r.legs[side].on, torque: r.legs[side].torque[c.name], rate: r.legs[side].rate[c.name], reading: r.legs[side].reading[c.name],
     })));
     const by = (pred) => samples.filter(pred);

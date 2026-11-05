@@ -12,7 +12,7 @@ export function skinReference(built: DrawnBody, name: string): Matrix {
   const reference = Matrix.Compose(Vector3.One(), Quaternion.RotationQuaternionFromAxis(
     Vector3.FromArray(frame.x), Vector3.FromArray(frame.y), Vector3.FromArray(frame.z)), Vector3.FromArray(frame.origin));
   if (source === target) return Matrix.Invert(reference);
-  const from = shapeBounds(source, true, source.handPoses?.open), to = shapeBounds(target, true, target.handPoses?.open);
+  const from = shapeBounds(source, true, source.configurations?.shapes[source.configurations.initial]), to = shapeBounds(target, true, target.configurations?.shapes[target.configurations.initial]);
   const factors = [0, 1, 2].map(i => i === 1
     ? distance(target.proximal.value, target.distal.value) / distance(source.proximal.value, source.distal.value)
     : (to.max[i]! - to.min[i]!) / (from.max[i]! - from.min[i]!));

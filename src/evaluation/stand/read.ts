@@ -4,6 +4,7 @@ import type { BuiltBout } from "../bout.ts";
 import type { Reader } from "../evaluation.ts";
 import { readStrike, type StrikeReading } from "../strike/read.ts";
 import type { StandCondition, StandRung } from "./cases.ts";
+import { SIDES } from "../../core/bodies/bilateral.ts";
 
 /**
  * What a Stand trial came to: when the shove came, s of the bout (null where it never did: a strike
@@ -40,7 +41,7 @@ const finished = (strike: StrikeReading): boolean => strike.began !== null && st
 export function readStand(built: Pick<BuiltBout, "world" | "duel" | "catalog">, condition: StandCondition, rung: StandRung): Reader<StandReading> {
   const { world, duel } = built, left = duel.duelists.left, body = left.built, dt = 1 / world.hz;
   const parts = [...body.segments.values()], mass = parts.reduce((sum, part) => sum + part.body.massProperties.mass, 0);
-  const feet = (["left", "right"] as const).map((side) => ({ side, segment: body.segments.get(`foot.${side}`) }));
+  const feet = SIDES.map((side) => ({ side, segment: body.segments.get(`foot.${side}`) }));
   const velocity = new Vector3(), part = new Vector3();
   /** Whether a foot bears on something fixed, the floor: the solver pushed on it last step. */
   const bears = (segment: BuiltSegment | undefined) => segment !== undefined && body.physics.contactsOf(segment.body, (other) => other === null).some((contact) => contact.impulse > 0);

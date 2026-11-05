@@ -28,6 +28,7 @@ import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort } from "node:worker_threads";
 import { Vector3 } from "../src/core/math/vector.ts";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 const [{ modelSpec }, { coreStand }, { driveMuscles }, { massCentreToRef }, { cmaSearch, workerPool }] = await Promise.all([
   import("../src/core/bodies/models.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/bodies/muscle/driver.ts"), import("../src/core/bodies/read-motion.ts"),
@@ -54,7 +55,6 @@ const PUSH = { onset: 0.25, level: [0.2, 1] };
 /** How long the push is watched for a takeoff, s, and how long the flight after it. */
 const WATCH = { push: 0.8, flight: 0.8 };
 
-
 const centreOf = (built) => {
   const segments = [...built.segments.values()], mass = segments.reduce((s, x) => s + x.rigid.mass, 0), c = new Vector3(), w = new Vector3();
   massCentreToRef(segments, mass, c, w);
@@ -65,7 +65,7 @@ const between = (feet) => feet[0].add(feet[1]).scale(0.5);
 
 /** The crouch's angles with the hips at `hip`, the root pitched so the feet lie flat. */
 const posed = (knee, hip) => ({
-  joints: Object.fromEntries(["left", "right"].flatMap((side) => [[`hip.${side}`, [hip, 0, 0]], [`knee.${side}`, [knee]], [`ankle.${side}`, [ANKLE, 0]]])),
+  joints: Object.fromEntries(SIDES.flatMap((side) => [[`hip.${side}`, [hip, 0, 0]], [`knee.${side}`, [knee]], [`ankle.${side}`, [ANKLE, 0]]])),
   pitch: ANKLE - knee + hip,
 });
 

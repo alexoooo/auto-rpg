@@ -1,4 +1,5 @@
-import type { BodySpec, Side } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /** The hands of `spec` that hold an item with a covering face (`ItemSpec.coverNormal`), as segments (`hand.left`). */
 export const shieldHands = (spec: BodySpec): readonly string[] => (spec.held ?? []).filter(({ item }) => item.coverNormal !== undefined).map(({ segment }) => segment);

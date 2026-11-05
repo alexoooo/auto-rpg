@@ -1,7 +1,7 @@
 import type { BodyView } from "../../../../control/body.ts";
 import type { Clock } from "../../../../core/world/clock.ts";
 import { carrying } from "../../../../control/motor.ts";
-import type { BodySpec, Side } from "../../../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
 import type { MindKit } from "../../../kit.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { stagedRise } from "./staged.ts";
@@ -11,7 +11,7 @@ import { recordFault } from "../../../framework/records.ts";
 import { LIMIT, LOW, SIT_BACK_BODIES, STEP_UP_BODIES, stepUpRecipe, stepUpTuning, validStepUp, type StepUpRise, type StepUpTuning } from "./records.ts";
 import { stanceSteady } from "./steady.ts";
 import { REACHED_SECONDS, technique, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "../../technique.ts";
-import { otherSide } from "../../../../core/bodies/spec/body.ts";
+import { type Side, otherSide } from "../../../../core/bodies/bilateral.ts";
 
 /**
  * **Where step up's route is cut**: in route order, the stage of its rise (`RISE`) at whose end

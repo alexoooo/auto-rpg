@@ -76,7 +76,7 @@ function clearance(a: Solid, b: Solid): number {
 /** Nonadjacent collision shapes that intersect in the reference pose, before any solver can move them. */
 export function bodyIntersections(spec: BodySpec): readonly string[] {
   const parents = new Map(spec.joints.map(j => [j.child, j.parent])), faults: string[] = [];
-  const shapes = spec.segments.map(segment => [...new Set([segment.shape, ...Object.values(segment.handPoses ?? {}), ...(segment.contacts ?? []).map(c => c.shape)])]
+  const shapes = spec.segments.map(segment => [...new Set([segment.shape, ...Object.values(segment.configurations?.shapes ?? {}), ...(segment.contacts ?? []).map(c => c.shape)])]
     .map(shape => solid({ ...segment, shape })));
   for (let i = 0; i < spec.segments.length; i++) for (let j = i + 1; j < spec.segments.length; j++) {
     const a = spec.segments[i]!, b = spec.segments[j]!;

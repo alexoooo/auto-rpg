@@ -7,13 +7,14 @@ import { dataOf } from "../../core/data/store.ts";
 import { heldBy, type Held } from "../../core/bodies/items/held.ts";
 import { fitsAll, fitsWhen, strikesWithOneOf } from "../../parts/parts.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
-import type { BodySpec, Side } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../framework/records.ts";
 import { faceFault, STRAIGHT_PUNCH_KEYS, straightPunchExecutor, straightPunchFits, timedChannelFault, validStraightPunch, validStraightPunchPart,
   type StraightPunch, type StrikingFace } from "./straight-punch.ts";
+import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 
 /**
  * **The held blows driven straight**, by kind: what each is thrown with (`item`, by `HELD`'s name),
@@ -105,7 +106,7 @@ function heldBlowPart<K extends HeldBlowKind>(kind: K): ExecutorPart<Config<K>> 
     strikesWith: (spec, _config, effector) => blowFace(spec, effector, kind) !== null,
     make({ body, guard, aim }, config, actions) {
       const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
-      for (const hand of ["left", "right"] as const) { const face = blowFace(spec, `hand.${hand}`, kind); if (face) faces[hand] = face; }
+      for (const hand of SIDES) { const face = blowFace(spec, `hand.${hand}`, kind); if (face) faces[hand] = face; }
       const network = config.tuning === undefined ? dataOf(kind)[bodyKey(spec)]?.network : null;
       return straightPunchExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf(kind), spec, config), aimedPoint(aim),
         { faces, layout: blow.layout, ...(network ? { policy: recoveryNetwork(network) } : {}) });

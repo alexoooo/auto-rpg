@@ -1,3 +1,4 @@
+import { HAND_CONFIGURATION } from "../../../core/bodies/human/hand-configurations.ts";
 /**
  * The Warrior's robot appearances: Industrial (`industrial`), Steampunk (`relic`) and Futuristic
  * (`duelist`), built in code with no external asset. They are cosmetic: the body, colliders,
@@ -21,10 +22,12 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { DrawnBody } from "./drawn-body.ts";
 import type { SkinOptions, SkinView } from "./skin-view.ts";
 import type { Appearance } from "../../../game/appearance/appearance.ts";
+
 import { createRobotPart, housing, local, type Finish, type RobotDesign } from "./robot-geometry.ts";
 import { industrialRobot } from "./robot-industrial.ts";
 import { steampunkRobot } from "./robot-steampunk.ts";
 import { futuristicRobot } from "./robot-futuristic.ts";
+import type { Side } from "../../../core/bodies/bilateral.ts";
 
 type Robot = Exclude<Appearance, "default">;
 const DESIGNS: Readonly<Record<Robot, RobotDesign>> = { industrial: industrialRobot, relic: steampunkRobot, duelist: futuristicRobot };
@@ -43,7 +46,7 @@ export function dressRobot(built: DrawnBody, scene: Scene, appearance: Robot, op
     materials[finish] = material;
   }
   const meshes: Mesh[] = [];
-  const fingers: { mesh: Mesh; hand: "left" | "right"; base: Vector3; lengths: number[]; index: number; holding: boolean }[] = [];
+  const fingers: { mesh: Mesh; hand: Side; base: Vector3; lengths: number[]; index: number; holding: boolean }[] = [];
   for (const [name, segment] of built.segments) {
     const { part, buckets } = createRobotPart(name, segment);
     design.build(part);
@@ -77,8 +80,8 @@ export function dressRobot(built: DrawnBody, scene: Scene, appearance: Robot, op
   const update = () => {
     if (!meshes.some(mesh => mesh.isEnabled() && mesh.isVisible)) return;
     for (const finger of fingers) {
-      const pose = built.handPoses.state[finger.hand]?.applied;
-      const closed = finger.holding ? 1 : Math.max(0, Math.min(1, options.closure ? options.closure(finger.hand) : pose === "open" ? 0 : 1));
+      const pose = built.configurations.state[`hand.${finger.hand}`]?.applied;
+      const closed = finger.holding ? 1 : Math.max(0, Math.min(1, options.closure ? options.closure(finger.hand) : pose === HAND_CONFIGURATION.open ? 0 : 1));
       let y = finger.base.y, z = finger.base.z;
       for (let i = 0; i <= finger.index; i++) {
         const open = .12 + i * .10, angle = open + closed * (Math.PI / 6 + i * Math.PI / 3 - open);

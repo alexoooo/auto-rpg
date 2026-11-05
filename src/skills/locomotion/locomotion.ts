@@ -6,15 +6,17 @@ import type { StanceGoal, SwingGoal } from "../../control/stance.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { SupportGoal } from "../../control/supported-motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
-import type { BearingEnd, Side } from "../../core/bodies/spec/body.ts";
+import type { BearingEnd } from "../../core/bodies/spec/body.ts";
 import { STANCE_GAIT, type GaitTuning } from "../../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { deepFreeze } from "../../core/world/state.ts";
-import { ALL_MET, FIELD_BIT, fieldsOf, setIn, onStanceFeet, type LegsAsked, type LegsField, type LegsUnmet, type SidedAsk, type StanceFeet, type Skill } from "../framework/skill.ts";
+import { onStanceFeet, type SidedAsk, type StanceFeet } from "./stance-feet.ts";
+import { ALL_MET, FIELD_BIT, fieldsOf, setIn, type LegsAsked, type LegsField, type LegsUnmet, type Skill } from "../framework/skill.ts";
 import type { GaitName } from "./gaits.ts";
 import type { Readiness } from "../framework/action.ts";
 import type { BodyControl } from "../../core/bodies/body-control.ts";
+import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 
 /**
  * How far under its reference height a body's centre of mass is held, m: the height the stance's
@@ -51,9 +53,6 @@ export interface Carriage {
 export const CARRIAGES = deepFreeze({
   square: { width: null, stagger: 0, lead: "left", lower: STANCE_LOWER },
 } satisfies Readonly<Record<string, Carriage>>);
-
-/** A carriage's name (`CARRIAGES`). */
-export type CarriageName = keyof typeof CARRIAGES;
 
 /** Whether `carriage` can be held: a positive width, or none and no stagger; a stagger and lowering finite and not negative. */
 export const validCarriage = (carriage: Carriage): boolean =>
@@ -166,6 +165,10 @@ interface WalkOptions {
  * (`StanceWalk`): the readers of it ask whether the legs say it.
  */
 export interface Locomotion extends Skill {
+  /** The ends whose limb controls belong to this locomotion service, fixed at construction. */
+  readonly supports: readonly BearingEnd[];
+  /** The default lowering of its centre of mass below the body's reference height, m. */
+  readonly lower: number;
   /**
    * The legs goal `goal` completed this control step: the stance goal that carries out what it
    * sets and fills what it leaves out from its walk (`completed`), null before the body's first
@@ -393,7 +396,8 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     return { ...base, swing: placing.step };
   };
   return {
-    state, envelope, stopping: STANCE_STOPPING, lag: STANCE_LAG,
+    state, envelope, supports: names, stopping: STANCE_STOPPING, lag: STANCE_LAG,
+    get lower() { return state.carriage.lower; },
     get heading() { return state.heading; },
     get pace() { return state.pace; },
     get reference() { return state.reference; },
@@ -421,9 +425,11 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
       unmet.centre = asked && standing ? hypot(asked[0] - s.place.x, asked[1] - s.place.z) : 0;
       unmet.height = height !== null && standing ? Math.abs(height - s.plan.y) : 0;
       // A heading asked beside a walk is not carried out: the walk's steps turn the stance to its own.
-      const leaves = setIn(goal, FIELD_BIT.gait | (goal.walk && !goal.footing ? FIELD_BIT.heading : 0));
+      const carriage = goal.carriage !== undefined && Object.hasOwn(CARRIAGES, goal.carriage) ? CARRIAGES[goal.carriage as keyof typeof CARRIAGES] : undefined;
+      const leaves = setIn(goal, FIELD_BIT.gait | (goal.walk && !goal.footing ? FIELD_BIT.heading : 0)
+        | (goal.carriage !== undefined && carriage === undefined ? FIELD_BIT.carriage : 0));
       unmet.fields = fieldsOf(leaves | refused);
-      if (goal.carriage !== undefined && CARRIAGES[goal.carriage] !== state.carriage) { state.carriage = CARRIAGES[goal.carriage]; state.stood = null; state.idle.target = null; state.idle.seconds = 0; state.placing = null; }
+      if (carriage !== undefined && carriage !== state.carriage) { state.carriage = carriage; state.stood = null; state.idle.target = null; state.idle.seconds = 0; state.placing = null; }
       const held = state.carriage;
       let stance: StanceGoal | null;
       const settles = idleGoal(view, goal, dt, context);
@@ -478,7 +484,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     const h = facing(view), rx = cos(h), rz = -sin(h), fx = sin(h), fz = cos(h);
     const sole = (side: Side): readonly [number, number] => [soleOf(view, side).x, soleOf(view, side).z];
     const nearer = (side: Side): number => hypot(soleOf(view, side).x - s.centre.x, soleOf(view, side).z - s.centre.z);
-    const level = (["left", "right"] as const).filter(side => turned(view, side, h) <= 0.2);
+    const level = SIDES.filter(side => turned(view, side, h) <= 0.2);
     const stays: Side | null = level.length === 2 ? (nearer("left") <= nearer("right") ? "left" : "right") : level[0] ?? null;
     const [ax, az] = stays ? idleFooting.offsets[stays] : [0, 0];
     const c = stays ? soleOf(view, stays) : s.support;
@@ -487,7 +493,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
       return [c.x + rx * x + fx * z, c.z + rz * x + fz * z];
     };
     const target = { left: at("left"), right: at("right") };
-    if ((["left", "right"] as const).every(side => apart(sole(side), target[side]) <= idleFooting.length / 4 && turned(view, side, h) <= 0.2)) return null;
+    if (SIDES.every(side => apart(sole(side), target[side]) <= idleFooting.length / 4 && turned(view, side, h) <= 0.2)) return null;
     // A catch can turn the pelvis: settle under its current facing rather than twisting back over planted feet.
     state.heading = h;
     idle.target = target;

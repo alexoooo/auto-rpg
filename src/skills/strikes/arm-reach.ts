@@ -1,9 +1,10 @@
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
-import type { Side, BodySpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { distance, sub } from "../../core/bodies/spec/vec.ts";
 import { aimOf } from "./held-strike.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /**
  * What a hand's reach reads of its arm, from the spec in its reference pose: the shoulder to the

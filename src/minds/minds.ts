@@ -178,7 +178,7 @@ export function embodyApart(built: BuiltBody, world: World, place: MindPlace, ca
   };
   return {
     held: { muscles, assist: help.assist, senses: sense }, report, has: () => seat!.said().has,
-    state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, posed, toes: built.toes, strength: built.strength, mind: MIND_APART },
+    state: { muscles: muscles.state, assist: help.state, configurations: built.configurations.state, posed, toes: built.toes, strength: built.strength, mind: MIND_APART },
     dispose: () => { seat!.ask({ kind: "dispose" }); thinking.dispose(); muscles.dispose(); },
   };
 }

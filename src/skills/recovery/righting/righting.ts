@@ -18,13 +18,14 @@ import { fitsAll, fitsWhen, type KeysOf } from "../../../parts/parts.ts";
 import { turnOfToRef } from "../../../core/bodies/read-motion.ts";
 import type { TechniqueEnd, TechniquePart, TechniqueRun } from "../technique.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
-import { pawsOf, segmentOf, type BodySpec, type DofSpec, type Side } from "../../../core/bodies/spec/body.ts";
+import { pawsOf, segmentOf, type BodySpec, type DofSpec } from "../../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../../core/world/state.ts";
 import { soleGoal } from "../../../control/quadruped/motion.ts";
 import { fitsPaws } from "../../../control/quadruped/fit.ts";
 import { pawEndpoints, pawReader } from "../../../control/quadruped/paws.ts";
 import { REPTILE_MOTOR } from "../../../control/quadruped/tuning.ts";
 import { REPTILE_RECOVERY as T } from "./tuning.ts";
+import { type Side, SIDES } from "../../../core/bodies/bilateral.ts";
 
 /** The lowered posture and planting speed used while righting. */
 const LOWERED = Object.freeze({ height: .85, plantSpeed: .05 });
@@ -79,7 +80,7 @@ const LYING: readonly Position[] = Object.freeze(["back", "left", "right", "fron
 const toStanding = (from: readonly Position[]) => deepFreeze(from.map((one) => ({ from: one, to: "standing" as const })));
 
 /** The sides a righting is begun on: it reads how the body lies itself. */
-const BOTH: readonly Side[] = Object.freeze(["left", "right"]);
+const BOTH: readonly Side[] = SIDES;
 
 /**
  * **Righting by recipe**: the body held at its reference pose for `settle` s, then servoed through

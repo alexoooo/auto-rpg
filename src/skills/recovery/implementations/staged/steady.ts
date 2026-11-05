@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
-import { stanceFeetOf } from "../../../framework/skill.ts";
+import { stanceFeetOf } from "../../../locomotion/stance-feet.ts";
 import type { Carrying } from "../../../../control/motor.ts";
 import { turnOfToRef } from "../../../../core/bodies/read-motion.ts";
 import { atan2 } from "../../../../core/math/real.ts";

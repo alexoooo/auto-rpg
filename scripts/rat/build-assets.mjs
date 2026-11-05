@@ -10,6 +10,7 @@ import { join, resolve } from "node:path";
 import { Document, NodeIO } from "@gltf-transform/core";
 import { MeshoptSimplifier } from "meshoptimizer";
 import { ART, HEAD_RAISE, SCALE, standing, turnUp } from "./landmarks.mjs";
+import { SIDES } from "../../src/core/bodies/bilateral.ts";
 
 const ROOT = resolve(import.meta.dirname, "../.."), CACHE = join(ROOT, ".cache/art/downloads/street_rat");
 const OUT = join(ROOT, "assets/art/environment/rat");
@@ -66,7 +67,7 @@ function influences() {
     "tail.base": [[ART.tail.root, ART.tail.bend, ART.tail.rootRadius]],
     "tail.tip": [[ART.tail.bend, ART.tail.tip, ART.tail.tipRadius]],
   };
-  for (const end of ["front", "hind"]) for (const side of ["left", "right"]) {
+  for (const end of ["front", "hind"]) for (const side of SIDES) {
     const leg = ART[end], p = (point) => side === "left" ? point : mirror(point);
     out[`upper.${end}.${side}`] = [[p(leg.girdle), p(leg.bend), leg.upper]];
     out[`lower.${end}.${side}`] = [[p(leg.bend), p(leg.ankle), leg.lower]];

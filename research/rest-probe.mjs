@@ -34,6 +34,7 @@ import { standIntent } from "../src/skills/intent/intent.ts";
 import { createMind } from "../src/minds/minds.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/combat/rulebook.ts";
 import { driveBy } from "../src/minds/decider.ts";
+import { standingSkills } from "../src/app/standing-skills.ts";
 import { createWorld } from "../src/core/world/world.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 import { rootSegment } from "../src/core/bodies/read-body.ts";
@@ -114,7 +115,7 @@ const count = Number(values.bodies), side = Math.ceil(Math.sqrt(count));
 const bodies = Array.from({ length: count }, (_, i) => {
   const built = buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] });
   const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS });
-  driveBy(body, { name: "stand", decide: () => standIntent(0) });
+  driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills);
   return { built, body };
 });
 const SECONDS = 5 * world.hz;

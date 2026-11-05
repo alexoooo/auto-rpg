@@ -61,6 +61,8 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
   };
   return {
     state,
+    supports: legs.supports,
+    get lower() { return legs.lower; },
     get heading() { return legs.heading; },
     get stopping() { return legs.stopping; },
     get lag() { return legs.lag; },

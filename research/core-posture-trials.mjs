@@ -37,6 +37,7 @@ import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { risenAt } from "./skills/recovery/core-rise-trials.mjs";
 import { yawPitchRollToRef } from "./yaw-pitch-roll.mjs";
 import MAN from "../assets/humanoid/man-contact-geometry.json" with { type: "json" };
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 export const STATICS_HARNESS = "Node, statics: the joints' kinematics and the body's dynamics (src/core/bodies/build/dynamics.ts), no world step";
 
@@ -133,7 +134,7 @@ export function envelopeSpec(spec, envelope) {
       if (part === "foot") return { ...segment, shape: hull(side, envelope === "toe" ? "foot" : "rigidFoot") };
       if (part === "hand") {
         const open = hull(side, "palm"), fist = hull(side, "fist");
-        return { ...segment, shape: open, handPoses: { open, fist, grip: fist } };
+        return { ...segment, shape: open, configurations: { initial: "open", shapes: { open, fist, grip: fist }, holding: { configuration: "grip", release: "open" }, aim: { fist: "strike" } } };
       }
       return segment;
     }),
@@ -193,7 +194,7 @@ export async function staticBody(spec = modelSpec(AUDITED), engineName, envelope
  */
 function toesOf(body) {
   const angles = [TOE.rest, TOE.rest];
-  const sides = ["left", "right"].map((side, k) => {
+  const sides = SIDES.map((side, k) => {
     const foot = body.built.segments.get(`foot.${side}`), centre = atFit(MAN[side].mtp.centre), axis = normalize(MAN[side].mtp.axis);
     const turned = (p) => turnAbout(p, centre, axis, angles[k]);
     const lows = MAN[side].toes.hull.map((p) => {
@@ -235,7 +236,7 @@ function contactsOf(body) {
   const lowsOn = (s) => body.lows.filter((low) => low.segment === s);
   const nearest = (s, centre) => lowsOn(s).reduce((best, low) => (distance(low.at, centre) < distance(best.at, centre) ? low : best));
   const contacts = {};
-  for (const side of ["left", "right"]) {
+  for (const side of SIDES) {
     const thigh = segment(`thigh.${side}`), shank = segment(`shank.${side}`), hand = segment(`hand.${side}`), foot = segment(`foot.${side}`);
     const knee = body.joints.find((joint) => joint.child === shank).spec.centre.value;
     const one = (low) => ({ segment: low.segment, candidates: [low] });
@@ -1484,7 +1485,7 @@ export async function least({ row, posture, variant = "built", drive = "side", s
 export async function handed({ row, posture, seconds = HANDED_SECONDS, lift = LIFT, solver = "game" }) {
   const body = await bodyOnce();
   const height = standingHeight(body) - STANCE_LOWER;
-  const stance = Object.freeze({ feet: Object.freeze(["left", "right"]), centre: null, height, heading: 0 });
+  const stance = Object.freeze({ feet: SIDES, centre: null, height, heading: 0 });
   const command = Object.freeze({ posture: Object.freeze({}), pushes: Object.freeze([]), stance });
   const stand = await placed(posture, { lift, solver, make: (built, world) => commandedBody(built, world, { servoSeconds: SERVO_SECONDS }) });
   try {

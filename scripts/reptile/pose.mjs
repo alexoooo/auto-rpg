@@ -2,6 +2,7 @@
 // set symmetric and wide, and the whole in the body frame (docs/art/reptile.md#what-the-file-holds).
 // `fit` is what the skin's weights and the body's fit read; `bake` moves the scan's vertices.
 import { load } from "./source.mjs";
+import { SIDES } from "../../src/core/bodies/bilateral.ts";
 
 /** The scan's floor, in its units. */
 const FLOOR = -0.384;
@@ -126,7 +127,7 @@ const LEG = {};
 function placeLegs() {
   for (const end of ["front", "hind"]) {
     const sg = sAtX(LANDMARKS[end].x), c = at(sg), girdle = [sg, c.y + LIFT, c.r];
-    const sides = ["left", "right"].map((side) => {
+    const sides = SIDES.map((side) => {
       const m = side === "left" ? 1 : -1, pt = (p) => { const q = turned(p, sg); return [q[0], q[1], q[2] * m]; };
       const art = LANDMARKS[end][side];
       return { side, E: pt(art.elbow), W: pt(art.wrist), T: pt(art.toe) };
@@ -165,7 +166,7 @@ const fan = (W, T, r) => [-0.8, -0.4, 0, 0.4, 0.8].map((phi) => { const d = v3.s
 
 // Each leg bone: its frame in the scan and its frame posed, in straightened coordinates (the side's own sign).
 const bones = [];
-for (const end of ["front", "hind"]) for (const side of ["left", "right"]) {
+for (const end of ["front", "hind"]) for (const side of SIDES) {
   const leg = LEG[end], m = side === "left" ? 1 : -1, art = leg.sides.find((s) => s.side === side);
   const G = mirror(leg.girdle, m), aE = mirror(art.E, m), aW = mirror(art.W, m), aT = mirror(art.T, m);
   const tE = mirror(leg.E, m), tW = mirror(leg.W, m), tT = mirror(leg.T, m);
@@ -208,7 +209,7 @@ export function bake(part) {
 /** The posed lizard's centreline at s, in the body frame. */
 const onLine = (s) => { const c = at(s); return game([squeeze(s), c.y + droop(s) + LIFT, 0]); };
 const legPieces = {}, legs = {};
-for (const end of ["front", "hind"]) for (const side of ["left", "right"]) {
+for (const end of ["front", "hind"]) for (const side of SIDES) {
   const leg = LEG[end], m = side === "left" ? 1 : -1, r = RADII[end];
   const G = game(mirror(leg.girdle, m)), E = game(mirror(leg.E, m)), W = game(mirror(leg.W, m)), T = game(mirror(leg.T, m));
   legPieces[`upper.${end}.${side}`] = [[G, E, r.upper * K]];

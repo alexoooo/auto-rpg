@@ -3,7 +3,7 @@ import { lerp, midpoint } from "../spec/vec.ts";
 import { skinTop, WORKSHOP_SEX } from "./model.ts";
 import { rigPoint, type WorkshopModel } from "./rig.ts";
 import { DE_LEVA_1996, type Sex } from "./tables/de-leva-1996.ts";
-import type { Side } from "../spec/body.ts";
+import type { Side } from "../bilateral.ts";
 
 /**
  * **de Leva's landmarks, found on a workshop rig**: body frame, metres at the authored size.
@@ -21,7 +21,6 @@ import type { Side } from "../spec/body.ts";
  * HEEL and TTIP are the foot's ends: a workshop model's from its boot's footprint (`workshop.ts`), the
  * skeleton's from its foot bones (`skeleton.ts`).
  */
-export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);
 
 /** The rig's side suffix. The rig's `_l` is the model's own left, the body frame's -x. */
 const SUFFIX: Readonly<Record<Side, string>> = Object.freeze({ left: "_l", right: "_r" });

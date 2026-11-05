@@ -5,7 +5,7 @@
  */
 import type { DuelRecipe, OrdersEntry } from "../game/arena/duel.ts";
 import type { EngineName } from "../core/physics/engines.ts";
-import type { Side } from "../core/bodies/spec/body.ts";
+
 import type { BuiltBout } from "./bout.ts";
 import type { BuiltCrypt, CryptCase } from "./crypt.ts";
 import type { BuiltFall, FallCase } from "./fall.ts";
@@ -16,6 +16,7 @@ import type { AttributeOverrides } from "../core/bodies/character-attributes.ts"
 import type { MindConfig } from "../minds/config.ts";
 import type { MindPreset } from "../minds/controller.ts";
 import type { Minded } from "../minds/minds.ts";
+import type { Side } from "../core/bodies/bilateral.ts";
 
 /** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
 export type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };

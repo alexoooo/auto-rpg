@@ -5,13 +5,14 @@
 import { LOADOUTS, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { BODY_MODELS, modelHolds, type BodyModel } from "../../core/bodies/models.ts";
-import type { Side } from "../../core/bodies/spec/body.ts";
+
 import { readBout, type BoutReading } from "../contest.ts";
 import { sideAttributes, type Cases, type Json, type Reader } from "../evaluation.ts";
 import { TOURNAMENT } from "../tournament/cases.ts";
-import { otherSide } from "../../core/bodies/spec/body.ts";
+
 import { FIGHT_ENTRY } from "../../minds/catalog.ts";
 import { type GameContext } from "../../game/arena/context.ts";
+import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
 
 /** The opponent: Option Mind with sword and buckler, the sword-and-buckler reference. */
 const OPPONENT = Object.freeze({ mind: "option", loadout: TOURNAMENT.loadouts.find((loadout) => loadoutKey(loadout) === "buckler,sword")! });

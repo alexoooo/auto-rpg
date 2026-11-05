@@ -1,3 +1,4 @@
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 /**
  * **A BVH clip, read**: the CMU Graphics Lab database's, as cgspeed's conversion writes it (`Hips`,
  * `LeftUpLeg`, `LeftLeg`, `LeftFoot`, `LeftToeBase` and the right side's), its joints placed by
@@ -122,12 +123,12 @@ export function readClip(text, { unit: scale = 0.05644, rate } = {}) {
 
   // Where each ankle and toe rests on the ground: the `rest` share of the clip lowest it comes.
   const floorOf = new Map();
-  for (const side of ["left", "right"]) for (const j of [J[side].ankle, J[side].toe]) {
+  for (const side of SIDES) for (const j of [J[side].ankle, J[side].toe]) {
     const ys = Array.from({ length: frames }, (_, f) => at(f, j)[1]).sort((a, b) => a - b);
     floorOf.set(j, ys[Math.floor(CONTACT.rest * (frames - 1))]);
   }
   // Each ankle's angle of the foot to the shank standing: the shank upright, the foot falling to the toe by the rest heights' difference.
-  const rest = Object.fromEntries(["left", "right"].map((side) => {
+  const rest = Object.fromEntries(SIDES.map((side) => {
     const length = size(sub(zero[J[side].toe], zero[J[side].ankle])) * scale, fall = floorOf.get(J[side].ankle) - floorOf.get(J[side].toe);
     return [side, Math.acos(fall / length)];
   }));
@@ -138,7 +139,7 @@ export function readClip(text, { unit: scale = 0.05644, rate } = {}) {
 
   // Contact: a sole (its ankle or its toe) near the floor and slow.
   const contact = { left: [], right: [] };
-  for (const side of ["left", "right"]) for (let f = 0; f < frames; f++) {
+  for (const side of SIDES) for (let f = 0; f < frames; f++) {
     const low = (j) => at(f, j)[1] - floorOf.get(j);
     const speed = (j) => f === 0 ? 0 : size(sub(at(f, j), at(f - 1, j))) / dt;
     const down = (j) => low(j) < CONTACT.height && speed(j) < CONTACT.speed;

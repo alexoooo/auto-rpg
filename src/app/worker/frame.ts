@@ -1,5 +1,5 @@
-import type { HandPose } from "../../core/bodies/spec/body.ts";
-import { handPoseCode } from "../../core/bodies/build/hand-poses.ts";
+import type { ConfigurationName, SegmentSpec } from "../../core/bodies/spec/body.ts";
+import { configurationCode } from "../../core/bodies/build/configurations.ts";
 
 /**
  * **A world's step as a worker sends it**: one `Float64Array` a step, its head, then each body of
@@ -11,8 +11,8 @@ import { handPoseCode } from "../../core/bodies/build/hand-poses.ts";
  * - A body's head (`BODY_HEAD`): its life, a fraction; 1 when it is down, else 0; 1 when it is out,
  *   else 0; its centre of mass, world, m.
  * - A segment's row (`SEGMENT_ROW`): its pose's position, world, m, and rotation, x, y, z, w, as the
- *   step left them; its hand's applied pose encoded by `handPoseCode`, or -1 for a segment that
- *   is no posable hand; its toes' bend, rad, 0 for a segment with none; 1 while it is on its body
+ *   step left them; its applied configuration encoded by `configurationCode`, or -1 for a segment that
+ *   declares no configurations; its toes' bend, rad, 0 for a segment with none; 1 while it is on its body
  *   (`attachment`), 0 once it is cut off.
  */
 
@@ -40,7 +40,8 @@ export interface FramedBody {
   readonly segments: ReadonlyMap<string, {
     readonly pose: { readonly position: { readonly x: number; readonly y: number; readonly z: number };
       readonly rotation: { readonly x: number; readonly y: number; readonly z: number; readonly w: number } };
-    readonly handPose?: { readonly applied: HandPose };
+    readonly spec: SegmentSpec;
+    readonly configuration?: { readonly applied: ConfigurationName };
     readonly toes?: { readonly bend: number };
   }>;
   /** Whether its segment `name` is on it (`attachment`). */
@@ -66,7 +67,7 @@ export function packFrame(bodies: readonly FramedBody[], length: number, time: n
       const p = segment.pose.position, q = segment.pose.rotation;
       frame[at] = p.x; frame[at + 1] = p.y; frame[at + 2] = p.z;
       frame[at + 3] = q.x; frame[at + 4] = q.y; frame[at + 5] = q.z; frame[at + 6] = q.w;
-      frame[at + 7] = handPoseCode(segment.handPose?.applied);
+      frame[at + 7] = configurationCode(segment.spec, segment.configuration?.applied);
       frame[at + 8] = segment.toes ? segment.toes.bend : 0;
       frame[at + 9] = body.attached(name) ? 1 : 0;
       at += SEGMENT_ROW;

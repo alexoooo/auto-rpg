@@ -1,12 +1,12 @@
 import type { Quaternion, Vector3 } from "../math/vector.ts";
 import type { ColliderShape, Contact, ContactManifold, MassProperties } from "../physics/engine.ts";
 import type { Rigid } from "./build/rigid.ts";
-import type { BodySpec, DofSpec, HandPose, JointSpec, SegmentFrame, SegmentSpec, ShapeSpec } from "./spec/body.ts";
+import type { BodySpec, DofSpec, ConfigurationName, JointSpec, SegmentFrame, SegmentSpec, ShapeSpec } from "./spec/body.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 
 /**
  * **A built body as its mind reads it**: the spec it was built from, each segment's pose and
- * motion, its joints' frames, what it touches and what its hands are set to. Every member reads;
+ * motion, its joints' frames, what it touches and its segments' configurations. Every member reads;
  * none moves a body, sets a motor or reaches the engine. A mind, the skills and motor control
  * (`OwnBody`, `src/core/bodies/own-body.ts`) are given this and never the built body
  * (`BuiltBody`, `src/core/bodies/build/build-body.ts`), which extends it with what acts.
@@ -16,7 +16,7 @@ export interface ReadBody {
   readonly physics: ReadPhysics;
   readonly segments: ReadonlyMap<string, ReadSegment>;
   readonly joints: ReadonlyMap<string, ReadJoint>;
-  readonly handPoses: ReadHandPoses;
+  readonly configurations: ReadConfigurations;
 }
 
 /** Which body another is, in a contact: an identity to compare and its pose's name, and nothing to act on. */
@@ -47,8 +47,8 @@ export interface ReadSegmentBody extends BodyRef {
   readonly massProperties: MassProperties;
 }
 
-/** A hand in one pose: its first shape the pose's, the rest as held. */
-export interface HandConfiguration {
+/** A segment in one configuration: its first shape the configuration's, the rest as held. */
+export interface SegmentConfiguration {
   readonly shape: ShapeSpec;
   readonly rigid: Rigid;
   readonly collider: ColliderShape;
@@ -67,10 +67,10 @@ export interface ReadSegment {
    * its shapes are as they are now, a hand's in its pose (`poses`) and a foot's toes as they lie.
    */
   readonly rigid: Rigid;
-  /** Applied hand configuration, with pending requests kept in the body's pose state. */
-  readonly handPose?: { readonly applied: HandPose; readonly requested: HandPose };
-  /** A posable hand's configurations, made once: each pose's shape (`handShapeAt`), its rigid body and its collider. */
-  readonly poses?: Readonly<Record<HandPose, HandConfiguration>>;
+  /** Applied segment configuration, with pending requests kept in the body's pose state. */
+  readonly configuration?: { readonly applied: ConfigurationName; readonly requested: ConfigurationName };
+  /** A segment's configurations, made once: each configuration's shape (`configurationShapeAt`), its rigid body and its collider. */
+  readonly poses?: Readonly<Record<ConfigurationName, SegmentConfiguration>>;
   /** A foot's toes now (`ToesState`, `src/core/bodies/build/toes.ts`): their bend, rad, 0 flat. */
   readonly toes?: { readonly bend: number };
 }
@@ -150,8 +150,8 @@ export interface ReadPhysics {
   contactManifoldsOf(body: ReadSegmentBody, wanted?: (other: BodyRef | null) => boolean): readonly ReadManifold[];
 }
 
-/** Each posable hand's configurations, and the pose each has and was asked (`HandPoses`). */
-interface ReadHandPoses {
-  readonly model: readonly { readonly hand: "left" | "right"; readonly segment: string; readonly poses: readonly HandPose[] }[];
-  readonly state: Readonly<Record<string, { readonly applied: HandPose; readonly requested: HandPose }>>;
+/** Each segment's configurations, and the configuration each has and was asked (`Configurations`). */
+interface ReadConfigurations {
+  readonly model: readonly { readonly segment: string; readonly configurations: readonly ConfigurationName[] }[];
+  readonly state: Readonly<Record<string, { readonly applied: ConfigurationName; readonly requested: ConfigurationName }>>;
 }

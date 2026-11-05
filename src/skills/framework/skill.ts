@@ -1,10 +1,8 @@
 import type { BodyView } from "../../control/body.ts";
 import type { StanceGoal, SwingGoal } from "../../control/stance.ts";
-import type { BearingEnd, BodySpec, Side } from "../../core/bodies/spec/body.ts";
-import { stanceFeet } from "../../control/support.ts";
+import type { BearingEnd } from "../../core/bodies/spec/body.ts";
 import type { GaitName } from "../locomotion/gaits.ts";
-import type { CarriageName, Footing } from "../locomotion/locomotion.ts";
-import type { SupportReport } from "../locomotion/support-fold.ts";
+import type { SupportReport } from "./support.ts";
 
 /**
  * **What every skill answers to**: the body was another mind's, and is back as `view` shows it.
@@ -24,7 +22,7 @@ export interface Skill<V = BodyView> {
  *   `destination`, m from where the body is being taken, for its stopping. In an action's claim a
  *   walk or facing left out is the intent's: absent and a walk of none are distinct. Each foot's
  *   place is keyed by its end's name (`BearingEnd`).
- * - **The carriage** the legs hold from now on, by name (`CARRIAGES`); left out, the one they hold.
+ * - **The carriage** the legs hold from now on, by a name their implementation understands; left out, the one they hold.
  *   **The gait** they move by, by name (`GAITS`), where their set has it; left out, their set's choice.
  * - **The stance's fields** (`StanceGoal`): `feet`, the ends that bear (`BearingEnd`, the body's
  *   own names: a human's `foot.left`), a human standing on its two feet;
@@ -39,7 +37,7 @@ export interface LegsGoal {
   readonly face?: number;
   readonly footing?: Readonly<Record<BearingEnd, readonly [number, number]>>;
   readonly destination?: number;
-  readonly carriage?: CarriageName;
+  readonly carriage?: string;
   readonly gait?: GaitName;
   readonly feet?: readonly BearingEnd[];
   readonly height?: number;
@@ -48,16 +46,6 @@ export interface LegsGoal {
   readonly pose?: StanceGoal["pose"];
   readonly swing?: SwingGoal | null;
   readonly halt?: boolean;
-}
-
-/** **The ends a stance stands on**, by name, each with its side (`stanceFeet`). */
-export type StanceFeet = Readonly<Record<BearingEnd, Side>>;
-
-/** The ends `spec` names that a stance stands on (`StanceFeet`). */
-export function stanceFeetOf(spec: BodySpec): StanceFeet {
-  const feet: Record<BearingEnd, Side> = {};
-  for (const { end, side } of stanceFeet(spec)) feet[end.name] = side;
-  return Object.freeze(feet);
 }
 
 /** Every field of a legs goal, in `LegsGoal`'s order. */
@@ -111,36 +99,6 @@ export function setIn(goal: LegsGoal, mask: number): number {
 
 /** A legs goal with its walk and facing filled in: what the legs are given (`Locomotion.goal`). */
 export type LegsAsked = LegsGoal & { readonly walk: readonly [forward: number, right: number] | null; readonly face: number };
-
-/** **A legs goal on a stance's feet**: its footing by side (`onStanceFeet`). */
-export type SidedAsk<G extends LegsGoal = LegsAsked> = Omit<G, "footing"> & { readonly footing?: Footing };
-
-/**
- * `goal` on the stance's feet: its footing by side (`Footing`), and the mask of the fields that
- * name an end the stance does not stand on, which are left out for the legs to report unmet.
- */
-export function onStanceFeet<G extends LegsGoal>(goal: G, feet: StanceFeet): { readonly goal: SidedAsk<G>; readonly refused: number } {
-  let refused = 0;
-  const sideOf = (end: BearingEnd): Side | undefined => Object.hasOwn(feet, end) ? feet[end] : undefined;
-  const { feet: ends, footing, pose, swing, ...rest } = goal;
-  const out: { -readonly [K in keyof SidedAsk]?: SidedAsk[K] } = { ...rest };
-  if (ends !== undefined) {
-    if (ends.every((end) => sideOf(end) !== undefined)) out.feet = ends; else refused |= FIELD_BIT.feet;
-  }
-  if (footing !== undefined) {
-    const placed: Partial<Record<Side, readonly [number, number]>> = {};
-    let fits = true;
-    for (const [end, at] of Object.entries(footing)) { const side = sideOf(end); if (side === undefined || placed[side]) fits = false; else placed[side] = at; }
-    if (fits && placed.left && placed.right) out.footing = { left: placed.left, right: placed.right }; else refused |= FIELD_BIT.footing;
-  }
-  if (pose !== undefined) {
-    if (Object.keys(pose.anchors ?? {}).every((end) => sideOf(end) !== undefined)) out.pose = pose; else refused |= FIELD_BIT.pose;
-  }
-  if (swing !== undefined) {
-    if (swing === null || sideOf(swing.foot) !== undefined) out.swing = swing; else refused |= FIELD_BIT.swing;
-  }
-  return { goal: out as SidedAsk<G>, refused };
-}
 
 /** What an executor reads of the skills beside it, as this step finds them. */
 export interface Around {

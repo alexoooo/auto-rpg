@@ -6,8 +6,9 @@ import type { Actor } from "../../../game/lab/actor.ts";
 import type { Puppet } from "../render/puppet.ts";
 import type { Control } from "../ui/controls.ts";
 import type { LabAddress } from "../../../game/lab/scenarios.ts";
-import type { BodySpec, Side } from "../../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { MindConfig } from "../../../minds/config.ts";
+import type { Side } from "../../../core/bodies/bilateral.ts";
 
 /**
  * **What the lab's shell (`main.ts`) asks of a scenario.** The shell owns the page: the engine,

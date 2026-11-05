@@ -20,7 +20,7 @@ import { ARENA_SIDES } from "./side-highlights.ts";
 import { endingText } from "../../../game/arena/end-rule.ts";
 import { teamSpec } from "../../../game/arena/team-bout.ts";
 import { crowdFight } from "../game.ts";
-import type { Side } from "../../../core/bodies/spec/body.ts";
+import type { Side } from "../../../core/bodies/bilateral.ts";
 
 /** How long the bodies go on moving once the verdict is given, s. */
 const AFTERMATH_SECONDS = 3;
@@ -52,7 +52,7 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
   context.signal.throwIfAborted();
 
   const bodies = link.roster.map(({ id, card }, k) => {
-    const puppet = puppetBody(teamSpec(recipe[card.side]), scene), hands = handsOf(puppet.handPoses.state);
+    const puppet = puppetBody(teamSpec(recipe[card.side]), scene), hands = handsOf(puppet.configurations.state);
     const skin = dress(puppet, { clothing: { boots: true, armour: true }, closure: hands.closure });
     const shapes = drawBody(puppet, scene, Color3.FromHexString(ARENA_SIDES[card.side].colour));
     const held = drawHeld(puppet, scene);

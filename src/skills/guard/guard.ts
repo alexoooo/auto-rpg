@@ -1,3 +1,4 @@
+import { HAND_CONFIGURATION } from "../../core/bodies/human/hand-configurations.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { BodyView } from "../../control/body.ts";
 import { heldFrame, rigidPoints } from "../../core/bodies/build/rigid.ts";
@@ -6,7 +7,7 @@ import { intoFrameToRef, pointAtToRef, solveReach, specChainTo } from "../../con
 import type { EffectorGoal, PointTask } from "../../control/motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { Cover, Intent } from "../intent/intent.ts";
-import type { BodySpec, HandPose, ItemSpec } from "../../core/bodies/spec/body.ts";
+import type { BodySpec, ConfigurationName, ItemSpec } from "../../core/bodies/spec/body.ts";
 import { standingFooting, standingHeight } from "../../control/support.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";
 import { STANDARD_GRAVITY } from "../../core/bodies/spec/constants.ts";
@@ -221,8 +222,8 @@ export interface GuardSkill extends Skill {
   readonly posture: Pose;
   /** A free hand's hold of what it holds (`holdUp`), asked of each hand neither a cover nor an action drives; null, the posture's. */
   readonly hold: ((hand: string) => PointTask | null) | null;
-  /** The pose a free hand that can change its pose is asked (`BodyCommand.handPoses`); absent or null, it keeps what it was asked last. */
-  handPose?(hand: string): HandPose | null;
+  /** The pose a free hand that can change its pose is asked (`BodyCommand.configurations`); absent or null, it keeps what it was asked last. */
+  configuration?(hand: string): ConfigurationName | null;
   /** Each hand's goal this step, by segment: a cover's places for a hand that guards with one; absent or null otherwise. */
   command(view: BodyView, guard: Intent["guard"]): Readonly<Record<string, EffectorGoal | null>>;
 }
@@ -329,7 +330,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, { w
   };
   return {
     hands, posture: guardPosture(spec), hold, state,
-    handPose: (hand) => segmentOf(spec, hand)?.handPoses ? "open" : null,
+    configuration: (hand) => segmentOf(spec, hand)?.configurations ? HAND_CONFIGURATION.open : null,
     resume() {},
     command(view, guard) {
       let goals: Record<string, EffectorGoal | null> | null = null;

@@ -1,9 +1,10 @@
-import type { Side } from "../../../../core/bodies/spec/body.ts";
+
 import type { BodyView } from "../../../../control/body.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { deepFreeze } from "../../../../core/world/state.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
 import { mirrorPosture, phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "../../technique.ts";
+import type { Side } from "../../../../core/bodies/bilateral.ts";
 
 declare module "../../technique.ts" {
   interface TechniqueConfigs { readonly roll: { readonly kind: "roll" } }

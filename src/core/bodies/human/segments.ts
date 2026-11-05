@@ -1,4 +1,5 @@
-import type { Side, SegmentSpec, ShapeSpec } from "../spec/body.ts";
+import { handConfigurations } from "./hand-configurations.ts";
+import type { SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { segmentFrame } from "../spec/body.ts";
 import { square } from "../../math/real.ts";
 import { capsuleRadius, massShare } from "../spec/geometry.ts";
@@ -6,11 +7,12 @@ import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.
 import { add, distance, dot, lerp, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
 import type { FittedSegment, HandFigure, HumanFigure } from "./figure.ts";
-import { SIDES } from "./landmarks.ts";
+
 import { broadHull } from "./physique.ts";
 import { DE_LEVA_1996, type DeLevaRow, type DeLevaSegment } from "./tables/de-leva-1996.ts";
 import { CONTACT_STIFFNESS } from "./tables/contact-stiffness.ts";
 import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
+import { type Side, SIDES } from "../bilateral.ts";
 
 /** A foot's grip on what it stands on, the coefficient of friction: set so the run reaches 3 to 4 m/s, the value it is fastest and surest at. */
 const FOOT_FRICTION = sourced(0.8, "1", "owner-run-body", "the foot's coefficient of friction");
@@ -61,7 +63,7 @@ const STRIDE_ROOM = sourced(0.03, "m", "owner-stride-room", "the room between th
  * any turn of the wrist over more than twice the lever. Its `little` is the little finger's
  * knuckle, the head of its first bone, where a grip ends (`grip.ts`), when the figure has one.
  *
- * **A hand's poses** (`SegmentSpec.handPoses`). With the figure's measured hands
+ * **A hand's poses** (`SegmentSpec.configurations`). With the figure's measured hands
  * (`HumanFigure.hands`), the open hand is the palm's hull and the fist the fist's hull; its
  * `strike` is the fist's surface ahead of the knuckles and its `palm` where the open hand bears.
  * Without them, the open hand is the segment's capsule and the fist the capsule ended at the
@@ -303,11 +305,11 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
       if (plan.hand) {
         const hull = (corners: readonly Quantity<Vec3>[]): ShapeSpec => ({ kind: "hull", points: corners.map(atFit) });
         return { ...segment, ...(plan.right && { right: plan.right }), points,
-          handPoses: { open: hull(plan.hand.palm.hull), fist: hull(plan.hand.fist.hull), grip: fist } };
+          configurations: handConfigurations({ open: hull(plan.hand.palm.hull), fist: hull(plan.hand.fist.hull), grip: fist }) };
       }
       points.strike = derive("m", "the closed capsule's distal surface, beyond the metacarpal head by its radius",
         [proximal, distal, points.knuckles, open.radius], (p, d, k, r) => add(k, scale(normalize(sub(d, p)), r)));
-      return { ...segment, ...(plan.right && { right: plan.right }), points, handPoses: { open, fist, grip: fist } };
+      return { ...segment, ...(plan.right && { right: plan.right }), points, configurations: handConfigurations({ open, fist, grip: fist }) };
     }
     return { ...segment, ...(plan.right && { right: plan.right }), ...(points && { points }) };
   });

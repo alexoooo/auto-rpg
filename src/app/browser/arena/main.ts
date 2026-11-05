@@ -50,11 +50,12 @@ import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type
 import { choice, following, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
 import { keysToMove } from "./keys-input.ts";
-import type { BodySpec, Side } from "../../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
 import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
 import { fighterHud } from "./fighter-hud.ts";
 import { choicePanel } from "../ui/choices.ts";
+import type { Side } from "../../../core/bodies/bilateral.ts";
 
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
@@ -591,7 +592,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
             drawn.push(drawBody(puppet, scene, Color3.FromHexString(ARENA_SIDES[side].colour).scale(BESIDE_SHADE)), drawHeld(puppet, scene));
             return;
           }
-          const hands = handsOf(puppet.handPoses.state);
+          const hands = handsOf(puppet.configurations.state);
           const skin = dress.get(side)!(puppet, { clothing: { boots: true, armour: true }, closure: hands.closure });
           const shapes = drawBody(puppet, scene, Color3.FromHexString(ARENA_SIDES[side].colour));
           const held = drawHeld(puppet, scene), root = puppet.segments.get(rootOf(puppet.spec))!.node;

@@ -39,6 +39,7 @@ import { appendFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
+import { SIDES } from "../src/core/bodies/bilateral.ts";
 
 /** A joint within this of a stop, rad, presses it. */
 const NEAR_STOP = 0.02;
@@ -145,7 +146,7 @@ async function runOnce({ model, pace, legs, seconds, from, scale }) {
     }
     if (time < from || !prior || subject.down()) return;
     const swung = reading.phase === "swing" && swing ? swing.foot : null;
-    const bearers = ["left", "right"].filter((side) => side !== swung && reading.asked[side].force.y > 0);
+    const bearers = SIDES.filter((side) => side !== swung && reading.asked[side].force.y > 0);
     if (!bearers.length) return;
     // The ground's wrench over the step, realised, and as planned, about the centre of mass at mid-step.
     const C = now.C.add(prior.C).scaleInPlace(0.5);
@@ -308,7 +309,7 @@ async function swaying(stand, hz) {
   // The stance reads the body before each command, as a body's own step has it (`src/control/body.ts`).
   const driver = driveMuscles(stand.built, stand.world, (muscles, dt) => { motor.read(); motor.control(muscles, control, dt); });
   const control = { muscles: driver, assist: { force: new Vector3(), moment: new Vector3() }, hands: { request() { throw new Error("the sway fixture requests no hand pose"); } } }, reading = motor.reading;
-  const height = standingHeight(stand.built) - STANCE_LOWER, feet = ["left", "right"];
+  const height = standingHeight(stand.built) - STANCE_LOWER, feet = SIDES;
   motor.setStance({ feet, centre: null, height, heading: 0 });
   stand.step(stand.seconds(SETTLE));
   const mid = reading.soles.left.add(reading.soles.right).scaleInPlace(0.5), start = stand.world.time;

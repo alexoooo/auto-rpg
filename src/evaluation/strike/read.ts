@@ -25,6 +25,7 @@ import { modelSpec } from "../../core/bodies/models.ts";
 import { startVelocity } from "../../skills/framework/profile.ts";
 import { placeInWindow } from "../../skills/intent/action-window.ts";
 import type { Reader } from "../evaluation.ts";
+import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 
 export type Mark = "high" | "middle" | "legs";
 
@@ -34,7 +35,7 @@ function limbAbove(spec: BodySpec, segment: string, steps: number): string | und
   for (let k = 0; k < steps && at !== undefined; k++) at = spec.joints.find((joint) => joint.child === at)?.parent;
   return at;
 }
-export type Hand = "left" | "right";
+export type Hand = Side;
 
 /** The limb a trial strikes with: a hand, read against the bar's fist or held blow, or a foot, read against its stomp (`Bar.foot`). */
 export type Limb = { readonly hand: Hand } | { readonly foot: Hand };
@@ -308,7 +309,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   const { mark } = limbAsked, hand = handOf(limbAsked), effector = effectorOf(limbAsked);
   const target = duel.duelists.right.built.spec, marked = new Set(regionSegments(target, { kind: "mark", mark }));
   /** The target's arms, hand to upper arm: what a guard meets a blow with. */
-  const arms = new Set((["left", "right"] as const).flatMap((side) => [0, 1, 2].map((steps) => limbAbove(target, `hand.${side}`, steps))).filter((name) => name !== undefined));
+  const arms = new Set(SIDES.flatMap((side) => [0, 1, 2].map((steps) => limbAbove(target, `hand.${side}`, steps))).filter((name) => name !== undefined));
   const limb = left.built.segments.get(effector);
   if (!limb) throw new Error(`the striker has no ${effector}`);
   const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = given ?? barOf(spec);
@@ -409,7 +410,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   /** Which feet bear on the ground, and the centre of mass's speed over it, as this step left them. */
   const footing = (): NonNullable<StrikeReading["asked"]> => {
     const { x, z } = moving(), contacts = left.body.observe().contacts;
-    const bearing = (["left", "right"] as const).filter((side) => contacts.some((contact) => contact.segment === `foot.${side}` && contact.fixed !== null && contact.impulse > 0));
+    const bearing = SIDES.filter((side) => contacts.some((contact) => contact.segment === `foot.${side}` && contact.fixed !== null && contact.impulse > 0));
     return { bearing, speed: Math.sqrt(x * x + z * z) };
   };
   /** The actions the fight asked before the drill had the body. */
@@ -466,7 +467,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       }
       if (id !== null && times.ended === null && !skills.report.actions.some((one) => one.id === id)) times.ended = world.time;
       const aimed = action && action.id === id ? action.aim : null;
-      const tip = !aimed ? null : hand === null || armed ? pointOfToRef(limb, aim, point) : view?.fists[hand]?.position ?? null;
+      const tip = !aimed ? null : hand === null || armed ? pointOfToRef(limb, aim, point) : view?.pointMotion[effector]?.knuckles?.position ?? null;
       if (aimed && tip) {
         const dx = tip.x - aimed[0], dy = tip.y - aimed[1], dz = tip.z - aimed[2], apart = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (nearest === null || apart < nearest) nearest = apart;

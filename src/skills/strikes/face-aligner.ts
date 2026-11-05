@@ -6,9 +6,10 @@ import type { MusclePush } from "../../control/motor.ts";
 import { solve3To } from "../../core/math/flat.ts";
 import { channelName } from "../../core/bodies/muscle/driver.ts";
 import type { JointKinematics } from "../../core/bodies/read-body.ts";
-import type { BodySpec, Side } from "../../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import type { StrikingFace } from "./straight-punch.ts";
+import type { Side } from "../../core/bodies/bilateral.ts";
 
 /** How far along its facing the second point that reads the face's facing stands from the face, m. */
 const ALIGN_LEVER = 0.1;
