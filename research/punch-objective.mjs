@@ -1,6 +1,6 @@
 /**
  * **What a punch is worth in the game**: a fist that reaches a target is priced as the arena prices
- * a blow on a standing foe's head (`watchBlows`, `src/core/rules/blows.ts`). The fist meets what
+ * a blow on a standing foe's head (`watchBlows`, `src/combat/blows.ts`). The fist meets what
  * its body gives along its approach with its muscles holding at the bounds they had that step;
  * the head, what a Warrior standing in guard gives with its own. The two meet over the time their
  * surfaces in series take (`contactGive`), their energy is the closing speed's over the two masses,
@@ -16,19 +16,19 @@
  * and held there by the combat skills for `SETTLE` s at the rate asked.
  */
 import { Vector3 } from "../src/core/math/vector.ts";
-import { SERVO_SECONDS } from "../src/core/body.ts";
-import { commandedBody } from "../src/core/mind/host.ts";
-import { contactGive, contactMass } from "../src/core/build/contact-mass.ts";
-import { centreOfToRef } from "../src/core/read-motion.ts";
-import { DEFAULT_ENGINE } from "../src/core/engine/engines.ts";
-import { NO_COVER } from "../src/core/intent/intent.ts";
-import { modelSpec } from "../src/core/models.ts";
-import { holdsOf, seriesStiffness } from "../src/core/rules/blows.ts";
-import { impactEnergy } from "../src/core/rules/impact.ts";
-import { blowDamage, rulebook } from "../src/core/rules/rulebook.ts";
-import { energyShares } from "../src/core/rules/share.ts";
-import { guardPosture } from "../src/core/skills/guard/guard.ts";
-import { standingSkills } from "../src/core/skills/framework/skills.ts";
+import { SERVO_SECONDS } from "../src/control/body.ts";
+import { commandedBody } from "../src/minds/host.ts";
+import { contactGive, contactMass } from "../src/core/bodies/build/contact-mass.ts";
+import { centreOfToRef } from "../src/core/bodies/read-motion.ts";
+import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
+import { NO_COVER } from "../src/skills/intent/intent.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
+import { holdsOf, seriesStiffness } from "../src/combat/blows.ts";
+import { impactEnergy } from "../src/combat/impact.ts";
+import { blowDamage, rulebook } from "../src/combat/rulebook.ts";
+import { energyShares } from "../src/combat/share.ts";
+import { guardPosture } from "../src/skills/guard/guard.ts";
+import { standingSkills } from "../src/skills/framework/skills.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 /** How long the struck body stands in guard before it is read, s. */

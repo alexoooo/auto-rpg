@@ -4,7 +4,7 @@
  * scored (`scoreOf`), in the drill's own figures; a scored reading against its baseline
  * (`baselineOf`), with the person's figure beside it (`personOf`).
  */
-import { loadoutKey, type Loadout } from "../../core/items/held.ts";
+import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import type { Json } from "../evaluation.ts";
 import { STOPPING_PACE, TURNING_PACE } from "../locomotion/cases.ts";
 import { STAND_WITHIN, targetGates } from "../rising.ts";

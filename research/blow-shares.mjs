@@ -13,12 +13,12 @@
  *   rulebook's unit: to spend the body's life (its hit points over the part's cost in life,
  *   `lifeFactor`), and on a limb to empty the limb's bar (`LimbSpec.share` of full life).
  */
-import { CONTACT_STIFFNESS } from "../src/core/human/tables/contact-stiffness.ts";
-import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
-import { lifeFactor, woundGroups } from "../src/core/rules/pool.ts";
-import { rulebook } from "../src/core/rules/rulebook.ts";
-import { energyShares } from "../src/core/rules/share.ts";
-import { si } from "../src/core/spec/quantity.ts";
+import { CONTACT_STIFFNESS } from "../src/core/bodies/human/tables/contact-stiffness.ts";
+import { HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
+import { lifeFactor, woundGroups } from "../src/combat/pool.ts";
+import { rulebook } from "../src/combat/rulebook.ts";
+import { energyShares } from "../src/combat/share.ts";
+import { si } from "../src/core/bodies/spec/quantity.ts";
 
 /** The sources a quantity's provenance names, each once. */
 function sourcesOf(quantity, into = new Set()) {

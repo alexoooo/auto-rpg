@@ -2,16 +2,16 @@
  * **The workshop models' clothed envelope**, measured from their GLBs: what the core's human spec
  * takes where the rig gives a joint but no surface.
  *
- * - The trunk: the corners of the convex hull (`src/core/spec/hull.ts`) of the vertices the trunk's
+ * - The trunk: the corners of the convex hull (`src/core/bodies/spec/hull.ts`) of the vertices the trunk's
  *   bones weigh most on, over the stretch of the trunk line each trunk segment holds, body frame.
  * - The feet: the boot's footprint, from the vertices the foot's bones weigh most on.
  *
  * The envelope is the skin where it shows and the clothes where they cover it; the skin mesh has
  * its covered faces removed, so the clothes are the surface there. Armour, weapons and hair are
- * not the body. Everything is in the body frame (`src/core/spec/body.ts`) at the authored size,
+ * not the body. Everything is in the body frame (`src/core/bodies/spec/body.ts`) at the authored size,
  * rounded to 0.1 mm.
  *
- * `node scripts/core/workshop-envelope.mjs` prints the feet `src/core/human/envelope.ts` states and
+ * `node scripts/core/workshop-envelope.mjs` prints the feet `src/core/bodies/human/envelope.ts` states and
  * how many corners each trunk hull has; with `--write` it writes the hulls to
  * `assets/humanoid/workshop-*-trunk-hull.json`.
  */
@@ -20,10 +20,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readGlb, weightedVertices } from "./glb.mjs";
 import { losslessModelPath } from "../art/paths.mjs";
-import { segmentFrame } from "../../src/core/spec/body.ts";
-import { dot, sub } from "../../src/core/spec/vec.ts";
-import { trunkLandmarks } from "../../src/core/human/landmarks.ts";
-import { convexHull } from "../../src/core/spec/hull.ts";
+import { segmentFrame } from "../../src/core/bodies/spec/body.ts";
+import { dot, sub } from "../../src/core/bodies/spec/vec.ts";
+import { trunkLandmarks } from "../../src/core/bodies/human/landmarks.ts";
+import { convexHull } from "../../src/core/bodies/spec/hull.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 

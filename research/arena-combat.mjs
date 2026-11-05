@@ -3,13 +3,13 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { Vector3 } from '../src/core/math/vector.ts';
 import '../tests/harness/preload-data.mjs';
-import { buildBout } from '../src/evaluation/bout.ts';
-import { lifeTaken } from '../src/core/rules/blows.ts';
-import { commandsBody } from '../src/core/body.ts';
-import { DEFAULT_ENGINE, loadEngine } from '../src/core/engine/engines.ts';
-import { MINDS } from "../src/entrants/game.ts";
-import { motionAtToRef, pointOfToRef } from '../src/core/read-motion.ts';
-import { STAND_ORDERS } from '../src/core/intent/orders.ts';
+import { buildBout } from "../src/app/node/evaluation.ts";
+import { lifeTaken } from "../src/combat/blows.ts";
+import { commandsBody } from "../src/control/body.ts";
+import { DEFAULT_ENGINE, loadEngine } from "../src/core/physics/engines.ts";
+import { MINDS } from "../src/app/catalog.ts";
+import { motionAtToRef, pointOfToRef } from "../src/core/bodies/read-motion.ts";
+import { STAND_ORDERS } from "../src/skills/intent/orders.ts";
 
 /** Frozen measurement protocol: m/s, s; sustained pressure alone never counts as a driven blow. */
 export const COMBAT_PROTOCOL = Object.freeze({ version: 1, drivenClosing: 1, relativeHandSpeed: .5, relativeFootSpeed: .5,

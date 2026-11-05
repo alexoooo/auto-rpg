@@ -5,8 +5,8 @@
 The source tree is not organized by responsibility, ownership or runtime. `src/core/` holds
 foundations beside skill implementations, the Option Mind framework and one skill's private caches:
 the staged rise's `RiseTables` sits beside world stepping and arithmetic. Runtime-neutral
-simulation code also lives outside core, mixed with rendering in `src/arena/`, `src/dungeon/` and
-`src/lab/`, and is found only by tracing imports from a list of builders. A path tells a reader
+simulation code also lives outside core, mixed with rendering in `src/game/arena/`, `src/game/dungeon/` and
+`src/game/lab/`, and is found only by tracing imports from a list of builders. A path tells a reader
 neither what a module is for, who owns it, what may depend on it, nor where it can run.
 
 ## Goal
@@ -95,7 +95,7 @@ The remaining directory placements are:
 | `core/read-body.ts`, `core/read-motion.ts`, `core/equipment.ts`, `core/models.ts`, `core/character-attributes.ts`, `core/sources.ts` | `core/bodies/` |
 | `core/body.ts`, `core/observation.ts` | command/view and observation contracts in `control/`; hosted-body contracts in `minds/` |
 | `core/skills/`, `core/intent/`, `core/perception/` | `skills/`, `skills/intent/`, `skills/perception/` |
-| `core/reptile/` control and skill implementations | the paw motor and its private rules in `control/quadruped/`; gaits and jaw skills in `skills/quadruped/`; righting in `skills/recovery/righting/` |
+| `core/reptile/` control and skill implementations | the paw motor and its private rules in `control/quadruped/`; gaits in `skills/locomotion/quadruped/`; the jaw in `skills/strikes/bite/`; righting in `skills/recovery/righting/` |
 | `core/command/` | `minds/command/` |
 | `core/mind/kit.ts`, `core/skills/kit.ts`, `core/mind/held-body.ts`, `core/mind/held.ts` | `skills/kit.ts`, `skills/assembly.ts`, `skills/recovery/held-body.ts`, `control/held.ts` |
 | `core/data/` | the store stays in `core/data/`; each loader moves beside its skill's records |
@@ -112,7 +112,7 @@ The remaining directory placements are:
 Every module outside a `node/` or `browser/` directory is runtime-neutral, including its transitive
 dependencies, and is checked as such by its path. Node adapters own filesystem access, CLI
 integration and Node workers; browser adapters own DOM input and rendering. Both use the same
-runtime-neutral simulation, gameplay and fighters. `src/arena/`, `src/dungeon/` and `src/lab/`
+runtime-neutral simulation, gameplay and fighters. `src/game/arena/`, `src/game/dungeon/` and `src/game/lab/`
 split into their runtime-neutral part and a `browser/` part.
 
 ## Competing skill implementations

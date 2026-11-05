@@ -1,5 +1,5 @@
 /**
- * **The strikes' profiles** (`src/core/skills/framework/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
+ * **The strikes' profiles** (`src/skills/framework/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
  * Strike drill records (`assets/evaluations/strike/`, and the baseline's punch rows, whose `rung`
  * names theirs), each strike's trials on a mark its action aims at, with a limb that throws it with
  * what it holds (`strikesOf`). A profile a skill on a body against a target: its measured-on read
@@ -34,16 +34,16 @@
  * With none named, the records the profiles name now; a run's `--json` file reads as a record.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { EMPTY_LOADOUT, withLoadout } from "../src/core/items/held.ts";
-import { resolveCharacter } from "../src/core/models.ts";
-import { partIn, partLookup } from "../src/entrants/game.ts";
-import { limbAction, skillsOf } from "../src/core/option/kinds.ts";
-import { measuredOn, skillDigest, specDigest } from "../src/core/skills/framework/profile.ts";
-import { everyOf } from "../src/core/mind/decider.ts";
-import { bodyKey } from "../src/core/spec/body.ts";
+import { EMPTY_LOADOUT, withLoadout } from "../src/core/bodies/items/held.ts";
+import { resolveCharacter } from "../src/core/bodies/models.ts";
+import { partIn, partLookup } from "../src/app/catalog.ts";
+import { limbAction, skillsOf } from "../src/minds/option/kinds.ts";
+import { measuredOn, skillDigest, specDigest } from "../src/skills/framework/profile.ts";
+import { everyOf } from "../src/minds/decider.ts";
+import { bodyKey } from "../src/core/bodies/spec/body.ts";
 import { harnessRule } from "../src/evaluation/record.ts";
-import { lifeFactor } from "../src/core/rules/pool.ts";
-import { rulebook } from "../src/core/rules/rulebook.ts";
+import { lifeFactor } from "../src/combat/pool.ts";
+import { rulebook } from "../src/combat/rulebook.ts";
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";
 const write = process.argv.includes("--write");

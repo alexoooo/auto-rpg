@@ -12,7 +12,7 @@ npm run evaluate -- rising-target [riser ...]
   rated loadout (empty hands, the club, the sword, the club and buckler, the sword and buckler;
   `REPRESENTATIVE`), each shoved sixteen ways 22.5 degrees apart: 240 falls (`risingJobs`), on the
   fall bed every mind is felled on (`buildFall`, `src/evaluation/fall.ts`); a shove the body holds
-  is given again the same way 1.5 s later, at most three (`SHOVED`, `src/lab/ground-mode.ts`). A
+  is given again the same way 1.5 s later, at most three (`SHOVED`, `src/game/lab/ground-mode.ts`). A
   fall not made is no stand-up.
 - **The conditions**: Node stand, core world, Rapier, 120 Hz, calm air, Balance 0 and Grit 0, a
   30 s cap. A riser is a mind by its preset's or kind's name (`option`, the table's), on its own

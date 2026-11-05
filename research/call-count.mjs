@@ -17,9 +17,9 @@ globalThis.__countWasm = (exports) => Object.fromEntries(Object.entries(exports)
 
 const { values } = parseArgs({ options: { link: { type: "string" }, crowd: { type: "boolean", default: false }, seed: { type: "string", default: "0" }, cap: { type: "string", default: "60" } } });
 await import("../tests/harness/preload-data.mjs");
-const { recipeOf } = await import("../src/arena/matchup.ts");
-const { crowdFight } = await import("../src/arena/team-bout.ts");
-const { buildBout, buildTeamBout } = await import("../src/evaluation/bout.ts");
+const { recipeOf } = await import("../src/app/node/setup.ts");
+const { crowdFight } = await import("../src/app/node/game.ts");
+const { buildBout, buildTeamBout } = await import("../src/app/node/evaluation.ts");
 const { BOUT_ENGINE } = await import("./bout.mjs");
 if (!values.crowd && !values.link) throw new Error("name a bout: --link or --crowd");
 

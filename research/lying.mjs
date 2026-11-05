@@ -18,10 +18,10 @@ import { parseArgs } from "node:util";
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import { performance } from "node:perf_hooks";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { MATCH } from "../src/evaluation/match/index.ts";
-import { MATCH_CASES } from "../src/evaluation/match/cases.ts";
-import { WORLD_BUILDERS } from "../src/evaluation/worlds.ts";
-import { loadoutKey } from "../src/core/items/held.ts";
+import { MATCH } from "../src/app/node/evaluation.ts";
+import { MATCH_CASES } from "../src/app/node/evaluation.ts";
+import { WORLD_BUILDERS } from "../src/app/node/evaluation.ts";
+import { loadoutKey } from "../src/core/bodies/items/held.ts";
 
 Logger.LogLevels = Logger.NoneLogLevel;
 

@@ -6,7 +6,7 @@
  *     node research/physics-bakeoff/candidates.mjs <engine>
  */
 import { load } from "./engines.mjs";
-import { scaling } from "../../src/physics-bench/cases.ts";
+import { scaling } from "../../src/app/browser/physics-bench/cases.ts";
 
 const FEET = (k) => ({ "foot.left": k, "foot.right": k });
 /** The settings that passed both cases at the `today` bar (`fidelity.mjs`), cheapest first by case A's cost. */

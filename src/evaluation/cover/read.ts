@@ -3,10 +3,10 @@
  * subject, by where it met the subject (its head, its guard, the rest of it), the hit points each
  * took, and whether the subject went down.
  */
-import { regionSegments } from "../../core/intent/action-aim.ts";
-import { strikersOf, type BodySpec } from "../../core/spec/body.ts";
-import type { Duel } from "../../arena/duel.ts";
-import type { World } from "../../core/world.ts";
+import { regionSegments } from "../../skills/intent/action-aim.ts";
+import { strikersOf, type BodySpec } from "../../core/bodies/spec/body.ts";
+import type { Duel } from "../../game/arena/duel.ts";
+import type { World } from "../../core/world/world.ts";
 import type { Reader } from "../evaluation.ts";
 
 /** Where a touch met the subject: its head (the high mark's segments), its guard (its arms, hand to upper arm, or what a hand holds), or the rest of it. */

@@ -1,9 +1,9 @@
 # Reptile anatomy and control
 
 The quadrupeds' anatomy (`assets/reptile/body.json`, `reptile-anatomy` in `SOURCES`;
-`assets/rat/body.json`, `rat-anatomy`; both read by `reptileSpec`, `src/core/reptile/spec.ts`),
-their controller's settings (`src/core/reptile/tuning.ts`) and their place in the Crypt's
-encounters. A tooth wounds by its press (`pointLoadDamage`, `src/core/rules/rulebook.ts`).
+`assets/rat/body.json`, `rat-anatomy`; both read by `reptileSpec`, `src/core/bodies/quadruped/spec.ts`),
+their controller's settings (`src/skills/locomotion/quadruped/tuning.ts`) and their place in the Crypt's
+encounters. A tooth wounds by its press (`pointLoadDamage`, `src/combat/rulebook.ts`).
 
 ## Anatomical model
 
@@ -102,11 +102,11 @@ rat at twice the torque ceilings ([the rat](#the-rat)). The trot asks at most `s
 
 ### The trot at speed
 
-The trot (`trot`, `src/core/reptile/trot.ts`) alternates diagonal pairs and carries the rat at
+The trot (`trot`, `src/skills/locomotion/quadruped/trot.ts`) alternates diagonal pairs and carries the rat at
 about 1 m/s, upright at every heading and through half turns. What holds it:
 
 - **A swinging paw tracks its path at .025 s** (`swingResponse`), driven firm
-  (`EffectorGoal.firm`), its path kept on the ground (`pawLegs`, `src/core/reptile/paw-legs.ts`).
+  (`EffectorGoal.firm`), its path kept on the ground (`pawLegs`, `src/skills/locomotion/quadruped/paw-legs.ts`).
 - **A paw lands led by the step it took**: the travel through the last pair's swing and landing
   (`stride`), and half the time it then bears, no further than its room.
 - **Its room is its floor reach** (`stanceOf`): each pair's midpoint under the centre of mass, each
@@ -121,7 +121,7 @@ about 1 m/s, upright at every heading and through half turns. What holds it:
 
 ### The lunge
 
-The bite (`jaw-bite`, `biteExecutor`, `src/core/reptile/bite.ts`) aims the tooth its aim names
+The bite (`jaw-bite`, `biteExecutor`, `src/skills/strikes/bite/index.ts`) aims the tooth its aim names
 (`Aimed.with`) at the target by its mid-stroke point (`contactAt` of the opening), launches on an
 open jaw with the mouth within `biteAlign` of its aim, and lunges: through the stroke the head's
 goal and the lean still drive the mouth onto the aim while the jaw closes. The lean is bounded by
@@ -131,14 +131,14 @@ closing (`pointLoadDamage`).
 
 ### Righting
 
-A body on paws rights itself by two ways up (`src/core/reptile/righting.ts`), each a ground skill
+A body on paws rights itself by two ways up (`src/skills/recovery/righting/righting.ts`), each a ground skill
 the rise runs (`way-up`), begun once the body lies settled:
 
 - **By recipe** (`righting-recipe`, `rightingByRecipe`), from lying on its back, a side or its
   front, for a body with a record (`assets/skills/recovery/righting/righting.json`: the rat's three poses of its hips,
   knees and elbows, neck and tail base for the body on its right side, and three for it on its
   back; a research recipe in the config's `tuning` in its place), found offline
-  (`scripts/quadruped/righting.mjs`). It holds the reference pose 1 s; reads how it lies (on its
+  (`scripts/skills/recovery/righting/righting.mjs`). It holds the reference pose 1 s; reads how it lies (on its
   back where the trunk's up is under -.5, else on a side, the poses mirrored on its left); servos
   through the poses, each until held for its time or the trunk is up to its mark; and is done once
   the last pose has held the trunk's up at .95 or more and the centre of mass under .1 m/s for
@@ -153,14 +153,16 @@ the rise runs (`way-up`), begun once the body lies settled:
 The search (CMA-ES over each pose's 20 angles, its hold and its mark) plays each candidate
 through the game's mind and scores its worst start and its mean: the side's poses from the body
 lying on either side and tilted, at several headings, and from fights forked where righting took
-the body (`scripts/quadruped/righting-forks.mjs`); the back's from its back.
+the body (`scripts/skills/recovery/righting/righting-forks.mjs`); the back's from its back.
 
 ## Controller settings
 
-Controller choices, held apart from the anatomy in `REPTILE_MOTOR`, `REPTILE_TRAVEL`,
-`REPTILE_TROT`, `REPTILE_CRAWL` and `REPTILE_RECOVERY` (`src/core/reptile/tuning.ts`), each
-body's bite settings (`assets/skills/strikes/bite/bite.json`, the rat's the reptile's) and the rat's righting
-recipe (`assets/skills/recovery/righting/righting.json`). They
+Controller choices live with their capabilities: `REPTILE_MOTOR` and `REPTILE_TRAVEL` in
+`src/control/quadruped/tuning.ts`; `REPTILE_TROT` and `REPTILE_CRAWL` in
+`src/skills/locomotion/quadruped/tuning.ts`; `REPTILE_RECOVERY` in
+`src/skills/recovery/righting/tuning.ts`; each body's bite settings in
+`assets/skills/strikes/bite/bite.json`; and the righting recipes in
+`assets/skills/recovery/righting/righting.json`. They
 are not a measured optimum or evidence of a real animal's locomotion. Times are seconds, lengths
 metres, angles radians, heights relative to the reference centre of mass.
 
@@ -220,7 +222,7 @@ What the settings serve:
   body crawls each paw into place and holds quiet four-sole support for resumeHold before
   trotting.
 - **The bite** is aimed at the first exposed surface on a tooth's closing arc (`first-exposed`,
-  `src/core/reptile/jaw-aim.ts`), the material point kept in the foe segment's frame while it
+  `src/skills/strikes/bite/jaw-aim.ts`), the material point kept in the foe segment's frame while it
   prepares, and launches on an open jaw, a mouth near its aim and
   at most one paw unloaded. It freezes the chambered point and mouth aim at the snap and lunges
   ([the lunge](#the-lunge)). A stroke ends on its snap and follow-through clocks if it misses, on
@@ -237,16 +239,16 @@ What the settings serve:
 
 ## Encounters
 
-Every model's place in the Crypt is a `CryptModel` (`cryptModel`, `src/dungeon/actors.ts`): its
+Every model's place in the Crypt is a `CryptModel` (`cryptModel`, `src/game/dungeon/actors.ts`): its
 footprint's radius, how near its target it stands to fight (`attackMetres`) and whether a fall
 ends its fight. A humanoid (`HUMANOID`) has a .35 m radius and stands 1.8 m off. A quadruped's
 radius is the furthest its colliders reach from its centre in the floor's plane, tail included,
 and it stands .52 m off; a character's own body scales both. No body's fall ends its fight: it
 stays in and gets up. The reptile and the rat have empty hands and the game's Option Mind by
-default (`modelInfo`, `src/core/models.ts`; `defaultMind`, `src/entrants/game.ts`).
+default (`modelInfo`, `src/core/bodies/models.ts`; `defaultMind`, `src/app/catalog.ts`).
 
 Generated layouts alternate skeleton rooms and three-reptile packs (`ENCOUNTER_MODELS`,
-`populateEncounters`, `src/dungeon/encounters.ts`). `ENCOUNTERS` sets three bodies a pack, at
+`populateEncounters`, `src/game/dungeon/encounters.ts`). `ENCOUNTERS` sets three bodies a pack, at
 least 2 m and two radii apart, and one metre beyond their radius clear of doors. Pack points lie
 more than 15 m from the party's start (`outsidePartyStart`), walkable with closed doors and
 reachable from the start at the body's radius; a generated candidate without the space is

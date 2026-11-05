@@ -2,7 +2,7 @@
  * **The scaling run**: N simplified humans (`humanModel()`, all 16 segments, the shared controller,
  * the whole state read back every step), spaced apart standing or dropped in a pile, 120 Hz, per
  * engine at the settings given. Each (layout, N) is run `repeats` times on a fresh world; a step is
- * timed as solver (prepare + step), read and control (`scaling` in `src/physics-bench/cases.ts`).
+ * timed as solver (prepare + step), read and control (`scaling` in `src/app/browser/physics-bench/cases.ts`).
  * Allocation is the heap's growth over the timed steps with no collection in between (run with
  * --expose-gc and a young generation big enough that none happens), and collections are counted
  * by a `gc` performance observer. Node harness.
@@ -17,7 +17,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { cpus } from "node:os";
 import { PerformanceObserver } from "node:perf_hooks";
 import { load } from "./engines.mjs";
-import { scaling } from "../../src/physics-bench/cases.ts";
+import { scaling } from "../../src/app/browser/physics-bench/cases.ts";
 
 const argv = process.argv.slice(2);
 const opt = (name, fallback) => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] : fallback; };
@@ -79,7 +79,7 @@ for (const kind of layouts) for (const humans of ns) {
   rows.push(row);
   console.log(`${kind} ${humans} | ${fmt(row.total.median)} ${fmt(row.total.p95)} | ${fmt(row.solver.median)} ${fmt(row.solver.p95)} | ${fmt(row.read.median)} | ${fmt(row.control.median)} | ${Number.isNaN(row.allocPerStep) ? "n/a" : row.allocPerStep.toFixed(0)} ${row.gcCount.join("/")} | ${row.upright.join("/")} ${fmt(row.maxSpeed)}`);
 }
-const out = new URL("./results/", import.meta.url);
+const out = new URL("./results", import.meta.url);
 await mkdir(out, { recursive: true });
 const cpu1 = cpuTimes();
 const machineBusy = 1 - (cpu1.idle - cpu0.idle) / (cpu1.total - cpu0.total);

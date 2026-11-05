@@ -2,11 +2,11 @@
  * **The tournament's cases**: two entrants (a mind on a character with a loadout) in an arena bout,
  * each on each side, at each gap, by the Arena's rules.
  */
-import { CAP_SECONDS } from "../../arena/duel.ts";
-import type { ArenaLevel } from "../../arena/levels.ts";
-import { REPRESENTATIVE, type Loadout } from "../../core/items/held.ts";
-import type { MindConfig } from "../../core/mind/config.ts";
-import type { BodyModel } from "../../core/models.ts";
+import { CAP_SECONDS } from "../../game/arena/duel.ts";
+import type { ArenaLevel } from "../../game/arena/levels.ts";
+import { REPRESENTATIVE, type Loadout } from "../../core/bodies/items/held.ts";
+import type { MindConfig } from "../../minds/config.ts";
+import type { BodyModel } from "../../core/bodies/models.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import { sideAttributes, type Cases, type Json } from "../evaluation.ts";
 

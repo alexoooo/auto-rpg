@@ -11,7 +11,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CAP_SECONDS } from "../src/arena/duel.ts";
+import { CAP_SECONDS } from "../src/game/arena/duel.ts";
 import { SERIES_SECONDS } from "../src/evaluation/contest.ts";
 import { readRecord } from "../src/evaluation/record.ts";
 import { wilson } from "../src/evaluation/stats.ts";

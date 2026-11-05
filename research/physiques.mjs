@@ -1,9 +1,9 @@
 /**
- * The physique grid: which physiques (`Physique`, `src/core/human/physique.ts`) a run measures
+ * The physique grid: which physiques (`Physique`, `src/core/bodies/human/physique.ts`) a run measures
  * each body at. The ranges are tuned (speed's is an engineering range with no source); a run
  * overrides any axis without an edit here.
  */
-import { PHYSIQUE_ATTRIBUTES } from "../src/core/human/physique.ts";
+import { PHYSIQUE_ATTRIBUTES } from "../src/core/bodies/human/physique.ts";
 
 /** Each attribute's factors besides 1; 1 is always measured too. */
 export const PHYSIQUE_GRID = Object.freeze({

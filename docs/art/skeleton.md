@@ -2,8 +2,8 @@
 
 The crypt skeleton is drawn with Blender Studio's realistic human skeleton, cut into rigid pieces,
 one per part of the body, each carried by the core segment its bones belong to
-(`src/render/skeleton-skin.ts`). The art is cosmetic: it collides with nothing, is not pickable
-and decides nothing. The core skeleton (`src/core/human/skeleton.ts`) reads the art's bind,
+(`src/app/browser/render/skeleton-skin.ts`). The art is cosmetic: it collides with nothing, is not pickable
+and decides nothing. The core skeleton (`src/core/bodies/human/skeleton.ts`) reads the art's bind,
 `assets/skeleton/bind.json`, and its bones' measure, `assets/skeleton/bones.json`
 (`scripts/skeleton/bone-fit.mjs`). `bind.json` is fixed: nothing regenerates it, and moving a
 joint means refitting the art as well.

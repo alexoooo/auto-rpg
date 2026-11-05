@@ -21,17 +21,17 @@
  * gusts (`gusts`, `labGusts`: the Warrior's, scaled by the body's mass) and the seed of its mind's chance and the gusts (`seed`). Calm
  * air, no balance unless its character has one. A change here is a new protocol.
  */
-import { CONTROLLERS } from "../../entrants/game.ts";
-import { presetFitsModel } from "../../core/mind/controller.ts";
-import type { MindConfig } from "../../core/mind/config.ts";
-import type { Orders } from "../../core/intent/orders.ts";
+import { presetFitsModel } from "../../minds/controller.ts";
+import type { MindConfig } from "../../minds/config.ts";
+import type { Orders } from "../../skills/intent/orders.ts";
 import { cos, sin } from "../../core/math/real.ts";
-import { modelSpec, type BodyModel } from "../../core/models.ts";
-import { loadoutKey, REPRESENTATIVE, type Loadout } from "../../core/items/held.ts";
-import { deepFreeze } from "../../core/state.ts";
+import { modelSpec, type BodyModel } from "../../core/bodies/models.ts";
+import { loadoutKey, REPRESENTATIVE, type Loadout } from "../../core/bodies/items/held.ts";
+import { deepFreeze } from "../../core/world/state.ts";
 import type { Cases, Json, Subject } from "../evaluation.ts";
 import type { BuiltLone, LoneCue } from "../lone.ts";
 import { readLocomotion, type LocomotionReading } from "./read.ts";
+import { type GameContext } from "../../game/arena/context.ts";
 
 /** When a trial's first order comes, how long a walk or a turn's leg lasts, a run, the standing shove's time, and how long after a stop the walked body is shoved, s. */
 export const START = 1, WALK = 4, RUN = 6, SHOVE = 2, SETTLE = 2;
@@ -42,6 +42,7 @@ export const START = 1, WALK = 4, RUN = 6, SHOVE = 2, SETTLE = 2;
  * from, m/s; and how often a turning way is given again, s.
  */
 export const RUN_UP = 3, HOLD = 10, TURNING_PACE = 2, TURN_RATE = 1, STOPPING_PACE = 3, TURN_CUE = .1;
+
 /** How long a trial runs on after its last cue, s: what its stop or its shove is read over. */
 export const AFTER = 4;
 
@@ -66,6 +67,7 @@ const SCREEN = deepFreeze({
   shoves: { ways: [0, 45, 90, 135, 180, 225, 270, 315], impulses: [30, 45, 60] },
   walked: { ways: [0, 90, 180, 270], impulse: 20, pace: .3 },
 });
+
 type Protocol = typeof SCREEN;
 
 /**
@@ -79,8 +81,10 @@ const RUN_BAR = deepFreeze({ models: ["workshop-fighter", "workshop-rogue"] as B
 
 /** Facing forward, +z. */
 const FORWARD = deepFreeze({ x: 0, z: 1 });
+
 /** The ground direction `degrees` from +z toward +x. */
 const toward = (degrees: number) => { const way = degrees * Math.PI / 180; return { x: sin(way), z: cos(way) }; };
+
 const STOP: Orders = deepFreeze({ move: null, face: FORWARD });
 
 /** The script `condition` gives its body, and when its last cue comes, s. */
@@ -112,13 +116,6 @@ export function scriptOf(condition: LocomotionCondition): { readonly cues: reado
       { at: START, orders: { move: { kind: "direct", direction: FORWARD }, pace: STOPPING_PACE, gait: "run", face: null } }, { at: START + RUN_UP + SETTLE, orders: STOP }] };
     default: { const never: never = condition; throw new Error(`no locomotion trial ${JSON.stringify(never)}`); }
   }
-}
-
-/** Why `value` cannot walk `model`: not a mind, or a named calibration that keeps it off that body. */
-function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
-  const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
-  if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
-  return presetFitsModel(subject ?? {}, model) ? [] : [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
 }
 
 /** How long a turning run's way turns: a circle at `TURN_RATE`, s. */
@@ -163,25 +160,38 @@ const runsOf = (protocol: typeof RUN_BAR): LocomotionCondition[] => protocol.mod
 /** How long a trial of `conditions` plays at most: its last cue and `AFTER`, s. */
 const longest = (conditions: readonly LocomotionCondition[]) => Math.max(...conditions.map((condition) => scriptOf(condition).last)) + AFTER;
 
-function locomotionCases(play: Json, conditions: readonly LocomotionCondition[]): Cases<LocomotionCondition, LocomotionReading, BuiltLone> {
-  return {
-    arity: 1,
-    play,
-    conditions,
-    seconds: longest(conditions),
-    faults: (value, { model }, subject) => faultsOf(value, model, subject),
-    world: ([mind], condition, engine, [character]) => ({ kind: "lone", engine,
-      lone: { model: condition.model, mind: mind as unknown as MindConfig, script: scriptOf(condition).cues,
-        ...(character && Object.keys(character).length > 0 ? { character } : {}),
-        ...(condition.loadout && loadoutKey(condition.loadout) !== "empty,empty" ? { loadout: condition.loadout } : {}),
-        ...(condition.gusts ? { gusts: true as const } : {}), ...(condition.seed !== undefined ? { seed: condition.seed } : {}) } }),
-    read: (built, condition) => readLocomotion(built, condition),
-  };
-}
+export function createLocomotionCases(context: GameContext) {
+  const { controllers: CONTROLLERS } = context.catalog;
 
-/** Every protocol the drill may be played on, by name. */
-export const LOCOMOTION_CASES: Readonly<Record<string, Cases<LocomotionCondition, LocomotionReading, BuiltLone>>> = Object.freeze({
-  screen: locomotionCases(SCREEN as unknown as Json, conditionsOf(SCREEN)),
-  every: locomotionCases(EVERY as unknown as Json, everyOf(EVERY)),
-  run: locomotionCases(RUN_BAR as unknown as Json, runsOf(RUN_BAR)),
-});
+  /** Why `value` cannot walk `model`: not a mind, or a named calibration that keeps it off that body. */
+  function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
+    const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
+    if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
+    return presetFitsModel(subject ?? {}, model) ? [] : [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
+  }
+
+  function locomotionCases(play: Json, conditions: readonly LocomotionCondition[]): Cases<LocomotionCondition, LocomotionReading, BuiltLone> {
+    return {
+      arity: 1,
+      play,
+      conditions,
+      seconds: longest(conditions),
+      faults: (value, { model }, subject) => faultsOf(value, model, subject),
+      world: ([mind], condition, engine, [character]) => ({ kind: "lone", engine,
+        lone: { model: condition.model, mind: mind as unknown as MindConfig, script: scriptOf(condition).cues,
+          ...(character && Object.keys(character).length > 0 ? { character } : {}),
+          ...(condition.loadout && loadoutKey(condition.loadout) !== "empty,empty" ? { loadout: condition.loadout } : {}),
+          ...(condition.gusts ? { gusts: true as const } : {}), ...(condition.seed !== undefined ? { seed: condition.seed } : {}) } }),
+      read: (built, condition) => readLocomotion(built, condition),
+    };
+  }
+
+  /** Every protocol the drill may be played on, by name. */
+  const LOCOMOTION_CASES: Readonly<Record<string, Cases<LocomotionCondition, LocomotionReading, BuiltLone>>> = Object.freeze({
+    screen: locomotionCases(SCREEN as unknown as Json, conditionsOf(SCREEN)),
+    every: locomotionCases(EVERY as unknown as Json, everyOf(EVERY)),
+    run: locomotionCases(RUN_BAR as unknown as Json, runsOf(RUN_BAR)),
+  });
+
+  return { LOCOMOTION_CASES };
+}

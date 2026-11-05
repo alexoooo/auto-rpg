@@ -7,7 +7,7 @@
  *
  * With `--listen` the same run is played twice at once, unheard and heard, a step of each by
  * turns, so the two are read on the machine as it is at that moment and their difference is what
- * hearing costs. Heard is as a page hears it (`hearRun`, `src/dungeon/hearing.ts`): every built
+ * hearing costs. Heard is as a page hears it (`hearRun`, `src/game/dungeon/hearing.ts`): every built
  * body's touches, and its air, asked here every step where a page asks once a frame, by a
  * listener that does nothing with them. The row's first figures are the unheard run's.
  *
@@ -19,7 +19,7 @@
  * last figures are the dearest such step past the first 2 s and the worst lag behind real time
  * from then (`lagOf`, `research/lag.mjs`), the least of each playing's own, with the bodies built
  * and the collections in the run of steps that built that playing's worst. `--minds` runs every
- * mind apart, on that many worker threads (`mindWorkers`, `src/node/minds.ts`).
+ * mind apart, on that many worker threads (`mindWorkers`, `src/app/node/minds.ts`).
  *
  * Wall time on the machine it runs on, one row at a time: read it on a quiet one, with the
  * process held to cores of one kind (`start /b /wait /high /affinity <mask>` on Windows). On
@@ -27,13 +27,13 @@
  * between the two runs is lost in it.
  */
 import { parseArgs } from "node:util";
-import { hearRun } from "../src/dungeon/hearing.ts";
-import { DungeonRun } from "../src/dungeon/run.ts";
+import { hearRun } from "../src/game/dungeon/hearing.ts";
+import { DungeonRun } from "../src/app/node/game.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
-import { MINDS } from "../src/entrants/game.ts";
+import { MINDS } from "../src/app/catalog.ts";
 import { PerformanceObserver } from "node:perf_hooks";
 import { lagOf } from "./lag.mjs";
-import { mindWorkers } from "../src/node/minds.ts";
+import { mindWorkers } from "../src/app/node/minds.ts";
 
 const collections = [];
 new PerformanceObserver((list) => { for (const e of list.getEntries()) collections.push({ at: e.startTime, ms: e.duration }); }).observe({ entryTypes: ["gc"] });

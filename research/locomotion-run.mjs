@@ -1,6 +1,6 @@
 /**
  * **The locomotion test bed on the Node stand** (Rapier, 120 Hz): the Lab's Locomotion scenario
- * (`startLocomotion`, `src/lab/locomotion-mode.ts`) on every combination of body, hold, course,
+ * (`startLocomotion`, `src/game/lab/locomotion-mode.ts`) on every combination of body, hold, course,
  * pace asked, wind and seed, each run for `--seconds` or until the body falls. A fall ends a run as
  * a failure.
  *
@@ -13,7 +13,7 @@
  *   the circle's, `--distance` the shuttle's straight), random commands (`random`, over a square of
  *   `--area` m, drawn from the run's seed), or a straight line walked facing +z in one direction
  *   (`LINES`).
- * - `--holds` is what the right hand holds (`HELD`, `src/core/items/held.ts`; `empty`, nothing).
+ * - `--holds` is what the right hand holds (`HELD`, `src/core/bodies/items/held.ts`; `empty`, nothing).
  * - A pace of `max` asks the fastest the body's walk holds (`LocomotionOptions.top` none), which a
  *   body measured has not got: it needs `--played`.
  * - `--winds` is a list of rate:strength (gusts a second : N at a gust's peak).
@@ -67,8 +67,8 @@ import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
-import { PERSON_PACE, personStep } from "../src/core/human/gait.ts";
-import { WENT } from "../src/core/control/stance-envelope.ts";
+import { PERSON_PACE, personStep } from "../src/core/bodies/human/gait.ts";
+import { WENT } from "../src/control/stance-envelope.ts";
 
 /**
  * The straight lines a body walks facing +z, each 80 m from the origin: forward, to its right, back
@@ -132,9 +132,9 @@ function rockerFoot(foot, radius, facets) {
 
 async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, seconds, side, radius, distance, area, legs, stance, physique, probe, stop = null, played = false }) {
   const [{ modelSpec }, { labActor }, { startLocomotion }, { TRACKS, trackOf }, { commandsOf }, { LAB_MIND }, { STANCE_GAIT }, { coreStand }, { armedWith }, { withLegs }] = await Promise.all([
-    import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/locomotion-mode.ts"), import("../src/lab/track.ts"),
-    import("../src/lab/commands.ts"), import("../src/lab/scenarios.ts"), import("../src/core/control/stance-tuning.ts"), import("../tests/harness/core-stand.mjs"),
-    import("../src/core/items/held.ts"), import("../src/core/option/mind.ts"),
+    import("../src/core/bodies/models.ts"), import("../src/app/node/game.ts"), import("../src/game/lab/locomotion-mode.ts"), import("../src/game/lab/track.ts"),
+    import("../src/game/lab/commands.ts"), import("../src/app/node/setup.ts"), import("../src/control/stance-tuning.ts"), import("../tests/harness/core-stand.mjs"),
+    import("../src/core/bodies/items/held.ts"), import("../src/minds/option/mind.ts"),
   ]);
   const line = LINES[id];
   const info = id === "random" ? { facing: undefined } : line === undefined ? TRACKS[id] : { pieces: [{ kind: "corner", metres: 0, turn: line }, { kind: "straight", metres: 80 }], facing: 0 };

@@ -8,15 +8,15 @@
  * It prints each playing's steps, the least over the playings split into the solver and the rest
  * (control, senses, blows), the dearest steps, every kind of collection in the playings read, and
  * how many steps over `--over` ms had a collection inside; and what each side's hands' solves took
- * (`ReachMeter`, `src/core/control/motor.ts`): how many, their passes, and how many ran to the cap.
+ * (`ReachMeter`, `src/control/motor.ts`): how many, their passes, and how many ran to the cap.
  *
  *   node research/step-time.mjs [--left workshop-fighter] [--right workshop-rogue] [--runs 4] [--over 3]
  *   node research/step-time.mjs --link "?matchup=...&control=option,option&left.loadout=empty,sword" [--cap 60]
  *   node research/step-time.mjs --crowd [--seed 0] [--cap 120]
- *   ... --minds 3                      every mind apart, on that many worker threads (`mindWorkers`, `src/node/minds.ts`)
+ *   ... --minds 3                      every mind apart, on that many worker threads (`mindWorkers`, `src/app/node/minds.ts`)
  *
  * `--link` plays the bout an Arena link names (`recipeOf`); `--crowd` the crowd fight
- * (`crowdFight`, `src/arena/team-bout.ts`), ten bodies. It also prints the dearest step past
+ * (`crowdFight`, `src/game/arena/team-bout.ts`), ten bodies. It also prints the dearest step past
  * the first `--skip` s (2), what the bout's start and the compiler's first passes leave out, and
  * each playing's worst lag behind real time from then (`lagOf`, `research/lag.mjs`), its steps as
  * a page would have had them, collections and all: the step it peaks at, the run of steps that
@@ -30,13 +30,13 @@
 import { Session } from "node:inspector/promises";
 import { PerformanceObserver } from "node:perf_hooks";
 import { parseArgs } from "node:util";
-import { SIDES } from "../src/arena/duel.ts";
-import { buildBout, buildTeamBout } from "../src/evaluation/bout.ts";
-import { recipeOf } from "../src/arena/matchup.ts";
-import { crowdFight } from "../src/arena/team-bout.ts";
+import { SIDES } from "../src/game/arena/duel.ts";
+import { buildBout, buildTeamBout } from "../src/app/node/evaluation.ts";
+import { recipeOf } from "../src/app/node/setup.ts";
+import { crowdFight } from "../src/app/node/game.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { lagOf } from "./lag.mjs";
-import { mindWorkers } from "../src/node/minds.ts";
+import { mindWorkers } from "../src/app/node/minds.ts";
 
 const { values } = parseArgs({ options: {
   left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },

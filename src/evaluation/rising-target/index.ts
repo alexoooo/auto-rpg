@@ -4,32 +4,16 @@
  * Option Mind getting up by its techniques (`risingMind`): the game's Stand up's (`STAND_UP`)
  * unless others are named. The summary is the bed's report with the target's gates (`risingReport`).
  */
-import { TECHNIQUES } from "../../core/recovery/ground/techniques.ts";
-import { isWayUp, type TechniqueName } from "../../core/recovery/ground/technique.ts";
-import { CONTROLLERS, MINDS } from "../../entrants/game.ts";
-import { mindSubjects } from "../locomotion/index.ts";
+import { isWayUp, type TechniqueName } from "../../skills/recovery/technique.ts";
 import type { Evaluation, Figure, Json, Subject, SubjectChoice, Table } from "../evaluation.ts";
 import { FALL_CAP, type BuiltFall, type FallReading } from "../fall.ts";
-import { risingMind, risingReport, STAND_WITHIN, type RisingRow } from "../rising.ts";
-import { RISING_TARGET_CASES, type TargetCondition } from "./cases.ts";
+import { createLocomotionIndex } from "../locomotion/index.ts";
+import { createRising, STAND_WITHIN, type RisingRow } from "../rising.ts";
+import { createRisingTargetCases, type TargetCondition } from "./cases.ts";
+import { type GameContext } from "../../game/arena/context.ts";
 
 /** A riser as a subject: its id, the label shown, and its mind whole. */
 const riserSubject = (id: string, label: string, value: Json): Subject => ({ id, label, parts: [{ id: `mind:${id}`, value }], value });
-
-/** The ways up among the techniques (`isWayUp`), by kind. */
-const WAYS_UP = (Object.keys(TECHNIQUES) as TechniqueName[]).filter((kind) => isWayUp(TECHNIQUES[kind]));
-
-/**
- * The risers named: `game`, the game's Stand up (`STAND_UP`), `stand-up` with every way up, a way up's name
- * for a stand-up with it alone, or a mind given whole; the game's Stand up when none is.
- */
-function riserSubjects(choice: SubjectChoice): readonly Subject[] {
-  return (choice.length > 0 ? choice : ["game"]).map((one) => typeof one !== "string" ? riserSubject(one.id, one.label, one.value)
-    : one === "game" ? riserSubject(one, "The game's Stand up", risingMind() as unknown as Json)
-    : one === "stand-up" ? riserSubject(one, "Stand up, every technique", risingMind(WAYS_UP) as unknown as Json)
-    : (WAYS_UP as readonly string[]).includes(one) ? riserSubject(one, `Stand up by ${TECHNIQUES[one as TechniqueName].label}`, risingMind([one as TechniqueName]) as unknown as Json)
-    : (() => { throw new Error(`${one} is no riser: game, stand-up or a way up (${WAYS_UP.join(", ")})`); })());
-}
 
 /** Whether a fall was made: the body was taken over by its rise; one not made did not reach its case. */
 const made = (r: FallReading): boolean => r.takeover !== null;
@@ -45,35 +29,60 @@ export const FALL_FIGURES: readonly Figure<FallReading>[] = [
   { name: "time to stand", unit: "s, a fall made and not stood at the cap", kind: "median", better: "lower", of: timeOf },
 ];
 
-/** The bed's report (`risingReport`) for each subject's falls, its gates on the target: lines by group, and the reports without their rows. */
-export function fallSummary<C extends Json>({ subjects, cases }: Table<C, FallReading>, target: boolean): { lines: readonly string[]; json: Json } {
-  const reports = subjects.map((subject) => {
-    const rows = cases.filter((one) => one.subjects[0] === subject.id).map(({ condition, reading }) => ({ ...(condition as object), ...reading, cap: FALL_CAP }) as unknown as RisingRow);
-    const { mode, groups, gates, techniques, claims } = risingReport(rows, target);
-    return { subject: subject.id, mode, groups, gates, techniques, claims };
-  });
-  const lines = reports.flatMap(({ subject, groups, gates, claims }) => [
-    `${subject}:`, "", `| Group | Within ${STAND_WITHIN} s | Within 12 s | Stood | Median, s | No takeover |${gates ? " Meets the target |" : ""}`, `|---|---|---|---|---|---|${gates ? "---|" : ""}`,
-    ...[...groups].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map((g) => `| ${g.key} | ${g.within}/${g.all} | ${g.within12}/${g.all} | ${g.stood}/${g.all} | ${g.median?.toFixed(2) ?? "none"} | ${g.noTakeover} |`
-      + (gates ? ` ${g.meets ? "yes" : "no"} |` : "")),
-    ...(gates ? ["", `gates: ${Object.entries(gates).map(([gate, met]) => `${gate} ${met ? "met" : "not met"}`).join(", ")}`] : []),
-    `meets the owner's target: ${claims.meetsOwnerTarget}`, "",
-  ]);
-  return { lines, json: JSON.parse(JSON.stringify(reports)) as Json };
-}
+export function createRisingTargetIndex(context: GameContext) {
+  const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
+  const TECHNIQUES = context.techniques;
+  const { mindSubjects } = createLocomotionIndex(context);
+  const { risingMind, risingReport } = createRising(context);
+  const { RISING_TARGET_CASES } = createRisingTargetCases(context);
 
-export const RISING_TARGET: Evaluation<TargetCondition, FallReading, BuiltFall> = {
-  id: "rising-target",
-  title: "The owner's stand-up target",
-  group: "skills",
-  question: "Does a riser stand from the owner's 240 falls, every body in every loadout, within the target's bar?",
-  protocols: RISING_TARGET_CASES,
-  defaultProtocol: "standard",
-  schedule: "all",
-  analysis: {},
-  /** A mind by its preset's or kind's name (`mindSubjects`), or a stand-up's riser by its name (`riserSubjects`); the game's Stand up where none is named. */
-  subjects: (choice) => choice.flatMap((one) => typeof one === "string" && (Object.hasOwn(MINDS, one) || Object.hasOwn(CONTROLLERS, one)) ? mindSubjects([one], []) : riserSubjects([one]))
-    .concat(choice.length ? [] : riserSubjects([])),
-  figures: FALL_FIGURES,
-  summary: (table) => fallSummary(table, true),
-};
+  /** The ways up among the techniques (`isWayUp`), by kind. */
+  const WAYS_UP = (Object.keys(TECHNIQUES) as TechniqueName[]).filter((kind) => isWayUp(TECHNIQUES[kind]));
+
+  /**
+   * The risers named: `game`, the game's Stand up (`STAND_UP`), `stand-up` with every way up, a way up's name
+   * for a stand-up with it alone, or a mind given whole; the game's Stand up when none is.
+   */
+  function riserSubjects(choice: SubjectChoice): readonly Subject[] {
+    return (choice.length > 0 ? choice : ["game"]).map((one) => typeof one !== "string" ? riserSubject(one.id, one.label, one.value)
+      : one === "game" ? riserSubject(one, "The game's Stand up", risingMind() as unknown as Json)
+      : one === "stand-up" ? riserSubject(one, "Stand up, every technique", risingMind(WAYS_UP) as unknown as Json)
+      : (WAYS_UP as readonly string[]).includes(one) ? riserSubject(one, `Stand up by ${TECHNIQUES[one as TechniqueName].label}`, risingMind([one as TechniqueName]) as unknown as Json)
+      : (() => { throw new Error(`${one} is no riser: game, stand-up or a way up (${WAYS_UP.join(", ")})`); })());
+  }
+
+  /** The bed's report (`risingReport`) for each subject's falls, its gates on the target: lines by group, and the reports without their rows. */
+  function fallSummary<C extends Json>({ subjects, cases }: Table<C, FallReading>, target: boolean): { lines: readonly string[]; json: Json } {
+    const reports = subjects.map((subject) => {
+      const rows = cases.filter((one) => one.subjects[0] === subject.id).map(({ condition, reading }) => ({ ...(condition as object), ...reading, cap: FALL_CAP }) as unknown as RisingRow);
+      const { mode, groups, gates, techniques, claims } = risingReport(rows, target);
+      return { subject: subject.id, mode, groups, gates, techniques, claims };
+    });
+    const lines = reports.flatMap(({ subject, groups, gates, claims }) => [
+      `${subject}:`, "", `| Group | Within ${STAND_WITHIN} s | Within 12 s | Stood | Median, s | No takeover |${gates ? " Meets the target |" : ""}`, `|---|---|---|---|---|---|${gates ? "---|" : ""}`,
+      ...[...groups].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map((g) => `| ${g.key} | ${g.within}/${g.all} | ${g.within12}/${g.all} | ${g.stood}/${g.all} | ${g.median?.toFixed(2) ?? "none"} | ${g.noTakeover} |`
+        + (gates ? ` ${g.meets ? "yes" : "no"} |` : "")),
+      ...(gates ? ["", `gates: ${Object.entries(gates).map(([gate, met]) => `${gate} ${met ? "met" : "not met"}`).join(", ")}`] : []),
+      `meets the owner's target: ${claims.meetsOwnerTarget}`, "",
+    ]);
+    return { lines, json: JSON.parse(JSON.stringify(reports)) as Json };
+  }
+
+  const RISING_TARGET: Evaluation<TargetCondition, FallReading, BuiltFall> = {
+    id: "rising-target",
+    title: "The owner's stand-up target",
+    group: "skills",
+    question: "Does a riser stand from the owner's 240 falls, every body in every loadout, within the target's bar?",
+    protocols: RISING_TARGET_CASES,
+    defaultProtocol: "standard",
+    schedule: "all",
+    analysis: {},
+    /** A mind by its preset's or kind's name (`mindSubjects`), or a stand-up's riser by its name (`riserSubjects`); the game's Stand up where none is named. */
+    subjects: (choice) => choice.flatMap((one) => typeof one === "string" && (Object.hasOwn(MINDS, one) || Object.hasOwn(CONTROLLERS, one)) ? mindSubjects([one], []) : riserSubjects([one]))
+      .concat(choice.length ? [] : riserSubjects([])),
+    figures: FALL_FIGURES,
+    summary: (table) => fallSummary(table, true),
+  };
+
+  return { RISING_TARGET, fallSummary };
+}

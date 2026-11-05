@@ -1,0 +1,200 @@
+import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
+import { PointLight } from "@babylonjs/core/Lights/pointLight.js";
+import { ClusteredLightContainer } from "@babylonjs/core/Lights/Clustered/clusteredLightContainer.js";
+import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
+import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTexture.js";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
+import { SSAO2RenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline.js";
+import type { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline.js";
+import type { Camera } from "@babylonjs/core/Cameras/camera.js";
+import type { Scene } from "@babylonjs/core/scene.js";
+import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
+import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent.js";
+import "@babylonjs/core/Rendering/prePassRendererSceneComponent.js";
+import "@babylonjs/core/Lights/Clustered/clusteredLightingSceneComponent.js";
+import { isTactical } from "../render/scene-profile.ts";
+import { postPipeline } from "../render/post.ts";
+import { publicAssetUrl } from "../asset-url.ts";
+import { CAMERA_AZIMUTH } from "../../../game/dungeon/bearing.ts";
+import { cameraDistance } from "./camera.ts";
+import { FLAME_VOLUME, flameFade, flameMaterial } from "./fire.ts";
+import { orthographicLightProxy } from "./light-proxy.ts";
+import { cellKey, type DungeonMap, type Point } from "../../../game/dungeon/map.ts";
+import type { TorchPlacement } from "../../../game/dungeon/dressing.ts";
+
+/**
+ * Generated-dungeon defaults, set by eye. The reference chamber opts into
+ * its own profile (`REFERENCE_LIGHT`).
+ */
+const DUNGEON_LOOK = Object.freeze({
+  /** A cold, dim fill from above that leaves the torches to do the work. */
+  ambient: Object.freeze({ intensity: 0.18, diffuse: "#7d8fb3", ground: "#1a1614" }),
+  /** The arena's HDRI, kept low underground: enough to give bronze and wet stone a reflection. */
+  environmentIntensity: 0.22,
+  /** Carried at `height`, `behind` metres from the hero toward the camera, so the faces the camera sees are lit.
+   * A PBR point light falls off by inverse square, so it stands close and bright. */
+  lantern: Object.freeze({ color: "#ffcf8f", intensity: 9, height: 2.6, behind: 0.8 }),
+  /** A torch, and how far its flicker swings the intensity either way. */
+  torch: Object.freeze({ color: "#ff8a3d", intensity: 6, flicker: 0.6 }),
+  /** The flame volume's centre stands above its anchor so the iron basket shows beneath the fire. */
+  flameLift: .20,
+  /** Contact shadow at the foot of walls and bodies, sized for a camera that stands 30 m off. */
+  ssao: Object.freeze({ ratio: 0.5, radius: 0.35, totalStrength: 1.1, samples: 8 }),
+  clearColor: Object.freeze([0.008, 0.010, 0.016] as const),
+  /** Torch lights kept on when the clustered container is not supported: the ones nearest the hero. Materials
+   * carry four lights, and the ambient and the lantern take two of them. */
+  fallbackLights: 2,
+  /** The contribution at which a light's range is drawn, a sixth of the ambient. */
+  cutoff: 0.03,
+});
+
+/** A PBR point light never reaches zero, and `range` does not shape it: the clustered container culls by it.
+ * Drawn where the inverse-square contribution has fallen to `cutoff`: 14.8 m for a torch at the top of its
+ * flicker, 17.3 m for the lantern. The container's tile fit is exact under this camera only because
+ * `orthographicLightProxy` makes it so. */
+const lightRange = (intensity: number): number => Math.sqrt(intensity / DUNGEON_LOOK.cutoff);
+
+export interface LookSwitches { torches: boolean; ssao: boolean; post: boolean }
+
+interface DungeonLightProfile {
+  ambientIntensity: number;
+  ambientColor: string;
+  environmentIntensity: number;
+  lanternIntensity: number;
+  lanternColor: string;
+  grade?: "default" | "crypt";
+}
+/** The reference chamber's cooler fill and dimmer lantern, set by eye. */
+export const REFERENCE_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
+  ambientIntensity: .30, ambientColor: "#9aaecf", environmentIntensity: .58,
+  lanternIntensity: 5, lanternColor: "#dce5f5",
+});
+/** The modular crypt's torches provide the warm key; cool fill retains the hero's outline. */
+export const CRYPT_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
+  ambientIntensity: .55, ambientColor: "#819dc9", environmentIntensity: .85,
+  lanternIntensity: 3.5, lanternColor: "#c8d9f5", grade: "crypt",
+});
+
+export interface DungeonLighting {
+  readonly lantern: PointLight;
+  /** Whether the torches are in a clustered container rather than plain lights. */
+  readonly clustered: boolean;
+  readonly torchCount: number;
+  readonly look: Readonly<LookSwitches>;
+  update(hero: Point, zoom: number, pitch: number, toward: Point): void;
+  /** A flame whose floor is unexplored would show where a room is before the fog does. */
+  refreshFog(explored: ReadonlySet<number>): void;
+  setLook(change: Partial<LookSwitches>): void;
+  setPresentationEnabled(enabled: boolean): void;
+  /**
+   * Burns the torches the `seconds` a frame took, on page time and at most 50 ms a frame: the
+   * flames move on and each light flickers. A page that is paused does not call it, so they stand still.
+   */
+  burn(seconds: number): void;
+  dispose(): void;
+}
+
+export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torches: readonly TorchPlacement[],
+  azimuth = CAMERA_AZIMUTH, profile?: Readonly<DungeonLightProfile>): DungeonLighting {
+  let presentationEnabled = true;
+  const look: LookSwitches = { torches: true, ssao: true, post: true };
+  scene.clearColor = new Color4(...DUNGEON_LOOK.clearColor, 1);
+  // The sky's direction is given for a camera at azimuth pi/4, and turns with the camera so that it keeps its
+  // relation to the view: Babylon's `RotationY` takes `cameraToward(PI / 4)` to `cameraToward(azimuth)`.
+  const sky = Vector3.TransformNormal(new Vector3(0.3, 1, -0.4), Matrix.RotationY(azimuth - Math.PI / 4));
+  const ambient = new HemisphericLight("dungeon ambient", sky, scene);
+  ambient.intensity = profile?.ambientIntensity ?? DUNGEON_LOOK.ambient.intensity;
+  ambient.diffuse = Color3.FromHexString(profile?.ambientColor ?? DUNGEON_LOOK.ambient.diffuse);
+  ambient.groundColor = Color3.FromHexString(DUNGEON_LOOK.ambient.ground);
+  scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
+  scene.environmentIntensity = profile?.environmentIntensity ?? DUNGEON_LOOK.environmentIntensity;
+  const lantern = new PointLight("wanderer lantern", Vector3.Zero(), scene);
+  lantern.diffuse = Color3.FromHexString(profile?.lanternColor ?? DUNGEON_LOOK.lantern.color);
+  lantern.intensity = profile?.lanternIntensity ?? DUNGEON_LOOK.lantern.intensity;
+  lantern.range = lightRange(lantern.intensity);
+
+  const flameLook = flameMaterial(scene), fire = flameLook.material;
+  const torchColor = Color3.FromHexString(DUNGEON_LOOK.torch.color);
+  const flames = torches.map((torch, i) => {
+    const flame = MeshBuilder.CreateBox(`torch.flame.${i}`, { ...FLAME_VOLUME }, scene);
+    flame.position.set(torch.flame.x, torch.flame.y+DUNGEON_LOOK.flameLift, torch.flame.z);
+    if(torch.color)flameLook.setTint(flame,Color3.FromHexString(torch.color));
+    flame.material = fire; flame.isPickable = false; flame.isVisible = false;
+    return { flame, floor: cellKey(map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z }) };
+  });
+  const lights = torches.map((torch, i) => {
+    const light = new PointLight(`torch.light.${i}`, new Vector3(torch.light.x, torch.light.y, torch.light.z), scene);
+    light.diffuse = torch.color ? Color3.FromHexString(torch.color) : torchColor; light.intensity = torch.intensity ?? DUNGEON_LOOK.torch.intensity;
+    light.range = lightRange((torch.intensity ?? DUNGEON_LOOK.torch.intensity) + DUNGEON_LOOK.torch.flicker);
+    return light;
+  });
+  // The container takes its lights out of `scene.lights`, and its own switch is the only one it reads: a member
+  // light's `setEnabled` does nothing once it is inside.
+  orthographicLightProxy();
+  const container = lights.length && ClusteredLightContainer.IsLightSupported(lights[0])
+    ? new ClusteredLightContainer("dungeon torches", lights, scene) : null;
+  const clustered = container?.isSupported ?? false;
+
+  let ao: SSAO2RenderingPipeline | null = null, post: DefaultRenderingPipeline | null = null, zoom = 10, pitch = Math.PI / 6;
+  // SSAO fades out from 0.75 of `maxZ`, so the farthest thing on screen -- the ground at the top edge, `zoom / tan`
+  // beyond the target and `1 / sin` below it -- has to sit short of that.
+  const setMaxZ = () => { if (ao) ao.maxZ = (cameraDistance(pitch) + 1 / Math.sin(pitch) + zoom / Math.tan(pitch)) / 0.75 + 1; };
+  // Always rebuilt whole and in this order: a pipeline detached and re-attached appends its passes to the end of
+  // the camera's list, and a frame-cost reading taken after that does not compare with one taken before.
+  const buildPost = () => {
+    ao?.dispose(true); post?.dispose(); ao = post = null;
+    // Without SSAO there is no prepass consumer; its unrendered target cannot become ready.
+    if (!presentationEnabled || !look.ssao) scene.disablePrePassRenderer();
+    if (presentationEnabled && look.ssao) {
+      ao = new SSAO2RenderingPipeline("dungeon.ao", scene, { ssaoRatio: DUNGEON_LOOK.ssao.ratio, blurRatio: 1 }, [camera]);
+      ao.radius = DUNGEON_LOOK.ssao.radius; ao.totalStrength = DUNGEON_LOOK.ssao.totalStrength;
+      ao.samples = DUNGEON_LOOK.ssao.samples; ao.expensiveBlur = false; setMaxZ();
+    }
+    if (presentationEnabled && look.post) post = postPipeline(scene, camera, { grade: profile?.grade });
+  };
+  buildPost();
+
+  let explored: ReadonlySet<number> = new Set();
+  const showFlames = () => { for (const { flame, floor } of flames) flame.isVisible = look.torches && explored.has(floor); };
+  const nearest = (hero: Point) => {
+    if (clustered) return;
+    const order = lights.map((light, i) => ({ i, d: Math.hypot(light.position.x - hero.x, light.position.z - hero.z) }))
+      .sort((a, b) => a.d - b.d).slice(0, DUNGEON_LOOK.fallbackLights).map(o => o.i);
+    lights.forEach((light, i) => { const on = look.torches && order.includes(i); if (light.isEnabled() !== on) light.setEnabled(on); });
+  };
+  let time = 0, lastHero: Point = { x: 0, z: 0 };
+
+  return {
+    lantern, clustered, torchCount: torches.length,
+    get look() { return { ...look }; },
+    update(hero, nextZoom, nextPitch, toward) {
+      if (isTactical(scene)) return;
+      const behind = DUNGEON_LOOK.lantern.behind;
+      lantern.position.set(hero.x + toward.x * behind, DUNGEON_LOOK.lantern.height, hero.z + toward.z * behind);
+      zoom = nextZoom; pitch = nextPitch; setMaxZ();
+      for (const { flame } of flames) flameLook.setFade(flame, flameFade(hero, flame.position, pitch, toward));
+      if (Math.hypot(hero.x - lastHero.x, hero.z - lastHero.z) > 0.5) { lastHero = { x: hero.x, z: hero.z }; nearest(hero); }
+    },
+    refreshFog(next) { explored = next; showFlames(); },
+    setPresentationEnabled(enabled) {
+      if (presentationEnabled === enabled) return;
+      presentationEnabled = enabled; buildPost();
+    },
+    setLook(change) {
+      const rebuild = (change.ssao !== undefined && change.ssao !== look.ssao) || (change.post !== undefined && change.post !== look.post);
+      Object.assign(look, change);
+      container?.setEnabled(look.torches);
+      if (!clustered) nearest(lastHero);
+      showFlames();
+      if (rebuild) buildPost();
+    },
+    burn(seconds) {
+      if (isTactical(scene)) return;
+      time += Math.min(seconds * 1000, 50) / 1000;
+      fire.setFloat("time", time);
+      lights.forEach((light, i) => light.intensity = (torches[i].intensity ?? DUNGEON_LOOK.torch.intensity) + Math.sin(time * 8 + i * 1.7) * DUNGEON_LOOK.torch.flicker);
+    },
+    dispose() { flameLook.dispose(); ao?.dispose(true); post?.dispose(); ao = post = null; },
+  };
+}

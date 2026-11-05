@@ -1,0 +1,396 @@
+import { Vector3 } from "../../math/vector.ts";
+import type { BuiltBody } from "../build/build-body.ts";
+import { readView } from "../build/read-view.ts";
+import type { EngineJoint } from "../../physics/engine.ts";
+import type { MuscleSpec } from "../spec/body.ts";
+import { jointTracker, type JointTracker } from "../build/joint-state.ts";
+import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
+import type { Hook, World } from "../../world/world.ts";
+import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from "./force-velocity.ts";
+import { attachment, type BuiltDof, type JointKinematics, type ReadBody, type ReadJoint, type ReadSegment } from "../read-body.ts";
+import { delayLine } from "../../world/command-delay.ts";
+
+/**
+ * **The muscle actuator**: each freedom's muscles as a velocity motor on its joint's axis
+ * (`EngineJoint.setMotorBounds`) whose directional ceilings are what each side can do at the joint's speed.
+ *
+ * A controller commands, for each freedom, an activation (0-1) and a speed it would like the joint
+ * to turn at. Every world step the driver reads each joint (`jointTracker`: angles from the
+ * poses, speeds from the bodies' angular velocities, each read once), and sets each motor's target
+ * to the commanded speed, held to the curve's reach (below), and its ceiling to
+ *
+ *     activation x peak isometric torque (the side that pulls) x strength x force-velocity(speed)
+ *
+ * where strength is the share of its peak a wound leaves the joint (`ReadJoint.strength`, 1 whole).
+ *
+ * The muscle shortens when the joint turns the way it pulls: the force-velocity relation reads the
+ * speed in that direction (`forceVelocityFactor`). A speed past the reach makes the motor push at
+ * its ceiling until the joint gets there; a speed of zero is a hold; a speed toward a pose is a
+ * servo. The driver reads its step from the world (`src/core/world/world.ts`).
+ *
+ * **Under directional actuation each side has its own ceiling.** A finite-speed command permits the solver to pull or brake
+ * within those bounds as the load requires. Both sides share the commanded activation, but keep
+ * their own strength and force-velocity curve. `pulled` is the measured mean torque over the step;
+ * `ceiling` reports the bound in that torque's sense (the requested sense when no torque was given).
+ * An infinite-speed command is a torque source in that sense: it gives the opposite side no
+ * activation. Its finite speed limit still prevents a light limb outrunning the muscle's curve.
+ * `World.actuation` also names the symmetric reference law: it uses the requested side's ceiling
+ * in both directions, including when the opposite side supplies the braking. That law is a
+ * comparison control, not a guarantee of each side's anatomical bound.
+ *
+ * **The curve is read at the speed the step begins with, and the motor's target is held to where
+ * the curve's tangent there reaches zero** (`forceVelocityReach`). A light limb's own time
+ * constant, the inertia beyond the joint times the unloaded speed over the peak times
+ * (1 + 1/curvature), is far shorter than a step, so a motor asked for the unloaded speed with its
+ * ceiling read at rest would carry it across its whole curve in one step at its isometric torque.
+ * The shortening branch is convex, so its tangent lies under it: held to the tangent's zero, a push
+ * gains no more speed in a step than the curve allows, and from rest reaches w0 k / (1 + k). A
+ * joint the muscles are braking is held to the reach from rest, since the lengthening branch's
+ * tangent reaches far past the unloaded speed. A heavy limb saturates its ceiling long before the
+ * tangent's zero.
+ *
+ * The step's start, not its end: a ceiling solved at the step's end with the inertia beyond the
+ * joint ignores every other torque on it, and lets a muscle stretched by a steady load yield too
+ * fast; one read half a step on makes whole-body strikes depend on the physics rate.
+ *
+ * **A tendon** (`MuscleSpec.tendonPositive`, `tendonNegative`) is a spring in series with its side's
+ * muscles that only pulls. While the motor pushes the way a side with a tendon pulls, under either
+ * law, the motor is that spring (`EngineJoint.setSpring`), solved within the
+ * step: of the tendon's stiffness, toward the fibres' angle -- the joint's angle at which the
+ * tendon would be slack -- and bounded by what the fibres can give at their own speed. The fibres'
+ * speed is the one at which what they can give, activation x peak x force-velocity, equals the
+ * tendon's pull at the step's end, its stretch growing by the fibres' speed less the joint's
+ * (`fibreSpeed`); a command of finite speed asks them no faster. Otherwise the motor is the
+ * velocity motor above, the tendon taken as rigid. Either way the tendon's stretch after a step is
+ * what the side delivered over its stiffness.
+ *
+ * A freedom's ceiling bounds its own axis only: a ball joint turning about two axes at once can
+ * exceed either peak in the diagonal, by up to the root of the sum of their squares. Each peak was
+ * measured about one axis at a time.
+ */
+
+/**
+ * **How much of itself a body runs.** `full`: its joints are read, its mind steps and its motors
+ * are driven. `limp`: none of the three, and its motors are released: the solver alone moves it.
+ * `held`: limp, and every segment on it (`attachment`) fixed where it is; a part cut off stays free.
+ */
+export type BodyLevel = "full" | "limp" | "held";
+
+/** What the engine is asked for a body at `level`: whether its segments are fixed. */
+function fixedAt(level: BodyLevel): boolean {
+  switch (level) {
+    case "full": case "limp": return false;
+    case "held": return true;
+    default: return level satisfies never;
+  }
+}
+
+/** One freedom's muscles: which joint and freedom, and the curve each way. */
+/** The channel of `joint`'s freedom `index`: the joint's name and the freedom's positive motion, e.g. "elbow.right flexion". */
+export const channelName = (joint: JointKinematics, index: number): string => `${joint.spec.name} ${joint.dofs[index]!.spec.positive}`;
+
+interface MuscleChannel {
+  /** `joint.name` and the freedom's positive motion, e.g. "elbow.right flexion". */
+  readonly name: string;
+  readonly joint: ReadJoint;
+  /** The freedom's index in its joint. */
+  readonly index: number;
+  readonly dof: BuiltDof;
+  /** The muscles that turn the joint toward positive angles, and toward negative. */
+  readonly positive: MuscleSide;
+  readonly negative: MuscleSide;
+}
+
+interface MuscleSide {
+  /** Peak isometric torque of the whole muscles, N m: the spec's, which its joint's strength scales (`peakOf`). */
+  readonly peak: number;
+  readonly curve: ForceVelocityCurve;
+  /** Its tendon's stiffness about the joint, N m/rad; null, none. */
+  readonly tendon: number | null;
+}
+
+export interface MuscleDriver {
+  readonly channels: readonly MuscleChannel[];
+  /**
+   * The command, by channel: activation 0-1, and the speed asked for (rad/s, the freedom's sense).
+   * What is written here on a step is applied the world's delay later (`World.delay`): what the
+   * motors are given this step is the command sent that many steps ago.
+   */
+  readonly activation: Float64Array;
+  readonly velocity: Float64Array;
+  /**
+   * The channel's joint as last read: angle (rad), its rate (rad/s), and speed (rad/s): the
+   * relative angular velocity along the axis its motor drives. Speed and rate are equal at a joint
+   * of one freedom and at the reference pose; elsewhere `turning` relates them
+   * (`src/core/bodies/build/joint-state.ts`).
+   */
+  angle(channel: number): number;
+  rate(channel: number): number;
+  speed(channel: number): number;
+  /**
+   * The channel's speed per rad/s of the rate of freedom `k` of its joint, at its angles as last
+   * read (`turningToRef`). A joint's channels are consecutive, in its freedoms' order: freedom k
+   * of channel i's joint is channel `i - channels[i].index + k`.
+   */
+  turning(channel: number, k: number): number;
+  /**
+   * The body's mass matrix and gravity in the channels' speeds, as last read (`bodyDynamics`): a
+   * channel's index is its freedom's.
+   */
+  readonly dynamics: BodyDynamics;
+  /** The torque the channel's muscles toward `sense` (+1 or -1) can give at full activation at its speed, N m. */
+  strength(channel: number, sense: 1 | -1): number;
+  /** The ceiling last given to the channel's motor, N m. */
+  readonly ceiling: Float64Array;
+  /** The nonnegative directional torque ceilings given to the solver, N m, in the channel's senses. */
+  readonly bounds: { readonly negative: Float64Array; readonly positive: Float64Array };
+  /** Mean torque delivered over the last world step, N m, positive in the channel's positive sense. */
+  readonly pulled: Float64Array;
+  /** Its memory (`src/core/world/state.ts`): its level, command, the commands sent and not yet applied, ceilings, delivered torque, and each joint as last read. */
+  readonly state: object;
+  /** Its level (`BodyLevel`), `full` as made. */
+  readonly level: BodyLevel;
+  /**
+   * Put the body at `level`. Leaving `full`, whatever has the body is told it is nobody's
+   * (`idle`), and the command, the commands sent and every motor are zeroed. The joints as last read stay as they
+   * were read until it is at `full` again, where its first step reads them before its mind steps.
+   */
+  setLevel(level: BodyLevel): void;
+  /** The channel named `name`; throws if there is none. */
+  channel(name: string): number;
+  /** Stop driving: the motors are released and its step hook removed. */
+  dispose(): void;
+}
+
+/** The muscle actuator's readings, without commands, lifecycle or saved memory. */
+export type MuscleReading = Omit<MuscleDriver, "activation" | "velocity" | "state" | "level" | "setLevel" | "dispose">;
+
+/** The activation and requested velocity for each muscle channel. */
+export interface MuscleCommand {
+  readonly activation: Float64Array;
+  readonly velocity: Float64Array;
+}
+
+/** **Each freedom of `read`'s joints as a muscle channel** (`MuscleChannel`), in its joints' order and each joint's freedoms': the driver's and its mirror's alike. */
+export function muscleChannels(read: Pick<ReadBody, "joints">): MuscleChannel[] {
+  return [...read.joints.values()].flatMap((joint) => joint.dofs.map((dof, index) => {
+    const muscle = dof.spec.muscle;
+    return {
+      name: channelName(joint, index), joint, index, dof,
+      positive: { peak: muscle.peakPositive.value, curve: curveOf(muscle, "positive"), tendon: muscle.tendonPositive?.stiffness.value ?? null },
+      negative: { peak: muscle.peakNegative.value, curve: curveOf(muscle, "negative"), tendon: muscle.tendonNegative?.stiffness.value ?? null },
+    };
+  }));
+}
+
+/** The torque `channel`'s muscles toward `sense` give at full activation at `speed`, N m (`MuscleDriver.strength`): their peak at their joint's strength now (`ReadJoint.strength`). */
+export function strengthAt(channel: MuscleChannel, sense: 1 | -1, speed: number): number {
+  const side = sense > 0 ? channel.positive : channel.negative;
+  return peakOf(channel, side) * forceVelocityFactor(sense * speed, side.curve);
+}
+
+/** `side`'s peak isometric torque at its joint's strength now, N m. */
+const peakOf = (channel: MuscleChannel, side: MuscleSide): number => channel.joint.strength(channel.index) * side.peak;
+
+/**
+ * What a driver is made with beside its body and world, how it reads for its mind: without the
+ * body's dynamics (`dynamics: false`, where its mind reads them from a mirror); and as the step is
+ * prepared rather than just before its control (`prepared`, where its mind reads the body before the
+ * step's controls run, `World.prepare`). The steps a command waits (`delay`): the world's unless
+ * given.
+ */
+interface DrivingOptions { readonly dynamics?: false; readonly prepared?: true; readonly delay?: number }
+
+/** Called every world step, before the driver sends the command and applies the one sent `delay` steps ago; `dt` is the step, s. */
+export type MuscleController = (driver: MuscleDriver, dt: number) => void;
+
+/**
+ * Drive every freedom of `built` from its spec's muscles, before each step of `world` while the
+ * body is at `full`, its joints read just before (`DrivingOptions`). `idle` is called as it leaves
+ * `full`, before its motors are zeroed.
+ */
+export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void,
+  { dynamics: reading = undefined, prepared = undefined, delay = world.delay }: DrivingOptions = {}): MuscleDriver {
+  // Its mind reads the body through its view (`readView`): the channels' joints and the dynamics' segments are the view's.
+  const read = readView(built);
+  const trackers: JointTracker[] = [];
+  const channels = muscleChannels(read);
+  const motors: EngineJoint[] = [];
+  const trackerOf: JointTracker[] = [];
+  for (const joint of built.joints.values()) {
+    const tracker = jointTracker(joint);
+    trackers.push(tracker);
+    joint.dofs.forEach((_, index) => {
+      motors.push(joint.joint);
+      trackerOf.push(tracker);
+      joint.joint.setMotor(index, 0, 0);
+    });
+  }
+  // Each segment's angular velocity, read once per step: a velocity read allocates. Found by the built segment or its view.
+  const spins = [...built.segments].map(([name, segment]) => ({ body: segment.body, w: new Vector3(), segment, view: read.segments.get(name)! }));
+  const spin = new Map<ReadSegment, Vector3>(spins.flatMap(({ w, segment, view }) => [[segment, w], [view, w]]));
+  const angularVelocity = (segment: ReadSegment): Vector3 => spin.get(segment)!;
+  const byName = new Map(channels.map((c, i) => [c.name, i]));
+  const on = attachment(built);
+  const n = channels.length;
+  const dt = world.dt;
+  const directional = (() => {
+    const law = world.actuation;
+    switch (law) {
+      case "symmetric": return false;
+      case "directional": return true;
+      default: throw new Error(`unknown actuation ${law satisfies never}`);
+    }
+  })();
+  const dynamics = bodyDynamics(read, world.physics.gravity);
+  const angles = trackers.map((tracker) => tracker.angles);
+  const motion = { spin: angularVelocity };
+  let hook: Hook | null = null, reads: Hook | null = null;
+  let after: Hook | null = null;
+  // The commands sent and not yet applied, a slot a step of the world's delay and one more; none where none was sent that long ago.
+  const line = delayLine(delay), none = new Float64Array(n);
+  const state = {
+    level: "full" as BodyLevel,
+    activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
+    bounds: { negative: new Float64Array(n), positive: new Float64Array(n) },
+    /** Each side's tendon's stretch after the last step, rad; 0 where it has none. */
+    stretch: { negative: new Float64Array(n), positive: new Float64Array(n) },
+    trackers: trackers.map(({ angles, speeds, rates, turning }) => ({ angles, speeds, rates, turning })),
+    line: line.state,
+    sent: { activation: Array.from({ length: line.size }, () => new Float64Array(n)), velocity: Array.from({ length: line.size }, () => new Float64Array(n)) },
+  };
+  const driver: MuscleDriver = {
+    channels, state,
+    activation: state.activation,
+    velocity: state.velocity,
+    ceiling: state.ceiling,
+    pulled: state.pulled,
+    bounds: state.bounds,
+    angle: (i) => trackerOf[i]!.angles[channels[i]!.index]!,
+    rate: (i) => trackerOf[i]!.rates[channels[i]!.index]!,
+    speed: (i) => trackerOf[i]!.speeds[channels[i]!.index]!,
+    turning: (i, k) => trackerOf[i]!.turning[channels[i]!.index]![k]!,
+    dynamics,
+    get level() { return state.level; },
+    setLevel(next) {
+      if (next === state.level) return;
+      if (state.level === "full") {
+        idle?.();
+        state.activation.fill(0); state.velocity.fill(0); state.ceiling.fill(0);
+        state.bounds.negative.fill(0); state.bounds.positive.fill(0);
+        state.stretch.negative.fill(0); state.stretch.positive.fill(0);
+        line.reset();
+        for (const sent of [...state.sent.activation, ...state.sent.velocity]) sent.fill(0);
+        channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
+      }
+      if (fixedAt(next) !== fixedAt(state.level)) {
+        for (const segment of built.segments.values()) if (!fixedAt(next) || on(segment)) segment.body.setFixed(fixedAt(next));
+      }
+      state.level = next;
+    },
+    strength: (i, sense) => strengthAt(channels[i]!, sense, driver.speed(i)),
+    channel(name) {
+      const i = byName.get(name);
+      if (i === undefined) throw new Error(`${built.spec.model} has no muscle channel "${name}"`);
+      return i;
+    },
+    dispose() {
+      hook?.dispose();
+      hook = null;
+      reads?.dispose();
+      reads = null;
+      after?.dispose();
+      after = null;
+      channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
+    },
+  };
+  const sense = () => {
+    for (const { body, w } of spins) body.angularVelocityToRef(w);
+    for (const tracker of trackers) tracker.update(angularVelocity);
+    if (reading !== false) dynamics.update(angles, motion);
+  };
+  if (prepared) reads = world.prepare(() => { if (state.level === "full") sense(); });
+  hook = world.beforeStep(() => {
+    if (state.level !== "full") return;
+    if (!prepared) sense();
+    control?.(driver, dt);
+    const slot = line.written();
+    state.sent.activation[slot]!.set(state.activation); state.sent.velocity[slot]!.set(state.velocity);
+    const due = line.applied();
+    line.advance();
+    const asked = due < 0 ? none : state.sent.activation[due]!, wanted = due < 0 ? none : state.sent.velocity[due]!;
+    for (let i = 0; i < n; i++) {
+      const c = channels[i]!;
+      const speed = driver.speed(i), target = wanted[i]!;
+      const activation = Math.max(0, Math.min(1, asked[i]!));
+      const push = target - speed;
+      const toward = push > 0 ? 1 : push < 0 ? -1 : c.positive.peak <= c.negative.peak ? 1 : -1;
+      const side = toward > 0 ? c.positive : c.negative;
+      if (side.tendon !== null) {
+        const stretch = (toward > 0 ? state.stretch.positive : state.stretch.negative)[i]!, force = activation * peakOf(c, side);
+        const v = fibreSpeed(force, side.curve, side.tendon, stretch, toward * speed, dt, Number.isFinite(target) ? toward * target : Infinity);
+        const capacity = force > 0 ? force * forceVelocityFactor(v, side.curve) : 0;
+        const positive = toward > 0 ? capacity : 0, negative = toward > 0 ? 0 : capacity;
+        state.bounds.positive[i] = positive; state.bounds.negative[i] = negative;
+        driver.ceiling[i] = capacity;
+        const along = c.dof.sign > 0, fibre = driver.angle(i) + toward * (stretch + v * dt);
+        motors[i]!.setSpring(c.index, c.dof.sign * fibre, side.tendon, along ? negative : positive, along ? positive : negative);
+        continue;
+      }
+      // Within a step the muscles turn the joint no further than their curve's tangent reaches.
+      const reach = forceVelocityReach(toward * speed, (toward > 0 ? c.positive : c.negative).curve);
+      const beyond = toward * target > reach;
+      const reference = directional ? 0 : activation * driver.strength(i, toward);
+      const positive = directional ? target === -Infinity ? 0 : activation * driver.strength(i, 1) : reference;
+      const negative = directional ? target === Infinity ? 0 : activation * driver.strength(i, -1) : reference;
+      state.bounds.positive[i] = positive; state.bounds.negative[i] = negative;
+      driver.ceiling[i] = toward > 0 ? positive : negative;
+      // The motor's axis may run against the freedom's positive sense.
+      const along = c.dof.sign > 0;
+      const commanded = c.dof.sign * (beyond ? toward * reach : target);
+      if (directional) motors[i]!.setMotorBounds(c.index, commanded, along ? negative : positive, along ? positive : negative);
+      else motors[i]!.setMotor(c.index, commanded, reference);
+    }
+  });
+  after = world.afterStep(() => {
+    for (let i = 0; i < n; i++) {
+      const c = channels[i]!;
+      state.pulled[i] = c.dof.sign * motors[i]!.motorStepImpulse(c.index) / dt;
+      if (state.pulled[i] !== 0) state.ceiling[i] = state.pulled[i]! > 0 ? state.bounds.positive[i]! : state.bounds.negative[i]!;
+      if (c.positive.tendon !== null) state.stretch.positive[i] = Math.max(0, state.pulled[i]!) / c.positive.tendon;
+      if (c.negative.tendon !== null) state.stretch.negative[i] = Math.max(0, -state.pulled[i]!) / c.negative.tendon;
+    }
+  });
+  return driver;
+}
+
+/**
+ * The fibres' shortening speed, rad/s in the joint's terms, behind a tendon of `stiffness` N m/rad
+ * stretched `stretch` rad, the joint turning `joint` rad/s the way they pull, over a step `dt`:
+ * where what they can give, `force` x force-velocity, equals the tendon's pull at the step's end,
+ * stiffness x (stretch + (speed - joint) dt), and no faster than `most`. What they can give falls
+ * with speed and the pull rises, so the speed is one, found by halving between a speed at which the
+ * tendon goes slack and the unloaded speed: 40 halvings, a numeric setting. With no force the
+ * tendon goes slack.
+ */
+function fibreSpeed(force: number, curve: ForceVelocityCurve, stiffness: number, stretch: number, joint: number, dt: number, most: number): number {
+  const slack = joint - stretch / dt;
+  if (!(force > 0)) return slack;
+  let lo = Math.min(slack, -curve.unloadedSpeed), hi = curve.unloadedSpeed;
+  for (let k = 0; k < 40; k++) {
+    const mid = (lo + hi) / 2;
+    if (force * forceVelocityFactor(mid, curve) > stiffness * Math.max(0, stretch + (mid - joint) * dt)) lo = mid; else hi = mid;
+  }
+  return Math.min(lo, most);
+}
+
+/** The curve for the muscles turning a freedom toward `side`, in SI, from its spec. */
+function curveOf(muscle: MuscleSpec, side: "positive" | "negative"): ForceVelocityCurve {
+  const spec = side === "positive" ? muscle.speedPositive : muscle.speedNegative;
+  return {
+    unloadedSpeed: spec.unloadedSpeed.value,
+    curvature: spec.curvature.value,
+    eccentricCeiling: spec.eccentricCeiling.value,
+    eccentricSlopeRatio: spec.eccentricSlopeRatio.value,
+  };
+}

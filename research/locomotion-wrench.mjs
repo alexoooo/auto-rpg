@@ -80,8 +80,8 @@ const round = (x, k = 3) => x === null || x === undefined ? null : +x.toFixed(k)
 
 async function runOnce({ model, pace, legs, seconds, from, scale }) {
   const [{ modelSpec }, { labActor }, { startLocomotion }, { trackOf }, { LAB_MIND }, { coreStand }, { footStatesOf }, { centreOfToRef }] = await Promise.all([
-    import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/locomotion-mode.ts"), import("../src/lab/track.ts"),
-    import("../src/lab/scenarios.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/control/support.ts"), import("../src/core/read-motion.ts"),
+    import("../src/core/bodies/models.ts"), import("../src/app/node/game.ts"), import("../src/game/lab/locomotion-mode.ts"), import("../src/game/lab/track.ts"),
+    import("../src/app/node/setup.ts"), import("../tests/harness/core-stand.mjs"), import("../src/control/support.ts"), import("../src/core/bodies/read-motion.ts"),
   ]);
   centreOf = centreOfToRef;
   const stand = await coreStand(modelSpec(model), { ground: true, groundSize: GROUND });
@@ -300,12 +300,12 @@ const SETTLE = 1;
  * centre of mass swayed forward and back over the soles' middle at `hz`.
  */
 async function swaying(stand, hz) {
-  const [{ motorControl }, { driveMuscles }, { standingHeight }, { STANCE_LOWER }, { readView }] = await Promise.all([import("../src/core/control/motor.ts"),
-    import("../src/core/muscle/driver.ts"), import("../src/core/control/support.ts"), import("../src/core/skills/locomotion/locomotion.ts"),
-    import("../src/core/build/read-view.ts")]);
+  const [{ motorControl }, { driveMuscles }, { standingHeight }, { STANCE_LOWER }, { readView }] = await Promise.all([import("../src/control/motor.ts"),
+    import("../src/core/bodies/muscle/driver.ts"), import("../src/control/support.ts"), import("../src/skills/locomotion/locomotion.ts"),
+    import("../src/core/bodies/build/read-view.ts")]);
   // Motor control reads the body's one view, as the driver's channels and dynamics do (`driveMuscles`).
   const motor = motorControl(readView(stand.built), 0.1, {});
-  // The stance reads the body before each command, as a body's own step has it (`src/core/body.ts`).
+  // The stance reads the body before each command, as a body's own step has it (`src/control/body.ts`).
   const driver = driveMuscles(stand.built, stand.world, (muscles, dt) => { motor.read(); motor.control(muscles, control, dt); });
   const control = { muscles: driver, assist: { force: new Vector3(), moment: new Vector3() }, hands: { request() { throw new Error("the sway fixture requests no hand pose"); } } }, reading = motor.reading;
   const height = standingHeight(stand.built) - STANCE_LOWER, feet = ["left", "right"];

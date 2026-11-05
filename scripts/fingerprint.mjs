@@ -20,7 +20,7 @@
  * One line a case, each ending in the first 16 hex digits of a SHA-256. A pose hash is `traceOf`'s
  * digest (`src/evaluation/trace.ts`): every segment's position and rotation after every step of
  * the case, so a difference the bodies recover from still shows. Node, core world
- * (`src/core/world.ts`), Rapier, 120 Hz; each case in a world of its own, on a worker thread. It
+ * (`src/core/world/world.ts`), Rapier, 120 Hz; each case in a world of its own, on a worker thread. It
  * reads no clock and no `Math.random`.
  */
 import { createHash } from "node:crypto";
@@ -35,32 +35,33 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/loaders/glTF/index.js";
-import { SIDES } from "../src/arena/duel.ts";
-import { CHARACTERS, WEAPONS, clipFor } from "../src/character-lab/catalog.ts";
-import { controlCharacter, controlsFor, defaultControl, readControls, readMinds } from "../src/arena/matchup.ts";
-import { SERVO_SECONDS, commandsBody } from "../src/core/body.ts";
-import { commandedBody } from "../src/core/mind/host.ts";
-import { humanSpec } from "../src/core/human/spec.ts";
-import { loadoutKey } from "../src/core/items/held.ts";
-import { standIntent } from "../src/core/intent/intent.ts";
-import { driveBy } from "../src/core/mind/decider.ts";
-import { partOf, MINDS, GAME } from "../src/entrants/game.ts";
-import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
-import { createMind } from "../src/core/mind/minds.ts";
-import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
-import { CryptWeathering } from "../src/dungeon/crypt-weathering.ts";
-import { generateLevel } from "../src/dungeon/level.ts";
-import { clearSegment, distance, findPath, reveal, walkable } from "../src/dungeon/map.ts";
-import { cutawayCondition } from "../src/dungeon/reference-look.ts";
-import { DungeonRun } from "../src/dungeon/run.ts";
-import { revealScenery } from "../src/dungeon/scenery-visibility.ts";
-import { labActor } from "../src/lab/actor.ts";
-import { LAB_MIND } from "../src/lab/scenarios.ts";
-import { startLocomotion } from "../src/lab/locomotion-mode.ts";
-import { TRACKS, trackOf } from "../src/lab/track.ts";
-import { buildBout } from "../src/evaluation/bout.ts";
+import { SIDES } from "../src/game/arena/duel.ts";
+import { CHARACTERS, WEAPONS, clipFor } from "../src/game/appearance/characters.ts";
+import { controlCharacter, controlsFor, defaultControl, readControls, readMinds } from "../src/app/node/setup.ts";
+import { SERVO_SECONDS, commandsBody } from "../src/control/body.ts";
+import { commandedBody } from "../src/minds/host.ts";
+import { humanSpec } from "../src/core/bodies/human/spec.ts";
+import { loadoutKey } from "../src/core/bodies/items/held.ts";
+import { standIntent } from "../src/skills/intent/intent.ts";
+import { driveBy } from "../src/minds/decider.ts";
+import { partOf, MINDS, GAME } from "../src/app/catalog.ts";
+import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
+import { createMind } from "../src/minds/minds.ts";
+import { generateCryptDungeon } from "../src/game/dungeon/crypt-dungeon.ts";
+import { CryptWeathering } from "../src/app/browser/dungeon/crypt-weathering.ts";
+import { generateLevel } from "../src/game/dungeon/level.ts";
+import { clearSegment, distance, findPath, reveal, walkable } from "../src/game/dungeon/map.ts";
+import { cutawayCondition } from "../src/app/browser/dungeon/reference-look.ts";
+import { DungeonRun } from "../src/app/node/game.ts";
+import { revealScenery } from "../src/app/browser/dungeon/scenery-visibility.ts";
+import { labActor } from "../src/app/node/game.ts";
+import { LAB_MIND } from "../src/app/node/setup.ts";
+import { startLocomotion } from "../src/game/lab/locomotion-mode.ts";
+import { TRACKS, trackOf } from "../src/game/lab/track.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
 import { seededBareRecipe } from "../research/bare-recipe.mjs";
+import { entrantRecipes } from "../research/entrant-recipes.mjs";
 import { surface } from "./character-lab/contact.mjs";
 import {
   contactPatch, forearmExpansion, gripDistances, gripGap, skinPart, skinRegions, surfaceIndex, wristAreaRatio,
@@ -413,6 +414,7 @@ const CASES = [
   ...elsewhere(),
   ...DATA_CASES,
   { name: "bare: seeded nonzero network", run: () => arena(seededBareRecipe()) },
+  ...entrantRecipes().map(({ name, recipe }) => ({ name, run: () => arena(recipe) })),
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),
   ...[1, 2].map((seed) => ({ name: `crypt fight, seed ${seed}`, run: () => cryptFight(seed) })),
   ...["workshop-fighter", "workshop-rogue"].flatMap((model) => [
@@ -452,7 +454,7 @@ if (isMainThread) {
   })));
   for (const id of chosen) console.log(`${CASES[id].name}: ${lines[id].line}`);
   const cases = Object.fromEntries(chosen.map((id) => [CASES[id].name, lines[id].record]));
-  if (values.json) await writeFile(values.json, JSON.stringify({ harness: "Node, core world (src/core/world.ts), 120 Hz", engine: CORE_ENGINE, cases }, null, 1));
+  if (values.json) await writeFile(values.json, JSON.stringify({ harness: "Node, core world (src/core/world/world.ts), 120 Hz", engine: CORE_ENGINE, cases }, null, 1));
   if (values.compare) {
     const before = JSON.parse(await readFile(values.compare, "utf8"));
     if (before.engine !== CORE_ENGINE) throw new Error(`${values.compare} was taken on ${before.engine}, this on ${CORE_ENGINE}`);

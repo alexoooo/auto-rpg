@@ -86,13 +86,15 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - Links and anchors resolve; `src/` comments carry no dates, hashes, plan citations or "the owner":
   `tests/documents.test.mjs`.
 
-## The core (`src/core/`)
+## Simulation and source boundaries
 
-- Imports, the engine's package, exact arithmetic (`EXACT_MATH`), headless builders free of
-  Babylon and what a Mind may read and do: `tests/core-boundary.test.mjs`.
+- Responsibility, runtime and public API boundaries cover every source module:
+  `scripts/source-boundary.mjs`, held by `tests/core-boundary.test.mjs`. Runtime-neutral code stays
+  outside `node/` and `browser/`; application composition supplies catalogs and adapters. The same
+  gate checks exact arithmetic (`EXACT_MATH`), engine access and what a Mind may read and do.
 - **Simulation code uses the core's vectors** and plain poses; drawing code uses Babylon's, and a
   page poses a puppet from the simulated poses. A module that does both is split.
-- **A spec's number is a `Quantity`** read from a `SOURCES` entry (`src/core/sources.ts`: a paper,
+- **A spec's number is a `Quantity`** read from a `SOURCES` entry (`src/core/bodies/sources.ts`: a paper,
   an asset, or tuned with what it is set for) or derived by a named rule that writes no factor.
   A spec never spreads another family's.
 - **Tuning is immutable**: an experiment passes an override in; nothing mutates a global.
@@ -122,7 +124,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **A module that owns a rule exports its predicate.** A published field needs a reader; an
   export needs an importer.
 - **What changes step to step is plain data in one `state` object** per module
-  (`src/core/state.ts`), so a bout forks by copying its state; a constant a state points at is
+  (`src/core/world/state.ts`), so a bout forks by copying its state; a constant a state points at is
   frozen.
 - **The step's dear functions work in arrays made once**; a speed rewrite does the same
   operations in the same order, moves no fingerprint, and reads its time before and after
@@ -188,8 +190,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 ## Minds and measurement
 
-- **A Mind is an entrant** (`src/entrants/<name>/`, a line in `ENTRANTS`); it imports the core and
-  itself, never another entrant. `node scripts/entrant-check.mjs` names a change an entrant's, the
+- **A Mind is an entrant** (`src/entrants/<name>/`, a line in `ENTRANTS`); it imports published library APIs and
+  itself, never another entrant. The registry is `src/app/entrants.ts`. `node scripts/entrant-check.mjs` names a change an entrant's, the
   toolkit's or mixed; an entrant's change touches its own files and its registry line; a toolkit
   change names its moved fingerprint cases.
 - **Compare minds alike**: the same scenarios, bodies, physics, assists and scoring, results by

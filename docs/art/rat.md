@@ -1,7 +1,7 @@
 # The rat's art
 
 The rat is drawn with Poly Haven's Street Rat, one mesh skinned to the rat's segments so the fur
-bends at the joints (`dressSkinnedArt`, `src/render/skinned-art.ts`). The art is cosmetic: it collides with nothing, is not pickable and decides
+bends at the joints (`dressSkinnedArt`, `src/app/browser/render/skinned-art.ts`). The art is cosmetic: it collides with nothing, is not pickable and decides
 nothing. The rat's colliders are its segments ([the body](#the-body-fitted-to-the-art)).
 
 ## Source and licence
@@ -62,7 +62,7 @@ in the script, kept in `.cache/art/downloads/street_rat/`), and writes `rat.glb`
 | tail | two capsules, root to the taper's end and on to the tip |
 
 What the art does not give is the authored quadruped's (`assets/quadruped/authored-body.json`,
-`rat-anatomy` in `src/core/sources.ts`): masses, torques, joint ranges, the teeth and the paw
+`rat-anatomy` in `src/core/bodies/sources.ts`): masses, torques, joint ranges, the teeth and the paw
 footprint. The rat's own are the hips' second and third axes (±1.6 rad), the bends (±1.2 rad), the
 legs' muscles, the neck's torque (scaled by the head and jaw's lever) and the head's and tail's
 weights: [the rat](../reference/reptile.md#the-rat).

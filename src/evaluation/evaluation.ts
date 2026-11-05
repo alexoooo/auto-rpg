@@ -3,19 +3,19 @@
  * it in its task's units; the runner (`run.ts`) combines the readings. One definition serves Node,
  * its workers and a page.
  */
-import type { DuelRecipe, OrdersEntry } from "../arena/duel.ts";
-import type { EngineName } from "../core/engine/engines.ts";
-import type { Side } from "../core/spec/body.ts";
+import type { DuelRecipe, OrdersEntry } from "../game/arena/duel.ts";
+import type { EngineName } from "../core/physics/engines.ts";
+import type { Side } from "../core/bodies/spec/body.ts";
 import type { BuiltBout } from "./bout.ts";
 import type { BuiltCrypt, CryptCase } from "./crypt.ts";
 import type { BuiltFall, FallCase } from "./fall.ts";
 import type { BuiltLone, LoneCase } from "./lone.ts";
 import type { BuiltTechnique, TechniqueCase } from "./technique.ts";
-import type { BuiltBody } from "../core/build/build-body.ts";
-import type { AttributeOverrides } from "../core/character-attributes.ts";
-import type { MindConfig } from "../core/mind/config.ts";
-import type { MindPreset } from "../core/mind/controller.ts";
-import type { Minded } from "../core/mind/minds.ts";
+import type { BuiltBody } from "../core/bodies/build/build-body.ts";
+import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
+import type { MindConfig } from "../minds/config.ts";
+import type { MindPreset } from "../minds/controller.ts";
+import type { Minded } from "../minds/minds.ts";
 
 /** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
 export type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };

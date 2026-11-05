@@ -21,7 +21,7 @@
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { turnAboutToRef } from "../src/core/math/turn.ts";
 import { yawPitchRollToRef } from "./yaw-pitch-roll.mjs";
-import { createRapierPhysics, rapierModule } from "../src/core/engine/rapier.ts";
+import { createRapierPhysics, rapierModule } from "../src/core/physics/rapier.ts";
 
 const argv = process.argv.slice(2);
 const hz = Number(argv[argv.indexOf("--hz") + 1] || 120);

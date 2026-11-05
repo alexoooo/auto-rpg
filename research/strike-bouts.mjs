@@ -23,7 +23,7 @@ if (isMainThread) {
     models: { type: "string" }, gaps: { type: "string", default: "3,4,5" }, held: { type: "string", default: "club" },
     seconds: { type: "string", default: "120" }, workers: { type: "string" }, save: { type: "string" }, load: { type: "string" },
   } });
-  const { HUMANOID_MODELS } = await import("../src/core/models.ts");
+  const { HUMANOID_MODELS } = await import("../src/core/bodies/models.ts");
   const models = values.models?.split(",") ?? HUMANOID_MODELS, gaps = values.gaps.split(",").map(Number), seconds = Number(values.seconds);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), helds = values.held.split(",");
   if (!models.length || models.some(model => !HUMANOID_MODELS.includes(model)) || gaps.some(gap => !Number.isFinite(gap) || gap <= 0)
@@ -77,7 +77,7 @@ if (isMainThread) {
   console.log(`${jobs.length} bouts, ${played.length} played, in ${((Date.now() - started) / 1000).toFixed(1)} s`);
 } else {
   const [{ buildBout }, { BOUT_ENGINE }] = await Promise.all([import("../src/evaluation/bout.ts"), import("./bout.mjs")]);
-  const { SIDES } = await import("../src/arena/duel.ts");
+  const { SIDES } = await import("../src/game/arena/duel.ts");
   parentPort.on("message", async ({ left, right, gap, held, seconds }) => {
     let dispose;
     try {

@@ -6,21 +6,21 @@
  * and shoves at set times (`LoneCue`).
  */
 import { Vector3 } from "../core/math/vector.ts";
-import { addArenaSolids } from "../arena/solids.ts";
-import type { AttributeOverrides } from "../core/character-attributes.ts";
-import { enlist, type Combatant } from "../core/combatant.ts";
-import { loadEngine } from "../core/engine/engines.ts";
-import { EMPTY_LOADOUT, type Loadout } from "../core/items/held.ts";
-import type { MindConfig } from "../core/mind/config.ts";
-import type { Orders } from "../core/intent/orders.ts";
+import { addArenaSolids } from "../game/arena/solids.ts";
+import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
+import { enlist, type Combatant } from "../game/combatant.ts";
+import { loadEngine } from "../core/physics/engines.ts";
+import { EMPTY_LOADOUT, type Loadout } from "../core/bodies/items/held.ts";
+import type { MindConfig } from "../minds/config.ts";
+import type { Orders } from "../skills/intent/orders.ts";
 import { cos, sin } from "../core/math/real.ts";
-import { createSenses } from "../core/mind/senses.ts";
-import { modelHolding, type BodyModel } from "../core/models.ts";
-import { rulebook } from "../core/rules/rulebook.ts";
-import { createWorld, type World } from "../core/world.ts";
+import { createSenses } from "../core/world/senses.ts";
+import { modelHolding, type BodyModel } from "../core/bodies/models.ts";
+import { rulebook } from "../combat/rulebook.ts";
+import { createWorld, type World } from "../core/world/world.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
-import { GAME } from "../entrants/game.ts";
-import { labGusts, startWind } from "../lab/wind.ts";
+import { labGusts, startWind } from "../game/lab/wind.ts";
+import { type GameContext } from "../game/arena/context.ts";
 
 /**
  * A cue of a lone body's script, `at` s into the case: the orders it is given from then on (none
@@ -57,45 +57,54 @@ export interface BuiltLone {
   dispose(): void;
 }
 
-/**
- * A world with the arena's solids and `lone`'s body in it at the centre, facing +z, its script
- * played: each cue's orders from the step it falls on, and its
- * shove before that step.
- */
-async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<BuiltLone> {
-  const world = createWorld(await loadEngine(engine));
-  try {
-    addArenaSolids(world.physics);
-    const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
-    let orders: Orders | null = null, next = 0, steps = 0;
-    const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec: modelHolding(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character), rules: rulebook("arena"),
-      mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: createSenses(world), out: () => false, orders: () => orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
-      ...(lone.seed !== undefined ? { seed: lone.seed } : {}) });
-    const wind = lone.gusts ? startWind(body.built, world, labGusts(lone.model), lone.seed ?? 1) : null;
-    const trunk = body.built.segments.get("middleTrunk"), point = new Vector3(), impulse = new Vector3();
-    // First in every step: the cues that fall on it, before the mind reads its orders.
-    world.sense(() => {
-      for (; next < cues.length && cues[next]!.step <= steps; next++) {
-        const cue = cues[next]!;
-        if (cue.orders !== undefined) orders = cue.orders;
-        if (cue.shove) {
-          if (!trunk) throw new Error("a shove needs a middle trunk");
-          const way = cue.shove.degrees * Math.PI / 180, pose = trunk.body.pose, centre = trunk.body.massProperties.centre;
-          point.set(centre[0], centre[1], centre[2]).applyRotationQuaternionToRef(pose.rotation, point).addInPlace(pose.position);
-          trunk.body.applyImpulse(impulse.set(cue.shove.impulse * sin(way), 0, cue.shove.impulse * cos(way)), point);
+export function createLone(context: GameContext) {
+  const GAME = context.catalog;
+
+  /**
+   * A world with the arena's solids and `lone`'s body in it at the centre, facing +z, its script
+   * played: each cue's orders from the step it falls on, and its
+   * shove before that step.
+   */
+  async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<BuiltLone> {
+    const world = createWorld(await loadEngine(engine));
+    try {
+      addArenaSolids(world.physics);
+      const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
+      let orders: Orders | null = null, next = 0, steps = 0;
+      const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec: modelHolding(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character), rules: rulebook("arena"),
+        mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: createSenses(world), out: () => false, orders: () => orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
+        ...(lone.seed !== undefined ? { seed: lone.seed } : {}) });
+      const wind = lone.gusts ? startWind(body.built, world, labGusts(lone.model), lone.seed ?? 1) : null;
+      const trunk = body.built.segments.get("middleTrunk"), point = new Vector3(), impulse = new Vector3();
+      // First in every step: the cues that fall on it, before the mind reads its orders.
+      world.sense(() => {
+        for (; next < cues.length && cues[next]!.step <= steps; next++) {
+          const cue = cues[next]!;
+          if (cue.orders !== undefined) orders = cue.orders;
+          if (cue.shove) {
+            if (!trunk) throw new Error("a shove needs a middle trunk");
+            const way = cue.shove.degrees * Math.PI / 180, pose = trunk.body.pose, centre = trunk.body.massProperties.centre;
+            point.set(centre[0], centre[1], centre[2]).applyRotationQuaternionToRef(pose.rotation, point).addInPlace(pose.position);
+            trunk.body.applyImpulse(impulse.set(cue.shove.impulse * sin(way), 0, cue.shove.impulse * cos(way)), point);
+          }
         }
-      }
-      steps++;
-    });
-    return { world, body, dispose() { wind?.dispose(); body.body.dispose(); body.built.dispose(); world.dispose(); } };
-  } catch (error) { world.dispose(); throw error; }
+        steps++;
+      });
+      return { world, body, dispose() { wind?.dispose(); body.body.dispose(); body.built.dispose(); world.dispose(); } };
+    } catch (error) { world.dispose(); throw error; }
+  }
+
+  /** The lone-body world kind: built by `buildLone`, its one body traced, played by the world's clock. */
+  const LONE_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "lone" }>, BuiltLone> = {
+    build: (world) => buildLone(world.lone, world.engine),
+    traced: (built) => [built.body.built],
+    clock: (built) => built.world.time,
+    minds: (world) => [world.lone.mind],
+    hosted: (built) => [built.body.minded],
+  };
+
+  return { LONE_WORLD };
 }
 
-/** The lone-body world kind: built by `buildLone`, its one body traced, played by the world's clock. */
-export const LONE_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "lone" }>, BuiltLone> = {
-  build: (world) => buildLone(world.lone, world.engine),
-  traced: (built) => [built.body.built],
-  clock: (built) => built.world.time,
-  minds: (world) => [world.lone.mind],
-  hosted: (built) => [built.body.minded],
-};
+/** The registered world factory for this builder. */
+export const loneWorld = (context: GameContext) => createLone(context).LONE_WORLD;

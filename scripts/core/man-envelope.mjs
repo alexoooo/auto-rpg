@@ -29,8 +29,8 @@ import { fileURLToPath } from "node:url";
 import { accessorRows, readGlb } from "./glb.mjs";
 import { losslessModelPath } from "../art/paths.mjs";
 import { fromGltf, hand, hullOf, PATCH, patchOf, rigBone, round, SUFFIX } from "./hand-envelope.mjs";
-import { convexHull } from "../../src/core/spec/hull.ts";
-import { add, cross, dot, normalize, scale, sub } from "../../src/core/spec/vec.ts";
+import { convexHull } from "../../src/core/bodies/spec/hull.ts";
+import { add, cross, dot, normalize, scale, sub } from "../../src/core/bodies/spec/vec.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const MAN_GEOMETRY_FILE = path.join(ROOT, "assets", "humanoid", "man-contact-geometry.json");

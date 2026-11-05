@@ -1,6 +1,6 @@
 /**
  * **The fidelity sweep**: cases A (the standing foot) and B (the forearm chain) of
- * `src/physics-bench/cases.ts` over a grid of each engine's settings, judged against
+ * `src/app/browser/physics-bench/cases.ts` over a grid of each engine's settings, judged against
  * `thresholds.mjs`. Node, one engine a process, the shared controller at 120 Hz.
  *
  *     node research/physics-bakeoff/fidelity.mjs reference       # the fine references
@@ -13,11 +13,11 @@
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { load } from "./engines.mjs";
-import { deviation, forearmChain, standingFoot } from "../../src/physics-bench/cases.ts";
+import { deviation, forearmChain, standingFoot } from "../../src/app/browser/physics-bench/cases.ts";
 import { judgeA, judgeB, REFERENCE } from "./thresholds.mjs";
 
 const HZ = 120;
-const out = new URL("./results/", import.meta.url);
+const out = new URL("./results", import.meta.url);
 await mkdir(out, { recursive: true });
 
 /** Each engine's grid: [case, settings, conditioning?]. */

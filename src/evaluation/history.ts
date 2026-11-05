@@ -3,7 +3,7 @@
  * A pool shares a protocol and an environment, so its versions are compared directly; each case
  * is read once, by its key, whichever records hold it. Records are given oldest first.
  */
-import { recordingKey } from "../core/recording.ts";
+import { recordingKey } from "../core/world/recording.ts";
 import type { RecordedSubject, RecordHeader, RecordLine } from "./record.ts";
 
 /** A record as read: its file name, header and lines. */

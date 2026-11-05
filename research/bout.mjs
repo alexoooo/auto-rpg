@@ -1,9 +1,9 @@
 // One arena bout in a world of its own (Node, core world, the arena's Rapier, 120 Hz), and its row.
 import "../tests/harness/preload-data.mjs";
-import { SIDES } from "../src/arena/duel.ts";
-import { isClash, lifeTaken, woundedIn } from "../src/core/rules/blows.ts";
-import { DEFAULT_ENGINE, isEngineName } from "../src/core/engine/engines.ts";
-import { buildBout } from "../src/evaluation/bout.ts";
+import { SIDES } from "../src/game/arena/duel.ts";
+import { isClash, lifeTaken, woundedIn } from "../src/combat/blows.ts";
+import { DEFAULT_ENGINE, isEngineName } from "../src/core/physics/engines.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 
 /**
@@ -13,7 +13,7 @@ import { traceOf } from "../src/evaluation/trace.ts";
 export const BOUT_ENGINE = process.env.CORE_ENGINE || DEFAULT_ENGINE;
 if (!isEngineName(BOUT_ENGINE)) throw new Error(`CORE_ENGINE names no engine: ${BOUT_ENGINE}`);
 
-export const BOUT_HARNESS = `Node, core world (src/core/world.ts), ${BOUT_ENGINE}, 120 Hz`;
+export const BOUT_HARNESS = `Node, core world (src/core/world/world.ts), ${BOUT_ENGINE}, 120 Hz`;
 
 /** A built body's weight in `world`, N: its segments' rigid masses, what they hold included, times gravity. */
 function weightOf(built, world) {

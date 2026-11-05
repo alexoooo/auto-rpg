@@ -1,10 +1,10 @@
 # Wounds
 
 What a blow costs each surface that meets in it: how stiff each part of a body is under a blunt
-load (`CONTACT_STIFFNESS`, `src/core/human/tables/contact-stiffness.ts`), who takes what of a
-blow by that (`energyShares`, `src/core/rules/share.ts`), what a bare fist or foot is spared, and
+load (`CONTACT_STIFFNESS`, `src/core/bodies/human/tables/contact-stiffness.ts`), who takes what of a
+blow by that (`energyShares`, `src/combat/share.ts`), what a bare fist or foot is spared, and
 how deep a held point goes, from the impact literature. The rule is `watchBlows`
-(`src/core/rules/blows.ts`). `node research/blow-shares.mjs` prints the Stiffness and Shares
+(`src/combat/blows.ts`). `node research/blow-shares.mjs` prints the Stiffness and Shares
 tables from the specs.
 
 ## Stiffness
@@ -25,7 +25,7 @@ takes no share of a blow, and the part it strikes takes the whole.
 
 ## Gaps
 
-`contact-stiffness-gaps` (`src/core/sources.ts`): where no study read gives a part's stiffness
+`contact-stiffness-gaps` (`src/core/bodies/sources.ts`): where no study read gives a part's stiffness
 under a blunt load, it takes a neighbour's whole. A lent row is a `derive` of the row it borrows
 and of the gap's `1`, so its provenance names the paper and the gap both.
 
@@ -66,7 +66,7 @@ surface's share is 0; two rigid surfaces share nothing.
 ## The fist
 
 **A bare fist that strikes flesh takes only what its share brings past a threshold**
-(`Rulebook.fist`, `src/core/rules/rulebook.ts`): the energy a hand stores loaded to a knuckle's
+(`Rulebook.fist`, `src/combat/rulebook.ts`): the energy a hand stores loaded to a knuckle's
 even chance of injury, F²/2k at 3.0 kN (`carpanen-2019`, the metacarpophalangeal joints' axial
 force at 50 % risk) on the hand's 122.3 N/mm (`CONTACT_STIFFNESS.hand`), 36.8 J, all of it the
 threshold (`owner-fist-threshold`). It is a deductible: a share of 50 J costs the hand 13.2 J's
@@ -81,7 +81,7 @@ costs it nothing below 300 J. A body that names no foot end, the reptile, spares
 ## Mechanisms
 
 Blunt, an edge and an axe are priced by the joule, blunt 1 : an edge 5.7 : an axe 7.7
-(`MECHANISM_PRICE`, `src/core/rules/rulebook.ts`). Every blow is blunt until an item states an
+(`MECHANISM_PRICE`, `src/combat/rulebook.ts`). Every blow is blunt until an item states an
 edge or a point. A held point wounds by its depth (`pointWound`, `owner-point-depth`):
 
     depth = min(length, max(0, energy - breach) / resistance)
@@ -96,9 +96,9 @@ edge or a point. A held point wounds by its depth (`pointWound`, `owner-point-de
   at, 18 to 36 N (Gilchrist et al. 2008). It bounds the tissue past the skin from above: once the
   skin is perforated, further penetration meets negligible resistance (Knight 1975, as Horsfall et
   al. 1999 read it).
-- `length` is the point's own `depth` (`SurfaceSpec.directed`, `src/core/items/sword.ts`): the
+- `length` is the point's own `depth` (`SurfaceSpec.directed`, `src/core/bodies/items/sword.ts`): the
   short sword's tip to the blade's base.
-- `thickness` is the struck part's least width (`partThickness`, `src/core/rules/pool.ts`): a
+- `thickness` is the struck part's least width (`partThickness`, `src/combat/pool.ts`): a
   capsule's diameter, a box's least side, a hull's extent along its least principal axis.
 - `through` is a quarter (`Rulebook.through`); the wound then costs life as any blow does, at its
   part's group's factor.

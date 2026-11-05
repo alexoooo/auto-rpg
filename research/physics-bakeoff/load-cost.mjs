@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { gzipSync, brotliCompressSync, constants } from "node:zlib";
 import { fileURLToPath } from "node:url";
 
-const here = fileURLToPath(new URL(".", import.meta.url));
+const here = fileURLToPath(new URL("./", import.meta.url));
 const nm = (p) => fileURLToPath(new URL(`../../node_modules/${p}`, import.meta.url));
 
 /** What a page fetches for each engine: the files its browser build loads. */
@@ -47,8 +47,8 @@ const mb = (b) => (b / 1048576).toFixed(2);
 
 async function one(engine) {
   const { load } = await import("./engines.mjs");
-  const { scaling, layoutOf } = await import("../../src/physics-bench/cases.ts");
-  const { humanModel, lowest, placed } = await import("../../src/physics-bench/model.ts");
+  const { scaling, layoutOf } = await import("../../src/app/browser/physics-bench/cases.ts");
+  const { humanModel, lowest, placed } = await import("../../src/app/browser/physics-bench/model.ts");
   const before = process.memoryUsage();
   const e = await load(engine);
   const loaded = process.memoryUsage();

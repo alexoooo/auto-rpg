@@ -1,4 +1,4 @@
-import type { ReadSegment } from "../core/read-body.ts";
+import type { ReadSegment } from "../core/bodies/read-body.ts";
 import { Sha256 } from "./sha256.ts";
 
 /** What a trace reads of a body: its segments, in the order they were built. */

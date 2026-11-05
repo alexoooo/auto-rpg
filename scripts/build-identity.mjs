@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, resolve, relative, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 /** What runs of a build write, not what makes it: a file by its path, or a folder and all under it by its path and a slash. */
 const OUTPUTS = Object.freeze(["assets/minds/notes.json", "assets/evaluations/", "public/assets/generated/"]);
 const isOutput = path => OUTPUTS.some(output => output.endsWith("/") ? `${path}/`.startsWith(output) : path === output);
@@ -115,8 +115,8 @@ export function importsOf(file, text) {
  * it, `treeData`).
  */
 export const CUTS = Object.freeze({
-  kinds: Object.freeze(["src/core/mind/kinds.ts", "src/entrants/index.ts"]), worlds: "src/evaluation/worlds.ts", identity: "src/build-identity.ts", store: "src/core/data/store.ts",
-  roles: Object.freeze(["src/core/navigation/navigations.ts", "src/core/skills/framework/executors.ts", "src/core/skills/guard/guards.ts", "src/core/skills/locomotion/supports.ts", "src/core/recovery/ground/techniques.ts", "src/core/recovery/leg-adapters.ts", "src/core/skills/framework/locomotions.ts", "src/core/skills/framework/gait-parts.ts", "src/core/skills/locomotion/move-rules.ts", "src/core/control/motors.ts", "src/core/control/balances.ts", "src/core/reptile/kinds.ts", "src/core/option/choosers.ts", "src/core/option/option-kinds.ts", "src/core/option/objectives.ts", "src/core/option/predictions.ts", "src/core/command/commanders.ts", "src/arena/ends.ts"]),
+  kinds: Object.freeze(["src/app/mind-kinds.ts", "src/app/entrants.ts"]), worlds: "src/evaluation/worlds.ts", identity: "src/app/node/build-identity.ts", store: "src/core/data/store.ts",
+  roles: Object.freeze(["src/app/registration/aims.ts", "src/app/registration/navigations.ts", "src/app/registration/executors.ts", "src/app/registration/guards.ts", "src/app/registration/supports.ts", "src/app/recovery-techniques.ts", "src/app/recovery-leg-adapters.ts", "src/app/registration/locomotions.ts", "src/app/registration/gait-parts.ts", "src/app/registration/move-rules.ts", "src/app/registration/motors.ts", "src/app/registration/balances.ts", "src/app/quadruped-parts.ts", "src/minds/option/choosers.ts", "src/minds/option/option-kinds.ts", "src/minds/option/objectives.ts", "src/minds/option/predictions.ts", "src/minds/command/commanders.ts", "src/game/arena/ends.ts"]),
 });
 
 /** What every case plays besides its closure: the lockfile, the vendored solver and the installed one. */
@@ -124,13 +124,16 @@ const RUNTIME = (file) => file === "package-lock.json" || file.startsWith("vendo
 
 /**
  * A list's entries, each entry's module: refused unless `file` holds its imports and one exported
- * literal of what they import, and nothing else. A kinds list is an array (its kinds' modules in
+ * literal of what they import, optionally frozen, and nothing else. A kinds list is an array (its kinds' modules in
  * its order); the world kinds list and a role's list an object (each kind's module by its kind).
  */
 function listOf(file, { source, ts }) {
   const bound = new Map(), refuse = (why) => { throw new Error(`${file} holds its imports and its list and nothing else: ${why}`); };
   const object = file === CUTS.worlds || CUTS.roles.includes(file), literal = object ? ts.isObjectLiteralExpression : ts.isArrayLiteralExpression;
   const entry = (element) => ts.isIdentifier(element) && bound.has(element.text) ? bound.get(element.text) : refuse(`an entry that is no imported name, ${element.getText(source)}`);
+  const contents = (node) => ts.isCallExpression(node) && node.arguments.length === 1
+    && ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression)
+    && node.expression.expression.text === "Object" && node.expression.name.text === "freeze" ? node.arguments[0] : node;
   let list = null;
   for (const statement of source.statements) {
     if (ts.isImportDeclaration(statement)) {
@@ -141,9 +144,10 @@ function listOf(file, { source, ts }) {
     }
     const exported = ts.isVariableStatement(statement) && statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
     const [declaration, ...more] = exported ? statement.declarationList.declarations : [];
-    if (list || !declaration || more.length > 0 || !declaration.initializer || !literal(declaration.initializer)) refuse(statement.getText(source).split("\n")[0]);
-    list = !object ? declaration.initializer.elements.map(entry)
-      : Object.fromEntries(declaration.initializer.properties.map((property) => ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
+    if (list || !declaration || more.length > 0 || !declaration.initializer || !literal(contents(declaration.initializer))) refuse(statement.getText(source).split("\n")[0]);
+    const value = contents(declaration.initializer);
+    list = !object ? value.elements.map(entry)
+      : Object.fromEntries(value.properties.map((property) => ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
         ? [property.name.text, entry(property.initializer)] : refuse(`an entry that is no kind and imported name, ${property.getText(source)}`)));
   }
   return list ?? refuse("no list");
@@ -225,7 +229,8 @@ const digestOf = (files, paths) => {
  * **A case's code**, for the cases of `caseModule` (`src/evaluation/<id>/cases.ts`) over `files`
  * (`fileTable`), the kinds of mind registered, the toolkit's in its kinds list's order (`kinds`).
  *
- * - `environment`: the closure (`closureOf`) of `src/evaluation/play.ts` and the case module, with
+ * - `environment`: the closure (`closureOf`) of the player, the case module and the application
+ *   context and catalog, with
  *   the lockfile and the solvers: what every case plays, whatever its world.
  * - `own(kind)`: a kind's own code: a toolkit kind's controller's closure less the environment, or
  *   for an entrant's kind (`<entrant>:<kind>`) its manifest's (`src/entrants/<entrant>/index.ts`)
@@ -243,7 +248,7 @@ export function caseCoder(files, caseModule, kinds) {
   const [toolkitList, entrantList] = CUTS.kinds, listed = files[toolkitList]?.kinds ?? [], entrants = files[entrantList]?.kinds ?? [];
   const unscoped = kinds.filter((kind) => !kind.includes(":"));
   if (listed.length !== unscoped.length) throw new Error(`the toolkit's kinds list names ${listed.length} kinds, and ${unscoped.length} are registered`);
-  const environment = closureOf(files, ["src/evaluation/play.ts", caseModule]);
+  const environment = closureOf(files, ["src/evaluation/play.ts", caseModule, "src/app/context.ts", "src/app/catalog.ts"]);
   for (const file of Object.keys(files)) if (RUNTIME(file)) environment.add(file);
   const beyond = (entry) => [...closureOf(files, [entry])].filter((file) => !environment.has(file));
   const owned = new Map(), data = new Map(), built = new Map(), partCode = new Map(), codes = new Map();

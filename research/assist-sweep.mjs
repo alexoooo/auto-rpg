@@ -20,8 +20,8 @@
  * matchup at every gap, and of the uneven table twice that.
  */
 import { parseArgs } from "node:util";
-import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { SIDES } from "../src/arena/duel.ts";
+import { HUMANOID_MODELS } from "../src/core/bodies/models.ts";
+import { SIDES } from "../src/game/arena/duel.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 

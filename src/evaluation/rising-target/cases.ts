@@ -6,14 +6,14 @@
  * mind, on its own character (`Subject.character`); a body it cannot rise as, holding the fall's
  * loadout, is refused.
  */
-import type { Loadout } from "../../core/items/held.ts";
-import { presetFitsModel } from "../../core/mind/controller.ts";
-import type { MindConfig } from "../../core/mind/config.ts";
-import { modelHolding, type HumanoidModel } from "../../core/models.ts";
-import { mindFaults } from "../../ui/mind-link.ts";
+import type { Loadout } from "../../core/bodies/items/held.ts";
+import { presetFitsModel } from "../../minds/controller.ts";
+import type { MindConfig } from "../../minds/config.ts";
+import { modelHolding, type HumanoidModel } from "../../core/bodies/models.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, type BuiltFall, type FallReading } from "../fall.ts";
 import type { Cases, Json } from "../evaluation.ts";
 import { FRESH_OFFSET, risingJobs } from "../rising.ts";
+import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
 
 /** One of the target's falls. */
 export type TargetCondition = {
@@ -25,23 +25,29 @@ export type TargetCondition = {
 const targetFalls = (offset: number): TargetCondition[] => risingJobs({ target: true, offset }).map(({ model, loadout, seed, start, degrees, balance, grit, gusts }): TargetCondition =>
   ({ model: model!, loadout: loadout!, seed, start: start as "shoved", degrees: degrees!, balance: balance!, grit: grit!, gusts: gusts!, target: true }));
 
-/** `conditions` risen by a riser on its own character, refused where its mind does not fit the body holding the fall's loadout. */
-function targetCases(play: Json, conditions: readonly TargetCondition[]): Cases<TargetCondition, FallReading, BuiltFall> {
-  const inner = fallCases(play, conditions);
-  return { ...inner,
-    faults: (value, condition, subject) => {
-      const bed = inner.faults?.(value, condition, subject) ?? [];
-      if (bed.length) return bed;
-      if (!presetFitsModel(subject ?? {}, condition.model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${condition.model} is unavailable`];
-      return mindFaults(value as unknown as MindConfig, modelHolding(condition.model, condition.loadout, subject?.character), { entry: [] });
-    },
-    world: (values, condition, engine, characters) => {
-      const world = inner.world(values, condition, engine, characters), character = characters[0];
-      return world.kind === "fall" && character && Object.keys(character).length > 0 ? { ...world, fall: { ...world.fall, character } } : world;
-    } };
-}
+export function createRisingTargetCases(context: GameContext) {
+  const mindFaults = contextMindFaults.bind(undefined, context);
 
-export const RISING_TARGET_CASES: Readonly<Record<string, Cases<TargetCondition, FallReading, BuiltFall>>> = Object.freeze({
-  standard: targetCases({ suite: "the owner's target", cap: FALL_CAP, after: FALL_AFTER }, targetFalls(0)),
-  fresh: targetCases({ suite: "the owner's target's fresh falls", cap: FALL_CAP, after: FALL_AFTER }, targetFalls(FRESH_OFFSET)),
-});
+  /** `conditions` risen by a riser on its own character, refused where its mind does not fit the body holding the fall's loadout. */
+  function targetCases(play: Json, conditions: readonly TargetCondition[]): Cases<TargetCondition, FallReading, BuiltFall> {
+    const inner = fallCases(play, conditions);
+    return { ...inner,
+      faults: (value, condition, subject) => {
+        const bed = inner.faults?.(value, condition, subject) ?? [];
+        if (bed.length) return bed;
+        if (!presetFitsModel(subject ?? {}, condition.model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${condition.model} is unavailable`];
+        return mindFaults(value as unknown as MindConfig, modelHolding(condition.model, condition.loadout, subject?.character), { entry: [] });
+      },
+      world: (values, condition, engine, characters) => {
+        const world = inner.world(values, condition, engine, characters), character = characters[0];
+        return world.kind === "fall" && character && Object.keys(character).length > 0 ? { ...world, fall: { ...world.fall, character } } : world;
+      } };
+  }
+
+  const RISING_TARGET_CASES: Readonly<Record<string, Cases<TargetCondition, FallReading, BuiltFall>>> = Object.freeze({
+    standard: targetCases({ suite: "the owner's target", cap: FALL_CAP, after: FALL_AFTER }, targetFalls(0)),
+    fresh: targetCases({ suite: "the owner's target's fresh falls", cap: FALL_CAP, after: FALL_AFTER }, targetFalls(FRESH_OFFSET)),
+  });
+
+  return { RISING_TARGET_CASES };
+}

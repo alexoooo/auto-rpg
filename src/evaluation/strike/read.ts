@@ -3,29 +3,27 @@
  * each touch of the asked limb on the target, a bare hand's judged by the bar a person's punch
  * sets and a hand's holding an item by its blow's (`BAR`). Every rung reads its trials so.
  */
-import { pointOfToRef, turnOfToRef } from "../../core/read-motion.ts";
+import { pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
-import { rigidPoints } from "../../core/build/rigid.ts";
-import { jointAngles } from "../../core/build/joint-state.ts";
-import { regionSegments } from "../../core/intent/action-aim.ts";
-import { drillTask, type DrillPhase } from "../../core/command/drill.ts";
-import { sensedPhase } from "../../core/perception/threat.ts";
-import { centreReading } from "../../core/observation.ts";
-import { aimOf, holdsNothing } from "../../core/skills/strikes/held-strike.ts";
-import { effectorAim } from "../../core/control/effectors.ts";
-import { sensedPosture } from "../../core/perception/threat.ts";
+import { rigidPoints } from "../../core/bodies/build/rigid.ts";
+import { jointAngles } from "../../core/bodies/build/joint-state.ts";
+import { regionSegments } from "../../skills/intent/action-aim.ts";
+import { drillTask, type DrillPhase } from "../../minds/command/drill.ts";
+import { sensedPhase } from "../../skills/perception/threat.ts";
+import { centreReading } from "../../control/observation.ts";
+import { aimOf, holdsNothing } from "../../skills/strikes/held-strike.ts";
+import { effectorAim } from "../../control/effectors.ts";
+import { sensedPosture } from "../../skills/perception/threat.ts";
 import { acos, cos } from "../../core/math/real.ts";
-import { EXECUTORS } from "../../core/skills/framework/executors.ts";
-import { skillOf } from "../../core/skills/framework/menu.ts";
-import { faceOf } from "../../core/skills/strikes/held-blow.ts";
-import type { Mechanism } from "../../core/rules/rulebook.ts";
-import type { Duel } from "../../arena/duel.ts";
-import type { World } from "../../core/world.ts";
-import type { HostedBody } from "../../core/body.ts";
-import type { BodySpec } from "../../core/spec/body.ts";
-import { modelSpec } from "../../core/models.ts";
-import { startVelocity } from "../../core/skills/framework/profile.ts";
-import { placeInWindow } from "../../core/intent/action-window.ts";
+import { skillOf } from "../../skills/framework/menu.ts";
+import { faceOf } from "../../skills/strikes/held-blow.ts";
+import type { Mechanism } from "../../combat/rulebook.ts";
+import type { BuiltBout } from "../bout.ts";
+import type { HostedBody } from "../../minds/hosted-body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import { modelSpec } from "../../core/bodies/models.ts";
+import { startVelocity } from "../../skills/framework/profile.ts";
+import { placeInWindow } from "../../skills/intent/action-window.ts";
 import type { Reader } from "../evaluation.ts";
 
 export type Mark = "high" | "middle" | "legs";
@@ -303,7 +301,7 @@ const LIES = 1 / 3;
  * fighting (`DrillPhase`) are the fight's, not the drill's. With no `bar`, a hand's blow is judged
  * by its body's (`barOf`).
  */
-export function readStrike({ world, duel }: { readonly world: World; readonly duel: Duel }, limbAsked: { readonly mark: Mark } & Limb,
+export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "duel" | "catalog">, limbAsked: { readonly mark: Mark } & Limb,
   ending: Ending, given?: Bar): Reader<StrikeReading> {
   const left = duel.duelists.left, skills = left.minded.skills;
   if (!skills) throw new Error("the striker runs no skills");
@@ -456,7 +454,8 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       if (action && id === null) {
         id = action.id; times.began = world.time; asked = footing(); foeBegan ??= sensed();
         const kind = skillOf(skills.kit, action.action);
-        meets = (kind !== null && Object.hasOwn(EXECUTORS, kind) ? EXECUTORS[kind as keyof typeof EXECUTORS].meets : undefined) ?? "blunt";
+        const registered = kind !== null && catalog.isKind(kind) && catalog.partOf({ kind }).role === "executor";
+        meets = (registered ? catalog.partLookup.of("executor", { kind: kind! }).meets : undefined) ?? "blunt";
         const face = armed && hand !== null ? faceOf(spec, hand, meets) : null;
         if (face) aim = points.get(face.point)!.value;
         againstChest(rest);

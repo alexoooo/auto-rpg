@@ -1,6 +1,6 @@
 /**
  * **The reach's bed**: the solves a bout asked of a hand's reach, each solved again alone by the
- * tree's `solveReach` (`src/core/control/kinematics.ts`). In a bout a change of the solve is
+ * tree's `solveReach` (`src/control/kinematics.ts`). In a bout a change of the solve is
  * another bout; on the bed two solves answer the same questions.
  *
  * The questions are `tests/fixtures/reach-solves.json`: every solve of one arena bout, the
@@ -26,8 +26,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Vector3 } from "../src/core/math/vector.ts";
-import { chainTo, pointAtToRef, solveReach } from "../src/core/control/kinematics.ts";
-import { humanSpec } from "../src/core/human/spec.ts";
+import { chainTo, pointAtToRef, solveReach } from "../src/control/kinematics.ts";
+import { humanSpec } from "../src/core/bodies/human/spec.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 /** The body whose arm the fixture's solves are of. */

@@ -1,0 +1,176 @@
+import { solidGeometry } from "../render/solid-geometry.ts";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import type { Scene } from "@babylonjs/core/scene.js";
+import type { LabScenario, LabShell } from "./lab-scenario.ts";
+import { GROUND_RISES, type GroundRise, type LabAddress } from "../../../game/lab/scenarios.ts";
+import { labAddress } from "../setup.ts";
+import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "../../../game/lab/ground-mode.ts";
+import { groundPlacement, groundPostures } from "../../../game/lab/ground-starts.ts";
+import { TECHNIQUES } from "../../recovery-techniques.ts";
+import { isWayUp, type TechniqueName, type TechniquePart } from "../../../skills/recovery/technique.ts";
+import { partLookup } from "../../catalog.ts";
+import { STAND_UP } from "../../../skills/recovery/stand-up.ts";
+import { waysUpIn, withWaysUp } from "../../../minds/option/rise.ts";
+import type { MindConfig } from "../../../minds/config.ts";
+import type { PartConfig } from "../../../parts/parts.ts";
+import { recordHistory } from "./history.ts";
+import { createPlayer } from "../../../game/lab/player.ts";
+import { shoveSound } from "./sound-log.ts";
+import { loadoutSpec } from "../../../game/lab/loadout.ts";
+import { drawBody } from "../render/body-shapes.ts";
+import { followBody, puppetBody } from "../render/puppet.ts";
+import { action, choice, following, menu, note, quantity, readings, slider, toggle, when } from "../ui/controls.ts";
+import { GROUND_LEVELS } from "../../../game/lab/ground-environment.ts";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { sceneModel } from "../render/asset-cache.ts";
+import { loadArtAssets } from "../render/art-assets.ts";
+import { assembleCryptKit } from "../environment/crypt-kit.ts";
+import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
+
+/** What each way of getting up is called in the menu. */
+const RISES: Readonly<Record<GroundRise, string>> = { mind: "As its mind says", "stand-up": "Stand up, as the game" };
+
+/** A mind whose options name the ways up it gets up by from the ground, in rank order (`waysUpIn`). */
+type Rising = MindConfig & { readonly options: readonly PartConfig[] };
+
+/** Whether `mind` names the ways up it gets up by, so the Lab may give it others. */
+const rises = (mind: MindConfig): mind is Rising => Array.isArray((mind as Partial<Rising>).options) && waysUpIn((mind as Rising).options).length > 0;
+
+/** The ways up `rise` names, or `drive`'s alone: the game's Stand up's, or `own`. */
+function techniquesBy(own: readonly PartConfig[], rise: GroundRise, drive: LabAddress["ground"]["drive"]): readonly PartConfig[] {
+  if (drive !== "mind") return [{ kind: drive }];
+  switch (rise) {
+    case "stand-up": return STAND_UP;
+    case "mind": return own;
+    default: { const never: never = rise; throw new Error(`unknown rise ${String(never)}`); }
+  }
+}
+
+/**
+ * **The Stand-up scenario**: a body shoved, dropped or placed on the ground, or put through a round
+ * of the stand-up target's falls (sixteen ways round, one after another, each once it stands
+ * again), getting up by the game's Stand up or another way, or a technique alone. Every stand is
+ * verified as the target verifies it (`STAND_CHECK`: quiet, upright and on both feet, then holding
+ * and a short walk); the readout is the time from its recovery's takeover to that, the round's
+ * totals, and the ground history (`ground-meter.ts`). The rising bed runs the same mode
+ * (`research/skills/recovery/rising-bed.mjs`).
+ */
+export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
+  let kit: ReturnType<typeof sceneModel> | null = null;
+  let address = labAddress("?scenario=ground"), fault = "";
+  let current: { shove(): void } | null = null;
+  let shown: ReturnType<ReturnType<typeof startGround>["frame"]> | null = null;
+  const trail = note(() => shown?.trail.slice(-12).map(t => `${t.at.toFixed(2)} s: ${t.position} — ${t.controller}`).join("\n") ?? "");
+  const attempts = note(() => shown?.attempts.map(a => `${a.controller}: ${a.end}, ${a.seconds.toFixed(2)} s`).join("\n") ?? "");
+  const phases = note(() => shown ? Object.entries(shown.phases).map(([controller, seconds]) => `${controller}: ${seconds.toFixed(2)} s`).join("; ") : "");
+  const change = (ground: Partial<LabAddress["ground"]>) => shell.load({ ...address, ground: { ...address.ground, ...ground } });
+  const meter = readings({ position: { name: "Position" }, doing: { name: "Controller" },
+    level: { name: "Fall environment" }, seconds: { name: "Time down", unit: "s" }, check: { name: "Stand check" }, verified: { name: "Up and quiet", unit: "s from takeover" },
+    round: { name: "Round" }, handback: { name: "Time to hand-back", unit: "s" },
+    hands: { name: "Hand loads", unit: "body weight" }, feet: { name: "Foot loads", unit: "body weight" },
+    balance: { name: "Balance", unit: "%" }, assist: { name: "Peak help", unit: "N / N m" },
+    impulse: { name: "Total help", unit: "N s / N m s" }, totals: { name: "Falls / stood / median / worst" }, status: { name: "Run" } });
+  return {
+    keys: new Set(),
+    // A mind that names its ways up gets up by those the address chooses (`withWaysUp`); any other, as it says.
+    mind: (chosen, next) => rises(chosen) ? { ...chosen, options: withWaysUp(chosen.options, techniquesBy(waysUpIn(chosen.options), next.ground.rise, next.ground.drive)) } : chosen,
+    placement(spec, next) {
+      address = next; shown = null; fault = "";
+      try {
+        const start = groundPlacement(spec, next);
+        if ("refused" in start) throw new Error(start.refused);
+        return start;
+      }
+      catch (error) { fault = String(error instanceof Error ? error.message : error); throw error; }
+    },
+    panels: {
+      scenario: [
+        choice("Fall environment", Object.entries(GROUND_LEVELS).map(([value, definition]) => ({ value: value as keyof typeof GROUND_LEVELS, name: definition.label })),
+          () => address.ground.level, level => change({ level })),
+        choice("Start", (["shoved", "dropped", "placed", "round"] as const).map(value => ({ value, name: value === "round" ? `round of ${ROUND_FALLS}` : value })),
+          () => address.ground.start, start => change({ start })),
+        quantity("Seed", 1, value => Number.isSafeInteger(value) && value >= 0 && value <= 4294967295, () => address.seed,
+          seed => shell.load({ ...address, seed })),
+        when(() => address.ground.start === "placed", following(() => address.model, () => menu("Posture",
+          groundPostures(loadoutSpec(address)).map(value => ({ value, name: value })), () => address.ground.posture, posture => change({ posture })))),
+        when(() => address.ground.start === "shoved", slider("Shove direction", 0, 360, 5, () => groundShove(address).degrees, degrees => change({ degrees }), value => value.toFixed(1))),
+        when(() => address.ground.start === "shoved", slider("Shove impulse, N s", 40, 90, 1, () => groundShove(address).impulse, impulse => change({ impulse }), value => value.toFixed(1))),
+        when(() => address.ground.start === "shoved", action("Draw shove from seed", () => change({ degrees: null, impulse: null }))),
+        // A mind that names no ways up gets up only as it says.
+        following(() => `${address.model} ${rises(address.mind)}`, (key) => menu("Gets up by", key.endsWith("true") ? [
+          ...GROUND_RISES.map((rise) => ({ value: `rise:${rise}`, name: RISES[rise] })),
+          ...Object.entries(TECHNIQUES as Readonly<Record<string, TechniquePart>>).filter(([, technique]) => isWayUp(technique) && technique.fits(loadoutSpec(address), technique.defaults, partLookup) === null).map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))]
+          : [{ value: "rise:mind", name: RISES.mind }],
+        () => !rises(address.mind) ? "rise:mind" : address.ground.drive === "mind" ? `rise:${address.ground.rise}` : `alone:${address.ground.drive}`,
+        value => value.startsWith("rise:") ? change({ drive: "mind", rise: value.slice(5) as GroundRise }) : change({ drive: value.slice(6) as TechniqueName }))),
+        choice("Foe", ([0, 1, 2, 4] as const).map(value => ({ value, name: value === 0 ? "None" : `${value} m` })), () => address.ground.foe, foe => change({ foe })),
+        toggle("Gusts", () => address.ground.gusts, () => change({ gusts: !address.ground.gusts })),
+        note(() => fault),
+      ],
+      controls: [action("Next seed", () => shell.load({ ...address, seed: (address.seed + 1) >>> 0 })),
+        when(() => address.ground.start !== "round", action("Shove again", () => current?.shove()))],
+      readout: [meter, trail, attempts, phases],
+    },
+    timelineLabel: "The last 35 seconds, one physics step per notch.",
+    start({ actor, puppet, address: next, changed, clock, heard, hears }) {
+      address = next;
+      const sound = shoveSound(actor.body.built);
+      const session = startGround(actor, next, { pushed: (part, impulse, at) => heard(sound(part, impulse, at)), hears });
+      const physical = solidGeometry(scene, session.environment.solids);
+      const unregisterPhysical = shell.profile.register("tactical", physical);
+      const registrations: (() => void)[] = [];
+      const obstacles: Mesh[] = [], obstacleMaterial = new StandardMaterial("ground.obstacle", scene);
+      obstacleMaterial.diffuseColor.set(.5, .47, .42);
+      let closed = false;
+      if (session.environment.placements.length) {
+        kit ??= loadArtAssets().then(art => sceneModel(art.model("crypt-kit/kit.glb"), scene)).then(container => {
+          for (const mesh of container.meshes) mesh.setEnabled(false);
+          container.addAllToScene(); return container;
+        });
+        void kit.then(container => {
+          if (closed) return;
+          for (const mesh of assembleCryptKit(container, session.environment.placements, false)) { mesh.material = obstacleMaterial; obstacles.push(mesh); registrations.push(shell.profile.register("world", { setEnabled(on) { mesh.setEnabled(on); } })); }
+        }).catch(error => { if (!closed) { fault = `Obstacle art unavailable: ${String(error)}`; } });
+      } else for (const solid of session.environment.solids) {
+        if (solid.kind !== "box") throw new Error("ground wall visual requires a box");
+        const mesh = MeshBuilder.CreateBox(solid.name, { width: solid.size[0], height: solid.size[1], depth: solid.size[2] }, scene);
+        mesh.position.set(solid.centre[0], solid.centre[1], solid.centre[2]); mesh.rotation.y = solid.turn ?? 0; mesh.material = obstacleMaterial; obstacles.push(mesh); registrations.push(shell.profile.register("world", { setEnabled(on) { mesh.setEnabled(on); } }));
+      }
+      const foe = session.dummy ? session.dummy.fighter.built : null, foePuppet = foe ? puppetBody(foe.spec, scene) : null;
+      const foeFollows = foe && foePuppet ? followBody(foePuppet, foe, actor.world) : null;
+      const dummy = foePuppet ? drawBody(foePuppet, scene, new Color3(.75, .45, .25)) : null;
+      const history = recordHistory(actor.body.built, puppet, actor.world, 35, () => session.frame());
+      const foeHistory = foe && foePuppet ? recordHistory(foe, foePuppet, actor.world, 35, () => null) : null;
+      const recording = { live: history.live, show(frame: number) { history.show(frame); foeHistory?.show(frame); } };
+      const player = createPlayer({ world: actor.world, recording }, changed, clock);
+      const run = {
+        player, recording: () => ({ frames: history.frames, live: history.live() }), drive() {}, closure: () => 0,
+        shove() { player.goLive(); session.shove(); },
+        readout(frame: number | null) {
+          shown = history.at(frame ?? history.live());
+          if (!shown) return null;
+          const loads = shown.loads, summary = shown.summary;
+          const seconds = (v: number | null) => v === null ? "—" : v.toFixed(2);
+          const load = (name: string) => loads[name]?.toFixed(2) ?? "—";
+          meter.write({ level: GROUND_LEVELS[shown.level].label, position: shown.position, doing: shown.controller,
+            seconds: shown.seconds.toFixed(2), check: shown.check.stage, verified: seconds(shown.check.verified),
+            round: shown.round ? `${shown.round.falls} of ${shown.round.of}: stood ${shown.round.stood}, within ${STAND_CHECK.within} s ${shown.round.within}, median ${seconds(shown.round.median)} s (a failure at ${STAND_CHECK.cap} s)` : "—",
+            handback: seconds(shown.handback),
+            hands: `${load("hand.left")} / ${load("hand.right")}`,
+            feet: `${load("foot.left")} / ${load("foot.right")}`,
+            balance: String(shown.balance), assist: `${shown.assist.forcePeak.toFixed(2)} / ${shown.assist.momentPeak.toFixed(2)}`,
+            impulse: `${shown.assist.forceImpulse.toFixed(2)} / ${shown.assist.momentImpulse.toFixed(2)}`,
+            totals: `${summary.falls} / ${summary.stood} / ${seconds(summary.median)} s / ${seconds(summary.worst)} s`, status: shown.status });
+          if (shown.status !== "running" && frame === null) player.setPaused(true);
+          trail.refresh(); attempts.refresh(); phases.refresh();
+          return shown.time;
+        },
+        dispose() { closed = true; unregisterPhysical(); physical.dispose(); for (const unregister of registrations) unregister(); for (const mesh of obstacles) mesh.dispose(false, false); obstacleMaterial.dispose(); if (current === run) current = null; history.dispose(); foeHistory?.dispose(); dummy?.dispose(); foeFollows?.dispose(); foePuppet?.dispose(); session.dispose(); },
+      };
+      current = run;
+      return run;
+    },
+  };
+}

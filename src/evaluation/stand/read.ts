@@ -1,7 +1,6 @@
 import { Vector3 } from "../../core/math/vector.ts";
-import type { Duel } from "../../arena/duel.ts";
-import type { BuiltSegment } from "../../core/build/build-body.ts";
-import type { World } from "../../core/world.ts";
+import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
+import type { BuiltBout } from "../bout.ts";
 import type { Reader } from "../evaluation.ts";
 import { readStrike, type StrikeReading } from "../strike/read.ts";
 import type { StandCondition, StandRung } from "./cases.ts";
@@ -38,7 +37,7 @@ const finished = (strike: StrikeReading): boolean => strike.began !== null && st
  * `watch` s after the shove, or at the rung's seconds where none came; on the striking rung, its
  * strike read as the Strike drill reads it, to its end.
  */
-export function readStand(built: { readonly world: World; readonly duel: Duel }, condition: StandCondition, rung: StandRung): Reader<StandReading> {
+export function readStand(built: Pick<BuiltBout, "world" | "duel" | "catalog">, condition: StandCondition, rung: StandRung): Reader<StandReading> {
   const { world, duel } = built, left = duel.duelists.left, body = left.built, dt = 1 / world.hz;
   const parts = [...body.segments.values()], mass = parts.reduce((sum, part) => sum + part.body.massProperties.mass, 0);
   const feet = (["left", "right"] as const).map((side) => ({ side, segment: body.segments.get(`foot.${side}`) }));

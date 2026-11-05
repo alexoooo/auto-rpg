@@ -1,0 +1,314 @@
+import type { Side, SegmentSpec, ShapeSpec } from "../spec/body.ts";
+import { segmentFrame } from "../spec/body.ts";
+import { square } from "../../math/real.ts";
+import { capsuleRadius, massShare } from "../spec/geometry.ts";
+import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { add, distance, dot, lerp, normalize, scale, sub } from "../spec/vec.ts";
+import type { Extents } from "./envelope.ts";
+import type { FittedSegment, HandFigure, HumanFigure } from "./figure.ts";
+import { SIDES } from "./landmarks.ts";
+import { broadHull } from "./physique.ts";
+import { DE_LEVA_1996, type DeLevaRow, type DeLevaSegment } from "./tables/de-leva-1996.ts";
+import { CONTACT_STIFFNESS } from "./tables/contact-stiffness.ts";
+import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
+
+/** A foot's grip on what it stands on, the coefficient of friction: set so the run reaches 3 to 4 m/s, the value it is fastest and surest at. */
+const FOOT_FRICTION = sourced(0.8, "1", "owner-run-body", "the foot's coefficient of friction");
+
+/**
+ * The room a thigh's capsule leaves between it and the other, the legs hanging straight, m: a
+ * stride brings the knees nearer each other than the hips, and rigid thighs that leave less meet as
+ * one swings past the other.
+ */
+const STRIDE_ROOM = sourced(0.03, "m", "owner-stride-room", "the room between the thighs");
+
+/**
+ * **A human figure's sixteen segments** (`figure.ts`), at x1: the head, three trunk segments, and
+ * on each side the upper arm, forearm, hand, thigh, shank and foot.
+ *
+ * - **Where.** Each segment runs between two of de Leva's landmarks (`landmarks.ts`), taken at the
+ *   figure's scale. A trunk segment's proximal end is its cranial one.
+ * - **Mass.** de Leva's share of the figure's body mass for its sex. His printed shares sum to 100.00
+ *   for men and 99.99 for women; they are normalised to sum to one, so the segments sum to the body.
+ * - **Centre of mass and inertia.** de Leva's centre-of-mass position and radii of gyration, as
+ *   fractions of this segment's own length. The inertia is about the segment frame's axes, which
+ *   are his: x transverse, y longitudinal, z sagittal. A figure broader than his rows
+ *   (`HumanFigure.breadth`) has the longitudinal radius broader by as much, since it lies wholly
+ *   across the segment; the two transverse radii are his, a stated assumption.
+ * - **Shape.** The head and the limbs are capsules as long as the segment that hold its mass at
+ *   Dempster's density, a thigh's no wider than leaves the stride's room between the two
+ *   (`STRIDE_ROOM`), and a limb no wider than its figure leaves it (`HumanFigure.widest`). A trunk segment is the convex hull of its stretch of the figure (a workshop
+ *   model's clothed envelope), not a box on its extents, whose corners stand out of the body where
+ *   a driven upper arm passes. A foot is a box on its extents (the boot), short of the toe by its
+ *   toes where the figure has them (`HumanFigure.toes`), which bend ahead of it. A shape carries no mass
+ *   (`SegmentSpec.shape`).
+ * - **A fitted figure** (`HumanFigure.fitted`, the skeleton's bones) keeps de Leva's share of the
+ *   mass in each segment, and gives it its centre of mass at its solid's centroid and its inertia
+ *   from the solid's spread about the segment frame's axes (the products between them are left
+ *   out, as de Leva's rows leave them), at the figure's scale. A capsule of its plan is the
+ *   solid's hull where the figure gives one, and otherwise a capsule as wide as the uniform
+ *   cylinder whose spread across it is the solid's. Broader (`HumanFigure.breadth`), a solid
+ *   spreads across the segment by as much, and a hull broadens about the segment's line through
+ *   its corners' mean.
+ * - **Surface.** How stiff the part is under a blunt load, by its row (`tables/contact-stiffness.ts`),
+ *   and a foot's grip on what it stands on (`FOOT_FRICTION`).
+ *
+ * A foot runs from the figure's heel to its toe.
+ *
+ * **A hand's knuckles** (`SegmentSpec.points`) are the head of its third metacarpal: where a
+ * clenched fist strikes, and where a fist's speed is read. The hand segment runs on to the
+ * fingertip, de Leva's alternative row, an open hand's length; a fist read at the fingertip reads
+ * any turn of the wrist over more than twice the lever. Its `little` is the little finger's
+ * knuckle, the head of its first bone, where a grip ends (`grip.ts`), when the figure has one.
+ *
+ * **A hand's poses** (`SegmentSpec.handPoses`). With the figure's measured hands
+ * (`HumanFigure.hands`), the open hand is the palm's hull and the fist the fist's hull; its
+ * `strike` is the fist's surface ahead of the knuckles and its `palm` where the open hand bears.
+ * Without them, the open hand is the segment's capsule and the fist the capsule ended at the
+ * knuckles, its `strike` the fist's distal surface. Either way the grip is that capsule fist and
+ * the hand's own shape the open capsule, which a held item seats against (`rigidOf`, `grip.ts`).
+ *
+ * **A hand's right.** A hand's frame takes its own right (`SegmentSpec.right`, the figure's
+ * `handRight`): across its knuckles toward the thumb on the right hand, toward the little finger
+ * on the left, as the body's right runs across a hand in the anatomical position. Its two
+ * transverse radii differ by a fifth in de Leva's table, so which way they lie matters.
+ */
+type Shape =
+  | { readonly kind: "capsule"; readonly density: DensitySegment }
+  | { readonly kind: "hull"; readonly points: readonly Quantity<Vec3>[] }
+  | { readonly kind: "box in the body frame"; readonly extents: Extents };
+
+interface Plan {
+  readonly name: string;
+  readonly row: DeLevaSegment;
+  readonly proximal: Quantity<Vec3>;
+  readonly distal: Quantity<Vec3>;
+  /** de Leva's row runs from its origin to its end; the head's runs from the top down. */
+  readonly origin: Quantity<Vec3>;
+  readonly end: Quantity<Vec3>;
+  readonly shape: Shape;
+  readonly right?: Quantity<Vec3>;
+  readonly points?: { readonly [name: string]: Quantity<Vec3> };
+  /** A hand's measured contact geometry, where the figure has it. */
+  readonly hand?: HandFigure;
+}
+
+/** A segment's name: the row's, and the side for a limb. */
+export const segmentName = (row: DeLevaSegment, side?: Side): string => side ? `${row}.${side}` : row;
+
+/**
+ * **The segment tree**: each segment's parent, the segment it is jointed to on the way to the
+ * lower trunk, which is the root. The arms hang from the upper trunk, as de Leva's rows meet at
+ * SJC; the legs from the lower trunk, at HJC.
+ */
+export const HUMAN_PARENTS: ReadonlyMap<string, string> = new Map([
+  ["head", "upperTrunk"],
+  ["upperTrunk", "middleTrunk"],
+  ["middleTrunk", "lowerTrunk"],
+  ...SIDES.flatMap((side): [string, string][] => [
+    [segmentName("upperArm", side), "upperTrunk"],
+    [segmentName("forearm", side), segmentName("upperArm", side)],
+    [segmentName("hand", side), segmentName("forearm", side)],
+    [segmentName("thigh", side), "lowerTrunk"],
+    [segmentName("shank", side), segmentName("thigh", side)],
+    [segmentName("foot", side), segmentName("shank", side)],
+  ]),
+]);
+
+/** The figure's points at x1: at its scale, or as they are when it has none. */
+const atScale = (figure: HumanFigure) => (point: Quantity<Vec3>): Quantity<Vec3> =>
+  figure.scale ? derive("m", "at the fit scale", [point, figure.scale], (p, s) => scale(p, s)) : point;
+
+const lengthAtScale = (figure: HumanFigure) => (length: Quantity<number>): Quantity<number> =>
+  figure.scale ? derive("m", "at the fit scale", [length, figure.scale], (l, s) => l * s) : length;
+
+function plans(figure: HumanFigure): Plan[] {
+  const { VERT, CERV, XYPH, OMPH, MIDH } = figure.trunk;
+  const plan = (name: string, row: DeLevaSegment, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, shape: Shape,
+    origin = proximal, end = distal, right?: Quantity<Vec3>, points?: Plan["points"], hand?: HandFigure): Plan =>
+    ({ name, row, proximal, distal, origin, end, shape, right, points, ...(hand && { hand }) });
+  const out: Plan[] = [
+    plan("head", "head", CERV, VERT, { kind: "capsule", density: "head" }, VERT, CERV),
+    plan("upperTrunk", "upperTrunk", CERV, XYPH, { kind: "hull", points: figure.hulls.upper }),
+    plan("middleTrunk", "middleTrunk", XYPH, OMPH, { kind: "hull", points: figure.hulls.middle }),
+    plan("lowerTrunk", "lowerTrunk", OMPH, MIDH, { kind: "hull", points: figure.hulls.lower }),
+  ];
+  for (const side of SIDES) {
+    const { SJC, EJC, WJC, DAC3, MET3, HJC, KJC, AJC, HEEL, TTIP, handRight, little } = figure.limbs[side], hand = figure.hands?.[side];
+    // A toed foot's box ends where its toes begin, back from the boot's toe along the body's forward axis, which the foot's frame lies along.
+    const boot = figure.feet[side], toes = figure.toes;
+    const foot: Extents = !toes ? boot : { ...boot, z: { min: boot.z.min, max: figure.scale
+      ? derive("m", "the boot's toe less the toes, at the figure's authored size", [boot.z.max, toes.length, figure.scale], (front, length, s) => front - length / s)
+      : derive("m", "the boot's toe less the toes", [boot.z.max, toes.length], (front, length) => front - length) } };
+    out.push(
+      plan(segmentName("upperArm", side), "upperArm", SJC, EJC, { kind: "capsule", density: "upperArm" }),
+      plan(segmentName("forearm", side), "forearm", EJC, WJC, { kind: "capsule", density: "forearm" }),
+      plan(segmentName("hand", side), "hand", WJC, DAC3, { kind: "capsule", density: "hand" }, WJC, DAC3, handRight,
+        hand ? { knuckles: MET3, ...(little && { little }), strike: hand.fist.strike, palm: hand.palm.centre }
+          : little ? { knuckles: MET3, little } : { knuckles: MET3 }, hand),
+      plan(segmentName("thigh", side), "thigh", HJC, KJC, { kind: "capsule", density: "thigh" }),
+      plan(segmentName("shank", side), "shank", KJC, AJC, { kind: "capsule", density: "shank" }),
+      plan(segmentName("foot", side), "foot", HEEL, TTIP, { kind: "box in the body frame", extents: foot }),
+    );
+  }
+  return out;
+}
+
+function shapeOf(figure: HumanFigure, plan: Plan, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, mass: Quantity<number>,
+  widest: Quantity<number> | undefined, solid: FittedSegment | undefined): ShapeSpec {
+  const shape = plan.shape;
+  switch (shape.kind) {
+    case "capsule": {
+      const radius = solid ? fittedRadius(figure, solid, proximal, distal, plan.right) : widest
+        ? derive("m", "the capsule as long as the segment that holds its mass at its density, no wider than its figure leaves it room",
+          [mass, si(SEGMENT_DENSITY[shape.density]), proximal, distal, widest],
+          (m, density, p, d, w) => Math.min(capsuleRadius(m / density, distance(p, d)), w))
+        : derive("m", "the capsule as long as the segment that holds its mass at its density",
+          [mass, si(SEGMENT_DENSITY[shape.density]), proximal, distal],
+          (m, density, p, d) => capsuleRadius(m / density, distance(p, d)));
+      return {
+        kind: "capsule", radius,
+        from: derive("m", "the proximal end, in by the radius", [proximal, distal, radius], (p, d, r) => add(p, scale(normalize(sub(d, p)), r))),
+        to: derive("m", "the distal end, in by the radius", [proximal, distal, radius], (p, d, r) => add(d, scale(normalize(sub(p, d)), r))),
+      };
+    }
+    case "hull":
+      return { kind: "hull", points: shape.points.map(atScale(figure)) };
+    case "box in the body frame": {
+      const { x, y, z } = shape.extents;
+      const ends = [x.min, x.max, y.min, y.max, z.min, z.max].map(lengthAtScale(figure));
+      return {
+        kind: "box",
+        centre: derive("m", "the middle of the envelope's extents", ends,
+          (x0, x1, y0, y1, z0, z1) => [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2]),
+        // The box's edges lie along the segment frame; the extents are the body frame's, so each
+        // edge is the envelope's width along it. The foot's frame lies along the body's.
+        size: derive("m", "the envelope's widths along the segment frame's axes", [proximal, distal, ...ends],
+          (p, d, x0, x1, y0, y1, z0, z1) => {
+            const frame = segmentFrame(p, d);
+            const widths: Vec3 = [x1 - x0, y1 - y0, z1 - z0];
+            const along = (axis: Vec3) => dot(axis.map(Math.abs) as unknown as Vec3, widths);
+            return [along(frame.x), along(frame.y), along(frame.z)];
+          }),
+      };
+    }
+    default: {
+      const never: never = shape;
+      throw new Error(`unknown shape ${JSON.stringify(never)}`);
+    }
+  }
+}
+
+/**
+ * A fitted segment's inertia about its frame's axes: its mass times the solid's second moment per
+ * unit volume along each axis (`a . S a`), at the figure's scale squared and, across the segment,
+ * its breadth squared, each axis's moment the sum of the two square to it.
+ */
+function fittedInertia(figure: HumanFigure, solid: FittedSegment, mass: Quantity<number>, proximal: Quantity<Vec3>, distal: Quantity<Vec3>,
+  right: Quantity<Vec3> | undefined): Quantity<Vec3> {
+  return derive("kg m2", "the mass times the solid's spread along the segment frame's axes, at the scale squared and broadened across by the breadth squared,"
+    + " each axis's moment the sum of the other two's spreads", [mass, spreadAlong(figure, solid, proximal, distal, right)],
+  (m, [x, y, z]) => [m * (y + z), m * (x + z), m * (x + y)]);
+}
+
+/**
+ * A fitted segment's capsule radius: the uniform cylinder's whose spread across its axis is the
+ * solid's, the square root of twice the spread along the segment frame's x and z.
+ */
+function fittedRadius(figure: HumanFigure, solid: FittedSegment, proximal: Quantity<Vec3>, distal: Quantity<Vec3>,
+  right: Quantity<Vec3> | undefined): Quantity<number> {
+  return derive("m", "the uniform cylinder's radius whose spread across it is the solid's: the square root of twice the spread along x and z",
+    [spreadAlong(figure, solid, proximal, distal, right)], ([x, , z]) => Math.sqrt(2 * (x + z)));
+}
+
+/**
+ * A fitted segment's spread along its frame's x, y and z (`a . S a`), at the figure's scale squared
+ * and, across the segment (x and z), its breadth squared.
+ */
+function spreadAlong(figure: HumanFigure, solid: FittedSegment, proximal: Quantity<Vec3>, distal: Quantity<Vec3>,
+  right: Quantity<Vec3> | undefined): Quantity<Vec3> {
+  const { scale: size, breadth } = figure;
+  const inputs = [proximal, distal, solid.spread.diagonal, solid.spread.off, ...(right ? [right] : []), ...(size ? [size] : []), ...(breadth ? [breadth] : [])];
+  return derive("m2", "the solid's spread along the segment frame's axes, at the scale squared and broadened across by the breadth squared", inputs, (...values) => {
+    const [p, d, diagonal, off] = values as [Vec3, Vec3, Vec3, Vec3];
+    let at = 4;
+    const r = right ? values[at++] as Vec3 : undefined, s = size ? values[at++] as number : 1, k = breadth ? values[at++] as number : 1;
+    const frame = segmentFrame(p, d, r);
+    const along = (a: Vec3) => diagonal[0] * a[0] * a[0] + diagonal[1] * a[1] * a[1] + diagonal[2] * a[2] * a[2]
+      + 2 * (off[0] * a[0] * a[1] + off[1] * a[1] * a[2] + off[2] * a[2] * a[0]);
+    return [along(frame.x) * s * s * k * k, along(frame.y) * s * s, along(frame.z) * s * s * k * k];
+  });
+}
+
+/** A fitted segment's collider: its hull at the figure's scale, broadened by its breadth about the segment's line. */
+function fittedHull(figure: HumanFigure, hull: readonly Quantity<Vec3>[], proximal: Quantity<Vec3>, distal: Quantity<Vec3>): ShapeSpec {
+  const corners = hull.map(atScale(figure));
+  return { kind: "hull", points: figure.breadth ? broadHull(corners, [proximal, distal], figure.breadth).corners : corners };
+}
+
+/** The figure's segments at x1, head first, then the trunk, then each side's limbs. */
+export function humanSegments(figure: HumanFigure): SegmentSpec[] {
+  const table = DE_LEVA_1996[figure.sex];
+  const all = plans(figure);
+  const shares = all.map((plan) => table[plan.row].mass);
+  const body = figure.mass, atFit = atScale(figure);
+  const thigh = derive("m", "half the distance between the hip joint centres, less half the stride's room",
+    [atFit(figure.limbs.left.HJC), atFit(figure.limbs.right.HJC), STRIDE_ROOM], (l, r, room) => (distance(l, r) - room) / 2);
+  const widestOf = (plan: Plan): Quantity<number> | undefined => plan.row !== "thigh" ? figure.widest?.[plan.row]
+    : figure.widest?.thigh ? derive("m", "the narrower", [thigh, figure.widest.thigh], Math.min) : thigh;
+  const fitted = figure.fitted && all.map((plan) => {
+    const measured = figure.fitted![plan.name];
+    if (!measured) throw new Error(`${figure.model} is fitted but has no measure of its ${plan.name}`);
+    return measured;
+  });
+  return all.map((plan, i) => {
+    const row: DeLevaRow = table[plan.row];
+    const proximal = atFit(plan.proximal), distal = atFit(plan.distal);
+    const origin = atFit(plan.origin), end = atFit(plan.end);
+    const solid = fitted?.[i];
+    const mass = derive("kg", "de Leva's share of the body's mass, the printed shares normalised to sum to one",
+      [body, shares[i]!, ...shares], (m, share, ...every) => massShare(m, share, every));
+    const centreOfMass = solid ? atFit(solid.centroid)
+      : derive("m", "de Leva's centre of mass, along the row from its origin", [origin, end, si(row.centreOfMass)], (o, e, fraction) => lerp(o, e, fraction));
+    const inertia = solid ? fittedInertia(figure, solid, mass, proximal, distal, plan.right) : (() => {
+      const longitudinalRadius = figure.breadth
+        ? derive("1", "de Leva's longitudinal radius of gyration times the figure's breadth", [si(row.radiusLongitudinal), figure.breadth], (r, b) => r * b)
+        : si(row.radiusLongitudinal);
+      return derive("kg m2", "m (r L)^2 about the transverse, longitudinal and sagittal axes",
+        [mass, proximal, distal, si(row.radiusTransverse), longitudinalRadius, si(row.radiusSagittal)],
+        (m, p, d, transverse, longitudinal, sagittal) => {
+          const l = distance(p, d);
+          return [m * square(transverse * l), m * square(longitudinal * l), m * square(sagittal * l)];
+        });
+    })();
+    const shape = solid?.hull && plan.row !== "hand" && plan.shape.kind === "capsule" ? fittedHull(figure, solid.hull, proximal, distal)
+      : shapeOf(figure, plan, proximal, distal, mass, widestOf(plan), solid);
+    const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape,
+      surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) },
+      ...(plan.row === "foot" && figure.toes && { toes: figure.toes }) };
+    const points = plan.points && Object.fromEntries(Object.entries(plan.points).map(([name, point]) => [name, atFit(point)]));
+    if (plan.row === "foot" && segment.shape.kind === "box") {
+      const { centre, size } = segment.shape;
+      const sole = derive("m", "the sole centre on the box's plantar face", [proximal, distal, centre, size],
+        (p, d, c, s) => add(c, scale(segmentFrame(p, d).z, s[2] / 2)));
+      const strike = derive("m", "the centre of the distal half of the sole", [proximal, distal, sole, size],
+        (p, d, c, s) => add(c, scale(segmentFrame(p, d).y, s[1] / 4)));
+      return { ...segment, points: { sole, strike } };
+    }
+    if (plan.row === "hand" && points?.knuckles && segment.shape.kind === "capsule") {
+      const open = segment.shape;
+      // The closed capsule keeps the open one's start and radius and ends at the third metacarpal
+      // head, so it reaches the head plus the radius; a grip uses it.
+      const fist: ShapeSpec = { kind: "capsule", from: open.from, to: points.knuckles, radius: open.radius };
+      if (plan.hand) {
+        const hull = (corners: readonly Quantity<Vec3>[]): ShapeSpec => ({ kind: "hull", points: corners.map(atFit) });
+        return { ...segment, ...(plan.right && { right: plan.right }), points,
+          handPoses: { open: hull(plan.hand.palm.hull), fist: hull(plan.hand.fist.hull), grip: fist } };
+      }
+      points.strike = derive("m", "the closed capsule's distal surface, beyond the metacarpal head by its radius",
+        [proximal, distal, points.knuckles, open.radius], (p, d, k, r) => add(k, scale(normalize(sub(d, p)), r)));
+      return { ...segment, ...(plan.right && { right: plan.right }), points, handPoses: { open, fist, grip: fist } };
+    }
+    return { ...segment, ...(plan.right && { right: plan.right }), ...(points && { points }) };
+  });
+}

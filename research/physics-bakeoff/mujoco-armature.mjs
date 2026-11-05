@@ -13,11 +13,11 @@
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { load } from "./engines.mjs";
-import { deviation, forearmChain, scaling, standingFoot, standingHuman } from "../../src/physics-bench/cases.ts";
-import { humanModel, placed } from "../../src/physics-bench/model.ts";
+import { deviation, forearmChain, scaling, standingFoot, standingHuman } from "../../src/app/browser/physics-bench/cases.ts";
+import { humanModel, placed } from "../../src/app/browser/physics-bench/model.ts";
 import { judgeA, judgeB } from "./thresholds.mjs";
 
-const out = new URL("./results/", import.meta.url);
+const out = new URL("./results", import.meta.url);
 const ref = JSON.parse(await readFile(new URL("reference.json", out), "utf8")).elbow;
 const e = await load("mujoco");
 const cond = { "foot.left": 100, "foot.right": 100 };

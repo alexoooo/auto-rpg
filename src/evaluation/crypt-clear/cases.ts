@@ -7,16 +7,16 @@
  * run with no script (`CryptCase`), bit-equal between JavaScript engines (`crypt.ts`); the run plays
  * as the game's, and only this reading knows the price.
  */
-import type { CommanderConfig } from "../../core/command/kind.ts";
-import { commanderFaults, commanderOf } from "../../core/command/commander.ts";
-import { paceToward } from "../../core/control/stance-envelope.ts";
-import type { BodyModel } from "../../core/models.ts";
-import { deepFreeze } from "../../core/state.ts";
-import { generateEncounterLevel } from "../../dungeon/encounters.ts";
-import { distance, routeLength, walkable } from "../../dungeon/map.ts";
-import { MINDS } from "../../entrants/game.ts";
+import type { CommanderConfig } from "../../minds/command/kind.ts";
+import { commanderFaults, commanderOf } from "../../minds/command/commander.ts";
+import { paceToward } from "../../control/stance-envelope.ts";
+import type { BodyModel } from "../../core/bodies/models.ts";
+import { deepFreeze } from "../../core/world/state.ts";
+import { generateEncounterLevel } from "../../game/dungeon/encounters.ts";
+import { distance, routeLength, walkable } from "../../game/dungeon/map.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptLayout } from "../crypt.ts";
 import type { Cases, Json } from "../evaluation.ts";
+import { type GameContext } from "../../game/arena/context.ts";
 
 /**
  * The protocol: the levels' seeds, the trials of each, the enemies' Commanders, the hero's model and
@@ -37,8 +37,10 @@ const ALONE = deepFreeze({
 
 /** How far each trial moves the party's start from the last, m: enough that no two trials play alike. */
 const NUDGE = 0.1;
+
 /** The ways a trial moves the start, in turn: +x, +z, -x, -z. */
 const NUDGES: readonly (readonly [number, number])[] = Object.freeze([[1, 0], [0, 1], [-1, 0], [0, -1]]);
+
 /** The footprint the start must hold once moved, m: a humanoid's (`cryptModel`) and a margin. */
 const START_CLEARANCE = 0.5;
 
@@ -94,49 +96,55 @@ function faultsOf(value: Json): readonly string[] {
   return commanderOf((value as unknown as CommanderConfig).kind)!.sides.includes("party") ? [] : [`the ${(value as unknown as CommanderConfig).kind} Commander leads no party`];
 }
 
-function clearCases(protocol: typeof ALONE): Cases<CryptCondition, ClearReading, BuiltCrypt> {
-  const conditions: CryptCondition[] = [];
-  for (const enemies of protocol.enemies) for (const seed of protocol.seeds) for (let trial = 0; trial < protocol.trials; trial++)
-    conditions.push({ seed, trial, enemies: enemies as CommanderConfig & Json });
-  const mind = MINDS[protocol.mind];
-  if (!mind) throw new Error(`the Crypt-clearing protocol's mind ${protocol.mind} is no preset`);
-  return {
-    arity: 1,
-    play: protocol as unknown as Json,
-    conditions,
-    seconds: CRYPT_CAP,
-    faults: (value) => faultsOf(value),
-    world: ([party], { seed, trial, enemies }, engine) => {
-      const layout = trialLayout(seed, trial);
-      return { kind: "crypt", engine, crypt: { layout, party: [{ model: protocol.hero, at: { ...layout.start } }], mind: mind.config,
-        script: [], commanders: { party: party as unknown as CommanderConfig, enemies } } };
-    },
-    read(built, { seed, trial }) {
-      const { world, run } = built, hero = run.hero, map = run.map;
-      const envelope = hero.fighter?.minded.report?.gait?.envelope;
-      if (!envelope) throw new Error(`level ${seed}, trial ${trial}: the hero's mind states no gait to pace the route by`);
-      const pace = paceToward(envelope, 1, 0), route = routeLength(map, map.start, map.exit, hero.radius);
-      if (route === null) throw new Error(`level ${seed}, trial ${trial}: no route from the start to the exit`);
-      const price = priceOf(protocol.walk, route, pace);
-      let spent = false;
-      const life = () => run.status === "dead" ? 0 : hero.vitality;
-      return {
-        afterStep() {
-          built.afterStep();
-          if (!built.ended && life() - price * world.time <= 0) spent = true;
-        },
-        get ended() { return built.ended || spent; },
-        reading: () => {
-          const status = run.status !== "playing" ? run.status : spent ? "spent" : "playing", end = life();
-          // A body lying where no route starts is read straight to the exit, the least its route can be.
-          const left = status === "won" ? 0 : routeLength(map, hero.feet(), map.exit, hero.radius) ?? distance(hero.feet(), map.exit);
-          return { status, seconds: world.time, life: end, route, left, pace, score: scoreOf(end, price, world.time, left, pace),
-            enemies: run.enemies.length, defeated: run.enemies.filter((enemy) => !enemy.alive).length };
-        },
-      };
-    },
-  };
-}
+export function createCryptClearCases(context: GameContext) {
+  const { minds: MINDS } = context.catalog;
 
-/** Every protocol the Crypt-clearing task may be played on, by name. */
-export const CRYPT_CLEAR_CASES: Readonly<Record<string, Cases<CryptCondition, ClearReading, BuiltCrypt>>> = Object.freeze({ alone: clearCases(ALONE) });
+  function clearCases(protocol: typeof ALONE): Cases<CryptCondition, ClearReading, BuiltCrypt> {
+    const conditions: CryptCondition[] = [];
+    for (const enemies of protocol.enemies) for (const seed of protocol.seeds) for (let trial = 0; trial < protocol.trials; trial++)
+      conditions.push({ seed, trial, enemies: enemies as CommanderConfig & Json });
+    const mind = MINDS[protocol.mind];
+    if (!mind) throw new Error(`the Crypt-clearing protocol's mind ${protocol.mind} is no preset`);
+    return {
+      arity: 1,
+      play: protocol as unknown as Json,
+      conditions,
+      seconds: CRYPT_CAP,
+      faults: (value) => faultsOf(value),
+      world: ([party], { seed, trial, enemies }, engine) => {
+        const layout = trialLayout(seed, trial);
+        return { kind: "crypt", engine, crypt: { layout, party: [{ model: protocol.hero, at: { ...layout.start } }], mind: mind.config,
+          script: [], commanders: { party: party as unknown as CommanderConfig, enemies } } };
+      },
+      read(built, { seed, trial }) {
+        const { world, run } = built, hero = run.hero, map = run.map;
+        const envelope = hero.fighter?.minded.report?.gait?.envelope;
+        if (!envelope) throw new Error(`level ${seed}, trial ${trial}: the hero's mind states no gait to pace the route by`);
+        const pace = paceToward(envelope, 1, 0), route = routeLength(map, map.start, map.exit, hero.radius);
+        if (route === null) throw new Error(`level ${seed}, trial ${trial}: no route from the start to the exit`);
+        const price = priceOf(protocol.walk, route, pace);
+        let spent = false;
+        const life = () => run.status === "dead" ? 0 : hero.vitality;
+        return {
+          afterStep() {
+            built.afterStep();
+            if (!built.ended && life() - price * world.time <= 0) spent = true;
+          },
+          get ended() { return built.ended || spent; },
+          reading: () => {
+            const status = run.status !== "playing" ? run.status : spent ? "spent" : "playing", end = life();
+            // A body lying where no route starts is read straight to the exit, the least its route can be.
+            const left = status === "won" ? 0 : routeLength(map, hero.feet(), map.exit, hero.radius) ?? distance(hero.feet(), map.exit);
+            return { status, seconds: world.time, life: end, route, left, pace, score: scoreOf(end, price, world.time, left, pace),
+              enemies: run.enemies.length, defeated: run.enemies.filter((enemy) => !enemy.alive).length };
+          },
+        };
+      },
+    };
+  }
+
+  /** Every protocol the Crypt-clearing task may be played on, by name. */
+  const CRYPT_CLEAR_CASES: Readonly<Record<string, Cases<CryptCondition, ClearReading, BuiltCrypt>>> = Object.freeze({ alone: clearCases(ALONE) });
+
+  return { CRYPT_CLEAR_CASES };
+}

@@ -1,16 +1,16 @@
 import { Session } from "node:inspector/promises";
-import { SERVO_SECONDS } from "../../src/core/body.ts";
-import { commandedBody } from "../../src/core/mind/host.ts";
-import { buildBody } from "../../src/core/build/build-body.ts";
-import { armed } from "../../src/core/human/grip.ts";
-import { modelSpec } from "../../src/core/models.ts";
-import { woodenClub } from "../../src/core/items/club.ts";
-import { standIntent } from "../../src/core/intent/intent.ts";
-import { driveBy } from "../../src/core/mind/decider.ts";
-import { createWorld } from "../../src/core/world.ts";
+import { SERVO_SECONDS } from "../../src/control/body.ts";
+import { commandedBody } from "../../src/minds/host.ts";
+import { buildBody } from "../../src/core/bodies/build/build-body.ts";
+import { armed } from "../../src/core/bodies/human/grip.ts";
+import { modelSpec } from "../../src/core/bodies/models.ts";
+import { woodenClub } from "../../src/core/bodies/items/club.ts";
+import { standIntent } from "../../src/skills/intent/intent.ts";
+import { driveBy } from "../../src/minds/decider.ts";
+import { createWorld } from "../../src/core/world/world.ts";
 import { freshEngine } from "./core-stand.mjs";
-import { GUARD } from "../../src/core/skills/guard/guard.ts";
-import { poseAngles } from "../../src/core/control/kinematics.ts";
+import { GUARD } from "../../src/skills/guard/guard.ts";
+import { poseAngles } from "../../src/control/kinematics.ts";
 
 /**
  * `count` bodies of `model` with the club on a ground in a world of their own, on a square grid

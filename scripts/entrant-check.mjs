@@ -18,21 +18,21 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
 /** The registry an entrant is a line in, with its list's line: the game's entrants. */
-const REGISTRIES = Object.freeze({ "src/entrants/index.ts": /^export const ENTRANTS\b/ });
+const REGISTRIES = Object.freeze({ "src/app/entrants.ts": /^export const ENTRANTS\b/ });
 
 /**
  * The entrant `path` belongs to, or null: its folder (`src/entrants/<name>/`), its learned or
  * authored data (`assets/entrants/<name>/`) and its own test, if it has one
- * (`tests/entrant-<name>.test.mjs`).
+ * (`tests/entrants/<name>/`, `research/entrants/<name>/` and `scripts/entrants/<name>/`).
  */
 export function entrantOf(path) {
   const found = /^src\/entrants\/([^/]+)\//.exec(path) ?? /^assets\/entrants\/([^/]+)\//.exec(path)
-    ?? /^tests\/entrant-([^/]+)\.test\.mjs$/.exec(path);
+    ?? /^(?:tests|research|scripts)\/entrants\/([^/]+)\//.exec(path);
   return found ? found[1] : null;
 }
 
 /** Whether `line`, added to or taken from a registry, is entrant `name`'s: its manifest's import, or a registry's list. */
-const registryLine = (line, name) => line.includes(`"./${name}/`) || Object.values(REGISTRIES).some((list) => list.test(line.trim()));
+const registryLine = (line, name) => line.includes(`"../entrants/${name}/`) || Object.values(REGISTRIES).some((list) => list.test(line.trim()));
 
 /**
  * What `paths` change (`{ kind: "entrant", name }`, `{ kind: "toolkit" }` or `{ kind: "mixed",

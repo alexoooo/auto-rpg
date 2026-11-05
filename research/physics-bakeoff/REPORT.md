@@ -7,16 +7,16 @@ one sub-step, which Havok never reaches; at that setting it holds 23 standing hu
 step against Havok's 9 at its passing setting, and loads in 1.1 MiB brotli.
 
 The live adapters are MuJoCo and Rapier (`research/physics-bakeoff/engines.mjs`, and the
-`physics-bench.html` page, `src/physics-bench/`). Havok's adapter is not in the repository; its
+`physics-bench.html` page, `src/app/browser/physics-bench/`). Havok's adapter is not in the repository; its
 rows in `results/` are the record of the comparison. Harnesses: **Node**, one process, one thread;
 **Chrome**, `physics-bench.html` on the page's main thread. Times are medians of repeated runs. How
 to run them is in [the research readme](../README.md#the-physics-bake-off).
 
 ## Setup
 
-- **One body.** `src/physics-bench/model.ts` hands every adapter the same Warrior from `humanSpec("workshop-fighter")`,
+- **One body.** `src/app/browser/physics-bench/model.ts` hands every adapter the same Warrior from `humanSpec("workshop-fighter")`,
   each segment built world-aligned at its centre of mass and the trunk hull as its bounding box.
-- **One controller** (`src/physics-bench/control.ts`), no engine motor: at 120 Hz it reads each segment back and
+- **One controller** (`src/app/browser/physics-bench/control.ts`), no engine motor: at 120 Hz it reads each segment back and
   applies world torques held over the sub-steps: a critically damped acceleration of each
   freedom's error at T = 0.1 s, times the joint-space inertia, plus the gravity moment of the side
   held up, clamped to the muscle's isometric peak. A stance foot is read as the ground.
@@ -31,7 +31,7 @@ to run them is in [the research readme](../README.md#the-physics-bake-off).
 - **Performance**: N simplified humans at 120 Hz under the shared controller with a full state
   read every step, spaced 2 m apart or piled in layers of 8 (`perf.mjs` under `run-perf.sh`,
   tables by `summarize-perf.mjs`); each engine at its chosen setting
-  (`src/physics-bench/chosen.ts`).
+  (`src/app/browser/physics-bench/chosen.ts`).
 
 The feet's inertia conditioning is the control law's need, in every engine: a servo that reads the
 stance foot as the ground drives a light foot with gains sized to half the body, and without the

@@ -7,22 +7,21 @@
 import type { Evaluation, Figure, Json, Table } from "../evaluation.ts";
 import type { BuiltCase } from "../evaluation.ts";
 import type { FallReading } from "../fall.ts";
-import { LOCOMOTION_FIGURES, locomotionSummary, mindSubjects } from "../locomotion/index.ts";
 import type { LocomotionCondition } from "../locomotion/cases.ts";
 import type { LocomotionReading } from "../locomotion/read.ts";
-import { FALL_FIGURES, fallSummary } from "../rising-target/index.ts";
-import { STRIKE } from "../strike/index.ts";
 import type { StrikeCondition } from "../strike/cases.ts";
 import type { StrikeReading } from "../strike/read.ts";
-import { BASELINE_CASES, OPPONENTS, type BaselineFight, type BaselinePart, type BaselineReading, type FightReading } from "./cases.ts";
+import { createLocomotionIndex, LOCOMOTION_FIGURES, locomotionSummary } from "../locomotion/index.ts";
+import { createRisingTargetIndex, FALL_FIGURES } from "../rising-target/index.ts";
+import { createStrikeIndex } from "../strike/index.ts";
+import { createBaselineCases, OPPONENTS, type BaselineFight, type BaselinePart, type BaselineReading, type FightReading } from "./cases.ts";
+import { type GameContext } from "../../game/arena/context.ts";
 
 /** `figures` read on `part`'s readings alone, each named for its competence. */
 function partFigures<R>(part: BaselinePart, figures: readonly Figure<R & Json>[]): Figure<BaselineReading>[] {
   return figures.map((figure) => ({ ...figure, name: `${part}: ${figure.name}`,
     of: (reading, side) => reading.part === part ? figure.of(reading as unknown as R & Json, side) : null }));
 }
-
-const STRIKE_FIGURES = STRIKE.figures.filter((figure) => ["landed", "landed on the body", "admitted", "fell"].includes(figure.name));
 
 /** The stand-up (`FALL_FIGURES`): the falls made, and on them stood within the target's time, stood, and the failure-inclusive median. */
 const STAND_FIGURES = FALL_FIGURES as readonly Figure<FallReading & Json>[];
@@ -48,36 +47,47 @@ function fightSummary({ subjects, cases }: Table<Json, BaselineReading>): { line
   };
 }
 
-export const BASELINE: Evaluation<Json, BaselineReading, BuiltCase> = {
-  id: "baseline",
-  title: "The baseline evaluation",
-  group: "fighters",
-  question: "What can one mind's configuration do on the Warrior: walk, punch, stand up and fight?",
-  protocols: BASELINE_CASES,
-  defaultProtocol: "walk",
-  every: true,
-  schedule: "all",
-  analysis: {},
-  subjects: (choice) => {
-    const chosen = mindSubjects(choice, ["option"]);
-    if (chosen.length !== 1) throw new Error("the baseline reads one mind");
-    return chosen;
-  },
-  figures: [
-    ...partFigures<LocomotionReading>("walk", LOCOMOTION_FIGURES),
-    ...partFigures<StrikeReading>("punch", STRIKE_FIGURES),
-    ...partFigures<FallReading>("stand-up", STAND_FIGURES),
-    ...partFigures<FightReading>("fight", FIGHT_FIGURES),
-  ],
-  summary(table) {
-    const part = table.cases[0]?.reading.part;
-    switch (part) {
-      case "walk": return locomotionSummary(table as unknown as Table<LocomotionCondition, LocomotionReading>);
-      case "punch": return STRIKE.summary(table as unknown as Table<StrikeCondition, StrikeReading>);
-      case "stand-up": return fallSummary(table as unknown as Table<Json, FallReading>, false);
-      case "fight": return fightSummary(table);
-      case undefined: return { lines: [], json: null };
-      default: { const never: never = part; throw new Error(`no baseline competence ${String(never)}`); }
-    }
-  },
-};
+export function createBaselineIndex(context: GameContext) {
+  const { mindSubjects } = createLocomotionIndex(context);
+  const { fallSummary } = createRisingTargetIndex(context);
+  const { STRIKE } = createStrikeIndex(context);
+  const { BASELINE_CASES } = createBaselineCases(context);
+
+  const STRIKE_FIGURES = STRIKE.figures.filter((figure) => ["landed", "landed on the body", "admitted", "fell"].includes(figure.name));
+
+  const BASELINE: Evaluation<Json, BaselineReading, BuiltCase> = {
+    id: "baseline",
+    title: "The baseline evaluation",
+    group: "fighters",
+    question: "What can one mind's configuration do on the Warrior: walk, punch, stand up and fight?",
+    protocols: BASELINE_CASES,
+    defaultProtocol: "walk",
+    every: true,
+    schedule: "all",
+    analysis: {},
+    subjects: (choice) => {
+      const chosen = mindSubjects(choice, ["option"]);
+      if (chosen.length !== 1) throw new Error("the baseline reads one mind");
+      return chosen;
+    },
+    figures: [
+      ...partFigures<LocomotionReading>("walk", LOCOMOTION_FIGURES),
+      ...partFigures<StrikeReading>("punch", STRIKE_FIGURES),
+      ...partFigures<FallReading>("stand-up", STAND_FIGURES),
+      ...partFigures<FightReading>("fight", FIGHT_FIGURES),
+    ],
+    summary(table) {
+      const part = table.cases[0]?.reading.part;
+      switch (part) {
+        case "walk": return locomotionSummary(table as unknown as Table<LocomotionCondition, LocomotionReading>);
+        case "punch": return STRIKE.summary(table as unknown as Table<StrikeCondition, StrikeReading>);
+        case "stand-up": return fallSummary(table as unknown as Table<Json, FallReading>, false);
+        case "fight": return fightSummary(table);
+        case undefined: return { lines: [], json: null };
+        default: { const never: never = part; throw new Error(`no baseline competence ${String(never)}`); }
+      }
+    },
+  };
+
+  return { BASELINE };
+}

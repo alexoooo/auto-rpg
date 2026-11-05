@@ -1,6 +1,6 @@
 {
   "rat": {
-    "made": "Found on the rat by scripts/quadruped/righting.mjs: CMA-ES over each pose's angles of the hips, knees and elbows, the neck and the tail's base, its hold and its mark, each candidate played through the game's mind (Node stand, Rapier, 120 Hz) and scored on its worst start and its mean; the side's poses from the body lying on either side and tilted, the back's from its back. On its back at 9 headings it is up (the trunk's up .996 or more) and handed back in 2.73 to 2.79 s, score 4.71.",
+    "made": "Found on the rat by scripts/skills/recovery/righting/righting.mjs: CMA-ES over each pose's angles of the hips, knees and elbows, the neck and the tail's base, its hold and its mark, each candidate played through the game's mind (Node stand, Rapier, 120 Hz) and scored on its worst start and its mean; the side's poses from the body lying on either side and tilted, the back's from its back. On its back at 9 headings it is up (the trunk's up .996 or more) and handed back in 2.73 to 2.79 s, score 4.71.",
     "settings": {
       "settle": 1,
       "servo": 0.15,

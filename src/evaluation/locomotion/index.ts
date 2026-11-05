@@ -4,18 +4,18 @@
  * shoves by a script (`cases.ts`), its gaits the ones its mind chooses for them. The subject is a
  * mind that takes orders.
  */
-import type { AttributeOverrides } from "../../core/character-attributes.ts";
-import { CONTROLLERS, MINDS } from "../../entrants/game.ts";
-import type { BodyModel } from "../../core/models.ts";
-import { recordingKey } from "../../core/recording.ts";
+import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
+import type { BodyModel } from "../../core/bodies/models.ts";
+import { recordingKey } from "../../core/world/recording.ts";
 import { mindSubject, type Evaluation, type Figure, type Json, type Subject, type SubjectChoice, type Table } from "../evaluation.ts";
 import type { BuiltLone } from "../lone.ts";
 import { sha256Text } from "../sha256.ts";
 import { Vector3 } from "../../core/math/vector.ts";
-import type { BuiltSegment } from "../../core/build/build-body.ts";
-import type { Orders } from "../../core/intent/orders.ts";
-import { LOCOMOTION_CASES, scriptOf, type LocomotionCondition } from "./cases.ts";
+import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
+import type { Orders } from "../../skills/intent/orders.ts";
 import type { LocomotionReading } from "./read.ts";
+import { createLocomotionCases, scriptOf, type LocomotionCondition } from "./cases.ts";
+import { type GameContext } from "../../game/arena/context.ts";
 
 /**
  * A mind given whole as a subject: a config, or `{ mind, character, models }`, a config with the
@@ -26,14 +26,6 @@ function givenMind(id: string, label: string, value: Json): Subject {
   return given && typeof given === "object" && !Array.isArray(given) && given.mind !== undefined
     ? mindSubject(id, label, given.mind, { ...(given.character ? { character: given.character } : {}), ...(given.models ? { models: given.models } : {}) })
     : mindSubject(id, label, value);
-}
-
-/** A mind named or given whole, as a subject: a preset (its calibration and character), a kind's defaults, or a config (`givenMind`). */
-export function mindSubjects(choice: SubjectChoice, none: readonly string[]): readonly Subject[] {
-  return (choice.length > 0 ? choice : none).map((one) => typeof one !== "string" ? givenMind(one.id, one.label, one.value)
-    : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one]!.label, MINDS[one]!.config as unknown as Json, MINDS[one])
-    : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one]!.label, CONTROLLERS[one]!.defaults as unknown as Json)
-    : (() => { throw new Error(`${one} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind (${Object.keys(CONTROLLERS).join(", ")}), or a config`); })());
 }
 
 /** Whether a walk came to its pace: along within 0.8 to 1.25 of it, under a quarter of it across, on its feet. */
@@ -105,36 +97,51 @@ function orderedWay(built: BuiltLone, condition: LocomotionCondition): { readonl
   return length > 0 ? { x: move.direction.x / length, z: move.direction.z / length, pace: orders?.pace ?? 0 } : null;
 }
 
-export const LOCOMOTION: Evaluation<LocomotionCondition, LocomotionReading, BuiltLone> = {
-  id: "locomotion",
-  title: "The Locomotion drill",
-  group: "skills",
-  question: "Does a mind's body walk where and as fast as it is told, stop when told, and keep its feet when shoved?",
-  protocols: LOCOMOTION_CASES,
-  defaultProtocol: "screen",
-  schedule: "all",
-  analysis: {},
-  subjects: (choice) => mindSubjects(choice, ["option"]),
-  figures: LOCOMOTION_FIGURES,
-  /**
-   * A learning environment's percepts, each a second: `progress`, its root's speed along the ordered
-   * way, to the order's pace where it names one (0 unordered); `halt`, less its ground
-   * speed where it is not ordered to move (0 ordered); `upright`, its root's up.
-   */
-  percepts: {
-    progress: (built, condition) => {
-      const way = orderedWay(built, condition), velocity = rootVelocity(built);
-      if (!way) return 0;
-      const toward = velocity.x * way.x + velocity.z * way.z;
-      return way.pace > 0 ? Math.min(toward, way.pace) : toward;
+export function createLocomotionIndex(context: GameContext) {
+  const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
+  const { LOCOMOTION_CASES } = createLocomotionCases(context);
+
+  /** A mind named or given whole, as a subject: a preset (its calibration and character), a kind's defaults, or a config (`givenMind`). */
+  function mindSubjects(choice: SubjectChoice, none: readonly string[]): readonly Subject[] {
+    return (choice.length > 0 ? choice : none).map((one) => typeof one !== "string" ? givenMind(one.id, one.label, one.value)
+      : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one]!.label, MINDS[one]!.config as unknown as Json, MINDS[one])
+      : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one]!.label, CONTROLLERS[one]!.defaults as unknown as Json)
+      : (() => { throw new Error(`${one} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind (${Object.keys(CONTROLLERS).join(", ")}), or a config`); })());
+  }
+
+  const LOCOMOTION: Evaluation<LocomotionCondition, LocomotionReading, BuiltLone> = {
+    id: "locomotion",
+    title: "The Locomotion drill",
+    group: "skills",
+    question: "Does a mind's body walk where and as fast as it is told, stop when told, and keep its feet when shoved?",
+    protocols: LOCOMOTION_CASES,
+    defaultProtocol: "screen",
+    schedule: "all",
+    analysis: {},
+    subjects: (choice) => mindSubjects(choice, ["option"]),
+    figures: LOCOMOTION_FIGURES,
+    /**
+     * A learning environment's percepts, each a second: `progress`, its root's speed along the ordered
+     * way, to the order's pace where it names one (0 unordered); `halt`, less its ground
+     * speed where it is not ordered to move (0 ordered); `upright`, its root's up.
+     */
+    percepts: {
+      progress: (built, condition) => {
+        const way = orderedWay(built, condition), velocity = rootVelocity(built);
+        if (!way) return 0;
+        const toward = velocity.x * way.x + velocity.z * way.z;
+        return way.pace > 0 ? Math.min(toward, way.pace) : toward;
+      },
+      halt: (built, condition) => {
+        if (orderedWay(built, condition)) return 0;
+        const velocity = rootVelocity(built);
+        return -Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+      },
+      upright: (built) => { const turn = rootOf(built).pose.rotation; return 1 - 2 * (turn.x * turn.x + turn.z * turn.z); },
     },
-    halt: (built, condition) => {
-      if (orderedWay(built, condition)) return 0;
-      const velocity = rootVelocity(built);
-      return -Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-    },
-    upright: (built) => { const turn = rootOf(built).pose.rotation; return 1 - 2 * (turn.x * turn.x + turn.z * turn.z); },
-  },
-  outcome: (r) => ({ label: r.fell ? "fell" : r.stopped ? "stood" : "moving", passed: !r.fell }),
-  summary: locomotionSummary,
-};
+    outcome: (r) => ({ label: r.fell ? "fell" : r.stopped ? "stood" : "moving", passed: !r.fell }),
+    summary: locomotionSummary,
+  };
+
+  return { mindSubjects, LOCOMOTION };
+}

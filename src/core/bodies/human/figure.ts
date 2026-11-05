@@ -1,0 +1,106 @@
+import type { Side, Substance, ToesSpec } from "../spec/body.ts";
+import type { Quantity, Vec3 } from "../spec/quantity.ts";
+import type { Extents, TrunkSegment } from "./envelope.ts";
+import type { LimbLandmarks, TrunkLandmarks } from "./landmarks.ts";
+import type { DeLevaSegment, Sex } from "./tables/de-leva-1996.ts";
+import type { Exertion } from "./tables/joint-torques.ts";
+
+/**
+ * **A human figure**: everything the human body-plan code (`segments.ts`, `joints.ts`,
+ * `muscle.ts`, `speed.ts`, `wounds.ts`) reads of one body, and nothing it derives. The workshop
+ * models' figures come from their rigs and envelopes (`workshop.ts`); the crypt skeleton's from
+ * its art's bind (`skeleton.ts`). Families share this code, not its values: each figure's numbers
+ * say where they came from.
+ *
+ * Points are in the body frame (`src/core/bodies/spec/body.ts`), in the reference pose, at the size the
+ * figure was authored at; `scale` takes them to x1.
+ */
+export interface HumanFigure {
+  /** The spec's model. */
+  readonly model: string;
+  /** What the body is made of (`BodySpec.substance`). */
+  readonly substance: Substance;
+  /** Which column of a sex-specific table the figure reads. */
+  readonly sex: Sex;
+  /** The one factor from the authored size to x1; absent, the figure is authored at x1. */
+  readonly scale?: Quantity<number>;
+  /** At x1. */
+  readonly mass: Quantity<number>;
+  readonly stature: Quantity<number>;
+  readonly trunk: TrunkLandmarks;
+  readonly limbs: Readonly<Record<Side, LimbFigure>>;
+  /** Each trunk segment's surface: the corners of its convex hull. */
+  readonly hulls: Readonly<Record<TrunkSegment, readonly Quantity<Vec3>[]>>;
+  /** Each foot's extents, body frame. */
+  readonly feet: Readonly<Record<Side, Extents>>;
+  /** Each foot's toes, in metres of the body as built (`toes.ts`); absent, each foot is its box whole. */
+  readonly toes?: ToesSpec;
+  /** Each hand's measured contact geometry; absent, a hand's poses are capsules (`segments.ts`). */
+  readonly hands?: Readonly<Record<Side, HandFigure>>;
+  /**
+   * The widest a limb's capsule is, m, by its row, where the figure's limbs stand nearer each other
+   * or its trunk than their mass at its density leaves room for; absent, a capsule holds its mass
+   * at its density.
+   */
+  readonly widest?: Readonly<Partial<Record<DeLevaSegment, Quantity<number>>>>;
+  /**
+   * Each segment measured from what it is made of, by segment name (the skeleton's bones,
+   * `skeleton.ts`): its centre of mass, inertia and collider come from it in place of de Leva's
+   * rows, its share of the mass from his. Every segment has one, or none does.
+   */
+  readonly fitted?: Readonly<Record<string, FittedSegment>>;
+  /** The body mass its regional muscle is a share of (`peakTorque`), kg at x1; absent, `mass`. */
+  readonly muscled?: Quantity<number>;
+  /** How much broader than de Leva's rows each segment is across its long axis; absent, 1. */
+  readonly breadth?: Quantity<number>;
+  /** A factor on every peak torque (`peakTorque`); absent, 1. */
+  readonly strength?: Quantity<number>;
+  /** A factor on the named exertions' peak torques (`peakTorque`), each beside `strength`; an exertion left out, 1. */
+  readonly exertions?: Readonly<Partial<Record<Exertion, Quantity<number>>>>;
+  /** A factor on every unloaded speed of shortening (`jointSpeed`); absent, 1. */
+  readonly speed?: Quantity<number>;
+  /** The body's hit points, in the rulebook's unit. */
+  readonly hp: Quantity<number>;
+  /** The body's balance, per cent of its weight (`AttributeSpec`). */
+  readonly balance: Quantity<number>;
+  /** The body's haste, per cent over a human's speed in its legs' muscles (`AttributeSpec`, `jointSpeed`); 0 is a human's. */
+  readonly haste: Quantity<number>;
+}
+
+/**
+ * **A segment measured from its solid** (`HumanFigure.fitted`), body frame, at the figure's
+ * authored size: its centroid, the centre of mass; and its second moment per unit volume about the
+ * centroid (`spread`, m2: xx, yy and zz, then xy, yz and zx), which a uniform density makes its
+ * inertia per unit mass. `hull` is the collider's corners in place of a capsule of the body plan;
+ * absent, the capsule is as wide as the solid (`segments.ts`), as a hand's must be for a grip to
+ * seat against it and a shank's for a knee to bear on its end. A trunk segment's collider is
+ * `HumanFigure.hulls`, a foot's `feet` and a hand's poses `hands`.
+ */
+export interface FittedSegment {
+  readonly centroid: Quantity<Vec3>;
+  readonly spread: { readonly diagonal: Quantity<Vec3>; readonly off: Quantity<Vec3> };
+  readonly hull?: readonly Quantity<Vec3>[];
+}
+
+/**
+ * **A hand's contact geometry**, measured from the figure's skin (`hands.ts`): the open hand's
+ * hull and where it bears, its palm patch's centre; the fist's hull and where it strikes, its
+ * surface ahead of the middle knuckle.
+ */
+export interface HandFigure {
+  readonly palm: { readonly hull: readonly Quantity<Vec3>[]; readonly centre: Quantity<Vec3> };
+  readonly fist: { readonly hull: readonly Quantity<Vec3>[]; readonly strike: Quantity<Vec3> };
+}
+
+/**
+ * **One side's limbs**: de Leva's landmarks (`LimbLandmarks`), where the foot's segment runs (its
+ * heel and toe), and the hand's own right in the anatomical position (`SegmentSpec.right`): across
+ * its knuckles toward the thumb on the right hand, toward the little finger on the left. `little`,
+ * the little finger's knuckle, is where a grip ends (`grip.ts`); a hand without one holds nothing.
+ */
+export interface LimbFigure extends LimbLandmarks {
+  readonly HEEL: Quantity<Vec3>;
+  readonly TTIP: Quantity<Vec3>;
+  readonly handRight: Quantity<Vec3>;
+  readonly little?: Quantity<Vec3>;
+}

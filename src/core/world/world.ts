@@ -1,0 +1,186 @@
+import type { PhysicsEngine, PhysicsWorld } from "../physics/engine.ts";
+import { sourced, type Quantity } from "../bodies/spec/quantity.ts";
+
+/** The fixed step's rate: physics and control run at 120 Hz. */
+export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-rate", "physics and control at 120 Hz");
+
+/**
+ * **The command's delay**, steps: a mind's command, made on a step, is applied that many steps
+ * later, so the world can step while its minds think (`embody`). The same in every world, on one
+ * thread or many, so a bout is the same whatever runs its minds. The game's is one step, at which
+ * motor control holds balance and the rise.
+ */
+export const COMMAND_DELAY: Quantity<number> = sourced(1, "1", "owner-command-delay",
+  "one step: motor control holds balance and the rise a step late");
+
+/**
+ * **Where a world's minds run apart from it**, as the world steps it: the place itself is the minds'
+ * (`MindPlace`, `src/minds/apart.ts`); the world only sends, once its preparing hooks have
+ * run, what they asked of the minds there, so the minds step together.
+ */
+export interface MindsApart {
+  dispatch(): void;
+}
+
+/**
+ * **The world**: one fixed step that owns physics, control and the clock. The page, the Node stand
+ * and the research runners all advance it through `step` (or `advance`, which turns elapsed time
+ * into whole steps), and nothing else moves its bodies or its clock.
+ *
+ * A step is: the sensing hooks; the preparing hooks (each body made ready to be read, and a mind on
+ * a mirror or apart handed what it reads), then what they asked of minds apart is sent; the step hooks, in the order they were added (minds,
+ * motor control, the muscle driver); then one solver step of `dt`, which writes every body's pose;
+ * then the clock advances and the post-physics hooks observe the completed interval; then the
+ * after-step hooks (events and readings). The physics is the engine's the world was made with (`src/core/physics/engine.ts`).
+ * Nothing draws it: a page draws what the steps produced, and drawing never advances it. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
+ *
+ * A hook added while its own list runs waits for the next step, but an after-step hook added by a
+ * step hook runs in the same step. A hook removed stops at once.
+ */
+export interface World {
+  /** The physics: bodies, joints, ground and gravity. */
+  readonly physics: PhysicsWorld;
+  /** Steps a second. */
+  readonly hz: number;
+  /** The step, s. */
+  readonly dt: number;
+  /** The actuator law shared by every body: symmetric reference bounds or each side's own muscle bounds. */
+  readonly actuation: "symmetric" | "directional";
+  /** The steps a body's command waits before it is applied (`COMMAND_DELAY`): a whole number, 1 or more. */
+  readonly delay: number;
+  /**
+   * Where the minds a fight makes run (`MindPlace`, `src/minds/apart.ts`): apart from the
+   * world, each on a mirror of its body, or, null, in the world's own thread on its mirror. A bout is
+   * the same either way, step for step.
+   */
+  readonly minds: MindsApart | null;
+  /** Steps taken since the world was made. */
+  readonly steps: number;
+  /** Seconds since the world was made: `steps / hz`. */
+  readonly time: number;
+  /** Its memory (`src/core/world/state.ts`): the steps taken, the time `advance` owes. The physics saves its own (`PhysicsWorld.save`). */
+  readonly state: object;
+  /**
+   * Run `hook` first in every step, before every `beforeStep` hook, after the sensing hooks added
+   * before it: what reads the world for the minds, so that every mind in a step decides on the
+   * same moment.
+   */
+  sense(hook: StepHook): Hook;
+  /**
+   * Run `hook` after every sensing hook and before every step hook, after the preparing hooks added
+   * before it: what makes a body ready to be read (its hands' and its toes' shapes) and hands a mind
+   * kept apart what it reads (`World.minds`).
+   */
+  prepare(hook: StepHook): Hook;
+  /** Run `hook` before every solver step, after the hooks added before it. */
+  beforeStep(hook: StepHook): Hook;
+  /** Observe each completed solver interval after the clock advances, before any after-step event can change a body. */
+  afterPhysics(hook: StepHook): Hook;
+  /** Run `hook` after all post-physics observations, after the hooks added before it. */
+  afterStep(hook: StepHook): Hook;
+  /** Run `hook` each time the world is put back where a save left it (`loaded`), after the hooks added before it. */
+  onLoad(hook: StepHook): Hook;
+  /**
+   * The world and what hangs on it has been put back where a save left it, its physics and its
+   * state: what shows its bodies to their minds (`Mirror`) shows them again.
+   */
+  loaded(): void;
+  /** Take `n` steps. */
+  step(n?: number): void;
+  /**
+   * Take the whole steps `seconds` of elapsed time owes, carrying the remainder to the next call,
+   * but at most `most`: a page that falls behind runs slow rather than catching up in a burst, and
+   * the time it could not take is dropped. Returns the steps taken.
+   */
+  advance(seconds: number, most?: number): number;
+  dispose(): void;
+}
+
+/** Called with the step, s. */
+type StepHook = (dt: number) => void;
+
+export interface Hook {
+  dispose(): void;
+}
+
+interface WorldOptions {
+  /** Steps a second; the game's rate (`PHYSICS_HZ`) unless a finer reference is asked for. */
+  readonly hz?: number;
+  /** Standard gravity, or none, for reading a body alone. */
+  readonly gravity?: boolean;
+  readonly actuation?: World["actuation"];
+  /** The command's delay, steps; the game's (`COMMAND_DELAY`) unless a study asks for another. */
+  readonly delay?: number;
+  /** Where a fight's minds run (`World.minds`); in the world's thread unless given. */
+  readonly minds?: MindsApart;
+}
+
+/** A world with a physics of `engine`'s own: make it before any body. The caller loads the engine (`loadEngine`). */
+export function createWorld(engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric", delay = COMMAND_DELAY.value, minds = undefined }: WorldOptions = {}): World {
+  if (actuation !== "symmetric" && actuation !== "directional") throw new Error(`unknown actuation ${String(actuation)}`);
+  if (!(Number.isInteger(delay) && delay >= 1)) throw new Error(`a command's delay is at least one whole step, not ${String(delay)}`);
+  const physics = engine.createPhysics({ hz, gravity });
+  const dt = 1 / hz;
+  const sensing: HookEntry[] = [], preparing: HookEntry[] = [], before: HookEntry[] = [], observed: HookEntry[] = [], after: HookEntry[] = [], loading: HookEntry[] = [];
+  const state = { steps: 0, owed: 0 };
+  let disposed = false;
+
+  const add = (list: HookEntry[], run: StepHook): Hook => {
+    const entry: HookEntry = { run, live: true };
+    list.push(entry);
+    return { dispose: () => { entry.live = false; const i = list.indexOf(entry); if (i >= 0) list.splice(i, 1); } };
+  };
+  const runAll = (list: HookEntry[]) => {
+    // A snapshot, so a hook added to this list now waits for the next step; one removed now is skipped.
+    for (const entry of list.slice()) if (entry.live) entry.run(dt);
+  };
+
+  const world: World = {
+    // A mind a step or more behind its body decides on its mirror, its motor part carrying out the decision on the body as it is.
+    physics, hz, dt, delay, state, minds: minds ?? null,
+    get actuation() { return actuation; },
+    get steps() { return state.steps; },
+    get time() { return state.steps / hz; },
+    sense: (hook) => add(sensing, hook),
+    prepare: (hook) => add(preparing, hook),
+    beforeStep: (hook) => add(before, hook),
+    afterPhysics: (hook) => add(observed, hook),
+    afterStep: (hook) => add(after, hook),
+    onLoad: (hook) => add(loading, hook),
+    loaded() { runAll(loading); },
+    step(n = 1) {
+      if (disposed) throw new Error("the world was disposed");
+      for (let i = 0; i < n; i++) {
+        runAll(sensing);
+        runAll(preparing);
+        minds?.dispatch();
+        runAll(before);
+        physics.step(dt);
+        state.steps += 1;
+        runAll(observed);
+        runAll(after);
+      }
+    },
+    advance(seconds, most = Infinity) {
+      state.owed += seconds;
+      let taken = 0;
+      // A step is owed once its whole length has passed, give or take the float sum's rounding.
+      while (state.owed >= dt - 1e-9 && taken < most) { world.step(); state.owed -= dt; taken += 1; }
+      if (state.owed >= dt) state.owed %= dt;
+      return taken;
+    },
+    dispose() {
+      disposed = true;
+      sensing.length = 0;
+      preparing.length = 0;
+      before.length = 0;
+      observed.length = 0;
+      after.length = 0;
+      loading.length = 0;
+      physics.dispose();
+    },
+  };
+  return world;
+}
+
+interface HookEntry { readonly run: StepHook; live: boolean }

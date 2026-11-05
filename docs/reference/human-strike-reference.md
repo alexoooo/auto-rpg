@@ -3,8 +3,8 @@
 What the literature measured of human strikes, segments, joint torques and ranges, and what the
 core human is built from: sections 1 to 6 are the literature (the strike bars, `BAR` in
 `src/evaluation/strike/read.ts`; torques; segments), section 8 the workshop models'
-stature and volume (`src/core/sources.ts`), section 9 the core human's joint ranges and strengths
-(`src/core/human/muscle.ts`, `tables/`).
+stature and volume (`src/core/bodies/sources.ts`), section 9 the core human's joint ranges and strengths
+(`src/core/bodies/human/muscle.ts`, `tables/`).
 
 All units are SI. Angular velocities were converted at 1 deg/s = 0.01745 rad/s; the original deg/s value is given in brackets. "Typical" means an untrained or recreational adult male where such data exist; otherwise the lowest-skill group studied, which is named. Values are mean ± SD unless marked otherwise. **Derived** marks a number computed here from the cited inputs, not reported by the source.
 
@@ -145,7 +145,7 @@ Useful sums at 80 kg:
 
 ## 8. The workshop models
 
-Measurements of this repository's assets for the core's human spec (`src/core/human/`).
+Measurements of this repository's assets for the core's human spec (`src/core/bodies/human/`).
 
 **Stature** is the top of the skin: the maximum y of `base__skin`'s positions in
 `public/assets/humanoid/workshop-*.glb`, bind pose, soles on 0; hair is not stature. It is the
@@ -163,7 +163,7 @@ Rogue takes the Warrior's factor, so she keeps her size against him.
 **Volume.** Each model's skin, feet, jacket, trousers, collar and belt were closed by voxel flood
 fill in the bind pose and extrapolated to a zero voxel from grids of 4.5 to 8 mm (a finer grid
 leaks through a seam). What is enclosed, and what is not outside, bracket the volume (litres, at
-the authored size); the taken value is `VOLUME` in `src/core/human/model.ts`:
+the authored size); the taken value is `VOLUME` in `src/core/bodies/human/model.ts`:
 
 | Model | Enclosed | Not outside | Taken |
 |---|---|---|---|
@@ -176,17 +176,17 @@ the same density.
 
 ## 9. Joint ranges and strengths for the core human
 
-For the core's human joints (`src/core/human/joints.ts`, `muscle.ts` and `tables/`). Every figure
+For the core's human joints (`src/core/bodies/human/joints.ts`, `muscle.ts` and `tables/`). Every figure
 here is from Node on the spec alone (no engine), unless it says otherwise. The Warrior's and
 Rogue's columns of tables 9.2 and 9.4 are the measured peaks and ranges, before what `modelSpec`
-(`src/core/models.ts`) sets over them:
+(`src/core/bodies/models.ts`) sets over them:
 
-- **The legs' peaks in use** (`IN_USE`, `src/core/human/muscle.ts`): every hip exertion ×2.49,
+- **The legs' peaks in use** (`IN_USE`, `src/core/bodies/human/muscle.ts`): every hip exertion ×2.49,
   the knee's ×1.58, the ankle's plantar flexion ×2.75.
-- **The Rogue's elbow extension** ×2 (`WORKSHOP_EXERTIONS`, `src/core/human/attributes.ts`).
-- **A toed foot's dorsiflexion** (`toedFigure`, `src/core/human/toes.ts`; both bodies' feet are
+- **The Rogue's elbow extension** ×2 (`WORKSHOP_EXERTIONS`, `src/core/bodies/human/attributes.ts`).
+- **A toed foot's dorsiflexion** (`toedFigure`, `src/core/bodies/human/toes.ts`; both bodies' feet are
   toed): it stops at `TOED_DORSIFLEXION`, 0.8 rad past the reference pose
-  (`src/core/human/joints.ts`), in place of the measured range.
+  (`src/core/bodies/human/joints.ts`), in place of the measured range.
 
 ### 9.1 A model's torque comes from its muscle
 

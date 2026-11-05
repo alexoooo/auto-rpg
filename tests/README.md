@@ -24,13 +24,13 @@ permits these imports and operations, and successful drills cannot establish tha
 | `a headless world loads no renderer: the bout's, the Crypt run's, the cases', the falls' and the world worker's modules import nothing of Babylon` | Catch renderer imports through runtime-neutral builders outside core, where the core-only import scan has no authority. A drawn Arena room proves the scan detects a renderer. |
 | `the core and its lab reach an engine only through the seam: engine.ts's contract and engines.ts's list` | Reject direct Rapier imports outside its adapter and imports bypassing the engine registry. This protects the single initialization boundary and engine replacement. |
 | `a mind and its toolkit reach no engine, world, builder, global or chance but its seed: only the report and the order sheet` | Prevent privileged reads or unrecorded randomness and machine time in decision/control code. A seed's successful drill does not prove isolation or reproducibility. |
-| `the core's imports run down its layers and into a package only from what is built on it: any other is one of today's, listed, and the list is exact` | Reject upward imports, entry into another implementation's internals and modules omitted from the layer map. The compiler accepts those dependencies; game outcomes do not expose them. |
-| `an entrant reaches only the core, its own folder and its own data: never another entrant, a world, an evaluation or a screen` | Prevent an entrant from importing a rival's implementation or privileged application state. A competition result cannot establish independent entrant ownership. |
+| `source imports follow responsibility, runtime and package ownership` | Reject upward imports, entry into another implementation's internals and modules omitted from the layer map. The compiler accepts those dependencies; game outcomes do not expose them. |
+| `an entrant reaches only libraries, its own folder and its own data` | Prevent an entrant from importing a rival's implementation or privileged application state. A competition result cannot establish independent entrant ownership. |
 | `a Commander reaches no engine, world, body or global: only its team's view and the orders it gives` | Enforce the Commander's narrower read/write authority, which is distinct from the Mind boundary and can be bypassed without causing a drill failure. |
 
 ## Command transport
 
-[mind-contract.test.mjs](mind-contract.test.mjs) uses a fixed body and a probe that emits distinct
+[minds/contract.test.mjs](minds/contract.test.mjs) uses a fixed body and a probe that emits distinct
 commands, without a planner or skill-selection sweep.
 
 | Case | Concrete justification |
@@ -44,14 +44,14 @@ These cases inspect results directly rather than replaying a skill's physical tr
 
 | File and case | Concrete justification |
 | --- | --- |
-| [rise-control.test.mjs](rise-control.test.mjs): `bearing posture accelerations use the joint turning map, including damping and transfer` | A compound joint pose with nonzero rates distinguishes joint-angle accelerations from motor-axis accelerations. Check the coordinate mapping against the servo calculation for ordinary bearing and weight transfer; standing up eventually does not establish the correctness of this calculation. |
-| [profiles.test.mjs](profiles.test.mjs): `every measured profile is of a current skill on a current body` | Detect stored profile keys that match no current body/skill digest and are silently ignored by the chooser. A directly ordered strike can work while selection falls back to unmeasured values. |
-| [profiles.test.mjs](profiles.test.mjs): `a strike's record counts its own limb's tries its executor gave up on` | Check that self-abandoned attempts lower that limb's estimate, another limb's record is unchanged and cancelled attempts are excluded. A one-strike trial does not establish learning from a history of stalls. |
-| [entrant-option-skeleton.test.mjs](entrant-option-skeleton.test.mjs): `lying retains an opportunity cost against a foe with no modelled hand attack` | Detect zero lost-opportunity cost for remaining down when the foe has no modelled hand attack. Compare durations and an upright out-of-reach state without fixing tuned values; a rise ordered by a drill bypasses this decision rule. |
+| [rise-control.test.mjs](skills/recovery/implementations/staged/rise-control.test.mjs): `bearing posture accelerations use the joint turning map, including damping and transfer` | A compound joint pose with nonzero rates distinguishes joint-angle accelerations from motor-axis accelerations. Check the coordinate mapping against the servo calculation for ordinary bearing and weight transfer; standing up eventually does not establish the correctness of this calculation. |
+| [skills/profiles.test.mjs](skills/profiles.test.mjs): `every measured profile is of a current skill on a current body` | Detect stored profile keys that match no current body/skill digest and are silently ignored by the chooser. A directly ordered strike can work while selection falls back to unmeasured values. |
+| [skills/profiles.test.mjs](skills/profiles.test.mjs): `a strike's record counts its own limb's tries its executor gave up on` | Check that self-abandoned attempts lower that limb's estimate, another limb's record is unchanged and cancelled attempts are excluded. A one-strike trial does not establish learning from a history of stalls. |
+| [minds/option/lying.test.mjs](minds/option/lying.test.mjs): `lying retains an opportunity cost against a foe with no modelled hand attack` | Detect zero lost-opportunity cost for remaining down when the foe has no modelled hand attack. Compare durations and an upright out-of-reach state without fixing tuned values; a rise ordered by a drill bypasses this decision rule. |
 
 ## Evaluation integrity
 
-[swap.test.mjs](swap.test.mjs) constructs schedules and resolves subjects without playing them.
+[evaluation/swap.test.mjs](evaluation/swap.test.mjs) constructs schedules and resolves subjects without playing them.
 The calibration fixture supplies an independently scoped entrant. These checks protect the
 measurement system itself; a result computed on the wrong cases cannot validate its own scope.
 

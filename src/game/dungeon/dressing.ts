@@ -1,0 +1,365 @@
+import { mulberry32 } from "../../core/math/rng.ts";
+import { isFloor, type DungeonMap, type Point } from "./map.ts";
+import { boundary, doorCells, WALL_HEIGHT } from "./fog.ts";
+import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./bearing.ts";
+import { MURAL_ASPECT, WALL_PIECES, type WallPiece } from "./decals.ts";
+
+/** A wall piece's draw: its weight, its width in metres, and the height of its middle, or "top" to hang it from the
+ * wall's top. Its height is its width over its tile's aspect (`MURAL_ASPECT` in `decals.ts`, which paints it). */
+interface MuralSpec { weight: number; width: readonly [number, number]; y: "top" | readonly [number, number] }
+
+/** Where the dungeon's body-free decoration goes. Every number here is set by eye, and density is judged in play. */
+export const DRESSING = Object.freeze({
+  /** No two torches closer than this, in metres. */
+  torchSpacing: 7,
+  /** The flame's centre height, and how far proud of the wall face it stands. A flame is translucent light and owns
+   * no body, so it may hang over the floor. */
+  torchHeight: 2.05, torchProud: 0.12,
+  /** How far off the wall face the torch's light stands. A light at the flame would sit 0.12 m from the stone, and an
+   * inverse-square light that close burns a hot spot into the wall; this one lights the floor the flame looks at. */
+  torchLightProud: 0.4,
+  /** Flat markings: a whole number of them in each room, drawn between these, and a chance for each corridor cell. */
+  decalsPerRoom: Object.freeze([7, 12] as const), corridorDecalsPerCell: 0.06,
+  /** How often each kind is drawn, and the side of its square in metres. A size is the whole tile's, rim included. */
+  decals: Object.freeze({
+    blood: Object.freeze({ weight: 0.14, size: Object.freeze([0.8, 1.5] as const) }),
+    crack: Object.freeze({ weight: 0.14, size: Object.freeze([1, 1.8] as const) }),
+    moss: Object.freeze({ weight: 0.12, size: Object.freeze([0.9, 1.8] as const) }),
+    puddle: Object.freeze({ weight: 0.08, size: Object.freeze([0.9, 1.6] as const) }),
+    bones: Object.freeze({ weight: 0.12, size: Object.freeze([0.6, 1] as const) }),
+    rubble: Object.freeze({ weight: 0.14, size: Object.freeze([0.7, 1.3] as const) }),
+    scorch: Object.freeze({ weight: 0.06, size: Object.freeze([0.9, 1.6] as const) }),
+    straw: Object.freeze({ weight: 0.1, size: Object.freeze([0.8, 1.4] as const) }),
+    grime: Object.freeze({ weight: 0.1, size: Object.freeze([1.4, 2.4] as const) }),
+  }),
+  /** No marking comes within this of the start or the exit, where the eye goes first. */
+  keepClear: 1.2,
+  /** Roots hang from a wall's top: at most this many a level, no two closer, this wide, and reaching this far down.
+   * The cap is the rule that binds, so it sets how many roots a level has. */
+  rootsPerLevel: 12, rootSpacing: 4, rootWidth: Object.freeze([0.5, 0.9] as const), rootDrop: Object.freeze([0.9, 1.7] as const),
+  /** How far off the wall's face a hung piece stands. */
+  hungProud: 0.01,
+  /** The chance of a web in each inner corner of a room that faces the camera, how far along each wall it reaches, and
+   * how far down it hangs. With the camera square to the walls, two corners of a room face it. */
+  cobwebsPerRoomCorner: 0.28, cobwebSpan: Object.freeze([0.35, 0.55] as const), cobwebDrop: Object.freeze([0.45, 0.7] as const),
+  /** Pieces on the walls the camera sees: a whole number of them for each room, drawn between these, each with a few
+   * tries at a face. */
+  muralsPerRoom: Object.freeze([2, 4] as const),
+  /** Each piece's draw (`MuralSpec`). Every draw fits between `MURAL_FLOOR` and the wall's top: the tallest is a
+   * 0.9 m stain, 2.0 m high, and the lowest bottom a fissure's, 0.12 m. Lichen's middle starts at 0.6 so that a
+   * 0.9 m patch stays above `MURAL_FLOOR`. */
+  murals: Object.freeze({
+    stain: Object.freeze({ weight: 0.25, width: Object.freeze([0.5, 0.9] as const), y: "top" }),
+    lichen: Object.freeze({ weight: 0.25, width: Object.freeze([0.5, 0.9] as const), y: Object.freeze([0.6, 1.1] as const) }),
+    fissure: Object.freeze({ weight: 0.2, width: Object.freeze([0.4, 0.7] as const), y: Object.freeze([0.9, 1.6] as const) }),
+    chains: Object.freeze({ weight: 0.15, width: Object.freeze([0.3, 0.45] as const), y: Object.freeze([1.5, 1.9] as const) }),
+    banner: Object.freeze({ weight: 0.15, width: Object.freeze([0.6, 0.85] as const), y: Object.freeze([1.6, 1.9] as const) }),
+  } satisfies Record<WallPiece, MuralSpec>),
+});
+
+/** The top of everything hung on a wall: a centimetre under the coping. */
+export const HUNG_TOP = WALL_HEIGHT - 0.01;
+/** No wall piece comes lower than this: under it the floor's tiles and a body's feet are in front of it. */
+const MURAL_FLOOR = 0.1;
+/** A wall piece's height: its width over its tile's aspect, so its painting is not stretched. */
+export const muralHeight = (m: { piece: WallPiece; width: number }): number => m.width / MURAL_ASPECT[m.piece];
+
+/**
+ * How squarely a hung piece's face must look toward the camera, as the ground dot product of its normal with the unit
+ * step toward the camera (`cameraToward`). A hung piece is one face, culled from behind as the walls are, so it hangs
+ * only where the camera sees that face. The facing tests ask 0.3 of the face's normal against the camera's view,
+ * which is `cos(pitch)` of the ground dot: 0.3 / cos 30 = 0.346. A bare `> 0` would hang pieces on faces nearly
+ * edge-on to the camera. Square to the walls, the face looking at the camera scores 1 and the side faces 0.
+ */
+const FACING_MIN = 0.35;
+const facesCamera = (p: Point, toward: Point) => p.x * toward.x + p.z * toward.z >= FACING_MIN;
+/** A web hangs across its corner's diagonal, so its face looks along `into`, a diagonal of unit steps. */
+const webFacesCamera = (into: Point, toward: Point) => (into.x * toward.x + into.z * toward.z) * Math.SQRT1_2 >= FACING_MIN;
+
+/**
+ * Whether the camera sees a point in front of a wall. Its sight line back toward the camera rises tan(pitch) a metre
+ * across the ground, and has to clear the walls' top before it passes over rock. Taken at `CAMERA_PITCH`, the
+ * page's default, so a steeper `?pitch=` sees at least as much; the comparison goes down to 25 degrees, where a piece
+ * judged seen here may be partly hidden.
+ */
+function seen(map: DungeonMap, p: { x: number; y: number; z: number }, toward: Point): boolean {
+  const rise = Math.tan(CAMERA_PITCH);
+  for (let s = 0.05; p.y + s * rise < WALL_HEIGHT; s += 0.05)
+    if (!isFloor(map, Math.round(p.x + toward.x * s), Math.round(p.z + toward.z * s))) return false;
+  return true;
+}
+
+/** Whether a piece `width` wide on a wall can be seen at all: each end of it and its middle, at height `y`, in front
+ * of the wall. */
+const hungSeen = (map: DungeonMap, r: { cell: Point; facing: Point; along: number; width: number }, y: number, toward: Point) => {
+  const c = hungCentre(r);
+  return [-0.5, 0, 0.5].every(k => seen(map, {
+    x: c.x + r.facing.x * 0.01 + Math.abs(r.facing.z) * k * r.width, y, z: c.z + r.facing.z * 0.01 + Math.abs(r.facing.x) * k * r.width }, toward));
+};
+/** Roots are seen where their top half is: sampled halfway down them. */
+const rootsSeen = (map: DungeonMap, r: { cell: Point; facing: Point; along: number; width: number; drop: number }, toward: Point) =>
+  hungSeen(map, r, WALL_HEIGHT - r.drop / 2, toward);
+
+/** Where a piece on a wall lies along that wall's plane: the plane itself, and the span it covers along it. Two pieces
+ * overlap only on one plane, facing one way. */
+function wallSpan(p: { cell: Point; facing: Point; along: number; width: number }) {
+  const c = hungCentre(p), onX = p.facing.x !== 0, middle = onX ? c.z : c.x;
+  return { plane: `${p.facing.x},${p.facing.z},${onX ? c.x : c.z}`, from: middle - p.width / 2, to: middle + p.width / 2 };
+}
+const wallsMeet = (a: { cell: Point; facing: Point; along: number; width: number }, b: { cell: Point; facing: Point; along: number; width: number }) => {
+  const s = wallSpan(a), t = wallSpan(b);
+  return s.plane === t.plane && s.from < t.to - 1e-9 && t.from < s.to - 1e-9;
+};
+
+/** The table `dressingPlacements` reads: `DRESSING`, or a caller's variation of it. */
+type DressingTable = typeof DRESSING;
+
+/** The top of the floor's tiles, which every marking lies on. `world.ts` builds its tiles to this. */
+export const FLOOR_TOP = 0.015;
+/** Markings that overlap are lifted apart by a layer each, so that no two share a depth; there are this many. */
+const DECAL_LAYERS = 3;
+/** The height a marking lies at: 4 mm over the tiles, and 2 mm more a layer. */
+export const decalHeight = (layer: number): number => FLOOR_TOP + 0.004 + 0.002 * layer;
+
+type FloorDecal = keyof DressingTable["decals"];
+const FLOOR_DECALS = Object.freeze(Object.keys(DRESSING.decals) as FloorDecal[]);
+
+/**
+ * The dungeon's body-free clutter.
+ * - A **decal** is a flat marking on the floor: a square `size` a side about `at`, turned by `turn`, at
+ *   `decalHeight(layer)`.
+ * - **Roots** hang on the face of the rock cell `cell` that looks along `facing` at floor, `hungProud` off it, from the
+ *   wall's top down by `drop`, `width` wide and centred `along` the face from the cell's middle.
+ * - A **cobweb** hangs across an inner corner of a room, at the half-integer point `corner`, where the floor lies
+ *   toward `into` (a diagonal of unit steps): from `span` along each wall at the top, down by `drop`.
+ * - A **mural** is a piece painted on a wall: on the face of rock cell `cell` looking along `facing`, `hungProud` off
+ *   it, centred `along` the face from the cell's middle and at height `y`, `width` wide and `muralHeight` high.
+ */
+export type Dressing =
+  | { kind: "decal"; decal: FloorDecal; at: Point; size: number; turn: number; layer: number }
+  | { kind: "roots"; cell: Point; facing: Point; along: number; width: number; drop: number }
+  | { kind: "cobweb"; corner: Point; into: Point; span: number; drop: number }
+  | { kind: "mural"; piece: WallPiece; cell: Point; facing: Point; along: number; y: number; width: number };
+
+/** A decal's four corners on the floor, in order around it, starting from its tile's (u0, v0) corner. */
+export function decalCorners(d: { at: Point; size: number; turn: number }): Point[] {
+  const c = Math.cos(d.turn), s = Math.sin(d.turn), h = d.size / 2;
+  return [[-h, -h], [-h, h], [h, h], [h, -h]].map(([a, b]) => ({ x: d.at.x + a * c - b * s, z: d.at.z + a * s + b * c }));
+}
+
+/** Where a hung piece meets its wall: the middle of its width, on the face, on the ground. */
+export const hungCentre = (r: { cell: Point; facing: Point; along: number }): Point =>
+  ({ x: r.cell.x + r.facing.x * 0.5 + Math.abs(r.facing.z) * r.along, z: r.cell.z + r.facing.z * 0.5 + Math.abs(r.facing.x) * r.along });
+
+export interface TorchPlacement {
+  color?: string;
+  intensity?: number;
+  shadowIntensity?: number;
+  /** The rock cell the sconce is set into. */
+  cell: Point;
+  /** Unit step from the rock cell to the floor cell it lights: one of the four axis directions. */
+  facing: Point;
+  flame: { x: number; y: number; z: number };
+  light: { x: number; y: number; z: number };
+  room: number;
+}
+
+const AXES: readonly Point[] = [{ x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 }];
+
+/** Which room's inclusive bounds hold a cell, or -1. Bounds never touch, so there is at most one. */
+function roomAt(map: DungeonMap, x: number, z: number): number {
+  return map.rooms.findIndex(r => x >= r.min.x && x <= r.max.x && z >= r.min.z && z <= r.max.z);
+}
+
+/**
+ * Torches on the outer walls of rooms, a function of the seed.
+ *
+ * A torch hangs in a rock cell that lies inside no room's bounds -- so never on a divider or its arch, which
+ * are rock inside a room -- facing an axis neighbour that is floor inside a room. A rock cell with any floor
+ * outside every room among its eight neighbours is the jamb of a corridor mouth, where a door hangs, and
+ * carries none. Candidates are shuffled by a stream of their own and taken greedily while no two flames are
+ * closer than `torchSpacing`, the one density rule. The result is sorted only so that its order does not depend on
+ * the draw.
+ */
+export function torchPlacements(map: DungeonMap, seed: number): TorchPlacement[] {
+  const candidates: { cell: Point; facing: Point; room: number }[] = [];
+  for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size; x++) {
+    if (isFloor(map, x, z) || roomAt(map, x, z) >= 0) continue;
+    let mouth = false;
+    for (let dz = -1; dz <= 1 && !mouth; dz++) for (let dx = -1; dx <= 1; dx++)
+      if (isFloor(map, x + dx, z + dz) && roomAt(map, x + dx, z + dz) < 0) { mouth = true; break; }
+    if (mouth) continue;
+    for (const facing of AXES) {
+      if (!isFloor(map, x + facing.x, z + facing.z)) continue;
+      const room = roomAt(map, x + facing.x, z + facing.z);
+      if (room >= 0) candidates.push({ cell: { x, z }, facing, room });
+    }
+  }
+  const random = mulberry32((seed ^ 0x70c4ec) >>> 0);
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+  const taken: TorchPlacement[] = [];
+  const at = (cell: Point, facing: Point, proud: number) =>
+    ({ x: cell.x + facing.x * (0.5 + proud), y: DRESSING.torchHeight, z: cell.z + facing.z * (0.5 + proud) });
+  for (const { cell, facing, room } of candidates) {
+    const flame = at(cell, facing, DRESSING.torchProud);
+    if (taken.some(t => Math.hypot(t.flame.x - flame.x, t.flame.z - flame.z) < DRESSING.torchSpacing)) continue;
+    taken.push({ cell, facing, flame, light: at(cell, facing, DRESSING.torchLightProud), room });
+  }
+  return taken.sort((a, b) => a.room - b.room || a.cell.z - b.cell.z || a.cell.x - b.cell.x ||
+    a.facing.z - b.facing.z || a.facing.x - b.facing.x);
+}
+
+/** Whether a marking's whole square lies on floor: no rock cell's square overlaps it. A square that only touches
+ * rock along an edge or at a point does not overlap it. */
+function onFloor(map: DungeonMap, d: { at: Point; size: number; turn: number }): boolean {
+  const square = decalCorners(d), xs = square.map(p => p.x), zs = square.map(p => p.z);
+  const axes = [{ x: 1, z: 0 }, { x: 0, z: 1 }, { x: Math.cos(d.turn), z: Math.sin(d.turn) }, { x: -Math.sin(d.turn), z: Math.cos(d.turn) }];
+  const span = (points: Point[], axis: Point) => {
+    const along = points.map(p => p.x * axis.x + p.z * axis.z);
+    return [Math.min(...along), Math.max(...along)];
+  };
+  for (let z = Math.round(Math.min(...zs)); z <= Math.round(Math.max(...zs)); z++)
+    for (let x = Math.round(Math.min(...xs)); x <= Math.round(Math.max(...xs)); x++) {
+      if (isFloor(map, x, z)) continue;
+      const cell = [{ x: x - 0.5, z: z - 0.5 }, { x: x + 0.5, z: z - 0.5 }, { x: x + 0.5, z: z + 0.5 }, { x: x - 0.5, z: z + 0.5 }];
+      // Two convex shapes overlap unless some edge direction of either separates them.
+      if (axes.every(axis => {
+        const [a0, a1] = span(square, axis), [b0, b1] = span(cell, axis);
+        return a1 > b0 + 1e-9 && b1 > a0 + 1e-9;
+      })) return false;
+    }
+  return true;
+}
+
+/** Whether two markings' squares can overlap: their circumcircles do. */
+const decalsMeet = (a: { at: Point; size: number }, b: { at: Point; size: number }) =>
+  Math.hypot(a.at.x - b.at.x, a.at.z - b.at.z) < (a.size + b.size) * Math.SQRT1_2;
+
+/** How close a marking's square comes to a point, at worst: its circumcircle's distance. */
+const decalReach = (d: { at: Point; size: number }, p: Point) => Math.hypot(d.at.x - p.x, d.at.z - p.z) - d.size * Math.SQRT1_2;
+
+/** A root hung this near a flame would be burning; a web this near one would hang through it, m. */
+const ROOT_TORCH_CLEARANCE = 1.5, WEB_TORCH_CLEARANCE = 1.2;
+
+/** A room's inner corners: a floor cell inside a room, and a corner of it where the two cells beside it and the one
+ * across it are all rock. */
+function innerCorners(map: DungeonMap): { corner: Point; into: Point }[] {
+  const corners: { corner: Point; into: Point }[] = [];
+  for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size; x++) {
+    if (!isFloor(map, x, z) || roomAt(map, x, z) < 0) continue;
+    for (const [dx, dz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]])
+      if (!isFloor(map, x + dx, z) && !isFloor(map, x, z + dz) && !isFloor(map, x + dx, z + dz))
+        corners.push({ corner: { x: x + dx / 2, z: z + dz / 2 }, into: { x: -dx, z: -dz } });
+  }
+  return corners;
+}
+
+/**
+ * The level's clutter, a function of the seed, drawn from a stream of its own so that no change here moves a torch:
+ * `torchPlacements` reads nothing of this. Markings are drawn in each room and along the corridors, and each is kept
+ * only where its whole square lies on floor, clear of the start and the exit, with a layer free of every marking it
+ * overlaps. Roots hang on walls that face floor, clear of torches and doorways; webs hang in rooms' inner corners;
+ * murals go on the walls of each room, clear of torches, doorways and each other. All hang only where the camera,
+ * standing `toward` of the hero, sees their face (`FACING_MIN`), and roots and murals only where no nearer wall hides
+ * them. The dressing is baked once a level, so the page hands its own view.
+ */
+export function dressingPlacements(map: DungeonMap, seed: number, densities: DressingTable = DRESSING,
+  toward: Point = cameraToward(CAMERA_AZIMUTH)): Dressing[] {
+  const random = mulberry32((seed ^ 0xd2e55) >>> 0), torches = torchPlacements(map, seed);
+  const between = ([lo, hi]: readonly [number, number]) => lo + (hi - lo) * random();
+  const total = FLOOR_DECALS.reduce((s, k) => s + densities.decals[k].weight, 0);
+  const drawKind = (): FloorDecal => {
+    let pick = random() * total;
+    for (const k of FLOOR_DECALS) { pick -= densities.decals[k].weight; if (pick < 0) return k; }
+    return FLOOR_DECALS[FLOOR_DECALS.length - 1];
+  };
+  const decals: Extract<Dressing, { kind: "decal" }>[] = [];
+  const place = (at: () => Point) => {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const decal = drawKind(), d = { at: at(), size: between(densities.decals[decal].size), turn: random() * Math.PI * 2 };
+      if (!onFloor(map, d) || decalReach(d, map.start) < densities.keepClear || decalReach(d, map.exit) < densities.keepClear) continue;
+      const taken = new Set(decals.filter(o => decalsMeet(o, d)).map(o => o.layer));
+      const layer = Array.from({ length: DECAL_LAYERS }, (_, i) => i).find(i => !taken.has(i));
+      if (layer === undefined) continue;
+      decals.push({ kind: "decal", decal, ...d, layer }); return;
+    }
+  };
+  for (const room of map.rooms) {
+    const [lo, hi] = densities.decalsPerRoom, count = lo + Math.floor(random() * (hi - lo + 1));
+    for (let i = 0; i < count; i++)
+      place(() => ({ x: room.min.x - 0.5 + random() * (room.max.x - room.min.x + 1), z: room.min.z - 0.5 + random() * (room.max.z - room.min.z + 1) }));
+  }
+  for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size; x++)
+    if (isFloor(map, x, z) && roomAt(map, x, z) < 0 && random() < densities.corridorDecalsPerCell)
+      place(() => ({ x: x + random() - 0.5, z: z + random() - 0.5 }));
+
+  const doorways = new Set(map.doors.flatMap(doorCells).map(c => `${c.x},${c.z}`));
+  const faces: { cell: Point; facing: Point }[] = [];
+  for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size; x++) if (boundary(map, x, z))
+    for (const facing of AXES) if (facesCamera(facing, toward) && isFloor(map, x + facing.x, z + facing.z) && !doorways.has(`${x + facing.x},${z + facing.z}`))
+      faces.push({ cell: { x, z }, facing });
+  for (let i = faces.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [faces[i], faces[j]] = [faces[j], faces[i]]; }
+  const roots: Extract<Dressing, { kind: "roots" }>[] = [];
+  for (const { cell, facing } of faces) {
+    if (roots.length >= densities.rootsPerLevel) break;
+    const width = between(densities.rootWidth), along = (random() - 0.5) * (1 - width);
+    const r = { kind: "roots" as const, cell, facing, along, width, drop: between(densities.rootDrop) }, centre = hungCentre(r);
+    if (torches.some(t => Math.hypot(t.flame.x - centre.x, t.flame.z - centre.z) < ROOT_TORCH_CLEARANCE)) continue;
+    if (roots.some(o => { const c = hungCentre(o); return Math.hypot(c.x - centre.x, c.z - centre.z) < densities.rootSpacing; })) continue;
+    if (!rootsSeen(map, r, toward)) continue;
+    roots.push(r);
+  }
+
+  const webs: Extract<Dressing, { kind: "cobweb" }>[] = [];
+  for (const { corner, into } of innerCorners(map)) {
+    if (!webFacesCamera(into, toward) || random() >= densities.cobwebsPerRoomCorner) continue;
+    const span = between(densities.cobwebSpan), drop = between(densities.cobwebDrop);
+    if (!torches.some(t => Math.hypot(t.flame.x - corner.x, t.flame.z - corner.z) < WEB_TORCH_CLEARANCE))
+      webs.push({ kind: "cobweb", corner, into, span, drop });
+  }
+
+  // Murals, after everything above so that none of it moves: a room's own faces are those whose floor is in the room.
+  const pieceTotal = WALL_PIECES.reduce((s, k) => s + densities.murals[k].weight, 0);
+  const drawPiece = (): WallPiece => {
+    let pick = random() * pieceTotal;
+    for (const k of WALL_PIECES) { pick -= densities.murals[k].weight; if (pick < 0) return k; }
+    return WALL_PIECES[WALL_PIECES.length - 1];
+  };
+  const murals: Extract<Dressing, { kind: "mural" }>[] = [];
+  for (const [i] of map.rooms.entries()) {
+    const own = faces.filter(({ cell, facing }) => roomAt(map, cell.x + facing.x, cell.z + facing.z) === i);
+    const [lo, hi] = densities.muralsPerRoom, count = lo + Math.floor(random() * (hi - lo + 1));
+    for (let n = 0; n < count && own.length; n++) for (let attempt = 0; attempt < MURAL_TRIES; attempt++) {
+      const { cell, facing } = own[Math.floor(random() * own.length)], piece = drawPiece(), spec: MuralSpec = densities.murals[piece];
+      const width = between(spec.width), height = width / MURAL_ASPECT[piece];
+      const y = spec.y === "top" ? HUNG_TOP - height / 2 : between(spec.y);
+      const m = { kind: "mural" as const, piece, cell, facing, along: (random() - 0.5) * (1 - width), y, width };
+      if (muralProblems(map, m, torches, toward).length || [...roots, ...murals].some(o => wallsMeet(o, m))) continue;
+      murals.push(m); break;
+    }
+  }
+  return [...decals, ...roots, ...webs, ...murals];
+}
+
+/** A mural's tries at a face before it is given up: a numeric setting, the bound on a search. */
+const MURAL_TRIES = 8;
+
+/** Every reason a wall piece may not hang where it is, apart from its neighbours; empty when it may. */
+function muralProblems(map: DungeonMap, m: Extract<Dressing, { kind: "mural" }>, torches: readonly TorchPlacement[], toward: Point): string[] {
+  const { cell, facing } = m, name = `a ${m.piece} at (${cell.x}, ${cell.z})`, centre = hungCentre(m), problems: string[] = [];
+  if (!WALL_PIECES.includes(m.piece)) return [`${name} is no kind of wall piece`];
+  const height = muralHeight(m);
+  if (!boundary(map, cell.x, cell.z)) problems.push(`${name} hangs on no collider`);
+  if (Math.abs(facing.x) + Math.abs(facing.z) !== 1 || !isFloor(map, cell.x + facing.x, cell.z + facing.z)) problems.push(`${name} faces no floor`);
+  if (!(m.width > 0) || Math.abs(m.along) + m.width / 2 > 0.5 + 1e-9) problems.push(`${name} leaves its cell's face`);
+  if (!(m.y - height / 2 >= MURAL_FLOOR - 1e-9)) problems.push(`${name} hangs down to ${(m.y - height / 2).toFixed(2)} m`);
+  if (!(m.y + height / 2 <= WALL_HEIGHT + 1e-9)) problems.push(`${name} rises to ${(m.y + height / 2).toFixed(2)} m, over the wall`);
+  if (map.doors.flatMap(doorCells).some(c => c.x === cell.x + facing.x && c.z === cell.z + facing.z)) problems.push(`${name} hangs in a doorway`);
+  if (torches.some(t => Math.hypot(t.flame.x - centre.x, t.flame.z - centre.z) < ROOT_TORCH_CLEARANCE)) problems.push(`${name} hangs at a torch`);
+  if (!facesCamera(facing, toward)) problems.push(`${name} faces away from the camera`);
+  else if (!hungSeen(map, m, m.y, toward)) problems.push(`${name} hangs where a nearer wall hides it`);
+  return problems;
+}

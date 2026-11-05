@@ -2,7 +2,7 @@
 //   node scripts/dungeon/print-level.mjs            seeds 1 to 4
 //   node scripts/dungeon/print-level.mjs 7 42 99    those seeds
 //   ... --all                                       every candidate's metrics above the chosen map
-import { generateLevel, levelCandidates, levelRows } from "../../src/dungeon/level.ts";
+import { generateLevel, levelCandidates, levelRows } from "../../src/game/dungeon/level.ts";
 
 const all = process.argv.includes("--all");
 const seeds = process.argv.slice(2).filter((a) => a !== "--all").map(Number);

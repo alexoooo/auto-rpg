@@ -49,7 +49,7 @@ Option Mind as its hero.
 
 **To watch:**
 
-- The Strike drill's rung 1, the pad on a rail (`src/arena/rail.ts`).
+- The Strike drill's rung 1, the pad on a rail (`src/game/arena/rail.ts`).
 - Health under the defaults: a crippled leg's limp in the Lab, limbs coming off in sword fights.
 - Random Crypt's guard hall (`?play=dungeon&scene=random-crypt&seed=42`).
 - A bout fought with orders (`?play=arena&you=left`), one played turn by turn, and its tape.

@@ -1,5 +1,5 @@
 /** Paired historical evidence, read from immutable records without constructing either implementation. */
-import { recordingKey } from "../core/recording.ts";
+import { recordingKey } from "../core/world/recording.ts";
 import type { Figure, Json } from "./evaluation.ts";
 import type { Kept } from "./history.ts";
 import type { RecordedSubject, RecordLine } from "./record.ts";

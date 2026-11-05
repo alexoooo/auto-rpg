@@ -20,17 +20,18 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { recordingKey } from "../src/core/recording.ts";
-import { loadoutKey } from "../src/core/items/held.ts";
-import { CONTROLLERS } from "../src/entrants/game.ts";
-import { partNames } from "../src/evaluation/code.ts";
-import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
+import { recordingKey } from "../src/core/world/recording.ts";
+import { loadoutKey } from "../src/core/bodies/items/held.ts";
+import { CONTROLLERS } from "../src/app/catalog.ts";
+import { partNames } from "../src/app/node/evaluation.ts";
+import { EVALUATIONS } from "../src/app/node/evaluation.ts";
 import { readRecord, recordedSubject } from "../src/evaluation/record.ts";
-import { TABLE_BODIES, TABLE_LOADOUTS, TABLE_SKILLS, tableCells } from "../src/evaluation/table/cells.ts";
+import { TABLE_BODIES, TABLE_LOADOUTS } from "../src/evaluation/table/cells.ts";
+import { TABLE_SKILLS, tableCells } from "../src/app/node/evaluation.ts";
 import { baselineOf, personOf, rowsOn, scoreOf, verdictOf } from "../src/evaluation/table/judge.ts";
 import { caseCoder, fileTable } from "./build-identity.mjs";
 
-const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 /** Every record of evaluation `id`, oldest first by name. */
 function recordsOf(id) {

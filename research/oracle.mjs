@@ -31,9 +31,9 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { CAP_SECONDS, SIDES } from "../src/arena/duel.ts";
-import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { buildBout } from "../src/evaluation/bout.ts";
+import { CAP_SECONDS, SIDES } from "../src/game/arena/duel.ts";
+import { HUMANOID_MODELS } from "../src/core/bodies/models.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 import { rolloutPool } from "./rollout-pool.mjs";

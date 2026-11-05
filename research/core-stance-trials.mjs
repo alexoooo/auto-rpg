@@ -3,15 +3,15 @@
  * the batteries `research/core-stance-sweep.mjs` sweeps a stance tuning over. Each returns plain numbers.
  */
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
-import { commandedBody } from "../src/core/mind/host.ts";
-import { armed } from "../src/core/human/grip.ts";
-import { modelSpec } from "../src/core/models.ts";
-import { woodenClub } from "../src/core/items/club.ts";
-import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
-import { GUARD, guardPosture } from "../src/core/skills/guard/guard.ts";
-import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../src/core/skills/locomotion/walk-run.ts";
+import { commandedBody } from "../src/minds/host.ts";
+import { armed } from "../src/core/bodies/human/grip.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
+import { woodenClub } from "../src/core/bodies/items/club.ts";
+import { balanceCeiling, balancePercent, rulebook } from "../src/combat/rulebook.ts";
+import { GUARD, guardPosture } from "../src/skills/guard/guard.ts";
+import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../src/skills/locomotion/walk-run.ts";
 import "../tests/harness/preload-data.mjs";
-import { startWind } from "../src/lab/wind.ts";
+import { startWind } from "../src/game/lab/wind.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 export const CORE_STANCE_HARNESS = "Node core stand (tests/harness/core-stand.mjs), Rapier";
@@ -24,7 +24,7 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
  * fight plays it: the club in that hand, the arms in the body's guard (`guardPosture`) and built
  * in it, and its character's balance under it (`balanceCeiling`, the rulebook's per cent).
  * `actuation` is the world's (`createWorld`), and `physique` the body's (`Physique`,
- * `src/core/human/physique.ts`). `balance` is a per cent of its weight for its assist in place of its character's, which an unarmed
+ * `src/core/bodies/human/physique.ts`). `balance` is a per cent of its weight for its assist in place of its character's, which an unarmed
  * stand has none of unless given. With `envelope` it reads its stance's measured envelope
  * (`Body.envelope`) as a game's body does, which caps its walk's pace and turn; else the stance is
  * being measured, and it has none. Its ground is `GROUND` across, so no trial walks off it.
@@ -173,7 +173,7 @@ function shoveTrunk(stand, impulse, way) {
 /** The learned run's policies read from their files, by path: each read once a thread. */
 /**
  * The locomotion skill `legs` names, driving `b`: null for the stance's own walk, which a trial asks
- * of the stance's goal itself; `"walk-run"` for the walk and run (`src/core/skills/locomotion/walk-run.ts`),
+ * of the stance's goal itself; `"walk-run"` for the walk and run (`src/skills/locomotion/walk-run.ts`),
  * free to run; `"braced"` for it told it may not run.
  */
 function skillOf(legs, b) {
@@ -202,7 +202,7 @@ function skillCommand(skill, view, walk, face, dt, posture, keep) {
  * Walk at `speed` m/s `degrees` from forward for `setOff` s and 3 s measured after 1 s, then walk
  * nowhere `rest` s (`walking` in the tests); as a fight plays the body with `held` (`body`), walking by the stance's own walk or
  * by the locomotion skill `legs` names (`skillOf`). Given `wind` (`{ rate, strength, seed }`), the
- * lab's gusts blow on it throughout (`startWind`, `src/lab/wind.ts`). `stood` is the soles' distance
+ * lab's gusts blow on it throughout (`startWind`, `src/game/lab/wind.ts`). `stood` is the soles' distance
  * apart across the way as it sets off, m, and `width` their mean as each lands over the 3 s measured
  * (null if none landed).
  */

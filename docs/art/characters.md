@@ -20,12 +20,12 @@ authored fit. World views and the character workshop use that same exported geom
 | `assets/art/textures/` | the authoring scripts, original bytes named by SHA-256 | both masters and the web encoder |
 | `public/assets/generated/` | `npm run assets` | the workshop and gameplay skins through the generated manifest |
 | lossless cached GLBs | `npm run assets` | inspection and measurement scripts, `node scripts/fingerprint.mjs --character` |
-| `assets/humanoid/skin-bounds.json` | exact skin tops transcribed from the lossless source accessors | `src/core/human/model.ts` |
-| `assets/humanoid/workshop-fighter.json`, `workshop-rogue.json` | `scripts/humanoid/export-workshop.py` | the core's rig (`src/core/human/rig.ts`), the skins |
-| `assets/humanoid/workshop-*-trunk-hull.json` | `node scripts/core/workshop-envelope.mjs --write`, from the lossless cached GLBs (`losslessModelPath`, `scripts/art/paths.mjs`) | the core's envelope (`src/core/human/envelope.ts`) |
-| `assets/humanoid/workshop-*-hands.json` | `node scripts/core/hand-envelope.mjs --write` | the core's hands (`src/core/human/hands.ts`) |
+| `assets/humanoid/skin-bounds.json` | exact skin tops transcribed from the lossless source accessors | `src/core/bodies/human/model.ts` |
+| `assets/humanoid/workshop-fighter.json`, `workshop-rogue.json` | `scripts/humanoid/export-workshop.py` | the core's rig (`src/core/bodies/human/rig.ts`), the skins |
+| `assets/humanoid/workshop-*-trunk-hull.json` | `node scripts/core/workshop-envelope.mjs --write`, from the lossless cached GLBs (`losslessModelPath`, `scripts/art/paths.mjs`) | the core's envelope (`src/core/bodies/human/envelope.ts`) |
+| `assets/humanoid/workshop-*-hands.json` | `node scripts/core/hand-envelope.mjs --write` | the core's hands (`src/core/bodies/human/hands.ts`) |
 
-The rig JSON, skin bounds, trunk hulls and hands are `SOURCES` entries (`src/core/sources.ts`).
+The rig JSON, skin bounds, trunk hulls and hands are `SOURCES` entries (`src/core/bodies/sources.ts`).
 The core reads this exact metadata; compressed web assets never supply anatomical measurements.
 
 ## Building the workshop models

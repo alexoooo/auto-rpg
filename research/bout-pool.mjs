@@ -1,9 +1,9 @@
 // Many arena bouts, each in a world of its own on a worker thread (`bout-worker.mjs`).
 import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
-import { BUILD_IDENTITY } from "../src/build-identity.ts";
-import { ORDERS_PROTOCOL } from "../src/arena/duel.ts";
-import { requireRecordingIdentity } from "../src/core/recording.ts";
+import { BUILD_IDENTITY } from "../src/app/node/build-identity.ts";
+import { ORDERS_PROTOCOL } from "../src/game/arena/duel.ts";
+import { requireRecordingIdentity } from "../src/core/world/recording.ts";
 
 /** The lanes a run takes unless told: all but two of the machine's threads. */
 export const defaultLanes = () => Math.max(1, availableParallelism() - 2);

@@ -10,9 +10,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { Quaternion } from "../src/core/math/vector.ts";
 import { yawPitchRollToRef } from "./yaw-pitch-roll.mjs";
-import { buildBody } from "../src/core/build/build-body.ts";
-import { modelSpec } from "../src/core/models.ts";
-import { createWorld } from "../src/core/world.ts";
+import { buildBody } from "../src/core/bodies/build/build-body.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
+import { createWorld } from "../src/core/world/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { AUDITED, envelopeSpec, posed, staticBody } from "./core-posture-trials.mjs";
 

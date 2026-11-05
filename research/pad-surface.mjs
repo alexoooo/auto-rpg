@@ -1,7 +1,7 @@
 import {Vector3} from '../src/core/math/vector.ts';
-import {lowsOf} from '../src/core/control/ground.ts';
-import {pointOfToRef} from '../src/core/read-motion.ts';
-import {convexHull} from '../src/core/spec/hull.ts';
+import {lowsOf} from "../src/control/ground.ts";
+import {pointOfToRef} from "../src/core/bodies/read-motion.ts";
+import {convexHull} from "../src/core/bodies/spec/hull.ts";
 
 const facesOf=new WeakMap();
 

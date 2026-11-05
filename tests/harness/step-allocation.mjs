@@ -11,9 +11,9 @@
  *   `held` in its right hand under its preset's character, 240 steps read from 2 s.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { buildBout } from "../../src/evaluation/bout.ts";
+import { buildBout } from "../../src/app/node/evaluation.ts";
 import { BOUT_ENGINE } from "../../research/bout.mjs";
-import { MINDS } from "../../src/entrants/game.ts";
+import { MINDS } from "../../src/app/catalog.ts";
 import { allocatedIn, downBody, standBodies } from "./garbage.mjs";
 
 // Babylon greets every engine it makes on the console.

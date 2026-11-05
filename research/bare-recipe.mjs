@@ -1,6 +1,6 @@
-import { modelSpec } from "../src/core/models.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
 import { randomStream } from "../src/core/math/random.ts";
-import { deepFreeze } from "../src/core/state.ts";
+import { deepFreeze } from "../src/core/world/state.ts";
 
 /** A fixed, nonzero actor over the bare mind's channel and body inputs (`bareLayout`). */
 export function seededBareRecipe(model = "workshop-fighter") {

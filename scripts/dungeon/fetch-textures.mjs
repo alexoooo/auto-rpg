@@ -1,4 +1,4 @@
-// Registers Poly Haven texture sets for the dungeon in `src/render/textures.json`, downloading any it does not hold.
+// Registers Poly Haven texture sets for the dungeon in `src/app/browser/render/textures.json`, downloading any it does not hold.
 //
 //   node scripts/dungeon/fetch-textures.mjs <asset>:<consumer>:<metresPerRepeat> ...
 //
@@ -87,7 +87,7 @@ async function register(registry, asset, consumer, metresPerRepeat) {
 }
 
 const text = readFileSync(registryPath, "utf8").replace(/\r\n/g, "\n"), registry = JSON.parse(text);
-if (serialize(registry) !== text) throw new Error("src/render/textures.json is not in the layout this script writes; refusing to reformat it");
+if (serialize(registry) !== text) throw new Error("src/app/browser/render/textures.json is not in the layout this script writes; refusing to reformat it");
 const specs = process.argv.slice(2);
 if (!specs.length) throw new Error("usage: node scripts/dungeon/fetch-textures.mjs <asset>:<consumer>:<metresPerRepeat> ...");
 mkdirSync(textureDir, { recursive: true });
@@ -100,6 +100,6 @@ writeFileSync(registryPath, serialize(registry));
 const catalog = JSON.parse(readFileSync(catalogPath, "utf8"));
 for (const row of registry.textures) catalog.textures[row.asset] = {
   source: `assets/art/environment/textures/${row.file}`, kind: row.channel === "albedo" ? "colour" : row.channel === "normal" ? "normal" : "data",
-  licence: "src/render/textures.json",
+  licence: "src/app/browser/render/textures.json",
 };
 writeFileSync(catalogPath, JSON.stringify(catalog, null, 2) + "\n");

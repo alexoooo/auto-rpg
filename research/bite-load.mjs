@@ -1,7 +1,7 @@
-import { mouthOf } from '../src/core/reptile/jaw.ts';
-import { pawReader } from '../src/core/reptile/paws.ts';
-import { lifeTaken } from '../src/core/rules/blows.ts';
-import { channelName } from '../src/core/muscle/driver.ts';
+import { mouthOf } from "../src/skills/strikes/bite/jaw.ts";
+import { pawReader } from "../src/control/quadruped/paws.ts";
+import { lifeTaken } from "../src/combat/blows.ts";
+import { channelName } from "../src/core/bodies/muscle/driver.ts";
 
 /** A fighter's bite, as its mind's skills hold it: the bite executor's state. */
 const biteOf = (f) => f.minded.state.skills.actions.executors.find((executor) => executor && 'launched' in executor);

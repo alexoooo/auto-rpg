@@ -1,31 +1,50 @@
-import { BASELINE } from "./baseline/index.ts";
-import { COURT } from "./court/index.ts";
-import { CROWD } from "./crowd/index.ts";
-import { COVER } from "./cover/index.ts";
-import { CRYPT_CLEAR } from "./crypt-clear/index.ts";
 import type { Evaluation } from "./evaluation.ts";
-import { LOCOMOTION } from "./locomotion/index.ts";
-import { MATCH } from "./match/index.ts";
-import { RISE } from "./rise/index.ts";
-import { RISING_TARGET } from "./rising-target/index.ts";
-import { STAND } from "./stand/index.ts";
-import { STRIKE } from "./strike/index.ts";
-import { TOURNAMENT } from "./tournament/index.ts";
-import { UNSEEN } from "./unseen/index.ts";
+import { createBaselineIndex } from "./baseline/index.ts";
+import { createCourtIndex } from "./court/index.ts";
+import { createCrowdIndex } from "./crowd/index.ts";
+import { createCoverIndex } from "./cover/index.ts";
+import { createCryptClearIndex } from "./crypt-clear/index.ts";
+import { createLocomotionIndex } from "./locomotion/index.ts";
+import { createMatchIndex } from "./match/index.ts";
+import { createRiseIndex } from "./rise/index.ts";
+import { createRisingTargetIndex } from "./rising-target/index.ts";
+import { createStandIndex } from "./stand/index.ts";
+import { createStrikeIndex } from "./strike/index.ts";
+import { createTournamentIndex } from "./tournament/index.ts";
+import { createUnseenIndex } from "./unseen/index.ts";
+import { type GameContext } from "../game/arena/context.ts";
 
-/** **Every evaluation**, by its id: the one catalogue, its protocols the case modules a worker plays. */
-export const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
-  baseline: BASELINE as unknown as Evaluation,
-  match: MATCH as unknown as Evaluation,
-  tournament: TOURNAMENT as unknown as Evaluation,
-  unseen: UNSEEN as unknown as Evaluation,
-  "rising-target": RISING_TARGET as unknown as Evaluation,
-  court: COURT as unknown as Evaluation,
-  crowd: CROWD as unknown as Evaluation,
-  "crypt-clear": CRYPT_CLEAR as unknown as Evaluation,
-  strike: STRIKE as unknown as Evaluation,
-  cover: COVER as unknown as Evaluation,
-  stand: STAND as unknown as Evaluation,
-  locomotion: LOCOMOTION as unknown as Evaluation,
-  rise: RISE as unknown as Evaluation,
-});
+export function createEvaluations(context: GameContext) {
+  const { BASELINE } = createBaselineIndex(context);
+  const { COURT } = createCourtIndex(context);
+  const { CROWD } = createCrowdIndex(context);
+  const { COVER } = createCoverIndex(context);
+  const { CRYPT_CLEAR } = createCryptClearIndex(context);
+  const { LOCOMOTION } = createLocomotionIndex(context);
+  const { MATCH } = createMatchIndex(context);
+  const { RISE } = createRiseIndex(context);
+  const { RISING_TARGET } = createRisingTargetIndex(context);
+  const { STAND } = createStandIndex(context);
+  const { STRIKE } = createStrikeIndex(context);
+  const { TOURNAMENT } = createTournamentIndex(context);
+  const { UNSEEN } = createUnseenIndex(context);
+
+  /** **Every evaluation**, by its id: the one catalogue, its protocols the case modules a worker plays. */
+  const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
+    baseline: BASELINE as unknown as Evaluation,
+    match: MATCH as unknown as Evaluation,
+    tournament: TOURNAMENT as unknown as Evaluation,
+    unseen: UNSEEN as unknown as Evaluation,
+    "rising-target": RISING_TARGET as unknown as Evaluation,
+    court: COURT as unknown as Evaluation,
+    crowd: CROWD as unknown as Evaluation,
+    "crypt-clear": CRYPT_CLEAR as unknown as Evaluation,
+    strike: STRIKE as unknown as Evaluation,
+    cover: COVER as unknown as Evaluation,
+    stand: STAND as unknown as Evaluation,
+    locomotion: LOCOMOTION as unknown as Evaluation,
+    rise: RISE as unknown as Evaluation,
+  });
+
+  return { EVALUATIONS };
+}

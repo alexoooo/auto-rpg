@@ -1,0 +1,15 @@
+import { sourced } from "../spec/quantity.ts";
+import type { HumanFigure } from "./figure.ts";
+
+/**
+ * **A human foot's toes**, at x1: the last `length` of the foot, back from the boot's toe, and their
+ * slab's thickness up from the sole (`ToesSpec`, `src/core/bodies/build/toes.ts`). With the toed ankle's
+ * dorsiflexion stop, they let a body stand up from hands and knees on its toes.
+ */
+const TOES = Object.freeze({
+  length: sourced(0.06, "m", "owner-toes", "the toes' length back from the boot's toe"),
+  thickness: sourced(0.025, "m", "owner-toes", "the toes' slab thickness"),
+});
+
+/** **`figure` with toes** (`HumanFigure.toes`): every human foot's, since a body rises from the ground on them. */
+export const toedFigure = (figure: HumanFigure): HumanFigure => ({ ...figure, toes: TOES });

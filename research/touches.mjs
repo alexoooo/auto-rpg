@@ -1,5 +1,5 @@
 /**
- * **The touches a body makes** (`watchTouches`, `src/core/touches.ts`): every segment of each core
+ * **The touches a body makes** (`watchTouches`, `src/combat/touches.ts`): every segment of each core
  * body read, a touch lasting as long as the two are in contact (`lasts: "contact"`), on the ground
  * or on another body, each priced (`TouchWatch.priced`). The Lab's modes on the Node stand as the
  * page runs them (`labActor`, the loadout the address gives by default, the balance the
@@ -23,7 +23,7 @@
  * nearest): its touches, touches a
  * second, their energies' least, median and most, J, their closing speeds' median, m/s, the mass
  * the part met them with (`ofKg`), kg, and how many are under `--floor` (0.0094 J unless given).
- * - A run's reading ends with its air (`airOf`, `src/audio/body-sounds.ts`): its fastest point's
+ * - A run's reading ends with its air (`airOf`, `src/game/audio/body-sounds.ts`): its fastest point's
  *   greatest speed, m/s, the part that point was of, and for how long it was over `--air` (5 m/s
  *   unless given), while the body was up and while it was down. The first second of a run's world
  *   is left out: a body built in its reference pose takes its guard in it.
@@ -41,20 +41,21 @@
  */
 import { parseArgs } from "node:util";
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
-import { SIDES } from "../src/arena/duel.ts";
-import { airOf } from "../src/audio/body-sounds.ts";
-import { balanceCeiling, balancePercent, isBalance, rulebook } from "../src/core/rules/rulebook.ts";
-import { watchTouches } from "../src/core/touches.ts";
-import { PHYSICS_HZ } from "../src/core/world.ts";
-import { labActor } from "../src/lab/actor.ts";
-import { loadoutBalance, loadoutSpec } from "../src/lab/loadout.ts";
-import { startLocomotion } from "../src/lab/locomotion-mode.ts";
-import { labAddress, LAB_MIND, MODELS } from "../src/lab/scenarios.ts";
-import { startStance } from "../src/lab/stance-mode.ts";
-import { TRACK_IDS, TRACKS, trackOf } from "../src/lab/track.ts";
+import { SIDES } from "../src/game/arena/duel.ts";
+import { airOf } from "../src/game/audio/body-sounds.ts";
+import { balanceCeiling, balancePercent, isBalance, rulebook } from "../src/combat/rulebook.ts";
+import { watchTouches } from "../src/combat/touches.ts";
+import { PHYSICS_HZ } from "../src/core/world/world.ts";
+import { labActor } from "../src/app/node/game.ts";
+import { loadoutBalance, loadoutSpec } from "../src/game/lab/loadout.ts";
+import { startLocomotion } from "../src/game/lab/locomotion-mode.ts";
+import { MODELS } from "../src/game/lab/scenarios.ts";
+import { labAddress, LAB_MIND } from "../src/app/node/setup.ts";
+import { startStance } from "../src/game/lab/stance-mode.ts";
+import { TRACK_IDS, TRACKS, trackOf } from "../src/game/lab/track.ts";
 import { CORE_ENGINE, coreStand } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../src/evaluation/trace.ts";
-import { buildBout } from "../src/evaluation/bout.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 
 const KINDS = ["stand", "walk", "run", "shove", "fall", "bouts"];

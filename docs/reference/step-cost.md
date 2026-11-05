@@ -1,6 +1,6 @@
 # What a step costs
 
-What one world step (`World.step`, `src/core/world.ts`) takes in time and memory, and how to read
+What one world step (`World.step`, `src/core/world/world.ts`) takes in time and memory, and how to read
 it with explicit diagnostics. Name the cost question before choosing a fixture; run allocation
 profiling and heavy-work counts when a change affects those costs.
 

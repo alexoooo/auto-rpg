@@ -37,24 +37,24 @@ import { basename, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { Worker } from "node:worker_threads";
-import { DEFAULT_ENGINE, isEngineName } from "../src/core/engine/engines.ts";
-import { recordingKey } from "../src/core/recording.ts";
-import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
-import { CONTROLLERS, MINDS } from "../src/entrants/game.ts";
+import { DEFAULT_ENGINE, isEngineName } from "../src/core/physics/engines.ts";
+import { recordingKey } from "../src/core/world/recording.ts";
+import { EVALUATIONS } from "../src/app/node/evaluation.ts";
+import { CONTROLLERS, MINDS } from "../src/app/catalog.ts";
 import { poolsOf } from "../src/evaluation/history.ts";
 import { harnessOf, readRecord, recordedSubject, recordEnd, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
-import { COMMAND_DELAY } from "../src/core/world.ts";
+import { COMMAND_DELAY } from "../src/core/world/world.ts";
 import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf, tableOf } from "../src/evaluation/run.ts";
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
 import { scheduleName } from "../src/evaluation/schedule.ts";
 import { tableRatings } from "../src/evaluation/tournament/index.ts";
 import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
-import { caseNames, partNames } from "../src/evaluation/code.ts";
+import { caseNames, partNames } from "../src/app/node/evaluation.ts";
 import { BUILD_IDENTITY, caseCoder, fileTable } from "./build-identity.mjs";
 import { importRun } from "./evaluation-import.mjs";
 import { belongsTo, resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
 
-const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 /** The lanes a run takes unless told: all but two of the machine's threads. */
 const defaultLanes = () => Math.max(1, availableParallelism() - 2);

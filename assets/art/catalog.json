@@ -112,62 +112,62 @@
     "textures/fine_grained_wood_arm_1k.jpg": {
       "source": "assets/art/environment/textures/fine_grained_wood_arm_1k.jpg",
       "kind": "data",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/fine_grained_wood_col_1k.jpg": {
       "source": "assets/art/environment/textures/fine_grained_wood_col_1k.jpg",
       "kind": "colour",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/fine_grained_wood_nor_gl_1k.jpg": {
       "source": "assets/art/environment/textures/fine_grained_wood_nor_gl_1k.jpg",
       "kind": "normal",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/large_floor_tiles_02_arm_1k.jpg": {
       "source": "assets/art/environment/textures/large_floor_tiles_02_arm_1k.jpg",
       "kind": "data",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/large_floor_tiles_02_diff_1k.jpg": {
       "source": "assets/art/environment/textures/large_floor_tiles_02_diff_1k.jpg",
       "kind": "colour",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/large_floor_tiles_02_nor_gl_1k.jpg": {
       "source": "assets/art/environment/textures/large_floor_tiles_02_nor_gl_1k.jpg",
       "kind": "normal",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/old_stone_wall_arm_1k.jpg": {
       "source": "assets/art/environment/textures/old_stone_wall_arm_1k.jpg",
       "kind": "data",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/old_stone_wall_diff_1k.jpg": {
       "source": "assets/art/environment/textures/old_stone_wall_diff_1k.jpg",
       "kind": "colour",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/old_stone_wall_nor_gl_1k.jpg": {
       "source": "assets/art/environment/textures/old_stone_wall_nor_gl_1k.jpg",
       "kind": "normal",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/wooden_planks_arm_1k.jpg": {
       "source": "assets/art/environment/textures/wooden_planks_arm_1k.jpg",
       "kind": "data",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/wooden_planks_diff_1k.jpg": {
       "source": "assets/art/environment/textures/wooden_planks_diff_1k.jpg",
       "kind": "colour",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "textures/wooden_planks_nor_gl_1k.jpg": {
       "source": "assets/art/environment/textures/wooden_planks_nor_gl_1k.jpg",
       "kind": "normal",
-      "licence": "src/render/textures.json"
+      "licence": "src/app/browser/render/textures.json"
     },
     "crypt-kit/floor-albedo.png": {
       "source": "assets/art/environment/crypt-kit/floor-albedo.png",

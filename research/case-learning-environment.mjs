@@ -1,6 +1,6 @@
 /**
  * **A learning environment over an evaluation's cases**: any learnable part (`Learner`,
- * `src/core/learning/learner.ts`) of a subject's mind, played in its evaluation's worlds, the trainer
+ * `src/core/math/learning/learner.ts`) of a subject's mind, played in its evaluation's worlds, the trainer
  * deciding its outputs. An environment file names:
  *
  * - `evaluation`; `subject`, or `subjects`, each a `value` for the conditions whose fields equal
@@ -49,10 +49,10 @@
  */
 import { readFileSync } from 'node:fs';
 import '../tests/harness/preload-data.mjs';
-import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
-import { MINDS } from '../src/entrants/game.ts';
-import { EVALUATIONS } from '../src/evaluation/evaluations.ts';
-import { WORLD_BUILDERS } from '../src/evaluation/worlds.ts';
+import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
+import { MINDS } from "../src/app/catalog.ts";
+import { EVALUATIONS } from "../src/app/node/evaluation.ts";
+import { WORLD_BUILDERS } from "../src/app/node/evaluation.ts";
 
 /** Whether `condition` is held out of training: half of the conditions, by a digest of its fields in sorted order (FNV-1a). */
 export function heldOut(condition) {
@@ -82,7 +82,7 @@ const matches = (condition, where = {}) => Object.entries(where).every(([key, va
 
 /**
  * The mind `given` names: `preset`, a mind preset's config as the game holds it (`MINDS`,
- * `src/entrants/game.ts`); with `skill`, kept to the strike by that skill, first; with
+ * `src/app/catalog.ts`); with `skill`, kept to the strike by that skill, first; with
  * `steered`, that executor in learning mode, its settings its body's record's and its trainer
  * steering it (a research `tuning` of `{ steered: true }`). Anything else is refused: a mind written
  * out, or a setting over the record, learns a skill the game does not throw.

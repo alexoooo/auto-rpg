@@ -25,7 +25,7 @@ const evals = Number(option("evals", 1500));
 const only = option("rows", null)?.split(";").map((name) => name.trim());
 const envelopes = option("envelopes", ENVELOPES.join(",")).split(",");
 for (const envelope of envelopes) if (!ENVELOPES.includes(envelope)) throw new Error(`no envelope ${envelope}`);
-const OUT = new URL("./runs/postures/", import.meta.url);
+const OUT = new URL("./runs/postures", import.meta.url);
 // Every envelope's step solved a variable a row (`project`'s `solve`), the cheaper with hulls: one
 // harness for all three, whose boot rounds apart from `core-posture.mjs`'s.
 const run = (jobs) => runJobs(jobs, { lanes, out: OUT, defaults: { evals, solve: "variables" } });

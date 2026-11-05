@@ -2,13 +2,13 @@
 // save left the bout (`Duel.load`), or by replay, the bout played again to that step, since the same
 // recipe and tape reach the same step to the bit. Either way it goes on under a branch.
 import { Vector3 } from "../src/core/math/vector.ts";
-import { SIDES } from "../src/arena/duel.ts";
-import { centreOfToRef } from "../src/core/read-motion.ts";
-import { mulberry32 } from "../src/rng.ts";
+import { SIDES } from "../src/game/arena/duel.ts";
+import { centreOfToRef } from "../src/core/bodies/read-motion.ts";
+import { mulberry32 } from "../src/core/math/rng.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
-import { buildBout } from "../src/evaluation/bout.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
-import { rootSegment } from "../src/core/read-body.ts";
+import { rootSegment } from "../src/core/bodies/read-body.ts";
 
 const other = (side) => side === "left" ? "right" : "left";
 

@@ -154,7 +154,7 @@ defect.
 
 ### Bodies told apart in data, never in logic
 
-- **Settings are a record per body** (`SkillRecord`, `src/core/skills/framework/records.ts`),
+- **Settings are a record per body** (`SkillRecord`, `src/skills/framework/records.ts`),
   searched on that body alone across its loadouts; a held item is a condition the controller reads
   from the body. A body with no record of a skill does not have it (`recordFault`), except where a
   rule derives settings for any body (the gaits scaled to the leg, `scaledGait`): there the rule
@@ -193,7 +193,7 @@ fixed to its layer's contract, then what it breaks above:
   drill's trials, read at the step's end); the walk's pace and stop on the drill.
 - **A walk asked to stand at a place holds the centre of mass over the feet's middle**, not over
   the place: the legs goal's `centre` is left null (`LegsGoal`,
-  `src/core/skills/framework/skill.ts`). Held over the place, an
+  `src/skills/framework/skill.ts`). Held over the place, an
   ordered punch began no strike: the punch's start needs the body quiet over its feet, a defect of
   the punch's entry. Check: the stand's centre where asked; the Mind contract; the punch's drill.
 - **A walk to a place beside a body lying overruns it**: the Skeleton asked 0.14 m/s 0.2 m from its
@@ -217,13 +217,13 @@ Each piece lands on its own, in this order:
    (`shieldHands`, the ward read only with one) goes.
 4. **The rise as Options.** Each way up, and each of the ground's modes (brace, land, steady,
    flatten, the repositions), is a skill an Option names; the rise's own code goes
-   (`groundOptions`; `groundExecutor`, `src/core/recovery/ground/held.ts`; `Deciding.ground`,
+   (`groundOptions`; `groundExecutor`, `src/skills/recovery/held.ts`; `Deciding.ground`,
    `Rising`). The bout's record of a way that failed (`recorded`) and the hand-set price of an
    unmeasured one (`BY_HAND`) become every Option's record and prior. A config that leaves the
    body no way up from its back or its front stays a fault.
 5. **An Option a model, the chooser a search.** `Option.model(now)` and `Option.at(now, there,
    place)` become one call at a state, now or predicted, returning what the Option brings and its
-   outcomes, each a state it leaves with its chance (`src/core/option/option.ts`; `placed` makes
+   outcomes, each a state it leaves with its chance (`src/minds/option/option.ts`; `placed` makes
    the predicted state, the body's velocity and posture with its range and bearing). The valued
    chooser searches the models to its depth, weighs each line's outcomes by their chances, and
    prices every line over its horizon (`ValuedConfig.horizon`), cut there: a line ends in the best
@@ -233,24 +233,24 @@ Each piece lands on its own, in this order:
    latency (`Pressure.latency`), spent within its reach and restored out of it (`reachMemory`),
    and a walk reads the pressure along its way. The set it runs is taken as today (`selectSet`).
    What priced where an Option leaves the body by other rules goes: the objective's guess of a
-   place's worth from its range (`placeWorth`, `src/core/option/objective.ts`), which credits a
+   place's worth from its range (`placeWorth`, `src/minds/option/objective.ts`), which credits a
    walk with the strikes at its end as the look-ahead does as well; the look-ahead for walks alone
-   (`lookingPast`, `src/core/option/chooser.ts`); the time-down table (`riseFrom`,
-   `src/core/option/ground.ts`; `downCost`, `downCostAt`, `src/core/option/percepts.ts`), lying
+   (`lookingPast`, `src/minds/option/chooser.ts`); the time-down table (`riseFrom`,
+   `src/minds/option/ground.ts`; `downCost`, `downCostAt`, `src/minds/option/percepts.ts`), lying
    priced instead by the ways up that begin there. The late bout's stake of a lead within the
    foe's reach moves into the objective's valuation of life: the life a path trades is valued as
    itself at the bout's start and by the lead it leaves at the clock's verdict as the bout ends
    (`lateness`).
 6. **Exits are states; profiles by the start's velocity.** What an Option says it leaves another
    unready goes: a gait's seconds until each strike is ready (`Going`'s `ready` and `braced`,
-   `goings`, `src/core/option/places.ts`), the walk's `readies`, `Place`'s `ready` and `unbraced`
-   (`src/core/option/position.ts`), the seconds until a rise braces the body (`unbraced`,
-   `src/core/option/ground.ts`), and the gait profiles measured stopping to throw each strike
+   `goings`, `src/minds/option/places.ts`), the walk's `readies`, `Place`'s `ready` and `unbraced`
+   (`src/minds/option/position.ts`), the seconds until a rise braces the body (`unbraced`,
+   `src/minds/option/ground.ts`), and the gait profiles measured stopping to throw each strike
    (`assets/core/gait-profiles.json`, `src/core/data/gait-profiles.ts`) with the Gait drill that
    measures them (`src/evaluation/gait/`). A profile becomes a sample of trials, each with its
    start (the range, the foe's phase, both postures, the velocity in the frame of the Option's
    target or the body's own), read by the trials nearest the state asked at, ties included
-   (`NEAREST`, `src/core/skills/framework/profile.ts`; `ProfileCell` goes, a trial from a record
+   (`NEAREST`, `src/skills/framework/profile.ts`; `ProfileCell` goes, a trial from a record
    that holds no start velocity read as begun still, until fresh trials replace it); a strike's
    trial keeps the seconds until its limb is back at its guard and the range once it is, and its
    model runs that whole cycle; each Option's drill draws its starts at random. A gait's own
@@ -265,28 +265,28 @@ Each piece lands on its own, in this order:
 8. **The config is Options.** Each Option kind takes the skill it uses and how it uses it (its
    limbs by role, regions, aim), and a body makes one Option of each limb that fits;
    `OptionMindConfig`'s `executors`, `actions`, `ground`, `locomotion`, `guard`, `support`, `motor`,
-   `navigation` and `frame` go (`src/core/option/mind.ts`), and the presets list Options. Motor
+   `navigation` and `frame` go (`src/minds/option/mind.ts`), and the presets list Options. Motor
    control, the stance and the posture a body is built in are the parts that fit the body, two
    fitting one role a fault; navigation is the walk's. A person's order names a skill the body
    has, its limb and its target.
 9. **One body contract.** The stance's reading and goal by bearing ends, not by side
-   (`StanceReading`'s `soles` and `touching`, `src/core/control/stance.ts`); the ground reading
+   (`StanceReading`'s `soles` and `touching`, `src/control/stance.ts`); the ground reading
    names postures by what bears the body. Check: the fingerprint, no humanoid case moved.
 10. **The quadrupeds on the one loop.** The quadruped's paw motor is a motor part, its trot and
     crawl gaits of a legs part (finding its footing again after a takeover is its resume), its bite
     an executor whose aim is the first exposed surface along the jaw's arc, and its righting a way
     up the ground executor runs; it is commanded, driven and read as every body is, and its view,
     intent, sight and ask (`QuadrupedView`, `QuadrupedIntent`, `QuadrupedSight`, `QuadrupedAsk`)
-    and its handling of late decisions (`late`, `planned`, `move` in `src/core/reptile/layers.ts`)
+    and its handling of late decisions (`late`, `planned`, `move` in `src/skills/quadruped/layers.ts`)
     go. Its Options are the bite, the walks to sites by its gaits, the orders, holding and the
-    righting; the stalk (`src/core/reptile/tactics.ts`) goes, its target choice the bite's aim, its
+    righting; the stalk (`src/skills/quadruped/tactics.ts`) goes, its target choice the bite's aim, its
     approach a walk to the bite's site, its creep a gait. Its chooser, objective, reader and option
     types go (`QUADRUPED_VALUED`, `QUADRUPED_FIGHT`, `quadrupedReader`, `QuadrupedOption`,
-    `src/core/reptile/frame.ts`, `options.ts`), with their hand-set prices (`FIGHT`,
+    `src/skills/quadruped/frame.ts`, `options.ts`), with their hand-set prices (`FIGHT`,
     `RIGHTING_SECONDS`, `KEPT`), the frame (`FramePart`, `QUADRUPED_FRAME`) and the framed config
     (`FramedOptionMindConfig`, `AnyOptionMindConfig`, `framed`).
 11. **Deciding while down.** The shared decider's decision every step the body is down
-    (`view.down`, `src/core/mind/decider.ts`) goes; a change of posture or of what bears the body
+    (`view.down`, `src/minds/decider.ts`) goes; a change of posture or of what bears the body
     is a cue, and the chooser decides on it as on any cue.
 
 Check: every Option Mind config is a chooser, its predictions, its rate and its Options, on every
@@ -299,10 +299,10 @@ rat and the reptile, laid on a side and on the back, right themselves and trot o
 
 ### 3. Bodies told apart in data
 
-- Stand-up's settings by body (`STEP_UP`'s table in `src/core/recovery/implementations/staged/records.ts`, the
+- Stand-up's settings by body (`STEP_UP`'s table in `src/skills/recovery/implementations/staged/records.ts`, the
   Skeleton's own roll with them) become records per body under `assets/`, and a technique only one
   body's settings time (the sit-back) is fitted by that body alone.
-- The walk's and run's settings (`src/core/skills/locomotion/walk-run.ts`, `cycle-run.ts`, searched
+- The walk's and run's settings (`src/skills/locomotion/walk-run.ts`, `cycle-run.ts`, searched
   on the three bodies together) stay the default every body takes scaled to its leg; a body's
   record overrides them.
 - The Skeleton's stomp record is deleted.

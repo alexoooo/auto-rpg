@@ -28,13 +28,13 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../tests/harness/preload-data.mjs";
-import { MINDS, partLookup } from "../src/entrants/game.ts";
-import { skillsOf } from "../src/core/option/kinds.ts";
-import { buildBout } from "../src/evaluation/bout.ts";
-import { STRIKE_CASES } from "../src/evaluation/strike/cases.ts";
+import { MINDS, partLookup } from "../src/app/catalog.ts";
+import { skillsOf } from "../src/minds/option/kinds.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
+import { STRIKE_CASES } from "../src/app/node/evaluation.ts";
 import { barScore as scoreOf } from "../src/evaluation/strike/score.ts";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { HELD_BLOWS } from "../src/core/skills/strikes/held-blow.ts";
+import { HELD_BLOWS } from "../src/skills/strikes/held-blow.ts";
 
 /** The pushed channels, as the punch's ceiling pushes them (`punch-ceiling.mjs`): the trunk, both legs and the striking arm; with `wrist`, its wrist's too. */
 export function ceilingChannels(hand, wrist = false) {

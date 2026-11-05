@@ -1,5 +1,5 @@
 /**
- * **The Stand drill's cases**: the subject's body shoved once (`Shove`, `src/arena/shove.ts`), a
+ * **The Stand drill's cases**: the subject's body shoved once (`Shove`, `src/game/arena/shove.ts`), a
  * level impulse of a size, from a way and at a height of its trunk, on each rung from another
  * state: standing in guard facing a still foe (`guard`, rung 0, led by the stand Commander as the
  * Cover drill is), walking at the foe from far off (`walking`, rung 1, the drill Commander walking
@@ -15,14 +15,15 @@
  * `research/core-stance-trials.mjs`): the Warrior 8 N s each way, 55 forward, forward right and
  * back, and 60 to each side, at the middle trunk.
  */
-import type { BodyModel } from "../../core/models.ts";
-import { deepFreeze } from "../../core/state.ts";
-import type { Shove } from "../../arena/shove.ts";
+import type { BodyModel } from "../../core/bodies/models.ts";
+import { deepFreeze } from "../../core/world/state.ts";
+import type { Shove } from "../../game/arena/shove.ts";
 import { sideAttributes, type Cases, type Json } from "../evaluation.ts";
-import { opponentOf, opposed } from "../drill-opponents.ts";
-import { faultsOf, loadoutsOf, striker, type StrikeSubject } from "../strike/cases.ts";
 import type { Hand, Mark } from "../strike/read.ts";
 import { readStand, type StandReading } from "./read.ts";
+import { createDrillOpponents, opposed } from "../drill-opponents.ts";
+import { createStrikeCases, loadoutsOf, striker, type StrikeSubject } from "../strike/cases.ts";
+import { type GameContext } from "../../game/arena/context.ts";
 
 /** Where on the trunk a shove meets the body: its lower, middle or upper trunk's centre of mass. */
 export type Height = "low" | "middle" | "high";
@@ -90,34 +91,41 @@ function shoveOf(rung: StandRung, condition: StandCondition): Shove {
     ...(rung.limb === undefined || condition.hand === undefined ? {} : { limb: { segment: `hand.${condition.hand}`, against: "upperTrunk", speed: rung.limb } }) };
 }
 
-function standCases(rung: StandRung): Cases<StandCondition, StandReading> {
-  const conditions: StandCondition[] = [];
-  for (const model of rung.models) for (const hand of rung.hands ?? [undefined]) for (const height of rung.heights) for (const way of rung.ways) for (const impulse of rung.impulses)
-    conditions.push({ model, ...(hand === undefined ? {} : { hand }), height, way, impulse });
-  return {
-    arity: 1,
-    play: rung as unknown as Json,
-    conditions,
-    seconds: rung.seconds,
-    faults: (value, { model }, subject) => faultsOf(value, model, subject),
-    world: ([value], condition, engine, [character]) => {
-      const subject = value as unknown as StrikeSubject, { model, hand } = condition;
-      // The striker's own Commander: the stand, or the drill's, walking it in or striking.
-      const led = rung.state === "guard" ? { mind: subject.mind, commander: STANDING }
-        : striker(subject, `hand.${hand ?? "right"}`, rung.mark ?? "middle", { after: rung.after ?? 0, ...(rung.pace === undefined ? {} : { pace: rung.pace }) });
-      return { kind: "bout", engine, tape: [],
-        // A drill, not a fight: nothing ends it but its reader.
-        recipe: { left: model, right: "workshop-fighter", capSeconds: rung.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
-          ...loadoutsOf(subject),
-          // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
-          start: { left: { at: [-rung.gap / 2, 0], heading: Math.PI / 2 }, right: { at: [rung.gap / 2, 0], heading: -Math.PI / 2 } },
-          ...opposed(led, opponentOf(FOE)!), shove: shoveOf(rung, condition) } };
-    },
-    read: (built, condition) => readStand(built, condition, rung),
-  };
-}
+export function createStandCases(context: GameContext) {
+  const { opponentOf } = createDrillOpponents(context);
+  const { faultsOf } = createStrikeCases(context);
 
-/** Every protocol the Stand drill may be played on, by name: its rungs. */
-export const STAND_CASES: Readonly<Record<string, Cases<StandCondition, StandReading>>> = Object.freeze({
-  guard: standCases(GUARD), walking: standCases(WALKING), striking: standCases(STRIKING),
-});
+  function standCases(rung: StandRung): Cases<StandCondition, StandReading> {
+    const conditions: StandCondition[] = [];
+    for (const model of rung.models) for (const hand of rung.hands ?? [undefined]) for (const height of rung.heights) for (const way of rung.ways) for (const impulse of rung.impulses)
+      conditions.push({ model, ...(hand === undefined ? {} : { hand }), height, way, impulse });
+    return {
+      arity: 1,
+      play: rung as unknown as Json,
+      conditions,
+      seconds: rung.seconds,
+      faults: (value, { model }, subject) => faultsOf(value, model, subject),
+      world: ([value], condition, engine, [character]) => {
+        const subject = value as unknown as StrikeSubject, { model, hand } = condition;
+        // The striker's own Commander: the stand, or the drill's, walking it in or striking.
+        const led = rung.state === "guard" ? { mind: subject.mind, commander: STANDING }
+          : striker(subject, `hand.${hand ?? "right"}`, rung.mark ?? "middle", { after: rung.after ?? 0, ...(rung.pace === undefined ? {} : { pace: rung.pace }) });
+        return { kind: "bout", engine, tape: [],
+          // A drill, not a fight: nothing ends it but its reader.
+          recipe: { left: model, right: "workshop-fighter", capSeconds: rung.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+            ...loadoutsOf(subject),
+            // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
+            start: { left: { at: [-rung.gap / 2, 0], heading: Math.PI / 2 }, right: { at: [rung.gap / 2, 0], heading: -Math.PI / 2 } },
+            ...opposed(led, opponentOf(FOE)!), shove: shoveOf(rung, condition) } };
+      },
+      read: (built, condition) => readStand(built, condition, rung),
+    };
+  }
+
+  /** Every protocol the Stand drill may be played on, by name: its rungs. */
+  const STAND_CASES: Readonly<Record<string, Cases<StandCondition, StandReading>>> = Object.freeze({
+    guard: standCases(GUARD), walking: standCases(WALKING), striking: standCases(STRIKING),
+  });
+
+  return { STAND_CASES };
+}

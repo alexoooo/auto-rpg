@@ -1,14 +1,14 @@
 /**
  * **Case C: one whole human on both feet, 10 s** (`standingHuman`), under each chosen setting
- * (`src/physics-bench/chosen.ts`) and the 16-sub-step references. An observation with no bar: it
+ * (`src/app/browser/physics-bench/chosen.ts`) and the 16-sub-step references. An observation with no bar: it
  * says whether the humans the scaling tables time are standing. Node harness.
  *
  *     node research/physics-bakeoff/case-c.mjs
  */
 import { writeFileSync } from "node:fs";
 import { load } from "./engines.mjs";
-import { standingHuman } from "../../src/physics-bench/cases.ts";
-import { CHOSEN } from "../../src/physics-bench/chosen.ts";
+import { standingHuman } from "../../src/app/browser/physics-bench/cases.ts";
+import { CHOSEN } from "../../src/app/browser/physics-bench/chosen.ts";
 
 const FEET = (k) => ({ "foot.left": k, "foot.right": k });
 const rows = [

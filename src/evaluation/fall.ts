@@ -4,38 +4,37 @@
  * enlists it, shoved as the stand-up target shoves, and its stand verified as the Lab verifies one,
  * whatever its mind. The research rising bed (`rising.ts`) plays a mind on the Lab's stand bed
  * (`buildStandFall`): shoved, dropped or placed on the ground of the Stand-up mode (`startGround`,
- * `src/lab/ground-mode.ts`), its actor read. It is not bit-equal
- * between JavaScript engines: the starts and the shove (`src/lab/ground-starts.ts`,
+ * `src/game/lab/ground-mode.ts`), its actor read. It is not bit-equal
+ * between JavaScript engines: the starts and the shove (`src/game/lab/ground-starts.ts`,
  * `stance-mode.ts`) use arithmetic each engine rounds its own way.
  */
-import { addArenaSolids } from "../arena/solids.ts";
-import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import { loadEngine, type EngineName } from "../core/engine/engines.ts";
-import { loadoutFaults, type Held, type Loadout } from "../core/items/held.ts";
-import { GAME } from "../entrants/game.ts";
-import type { MindConfig } from "../core/mind/config.ts";
-import type { AttributeOverrides } from "../core/character-attributes.ts";
-import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../core/models.ts";
-import type { HostedBody } from "../core/body.ts";
-import { soleRefusal } from "../core/control/support.ts";
-import { enlist, type Combatant } from "../core/combatant.ts";
-import { createSenses } from "../core/mind/senses.ts";
-import { STAND_ORDERS } from "../core/intent/orders.ts";
-import { isGroundSkill } from "../core/recovery/ground/registered.ts";
-import type { MindReport } from "../core/mind/report.ts";
-import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
-import type { BodySpec } from "../core/spec/body.ts";
-import { createWorld, type World } from "../core/world.ts";
-import { labActor, type Actor } from "../lab/actor.ts";
-import { groundPlacement } from "../lab/ground-starts.ts";
-import { groundShove, SHOVED, SHOVED_UNFELLED, standCheck, startGround, targetImpulse } from "../lab/ground-mode.ts";
-import { groundMeter } from "../lab/ground-meter.ts";
-import { shoveBody } from "../lab/stance-mode.ts";
-import { CALM, labGusts, startWind } from "../lab/wind.ts";
-import type { GroundLevel } from "../lab/ground-environment.ts";
-import { loadoutSpec } from "../lab/loadout.ts";
-import { labAddress, type LabAddress } from "../lab/scenarios.ts";
+import { addArenaSolids } from "../game/arena/solids.ts";
+import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
+import { loadEngine, type EngineName } from "../core/physics/engines.ts";
+import { loadoutFaults, type Held, type Loadout } from "../core/bodies/items/held.ts";
+import type { MindConfig } from "../minds/config.ts";
+import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
+import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../core/bodies/models.ts";
+import type { HostedBody } from "../minds/hosted-body.ts";
+import { soleRefusal } from "../control/support.ts";
+import { enlist, type Combatant } from "../game/combatant.ts";
+import { createSenses } from "../core/world/senses.ts";
+import { STAND_ORDERS } from "../skills/intent/orders.ts";
+import type { MindReport } from "../minds/report.ts";
+import { balanceCeiling, balancePercent, rulebook } from "../combat/rulebook.ts";
+import type { BodySpec } from "../core/bodies/spec/body.ts";
+import { createWorld, type World } from "../core/world/world.ts";
+import { labActor, type Actor } from "../game/lab/actor.ts";
+import { groundPlacement } from "../game/lab/ground-starts.ts";
+import { groundShove, SHOVED, SHOVED_UNFELLED, standCheck, startGround, targetImpulse } from "../game/lab/ground-mode.ts";
+import { groundMeter } from "../game/lab/ground-meter.ts";
+import { shoveBody } from "../game/lab/stance-mode.ts";
+import { CALM, labGusts, startWind } from "../game/lab/wind.ts";
+import type { GroundLevel } from "../game/lab/ground-environment.ts";
+import { loadoutSpec } from "../game/lab/loadout.ts";
 import type { CaseWorld, Cases, Json, Reader, WorldKind } from "./evaluation.ts";
+import { createLabScenarios, type LabAddress } from "../game/lab/scenarios.ts";
+import { type GameContext } from "../game/arena/context.ts";
 
 /**
  * One fall, as plain data: the body (a model with an item in its right hand, or a loadout), the start and its seed, the level, the assists, and the riser's mind in full. `target`
@@ -109,80 +108,18 @@ function characterOf(fall: Pick<FallCase, "character">): AttributeOverrides {
   return character;
 }
 
-/** Where a fall starts: its address in the Lab, its body and its placement, or why the bed refuses the start; throws for a fall the bed does not play (`checkFall`). */
-export function fallStart(fall: FallCase): { address: LabAddress; spec: BodySpec; placement: ReturnType<typeof groundPlacement> } {
-  checkFall(fall);
-  const defaults = labAddress("?scenario=ground"), balance = fall.balance ?? 0;
-  if (!onStandBed(fall)) throw new Error("the Lab's stand bed drives a body the stance stands on its feet");
-  const address: LabAddress = { ...defaults, model: fall.model as HumanoidModel, ...(fall.character ? { attributes: characterOf(fall) } : {}), right: fall.loadout?.right ?? fall.held ?? "empty", left: fall.loadout?.left ?? "empty", balance, seed: fall.seed,
-    ground: { ...defaults.ground, level: fall.level ?? "open", start: fall.start, posture: fall.posture ?? "back", degrees: fall.degrees ?? null,
-      impulse: fall.impulse ?? null, gusts: fall.gusts ?? false } };
-  const factor = fall.factor ?? 1;
-  if (!Number.isFinite(factor) || factor < 1 || factor > 2) throw new Error("research strength factor stays between 1 and 2");
-  const spec = strengthSpec(loadoutSpec(address), factor);
-  return { address, spec, placement: groundPlacement(spec, address) };
-}
-
 /** A fall's world, played a step at a time: after each step `afterStep`, until `ended`; then its `reading`. */
 export interface BuiltFall {
   readonly world: World;
   readonly body: BuiltBody;
   /** The Lab's actor on the stand bed; null on the fall bed. */
   readonly actor: Actor | null;
-  /** The riser on the fall bed, its mind's state and its body's view as a trace reads them (`research/rise-trace.mjs`); null on the stand bed. */
+  /** The riser on the fall bed, its mind's state and its body's view as a trace reads them (`research/skills/recovery/implementations/staged/rise-trace.mjs`); null on the stand bed. */
   readonly combatant: Combatant | null;
   readonly ended: boolean;
   afterStep(): void;
   reading(): FallReading;
   dispose(): void;
-}
-
-/**
- * **The Lab's stand bed**, the research rising bed's: `fall`'s world on `engine`, from its start
- * (`fallStart`'s, unless given): the body built in its placement, its mind hosted as the Lab hosts
- * it with its balance's assist, and the
- * Stand-up mode started. It ends once the stand is verified or failed (`target`, `obstacle`),
- * else at hand-back or when the run stops; at `FALL_AFTER` s past the cap in any case.
- */
-export async function buildStandFall(fall: FallCase, engine: EngineName, given: { start?: ReturnType<typeof fallStart> } = {}): Promise<BuiltFall> {
-  const { start = fallStart(fall) } = given;
-  const { spec, placement } = start;
-  if ("refused" in placement) throw new Error(placement.refused);
-  const balance = fall.balance ?? 0, verifying = Boolean(fall.target || fall.obstacle);
-  const world = createWorld(await loadEngine(engine));
-  addArenaSolids(world.physics);
-  const body = buildBody(spec, world, placement);
-  const address = verifying ? { ...start.address, ground: { ...start.address.ground, impulse: targetImpulse(body) } } : start.address;
-  const actor = labActor(body, world, { mind: fall.mind,
-    assist: balanceCeiling(balance, balancePercent(rulebook("arena"))) });
-  const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
-  const run = startGround(actor, address, { cap }), check = run.check.state;
-  let stood = false, ended = false, read: FallReading | null = null;
-  return {
-    world, body, actor, combatant: null,
-    get ended() { return ended; },
-    afterStep() {
-      if (verifying) {
-        if (run.check.done()) { stood = check.stage === "stood"; ended = true; }
-        else if (check.takeover === null && world.time >= SHOVED_UNFELLED) ended = true;
-      } else if (run.meter.state.handback !== null) { stood = true; ended = true; }
-      else if (run.state.status !== "running"
-        || run.meter.state.from !== null && world.time - run.meter.state.from >= cap
-        || run.meter.state.from === null && world.time >= SHOVED_UNFELLED) ended = true;
-      if (world.time >= cap + FALL_AFTER) ended = true;
-    },
-    reading() {
-      if (read) return read;
-      if (!stood) run.meter.cap();
-      const frame = run.frame();
-      read = { status: stood ? "stood" : run.state.status === "landed standing" ? "landed standing"
-        : check.takeover === null && fall.start === "shoved" ? "no takeover" : check.stage === "fell after verification" ? "fell after verification" : "failed",
-        stood, handback: frame.handback, takeover: check.takeover, verified: check.verified, walked: check.walked,
-        trail: frame.trail as unknown as Json, attempts: frame.attempts as unknown as Json, phases: frame.phases as unknown as Json, assist: frame.assist as unknown as Json };
-      return read;
-    },
-    dispose() { run.dispose(); body.dispose(); world.dispose(); },
-  };
 }
 
 /** Why the fall bed cannot play `fall`, each a sentence: a start other than a shove, a floor other than the open one, or an obstacle. */
@@ -191,91 +128,8 @@ function bedFaults(fall: Pick<FallCase, "start" | "obstacle" | "level">): readon
     ...fall.level && fall.level !== "open" || fall.obstacle ? ["the fall bed plays the open floor"] : []];
 }
 
-/**
- * **The fall bed**, every evaluated fall's whatever its mind: `fall`'s body built standing in its
- * mind's posture, facing +z, and enlisted as a fight enlists it (`enlist`), alone, its orders the
- * stand's verification's; at `SHOVED.first` s its middle trunk is shoved (`shoveBody`) by the fall's
- * impulse (unless given: a target's fall by the target's, `targetImpulse`; else the Lab's draw from
- * its seed) at its degrees from +z, and again the same way while it holds the shove (`SHOVED`). Its
- * rise has taken it over once it is first down by the fight's rule (`PhysicalBody.down`), and its
- * stand is verified as the Lab verifies one (`standCheck`), the body its own at the end. A body not
- * taken over by `SHOVED_UNFELLED` s was not felled: the trial did not reach its case ("no
- * takeover"). Its ground history (`groundMeter`) is read where its mind hosts a body (a view); its
- * assist is metered either way.
- */
-export async function buildFall(fall: FallCase, engine: EngineName): Promise<BuiltFall> {
-  checkFall(fall);
-  const refused = bedFaults(fall)[0];
-  if (refused) throw new Error(refused);
-  const factor = fall.factor ?? 1;
-  if (!Number.isFinite(factor) || factor < 1 || factor > 2) throw new Error("research strength factor stays between 1 and 2");
-  const spec = strengthSpec(modelHolding(fall.model, fall.loadout ?? { left: "empty", right: fall.held ?? "empty" }, characterOf(fall)), factor);
-  const world = createWorld(await loadEngine(engine));
-  addArenaSolids(world.physics);
-  const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
-  let check: ReturnType<typeof standCheck> | null = null;
-  const fighter = enlist(world, { id: "fall", side: "fall", name: "fall", spec, rules: rulebook("arena"), mind: fall.mind, catalog: GAME, at: [0, 0, 0],
-    senses: createSenses(world), out: () => false, orders: () => check?.orders() ?? STAND_ORDERS, balance: fall.balance ?? 0 });
-  const body = fighter.body;
-  check = standCheck({ body, world, takenOver: () => body.down, inCommand: () => true }, cap);
-  const defaults = labAddress("?scenario=ground");
-  const drawn = groundShove({ seed: fall.seed, ground: { ...defaults.ground, degrees: fall.degrees ?? null, impulse: fall.impulse ?? null } });
-  const degrees = drawn.degrees, impulse = fall.target && fall.impulse == null ? targetImpulse(fighter.built) : drawn.impulse;
-  const shoving = shoveBody(body, world, () => 0);
-  const wind = startWind(fighter.built, world, fall.gusts ? labGusts(fall.model) : CALM, fall.seed);
-  const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;
-  const state = { shoves: 0, shovedAt: null as number | null, ended: false };
-  const ledger = groundLedger(fighter.minded.report ?? null, () => world.time);
-  return {
-    world, body: fighter.built, actor: null, combatant: fighter,
-    get ended() { return state.ended; },
-    afterStep() {
-      meter?.sample();
-      check!.sample();
-      const { takeover } = check!.state;
-      const held = state.shovedAt !== null && takeover === null && !body.down && state.shoves < SHOVED.most && world.time - state.shovedAt >= SHOVED.again;
-      if (state.shovedAt === null && world.time >= SHOVED.first || held) { shoving.shove(impulse, degrees); state.shovedAt = world.time; state.shoves++; }
-      ledger.sample();
-      if (check!.done() || takeover === null && world.time >= SHOVED_UNFELLED || world.time >= cap + FALL_AFTER) state.ended = true;
-    },
-    reading() {
-      const c = check!.state, stood = c.stage === "stood", frame = meter?.frame();
-      return { status: stood ? "stood" : c.takeover === null ? "no takeover" : c.stage === "fell after verification" ? "fell after verification" : "failed",
-        stood, handback: frame?.handback ?? null, takeover: c.takeover, verified: c.verified, walked: c.walked,
-        trail: (frame?.trail ?? []) as unknown as Json, attempts: (frame?.attempts?.length ? frame.attempts : ledger.attempts(world.time)) as unknown as Json, phases: (frame?.phases ?? {}) as unknown as Json,
-        assist: (frame?.assist ?? null) as unknown as Json };
-    },
-    dispose() { wind.dispose(); shoving.dispose(); body.dispose(); fighter.built.dispose(); world.dispose(); },
-  };
-}
-
 /** An attempt at a way up, as a fall's reading records it: begun at, s, how long it ran, s, the ground action, and how it ended. */
 interface GroundAttempt { readonly at: number; readonly seconds: number; readonly controller: string; readonly end: string }
-
-/**
- * **A mind's ground attempts from its report**: each ground action (`isGroundSkill`, by its kit) it has
- * ended, from its ledger (`MindReport.ended`), and those under way when read, ended `cap`. A mind
- * that runs the ground's actions as its own (Option Mind) is read so; one whose rise is a sub-mind's
- * is read by the ground meter instead. A completed action ends `done`.
- */
-function groundLedger(report: MindReport | null, clock: () => number) {
-  const ground = new Set((report?.kit ?? []).filter((entry) => isGroundSkill(entry.kind)).map((entry) => entry.action));
-  const kept: GroundAttempt[] = [], begun = new Map<number, number>();
-  let seen = 0;
-  return {
-    sample() {
-      for (const action of report?.actions ?? []) if (ground.has(action.action) && !begun.has(action.id)) begun.set(action.id, clock());
-      for (const ended of report?.ended ?? []) {
-        if (ended.sequence <= seen) continue;
-        seen = ended.sequence;
-        if (ground.has(ended.action)) kept.push({ at: ended.began, seconds: ended.ended - ended.began, controller: ended.action,
-          end: ended.ending.kind === "completed" ? "done" : ended.ending.reason ?? ended.ending.kind });
-      }
-    },
-    attempts: (time: number): readonly GroundAttempt[] => [...kept, ...(report?.actions ?? []).filter((action) => ground.has(action.action))
-      .map((action) => { const at = begun.get(action.id) ?? time; return { at, seconds: time - at, controller: action.action, end: "cap" }; })],
-  };
-}
 
 /** A fall's reader: the fall's own ending, and its reading. */
 export function readFall(built: BuiltFall): Reader<FallReading> {
@@ -293,10 +147,165 @@ export function fallCases<C extends Json & Omit<FallCase, "mind">>(play: Json, c
   };
 }
 
-/** The fall world kind: built by `buildFall`, its one body traced, played by the world's clock. */
-export const FALL_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "fall" }>, BuiltFall> = {
-  build: (world) => buildFall(world.fall, world.engine),
-  traced: (built) => [built.body],
-  clock: (built) => built.world.time,
-  minds: (world) => [world.fall.mind],
-};
+export function createFall(context: GameContext) {
+  const GAME = context.catalog;
+  const { labAddress } = createLabScenarios(context);
+
+  /** Where a fall starts: its address in the Lab, its body and its placement, or why the bed refuses the start; throws for a fall the bed does not play (`checkFall`). */
+  function fallStart(fall: FallCase): { address: LabAddress; spec: BodySpec; placement: ReturnType<typeof groundPlacement> } {
+    checkFall(fall);
+    const defaults = labAddress("?scenario=ground"), balance = fall.balance ?? 0;
+    if (!onStandBed(fall)) throw new Error("the Lab's stand bed drives a body the stance stands on its feet");
+    const address: LabAddress = { ...defaults, model: fall.model as HumanoidModel, ...(fall.character ? { attributes: characterOf(fall) } : {}), right: fall.loadout?.right ?? fall.held ?? "empty", left: fall.loadout?.left ?? "empty", balance, seed: fall.seed,
+      ground: { ...defaults.ground, level: fall.level ?? "open", start: fall.start, posture: fall.posture ?? "back", degrees: fall.degrees ?? null,
+        impulse: fall.impulse ?? null, gusts: fall.gusts ?? false } };
+    const factor = fall.factor ?? 1;
+    if (!Number.isFinite(factor) || factor < 1 || factor > 2) throw new Error("research strength factor stays between 1 and 2");
+    const spec = strengthSpec(loadoutSpec(address), factor);
+    return { address, spec, placement: groundPlacement(spec, address) };
+  }
+
+  /**
+   * **The Lab's stand bed**, the research rising bed's: `fall`'s world on `engine`, from its start
+   * (`fallStart`'s, unless given): the body built in its placement, its mind hosted as the Lab hosts
+   * it with its balance's assist, and the
+   * Stand-up mode started. It ends once the stand is verified or failed (`target`, `obstacle`),
+   * else at hand-back or when the run stops; at `FALL_AFTER` s past the cap in any case.
+   */
+  async function buildStandFall(fall: FallCase, engine: EngineName, given: { start?: ReturnType<typeof fallStart> } = {}): Promise<BuiltFall> {
+    const { start = fallStart(fall) } = given;
+    const { spec, placement } = start;
+    if ("refused" in placement) throw new Error(placement.refused);
+    const balance = fall.balance ?? 0, verifying = Boolean(fall.target || fall.obstacle);
+    const world = createWorld(await loadEngine(engine));
+    addArenaSolids(world.physics);
+    const body = buildBody(spec, world, placement);
+    const address = verifying ? { ...start.address, ground: { ...start.address.ground, impulse: targetImpulse(body) } } : start.address;
+    const actor = labActor(context, body, world, { mind: fall.mind,
+      assist: balanceCeiling(balance, balancePercent(rulebook("arena"))) });
+    const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
+    const run = startGround(actor, address, { cap }), check = run.check.state;
+    let stood = false, ended = false, read: FallReading | null = null;
+    return {
+      world, body, actor, combatant: null,
+      get ended() { return ended; },
+      afterStep() {
+        if (verifying) {
+          if (run.check.done()) { stood = check.stage === "stood"; ended = true; }
+          else if (check.takeover === null && world.time >= SHOVED_UNFELLED) ended = true;
+        } else if (run.meter.state.handback !== null) { stood = true; ended = true; }
+        else if (run.state.status !== "running"
+          || run.meter.state.from !== null && world.time - run.meter.state.from >= cap
+          || run.meter.state.from === null && world.time >= SHOVED_UNFELLED) ended = true;
+        if (world.time >= cap + FALL_AFTER) ended = true;
+      },
+      reading() {
+        if (read) return read;
+        if (!stood) run.meter.cap();
+        const frame = run.frame();
+        read = { status: stood ? "stood" : run.state.status === "landed standing" ? "landed standing"
+          : check.takeover === null && fall.start === "shoved" ? "no takeover" : check.stage === "fell after verification" ? "fell after verification" : "failed",
+          stood, handback: frame.handback, takeover: check.takeover, verified: check.verified, walked: check.walked,
+          trail: frame.trail as unknown as Json, attempts: frame.attempts as unknown as Json, phases: frame.phases as unknown as Json, assist: frame.assist as unknown as Json };
+        return read;
+      },
+      dispose() { run.dispose(); body.dispose(); world.dispose(); },
+    };
+  }
+
+  /**
+   * **The fall bed**, every evaluated fall's whatever its mind: `fall`'s body built standing in its
+   * mind's posture, facing +z, and enlisted as a fight enlists it (`enlist`), alone, its orders the
+   * stand's verification's; at `SHOVED.first` s its middle trunk is shoved (`shoveBody`) by the fall's
+   * impulse (unless given: a target's fall by the target's, `targetImpulse`; else the Lab's draw from
+   * its seed) at its degrees from +z, and again the same way while it holds the shove (`SHOVED`). Its
+   * rise has taken it over once it is first down by the fight's rule (`PhysicalBody.down`), and its
+   * stand is verified as the Lab verifies one (`standCheck`), the body its own at the end. A body not
+   * taken over by `SHOVED_UNFELLED` s was not felled: the trial did not reach its case ("no
+   * takeover"). Its ground history (`groundMeter`) is read where its mind hosts a body (a view); its
+   * assist is metered either way.
+   */
+  async function buildFall(fall: FallCase, engine: EngineName): Promise<BuiltFall> {
+    checkFall(fall);
+    const refused = bedFaults(fall)[0];
+    if (refused) throw new Error(refused);
+    const factor = fall.factor ?? 1;
+    if (!Number.isFinite(factor) || factor < 1 || factor > 2) throw new Error("research strength factor stays between 1 and 2");
+    const spec = strengthSpec(modelHolding(fall.model, fall.loadout ?? { left: "empty", right: fall.held ?? "empty" }, characterOf(fall)), factor);
+    const world = createWorld(await loadEngine(engine));
+    addArenaSolids(world.physics);
+    const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
+    let check: ReturnType<typeof standCheck> | null = null;
+    const fighter = enlist(world, { id: "fall", side: "fall", name: "fall", spec, rules: rulebook("arena"), mind: fall.mind, catalog: GAME, at: [0, 0, 0],
+      senses: createSenses(world), out: () => false, orders: () => check?.orders() ?? STAND_ORDERS, balance: fall.balance ?? 0 });
+    const body = fighter.body;
+    check = standCheck({ body, world, takenOver: () => body.down, inCommand: () => true }, cap);
+    const defaults = labAddress("?scenario=ground");
+    const drawn = groundShove({ seed: fall.seed, ground: { ...defaults.ground, degrees: fall.degrees ?? null, impulse: fall.impulse ?? null } });
+    const degrees = drawn.degrees, impulse = fall.target && fall.impulse == null ? targetImpulse(fighter.built) : drawn.impulse;
+    const shoving = shoveBody(body, world, () => 0);
+    const wind = startWind(fighter.built, world, fall.gusts ? labGusts(fall.model) : CALM, fall.seed);
+    const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;
+    const state = { shoves: 0, shovedAt: null as number | null, ended: false };
+    const ledger = groundLedger(fighter.minded.report ?? null, () => world.time);
+    return {
+      world, body: fighter.built, actor: null, combatant: fighter,
+      get ended() { return state.ended; },
+      afterStep() {
+        meter?.sample();
+        check!.sample();
+        const { takeover } = check!.state;
+        const held = state.shovedAt !== null && takeover === null && !body.down && state.shoves < SHOVED.most && world.time - state.shovedAt >= SHOVED.again;
+        if (state.shovedAt === null && world.time >= SHOVED.first || held) { shoving.shove(impulse, degrees); state.shovedAt = world.time; state.shoves++; }
+        ledger.sample();
+        if (check!.done() || takeover === null && world.time >= SHOVED_UNFELLED || world.time >= cap + FALL_AFTER) state.ended = true;
+      },
+      reading() {
+        const c = check!.state, stood = c.stage === "stood", frame = meter?.frame();
+        return { status: stood ? "stood" : c.takeover === null ? "no takeover" : c.stage === "fell after verification" ? "fell after verification" : "failed",
+          stood, handback: frame?.handback ?? null, takeover: c.takeover, verified: c.verified, walked: c.walked,
+          trail: (frame?.trail ?? []) as unknown as Json, attempts: (frame?.attempts?.length ? frame.attempts : ledger.attempts(world.time)) as unknown as Json, phases: (frame?.phases ?? {}) as unknown as Json,
+          assist: (frame?.assist ?? null) as unknown as Json };
+      },
+      dispose() { wind.dispose(); shoving.dispose(); body.dispose(); fighter.built.dispose(); world.dispose(); },
+    };
+  }
+
+  /**
+   * **A mind's ground attempts from its report**: each ground action (`isGroundSkill`, by its kit) it has
+   * ended, from its ledger (`MindReport.ended`), and those under way when read, ended `cap`. A mind
+   * that runs the ground's actions as its own (Option Mind) is read so; one whose rise is a sub-mind's
+   * is read by the ground meter instead. A completed action ends `done`.
+   */
+  function groundLedger(report: MindReport | null, clock: () => number) {
+    const ground = new Set((report?.kit ?? []).filter((entry) => Object.hasOwn(context.techniques, entry.kind)).map((entry) => entry.action));
+    const kept: GroundAttempt[] = [], begun = new Map<number, number>();
+    let seen = 0;
+    return {
+      sample() {
+        for (const action of report?.actions ?? []) if (ground.has(action.action) && !begun.has(action.id)) begun.set(action.id, clock());
+        for (const ended of report?.ended ?? []) {
+          if (ended.sequence <= seen) continue;
+          seen = ended.sequence;
+          if (ground.has(ended.action)) kept.push({ at: ended.began, seconds: ended.ended - ended.began, controller: ended.action,
+            end: ended.ending.kind === "completed" ? "done" : ended.ending.reason ?? ended.ending.kind });
+        }
+      },
+      attempts: (time: number): readonly GroundAttempt[] => [...kept, ...(report?.actions ?? []).filter((action) => ground.has(action.action))
+        .map((action) => { const at = begun.get(action.id) ?? time; return { at, seconds: time - at, controller: action.action, end: "cap" }; })],
+    };
+  }
+
+  /** The fall world kind: built by `buildFall`, its one body traced, played by the world's clock. */
+  const FALL_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "fall" }>, BuiltFall> = {
+    build: (world) => buildFall(world.fall, world.engine),
+    traced: (built) => [built.body],
+    clock: (built) => built.world.time,
+    minds: (world) => [world.fall.mind],
+  };
+
+  return { fallStart, buildStandFall, buildFall, FALL_WORLD };
+}
+
+/** The registered world factory for this builder. */
+export const fallWorld = (context: GameContext) => createFall(context).FALL_WORLD;

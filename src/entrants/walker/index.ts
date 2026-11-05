@@ -1,10 +1,21 @@
-import type { Entrant } from "../../core/parts/entrant.ts";
-import type { MindPreset } from "../../core/mind/controller.ts";
-import type { PartConfig } from "../../core/parts/parts.ts";
-import { OPTION_MIND, type OptionMindConfig } from "../../core/option/mind.ts";
-import { GUARD_OPTION, HOLD_OPTION, WALKS } from "../../core/option/kinds.ts";
-import { BRACE_OPTION, RISE_OPTIONS } from "../../core/option/rise.ts";
-import { deepFreeze } from "../../core/state.ts";
+import type { Entrant } from "../../minds/index.ts";
+import type { MindPreset } from "../../minds/index.ts";
+import type { PartConfig } from "../../parts/index.ts";
+import type { OptionMindConfig } from "../../minds/option/index.ts";
+import { GUARD_OPTION, HOLD_OPTION, type WalkConfig } from "../../minds/option/index.ts";
+import { BRACE_OPTION, BRACE_TUMBLING_OPTION, STEADY_OPTION, FLATTEN_OPTION, LAND_OPTION } from "../../minds/option/index.ts";
+import { deepFreeze } from "../../core/world/index.ts";
+
+/** The gaits this fighter may walk by, in preference order. */
+const WALKS: readonly WalkConfig[] = deepFreeze(["braced", "run", "trot", "crawl"].map((gait) => ({ kind: "walk", gait })));
+
+/** Recovery choices, in preference order, for every body this fighter fits. */
+const RISE_OPTIONS: readonly PartConfig[] = deepFreeze([
+  BRACE_TUMBLING_OPTION.defaults, STEADY_OPTION.defaults,
+  ...["staged-roll", "staged-down", "sit-back", "front-sit-back", "righting-recipe", "righting-routes"].map((kind) => ({ kind: "way-up", skill: { kind } })),
+  ...["roll", "roll-back"].map((kind) => ({ kind: "reposition", skill: { kind } })),
+  FLATTEN_OPTION.defaults, LAND_OPTION.defaults,
+]);
 
 /** Where it walks to, m on the ground from where it starts: ahead and to its left, so it turns on the way. */
 const PLACE = deepFreeze({ x: 2, z: 6 });
@@ -21,10 +32,10 @@ const OPTIONS: readonly PartConfig[] = deepFreeze([{ kind: "hold-at-place", ...P
   HOLD_OPTION.defaults, GUARD_OPTION.defaults, BRACE_OPTION.defaults]);
 
 /**
- * The toolkit's Option Mind (`OPTION_MIND`) whose objective is reaching a place (`reach-place`),
+ * The Option framework whose objective is reaching a place (`reach-place`),
  * by worth, looking no further than the option it takes.
  */
-const WALKER_CONFIG: OptionMindConfig = deepFreeze({ ...(OPTION_MIND.defaults as OptionMindConfig),
+const WALKER_CONFIG: OptionMindConfig = deepFreeze({ kind: "option",
   chooser: { kind: "valued", depth: 1, objective: { kind: "reach-place", ...PLACE } }, options: OPTIONS });
 
 /** **The walker**: one preset of the toolkit's Option Mind that fights no one and walks to its place; on no menu but the Lab's. */

@@ -23,21 +23,21 @@
  */
 import { parseArgs } from "node:util";
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
-import { SERVO_SECONDS } from "../src/core/body.ts";
-import { commandedBody } from "../src/core/mind/host.ts";
-import { buildBody } from "../src/core/build/build-body.ts";
-import { armed } from "../src/core/human/grip.ts";
-import { modelSpec } from "../src/core/models.ts";
-import { woodenClub } from "../src/core/items/club.ts";
-import { centreOfToRef } from "../src/core/read-motion.ts";
-import { standIntent } from "../src/core/intent/intent.ts";
-import { createMind } from "../src/core/mind/minds.ts";
-import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
-import { driveBy } from "../src/core/mind/decider.ts";
-import { createWorld } from "../src/core/world.ts";
+import { SERVO_SECONDS } from "../src/control/body.ts";
+import { commandedBody } from "../src/minds/host.ts";
+import { buildBody } from "../src/core/bodies/build/build-body.ts";
+import { armed } from "../src/core/bodies/human/grip.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
+import { woodenClub } from "../src/core/bodies/items/club.ts";
+import { centreOfToRef } from "../src/core/bodies/read-motion.ts";
+import { standIntent } from "../src/skills/intent/intent.ts";
+import { createMind } from "../src/minds/minds.ts";
+import { balanceCeiling, balancePercent, rulebook } from "../src/combat/rulebook.ts";
+import { driveBy } from "../src/minds/decider.ts";
+import { createWorld } from "../src/core/world/world.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
-import { rootSegment } from "../src/core/read-body.ts";
-import { GAME, defaultMind } from "../src/entrants/game.ts";
+import { rootSegment } from "../src/core/bodies/read-body.ts";
+import { GAME, defaultMind } from "../src/app/catalog.ts";
 
 const { values } = parseArgs({ options: { bodies: { type: "string", default: "8" } } });
 if (CORE_ENGINE !== "rapier") throw new Error("the probe reads Rapier's own rigid bodies");

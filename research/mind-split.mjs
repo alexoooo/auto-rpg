@@ -28,8 +28,8 @@ const DT = 1000 / 120;
 if (!isMainThread) {
   register("./mind-split-hook.mjs", import.meta.url);
   await import("../tests/harness/preload-data.mjs");
-  const { crowdFight } = await import("../src/arena/team-bout.ts");
-  const { buildTeamBout } = await import("../src/evaluation/bout.ts");
+  const { crowdFight } = await import("../src/app/node/game.ts");
+  const { buildTeamBout } = await import("../src/app/node/evaluation.ts");
   const { BOUT_ENGINE } = await import("./bout.mjs");
   const { seed, cap, warm } = workerData;
   /** One playing to its verdict or `seconds`: each step's wall time, and each body's mind's, ms. */

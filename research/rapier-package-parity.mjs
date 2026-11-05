@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { createRapierPhysics } from "../src/core/engine/rapier.ts";
+import { createRapierPhysics } from "../src/core/physics/rapier.ts";
 import { playBout } from "./bout.mjs";
 
 const { values } = parseArgs({ options: { reference: { type: "string" } } });

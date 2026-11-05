@@ -16,23 +16,24 @@
  * It is read until the script is done, or a leg is not done in its time (`CryptLeg.most`): the legs
  * done, each fall, and the steps the members' bodies were pushed apart.
  */
-import type { Command } from "../../core/command/commands.ts";
+import type { Command } from "../../minds/command/commands.ts";
 import { hypot } from "../../core/math/real.ts";
 import { randomStream } from "../../core/math/random.ts";
-import type { MindConfig } from "../../core/mind/config.ts";
-import { presetFitsModel } from "../../core/mind/controller.ts";
-import { modelHolding, modelInfo, type BodyModel } from "../../core/models.ts";
-import { deepFreeze } from "../../core/state.ts";
-import { generateLevel } from "../../dungeon/level.ts";
-import { findPath, walkable, type DungeonMap, type DungeonObstacle, type Point } from "../../dungeon/map.ts";
-import { LEVELS } from "../../dungeon/run.ts";
-import { mindFaults } from "../../ui/mind-link.ts";
-import { FIGHT_ENTRY, CONTROLLERS, defaultMind } from "../../entrants/game.ts";
+import type { MindConfig } from "../../minds/config.ts";
+import { presetFitsModel } from "../../minds/controller.ts";
+import { modelHolding, modelInfo, type BodyModel } from "../../core/bodies/models.ts";
+import { deepFreeze } from "../../core/world/state.ts";
+import { generateLevel } from "../../game/dungeon/level.ts";
+import { findPath, walkable, type DungeonMap, type DungeonObstacle, type Point } from "../../game/dungeon/map.ts";
+import { LEVELS } from "../../game/dungeon/run.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptCase, type CryptLayout, type CryptLeg, type CryptReading } from "../crypt.ts";
 import type { Cases, Json, Reader, Subject } from "../evaluation.ts";
+import { FIGHT_ENTRY } from "../../minds/catalog.ts";
+import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
 
 /** The situations, in their order. */
 const SITUATIONS = ["reversal", "lone", "following", "crossing", "passage", "fallen"] as const;
+
 export type Situation = (typeof SITUATIONS)[number];
 
 /**
@@ -51,8 +52,11 @@ const CROWD = deepFreeze({
 export type CrowdCondition = { readonly situation: Situation; readonly seed: number };
 
 const apart = (a: Point, b: Point): number => hypot(a.x - b.x, a.z - b.z);
+
 const to = (destination: Point): Command => ({ kind: "go", destination: { x: destination.x, z: destination.z } });
+
 const order = (members: readonly string[], destination: Point) => ({ kind: "command" as const, members, command: to(destination) });
+
 const settle: CryptLeg = { acts: [], until: { kind: "seconds", seconds: CROWD.settle }, most: CROWD.settle + 1 };
 
 /**
@@ -162,34 +166,42 @@ function crowdCase(situation: Situation, seed: number, mind: MindConfig): CryptC
   }
 }
 
-/** Why `value` is no mind, or what keeps it from the member's body holding what its model holds (`mindFaults`). */
-function faultsOf(value: Json, subject?: Subject): readonly string[] {
-  const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
-  if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
-  if (!presetFitsModel(subject ?? {}, CROWD.model))
-    return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${CROWD.model} is unavailable`];
-  const held = modelInfo(CROWD.model).held;
-  return mindFaults(value as unknown as MindConfig, modelHolding(CROWD.model, { left: "empty", right: held }), { entry: FIGHT_ENTRY }).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
-}
-
 /** A run's reader: the run's own ending, and its reading. */
 const readCrypt = (built: BuiltCrypt): Reader<CryptReading> =>
   ({ afterStep: () => built.afterStep(), get ended() { return built.ended; }, reading: () => built.reading() });
 
-function crowdCases(protocol: typeof CROWD): Cases<CrowdCondition, CryptReading, BuiltCrypt> {
-  return {
-    arity: 1,
-    play: protocol as unknown as Json,
-    conditions: SITUATIONS.flatMap((situation) => protocol.seeds[situation].map((seed) => ({ situation, seed }))),
-    seconds: CRYPT_CAP,
-    faults: (value, _condition, subject) => faultsOf(value, subject),
-    world: ([mind], { situation, seed }, engine) => ({ kind: "crypt", engine, crypt: crowdCase(situation, seed, mind as unknown as MindConfig) }),
-    read: (built) => readCrypt(built),
-  };
+export function createCrowdCases(context: GameContext) {
+  const { defaultMind } = context;
+  const { controllers: CONTROLLERS } = context.catalog;
+  const mindFaults = contextMindFaults.bind(undefined, context);
+
+  /** Why `value` is no mind, or what keeps it from the member's body holding what its model holds (`mindFaults`). */
+  function faultsOf(value: Json, subject?: Subject): readonly string[] {
+    const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
+    if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
+    if (!presetFitsModel(subject ?? {}, CROWD.model))
+      return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${CROWD.model} is unavailable`];
+    const held = modelInfo(CROWD.model).held;
+    return mindFaults(value as unknown as MindConfig, modelHolding(CROWD.model, { left: "empty", right: held }), { entry: FIGHT_ENTRY }).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
+  }
+
+  function crowdCases(protocol: typeof CROWD): Cases<CrowdCondition, CryptReading, BuiltCrypt> {
+    return {
+      arity: 1,
+      play: protocol as unknown as Json,
+      conditions: SITUATIONS.flatMap((situation) => protocol.seeds[situation].map((seed) => ({ situation, seed }))),
+      seconds: CRYPT_CAP,
+      faults: (value, _condition, subject) => faultsOf(value, subject),
+      world: ([mind], { situation, seed }, engine) => ({ kind: "crypt", engine, crypt: crowdCase(situation, seed, mind as unknown as MindConfig) }),
+      read: (built) => readCrypt(built),
+    };
+  }
+
+  /** Every protocol the crowd task may be played on, by name. */
+  const CROWD_CASES: Readonly<Record<string, Cases<CrowdCondition, CryptReading, BuiltCrypt>>> = Object.freeze({ standard: crowdCases(CROWD) });
+
+  /** The members' mind unless another is named: their model's own (`defaultMind`). */
+  const CROWD_MIND = defaultMind(CROWD.model);
+
+  return { CROWD_MIND, CROWD_CASES };
 }
-
-/** Every protocol the crowd task may be played on, by name. */
-export const CROWD_CASES: Readonly<Record<string, Cases<CrowdCondition, CryptReading, BuiltCrypt>>> = Object.freeze({ standard: crowdCases(CROWD) });
-
-/** The members' mind unless another is named: their model's own (`defaultMind`). */
-export const CROWD_MIND = defaultMind(CROWD.model);

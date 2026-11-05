@@ -43,7 +43,7 @@ The Warrior first, reliably within 10 s on the target in every loadout and on fr
 the Rogue and the Skeleton. A recovery record may adjust its poses and timings by loadout. A body
 gets its own technique where the shared one's ceiling on it is read short. A ground technique
 bears on the ends it needs from where the body is (`BodySpec.ends`,
-`carryRoot`, `bearLimbs`, `src/core/control/bearing.ts`) and holds only the limbs it moves. Check:
+`carryRoot`, `bearLimbs`, `src/control/bearing.ts`) and holds only the limbs it moves. Check:
 the target on every body and loadout, and on fresh falls; rising in fights no worse; the owner
 looks in the Lab's Stand-up mode.
 

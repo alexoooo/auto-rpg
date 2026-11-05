@@ -1,0 +1,389 @@
+import type { BodyControl } from "../core/bodies/body-control.ts";
+import { effectorTracker, type EffectorGoal } from "./effector-tracker.ts";
+import { bodyEffectors, type EffectorModel } from "./effectors.ts";
+import { Quaternion, Vector3 } from "../core/math/vector.ts";
+import { channelName, type MuscleReading } from "../core/bodies/muscle/driver.ts";
+import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { AssistReading } from "../core/bodies/assist.ts";
+import type { Limb, Row } from "./bearing.ts";
+import { servoAsk, servoSolve, type ServoWork } from "./servo.ts";
+import { makeWholeBody, solveBody, type WholeBodyAsk } from "./solve.ts";
+import { stanceControl, type StanceControl, type StanceGoal, type StanceReading } from "./stance.ts";
+import type { SupportGoal } from "./supported-motor.ts";
+import type { BalanceMaker } from "./balance-part.ts";
+import type { StanceTuning } from "./stance-tuning.ts";
+import { type ReadBody, type ReadSegment, rootSegment } from "../core/bodies/read-body.ts";
+import type { Pose } from "../core/bodies/spec/pose.ts";
+
+/**
+ * A freedom driven by its muscles alone: they pull toward `sense` (+1 or -1) at activation `level`
+ * (0 to 1), a torque source at their ceiling, while the servo solves every other freedom around it.
+ * With `speed`, they drive the freedom toward that speed (rad/s, its positive sense) instead, giving
+ * no more than `level` of their strength either way: a damper the solver holds within the step,
+ * as a torque source given at a step's end is not. An unbounded speed (+-Infinity) gives `level`
+ * of their strength toward its sign and none against it, as the servo's own torques do.
+ */
+export interface MusclePush {
+  readonly channel: string;
+  readonly sense: 1 | -1;
+  readonly level: number;
+  readonly speed?: number;
+}
+
+export type { EffectorGoal } from "./effector-tracker.ts";
+
+/**
+ * **A point driven**: a named point of an effector's rigid body (`BodySpec.effectors`: a hand's
+ * knuckles) asked an acceleration, world, m/s^2, its segment a spin's change, world, rad/s^2, or
+ * both; what it is not asked, its place or its turn, is the posture's. The whole-body solve asks
+ * it of the effector's chain beside the stance (`solveBody`), the chain's other freedoms drawn
+ * toward the posture and any torque past a muscle's strength held at its strength, so a point
+ * asked more than the body can give gets what the muscles give. Only a standing body's solve
+ * carries it out: without a stance the chain holds its posture.
+ */
+export interface PointTask {
+  readonly segment: string;
+  readonly point: string;
+  readonly accel: Vec3 | null;
+  readonly spin?: Vec3 | null;
+}
+
+/**
+ * **Motor control: goals in, muscle commands out.** A body is given a posture (angles for the
+ * freedoms, by name, the rest held at their reference angles) and, for each effector (`BodySpec.effectors`:
+ * a hand, a foot), places for named points of its rigid body (a hand's knuckles, a point of what it
+ * holds) in the body frame (the root's frame, `kinematics.ts`) and the time to get there
+ * (`EffectorGoal`). Each point travels a straight, minimum-jerk path from where it is; each step the
+ * paths' points become the angles of the effector's chain (an arm's shoulder, elbow and wrist) by
+ * inverse kinematics, with the rest of the body at the posture's angles, and the servo
+ * (`servo.ts`) follows those angles with their rates and accelerations fed forward, bounded by the
+ * muscles. What a goal leaves free of an arm (one place leaves four of its seven freedoms, two leave
+ * two) settles toward the posture's angles.
+ * The wrist is the arm's: held at the posture's angle, a point of a held item half a metre from
+ * the hand has no path the solve can follow over much of its reach.
+ *
+ * The rates and accelerations are the inverse kinematics differenced a step either side along the
+ * path, each solved from the angles the last step found.
+ *
+ * A pushed freedom (`MusclePush`) is left to its muscles, whichever goal would own it, and the
+ * servo solves the others around the torque it gives.
+ *
+ * With a stance (`StanceGoal`), the stance's asks and the posture's are one problem, the whole
+ * body solved as one (`solveBody`, `solve.ts`): the stance legs carry the body on the ground
+ * (`stance.ts`) and the rest follows its posture and its effectors' goals; without one, the legs
+ * hold the posture from the pelvis, as a body carried or in the air, and the servo solves it.
+ */
+export interface MotorControl {
+  /** The goals beyond a posture and pushes it carries out (`MotorGoal`): what it has the members for (`carrying`). */
+  readonly carries: readonly MotorGoal[];
+  /** Read the body as it stands: its centre of mass and what bears it, into `reading`. A body reads this before its driver decides. */
+  read(): void;
+  /** What its last reading found and its last command asked of what bears the body (`StanceReading`). */
+  readonly reading: StanceReading;
+  /** The controller for `driveMuscles`. */
+  control(muscles: MuscleReading, control: BodyControl, dt: number): void;
+  /** Hold `pose` for every freedom no effector's goal owns, from `control`'s next call. */
+  setPosture(pose: Pose): void;
+  /** Drive `pushes` flat out from `control`'s next call, in place of those before. */
+  setPushes(pushes: readonly MusclePush[]): void;
+  /** Forget what was under way: no pushes, and none of the goals it carries (`StanceControl.reset` with a stance). The posture stays. */
+  reset(): void;
+  /** The segment whose frame the body frame is carried by. */
+  readonly root: ReadSegment;
+  /** What of its last step's command it did not carry out (`MotorUnmet`), in its state. */
+  readonly unmet: MotorUnmet;
+  /** Its memory (`src/core/world/state.ts`). */
+  readonly state: object;
+}
+
+/**
+ * **What a motor did not carry out** of its last step's command: by channel (the muscles' order),
+ * 1 where a push was overridden, its freedom driven by the stance's legs instead; and how many
+ * driven points (`PointTask`) went undriven, no stance having asked for the solve that drives them.
+ */
+export interface MotorUnmet {
+  readonly pushes: Uint8Array;
+  points: number;
+}
+
+/**
+ * **A goal a motor may carry out** beside a posture and pushes: effectors' places (`Reaching`),
+ * driven points (`Pointing`), a stance (`Balancing`), a support over the ends a body bears on
+ * (`Supporting`) and freedoms carried along paths (`Pathing`). A motor says which
+ * (`MotorControl.carries`), and what drives it asks for those it needs where it is made (`carrying`).
+ */
+type MotorGoal = "effectors" | "points" | "stance" | "support" | "paths";
+
+/**
+ * **A freedom carried along a path**: its angle, rad, its rate, rad/s, and its acceleration,
+ * rad/s^2, this step, followed at `seconds`' response where it names one, the motor's own else.
+ */
+export interface FreedomPath {
+  readonly angle: number;
+  readonly rate: number;
+  readonly acceleration: number;
+  readonly seconds?: number;
+}
+
+/** **A motor that takes effectors to places** (`EffectorGoal`). */
+interface Reaching {
+  /** What it can reach with, in declared order. */
+  readonly effectors: readonly EffectorModel[];
+  /**
+   * Take the effector of `segment` to `goal`, from `control`'s next call. It refuses, with the
+   * reason, a point its rigid body has not, no place or more than two, and two places whose
+   * distance apart differs from their points' by more than `PLACES_SLACK`.
+   */
+  reach(segment: string, goal: EffectorGoal): void;
+  /** Give the chain of `segment`'s effector back to the posture. */
+  release(segment: string): void;
+  /** Where the path of `segment`'s first place stands now (body frame), or null with no goal. */
+  path(segment: string): Vector3 | null;
+  /** Where `point` of `segment`'s rigid body is now, body frame. */
+  pointToRef(segment: string, point: string, out: Vector3): Vector3;
+}
+
+/** **A motor that drives effectors' points** (`PointTask`). */
+interface Pointing {
+  /**
+   * Drive `tasks`' points from `control`'s next call, in place of those before (`PointTask`). It
+   * refuses a segment with no effector, a point its rigid body has not, and two tasks on one segment.
+   */
+  setPoints(tasks: readonly PointTask[]): void;
+}
+
+/** **A motor that stands the body on the ground**: its balance (`BalancePart`) carries out a stance goal. */
+interface Balancing {
+  /** Stand on the ground as `goal` asks, or with null leave the legs to the posture, from `control`'s next call. */
+  setStance(goal: StanceGoal | null): void;
+  /** The stance goal it was last given, or null: what the legs are asked to hold. */
+  readonly standing: StanceGoal | null;
+  /** Its balance: the stance's readings, as its last step left them. */
+  readonly stance: StanceControl;
+}
+
+/** **A motor that holds the body over the ends it bears on** (`SupportGoal`). */
+interface Supporting {
+  /** Hold the body as `goal` asks, or with null leave it to the posture, from `control`'s next call. */
+  setSupport(goal: SupportGoal | null): void;
+  /** The support goal it was last given, or null. */
+  readonly supported: SupportGoal | null;
+}
+
+/** **A motor that carries freedoms along paths** (`FreedomPath`). */
+interface Pathing {
+  /** Carry each freedom `paths` names, by channel, along its path from `control`'s next call, in place of those before. */
+  setPaths(paths: Readonly<Record<string, FreedomPath>>): void;
+}
+
+/** A motor with the members of each goal of `G`. */
+export type Carrying<G extends MotorGoal> = MotorControl & ("effectors" extends G ? Reaching : unknown) & ("points" extends G ? Pointing : unknown)
+  & ("stance" extends G ? Balancing : unknown) & ("support" extends G ? Supporting : unknown) & ("paths" extends G ? Pathing : unknown);
+
+/** What a person calls each goal, in a refusal. */
+const GOAL_NAMES: Readonly<Record<MotorGoal, string>> = Object.freeze({ effectors: "effectors' places", points: "driven points", stance: "a stance",
+  support: "a support over its ends", paths: "freedoms' paths" });
+
+/** Whether `motor` carries `goal`: it is then a motor with that goal's members. */
+export const carries = <G extends MotorGoal>(motor: MotorControl, goal: G): motor is Carrying<G> => motor.carries.includes(goal);
+
+/**
+ * `motor` as one that carries `goals`, for `who` to drive it by them: a thrown error, where it is
+ * made, naming the first goal it does not carry.
+ */
+export function carrying<G extends MotorGoal>(motor: MotorControl, goals: readonly G[], who: string): Carrying<G> {
+  for (const goal of goals) if (!motor.carries.includes(goal)) throw new Error(`${who} needs a motor that carries ${GOAL_NAMES[goal]}`);
+  return motor as Carrying<G>;
+}
+
+/** **The whole-body solve**: its effectors' places, driven points and a stance (`motorControl`). */
+export type WholeBody = Carrying<"effectors" | "points" | "stance">;
+
+/** The whole-body solve's goals. */
+const WHOLE_GOALS: readonly MotorGoal[] = Object.freeze(["effectors", "points", "stance"]);
+
+/**
+ * Motor control of `built`, servoing at a time constant of `seconds`; its balance (`balance`, the
+ * stance unless given) asks `assist` for what the soles miss.
+ */
+export function motorControl(built: ReadBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: AssistReading | null = null,
+  balance: BalanceMaker = stanceControl): WholeBody {
+  const stance = balance(built, stanceTuning, assist);
+  const root = rootSegment(built);
+  // A path's solve begins from the limb's angles as they are: begun from another solve's, or the
+  // reference pose's, it can find a limb otherwise placed, and the servo drives the limb there
+  // (a foot lifted from the ground pressed into it).
+  const tracker = effectorTracker(built, root, { seedActual: true });
+  const points = pointLimbs(built);
+  const freedoms = [...built.joints.values()].reduce((count, joint) => count + joint.dofs.length, 0);
+  // The solve's work, made at its first solve: a body makes motors it may never run.
+  let whole: ReturnType<typeof makeWholeBody> | null = null;
+  let driven: WholeBodyAsk | null = null;
+  const unmet: MotorUnmet = { pushes: new Uint8Array(freedoms), points: 0 };
+  // Each firm freedom's speed at the step's end as the servo asks it (`EffectorGoal.firm`); NaN where none is firm.
+  const firm = new Float64Array(freedoms);
+  const state = { pose: posture, pushes: [] as readonly MusclePush[], points: [] as readonly PointTask[], standing: null as StanceGoal | null,
+    effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state, unmet };
+  const control = (driver: MuscleReading, command: BodyControl, dt: number) => {
+    const { pose, pushes, standing } = state;
+    const owned = tracker.step(driver, pose, dt, !!standing?.pose);
+    stance.command(driver, standing, dt);
+    unmet.pushes.fill(0);
+    const work = servoAsk(driver, command.muscles, (i) => {
+      const name = driver.channels[i]!.name;
+      const push = pushes.find((p) => p.channel === name);
+      if (!push) return standing && stance.owned[i] ? undefined : owned(i)?.[0] ?? pose[name] ?? 0;
+      // The stance's solve gives a freedom its legs drive its own torque, over the push.
+      if (standing && stance.owned[i]) unmet.pushes[i] = 1;
+      command.muscles.velocity[i] = push.speed ?? push.sense * UNREACHABLE;
+      command.muscles.activation[i] = push.level;
+      return undefined;
+    }, seconds, dt, {
+      seconds: (i) => {
+        if (!owned(i)) return standing?.pose?.seconds ?? seconds;
+        const name = driver.channels[i]!.name;
+        return tracker.response(name) ?? seconds;
+      },
+      rate: (i) => owned(i)?.[1] ?? 0,
+      acceleration: (i) => owned(i)?.[2] ?? 0,
+    });
+    let anyFirm = false;
+    for (let i = 0; i < freedoms; i++) {
+      firm[i] = !work.fixed[i] && owned(i) && tracker.firm(i) ? driver.speed(i) + work.accel[i]! * dt : NaN;
+      if (!Number.isNaN(firm[i]!)) anyFirm = true;
+    }
+    const ask = standing ? stance.ask(driver) : null;
+    unmet.points = ask ? 0 : state.points.length;
+    if (ask) {
+      let asked = ask;
+      if (state.points.length) {
+        driven ??= drivenAsk(ask, points);
+        driven.lever = ask.lever;
+        for (const one of points) aimPoint(one, state.points, driver, work);
+        asked = driven;
+      }
+      solveBody(whole ??= makeWholeBody(freedoms, 2, points.length), driver, command, work, asked, assist);
+      stance.launch(command.muscles);
+    }
+    else servoSolve(driver, command.muscles, work, undefined, standing?.pose ? stance.owned : undefined);
+    // A firm freedom is a velocity motor toward the speed asked, at its muscles' full strength.
+    if (anyFirm) for (let i = 0; i < freedoms; i++) {
+      if (Number.isNaN(firm[i]!)) continue;
+      command.muscles.velocity[i] = firm[i]!;
+      command.muscles.activation[i] = 1;
+    }
+  };
+
+  return {
+    carries: WHOLE_GOALS, control, effectors: tracker.models, reading: stance.reading, read: () => stance.read(),
+    setPosture(next) { state.pose = next; },
+    reach: tracker.reach,
+    release: tracker.release,
+    setPushes(next) { state.pushes = next; },
+    setPoints(next) {
+      for (const [k, task] of next.entries()) {
+        const one = points.find((limb) => limb.limb.segment.spec.name === task.segment);
+        if (!one) throw new Error(`no effector ${task.segment}`);
+        if (!one.points.has(task.point)) throw new Error(`no effector point ${task.segment}/${task.point}`);
+        if (next.findIndex((other) => other.segment === task.segment) !== k) throw new Error(`two points driven on ${task.segment}`);
+      }
+      state.points = next;
+    },
+    setStance(next) { state.standing = next; },
+    get standing() { return state.standing; },
+    reset() {
+      state.pushes = NO_PUSHES;
+      state.points = NO_POINTS;
+      state.standing = null;
+      tracker.reset();
+      stance.reset();
+    },
+    stance, state, unmet,
+    path: tracker.path,
+    pointToRef: tracker.pointToRef,
+    root,
+  };
+}
+
+/** No freedom pushed. */
+const NO_PUSHES: readonly MusclePush[] = Object.freeze([]);
+/** No point driven. */
+const NO_POINTS: readonly PointTask[] = Object.freeze([]);
+
+/** The three rows of a point's linear motion, and of its segment's spin. */
+const LINEAR: readonly Row[] = Object.freeze([Object.freeze([[3, 1]] as const), Object.freeze([[4, 1]] as const), Object.freeze([[5, 1]] as const)]);
+const ANGULAR: readonly Row[] = Object.freeze([Object.freeze([[0, 1]] as const), Object.freeze([[1, 1]] as const), Object.freeze([[2, 1]] as const)]);
+
+/**
+ * **An effector as the solve drives its point**: its limb, its rigid body's named points
+ * (reference pose, body frame), and its chain's and stem's channels by name, which the limb takes
+ * as the driver numbers them at its first task.
+ */
+interface PointLimb {
+  readonly limb: Limb & { readonly memory: { channels: number[] }; readonly stem: number[]; readonly work: { readonly ahead: number[]; toward: number[] | null } };
+  readonly points: ReadonlyMap<string, Vec3>;
+  readonly chain: readonly string[];
+  readonly stem: readonly string[];
+}
+
+/**
+ * Each effector's limb: its chain the freedoms it owns (an arm's), its stem those between the root
+ * and them (the trunk's), asked its point's linear motion, its spin, or both.
+ */
+function pointLimbs(built: ReadBody): PointLimb[] {
+  return bodyEffectors(built).map(({ segment, chain, points, free }) => {
+    const m = free.length;
+    return {
+      limb: {
+        segment, memory: { channels: [] }, stem: [], reach: 1,
+        task: { on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(m) },
+        work: { at: new Vector3(), rows: LINEAR, ahead: new Array<number>(m).fill(NaN), toward: new Array<number>(m).fill(0), patch: null, share: 1 },
+      },
+      points, chain: free.map((f) => f.name),
+      stem: chain.slice(0, free[0]!.joint).flatMap((joint) => joint.dofs.map((_, k) => channelName(joint, k))),
+    };
+  });
+}
+
+/** The stance's ask with the effectors' limbs after its own, sharing its records. */
+function drivenAsk(ask: WholeBodyAsk, points: readonly PointLimb[]): WholeBodyAsk {
+  return { aim: ask.aim, limbs: [...ask.limbs, ...points.map((one) => one.limb)], lever: ask.lever, root: ask.root, helped: ask.helped,
+    shortfall: ask.shortfall, asked: [...ask.asked, ...points.map(() => ({ at: new Vector3(), force: new Vector3(), moment: new Vector3() }))] };
+}
+
+/**
+ * `one`'s task for the step, from the point task on its segment among `tasks`: on, its point where
+ * it is and its acceleration asked, its freedoms drawn toward what the servo asks them; off with none.
+ */
+function aimPoint(one: PointLimb, tasks: readonly PointTask[], driver: MuscleReading, work: ServoWork): void {
+  const { limb } = one, task = tasks.find((t) => t.segment === limb.segment.spec.name);
+  limb.task.on = task !== undefined;
+  if (!task) return;
+  if (limb.memory.channels.length !== one.chain.length) {
+    limb.memory.channels = one.chain.map((name) => driver.channel(name));
+    limb.stem.push(...one.stem.map((name) => driver.channel(name)));
+  }
+  pointNow(limb.segment, one.points.get(task.point)!, limb.work.at);
+  const { accel, spin } = task;
+  limb.work.rows = accel && spin ? null : accel ? LINEAR : ANGULAR;
+  if (accel) limb.task.linear.set(accel[0], accel[1], accel[2]);
+  if (spin) limb.task.angular.set(spin[0], spin[1], spin[2]);
+  const toward = limb.work.toward!, channels = limb.memory.channels;
+  for (let c = 0; c < channels.length; c++) toward[c] = work.accel[channels[c]!]!;
+}
+
+const turned = new Quaternion();
+/** Where `point` (reference pose, body frame) of `segment` is now, world, into `at`. */
+function pointNow(segment: ReadSegment, point: Vec3, at: Vector3): void {
+  const origin = segment.frame.origin, pose = segment.pose;
+  Quaternion.InverseToRef(segment.rest, turned);
+  pose.rotation.multiplyToRef(turned, turned);
+  at.set(point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]).applyRotationQuaternionToRef(turned, at).addInPlace(pose.position);
+}
+
+/**
+ * Rad/s beyond any joint's unloaded speed: a pushed motor's target, which the driver holds to the
+ * muscles' reach (`forceVelocityReach`), so the motor pushes at its ceiling until the joint gets there.
+ * A numeric setting: any speed no joint reaches does.
+ */
+export const UNREACHABLE = 1e3;

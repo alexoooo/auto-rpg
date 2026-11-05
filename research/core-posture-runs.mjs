@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { Worker } from "node:worker_threads";
 import { Vector3 } from "../src/core/math/vector.ts";
-import { pointOfToRef } from "../src/core/read-motion.ts";
+import { pointOfToRef } from "../src/core/bodies/read-motion.ts";
 import { posed } from "./core-posture-trials.mjs";
 
 /**

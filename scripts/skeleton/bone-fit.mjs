@@ -16,7 +16,7 @@
  * Body frame (+x right, +y up, +z front), metres; points rounded to 0.1 mm. The meshes are closed,
  * so a solid's volume is the sum of its triangles' signed tetrahedra; the art's winding gives them
  * one sign throughout, checked. `node scripts/skeleton/bone-fit.mjs` prints a summary; `--write`
- * writes the file. `skeletonFigure` (`src/core/human/skeleton.ts`) builds the body from it: each
+ * writes the file. `skeletonFigure` (`src/core/bodies/human/skeleton.ts`) builds the body from it: each
  * segment its bones' centre of mass and inertia at men's share of 15 kg, and their hull as its
  * collider, but a shank a capsule as wide as its bones and a foot the box on its bones.
  */
@@ -24,9 +24,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MeshoptDecoder } from "meshoptimizer";
-import { parseSkeletonArt, SKELETON_PIECES } from "../../src/render/skeleton-skin.ts";
-import { convexHull } from "../../src/core/spec/hull.ts";
-import { add, dot, normalize, orthogonalTo, scale, sub } from "../../src/core/spec/vec.ts";
+import { parseSkeletonArt, SKELETON_PIECES } from "../../src/app/browser/render/skeleton-skin.ts";
+import { convexHull } from "../../src/core/bodies/spec/hull.ts";
+import { add, dot, normalize, orthogonalTo, scale, sub } from "../../src/core/bodies/spec/vec.ts";
 import { PATCH } from "../core/hand-envelope.mjs";
 import bind from "../../assets/skeleton/bind.json" with { type: "json" };
 

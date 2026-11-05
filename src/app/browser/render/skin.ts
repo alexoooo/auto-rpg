@@ -1,0 +1,224 @@
+import type { Clothing, SkinView } from "./skin-view.ts";
+import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
+import { sceneModel } from "./asset-cache.ts";
+// The glTF loader registers itself on import; without it the load finds no plugin for `.glb`.
+import "@babylonjs/loaders/glTF/index.js";
+import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
+import type { Scene } from "@babylonjs/core/scene.js";
+import fighterRig from "../../../../assets/humanoid/workshop-fighter.json" with { type: "json" };
+import rogueRig from "../../../../assets/humanoid/workshop-rogue.json" with { type: "json" };
+import { characterAssetUrl } from "./art-assets.ts";
+import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
+import { FIT_SCALE } from "../../../core/bodies/human/model.ts";
+import type { WorkshopModel } from "../../../core/bodies/human/rig.ts";
+import { visiblePart } from "../../../game/appearance/characters.ts";
+import { CLUB_GRIP } from "./club-grip.ts";
+import { FIST, fistTurns, type RestBone } from "./fist.ts";
+import type { Side } from "../../../core/bodies/spec/body.ts";
+import { skinReference } from "./body-deformation.ts";
+import { modelSpec } from "../../../core/bodies/models.ts";
+import { skinApart } from "./skin-apart.ts";
+
+/**
+ * **The body as the world sees it**: the workshop model's skinned mesh, each bone carried by
+ * the core segment it belongs to. It reads the segments' achieved transforms and nothing else; it
+ * owns no collision and decides nothing, so what it shows is a costume on the shapes `body-shapes.ts`
+ * draws.
+ *
+ * A bone follows one segment rigidly: its bind pose relative to the segment's reference frame is
+ * held. The rig's bind pose is the spec's reference pose (the spec's segment ends are the rig's
+ * bone ends), so at the reference pose the skin is its bind pose, scaled by the fit scale.
+ * Finger bones hold a grip against their parents, between the relaxed hand and a fist as the
+ * caller's closure says; a hand that holds something is closed on it (`CLUB_GRIP`). The arm's
+ * twist helpers follow their own segment, with no share of the next one's twist; a wrist turned far
+ * shows a pinch. A part cut off is drawn apart from the body (`skinApart`).
+ */
+interface RigBone { readonly host: string; readonly head: readonly number[] }
+type Grip = Readonly<Record<string, readonly number[]>>;
+interface Rig { readonly bones: Readonly<Record<string, RigBone>>; readonly grips: { readonly empty: Grip } }
+const RIGS: Readonly<Record<WorkshopModel, Rig>> = {
+  "workshop-fighter": fighterRig as Rig,
+  "workshop-rogue": rogueRig as Rig,
+};
+
+const TRUNK = ["upperTrunk", "middleTrunk", "lowerTrunk"] as const;
+
+/** A grip's turn, which the rig stores w first, as a Babylon quaternion. */
+const gripQuaternion = (pose: readonly number[]) => new Quaternion(pose[1]!, pose[2]!, pose[3]!, pose[0]!);
+
+/**
+ * The rig's hosts, the asset's own names for the body's parts, as core segments. The rig's primary
+ * side is its right. The trunk and pelvis hosts are split among the three trunk segments by
+ * `trunkSegment`; the neck goes with the head, as de Leva's head runs to the cervicale.
+ */
+const HOSTS: Readonly<Record<string, string>> = {
+  "torso.core": "trunk", "locomotion.pelvis": "trunk", "head.neck": "head", "head.head": "head",
+  "primary.upper": "upperArm.right", "primary.fore": "forearm.right", "primary.hand": "hand.right",
+  "secondary.upper": "upperArm.left", "secondary.fore": "forearm.left", "secondary.hand": "hand.left",
+  "locomotion.thighR": "thigh.right", "locomotion.shinR": "shank.right", "locomotion.footR": "foot.right",
+  "locomotion.thighL": "thigh.left", "locomotion.shinL": "shank.left", "locomotion.footL": "foot.left",
+};
+
+const loads = new WeakMap<Scene, Map<WorkshopModel, Promise<AssetContainer>>>();
+/** `model`'s asset, loaded once per scene; the scene owns it and its materials. */
+export function loadSkin(model: WorkshopModel, scene: Scene): Promise<AssetContainer> {
+  let byModel = loads.get(scene);
+  if (!byModel) loads.set(scene, byModel = new Map());
+  let load = byModel.get(model);
+  if (!load) {
+    load = characterAssetUrl(model).then(url => sceneModel(url, scene));
+    void load.catch(() => byModel.delete(model));
+    byModel.set(model, load);
+  }
+  return load;
+}
+
+const localMatrix = (node: TransformNode): Matrix =>
+  Matrix.Compose(node.scaling, node.rotationQuaternion ?? Quaternion.FromEulerVector(node.rotation), node.position);
+const segmentMatrix = (node: TransformNode): Matrix =>
+  Matrix.Compose(Vector3.One(), node.rotationQuaternion!, node.position);
+
+/** The trunk segment whose span holds `point` (body frame), or the nearest span's. */
+function trunkSegment(built: DrawnBody, point: Vector3): DrawnSegment {
+  let best: DrawnSegment | null = null, bestOutside = Infinity;
+  for (const name of TRUNK) {
+    const segment = built.segments.get(name)!, { frame, spec } = segment;
+    const along = Vector3.Dot(point.subtract(Vector3.FromArray(frame.origin)), Vector3.FromArray(frame.y));
+    const span = Vector3.Distance(Vector3.FromArray(spec.proximal.value), Vector3.FromArray(spec.distal.value));
+    const outside = Math.max(0, -along, along - span);
+    if (outside < bestOutside) { best = segment; bestOutside = outside; }
+  }
+  return best!;
+}
+
+/**
+ * Dress `built` in its model's skin from `container`, which `loadSkin` loaded into `scene`, wearing
+ * `clothing`; no workshop weapon is ever shown. `closure` says, each frame, how far each empty
+ * hand is closed into a fist, 0 relaxed to 1 closed; a hand that holds something (`BodySpec.held`)
+ * is closed on its haft.
+ */
+export function dressBody(built: DrawnBody, container: AssetContainer, scene: Scene, clothing: Clothing,
+  closure?: (hand: Side) => number): SkinView {
+  const model = built.spec.model as WorkshopModel, rig = RIGS[model], prefix = `${model}.skin.`;
+  // Materials stay the container's, which the scene owns and other bodies share: a body part never
+  // disposes them.
+  const instance = container.instantiateModelsToScene((name) => prefix + name, false, { doNotInstantiate: true });
+  const nodes = instance.rootNodes.flatMap((root) => [root, ...root.getDescendants(false)]) as TransformNode[];
+  const nameOf = (node: TransformNode) => node.name.slice(prefix.length);
+
+  // Rest world matrices from the nodes' own transforms, never `getWorldMatrix()`, whose per-frame
+  // cache the first reader freezes: the loader's root turns glTF's frame into Babylon's, which is
+  // the body frame, at the authored size.
+  const rest = new Map<TransformNode, Matrix>();
+  const restOf = (node: TransformNode): Matrix => {
+    let matrix = rest.get(node);
+    if (!matrix) {
+      matrix = node.parent ? localMatrix(node).multiply(restOf(node.parent as TransformNode)) : localMatrix(node);
+      rest.set(node, matrix);
+    }
+    return matrix;
+  };
+  nodes.forEach(restOf);
+
+  const fit = Matrix.Scaling(FIT_SCALE.value, FIT_SCALE.value, FIT_SCALE.value);
+  const relaxed = rig.grips.empty;
+  // A hand closes into a fist, or on what it holds.
+  const holding = {
+    left: built.spec.held?.some((held) => held.segment === "hand.left") ?? false,
+    right: built.spec.held?.some((held) => held.segment === "hand.right") ?? false,
+  };
+  const fist = new Map<string, Quaternion>();
+  const gripping = new Map<string, Quaternion>();
+  for (const side of ["r", "l"] as const) {
+    const hand = nodes.find((node) => nameOf(node) === `hand_${side}`)!;
+    const bones = new Map<string, RestBone>();
+    for (const node of hand.getDescendants(false) as TransformNode[]) {
+      bones.set(nameOf(node), { parent: nameOf(node.parent as TransformNode), rotation: node.rotationQuaternion!.clone(), position: node.position.clone() });
+    }
+    const closed = holding[side === "r" ? "right" : "left"] ? CLUB_GRIP[model] : FIST[model];
+    for (const [name, turn] of fistTurns(bones, side, closed)) fist.set(name, turn);
+    for (const [name, turn] of fistTurns(bones, side, CLUB_GRIP[model])) gripping.set(name, turn);
+  }
+  // Parents come before children: `getDescendants` walks depth first.
+  const rows = nodes.filter((node) => rig.bones[nameOf(node)]).map((node) => {
+    const name = nameOf(node), open = relaxed[name], shut = fist.get(name);
+    if (open && shut) {
+      // A finger: its rest local, turned by the grip, on its parent as achieved.
+      const scaling = new Vector3(), rotation = new Quaternion(), position = new Vector3();
+      localMatrix(node).decompose(scaling, rotation, position);
+      const finger = { hand: (name.endsWith("_r") ? "right" : "left") as Side, scaling, rotation, position,
+        open: gripQuaternion(open), fist: shut, grip: gripping.get(name)! };
+      return { node, segment: null, held: new Matrix(), finger };
+    }
+    const host = HOSTS[rig.bones[name]!.host];
+    if (!host) throw new Error(`${model}: bone ${name} has host ${rig.bones[name]!.host}, which names no core segment`);
+    const atFit = restOf(node).multiply(fit);
+    const size = built.spec.stature.value / modelSpec(model).stature.value;
+    const segment = host === "trunk" ? trunkSegment(built, atFit.getTranslation().scale(size)) : built.segments.get(host);
+    if (!segment) throw new Error(`${model}: no segment ${host} for bone ${name}`);
+    // The bone at x1 in the segment's reference frame; times the segment as achieved, the bone.
+    return { node, segment, held: atFit.multiply(skinReference(built, segment.spec.name)), finger: null };
+  });
+
+  const meshes = nodes.filter((node): node is Mesh => node instanceof Mesh && node.getTotalVertices() > 0);
+  // Each bone's segment, by the bone's node: a finger's is its hand's; a bone no row carries stays with the body.
+  const carriers = new Map(rows.map((row) => [row.node, row.finger ? `hand.${row.finger.hand}` : row.segment!.spec.name]));
+  // Each worn mesh is drawn apart while it is shown; one never worn, a workshop weapon, never is.
+  const parting = meshes.filter((mesh) => mesh.skeleton).map((mesh) => ({ mesh, part: skinApart(mesh, built,
+    mesh.skeleton!.bones.reduce<(string | null)[]>((by, bone) => { by[bone.getIndex()] = carriers.get(bone.getTransformNode() as TransformNode) ?? null; return by; }, [])) }));
+  let worn: Mesh[] = [], enabled = true;
+  const wear = (to: Clothing) => {
+    worn = meshes.filter((mesh) => visiblePart(nameOf(mesh), { ...to, weapon: "empty" }));
+    for (const mesh of meshes) mesh.setEnabled(enabled && worn.includes(mesh));
+  };
+  for (const mesh of meshes) {
+    mesh.isPickable = false;
+    // The mesh's bounds are its bind pose's where it was authored; the body walks away from them.
+    mesh.alwaysSelectAsActiveMesh = true;
+  }
+  wear(clothing);
+
+  const achieved = new Map<TransformNode, Matrix>();
+  const relative = new Matrix(), turn = new Quaternion(), curled = new Quaternion();
+  const update = () => {
+    if (!meshes.some(mesh => mesh.isEnabled() && mesh.isVisible)) return;
+    for (const { mesh, part } of parting) if (mesh.isEnabled()) part();
+    achieved.clear();
+    const physicalClosure = (hand: Side): number => {
+      const pose = built.handPoses.state[hand]?.applied;
+      return closure ? closure(hand) : pose === "open" ? 0 : 1;
+    };
+    const shut = { left: holding.left ? 1 : physicalClosure("left"), right: holding.right ? 1 : physicalClosure("right") };
+    for (const row of rows) {
+      if (row.finger) {
+        const { hand, scaling, rotation, position, open, fist, grip } = row.finger;
+        Quaternion.SlerpToRef(open, built.handPoses.state[hand]?.applied === "grip" ? grip : fist, shut[hand], turn);
+        rotation.multiplyToRef(turn, curled);
+        Matrix.ComposeToRef(scaling, curled, position, row.held);
+      }
+      const parent = row.node.parent as TransformNode;
+      const parentMatrix = achieved.get(parent) ?? rest.get(parent) ?? Matrix.IdentityReadOnly;
+      const world = row.segment ? row.held.multiply(segmentMatrix(row.segment.node)) : row.held.multiply(parentMatrix);
+      achieved.set(row.node, world);
+      world.multiplyToRef(Matrix.Invert(parentMatrix), relative);
+      row.node.rotationQuaternion ??= Quaternion.Identity();
+      relative.decompose(row.node.scaling, row.node.rotationQuaternion, row.node.position);
+    }
+  };
+  update();
+  const observer = scene.onBeforeRenderObservable.add(update);
+  return {
+    meshes,
+    setEnabled(to) {
+      enabled = to;
+      for (const mesh of worn) mesh.setEnabled(enabled);
+    },
+    wear,
+    dispose() {
+      scene.onBeforeRenderObservable.remove(observer);
+      instance.dispose();
+    },
+  };
+}

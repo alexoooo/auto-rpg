@@ -1,0 +1,213 @@
+/**
+ * The stance's records: what it is made with (`Stance`), what it remembers from one step to the
+ * next (`StanceState`), and the values its functions work in (`StanceScratch`).
+ */
+import { Quaternion, Vector3 } from "../core/math/vector.ts";
+import type { AssistReading } from "../core/bodies/assist.ts";
+import type { Limb, LimbTask } from "./bearing.ts";
+import type { WholeBodyAsk } from "./solve.ts";
+import type { StanceEnd, StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
+import { makeSwingShiftWork, type SwingShift, type SwingShiftWork } from "./swing-leg.ts";
+import type { SwingBow } from "./swing-path.ts";
+import { resolveStance, SUPPORT_INSET, type GaitTuning, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
+import { footStatesOf, restWidth, soleRefusal, type FootMemory, type FootState } from "./support.ts";
+import { massOf, partsOn, type Parts } from "../core/bodies/read-motion.ts";
+import type { BearingEnd, Side } from "../core/bodies/spec/body.ts";
+import type { ReadBody, ReadSegment } from "../core/bodies/read-body.ts";
+
+/**
+ * **What a stance remembers**: everything a step writes that a later step, or a reader between
+ * steps, reads. It is plain data -- numbers, strings, plain objects, arrays, typed arrays, vectors
+ * and turns, and no segment, joint, body or function -- so the whole of a stance's memory is this
+ * one record.
+ *
+ * With it are four values no later step reads: what `command` leaves for the whole-body solve of
+ * its own step (`aim`, `helped`, `tasks`), and the turn a swing asks (`step.turn`).
+ */
+interface StanceState {
+  /** The supported root pose requested this step; null uses the walking planner. */
+  pose: StanceGoal["pose"] | null;
+  /** The foot of the last step of a walk, while it steps on without standing between. */
+  stride: Side | null;
+  /** The walk the stance's step under way is for, if it is a walk's: the pace it was planned at (`reachablePace`), which `pace` goes on from. */
+  striding: readonly [number, number] | null;
+  /** Each channel the last command drove, 1, or 0. */
+  owned: Uint8Array;
+  /** The feet the last command had bear the body, by name; null if it asked for no stance. */
+  last: readonly BearingEnd[] | null;
+  /** The step pattern of the goal last commanded (`StanceGoal.gait`), or the stance's own. */
+  gait: GaitTuning;
+  /** The walk's pace, world (x, z), m/s: toward the goal's at the gait's acceleration, toward none standing. */
+  readonly pace: [number, number];
+  /** How far below the goal's height the walk holds the plan, m, so that its legs reach the steps its pace takes (`paceToward`); 0 standing. */
+  crouch: number;
+  /** The step under way: its swing, the time since its foot left the ground, where, how and how fast the foot left it, and the turn asked of it now. */
+  readonly step: {
+    swing: SwingGoal | null;
+    lifted: boolean;
+    /** Whether the pivot the plan falls about has been chosen in the step's phase under way (`planAcross`): within the horizon of the phase's end it is held. */
+    pivoted: boolean;
+    time: number;
+    /** Whether its sole has met the ground from `LANDS_FROM` of its time: the step has landed (`SwingGoal.early`). */
+    met: boolean;
+    /** How long a walk's double support has run, s. */
+    held: number;
+    /** How far the capture point was from what the bearing sole holds at a weight shift's last command, m; Infinity before its first. */
+    off: number;
+    /** Whether the step under way catches a push (`catchStep`): it runs to its landing before any step the goal asks. */
+    catching: boolean;
+    /** Whether the stance's own step under way is a recovery step (`recoveryStep`), re-aimed as one (`aimRecovery`). */
+    recovering: boolean;
+    /**
+     * The way the pelvis faced as the recovery under way began (`recovering`), rad, as a heading is
+     * counted; null with none. The pelvis holds it, and the recovery's steps land facing it.
+     */
+    facing: number | null;
+    readonly from: Vector3;
+    /** The sole's middle's velocity as the foot left the ground, world, m/s (`SwingGoal.momentum`). */
+    readonly launch: Vector3;
+    readonly turn: Quaternion;
+    readonly lift: Quaternion;
+    /** How far the sole's lowest corner lay below its middle under the turn asked at the last command, m (`soleDrop`), for the path's rate (`swingFoot`). */
+    drop: number;
+    /** The swing leg's reaction on the plan, as the last command found it (`swingShiftToRef`). */
+    readonly shift: SwingShift;
+  };
+  /**
+   * The centre of mass's planned place (x, height over the soles, z) and velocity, since the stance
+   * began, and what the ground missed of the force the last command asked of it, N, less what the
+   * assist gave (the last solve's shortfall and help): the plan goes on from what the body could get.
+   */
+  readonly plan: { on: boolean; readonly at: Vector3; readonly velocity: Vector3; readonly missed: Vector3 };
+  /** What the last reading and command found and asked (`StanceControl.reading`); its ends' `middle`s are the feet's. */
+  readonly reading: { -readonly [K in Exclude<keyof StanceReading, "ends">]: StanceReading[K] }
+    & { readonly ends: Readonly<Record<BearingEnd, { -readonly [K in keyof StanceEnd]: StanceEnd[K] }>> };
+  /**
+   * The torque stance's aims for this step (`command`): the root's angular acceleration and the
+   * centre of mass's, and each leg's foot's, its sole's middle's and its spin's; then (`solveBody`) the
+   * root's acceleration.
+   */
+  readonly aim: { on: boolean; readonly spin: Vector3; readonly centre: Vector3; readonly root: Float64Array };
+  /** What the assist is asked this step: the soles' shortfall, within its ceiling. */
+  readonly helped: { readonly force: Vector3; readonly moment: Vector3 };
+  /**
+   * Each foot's leg's task, in the feet's order (`LimbTask`): whether the stance drives the leg, and
+   * whether it bears; its sole's point's asked acceleration and its spin's (`command`).
+   */
+  readonly tasks: readonly LimbTask[];
+  /** Each foot's memory, in the feet's order: `feet[k]` is `Stance.feet[k].memory`. */
+  readonly feet: readonly FootMemory[];
+}
+
+/** **What a stance's functions work in**: each value is written by a call before that call reads it. */
+interface StanceScratch {
+  readonly path: Vector3;
+  readonly along: Vector3;
+  readonly sole: Vector3;
+  readonly v: Vector3;
+  readonly target: Quaternion;
+  readonly pelvisSpin: Vector3;
+  readonly turn: Vector3;
+  readonly p: Vector3;
+  readonly hipAt: Vector3;
+  readonly ankleAt: Vector3;
+  readonly kneeAt: Vector3;
+  readonly shank: Quaternion;
+  readonly footTurn: Quaternion;
+  readonly level: Quaternion;
+  readonly whole: Quaternion;
+  readonly wholeAxis: Vector3;
+  /** A swing foot's turn held within its ankle's range from the shank as it is, its turn relative to the shank, body frame, and an inverse's work (`ankleTurnToRef`). */
+  readonly ankleHeld: Quaternion;
+  readonly ankleRelative: Quaternion;
+  readonly ankleInverse: Quaternion;
+  /** A swing's progress at a time: the share of the way, and its rates per share of the swing's time and per its square (`swingProgressToRef`). */
+  readonly progress: Vector3;
+  /** The body's velocity with what its angular momentum brings it (`carriedVelocity`). */
+  readonly carried: Vector3;
+  /** What the swing's reaction works in (`swingShiftToRef`). */
+  readonly shiftWork: SwingShiftWork;
+  /** The swing's path's bow clear of the bearing sole (`swingBowToRef`), and the path's acceleration (`swingPathToRef`). */
+  readonly bow: SwingBow;
+  readonly accel: Vector3;
+}
+
+/**
+ * **A stance**, as its functions are handed it: what the body and the tuning fix when it is made,
+ * its assist, its memory (`state`) and its working values (`scratch`). Its legs are the limbs of
+ * the whole-body solve (`solve.ts`), which leaves what it finds in the state's own records.
+ */
+export interface Stance {
+  readonly built: ReadBody;
+  /** What gives the root what the soles miss, within its ceiling (`Assist`); null, nothing does. */
+  readonly assist: AssistReading | null;
+  readonly tuning: ResolvedStance;
+  /** The segment the legs hang from. */
+  readonly pelvis: ReadSegment;
+  /** The parts on the body now and their mass (`partsOn`): a cut part is no longer the stance's. */
+  readonly parts: () => Parts;
+  /** The feet, left then right. */
+  readonly feet: readonly FootState[];
+  /** The feet's names (`FootState.name`), in their order. */
+  readonly names: readonly BearingEnd[];
+  /** Each foot's leg as the solve takes it, in the feet's order: its task is the state's. */
+  readonly limbs: readonly Limb[];
+  /** The asks as the whole-body solve takes them (`StanceControl.ask`): the root's acceleration into `state.aim.root`, and `state.helped` and the reading's shortfall. */
+  readonly ask: WholeBodyAsk;
+  /**
+   * How far apart the soles' middles stand as the body was built, m: its own stance, which a walk's
+   * end returns to (`settleStep`).
+   */
+  readonly rest: number;
+  /** The centre of mass's height over the hip joints' centres as the body was built, m: what a goal's height over the soles leaves the hips. */
+  readonly rise: number;
+  readonly state: StanceState;
+  readonly scratch: StanceScratch;
+}
+
+export function makeStance(built: ReadBody, tuning: StanceTuning, assist: AssistReading | null): Stance {
+  const refused = soleRefusal(built.spec);
+  if (refused) throw new Error(`${built.spec.model}: the stance ${refused}`);
+  const feet = footStatesOf(built, tuning.supportInset ?? SUPPORT_INSET);
+  const segments = [...built.segments.values()], total = massOf(segments);
+  // The rigid bodies' masses and centres, what a held item adds included, as the goal's height reads them (`standingHeight`).
+  const rise = segments.reduce((sum, part) => sum + part.rigid.mass * part.rigid.centre[1], 0) / total
+    - feet.reduce((sum, foot) => sum + foot.chain[0]!.spec.centre.value[1], 0) / feet.length;
+  const pace: [number, number] = [0, 0], resolved = resolveStance(tuning);
+  const state: StanceState = {
+    gait: resolved.gait, pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
+    step: { swing: null, lifted: false, pivoted: false, time: 0, met: false, held: 0, off: Infinity, catching: false, recovering: false, facing: null, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
+      shift: { now: [0, 0], capture: [0, 0], centre: [0, 0] } },
+    plan: { on: false, at: new Vector3(), velocity: new Vector3(), missed: new Vector3() },
+    reading: { centre: new Vector3(), velocity: new Vector3(), momentum: new Vector3(), support: new Vector3(), place: new Vector3(),
+      plan: new Vector3(), planVelocity: new Vector3(),
+      facing: 0, phase: "stand", own: null, recoveries: 0, strides: 0, pace,
+      shortfall: { force: new Vector3(), moment: new Vector3() },
+      ends: Object.fromEntries(feet.map((foot) => [foot.name, { middle: foot.middle, touching: false, asked: { at: new Vector3(), force: new Vector3(), moment: new Vector3() } }])) },
+    aim: { on: false, spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) },
+    helped: { force: new Vector3(), moment: new Vector3() },
+    tasks: feet.map((foot): LimbTask => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(),
+      accel: new Float64Array(foot.chain.reduce((count, joint) => count + joint.dofs.length, 0)) })),
+    feet: feet.map((foot) => foot.memory),
+  };
+  const limbs = feet.map((foot, f): Limb => ({
+    segment: foot.segment, memory: foot.memory, get reach() { return foot.reach; }, task: state.tasks[f]!,
+    stem: [], work: { at: new Vector3(), rows: null, ahead: [], toward: null, patch: null, share: 1 },
+  }));
+  return {
+    built, assist, tuning: resolved, pelvis: feet[0]!.chain[0]!.parent, parts: partsOn(built),
+    feet, names: Object.freeze(feet.map((foot) => foot.name)), rest: restWidth(feet), rise, limbs,
+    ask: { aim: state.aim, limbs, lever: 0, root: state.aim.root, helped: state.helped, shortfall: state.reading.shortfall,
+      asked: feet.map((foot) => state.reading.ends[foot.name]!.asked) },
+    state,
+    scratch: {
+      path: new Vector3(), along: new Vector3(), sole: new Vector3(), v: new Vector3(),
+      target: new Quaternion(), pelvisSpin: new Vector3(), turn: new Vector3(),
+      p: new Vector3(), hipAt: new Vector3(), ankleAt: new Vector3(), kneeAt: new Vector3(), shank: new Quaternion(),
+      footTurn: new Quaternion(), level: new Quaternion(), whole: new Quaternion(), wholeAxis: new Vector3(), ankleHeld: new Quaternion(), ankleRelative: new Quaternion(), ankleInverse: new Quaternion(), progress: new Vector3(), carried: new Vector3(), shiftWork: makeSwingShiftWork(), bow: { aside: [0, 0], at: 0.5 }, accel: new Vector3(),
+    },
+  };
+}
+
+/** Gravity's pull, m/s^2, read from the body's world at each call. */
+export const gravityOf = (s: Stance): number => -s.built.physics.gravity[1];

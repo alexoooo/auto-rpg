@@ -2,21 +2,21 @@
  * **A Crypt run as a case**: a laid-out level (`CryptLayout`), the party placed on it, every party
  * member under one mind or each under its model's own, and a script of the person's orders
  * (`CryptLeg`), each leg given once the last is done, or none. It is the game's run (`DungeonRun`,
- * `src/dungeon/run.ts`), each side under the Commander the case
+ * `src/game/dungeon/run.ts`), each side under the Commander the case
  * names, the party under the person's and the enemies under a mob unless it names another. A Crypt run is bit-equal between JavaScript
  * engines, as a bout is: what lays it out, places it and steps it computes as the core does, and
  * its look (decals, dressing, the fog's shader) decides nothing a body meets.
  */
-import type { CommanderConfig } from "../core/command/kind.ts";
-import type { Command } from "../core/command/commands.ts";
-import { loadEngine, type EngineName } from "../core/engine/engines.ts";
-import type { MindConfig } from "../core/mind/config.ts";
-import type { BodyModel } from "../core/models.ts";
-import type { World } from "../core/world.ts";
-import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../dungeon/map.ts";
-import { DungeonRun, prepareDungeonCharacters, RUN_COMMANDERS, runParticipants } from "../dungeon/run.ts";
+import type { CommanderConfig } from "../minds/command/kind.ts";
+import type { Command } from "../minds/command/commands.ts";
+import { loadEngine, type EngineName } from "../core/physics/engines.ts";
+import type { MindConfig } from "../minds/config.ts";
+import type { BodyModel } from "../core/bodies/models.ts";
+import type { World } from "../core/world/world.ts";
+import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../game/dungeon/map.ts";
+import { DungeonRun, prepareDungeonCharacters, RUN_COMMANDERS, runParticipants } from "../game/dungeon/run.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
-import { defaultMind } from "../entrants/game.ts";
+import { type GameContext } from "../game/arena/context.ts";
 
 /**
  * A level as plain data: its floor as rows (row `z`, a character a cell along `x`: `.` floor, any
@@ -118,112 +118,121 @@ export interface BuiltCrypt {
   dispose(): void;
 }
 
-/** `crypt`'s run on `engine`: the party placed, every member under the case's mind and the enemies under their own, its script begun. */
-async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCrypt> {
-  const map = cryptMap(crypt.layout), [hero, ...companions] = crypt.party;
-  if (!hero || !hero.at || distance(hero.at, map.start) > 1e-9) throw new Error("the hero stands at the start");
-  const options = { seed: 0, layout: map, hero: hero.model, companions: companions.map((member) => member.model) };
-  const prepared = prepareDungeonCharacters(map, options);
-  companions.forEach((member, i) => { if (member.at) prepared.homes.set(`ally-${i}`, { ...member.at }); });
-  const run = new DungeonRun({ ...options, prepared, engine: await loadEngine(engine),
-    mind: (participant) => participant.side === "party" ? crypt.mind ?? null : null, party: crypt.commanders?.party, enemies: crypt.commanders?.enemies });
-  const party = run.party, falls: { member: string; time: number }[] = [], down = new Map<string, boolean>(), slain = new Set<string>();
-  let reached = true, leg = -1, began = 0, from: Point | null = null, pending: CryptAct[] = [], done: number | null = null, ended = false, contactSteps = 0, fallenContactSteps = 0;
-  const member = (id: string) => {
-    const found = party.find((one) => one.id === id);
-    if (!found) throw new Error(`no party member ${id}`);
-    return found;
-  };
-  const actor = (id: string) => run.actors.find((one) => one.id === id) ?? (() => { throw new Error(`no body ${id}`); })();
-  /** Begin leg `k`: its acts given one a step, from the next. */
-  const begin = (k: number): void => {
-    leg = k; began = run.clock; pending = [...(crypt.script[k]?.acts ?? [])];
-    const until = crypt.script[k]?.until;
-    from = until?.kind === "gone" ? member(until.member).feet() : null;
-  };
-  /** Give the next act: the person's command to its members, selected first, or a member slain. */
-  const act = (): void => {
-    const next = pending.shift()!;
-    switch (next.kind) {
-      case "command":
-        run.select(next.members);
-        run.command(next.command);
-        return;
-      case "slain": {
-        const body = member(next.member).fighter!;
-        body.pool.slay();
-        slain.add(next.member);
-        return;
-      }
-      default: { const never: never = next; throw new Error(`no act ${JSON.stringify(never)}`); }
-    }
-  };
-  const met = (until: CryptUntil): boolean => {
-    switch (until.kind) {
-      case "arrived": return until.members.every((id) => { const task = run.report(member(id)).task; return task === "holding" || task === "standing"; });
-      case "gone": return distance(member(until.member).feet(), from!) >= until.metres;
-      case "held": { const enemy = actor(until.enemy); return enemy.alive && enemy.held === until.held; }
-      case "seconds": return run.clock - began >= until.seconds;
-      case "unaware": return run.clock - began >= until.seconds && run.report(actor(until.enemy)).target === null;
-      default: { const never: never = until; throw new Error(`no condition ${JSON.stringify(never)}`); }
-    }
-  };
-  const bodyOf = new Map<unknown, string>();
-  for (const one of party) for (const segment of one.fighter!.built.segments.values()) bodyOf.set(segment.body, one.id);
-  begin(0);
-  if (pending.length) act();
-  return {
-    world: run.world, run,
-    get ended() { return ended; },
-    afterStep() {
-      for (const one of party) {
-        const now = !!one.fighter?.body.down;
-        if (now && !down.get(one.id) && one.alive && !slain.has(one.id)) falls.push({ member: one.id, time: run.clock });
-        down.set(one.id, now);
-      }
-      let touched = false, touchedFallen = false;
-      for (const one of party) {
-        if (!one.fighter || !one.alive) continue;
-        for (const segment of one.fighter.built.segments.values()) for (const touch of run.world.physics.contactsOf(segment.body)) {
-          const other = touch.other === null ? undefined : bodyOf.get(touch.other);
-          if (other === undefined || other === one.id || !(touch.impulse > 0)) continue;
-          if (member(other).alive) touched = true; else touchedFallen = true;
+export function createCrypt(context: GameContext) {
+  const { defaultMind } = context;
+
+  /** `crypt`'s run on `engine`: the party placed, every member under the case's mind and the enemies under their own, its script begun. */
+  async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCrypt> {
+    const map = cryptMap(crypt.layout), [hero, ...companions] = crypt.party;
+    if (!hero || !hero.at || distance(hero.at, map.start) > 1e-9) throw new Error("the hero stands at the start");
+    const options = { seed: 0, layout: map, hero: hero.model, companions: companions.map((member) => member.model) };
+    const prepared = prepareDungeonCharacters(map, options);
+    companions.forEach((member, i) => { if (member.at) prepared.homes.set(`ally-${i}`, { ...member.at }); });
+    const run = new DungeonRun({ ...options, prepared, engine: await loadEngine(engine),
+      mind: (participant) => participant.side === "party" ? crypt.mind ?? null : null, party: crypt.commanders?.party, enemies: crypt.commanders?.enemies }, context);
+    const party = run.party, falls: { member: string; time: number }[] = [], down = new Map<string, boolean>(), slain = new Set<string>();
+    let reached = true, leg = -1, began = 0, from: Point | null = null, pending: CryptAct[] = [], done: number | null = null, ended = false, contactSteps = 0, fallenContactSteps = 0;
+    const member = (id: string) => {
+      const found = party.find((one) => one.id === id);
+      if (!found) throw new Error(`no party member ${id}`);
+      return found;
+    };
+    const actor = (id: string) => run.actors.find((one) => one.id === id) ?? (() => { throw new Error(`no body ${id}`); })();
+    /** Begin leg `k`: its acts given one a step, from the next. */
+    const begin = (k: number): void => {
+      leg = k; began = run.clock; pending = [...(crypt.script[k]?.acts ?? [])];
+      const until = crypt.script[k]?.until;
+      from = until?.kind === "gone" ? member(until.member).feet() : null;
+    };
+    /** Give the next act: the person's command to its members, selected first, or a member slain. */
+    const act = (): void => {
+      const next = pending.shift()!;
+      switch (next.kind) {
+        case "command":
+          run.select(next.members);
+          run.command(next.command);
+          return;
+        case "slain": {
+          const body = member(next.member).fighter!;
+          body.pool.slay();
+          slain.add(next.member);
+          return;
         }
+        default: { const never: never = next; throw new Error(`no act ${JSON.stringify(never)}`); }
       }
-      if (touched) contactSteps++;
-      if (touchedFallen) fallenContactSteps++;
-      if (ended) return;
-      if (run.status !== "playing" || run.clock >= CRYPT_CAP) { ended = true; return; }
-      if (pending.length) { act(); return; }
-      // With no script, the run plays to its end.
-      const current = crypt.script[leg];
-      if (!current) return;
-      if (met(current.until)) {
-        if (leg + 1 >= crypt.script.length) { done = run.clock; ended = true; return; }
-        begin(leg + 1);
-        if (pending.length) act();
-      } else if (run.clock - began > current.most) { ended = true; reached = !current.fixture; }
+    };
+    const met = (until: CryptUntil): boolean => {
+      switch (until.kind) {
+        case "arrived": return until.members.every((id) => { const task = run.report(member(id)).task; return task === "holding" || task === "standing"; });
+        case "gone": return distance(member(until.member).feet(), from!) >= until.metres;
+        case "held": { const enemy = actor(until.enemy); return enemy.alive && enemy.held === until.held; }
+        case "seconds": return run.clock - began >= until.seconds;
+        case "unaware": return run.clock - began >= until.seconds && run.report(actor(until.enemy)).target === null;
+        default: { const never: never = until; throw new Error(`no condition ${JSON.stringify(never)}`); }
+      }
+    };
+    const bodyOf = new Map<unknown, string>();
+    for (const one of party) for (const segment of one.fighter!.built.segments.values()) bodyOf.set(segment.body, one.id);
+    begin(0);
+    if (pending.length) act();
+    return {
+      world: run.world, run,
+      get ended() { return ended; },
+      afterStep() {
+        for (const one of party) {
+          const now = !!one.fighter?.body.down;
+          if (now && !down.get(one.id) && one.alive && !slain.has(one.id)) falls.push({ member: one.id, time: run.clock });
+          down.set(one.id, now);
+        }
+        let touched = false, touchedFallen = false;
+        for (const one of party) {
+          if (!one.fighter || !one.alive) continue;
+          for (const segment of one.fighter.built.segments.values()) for (const touch of run.world.physics.contactsOf(segment.body)) {
+            const other = touch.other === null ? undefined : bodyOf.get(touch.other);
+            if (other === undefined || other === one.id || !(touch.impulse > 0)) continue;
+            if (member(other).alive) touched = true; else touchedFallen = true;
+          }
+        }
+        if (touched) contactSteps++;
+        if (touchedFallen) fallenContactSteps++;
+        if (ended) return;
+        if (run.status !== "playing" || run.clock >= CRYPT_CAP) { ended = true; return; }
+        if (pending.length) { act(); return; }
+        // With no script, the run plays to its end.
+        const current = crypt.script[leg];
+        if (!current) return;
+        if (met(current.until)) {
+          if (leg + 1 >= crypt.script.length) { done = run.clock; ended = true; return; }
+          begin(leg + 1);
+          if (pending.length) act();
+        } else if (run.clock - began > current.most) { ended = true; reached = !current.fixture; }
+      },
+      reading: () => ({ reached, legs: done !== null ? crypt.script.length : leg, of: crypt.script.length, done, falls: falls.map((fall) => ({ ...fall })),
+        contactSteps, fallenContactSteps, seconds: run.clock }),
+      dispose() { run.dispose(); },
+    };
+  }
+
+  /**
+   * The Crypt world kind: built by `buildCrypt`, every fighting body traced, played by the world's
+   * clock; its party under the case's mind or each member's model's, its enemies under their own,
+   * and each side under the case's Commander or the run's own (`RUN_COMMANDERS`).
+   */
+  const CRYPT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "crypt" }>, BuiltCrypt> = {
+    build: (world) => buildCrypt(world.crypt, world.engine),
+    traced: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.built] : []),
+    clock: (built) => built.world.time,
+    minds: ({ crypt }) => {
+      const [hero, ...companions] = crypt.party;
+      return runParticipants(cryptMap(crypt.layout), { hero: hero!.model, companions: companions.map((one) => one.model) })
+        .map((one) => one.side === "party" ? crypt.mind ?? defaultMind(one.model) : defaultMind(one.model));
     },
-    reading: () => ({ reached, legs: done !== null ? crypt.script.length : leg, of: crypt.script.length, done, falls: falls.map((fall) => ({ ...fall })),
-      contactSteps, fallenContactSteps, seconds: run.clock }),
-    dispose() { run.dispose(); },
+    parts: ({ crypt }) => [crypt.commanders?.party?.kind ?? RUN_COMMANDERS.party.kind, crypt.commanders?.enemies?.kind ?? RUN_COMMANDERS.enemies.kind],
+    hosted: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.minded] : []),
   };
+
+  return { CRYPT_WORLD };
 }
 
-/**
- * The Crypt world kind: built by `buildCrypt`, every fighting body traced, played by the world's
- * clock; its party under the case's mind or each member's model's, its enemies under their own,
- * and each side under the case's Commander or the run's own (`RUN_COMMANDERS`).
- */
-export const CRYPT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "crypt" }>, BuiltCrypt> = {
-  build: (world) => buildCrypt(world.crypt, world.engine),
-  traced: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.built] : []),
-  clock: (built) => built.world.time,
-  minds: ({ crypt }) => {
-    const [hero, ...companions] = crypt.party;
-    return runParticipants(cryptMap(crypt.layout), { hero: hero!.model, companions: companions.map((one) => one.model) })
-      .map((one) => one.side === "party" ? crypt.mind ?? defaultMind(one.model) : defaultMind(one.model));
-  },
-  parts: ({ crypt }) => [crypt.commanders?.party?.kind ?? RUN_COMMANDERS.party.kind, crypt.commanders?.enemies?.kind ?? RUN_COMMANDERS.enemies.kind],
-  hosted: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.minded] : []),
-};
+/** The registered world factory for this builder. */
+export const cryptWorld = (context: GameContext) => createCrypt(context).CRYPT_WORLD;

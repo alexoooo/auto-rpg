@@ -4,7 +4,7 @@
 
 Option Mind is a general mind: options, each a skill applied to a target, chosen as a set whose claims
 do not overlap, each priced in the verdict's unit, by a chooser that is a part. The Commanders are
-not general: `mob`, `independent`, `party` and `clearer` (`src/core/command/`) are each a rule
+not general: `mob`, `independent`, `party` and `clearer` (`src/minds/command/`) are each a rule
 written by hand, and `clearer`'s `POLICY` numbers are first guesses. None weighs one course
 against another.
 
@@ -109,7 +109,7 @@ the toolkit and Option Mind lands as two commits, the toolkit's first (`node scr
 protocol: the hero alone (no companions), its reading the score (`ClearReading.score`) beside the
 life at the end, the share cleared and the time; a case stops by the score's rule (above) as well as
 by the exit and death, and its route's length and the hero's pace are read once at its start. The
-table gains the score's column (`src/evaluation/crypt-clear/index.ts`). Nothing in `src/dungeon/`
+table gains the score's column (`src/evaluation/crypt-clear/index.ts`). Nothing in `src/game/dungeon/`
 or the core changes.
 
 Check: the gate; the fingerprint unchanged; `npm run evaluate -- crypt-clear` with `clearer` and
@@ -120,15 +120,15 @@ Built: the protocol `alone` (`ALONE`, `scoreOf`, `src/evaluation/crypt-clear/cas
 
 ### 2. The chooser shared: set selection in the toolkit
 
-Option Mind's set selection (`chooser`, `src/core/option/chooser.ts`) reads of its
+Option Mind's set selection (`chooser`, `src/minds/option/chooser.ts`) reads of its
 options their claims, rest mark, targets and aim, entry (`onOffer`), status, begin and end; of the
 situation its time and its cue (`Cue`; Option Mind's, the cues of the percepts its last decision read); and it prices the other targets'
 situations (`others`) and names the target chosen (`Chosen.at`). What an option is worth, the look
 past a walk among it (`lookingPast`), is its appraisal's, which stays Option Mind's. Lift the
 selection:
 
-- **The toolkit's commit** (`src/core/mind/choice.ts`, beside the readout's types,
-  `src/core/mind/engagement.ts`): `Choice<S, T>`, an option's shape without its step, model, exit
+- **The toolkit's commit** (`src/minds/choice.ts`, beside the readout's types,
+  `src/minds/engagement.ts`): `Choice<S, T>`, an option's shape without its step, model, exit
   (`at`), engagement or decision; `selectSet<S, T>(choices, appraise, deciding, cue, chance)` with
   `others` and the target chosen; `overlaps`, `NOTHING`, `WHOLE` with it. The terms an appraisal
   reports are its user's type (`T`): a body's (`OfferTerms`) for a mind, a team's for a Commander.
@@ -138,7 +138,7 @@ selection:
 - Chance: the valued chooser draws only between offers within its `margin`, none by default, and
   the ranked never draws, so a Commander passes none and needs no seed.
 
-Built: `selectSet` over `Choice<S>` (`src/core/mind/choice.ts`), priced as `Priced<T>`, the
+Built: `selectSet` over `Choice<S>` (`src/minds/choice.ts`), priced as `Priced<T>`, the
 readout's `Offer` a body's; one toolkit commit, Option Mind's framework being the toolkit's.
 
 Check: the gate; the fingerprint against the commit before, no case moved; one bout of Option Mind
@@ -152,7 +152,7 @@ with `ranked`, its digest equal before and after.
   Arena's team by the straight distance.
 - `SensedBody.life`: a foe's share of its full life, as its pool's bar (the Arena's `Duel.life`).
 - **The toolkit's commit**: `MindReport.prospects: readonly Prospect[] | null`
-  (`src/core/mind/report.ts`), each `{ foe, dealt, taken }`: the share of the foe's full life the
+  (`src/minds/report.ts`), each `{ foe, dealt, taken }`: the share of the foe's full life the
   body expects to deal it a second, and of its own it expects to take, at reach;
   `MemberView.prospects` carries it, null where the Mind publishes none. The architecture's Command
   table gains it, `TeamLevel.exit` and `route`, and `SensedBody.life`.
@@ -169,15 +169,15 @@ Check: the gate; in a Node stand, Option Mind's prospects against a standing War
 own pressing and pressure at reach that decision (a printout, no test); a forked bout's prospects
 equal the original's.
 
-Built: `TeamLevel.exit` and `route` (`routeLength`, `src/dungeon/map.ts`; kept a step),
-`SensedBody.life`, `Prospect` and `MindReport.prospects` (`src/core/mind/report.ts`, a decider's
+Built: `TeamLevel.exit` and `route` (`routeLength`, `src/game/dungeon/map.ts`; kept a step),
+`SensedBody.life`, `Prospect` and `MindReport.prospects` (`src/minds/report.ts`, a decider's
 `Decider.prospects`), `MemberView.prospects`; Option Mind keeps them each time its chooser decides
 afresh (`Chosen.fresh`), its dealt its strikes' best rate within reach (`Option.rate`: the
 measured peak at the focus's phase, else the prior). `BY_HAND` waits for step 4.
 
 ### 4. The Option Commander
 
-`src/core/command/option.ts`, kind `option`, a line in `COMMANDERS`, sides `party`: its options
+`src/minds/command/option.ts`, kind `option`, a line in `COMMANDERS`, sides `party`: its options
 (above), its place's value (`TeamValue`, its first implementation the terms above), its time price
 (`timePrice`, the protocol's `price` rule by default), its chooser named by its config (`chooser:
 "valued" | "ranked"`, its entry's `faults` checking it) over `selectSet` with no chance, its memory

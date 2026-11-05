@@ -1,6 +1,6 @@
 /**
  * **Where one place for a point of the right hand's rigid body can be solved** (`solveReach`,
- * `src/core/control/kinematics.ts`): the Warrior's knuckles, and the swell of the club he holds,
+ * `src/control/kinematics.ts`): the Warrior's knuckles, and the swell of the club he holds,
  * asked to each place of a grid ahead of his right shoulder, with the wrist held at the posture's
  * angles and with it freed. Each row of the grid is a path: its first place is solved from the
  * guard, each next from the angles the last found. Kinematics alone: no step of the world is
@@ -13,12 +13,12 @@
  */
 import { parseArgs } from "node:util";
 import { Vector3 } from "../src/core/math/vector.ts";
-import { rigidPoints } from "../src/core/build/rigid.ts";
-import { chainTo, pointAtToRef, solveReach } from "../src/core/control/kinematics.ts";
-import { armed } from "../src/core/human/grip.ts";
-import { humanSpec } from "../src/core/human/spec.ts";
-import { woodenClub } from "../src/core/items/club.ts";
-import { GUARD } from "../src/core/skills/guard/guard.ts";
+import { rigidPoints } from "../src/core/bodies/build/rigid.ts";
+import { chainTo, pointAtToRef, solveReach } from "../src/control/kinematics.ts";
+import { armed } from "../src/core/bodies/human/grip.ts";
+import { humanSpec } from "../src/core/bodies/human/spec.ts";
+import { woodenClub } from "../src/core/bodies/items/club.ts";
+import { GUARD } from "../src/skills/guard/guard.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 const { values } = parseArgs({ options: {
   up: { type: "string", default: "0.4,0.6,0.8,1,1.2,1.4,1.6,1.8,2" }, ahead: { type: "string", default: "0.3,0.45,0.6,0.75,0.9,1.05" },

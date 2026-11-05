@@ -20,20 +20,19 @@
  * target (a foe fighting is never settled in a window), and the foe fights on. Up to that step the bout is
  * the subject's own bout against that foe: the Commander orders nothing.
  */
-import type { MindConfig } from "../../core/mind/config.ts";
-import { treeObeys, CONTROLLERS, MINDS } from "../../entrants/game.ts";
-import type { Approach, DrillCommanderConfig } from "../../core/command/drill.ts";
+import type { MindConfig } from "../../minds/config.ts";
+import type { Approach, DrillCommanderConfig } from "../../minds/command/drill.ts";
 import { randomStream } from "../../core/math/random.ts";
-import { presetFitsModel } from "../../core/mind/controller.ts";
-import type { BodyModel } from "../../core/models.ts";
-import { modelHolding, modelSpec } from "../../core/models.ts";
-import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/items/held.ts";
-import { deepFreeze } from "../../core/state.ts";
-import { mindFaults } from "../../ui/mind-link.ts";
+import { presetFitsModel } from "../../minds/controller.ts";
+import type { BodyModel } from "../../core/bodies/models.ts";
+import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
+import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
+import { deepFreeze } from "../../core/world/state.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
-import { opponentOf, opposed } from "../drill-opponents.ts";
-import type { Rail } from "../../arena/rail.ts";
+import type { Rail } from "../../game/arena/rail.ts";
+import { createDrillOpponents, opposed } from "../drill-opponents.ts";
+import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
 
 /**
  * A subject's value: a mind given whole, the skill it drills (its executor's kind, as an order
@@ -121,10 +120,14 @@ const WALK = deepFreeze({ ...STILL,
  * (`drill-guard`) or closing to punch on a rhythm (`drill-punch`).
  */
 const OPPONENT = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], gaps: [8, 10, 12].map((tenths) => tenths / 10), across: [0] });
+
 /** The target's mind (`opponentOf`), where a protocol names one: `drill-stand` where it does not. */
 const STANDING = "drill-stand";
+
 const STEPPING = deepFreeze({ ...OPPONENT, opponent: "drill-step" });
+
 const GUARDING = deepFreeze({ ...OPPONENT, opponent: "drill-guard" });
+
 const PUNCHING = deepFreeze({ ...OPPONENT, opponent: "drill-punch" });
 
 /**
@@ -135,6 +138,7 @@ const PUNCHING = deepFreeze({ ...OPPONENT, opponent: "drill-punch" });
  * meanwhile (`StrikeReading.letGo`). A trial past its point of no return is not let go.
  */
 const LETTING_GO = deepFreeze({ ...OPPONENT, letGo: [0, .05, .1, .15] });
+
 const LETTING_GO_PUNCHED = deepFreeze({ ...PUNCHING, letGo: [0, .05, .1, .15] });
 
 /**
@@ -168,7 +172,7 @@ const STOMPING_SAMPLED = deepFreeze({ ...STOMPING, models: ["workshop-fighter", 
   targets: ["workshop-fighter"] as BodyModel[], trials: 80, seed: 1, gaps: [.8, 1.2], closer: [1.2, 1.8], across: [-.2, .2], speeds: [.3, 1], times: [.3, 1] });
 
 /**
- * Rung 1, a moving target: the opponent rungs' trials at a pad on a rail (`Rail`, `src/arena/rail.ts`),
+ * Rung 1, a moving target: the opponent rungs' trials at a pad on a rail (`Rail`, `src/game/arena/rail.ts`),
  * the Warrior's body held rigid as it was built under the bare mind, lifted `height` m and carried
  * in a line at each speed, m/s, toward the striker, away from it or across its front from its right
  * to its left. The trial's gap is where the pad is `settled` s in, the first moment the drill may
@@ -213,28 +217,13 @@ export type StillCondition = { readonly model: BodyModel; readonly mark: Mark } 
   readonly approach?: Approach;
   /** Where the drill lets its strike go, s after it began; absent where it does not. */
   readonly letGo?: number };
+
 type FightCondition = { readonly model: BodyModel; readonly foe: string; readonly mark: Mark; readonly hand: Hand; readonly moment: number };
+
 export type StrikeCondition = StillCondition | FightCondition;
 
 /** The effector a trial strikes with (`effectorOf`): `hand.right`, `foot.left`. */
 export const limbOf = (condition: StrikeCondition): string => effectorOf(condition);
-
-/** Why `value` is no subject, or what keeps its mind from `model` holding what it names (`mindFaults`). */
-export function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
-  const given = value as Partial<StrikeSubject> | null;
-  if (!given || typeof given !== "object" || Array.isArray(given) || typeof given.skill !== "string") return ["a subject is a mind and the skill it drills"];
-  if (given.held !== undefined) {
-    const faults = loadoutFaults(given.held);
-    if (faults.length) return faults.map((fault) => `held: ${fault}`);
-  }
-  const kind = (given.mind as { kind?: unknown } | undefined)?.kind;
-  if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
-  if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-  if (!treeObeys(given.mind!)) return [`a ${kind} mind carries out no orders, so no drill leads it`];
-  const held = given.held ?? EMPTY_LOADOUT;
-  return mindFaults(given.mind!, modelHolding(model, held, subject?.character), { entry: [] })
-    .map((fault) => `${model}${given.held === undefined ? "" : ` holding ${loadoutKey(held)}`}: ${fault}`);
-}
 
 /** A moving rung's rail (`MOVING`): how its target moves, and from how far out it sets off. */
 type Moving = { readonly directions: readonly Direction[]; readonly speeds: readonly number[]; readonly height: number; readonly beyond: number; readonly near: number };
@@ -273,65 +262,6 @@ function sampledConditions(protocol: typeof SAMPLED & { readonly feet?: readonly
   return conditions;
 }
 
-function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: readonly number[];
-  readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID } & Partial<Moving>,
-  drawn?: readonly StillCondition[]): Cases<StrikeCondition, StrikeReading> {
-  const conditions: StillCondition[] = drawn ? [...drawn] : [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
-  const moving: Moving | null = protocol.directions === undefined ? null : protocol as Moving;
-  const motions = moving ? moving.directions.flatMap((direction) => moving.speeds.map((speed) => ({ direction, speed }))) : [undefined];
-  if (!drawn) for (const model of protocol.models) for (const mark of protocol.marks) for (const limb of limbs) for (const target of protocol.targets ?? [undefined]) for (const motion of motions)
-    for (const across of protocol.across) for (const gap of protocol.gaps) for (const start of protocol.starts ?? [undefined]) for (const letGo of protocol.letGo ?? [undefined])
-      conditions.push({ model, mark, ...limb, ...(target === undefined ? {} : { target }), ...motion, across, gap, ...(start === undefined ? {} : { start }), ...(letGo === undefined ? {} : { letGo }) });
-  return {
-    arity: 1,
-    play: protocol as unknown as Json,
-    conditions,
-    seconds: protocol.seconds,
-    faults: (value, { model }, subject) => faultsOf(value, model, subject),
-    world: ([value], condition, engine, [character]) => {
-      const { model, gap, across, mark, target, start, approach, letGo, direction, speed } = condition as StillCondition, hand = handOf(condition as StillCondition);
-      const side = protocol.toward === "hand" && hand === "left" ? across : -across;
-      const carried = moving && direction !== undefined && speed !== undefined ? railOf(moving, protocol.settled, direction, speed, gap, side) : null;
-      return { kind: "bout", engine, tape: [],
-      // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
-      recipe: { left: model, right: target ?? "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
-        ...loadoutsOf(value as unknown as StrikeSubject),
-        // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
-        start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: carried ? [...carried.from] : [gap / 2, side], heading: -Math.PI / 2 } },
-        ...opposed(striker(value as unknown as StrikeSubject, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace,
-          walking: start === "walking" || carried !== null || approach !== undefined, ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }) }),
-          opponentOf(protocol.opponent ?? STANDING)!),
-        ...(carried ? { rail: carried.rail } : {}),
-        // Facing -x, its back is toward +x: 90 degrees from +z.
-        ...(protocol.laid ? { shove: { side: "right", segment: protocol.laid.segment, degrees: 90, at: 0,
-          impulse: protocol.laid.speed * modelSpec(target ?? "workshop-fighter").mass.value } } : {}) } };
-    },
-    read: (built, condition) => readStrike(built, condition, protocol),
-  };
-}
-
-function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReading> {
-  const conditions: FightCondition[] = [];
-  for (const model of protocol.models) for (const foe of protocol.foes) for (const mark of protocol.marks) for (const hand of protocol.hands)
-    for (const moment of protocol.moments) conditions.push({ model, foe, mark, hand, moment });
-  return {
-    arity: 1,
-    play: protocol as unknown as Json,
-    conditions,
-    seconds: protocol.seconds,
-    faults: (value, { model }, subject) => faultsOf(value, model, subject),
-    world: ([value], condition, engine, [character]) => {
-      const { model, foe, mark, hand, moment } = condition as FightCondition;
-      // A fight on the open stage from its spawns, nothing ending it but the reader.
-      return { kind: "bout", engine, tape: [],
-        recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
-          ...sideAttributes({ left: character, right: MINDS[foe]!.character }), ...loadoutsOf(value as unknown as StrikeSubject),
-          ...opposed(striker(value as unknown as StrikeSubject, `hand.${hand}`, mark, { after: 0, pace: protocol.pace, walking: true, moment }), opponentOf(foe)!) } };
-    },
-    read: (built, condition) => readStrike(built, condition, protocol),
-  };
-}
-
 /** Every body a strike may be thrown by: the toed Warrior, the Rogue and the Skeleton. */
 const STRIKERS: readonly BodyModel[] = Object.freeze(["workshop-fighter", "workshop-rogue", "crypt-skeleton"]);
 
@@ -339,11 +269,95 @@ const STRIKERS: readonly BodyModel[] = Object.freeze(["workshop-fighter", "works
 const onOtherBodies = <P extends { readonly models: readonly BodyModel[] }>(rung: P): P =>
   deepFreeze({ ...rung, models: STRIKERS.filter((model) => !rung.models.includes(model)) as BodyModel[] });
 
-/** Every protocol the Strike drill may be played on, by name: its rungs. */
-export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
-  moving: stillCases(MOVING), walk: stillCases(WALK),
-  stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
-  letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
-  "stomping-sampled": stillCases(STOMPING_SAMPLED, sampledConditions(STOMPING_SAMPLED)),
-  "still-bodies": stillCases(onOtherBodies(STILL)), "walk-bodies": stillCases(onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
-  "stomping-bodies": stillCases(onOtherBodies(STOMPING)) });
+export function createStrikeCases(context: GameContext) {
+  const { treeObeys, controllers: CONTROLLERS, minds: MINDS } = context.catalog;
+  const mindFaults = contextMindFaults.bind(undefined, context);
+  const { opponentOf } = createDrillOpponents(context);
+
+  /** Why `value` is no subject, or what keeps its mind from `model` holding what it names (`mindFaults`). */
+  function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
+    const given = value as Partial<StrikeSubject> | null;
+    if (!given || typeof given !== "object" || Array.isArray(given) || typeof given.skill !== "string") return ["a subject is a mind and the skill it drills"];
+    if (given.held !== undefined) {
+      const faults = loadoutFaults(given.held);
+      if (faults.length) return faults.map((fault) => `held: ${fault}`);
+    }
+    const kind = (given.mind as { kind?: unknown } | undefined)?.kind;
+    if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
+    if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
+    if (!treeObeys(given.mind!)) return [`a ${kind} mind carries out no orders, so no drill leads it`];
+    const held = given.held ?? EMPTY_LOADOUT;
+    return mindFaults(given.mind!, modelHolding(model, held, subject?.character), { entry: [] })
+      .map((fault) => `${model}${given.held === undefined ? "" : ` holding ${loadoutKey(held)}`}: ${fault}`);
+  }
+
+  function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: readonly number[];
+    readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID } & Partial<Moving>,
+    drawn?: readonly StillCondition[]): Cases<StrikeCondition, StrikeReading> {
+    const conditions: StillCondition[] = drawn ? [...drawn] : [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
+    const moving: Moving | null = protocol.directions === undefined ? null : protocol as Moving;
+    const motions = moving ? moving.directions.flatMap((direction) => moving.speeds.map((speed) => ({ direction, speed }))) : [undefined];
+    if (!drawn) for (const model of protocol.models) for (const mark of protocol.marks) for (const limb of limbs) for (const target of protocol.targets ?? [undefined]) for (const motion of motions)
+      for (const across of protocol.across) for (const gap of protocol.gaps) for (const start of protocol.starts ?? [undefined]) for (const letGo of protocol.letGo ?? [undefined])
+        conditions.push({ model, mark, ...limb, ...(target === undefined ? {} : { target }), ...motion, across, gap, ...(start === undefined ? {} : { start }), ...(letGo === undefined ? {} : { letGo }) });
+    return {
+      arity: 1,
+      play: protocol as unknown as Json,
+      conditions,
+      seconds: protocol.seconds,
+      faults: (value, { model }, subject) => faultsOf(value, model, subject),
+      world: ([value], condition, engine, [character]) => {
+        const { model, gap, across, mark, target, start, approach, letGo, direction, speed } = condition as StillCondition, hand = handOf(condition as StillCondition);
+        const side = protocol.toward === "hand" && hand === "left" ? across : -across;
+        const carried = moving && direction !== undefined && speed !== undefined ? railOf(moving, protocol.settled, direction, speed, gap, side) : null;
+        return { kind: "bout", engine, tape: [],
+        // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
+        recipe: { left: model, right: target ?? "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+          ...loadoutsOf(value as unknown as StrikeSubject),
+          // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
+          start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: carried ? [...carried.from] : [gap / 2, side], heading: -Math.PI / 2 } },
+          ...opposed(striker(value as unknown as StrikeSubject, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace,
+            walking: start === "walking" || carried !== null || approach !== undefined, ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }) }),
+            opponentOf(protocol.opponent ?? STANDING)!),
+          ...(carried ? { rail: carried.rail } : {}),
+          // Facing -x, its back is toward +x: 90 degrees from +z.
+          ...(protocol.laid ? { shove: { side: "right", segment: protocol.laid.segment, degrees: 90, at: 0,
+            impulse: protocol.laid.speed * modelSpec(target ?? "workshop-fighter").mass.value } } : {}) } };
+      },
+      read: (built, condition) => readStrike(built, condition, protocol),
+    };
+  }
+
+  function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReading> {
+    const conditions: FightCondition[] = [];
+    for (const model of protocol.models) for (const foe of protocol.foes) for (const mark of protocol.marks) for (const hand of protocol.hands)
+      for (const moment of protocol.moments) conditions.push({ model, foe, mark, hand, moment });
+    return {
+      arity: 1,
+      play: protocol as unknown as Json,
+      conditions,
+      seconds: protocol.seconds,
+      faults: (value, { model }, subject) => faultsOf(value, model, subject),
+      world: ([value], condition, engine, [character]) => {
+        const { model, foe, mark, hand, moment } = condition as FightCondition;
+        // A fight on the open stage from its spawns, nothing ending it but the reader.
+        return { kind: "bout", engine, tape: [],
+          recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
+            ...sideAttributes({ left: character, right: MINDS[foe]!.character }), ...loadoutsOf(value as unknown as StrikeSubject),
+            ...opposed(striker(value as unknown as StrikeSubject, `hand.${hand}`, mark, { after: 0, pace: protocol.pace, walking: true, moment }), opponentOf(foe)!) } };
+      },
+      read: (built, condition) => readStrike(built, condition, protocol),
+    };
+  }
+
+  /** Every protocol the Strike drill may be played on, by name: its rungs. */
+  const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
+    moving: stillCases(MOVING), walk: stillCases(WALK),
+    stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
+    letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
+    "stomping-sampled": stillCases(STOMPING_SAMPLED, sampledConditions(STOMPING_SAMPLED)),
+    "still-bodies": stillCases(onOtherBodies(STILL)), "walk-bodies": stillCases(onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
+    "stomping-bodies": stillCases(onOtherBodies(STOMPING)) });
+
+  return { faultsOf, STRIKE_CASES };
+}

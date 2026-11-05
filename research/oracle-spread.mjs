@@ -14,7 +14,7 @@
  * Harness: Node, the core world, Rapier, 120 Hz; forks by a load, in this thread.
  */
 import { parseArgs } from "node:util";
-import { buildBout } from "../src/evaluation/bout.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 import { nudgesOf, rollout, valueOf } from "./rollouts.mjs";
 

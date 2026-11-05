@@ -2,18 +2,18 @@
  * **The core's Node stand**: one body built from a spec, on a ground, in a world of its own on the
  * engine `CORE_ENGINE` names (Rapier unless named: `CORE_ENGINE=<name> npm test`).
  *
- * The core's world (`createWorld`, `src/core/world.ts`) steps the engine, as the page does. The body is built through `buildBody`
+ * The core's world (`createWorld`, `src/core/world/world.ts`) steps the engine, as the page does. The body is built through `buildBody`
  * and nothing else, so what the stand reads is what the spec states. Bodies never sleep: the
- * engine contract says so (`src/core/engine/engine.ts`).
+ * engine contract says so (`src/core/physics/engine.ts`).
  */
 import "./preload-data.mjs";
 import { Vector3, Quaternion } from "../../src/core/math/vector.ts";
-import { isEngineName, loadEngine } from "../../src/core/engine/engines.ts";
-import { PHYSICS_HZ } from "../../src/core/world.ts";
-import { createWorld } from "../../src/core/world.ts";
-import { buildBody } from "../../src/core/build/build-body.ts";
-import { poseAngles } from "../../src/core/control/kinematics.ts";
-import { loadState, saveState } from "../../src/core/state.ts";
+import { isEngineName, loadEngine } from "../../src/core/physics/engines.ts";
+import { PHYSICS_HZ } from "../../src/core/world/world.ts";
+import { createWorld } from "../../src/core/world/world.ts";
+import { buildBody } from "../../src/core/bodies/build/build-body.ts";
+import { poseAngles } from "../../src/control/kinematics.ts";
+import { loadState, saveState } from "../../src/core/world/state.ts";
 
 /** Published reference batteries use parent-axis Rapier; gameplay gates request their engine explicitly. */
 export const CORE_ENGINE = process.env.CORE_ENGINE || "rapier";

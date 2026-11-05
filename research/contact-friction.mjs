@@ -3,11 +3,11 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { Vector3 } from "../src/core/math/vector.ts";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
-import { sourced } from "../src/core/spec/quantity.ts";
-import { CONTACT_FRICTION } from "../src/core/spec/constants.ts";
-import { isEngineName } from "../src/core/engine/engines.ts";
-import { planarSupportPoints } from "../src/core/build/planar-support.ts";
-import { coupledDynamics } from "../src/core/build/coupled-dynamics.ts";
+import { sourced } from "../src/core/bodies/spec/quantity.ts";
+import { CONTACT_FRICTION } from "../src/core/bodies/spec/constants.ts";
+import { isEngineName } from "../src/core/physics/engines.ts";
+import { planarSupportPoints } from "../src/core/bodies/build/planar-support.ts";
+import { coupledDynamics } from "../src/core/bodies/build/coupled-dynamics.ts";
 import { activeQuadratic } from "../src/core/math/active-quadratic.ts";
 
 const zero = [0, 0, 0], up = [0, 1, 0];

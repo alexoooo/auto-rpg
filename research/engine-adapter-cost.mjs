@@ -5,9 +5,9 @@ import { mkdir, mkdtemp, writeFile, unlink, rmdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { createRapierPhysics, rapierModule } from "../src/core/engine/rapier.ts";
+import { createRapierPhysics, rapierModule } from "../src/core/physics/rapier.ts";
 import "../tests/harness/preload-data.mjs";
-import { buildBout } from "../src/evaluation/bout.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 
 const { values } = parseArgs({ options: { reference: { type: "string" }, runs: { type: "string", default: "3" } } });
@@ -15,11 +15,11 @@ const runs = Number(values.runs);
 if (!values.reference || !/^[a-f0-9]{7,40}$/.test(values.reference) || !Number.isSafeInteger(runs) || runs < 1) {
   throw new Error("--reference requires a commit hash and --runs a positive integer");
 }
-const root = fileURLToPath(new URL("../", import.meta.url)), parent = resolve(root, ".tmp");
+const root = fileURLToPath(new URL("..", import.meta.url)), parent = resolve(root, ".tmp");
 await mkdir(parent, { recursive: true });
 const temporary = await mkdtemp(resolve(parent, "adapter-cost-")), file = resolve(temporary, "reference.ts");
 try {
-  const source = execFileSync("git", ["show", `${values.reference}:src/core/engine/rapier.ts`], { cwd: root, encoding: "utf8" });
+  const source = execFileSync("git", ["show", `${values.reference}:src/core/physics/rapier.ts`], { cwd: root, encoding: "utf8" });
   await writeFile(file, source.replace(/from "(\.[^"]+)"/g, (_, relative) =>
     `from ${JSON.stringify(pathToFileURL(resolve(root, "src/core/engine", relative)).href)}`));
   const previous = (await import(pathToFileURL(file).href)).createRapierPhysics, R = await rapierModule();

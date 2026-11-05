@@ -17,7 +17,7 @@
  */
 import { Session } from "node:inspector/promises";
 import { parseArgs } from "node:util";
-import { DungeonRun } from "../src/dungeon/run.ts";
+import { DungeonRun } from "../src/app/node/game.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 
 const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2,3" }, seconds: { type: "string", default: "90" }, companions: { type: "string", default: "3" }, profile: { type: "boolean", default: false } } });
@@ -43,8 +43,8 @@ async function played(seed) {
 }
 
 /** The plan's functions a profile's row reads, as the profiler names them. */
-const READ = ["plan src/dungeon/run.ts", "reveal src/dungeon/map.ts", "canSee src/dungeon/map.ts", "walkable src/dungeon/map.ts",
-  "findPath src/dungeon/map.ts", "explorationGoal src/dungeon/map.ts"];
+const READ = ["plan src/game/dungeon/run.ts", "reveal src/game/dungeon/map.ts", "canSee src/game/dungeon/map.ts", "walkable src/game/dungeon/map.ts",
+  "findPath src/game/dungeon/map.ts", "explorationGoal src/game/dungeon/map.ts"];
 
 /** One run under the CPU profiler: its steps, and microseconds a step in all of it and in each of `READ`, with everything each calls. */
 async function profiled(seed) {

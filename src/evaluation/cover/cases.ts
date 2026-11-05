@@ -6,17 +6,16 @@
  * stage's own axis as a bout's spawns are, so the Arena's camera sees them side on. Nothing ends a
  * trial but its seconds. A trial is a bout world, so the Arena plays it as it was scored.
  */
-import type { MindConfig } from "../../core/mind/config.ts";
-import { treeObeys, CONTROLLERS } from "../../entrants/game.ts";
-import { presetFitsModel } from "../../core/mind/controller.ts";
-import { loadoutKey, type Loadout } from "../../core/items/held.ts";
-import type { BodyModel } from "../../core/models.ts";
-import { modelHolding } from "../../core/models.ts";
-import { deepFreeze } from "../../core/state.ts";
-import { mindFaults } from "../../ui/mind-link.ts";
+import type { MindConfig } from "../../minds/config.ts";
+import { presetFitsModel } from "../../minds/controller.ts";
+import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
+import type { BodyModel } from "../../core/bodies/models.ts";
+import { modelHolding } from "../../core/bodies/models.ts";
+import { deepFreeze } from "../../core/world/state.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readCover, type CoverReading } from "./read.ts";
-import { opponentOf, opposed } from "../drill-opponents.ts";
+import { createDrillOpponents, opposed } from "../drill-opponents.ts";
+import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
 
 /** What the subject holds in its right hand: nothing, a club or a sword. */
 type CoverHeld = "empty" | "club" | "sword";
@@ -40,6 +39,7 @@ const PUNCHED = deepFreeze({
   models: ["workshop-fighter"] as BodyModel[], loadouts: [{ left: "empty", right: "empty" }] as Loadout[],
   across: [0, .2], gaps: [1.2, 1.6, 2], seconds: 8,
 });
+
 type Rung = typeof PUNCHED;
 
 /** Against a weapon: every body holding the buckler with the club or the sword, struck by a drill opponent's club on its rhythm. */
@@ -56,38 +56,46 @@ const loadoutOf = ({ held, left }: Pick<CoverCondition, "held" | "left">): Loado
 /** The Commander that leads the subject: stand facing the foe, and strike nothing. */
 const STANDING = deepFreeze({ kind: "stand" });
 
-/** Why `value` is no subject, or what keeps its mind from `model` holding `loadout` (`mindFaults`). */
-function faultsOf(value: Json, model: BodyModel, loadout: Loadout, subject?: Subject): readonly string[] {
-  const kind = (value as { kind?: unknown } | null)?.kind;
-  if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
-  if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-  if (!treeObeys(value as unknown as MindConfig)) return [`a ${kind} mind carries out no orders, so no drill leads it`];
-  return mindFaults(value as unknown as MindConfig, modelHolding(model, loadout, subject?.character), { entry: [] }).map((fault) => `${model}, ${loadoutKey(loadout)}: ${fault}`);
-}
+export function createCoverCases(context: GameContext) {
+  const { treeObeys, controllers: CONTROLLERS } = context.catalog;
+  const mindFaults = contextMindFaults.bind(undefined, context);
+  const { opponentOf } = createDrillOpponents(context);
 
-function coverCases(protocol: Rung): Cases<CoverCondition, CoverReading> {
-  const conditions: CoverCondition[] = [];
-  for (const model of protocol.models) for (const { left, right } of protocol.loadouts) for (const across of protocol.across) for (const gap of protocol.gaps)
-    conditions.push({ model, held: right as CoverHeld, ...(left === "empty" ? {} : { left: left as CoverShield }), across, gap });
-  return {
-    arity: 1,
-    play: protocol as unknown as Json,
-    conditions,
-    seconds: protocol.seconds,
-    faults: (value, condition, subject) => faultsOf(value, condition.model, loadoutOf(condition), subject),
-    world: ([value], condition, engine, [character]) => {
-      const { model, across, gap } = condition;
-      return { kind: "bout", engine, tape: [],
-        // A drill, not a fight: nothing ends it but its reader.
-        recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
-          loadouts: { left: loadoutOf(condition), right: protocol.foe },
-          // Along +x, as the open stage's spawns are.
-          start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, across], heading: -Math.PI / 2 } },
-          ...opposed({ mind: value as unknown as MindConfig, commander: STANDING }, opponentOf(protocol.opponent)!) } };
-    },
-    read: (built) => readCover(built, protocol),
-  };
-}
+  /** Why `value` is no subject, or what keeps its mind from `model` holding `loadout` (`mindFaults`). */
+  function faultsOf(value: Json, model: BodyModel, loadout: Loadout, subject?: Subject): readonly string[] {
+    const kind = (value as { kind?: unknown } | null)?.kind;
+    if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
+    if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
+    if (!treeObeys(value as unknown as MindConfig)) return [`a ${kind} mind carries out no orders, so no drill leads it`];
+    return mindFaults(value as unknown as MindConfig, modelHolding(model, loadout, subject?.character), { entry: [] }).map((fault) => `${model}, ${loadoutKey(loadout)}: ${fault}`);
+  }
 
-/** Every protocol the Cover drill may be played on, by name: its rungs. */
-export const COVER_CASES: Readonly<Record<string, Cases<CoverCondition, CoverReading>>> = Object.freeze({ punched: coverCases(PUNCHED), club: coverCases(CLUBBED), sword: coverCases(SWORD) });
+  function coverCases(protocol: Rung): Cases<CoverCondition, CoverReading> {
+    const conditions: CoverCondition[] = [];
+    for (const model of protocol.models) for (const { left, right } of protocol.loadouts) for (const across of protocol.across) for (const gap of protocol.gaps)
+      conditions.push({ model, held: right as CoverHeld, ...(left === "empty" ? {} : { left: left as CoverShield }), across, gap });
+    return {
+      arity: 1,
+      play: protocol as unknown as Json,
+      conditions,
+      seconds: protocol.seconds,
+      faults: (value, condition, subject) => faultsOf(value, condition.model, loadoutOf(condition), subject),
+      world: ([value], condition, engine, [character]) => {
+        const { model, across, gap } = condition;
+        return { kind: "bout", engine, tape: [],
+          // A drill, not a fight: nothing ends it but its reader.
+          recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+            loadouts: { left: loadoutOf(condition), right: protocol.foe },
+            // Along +x, as the open stage's spawns are.
+            start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, across], heading: -Math.PI / 2 } },
+            ...opposed({ mind: value as unknown as MindConfig, commander: STANDING }, opponentOf(protocol.opponent)!) } };
+      },
+      read: (built) => readCover(built, protocol),
+    };
+  }
+
+  /** Every protocol the Cover drill may be played on, by name: its rungs. */
+  const COVER_CASES: Readonly<Record<string, Cases<CoverCondition, CoverReading>>> = Object.freeze({ punched: coverCases(PUNCHED), club: coverCases(CLUBBED), sword: coverCases(SWORD) });
+
+  return { COVER_CASES };
+}

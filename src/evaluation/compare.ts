@@ -4,8 +4,8 @@
  * fixed order and stops at the first that settles it (`settle`), so rows played past it, or read
  * from a record, give the same answer. A battery's comparison is its figures' paired differences.
  */
-import { recordingKey } from "../core/recording.ts";
-import type { Side } from "../core/spec/body.ts";
+import { recordingKey } from "../core/world/recording.ts";
+import type { Side } from "../core/bodies/spec/body.ts";
 import type { BoutReading } from "./contest.ts";
 import type { Figure, Json, Table } from "./evaluation.ts";
 import type { Row } from "./play.ts";

@@ -22,10 +22,10 @@
  *   ending decided would have gone on, and is counted apart.
  */
 import { parseArgs } from "node:util";
-import { HELD } from "../src/core/items/held.ts";
-import { lifeTaken } from "../src/core/rules/blows.ts";
-import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { sourced } from "../src/core/spec/quantity.ts";
+import { HELD } from "../src/core/bodies/items/held.ts";
+import { lifeTaken } from "../src/combat/blows.ts";
+import { HUMANOID_MODELS } from "../src/core/bodies/models.ts";
+import { sourced } from "../src/core/bodies/spec/quantity.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 

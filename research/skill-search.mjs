@@ -1,11 +1,11 @@
 /**
  * **A skill's settings searched on one body**, for its record (`SkillRecord`,
- * `src/core/skills/framework/records.ts`): diagonal CMA (`cma.mjs`) over the settings that shape
+ * `src/skills/framework/records.ts`): diagonal CMA (`cma.mjs`) over the settings that shape
  * its motion (`SEARCHES`), from the body's record where it has one and the Warrior's where not, the
  * rest held at the start's, each candidate played on its task's trials on that body and scored by
  * their mean. `--confirm` then plays the start and the search's best on fresh trials (other gaps)
  * and keeps the better: the best only where it scores above the start there with no more falls;
- * with `--write`, that is the body's row (`writeRecord`, `research/skill-records.mjs`), saying how it
+ * with `--write`, that is the body's row (`writeRecord`, `research/skills/framework/skill-records.mjs`), saying how it
  * was made.
  *
  * - The stomp: the Strike drill's `stomping` rung (`STRIKE_CASES`, `src/evaluation/strike/cases.ts`),
@@ -38,17 +38,17 @@ import { parseArgs } from "node:util";
 import { execSync } from "node:child_process";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../tests/harness/preload-data.mjs";
-import { buildBout } from "../src/evaluation/bout.ts";
-import { STRIKE_CASES } from "../src/evaluation/strike/cases.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
+import { STRIKE_CASES } from "../src/app/node/evaluation.ts";
 import { barScore } from "../src/evaluation/strike/score.ts";
-import { OPTION_MIND } from "../src/core/option/mind.ts";
-import { modelSpec } from "../src/core/models.ts";
-import { bodyKey } from "../src/core/spec/body.ts";
+import { controllerOf } from "../src/app/catalog.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
+import { bodyKey } from "../src/core/bodies/spec/body.ts";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { recordsOf, writeRecord } from "./skill-records.mjs";
+import { recordsOf, writeRecord } from "./skills/framework/skill-records.mjs";
 
 /** A mind throwing the stomp with `settings` at the middle of a body lying ahead: Option Mind's stomp, on any body. */
-const stomper = (settings) => ({ ...OPTION_MIND.defaults, support: { kind: "support-fold" },
+const stomper = (settings) => ({ ...controllerOf({ kind: "option" }).defaults, support: { kind: "support-fold" },
   executors: [{ name: "stomp", kind: "stomp", tuning: settings }],
   actions: [{ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "centre", lead: 0 } }] });
 

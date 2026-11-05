@@ -12,8 +12,8 @@
  *     [--seconds 0.3] [--hz 120,480,1920]
  */
 import { parseArgs } from "node:util";
-import { commandedBody } from "../src/core/mind/host.ts";
-import { modelSpec } from "../src/core/models.ts";
+import { commandedBody } from "../src/minds/host.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 const { values } = parseArgs({ options: {

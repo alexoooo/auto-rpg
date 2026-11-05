@@ -20,7 +20,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** The working copy's root. */
-export const ROOT = fileURLToPath(new URL("../", import.meta.url));
+export const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 /** Where disposable work goes, and where in it the worktrees go. */
 export const TMP = ".tmp", WORKTREES = ".tmp/worktrees";

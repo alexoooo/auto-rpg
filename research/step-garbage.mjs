@@ -23,7 +23,7 @@ import { parseArgs } from "node:util";
 import v8 from "node:v8";
 import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
 import { allocatedIn, standBodies } from "../tests/harness/garbage.mjs";
-import { buildBout } from "../src/evaluation/bout.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { seededBareRecipe } from "./bare-recipe.mjs";
 

@@ -40,7 +40,7 @@
     </template>
     <template id="crowd-screen">
       <canvas id="stage" tabindex="0" aria-label="Crowd fight"></canvas>
-      <!-- A bar for each body and the frame meter; filled by src/arena/crowd.ts. -->
+      <!-- A bar for each body and the frame meter; filled by src/app/browser/arena/crowd.ts. -->
       <div id="crowd-hud"></div>
       <p id="crowd-note">Loading&hellip;</p>
       <button id="crowd-menu" class="action quiet" type="button">&larr; Main menu</button>
@@ -60,7 +60,7 @@
     </template>
     <template id="arena-screen">
       <canvas id="stage" tabindex="0" aria-label="Arena game"></canvas>
-      <!-- Each side's name and bar, and the bout's clock; filled by src/arena/main.ts. -->
+      <!-- Each side's name and bar, and the bout's clock; filled by src/app/browser/arena/main.ts. -->
       <div id="hud"></div>
       <details id="arena-view" hidden aria-label="View controls">
         <summary>View</summary>
@@ -74,7 +74,7 @@
         <header class="duel-title">
           <h1>Arena</h1>
         </header>
-        <!-- Filled by src/arena/main.ts from the core's models, so an option that is offered is
+        <!-- Filled by src/app/browser/arena/main.ts from the core's models, so an option that is offered is
              one the core has. Its children are laid straight into this grid. -->
         <div id="matchup"></div>
         <!-- The side the person fights; nobody, and both sides fight for themselves. -->
@@ -90,7 +90,7 @@
         <footer class="duel-footer">
           <button id="help-open" class="link" type="button">How to play</button>
           <a href="?play=ratings&amp;evaluation=tournament">Ratings</a>
-          <!-- Where a case opened from the Ratings returns (src/arena/case-link.ts). -->
+          <!-- Where a case opened from the Ratings returns (src/app/browser/arena/case-link.ts). -->
           <a id="case-back" hidden>&larr; Back to the case's ratings</a>
           <p class="note" id="boot-note">Loading&hellip;</p>
           <a href="./">&larr; Main menu</a>
@@ -231,8 +231,8 @@
         </div>
       </main>
     </template>
-    <!-- The lab, in two templates: its scenario menu (`?play=lab`, src/lab/setup.ts) and a
-         scenario running (`?play=lab&scenario=...`, src/lab/main.ts). -->
+    <!-- The lab, in two templates: its scenario menu (`?play=lab`, src/app/browser/lab/setup.ts) and a
+         scenario running (`?play=lab&scenario=...`, src/app/browser/lab/main.ts). -->
     <template id="lab-select-screen">
       <main id="lab-select">
         <h1>LAB</h1>
@@ -259,7 +259,7 @@
         <div id="transport" role="group" aria-label="Timeline"></div>
       </div>
     </template>
-    <!-- The ratings (`?play=ratings`, src/ratings/main.ts): each evaluation's records, filled by the page. -->
+    <!-- The ratings (`?play=ratings`, src/app/browser/ratings/main.ts): each evaluation's records, filled by the page. -->
     <template id="ratings-screen">
       <main id="ratings">
         <header class="ratings-head">
@@ -270,6 +270,6 @@
         <div id="ratings-body"></div>
       </main>
     </template>
-    <script type="module" src="/src/app.ts"></script>
+    <script type="module" src="/src/app/browser/app.ts"></script>
   </body>
 </html>

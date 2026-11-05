@@ -2,7 +2,7 @@
 
 ## Why
 
-Option Mind decides by the tree chooser (`TREE_CHOOSER`, `src/core/option/chooser.ts`) at 100 runs
+Option Mind decides by the tree chooser (`TREE_CHOOSER`, `src/minds/option/chooser.ts`) at 100 runs
 a decision. The target is a world step's 8.33 ms at the 99th percentile, at 120 Hz. Average cost
 also matters: a decision's CPU work and garbage collection consume the time available to advance
 the world, even when a change does not move a percentile clearly.
@@ -19,9 +19,9 @@ decision is made or how its value is estimated.
   steps; the tree's runs, exploration, backup and leaf patterns stay as they are unless a step
   says otherwise.
 - **Determinism and forks hold**: a fixed amount of work a step, never a time budget; what a step
-  keeps is in the chooser's state (`src/core/state.ts`), so a bout forked mid-decision plays on to
+  keeps is in the chooser's state (`src/core/world/state.ts`), so a bout forked mid-decision plays on to
   the bit. Read continuation on the affected chooser path with pending work; the command-queue
-  check in `tests/mind-contract.test.mjs` does not establish search-state completeness.
+  check in `tests/minds/contract.test.mjs` does not establish search-state completeness.
 - **A speed rewrite** does the same operations in the same order and moves no fingerprint case
   ([step cost](../reference/step-cost.md)). A step that changes what is computed (a decision spread
   over steps, a kept tree, a profile table, a learned leaf) is a change of the mind: its moved
@@ -73,7 +73,7 @@ rewrite: no fingerprint case moves. Check: the cost reading; the worker tests re
 
 ### Exact profile queries
 
-Each nearest-trial query (`src/core/skills/framework/profile.ts`) keeps the distances its
+Each nearest-trial query (`src/skills/framework/profile.ts`) keeps the distances its
 selection computed in sample scratch and reuses them when aggregating the selected trials.
 Only the interval visited by that query is valid; trials admitted beyond it by the tie tolerance
 have their distances computed during aggregation. Query work holds clamped start coordinates and
@@ -85,7 +85,7 @@ samples and paired search and step timings.
 ### Exact pressure queries
 
 Each tree decision reads its pressure through a private cache of exact range and velocity starts
-(`cachedPressure`, `src/core/option/percepts.ts`). Fixed arrays hold at most 256 rates in four-way
+(`cachedPressure`, `src/minds/option/percepts.ts`). Fixed arrays hold at most 256 rates in four-way
 hash buckets; a bucket evicts its least recently used start. Duration is applied after each
 lookup. The pressure is read lazily, and the live situation and saved chooser state retain their
 own predictions. Check: exact query results, eviction, decision isolation, the fingerprint and
@@ -94,7 +94,7 @@ paired search and step timings.
 ### Exact predicted situations
 
 Each search shares the read-only sight, report and prediction overlays that end the actions and
-incoming blow (`placing`, `src/core/option/option.ts`). Search-local weak maps find the overlay
+incoming blow (`placing`, `src/minds/option/option.ts`). Search-local weak maps find the overlay
 for each input sight or prediction, and map an overlay to itself so descendants reuse it.
 Each situation keeps its own geometry, posture and grace, with the same arithmetic and inherited
 readings. Check: complete placements, lazy getters, independent inputs and searches, the
@@ -103,7 +103,7 @@ fingerprint and paired search and step timings.
 ### Exact model and offer storage
 
 Replace `space`'s per-situation Option maps and target arrays (`modelAt`,
-`src/core/option/chooser.ts`) with an indexed result row for each situation. Identify a slot by
+`src/minds/option/chooser.ts`) with an indexed result row for each situation. Identify a slot by
 Option identity and target index; preserve first-use and model-call order, root entry checks,
 and the distinction between an unknown result and a known refusal (`null`). A negative result
 need not have a container of its own. Do not remove model calls or negative knowledge merely
@@ -178,7 +178,7 @@ match and the stand-up falls.
 Each profile's reading (`ProfileReading.expect`, `rate`, `peak`, `fastest`) is made once, at load,
 on a grid of starts at half the spans its nearest trials are taken over (`NEAREST`: range 0.05 m,
 velocity 0.125 m/s, place 0.05 m), and read at the nearest point or between them; the trials stay
-the source the table is made from (`research/strike-profiles.mjs`, `research/edge-profiles.mjs`).
+the source the table is made from (`research/strike-profiles.mjs`, `research/skills/recovery/edge-profiles.mjs`).
 An exact index of the trials (a k-d tree) is the alternative where the table moves the match; at
 most 56 trials a profile, it gains little over the pruned scan. Check: the cost reading; the
 match.

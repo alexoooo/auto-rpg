@@ -30,7 +30,7 @@ import { isMainThread, parentPort } from "node:worker_threads";
 import { Vector3 } from "../src/core/math/vector.ts";
 
 const [{ modelSpec }, { coreStand }, { driveMuscles }, { massCentreToRef }, { cmaSearch, workerPool }] = await Promise.all([
-  import("../src/core/models.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/muscle/driver.ts"), import("../src/core/read-motion.ts"),
+  import("../src/core/bodies/models.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/bodies/muscle/driver.ts"), import("../src/core/bodies/read-motion.ts"),
   import("./cma.mjs"),
 ]);
 

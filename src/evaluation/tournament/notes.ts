@@ -1,5 +1,5 @@
 /**
- * **Ratings as notes** (`assets/minds/notes.json`, `src/ui/mind-notes.ts`): each entrant's rating
+ * **Ratings as notes** (`assets/minds/notes.json`, `src/app/browser/ui/mind-notes.ts`): each entrant's rating
  * at its leaf, and the means of the leaves above it, as `"<rating> <date>"`.
  */
 import type { Rated } from "../rating.ts";

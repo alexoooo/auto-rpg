@@ -35,11 +35,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import * as core from "../src/core/math/vector.ts";
-import { addArenaSolids } from "../src/arena/solids.ts";
-import { createRapierPhysics, rapierModule } from "../src/core/engine/rapier.ts";
-import { FIT_SCALE } from "../src/core/human/model.ts";
-import { modelSpec } from "../src/core/models.ts";
-import { STANDARD_GRAVITY } from "../src/core/spec/constants.ts";
+import { addArenaSolids } from "../src/game/arena/solids.ts";
+import { createRapierPhysics, rapierModule } from "../src/core/physics/rapier.ts";
+import { FIT_SCALE } from "../src/core/bodies/human/model.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
+import { STANDARD_GRAVITY } from "../src/core/bodies/spec/constants.ts";
 import { hullSolid } from "../scripts/core/man-envelope.mjs";
 import { AUDITED, TOE } from "./core-posture-trials.mjs";
 import MAN from "../assets/humanoid/man-contact-geometry.json" with { type: "json" };
@@ -313,6 +313,6 @@ for (const s of results) {
 const passive = (name) => results.filter((s) => s.config === name);
 const meets = (name) => passive(name).every((s) => Object.values(s.accept).every(Boolean));
 console.log(`\nAcceptance at 120 Hz: ${meets("120 Hz") ? "met" : "not met"}; at 480 Hz: ${meets("480 Hz") ? "met" : "not met"}.`);
-const out = new URL("./runs/", import.meta.url);
+const out = new URL("./runs", import.meta.url);
 mkdirSync(out, { recursive: true });
 writeFileSync(new URL("man-toe-solver.json", out), JSON.stringify(results, null, 1));

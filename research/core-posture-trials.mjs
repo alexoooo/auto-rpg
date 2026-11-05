@@ -16,29 +16,29 @@
  * (`DofSpec.bind`): the reference pose's angle less.
  */
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
-import { addArenaSolids } from "../src/arena/solids.ts";
-import { SERVO_SECONDS } from "../src/core/body.ts";
-import { commandedBody } from "../src/core/mind/host.ts";
-import { buildBody } from "../src/core/build/build-body.ts";
-import { bodyDynamics } from "../src/core/build/dynamics.ts";
-import { jointAngles, ratesToRef } from "../src/core/build/joint-state.ts";
-import { lowsOf } from "../src/core/control/ground.ts";
-import { chainTo, pointAtToRef, rotationAtToRef } from "../src/core/control/kinematics.ts";
-import { pointOfToRef } from "../src/core/read-motion.ts";
-import { CONTACT_FRICTION } from "../src/core/spec/constants.ts";
-import { FIT_SCALE } from "../src/core/human/model.ts";
-import { modelSpec } from "../src/core/models.ts";
-import { driveMuscles } from "../src/core/muscle/driver.ts";
-import { STANCE_LOWER } from "../src/core/skills/locomotion/locomotion.ts";
-import { derive, sourced } from "../src/core/spec/quantity.ts";
-import { add, cross, dot, normalize, scale, sub } from "../src/core/spec/vec.ts";
-import { createWorld, PHYSICS_HZ } from "../src/core/world.ts";
+import { addArenaSolids } from "../src/game/arena/solids.ts";
+import { SERVO_SECONDS } from "../src/control/body.ts";
+import { commandedBody } from "../src/minds/host.ts";
+import { buildBody } from "../src/core/bodies/build/build-body.ts";
+import { bodyDynamics } from "../src/core/bodies/build/dynamics.ts";
+import { jointAngles, ratesToRef } from "../src/core/bodies/build/joint-state.ts";
+import { lowsOf } from "../src/control/ground.ts";
+import { chainTo, pointAtToRef, rotationAtToRef } from "../src/control/kinematics.ts";
+import { pointOfToRef } from "../src/core/bodies/read-motion.ts";
+import { CONTACT_FRICTION } from "../src/core/bodies/spec/constants.ts";
+import { FIT_SCALE } from "../src/core/bodies/human/model.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
+import { driveMuscles } from "../src/core/bodies/muscle/driver.ts";
+import { STANCE_LOWER } from "../src/skills/locomotion/locomotion.ts";
+import { derive, sourced } from "../src/core/bodies/spec/quantity.ts";
+import { add, cross, dot, normalize, scale, sub } from "../src/core/bodies/spec/vec.ts";
+import { createWorld, PHYSICS_HZ } from "../src/core/world/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
-import { risenAt } from "./core-rise-trials.mjs";
+import { risenAt } from "./skills/recovery/core-rise-trials.mjs";
 import { yawPitchRollToRef } from "./yaw-pitch-roll.mjs";
 import MAN from "../assets/humanoid/man-contact-geometry.json" with { type: "json" };
 
-export const STATICS_HARNESS = "Node, statics: the joints' kinematics and the body's dynamics (src/core/build/dynamics.ts), no world step";
+export const STATICS_HARNESS = "Node, statics: the joints' kinematics and the body's dynamics (src/core/bodies/build/dynamics.ts), no world step";
 
 /** The body every row is read on: the Warrior, nothing in its hands, no assist. */
 export const AUDITED = "workshop-fighter";
@@ -487,7 +487,7 @@ export const rowName = (row, height) => (height === undefined ? row.name : `${ro
 /**
  * The postures the search starts from, by name: the root's pitch, rad, and channels' angles from
  * their own zero (`@` both sides), the rest at the reference pose. `fours` is the riser's own
- * (`FOURS`, `src/core/recovery/implementations/staged/stages.ts`); the others are guesses the search corrects.
+ * (`FOURS`, `src/skills/recovery/implementations/staged/stages.ts`); the others are guesses the search corrects.
  */
 export const SEEDS = Object.freeze({
   stand: { pitch: 0, angles: {} },
@@ -1289,7 +1289,7 @@ export function jointMomentsOf(body, posture, torques) {
 
 // --- The stand hold and the handover
 
-export const HOLD_HARNESS = "Node, core world (src/core/world.ts), Rapier, at the solver named";
+export const HOLD_HARNESS = "Node, core world (src/core/world/world.ts), Rapier, at the solver named";
 
 /**
  * The solvers a hold is read on. A posture held by its joints' motors alone gives under its load
@@ -1312,7 +1312,7 @@ const HOLD_SECONDS = 3;
 const LIFT = 0.0005;
 /**
  * A freedom driven to its angle closes its error in `CLOSE_SECONDS`, at most `CLOSE_MOST` rad/s:
- * the pose drive the rise battery holds a body stiff with (`toppled`, `research/core-rise-trials.mjs`).
+ * the pose drive the rise battery holds a body stiff with (`toppled`, `research/skills/recovery/core-rise-trials.mjs`).
  */
 const CLOSE_SECONDS = 0.2, CLOSE_MOST = 3;
 /** How far a segment may move from where it was put, m, and the posture have stayed. */

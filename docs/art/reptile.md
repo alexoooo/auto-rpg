@@ -2,7 +2,7 @@
 
 The reptile is drawn with a photogrammetry scan of a Japanese grass lizard, posed as the reptile
 stands and skinned to its segments so the scales bend at the joints (`dressSkinnedArt`,
-`src/render/skinned-art.ts`). The art is cosmetic: it
+`src/app/browser/render/skinned-art.ts`). The art is cosmetic: it
 collides with nothing, is not pickable and decides nothing. The reptile's colliders are its
 segments ([the body](#the-body-fitted-to-the-art)).
 

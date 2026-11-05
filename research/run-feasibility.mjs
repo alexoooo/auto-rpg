@@ -87,8 +87,8 @@ const SOLE = { land: 0.03, speed: 1, clear: 0.12 };
 /** What `steady` reads a stretch by: its speed's span, s; the brisk speed's quantile; the share of it held; the most the way may turn, rad. */
 const STEADY = { span: 0.5, brisk: 0.9, share: 0.8, turn: 0.35 };
 
-const { modelSpec } = await import("../src/core/models.ts");
-const { forceVelocityFactor } = await import("../src/core/muscle/force-velocity.ts");
+const { modelSpec } = await import("../src/core/bodies/models.ts");
+const { forceVelocityFactor } = await import("../src/core/bodies/muscle/force-velocity.ts");
 
 // -- The plane: forward along the run, up.
 

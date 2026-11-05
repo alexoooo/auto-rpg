@@ -11,11 +11,11 @@ import "../tests/harness/preload-data.mjs";
 import { performance } from "node:perf_hooks";
 import { parseArgs } from "node:util";
 import { coreStand } from "../tests/harness/core-stand.mjs";
-import { GAME, defaultMind } from "../src/entrants/game.ts";
-import { createMind } from "../src/core/mind/minds.ts";
-import { STAND_ORDERS } from "../src/core/intent/orders.ts";
-import { modelHolding } from "../src/core/models.ts";
-import { buildBody } from "../src/core/build/build-body.ts";
+import { GAME, defaultMind } from "../src/app/catalog.ts";
+import { createMind } from "../src/minds/minds.ts";
+import { STAND_ORDERS } from "../src/skills/intent/orders.ts";
+import { modelHolding } from "../src/core/bodies/models.ts";
+import { buildBody } from "../src/core/bodies/build/build-body.ts";
 
 const { values } = parseArgs({ options: { makes: { type: "string", default: "60" } } });
 const makes = Number(values.makes), WARM = 3;

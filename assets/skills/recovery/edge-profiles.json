@@ -1,5 +1,5 @@
 {
-  "source": {"script":"research/edge-profiles.mjs","falls":"rising-target","offsets":[5.625,16.875]},
+  "source": {"script":"research/skills/recovery/edge-profiles.mjs","falls":"rising-target","offsets":[5.625,16.875]},
   "profiles": [
     { "measured": {"body":"crypt-skeleton+toes","spec":"8d0f3589500ec55f","skill":"5e20838cd6a92ede","hz":120,"reaction":null,"delay":1}, "target": null, "trials": [
       {"start":{"range":0,"phase":"clear","postures":{"own":"back","target":"none"}},"done":true,"dealt":0,"taken":0,"seconds":0.167,"recovers":null,"down":true},

@@ -32,10 +32,10 @@ import { availableParallelism } from "node:os";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isMainThread, parentPort, Worker } from "node:worker_threads";
-import { buildBout } from "../src/evaluation/bout.ts";
+import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { bradleyTerry } from "../src/evaluation/rating.ts";
-import { MINDS } from "../src/entrants/game.ts";
+import { MINDS } from "../src/app/catalog.ts";
 
 /** Within how far across the ground two centres of mass count as close, m. */
 const CLOSE = 0.5;

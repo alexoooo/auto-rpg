@@ -3,6 +3,6 @@
  * imported for its side effect by every Node module that builds a data-reading mind, so a script
  * runs alike however it is started, and a worker or child process loads too.
  */
-import { GAME } from "../../src/entrants/game.ts";
+import { GAME } from "../../src/app/catalog.ts";
 
 await GAME.loadData(GAME.dataKeys);

@@ -3,7 +3,7 @@
  * protocol, harness, engine, commit, date, pool) and each subject with its version and parent; then
  * a line per case. Versions and tables are derived when read.
  */
-import { recordingIdentity, recordingKey, requireRecordingIdentity, type RecordingIdentity } from "../core/recording.ts";
+import { recordingIdentity, recordingKey, requireRecordingIdentity, type RecordingIdentity } from "../core/world/recording.ts";
 import type { Json, Subject } from "./evaluation.ts";
 import type { Row } from "./play.ts";
 import type { Case } from "./run.ts";
@@ -82,7 +82,7 @@ export type RecordLine = Omit<Case, "seconds"> & Omit<Row, "key">;
  * steps each body's command waited (`World.delay`) where it waited any.
  */
 export const harnessOf = (engine: string, delay: number): string =>
-  `Node, core world (src/core/world.ts), ${engine}, 120 Hz${delay === 0 ? "" : `, each command ${delay} step${delay === 1 ? "" : "s"} late`}`;
+  `Node, core world (src/core/world/world.ts), ${engine}, 120 Hz${delay === 0 ? "" : `, each command ${delay} step${delay === 1 ? "" : "s"} late`}`;
 
 /** **The world's rate, Hz, and command delay, steps, that a record's `harness` names** (`harnessOf`): no delay where it names none; null where it names no rate. */
 export function harnessRule(harness: string): { readonly hz: number; readonly delay: number } | null {

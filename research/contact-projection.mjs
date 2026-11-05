@@ -4,11 +4,11 @@ import { pathToFileURL } from "node:url";
 import { Vector3 } from "../src/core/math/vector.ts";
 import fixture from "../assets/research/contact-projection.json" with { type: "json" };
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
-import { sourced } from "../src/core/spec/quantity.ts";
-import { createEquipment } from "../src/core/equipment.ts";
-import { coupledDynamics } from "../src/core/build/coupled-dynamics.ts";
-import { predictPointContacts } from "../src/core/build/contact-step.ts";
-import { CONTACT_FRICTION } from "../src/core/spec/constants.ts";
+import { sourced } from "../src/core/bodies/spec/quantity.ts";
+import { createEquipment } from "../src/core/bodies/equipment.ts";
+import { coupledDynamics } from "../src/core/bodies/build/coupled-dynamics.ts";
+import { predictPointContacts } from "../src/core/bodies/build/contact-step.ts";
+import { CONTACT_FRICTION } from "../src/core/bodies/spec/constants.ts";
 
 const q = (path, unit = "m") => sourced(path.split("/").reduce((v, key) => v[key], fixture), unit, "contact-projection-fixture", "/" + path);
 const zero = [0, 0, 0], identity = [0, 0, 0, 1];

@@ -1,8 +1,8 @@
 /**
- * Loads each candidate engine in Node and hands out a factory per engine (`src/physics-bench/`).
+ * Loads each candidate engine in Node and hands out a factory per engine (`src/app/browser/physics-bench/`).
  */
-import { createMujoco } from "../../src/physics-bench/engines/mujoco.ts";
-import { createRapier } from "../../src/physics-bench/engines/rapier.ts";
+import { createMujoco } from "../../src/app/browser/physics-bench/engines/mujoco.ts";
+import { createRapier } from "../../src/app/browser/physics-bench/engines/rapier.ts";
 
 export const ENGINES = ["mujoco", "mujoco-mt", "rapier", "rapier-simd"];
 

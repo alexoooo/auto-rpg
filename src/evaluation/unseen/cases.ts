@@ -2,15 +2,16 @@
  * **The unseen report's cases**: a mind on a character with a loadout no mind is rated on, against
  * Option Mind with sword and buckler on the same character, on each side.
  */
-import { LOADOUTS, loadoutKey, type Loadout } from "../../core/items/held.ts";
-import type { MindConfig } from "../../core/mind/config.ts";
-import { BODY_MODELS, modelHolds, type BodyModel } from "../../core/models.ts";
-import { FIGHT_ENTRY, CONTROLLERS, MINDS, modelRefusal } from "../../entrants/game.ts";
-import type { Side } from "../../core/spec/body.ts";
+import { LOADOUTS, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
+import type { MindConfig } from "../../minds/config.ts";
+import { BODY_MODELS, modelHolds, type BodyModel } from "../../core/bodies/models.ts";
+import type { Side } from "../../core/bodies/spec/body.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import { sideAttributes, type Cases, type Json, type Reader } from "../evaluation.ts";
 import { TOURNAMENT } from "../tournament/cases.ts";
-import { otherSide } from "../../core/spec/body.ts";
+import { otherSide } from "../../core/bodies/spec/body.ts";
+import { FIGHT_ENTRY } from "../../minds/catalog.ts";
+import { type GameContext } from "../../game/arena/context.ts";
 
 /** The opponent: Option Mind with sword and buckler, the sword-and-buckler reference. */
 const OPPONENT = Object.freeze({ mind: "option", loadout: TOURNAMENT.loadouts.find((loadout) => loadoutKey(loadout) === "buckler,sword")! });
@@ -26,39 +27,45 @@ export type UnseenCondition = { readonly model: BodyModel; readonly loadout: Loa
 /** A bout as the subject played it: the bout's reading and the subject's side. */
 export type UnseenReading = BoutReading & { readonly side: Side };
 
+export function createUnseenCases(context: GameContext) {
+  const { modelRefusal } = context;
+  const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
 
-/** Whether `value` names a mind's kind. */
-const isMind = (value: Json): boolean => typeof value === "object" && value !== null && !Array.isArray(value)
-  && typeof (value as { kind?: unknown }).kind === "string" && Object.hasOwn(CONTROLLERS, (value as { kind: string }).kind);
+  /** Whether `value` names a mind's kind. */
+  const isMind = (value: Json): boolean => typeof value === "object" && value !== null && !Array.isArray(value)
+    && typeof (value as { kind?: unknown }).kind === "string" && Object.hasOwn(CONTROLLERS, (value as { kind: string }).kind);
 
-export const UNSEEN_CASES: Readonly<Record<string, Cases<UnseenCondition, UnseenReading>>> = Object.freeze({
-  standard: {
-    arity: 1,
-    play: UNSEEN as unknown as Json,
-    conditions: BODY_MODELS.flatMap((model) => UNSEEN.loadouts.flatMap((loadout) => UNSEEN.gaps.flatMap((gap) =>
-      (["left", "right"] as const).map((side) => ({ model, loadout, gap, side }))))),
-    seconds: UNSEEN.capSeconds,
-    faults: (value, { model, loadout }, subject) => {
-      if (!isMind(value)) return ["no mind"];
-      if (!modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) return [`${model} holds nothing`];
-      const refused = modelRefusal(model, value as unknown as MindConfig, loadout, FIGHT_ENTRY, subject?.character),
-        opposed = modelRefusal(model, MINDS[OPPONENT.mind].config, OPPONENT.loadout, FIGHT_ENTRY, MINDS[OPPONENT.mind].character);
-      if (refused !== null) return [`the mind cannot play ${model} carrying ${loadoutKey(loadout)}: ${refused}`];
-      if (opposed !== null) return [`the opponent cannot play ${model}: ${opposed}`];
-      return [];
-    },
-    world: ([mind], { model, loadout, gap, side }, engine, [character]) => ({
-      kind: "bout", engine, tape: [], recipe: {
-        level: UNSEEN.level, left: model, right: model, gap,
-        loadouts: { [side]: loadout, [otherSide(side)]: OPPONENT.loadout } as Record<Side, Loadout>,
-        minds: { [side]: mind as unknown as MindConfig, [otherSide(side)]: MINDS[OPPONENT.mind].config } as Record<Side, MindConfig>,
-        capSeconds: UNSEEN.capSeconds,
-        ...sideAttributes({ [side]: character, [otherSide(side)]: MINDS[OPPONENT.mind].character }),
+  const UNSEEN_CASES: Readonly<Record<string, Cases<UnseenCondition, UnseenReading>>> = Object.freeze({
+    standard: {
+      arity: 1,
+      play: UNSEEN as unknown as Json,
+      conditions: BODY_MODELS.flatMap((model) => UNSEEN.loadouts.flatMap((loadout) => UNSEEN.gaps.flatMap((gap) =>
+        (["left", "right"] as const).map((side) => ({ model, loadout, gap, side }))))),
+      seconds: UNSEEN.capSeconds,
+      faults: (value, { model, loadout }, subject) => {
+        if (!isMind(value)) return ["no mind"];
+        if (!modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) return [`${model} holds nothing`];
+        const refused = modelRefusal(model, value as unknown as MindConfig, loadout, FIGHT_ENTRY, subject?.character),
+          opposed = modelRefusal(model, MINDS[OPPONENT.mind].config, OPPONENT.loadout, FIGHT_ENTRY, MINDS[OPPONENT.mind].character);
+        if (refused !== null) return [`the mind cannot play ${model} carrying ${loadoutKey(loadout)}: ${refused}`];
+        if (opposed !== null) return [`the opponent cannot play ${model}: ${opposed}`];
+        return [];
       },
-    }),
-    read: (built, { side }): Reader<UnseenReading> => {
-      const bout = readBout(built);
-      return { afterStep: () => bout.afterStep(), get ended() { return bout.ended; }, reading: () => ({ ...bout.reading(), side }) };
+      world: ([mind], { model, loadout, gap, side }, engine, [character]) => ({
+        kind: "bout", engine, tape: [], recipe: {
+          level: UNSEEN.level, left: model, right: model, gap,
+          loadouts: { [side]: loadout, [otherSide(side)]: OPPONENT.loadout } as Record<Side, Loadout>,
+          minds: { [side]: mind as unknown as MindConfig, [otherSide(side)]: MINDS[OPPONENT.mind].config } as Record<Side, MindConfig>,
+          capSeconds: UNSEEN.capSeconds,
+          ...sideAttributes({ [side]: character, [otherSide(side)]: MINDS[OPPONENT.mind].character }),
+        },
+      }),
+      read: (built, { side }): Reader<UnseenReading> => {
+        const bout = readBout(built);
+        return { afterStep: () => bout.afterStep(), get ended() { return bout.ended; }, reading: () => ({ ...bout.reading(), side }) };
+      },
     },
-  },
-});
+  });
+
+  return { UNSEEN_CASES };
+}

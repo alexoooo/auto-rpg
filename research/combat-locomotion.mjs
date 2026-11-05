@@ -1,11 +1,11 @@
 import {coreStand} from '../tests/harness/core-stand.mjs';
-import {modelSpec} from '../src/core/models.ts';
-import {SERVO_SECONDS} from '../src/core/body.ts';
-import {commandedBody} from '../src/core/mind/host.ts';
-import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
-import {locomotion,STANCE_LOWER,stanceOf} from '../src/core/skills/locomotion/locomotion.ts';
-import {GUARD} from '../src/core/skills/guard/guard.ts';
-import {balanceCeiling,balancePercent,rulebook} from '../src/core/rules/rulebook.ts';
+import {modelSpec} from "../src/core/bodies/models.ts";
+import {SERVO_SECONDS} from "../src/control/body.ts";
+import {commandedBody} from "../src/minds/host.ts";
+import {DEFAULT_ENGINE} from "../src/core/physics/engines.ts";
+import {locomotion,STANCE_LOWER,stanceOf} from "../src/skills/locomotion/locomotion.ts";
+import {GUARD} from "../src/skills/guard/guard.ts";
+import {balanceCeiling,balancePercent,rulebook} from "../src/combat/rulebook.ts";
 
 /** A half-turn from rest or an established walk, through shared locomotion and ordinary muscles. */
 export async function combatTurn({speed,rate,sense,after,turnLimit,turnStartup,model='workshop-fighter',engine=DEFAULT_ENGINE,balance=0,hz=120}) {

@@ -3,12 +3,12 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
+import { EVALUATIONS } from "../src/app/node/evaluation.ts";
 import { compareRecords, selectedSubject } from "../src/evaluation/record-comparison.ts";
 import { readRecord } from "../src/evaluation/record.ts";
 import { BUILD_IDENTITY, isBuildInput } from "./build-identity.mjs";
 
-const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8", maxBuffer: 64 << 20, stdio: ["ignore", "pipe", "pipe"] });
 
 /** The entrants whose kinds (`<entrant>:<kind>`) a subject's config names, each once. */

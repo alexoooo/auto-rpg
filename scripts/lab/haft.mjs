@@ -1,12 +1,12 @@
 // The club's haft on the workshop skin, offline: where the core's grip (`inHand`,
-// `src/core/human/grip.ts`) puts it, in the GLB's rest coordinates, and how far each hand part
-// sits from it. `haft-fit.mjs` fits `CLUB_GRIP` (`src/render/club-grip.ts`) against it.
+// `src/core/bodies/human/grip.ts`) puts it, in the GLB's rest coordinates, and how far each hand part
+// sits from it. `haft-fit.mjs` fits `CLUB_GRIP` (`src/app/browser/render/club-grip.ts`) against it.
 import { Matrix } from "@babylonjs/core/Maths/math.vector.js";
-import { heldPoint } from "../../src/core/build/rigid.ts";
-import { armed } from "../../src/core/human/grip.ts";
-import { FIT_SCALE } from "../../src/core/human/model.ts";
-import { humanSpec } from "../../src/core/human/spec.ts";
-import { woodenClub } from "../../src/core/items/club.ts";
+import { heldPoint } from "../../src/core/bodies/build/rigid.ts";
+import { armed } from "../../src/core/bodies/human/grip.ts";
+import { FIT_SCALE } from "../../src/core/bodies/human/model.ts";
+import { humanSpec } from "../../src/core/bodies/human/spec.ts";
+import { woodenClub } from "../../src/core/bodies/items/club.ts";
 
 /** A body-frame point in the GLB's rest frame: the loader's root turns x, and the fit scales. */
 const toGlb = ([x, y, z]) => [-x / FIT_SCALE.value, y / FIT_SCALE.value, z / FIT_SCALE.value];

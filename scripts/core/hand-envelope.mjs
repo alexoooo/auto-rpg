@@ -25,9 +25,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { loadGlb, restBones, skinHand } from "../lab/fist-probe.mjs";
-import { FIST, fistTurns } from "../../src/render/fist.ts";
-import { convexHull } from "../../src/core/spec/hull.ts";
-import { add, cross, dot, length, normalize, orthogonalTo, scale, sub } from "../../src/core/spec/vec.ts";
+import { FIST, fistTurns } from "../../src/app/browser/render/fist.ts";
+import { convexHull } from "../../src/core/bodies/spec/hull.ts";
+import { add, cross, dot, length, normalize, orthogonalTo, scale, sub } from "../../src/core/bodies/spec/vec.ts";
 import { transcribed } from "./workshop-envelope.mjs";
 import fighterRig from "../../assets/humanoid/workshop-fighter.json" with { type: "json" };
 import rogueRig from "../../assets/humanoid/workshop-rogue.json" with { type: "json" };
@@ -44,7 +44,7 @@ export const handsFile = (model) => path.join(ROOT, "assets", "humanoid", `${mod
  */
 export const PATCH = 0.005;
 
-/** Blender (the rig's export) to the body frame, as `src/core/human/rig.ts` turns it. */
+/** Blender (the rig's export) to the body frame, as `src/core/bodies/human/rig.ts` turns it. */
 const fromBlender = ([x, y, z]) => [-x, z, -y];
 /** glTF (the GLB) to the body frame, as `workshop-envelope.mjs` turns it. */
 export const fromGltf = ([x, y, z]) => [-x, y, z];

@@ -1,8 +1,8 @@
 /** Resolve CLI subject names and configs, keeping an ablation within its source's entrants, calibration and character. */
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
-import { replacedAt, CONTROLLERS, MINDS } from "../src/entrants/game.ts";
-import { recordingKey } from "../src/core/recording.ts";
+import { replacedAt, CONTROLLERS, MINDS } from "../src/app/catalog.ts";
+import { recordingKey } from "../src/core/world/recording.ts";
 import { sha256Text } from "../src/evaluation/sha256.ts";
 
 /** The subject `text` names: a JSON file or JSON as given whole, else a name for the catalogue. */

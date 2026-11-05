@@ -2,8 +2,8 @@
 import "../tests/harness/preload-data.mjs";
 import { parentPort } from "node:worker_threads";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
-import { playRow } from "../src/evaluation/play.ts";
+import { EVALUATIONS } from "../src/app/node/evaluation.ts";
+import { playRow } from "../src/app/node/evaluation.ts";
 
 // A worker's row is its message: Babylon's banner for each case's scene is not.
 Logger.LogLevels = Logger.NoneLogLevel;

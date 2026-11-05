@@ -6,7 +6,7 @@ and run from the repository root; batteries spread their trials over worker thre
 one stand a trial. A figure is read with its harness: Node, the stand or the module it drives, the
 engine and the rate. A script that writes a data file the core reads does so only when asked
 (`--write`, or `core-stance-envelope.mjs`'s `--add`); without it, it prints. Three always write:
-`run-cycle.mjs` (`assets/skills/locomotion/cycle-run/run-cycle.json`, or `--out`), `skill-records.mjs`
+`run-cycle.mjs` (`assets/skills/locomotion/cycle-run/run-cycle.json`, or `--out`), `skills/framework/skill-records.mjs`
 (`assets/skills/<capability>/<implementation>/<skill>.json` and `.meta.json`) and `punch-export.mjs`
 (`assets/skills/strikes/straight-punch/straight-punch.json`, or a held blow's `assets/skills/strikes/<kind>/<kind>.json`, with its
 `.meta.json`; or `--out`). Each script's doc comment gives its options, what it prints and the rule
@@ -18,9 +18,9 @@ it reads by.
 |---|---|---|
 | `physiques.mjs` | the physique grid and its ranges (`PHYSIQUE_GRID`, `physiqueRanges`, `physiqueGrid`) | |
 | `core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/skills/locomotion/<legs>/<legs>-envelope.json` |
-| `strike-profiles.mjs`, `edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on; `edge-profiles --model` refreshes one body's at the existing offsets | core profiles with `--write`; ground falls and trials cached in `research/runs/edge-profiles/`, or `--rows` |
-| `skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/skills/<capability>/<implementation>/<skill>.json`, `.meta.json`, every run |
-| `skill-search.mjs` | a skill's settings (the stomp's, `SEARCHES`) searched on one body by CMA-ES on its task's trials; `--confirm` keeps the best only where it beats the start on fresh trials | `--out`; with `--confirm --write`, the body's row (through `skill-records.mjs`) |
+| `strike-profiles.mjs`, `skills/recovery/edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on; `edge-profiles --model` refreshes one body's at the existing offsets | core profiles with `--write`; ground falls and trials cached in `research/runs/edge-profiles/`, or `--rows` |
+| `skills/framework/skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/skills/<capability>/<implementation>/<skill>.json`, `.meta.json`, every run |
+| `skill-search.mjs` | a skill's settings (the stomp's, `SEARCHES`) searched on one body by CMA-ES on its task's trials; `--confirm` keeps the best only where it beats the start on fresh trials | `--out`; with `--confirm --write`, the body's row (through `skills/framework/skill-records.mjs`) |
 | `swing-drill.mjs` | a swung blow (`cut`, `club-blow`) searched on the Strike drill's still rung: each channel's windup and push, where it stands, how long it settles; `--verify` plays a found one | `--out` |
 | `sword-thrust-search.json` | the sword thrust's searched schedule (`punch-drill.mjs --blow sword-thrust --chamber --near`), which `assets/skills/strikes/sword-thrust/sword-thrust.json` names as how it was made | |
 | `learned-puncher.json` | a mind whose one action is the straight punch, thrown by the punch executor: a subject the Strike drill's records name | |
@@ -30,14 +30,14 @@ it reads by.
 | `core-posture.mjs`, `-trials.mjs`, `-worker.mjs` | statics: whether the Warrior can hold still on each support from knees and hands to standing, at what share of its strength, then held by its motors on the world | `research/runs/postures/` |
 | `man-postures.mjs`, `core-posture-runs.mjs`, `man-posture-starts.mjs` | the same statics on Man's envelopes (`--envelopes boot,barefoot,toe`), and the installed postures' starts; the bare foot, palm and passive toe hold no support posture the boot does not | `man-postures.mjs`: `research/runs/postures/envelopes.json`; `man-posture-starts.mjs`: `research/data/man-postures.json`'s starts, every run, from the sweep `--sweep` names (`research/runs/postures/envelopes.json` where not given) |
 | `man-toe-solver.mjs` | Man's passive toe on the game's solver, at 120 and 480 Hz; a passive toe hinge does not hold as a spring under load | |
-| `core-rise.mjs`, `-trials.mjs`, `-worker.mjs` | the battery of falls: every model shoved sixteen ways (`--shoves`, `--turn`), with the club and without, watched (`--watch`) under a mind (`--mind`): how many rose, how fast, the furthest stage | |
-| `core-rise-poses.mjs` | stages played on a body toppled stiff (`--lie`, `--degrees`): how it lies at each stage's end | |
-| `rise-trace.mjs` | where a whole mind's rise spends its time on the stand-up target's falls: each ground action, where it began, how long, its stages and how it ended; `--seeds` checks other seeds | `--out` |
-| `rise-search.mjs` | one body's loadout-specific recovery timings and poses searched through immutable tunings; each candidate's profiles are calibrated before scoring its normal chooser; `--offsets` changes the scoring directions; fresh falls reserved for confirmation | `--out`: settings, calibration and scoring rows, profiles and CMA checkpoint |
-| `rise-witness.mjs` | whether a fast rise exists on the body as built: CMA-ES for one trajectory of pose and bearing phases from a placed start to verified standing within the target's allowance | `--out`: `.best.json`, `.jsonl` |
-| `climb.mjs` | no measurement: Stand up's steady (`standUp`) with research variants, for `crouch-steady.mjs` and `rise-witness.mjs` | |
-| `crouch-steady.mjs` | the steady from the Warrior's stored squat, under `climb.mjs`'s variants: the time to verified standing | |
-| `climb-search.mjs` | CMA-ES over the steady's climb (the `ramp` variant), scored by the mean time to verified standing from the squat and the witnesses' hand-overs | |
+| `skills/recovery/core-rise.mjs`, `-trials.mjs`, `-worker.mjs` | the battery of falls: every model shoved sixteen ways (`--shoves`, `--turn`), with the club and without, watched (`--watch`) under a mind (`--mind`): how many rose, how fast, the furthest stage | |
+| `skills/recovery/implementations/staged/core-rise-poses.mjs` | stages played on a body toppled stiff (`--lie`, `--degrees`): how it lies at each stage's end | |
+| `skills/recovery/implementations/staged/rise-trace.mjs` | where a whole mind's rise spends its time on the stand-up target's falls: each ground action, where it began, how long, its stages and how it ended; `--seeds` checks other seeds | `--out` |
+| `skills/recovery/implementations/staged/rise-search.mjs` | one body's loadout-specific recovery timings and poses searched through immutable tunings; each candidate's profiles are calibrated before scoring its normal chooser; `--offsets` changes the scoring directions; fresh falls reserved for confirmation | `--out`: settings, calibration and scoring rows, profiles and CMA checkpoint |
+| `skills/recovery/witness/rise-witness.mjs` | whether a fast rise exists on the body as built: CMA-ES for one trajectory of pose and bearing phases from a placed start to verified standing within the target's allowance | `--out`: `.best.json`, `.jsonl` |
+| `skills/recovery/witness/climb.mjs` | no measurement: Stand up's steady (`standUp`) with research variants, for `skills/recovery/witness/crouch-steady.mjs` and `skills/recovery/witness/rise-witness.mjs` | |
+| `skills/recovery/witness/crouch-steady.mjs` | the steady from the Warrior's stored squat, under `skills/recovery/witness/climb.mjs`'s variants: the time to verified standing | |
+| `skills/recovery/witness/climb-search.mjs` | CMA-ES over the steady's climb (the `ramp` variant), scored by the mean time to verified standing from the squat and the witnesses' hand-overs | |
 | `core-rapier-probe.mjs` | Rapier's generic joint on the engine module alone: limits, motor axes, saturation, gyroscopic spin | |
 | `rapier-package-parity.mjs` | stock SIMD 0.21.0 against the installed engine on three arena recipes (`--reference <unpacked package>`) | |
 | `engine-adapter-cost.mjs` | the adapter against a commit (`--reference`) on the same solver, pose traces asserted equal | |
@@ -52,7 +52,7 @@ the Warrior's strongest one-handed blow with the wooden club, found by a strike 
 ```powershell
 node research/core-stance-envelope.mjs --legs walk-run --models workshop-fighter --holds empty --walks
 node research/core-posture.mjs --workers 30
-node research/core-rise.mjs --workers 30 --watch 40 --only workshop-fighter --shoves 128 --falls
+node research/skills/recovery/core-rise.mjs --workers 30 --watch 40 --only workshop-fighter --shoves 128 --falls
 node research/engine-adapter-cost.mjs --reference <commit> --runs 3
 ```
 
@@ -111,7 +111,7 @@ Scripts not listed above, by what they study; each is read by the record named.
 
 | Family | Scripts | Record |
 |---|---|---|
-| Standing up | `rising-*.mjs`, `recovery-transfer.mjs`; `sit-back.mjs`, the game's sit-back from hands and knees on toes | [the owner's target](../docs/reference/rising.md#the-owners-target) |
+| Standing up | `rising-*.mjs`, `skills/recovery/implementations/staged/recovery-transfer.mjs`; `skills/recovery/implementations/staged/sit-back.mjs`, the game's sit-back from hands and knees on toes | [the owner's target](../docs/reference/rising.md#the-owners-target) |
 | Punches | `punch-*.mjs` | |
 | Learning | `run-learning-server.mjs` (an environment file's copies on worker threads: `environments/punch.json`, `gait.json`, `bout.json`), `case-learning-environment.mjs` (any learnable part in an evaluation's cases), `run-train.py` (PPO or SAC against the server, from scratch or from another part's network), `learning-speed.mjs` (its decisions a second); a blow trains fastest with PPO from scratch on 8 workers of 4 environments, on the rate's curriculum (`curriculum`: 120 Hz first, the file's own rates mixed in) | |
 | Walking and running | `locomotion-*.mjs`, `run-cycle*.mjs`, `run-feasibility.mjs`, `mocap-import.mjs`, `bvh.mjs`, `combat-locomotion.mjs`; the run cycle is fitted to CMU clips (`run-cycle.mjs` names them and their licence) | |
@@ -128,7 +128,7 @@ Scripts not listed above, by what they study; each is read by the record named.
 `physics-bakeoff/` compares engines under one controller on the same cases: a standing foot and a
 forearm chain for fidelity, a whole human observed with no bar, and many humans spaced or piled
 for speed. The live adapters are MuJoCo and Rapier (`physics-bakeoff/engines.mjs`); the
-`physics-bench.html` page runs the same cases in a browser (`src/physics-bench/`).
+`physics-bench.html` page runs the same cases in a browser (`src/app/browser/physics-bench/`).
 [`REPORT.md`](physics-bakeoff/REPORT.md) holds the results and the choice of Rapier; `results/`
 the raw runs.
 

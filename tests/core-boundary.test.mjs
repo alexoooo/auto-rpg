@@ -1,27 +1,25 @@
 /**
- * The core's boundary: `src/core/` reaches nothing but itself, its packages and data files under
- * `assets/`, checked over the transitive closure of its imports. The entrants build on the core and
- * each reaches only the core and its own folder; the pages build on both, never the reverse. Neither
- * imports the renderer, and nothing a headless world is built with does. Also here: the arithmetic,
- * the engine seam and the mind seam, each held over the core and the entrants alike.
+ * Every source module follows its responsibility, runtime and package boundaries. The physical
+ * core stays within its engine package and owned data; entrants use public library APIs. Exact
+ * arithmetic, trusted engine adapters and the Mind/Commander contracts are checked separately.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
-import { sourceCrossings, sourceFiles, targetPath } from "../scripts/source-boundary.mjs";
+import { sourceCrossings, sourceFiles } from "../scripts/source-boundary.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const CORE = "src/core/";
 
 /** Where the game's minds are written: the core and the entrants, held to the same arithmetic and reads. */
-const SIMULATED = [CORE, "src/entrants/"];
+const SIMULATED = [CORE, "src/parts/", "src/combat/", "src/control/", "src/skills/", "src/minds/", "src/entrants/"];
 const isSimulated = (file) => SIMULATED.some((folder) => file.startsWith(folder));
 
 /**
  * Packages the core may import, by prefix: its physics engine alone. The browser runs the core, so no
- * `node:` builtins; the renderer is the pages' (`src/render/`), so no `@babylonjs/`.
+ * `node:` builtins; the renderer is the pages' (`src/app/browser/render/`), so no `@babylonjs/`.
  */
 const PACKAGES = ["@dimforge/rapier3d-simd-compat"];
 
@@ -83,13 +81,13 @@ test("nothing the core reaches leaves the core, its packages or its data", () =>
 });
 
 test("the boundary check finds a crossing where there is one", () => {
-  // The control: the arena's page, held to the core's rule as if `src/arena/` were a core, reaches
+  // The control: the arena's page, held to the core's rule as if `src/game/arena/` were a core, reaches
   // the page's routes, the renderer and the core. If the walk stopped finding these, the test above would prove nothing.
-  const violations = boundaryViolations(["src/arena/main.ts"], (file) => file.startsWith("src/arena/"));
-  assert.ok(violations.includes("src/arena/main.ts imports src/app-route.ts"), violations.join("\n"));
-  assert.ok(violations.includes(`src/arena/main.ts imports the package "@babylonjs/core/Engines/engine.js"`), violations.join("\n"));
+  const violations = boundaryViolations(["src/app/browser/arena/main.ts"], (file) => file.startsWith("src/game/arena/"));
+  assert.ok(violations.includes("src/app/browser/arena/main.ts imports src/game/route.ts"), violations.join("\n"));
+  assert.ok(violations.includes(`src/app/browser/arena/main.ts imports the package "@babylonjs/core/Engines/engine.js"`), violations.join("\n"));
   // And transitively, through the bout the page imports.
-  assert.ok(violations.some((line) => line.startsWith("src/arena/main.ts -> src/arena/duel.ts imports src/core/")),
+  assert.ok(violations.some((line) => line.startsWith("src/app/browser/arena/main.ts -> src/game/arena/duel.ts imports src/core/")),
     violations.join("\n"));
 });
 
@@ -138,15 +136,15 @@ const BOUT_BUILDER = "src/evaluation/bout.ts", CRYPT_BUILDER = "src/evaluation/c
 
 /** The falls' builders (the Lab's starts and shoves, and the rising bed's techniques alone) and the Lab's scenarios. */
 const FALL_BUILDERS = ["src/evaluation/fall.ts", "src/evaluation/rising.ts"];
-const LAB_SCENARIOS = ["src/lab/scenarios.ts", "src/lab/lab-scenario.ts", "src/lab/attack-scenario.ts", "src/lab/locomotion-scenario.ts",
-  "src/lab/stance-scenario.ts", "src/lab/ground-scenario.ts", "src/lab/reach-scenario.ts"];
+const LAB_SCENARIOS = ["src/game/lab/scenarios.ts", "src/app/browser/lab/lab-scenario.ts", "src/app/browser/lab/attack-scenario.ts", "src/app/browser/lab/locomotion-scenario.ts",
+  "src/app/browser/lab/stance-scenario.ts", "src/app/browser/lab/ground-scenario.ts", "src/app/browser/lab/reach-scenario.ts"];
 
-/** The world worker's entry, which steps the Arena's, the crowd fight's and the Crypt's worlds (`src/worker/`). */
-const WORLD_WORKER = "src/worker/world.worker.ts";
+/** The world worker's entry, which steps the Arena's, the crowd fight's and the Crypt's worlds (`src/app/worker/`). */
+const WORLD_WORKER = "src/app/browser/worker/world.worker.ts";
 
 /** Each listed evaluation's cases (the `cases.ts` beside its module), which write their worlds. */
 const caseModules = () => ts.preProcessFile(fs.readFileSync(path.join(ROOT, EVALUATION_LIST), "utf8"), true, true).importedFiles
-  .filter(({ fileName }) => fileName.startsWith("./") && fileName.endsWith("/index.ts"))
+  .filter(({ fileName }) => fileName.startsWith(".") && fileName.endsWith("/index.ts"))
   .map(({ fileName }) => path.posix.join(path.posix.dirname(EVALUATION_LIST), path.posix.dirname(fileName), "cases.ts"));
 
 /**
@@ -179,9 +177,9 @@ function engineArithmetic(text, file) {
 test("the core, and what builds a case's world, compute with IEEE's operations and the core's own functions", () => {
   const builders = worldBuilders(), files = [...new Set([...SIMULATED.flatMap(filesUnder).filter((name) => name.endsWith(".ts")), ...builders])];
   // The core's own functions and vectors, the bout's and the Crypt's worlds and a battery's cases are read.
-  assert.ok(["src/core/math/real.ts", "src/core/math/vector.ts"].every((name) => files.includes(name)) && ["src/arena/duel.ts", "src/arena/solids.ts",
-    "src/evaluation/strike/cases.ts", "src/dungeon/run.ts", "src/dungeon/party-placement.ts", "src/dungeon/level.ts", "src/dungeon/solids.ts",
-    "src/lab/ground-mode.ts", "src/lab/ground-starts.ts", "src/lab/stance-mode.ts", "src/lab/ground-environment.ts", "src/lab/track.ts",
+  assert.ok(["src/core/math/real.ts", "src/core/math/vector.ts"].every((name) => files.includes(name)) && ["src/game/arena/duel.ts", "src/game/arena/solids.ts",
+    "src/evaluation/strike/cases.ts", "src/game/dungeon/run.ts", "src/game/dungeon/party-placement.ts", "src/game/dungeon/level.ts", "src/game/dungeon/solids.ts",
+    "src/game/lab/ground-mode.ts", "src/game/lab/ground-starts.ts", "src/game/lab/stance-mode.ts", "src/game/lab/ground-environment.ts", "src/game/lab/track.ts",
     ...FALL_BUILDERS, ...LAB_SCENARIOS].every((name) => builders.includes(name)) && builders.every((name) => fs.existsSync(path.join(ROOT, name))),
   `the builders found are ${builders.join(", ")}`);
   assert.deepEqual(files.flatMap((file) => engineArithmetic(fs.readFileSync(path.join(ROOT, file), "utf8"), file)), []);
@@ -201,19 +199,19 @@ const rendererImports = (files) => files.flatMap((file) => valueImports(file).fi
 
 test("a headless world loads no renderer: the bout's, the Crypt run's, the cases', the falls' and the world worker's modules import nothing of Babylon", () => {
   const headless = reached([BOUT_BUILDER, CRYPT_BUILDER, ...caseModules(), ...FALL_BUILDERS, WORLD_WORKER]);
-  assert.ok(["src/arena/solids.ts", "src/dungeon/solids.ts", "src/worker/duel-stage.ts", "src/worker/crypt-stage.ts", "src/core/world.ts"]
+  assert.ok(["src/game/arena/solids.ts", "src/game/dungeon/solids.ts", "src/app/worker/duel-stage.ts", "src/app/worker/crypt-stage.ts", "src/core/world/world.ts"]
     .every((name) => headless.includes(name)), `the modules found are ${headless.join(", ")}`);
   assert.deepEqual(rendererImports(headless), []);
   // The control: the Arena's room, which draws, is found importing Babylon, through what it reaches as well.
-  const drawn = rendererImports(reached(["src/arena/room.ts"]));
-  assert.ok(drawn.includes("src/arena/room.ts @babylonjs/core/Meshes/meshBuilder.js") && drawn.some((line) => line.startsWith("src/environment/crypt-kit.ts ")), drawn.join("\n"));
+  const drawn = rendererImports(reached(["src/app/browser/arena/room.ts"]));
+  assert.ok(drawn.includes("src/app/browser/arena/room.ts @babylonjs/core/Meshes/meshBuilder.js") && drawn.some((line) => line.startsWith("src/app/browser/environment/crypt-kit.ts ")), drawn.join("\n"));
 });
 
-/** Packages that are a physics engine: only that engine's module in `src/core/engine/` imports one. */
+/** Packages that are a physics engine: only that engine's module in `src/core/physics/` imports one. */
 const ENGINE_PACKAGES = ["@dimforge/"];
-/** The contract and the list of engines; every other module in `src/core/engine/` is an engine's. */
-const SEAM = new Set(["src/core/engine/engine.ts", "src/core/engine/engines.ts"]);
-const isEngineModule = (file) => file.startsWith("src/core/engine/") && !SEAM.has(file);
+/** The contract and the list of engines; every other module in `src/core/physics/` is an engine's. */
+const SEAM = new Set(["src/core/physics/engine.ts", "src/core/physics/engines.ts"]);
+const isEngineModule = (file) => file.startsWith("src/core/physics/") && !SEAM.has(file);
 
 /**
  * The crossings of the engine seam among `files` ([file, source] pairs): an engine package imported
@@ -228,47 +226,47 @@ function seamCrossings(files) {
         continue;
       }
       const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
-      if (isEngineModule(target) && file !== "src/core/engine/engines.ts" && !isEngineModule(file)) out.push(`${file} imports the engine module ${target}`);
+      if (isEngineModule(target) && file !== "src/core/physics/engines.ts" && !isEngineModule(file)) out.push(`${file} imports the engine module ${target}`);
     }
   }
   return out;
 }
 
 test("the core and its lab reach an engine only through the seam: engine.ts's contract and engines.ts's list", () => {
-  const files = [...filesUnder(CORE), ...filesUnder("src/lab/")].filter((file) => file.endsWith(".ts"))
+  const files = [...filesUnder(CORE), ...filesUnder("src/game/lab/"), ...filesUnder("src/app/browser/lab/")].filter((file) => file.endsWith(".ts"))
     .map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(files.some(([file]) => isEngineModule(file)), "no engine module, so this test would pass on nothing");
-  assert.ok(files.some(([file]) => file === "src/lab/main.ts"), "no lab, so its half of this test would pass on nothing");
+  assert.ok(files.some(([file]) => file === "src/app/browser/lab/main.ts"), "no lab, so its half of this test would pass on nothing");
   assert.deepEqual(seamCrossings(files), []);
   // The control: the lab loading Rapier itself, and the build reaching Rapier's package, are found.
   assert.deepEqual(seamCrossings([
-    ["src/lab/main.ts", `import { loadRapier } from "../core/engine/rapier.ts";`],
-    ["src/core/build/build-body.ts", `import RAPIER from "@dimforge/rapier3d-simd-compat";`],
+    ["src/app/browser/lab/main.ts", `import { loadRapier } from "../../../core/physics/rapier.ts";`],
+    ["src/core/bodies/build/build-body.ts", `import RAPIER from "@dimforge/rapier3d-simd-compat";`],
   ]), [
-    "src/lab/main.ts imports the engine module src/core/engine/rapier.ts",
-    `src/core/build/build-body.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
+    "src/app/browser/lab/main.ts imports the engine module src/core/physics/rapier.ts",
+    `src/core/bodies/build/build-body.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
   ]);
 });
 
 /** The folders a mind and its toolkit are written in, which meet the world through the report and the order sheet alone. */
-const MIND_FOLDERS = ["src/core/mind/", "src/core/intent/", "src/core/navigation/", "src/core/perception/", "src/core/recovery/", "src/core/skills/",
-  "src/core/control/", "src/core/reptile/", "src/core/option/", "src/entrants/"];
+const MIND_FOLDERS = ["src/minds/", "src/skills/intent/", "src/skills/locomotion/navigation/", "src/skills/perception/", "src/skills/recovery/", "src/skills/",
+  "src/control/", "src/skills/quadruped/", "src/minds/option/", "src/entrants/"];
 
 /** The adapters in those folders, which make the report and carry out the order sheet, and so hold the world. */
 const MIND_ADAPTERS = new Set([
-  "src/core/mind/mind.ts", "src/core/mind/host.ts", "src/core/mind/senses.ts",
-  "src/core/mind/object-senses.ts", "src/core/mind/minds.ts",
-  "src/core/mind/sheets.ts", "src/core/mind/mirror.ts", "src/core/control/assist.ts",
+  "src/minds/mind.ts", "src/minds/host.ts", "src/minds/physical-body.ts", "src/core/world/senses.ts",
+  "src/core/bodies/object-senses.ts", "src/minds/minds.ts",
+  "src/minds/sheets.ts", "src/minds/mirror.ts", "src/core/bodies/assist.ts",
 ]);
 
 /** What a mind's source never imports: the engine, the world, the builder, the read view's maker and the hands' port. */
-const MIND_BARRED = ["src/core/engine/", "src/core/world.ts", "src/core/build/build-body.ts", "src/core/build/read-view.ts", "src/core/build/hand-poses.ts"];
+const MIND_BARRED = ["src/core/physics/", "src/core/world/world.ts", "src/core/bodies/build/build-body.ts", "src/core/bodies/build/read-view.ts", "src/core/bodies/build/hand-poses.ts"];
 
 /** The folder a Commander is written in, which meets its team through the view and the orders alone. */
-const COMMAND_FOLDERS = ["src/core/command/"];
+const COMMAND_FOLDERS = ["src/minds/command/"];
 
 /** What a Commander's source never imports: what a mind may not, and a body, a fight's enlistment, a mind's host or the senses' hub. */
-const COMMAND_BARRED = [...MIND_BARRED, "src/core/body.ts", "src/core/physical-body.ts", "src/core/combatant.ts", "src/core/mind/host.ts", "src/core/mind/senses.ts"];
+const COMMAND_BARRED = [...MIND_BARRED, "src/control/body.ts", "src/minds/physical-body.ts", "src/game/combatant.ts", "src/minds/host.ts", "src/core/world/senses.ts"];
 
 /**
  * Each of `files` (path and source) under `folders`, beside `adapters`, that imports what `barred`
@@ -301,129 +299,48 @@ test("a mind and its toolkit reach no engine, world, builder, global or chance b
   assert.deepEqual(mindCrossings(files), []);
   // The control: an entrant and a skill reaching past the boundary are found, and an adapter is not held to it.
   assert.deepEqual(mindCrossings([
-    ["src/entrants/sly/mind.ts", `import type { World } from "../../core/world.ts";\nimport { readView } from "../../core/build/read-view.ts";\nexport const w = globalThis;\n`],
-    ["src/core/skills/sly.ts", `import type { SegmentBody } from "../engine/engine.ts";\nimport RAPIER from "@dimforge/rapier3d-simd-compat";\n`],
-    ["src/core/mind/host.ts", `import type { World } from "../world.ts";\n`],
+    ["src/entrants/sly/mind.ts", `import type { World } from "../../core/world/world.ts";\nimport { readView } from "../../core/bodies/build/read-view.ts";\nexport const w = globalThis;\n`],
+    ["src/skills/sly.ts", `import type { SegmentBody } from "../core/physics/engine.ts";\nimport RAPIER from "@dimforge/rapier3d-simd-compat";\n`],
+    ["src/minds/host.ts", `import type { World } from "../../core/world/world.ts";\n`],
     ["src/entrants/lucky/mind.ts", `export const pick = () => Math.random() < .5 ? Date.now() : performance.now();\n`],
   ]), [
-    "src/entrants/sly/mind.ts imports src/core/world.ts",
-    "src/entrants/sly/mind.ts imports src/core/build/read-view.ts",
+    "src/entrants/sly/mind.ts imports src/core/world/world.ts",
+    "src/entrants/sly/mind.ts imports src/core/bodies/build/read-view.ts",
     "src/entrants/sly/mind.ts reads globalThis",
-    "src/core/skills/sly.ts imports src/core/engine/engine.ts",
-    `src/core/skills/sly.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
+    "src/skills/sly.ts imports src/core/physics/engine.ts",
+    `src/skills/sly.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
     "src/entrants/lucky/mind.ts reads Math.random",
     "src/entrants/lucky/mind.ts reads the date",
     "src/entrants/lucky/mind.ts reads performance.now",
   ]);
 });
 
-/**
- * **The core's layers, bottom first** ([layers](../docs/architecture.md#the-layers)): each module
- * of `src/core/` by its folder, or by its file where one is named, the longest entry ruling. A
- * module imports its own layer or one below, and a package (`CORE_PACKAGES`) only where it is built on it.
- */
-const LAYERS = [
-  ["math/", "state.ts", "sources.ts", "command-delay.ts"],
-  ["spec/", "human/", "items/", "reptile/spec.ts", "reptile/physique.ts", "character-attributes.ts"],
-  ["engine/", "world.ts", "recording.ts"],
-  ["build/", "read-body.ts", "read-motion.ts", "clock.ts"],
-  ["muscle/", "rules/", "touches.ts", "control/assist.ts", "body-control.ts"],
-  ["parts/", "data/", "learning/"],
-  ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts"],
-  ["skills/", "intent/", "navigation/", "perception/", "mind/decider.ts", "mind/engagement.ts", "mind/choice.ts", "mind/report.ts"],
-  ["recovery/", "mind/kit.ts", "skills/kit.ts"],
-  ["option/", "reptile/", "command/", "mind/config.ts", "mind/controller.ts", "mind/minds.ts", "mind/apart.ts", "parts/entrant.ts"],
-  ["toolkit.ts", "models.ts", "combatant.ts"],
-];
-
-/** Where the layers meet by design: the registries that list every kind of mind and part, and import each. */
-const LAYER_REGISTRIES = new Set(["parts/lookup.ts", "parts/catalog.ts", "mind/kinds.ts", "toolkit.ts"]);
-
-/**
- * **The packages**: a folder of the layers that, from outside it, only the minds built on it and
- * the registries import, each with those minds. Option Mind is one implementation of the `Decider`
- * seam: nothing else in the core reaches into it, so another mind is built beside it, not on it.
- */
-const CORE_PACKAGES = Object.freeze({ "option/": Object.freeze([]) });
-
-/** The package `target` is in that `file`, outside it and not built on it, may not import; null where none. */
-function packageBarring(file, target) {
-  for (const [folder, users] of Object.entries(CORE_PACKAGES)) {
-    if (!target.startsWith(folder) || file.startsWith(folder)) continue;
-    if (!users.some((user) => file === user || user.endsWith("/") && file.startsWith(user))) return folder;
-  }
-  return null;
-}
-
-/**
- * **The imports up the layers**, or into a package by a module not built on it, each
- * `from -> to` under `src/core/`, by what removes it. The list is exact: such an import not on it
- * fails, and so does an entry the code does not have, so it only shrinks.
- */
-const UP_STACK = [];
-
-/** The layer of `file` (under `src/core/`) by `LAYERS`, the longest entry ruling; -1 for none. */
-function layerOf(file) {
-  let found = -1, length = -1;
-  LAYERS.forEach((layer, i) => { for (const at of layer) if ((file === at || at.endsWith("/") && file.startsWith(at)) && at.length > length) { found = i; length = at.length; } });
-  return found;
-}
-
-/** Each import among `files` (path under `src/core/` and source) that goes up the layers or into a package it is not built on (`CORE_PACKAGES`), `from -> to`, each once; and each module with no layer. */
-function layerCrossings(files) {
-  const up = new Set(), unlayered = [];
-  for (const [file, source] of files) {
-    const from = layerOf(file);
-    if (from < 0) { unlayered.push(file); continue; }
-    if (LAYER_REGISTRIES.has(file)) continue;
-    for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
-      if (!specifier.startsWith(".")) continue;
-      const target = path.posix.normalize(path.posix.join(path.posix.dirname(`${CORE}${file}`), specifier));
-      if (!target.startsWith(CORE)) continue;
-      const to = target.slice(CORE.length);
-      if (layerOf(to) > from || packageBarring(file, to) !== null) up.add(`${file} -> ${to}`);
-    }
-  }
-  return { up: [...up].sort(), unlayered };
-}
-
-test("the core's imports run down its layers and into a package only from what is built on it: any other is one of today's, listed, and the list is exact", (t) => {
-  const files = filesUnder(CORE).filter((file) => file.endsWith(".ts")).map((file) => [file.slice(CORE.length), fs.readFileSync(path.join(ROOT, file), "utf8")]);
-  assert.ok(files.length > 100, "fewer than a hundred core modules read, so this test would pass on nothing");
-  const { up, unlayered } = layerCrossings(files);
-  assert.deepEqual(unlayered, [], "every core module has a layer");
-  assert.deepEqual(up, [...UP_STACK].sort(), "the imports up the layers are exactly those listed");
-  // The control: a skill reaching Option Mind, a Commander reaching into the Option package, and a module in no layer, are found; a registry, and a mind built on the package, are not held to it.
-  assert.deepEqual(layerCrossings([
-    ["skills/sly.ts", `import { optionDecider } from "../option/decider.ts";\nimport type { MindConfig } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
-    ["nowhere/sly.ts", ""],
-    ["mind/kinds.ts", `import { OPTION_MIND } from "../option/mind.ts";\n`],
-    ["command/sly.ts", `import { optionDecider } from "../option/decider.ts";\n`],
-    ["option/sly.ts", `import { optionDecider } from "./decider.ts";\n`],
-  ]), { up: ["command/sly.ts -> option/decider.ts", "skills/sly.ts -> mind/config.ts", "skills/sly.ts -> option/decider.ts"], unlayered: ["nowhere/sly.ts"] });
-  const target = sourceCrossings(sourceFiles(), { place: targetPath });
-  assert.deepEqual(target.unplaced, [], "every source module has a target placement");
-  if (process.env.SOURCE_BOUNDARY_REPORT === "1") for (const [kind, found] of Object.entries(target)) {
-    t.diagnostic(`target ${kind}: ${found.length}${found.length ? `\n${found.join("\n")}` : ""}`);
-  }
-  if (process.env.SOURCE_BOUNDARY_STRICT === "1") assert.deepEqual(target, { unplaced: [], layers: [], runtimes: [], ownership: [] });
-  // The all-source scan checks paths, including modules no world builder reaches.
-  assert.deepEqual(sourceCrossings([
+/** Every source module is checked by responsibility and runtime, including modules no world builder reaches. */
+test("source imports follow responsibility, runtime and package ownership", () => {
+  const files = sourceFiles();
+  assert.ok(files.some(([file]) => file.startsWith("src/core/")) && files.some(([file]) => file.startsWith("src/app/browser/"))
+    && files.some(([file]) => file.startsWith("src/app/node/")) && files.some(([file]) => file.startsWith("src/entrants/")), "source coverage includes foundations, both runtimes and entrants");
+  const report = sourceCrossings(files);
+  assert.deepEqual(Object.entries(report).filter(([, found]) => found.length > 0), []);
+  const probe = sourceCrossings([
     ["src/skills/private.ts", `import { thinker } from "../minds/private.ts";`],
     ["src/game/alone.ts", `import { draw } from "../app/browser/draw.ts";`],
     ["src/entrants/one/mind.ts", `import { other } from "../two/mind.ts";`],
     ["src/core/bodies/alone.ts", `export const seen = document.hidden;`],
     ["src/app/browser/alone.ts", `import fs from "node:fs";`],
-  ]), {
-    unplaced: [],
-    layers: ["src/game/alone.ts -> src/app/browser/draw.ts", "src/skills/private.ts -> src/minds/private.ts"],
-    runtimes: ["src/app/browser/alone.ts -> node:fs", "src/core/bodies/alone.ts: browser name document", "src/game/alone.ts -> src/app/browser/draw.ts"],
-    ownership: ["src/entrants/one/mind.ts -> src/entrants/two/mind.ts"],
-  });
+    ["src/skills/alone.ts", `import fs from "fs";`],
+    ["src/entrants/one/private.ts", `import { privateMind } from "../../minds/mind.ts";`],
+    ["src/unknown/alone.ts", ""],
+  ]);
+  assert.deepEqual(probe.unplaced, ["src/unknown/alone.ts"]);
+  assert.deepEqual(probe.layers, ["src/game/alone.ts -> src/app/browser/draw.ts", "src/skills/private.ts -> src/minds/private.ts"]);
+  assert.deepEqual(probe.runtimes, ["src/app/browser/alone.ts -> node:fs", "src/core/bodies/alone.ts: browser name document", "src/game/alone.ts -> src/app/browser/draw.ts", "src/skills/alone.ts -> fs"]);
+  assert.ok(probe.ownership.includes("src/entrants/one/mind.ts -> src/entrants/two/mind.ts"));
+  assert.ok(probe.ownership.includes("src/entrants/one/private.ts -> src/minds/mind.ts"));
 });
 
 /** The game's list of entrants and its catalog: the only modules that import every entrant. */
-const ENTRANT_LISTS = new Set(["src/entrants/index.ts", "src/entrants/game.ts"]);
+const ENTRANT_LISTS = new Set(["src/app/entrants.ts", "src/app/catalog.ts"]);
 
 /** The entrant `file` is written in, `src/entrants/<name>/`, or null. */
 const entrantOf = (file) => /^src\/entrants\/([^/]+)\//.exec(file)?.[1] ?? null;
@@ -444,25 +361,25 @@ function entrantCrossings(files) {
         continue;
       }
       const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
-      if (!target.startsWith(CORE) && entrantOf(target) !== name && !target.startsWith(`assets/entrants/${name}/`)) crossings.push(`${file} imports ${target}`);
+      if (!SIMULATED.filter(folder => folder !== "src/entrants/").some(folder => target.startsWith(folder)) && entrantOf(target) !== name && !target.startsWith(`assets/entrants/${name}/`)) crossings.push(`${file} imports ${target}`);
     }
   }
   return crossings;
 }
 
-test("an entrant reaches only the core, its own folder and its own data: never another entrant, a world, an evaluation or a screen", () => {
+test("an entrant reaches only libraries, its own folder and its own data", () => {
   const files = filesUnder("src/entrants/").filter((file) => file.endsWith(".ts")).map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(new Set(files.map(([file]) => entrantOf(file)).filter(Boolean)).size > 1, "fewer than two entrants, so this test would pass on nothing");
   assert.deepEqual(entrantCrossings(files), []);
   // The control: an entrant reaching another entrant, a screen, an evaluation and another's data is found; the game's list is not held to it.
   assert.deepEqual(entrantCrossings([
-    ["src/entrants/sly/index.ts", `import { OPTION_PRESETS } from "../option/mind.ts";\nimport { Duel } from "../../arena/duel.ts";\nimport { MINDS } from "../game.ts";\nimport { Vector3 } from "@babylonjs/core/Maths/math.vector.js";\n`],
+    ["src/entrants/sly/index.ts", `import { OPTION_PRESETS } from "../option/mind.ts";\nimport { Duel } from "../../game/arena/duel.ts";\nimport { MINDS } from "../../app/catalog.ts";\nimport { Vector3 } from "@babylonjs/core/Maths/math.vector.js";\n`],
     ["src/entrants/sly/data.ts", `import guard from "../../../assets/entrants/option/guard.json" with { type: "json" };\nimport { opponentOf } from "../../evaluation/drill-opponents.ts";\n`],
-    ["src/entrants/index.ts", `import { SLY } from "./sly/index.ts";\n`],
+    ["src/app/entrants.ts", `import { SLY } from "./sly/index.ts";\n`],
   ]), [
     "src/entrants/sly/index.ts imports src/entrants/option/mind.ts",
-    "src/entrants/sly/index.ts imports src/arena/duel.ts",
-    "src/entrants/sly/index.ts imports src/entrants/game.ts",
+    "src/entrants/sly/index.ts imports src/game/arena/duel.ts",
+    "src/entrants/sly/index.ts imports src/app/catalog.ts",
     `src/entrants/sly/index.ts imports the package "@babylonjs/core/Maths/math.vector.js"`,
     "src/entrants/sly/data.ts imports assets/entrants/option/guard.json",
     "src/entrants/sly/data.ts imports src/evaluation/drill-opponents.ts",
@@ -476,18 +393,18 @@ test("a Commander reaches no engine, world, body or global: only its team's view
   assert.deepEqual(mindCrossings(files, command), []);
   // The control: a Commander reaching a body, the world or the engine is found.
   assert.deepEqual(mindCrossings([
-    ["src/core/command/sly.ts", `import type { PhysicalBody } from "../physical-body.ts";
-import type { World } from "../world.ts";
+    ["src/minds/command/sly.ts", `import type { PhysicalBody } from "../physical-body.ts";
+import type { World } from "../../core/world/world.ts";
 export const w = globalThis;
 `],
-    ["src/core/command/sly-too.ts", `import { enlist } from "../combatant.ts";
+    ["src/minds/command/sly-too.ts", `import { enlist } from "../../game/combatant.ts";
 import RAPIER from "@dimforge/rapier3d-simd-compat";
 `],
   ], command), [
-    "src/core/command/sly.ts imports src/core/physical-body.ts",
-    "src/core/command/sly.ts imports src/core/world.ts",
-    "src/core/command/sly.ts reads globalThis",
-    "src/core/command/sly-too.ts imports src/core/combatant.ts",
-    `src/core/command/sly-too.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
+    "src/minds/command/sly.ts imports src/minds/physical-body.ts",
+    "src/minds/command/sly.ts imports src/core/world/world.ts",
+    "src/minds/command/sly.ts reads globalThis",
+    "src/minds/command/sly-too.ts imports src/game/combatant.ts",
+    `src/minds/command/sly-too.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
   ]);
 });

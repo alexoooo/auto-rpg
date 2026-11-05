@@ -58,8 +58,8 @@ are served from the same deployment base, with their licence notices.
 
 The manifest also maps stable model and texture IDs to their hashed files. Every scene obtains
 a ready resolver before constructing textures or opening compressed models. The GLB reader
-(`readGlb`, `src/render/glb.ts`), shared by the skeleton's skin (`src/render/skeleton-skin.ts`) and
-the skinned art (`src/render/skinned-art.ts`), decodes Meshopt buffer views and respects accessor
+(`readGlb`, `src/app/browser/render/glb.ts`), shared by the skeleton's skin (`src/app/browser/render/skeleton-skin.ts`) and
+the skinned art (`src/app/browser/render/skinned-art.ts`), decodes Meshopt buffer views and respects accessor
 offsets and strides.
 
 The profile limits texture dimensions to 1024 pixels without upscaling. Colour maps use ETC1S

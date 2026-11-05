@@ -1,13 +1,14 @@
-import { Duel, SIDES, type DuelRecipe } from "../arena/duel.ts";
-import { TeamBout, type TeamRecipe } from "../arena/team-bout.ts";
+import { Duel, SIDES, type DuelRecipe } from "../game/arena/duel.ts";
+import { TeamBout, type TeamRecipe } from "../game/arena/team-bout.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
-import { GAME_ENDS } from "../arena/end-rule.ts";
-import { addArenaSolids, arenaSolids } from "../arena/solids.ts";
-import type { PhysicsEngine } from "../core/engine/engine.ts";
-import { DEFAULT_ENGINE, loadEngine, type EngineName } from "../core/engine/engines.ts";
-import { createWorld, type World } from "../core/world.ts";
-import type { MindPlace } from "../core/mind/apart.ts";
-import { defaultMind } from "../entrants/game.ts";
+import { GAME_ENDS } from "../game/arena/end-rule.ts";
+import { addArenaSolids, arenaSolids } from "../game/arena/solids.ts";
+import type { PhysicsEngine } from "../core/physics/engine.ts";
+import { DEFAULT_ENGINE, loadEngine, type EngineName } from "../core/physics/engines.ts";
+import { createWorld, type World } from "../core/world/world.ts";
+import type { MindPlace } from "../minds/apart.ts";
+import { type GameContext } from "../game/arena/context.ts";
+import type { Catalog } from "../minds/catalog.ts";
 
 /** How a bout's world is built beside its recipe. */
 interface BoutOptions {
@@ -21,48 +22,58 @@ interface BoutOptions {
   readonly delay?: number;
   /** Where its minds run (`World.minds`); in the world's thread unless given. */
   readonly minds?: MindPlace;
-  readonly hooks?: ConstructorParameters<typeof Duel>[2];
+  readonly hooks?: ConstructorParameters<typeof Duel>[3];
 }
 
 /** A bout's world, its duel, and each solid's fixed collider by name. */
 export interface BuiltBout {
+  readonly catalog: Catalog;
   readonly world: World;
   readonly duel: Duel;
   readonly colliders: ReadonlyMap<string, number>;
   dispose(): void;
 }
 
-/** A world with the arena's solids and `recipe`'s bout in it. */
-export async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
-  const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(minds ? { minds } : {}) });
-  const solids = arenaSolids(recipe.level);
-  const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
-  try {
-    const duel = new Duel(world, recipe, { solids, ...hooks });
-    return { world, duel, colliders, dispose() { duel.dispose(); world.dispose(); } };
-  } catch (error) { world.dispose(); throw error; }
+export function createBout(context: GameContext) {
+  const { defaultMind } = context;
+
+  /** A world with the arena's solids and `recipe`'s bout in it. */
+  async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
+    const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(minds ? { minds } : {}) });
+    const solids = arenaSolids(recipe.level);
+    const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
+    try {
+      const duel = new Duel(world, recipe, context, { solids, ...hooks });
+      return { catalog: context.catalog, world, duel, colliders, dispose() { duel.dispose(); world.dispose(); } };
+    } catch (error) { world.dispose(); throw error; }
+  }
+
+  /** The bout world kind: built by `buildBout`, handed its tape, both sides traced, played by the bout's clock, each side under its recipe's mind or else its model's (`defaultMind`), ended by its recipe's end rules or the game's (`GAME_ENDS`), a side led by its recipe's Commander where it names one. */
+  const BOUT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "bout" }>, BuiltBout> = {
+    build: (world, options) => buildBout(world.recipe, { engine: world.engine, ...(options?.hz === undefined ? {} : { hz: options.hz }) }),
+    start: (built, world) => built.duel.play(world.tape),
+    traced: (built) => SIDES.map((side) => built.duel.duelists[side].built),
+    clock: (built) => built.duel.clock,
+    minds: (world) => SIDES.map((side) => world.recipe.minds?.[side] ?? defaultMind(world.recipe[side])),
+    parts: (world) => [...(world.recipe.ends ?? GAME_ENDS).map((end) => end.kind), ...SIDES.flatMap((side) => world.recipe.commanders?.[side]?.kind ?? [])],
+    hosted: (built) => SIDES.map((side) => built.duel.duelists[side].minded),
+    save: (built) => built.duel.save(),
+    load: (built, saved) => built.duel.load(saved as ReturnType<Duel["save"]>),
+  };
+
+  /** A world with the arena's solids and `recipe`'s team bout in it. */
+  async function buildTeamBout(recipe: TeamRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, minds }: Omit<BoutOptions, "hooks" | "actuation"> = {}): Promise<{ readonly world: World; readonly bout: TeamBout; dispose(): void }> {
+    const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, ...(minds ? { minds } : {}) });
+    const solids = arenaSolids(recipe.level);
+    addArenaSolids(world.physics, solids);
+    try {
+      const bout = new TeamBout(world, recipe, context, { solids });
+      return { world, bout, dispose() { bout.dispose(); world.dispose(); } };
+    } catch (error) { world.dispose(); throw error; }
+  }
+
+  return { buildBout, BOUT_WORLD, buildTeamBout };
 }
 
-/** The bout world kind: built by `buildBout`, handed its tape, both sides traced, played by the bout's clock, each side under its recipe's mind or else its model's (`defaultMind`), ended by its recipe's end rules or the game's (`GAME_ENDS`), a side led by its recipe's Commander where it names one. */
-export const BOUT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "bout" }>, BuiltBout> = {
-  build: (world, options) => buildBout(world.recipe, { engine: world.engine, ...(options?.hz === undefined ? {} : { hz: options.hz }) }),
-  start: (built, world) => built.duel.play(world.tape),
-  traced: (built) => SIDES.map((side) => built.duel.duelists[side].built),
-  clock: (built) => built.duel.clock,
-  minds: (world) => SIDES.map((side) => world.recipe.minds?.[side] ?? defaultMind(world.recipe[side])),
-  parts: (world) => [...(world.recipe.ends ?? GAME_ENDS).map((end) => end.kind), ...SIDES.flatMap((side) => world.recipe.commanders?.[side]?.kind ?? [])],
-  hosted: (built) => SIDES.map((side) => built.duel.duelists[side].minded),
-  save: (built) => built.duel.save(),
-  load: (built, saved) => built.duel.load(saved as ReturnType<Duel["save"]>),
-};
-
-/** A world with the arena's solids and `recipe`'s team bout in it. */
-export async function buildTeamBout(recipe: TeamRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, minds }: Omit<BoutOptions, "hooks" | "actuation"> = {}): Promise<{ readonly world: World; readonly bout: TeamBout; dispose(): void }> {
-  const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, ...(minds ? { minds } : {}) });
-  const solids = arenaSolids(recipe.level);
-  addArenaSolids(world.physics, solids);
-  try {
-    const bout = new TeamBout(world, recipe, { solids });
-    return { world, bout, dispose() { bout.dispose(); world.dispose(); } };
-  } catch (error) { world.dispose(); throw error; }
-}
+/** The registered world factory for this builder. */
+export const boutWorld = (context: GameContext) => createBout(context).BOUT_WORLD;

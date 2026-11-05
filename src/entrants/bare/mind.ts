@@ -1,16 +1,17 @@
 /** A bare mind reads its body and senses into its network, and carries saved pulls in its fast phase. */
-import { networkFaults, recoveryNetwork, type Network } from "../../core/learning/recovery-network.ts";
-import type { BodySpec } from "../../core/spec/body.ts";
-import { deepFreeze } from "../../core/state.ts";
-import { controller, NO_POSTURE, type Controller, type MindPreset } from "../../core/mind/controller.ts";
-import type { MindWiring } from "../../core/mind/minds.ts";
-import type { MindConstruction, OwnBody } from "../../core/mind/mind.ts";
-import type { Senses } from "../../core/mind/senses.ts";
-import { learnerOf, type Learner } from "../../core/learning/learner.ts";
-import { Vector3 } from "../../core/math/vector.ts";
-import { jointTracker } from "../../core/build/joint-state.ts";
-import { rootSegment, type ReadSegment } from "../../core/read-body.ts";
-import { massCentreToRef, partsOn } from "../../core/read-motion.ts";
+import { networkFaults, recoveryNetwork, type Network } from "../../core/math/index.ts";
+import type { BodySpec } from "../../core/bodies/index.ts";
+import { deepFreeze } from "../../core/world/index.ts";
+import { controller, NO_POSTURE, type Controller, type MindPreset } from "../../minds/index.ts";
+import type { MindWiring } from "../../minds/index.ts";
+import type { MindConstruction } from "../../minds/index.ts";
+import type { OwnBody } from "../../core/bodies/index.ts";
+import type { Senses } from "../../core/bodies/index.ts";
+import { learnerOf, type Learner } from "../../core/math/index.ts";
+import { Vector3 } from "../../core/math/index.ts";
+import { jointTracker } from "../../core/bodies/index.ts";
+import { rootSegment, type ReadSegment } from "../../core/bodies/index.ts";
+import { massCentreToRef, partsOn } from "../../core/bodies/index.ts";
 
 interface BareConfig {
   readonly kind: "bare:mind";

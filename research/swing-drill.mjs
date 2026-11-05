@@ -29,10 +29,10 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../tests/harness/preload-data.mjs";
-import { MINDS } from "../src/entrants/game.ts";
-import { modelSpec } from "../src/core/models.ts";
+import { MINDS } from "../src/app/catalog.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
 import { barScore as scoreOf } from "../src/evaluation/strike/score.ts";
-import { SWINGS } from "../src/core/skills/strikes/swing-part.ts";
+import { SWINGS } from "../src/skills/strikes/swing-part.ts";
 import { cmaSearch, workerPool } from "./cma.mjs";
 import { drillTrial } from "./punch-drill.mjs";
 
