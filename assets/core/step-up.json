@@ -398,6 +398,9 @@
                 "hip.left flexion": 1.89916,
                 "hip.right flexion": 1.89916
               }
+            },
+            "roll flat": {
+              "scale": 0.4
             }
           }
         },
@@ -483,6 +486,9 @@
                 "hip.left flexion": 1.74278,
                 "hip.right flexion": 1.74278
               }
+            },
+            "roll flat": {
+              "scale": 0.6
             }
           }
         },
