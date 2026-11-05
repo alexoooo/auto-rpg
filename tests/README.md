@@ -38,6 +38,8 @@ commands, without a planner or skill-selection sweep.
 | `a body's command is applied the world's delay after it is sent, none before, none again after its level leaves full, and across a save and load` | Detect body-declared actuators omitted by bilateral hand discovery and pose encoding; check muscle activation, assist force and segment configuration requests at exact queue positions; check that suspension discards old commands and saving restores in-flight values. A body can meet a skill's outcome with an early, late or stale command, so a drill cannot establish this timing contract. |
 | `a fresh physics fork resets exactly the forces pending at its save` | Detect extra or reordered force resets after loading into a fresh world, which alter Rapier's saved modification flags despite matching body poses. Compare whole saved worlds across steps with a nonzero force, an explicit zero ask and an untouched body; a skill drill does not establish exact saved continuation. |
 | `a commanded Mind restores its driver's memory from its own state` | Detect decider and skill memory saved only through a separate controller result. Load the published Mind state into a fresh commanded mind and verify its decider continues from the saved count; a whole-bout fork can hide the omission by saving a second memory root. |
+| `a fresh bout load restores the whole published Mind report before another decision` | Reproduce the answered report kept outside the saved graph, and profile engagement details kept in unsaved situation closures. Compare the complete published report immediately after loading into a fresh same-recipe bout, before another decision can hide the stale data; physics-only replay diagnostics miss this observable failure. |
+| `a fallback recovery Option does not count its own transition as an ordinary ascent` | Reproduce generalized recovery discovery treating a reposition as an ascent, suppressing its own transitions and changing brace admission. Construct the real fallback alone at an uncovered ready start and verify registered ascent declarations drive discovery/replacement, including an entrant-owned kind; a full bout can avoid the fallback and conceal the defect. |
 | `recorded orders accept configured gait names across JSON transport` | Detect replay admission rejecting valid configured gait names, including paw gaits and an entrant-defined name, while stock gaits survive. Capability drills give live orders directly and do not establish that saved orders pass the external recording validator. |
 
 [minds/stance-ownership.test.mjs](minds/stance-ownership.test.mjs) exercises a stance's end identifier
@@ -49,10 +51,23 @@ and an independent goal on the same effector segment.
 
 ## Calculation and data regressions
 
+[runtime-data.test.mjs](runtime-data.test.mjs) reproduces saved-record discriminator and
+prototype-key loss, mutable container constants, nested rulebook aliasing, cached-contact identity
+mutation, detached limbs retaining articulated impact mass, full reply-ring deadlock, partial stage
+builds leaking their minds, shape configurability granting a non-extremity an injury exemption,
+and worker requests completed by another request or left pending at shutdown. These are
+data and lifecycle failures that a skill drill cannot establish.
+The same file checks sparse arrays compacted by saving and synchronous worker sends leaking
+startup or leaving earlier requests pending. It also reproduces invalid character drafts throwing
+for overlapping or impossible geometry, finite scaling factors overflowing or underflowing
+physical quantities, and mixed extremes collapsing a hull. These admission failures happen
+before a world exists, so capability drills cannot establish the returned refusal contract.
+
 These cases inspect results directly rather than replaying a skill's physical trajectory.
 
 | File and case | Concrete justification |
 | --- | --- |
+| [runtime-data.test.mjs](runtime-data.test.mjs): `nested configured parts return whole role and value faults before graph traversal` | Reproduce explicit Option service tuning throwing for a wrong role and nested Move gait settings bypassing validation. Check complete path-prefixed role, unknown-kind, value and malformed-shape refusals, plus nested tuning removal; physical drills construct admitted settings and cannot establish this configuration boundary. |
 | [rise-control.test.mjs](skills/recovery/implementations/staged/rise-control.test.mjs): `bearing posture accelerations use the joint turning map, including damping and transfer` | A compound joint pose with nonzero rates distinguishes joint-angle accelerations from motor-axis accelerations. Check the coordinate mapping against the servo calculation for ordinary bearing and weight transfer; standing up eventually does not establish the correctness of this calculation. |
 | [skills/profiles.test.mjs](skills/profiles.test.mjs): `every measured profile is of a current skill on a current body` | Detect stored profile keys that match no current body/skill digest and are silently ignored by the chooser. A directly ordered strike can work while selection falls back to unmeasured values. |
 | [skills/profiles.test.mjs](skills/profiles.test.mjs): `a strike's record counts its own limb's tries its executor gave up on` | Check that self-abandoned attempts lower that limb's estimate, another limb's record is unchanged and cancelled attempts are excluded. A one-strike trial does not establish learning from a history of stalls. |
@@ -83,3 +98,31 @@ measurement system itself; a result computed on the wrong cases cannot validate 
 | [script-links.test.mjs](script-links.test.mjs): `every_research_script_and_script_imports_what_exists` | Catch stale JavaScript research/CLI imports outside the TypeScript compilation before someone starts a run that cannot load. |
 | [workspace.test.mjs](workspace.test.mjs): `strays_are_the_untracked_outside_tracked_folders_the_hidden_and_the_garbage_and_nothing_kept` | Check the file inventory against unmanaged snapshots, hidden directories and crash dumps while preserving legitimate ignored tools and work in progress. |
 | [workspace.test.mjs](workspace.test.mjs): `the_working_copy_holds_no_strays` | Apply that inventory to the actual workspace so untracked output and hidden storage do not accumulate unnoticed. |
+
+[Skill boundary regressions](skills/boundaries.test.mjs) reproduce equal-size run settings with a missing key, malformed staged roll tuning, renamed run channels admitted before construction, sensed collision configurations ignored, undeclared assist writes, dropped profile exit percepts, untracked global data changes, a valid held carrier without an effector, paced guard memory surviving takeover, and rolled toe support missing from a fresh controller fork. It also covers cached support geometry after shape-changing configurations, a recovery that
+starts before the host has driven, replacement gait normalization on both axes, physical foot yaw
+without an effector actuator, and explicitly selected parts bypassing their body fit. Drills do not
+establish command ownership, sampled geometry, data identity, authored applicability or exact
+controller restoration. A Lab script with a real decision counter and a queued physical shove
+reproduces both memories missing from their state roots; a short save/load replay compares its
+orders, decision memory and delivered impulse. The physical fixtures use only the steps needed
+to reach those cases. A real low quadruped also reproduces its horizontal clearance
+being mistaken for vertical floor penetration; the same case retains avoidance of the arena
+parapet.
+
+The worker text case also reproduces absent array indices becoming present `null` elements;
+it compares the complete sparse array alongside real `undefined` entries and escaped user tags.
+
+## Evidence tooling and learned inference
+
+| File and case | Concrete justification |
+| --- | --- |
+| [tooling.test.mjs](tooling.test.mjs): `one entrant cannot remove another through the shared registry line` | Reproduce a single entrant deleting a rival from the shared array while the ownership classifier still calls the change its own. A match does not check source ownership. |
+| [tooling.test.mjs](tooling.test.mjs): `historical import refuses a complete count played at undeclared gaps` | Reproduce imported rows at gap 99 passing count checks for a protocol declaring gap 1. An imported rating cannot validate its own scenario coverage. |
+| [tooling.test.mjs](tooling.test.mjs): `build source identity canonicalizes included authoring text but preserves binary bytes` | Reproduce identical Python, PowerShell and Markdown inputs receiving different build identities after checkout line-ending conversion; keep binary distinctions intact. |
+| [tooling.test.mjs](tooling.test.mjs): `idle learning-worker errors survive until the next protocol request` | Reproduce a background environment failure discarded while no request waits; the next trainer request must receive that failure. Skill outcomes do not establish worker error delivery. |
+| [tooling.test.mjs](tooling.test.mjs): `a reported research job failure closes every worker before rejecting` | Reproduce a rejected posture job leaving its worker message listener alive and preventing child exit. The check asserts every owned worker is terminated before failure reaches the caller. |
+| [learning-network.test.mjs](learning-network.test.mjs): `malformed learned layers return faults instead of throwing while inspecting shape` | Reproduce a null first layer throwing before a configuration refusal can be returned. A trained policy contains valid shapes and cannot establish malformed-record admission. |
+| [learning-network.test.mjs](learning-network.test.mjs): `learned inference retains clipped observation and action preprocessing` | Reproduce exported inference omitting the trainer's observation clamp, including a non-saturated final action, and preserve its pre-tanh action bound. Successful drills do not establish export/trainer equivalence. |
+
+[rapier-hooks.test.mjs](rapier-hooks.test.mjs): `a contact-layer callback defect reaches the world-step caller unchanged` reproduces a material callback throwing while the vendored WASM bridge silently returns a successful step. The overlapping-contact fixture verifies the original thrown value and callback receiver at the actual engine boundary; a normal bout installs no material layer and cannot exercise this defect.

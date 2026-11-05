@@ -139,7 +139,11 @@ function resourceSizes(): Record<string, unknown> {
 }
 
 async function runAll(what: { fidelity: boolean; scaling: boolean }): Promise<void> {
+  if (state.status === "running") return;
   state.status = "running";
+  const buttons = [need("run"), need("run-fidelity")] as HTMLButtonElement[];
+  for (const button of buttons) button.disabled = true;
+  try {
   for (const c of ROWS) {
     if (ONLY && !ONLY.includes(c.tag)) continue;
     try { await runChosen(c, what); } catch (err) { show({ tag: c.tag, kind: "error", error: String(err) }, [c.tag, "ERROR", String(err)]); }
@@ -147,6 +151,10 @@ async function runAll(what: { fidelity: boolean; scaling: boolean }): Promise<vo
   state.loads["resources"] = resourceSizes();
   state.status = "done";
   need("status").textContent = "done";
+  } finally {
+    for (const button of buttons) button.disabled = false;
+    if (state.status === "running") state.status = "failed";
+  }
 }
 
 need("run").addEventListener("click", () => void runAll({ fidelity: true, scaling: true }));

@@ -399,7 +399,7 @@ export function buildArenaWorld(
   if (refused.length) throw new Error(refused.join("\n"));
   const colliders = buildArenaColliders(scene, materials, shadows, level);
   const room = buildCosmeticRoom(scene, materials, shadows, groups);
-  const furniture = kit ? assembleCryptKit(kit, definition.furniture.map(entry => entry.placement), false) : [];
+  const furniture = kit ? assembleCryptKit(kit, definition.furniture.map(entry => entry.placement), { merge: false }) : [];
   const furniturePairs = furniture.map(mesh => {
     const placement = mesh.metadata.kitPlacement;
     mesh.material = materials.wall; mesh.receiveShadows = true; shadows.add(mesh);

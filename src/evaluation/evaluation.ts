@@ -3,6 +3,7 @@
  * it in its task's units; the runner (`run.ts`) combines the readings. One definition serves Node,
  * its workers and a page.
  */
+import type { Refused } from "../core/refusal.ts";
 import type { DuelRecipe, OrdersEntry } from "../game/arena/duel.ts";
 import type { EngineName } from "../core/physics/engines.ts";
 
@@ -16,7 +17,7 @@ import type { AttributeOverrides } from "../core/bodies/character-attributes.ts"
 import type { MindConfig } from "../minds/config.ts";
 import type { MindPreset } from "../minds/controller.ts";
 import type { Minded } from "../minds/minds.ts";
-import type { Side } from "../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "../game/arena/seat.ts";
 
 /** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
 export type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };
@@ -79,7 +80,7 @@ export type BuiltCase = BuiltBout | BuiltFall | BuiltCrypt | BuiltLone | BuiltTe
  */
 export interface WorldKind<W extends CaseWorld = CaseWorld, B extends { readonly world: { step(): void }; dispose(): void } = BuiltCase> {
   /** `world` built, at `hz` control steps a second where the kind takes a rate (a bout's), else at the world's own. */
-  build(world: W, options?: { readonly hz?: number }): Promise<B>;
+  build(world: W, options?: { readonly hz?: number }): Promise<B | Refused>;
   start?(built: B, world: W): void;
   traced(built: B): readonly BuiltBody[];
   clock(built: B): number;
@@ -114,7 +115,7 @@ export interface Cases<C extends Json = Json, R extends Json = Json, B extends B
   /** Why a subject cannot play `condition`; its scheduling metadata is available where admission needs it. */
   faults?(value: Json, condition: C, subject?: Subject): readonly string[];
   /** `characters` each seated subject's (`Subject.character`), `{}` for none. */
-  world(values: readonly Json[], condition: C, engine: EngineName, characters: readonly AttributeOverrides[]): CaseWorld;
+  world(values: readonly Json[], condition: C, engine: EngineName, characters: readonly AttributeOverrides[]): CaseWorld | Refused;
   read(built: B, condition: C): Reader<R>;
 }
 
@@ -131,7 +132,7 @@ export interface Figure<R extends Json = Json> {
 }
 
 /** The subjects asked for, in order: each a name a catalogue resolves, or a value given whole (a mind's JSON). */
-export type SubjectChoice = readonly (string | { readonly id: string; readonly label: string; readonly value: Json })[];
+export type SubjectChoice = readonly (string | { readonly id: string; readonly label: string; readonly value: Json; readonly models?: readonly string[]; readonly character?: AttributeOverrides })[];
 
 /** A contest's reading carries the left's score (1, a half, 0) and margin. */
 export type ContestReading = {

@@ -1,3 +1,4 @@
+import { isRefused, type Refused } from "../../core/refusal.ts";
 import { cryptFurniture, type CryptArchetype, type CryptRoomKind } from "./crypt-archetypes.ts";
 import { dressCryptMap, type CryptRoomPlan } from "./crypt-plan.ts";
 import { LEVEL } from "./level.ts";
@@ -41,14 +42,6 @@ const ART_SALT = 0x63727970;
 
 /** A whole number from 0 up to, and not including, `n`, drawn from the layout's stream. */
 type Pick = (n: number) => number;
-
-/** A seed whose layout cannot hold what a run needs. */
-class CryptLayoutError extends Error {
-  constructor(seed: number, what: string) {
-    super(`Crypt ${seed}: ${what}`);
-    this.name = "CryptLayoutError";
-  }
-}
 
 /** Shuffles `items` in place: one draw an item, from the last down to the second. */
 function shuffle<T>(items: T[], pick: Pick): void {
@@ -111,7 +104,7 @@ function farthestRoom(adjacency: readonly (readonly number[])[]): number {
 
 /** Where `room`'s enemies start: the first of its inner cells, shuffled, that a body can stand on and walk to from
  * the start, far enough from the start, from every door and from one another. */
-function encounter(map: DungeonMap, room: Room, pick: Pick): Point[] {
+function encounter(map: DungeonMap, room: Room, pick: Pick): Point[] | Refused {
   const { spawns, spawnFromDoor, spawnSpacing } = CRYPT_LAYOUT;
   const candidates: Point[] = [];
   for (let z = room.min.z + 1; z < room.max.z; z++) for (let x = room.min.x + 1; x < room.max.x; x++) candidates.push({ x, z });
@@ -125,12 +118,12 @@ function encounter(map: DungeonMap, room: Room, pick: Pick): Point[] {
     chosen.push(p);
     if (chosen.length === spawns) break;
   }
-  if (chosen.length !== spawns) throw new CryptLayoutError(map.seed, `room ${room.id} has no room for its ${spawns} enemies`);
+  if (chosen.length !== spawns) return { refused: `Crypt ${map.seed}: room ${room.id} has no room for its ${spawns} enemies` };
   return chosen;
 }
 
 /** Four chambers joined by a seeded spanning tree: three encounters beyond the entrance. */
-export function generateCryptDungeon(seed: number): CryptRoomPlan {
+export function generateCryptDungeon(seed: number): CryptRoomPlan | Refused {
   const random = mulberry32(seed), pick: Pick = n => Math.floor(random() * n);
   const { size, first, pitch, variants, companions } = CRYPT_LAYOUT;
 
@@ -165,17 +158,22 @@ export function generateCryptDungeon(seed: number): CryptRoomPlan {
 
   const furniture = rooms.map(room => cryptFurniture(room, archetypes[room.id]));
   map.obstacles = furniture.flatMap(f => f.obstacles);
-  for (const room of rooms.slice(1)) map.spawns.push(...encounter(map, room, pick));
+  for (const room of rooms.slice(1)) {
+    const places = encounter(map, room, pick);
+    if (isRefused(places)) return places;
+    map.spawns.push(...places);
+  }
 
   const party = [map.start];
   for (let i = 0; i < companions; i++) {
     const place = companionSpawn(map, party);
-    if (!place) throw new CryptLayoutError(map.seed, `the entrance has no room for ${companions} companions`);
+    if (!place) return { refused: `Crypt ${map.seed}: the entrance has no room for ${companions} companions` };
     party.push(place);
   }
   for (const p of [map.exit, ...map.spawns, ...rooms.map(room => room.centre)]) {
-    if (!findPath(map, map.start, p, LEVEL.clearance).length) throw new CryptLayoutError(map.seed, `no way from the start to ${p.x}, ${p.z}`);
+    if (!findPath(map, map.start, p, LEVEL.clearance).length) return { refused: `Crypt ${map.seed}: no way from the start to ${p.x}, ${p.z}` };
   }
-  populateEncounters(map);
+  const populated = populateEncounters(map);
+  if (isRefused(populated)) return populated;
   return dressCryptMap(map, mulberry32((seed ^ ART_SALT) >>> 0), archetypes, furniture.flatMap(f => f.placements));
 }

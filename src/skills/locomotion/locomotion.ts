@@ -1,6 +1,8 @@
+import { supportHeight } from "../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 
 import type { BodyView } from "../../control/body.ts";
+import type { BodyCommand } from "../../control/body.ts";
 import { fastestTurning, paceToward, turnAt, type StanceEnvelope } from "../../control/stance-envelope.ts";
 import type { StanceGoal, SwingGoal } from "../../control/stance.ts";
 import type { MusclePush } from "../../control/motor.ts";
@@ -56,7 +58,7 @@ export const CARRIAGES = deepFreeze({
 
 /** Whether `carriage` can be held: a positive width, or none and no stagger; a stagger and lowering finite and not negative. */
 export const validCarriage = (carriage: Carriage): boolean =>
-  (carriage.width === null ? carriage.stagger === 0 : Number.isFinite(carriage.width) && carriage.width > 0)
+  !!carriage && typeof carriage === "object" && !Array.isArray(carriage) && (carriage.width === null ? carriage.stagger === 0 : Number.isFinite(carriage.width) && carriage.width > 0)
   && Number.isFinite(carriage.stagger) && carriage.stagger >= 0 && Number.isFinite(carriage.lower) && carriage.lower >= 0
   && (carriage.lead === "left" || carriage.lead === "right");
 
@@ -119,7 +121,7 @@ function stanceLegs(state: LegsMemory, feet: readonly BearingEnd[]): StanceLegs 
       // The reference height is the body's (`BodyView.standing`), taken at the first view after a step.
       if (state.reference === null) {
         if (view.time <= view.born) return null;
-        state.reference = view.standing;
+        state.reference = supportHeight(view);
       }
       let height = asked ?? state.reference - state.carriage.lower;
       const rising = state.rising;
@@ -152,6 +154,7 @@ export interface LocomotionContext { readonly idleSettle: boolean }
 
 /** Construction settings; recovery legs omit idleFooting to keep their supports planted. */
 interface WalkOptions {
+  readonly segments: Readonly<Record<Side, string>>;
   readonly turnLimit?: number;
   readonly turnStartup?: TurnStartup;
   readonly carriage?: Carriage;
@@ -285,7 +288,7 @@ interface StanceWalk extends Locomotion {
 export type LegsDrive =
   | { readonly kind: "stance"; readonly goal: StanceGoal | null }
   | { readonly kind: "support"; readonly goal: SupportGoal | null }
-  | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[]; readonly held?: number; readonly assist?: BodyControl["assist"] };
+  | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[]; readonly held?: number; readonly assist?: BodyControl["assist"]; readonly configurations?: BodyCommand["configurations"] };
 
 /** **What the locomotion skill remembers.** */
 interface LocomotionState extends LegsMemory {
@@ -333,7 +336,7 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
     && Number.isFinite(startup.limit) && startup.limit > 0);
 }
 
-export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { turnLimit, turnStartup, carriage = CARRIAGES.square, idleFooting }: WalkOptions = {}): StanceWalk {
+export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { turnLimit, turnStartup, carriage = CARRIAGES.square, idleFooting, segments }: WalkOptions): StanceWalk {
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
   if (!validCarriage(carriage)) throw new Error("locomotion carriage needs a positive width or none, and a finite stagger and lowering");
@@ -344,12 +347,18 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
   const ends = { left: names.find((end) => feet[end] === "left")!, right: names.find((end) => feet[end] === "right")! };
   /** The middle of the sole on `side`, world, as the stance last read it (`StanceEnd.middle`). */
   const soleOf = (view: BodyView, side: Side) => view.stance.ends[ends[side]]!.middle;
-  const acrossScratch = new Vector3(), footTurn = new Quaternion();
+  const acrossScratch = new Vector3(), footTurn = new Quaternion(), footInverse = new Quaternion();
   /** A sole's yaw relative to a heading (the legs' unless given), rad. Effectors report turns relative to the body frame. */
   const turned = (view: BodyView, side: Side, heading = state.heading): number => {
-    const effector = view.effectors?.[`foot.${side}`];
-    if (!effector) return 0;
-    view.root.rotation.multiplyToRef(effector.rotation, footTurn);
+    const effector = view.effectors?.[segments[side]];
+    if (effector) view.root.rotation.multiplyToRef(effector.rotation, footTurn);
+    else {
+      const observed = view.segments[segments[side]];
+      if (!observed) throw new Error(`no physical stance segment ${segments[side]}`);
+      const rest = observed.rest;
+      Quaternion.InverseToRef(footInverse.set(rest.x, rest.y, rest.z, rest.w), footInverse);
+      observed.rotation.multiplyToRef(footInverse, footTurn);
+    }
     return Math.abs(wrap(atan2(2 * (footTurn.x * footTurn.z + footTurn.w * footTurn.y),
       1 - 2 * (footTurn.x * footTurn.x + footTurn.y * footTurn.y)) - heading));
   };

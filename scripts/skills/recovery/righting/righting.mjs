@@ -10,13 +10,13 @@
 // with a bonus for handing back early. --seed-from starts from a recipe's poses (its side's where
 // it has none of the part); --part back searches the poses for the body on its back, over --base's
 // recipe; --write keeps the best as the model's
-// record in assets/skills/recovery/righting/righting.json (`research/skills/framework/skill-records.mjs`). Options: --gens 50 --pop 24 --workers 19 --frames 3 --seconds 9
+// record in assets/skills/recovery/righting/righting.json (`research/skills/skill-records.mjs`). Options: --gens 50 --pop 24 --workers 19 --frames 3 --seconds 9
 // --sigma .4 --seed 1.
 import { fork } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { deserialize } from "node:v8";
-import { writeRecord } from "../../../../research/skills/framework/skill-records.mjs";
+import { writeRecord } from "../../../../research/skills/skill-records.mjs";
 import { reptileSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
 import { bodyKey } from "../../../../src/core/bodies/spec/body.ts";
 
@@ -27,7 +27,7 @@ const FORKS = arg("forks") ? resolve(arg("forks")) : null;
 const STARTS = [...arg("starts", "right:0,right:30,right:135,right:270,left:0,left:120,tilted:45,tilted:250").split(",").filter(Boolean)
   .map((s) => { const [lying, degrees] = s.split(":"); return { lying, heading: Number(degrees) * Math.PI / 180 }; }),
   ...FORKS ? deserialize(readFileSync(FORKS)).map((f, fork) => ({ lying: "fork", fork, gap: f.gap, clock: f.clock })) : []];
-const ROOT = resolve(import.meta.dirname, "../..");
+const ROOT = resolve(import.meta.dirname, "../../../..");
 const data = JSON.parse(readFileSync(resolve(ROOT, `assets/${MODEL}/body.json`), "utf8"));
 const standing = data.segments.find((s) => s.name === "trunk").proximal[1];
 

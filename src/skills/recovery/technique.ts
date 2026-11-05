@@ -1,5 +1,4 @@
 import type { Body, BodyView } from "../../control/body.ts";
-import { soleRefusal } from "../../control/support.ts";
 import type { MuscleReading, MuscleCommand } from "../../core/bodies/muscle/driver.ts";
 import type { BodyControl } from "../../core/bodies/body-control.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
@@ -8,8 +7,7 @@ import type { OwnBody } from "../../core/bodies/own-body.ts";
 import type { MindKit } from "../kit.ts";
 import type { Senses } from "../../core/bodies/senses.ts";
 import type { GroundReading, Position } from "../../control/ground-reading.ts";
-import { fitsAll, type KeysOf, type Part, type PartConfig } from "../../parts/parts.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
+import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 
 /** A physical event completes a technique; other ends remain failures in the bed. */
 export type TechniqueEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted";
@@ -18,28 +16,30 @@ export interface TechniqueConfigs {}
 /** A registered technique's configuration. */
 export type TechniqueConfig = TechniqueConfigs[keyof TechniqueConfigs];
 export type TechniqueName = TechniqueConfig["kind"];
-export interface TechniqueRun {
+export interface TechniqueRun<Start extends string = string> {
   readonly state: object;
   readonly phase: string;
   readonly yields: boolean;
-  admits(reading: GroundReading, side: Side): boolean;
+  admits(reading: GroundReading, start: Start): boolean;
   reached(reading: GroundReading, to: Position): boolean;
-  begin(side: Side): void;
+  begin(start: Start): void;
   step(reading: GroundReading, senses: Senses, control: BodyControl, dt: number): TechniqueEnd | null;
   end(): void;
   /** Forget what it had under way, as the body's ground skills begin afresh with none carried over (`groundBody`); absent where it keeps nothing past its run. */
   forget?(): void;
 }
 /**
- * **A technique**: a part of role `technique` that a stand-up routes through (`standUp`): the sides
- * it may be begun on, the positions it takes the body between, and its run on a body.
+ * **A technique**: a part of role `technique` that a stand-up routes through (`standUp`): the start identifiers
+ * its implementation understands, the positions it takes the body between, and its run on a body.
  */
 export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "technique";
   /** A sustained recovery mode, and its climbing phase where it has one. */
   readonly mode?: { readonly kind: "brace" | "land" | "steady"; readonly climbing?: string };
   readonly keys: KeysOf<C>;
-  readonly sides: readonly Side[];
+  readonly starts: readonly string[];
+  /** Physical segment identifiers used to select the declared start tokens. */
+  bindings(spec: BodySpec, config: C): readonly { readonly segment: string; readonly start: string }[];
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
   /** Its entry (`TechniqueRun.admits`) reads the body's motion and its raw position (`GroundReading.raw`): a stand-up begins it on a body still tumbling where it admits it, and braces one only where none does. */
   readonly moving: boolean;
@@ -77,6 +77,7 @@ export function phaseClock() {
   };
 }
 
+
 /** Rate goals use the joint's actual turning map before they become motor speeds. Work is per body. */
 export function poseDrive(muscles: MuscleReading) {
   const rates = new Float64Array(muscles.channels.length);
@@ -94,24 +95,6 @@ export function poseDrive(muscles: MuscleReading) {
     }
   };
 }
-
-const opposite = (name: string) => name.replace(/\.(left|right)\b/g, (_, side: string) => side === "left" ? ".right" : ".left");
-
-/** Anatomical side names swap; the body's one-sided trunk channels change sign. */
-export function mirrorPosture(posture: Readonly<Record<string, number>>): Readonly<Record<string, number>> {
-  return Object.fromEntries(Object.entries(posture).map(([name, value]) => [opposite(name),
-    / (lateral flexion right|rotation right)$/.test(name) ? -value : value]));
-}
-
-/** A technique's `fits`: a body the stance stands on its feet (`soleRefusal`), as a technique's steady and stance do. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */
-const fitsStance = (spec: BodySpec): string | null => soleRefusal(spec);
-
-/** A technique part of `kind` with no settings of its own, fitted to a body the stance stands (`fitsStance`) and, where `fits` is given, that `fits` admits. */
-export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "sides" | "edges" | "make" | "mode"> & { reads?: Part["reads"]; moving?: boolean; fits?: (spec: BodySpec) => string | null }): TechniquePart<{ readonly kind: K }> => {
-  const { fits, ...rest } = part;
-  return Object.freeze({ moving: false, ...rest, role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [],
-    fits: fits ? fitsAll(fitsStance, fits) : fitsStance, faults: () => [] });
-};
 
 declare module "../../parts/lookup.ts" {
   interface RoleParts {

@@ -262,7 +262,7 @@
     linear-gradient(#08080bd9, transparent 23%, transparent 68%, #080609e8);
 }
 :where(#screen-root[data-screen="arena"]) #curtain.gone { visibility: hidden; pointer-events: none; }
-:where(#screen-root[data-screen="arena"]) body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
+:where(#screen-root[data-screen="arena"]):has(#curtain:not(.gone)) #hud { visibility: hidden; }
 :where(#screen-root[data-screen="arena"]) #matchup { display: contents; }
 :where(#screen-root[data-screen="arena"]) #curtain .duel-title { grid-column: 1 / -1; grid-row: 1; text-align: center; pointer-events: none; }
 :where(#screen-root[data-screen="arena"]) #curtain .duel-title h1 {
@@ -465,8 +465,8 @@
 /* Hidden under setup, and while paused: the pause menu carries the same actions, and on a
    narrow window the two would overlap. */
 :where(#screen-root[data-screen="arena"]) #bout-end.gone,
-:where(#screen-root[data-screen="arena"]) body:has(#curtain:not(.gone)) #bout-end,
-:where(#screen-root[data-screen="arena"]) body:has(#pause-menu:not(.gone)) #bout-end {
+:where(#screen-root[data-screen="arena"]):has(#curtain:not(.gone)) #bout-end,
+:where(#screen-root[data-screen="arena"]):has(#pause-menu:not(.gone)) #bout-end {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;

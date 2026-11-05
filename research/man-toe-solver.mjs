@@ -40,8 +40,8 @@ import { createRapierPhysics, rapierModule } from "../src/core/physics/rapier.ts
 import { FIT_SCALE } from "../src/core/bodies/human/model.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { STANDARD_GRAVITY } from "../src/core/bodies/spec/constants.ts";
-import { hullSolid } from "../scripts/core/man-envelope.mjs";
-import { AUDITED, TOE } from "./core-posture-trials.mjs";
+import { hullSolid } from "../scripts/humanoid/man-envelope.mjs";
+import { AUDITED, TOE } from "./humanoid/posture/core-posture-trials.mjs";
 import MAN from "../assets/humanoid/man-contact-geometry.json" with { type: "json" };
 
 /** The toe's damping, N m s/rad: `SOURCES["falisse-2022-toes"]`. */

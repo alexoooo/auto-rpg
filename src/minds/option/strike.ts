@@ -1,5 +1,4 @@
 import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../../skills/framework/action.ts";
-import { STANCE_LOWER } from "../../skills/locomotion/locomotion.ts";
 import { regionSegments } from "../../skills/intent/action-aim.ts";
 import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side, type Spot } from "../../skills/intent/action-window.ts";
 import { orderAllows, orderedTarget } from "../../skills/intent/orders.ts";
@@ -17,8 +16,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 const PATIENCE = 2;
 
 /** What an action's executor reads of the skills beside it, as the last step left them. */
-export const around = (sight: Sight): ActionAround => ({ heading: sight.report.heading, placed: sight.view.stance.phase === "stand",
-  support: sight.report.support ?? null, walk: null, lower: STANCE_LOWER });
+export const around = (sight: Sight): ActionAround => sight.context;
 
 /**
  * What a strike's profile is looked up by: the body throwing it, what a profile read by it must

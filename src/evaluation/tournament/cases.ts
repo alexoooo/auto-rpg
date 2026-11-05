@@ -4,7 +4,8 @@
  */
 import { CAP_SECONDS } from "../../game/arena/duel.ts";
 import type { ArenaLevel } from "../../game/arena/levels.ts";
-import { REPRESENTATIVE, type Loadout } from "../../core/bodies/items/held.ts";
+import { type Loadout } from "../../core/bodies/items/held.ts";
+import { REPRESENTATIVE } from "../loadouts.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { readBout, type BoutReading } from "../contest.ts";

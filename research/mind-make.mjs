@@ -1,3 +1,4 @@
+import { rulebook } from "../src/combat/rulebook.ts";
 /**
  * What making a body's Crypt mind costs (`createMind`, `defaultMind`), warm: each model's body built
  * `--makes` times beside the last on a stand, and its mind made on it, timed alone. The first make
@@ -29,7 +30,7 @@ for (const [model, loadout] of BODIES) {
     for (let i = 0; i < makes; i++) {
       const built = buildBody(spec, stand.world, { position: [3 * (i + 1), 0, 0] });
       const start = performance.now();
-      createMind(GAME, built, stand.world, config, { name: `${model} ${i}`, orders: () => STAND_ORDERS });
+      createMind(GAME, built, stand.world, config, { rules: rulebook("arena"), name: `${model} ${i}`, orders: () => STAND_ORDERS });
       times.push(performance.now() - start);
     }
     const warm = times.slice(WARM).sort((a, b) => a - b);

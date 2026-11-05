@@ -9,6 +9,6 @@ import type { MindReport } from "../../minds/report.ts";
  */
 export interface Inspected {
   readonly body: Pick<PhysicalBody, "has" | "level">;
-  readonly skills?: { readonly report: Partial<Pick<SkillReport, "holders" | "actions">> } | null;
+  readonly skills?: { readonly report: Partial<Pick<SkillReport, "holders" | "defaultOwners" | "actions">> } | null;
   readonly report?: Pick<MindReport, "engagement" | "actions" | "ended"> | null;
 }

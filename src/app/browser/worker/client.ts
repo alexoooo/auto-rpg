@@ -54,7 +54,7 @@ export interface WorldLink<Card = unknown> {
 export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team" | "duel" | "crypt" }>, signal: AbortSignal): Promise<WorldLink<Card>> {
   signal.throwIfAborted();
   const worker = new Worker(new URL("./world.worker.ts", import.meta.url), { type: "module" });
-  const send = (message: ToWorker) => worker.postMessage(message);
+  let closed: { readonly reason: unknown } | null = null;
   const frames: Float64Array[] = [];
   const listeners: { news?: (news: StageNews) => void; fault?: (message: string) => void }[] = [];
   /** News that came before anything listened, told to each listener as it listens. */
@@ -64,17 +64,42 @@ export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team"
     for (const listener of listeners) listener.news?.(news);
   };
   const clock = { shown: 0, last: -1 }, tally = { steps: 0, ms: 0 };
-  let stepped: (() => void)[] = [], taped: ((tape: readonly TapeEntry[]) => void)[] = [];
+  const stepped = new Map<number, { resolve(): void; reject(reason: unknown): void }>();
+  const taped = new Map<number, { resolve(tape: readonly TapeEntry[]): void; reject(reason: unknown): void }>();
+  let request = 0;
   let link: WorldLink<Card> | null = null;
   return new Promise<WorldLink<Card>>((resolve, reject) => {
+    const end = (reason: unknown) => {
+      if (closed) return;
+      closed = { reason };
+      signal.removeEventListener("abort", abort);
+      worker.terminate();
+      for (const pending of stepped.values()) pending.reject(reason);
+      for (const pending of taped.values()) pending.reject(reason);
+      stepped.clear(); taped.clear();
+      if (!link) reject(reason);
+    };
     const fail = (message: string) => {
-      if (!link) { worker.terminate(); reject(new Error(message)); return; }
+      if (closed) return;
+      end(new Error(message));
       for (const listener of listeners) listener.fault?.(message);
     };
-    const abort = () => { worker.terminate(); if (!link) reject(signal.reason); };
+    const send = (message: ToWorker) => {
+      if (closed) throw closed.reason;
+      try { worker.postMessage(message); }
+      catch (error) {
+        end(error);
+        const message = error instanceof Error ? error.message : String(error);
+        for (const listener of listeners) listener.fault?.(message);
+        throw error;
+      }
+    };
+    const abort = () => end(signal.reason);
     signal.addEventListener("abort", abort, { once: true });
     worker.addEventListener("error", (event) => fail(event.message || "the world's worker failed to start"));
+    worker.addEventListener("messageerror", () => fail("the world's worker sent an unreadable message"));
     worker.addEventListener("message", ({ data }: MessageEvent<FromWorker>) => {
+      if (closed) return;
       switch (data.kind) {
         case "ready": {
           frames.push(data.frame);
@@ -84,17 +109,23 @@ export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team"
             hz: data.hz, roster: data.roster as readonly RosterBody<Card>[], offsets,
             get newest() { return frames.at(-1)!; },
             run: (running) => send({ kind: "run", running }),
-            step: (steps) => new Promise((done) => {
-              stepped.push(() => { clock.shown = frames.at(-1)![0]!; done(); });
-              send({ kind: "step", steps });
+            step: (steps) => new Promise((done, refused) => {
+              if (closed) { refused(closed.reason); return; }
+              const id = request++;
+              stepped.set(id, { resolve() { clock.shown = frames.at(-1)![0]!; done(); }, reject: refused });
+              send({ kind: "step", steps, request: id });
             }),
             input: (input) => send({ kind: "input", input }),
-            tape: () => new Promise((done) => { taped.push(done); send({ kind: "tape" }); }),
+            tape: () => new Promise((done, refused) => {
+              if (closed) { refused(closed.reason); return; }
+              const id = request++;
+              taped.set(id, { resolve: done, reject: refused }); send({ kind: "tape", request: id });
+            }),
             burden: (ms) => send({ kind: "burden", ms }),
             between: (now) => between(frames, clock, now, 1 / data.hz),
             received() { const out = { ...tally }; tally.steps = tally.ms = 0; return out; },
             listen(listener) { listeners.push(listener); for (const news of early) listener.news?.(news); },
-            dispose() { signal.removeEventListener("abort", abort); worker.terminate(); },
+            dispose() { end(new Error("the world's worker was disposed")); },
           };
           resolve(link);
           return;
@@ -109,15 +140,15 @@ export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team"
           tell(data.news);
           return;
         case "stepped": {
-          const waiting = stepped;
-          stepped = [];
-          for (const done of waiting) done();
+          const waiting = stepped.get(data.request);
+          stepped.delete(data.request);
+          waiting?.resolve();
           return;
         }
         case "tape": {
-          const waiting = taped;
-          taped = [];
-          for (const done of waiting) done(data.tape);
+          const waiting = taped.get(data.request);
+          taped.delete(data.request);
+          waiting?.resolve(data.tape);
           return;
         }
         case "fault":

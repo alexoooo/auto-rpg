@@ -42,6 +42,8 @@ export interface Gait extends Skill<PawView> {
   readonly state: { readonly phase: string; readonly steps: number; readonly placed: number; readonly sequence: number; readonly standing: boolean };
   readonly settings: GaitSettings;
   readonly reach: GaitReach;
+  /** Travel normalization, m/s, and braking acceleration, m/s^2, owned by this gait. */
+  readonly travel: { readonly speed: number; readonly stopping: number };
   command(view: PawView, orders: TravelOrders, dt: number, height?: number): SupportedCommand;
 }
 

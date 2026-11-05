@@ -1,10 +1,8 @@
 import { editorRow as row, editorPicker as picker, editorButton as button, partFieldInput as fieldInput } from "./editor-inputs.ts";
 import { techniqueEditor } from "./mind-ground.ts";
 import { isKind, kindsFor, partOf, unusedParts, type EntryRule } from "../../catalog.ts";
-import { regionsEditor } from "./mind-regions.ts";
 import type { MindConfig } from "../../../minds/config.ts";
-import type { Region } from "../../../skills/framework/action.ts";
-import { slotOne, slotsOf, type Part, type PartConfig, type Slot } from "../../../parts/parts.ts";
+import { slotsOf, type Part, type PartConfig, type Slot } from "../../../parts/parts.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { mindFaults } from "../setup.ts";
 
@@ -32,9 +30,6 @@ interface EditorOptions {
   readonly onFault?: string;
 }
 
-/** Where a strike aims (`StrikeConfig.aim`): a setting beside its regions, not a slot, drawn as one. */
-const AIM: Slot = slotOne("aim", "Aim", "aim");
-
 /** What a person calls `part`, its stage said where it is research. */
 const named = (part: Part): string => part.stage === "experimental" ? `${part.label} (experimental)` : part.label;
 
@@ -61,9 +56,9 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
   const defaultsOf = (kind: string): PartConfig => partOf({ kind }).defaults;
 
   /** `config`'s part drawn into a block, `write` taking the part's config once changed. */
-  const drawPart = (config: PartConfig, write: (config: PartConfig) => void): HTMLElement => {
+  const drawPart = (config: PartConfig, write: (config: PartConfig) => void, path: readonly (string | number)[] = []): HTMLElement => {
     const block = document.createElement("div");
-    block.className = "mind-part";
+    block.className = "mind-part"; block.dataset.path = JSON.stringify(path);
     if (!isKind(config?.kind)) {
       block.textContent = `No part of kind ${JSON.stringify((config as { kind?: unknown } | null)?.kind)}`;
       return block;
@@ -76,26 +71,22 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       shown.className = "mind-tuning"; shown.textContent = `Research tuning, read-only\n${JSON.stringify(tuning, null, 1)}`;
       block.append(shown);
     }
-    // A strike's regions and its aim, where it aims (`StrikeConfig`): a list of places on the target, and the aim's part.
-    const { regions, aim } = config as { regions?: readonly Region[]; aim?: PartConfig };
-    if (Array.isArray(regions)) block.append(regionsEditor(regions, (next) => write({ ...config, regions: next } as PartConfig), readOnly));
-    if (aim) block.append(drawSlot(config, AIM, write));
     for (const slot of slotsOf(part, config)) block.append(slot.role === "technique" && slot.many
       ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, current),
         (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)
-      : drawSlot(config, slot, write));
+      : drawSlot(config, slot, write, path));
     return block;
   };
 
   /** `slot` of `config`: its part or parts, each with its own block beneath. */
-  const drawSlot = (config: PartConfig, slot: Slot, write: (config: PartConfig) => void): HTMLElement => {
+  const drawSlot = (config: PartConfig, slot: Slot, write: (config: PartConfig) => void, path: readonly (string | number)[]): HTMLElement => {
     const holder = document.createElement("div"), value = (config as unknown as Record<string, unknown>)[slot.key];
     holder.className = "mind-slot"; holder.dataset.slot = slot.key;
     const set = (next: unknown) => write({ ...config, [slot.key]: next } as PartConfig);
     if (!slot.many) {
       const child = value as PartConfig | null;
       holder.append(row(slot.label, picker(choices(slot), child?.kind ?? "", (kind) => set(kind ? defaultsOf(kind) : null), readOnly)));
-      if (child) holder.append(drawPart(child, set));
+      if (child) holder.append(drawPart(child, set, [...path, slot.key]));
       return holder;
     }
     const list: readonly PartConfig[] = Array.isArray(value) ? value : [];
@@ -109,7 +100,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       line.append(picker(choices(slot), child.kind, (kind) => replace(defaultsOf(kind)), readOnly),
         button("↑", `Move ${slot.label.toLowerCase()} ${i + 1} up`, () => set(list.map((other, j) => j === i - 1 ? child : j === i ? list[i - 1]! : other)), readOnly || i === 0),
         button("✕", `Remove ${slot.label.toLowerCase()} ${i + 1}`, () => set(list.filter((_, j) => j !== i)), readOnly));
-      item.append(line, drawPart(child, replace));
+      item.append(line, drawPart(child, replace, [...path, slot.key, i]));
       holder.append(item);
     });
     if (!readOnly) {

@@ -33,7 +33,7 @@ composes their concrete implementations.
 Every module outside `node/` or `browser/` is runtime-neutral, including what it imports.
 `src/app/node/` reads build identity and hosts Node workers; `src/app/browser/` owns DOM, rendering,
 input and browser workers. Both bind the same `applicationContext` and `evaluationApplication`.
-`GameContext` supplies the catalog, build identity, default mind, body refusal and the exact
+`GameContext` supplies the catalog, Commander registry, build identity, default mind, body refusal and the exact
 registered technique set. Gameplay and evaluations receive it as an argument.
 
 `tests/core-boundary.test.mjs` and `scripts/source-boundary.mjs` check declared import directions,
@@ -41,8 +41,8 @@ runtime paths and public entry points across source modules. Shared libraries ne
 application composition imports their public manifests. Entrants import published library APIs
 and themselves. Recovery's shared wiring never imports implementations; each implementation owns
 its algorithms, tuning, data and caches. Motor, support, gait, guard, balance, navigation and aim
-registrations live in `src/app/registration/`. Option component lists live in `src/minds/option/`;
-Commander registration and lookup live in `src/minds/command/`.
+registrations, Option component lists and the Commander registry live in `src/app/registration/`.
+Commander lookup receives that registry; reusable implementations live in `src/minds/command/`.
 
 The public APIs for entrant authors are:
 
@@ -81,12 +81,17 @@ effector segment (`BodyView.pointMotion`).
 - **Models** (`BODY_MODELS`, `modelSpec`, `src/core/bodies/models.ts`): the humans are built in
   `src/core/bodies/human/spec.ts`, the quadrupeds in `src/core/bodies/quadruped/spec.ts`.
 - **A character** (`CharacterConfig`, `resolveCharacter`) is a model plus its attributes
-  (`CHARACTER_ATTRIBUTES`). A physique (`physiqueFigure`, `src/core/bodies/human/physique.ts`) scales one
+  (`CharacterAttributes`). The physical keys and validation live in the body domain; editor labels,
+  increments and help live in `src/app/browser/ui/character-attribute-info.ts`.
+  A physique (`physiqueFigure`, `src/core/bodies/human/physique.ts`) scales one
   thing a factor: size every length at the same density, weight the mass alone, strength every peak
   torque, speed every muscle's unloaded speed; a combination whose nonadjacent segments meet is
-  refused. Haste raises only the legs' unloaded muscle speed.
+  refused. Checked character and equipment admission returns a named refusal for invalid attributes,
+  unrepresentable derived values, unsupported equipment or invalid geometry before a world is built.
+  Haste raises only the legs' unloaded muscle speed.
 - **Items** (`src/core/bodies/items/`): `HELD` is what a hand may hold; `armedWith` and `withLoadout` arm
-  a body; `REPRESENTATIVE` are the loadouts every rating covers. An item's frame is y along the
+  a body. Game defaults live in `src/game/model-loadouts.ts`; the representative evaluation roster
+  lives in `src/evaluation/loadouts.ts`. An item's frame is y along the
   grip or blade, x across, z out. Families share code, never values.
 
 **Every number in a spec is a `Quantity`** (`src/core/bodies/spec/quantity.ts`): a value, a unit and its
@@ -158,6 +163,10 @@ driven points, a stance goal) into muscle commands.
   skills and deciders. Their options supply the motor and its calibration. The application's
   standalone body builder (`src/app/commanded-body.ts`) supplies the stock whole-body motor when
   a study names none.
+  A selected motor declares its support reference; `BodyView.standing` is null when it supplies
+  none. Implementations requiring that reference declare the requirement in their applicability.
+  The application supplies the stock balance and its calibrated envelope (`src/app/stance-balance.ts`);
+  neutral envelope interpolation stays in control, and locomotion owns its measured asset readers.
 - **The motor** is a part of role `motor` (`MOTORS`); the game's is the whole-body solve
   (`motorControl`, `solve.ts`): the bearing solve and the servo in one weighted least-squares
   problem, a torque past strength pinned and solved again. A body on paws has the paw support
@@ -189,7 +198,7 @@ beneath, executors running discrete actions over them. Every skill answers `Skil
 arbiter releases every action when another mind takes the body.
 
 - **An action** (`ActionRequest`, `action.ts`) has an id, a name, an effector and a sensed target
-  region. Admission reads readiness and reserves resources (joints, effectors, segment configurations, support limbs);
+  region. Admission reads readiness and reserves resources (joints, effectors, segment configurations, support limbs and whole-body assist);
   actions overlap where reservations allow. An executor runs `prepare`, `commit` and `release` and
   ends once (`Ended`). It never closes distance; the decider does.
 - **Parts.** Each kind is a line of its role's list (`EXECUTORS`, `GUARDS` and the like), its
@@ -204,7 +213,8 @@ arbiter releases every action when another mind takes the body.
   does not use the skill. Step up's record may adjust the recovery poses and timings by loadout.
   Implementations register loaders in `data/registration.ts`; an entrant adds its loaders to its
   manifest's `data`. The catalog supplies those loaders to the store (`DataKey`, `keyof DataOf`)
-  through `Catalog.loadData`, with the same registrations in Node and the page.
+  through `Catalog.loadData`, with the same registrations in Node and the page. A loader declares
+  whether its identity is the whole dataset or the actual subject record used by its consumer.
 - **Locomotion** (`Locomotion`): legs take one goal (`LegsGoal`) and say what they left undone
   (`LegsUnmet`), their envelope and how fast they stop. Each declares the bearing ends
   it controls (`supports`) and its default lowering (`lower`). `stance-walk` walks within the stance's
@@ -218,7 +228,7 @@ arbiter releases every action when another mind takes the body.
 - **The straight punch** (`straight-punch.ts`) drives the arm flat out at a contact pose solved
   each step, on a timed schedule (`TimedPush`). Steered, a network (`learned-punch.ts`) adds to the
   trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
-  (`PunchRecord`), trained by `research/run-train.py` and exported by `research/punch-export.mjs`.
+  (`PunchRecord`), trained by `research/run-train.py` and exported by `research/skills/strikes/straight-punch/punch-export.mjs`.
 - **Held blows** strike with what the hand holds (`StrikingFace`), naming the mechanism they meet
   with (`ExecutorPart.meets`). The thrust is the punch's drive with the blade's point; a swing winds
   up to its record's angles, pushes on its `TimedPush` schedule and returns to guard; through
@@ -229,7 +239,8 @@ arbiter releases every action when another mind takes the body.
   the head driven to the mouth's goal, the jaw opened and closed on its path, aimed by the first
   exposed surface along the jaw's arc (`first-exposed`, `jaw-aim.ts`), its tooth carried with the
   aim (`Aimed.with`).
-- **The guard** (`GuardPart`) owns the arms' rest: where the body is built, where free hands go,
+- **The guard** (`GuardPart`) supplies a reference posture and declares its covered effector
+  segments. Stock guards own the arms' rest: where the body is built, where free hands go,
   where a blow returns; it may set a told hand between threat and target, or a buckler's face toward
   the foe's weapon; a body with no hands has the guard at rest (`rest`), which holds nothing.
   **Low support** (`support-fold.ts`) folds the stance onto a planted base for low blows.
@@ -254,8 +265,8 @@ selects the channels that prioritize a contact task over the posture. A pose's s
 span (`PoseStage.follow`), keeping their entry pose until every leading joint enters that span.
 A body on paws rights itself (`src/skills/recovery/righting/righting.ts`) by its recipe of
 poses from lying (`righting-recipe`, its record `assets/skills/recovery/righting/righting.json`) and by routes that
-roll it, place each paw and rise on its motor (`righting-routes`). A ground action names its side
-by the first end the body stands on there (`sideEffectors`).
+roll it, place each paw and rise on its motor (`righting-routes`). Each technique declares its
+physical segment bindings and opaque start tokens; bilateral implementations own their side adapter.
 
 ## Minds
 
@@ -293,14 +304,17 @@ research settings belong to `LayerOptions` in `src/control/body.ts`.
   read without moving its state. Screens and Commanders read the report, never a mind's kind or
   state. Each answer snapshots its prospects, heading, navigation, actions and endings (`saidOf`,
   `minds.ts`), reusing unchanged branches by value; subsequent live writes leave retained
-  snapshots unchanged. Engagement, the menu, the kit and the gait read their live sources.
+  snapshots unchanged. The snapshot, including kit and gait values, belongs to the saved Mind
+  state. The profile provider saves its completed-decision engagement details; the menu reads
+  current skills.
 
 **A mind is its config.** A `MindConfig` is plain data tagged by kind; `createMind` (`minds.ts`)
 makes it by the kind's `Controller` found in a `Catalog` (`src/minds/catalog.ts`). A mind is a
 tree of parts (`Part`, `parts.ts`), each with a role, a stage, fields, slots and defaults, saying
 why a body cannot carry it out (`fits`) and what is wrong with its config (`faults`). Roles are an
 open list (`RoleParts`), augmented beside each role's contract. `treeFaults` names each fault by
-path; `tuning` never travels in a link.
+path. Component-owned `children` declare nested configuration paths and roles; admission, fit,
+scope, data dependencies and inspection traverse those same children. `tuning` never travels in a link.
 
 **Option Mind** (`src/minds/option/`, `optionMind`) is a reusable decision framework. Its entrant
 (`src/entrants/option/`) owns the ordered assembly and presets; the application registers the
@@ -309,6 +323,19 @@ options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Optio
 (`Readiness`), the resources it claims, its model at the state now or one an Option leaves the
 body in (`Option.model`, `placed`; `Terms`: duration, what it deals and takes, and the ways it ends,
 each a state with its chance, `Outcome`), its step, and a status.
+
+The selected prediction provider constructs a complete decision session through `OptionEvaluation.build`,
+with its compatible Options, chooser protocol, situation reader and saved memory. Admission checks
+the protocol identifiers before construction. The stock profile model owns its tables and
+`ProfileOptionContext`; an independent provider supplies its own model without the profile schema.
+Components declare their data, phases and order-taking capability. Profile recovery Options
+declare whether they offer ascent or fallback transitions; route admission and brace readiness
+read the same declaration. The public Option entry point
+publishes the percept, prediction and evaluation callback contracts. Controller descriptions expose
+configured components, command owners and their actual configuration paths to editors, inspection
+and evaluation adapters.
+
+The profile model supplies these components:
 
 - **Percepts** (`PERCEPTS`) and **predictions** (`PREDICTIONS`) are read into the `Situation`
   the first time a step asks for each and kept for the step (`perceiver`); predictions price from
@@ -437,7 +464,14 @@ one solver step and the clock; the post-physics observations
 by real time (`World.advance`); `scene.render()` never steps. Local bouts serialize their registered
 state roots through `saveState` and restore them through `loadState` (`src/core/world/state.ts`).
 Durable simulation values must be reachable from those roots to survive a fresh load; runtime
-links and derived caches must be rebuilt from the restored values.
+links and derived caches must be rebuilt from the restored values. `DungeonRun.state` includes
+its map, commands, exploration, actors and world state; its facade retains runtime handles, and
+world load hooks invalidate derived routes and geometry. Lab actors retain script memory and
+order-cache values in `Actor.state`; session roots include their actor, course, meter, wind and
+queued control state.
+The state codec escapes plain records carrying internal discriminators and preserves shared
+references. Mutable maps, sets and typed arrays belong to state; deeply frozen constants use
+records and arrays.
 
 ### The command delay
 
@@ -463,6 +497,11 @@ takes the steps real time owes, a bounded number a pass, and sends each step's f
 a world that cannot keep up plays slow while the page keeps its rate. The page's input is applied
 before the next step and taped. The page (`openWorld`) poses a puppet of each body between the two
 frames it shows (`posePuppet`).
+Step and tape requests carry identifiers, and each reply completes its matching request. Faults,
+abort and disposal reject pending requests. The browser drains the shared reply ring while waiting
+for completion, so reply backpressure cannot prevent that completion. Mind workers load the data
+declared by the requested recipes. Construction lifetimes dispose partial resources before an
+unsuccessful build returns control to its reporting boundary.
 
 ## Bouts, tapes and replay
 
@@ -519,7 +558,8 @@ any page.
   in series (`energyShares`); two rigid items meeting clash. Stiffness tables and the fist's
   threshold: [wounds](reference/wounds.md).
 - **Damage**: a side's share times its mechanism's worth over `Rulebook.unit` (`sideDamage`); a bare
-  hand or foot on flesh lets the first of its share go (`Rulebook.fist`). A held point breaches
+  extremity declared in `WoundSpec.bareExtremities` on flesh lets the first of its share go
+  (`Rulebook.fist`). The contact mass follows the currently attached component. A held point breaches
   `Rulebook.layers` and goes in against `resistance` as deep as its energy drives it (`pointWound`).
 - **A bite** wounds by the impulse it brings beyond a threshold load over the interval, at a rate
   (`pointLoadDamage`, `pointLoad`); a held item intercepts it.

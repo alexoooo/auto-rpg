@@ -11,7 +11,7 @@
  *
  *   node research/run-learning-server.mjs <configuration.json>
  *
- * The configuration names its environment's file (`environment`, `research/environments/`: its
+ * The configuration names its environment's file (`environment`, in its owning research directory: its
  * `kind`, one of `KINDS`, and the kind's settings) and gives `workers`, `each` and `seed`; its other
  * keys override the file's settings. Environment i is seeded `seed + i`. Unset, 8 workers of 4
  * environments, the fastest on the 16-core development host.
@@ -19,6 +19,7 @@
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { createInterface } from 'node:readline';
 import { readFileSync } from 'node:fs';
+import { learningWorker } from './learning-worker.mjs';
 
 /**
  * Each kind of environment's maker, by the `kind` its file names: an episode's shape, which its
@@ -26,7 +27,12 @@ import { readFileSync } from 'node:fs';
  * (`case-learning-environment.mjs`).
  */
 const KINDS = {
-  cases: async () => (await import('./case-learning-environment.mjs')).caseEnvironment,
+  cases: async () => {
+    const { caseEnvironment } = await import('./case-learning-environment.mjs');
+    const { profileLearningMind } = await import('../src/minds/option/index.ts');
+    const { GAME } = await import('../src/app/catalog.ts');
+    return configuration => caseEnvironment(configuration, { configureMind: (preset, request) => profileLearningMind(GAME.partLookup, preset, request) });
+  },
 };
 
 if (!isMainThread) {
@@ -36,9 +42,9 @@ if (!isMainThread) {
   for (const { kind: _, ...configuration } of workerData) envs.push(await make(configuration));
   parentPort.postMessage({ ready: true, observationSize: envs[0].observationSize, actionSize: envs[0].actionSize });
   /** The idle work: each environment's next slice in turn, until none has any; `working` while a round is under way, `busy` while a message is. */
-  let working = false, busy = false, turn = 0;
+  let working = false, busy = false, turn = 0, failed = false;
   const work = async () => {
-    if (working || busy) return;
+    if (working || busy || failed) return;
     working = true;
     try {
       for (let tried = 0; tried < envs.length && !busy; tried++) {
@@ -46,7 +52,7 @@ if (!isMainThread) {
         turn = (turn + 1) % envs.length;
         if (e.idle && await e.idle()) { tried = -1; await new Promise((resolve) => setImmediate(resolve)); }
       }
-    } catch (error) { parentPort.postMessage({ error: String(error.stack ?? error) }); }
+    } catch (error) { failed = true; parentPort.postMessage({ error: String(error.stack ?? error) }); }
     working = false;
   };
   const idled = (message) => { busy = false; parentPort.postMessage(message); setImmediate(work); };
@@ -73,17 +79,19 @@ if (!isMainThread) {
   if (typeof environment !== 'string') throw new Error("a configuration names its environment's file");
   const settings = { ...JSON.parse(readFileSync(environment, 'utf8')), ...overrides };
   if (!Object.hasOwn(KINDS, settings.kind)) throw new Error(`no kind of learning environment ${settings.kind}: ${Object.keys(KINDS).join(', ')}`);
-  const workers = Array.from({ length: count }, (_, w) => {
+  const workers = [];
+  const send = (value) => process.stdout.write(JSON.stringify(value) + '\n');
+  let input;
+  try {
+  if (!Number.isSafeInteger(count) || count < 1 || !Number.isSafeInteger(each) || each < 1) throw new Error("learning workers and environments per worker must be positive integers");
+  for (let w = 0; w < count; w++) {
     const configurations = Array.from({ length: each }, (_, k) => ({ ...settings, seed: seed + w * each + k }));
     const worker = new Worker(new URL(import.meta.url), { workerData: configurations });
-    let waiting = null;
-    worker.on('message', (m) => { const w = waiting; waiting = null; w?.(m); });
-    worker.on('error', (error) => { process.stderr.write(String(error.stack ?? error) + '\n'); process.exit(1); });
-    const ask = (message) => new Promise((resolve) => { waiting = resolve; if (message) worker.postMessage(message); });
-    return { worker, ask };
-  });
+    workers.push(learningWorker(worker));
+  }
   const ready = await Promise.all(workers.map((w) => w.ask(null)));
-  const send = (value) => process.stdout.write(JSON.stringify(value) + '\n');
+  const startupFailure = ready.find(answer => answer.error);
+  if (startupFailure) throw new Error(startupFailure.error);
   send({ ready: ready.map(({ observationSize, actionSize }) => ({ observationSize, actionSize })), workers: count * each });
   const all = async (messages) => {
     const answers = await Promise.all(workers.map((w, i) => w.ask(messages(i))));
@@ -91,17 +99,22 @@ if (!isMainThread) {
     if (failed) throw new Error(failed.error);
     return answers.flatMap((a) => a.answers ?? []);
   };
-  for await (const line of createInterface({ input: process.stdin })) {
-    const { op, actions, decisions } = JSON.parse(line);
+  input = createInterface({ input: process.stdin });
+  for await (const line of input) {
     try {
+      const { op, actions, decisions } = JSON.parse(line);
       if (op === 'reset') send({ observations: (await all(() => ({ op }))).map((a) => a.observation) });
       else if (op === 'step') {
         const answers = await all((i) => ({ op, actions: actions.slice(i * each, (i + 1) * each) }));
         send({ observations: answers.map((a) => a.observation), rewards: answers.map((a) => a.reward), dones: answers.map((a) => a.done), infos: answers.map((a) => a.info) });
       } else if (op === 'progress') { await all(() => ({ op, decisions })); send({ progressed: decisions }); }
-      else if (op === 'close') { send({ closed: true }); process.exit(0); }
+      else if (op === 'close') { send({ closed: true }); break; }
       else throw new Error(`no operation ${op}`);
     } catch (error) { send({ error: String(error.stack ?? error) }); break; }
   }
-  for (const w of workers) await w.worker.terminate();
+  } catch (error) { send({ error: String(error.stack ?? error) }); }
+  finally {
+    input?.close(); process.stdin.destroy();
+    await Promise.all(workers.map(w => w.worker.terminate()));
+  }
 }

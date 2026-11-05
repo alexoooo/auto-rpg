@@ -1,3 +1,4 @@
+import { isRefused } from "../../../../../src/core/refusal.ts";
 /**
  * **Where a whole mind's rise spends its time**: the stand-up target's falls (`risingJobs`, the falls
  * `npm run evaluate -- rising-target` plays, turned by `--offsets`) on the fall bed (`buildFall`),
@@ -46,6 +47,7 @@ async function traceFall(job) {
     return run.phase ?? fallback;
   };
   const built = await buildFall(job.fall, "rapier");
+  if (isRefused(built)) throw new Error(built.refused);
   const actions = new Map(), order = [], idles = [];
   /** The standing legs' memory (`locomotion`'s state, under the skills' legs): its idle settling's target. */
   let legs = null;

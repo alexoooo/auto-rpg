@@ -1,8 +1,9 @@
+import type { Refused } from "../../core/refusal.ts";
 import { SEGMENT_DENSITY, type DensitySegment } from "../../core/bodies/human/tables/densities.ts";
 import type { BodySpec, WoundSpec } from "../../core/bodies/spec/body.ts";
 import { woundGroups } from "../../combat/pool.ts";
 import { ballMoment, ballRadius } from "../../core/bodies/spec/geometry.ts";
-import { derive, si, type Quantity, type Vec3 } from "../../core/bodies/spec/quantity.ts";
+import { derive, si, type Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
 
 const densityOf = (part: string) => {
@@ -35,18 +36,18 @@ export const dummyPart = (spec: BodySpec, requested?: string | null): string =>
  * density. Its middle and leg membership follow the source anatomy; its high point and base are
  * the ball itself. The body's frame origin is its centre.
  */
-export function dummySpec(attacker: BodySpec, part: string = attacker.marks.high): BodySpec {
+export function dummySpec(attacker: BodySpec, part: string = attacker.marks.high): BodySpec | Refused {
+  if (attacker.down.kind === "low") return { refused: `a dummy is down by its attacker's fall bar, and ${attacker.model} has none` };
   const made = segmentOf(attacker, part);
-  if (!made) throw new Error(`${attacker.model} has no ${part} a ball is made of`);
+  if (!made) return { refused: `${attacker.model} has no ${part} a ball is made of` };
   const mass = derive("kg", `the attacker's ${part}'s mass`, [made.mass], m => m);
-  const radius = ((): Quantity<number> => {
-    if (made.shape.kind === "capsule" || made.shape.kind === "sphere") return derive("m", `the attacker's ${part}'s ${made.shape.kind}'s radius`, [made.shape.radius], r => r);
-    const density = densityOf(part);
-    if (!density) throw new Error(`${attacker.model}'s ${part} has no radius and no density a ball is made by`);
-    return derive("m", `the ball that holds the attacker's ${part}'s mass at its density`, [made.mass, si(density)], (m, rho) => ballRadius(m / rho));
-  })();
+  const density = densityOf(part);
+  if (made.shape.kind !== "capsule" && made.shape.kind !== "sphere" && !density)
+    return { refused: `${attacker.model}'s ${part} has no radius and no density a ball is made by` };
+  const radius = made.shape.kind === "capsule" || made.shape.kind === "sphere"
+    ? derive("m", `the attacker's ${part}'s ${made.shape.kind}'s radius`, [made.shape.radius], r => r)
+    : derive("m", `the ball that holds the attacker's ${part}'s mass at its density`, [made.mass, si(density!)], (m, rho) => ballRadius(m / rho));
   const centre = derive("m", "the ball's centre, its frame's origin", [], (): Vec3 => [0, 0, 0]);
-  if (attacker.down.kind === "low") throw new Error(`a dummy is down by its attacker's fall bar, and ${attacker.model} has none`);
   return {
     model: `${attacker.model}.dummy`, substance: attacker.substance, mass,
     stature: derive("m", "the ball's height, twice its radius", [radius], r => 2 * r),

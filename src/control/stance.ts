@@ -7,8 +7,8 @@ import type { Limb } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
 import { rotationAtToRef } from "./kinematics.ts";
 import type { GaitTuning, StanceTuning } from "./stance-tuning.ts";
-import { aimRecovery, catchStep, ownStep, paceToward } from "./gait.ts";
-import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
+import { aimRecovery, catchStep, ownStep, paceToward } from "./stance/gait.ts";
+import { gravityOf, makeStance, type Stance } from "./stance/state.ts";
 import { type FootState, type SoleEnd, bearingEdge, bearingEnd, bearingOf, bearingSole, clearAcross, clearAlong, endPast, groundContact, heldBy, landingHeading, landingHeight, legLength, lowestCorner, pivotWithin, readSupport, rolledRows, soleFlatTurn, soleHeight, soleMiddleToRef, withinSupport } from "./support.ts";
 import { angularMomentumToRef, massCentreToRef, motionAtToRef, pointOfToRef, turnOfToRef } from "../core/bodies/read-motion.ts";
 import { sin, cos, atan2, exp, sinh, cosh, hypot } from "../core/math/real.ts";
@@ -904,6 +904,7 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       step.held = 0;
       step.off = Infinity;
       step.catching = false;
+      step.recovering = false;
       step.facing = null;
       reading.phase = "stand";
       reading.own = null;

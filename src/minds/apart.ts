@@ -188,9 +188,13 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
     });
     const wiring: MindWiring = { name: recipe.name, seed: recipe.seed, phase: recipe.phase, rules: recipe.rules, orders: () => orders.now,
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}), ...(recipe.experiment ? { experiment: recipe.experiment } : {}) };
-    const made = catalog.controllerOf(config).create(host, config, wiring);
-    if (!taking.made) throw new Error("the mind took no body");
-    return { recipe, mirror, clock, orders, mind: taking.made.mind, construction: taking.made, made, deciding: false };
+    let complete = false;
+    try {
+      const made = catalog.controllerOf(config).create(host, config, wiring);
+      if (!taking.made) throw new Error("the mind took no body");
+      complete = true;
+      return { recipe, mirror, clock, orders, mind: taking.made.mind, construction: taking.made, made, deciding: false };
+    } finally { if (!complete) taking.made?.dispose(); }
   };
   const decide = (seated: Seated | undefined): void => {
     if (!seated?.deciding) return;

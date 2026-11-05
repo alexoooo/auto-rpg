@@ -1,4 +1,5 @@
-import type { BodyView } from "../../control/body.ts";
+import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
+import type { Body, BodyView } from "../../control/body.ts";
 import type { LegsAsked, LegsGoal, Skill } from "./skill.ts";
 
 /** A support service's transition and the posture it asks of each channel's owner. */
@@ -20,4 +21,17 @@ export interface SupportSkill extends Skill {
   tick(view: BodyView, height: number | undefined, moving: boolean, dt: number): void;
   /** The goal as this service's current supported transition carries it. */
   lay(view: BodyView, goal: LegsAsked): LegsAsked;
+}
+
+/** **A kind of low support**: a part of role `support` that makes the skill a body fights from low support by. */
+export interface SupportPart<C extends PartConfig = PartConfig> extends Part<C> {
+  readonly role: "support";
+  readonly keys: KeysOf<C>;
+  make(body: Body, config: C): SupportSkill;
+}
+
+declare module "../../parts/lookup.ts" {
+  interface RoleParts {
+    readonly support: SupportPart;
+  }
 }

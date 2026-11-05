@@ -1,9 +1,12 @@
+import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
+import { supportHeight } from "../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
 import type { Body, BodyView } from "../../../control/body.ts";
 import { channelName } from "../../../core/bodies/muscle/driver.ts";
 import { pointAtToRef, rootFrameToRef, intoFrameToRef, type Frame } from "../../../control/kinematics.ts";
 import type { EffectorGoal, FreedomPath } from "../../../control/motor.ts";
-import { effectorFeedback, unintendedContact } from "../../../control/effector-feedback.ts";
+import { effectorFeedback } from "../../../control/effector-feedback.ts";
+import { unintendedContact } from "../contact-response.ts";
 import { scalarPathToRef } from "../../../control/point-path.ts";
 import { nearestSurface } from "../../intent/targets.ts";
 import { sensedActionTarget } from "../../intent/action-aim.ts";
@@ -15,8 +18,7 @@ import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Window } f
 import type { ExecutorPart, ExecutorMaking } from "../../framework/executor-part.ts";
 import type { LegsGoal } from "../../framework/skill.ts";
 import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
-import { gapePoints, jawOf, mouthOf, mouthToRef } from "./jaw.ts";
-import { fitsJaw } from "../../../control/quadruped/fit.ts";
+import { gapePoints, jawOf, mouthOf, mouthToRef, fitsJaw } from "./jaw.ts";
 import { pawReader } from "../../../control/quadruped/paws.ts";
 import meta from "../../../../assets/skills/strikes/bite/bite.meta.json" with { type: "json" };
 import { dataOf } from "../../../core/data/store.ts";
@@ -45,10 +47,10 @@ declare module "../../../core/data/store.ts" {
 
 /** Whether each setting `tuning` names is a known one, finite and nonnegative. */
 const validBite = (tuning: Partial<BiteTuning>): boolean =>
-  Object.entries(tuning).every(([key, value]) => (BITE_SETTINGS as readonly string[]).includes(key) && Number.isFinite(value) && value! >= 0);
+  !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => (BITE_SETTINGS as readonly string[]).includes(key) && Number.isFinite(value) && value! >= 0);
 
 /** Whether `tuning` holds every bite setting, each valid (`validBite`). */
-export const wholeBite = (tuning: Partial<BiteTuning>): boolean => BITE_SETTINGS.every((key) => key in tuning) && validBite(tuning);
+export const wholeBite = (tuning: Partial<BiteTuning>): boolean => validBite(tuning) && BITE_SETTINGS.every((key) => Object.hasOwn(tuning, key));
 
 /** Whether a body of `spec` has a bite, its jaw (`fitsJaw`) and its record of the bite, or a whole research `tuning` in its place. */
 export const fitsBite = fitsAll<PartConfig & { readonly tuning?: Partial<BiteTuning> }>(fitsJaw, recordFault("bite", deepFreeze(meta.bodies), wholeBite));
@@ -256,7 +258,7 @@ export function biteExecutor(body: Body, actions: readonly string[], T: BiteTuni
       const sample = live.jaw.sample;
       const path: FreedomPath = { angle: sample[0], rate: sample[1], acceleration: sample[2],
         ...(cycle.phase === "swing" || cycle.phase === "return" ? { seconds: T.biteResponse } : {}) };
-      const legs: LegsGoal = { walk: withdrawing(live) ? [-WITHDRAW_SPEED, 0] : null, face: live.heading, gait: "crawl", height: view.standing,
+      const legs: LegsGoal = { walk: withdrawing(live) ? [-WITHDRAW_SPEED, 0] : null, face: live.heading, gait: "crawl", height: supportHeight(view),
         ...(striking ? { centre: [live.anchor[0] + live.shift[0], live.anchor[1] + live.shift[1]] as const } : {}) };
       return { posture: { [jawName]: sample[0], [neckName]: live.neck }, paths: { [jawName]: path }, effectors: { [effector]: goal }, legs };
     },
@@ -274,7 +276,7 @@ interface JawBiteConfig {
  * head, which carries it, at a point its aim gives; its teeth pierce (`meets` "point").
  */
 export const JAW_BITE: ExecutorPart<JawBiteConfig> = {
-  role: "executor", label: "Bite", stage: "game", defaults: { kind: "jaw-bite" }, keys: { kind: true, tuning: true }, fields: [], slots: [],
+  role: "executor", requires: [SUPPORT_REFERENCE], label: "Bite", stage: "game", defaults: { kind: "jaw-bite" }, keys: { kind: true, tuning: true }, fields: [], slots: [],
   tuning: [...BITE_SETTINGS], fits: fitsBite, reads: () => ["bite"],
   faults: (config) => config.tuning === undefined || validBite(config.tuning) ? [] : ["invalid bite tuning"],
   effectors: ["head"], aims: true, meets: "point",

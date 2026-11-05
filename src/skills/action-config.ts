@@ -1,3 +1,4 @@
+import type { ExecutorPart } from "./framework/executor-part.ts";
 import type { Body, BodyView } from "../control/body.ts";
 import type { Pose } from "../core/bodies/spec/pose.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
@@ -28,6 +29,8 @@ export const aimsState = (aims: ReadonlyMap<string, Aim>): readonly object[] => 
 export function configuredExecutors(parts: PartLookup, body: Body, clock: Clock, guard: Pose, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[], ledger: () => readonly Ended[] = () => [],
   aims: ReadonlyMap<string, Aim> = configuredAims(parts, body.built.spec, actions)): readonly ExecutorBinding[] {
   const making = { body, clock, guard, aim: (view: BodyView, target: TargetRef, action: string, effector: string) => aims.get(action)?.(view, target, effector, ledger()) ?? null };
-  return executors.map(config => ({ name: config.name, kind: config.kind,
-    executor: parts.of("executor", config).make(making, config, actions.filter(action => action.executor === config.name)) }));
+  return executors.map(config => {
+    const part: ExecutorPart = parts.of("executor", config);
+    return { name: config.name, kind: config.kind, executor: part.make(making, config, actions.filter(action => action.executor === config.name)) };
+  });
 }

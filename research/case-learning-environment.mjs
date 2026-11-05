@@ -1,3 +1,4 @@
+import { isRefused } from "../src/core/refusal.ts";
 /**
  * **A learning environment over an evaluation's cases**: any learnable part (`Learner`,
  * `src/core/math/learning/learner.ts`) of a subject's mind, played in its evaluation's worlds, the trainer
@@ -87,7 +88,7 @@ const matches = (condition, where = {}) => Object.entries(where).every(([key, va
  * steering it (a research `tuning` of `{ steered: true }`). Anything else is refused: a mind written
  * out, or a setting over the record, learns a skill the game does not throw.
  */
-export function presetMind(given) {
+function presetMind(given, configureMind) {
   const extra = given && typeof given === 'object' ? Object.keys(given).filter((key) => !['preset', 'skill', 'steered'].includes(key)) : [];
   if (!given || typeof given.preset !== 'string' || extra.length)
     throw new Error(`an environment's mind is a preset, its skill and whether it is steered ({ "preset", "skill", "steered" }), not ${JSON.stringify(given).slice(0, 120)}`);
@@ -97,23 +98,23 @@ export function presetMind(given) {
     if (given.steered !== undefined) throw new Error('a steered mind names the skill whose executor it steers');
     return preset;
   }
-  const strike = (option) => option.kind.startsWith('strike-'), struck = preset.options?.find((option) => strike(option) && option.skill.kind === given.skill);
-  if (!struck) throw new Error(`the ${given.preset} preset has no strike by ${given.skill}`);
   if (given.steered !== undefined && given.steered !== true) throw new Error('`steered` is true where given');
-  const alone = given.steered ? { ...struck, skill: { ...struck.skill, tuning: { steered: true } } } : struck;
-  return { ...preset, options: preset.options.flatMap((option) => option === struck ? [alone] : strike(option) ? [] : [option]) };
+  if (!configureMind) throw new Error(`no configured-skill adapter was supplied for ${given.preset}`);
+  const configured = configureMind(preset, { skill: given.skill, ...(given.steered ? { steered: true } : {}) });
+  if (isRefused(configured)) throw new Error(configured.refused);
+  return configured;
 }
 
 /** `value` with its mind built from its preset (`presetMind`): a drill's subject's `mind`, or the value itself. */
-const subjectOf = (value) => value && typeof value === 'object' && 'mind' in value ? { ...value, mind: presetMind(value.mind) } : presetMind(value);
+const subjectOf = (value, configureMind) => value && typeof value === 'object' && 'mind' in value ? { ...value, mind: presetMind(value.mind, configureMind) } : presetMind(value, configureMind);
 
 /** The subject's config for `condition`: the file's one, or the first of its `subjects` whose `where` it matches, its mind from its preset. */
-export function subjectFor(o, condition) {
+export function subjectFor(o, condition, configureMind) {
   if (o.subject && o.subjects) throw new Error('an environment names `subject` or `subjects`, not both');
-  if (o.subject) return subjectOf(o.subject);
+  if (o.subject) return subjectOf(o.subject, configureMind);
   const found = (o.subjects ?? []).find((one) => matches(condition, one.where));
   if (!found) throw new Error(`no subject of the environment plays ${JSON.stringify(condition)}`);
-  return subjectOf(found.value);
+  return subjectOf(found.value, configureMind);
 }
 
 /** The value at `path` (dotted) in `config`. */
@@ -143,12 +144,12 @@ export function learnerIn(kind, built, value) {
   return { learner: learners[0], body: minded[0].body };
 }
 
-export async function caseEnvironment(configuration = {}) {
+export async function caseEnvironment(configuration = {}, { configureMind } = {}) {
   const o = { character: {}, reward: {}, seed: 1, engine: DEFAULT_ENGINE, slice: 4, refresh: 8, ...configuration };
   const evaluation = EVALUATIONS[o.evaluation];
   if (!evaluation) throw new Error(`no evaluation ${o.evaluation}`);
   if (o.subject && o.subjects) throw new Error('an environment names `subject` or `subjects`, not both');
-  const configs = (o.subject ? [o.subject] : (o.subjects ?? []).map((one) => one.value)).map(subjectOf);
+  const configs = (o.subject ? [o.subject] : (o.subjects ?? []).map((one) => one.value)).map(value => subjectOf(value, configureMind));
   if (configs.length === 0) throw new Error('an environment names its subject');
   for (const config of configs) if (!at(config, o.part ?? '') || typeof at(config, o.part ?? '') !== 'object') throw new Error(`the subject's config has no part at ${o.part}`);
   const layout = JSON.parse(readFileSync(o.layout, 'utf8'));
@@ -157,8 +158,8 @@ export async function caseEnvironment(configuration = {}) {
     if (!cases) throw new Error(`no protocol ${place.protocol} of ${o.evaluation}`);
     if (cases.arity !== 1) throw new Error('a case environment seats one subject');
     if (place.draw) return { place, cases };
-    const subject = (condition) => ({ id: 'learner', label: 'learner', value: subjectFor(o, condition), character: o.character });
-    const conditions = cases.conditions.filter((condition) => matches(condition, place.where) && (cases.faults?.(subjectFor(o, condition), condition, subject(condition)) ?? []).length === 0);
+    const subject = (condition) => ({ id: 'learner', label: 'learner', value: subjectFor(o, condition, configureMind), character: o.character });
+    const conditions = cases.conditions.filter((condition) => matches(condition, place.where) && (cases.faults?.(subjectFor(o, condition, configureMind), condition, subject(condition)) ?? []).length === 0);
     if (conditions.length === 0) throw new Error(`no condition of ${o.evaluation} ${place.protocol} admits the subject where ${JSON.stringify(place.where)}`);
     return { place, cases, conditions };
   });
@@ -182,8 +183,10 @@ export async function caseEnvironment(configuration = {}) {
     const { place, cases, conditions } = pick(places), hz = settings.rates ? pick(settings.rates) : undefined;
     const condition = place.draw ? drawCondition(place.draw, drawing) : pick(conditions);
     if (o.split && heldOut(condition) !== (o.split === 'held-out')) return null;
-    const value = subjectFor(o, condition), world = cases.world([value], condition, cases.engine ?? o.engine, [o.character]);
+    const value = subjectFor(o, condition, configureMind), world = cases.world([value], condition, cases.engine ?? o.engine, [o.character]);
+    if (isRefused(world)) throw new Error(world.refused);
     const kind = WORLD_BUILDERS[world.kind], built = await kind.build(world, hz === undefined ? {} : { hz });
+    if (isRefused(built)) throw new Error(built.refused);
     try {
       if (hz !== undefined && built.world.hz !== hz) throw new Error(`a ${world.kind} world is not built at a rate`);
       const { learner, body } = learnerIn(kind, built, value), reader = cases.read(built, condition);

@@ -1,3 +1,4 @@
+import { isRefused } from "../../../src/core/refusal.ts";
 /** Ground-profile trials and aggregation shared by calibration and recovery search. */
 /** The Options a trial waits through before the next choice: what the body does while it cannot yet choose. */
 const WAITS = new Set(["brace while tumbling", "land"]);
@@ -24,6 +25,7 @@ export async function edgeTrial(job, given) {
     skills.set(option.kind === "brace-tumbling" ? "brace while tumbling" : option.skill.kind, option.skill);
   }
   const built = await buildFall({ ...job, mind }, "rapier");
+  if (isRefused(built)) throw new Error(built.refused);
   const spec = built.combatant.body.built.spec, hz = built.world.hz, delay = built.world.delay;
   const trials = [], open = [], waiting = [];
   let phase = null, tried = new Map();

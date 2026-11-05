@@ -2,20 +2,20 @@ import { replyBox } from "../../apart/box.ts";
 import { encodeExact } from "../../apart/codec.ts";
 import { mindThread } from "../../apart/thread.ts";
 import { ANSWERED, DONE, type Batch, type Reply } from "../../apart/wire.ts";
-import { GAME } from "../../catalog.ts";
+import { loadBatchData } from "../../apart/load-data.ts";
 import type { MindWorkerStart } from "./minds.ts";
 
 /**
  * **A minds' worker in the browser** (`browserMindWorkers`, `minds.ts`): told its counters, reply box
  * and arena first, then each batch by message, in order; each answered in the box (`encodeExact`),
  * what a seat says with a step's answer before the answer is counted,
- * then counted done. Every mind's data loads before its first batch is carried out. The numbers it
+ * then counted done. Each batch loads only the data its new minds declare. The numbers it
  * makes anew are made in the arena, one after another, and cross by where they lie.
  */
 const scope = self as unknown as { onmessage: ((event: MessageEvent<MindWorkerStart | Batch>) => void) | null; close(): void };
-const ready = GAME.loadData(GAME.dataKeys);
 let started: { readonly control: Int32Array; readonly put: (text: string) => void; readonly encode: (reply: Reply) => string; readonly count: (steps: number) => void; readonly thread: ReturnType<typeof mindThread> } | null = null;
-let made = 0, chain: Promise<void> = ready;
+let failed: string | null = null, totalAnswered = 0;
+let made = 0, chain: Promise<void> = Promise.resolve();
 
 scope.onmessage = ({ data }) => {
   if ("kind" in data) {
@@ -37,16 +37,27 @@ scope.onmessage = ({ data }) => {
     return;
   }
   const batch = data;
-  chain = chain.then(() => {
+  chain = chain.then(async () => {
     const { control, put, encode, count, thread } = started!;
     if (batch.stop) { scope.close(); return; }
-    const reply = thread.handle(batch);
+    let reply: Reply;
+    let answered = totalAnswered + batch.asks.filter(({ ask }) => ask.kind === "step").length;
+    try {
+      if (failed) reply = { seq: batch.seq, said: [], error: failed };
+      else { await loadBatchData(batch); reply = thread.handle(batch); answered = thread.steps; }
+      if (reply.error) failed = reply.error;
+    }
+    catch (error) {
+      failed = String((error as Error)?.stack ?? error);
+      reply = { seq: batch.seq, said: [], error: failed };
+    }
     let text: string;
     try {
       text = encode(reply);
     } catch (error) { text = encodeExact({ seq: batch.seq, said: [], error: String((error as Error)?.stack ?? error) }, () => { throw new Error("no numbers"); }); }
     put(text);
-    count(thread.steps);
+    totalAnswered = answered;
+    count(answered);
     Atomics.store(control, DONE, batch.seq);
     Atomics.notify(control, DONE);
   });

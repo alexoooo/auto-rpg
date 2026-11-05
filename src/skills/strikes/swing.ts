@@ -1,3 +1,4 @@
+import { supportHeight } from "../../control/support-reference.ts";
 import { HAND_CONFIGURATION } from "../../core/bodies/human/hand-configurations.ts";
 import type { Body } from "../../control/body.ts";
 import type { MusclePush } from "../../control/motor.ts";
@@ -51,6 +52,7 @@ export const SWING_KEYS: readonly (keyof Swing)[] = Object.freeze([...REQUIRED, 
 
 /** Whether `settings`, some of a swing's, are each valid: its numbers finite and not negative, its pace, reach, band, aside and length positive, its windup's angles finite and its pushes valid. */
 export function validSwingPart(settings: Partial<Swing>): boolean {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return false;
   const flag = (value: unknown) => value === undefined || typeof value === "boolean";
   return REQUIRED.every((key) => settings[key] === undefined || Number.isFinite(settings[key]) && settings[key] >= 0)
     && (["pace", "reach", "band", "aside", "longest"] as const).every((key) => settings[key] === undefined || settings[key] > 0)
@@ -62,7 +64,7 @@ export function validSwingPart(settings: Partial<Swing>): boolean {
 
 /** Whether `settings` are a swing's: each it names valid (`validSwingPart`), and every one it must name named, its windup and its pushes too. */
 export function validSwing(settings: Partial<Swing>): settings is Swing {
-  return REQUIRED.every((key) => settings[key] !== undefined) && settings.wound !== undefined && settings.timed !== undefined && validSwingPart(settings);
+  return validSwingPart(settings) && REQUIRED.every((key) => settings[key] !== undefined) && settings.wound !== undefined && settings.timed !== undefined;
 }
 
 /** Why a body of `spec` cannot take `settings`' windup and pushes, or null: a channel they name that it lacks. */
@@ -211,7 +213,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
         if (x * x + y * y + z * z >= ALIGN_SPEED * ALIGN_SPEED) aligner.ask(view, live.path, posture, pushes);
       }
       return { posture, pushes, configurations: { [`hand.${live.hand}`]: HAND_CONFIGURATION.grip },
-        legs: { walk: null, face: live.face, ...(settings.halts ? { halt: true } : {}), height: view.standing - live.lower } };
+        legs: { walk: null, face: live.face, ...(settings.halts ? { halt: true } : {}), height: supportHeight(view) - live.lower } };
     },
   };
 }

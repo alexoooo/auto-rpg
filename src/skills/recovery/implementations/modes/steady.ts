@@ -1,5 +1,6 @@
+import { supportHeight } from "../../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
-import { stanceFeetOf } from "../../../locomotion/stance-feet.ts";
+import { stanceFeetOf, stanceSegmentsOf } from "../../../locomotion/stance-feet.ts";
 import { carrying } from "../../../../control/motor.ts";
 import type { StanceGoal } from "../../../../control/stance.ts";
 import { turnOfToRef } from "../../../../core/bodies/read-motion.ts";
@@ -41,8 +42,9 @@ const CLIMB = deepFreeze({ seconds: .6, response: .08, below: .9 });
  */
 export function steadying(own: OwnBody, view: BodyView, kit: MindKit) {
   const motor = carrying(kit.motor.make(own.built, own.muscles, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the steady");
-  const feet = stanceFeetOf(own.spec), legs = locomotion(feet, null), both = Object.keys(feet);
+  const feet = stanceFeetOf(own.spec), legs = locomotion(feet, null, { segments: stanceSegmentsOf(own.spec) }), both = Object.keys(feet);
   const state = {
+    begun: null as number | null,
     climb: { on: false, done: false, time: 0, centre: [0, 0], velocity: [0, 0], to: [0, 0], height: 0, rise: 0, pitch: 0,
       from: new Float64Array(own.muscles.channels.length) },
     motor: motor.state, legs: legs.state,
@@ -50,7 +52,7 @@ export function steadying(own: OwnBody, view: BodyView, kit: MindKit) {
   const turn = new Quaternion(), up = new Vector3(), climbPose: Record<string, number> = {};
   /** The steady's goal this step: `goal`, or the climb's while it runs (`CLIMB`), beginning it where the body allows. */
   const climbing = (goal: StanceGoal, dt: number): StanceGoal => {
-    const c = state.climb, r = motor.stance.reading, h = legs.heading, top = view.standing - STANCE_LOWER;
+    const c = state.climb, r = motor.stance.reading, h = legs.heading, top = supportHeight(view) - STANCE_LOWER;
     if (c.done) return { ...goal, height: top };
     if (!c.on) {
       const g = view.ground;
@@ -78,13 +80,15 @@ export function steadying(own: OwnBody, view: BodyView, kit: MindKit) {
     reset(): void { motor.reset(); },
     /** Begin steadying the body where it stands: no climb yet, the guard's posture, the legs at the body's heading. */
     begin(): void {
+      state.begun = view.time;
       state.climb.on = false; state.climb.done = false; motor.setPosture(kit.posture);
-      motor.stance.read(); legs.resume({ ...view, stance: motor.stance.reading });
+      motor.stance.read(); legs.resume({ ...view, born: Math.min(view.born, state.begun ?? view.born), stance: motor.stance.reading });
     },
     /** Steady the body a step of `dt` s; whether it is climbing. */
     step(control: BodyControl, dt: number): boolean {
+      state.begun ??= view.time;
       motor.stance.read();
-      const goal = stanceOf(legs.goal({ ...view, stance: motor.stance.reading }, { walk: null, face: legs.heading }, dt));
+      const goal = stanceOf(legs.goal({ ...view, born: Math.min(view.born, state.begun ?? view.born), stance: motor.stance.reading }, { walk: null, face: legs.heading }, dt));
       motor.setStance(goal && climbing(goal, dt));
       motor.control(own.muscles, control, dt);
       return state.climb.on;

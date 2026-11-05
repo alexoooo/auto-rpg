@@ -7,7 +7,7 @@ import { intoFrameToRef } from "../../control/kinematics.ts";
 import type { BlowFamily } from "../strikes/attack-path.ts";
 import { aimOf } from "../strikes/held-strike.ts";
 import { placedReach, shoulderFromHead } from "../strikes/arm-reach.ts";
-import { frameOf, type BodySpec, type SegmentSpec, segmentOf } from "../../core/bodies/spec/body.ts";
+import { frameOf, configurationShapeAt, type ConfigurationName, type BodySpec, type SegmentSpec, segmentOf } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { add, dot, length, scale, sub } from "../../core/bodies/spec/vec.ts";
 import { hypot } from "../../core/math/real.ts";
@@ -54,6 +54,7 @@ export type OpeningTuning = { readonly [K in "head" | "upperTrunk" | "middleTrun
 
 /** Opening scores are finite; the lateral surface fraction stays on the sensed collider. */
 export function validOpeningTuning(tuning: OpeningTuning): boolean {
+  if (!tuning || typeof tuning !== "object" || Array.isArray(tuning)) return false;
   const lateral = tuning.headLateral ?? OPENINGS.headLateral;
   return Object.values(tuning).every(Number.isFinite) && lateral >= 0 && lateral <= 1
     && (tuning.uppercutReserve ?? OPENINGS.uppercutReserve) >= 0;
@@ -89,6 +90,21 @@ export function segmentDistanceSquared(start: Vec3, end: Vec3, otherStart: Vec3,
     if (s >= 0 && s <= 1 && t >= 0 && t <= 1) best = Math.min(best, gapSquared(wx, wy, wz, ux, uy, uz, vx, vy, vz, s, t));
   }
   return best;
+}
+
+/** Configuration proxies are immutable geometry, cached independently of observed poses. */
+const CONFIGURED = new WeakMap<SegmentSpec, Map<ConfigurationName, SegmentSpec>>();
+function configuredSegment(spec: BodySpec, segment: SegmentSpec, configuration: ConfigurationName | undefined): SegmentSpec {
+  if (configuration === undefined || !segment.configurations) return segment;
+  let configurations = CONFIGURED.get(segment);
+  if (!configurations) CONFIGURED.set(segment, configurations = new Map());
+  let configured = configurations.get(configuration);
+  if (!configured) configurations.set(configuration, configured = Object.freeze({ ...segment, shape: configurationShapeAt(spec, segment, configuration) }));
+  return configured;
+}
+function sensedSegment(foe: BodySense, name: string): SegmentSpec | undefined {
+  const segment = segmentOf(foe.spec, name);
+  return segment && configuredSegment(foe.spec, segment, foe.segments.get(name)?.configuration);
 }
 
 /** Sourced collider centre lines in their segment frames; this cache contains no changing poses. */
@@ -135,7 +151,7 @@ function lowerSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | null {
 
 /** An exposed capsule side toward an observed point, with its centre line sampled at a world height. */
 export function capsuleSurfaceAtHeight(foe: BodySense, name: string, from: Vec3, height: number): Vec3 | null {
-  const segment = segmentOf(foe.spec, name), sensed = foe.segments.get(name);
+  const segment = sensedSegment(foe, name), sensed = foe.segments.get(name);
   const round = segment && capsule(segment);
   if (!round || !sensed || !Number.isFinite(height) || !from.every(Number.isFinite)) return null;
   const world = (p: Vec3) => new Vector3(...p).applyRotationQuaternionToRef(sensed.rotation, new Vector3()).addInPlace(sensed.position);
@@ -153,7 +169,7 @@ export function capsuleSurfaceAtHeight(foe: BodySense, name: string, from: Vec3,
 
 /** The near face of an observed collider, including limbs below a standing opponent's trunk. */
 export function nearSurface(foe: BodySense, name: string, from: Vec3): Vec3 | null {
-  const segment = segmentOf(foe.spec, name), sensed = foe.segments.get(name);
+  const segment = sensedSegment(foe, name), sensed = foe.segments.get(name);
   if (!segment || !sensed) return null;
   const scratch = new Vector3(), inverse = new Quaternion();
   scratch.set(...from).subtractInPlace(sensed.position).applyRotationQuaternionToRef(Quaternion.InverseToRef(sensed.rotation, inverse), scratch);
@@ -184,13 +200,13 @@ function entryShapes(segment: SegmentSpec): readonly SegmentSpec[] {
 
 /** A point on or inside any natural collider has no fresh exposed approach from there. */
 export function surfaceContains(foe: BodySense, name: string, at: Vec3): boolean {
-  const segment = segmentOf(foe.spec, name), sensed = foe.segments.get(name);
+  const segment = sensedSegment(foe, name), sensed = foe.segments.get(name);
   return !!segment && !!sensed && entryShapes(segment).some(shape => shapeEntry(shape, sensed, at, at) === false);
 }
 
 /** First exposed entry into a sensed segment's primary collider or natural contact regions. */
 export function surfaceEntry(foe: BodySense, name: string, from: Vec3, to: Vec3): { readonly at: Vec3; readonly normal: Vec3 } | null {
-  const segment = segmentOf(foe.spec, name), sensed = foe.segments.get(name);
+  const segment = sensedSegment(foe, name), sensed = foe.segments.get(name);
   if (!segment || !sensed) return null;
   let best: { readonly at: Vec3; readonly normal: Vec3 } | null = null, distance = Infinity;
   for (const shape of entryShapes(segment)) {
@@ -268,7 +284,7 @@ function shapeEntry(segment: SegmentSpec, sensed: { readonly position: Vector3; 
 }
 
 function verticalSurface(foe: BodySense, name: string, from: Vec3 | undefined, sense: 1 | -1): Vec3 | null {
-  const segment=foe.spec.segments.find(s=>s.name===name),sensed=foe.segments.get(name);
+  const segment=sensedSegment(foe,name),sensed=foe.segments.get(name);
   if(!segment||!sensed)return null;
   const poly=polyhedron(segment),round=capsule(segment),scratch=new Vector3(),inverse=new Quaternion();
   const world=(p:Vec3):Vec3=>{scratch.set(...p).applyRotationQuaternionToRef(sensed.rotation,scratch).addInPlace(sensed.position);return [scratch.x,scratch.y,scratch.z];};
@@ -285,21 +301,6 @@ function verticalSurface(foe: BodySense, name: string, from: Vec3 | undefined, s
     .applyRotationQuaternionToRef(Quaternion.InverseToRef(sensed.rotation,inverse),scratch);
   const entry=hullEntry(poly.planes,[scratch.x,scratch.y,scratch.z],toward);
   return entry?world(entry):null;
-}
-
-/** The highest point on a sensed collider; a downward policy can choose a reachable edge rather than a central ray. */
-export function highestSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | null {
-  const segment=foe.spec.segments.find(s=>s.name===name),sensed=foe.segments.get(name);
-  if(!segment||!sensed)return null;
-  const poly=polyhedron(segment);if(!poly)return upperSurface(foe,name);
-  const scratch=new Vector3();let highest:Vec3|null=null;
-  const distance=(p:Vec3)=>from?(p[0]-from[0])*(p[0]-from[0])+(p[2]-from[2])*(p[2]-from[2]):0;
-  for(const p of poly.vertices){
-    scratch.set(...p).applyRotationQuaternionToRef(sensed.rotation,scratch).addInPlace(sensed.position);
-    const world:Vec3=[scratch.x,scratch.y,scratch.z];
-    if(!highest||world[1]>highest[1]||(world[1]===highest[1]&&distance(world)<distance(highest)))highest=world;
-  }
-  return highest;
 }
 
 /** An opening found: the blow's hand, point and family, and how it ranks. */
@@ -332,12 +333,27 @@ const VERTICAL: readonly BlowFamily[] = Object.freeze(["straight", "hook", "over
 const FAMILY: Readonly<Record<BlowFamily, readonly BlowFamily[]>> = Object.freeze({ straight: LINEAR, cross: Object.freeze<BlowFamily[]>(["cross"]), hook: Object.freeze<BlowFamily[]>(["hook"]),
   downward: Object.freeze<BlowFamily[]>(["downward"]), overhand: Object.freeze<BlowFamily[]>(["overhand"]), uppercut: Object.freeze<BlowFamily[]>(["uppercut"]) });
 
+/** Round colliders are exact; convex guards use a conservative enclosing sphere for lane clearance. */
+const GUARD_BOUNDS = new WeakMap<SegmentSpec, NonNullable<ReturnType<typeof capsule>>>();
+function guardBound(segment: SegmentSpec): ReturnType<typeof capsule> {
+  const round = capsule(segment);
+  if (round) return round;
+  const known = GUARD_BOUNDS.get(segment);
+  if (known) return known;
+  const poly = polyhedron(segment);
+  if (!poly) return null;
+  const radius = Math.max(...poly.vertices.map(vertex => length(sub(vertex, poly.middle))));
+  const bound = Object.freeze({ a: poly.middle, b: poly.middle, radius, bound: poly.bound });
+  GUARD_BOUNDS.set(segment, bound);
+  return bound;
+}
+
 /** Each spec's guarding limbs (its hands and forearms with a centre line), read once: what a blow's path must clear. */
 const GUARDS = new WeakMap<BodySpec, readonly { readonly name: string; readonly local: NonNullable<ReturnType<typeof capsule>> }[]>();
 function guardsOf(spec: BodySpec) {
   let guards = GUARDS.get(spec);
   if (!guards) GUARDS.set(spec, guards = Object.freeze(spec.segments.filter(s => /^hand\.|^forearm\./.test(s.name)).flatMap(segment => {
-    const local = capsule(segment);
+    const local = guardBound(segment);
     return local ? [{ name: segment.name, local }] : [];
   })));
   return guards;
@@ -359,14 +375,6 @@ const NO_OFFSET: readonly number[] = Object.freeze([0]);
 
 /** A point path's start velocity: at rest. */
 const AT_REST: Vec3 = Object.freeze([0, 0, 0]) as unknown as Vec3;
-
-/** Each spec's segments by name, read once. */
-const SEGMENTS = new WeakMap<BodySpec, ReadonlyMap<string, SegmentSpec>>();
-function segmentsOf(spec: BodySpec): ReadonlyMap<string, SegmentSpec> {
-  let byName = SEGMENTS.get(spec);
-  if (!byName) SEGMENTS.set(spec, byName = new Map(spec.segments.map((segment) => [segment.name, segment])));
-  return byName;
-}
 
 /** Each hand's effector by side. */
 
@@ -438,7 +446,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}) {
   const marginOf = (hand: Side): number => {
     const segment = hands[hand];
     if (segment === undefined) return 0;
-    const handShape = segmentsOf(spec).get(segment)!.shape;
+    const handShape = segmentOf(spec, segment)!.shape;
     return (handShape.kind === "capsule" || handShape.kind === "sphere" ? handShape.radius.value : 0) * OPENINGS.handMargin;
   };
   const margins: Readonly<Record<Side, number>> = { left: marginOf("left"), right: marginOf("right") };
@@ -538,7 +546,9 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}) {
       const guard = guards[k]!, sensed = foe.segments.get(guard.name);
       if (!sensed) continue;
       const obstacle = obstacles[count] ??= { a: [0, 0, 0], b: [0, 0, 0], radius: 0 };
-      pointToRef(sensed, guard.local.a, obstacle.a); pointToRef(sensed, guard.local.b, obstacle.b); obstacle.radius = guard.local.radius + margin;
+      const segment = sensedSegment(foe, guard.name), local = segment && guardBound(segment);
+      if (!local) continue;
+      pointToRef(sensed, local.a, obstacle.a); pointToRef(sensed, local.b, obstacle.b); obstacle.radius = local.radius + margin;
       count++;
     }
     let families: readonly BlowFamily[];
@@ -558,9 +568,9 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}) {
       scratch.set(at[0], at[1], at[2]).applyRotationQuaternionToRef(view.root.rotation, scratch).addInPlace(view.head);
       shoulder[0] = scratch.x; shoulder[1] = scratch.y; shoulder[2] = scratch.z;
     }
-    const names = selection?.segments ?? targetsOf(foe.spec), byName = segmentsOf(foe.spec);
+    const names = selection?.segments ?? targetsOf(foe.spec);
     for (let n = 0; n < names.length; n++) {
-      const name = names[n]!, segment = byName.get(name), sensed = foe.segments.get(name);
+      const name = names[n]!, segment = sensedSegment(foe, name), sensed = foe.segments.get(name);
       const local = segment && capsule(segment), poly = segment && polyhedron(segment);
       if ((!local && !poly) || !sensed) continue;
       const top = selection?.family === "overhand" || repertoire === "vertical" ? upperSurface(foe, name, start) : null;
@@ -629,9 +639,11 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}) {
  */
 export function deriveSensed(spec: BodySpec): void {
   for (const segment of spec.segments) {
-    polyhedron(segment);
-    capsule(segment);
-    for (const shape of entryShapes(segment)) { polyhedron(shape); capsule(shape); }
+    for (const configuration of [undefined, ...Object.keys(segment.configurations?.shapes ?? {})]) {
+      const configured = configuredSegment(spec, segment, configuration);
+      polyhedron(configured); capsule(configured); guardBound(configured);
+      for (const shape of entryShapes(configured)) { polyhedron(shape); capsule(shape); }
+    }
   }
   guardsOf(spec);
   targetsOf(spec);

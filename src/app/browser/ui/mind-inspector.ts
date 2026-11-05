@@ -1,53 +1,47 @@
 import type { Inspected } from "../../worker/inspection.ts";
-import { partOf } from "../../catalog.ts";
+import { GAME, partOf } from "../../catalog.ts";
+import { describeMind } from "../../../minds/description.ts";
 import { commandsBody } from "../../../control/body.ts";
 import type { MindConfig } from "../../../minds/config.ts";
-import type { PartConfig } from "../../../parts/parts.ts";
 import type { Staging } from "../../../minds/config-link.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { mindEditor } from "./mind-editor.ts";
 import { actionReadout } from "./action-readout.ts";
 
-/** Representative controls for the body's continuous services and hand endpoints; any other effector its skills hold gets a row of its own when first held. */
-const HELD = [["stance", "Legs"], ["channel:lumbar flexion", "Trunk"], ["effector:hand.left", "Left hand"], ["effector:hand.right", "Right hand"]] as const;
-
-/** The slot whose part holds `key` when no action does: the legs the stance, the guard an effector; none for a channel, which the built-in posture holds. */
-const defaultSlot = (key: string): string | null => key === "stance" ? "locomotion" : key.startsWith("effector:") ? "guard" : null;
-
-/** The configured mind and its current owners, commitments and short-term execution history. */
+/** Live owners and configured component paths come from the runtime and its controller. */
 export function mindInspector(config: MindConfig, spec: BodySpec, inspected: () => Inspected | null,
   staging: Staging = {}): { readonly element: HTMLElement; refresh(): void } {
   const element = document.createElement("div"), live = document.createElement("dl");
   element.className = "mind-inspector"; live.className = "mind-live";
   const tree = mindEditor(config, { spec, ...staging, readOnly: true }), actions = actionReadout();
+  const described = describeMind(GAME, spec, config);
   element.append(live, actions.element, tree.element);
   const row = (term: string): HTMLElement => {
     const name = document.createElement("dt"), value = document.createElement("dd");
     name.textContent = term; live.append(name, value); return value;
   };
-  const has = row("Has the body"), held = new Map<string, HTMLElement>(HELD.map(([key, label]) => [key, row(label)]));
-  const slots = (key: string) => tree.element.querySelectorAll<HTMLElement>(`.mind-editor > div > .mind-part > .mind-slot[data-slot="${key}"]`);
+  const has = row("Has the body"), held = new Map<string, HTMLElement>();
+  if (described) row("Configured services").textContent = described.components.filter(component => component.role !== "option")
+    .map(component => partOf(component.config).label).join(", ") || "None";
   return { element, refresh() {
     const now = inspected(), report = now?.skills?.report;
     has.textContent = !now ? "no body" : commandsBody(now.body) ? "its mind" : now.body.has;
     const holding = new Set<string>();
-    for (const key of Object.keys(report?.holders ?? {})) if (key.startsWith("effector:") && !held.has(key)) held.set(key, row(key.slice("effector:".length)));
+    for (const key of Object.keys(report?.holders ?? {})) if (!held.has(key)) held.set(key, row(key));
     for (const [key, value] of held) {
       const holder = report?.holders?.[key];
       if (holder === undefined) { value.textContent = "—"; continue; }
       if (typeof holder === "number") {
         const action = report?.actions?.find(action => action.id === holder);
         value.textContent = action ? `${action.action} #${holder} · ${action.phase}` : `instance #${holder}`;
-        holding.add("executors");
+        for (const source of described?.actions ?? []) if (source.action.name === action?.action && source.path !== null) holding.add(JSON.stringify(source.path));
       } else {
-        const slot = defaultSlot(key), part = slot ? (config as unknown as Readonly<Record<string, PartConfig | undefined>>)[slot] : undefined;
-        value.textContent = part ? partOf(part).label : slot ? holder : "built-in posture";
-        if (slot) holding.add(slot);
+        const owner = report?.defaultOwners?.[key], component = described?.components.find(component => component.owner === owner);
+        value.textContent = component ? `${partOf(component.config).label}${component.path === null ? " (implicit)" : ""}` : owner ?? "Default control";
+        if (component?.path) holding.add(JSON.stringify(component.path));
       }
     }
-    if (now && !commandsBody(now.body) && now.body.has !== "nobody") holding.add("subs");
-    for (const holder of tree.element.querySelectorAll<HTMLElement>(".mind-slot[data-slot]")) holder.classList.remove("live");
-    for (const key of holding) for (const holder of slots(key)) holder.classList.add("live");
+    for (const block of tree.element.querySelectorAll<HTMLElement>(".mind-part[data-path]")) block.classList.toggle("live", holding.has(block.dataset.path!));
     actions.refresh(now?.report ?? null);
   } };
 }

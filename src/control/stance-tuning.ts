@@ -1,7 +1,7 @@
 /**
  * The stance's tuned constants, and the settings an experiment may pass in their place
  * (`StanceTuning`). Each is set for a stance that holds and walks under the shove and walk
- * batteries (`research/core-stance-sweep.mjs`).
+ * batteries (`research/skills/locomotion/stance/core-stance-sweep.mjs`).
  */
 
 /**

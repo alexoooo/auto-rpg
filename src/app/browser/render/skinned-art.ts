@@ -11,7 +11,8 @@ import { modelBytes } from "./asset-cache.ts";
 import { skinReference } from "./body-deformation.ts";
 import { skinApart } from "./skin-apart.ts";
 import type { DrawnBody } from "./drawn-body.ts";
-import { readGlb, type DecodeMeshopt } from "./glb.ts";
+import { readGlb } from "./glb.ts";
+import type { DecodeMeshopt } from "../../../core/bodies/art/glb.ts";
 import type { SkinView } from "./skin-view.ts";
 
 /**

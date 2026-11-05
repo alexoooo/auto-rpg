@@ -51,13 +51,15 @@ interface FromSource {
 /**
  * A number computed from other quantities by `rule`, which `compute` states where the quantity was
  * made. `compute` is not enumerable: a copy of the quantity (another thread's) keeps the rule and its
- * inputs and computes nothing.
+ * inputs and computes nothing. `admit` checks geometric support before an authored rule is
+ * evaluated under substituted source values.
  */
 interface Derived {
   readonly kind: "derived";
   readonly rule: string;
   readonly inputs: readonly Quantity[];
   readonly compute?: (...values: never[]) => Value;
+  readonly admit?: (...values: never[]) => string | null;
 }
 
 type Provenance = FromSource | Derived;
@@ -85,16 +87,19 @@ export function sourced<V extends Value>(value: V, unit: Unit, source: SourceKey
   return Object.freeze({ value: frozen(value), unit, provenance: Object.freeze({ kind: "source", source, where }) });
 }
 
-/** A number computed from `inputs` by `rule`. `compute` receives the inputs' values, in order. */
+/** A number computed from `inputs` by `rule`; optional `admit` validates source substitutions before replaying the rule. */
 export function derive<const I extends readonly Quantity[], V extends Value>(
   unit: Unit, rule: string, inputs: I, compute: (...values: ValuesOf<I>) => V,
+  admit?: (...values: ValuesOf<I>) => string | null,
 ): Quantity<V> {
   const value = compute(...(inputs.map((input) => input.value) as unknown as ValuesOf<I>));
   finite(value, rule);
   return Object.freeze({
     value: frozen(value), unit,
-    provenance: Object.freeze(Object.defineProperty({ kind: "derived", rule, inputs: Object.freeze([...inputs]) } as Derived, "compute",
-      { value: compute as unknown as Derived["compute"], enumerable: false })),
+    provenance: Object.freeze(Object.defineProperties({ kind: "derived", rule, inputs: Object.freeze([...inputs]) } as Derived, {
+      compute: { value: compute as unknown as Derived["compute"], enumerable: false },
+      ...(admit ? { admit: { value: admit as unknown as Derived["admit"], enumerable: false } } : {}),
+    })),
   });
 }
 

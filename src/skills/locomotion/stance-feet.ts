@@ -14,6 +14,11 @@ export function stanceFeetOf(spec: BodySpec): StanceFeet {
   return Object.freeze(feet);
 }
 
+/** The actual segment of each bilateral stance foot. */
+export function stanceSegmentsOf(spec: BodySpec): Readonly<Record<Side, string>> {
+  return Object.freeze(Object.fromEntries(stanceFeet(spec).map(({ end, side }) => [side, end.segment]))) as Readonly<Record<Side, string>>;
+}
+
 /** **A legs goal on a stance's feet**: its footing by side (`onStanceFeet`). */
 export type SidedAsk<G extends LegsGoal = LegsAsked> = Omit<G, "footing"> & { readonly footing?: Footing };
 

@@ -40,7 +40,11 @@ export function bodyClearance(spec: BodySpec): number {
 
 function clearanceOf(spec: BodySpec): number {
   let radius = 0;
-  for (const segment of spec.segments.filter(s => /Trunk$/.test(s.name))) {
+  const central = new Set([spec.marks.base]);
+  const children = new Map<string, number>();
+  for (const joint of spec.joints) children.set(joint.parent, (children.get(joint.parent) ?? 0) + 1);
+  for (const [name, count] of children) if (count > 1) central.add(name);
+  for (const segment of spec.segments.filter(segment => central.has(segment.name))) {
     const shape = pointsOf(segment.shape, segment);
     for (const p of shape.points) radius = Math.max(radius, Math.sqrt(p[0] * p[0] + p[2] * p[2]) + shape.radius);
   }
@@ -210,12 +214,6 @@ function footClearanceOf(shapes: ReturnType<typeof worldShapes>, bounds: readonl
     const axis = sub(b, a), squared = dot(axis, axis), nearest = add(a, scale(axis, squared ? Math.max(0, Math.min(1, dot(sub(from, a), axis) / squared)) : 0));
     return before <= r * r && after > before && dot(sub(from, nearest), sub(to, from)) >= 0;
   });
-}
-
-/** Sweep every sole of the stance (`StanceReading.ends`) by a world translation against the opponent's physical bounds. */
-export function clearFootTranslation(view: BodyView, foe: BodySense, dx: number, dz: number, radius: number): boolean {
-  const clear = stepObstacle(view, foe).clear;
-  return Object.values(view.stance.ends).every(({ middle: sole }) => clear([sole.x, sole.y, sole.z], [sole.x + dx, sole.y, sole.z + dz], radius));
 }
 
 /** A sensed head centre lower than this over the body's own support is a low opponent, m. */

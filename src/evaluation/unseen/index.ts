@@ -23,8 +23,8 @@ export function createUnseenIndex(context: GameContext) {
     analysis: {},
     /** The minds named, or every game mind a person may pick (`Part.stage`) that fits an unrated loadout on some character. */
     subjects(choice) {
-      const subjects = (choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => partOf(MINDS[id]!.config).stage === "game")).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value)
-        : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, { character: MINDS[one].character })
+      const subjects = (choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => partOf(MINDS[id]!.config).stage === "game")).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value, one)
+        : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, { models: MINDS[one].models, character: MINDS[one].character })
         : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults as unknown as Json)
         : (() => { throw new Error(`${one} is no mind`); })());
       const cases = UNSEEN_CASES.standard;

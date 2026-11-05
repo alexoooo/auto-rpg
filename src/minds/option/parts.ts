@@ -1,3 +1,7 @@
+import type { NamedSkills } from "./skills.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import type { Percept, Prediction } from "./percepts.ts";
+import type { OptionEvaluation } from "./model.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 
@@ -9,6 +13,7 @@ import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
  */
 export interface ChooserPart<C extends PartConfig = PartConfig, O = unknown, M = unknown> extends Part<C> {
   readonly role: "chooser";
+  readonly model: string;
   readonly keys: KeysOf<C>;
   /** The chooser over `options`, its chances drawn from `seed`, the parts its slots name found by `parts`, deciding on its body's `phase` (`BodyHost.phase`), 0 unless given. */
   make(config: C, options: readonly O[], seed: number, parts: PartLookup, phase?: number): M;
@@ -22,6 +27,9 @@ export interface ChooserPart<C extends PartConfig = PartConfig, O = unknown, M =
  */
 export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = unknown> extends Part<C> {
   readonly role: "option";
+  /** Constructor input protocol supplied by the selected prediction model. */
+  readonly model: string;
+  skills?(config: C, spec: BodySpec, parts: PartLookup, options: readonly PartConfig[]): NamedSkills | null;
   readonly keys: KeysOf<C>;
   /** The options a config of it makes, from what the mind gives (`given`), in their rank order. */
   make(config: C, given: G): readonly O[];
@@ -48,7 +56,7 @@ export interface PerceptPart<C extends PartConfig = PartConfig, P = unknown> ext
   readonly role: "percept";
   readonly keys: KeysOf<C>;
   /** The percept a config of it names. */
-  make(config: C): P;
+  make(config: C): Percept<P>;
 }
 
 /**
@@ -61,7 +69,7 @@ export interface PredictionPart<C extends PartConfig = PartConfig, P = unknown> 
   readonly role: "prediction";
   readonly keys: KeysOf<C>;
   /** The prediction a config of it names. */
-  make(config: C): P;
+  make(config: C): Prediction<P>;
 }
 
 /**
@@ -69,11 +77,12 @@ export interface PredictionPart<C extends PartConfig = PartConfig, P = unknown> 
  * and makes the data a mind predicts from (`T`: the tables a drill measured, or none, so each model
  * reads its prior), read by the mind whose slot holds the part as its own.
  */
-export interface PredictionsPart<C extends PartConfig = PartConfig, T = unknown> extends Part<C> {
+export interface PredictionsPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "predictions";
+  readonly model: string;
   readonly keys: KeysOf<C>;
   /** The data a config of it predicts from. */
-  make(config: C): T;
+  make(config: C): OptionEvaluation;
 }
 
 // The option framework's roles, added to the roles the part lookup knows (`RoleParts`).

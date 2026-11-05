@@ -38,13 +38,26 @@ export function importRun(provenance, root) {
   need(ids.length === about.entrants, `${ids.length} entrants where the run had ${about.entrants}`);
   const met = new Set(parsed.map(({ left, right, gap }) => `${left}|${right}|${gap}`));
   need(met.size === parsed.length && parsed.every(({ left, right }) => left !== right), "a pair meets twice on one side, or an entrant meets itself");
+  need(Array.isArray(protocol.gaps) && protocol.gaps.length > 0 && protocol.gaps.every(gap => Number.isFinite(gap) && gap > 0)
+    && new Set(protocol.gaps).size === protocol.gaps.length, "the protocol has no distinct finite gaps");
   need(parsed.length === ids.length * (ids.length - 1) * protocol.gaps.length && rated.length === about.rows.tournament, "a pair does not meet on each side at each gap");
+  const expected = new Set(ids.flatMap(left => ids.filter(right => right !== left).flatMap(right => protocol.gaps.map(gap => `${left}|${right}|${gap}`))));
+  need(expected.size === met.size && [...met].every(key => expected.has(key)), "the rated rows do not cover the declared pair-by-gap schedule");
 
   const minds = new Set(ids.map((id) => id.split("/")[0]));
-  const seen = others.map((row) => { const [, id, , gap, side] = row.key.split("|"); return { row, id, gap: Number(gap), side }; });
+  const seen = others.map((row) => { const [, id, opponent, gap, side] = row.key.split("|"); return { row, id, opponent, gap: Number(gap), side }; });
   need(new Set(seen.map(({ id, gap, side }) => `${id}|${gap}|${side}`)).size === seen.length && others.length === about.rows.unseen, "an unseen entrant plays a side twice, or a row is missing");
   need(seen.every(({ id, side }) => minds.has(id.split("/")[0]) && (side === "left" || side === "right")), "an unseen row names a mind outside the field");
   need(seen.every(({ id, gap }) => ["left", "right"].every((side) => seen.some((one) => one.id === id && one.gap === gap && one.side === side))), "an unseen entrant is missing a side");
+  const knownBodies = new Set(ids.map(id => id.split("/").slice(0, 2).join("/")));
+  const helds = new Set((protocol.loadouts ?? []).flatMap(loadout => [loadout.left, loadout.right]));
+  need(seen.every(({ id, opponent, gap }) => {
+    const [mind, model, loadout, ...more] = id.split("/"), items = loadout?.split(",") ?? [];
+    return more.length === 0 && knownBodies.has(`${mind}/${model}`) && items.length === 2 && items.every(item => helds.has(item))
+      && opponent === unseen.mind && protocol.gaps.includes(gap);
+  }), "an unseen row names an undeclared body, loadout, opponent or gap");
+  const unseenExpected = new Set([...new Set(seen.map(one => one.id))].flatMap(id => protocol.gaps.flatMap(gap => ["left", "right"].map(side => `${id}|${gap}|${side}`))));
+  need(unseenExpected.size === seen.length && seen.every(({ id, gap, side }) => unseenExpected.has(`${id}|${gap}|${side}`)), "an unseen entrant does not cover every declared gap and side");
   need(rows.filter((row) => row.ending === "time").length === about.rows.atCap, "the bouts at the cap are not the run's");
 
   const commit = git("rev-parse", about.commits.run), date = git("show", "-s", "--format=%cs", about.commits.table);

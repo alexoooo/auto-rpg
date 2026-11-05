@@ -10,7 +10,8 @@ import { standReady, type GroundReading, type Position } from "../../../../contr
 import { recordFault } from "../../../framework/records.ts";
 import { LIMIT, LOW, SIT_BACK_BODIES, STEP_UP_BODIES, stepUpRecipe, stepUpTuning, validStepUp, type StepUpRise, type StepUpTuning } from "./records.ts";
 import { stanceSteady } from "./steady.ts";
-import { REACHED_SECONDS, technique, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "../../technique.ts";
+import { REACHED_SECONDS, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "../../technique.ts";
+import { technique } from "../../bilateral.ts";
 import { type Side, otherSide } from "../../../../core/bodies/bilateral.ts";
 
 /**
@@ -84,7 +85,7 @@ const stagedEntry = (kind: StagedKind, tuning: StepUpTuning, g: GroundReading, s
  * (`risePart`). A rise that falls back to lying slack, or onto its back, fails; one longer than
  * step up's whole attempt (`LIMIT`) times out.
  */
-function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, tuning: StepUpTuning): TechniqueRun {
+function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, tuning: StepUpTuning): TechniqueRun<Side> {
   return PARTS[kind].first === null ? rollPart(own, view, kind, tuning) : risePart(own, view, kit, kind, tuning);
 }
 
@@ -101,7 +102,7 @@ const readsAt = (tuning: StepUpTuning, g: GroundReading, to: Position): boolean 
  * `REACHED_SECONDS`. It yields only while it lies slack before it has turned the body: a roll's
  * settling and rolling again are its own until it reads on its front.
  */
-function rollPart(own: OwnBody, view: BodyView, kind: StagedKind, tuning: StepUpTuning): TechniqueRun {
+function rollPart(own: OwnBody, view: BodyView, kind: StagedKind, tuning: StepUpTuning): TechniqueRun<Side> {
   const whole = stepUpRecipe(tuning, (PARTS[kind] as Part).recipe);
   const across = otherSide(tuning.over ?? "right");
   // `other`: the roll over the other side.
@@ -148,7 +149,7 @@ function rollPart(own: OwnBody, view: BodyView, kind: StagedKind, tuning: StepUp
  * route to its end, step up's climb and steadying (`stanceSteady`). It yields only while it lies
  * slack: its climb is its own until the body stands ready or falls.
  */
-function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, tuning: StepUpTuning): TechniqueRun {
+function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, tuning: StepUpTuning): TechniqueRun<Side> {
   const part: Part = PARTS[kind];
   const whole = stepUpRecipe(tuning, part.recipe);
   const at = (name: string): number => {

@@ -3,8 +3,8 @@
  * the Arena plays them unless asked (`Duel`: the game's 120 s cap, recovery left to continue, the
  * fuller bar winning at the cap), each pair at every gap asked and from both sides. Every bout is
  * kept, one JSON line each, so a run plays only the bouts it has not played before; a bout is
- * keyed by its two minds' configs, its gap and the run's `--epoch`, which a change to code the
- * minds share (the stance, the body, the rules) moves on.
+ * keyed by its two minds' configs, gap, cap and actual source/engine identity. `--epoch`
+ * names an independent repeated run.
  *
  * Ratings are Bradley-Terry fits on the Elo scale (400 points a factor of ten in odds), the pool's
  * mean at 1000:
@@ -16,8 +16,8 @@
  * across the ground (`close`).
  *
  * Usage:
- *   node research/empty-hand-league.mjs [--entrants classic,scrapper,...] [--modules file.mjs,...]
- *     [--against classic,scrapper] [--gaps 3,3.2,...] [--cap 120] [--epoch e1] [--store path]
+ *   node research/empty-hand-league.mjs [--entrants option,walker,...] [--modules file.mjs,...]
+ *     [--against option,walker] [--gaps 3,3.2,...] [--cap 120] [--epoch e1] [--store path]
  *     [--lanes 28] [--report-only]
  *
  * `--entrants` names presets (`MINDS`) or entrants a `--modules` file exports by name (its
@@ -35,6 +35,7 @@ import { isMainThread, parentPort, Worker } from "node:worker_threads";
 import { buildBout } from "../src/app/node/evaluation.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { bradleyTerry } from "../src/evaluation/rating.ts";
+import { BUILD_IDENTITY } from "../scripts/build-identity.mjs";
 import { MINDS } from "../src/app/catalog.ts";
 
 /** Within how far across the ground two centres of mass count as close, m. */
@@ -83,13 +84,14 @@ if (!isMainThread) {
   const lanes = Number(arg("lanes", Math.max(1, availableParallelism() - 4)));
   const known = Object.fromEntries(Object.entries(MINDS).map(([name, preset]) => [name, preset.config]));
   for (const file of list(arg("modules"))) Object.assign(known, (await import(pathToFileURL(resolve(file)).href)).default);
-  const entrants = list(arg("entrants", "classic,puncher,scrapper,behaviours")), against = list(arg("against"));
+  const entrants = list(arg("entrants", "option,walker")), against = list(arg("against"));
   for (const name of [...entrants, ...against]) if (!known[name]) throw new Error(`no entrant ${name}: ${Object.keys(known).join(", ")}`);
 
   mkdirSync(dirname(store), { recursive: true });
   const rows = existsSync(store) ? readFileSync(store, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)) : [];
-  const keyOf = (ha, hb, gap) => `${epoch}|${ha}|${hb}|${gap}`;
-  const played = new Set(rows.filter((r) => r.epoch === epoch).map((r) => keyOf(r.ha, r.hb, r.gap)));
+  const identity = hashOf({ build: BUILD_IDENTITY, engine: BOUT_ENGINE, hz: 120, cap, close: CLOSE, protocol: "empty-hand-league/2" });
+  const keyOf = (ha, hb, gap) => `${identity}|${epoch}|${ha}|${hb}|${gap}`;
+  const played = new Set(rows.filter((r) => r.identity === identity && r.epoch === epoch && r.cap === cap).map((r) => keyOf(r.ha, r.hb, r.gap)));
 
   // The pairs to play: each entrant against each of `against` and those among themselves, or every pair of entrants.
   const pairs = [];
@@ -114,7 +116,7 @@ if (!isMainThread) {
         const id = next++, job = jobs[id];
         worker.once("message", ({ row, error }) => {
           if (error) { worker.terminate(); rejectLane(new Error(error)); return; }
-          const record = { epoch, a: job.names[0], b: job.names[1], ha: job.ha, hb: job.hb, gap: job.gap, cap, ...row };
+          const record = { identity, build: BUILD_IDENTITY, engine: BOUT_ENGINE, hz: 120, epoch, a: job.names[0], b: job.names[1], ha: job.ha, hb: job.hb, gap: job.gap, cap, ...row };
           appendFileSync(store, JSON.stringify(record) + "\n");
           rows.push(record);
           if (++done % 20 === 0) console.error(`${done}/${jobs.length} in ${((Date.now() - started) / 60000).toFixed(1)} min`);
@@ -129,7 +131,7 @@ if (!isMainThread) {
   // The table: every entrant named, rated over the bouts between any two of them in this epoch, at their current configs.
   const named = [...new Set([...entrants, ...against])], hash = Object.fromEntries(named.map((n) => [n, hashOf(known[n])]));
   const byHash = new Map(named.map((n) => [hash[n], n]));
-  const games = rows.filter((r) => r.epoch === epoch && byHash.has(r.ha) && byHash.has(r.hb) && r.ha !== r.hb && gaps.includes(r.gap));
+  const games = rows.filter((r) => r.identity === identity && r.epoch === epoch && r.cap === cap && byHash.has(r.ha) && byHash.has(r.hb) && r.ha !== r.hb && gaps.includes(r.gap));
   const index = new Map(named.map((n, i) => [n, i]));
   const fit = (scoreOf) => bradleyTerry(named.length, games.map((g) => ({ i: index.get(byHash.get(g.ha)), j: index.get(byHash.get(g.hb)), score: scoreOf(g) })), { mean: 1000 });
   const win = fit((g) => g.winner === 0 ? 1 : g.winner === 1 ? 0 : 0.5);

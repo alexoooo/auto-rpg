@@ -1,3 +1,4 @@
+import { isRefused, type Refused } from "../../core/refusal.ts";
 import type { HostedBody } from "../../minds/hosted-body.ts";
 import { carried, paceRound, turnAt, type StanceEnvelope } from "../../control/stance-envelope.ts";
 import { NO_COVER, type Intent } from "../../skills/intent/intent.ts";
@@ -89,6 +90,7 @@ export interface LocomotionFrame {
 }
 
 interface LocomotionSession {
+  readonly state: { readonly actor: Actor["state"]; readonly gait: object; readonly wind: object };
   readonly body: HostedBody;
   frame(): LocomotionFrame;
   /** The wind's settings: changed, they hold from the next step. */
@@ -180,69 +182,68 @@ interface CourseScript extends Script {
 
 function trackScript(track: Track, { top, pace: most, turn, facing }: TrackOptions = {}): CourseScript {
   const turning = turn ?? Infinity;
-  let along = 0, travelled = 0, laps = 0, lapFrom = 0, lastLap: number | null = null;
-  let pace = 0, bending = false, aim: [number, number] = [0, 0], face = facing ?? 0, move: [number, number] = [0, 0];
-  let setOff: number | null = null, last: number | null = null;
-  // Each piece's distance along the track and time on it, by its order.
-  const onPiece = track.lengths.map(() => ({ metres: 0, seconds: 0 }));
+  const state = { along: 0, travelled: 0, laps: 0, lapFrom: 0, lastLap: null as number | null,
+    pace: 0, bending: false, aim: [0, 0] as [number, number], face: facing ?? 0, move: [0, 0] as [number, number],
+    setOff: null as number | null, last: null as number | null,
+    onPiece: track.lengths.map(() => ({ metres: 0, seconds: 0 })) };
   return {
-    name: "track",
+    name: "track", state,
     decide({ view, report, envelope }, dt): Intent {
       const c = view.stance.centre, v = view.stance.velocity, fastest = Math.min(top ?? fastestOf(envelope, facing), most ?? Infinity);
       if (view.time > 0) {
-        setOff ??= view.time;
-        const s = track.nearest(c.x, c.z, along);
+        state.setOff ??= view.time;
+        const s = track.nearest(c.x, c.z, state.along);
         // How far round it went this step: the change in `s`, across the track's wrap.
-        let ds = s - along;
+        let ds = s - state.along;
         if (ds < -track.length / 2) ds += track.length;
         if (ds > track.length / 2) ds -= track.length;
-        travelled += ds;
-        along = s;
-        const on = onPiece[track.piece(s)]!;
+        state.travelled += ds;
+        state.along = s;
+        const on = state.onPiece[track.piece(s)]!;
         on.metres += ds;
-        if (last !== null) on.seconds += view.time - last;
-        last = view.time;
-        if (travelled >= (laps + 1) * track.length) {
-          laps++;
-          lastLap = view.time - lapFrom;
-          lapFrom = view.time;
+        if (state.last !== null) on.seconds += view.time - state.last;
+        state.last = view.time;
+        if (state.travelled >= (state.laps + 1) * track.length) {
+          state.laps++;
+          state.lastLap = view.time - state.lapFrom;
+          state.lapFrom = view.time;
         }
-        const to = track.at(along + (facing === undefined ? AIM_ALONG : AIM_AHEAD));
-        aim = [to.x, to.z];
+        const to = track.at(state.along + (facing === undefined ? AIM_ALONG : AIM_AHEAD));
+        state.aim = [to.x, to.z];
         const toward = atan2(to.x - c.x, to.z - c.z);
         // Each bend as far ahead as it takes to brake from the fastest pace, at its pace and braking to it from `LEAD` early; the next
         // corner likewise.
         let bend = Infinity;
         const early = LEAD * Math.sqrt(v.x * v.x + v.z * v.z);
         for (let d = 0; d <= early + fastest * fastest / (2 * BRAKE); d += LOOK_STEP) {
-          const k = Math.abs(track.at(along + d).curvature), radius = k === 0 ? Infinity : 1 / k;
+          const k = Math.abs(track.at(state.along + d).curvature), radius = k === 0 ? Infinity : 1 / k;
           const at = Math.min(paceRoundTo(envelope, radius, top), carried(turning, radius));
           bend = Math.min(bend, Math.sqrt(at * at + 2 * BRAKE * Math.max(0, d - early)));
         }
-        const corner = Math.max(CORNER_PACE, Math.sqrt(2 * BRAKE * toCorner(track, along)));
+        const corner = Math.max(CORNER_PACE, Math.sqrt(2 * BRAKE * toCorner(track, state.along)));
         // Facing along the track, no faster than its turns carry it round the arc from its heading to the point it aims at.
         if (facing === undefined) {
           const lag = Math.abs(wrap(toward - report.heading)), reach = Math.sqrt((to.x - c.x) * (to.x - c.x) + (to.z - c.z) * (to.z - c.z));
           const radius = radiusTo(lag, reach);
           bend = Math.min(bend, paceRoundTo(envelope, radius, top), carried(turning, radius));
         }
-        bending = Math.min(bend, corner) < fastest;
-        pace = Math.min(fastest, bend, corner);
+        state.bending = Math.min(bend, corner) < fastest;
+        state.pace = Math.min(fastest, bend, corner);
         if (facing === undefined) {
-          face = turn === undefined ? toward : report.heading + Math.max(-turn * dt, Math.min(turn * dt, wrap(toward - report.heading)));
-          move = [pace, 0];
+          state.face = turn === undefined ? toward : report.heading + Math.max(-turn * dt, Math.min(turn * dt, wrap(toward - report.heading)));
+          state.move = [state.pace, 0];
         } else {
           // Toward the point in the body's own frame: forward along its heading, and to its right.
           const off = toward - report.heading;
-          move = [pace * cos(off), pace * sin(off)];
+          state.move = [state.pace * cos(off), state.pace * sin(off)];
         }
       }
-      return { move: facing === undefined ? [pace, 0] : move, face, guard: NO_COVER, actions: [] };
+      return { move: facing === undefined ? [state.pace, 0] : state.move, face: state.face, guard: NO_COVER, actions: [] };
     },
     frame(time, x, z) {
-      const running = setOff === null ? 0 : time - setOff, on = track.at(along);
-      const pieces = onPiece.flatMap((on, i) => track.lengths[i]! > 0 ? [on.seconds > 0 ? on.metres / on.seconds : null] : []);
-      return { along, travelled, laps, lastLap, pace, bending, mean: running > 0 ? travelled / running : 0, pieces, aim,
+      const running = state.setOff === null ? 0 : time - state.setOff, on = track.at(state.along);
+      const pieces = state.onPiece.flatMap((on, i) => track.lengths[i]! > 0 ? [on.seconds > 0 ? on.metres / on.seconds : null] : []);
+      return { along: state.along, travelled: state.travelled, laps: state.laps, lastLap: state.lastLap, pace: state.pace, bending: state.bending, mean: running > 0 ? state.travelled / running : 0, pieces, aim: state.aim,
         off: hypot(x - on.x, z - on.z), leg: null };
     },
   };
@@ -260,34 +261,34 @@ function radiusTo(lag: number, reach: number): number {
  * the straight distance from each place set off from to its destination, over the time spent walking.
  */
 function commandsScript(commands: Commands, { top }: { readonly top?: number } = {}): CourseScript {
-  let index = 0, reached = 0, lastLeg: number | null = null, legFrom = 0, done = 0, walked = 0, last: number | null = null;
-  let pace = 0, bending = false, face = 0, standUntil: number | null = null, from: [number, number] = [0, 0], progress = 0;
-  const stand = (): Intent => ({ move: null, face, guard: NO_COVER, actions: [] });
+  const state = { course: commands.state ?? null, index: 0, reached: 0, lastLeg: null as number | null, legFrom: 0, done: 0, walked: 0, last: null as number | null,
+    pace: 0, bending: false, face: 0, standUntil: null as number | null, from: [0, 0] as [number, number], progress: 0 };
+  const stand = (): Intent => ({ move: null, face: state.face, guard: NO_COVER, actions: [] });
   return {
-    name: "commands",
+    name: "commands", state,
     decide({ view, report, envelope }): Intent {
       if (view.time <= 0) return stand();
-      const c = view.stance.centre, v = view.stance.velocity, dt = last === null ? 0 : view.time - last;
-      last = view.time;
-      if (standUntil !== null) {
-        if (view.time < standUntil) return stand();
-        standUntil = null;
-        index++;
-        from = [c.x, c.z];
-        legFrom = view.time;
+      const c = view.stance.centre, v = view.stance.velocity, dt = state.last === null ? 0 : view.time - state.last;
+      state.last = view.time;
+      if (state.standUntil !== null) {
+        if (view.time < state.standUntil) return stand();
+        state.standUntil = null;
+        state.index++;
+        state.from = [c.x, c.z];
+        state.legFrom = view.time;
       }
-      walked += dt;
-      const to = commands.at(index), dx = to.x - c.x, dz = to.z - c.z, d = Math.sqrt(dx * dx + dz * dz);
-      const length = hypot(to.x - from[0], to.z - from[1]);
-      progress = Math.max(0, Math.min(length, length - d));
+      state.walked += dt;
+      const to = commands.at(state.index), dx = to.x - c.x, dz = to.z - c.z, d = Math.sqrt(dx * dx + dz * dz);
+      const length = hypot(to.x - state.from[0], to.z - state.from[1]);
+      state.progress = Math.max(0, Math.min(length, length - d));
       if (d < ARRIVED) {
-        reached++;
-        done += length;
-        progress = 0;
-        lastLeg = view.time - legFrom;
-        standUntil = view.time + to.stand;
-        pace = 0;
-        bending = false;
+        state.reached++;
+        state.done += length;
+        state.progress = 0;
+        state.lastLeg = view.time - state.legFrom;
+        state.standUntil = view.time + to.stand;
+        state.pace = 0;
+        state.bending = false;
         return stand();
       }
       const fastest = top ?? fastestOf(envelope, undefined), toward = atan2(dx, dz);
@@ -295,18 +296,18 @@ function commandsScript(commands: Commands, { top }: { readonly top?: number } =
       const early = LEAD * Math.sqrt(v.x * v.x + v.z * v.z);
       const arrive = Math.sqrt(CORNER_PACE * CORNER_PACE + 2 * BRAKE * Math.max(0, d - ARRIVED - early));
       const turning = paceRoundTo(envelope, radiusTo(Math.abs(wrap(toward - report.heading)), d), top);
-      bending = Math.min(arrive, turning) < fastest;
-      pace = Math.min(fastest, arrive, turning);
-      face = toward;
-      return { move: [pace, 0], face, guard: NO_COVER, actions: [], destination: d };
+      state.bending = Math.min(arrive, turning) < fastest;
+      state.pace = Math.min(fastest, arrive, turning);
+      state.face = toward;
+      return { move: [state.pace, 0], face: state.face, guard: NO_COVER, actions: [], destination: d };
     },
     frame(_time, x, z) {
-      const to = commands.at(index);
+      const to = commands.at(state.index);
       // Off the straight from where it set off to the destination, m.
-      const ux = to.x - from[0], uz = to.z - from[1], length = hypot(ux, uz);
-      const off = length === 0 ? hypot(x - from[0], z - from[1]) : Math.abs((x - from[0]) * uz - (z - from[1]) * ux) / length;
-      return { along: progress, travelled: done + progress, laps: reached, lastLap: lastLeg, pace, bending,
-        mean: walked > 0 ? (done + progress) / walked : 0, pieces: [], aim: [to.x, to.z], off, leg: { from, to: [to.x, to.z], index } };
+      const ux = to.x - state.from[0], uz = to.z - state.from[1], length = hypot(ux, uz);
+      const off = length === 0 ? hypot(x - state.from[0], z - state.from[1]) : Math.abs((x - state.from[0]) * uz - (z - state.from[1]) * ux) / length;
+      return { along: state.progress, travelled: state.done + state.progress, laps: state.reached, lastLap: state.lastLeg, pace: state.pace, bending: state.bending,
+        mean: state.walked > 0 ? (state.done + state.progress) / state.walked : 0, pieces: [], aim: [to.x, to.z], off, leg: { from: state.from, to: [to.x, to.z], index: state.index } };
     },
   };
 }
@@ -328,12 +329,15 @@ const isCommands = (course: Track | Commands): course is Commands => "area" in c
  * Run `actor`'s body, a human in its reference pose at the origin facing +z, round `course`: a
  * track, which starts there facing along it, or random commands.
  */
-export function startLocomotion(actor: Actor, course: Track | Commands, { top, facing, wind }: LocomotionOptions = {}): LocomotionSession {
+export function startLocomotion(actor: Actor, course: Track | Commands, { top, facing, wind }: LocomotionOptions = {}): LocomotionSession | Refused {
   const { body, world } = actor;
   const script = isCommands(course) ? commandsScript(course, { top }) : trackScript(course, { top, facing });
-  const { report } = actor.drive(script).skills;
-  const meter = startGaitMeter(body.built, world);
+  const driven = actor.drive(script);
+  if (isRefused(driven)) return driven;
+  const { report } = driven.skills;
   const blowing = startWind(body.built, world, wind?.settings ?? { rate: 0, strength: 0 }, wind?.seed ?? 0);
+  if (isRefused(blowing)) return blowing;
+  const meter = startGaitMeter(body.built, world);
   const frame = (): LocomotionFrame => {
     const s = body.view.stance, time = body.view.time;
     return {
@@ -342,7 +346,7 @@ export function startLocomotion(actor: Actor, course: Track | Commands, { top, f
     };
   };
   return {
-    body, frame,
+    state: { actor: actor.state, gait: meter.state, wind: blowing.state }, body, frame,
     get wind() { return blowing.settings; },
     set wind(settings) { blowing.settings = settings; },
     dispose: () => { meter.dispose(); blowing.dispose(); actor.dispose(); },

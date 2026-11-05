@@ -1,3 +1,4 @@
+import { isRefused } from "../../../../../src/core/refusal.ts";
 /**
  * Search one body's loadout-specific recovery settings with immutable technique overrides.
  * Each candidate's ground profiles are calibrated before its normal chooser is scored.
@@ -42,6 +43,7 @@ const mindOf = tuning => ({...MINDS.option.config, options:MINDS.option.config.o
 
 async function trial(job,mind) {
   const b = await buildFall({...job,cap:16,mind},'rapier');
+  if (isRefused(b)) throw new Error(b.refused);
   try {
     while (!b.ended) {b.world.step(); b.afterStep();}
     const r=b.reading(), time=r.takeover===null?null:r.stood&&r.verified!==null?r.verified:16;

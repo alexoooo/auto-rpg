@@ -1,3 +1,4 @@
+import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import { recoveryNetwork } from "../../core/math/learning/recovery-network.ts";
 import { dataOf } from "../../core/data/store.ts";
 import { strikesWithOneOf, fitsAll, fitsWhen } from "../../parts/parts.ts";
@@ -22,7 +23,7 @@ interface Config {
 
 /** A straight punch owns its body fit; its settings are its body's. */
 export const PUNCH_PART: ExecutorPart<Config> = {
-  role: "executor", label: "Straight punch", stage: "game", defaults: { kind: "straight-punch" },
+  role: "executor", requires: [SUPPORT_REFERENCE], label: "Straight punch", stage: "game", defaults: { kind: "straight-punch" },
   keys: { kind: true, tuning: true }, tuning: STRAIGHT_PUNCH_KEYS,
   fields: [], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk, each with a fist, and a thoracic joint"),
     recordFault("straight punch", PUNCH_BODIES, validStraightPunch), (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),

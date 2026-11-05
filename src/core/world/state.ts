@@ -19,7 +19,7 @@ import { Quaternion, Vector3 } from "../math/vector.ts";
 /** A saved state: plain data sharing nothing with what it was saved from, good for `loadState` and for another thread. */
 export type Saved = unknown;
 
-/** The key that marks a saved vector or turn, which a thread boundary would strip of its class. */
+/** Internal discriminators; plain records carrying the key are escaped before crossing a thread. */
 const TAG = "~";
 type Typed = Float64Array | Float32Array | Int32Array | Uint8Array;
 const isTyped = (value: unknown): value is Typed => ArrayBuffer.isView(value) && !(value instanceof DataView);
@@ -42,8 +42,8 @@ export function saveState(root: object): Saved {
     if (value instanceof Quaternion) return keep({ [TAG]: "turn", at: [value.x, value.y, value.z, value.w] });
     if (isTyped(value)) return keep(value.slice());
     if (Array.isArray(value)) {
-      const list = keep([] as unknown[]);
-      value.forEach((item, i) => list.push(copy(item, `${path}[${i}]`)));
+      const list = keep(new Array<unknown>(value.length));
+      value.forEach((item, i) => { list[i] = copy(item, `${path}[${i}]`); });
       return list;
     }
     if (value instanceof Map) {
@@ -59,12 +59,14 @@ export function saveState(root: object): Saved {
       return keep(new Set(value));
     }
     if (!isPlain(value)) throw new Error(`${path} is a ${value.constructor?.name ?? "classed object"}, which is not state`);
-    const record = keep({} as Record<string, unknown>);
+    const escaped = Object.hasOwn(value, TAG) || Object.getPrototypeOf(value) === null;
+    const record: Record<string, unknown> = {};
+    keep(escaped ? { [TAG]: "record", nullPrototype: Object.getPrototypeOf(value) === null, entries: record } : record);
     for (const [key, d] of Object.entries(Object.getOwnPropertyDescriptors(value))) {
       if (d.get || d.set) throw new Error(`${path}.${key} is computed, which is not state`);
-      record[key] = copy(d.value, `${path}.${key}`);
+      Object.defineProperty(record, key, { value: copy(d.value, `${path}.${key}`), enumerable: true, configurable: true, writable: true });
     }
-    return record;
+    return made.get(value);
   };
   return copy(root, "state");
 }
@@ -97,6 +99,7 @@ export function loadState(live: object, saved: Saved): void {
     if (Array.isArray(value)) {
       const list = keep(usable(was) && Array.isArray(was) ? was as unknown[] : []), old = list.slice();
       list.length = value.length;
+      for (let i = 0; i < list.length; i++) if (!Object.hasOwn(value, i)) delete list[i];
       value.forEach((item, i) => { list[i] = fill(old[i], item); });
       return list;
     }
@@ -112,19 +115,33 @@ export function loadState(live: object, saved: Saved): void {
       for (const item of value) set.add(item);
       return set;
     }
-    const record = keep(usable(was) && isPlain(was) ? was as Record<string, unknown> : {});
-    for (const key of Object.keys(record)) if (!(key in (value as object))) delete record[key];
-    for (const [key, item] of Object.entries(value as object)) record[key] = fill(record[key], item);
+    const escaped = tag === "record" ? value as { nullPrototype: boolean; entries: Record<string, unknown> } : null;
+    const entries = escaped?.entries ?? value;
+    const prototype = escaped?.nullPrototype ? null : Object.prototype;
+    const record = keep(usable(was) && Object.getPrototypeOf(was) === prototype ? was as Record<string, unknown> : Object.create(prototype) as Record<string, unknown>);
+    for (const key of Object.keys(record)) if (!Object.hasOwn(entries, key)) delete record[key];
+    for (const [key, item] of Object.entries(entries)) Object.defineProperty(record, key, {
+      value: fill(Object.hasOwn(record, key) ? record[key] : undefined, item), enumerable: true, configurable: true, writable: true,
+    });
     return record;
   };
   if (fill(live, saved) !== live) throw new Error("a state loads into a state of its own kind");
 }
 
-/** `value` frozen, and everything it holds: a constant a state may point at (`loadState` never writes into one). */
+/** Verified immutable graphs can be shared by later constants without walking their datasets again. */
+const FROZEN = new WeakSet<object>();
+
+/** A deeply frozen constant. Mutable containers belong to state, not constants. */
 export function deepFreeze<T>(value: T): T {
-  if (typeof value === "object" && value !== null && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    for (const item of Object.values(value)) deepFreeze(item);
-  }
+  const seen = new Set<object>();
+  const freeze = (item: unknown): void => {
+    if (typeof item !== "object" || item === null || FROZEN.has(item) || seen.has(item)) return;
+    if (item instanceof Map || item instanceof Set || ArrayBuffer.isView(item)) throw new Error("a constant uses immutable records and arrays, not mutable containers");
+    seen.add(item);
+    for (const child of Object.values(item)) freeze(child);
+    Object.freeze(item);
+    FROZEN.add(item);
+  };
+  freeze(value);
   return value;
 }

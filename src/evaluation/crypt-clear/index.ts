@@ -6,7 +6,6 @@
  * Commander; the reference is the level-clearer.
  */
 import { commanderOf } from "../../minds/command/commander.ts";
-import { COMMANDERS } from "../../minds/command/commanders.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
@@ -19,6 +18,7 @@ import { type GameContext } from "../../game/arena/context.ts";
 const commanderSubject = (id: string, label: string, value: Json): Subject => ({ id, label, parts: [{ id: `commander:${id}`, value }], value });
 
 export function createCryptClearIndex(context: GameContext) {
+  const COMMANDERS = context.commanders;
   const { CRYPT_CLEAR_CASES } = createCryptClearCases(context);
 
   const CRYPT_CLEAR: Evaluation<CryptCondition, ClearReading, BuiltCrypt> = {
@@ -33,7 +33,7 @@ export function createCryptClearIndex(context: GameContext) {
     /** The Commanders named, by kind or given whole. None names the level-clearer. */
     subjects(choice) {
       return (choice.length > 0 ? choice : ["clearer"]).map((one) => typeof one !== "string" ? commanderSubject(one.id, one.label, one.value)
-        : commanderOf(one) ? commanderSubject(one, commanderOf(one)!.label, commanderOf(one)!.defaults as unknown as Json)
+        : commanderOf(COMMANDERS, one) ? commanderSubject(one, commanderOf(COMMANDERS, one)!.label, commanderOf(COMMANDERS, one)!.defaults as unknown as Json)
         : (() => { throw new Error(`${one} is no Commander: name a kind (${Object.keys(COMMANDERS).join(", ")}), or a config`); })());
     },
     figures: [

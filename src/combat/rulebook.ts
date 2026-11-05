@@ -1,6 +1,7 @@
 import type { AssistCeiling } from "../core/bodies/assist.ts";
 import { CONTACT_STIFFNESS } from "../core/bodies/human/tables/contact-stiffness.ts";
 import { derive, si, sourced, type Quantity } from "../core/bodies/spec/quantity.ts";
+import { deepFreeze } from "../core/world/state.ts";
 
 /**
  * **The fight rules, in one immutable object per mode**: what wounds, what severs, what kills and
@@ -234,7 +235,7 @@ export function rulebook(mode: Mode, override: RulebookOverride = {}): Rulebook 
   switch (mode) {
     case "arena":
     case "dungeon":
-      return Object.freeze({ ...RULES, ...override, pointLoad, mode });
+      return deepFreeze(structuredClone({ ...RULES, ...override, pointLoad, mode }));
     default: {
       const never: never = mode;
       throw new Error(`no rulebook for ${String(never)}`);

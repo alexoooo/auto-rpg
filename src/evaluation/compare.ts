@@ -12,7 +12,7 @@ import type { Row } from "./play.ts";
 import type { Unit } from "./run.ts";
 import { settle, type SettleRule, type Settled } from "./settle.ts";
 import { mean, pairBootstrap, wilson, type Estimate } from "./stats.ts";
-import type { Side } from "../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "../game/arena/seat.ts";
 
 /** A subject and its counterpart, each against one panel member at one condition. */
 interface Slot {

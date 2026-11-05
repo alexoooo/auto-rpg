@@ -1,3 +1,4 @@
+import { supportHeight } from "../../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
 import { stanceFeetOf } from "../../../locomotion/stance-feet.ts";
 import type { Carrying } from "../../../../control/motor.ts";
@@ -44,7 +45,7 @@ export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stan
       state.off = g.onFeet ? 0 : state.off + dt;
       if (state.off > STEADY_OFF && state.time > .5) return "failed";
       if (state.time > STEADY_LIMIT) return "timed-out";
-      const w = Math.min(1, state.time / climb), smooth = w * w * (3 - 2 * w), top = view.standing - .03;
+      const w = Math.min(1, state.time / climb), smooth = w * w * (3 - 2 * w), top = supportHeight(view) - .03;
       motor.stance.read();
       motor.setStance({ feet, centre: null, height: state.height + (top - state.height) * smooth, heading: state.heading });
       motor.control(own.muscles, control, dt);

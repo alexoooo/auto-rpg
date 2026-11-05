@@ -171,6 +171,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
       weight = massOf([...built.segments.values()]) * -world.physics.gravity[1];
       const course = chosen === "random" ? commandsOf(size ?? COMMANDS_AREA, address.seed) : painted!.track!;
       const run = startLocomotion(actor, course, { top, facing: chosen === "random" ? undefined : TRACKS[chosen].facing, wind: { settings: wind, seed: address.seed } });
+      if ("refused" in run) return run;
       current = run;
       const history = recordHistory(built, puppet, world, HISTORY_SECONDS, (): RunMoment => {
         const c = run.body.view.stance.centre;

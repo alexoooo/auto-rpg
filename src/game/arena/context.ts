@@ -1,3 +1,4 @@
+import type { CommanderRegistry } from "../../minds/command/commander.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import type { Loadout } from "../../core/bodies/items/held.ts";
 import type { MindConfig } from "../../minds/config.ts";
@@ -9,6 +10,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 /** The immutable application choices supplied to gameplay and evaluation. */
 export interface GameContext {
   readonly catalog: Catalog;
+  readonly commanders: CommanderRegistry;
   readonly build: string;
   readonly techniques: Readonly<Record<string, TechniquePart>>;
   defaultMind(model: BodyModel): MindConfig;

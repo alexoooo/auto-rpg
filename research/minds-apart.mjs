@@ -1,3 +1,4 @@
+import { isRefused } from "../src/core/refusal.ts";
 /**
  * Whether a fight is the same to the bit with its minds apart as with its minds on their bodies:
  * each case played on one thread and then with every mind on `--threads` worker threads
@@ -22,7 +23,7 @@ import { createHash } from "node:crypto";
 import { parseArgs } from "node:util";
 import { recipeOf } from "../src/app/node/setup.ts";
 import { crowdFight } from "../src/app/node/game.ts";
-import { DungeonRun } from "../src/app/node/game.ts";
+import { createDungeonRun } from "../src/app/node/game.ts";
 import { buildBout, buildTeamBout } from "../src/app/node/evaluation.ts";
 import { mindWorkers } from "../src/app/node/minds.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
@@ -56,7 +57,7 @@ const CASES = {
     return { world, ended: () => fight.verdict !== null, blows: () => fight.blows.length, end: () => fight.verdict, save: () => fight.save(), load: (saved) => fight.load(saved), dispose };
   }])),
   ...Object.fromEntries([10, 25].map((seed) => [`crypt-${seed}`, async (minds) => {
-    const run = new DungeonRun({ seed, engine: await freshEngine("rapier"), ...minds });
+    const run = admitted(createDungeonRun({ seed, engine: await freshEngine("rapier"), ...minds }));
     run.commands.setMode({ keyboard: false, facing: true });
     let steps = 0;
     return {
@@ -110,3 +111,6 @@ for (const name of values.entrants ? entrants.map((entry) => entry.name) : value
   }
 }
 process.exitCode = parted ? 1 : 0;
+
+/** A returned admission failure reaches this diagnostic with its original message. */
+function admitted(value) { if (isRefused(value)) throw new Error(value.refused); return value; }

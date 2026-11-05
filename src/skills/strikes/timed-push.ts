@@ -9,7 +9,7 @@ import type { MusclePush } from "../../control/motor.ts";
 export interface TimedPush { readonly channel: string; readonly level: number; readonly from: number; readonly length: number }
 
 /** Whether `push` is a timed push: a level from -1 to 1, its window finite and not negative. */
-export const validPush = (push: TimedPush): boolean => typeof push.channel === "string" && [push.level, push.from, push.length].every(Number.isFinite)
+export const validPush = (push: TimedPush): boolean => !!push && typeof push === "object" && typeof push.channel === "string" && [push.level, push.from, push.length].every(Number.isFinite)
   && Math.abs(push.level) <= 1 && push.from >= 0 && push.length >= 0;
 
 /**

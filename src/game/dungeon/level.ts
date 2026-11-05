@@ -1,3 +1,4 @@
+import type { Refused } from "../../core/refusal.ts";
 /**
  * The Depths' level generator, after devilution's `Source/drlg_l1.cpp`.
  *
@@ -490,9 +491,9 @@ export function levelCandidates(seed: number): Level[] {
 }
 
 /** The level for a seed: the best-scoring of its candidates, the first of them on a tie. */
-export function generateLevel(seed: number): Level {
+export function generateLevel(seed: number): Level | Refused {
   const candidates = levelCandidates(seed);
-  if (candidates.length === 0) throw new Error(`no level for seed ${seed >>> 0}`);
+  if (candidates.length === 0) return { refused: `no level for seed ${seed >>> 0}` };
   return candidates.reduce((best, level) => level.metrics.score > best.metrics.score ? level : best);
 }
 

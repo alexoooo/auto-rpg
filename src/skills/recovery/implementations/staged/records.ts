@@ -59,17 +59,20 @@ export const SIT_BACK_BODIES: readonly string[] = deepFreeze(sitBackMeta.bodies)
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
+const validRoll = (roll: unknown): boolean => isObject(roll) && ["wind", "swing", "over", "flat"].every(key => isObject(roll[key]) && Object.values(roll[key] as object).every(finite));
 const validTimings = (stages: unknown): boolean => isObject(stages) && Object.values(stages).every((timing) => isObject(timing) && finite(timing.scale) && timing.scale > 0
   && (timing.posture === undefined || isObject(timing.posture) && Object.values(timing.posture).every(finite))
   && (timing.follow === undefined || isObject(timing.follow) && Array.isArray(timing.follow.channels) && timing.follow.channels.length > 0
     && timing.follow.channels.every(name => typeof name === "string") && isObject(timing.follow.past) && Object.keys(timing.follow.past).length > 0
     && Object.values(timing.follow.past).every(finite) && finite(timing.follow.span) && timing.follow.span > 0)
-  && (timing.progress === undefined || isObject(timing.progress) && ["speed", "near", "turn"].every((key) => finite((timing.progress as Record<string, unknown>)[key]))));
+  && (timing.progress === undefined || isObject(timing.progress) && Object.entries(timing.progress).every(([key, value]) => ["speed", "near", "turn"].includes(key) && finite(value) && value > 0)));
 
 /** Whether `settings` are step up's whole and valid: its settling, climb and stage timings, a side to roll over where named. */
 export const validStepUp = (settings: unknown): boolean => isObject(settings) && isObject(settings.settle)
   && finite(settings.settle.speed) && settings.settle.speed > 0 && finite(settings.settle.seconds) && settings.settle.seconds >= 0
   && finite(settings.climb) && settings.climb > 0 && validTimings(settings.stages)
+  && (settings.rest === undefined || isObject(settings.rest) && finite(settings.rest.seconds) && settings.rest.seconds > 0 && finite(settings.rest.widen) && settings.rest.widen > 0)
+  && (settings.roll === undefined || validRoll(settings.roll))
   && (settings.over === undefined || settings.over === "left" || settings.over === "right")
   && (settings.sideSwing === undefined || settings.sideSwing === "momentum")
   && (settings.heldSupport === undefined || settings.heldSupport === "loaded")

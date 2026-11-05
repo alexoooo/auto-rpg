@@ -14,7 +14,6 @@ import { effectorFeedback } from "../control/effector-feedback.ts";
 import { uprightness } from "../control/ground.ts";
 import { rootFrameToRef } from "../control/kinematics.ts";
 import { carries, carrying, type EffectorGoal, type FreedomPath, type PointTask } from "../control/motor.ts";
-import { standingHeight } from "../control/support.ts";
 
 /**
  * Motor control under a split driver. `think` queues decisions; `act` reads the current body and
@@ -79,10 +78,13 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     points: Object.fromEntries(Object.keys(e.points).map(name => [name, new Vector3()])), rotation: new Quaternion(),
     ...(feedback ? { feedback: feedback.state[e.segment]! } : {}),
   }]));
+  const segments = Object.fromEntries([...built.segments.keys()].map(name => [name, { position: new Vector3(), rotation: new Quaternion() }]));
+  const observedSegments = Object.fromEntries([...built.segments].map(([name, segment]) => [name, { ...segments[name]!,
+    rest: Object.freeze({ x: segment.rest.x, y: segment.rest.y, z: segment.rest.z, w: segment.rest.w }) }]));
   const inverse = new Quaternion(), segmentTurn = new Quaternion(), rootTurn = new Quaternion();
   // The view's own fields are the state's: between steps a view shows the step its state is of.
   const state = {
-    goals, effectors, time: 0, born: null as number | null, angles,
+    goals, effectors, segments, time: 0, born: null as number | null, angles,
     pointMotion,
     root: { position: new Vector3(), rotation: new Quaternion() },
     head: head.centre,
@@ -107,7 +109,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   const moved = (): void => { stamp++; };
   const reading = { get stamp() { return stamp; } };
   const view = {
-    configurations: built.configurations.state, effectors,
+    configurations: built.configurations.state, effectors, segments: observedSegments,
     get time() { return state.time; },
     get born() { return state.born ?? state.time; },
     senses: NOTHING_SENSED,
@@ -117,7 +119,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     head: head.centre,
     stance: motor.reading,
     unmet: motor.unmet,
-    standing: standingHeight(built),
+    standing: makeMotor.reference?.read(built) ?? null,
     get down() { return state.down; },
     get ground() { return state.groundActive ? ground.state.reading : null; },
     get resumed() { return state.resumed; },
@@ -173,6 +175,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     for (let i = 0; i < points.length; i++) points[i]!.sample.update();
     rootFrameToRef(motor.root, state.root);
+    for (const name in segments) { const pose = built.segments.get(name)!.pose; segments[name]!.position.copyFrom(pose.position); segments[name]!.rotation.copyFrom(pose.rotation); }
     for (const segment in effectors) {
       const out = effectors[segment]!, part = built.segments.get(segment)!;
       for (const name in out.points) motor.pointToRef(segment, name, out.points[name]!);

@@ -16,8 +16,7 @@
 // than 1 mm nor in the hand than the fist allows, and joints inside the fist's 60 (MCP) and 80
 // (IP) degrees; the best of three starts.
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { fistTurns } from "../../src/app/browser/render/fist.ts";
-import { loadGlb, nelderMead, penetration, restBones, skinHand, summary } from "./fist-probe.mjs";
+import { fistTurns, loadGlb, nelderMead, penetration, restBones, skinHand, summary } from "./fist-probe.mjs";
 import { haftGaps, haftOf } from "./haft.mjs";
 import fighterRig from "../../assets/humanoid/workshop-fighter.json" with { type: "json" };
 import rogueRig from "../../assets/humanoid/workshop-rogue.json" with { type: "json" };

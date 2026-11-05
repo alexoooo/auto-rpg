@@ -16,7 +16,8 @@ import { FIT_SCALE } from "../../../core/bodies/human/model.ts";
 import type { WorkshopModel } from "../../../core/bodies/human/rig.ts";
 import { visiblePart } from "../../../game/appearance/characters.ts";
 import { CLUB_GRIP } from "./club-grip.ts";
-import { FIST, fistTurns, type RestBone } from "./fist.ts";
+import { fistTurns } from "./fist.ts";
+import { FIST, type RestBone } from "../../../core/bodies/human/fist.ts";
 
 import { skinReference } from "./body-deformation.ts";
 import { modelSpec } from "../../../core/bodies/models.ts";

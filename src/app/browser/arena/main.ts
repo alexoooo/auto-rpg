@@ -1,3 +1,4 @@
+import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
 import { sceneProfile, visualGroup } from "../render/scene-profile.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
 import { warmScene } from "../render/ready.ts";
@@ -17,14 +18,16 @@ import { MENU_HREF } from "../../../game/route.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 import { need as find } from "../dom.ts";
 import { GameAudio } from "../audio/game-audio.ts";
-import { BODY_MODELS, modelHolding, modelHolds, modelLoadout, resolveCharacter, type BodyModel } from "../../../core/bodies/models.ts";
+import { isRefused } from "../../../core/refusal.ts";
+import { BODY_MODELS, modelHolding, modelHolds, resolveCharacterChecked, type BodyModel } from "../../../core/bodies/models.ts";
+import { modelLoadout } from "../../../game/model-loadouts.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
 import { writeAttributes } from "../../../game/attribute-link.ts";
-import { HELD, heldItem, type Loadout } from "../../../core/bodies/items/held.ts";
+import { HELD, heldItem, withLoadout, type Loadout } from "../../../core/bodies/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../../../core/bodies/human/attributes.ts";
 import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
 import type { SkinView } from "../render/skin-view.ts";
-import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
+import { loadSkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { handsOf } from "../render/strike-hands.ts";
@@ -55,7 +58,7 @@ import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
 import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
 import { fighterHud } from "./fighter-hud.ts";
 import { choicePanel } from "../ui/choices.ts";
-import type { Side } from "../../../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
 
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
@@ -134,7 +137,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
   // A reel opened from the Ratings plays its trials in this screen, one after another; the trial
   // shown puts its choices in the address, so the pickers show them when the reel is left.
-  const reel = readReel(location.hash), trials = reel ? await reelTrials(reel) : null;
+  const reel = readReel(location.hash);
+  if (reel && "fault" in reel) { need("boot-note").textContent = reel.fault; return; }
+  const reading = reel ? await reelTrials(reel) : null;
+  if (reading?.fault !== undefined) { need("boot-note").textContent = reading.fault; return; }
+  const trials = reading?.trials ?? null;
   context.signal.throwIfAborted();
   let at = reel?.at ?? 0, auto = reel?.auto ?? false;
   const reelAt = () => reel ? reelHash({ ...reel, at, auto }) : "";
@@ -244,8 +251,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       notes.hidden = all.length === 0;
     };
     const editorSpec = () => {
-      try { return modelHolding(select.value as BodyModel, loadout(), controlCharacter(control.value, attributes[side])); }
-      catch { return modelHolding(select.value as BodyModel, loadout()); }
+      const model = select.value as BodyModel;
+      const resolved = resolveCharacterChecked({ model, attributes: controlCharacter(control.value, attributes[side]) });
+      return isRefused(resolved) ? modelHolding(model, loadout()) : withLoadout(resolved.spec, loadout());
     };
     // The minds are checked by the entry rule of the bout the page opens with: a trial's own, or a fight's.
     const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), entry: entryRules(trials?.[at]!.world.recipe), onFault: "the bout is not played until it is fixed", onChange: () => nameControl() });
@@ -256,8 +264,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const base = MINDS[control.value]!.character ?? {}, key = JSON.stringify(base);
       if (key === shownBase) return;
       shownBase = key; attributePanel.setBase(base);
-      let drafted = true;
-      try { attributePanel.read(); } catch { drafted = false; /* The editor displays its draft's error. */ }
+      const drafted = attributePanel.read() !== null;
       if (drafted) void previews[side]?.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }, appearances[side]).catch(previewFailed);
     };
     const showSettings = (config: MindConfig) => {
@@ -304,15 +311,14 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     previewLoads.push(showHeroLineup(preview, [matchup[side]], lifetime.signal, [appearances[side]]).then(async view => {
       context.signal.throwIfAborted();
       previews[side] = view; select.disabled = false; appearancePicker.disabled = false;
-      let drafted = true;
-      try { attributePanel.read(); } catch { drafted = false; /* The editor displays its draft's error. */ }
+      const drafted = attributePanel.read() !== null;
       if (drafted) await view.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }, appearances[side]).catch(previewFailed);
       select.addEventListener("change", () => {
         appearances = { ...appearances, [side]: "default" };
         attributePanel.set({ model: select.value as BodyModel, attributes: attributes[side] });
         refresh();
         select.blur();
-        void view.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }).catch(previewFailed);
+        if (attributePanel.read() !== null) void view.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }).catch(previewFailed);
       }, { signal: lifetime.signal });
       appearancePicker.addEventListener("change", () => {
         const appearance = appearanceFor(select.value as BodyModel, appearancePicker.value);
@@ -345,7 +351,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     query.set("control", SIDES.map(side => controlPickers[side].value).join(","));
     query.set("level", levelPicker.value); query.delete("recovery");
     for (const side of SIDES) {
-      try { writeAttributes(query, side, attributeEditors[side].read()); } catch { /* The link retains its last valid attributes. */ }
+      const draft = attributeEditors[side].read();
+      if (draft) writeAttributes(query, side, draft);
       query.set(`${side}.loadout`, SIDES.map(hand => loadoutPickers[side][hand].value).join(","));
     }
     const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
@@ -509,23 +516,25 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       pickers[side].value = matchup[side];
       refreshChoices[side]();
       attributeEditors[side].set({ model: matchup[side], attributes: attributes[side] });
-      let drafted = true;
-      try { attributeEditors[side].read(); } catch { drafted = false; /* Invalid drafts stay in the editor. */ }
+      const drafted = attributeEditors[side].read() !== null;
       if (drafted) void previews[side].setCharacter(0, { model: matchup[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
     }
   };
   /** Begins a bout of `next`: the reel's trial `given`, as recorded, or the one the pickers make. */
   const begin = async (next: Matchup, given: Trial | null = null) => {
     if (beginButton.disabled) return;
-    if (!given) try {
+    if (!given) {
       for (const side of SIDES) {
-        attributes[side] = attributeEditors[side].read();
-        resolveCharacter({ model: next[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) });
+        const draft = attributeEditors[side].read();
+        if (!draft) return;
+        attributes[side] = draft;
+        const resolved = resolveCharacterChecked({ model: next[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) });
+        if (isRefused(resolved)) { need("boot-note").textContent = resolved.refused; return; }
       }
       // A mind with a fault is not played, nor another in its place.
       const faults = SIDES.flatMap((side) => mindFaultsOf[side]().map((fault) => `${ARENA_SIDES[side].label}: ${fault}`));
-      if (faults.length > 0) throw new Error(`The bout is not played: ${faults.join("; ")}`);
-    } catch (error) { need("boot-note").textContent = error instanceof Error ? error.message : String(error); return; }
+      if (faults.length > 0) { need("boot-note").textContent = `The bout is not played: ${faults.join("; ")}`; return; }
+    }
     beginButton.disabled = true;
     try {
       await context.loading("Preparing fighters", async stage => {

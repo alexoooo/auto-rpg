@@ -4,7 +4,7 @@ import { SIDES } from "../src/core/bodies/bilateral.ts";
  * `LeftUpLeg`, `LeftLeg`, `LeftFoot`, `LeftToeBase` and the right side's), its joints placed by
  * forward kinematics each frame, in metres, y up, and each sole's contact with the floor. The clip's
  * own joint angles are not read: its rest pose sets the legs at angles of their own.
- * `research/mocap-import.mjs` and `research/run-feasibility.mjs` read clips through it.
+ * `research/mocap-import.mjs` and `research/skills/locomotion/walk-run/run-feasibility.mjs` read clips through it.
  */
 
 /**

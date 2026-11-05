@@ -1,7 +1,7 @@
 /**
  * **How the Strike drill reads a trial**: the striker's one action from its request to its end, and
- * each touch of the asked limb on the target, a bare hand's judged by the bar a person's punch
- * sets and a hand's holding an item by its blow's (`BAR`). Every rung reads its trials so.
+ * each touch of the asked limb on the target, its physical reading reported beside the person's reference
+ * (`BAR`), which does not decide whether the action lands. Every rung reads its trials so.
  */
 import { pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
@@ -59,7 +59,7 @@ export type Bar = {
 };
 
 /**
- * **The bar a blow meets to land**, the untrained adult man's fist less one SD (Adamec et al. 2021,
+ * **The human reference beside a blow**, the untrained adult man's fist less one SD (Adamec et al. 2021,
  * Table 3, male, fist; [human strike reference](../../../docs/reference/human-strike-reference.md#1-punches-straight-jabcross-hook)):
  * its speed over its last `run` m before contact, m/s, and the effective mass it meets on its own
  * side, kg, by hand: the right is the guard's rear hand (dominant 8.0 ± 1.2 m/s, 2.93 ± 0.81 kg),
@@ -190,8 +190,8 @@ type StrikeHit = StrikeContact & {
 };
 
 /**
- * How a trial came out: `landed`, a touch of the limb on the mark that meets the bar while its
- * action ran, the striker up and its action ended; `weak`, on the mark short of the bar;
+ * How a trial came out: `landed`, a touch of the limb on the mark with its declared striking surface while its
+ * action ran, the striker up and its action ended; `weak`, on the mark before completion or with another surface;
  * `guarded`, the limb on the target's arms alone, its guard; `elsewhere`, the limb on the
  * target's body but not the mark; `missed`, committed and nothing of the
  * limb's on the target; `abandoned`, begun and ended before committing; `outside`, never in its
@@ -236,7 +236,7 @@ export type StrikeReading = {
   /** When the action began, committed, released and ended, s; null where it did not. */
   readonly began: number | null; readonly committed: number | null; readonly released: number | null; readonly ended: number | null;
   readonly ending: string | null;
-  /** A hand's first touch on the mark that meets the bar, or else its fastest; a foot's fastest; null where none. */
+  /** A hand's first touch on the mark with the intended mechanism, or else its fastest; a foot's fastest; null where none. */
   readonly hit: StrikeHit | null;
   /** The bar the striker's blow was judged by (`barOf` its body, unless the reader was given one). */
   readonly bar: Bar;
@@ -268,11 +268,6 @@ export type StrikeReading = {
   readonly down: boolean;
   readonly seconds: number;
 };
-
-/** Whether a hit passes every one of the bar's tests it is set (`StrikeHit`). */
-export const meetsBar = (hit: StrikeHit): boolean =>
-  hit.fast !== false && hit.heavy !== false && hit.square !== false && hit.soon !== false && hit.lined !== false && hit.extended !== false && hit.upright !== false
-  && hit.hard !== false && hit.faced !== false;
 
 /**
  * **The hand back at its guard**, as the body reads it: its strike point within `within` m of where
@@ -547,9 +542,9 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
           lined: along !== null && along >= alongCosine, extended: bent <= bend, upright: leaning <= lean, hard: null, faced: null };
       });
       const fastest = hits.reduce<StrikeHit | null>((best, one) => best === null || (one.speed ?? 0) > (best.speed ?? 0) ? one : best, null);
-      const hit = hand === null ? fastest : hits.find(meetsBar) ?? fastest;
+      const hit = hand === null ? fastest : hits.find(hit => hit.faced !== false) ?? fastest;
       const ledger = id === null ? undefined : skills.report.ledger.find((record) => record.id === id);
-      const outcome: StrikeOutcome = handed === null ? "unreached" : lay === false ? "unlaid" : down ? "fell" : hit ? meetsBar(hit) && times.ended !== null ? "landed" : "weak"
+      const outcome: StrikeOutcome = handed === null ? "unreached" : lay === false ? "unlaid" : down ? "fell" : hit ? hit.faced !== false && times.ended !== null ? "landed" : "weak"
         : byLimb.length ? byLimb.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
       const foe = foeBegan ?? atHand;

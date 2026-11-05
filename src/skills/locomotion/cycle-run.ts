@@ -84,7 +84,7 @@ export interface RunCycleSettings {
 /**
  * The run as it is taken unless told otherwise, set for the Warrior's leg (`SimbiconSettings.leg`):
  * its lateral, lean, stance and swing settings searched on the Warrior, the Rogue and the skeleton
- * together (`research/run-cycle-search.mjs`), running, turning, stopping, empty-handed and with the
+ * together (`research/skills/locomotion/walk-run/run-cycle-search.mjs`), running, turning, stopping, empty-handed and with the
  * club, in the guard and in wind, with the walk's `run` and `speedup` (`SIMBICON`). Its `brake` is
  * the walk's `slowdown` the search stops it by: the run's pace asked comes down no faster than that.
  */
@@ -110,13 +110,14 @@ export function runCycleSettings(tuning: Partial<RunCycleSettings> = {}, base: R
 
 /** Whether a run's settings are each finite and none missing or more, its times, its pace's rates and lead and the cycle's positive, and its shares of strength and `short` within (0, 1] and [0, 1]. */
 export function validRunCycle(run: RunCycleSettings): boolean {
+  if (!run || typeof run !== "object" || Array.isArray(run)) return false;
   const { settle, pelvis, period, accel, brake, ahead, contact, stance, swing, ankle, hold, early, wait, paceMost, leanMost, short } = run;
-  return Object.keys(run).length === Object.keys(RUN_CYCLE).length && (Object.values(run) as number[]).every(Number.isFinite)
+  return Object.keys(run).length === Object.keys(RUN_CYCLE).length && Object.keys(RUN_CYCLE).every(key => Object.hasOwn(run, key)) && (Object.values(run) as number[]).every(Number.isFinite)
     && [settle, pelvis, period, accel, brake, ahead, contact].every((x) => x > 0) && [stance, swing, ankle, hold].every((x) => x > 0 && x <= 1)
     && early > 0 && early < 0.5 && wait >= 0 && paceMost >= 0 && leanMost >= 0 && short >= 0 && short <= 1;
 }
 
-/** A clip's cycle as `research/run-cycle.mjs` writes it (`assets/skills/locomotion/cycle-run/run-cycle.json`): its leg's three series and when its sole leaves. */
+/** A clip's cycle as `research/skills/locomotion/walk-run/run-cycle.mjs` writes it (`assets/skills/locomotion/cycle-run/run-cycle.json`): its leg's three series and when its sole leaves. */
 interface Cycle {
   readonly leg: number;
   readonly speed: number;
@@ -128,7 +129,7 @@ interface Cycle {
   readonly ankle: readonly number[];
 }
 
-/** The cycles the run blends between, the slower first (`research/run-cycle.mjs` writes them so, by Froude). */
+/** The cycles the run blends between, the slower first (`research/skills/locomotion/walk-run/run-cycle.mjs` writes them so, by Froude). */
 const CYCLES: readonly Cycle[] = cycles.cycles;
 const CHANNELS = ["hip", "knee", "ankle"] as const;
 type Channel = (typeof CHANNELS)[number];
@@ -170,7 +171,7 @@ interface RunCycleMemory {
 /**
  * **A run that tracks a person's** (the tracking of a captured cycle, Lee, Kim and Lee 2010,
  * "Data-driven biped control"): each leg's hip, knee and ankle follow a clip's run cycle as a
- * Fourier series in the leg's own phase (`assets/skills/locomotion/cycle-run/run-cycle.json`, `research/run-cycle.mjs`),
+ * Fourier series in the leg's own phase (`assets/skills/locomotion/cycle-run/run-cycle.json`, `research/skills/locomotion/walk-run/run-cycle.mjs`),
  * blended by the pace between the two clips whose paces bracket it, the swing grown and the cycle
  * quickened past `gainsFrom`, and shortened under the slowest one's pace (`short`). The cycles' speeds and times go to the body's leg by Froude (`k`, the
  * body's leg over the clip's); the settings come scaled to it.

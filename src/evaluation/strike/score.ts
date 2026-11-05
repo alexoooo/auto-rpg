@@ -14,8 +14,8 @@ import type { Hand, StrikeReading } from "./read.ts";
  * bar tests by its speed (`Bar.foot`, `StrikeHit.foot`), scores alike: landed, 9 and up to 1 more as
  * the speed goes from the bar to 1.5 times it; else up to 8 by its share of the bar. A held item's blow,
  * which the bar tests by its energy, a point's by its closing speed, an edge's by its far end's speed, and its face (`Bar.held`,
- * `StrikeHit.held`, `StrikeHit.faced`), scores alike: landed, 9 and up to 1 more as that goes from the
- * bar to twice it; else up to 8, half by its share of the bar and half for meeting with its face. The bar is the reading's, its striker's
+ * `StrikeHit.held`, `StrikeHit.faced`), scores a landed action as 8 plus its share of the
+ * bar, capped at 2; else up to 8, half by its share of the bar and half for meeting with its face. The bar is the reading's, its striker's
  * (`StrikeReading.bar`).
  */
 export function barScore(reading: StrikeReading, hand: Hand | null, heavier = 1): number {

@@ -1,3 +1,4 @@
+import { isRefused } from "../src/core/refusal.ts";
 /**
  * **How long a mind lies in the match's bouts**: the standard match's bouts (`MATCH_CASES`,
  * `src/evaluation/match/cases.ts`) of mind `a` against mind `b`, each on each side, read for `a`'s
@@ -32,7 +33,9 @@ const mindOf = (given) => given.endsWith(".json") ? { id: given, label: given, v
 async function play(k, side, a, b, after, time) {
   const cases = MATCH_CASES.standard, condition = cases.conditions[k];
   const world = cases.world(side === "left" ? [a.value, b.value] : [b.value, a.value], condition, "rapier-coordinate", [undefined, undefined]);
+  if (isRefused(world)) throw new Error(world.refused);
   const kind = WORLD_BUILDERS.bout, built = await kind.build(world);
+  if (isRefused(built)) throw new Error(built.refused);
   try {
     kind.start(built, world);
     const duel = built.duel, body = duel.duelists[side], steps = [], offered = {};

@@ -20,7 +20,7 @@ import { ARENA_SIDES } from "./side-highlights.ts";
 import { endingText } from "../../../game/arena/end-rule.ts";
 import { teamSpec } from "../../../game/arena/team-bout.ts";
 import { crowdFight } from "../game.ts";
-import type { Side } from "../../../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
 
 /** How long the bodies go on moving once the verdict is given, s. */
 const AFTERMATH_SECONDS = 3;

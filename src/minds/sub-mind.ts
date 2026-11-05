@@ -1,3 +1,4 @@
+import { constructionScope } from "../core/construction.ts";
 import type { Body, BodyView, LayerOptions } from "../control/body.ts";
 import type { Clock } from "../core/world/clock.ts";
 import { commandLayers } from "./command-layers.ts";
@@ -67,8 +68,14 @@ export function hosting(host: HostMind & { readonly name: string; dispose(): voi
 export interface CommandedMind extends MindConstruction { readonly body: Body }
 
 export function commandedMind(own: OwnBody, options: LayerOptions, clock: Clock, subs: readonly SubMindMaker[] = []): CommandedMind {
-  const layers = commandLayers(own, options, clock);
-  const made = subs.map(make => make(own, layers.view, clock, layers.body.afterPhysics));
-  layers.firstLook();
-  return { ...hosting(layers, made), body: layers.body };
+  const scope = constructionScope(); let complete = false;
+  try {
+    const layers = scope.own(commandLayers(own, options, clock));
+    const made: MindConstruction<SubMind>[] = [];
+    for (const make of subs) made.push(scope.own(make(own, layers.view, clock, layers.body.afterPhysics)));
+    layers.firstLook();
+    const constructed = { ...hosting(layers, made), body: layers.body };
+    complete = true;
+    return constructed;
+  } finally { if (!complete) scope.dispose(); }
 }

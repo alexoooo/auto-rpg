@@ -1,7 +1,7 @@
 import { si, sourced, type Quantity } from "../spec/quantity.ts";
 
 /**
- * **How fast a person walks**, each way a fighter's walk is measured (`research/locomotion-run.mjs`):
+ * **How fast a person walks**, each way a fighter's walk is measured (`research/skills/locomotion/locomotion-run.mjs`):
  * a young man's comfortable and fastest forward walk, a young adult's own pace backward, and the
  * pace a person prefers sideways. The targets a walk is read against, not settings of one.
  */

@@ -21,6 +21,7 @@ export type BalanceMaker = (built: ReadBody, tuning?: StanceTuning, assist?: Ass
  */
 export interface BalancePart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "balance";
+  readonly reference?: import("./support-reference.ts").SupportReference;
   readonly keys: KeysOf<C>;
   /** What makes a balance of `config`. */
   make(config: C): BalanceMaker;

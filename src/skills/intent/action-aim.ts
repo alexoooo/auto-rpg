@@ -1,3 +1,4 @@
+import type { Estimate } from "./estimate.ts";
 import type { BodyView } from "../../control/body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
@@ -5,7 +6,7 @@ import type { Region, TargetRef } from "../framework/action.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 
 /** Estimates with unlike units are never ranked against one another. */
-interface AimEstimate { readonly unit: "opening" | "net"; readonly value: number }
+export type AimEstimate = Estimate;
 /**
  * **Where an action aims**: a world point, the way it drives at it where its aim says, how good the
  * aim is where it says, and the part of its effector that meets it where the aim chose one (`with`:

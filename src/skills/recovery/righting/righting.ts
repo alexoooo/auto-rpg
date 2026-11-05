@@ -1,3 +1,5 @@
+import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
+import { bilateralBindings } from "../bilateral.ts";
 import type { BodyControl } from "../../../core/bodies/body-control.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
 import meta from "../../../../assets/skills/recovery/righting/righting.meta.json" with { type: "json" };
@@ -8,6 +10,7 @@ import { chainTo, rootFrameToRef, intoFrameToRef } from "../../../control/kinema
 import { carries } from "../../../control/motor.ts";
 import { servo } from "../../../control/servo.ts";
 import { groundContact } from "../../../control/support.ts";
+import type { EffectorGoal } from "../../../control/motor.ts";
 import type { SupportGoal } from "../../../control/supported-motor.ts";
 import { dataOf } from "../../../core/data/store.ts";
 import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
@@ -20,7 +23,6 @@ import type { TechniqueEnd, TechniquePart, TechniqueRun } from "../technique.ts"
 import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import { pawsOf, segmentOf, type BodySpec, type DofSpec } from "../../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../../core/world/state.ts";
-import { soleGoal } from "../../../control/quadruped/motion.ts";
 import { fitsPaws } from "../../../control/quadruped/fit.ts";
 import { pawEndpoints, pawReader } from "../../../control/quadruped/paws.ts";
 import { REPTILE_MOTOR } from "../../../control/quadruped/tuning.ts";
@@ -66,9 +68,11 @@ declare module "../../../core/data/store.ts" {
 
 /** Whether `recipe` can be played: poses on its side, none or some on its back, every number finite, and its servo's time positive. */
 export function wholeRecipe(recipe: Partial<RightingRecipe>): boolean {
+  if (!recipe || typeof recipe !== "object" || Array.isArray(recipe)) return false;
   const side = recipe.side, back = recipe.back;
   if (!Array.isArray(side) || side.length === 0 || back !== undefined && (!Array.isArray(back) || back.length === 0)) return false;
   const frames = [...side, ...back ?? []];
+  if (!frames.every(f => f && typeof f === "object" && f.targets && typeof f.targets === "object" && !Array.isArray(f.targets))) return false;
   const numbers = [recipe.settle, recipe.servo, recipe.upright, recipe.calm, recipe.still, recipe.limit, ...frames.flatMap((f) => [f.hold, f.up, ...Object.values(f.targets)])];
   return numbers.every((n) => typeof n === "number" && Number.isFinite(n)) && recipe.servo! > 0;
 }
@@ -173,7 +177,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
     return { leg, joint: leg < 0 ? -1 : legs[leg]!.indexOf(channel.joint), axis: channel.index };
   });
   const reference = own.spec.segments.reduce((sum, part) => sum + part.mass.value * part.centreOfMass.value[1], 0) / own.spec.mass.value;
-  const state = { phase: "idle" as "idle" | "roll" | "place" | "rise", route: "start" as "start" | "sweep" | "fold" | "unwind" | "unfold" | "press",
+  const state = { motor: motor.state, phase: "idle" as "idle" | "roll" | "place" | "rise", route: "start" as "start" | "sweep" | "fold" | "unwind" | "unfold" | "press",
     time: 0, elapsed: 0, stable: 0, paw: 0, yaw: 0, ground: 0, sequence: 0,
     placed: names.map(() => false), held: names.map(() => 0), loaded: names.map(() => false), direction: [...fore],
     centre: [0, 0, 0] as [number, number, number], rotation: [0, 0, 0, 1] as [number, number, number, number],
@@ -199,20 +203,30 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
       target.splice(0, 3, feet[i]!.at.x, state.ground, feet[i]!.at.z);
     });
   };
+  const swings = endpoints.map(endpoint => ({ places: [{ point: endpoint.point, position: [0, 0, 0] as [number, number, number] }],
+    seconds: T.recoveryPath, follows: true, sequence: 0, terminalVelocity: [0, 0, 0] as [number, number, number],
+    orientation: { target: [0, 0, 0, 1] as [number, number, number, number], seconds: T.recoveryPath } }));
+  const riseEnds = state.targets.map((target, i) => ({ target, bearing: false, rotation: state.turns[i]!, swing: null as EffectorGoal | null }));
+  const riseGoal = { centre: state.centre, velocity: [0, 0, 0] as [number, number, number], rotation: state.rotation, hold: true, sequence: 0, ends: riseEnds } satisfies SupportGoal;
   /** The rise this step: the body carried up over its placed paws, each not bearing brought down where it stands; whether it is done. */
   const rise = (control: BodyControl, dt: number): TechniqueEnd | null => {
     state.centre[1] = state.ground + reference * LOWERED.height;
     rootFrameToRef(root, frame); Quaternion.InverseToRef(frame.rotation, inverse);
     inverse.multiplyToRef(heading.set(0, sin(state.yaw / 2), 0, cos(state.yaw / 2)), flat).normalize();
     descending.set(0, -LOWERED.plantSpeed, 0).applyRotationQuaternionToRef(inverse, descending);
-    const goal: SupportGoal = { centre: state.centre, velocity: [0, 0, 0], rotation: state.rotation, hold: true, sequence: state.sequence,
-      ends: state.targets.map((target, i) => {
-        const bearing = feet[i]!.contact;
-        if (bearing) return { target, bearing, rotation: state.turns[i]!, swing: null };
-        intoFrameToRef(frame, target, point);
-        return { target, bearing, rotation: state.turns[i]!, swing: soleGoal(endpoints[i]!.point, point, T.recoveryPath, state.sequence, descending, flat) };
-      }) };
-    motor.setSupport(goal); motor.control(own.muscles, control, dt);
+    riseGoal.sequence = state.sequence;
+    for (let i = 0; i < riseEnds.length; i++) {
+      const end = riseEnds[i]!, swing = swings[i]!;
+      end.bearing = feet[i]!.contact;
+      end.swing = end.bearing ? null : swing;
+      if (end.bearing) continue;
+      intoFrameToRef(frame, state.targets[i]!, point);
+      swing.places[0]!.position[0] = point.x; swing.places[0]!.position[1] = point.y; swing.places[0]!.position[2] = point.z;
+      swing.sequence = state.sequence;
+      swing.terminalVelocity[0] = descending.x; swing.terminalVelocity[1] = descending.y; swing.terminalVelocity[2] = descending.z;
+      swing.orientation.target[0] = flat.x; swing.orientation.target[1] = flat.y; swing.orientation.target[2] = flat.z; swing.orientation.target[3] = flat.w;
+    }
+    motor.setSupport(riseGoal); motor.control(own.muscles, control, dt);
     const stable = !view.down && reading.centre.y - state.ground >= reference * T.recoveryHeight && feet.every((foot) => foot.contact && foot.flat)
       && reading.velocity.lengthSquared() < T.recoveredSpeed * T.recoveredSpeed;
     state.stable = stable ? state.stable + dt : 0;
@@ -304,7 +318,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
 interface RecipeConfig { readonly kind: "righting-recipe"; readonly tuning?: Partial<RightingRecipe> }
 
 /** What the rightings share: begun on either side, from where the body lies as it moves, to standing. */
-const RIGHTING = { role: "technique", stage: "game", moving: true, sides: BOTH, fields: [], slots: [] } as const;
+const RIGHTING = { bindings: (spec: BodySpec) => bilateralBindings(spec, BOTH), role: "technique", requires: [SUPPORT_REFERENCE], stage: "game", moving: true, starts: BOTH, fields: [], slots: [] } as const;
 
 /**
  * **Righting by recipe** (`rightingByRecipe`) as a way up from lying (`LYING`): a body on paws

@@ -68,15 +68,17 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
     assert.deepEqual(cases(resolved.subjects).units, independent.units.filter(unit => modelOf(unit[0]) === "workshop-fighter"),
       "the changed configuration keeps its source's scope before scheduling");
     assert.equal(JSON.stringify(named), original, "admission never changes the subject or its configuration");
-    assert.throws(() => cases([{ ...named[0], models: [] }]), /fits no condition.*named calibration allows no bodies/);
+    const unavailable = (evaluation === EVALUATIONS.court ? ["workshop-fighter", "workshop-rogue"] : ["workshop-fighter"])
+      .map(model => `named calibration allows no bodies; ${model} is unavailable`).join("; ");
+    assert.deepEqual(cases([{ ...named[0], models: [] }]), { refused: `Warrior calibration fits no condition of ${evaluation.id} standard: ${unavailable}` });
   }
   const evaluation = EVALUATIONS.crowd;
   const cases = subjects => casesOf(evaluation, evaluation.defaultProtocol, subjects,
     { engine: BOUT_ENGINE, code: () => "crowd-scope", schedule: { kind: "all" } });
   for (const id of ["swap-skeleton"]) {
-    assert.throws(() => cases(evaluation.subjects([id])), /fits no condition.*named calibration allows/);
-    assert.throws(() => cases(resolveSubjects(evaluation, [], id, ["rate=30"]).subjects),
-      /fits no condition.*named calibration allows/);
+    assert.deepEqual(cases(evaluation.subjects([id])), { refused: "Skeleton calibration fits no condition of crowd standard: named calibration allows crypt-skeleton; workshop-fighter is unavailable" });
+    assert.deepEqual(cases(resolveSubjects(evaluation, [], id, ["rate=30"]).subjects),
+      { refused: "Skeleton calibration with rate=30 fits no condition of crowd standard: named calibration allows crypt-skeleton; workshop-fighter is unavailable" });
     assert.ok(cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }])).units.length > 0,
       "an independent configuration still runs on physically compatible bodies");
   }
@@ -98,8 +100,9 @@ test("a match admits complete pairs within named calibrations and preserves the 
   const original = cases(evaluation.subjects(["swap-stub", "option"]));
   const changed = cases(resolveSubjects(evaluation, ["option"], "swap-stub", ["rate=30"]).subjects);
   assert.deepEqual(changed.units.map(unit => unit.map(one => one.condition)), original.units.map(unit => unit.map(one => one.condition)));
-  assert.throws(() => cases(evaluation.subjects(["swap-skeleton", "option"])), /fits no condition.*named calibration allows crypt-skeleton/);
-  assert.throws(() => cases(resolveSubjects(evaluation, ["option"], "swap-skeleton", ["rate=30"]).subjects), /fits no condition/);
+  const unavailable = "named calibration allows crypt-skeleton; workshop-fighter is unavailable; named calibration allows crypt-skeleton; workshop-rogue is unavailable";
+  assert.deepEqual(cases(evaluation.subjects(["swap-skeleton", "option"])), { refused: `Skeleton calibration fits no condition of match standard: ${unavailable}` });
+  assert.deepEqual(cases(resolveSubjects(evaluation, ["option"], "swap-skeleton", ["rate=30"]).subjects), { refused: `Skeleton calibration with rate=30 fits no condition of match standard: ${unavailable}` });
 });
 
 test("every evaluation's default panel names entrants it has", () => {

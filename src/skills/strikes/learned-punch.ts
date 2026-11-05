@@ -1,3 +1,4 @@
+import { supportHeight } from "../../control/support-reference.ts";
 import { fistOn } from "../../core/bodies/human/endpoints.ts";
 import layoutFile from "../../../assets/skills/strikes/straight-punch/learned-punch.layout.json" with { type: "json" };
 import { Vector3 } from "../../core/math/vector.ts";
@@ -18,8 +19,8 @@ import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
  * Every `PUNCH_DECIDE` it reads the punch (`punchFeatures`), adds levels to the drive's pushes
  * (`steerPushes`) and asks the legs goal for a heading and a centre of mass (`stanceAsks`). Only
  * the bodies with a record (`PUNCH_BODIES`) throw it. Trained by PPO (`research/run-train.py`
- * against `research/run-learning-server.mjs` on `research/environments/punch.json`) and written
- * into the record by `research/punch-export.mjs`.
+ * against `research/run-learning-server.mjs` on `research/skills/strikes/straight-punch/environments/punch.json`) and written
+ * into the record by `research/skills/strikes/straight-punch/punch-export.mjs`.
  */
 
 /** How often a steered punch reads itself and sets its steer, s: 60 times a second at any rate. */
@@ -169,7 +170,7 @@ export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: 
   framed(view, c.x + v.x, c.y + v.y, c.z + v.z, moved);
   read[k++] = (moved.x - point.x) * side; read[k++] = moved.y - point.y; read[k++] = moved.z - point.z;
   read[k++] = touching ? 1 : 0;
-  read[k++] = arm; read[k++] = view.standing;
+  read[k++] = arm; read[k++] = supportHeight(view);
   framed(view, target[0]!, target[1]!, target[2]!, point);
   framed(view, target[0]! + aimed[0]!, target[1]! + aimed[1]!, target[2]! + aimed[2]!, moved);
   read[k++] = (moved.x - point.x) * side; read[k++] = moved.y - point.y; read[k++] = moved.z - point.z;

@@ -14,7 +14,7 @@ import type { AskCrossing, Batch, Reply, Said, SpecNumber, ToldCrossing } from "
  * the commands and reads what the minds said while they decide. It answers the batch (`steps`) with what each seat
  * it was asked to make says, and each menu it was asked for. A spec sent is derived as it arrives
  * (`deriveSpec`). Numbers it makes anew are made by `allocate`, in memory the world shares.
- * Every mind's data is loaded before its first batch (`loadData`, its transport's to await).
+ * Each batch's new minds have their declared data loaded before construction (the transport's to await).
  */
 export function mindThread(allocate: (length: number) => Float64Array, { say, answered }: { say(reply: Reply): void; answered(steps: number): void }): { handle(batch: Batch): Reply; readonly steps: number } {
   const host = seatHost(MIND_CATALOGS), channels = new Map<number, MirrorChannel>();

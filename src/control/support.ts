@@ -1,3 +1,4 @@
+import { supportConfigurationRefusal } from "./support-shapes.ts";
 /**
  * The feet a stance stands on: each foot's sole, read in the world, the region the soles hold, and
  * the frame helpers that read a segment where it is now.
@@ -5,7 +6,7 @@
 import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import type { Row } from "./bearing.ts";
 import type { AnkleHold, BearingSole } from "./contact-wrench.ts";
-import { chainTo } from "./kinematics.ts";
+import { chainTo, specChainTo } from "./kinematics.ts";
 import { swingLegOf, type SwingLeg } from "./swing-leg.ts";
 import type { Vec3 } from "../core/bodies/spec/quantity.ts";
 import { turnOfToRef, partsOn, type Parts } from "../core/bodies/read-motion.ts";
@@ -214,8 +215,16 @@ export function footOn(spec: BodySpec, side: Side): BearingEnd {
 /** What a body of `spec` lacks for the stance to stand it, a sentence, or null where it has a left and a right foot (`stanceFeet`), each with a box sole. */
 export function soleRefusal(spec: BodySpec): string | null {
   const feet = stanceFeet(spec);
-  return feet.length === 2 && feet[0]!.side === "left" && feet[1]!.side === "right" && feet.every((foot) => segmentOf(spec, foot.end.segment)?.shape.kind === "box")
-    ? null : "needs a left and a right foot, each with a box sole";
+  if (!(feet.length === 2 && feet[0]!.side === "left" && feet[1]!.side === "right" && feet.every(foot => segmentOf(spec, foot.end.segment)?.shape.kind === "box"))) return "needs a left and a right foot, each with a box sole";
+  for (const { end } of feet) {
+    const chain = specChainTo(spec, end.segment);
+    if (chain.length !== 3 || chain[0]!.spec.name !== end.from || chain[0]!.dofs.length < 3 || chain[1]!.dofs.length < 1 || chain[2]!.dofs.length < 2) return `stance foot ${end.name} needs a root-to-foot hip, knee and ankle chain with three, one and two freedoms`;
+    for (let i = 0; i < 2; i++) {
+      const a = chain[i]!.spec.centre.value, b = chain[i + 1]!.spec.centre.value;
+      if (!(hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) > 0)) return `stance foot ${end.name} needs nonzero thigh and shank lengths`;
+    }
+  }
+  return supportConfigurationRefusal(spec, feet.map(({ end }) => segmentOf(spec, end.segment)!));
 }
 
 /**
@@ -428,14 +437,14 @@ export function standingHeight(built: ReadBody): number {
 /** The reference soles' offsets about their midpoint and the shorter sole's length, m; independent of the built pose. */
 export function standingFooting(built: ReadBody): { offsets: Record<Side, readonly [number, number]>; length: number } {
   const middle = (side: Side): readonly [number, number] => {
-    const foot = built.segments.get(`foot.${side}`)!;
+    const foot = built.segments.get(stanceFeet(built.spec).find(foot => foot.side === side)!.end.segment)!;
     const corners = soleCorners(foot, true);
     return [corners.reduce((sum, corner) => sum + corner[0], 0) / corners.length,
       corners.reduce((sum, corner) => sum + corner[2], 0) / corners.length];
   };
   const left = middle("left"), right = middle("right"), x = (left[0] + right[0]) / 2, z = (left[1] + right[1]) / 2;
   const length = (side: Side): number => {
-    const foot = built.segments.get(`foot.${side}`)!, shape = foot.spec.shape;
+    const foot = built.segments.get(stanceFeet(built.spec).find(foot => foot.side === side)!.end.segment)!, shape = foot.spec.shape;
     if (shape.kind !== "box") throw new Error("standing footing requires box soles");
     return shape.size.value[1] + (foot.spec.toes?.length.value ?? 0);
   };

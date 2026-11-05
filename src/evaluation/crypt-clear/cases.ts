@@ -1,3 +1,4 @@
+import { isRefused, type Refused } from "../../core/refusal.ts";
 /**
  * **The Crypt-clearing task's cases**: the hero alone, under the protocol's mind and the subject's
  * Commander, through each of a fixed set of generated levels against each enemy Commander, in
@@ -49,11 +50,13 @@ const START_CLEARANCE = 0.5;
  * as generated for trial 0, and otherwise moved `NUDGE` m a trial along one of `NUDGES`, a ring
  * further every four. Throws where the start moved is not open floor.
  */
-function trialLayout(seed: number, trial: number): CryptLayout {
-  const map = generateEncounterLevel(seed).map;
+function trialLayout(seed: number, trial: number): CryptLayout | Refused {
+  const generated = generateEncounterLevel(seed);
+  if (isRefused(generated)) return generated;
+  const map = generated.map;
   const [x, z] = trial === 0 ? [0, 0] : NUDGES[(trial - 1) % NUDGES.length]!, ring = NUDGE * (1 + Math.floor(Math.max(0, trial - 1) / NUDGES.length));
   const start = { x: map.start.x + x * ring, z: map.start.z + z * ring };
-  if (!walkable(map, start, START_CLEARANCE, true)) throw new Error(`level ${seed}, trial ${trial}: the start moved is not open floor`);
+  if (!walkable(map, start, START_CLEARANCE, true)) return { refused: `level ${seed}, trial ${trial}: the start moved is not open floor` };
   return { floor: floorRows(map), doors: map.doors.map((door) => ({ ...door, point: { ...door.point } })), obstacles: (map.obstacles ?? []).map((o) => ({ ...o })),
     start, exit: { ...map.exit }, spawns: map.spawns.map((p) => ({ ...p })), enemies: (map.encounters ?? []).map((encounter) => encounter.model) };
 }
@@ -90,10 +93,10 @@ const priceOf = (walk: number, route: number, pace: number): number => walk * pa
 export const scoreOf = (life: number, price: number, elapsed: number, left: number, pace: number): number => life - price * (elapsed + left / pace);
 
 /** Why `value` is no Commander's config (`commanderFaults`), or one that leads no party. */
-function faultsOf(value: Json): readonly string[] {
-  const faults = commanderFaults(value);
+function faultsOf(context: GameContext, value: Json): readonly string[] {
+  const faults = commanderFaults(context.commanders, value);
   if (faults.length > 0) return faults;
-  return commanderOf((value as unknown as CommanderConfig).kind)!.sides.includes("party") ? [] : [`the ${(value as unknown as CommanderConfig).kind} Commander leads no party`];
+  return commanderOf(context.commanders, (value as unknown as CommanderConfig).kind)!.sides.includes("party") ? [] : [`the ${(value as unknown as CommanderConfig).kind} Commander leads no party`];
 }
 
 export function createCryptClearCases(context: GameContext) {
@@ -110,9 +113,10 @@ export function createCryptClearCases(context: GameContext) {
       play: protocol as unknown as Json,
       conditions,
       seconds: CRYPT_CAP,
-      faults: (value) => faultsOf(value),
+      faults: (value) => faultsOf(context, value),
       world: ([party], { seed, trial, enemies }, engine) => {
         const layout = trialLayout(seed, trial);
+        if (isRefused(layout)) return layout;
         return { kind: "crypt", engine, crypt: { layout, party: [{ model: protocol.hero, at: { ...layout.start } }], mind: mind.config,
           script: [], commanders: { party: party as unknown as CommanderConfig, enemies } } };
       },

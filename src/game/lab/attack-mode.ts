@@ -1,3 +1,5 @@
+import { constructionScope } from "../../core/construction.ts";
+import { isRefused } from "../../core/refusal.ts";
 import { Vector3 } from "../../core/math/vector.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { createSenses } from "../../core/world/senses.ts";
@@ -42,12 +44,18 @@ interface AttackOptions {
 export function startAttack(actor: Actor, options: AttackOptions) {
   const { world, body } = actor, { built } = body;
   const random = randomStream(options.seed), spec = dummySpec(built.spec, dummyPart(built.spec, options.targetPart)), rules = rulebook("arena");
-  const state = { random: random.state, targets: [] as TargetState[], selected: null as string | null, next: 0, hits: 0,
+  if (isRefused(spec)) return spec;
+  const scope = constructionScope(); let complete = false;
+  try {
+  const state = { actor: actor.state, wind: null as object | null, random: random.state, targets: [] as TargetState[], selected: null as string | null, next: 0, hits: 0,
     speed: options.speed ?? 0, sequence: 0, totals: { committed: 0, landed: 0, blocked: 0, missed: 0, refused: 0, stalled: 0, interrupted: 0 } };
   const targets = new Map<string, { dummy: Dummy; sound?: { dispose(): void } }>();
-  const hub = createSenses(world);
+  const hub = scope.own(createSenses(world));
   const senses = hub.add({ id: "attacker", side: "attacker", built, out: () => false, down: () => body.view.down });
   const wind = startWind(built, world, options.wind ?? { rate: 0, strength: 0 }, options.seed);
+  if (isRefused(wind)) return wind;
+  scope.own(wind);
+  state.wind = wind.state;
   const actorBodies = new Set([...built.segments.values()].map((segment) => segment.body));
   const velocity = new Vector3(), impulse = new Vector3();
 
@@ -63,7 +71,8 @@ export function startAttack(actor: Actor, options: AttackOptions) {
       const angle = random.next() * Math.PI * 2;
       const target: TargetState = { id, direction: [sin(angle), cos(angle)], hit: null };
       state.targets.push(target);
-      targets.set(id, { dummy, sound: options.hears?.(dummy.fighter.built) });
+      targets.set(id, { dummy });
+      targets.get(id)!.sound = options.hears?.(dummy.fighter.built);
       hub.add({ id, side: "targets", built: dummy.fighter.built, out: () => target.hit !== null });
       return true;
     }
@@ -81,8 +90,9 @@ export function startAttack(actor: Actor, options: AttackOptions) {
   const select = (id: string): void => {
     if (state.targets.some((target) => target.id === id && target.hit === null)) state.selected = id;
   };
+  scope.own({ dispose: () => { for (const id of [...targets.keys()]) remove(id); } });
   for (let i = 0; i < options.count; i++) if (!spawn()) break;
-  const { skills, report } = actor.drive(undefined, {
+  const driven = actor.drive(undefined, {
     senses,
     orders: () => state.selected === null ? null : { face: null, foe: state.selected },
     contactIdentity: (other) => {
@@ -92,6 +102,8 @@ export function startAttack(actor: Actor, options: AttackOptions) {
       return null;
     },
   });
+  if (isRefused(driven)) return driven;
+  const { skills, report } = driven;
   const moving = world.beforeStep(() => {
     for (const target of [...state.targets]) if (target.hit !== null && world.time - target.hit >= FADE_SECONDS) remove(target.id);
     while (state.targets.length < options.count) if (!spawn()) break;
@@ -106,6 +118,7 @@ export function startAttack(actor: Actor, options: AttackOptions) {
       segment.body.applyImpulse(impulse, at);
     }
   });
+  scope.own(moving);
   const contacts = world.afterStep(() => {
     for (const record of skills.report.ledger) if (record.sequence > state.sequence) {
       state.totals.committed += Number(record.committed);
@@ -122,6 +135,7 @@ export function startAttack(actor: Actor, options: AttackOptions) {
       }
     }
     });
+  scope.own(contacts); scope.own(actor); complete = true;
   return {
     state, skills, report, wind, select,
     // A mind that reports no focus (`MindReport.engagement`) is shown at the target ordered.
@@ -133,10 +147,7 @@ export function startAttack(actor: Actor, options: AttackOptions) {
         return { id: target.id, centre: [dummy.centre.x, dummy.centre.y, dummy.centre.z] as Vec3,
           radius: dummy.radius, hit: target.hit !== null, fade: target.hit === null ? 1 : Math.max(0, 1 - (world.time - target.hit) / FADE_SECONDS) };
       }) }),
-    dispose() {
-      moving.dispose(); contacts.dispose(); wind.dispose(); hub.dispose();
-      for (const id of [...targets.keys()]) remove(id);
-      actor.dispose();
-    },
+    dispose: scope.dispose,
   };
+  } finally { if (!complete) scope.dispose(); }
 }

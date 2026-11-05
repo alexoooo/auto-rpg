@@ -6,11 +6,11 @@ export function pendingControl(channels) {
   const control = {
     muscles: { activation: state.activation, velocity: state.velocity },
     get assist() { state.assistAsked = true; return state.assist; },
-    hands: { request() { throw new Error("a research pending command asks no hand a pose"); } },
+    configurations: { request(segment, configuration) { state.configurations[segment] = configuration; } },
   };
   return {
     state, control,
-    think() { state.assistAsked = false; state.ready = true; },
+    think() { state.assistAsked = false; for (const segment in state.configurations) delete state.configurations[segment]; state.ready = true; },
     act(target) {
       if (!state.ready) return;
       target.muscles.activation.set(state.activation);
@@ -19,6 +19,7 @@ export function pendingControl(channels) {
         target.assist.force.copyFrom(state.assist.force);
         target.assist.moment.copyFrom(state.assist.moment);
       }
+      for (const segment in state.configurations) target.configurations.request(segment, state.configurations[segment]);
       state.ready = false;
     },
     interrupt() { state.ready = false; },

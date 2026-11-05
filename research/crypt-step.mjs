@@ -1,3 +1,4 @@
+import { isRefused } from "../src/core/refusal.ts";
 /**
  * What a crypt run costs a step, over a run: the hero explores a generated level (`DungeonRun`, no
  * visuals), `--companions` Warriors following it, until the run ends or `--seconds` of it have
@@ -28,7 +29,7 @@
  */
 import { parseArgs } from "node:util";
 import { hearRun } from "../src/game/dungeon/hearing.ts";
-import { DungeonRun } from "../src/app/node/game.ts";
+import { createDungeonRun } from "../src/app/node/game.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 import { MINDS } from "../src/app/catalog.ts";
 import { PerformanceObserver } from "node:perf_hooks";
@@ -46,7 +47,7 @@ const seconds = Number(values.seconds), companions = Array.from({ length: Number
 /** A run of `seed`, heard or not, and the wall time its steps have taken: all of them, and its slowest second's. */
 async function begun(seed, heard) {
   const place = values.minds ? mindWorkers(Number(values.minds)) : null;
-  const run = new DungeonRun({ seed, engine: await freshEngine(), companions, ...(mind ? { mind: () => mind } : {}), ...(place ? { minds: place } : {}) });
+  const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), companions, ...(mind ? { mind: () => mind } : {}), ...(place ? { minds: place } : {}) }));
   // The hero explores by itself in this mode, and fights what it meets.
   run.commands.setMode({ keyboard: false, facing: true });
   const hearing = heard ? hearRun(run, () => {}) : null;
@@ -100,3 +101,6 @@ for (const seed of values.seeds.split(",").map(Number)) {
   const lag = playings.reduce((a, b) => b.lag.lag < a.lag.lag ? b : a).lag;
   console.log(`| ${r.seed} | ${r.status} | ${r.seconds} | ${r.enemies} | ${r.built} | ${r.most} | ${r.held} | ${r.out} | ${r.lying} | ${r.mean.toFixed(2)} | ${r.worst.toFixed(2)} | ${(r.worst * 120 / 10).toFixed(0)} |${heard} ${dearest.toFixed(2)} | ${lag.lag.toFixed(2)} | ${lag.at}, ${lag.at - lag.began + 1} steps | ${lag.built}; ${lag.collected.map((ms) => ms.toFixed(1)).join(", ") || "none"} |`);
 }
+
+/** A returned admission failure reaches this diagnostic with its original message. */
+function admitted(value) { if (isRefused(value)) throw new Error(value.refused); return value; }

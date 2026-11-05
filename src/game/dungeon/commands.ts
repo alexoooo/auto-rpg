@@ -19,15 +19,26 @@ export function screenMovement(right: number, up: number, toward: Point = camera
  * attack on it, and a drag a go along the route it draws, which grows as the pointer moves.
  */
 export class DungeonCommands {
-  mode: ControlMode = { keyboard: false, facing: false };
-  cursor: Point | null = null;
-  right = 0;
-  up = 0;
+  readonly state = { mode: { keyboard: false, facing: false } as ControlMode, cursor: null as Point | null,
+    right: 0, up: 0, walk: false,
+    press: null as { screen: Point; ground: Point; target: string | null; dragging: boolean } | null,
+    route: null as DrawnRoute | null };
+  get mode(): ControlMode { return this.state.mode; }
+  set mode(value: ControlMode) { this.state.mode = value; }
+  get cursor(): Point | null { return this.state.cursor; }
+  set cursor(value: Point | null) { this.state.cursor = value; }
+  get right(): number { return this.state.right; }
+  set right(value: number) { this.state.right = value; }
+  get up(): number { return this.state.up; }
+  set up(value: number) { this.state.up = value; }
   /** Whether the member the keys steer walks, not runs: Caps Lock is on. */
-  walk = false;
-  private press: { screen: Point; ground: Point; target: string | null; dragging: boolean } | null = null;
+  get walk(): boolean { return this.state.walk; }
+  set walk(value: boolean) { this.state.walk = value; }
+  private get press() { return this.state.press; }
+  private set press(value) { this.state.press = value; }
   /** The route the pointer is drawing; null once it is drawn. */
-  private route: DrawnRoute | null = null;
+  private get route() { return this.state.route; }
+  private set route(value) { this.state.route = value; }
   private readonly send: (command: Command) => void;
   constructor(send: (command: Command) => void) { this.send = send; }
   setMode(mode: ControlMode): void { this.mode = { ...mode }; this.clear(); }

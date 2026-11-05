@@ -136,13 +136,16 @@ export interface BodyCommand {
 
 /** **What a body shows its driver**, read at the start of each control step from the step before. */
 export interface BodyView {
+  /** Every segment's current physical pose, world coordinates. */
+  readonly segments: Readonly<Record<string, { readonly position: Vector3; readonly rotation: Quaternion;
+    readonly rest: Readonly<Pick<Quaternion, "x" | "y" | "z" | "w">> }>>;
   /**
    * Each effector's named points (`rigidPoints`: a hand's knuckles, the points of what it holds) and
    * turn, in the body frame where its goal is set, with its trusted detached touch when the body
    * reads it (`LayerOptions.feedback`).
    */
   readonly effectors: Readonly<Record<string, { readonly points: Readonly<Record<string, Vector3>>; readonly rotation: Quaternion; readonly feedback?: EffectorFeedback }>>;
-  /** Each posable hand's pose, by its segment: the one it has and the one it was asked. */
+  /** Each configurable segment: its applied configuration and the one last requested. */
   readonly configurations: Readonly<Record<string, { readonly applied: ConfigurationName; readonly requested: ConfigurationName }>>;
   /** Seconds of the world's clock. */
   readonly time: number;
@@ -175,7 +178,7 @@ export interface BodyView {
    * The centre of mass's height over the soles' middle in the reference pose, m (`standingHeight`):
    * what the body stands at, whatever posture it was built in.
    */
-  readonly standing: number;
+  readonly standing: number | null;
   /** Whether the body is down (`uprightness`, `src/control/ground.ts`): true while it is, false once it is up again. */
   readonly down: boolean;
   /**
@@ -230,7 +233,7 @@ export interface LayerOptions {
   readonly servoSeconds: number;
   /** An experiment's stance tuning in place of the stance's constants. */
   readonly stance?: StanceTuning;
-  /** The envelope's own measurement (`research/core-stance-envelope.mjs`): the body has none to read yet. */
+  /** The envelope's own measurement (`research/skills/locomotion/stance/core-stance-envelope.mjs`): the body has none to read yet. */
   readonly measuring?: boolean;
   /** The configured motor and its implementation-owned calibration (`motorOf`). */
   readonly motor: MotorMaker;

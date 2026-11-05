@@ -1,29 +1,9 @@
-import measured from "../../assets/skills/locomotion/stance/stance-envelope.json" with { type: "json" };
-import walkRunMeasured from "../../assets/skills/locomotion/walk-run/walk-run-envelope.json" with { type: "json" };
-import { heldBy } from "../core/bodies/items/held.ts";
-import type { SourceKey } from "../core/bodies/sources.ts";
-import { bodyKey, type BodySpec } from "../core/bodies/spec/body.ts";
-import { derive, sourced, type Quantity } from "../core/bodies/spec/quantity.ts";
+import { derive, type Quantity } from "../core/bodies/spec/quantity.ts";
 
 /**
- * **What the stance can do with a body**, measured, so that a caller asks for "your fastest walk"
- * and not for a number that held on one engine. The numbers are
- * `assets/skills/locomotion/stance/stance-envelope.json`, which `research/core-stance-envelope.mjs --write` writes from
- * the gait battery (`research/core-stance-trials.mjs`' walk, five ways at each speed) and the turn
- * battery (its turn: half round each way at each rate, walking at each of the gait battery's speeds
- * up to the fastest walk, from the walk's setting off and through its first strides as well as
- * under way; and a quarter round onto a way to the side asked from the turn's start, as a fight
- * walks to a place beside where the body faces), and which names the harness and rate it was measured on. It is a parent-axis Rapier reference at that harness and rate; it does not validate another gameplay engine or a reduced balance allowance.
- *
- * A turn is read at each speed because it depends on it: a body may turn several times faster a
- * little below its fastest walk than at it, so one turn for all speeds would make a run crawl round
- * a bend.
- *
- * Measured on the body as a fight plays it, at the rate the asset names: in the guard, under its
- * character's balance, with each thing a fight puts in its right hand. A body holding one of them
- * reads that loadout's own envelope where the asset measured it, and the least of them where not.
- * Another rate, or another thing held, is a body the table did not see. A walk may apply a lower
- * turn ceiling (`turnLimit`), never a higher one.
+ * Measured walking and turning limits supplied by a locomotion's calibration provider.
+ * Control asks for a pace or heading within these limits; the provider owns the body,
+ * loadout, assistance and harness conditions under which the measurements apply.
  */
 export interface StanceEnvelope {
   /**
@@ -50,66 +30,6 @@ export interface StanceEnvelope {
     readonly trials: Quantity<number>;
     readonly held: { readonly forward: readonly Quantity<number>[]; readonly right: readonly Quantity<number>[]; readonly back: readonly Quantity<number>[]; readonly left: readonly Quantity<number>[] };
   } | null;
-}
-
-/**
- * **How a walk must go to have held**, shares of the pace asked: its pace along the way asked at
- * least `along`, and across that way at most `across`. A walk that stands, or goes another way, has
- * not walked at the pace asked however long it stays up. At these shares the stance's walk holds
- * the speeds it held by its falls alone.
- */
-export const WENT = Object.freeze({ along: 0.7, across: 0.35 });
-
-/** Whether a walk asked `asked` m/s that made `along` m/s along the way asked and `across` across it went as asked (`WENT`). */
-export function wentAsAsked(along: number, across: number, asked: number): boolean {
-  return along >= WENT.along * asked && Math.abs(across) <= WENT.across * asked;
-}
-
-/**
- * **How a turn must go to have held**: the body's facing no further than `TURNED` rad behind the
- * heading asked as the turn asked ends. A turn the legs take slower than asked has not turned at
- * the rate asked however long the body stays up: a half turn at a rate the legs take at 0.85 of it
- * lags half a radian.
- */
-export const TURNED = 0.5;
-
-/** Whether a turn whose facing lagged the heading asked by `lag` rad as it ended turned as asked (`TURNED`). */
-export function turnedAsAsked(lag: number): boolean {
-  return lag <= TURNED;
-}
-
-/**
- * A battery's trials at each speed (a walk's, or a turn's rate): how many ways of `ways` held (did
- * not fall, a walk went as asked, `wentAsAsked`, and a turn turned as asked, `turnedAsAsked`).
- */
-interface GaitTable {
-  readonly speeds: readonly number[];
-  readonly ways: number;
-  readonly held: readonly number[];
-}
-
-/**
- * **The rule**: the fastest speed of a battery at which every one of its `trials` held, whatever a
- * slower speed did; 0 if none. `held` is how many held at each speed, null where the battery did
- * not play them all (it gave up on the speed at a trial that did not hold).
- */
-function fastestEvery(speeds: readonly number[], trials: number, held: readonly (number | null)[]): number {
-  let fastest = 0;
-  for (let i = 0; i < speeds.length; i++) if (held[i] === trials) fastest = speeds[i]!;
-  return fastest;
-}
-
-/**
- * The fastest speed of a battery at which every way held, as it did at every slower one; 0 if
- * none: a speed that held after a slower one fell does not count. An envelope's turns are read so.
- */
-export function fastestHeld({ speeds, ways, held }: GaitTable): number {
-  let fastest = 0;
-  for (let i = 0; i < speeds.length; i++) {
-    if (held[i]! < ways) break;
-    fastest = speeds[i]!;
-  }
-  return fastest;
 }
 
 /**
@@ -171,70 +91,6 @@ export function carried(turn: number, radius: number): number {
   return radius === Infinity ? Infinity : turn * radius;
 }
 
-/** A body's readings in an envelope's asset: its one fastest walk where it measured no way by itself, or each way's trials (`wayHeld`, in the order of `ways`), and its turns. */
-interface EnvelopeEntry {
-  readonly walk?: number;
-  /** How many walks each way walked at each speed, and how many of them held at each, null where not all were played. */
-  readonly wayTrials?: number;
-  readonly wayHeld?: readonly (readonly (number | null)[])[];
-  readonly turns: readonly number[];
-}
-
-/**
- * An envelope's asset, as `research/core-stance-envelope.mjs` writes it: its speeds and ways (degrees
- * to the right of forward), and each model's readings over every thing its right hand held, the
- * least of them, with each one's own where it measured them (`holds`).
- */
-interface EnvelopeTable {
-  readonly speeds: readonly number[];
-  readonly ways: readonly number[];
-  readonly models: Readonly<Record<string, EnvelopeEntry & { readonly holds?: Readonly<Record<string, EnvelopeEntry>> }>>;
-}
-
-/** The ways `StanceEnvelope.ways` names, by their degrees to the right of forward. */
-const CARDINAL = { forward: 0, right: 90, back: 180, left: 270 } as const;
-
-/**
- * The envelope of `spec`'s body (`bodyKey`) in `table`, the asset `source` names, with what its right
- * hand holds (`heldBy`) where the asset measured that apart, and over everything it measured held
- * where not: `what` walks, for an error.
- */
-function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, what: string): StanceEnvelope {
-  const key = bodyKey(spec), model = table.models[key];
-  if (!model) throw new Error(`${what}'s envelope was not measured on ${key}`);
-  const held = heldBy(spec, "right"), own = held === null ? undefined : model.holds?.[held];
-  const entry = own ?? model, at = own ? `/models/${key}/holds/${held}` : `/models/${key}`;
-  const { wayTrials, wayHeld } = entry, turnsRead = entry.turns.map((turn, i) => sourced(turn, "rad/s", source, `${at}/turns/${i}`));
-  const speeds = table.speeds.map((speed, i) => sourced(speed, "m/s", source, `/speeds/${i}`));
-  const trials = wayTrials === undefined ? null : sourced(wayTrials, "1", source, `${at}/wayTrials`);
-  const heldWay = (degrees: number): readonly Quantity<number>[] => {
-    const i = table.ways.indexOf(degrees);
-    if (i < 0 || !wayHeld) throw new Error(`${what}'s envelope kept no walks ${degrees} degrees round`);
-    return wayHeld[i]!.map((held, j) => held === null ? derive("1", "a speed the battery did not play through held none", [], () => 0)
-      : sourced(held, "1", source, `${at}/wayHeld/${i}/${j}`));
-  };
-  const way = (degrees: number): Quantity<number> => {
-    if (trials === null || !wayHeld) {
-      if (entry.walk === undefined) throw new Error(`${what}'s envelope has neither each way's walks nor one fastest walk`);
-      return sourced(entry.walk, "m/s", source, `${at}/walk`);
-    }
-    const held = heldWay(degrees);
-    return derive("m/s", "the fastest speed at which every walk that way held (fastestEvery)", [trials, ...speeds, ...held],
-      (n, ...values) => fastestEvery(values.slice(0, speeds.length), n, values.slice(speeds.length)));
-  };
-  return {
-    ways: { forward: way(CARDINAL.forward), right: way(CARDINAL.right), back: way(CARDINAL.back), left: way(CARDINAL.left) },
-    tried: trials === null || !wayHeld ? null : {
-      speeds, trials,
-      held: { forward: heldWay(CARDINAL.forward), right: heldWay(CARDINAL.right), back: heldWay(CARDINAL.back), left: heldWay(CARDINAL.left) },
-    },
-    turns: turnsRead.map((_, i) => ({
-      speed: sourced(table.speeds[i]!, "m/s", source, `/speeds/${i}`),
-      turn: derive("rad/s", "the least turn held at this speed or any slower one (fastestHeld)", turnsRead.slice(0, i + 1), (...held) => Math.min(...held)),
-    })),
-  };
-}
-
 /**
  * `envelope` for a gait `quick` times as quick as the one it was measured on (a hasted body's,
  * `quickness`, `src/skills/locomotion/gait-scale.ts`): every speed and turn it holds, and every pace it
@@ -249,21 +105,4 @@ export function quickened(envelope: StanceEnvelope, quick: number): StanceEnvelo
     tried: tried && { ...tried, speeds: tried.speeds.map(faster) },
     turns: turns.map(({ speed, turn }) => ({ speed: faster(speed), turn: faster(turn) })),
   };
-}
-
-/** The measured envelope of `spec`'s body (`bodyKey`), walking by the stance's own walk (`stance-walk`). */
-export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
-  return envelopeIn(measured, "core-stance-envelope", spec, "the stance");
-}
-
-/** The measured envelope of `spec`'s body (`stanceEnvelope`), or null where the stance's envelope was not measured on it. */
-export const stanceEnvelopeOf = (spec: BodySpec): StanceEnvelope | null => Object.hasOwn(measured.models, bodyKey(spec)) ? stanceEnvelope(spec) : null;
-
-/**
- * The measured envelope of `spec`'s body (`bodyKey`) walking by the walk and run (`src/skills/locomotion/walk-run.ts`)
- * free to run: `assets/skills/locomotion/walk-run/walk-run-envelope.json`, each way's walks by the rule
- * (`research/core-stance-envelope.mjs --legs walk-run`), and its turns.
- */
-export function walkRunEnvelope(spec: BodySpec): StanceEnvelope {
-  return envelopeIn(walkRunMeasured, "walk-run-envelope", spec, "the walk and run");
 }

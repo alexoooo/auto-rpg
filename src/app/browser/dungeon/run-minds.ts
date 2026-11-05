@@ -1,6 +1,7 @@
 import type { MindConfig } from "../../../minds/config.ts";
 import { offered } from "../../../minds/controller.ts";
-import { modelInfo, modelHolding, type BodyModel } from "../../../core/bodies/models.ts";
+import { modelHolding, type BodyModel } from "../../../core/bodies/models.ts";
+import { modelInfo } from "../../../game/model-loadouts.ts";
 import { FIGHT_ENTRY, MINDS, modelRefusal, defaultMind } from "../../catalog.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";

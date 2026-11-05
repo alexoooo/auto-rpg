@@ -4,7 +4,8 @@ import { atan2, cos, sin } from "../../core/math/real.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "../../skills/intent/movement.ts";
 import { STAND_ORDERS, type Orders } from "../../skills/intent/orders.ts";
 import { ARRIVAL, approach, direction, distance, lyingSince, onBearing, throughDoors, worthFighting, type Opening } from "./goals.ts";
-import { ALERT_SECONDS, SIGHT_METRES } from "./independent.ts";
+/** The mob sees foes within14m and remembers a lost foe for7s. */
+const SIGHT_METRES = 14, ALERT_SECONDS = 7;
 import { bearingOf, bearings, spread } from "./spread.ts";
 import type { Commander, MemberReport, MemberView, TeamDecision, TeamHost, TeamView } from "./team.ts";
 

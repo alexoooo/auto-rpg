@@ -6,7 +6,7 @@ import type { WorkshopModel } from "./rig.ts";
 import type { Side } from "../bilateral.ts";
 
 /**
- * **The workshop models' clothed envelope**, as `scripts/core/workshop-envelope.mjs` measures it
+ * **The workshop models' clothed envelope**, as `scripts/humanoid/workshop-envelope.mjs` measures it
  * from the GLBs: metres at the authored size, rounded to 0.1 mm, body frame.
  *
  * - A trunk segment's surface is the corners of a convex hull, read from

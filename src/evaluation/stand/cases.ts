@@ -12,7 +12,7 @@
  * toward its left. A trial is a bout world, so the Arena plays it as it was scored.
  *
  * Rung 0 holds the shoves the stance's capabilities read (`shove`,
- * `research/core-stance-trials.mjs`): the Warrior 8 N s each way, 55 forward, forward right and
+ * `research/skills/locomotion/stance/core-stance-trials.mjs`): the Warrior 8 N s each way, 55 forward, forward right and
  * back, and 60 to each side, at the middle trunk.
  */
 import type { BodyModel } from "../../core/bodies/models.ts";

@@ -5,7 +5,7 @@ import type { StanceEnvelope } from "../../control/stance-envelope.ts";
 import type { GaitName } from "../locomotion/gaits.ts";
 import type { Intent } from "../intent/intent.ts";
 import { type ActionAround, type ActionStatus, type Ended, type Readiness, type Resource, type TargetRef } from "./action.ts";
-import type { Holders } from "./arbiter.ts";
+import type { Holders, DefaultOwners } from "./arbiter.ts";
 import type { LegsUnmet, Skill } from "./skill.ts";
 import type { SupportReport } from "./support.ts";
 import type { NavigationReport } from "../locomotion/navigation/navigator.ts";
@@ -15,6 +15,8 @@ import type { GaitLimits } from "../intent/travel.ts";
 export interface Skills extends Skill {
   command(view: BodyView, intent: Intent, dt: number): BodyCommand;
   readonly report: SkillReport;
+  /** Continuous execution facts supplied by the selected services. */
+  readonly context: ActionAround;
   readonly envelope: StanceEnvelope | null;
   /** What its legs hold going by `gait` (`Locomotion.envelopeOf`); null where they have no such gait or state none. */
   envelopeOf(gait: GaitName): StanceEnvelope | null;
@@ -49,6 +51,8 @@ export interface SkillReport {
   readonly covering: readonly string[];
   readonly support?: SupportReport;
   readonly holders: Holders;
+  /** The service writing a default-owned concrete control, attributed while commands are composed. */
+  readonly defaultOwners: Readonly<DefaultOwners>;
   readonly reservations: Readonly<Record<string, number>>;
   readonly navigation?: NavigationReport;
 }

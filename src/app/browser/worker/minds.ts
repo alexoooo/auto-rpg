@@ -22,20 +22,30 @@ export interface MindWorkerStart { readonly kind: "start"; readonly control: Int
  */
 export function browserMindWorkers(threads: number): MindPlace {
   if (!(Number.isInteger(threads) && threads >= 1)) throw new Error(`minds run on a whole number of threads, one or more, not ${threads}`);
+  const workers: Worker[] = [];
+  let complete = false;
+  try {
   const links = Array.from({ length: threads }, (): ThreadLink => {
     const worker = new Worker(new URL("./mind.worker.ts", import.meta.url), { type: "module" });
+    workers.push(worker);
     const control = new Int32Array(new SharedArrayBuffer(4 * COUNTERS)), box = replyBox(BOX_BYTES), arena = new SharedArrayBuffer(ARENA_BYTES);
     worker.postMessage({ kind: "start", control, box: box.buffer, arena } satisfies MindWorkerStart);
     const unshelve = ({ offset, length }: { readonly offset: number; readonly length: number }) => new Float64Array(arena, 8 * offset, length);
+    const received: Reply[] = [];
+    const drain = () => { for (let text = box.take(); text !== null; text = box.take()) received.push(decodeExact(text, unshelve) as Reply); };
+    const waiting = { ...WAITING, drain };
     return {
       post: (batch) => worker.postMessage(batch),
-      wait: (seq) => waitPast(control, DONE, seq - 1, WAITING),
-      answered: (steps) => waitPast(control, ANSWERED, steps - 1, WAITING),
-      *replies() { for (let text = box.take(); text !== null; text = box.take()) yield decodeExact(text, unshelve) as Reply; },
+      wait: (seq) => waitPast(control, DONE, seq - 1, waiting),
+      answered: (steps) => waitPast(control, ANSWERED, steps - 1, waiting),
+      *replies() { drain(); yield* received.splice(0); },
       stop: () => worker.terminate(),
     };
   });
-  return mindThreads(links);
+  const place = mindThreads(links);
+  complete = true;
+  return place;
+  } finally { if (!complete) for (const worker of workers) worker.terminate(); }
 }
 
 /** How many minds' threads a page's world runs: its machine's processors less the page's and the world's, at most 4, at least 1. */

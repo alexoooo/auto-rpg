@@ -3,7 +3,8 @@ import { deepFreeze } from "../../../../core/world/state.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
 import { armClearance } from "./clearance.ts";
-import { phaseClock, poseDrive, REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueRun } from "../../technique.ts";
+import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../technique.ts";
+import { technique } from "../../bilateral.ts";
 import { SIDES } from "../../../../core/bodies/bilateral.ts";
 
 declare module "../../technique.ts" {

@@ -1,3 +1,4 @@
+import { isRefused } from "../src/core/refusal.ts";
 /**
  * **Evaluate**: an evaluation's cases for its subjects, each played only where no row has its key,
  * on worker threads; then what the complete rows give each subject, and the evaluation's summary.
@@ -264,9 +265,13 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   const code = (world) => coder.code(caseNames(world)).digest, ownCode = (parts) => coder.code(partNames(parts)).own;
   const rule = evaluation.analysis.settle;
   if (counterpart.size > 0 && !rule) throw new Error(`${id} has no rule to settle a comparison on`);
-  const { units, dropped } = casesOf(evaluation, protocol, subjects, { engine, code, schedule });
+  const selected = casesOf(evaluation, protocol, subjects, { engine, code, schedule });
+  if (isRefused(selected)) throw new Error(selected.refused);
+  const { units, dropped } = selected;
   const pairs = [...counterpart].filter(([subject, other]) => !panelIds.has(subject) && !panelIds.has(other));
-  const headToHead = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, code, schedule: { kind: "pairs", pairs } }).units : [];
+  const paired = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, code, schedule: { kind: "pairs", pairs } }) : { units: [] };
+  if (isRefused(paired)) throw new Error(paired.refused);
+  const headToHead = paired.units;
   const slots = slotsOf(units, counterpart, schedule.panel ?? []), order = playOrder(slots, headToHead, [...units, ...headToHead]);
   const defined = new Map([...units, ...headToHead].map((unit, k) => [unit[0].key, k]));
   const working = join(ROOT, "research/runs/evaluations", id);

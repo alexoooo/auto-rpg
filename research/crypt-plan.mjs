@@ -1,3 +1,4 @@
+import { isRefused } from "../src/core/refusal.ts";
 /**
  * What a crypt run's own planning takes of its steps: the hero explores a generated level
  * (`DungeonRun`, no visuals), `--companions` Warriors following it, until the run ends or
@@ -17,14 +18,14 @@
  */
 import { Session } from "node:inspector/promises";
 import { parseArgs } from "node:util";
-import { DungeonRun } from "../src/app/node/game.ts";
+import { createDungeonRun } from "../src/app/node/game.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 
 const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2,3" }, seconds: { type: "string", default: "90" }, companions: { type: "string", default: "3" }, profile: { type: "boolean", default: false } } });
 const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "workshop-fighter");
 
 async function played(seed) {
-  const run = new DungeonRun({ seed, engine: await freshEngine(), companions });
+  const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), companions }));
   // The hero explores by itself in this mode, and fights what it meets.
   run.commands.setMode({ keyboard: false, facing: true });
   const plan = run.plan.bind(run);
@@ -48,7 +49,7 @@ const READ = ["plan src/game/dungeon/run.ts", "reveal src/game/dungeon/map.ts", 
 
 /** One run under the CPU profiler: its steps, and microseconds a step in all of it and in each of `READ`, with everything each calls. */
 async function profiled(seed) {
-  const run = new DungeonRun({ seed, engine: await freshEngine(), companions });
+  const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), companions }));
   run.commands.setMode({ keyboard: false, facing: true });
   const session = new Session();
   session.connect();
@@ -101,3 +102,6 @@ for (const seed of values.seeds.split(",").map(Number)) {
   const slowest = r.steps.map((v, i) => [v, r.plans[i]]).sort((a, b) => b[0] - a[0]).slice(0, 10);
   console.log(`| ${r.seed} | ${r.status} | ${r.seconds.toFixed(0)} | ${r.built} | ${stats(r.steps)} | ${stats(r.plans)} | ${r.steps.filter((v) => v > 8.33).length} of ${r.steps.length} | ${r.plans.filter((v) => v > 1).length} | ${r.plans.filter((v) => v > 4).length} | ${slowest.map(([v, p]) => `${v.toFixed(1)} (${p.toFixed(1)})`).join(", ")} |`);
 }
+
+/** A returned admission failure reaches this diagnostic with its original message. */
+function admitted(value) { if (isRefused(value)) throw new Error(value.refused); return value; }

@@ -1,7 +1,7 @@
 /** Named calibrations narrower than their configurations' physical fit. */
 import { optionMind } from "../../../../src/minds/option/mind.ts";
 import { OPTION } from "../../../../src/entrants/option/index.ts";
-const OPTION_MIND = optionMind(OPTION.presets.option.config.options);
+const OPTION_MIND = optionMind({ options: OPTION.presets.option.config.options, chooser: { kind: "tree" }, predictions: { kind: "measured" }, navigation: { kind: "visibility-navigation" } });
 
 const defaults = Object.freeze({ ...OPTION.presets.option.config, kind: "swap:option" });
 const unarmed = Object.freeze({ ...defaults,

@@ -1,3 +1,4 @@
+import { supportHeight } from "../../control/support-reference.ts";
 import { Vector3 } from "../../core/math/vector.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import { uprightness } from "../../control/ground.ts";
@@ -51,7 +52,7 @@ export function supportFold(body: Body): SupportSkill {
     state.depth = 0; state.from = 0; state.to = 0; state.time = 0; state.quiet = 0; state.posture = {};
   }, tick(view, height, moving, dt) {
     if (height !== undefined && !Number.isFinite(height)) throw new Error("supported height must be finite");
-    const desired = height === undefined ? 0 : Math.max(0, Math.min(1, (view.standing - STANCE_LOWER - height) / (COMBAT_FOLD.lower - STANCE_LOWER)));
+    const desired = height === undefined ? 0 : Math.max(0, Math.min(1, (supportHeight(view) - STANCE_LOWER - height) / (COMBAT_FOLD.lower - STANCE_LOWER)));
     if (!state.active) {
       state.ready = false;
       if (!desired) { state.stage = "stand"; return; }
@@ -71,7 +72,7 @@ export function supportFold(body: Body): SupportSkill {
   }, lay(view, goal) {
     if (!state.active) return { ...goal, height: undefined };
     return { ...goal, feet: names, centre: null, heading: state.heading, halt: false,
-      height: view.standing - STANCE_LOWER - (COMBAT_FOLD.lower - STANCE_LOWER) * state.depth,
+      height: supportHeight(view) - STANCE_LOWER - (COMBAT_FOLD.lower - STANCE_LOWER) * state.depth,
       pose: { pitch: COMBAT_FOLD.pitch * state.depth, seconds: COMBAT_FOLD.response } };
   } };
 }

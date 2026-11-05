@@ -73,13 +73,9 @@ export interface NavigatorPart<C extends PartConfig = PartConfig> extends Part<C
   make(spec: BodySpec, config: C): Navigator;
 }
 
-/** The navigation a slot that holds none runs: Visibility routes. */
-export const GAME_NAVIGATION: PartConfig = Object.freeze({ kind: "visibility-navigation" });
-
-/** **The navigator** `config` names for a body of `spec`, the game's where it names none, made by its part (`NavigatorPart.make`) as `parts` finds it. */
-export function navigatorOf(parts: PartLookup, spec: BodySpec, config: PartConfig | null | undefined): Navigator {
-  const chosen = config ?? GAME_NAVIGATION;
-  return parts.of("navigation", chosen).make(spec, chosen);
+/** The navigator explicitly selected by the calling composition. */
+export function navigatorOf(parts: PartLookup, spec: BodySpec, config: PartConfig): Navigator {
+  return parts.of("navigation", config).make(spec, config);
 }
 
 declare module "../../../parts/lookup.ts" {

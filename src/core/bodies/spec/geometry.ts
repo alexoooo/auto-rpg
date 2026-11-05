@@ -12,17 +12,24 @@ import type { Vec3 } from "./quantity.ts";
  * to the last bit. A capsule that cannot hold the volume within that length is refused.
  */
 export function capsuleRadius(volume: number, length: number): number {
+  const invalid = capsuleError(volume, length);
+  if (invalid) throw new Error(invalid);
   const held = (r: number) => Math.PI * r * r * length - (2 / 3) * Math.PI * r * r * r;
   let low = 0, high = length / 2;
-  if (!(volume > 0 && length > 0) || held(high) < volume) {
-    throw new Error(`no capsule ${length} m long holds ${volume} m3`);
-  }
   while (high - low > Number.EPSILON * high) {
     const mid = (low + high) / 2;
     if (mid === low || mid === high) break;
     if (held(mid) < volume) low = mid; else high = mid;
   }
   return (low + high) / 2;
+}
+
+/** Why a capsule cannot hold `volume` within its overall `length`; null for supported geometry. */
+export function capsuleError(volume: number, length: number): string | null {
+  const radius = length / 2;
+  const held = Math.PI * radius * radius * length - (2 / 3) * Math.PI * radius * radius * radius;
+  return !(Number.isFinite(volume) && Number.isFinite(length) && volume > 0 && length > 0) || held < volume
+    ? `no capsule ${length} m long holds ${volume} m3` : null;
 }
 
 /** The radius of a ball that holds `volume`, m: the cube root of 3 volume / (4 pi). */

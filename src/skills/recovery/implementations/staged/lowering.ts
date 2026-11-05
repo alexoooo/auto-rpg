@@ -1,9 +1,9 @@
+import { supportHeight } from "../../../../control/support-reference.ts";
 import type { Body, BodyView } from "../../../../control/body.ts";
-import type { MusclePush } from "../../../../control/motor.ts";
 import { cos, sin } from "../../../../core/math/real.ts";
 import type { LegsDrive, Locomotion, LocomotionContext } from "../../../locomotion/locomotion.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, type LegsAsked, type LegsUnmet } from "../../../framework/skill.ts";
-import { heldBody, heldCommand } from "../../held-body.ts";
+import { heldBody, heldCommand, heldPushes } from "../../held-body.ts";
 import { stagedRise } from "./staged.ts";
 import { LOWERINGS, stageFaults, type Lowering } from "./stages.ts";
 import type { LegAdapterPart } from "../../../framework/leg-adapter.ts";
@@ -34,6 +34,7 @@ const sameEnds = (asked: readonly string[], ends: readonly string[]): boolean =>
  * under way and its command, beside `legs`' own (`legs`).
  */
 export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lowering[] = LOWERINGS): Locomotion {
+  if (body.view.standing === null) return legs;
   const n = body.muscles.channels.length, spec = body.built.spec;
   const command = heldCommand(n);
   const held = heldBody(body, command), { own, control } = held;
@@ -54,11 +55,7 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
     state.lowering = -1;
     legs.resume(view);
   };
-  const pushes = (): MusclePush[] => {
-    const out: MusclePush[] = [];
-    for (let i = 0; i < n; i++) out.push({ channel: body.muscles.channels[i]!.name, sense: command.velocity[i]! < 0 ? -1 : 1, level: command.activation[i]!, speed: command.velocity[i]! });
-    return out;
-  };
+  const pushes = heldPushes(body.muscles, control.muscles);
   return {
     state,
     supports: legs.supports,
@@ -122,7 +119,7 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
         legs.resume(view);
         return legs.goal(view, { ...goal, feet: undefined }, dt, context);
       }
-      return { kind: "drive", posture: {}, pushes: pushes(), held: chosen.rests * view.standing,
+      return { kind: "drive", posture: {}, pushes: pushes(), configurations: command.configurations, held: chosen.rests * supportHeight(view),
         ...(command.assistAsked ? { assist: command.assist } : {}) };
     },
   };

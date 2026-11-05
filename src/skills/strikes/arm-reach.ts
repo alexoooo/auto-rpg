@@ -1,3 +1,4 @@
+import { SIDES } from "../../core/bodies/bilateral.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
@@ -76,4 +77,16 @@ export function placedReach(spec: BodySpec, hand: Side, up: number, aim?: string
 export function placedHeightFits(spec: BodySpec, hand: Side, up: number, aim?: string): boolean {
   const arm = aimedArm(spec, hand, aim);
   return Math.abs(up - arm.shoulder[1]) <= arm.length;
+}
+
+/** The bilateral arm and observation geometry consumed by surface opening selection. */
+export function surfaceAimRefusal(spec: BodySpec): string | null {
+  if (!["head", "foot.left", "foot.right"].every(name => segmentOf(spec, name))) return "surface openings need a head and bilateral feet";
+  for (const side of SIDES) {
+    const hand = segmentOf(spec, "hand." + side);
+    if (!hand?.points?.knuckles || !spec.effectors?.some(effector => effector.segment === hand.name)
+      || !["shoulder", "elbow", "wrist"].every(name => spec.joints.some(joint => joint.name === name + "." + side)))
+      return "surface openings need bilateral observed knuckles, shoulders, elbows and wrists";
+  }
+  return null;
 }

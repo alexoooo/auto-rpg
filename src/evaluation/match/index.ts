@@ -11,7 +11,7 @@ import { CONTEST_FIGURES, type BoutReading } from "../contest.ts";
 
 import { createMatchCases, type MatchCondition } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
-import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
+import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 const digest = (value: Json | string): string => sha256Text(typeof value === "string" ? value : recordingKey(value)).slice(0, 16);
 

@@ -1,3 +1,4 @@
+import type { Refused } from "../../refusal.ts";
 import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, dot, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extent, Extents, TrunkSegment } from "./envelope.ts";
@@ -50,7 +51,7 @@ function factor(physique: Physique, attribute: keyof Physique): Quantity<number>
  * density already (`segments.ts`). A capped upper arm keeps the clearance beside the broadened
  * trunk (`HumanFigure.widest`), and refuses a breadth that leaves no room for the arm.
  */
-export function physiqueFigure(figure: HumanFigure, physique?: Physique): HumanFigure {
+export function physiqueFigure(figure: HumanFigure, physique?: Physique): HumanFigure | Refused {
   if (!physique) return figure;
   const size = factor(physique, "size"), weight = factor(physique, "weight");
   const strength = factor(physique, "strength"), speed = factor(physique, "speed");
@@ -66,12 +67,14 @@ export function physiqueFigure(figure: HumanFigure, physique?: Physique): HumanF
   const hulls = breadth ? { upper: trunkHull("upper"), middle: trunkHull("middle"), lower: trunkHull("lower") } : figure.hulls;
   const extent = (points: readonly Quantity<Vec3>[]) => derive("m", "the trunk's widest distance from its midline", points,
     (...p: Vec3[]) => Math.max(...p.map(v => Math.abs(v[0]))));
+  let invalid: string | null = null;
   const widest = figure.widest && Object.fromEntries(Object.entries(figure.widest).map(([row, original]) => {
     const room = breadth && row === "upperArm" ? derive("m", "the arm's room less the trunk's added breadth",
       [original!, extent([...figure.hulls.middle, ...figure.hulls.lower]), extent([...hulls.middle, ...hulls.lower])], (r, before, after) => r + before - after) : original!;
-    if (!(room.value > 0)) throw new Error(`${figure.model}: Weight leaves no clearance beside the trunk for ${row}`);
+    if (!(room.value > 0)) invalid ??= `${figure.model}: Weight leaves no clearance beside the trunk for ${row}`;
     return [row, size ? derive("m", "the widest room times the size", [room, size], (r, s) => r * s) : room];
   }));
+  if (invalid) return { refused: invalid };
   return {
     ...figure,
     ...(size && { scale: figure.scale ? derive("1", "the fit scale times the size", [figure.scale, size], (f, s) => f * s) : size,

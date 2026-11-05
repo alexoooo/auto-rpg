@@ -1,3 +1,4 @@
+import { isRefused } from "../../core/refusal.ts";
 /**
  * **The stand-up target's falls**: every body in every rated loadout (`REPRESENTATIVE`), each
  * shoved sixteen ways (`risingJobs`), calm air, Balance 0 and Grit 0, a 30 s cap, the stand
@@ -40,6 +41,7 @@ export function createRisingTargetCases(context: GameContext) {
       },
       world: (values, condition, engine, characters) => {
         const world = inner.world(values, condition, engine, characters), character = characters[0];
+        if (isRefused(world)) return world;
         return world.kind === "fall" && character && Object.keys(character).length > 0 ? { ...world, fall: { ...world.fall, character } } : world;
       } };
   }

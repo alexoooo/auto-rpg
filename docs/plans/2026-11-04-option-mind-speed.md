@@ -178,7 +178,7 @@ match and the stand-up falls.
 Each profile's reading (`ProfileReading.expect`, `rate`, `peak`, `fastest`) is made once, at load,
 on a grid of starts at half the spans its nearest trials are taken over (`NEAREST`: range 0.05 m,
 velocity 0.125 m/s, place 0.05 m), and read at the nearest point or between them; the trials stay
-the source the table is made from (`research/strike-profiles.mjs`, `research/skills/recovery/edge-profiles.mjs`).
+the source the table is made from (`research/skills/strikes/strike-profiles.mjs`, `research/skills/recovery/edge-profiles.mjs`).
 An exact index of the trials (a k-d tree) is the alternative where the table moves the match; at
 most 56 trials a profile, it gains little over the pruned scan. Check: the cost reading; the
 match.

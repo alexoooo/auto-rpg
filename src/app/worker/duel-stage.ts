@@ -4,6 +4,7 @@ import type { Heading } from "../../skills/intent/orders.ts";
 import type { StrikeChoice } from "../../minds/command/commands.ts";
 import type { MenuEntry } from "../../skills/framework/menu.ts";
 import { physicalReading } from "../../control/observation.ts";
+import { constructionScope } from "../../core/construction.ts";
 import { attachment } from "../../core/bodies/read-body.ts";
 
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
@@ -21,7 +22,7 @@ import { choiceWatch } from "../../game/arena/choice-watch.ts";
 import type { Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
 import type { Stage } from "./stage.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
 
 /** A bout played beside the duel, step for step: a recorded trial at another version. */
 interface BesideStart {
@@ -126,8 +127,12 @@ async function played(context: GameContext, start: BesideStart, hooks: Construct
   const { buildBout } = createBout(context);
   await loadData(SIDES.flatMap((side) => treeData(start.recipe.minds?.[side] ?? defaultMind(start.recipe[side]))));
   const built = await buildBout(start.recipe, { ...start.engine === undefined ? {} : { engine: start.engine }, hooks });
+  let complete = false;
+  try {
   const playback = arenaPlayback(built.duel, start.played ?? Infinity);
+  complete = true;
   return { ...built, playback };
+  } finally { if (!complete) built.dispose(); }
 }
 
 /** `duel`'s bodies as a frame packs them. */
@@ -145,25 +150,30 @@ const framed = (duel: Duel): FramedBody[] => SIDES.map((side) => {
  * (`DuelNews`); a new choice for the person's side holds it, where they asked.
  */
 export async function duelStage(context: GameContext, start: DuelStart): Promise<Stage<DuelCard, DuelInput>> {
+  const scope = constructionScope();
+  let complete = false;
+  try {
   const { phaseLabels } = context.catalog;
   const cues: SoundCue[] = [];
-  const main = await played(context, start, { onBlow: (blow) => { cues.push(...debrisCues(blow)); } });
-  const beside = start.beside, other = beside ? await played(context, beside) : null;
+  const main = scope.own(await played(context, start, { onBlow: (blow) => { cues.push(...debrisCues(blow)); } }));
+  scope.own(main.playback);
+  const beside = start.beside, other = beside ? scope.own(await played(context, beside)) : null;
+  scope.own(other?.playback);
   const { world, duel, playback } = main;
   const sides = SIDES.map((side) => ({ id: side, built: duel.duelists[side].built }));
-  const hearing = hearTouches(world, sides, (cue) => { cues.push(cue); });
+  scope.own(hearTouches(world, sides, (cue) => { cues.push(cue); }));
   const airs = SIDES.map((side) => ({ side, air: airOf(duel.duelists[side].built) })), airAt = new Vector3();
-  const trace = start.traced ? trialTrace(duel) : null, besideTrace = start.traced && other ? trialTrace(other.duel) : null;
+  const trace = scope.own(start.traced ? trialTrace(duel) : null), besideTrace = scope.own(start.traced && other ? trialTrace(other.duel) : null);
   duel.play(start.tape);
   if (other && beside) other.duel.play(beside.tape);
-  const led: TeamOfOne | null = start.person ? teamOfOne(duel, start.person, { kind: "party", picks: false }) : null;
+  const led: TeamOfOne | null = scope.own(start.person ? teamOfOne(duel, start.person, { kind: "party", picks: false }, context.commanders) : null);
   const readings = Object.fromEntries(SIDES.map((side) => [side, fighterReading(duel.duelists[side], () => duel.blows, phaseLabels(duel.duelists[side].mind))])) as Record<Side, ReturnType<typeof fighterReading>>;
   const time = () => duel.state.start + (duel.verdict?.time ?? duel.clock);
   let feedStopped = false;
-  const sampling = world.afterStep(() => {
+  scope.own(world.afterStep(() => {
     for (const side of SIDES) readings[side].sample(time(), !feedStopped);
     if (duel.verdict) feedStopped = true;
-  });
+  }));
   for (const side of SIDES) readings[side].sample(time());
 
   const roster = [...SIDES.map((side) => ({ id: side, segments: [...duel.duelists[side].built.segments.keys()], card: { side, beside: false } })),
@@ -197,11 +207,12 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
       assisted: fighter.body.assist.on, hud: readings[side].read(time()),
       ...look.menu ? { menu: report?.menu ?? null } : {},
       ...look.mind ? { inspected: { body: { has: fighter.body.has, level: fighter.body.level },
-        skills: mind.skills ? { report: { holders: mind.skills.report.holders, actions: mind.skills.report.actions } } : null,
+        skills: mind.skills ? { report: { holders: mind.skills.report.holders, defaultOwners: mind.skills.report.defaultOwners, actions: mind.skills.report.actions } } : null,
         report: report ? { engagement: report.engagement, actions: report.actions, ended: report.ended } : null } } : {} };
   };
   const mainDone = () => playback.done, besideDone = () => other?.playback.done ?? true;
 
+  complete = true;
   return {
     hz: world.hz, roster,
     step() {
@@ -245,10 +256,7 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
       }
     },
     tape: () => duel.tape,
-    dispose() {
-      sampling.dispose(); hearing.dispose(); trace?.dispose(); besideTrace?.dispose(); led?.dispose();
-      playback.dispose(); other?.playback.dispose();
-      main.dispose(); other?.dispose();
-    },
+    dispose: scope.dispose,
   };
+  } finally { if (!complete) scope.dispose(); }
 }

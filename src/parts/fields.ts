@@ -30,7 +30,18 @@ interface NumberField<C> extends Field<C> {
  * **A setting a person may change** on a part's config (`Part.fields`): a player's field, never an
  * experiment's `tuning`. The mind editor shows it (`src/app/browser/ui/mind-editor.ts`).
  */
-export type PartField<C> = ChoiceField<C> | NumberField<C> | (Field<C> & { readonly kind: "text" });
+export type PartField<C> = ChoiceField<C> | NumberField<C> | (Field<C> & { readonly kind: "text" })
+  | (Field<C> & { readonly kind: "json"; readonly editor?: string });
+
+/** A structured setting whose implementation validates its meaning; unknown editors use JSON. */
+export function json<C, K extends keyof C & string>(key: K, label: string, editor?: string): PartField<C> {
+  return { kind: "json", key, label, ...(editor ? { editor } : {}), read: config => JSON.stringify(config[key] ?? null),
+    write(config, text) {
+      let value: unknown;
+      try { value = JSON.parse(text); } catch { return null; }
+      return { ...config, [key]: value };
+    } };
+}
 
 /** The string-valued field `key` of a config, from `options`. */
 export function choice<C, K extends keyof C & string>(key: K, label: string, options: readonly Option<C[K] & string>[]): ChoiceField<C> {
@@ -68,18 +79,4 @@ export function number<C, K extends keyof C & string>(key: K, label: string, lea
 export function text<C, K extends keyof C & string>(key: K, label: string): PartField<C> {
   return { kind: "text", key, label, read: config => String(config[key]),
     write: (config, value) => value.trim() ? { ...config, [key]: value.trim() } : null };
-}
-
-/** The numeric field `key` of a config, from `least` to `most`, or absent: written empty, the key is left out. */
-export function optionalNumber<C, K extends keyof C & string>(key: K, label: string, least: number, most: number, step: number, unit: string): NumberField<C> {
-  const field = number<C, K>(key, label, least, most, step, unit);
-  return {
-    ...field,
-    read: (config) => config[key] === undefined ? "" : String(config[key]),
-    write: (config, text) => {
-      if (text.trim() !== "") return field.write(config, text);
-      const { [key]: _, ...rest } = config;
-      return rest as C;
-    },
-  };
 }

@@ -22,12 +22,68 @@ export interface Clearance {
 /** How far a body keeps its centre beyond its sensed clearance (`bodyClearance`), and how far ahead a walk is kept clear, m: the stock navigators'. */
 const KEEP_CLEAR = Object.freeze({ margin: .08, ahead: .5 });
 
+/** Any solid above the supporting floor can obstruct the feet, even when it is below the trunk. */
+function obstructs(solid: SolidSense, height: number, floor: number): boolean {
+  switch (solid.kind) {
+    case "box": return solid.centre[1] + solid.size[1] / 2 > floor + .02 && solid.centre[1] - solid.size[1] / 2 < 2 * height - floor;
+    case "hull": {
+      let low = Infinity, high = -Infinity;
+      for (const point of solid.points) { low = Math.min(low, point[1]); high = Math.max(high, point[1]); }
+      return high > floor + .02 && low < 2 * height - floor;
+    }
+    default: { const never: never = solid; throw new Error(`unknown sensed solid ${never}`); }
+  }
+}
+
+/** A solid's footprint: the solid at `height`, 2 m tall where it is a box. */
+function footprint(solid: SolidSense, height: number): SolidSense {
+  switch (solid.kind) {
+    case "box": return { ...solid, centre: [solid.centre[0], height, solid.centre[2]], size: [solid.size[0], 2, solid.size[2]] };
+    case "hull": return { ...solid, points: solid.points.map(p => [p[0], height, p[2]] as Vec3) };
+    default: { const never: never = solid; throw new Error(`unknown sensed solid ${never}`); }
+  }
+}
+
+export function footprints(solids: readonly SolidSense[], height: number, floor = 0): readonly SolidSense[] {
+  const result: SolidSense[] = [];
+  for (const solid of solids) if (obstructs(solid, height, floor)) result.push(footprint(solid, height));
+  return result;
+}
+
+/** No solid sensed. */
+export const NO_SOLIDS: readonly SolidSense[] = Object.freeze([]);
+
+/**
+ * `footprints` in objects made once for each solid of the array sensed and moved to each call's
+ * height in place: what it gives is read before the next call, and nothing keeps it.
+ */
+export function footprinter() {
+  let source: readonly SolidSense[] | null = null, made: readonly SolidSense[] = [];
+  const result: SolidSense[] = [];
+  return (solids: readonly SolidSense[], height: number, floor = 0): readonly SolidSense[] => {
+    if (solids !== source) { source = solids; made = solids.map(solid => footprint(solid, height)); }
+    result.length = 0;
+    for (let i = 0; i < solids.length; i++) {
+      if (!obstructs(solids[i]!, height, floor)) continue;
+      const print = made[i]!;
+      switch (print.kind) {
+        case "box": (print.centre as [number, number, number])[1] = height; break;
+        case "hull": for (const point of print.points) (point as [number, number, number])[1] = height; break;
+        default: { const never: never = print; throw new Error(`unknown sensed solid ${never}`); }
+      }
+      result.push(print);
+    }
+    return result;
+  };
+}
+
 /** The stock navigators' clearance for a body of `spec` (`Clearance`): its centre `KEEP_CLEAR.margin` m beyond its clearance, over the next `KEEP_CLEAR.ahead` m. */
 export function stockClearance(spec: BodySpec): Clearance {
-  const radius = bodyClearance(spec) + KEEP_CLEAR.margin;
+  const radius = bodyClearance(spec) + KEEP_CLEAR.margin, printsOf = footprinter();
+  const solidsOf = (view: BodyView) => printsOf(view.senses.solids ?? NO_SOLIDS, view.stance.centre.y, view.stance.support.y);
   return {
-    keepClear: (view, heading, move) => clearMove(view.stance.centre, view.senses.solids, heading, move, radius, KEEP_CLEAR.ahead),
-    exit: (view) => { const centre = view.stance.centre; return clearanceExit([centre.x, centre.y, centre.z], radius, view.senses.solids ?? []); },
+    keepClear: (view, heading, move) => clearMove(view.stance.centre, solidsOf(view), heading, move, radius, KEEP_CLEAR.ahead),
+    exit: (view) => { const centre = view.stance.centre; return clearanceExit([centre.x, centre.y, centre.z], radius, solidsOf(view)); },
   };
 }
 

@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
 
 import type { BodyView } from "../../../../control/body.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../../../../control/bearing.ts";
-import { patchCorners } from "../../../../control/contact-wrench.ts";
+import { patchSupport } from "./patch-support.ts";
 import { uprightness } from "../../../../control/ground.ts";
 import { lieOf, type Lie } from "../../../../control/ground-reading.ts";
 import { servoAsk, servoSolve } from "../../../../control/servo.ts";
@@ -225,7 +225,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
      * at a torque, and what of the ground's wrench the patches could not give.
      */
     bear: {
-      tasks: made.tasks,
+      tasks: made.tasks, limbs: made.state,
       aim: { spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) },
       helped: { force: new Vector3(), moment: new Vector3() },
       held: { channels: [] as number[], z0: [] as number[], Z: [] as number[][] },
@@ -233,6 +233,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     },
   };
   const solve = makeBearing(own.assist, made.limbs, { root: state.bear.aim.root, helped: state.bear.helped, held: state.bear.held, shortfall: state.bear.shortfall }, { effort: true });
+  const patches = made.limbs.map(() => patchSupport()), supports: { readonly corners: readonly Vector3[] }[] = [];
   /** What a bearing step works in: each written by the step before it reads it. */
   const work = {
     place: new Vector3(), target: new Vector3(), across: new Vector3(), spin: new Vector3(), rootSpin: new Vector3(),
@@ -396,7 +397,11 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // Those it leaves bear where they are, while they are down, until the centre of mass is over
     // the others (within the outline of where they bear, drawn in as a stance's is); the rest
     // are the servo's.
-    const supports = made.limbs.filter((limb, l) => on[l] && limb.task.bearing).map((limb) => ({ corners: patchCorners(limb.work.patch!) }));
+    let supporting = 0;
+    for (let l = 0; l < made.limbs.length; l++) if (on[l] && made.limbs[l]!.task.bearing) {
+      const patch = patches[l]!; patch.read(made.limbs[l]!.work.patch!); supports[supporting++] = patch;
+    }
+    supports.length = supporting;
     if (!state.lifted && down && borne > 0) {
       const [x, z] = withinSupport(supports, c.x, c.z);
       state.lifted = x === c.x && z === c.z;

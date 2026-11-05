@@ -11,7 +11,8 @@ export async function isolatePage(): Promise<void> {
   let tried = false;
   try { tried = sessionStorage.getItem("coi-reloaded") === "1"; sessionStorage.setItem("coi-reloaded", "1"); } catch { /* storage refused: try once a load */ }
   if (tried) return;
-  await navigator.serviceWorker.register(new URL("coi-sw.js", document.baseURI), { scope: new URL("../..", document.baseURI).pathname });
+  const script = new URL("coi-sw.js", document.baseURI);
+  await navigator.serviceWorker.register(script, { scope: new URL(".", script).pathname });
   await navigator.serviceWorker.ready;
   location.reload();
 }

@@ -1,9 +1,11 @@
+import { constructionScope } from "../../core/construction.ts";
+import { isRefused } from "../../core/refusal.ts";
 import type { BuiltBody, BuiltSegment } from "../../core/bodies/build/build-body.ts";
 import { commandsBody } from "../../control/body.ts";
 import { type HostedBody } from "../../minds/hosted-body.ts";
 import type { World } from "../../core/world/world.ts";
 import type { Vector3 } from "../../core/math/vector.ts";
-import { recoveryMeasurement } from "../../control/recovery-measurement.ts";
+import { recoveryMeasurement } from "./recovery-measurement.ts";
 import { observeBody } from "../../control/observation.ts";
 import { clockSenses, createSenses } from "../../core/world/senses.ts";
 import { standIntent } from "../../skills/intent/intent.ts";
@@ -92,15 +94,14 @@ export function standCheck(checked: Checked, cap: number) {
   const { body, world } = checked, built = body.built;
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const fresh = () => ({ takeover: null as number | null, verifiedAt: null as number | null, verified: null as number | null, quiet: 0,
-    walkFrom: null as readonly number[] | null, walked: null as number | null, stage: "standing" as CheckStage });
+    walkFrom: null as readonly number[] | null, walked: null as number | null, stage: "standing" as CheckStage, orders: STAND_ORDERS as Orders });
   const state = fresh();
-  let orders: Orders = STAND_ORDERS;
   const done = () => state.stage === "stood" || state.stage === "fell after verification" || state.stage === "failed" || state.stage === "cap";
   return {
     state, done,
-    orders: () => orders,
+    orders: () => state.orders,
     /** Starts afresh, for the next fall. */
-    reset() { Object.assign(state, fresh()); orders = STAND_ORDERS; },
+    reset() { Object.assign(state, fresh()); },
     sample() {
       if (done()) return;
       if (state.takeover === null && checked.takenOver()) { state.takeover = world.time; state.stage = "rising"; }
@@ -109,15 +110,15 @@ export function standCheck(checked: Checked, cap: number) {
         state.quiet = reading.ready ? state.quiet + world.dt : 0;
         if (state.quiet + 1e-9 >= STAND_CHECK.quiet) { state.verifiedAt = world.time; state.verified = world.time - state.takeover; state.stage = "holding"; }
       } else if (state.verifiedAt !== null) {
-        if (reading.observation.down) { state.stage = "fell after verification"; orders = STAND_ORDERS; return; }
+        if (reading.observation.down) { state.stage = "fell after verification"; state.orders = STAND_ORDERS; return; }
         if (world.time - state.verifiedAt + 1e-9 >= STAND_CHECK.standing) {
           state.walkFrom ??= [...reading.observation.centre];
-          orders = { ...STAND_ORDERS, move: { kind: "direct", direction: { x: 0, z: 1 } }, pace: STAND_CHECK.pace }; state.stage = "walking";
+          state.orders = { ...STAND_ORDERS, move: { kind: "direct", direction: { x: 0, z: 1 } }, pace: STAND_CHECK.pace }; state.stage = "walking";
         }
         if (world.time - state.verifiedAt + 1e-9 >= STAND_CHECK.standing + STAND_CHECK.walking) {
           const centre = reading.observation.centre, from = state.walkFrom!;
           state.walked = hypot(centre[0] - from[0], centre[2] - from[2]);
-          state.stage = checked.inCommand() ? "stood" : "failed"; orders = STAND_ORDERS;
+          state.stage = checked.inCommand() ? "stood" : "failed"; state.orders = STAND_ORDERS;
           return;
         }
       }
@@ -140,39 +141,50 @@ export function startGround(actor: Actor, address: LabAddress, options: {
   readonly hears?: (built: BuiltBody) => { dispose(): void };
   readonly cap?: number;
 } = {}) {
-  const { body, world } = actor, hub = createSenses(world);
+  const { body, world } = actor, target = address.ground.foe ? dummySpec(body.built.spec) : null;
+  if (isRefused(target)) return target;
+  const scope = constructionScope(); let complete = false;
+  try {
+  const hub = scope.own(createSenses(world));
   const environment = groundEnvironment(address.ground.level), fixed = addArenaSolids(world.physics, environment.solids);
+  for (const collider of fixed) scope.own(collider);
   const senses = hub.add({ id: "ground-body", side: "ground-body", built: body.built, out: () => false, down: () => body.view.down,
     ...(environment.solids.length ? { solids: solidSenses(environment.solids) } : {}) });
-  const dummy = address.ground.foe ? hangDummy(world, dummySpec(body.built.spec), [0, .5, address.ground.foe], rulebook("arena")) : null;
-  const sound = dummy ? options.hears?.(dummy.fighter.built) : null;
+  const dummy = scope.own(target ? hangDummy(world, target, [0, .5, address.ground.foe!], rulebook("arena")) : null);
+  scope.own(dummy ? options.hears?.(dummy.fighter.built) : null);
   if (dummy) hub.add({ id: "ground-foe", side: "ground-foe", built: dummy.fighter.built, out: () => false });
   const check = standCheck(actorChecked(actor), options.cap ?? STAND_CHECK.cap);
-  const { skills } = actor.drive({ name: "ground stand", decide: () => standIntent(0) }, { senses,
+  const driven = actor.drive({ name: "ground stand", decide: () => standIntent(0) }, { senses,
     orders: () => environment.approach && address.ground.start === "shoved" && world.time < ROUND_FIRST
       ? { ...STAND_ORDERS, move: directMovement(environment.approach.x, environment.approach.z), pace: STAND_CHECK.pace } : check.orders() });
+  if (isRefused(driven)) return driven;
+  const { skills } = driven;
   const shoving = shoveBody(body, world, () => skills.report.heading, options.pushed), shove = groundShove(address);
+  if (isRefused(shoving)) return shoving;
+  scope.own(shoving);
   const wind = startWind(body.built, world, address.ground.gusts ? labGusts(address.model) : CALM, address.seed);
+  if (isRefused(wind)) return wind;
+  scope.own(wind);
   const meter = groundMeter(body, world, body.built.spec.attributes.balance.value);
   const round = address.ground.start === "round";
-  const state = { status: "running" as "running" | "landed standing" | "cap" | "round done" | "round ended down", shoved: false,
+  const state = { actor: actor.state, check: check.state, meter: meter.state, shoving: shoving.state, wind: wind.state, status: "running" as "running" | "landed standing" | "cap" | "round done" | "round ended down", shoved: false,
     falls: [] as RoundFall[], next: round ? ROUND_FIRST : null as number | null, shovedAt: null as number | null, verdictAt: 0, shoves: 0 };
   const roundImpulse = targetImpulse(body.built);
-  const disturbance = world.afterStep(() => {
+  scope.own(world.afterStep(() => {
     if (address.ground.start !== "shoved") return;
     const held = state.shoved && check.state.takeover === null && !body.view.down && state.shoves < SHOVED.most && world.time - state.shovedAt! >= SHOVED.again;
     if (!state.shoved && world.time >= SHOVED.first || held) {
       shoving.shove(shove.impulse, shove.degrees); state.shoved = true; state.shovedAt = world.time; state.shoves++;
     }
-  });
-  const reading = world.afterStep(() => {
+  }));
+  scope.own(world.afterStep(() => {
     meter.sample();
     if (address.ground.start === "dropped" && meter.state.from === null && world.time >= 3) state.status = "landed standing";
     if (meter.state.from !== null && meter.state.handback === null && world.time - meter.state.from >= 30 && state.status === "running" && !round) {
       state.status = "cap"; meter.cap();
     }
-  });
-  const checking = world.afterStep(() => {
+  }));
+  scope.own(world.afterStep(() => {
     check.sample();
     if (!round) return;
     if (state.status !== "running") return;
@@ -190,7 +202,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
       state.next = null; state.shovedAt = world.time; check.reset(); meter.beginFall();
       shoving.shove(roundImpulse, state.falls.length * 360 / ROUND_FALLS);
     }
-  });
+  }));
   const roundSummary = () => {
     const stood = state.falls.flatMap((f) => f.verified === null ? [] : [f.verified]), sorted = [...stood].sort((a, b) => a - b);
     // Failures count at the cap, as the target's median counts them.
@@ -198,6 +210,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
     return { falls: state.falls.length, of: ROUND_FALLS, stood: stood.length, within: sorted.filter((t) => t <= STAND_CHECK.within).length,
       median: all.length ? (all.length % 2 ? all[middle]! : (all[middle - 1]! + all[middle]!) / 2) : null };
   };
+  scope.own(actor); complete = true;
   return {
     body, meter, dummy, state, check, environment,
     frame: () => ({ ...meter.frame(), level: address.ground.level, status: state.status, check: { ...check.state }, round: round ? roundSummary() : null }),
@@ -206,6 +219,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
       state.shoved = true; state.shovedAt = world.time; state.shoves = SHOVED.most;
       meter.beginFall(); check.reset(); state.status = "running"; shoving.shove(shove.impulse, shove.degrees);
     },
-    dispose() { checking.dispose(); reading.dispose(); disturbance.dispose(); wind.dispose(); shoving.dispose(); sound?.dispose(); dummy?.dispose(); hub.dispose(); actor.dispose(); for (const collider of fixed) collider.dispose(); },
+    dispose: scope.dispose,
   };
+  } finally { if (!complete) scope.dispose(); }
 }

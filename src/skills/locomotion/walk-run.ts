@@ -1,7 +1,8 @@
+import { walkRunEnvelope } from "./walk-run/envelope.ts";
 import { footOn, standingFooting } from "../../control/support.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { Body, BodyView } from "../../control/body.ts";
-import { paceToward, quickened, walkRunEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";
+import { paceToward, quickened, type StanceEnvelope } from "../../control/stance-envelope.ts";
 import { hasteOver } from "../../core/bodies/human/attributes.ts";
 
 import { atan2, cos, sin } from "../../core/math/real.ts";
@@ -10,7 +11,7 @@ import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
 import { runCycle, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { legOf, quickness, scaledGait } from "./gait-scale.ts";
-import { stanceFeetOf } from "./stance-feet.ts";
+import { stanceFeetOf, stanceSegmentsOf } from "./stance-feet.ts";
 import { ALL_MET, fieldsOf, maskOf, setIn, type LegsField } from "../framework/skill.ts";
 import { otherSide, type Side } from "../../core/bodies/bilateral.ts";
 
@@ -45,7 +46,7 @@ export const WALK_RUN: WalkRunSettings = Object.freeze({ run: 0.8614, turn: 2, s
 /**
  * The run the walk and run takes unless told otherwise, set for the Warrior's leg: `RUN_CYCLE`'s
  * lateral, lean, stance, swing and timing settings searched on the walk and run's handover, with
- * the pace it begins at (`WALK_RUN.run`; `research/run-cycle-search.mjs`, in the guard, on the
+ * the pace it begins at (`WALK_RUN.run`; `research/skills/locomotion/walk-run/run-cycle-search.mjs`, in the guard, on the
  * Warrior, the Rogue and the skeleton, running and stopping, empty-handed and with the club, still
  * and in a gust), the rest `RUN_CYCLE`'s.
  */
@@ -59,8 +60,9 @@ export const WALK_RUN_CYCLE: RunCycleSettings = Object.freeze({
 
 /** Whether `settings` are a walk and run's: each finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1. */
 export function validWalkRun(settings: WalkRunSettings): boolean {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return false;
   const { run, turn, swerve, turnRate, leg, hasted } = settings;
-  return Object.keys(settings).length === Object.keys(WALK_RUN).length && [run, turn, swerve, turnRate, leg].every((x) => Number.isFinite(x) && x > 0)
+  return Object.keys(settings).length === Object.keys(WALK_RUN).length && Object.keys(WALK_RUN).every(key => Object.hasOwn(settings, key)) && [run, turn, swerve, turnRate, leg].every((x) => Number.isFinite(x) && x > 0)
     && [0, 0.5, 1].includes(hasted);
 }
 
@@ -172,7 +174,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick);
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
-  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, body.envelope, { idleFooting: standingFooting(body.built) });
+  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, body.envelope, { segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built) });
   /** Whether the ground bore the foot on `side` in the last step (`StanceEnd.touching`). */
   const ends = { left: footOn(body.built.spec, "left"), right: footOn(body.built.spec, "right") };
   const touching = (view: BodyView, side: Side): boolean => view.stance.ends[ends[side]]!.touching;

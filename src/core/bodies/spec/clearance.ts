@@ -1,5 +1,6 @@
+import { isRefused, type Refused } from "../../refusal.ts";
 import { frameOf, type BodySpec, type SegmentSpec } from "./body.ts";
-import { convexHull } from "./hull.ts";
+import { convexHullChecked } from "./hull.ts";
 import { add, cross, dot, length, scale, sub } from "./vec.ts";
 import type { Vec3 } from "./quantity.ts";
 
@@ -8,12 +9,14 @@ type Box = { kind: "box"; centre: Vec3; axes: Vec3[]; half: Vec3 };
 type Hull = { kind: "hull"; points: Vec3[]; planes: readonly { normal: Vec3; offset: number }[] };
 type Solid = Capsule | Box | Hull;
 
-function hull(points: Vec3[]): Hull {
-  const { vertices, planes } = convexHull(points);
+function hull(points: Vec3[]): Hull | Refused {
+  const made = convexHullChecked(points);
+  if (isRefused(made)) return made;
+  const { vertices, planes } = made;
   return { kind: "hull", points: vertices.map(i => points[i]!), planes };
 }
 
-function solid(segment: SegmentSpec): Solid {
+function solid(segment: SegmentSpec): Solid | Refused {
   const shape = segment.shape;
   switch (shape.kind) {
     case "capsule": return { kind: "capsule", from: shape.from.value, to: shape.to.value, radius: shape.radius.value };
@@ -37,14 +40,14 @@ function least(f: (t: number) => number): number {
 }
 
 const along = (a: Capsule, t: number): Vec3 => add(a.from, scale(sub(a.to, a.from), t));
-function boxHull(b: Box): Hull {
+function boxHull(b: Box): Hull | Refused {
   const points: Vec3[] = [];
   for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1])
     points.push([x, y, z].reduce<Vec3>((p, sign, i) => add(p, scale(b.axes[i]!, sign * b.half[i]!)), b.centre));
   return hull(points);
 }
 
-function clearance(a: Solid, b: Solid): number {
+function clearance(a: Solid, b: Solid): number | Refused {
   if (a.kind === "box" && b.kind === "box") {
     const axes = [...a.axes, ...b.axes];
     for (const u of a.axes) for (const v of b.axes) {
@@ -58,6 +61,8 @@ function clearance(a: Solid, b: Solid): number {
     if (a.kind === "capsule" && b.kind === "hull") return least(t => Math.max(...b.planes.map(p => dot(p.normal, along(a, t)) - p.offset))) - a.radius;
     if (b.kind === "capsule") return clearance(b, a);
     const x = a.kind === "box" ? boxHull(a) : a as Hull, y = b.kind === "box" ? boxHull(b) : b as Hull;
+    if (isRefused(x)) return x;
+    if (isRefused(y)) return y;
     const gap = (from: Hull, to: Hull) => Math.max(...from.planes.map(p => Math.min(...to.points.map(q => dot(p.normal, q))) - p.offset));
     return Math.max(gap(x, y), gap(y, x));
   }
@@ -76,12 +81,29 @@ function clearance(a: Solid, b: Solid): number {
 /** Nonadjacent collision shapes that intersect in the reference pose, before any solver can move them. */
 export function bodyIntersections(spec: BodySpec): readonly string[] {
   const parents = new Map(spec.joints.map(j => [j.child, j.parent])), faults: string[] = [];
-  const shapes = spec.segments.map(segment => [...new Set([segment.shape, ...Object.values(segment.configurations?.shapes ?? {}), ...(segment.contacts ?? []).map(c => c.shape)])]
-    .map(shape => solid({ ...segment, shape })));
+  const shapes: Solid[][] = [];
+  for (const segment of spec.segments) {
+    const own: Solid[] = [];
+    for (const shape of new Set([segment.shape, ...Object.values(segment.configurations?.shapes ?? {}), ...(segment.contacts ?? []).map(c => c.shape)])) {
+      const made = solid({ ...segment, shape });
+      if (isRefused(made)) return [`${segment.name}: ${made.refused}`];
+      own.push(made);
+    }
+    shapes.push(own);
+  }
   for (let i = 0; i < spec.segments.length; i++) for (let j = i + 1; j < spec.segments.length; j++) {
     const a = spec.segments[i]!, b = spec.segments[j]!;
     if (parents.get(a.name) === b.name || parents.get(b.name) === a.name) continue;
-    if (shapes[i]!.some(x => shapes[j]!.some(y => clearance(x, y) < -1e-9))) faults.push(`${a.name} intersects ${b.name}`);
+    let intersects = false;
+    for (const x of shapes[i]!) {
+      for (const y of shapes[j]!) {
+        const gap = clearance(x, y);
+        if (isRefused(gap)) return [`${a.name}/${b.name}: ${gap.refused}`];
+        if (gap < -1e-9) { intersects = true; break; }
+      }
+      if (intersects) break;
+    }
+    if (intersects) faults.push(`${a.name} intersects ${b.name}`);
   }
   return faults;
 }

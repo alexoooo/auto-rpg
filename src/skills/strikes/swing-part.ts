@@ -1,3 +1,4 @@
+import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import clubMeta from "../../../assets/skills/strikes/club-blow/club-blow.meta.json" with { type: "json" };
 import cutMeta from "../../../assets/skills/strikes/cut/cut.meta.json" with { type: "json" };
 import { dataOf } from "../../core/data/store.ts";
@@ -55,7 +56,7 @@ interface Config<K extends SwingKind = SwingKind> {
 function swingPart<K extends SwingKind>(kind: K): ExecutorPart<Config<K>> {
   const swing = SWINGS[kind];
   return {
-    role: "executor", label: swing.label, stage: "game", defaults: { kind } as Config<K>,
+    role: "executor", requires: [SUPPORT_REFERENCE], label: swing.label, stage: "game", defaults: { kind } as Config<K>,
     keys: { kind: true, tuning: true }, tuning: SWING_KEYS,
     fields: [], slots: [],
     fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), recordFault(swing.label.toLowerCase(), deepFreeze(swing.bodies), validSwing),

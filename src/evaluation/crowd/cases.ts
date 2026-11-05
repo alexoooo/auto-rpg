@@ -1,3 +1,4 @@
+import { isRefused, type Refused } from "../../core/refusal.ts";
 /**
  * **The crowd task's cases**: a party of Warriors in the Crypt under the person's orders, every
  * member minded by the subject, walking where its own side's bodies are in the way, moving or
@@ -21,7 +22,8 @@ import { hypot } from "../../core/math/real.ts";
 import { randomStream } from "../../core/math/random.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { presetFitsModel } from "../../minds/controller.ts";
-import { modelHolding, modelInfo, type BodyModel } from "../../core/bodies/models.ts";
+import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
+import { modelInfo } from "../../game/model-loadouts.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 import { generateLevel } from "../../game/dungeon/level.ts";
 import { findPath, walkable, type DungeonMap, type DungeonObstacle, type Point } from "../../game/dungeon/map.ts";
@@ -74,8 +76,10 @@ function room(start: Point, obstacles: readonly DungeonObstacle[] = []): CryptLa
  * moved to floor 15.5 m from it, inside `WAKE_METRES` and beyond an enemy's sight, nearest by a path
  * to floor `far` that is farther than `LEVELS.rest` from it.
  */
-function restFixture(seed: number): { map: DungeonMap; far: Point } {
-  const map = generateLevel(seed).map, spawn = map.spawns[0]!, floor: Point[] = [];
+function restFixture(seed: number): { map: DungeonMap; far: Point } | Refused {
+  const generated = generateLevel(seed);
+  if (isRefused(generated)) return generated;
+  const map = generated.map, spawn = map.spawns[0]!, floor: Point[] = [];
   for (let x = 0; x < map.size; x++) for (let z = 0; z < map.size; z++) if (walkable(map, { x, z }, 0.7, true)) floor.push({ x, z });
   const starts = floor.filter((p) => Math.abs(apart(p, spawn) - 15.5) < 0.3), fars = floor.filter((p) => apart(spawn, p) > LEVELS.rest + 0.7);
   let best: { start: Point; far: Point; length: number } | null = null;
@@ -84,7 +88,7 @@ function restFixture(seed: number): { map: DungeonMap; far: Point } {
     const route = findPath(map, start, far, 0.35);
     if (route.length && (!best || route.length < best.length)) best = { start, far, length: route.length };
   }
-  if (!best) throw new Error(`no floor for the reversal on seed ${seed}`);
+  if (!best) return { refused: `no floor for the reversal on seed ${seed}` };
   map.spawns = [spawn]; map.start = best.start;
   return { map, far: best.far };
 }
@@ -108,13 +112,15 @@ function floorBetween(map: DungeonMap, at: Point, from: Point, least: number, mo
 const PARTY = ["hero", "ally-0", "ally-1", "ally-2"] as const;
 
 /** The case `situation` on `seed` plays, its party under `mind`. */
-function crowdCase(situation: Situation, seed: number, mind: MindConfig): CryptCase {
+function crowdCase(situation: Situation, seed: number, mind: MindConfig): CryptCase | Refused {
   const draw = randomStream(seed), jitter = (most: number): number => (draw.next() * 2 - 1) * most, model = CROWD.model;
   const middle = 0.5 + CROWD.room.depth / 2, most = CROWD.most;
   const at = (x: number, z: number): Point => ({ x, z });
   switch (situation) {
     case "reversal": {
-      const { map, far } = restFixture(seed);
+      const fixture = restFixture(seed);
+      if (isRefused(fixture)) return fixture;
+      const { map, far } = fixture;
       const away = floorBetween(map, map.spawns[0]!, far, LEVELS.rest + 3.5, LEVELS.rest + 5, 1.2);
       return { mind, party: PARTY.map((_, i) => ({ model, at: i ? null : { ...map.start } })),
         layout: { floor: floorRows(map), doors: map.doors.map((door) => ({ ...door, point: { ...door.point } })), obstacles: map.obstacles ?? [],
@@ -182,7 +188,7 @@ export function createCrowdCases(context: GameContext) {
     if (!presetFitsModel(subject ?? {}, CROWD.model))
       return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${CROWD.model} is unavailable`];
     const held = modelInfo(CROWD.model).held;
-    return mindFaults(value as unknown as MindConfig, modelHolding(CROWD.model, { left: "empty", right: held }), { entry: FIGHT_ENTRY }).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
+    return mindFaults(value as unknown as MindConfig, modelHolding(CROWD.model, { left: "empty", right: held }, subject?.character), { entry: FIGHT_ENTRY }).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
   }
 
   function crowdCases(protocol: typeof CROWD): Cases<CrowdCondition, CryptReading, BuiltCrypt> {
@@ -192,7 +198,10 @@ export function createCrowdCases(context: GameContext) {
       conditions: SITUATIONS.flatMap((situation) => protocol.seeds[situation].map((seed) => ({ situation, seed }))),
       seconds: CRYPT_CAP,
       faults: (value, _condition, subject) => faultsOf(value, subject),
-      world: ([mind], { situation, seed }, engine) => ({ kind: "crypt", engine, crypt: crowdCase(situation, seed, mind as unknown as MindConfig) }),
+      world: ([mind], { situation, seed }, engine, [character]) => {
+        const crypt = crowdCase(situation, seed, mind as unknown as MindConfig);
+        return isRefused(crypt) ? crypt : { kind: "crypt", engine, crypt: { ...crypt, ...(character ? { character } : {}) } };
+      },
       read: (built) => readCrypt(built),
     };
   }

@@ -1,0 +1,231 @@
+import { isRefused } from "../../../../src/core/refusal.ts";
+import { footOn } from "../../../../src/control/support.ts";
+/**
+ * **The run's settings searched** (`RunCycleSettings`, `src/skills/locomotion/cycle-run.ts`) through the
+ * walk and run that hands over to it (`walkRun`, `src/skills/locomotion/walk-run.ts`), Node stand, Rapier, 120 Hz, by diagonal CMA-ES in the unit
+ * cube (`research/cma.mjs`).
+ *
+ * Each trial stands the body a second in its guard (`guardPosture`), which holds the arms wherever the gait does not, as a fighter's does, under its
+ * character's balance (`balanceCeiling`; `--balance` per cent in its place), at its character's haste (each of `--haste` per cents in its place, its gait timed by `--hasted`, `WalkRunSettings.hasted`) and with each of `--holds` in its right hand (`empty`, or the `club`) as the stance's envelope plays it, asks it forward at a pace for `--seconds`, and credits the
+ * speed it made along its heading from when it first went `CREDIT_FROM` m/s to the trial's end, a
+ * fall (`FALLEN`) ending the distance: no more than `OVER` past the pace asked, and less by as much as it ran
+ * faster than that. A candidate's score is the mean of its trials, over `--models` and `--speeds`,
+ * and with `--turns` a trial a model at each rate there: asked `TURN.speed` forward, its face turned
+ * at that rate (to the right, or left if negative) through `TURN.angle` from `TURN.at` s, credited the length of its path, and half that
+ * if as it ends its way is more than `TURNED` off the face asked; and with `--stops` a trial a model
+ * at each pace there, asked it forward and to stop at `STOP.at` s (or at each of `--stop-at`'s), credited the speed it made until then times
+ * the share of the time after it stood, and by as much less as it took longer than `STOP.within` s to
+ * come under `STOP.under`, and half that if it ends going faster. With `--winds rate:strength:seed,seed`
+ * each trial is walked calm and again in the lab's gusts on each seed (`startWind`), so that a
+ * candidate is credited for what it holds through a run's chaos, not for one lucky path.
+ *
+ *   node research/skills/locomotion/walk-run/run-cycle-search.mjs --out research/runs/run-cycle-search/a [--models workshop-fighter,workshop-rogue,crypt-skeleton]
+ *     [--speeds 3,3.5,4] [--turns 0.4,0.8] [--stops 2,3.5 [--stop-at 2.5,4,6]] [--seconds 25] [--generations 60] [--lambda 28] [--sigma 0.1] [--workers 28]
+ *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club,sword,buckler+club,buckler+sword] [--turn-speed 2 --turn-at 3 --turn-angle 6.2832] [--stop-within 1.5 --stop-under 0.15] [--balance 25] [--haste 0,50 --hasted 0.5] [--narrow 0.15] [--fallen 0.5] [--slowest 3] [--score] [--windows]
+ *
+ * - `--score` scores the start alone and prints each trial, with the metres it took to stop and the gait its landings show
+ *   (`gaitOf`: step width, cadence and step length); with `--windows` each trial's speed in each 2 s window.
+ * - `--narrow <share>` scales a trial's credit down by as much as its step width is over that share of the body's leg (`legOf`).
+ * - `--fallen <share>` scales a fallen trial's credit by that share, so that a fall late in a trial costs more than the distance it ends.
+ * - `--slowest <s>` credits a trial that runs on, or turns, and stays up with its slowest second's speed over the ground from `<s>` s after
+ *   it is asked to run (a turning trial from the turn's start) to its end, the run's bar's reading (`src/evaluation/locomotion/read.ts`), in place of the speed it made.
+ * - Otherwise it searches, and writes each generation to `<out>.jsonl` and the best to `<out>-best.json`.
+ *
+ * The settings it moves are `DIMS`, or those of them `--dims` names, the rest the start's over the defaults (`WALK_RUN_CYCLE`),
+ * and the walk's (`WALK`): `at`, the pace past which it runs (`WalkRunSettings.run`), and `swerve`, how fast it swings its velocity round (`WalkRunSettings.swerve`).
+ */
+import { isMainThread, parentPort } from "node:worker_threads";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { parseArgs } from "node:util";
+import { cmaSearch, workerPool } from "../../../cma.mjs";
+import { commandedBody } from "../../../../src/app/commanded-body.ts";
+import { modelSpec } from "../../../../src/core/bodies/models.ts";
+import { modelHolding } from "../../../../src/core/bodies/models.ts";
+import { LOADOUTS } from "../../../../src/core/bodies/items/held.ts";
+import { balanceCeiling, balancePercent, rulebook } from "../../../../src/combat/rulebook.ts";
+import { legOf } from "../../../../src/skills/locomotion/gait-scale.ts";
+import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../../../../src/skills/locomotion/walk-run.ts";
+import { runCycleSettings } from "../../../../src/skills/locomotion/cycle-run.ts";
+import { coreStand } from "../../../../tests/harness/core-stand.mjs";
+import { TURNED } from "../../../../src/evaluation/locomotion/acceptance.ts";
+import { startWind } from "../../../../src/game/lab/wind.ts";
+import { guardPosture } from "../../../../src/skills/guard/guard.ts";
+import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
+
+/** Each setting searched and its range. */
+const DIMS = {
+  blend: [0, 1], short: [0, 1], swingGain: [0, 0.4], cadenceGain: [0, 0.3], gainsFrom: [2.2, 5], period: [0.8, 1.25], accel: [0.3, 2], brake: [0.3, 4], ahead: [0.1, 1.5],
+  lean: [-0.05, 0.45], pelvis: [0.04, 0.2], leanGain: [0, 1], leanMost: [0, 0.6], bank: [-0.5, 1.5], hold: [0.5, 1], settle: [0.02, 0.15], stance: [0.4, 1], swing: [0.3, 1], ankle: [0.2, 1],
+  cv: [-0.1, 0.4], cd: [-0.5, 0.8], late: [0.5, 0.95], paceGain: [0, 0.5], paceMost: [0, 0.4],
+  contact: [0.1, 0.4], gainSide: [0, 0.4], width: [-0.05, 0.2], cvAnkleSide: [-1, 1], cdSide: [-0.5, 1],
+  kneeAdd: [-0.2, 0.4], ankleAdd: [-0.3, 0.2], hipAdd: [-0.3, 0.3], wait: [0.001, 0.2], early: [0.05, 0.3], arms: [0, 3], elbow: [0.3, 1.8],
+  at: [0.8, 1.6], swerve: [1, 4],
+};
+/** The walk's settings it moves, by the names it gives them. */
+const WALK = ["at", "swerve"];
+
+/** The speed from which a trial's distance counts, m/s: under the walk's top, so a body that runs from a slow walk is credited. */
+const CREDIT_FROM = 0.7;
+/** How far past the pace asked a trial is credited, m/s; past it, the credit falls by as much again. */
+const OVER = 0.2;
+/** A trial has fallen once the centre of mass is under this share of its standing height over the soles, or once the body reads itself down. */
+const FALLEN = 0.55;
+/** A turning trial: the pace asked, m/s, when its face starts to turn, s, and how far it turns, rad. */
+const TURN = { speed: 3.5, at: 12, angle: Math.PI / 2 };
+/** When a stopping trial is asked to stop, s, how soon after it is credited in full for coming under `under` m/s, s, and that speed. */
+const STOP = { at: 12, within: 2, under: 0.5 };
+/** The gait is read from landings `after` s past the first `CREDIT_FROM` m/s until the turn or the stop. */
+const GAIT = { after: 4 };
+
+/**
+ * The gait its landings show: the median step width, m (each landing's sole across the heading from
+ * the one before's, of the other foot), the landings a second, and the step's length, m (the centre's
+ * way along the heading from one landing to the next).
+ */
+function gaitOf(landings, hz) {
+  const widths = [], lengths = [];
+  for (let k = 1; k < landings.length; k++) {
+    const a = landings[k - 1], b = landings[k];
+    if (a.side === b.side) continue;
+    widths.push(Math.abs(b.across - a.across));
+    lengths.push(b.along - a.along);
+  }
+  const median = (xs) => { if (!xs.length) return null; const s = [...xs].sort((p, q) => p - q); return +s[s.length >> 1].toFixed(3); };
+  const span = landings.length > 1 ? (landings.at(-1).i - landings[0].i) / hz : 0;
+  return { width: median(widths), cadence: span > 0 ? +((landings.length - 1) / span).toFixed(2) : null, step: median(lengths) };
+}
+
+/** The loadout `held` names: `empty`, an item in the right hand (`club`, `sword`), or `<left>+<right>` (`buckler+club`). */
+function loadoutOf(held) {
+  const [left, right] = held.includes("+") ? held.split("+") : ["empty", held];
+  const loadout = LOADOUTS.find((one) => one.left === left && one.right === right);
+  if (!loadout) throw new Error(`no loadout ${held}`);
+  return loadout;
+}
+
+/**
+ * One trial: `model` asked `speed` m/s forward for `seconds` under the run `run`, its face turned at
+ * `turn` rad/s if given (`TURN`), or asked to stop if `stop` (`STOP`), in the gusts of `wind` if given, holding `held` (`empty` or `club`); its credit, and its 2 s windows' speeds.
+ */
+async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: stopSeconds = STOP.at, stopWithin = STOP.within, stopUnder = STOP.under, wind = null, held = "empty", balance = null, haste, hasted, narrow = null, fallen = 1, slowestFrom = null, turnAt = TURN.at, turnAngle = TURN.angle, run: { at, swerve = WALK_RUN.swerve, ...run } }) {
+  const own = modelSpec(model, undefined, { haste }), spec = modelHolding(model, loadoutOf(held), haste === undefined ? undefined : { haste }), guard = guardPosture(spec);
+  const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
+  const assist = balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
+  const body = commandedBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
+  const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
+  if (isRefused(blowing)) { body.dispose(); stand.dispose(); throw new Error(blowing.refused); }
+  const skill = walkRun(body, { ...WALK_RUN, run: at, swerve, hasted: hasted ?? WALK_RUN.hasted }, runCycleSettings(run, WALK_RUN_CYCLE));
+  let asked = null, goal = null, face = 0;
+  body.drive((view, dt) => {
+    const d = skill.goal(view, { walk: asked, face }, dt);
+    if (d.kind === "drive") return { posture: { ...guard, ...d.posture }, pushes: d.pushes, stance: null };
+    goal = d.goal ?? goal;
+    return { posture: guard, pushes: [], stance: view.time > 0 ? goal : null };
+  });
+  try {
+    stand.step(stand.seconds(1));
+    const standing = body.view.stance.centre.y - body.view.stance.support.y;
+    asked = [speed, 0];
+    const steps = stand.seconds(seconds), window = stand.seconds(2), windows = [];
+    const turnFrom = stand.seconds(turnAt), stopAt = stop ? stand.seconds(stopSeconds) : steps;
+    let from = null, at = 0, z = 0, path = 0, fell = null, under = null, metres = null, asked0 = null, mark = body.view.stance.centre.z;
+    // The slowest second's speed over the ground from `slowestFrom` s after the walk is asked (or the turn's start) to the stop or the end.
+    const second = stand.seconds(1), slowFrom = slowestFrom === null ? null : turn !== 0 ? turnFrom : stand.seconds(slowestFrom);
+    let slowest = Infinity, ground = 0;
+    const was = { left: true, right: true }, landings = [], gaitTo = turn !== 0 ? turnFrom : stopAt;
+    for (let i = 1; i <= steps; i++) {
+      if (turn !== 0 && i > turnFrom) face = turn > 0 ? Math.min(turnAngle, face + turn / stand.world.hz) : Math.max(-turnAngle, face + turn / stand.world.hz);
+      if (i === stopAt + 1) asked = null;
+      stand.step(1);
+      const s = body.view.stance;
+      for (const side of SIDES) {
+        if (s.ends[footOn(spec, side)].touching && !was[side] && from !== null && i > at + stand.seconds(GAIT.after) && i <= gaitTo)
+          landings.push({ side, i, across: s.ends[footOn(spec, side)].middle.x * Math.cos(face) - s.ends[footOn(spec, side)].middle.z * Math.sin(face), along: s.centre.z });
+        was[side] = s.ends[footOn(spec, side)].touching;
+      }
+      if (from === null && s.velocity.z >= CREDIT_FROM) { from = s.centre.z; at = i; }
+      if (from !== null) path += Math.sqrt(s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z) / stand.world.hz;
+      if (slowFrom !== null && i > slowFrom && i <= stopAt) {
+        ground += Math.sqrt(s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z) / stand.world.hz;
+        if ((i - slowFrom) % second === 0) { slowest = Math.min(slowest, ground); ground = 0; }
+      }
+      if (i <= stopAt) { z = s.centre.z; asked0 = s.centre.clone(); }
+      else if (under === null && Math.sqrt(s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z) < stopUnder) {
+        under = (i - stopAt) / stand.world.hz;
+        metres = Math.sqrt((s.centre.x - asked0.x) * (s.centre.x - asked0.x) + (s.centre.z - asked0.z) * (s.centre.z - asked0.z));
+      }
+      const height = s.centre.y - Math.min(s.ends[footOn(spec, "left")].middle.y, s.ends[footOn(spec, "right")].middle.y);
+      if (!Number.isFinite(height) || height < FALLEN * standing || body.view.down) { fell = i / stand.world.hz; break; }
+      if (i % window === 0) { windows.push(+((s.centre.z - mark) / 2).toFixed(2)); mark = s.centre.z; }
+    }
+    const made = slowFrom !== null && !stop && fell === null ? (Number.isFinite(slowest) ? slowest : 0)
+      : from === null ? 0 : (turn !== 0 ? path : z - from) / ((stopAt - at) / stand.world.hz);
+    const v = body.view.stance.velocity, off = Math.abs(Math.atan2(Math.sin(Math.atan2(v.x, v.z) - face), Math.cos(Math.atan2(v.x, v.z) - face))), turned = turn === 0 || fell !== null || off <= TURNED;
+    const stood = !stop ? 1 : fell === null ? 1 : Math.max(0, fell - stopSeconds) / (seconds - stopSeconds), stopped = !stop || (fell === null && v.length() < stopUnder);
+    const soon = !stop ? 1 : Math.min(1, stopWithin / (under ?? seconds - stopSeconds));
+    const gait = gaitOf(landings, stand.world.hz);
+    const narrowed = narrow === null || gait.width === null ? 1 : Math.min(1, narrow * legOf(own) / gait.width);
+    const credit = (Math.min(made, speed + OVER) - Math.max(0, made - speed - OVER)) * (turned ? 1 : 0.5) * stood * soon * (stopped ? 1 : 0.5) * narrowed * (fell === null ? 1 : fallen);
+    return { model, speed, turn, stop, stopAt: stop ? stopSeconds : null, wind: wind?.seed ?? null, held, haste: haste ?? null, credit, made: +made.toFixed(3), fell, turned, under, metres: metres === null ? null : +metres.toFixed(2), windows, ...gait };
+  } finally { blowing?.dispose(); body.dispose(); stand.dispose(); }
+}
+
+if (!isMainThread) {
+  parentPort.on("message", async ({ id, x }) => {
+    try {
+      const trials = [];
+      for (const cell of x.cells) trials.push(await trial({ ...cell, run: x.run }));
+      parentPort.postMessage({ id, r: { score: trials.reduce((s, t) => s + t.credit, 0) / trials.length, trials } });
+    } catch (error) { parentPort.postMessage({ id, r: { score: -1, error: String(error) } }); }
+  });
+} else {
+  const { values: o } = parseArgs({ options: {
+    out: { type: "string" }, models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, speeds: { type: "string", default: "3,3.5,4" }, turns: { type: "string" }, stops: { type: "string" }, "stop-at": { type: "string" },
+    seconds: { type: "string", default: "25" }, generations: { type: "string", default: "60" }, lambda: { type: "string", default: "28" },
+    sigma: { type: "string", default: "0.1" }, workers: { type: "string", default: "28" }, start: { type: "string" }, dims: { type: "string" }, score: { type: "boolean" }, windows: { type: "boolean" }, winds: { type: "string" }, holds: { type: "string", default: "empty" }, "turn-speed": { type: "string" }, "stop-within": { type: "string" }, "stop-under": { type: "string" }, balance: { type: "string" }, haste: { type: "string" }, hasted: { type: "string" }, narrow: { type: "string" }, fallen: { type: "string" }, slowest: { type: "string" }, "turn-at": { type: "string" }, "turn-angle": { type: "string" },
+  } });
+  const BASE = WALK_RUN_CYCLE, D = DIMS;
+  const KEYS = o.dims ? o.dims.split(",") : Object.keys(D).filter((key) => key in BASE || WALK.includes(key));
+  const WINDS = [null, ...(o.winds ? (([rate, strength, seeds]) => seeds.split(",").map((seed) => ({ rate: Number(rate), strength: Number(strength), seed: Number(seed) })))(o.winds.split(":")) : [])];
+  for (const key of KEYS) if (!D[key] || !(key in BASE || WALK.includes(key))) throw new Error(`no setting ${key} is searched`);
+  const given = o.start ? JSON.parse(o.start.startsWith("{") ? o.start : readFileSync(o.start, "utf8")) : {};
+  const walk = { at: WALK_RUN.run, swerve: WALK_RUN.swerve };
+  const start = { ...BASE, ...walk, ...Object.fromEntries(Object.entries(given).filter(([key]) => key in BASE || WALK.includes(key))) };
+  const cells = o.models.split(",").flatMap((model) => [...(o.speeds ? o.speeds.split(",") : []).map((speed) => ({ model, speed: Number(speed), seconds: Number(o.seconds) })),
+    ...(o.turns ? o.turns.split(",") : []).map((turn) => ({ model, speed: o["turn-speed"] === undefined ? TURN.speed : Number(o["turn-speed"]), turn: Number(turn), seconds: Number(o.seconds), ...(o["turn-at"] === undefined ? {} : { turnAt: Number(o["turn-at"]) }), ...(o["turn-angle"] === undefined ? {} : { turnAngle: Number(o["turn-angle"]) }) })),
+    ...(o.stops ? o.stops.split(",") : []).flatMap((speed) => (o["stop-at"] ? o["stop-at"].split(",").map(Number) : [STOP.at]).map((stopAt) => ({ model, speed: Number(speed), stop: true, stopAt, seconds: Number(o.seconds),
+      ...(o["stop-within"] === undefined ? {} : { stopWithin: Number(o["stop-within"]) }), ...(o["stop-under"] === undefined ? {} : { stopUnder: Number(o["stop-under"]) }) })))]).flatMap((cell) => WINDS.map((wind) => ({ ...cell, wind }))).flatMap((cell) => o.holds.split(",").map((held) => ({ ...cell, held, balance: o.balance === undefined ? null : Number(o.balance),
+    ...(o.hasted === undefined ? {} : { hasted: Number(o.hasted) }), ...(o.narrow === undefined ? {} : { narrow: Number(o.narrow) }), ...(o.fallen === undefined ? {} : { fallen: Number(o.fallen) }), ...(o.slowest === undefined ? {} : { slowestFrom: Number(o.slowest) }) }))).flatMap((cell) => o.haste === undefined ? [cell] : o.haste.split(",").map((haste) => ({ ...cell, haste: Number(haste) })));
+  const toUnit = (p) => KEYS.map((k) => ((p[k] ?? D[k][0]) - D[k][0]) / (D[k][1] - D[k][0]));
+  const fromUnit = (u) => ({ ...start, ...Object.fromEntries(KEYS.map((k, i) => [k, +(D[k][0] + Math.min(1, Math.max(0, u[i])) * (D[k][1] - D[k][0])).toFixed(4)])) });
+  if (o.score) {
+    const pool = workerPool(new URL(import.meta.url), null, Math.min(Number(o.workers), cells.length));
+    let trials;
+    try { trials = (await Promise.all(cells.map((cell) => pool.evaluate({ cells: [cell], run: start })))).flatMap((r) => { if (r.error) throw new Error(r.error); return r.trials; }); }
+    finally { await pool.terminate(); }
+    for (const t of trials) console.log(`${t.model}${t.held === "empty" ? "" : ` holding ${t.held}`}${t.haste === null ? "" : ` at haste ${t.haste}`}${t.wind === null ? "" : ` in gusts ${t.wind}`} asked ${t.speed}${t.turn ? ` turning ${t.turn}${t.turned ? "" : " (not turned)"}` : ""}${t.stop ? ` then to stop at ${t.stopAt} s (under after ${t.under} s, ${t.metres} m)` : ""}: made ${t.made} m/s, fell ${t.fell}${t.width === null ? "" : `; width ${t.width} m, cadence ${t.cadence}/s, step ${t.step} m`}${o.windows ? `; windows ${t.windows.join(" ")}` : ""}`);
+    const fallen = trials.filter((t) => t.fell !== null);
+    console.log(`fallen ${fallen.length} of ${trials.length}${o.models.split(",").map((m) => `; ${m} ${fallen.filter((t) => t.model === m).length}`).join("")}`);
+    console.log("score", trials.reduce((s, t) => s + t.credit, 0) / trials.length);
+  } else {
+    if (!o.out) throw new Error("--out names the search's files");
+    const pool = workerPool(new URL(import.meta.url), null, Number(o.workers));
+    let best;
+    try { ({ best } = await cmaSearch({ n: KEYS.length, start: toUnit(start), sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1,
+      // Each trial is a job of its own, so a generation's trials spread over every worker.
+      score: async (u) => {
+        const run = fromUnit(u), parts = await Promise.all(cells.map((cell) => pool.evaluate({ cells: [cell], run })));
+        if (parts.some((r) => r.error)) return { score: -1, error: parts.find((r) => r.error).error };
+        const trials = parts.flatMap((r) => r.trials);
+        return { score: trials.reduce((sum, t) => sum + t.credit, 0) / trials.length, trials };
+      },
+      onGeneration: (entry, { best }) => {
+        const line = { ...entry, bestSoFar: +best.score.toFixed(3), trials: best.r?.trials?.map(({ model, speed, turn, stop, wind, held, made, fell, under, width, cadence, step }) => ({ model, speed, turn, stop, wind, held, made, fell, under, width, cadence, step })) };
+        console.log(JSON.stringify(line));
+        appendFileSync(o.out + ".jsonl", JSON.stringify({ ...line, run: fromUnit(best.u) }) + "\n");
+        writeFileSync(o.out + "-best.json", JSON.stringify(fromUnit(best.u), null, 1) + "\n");
+      } })); }
+    finally { await pool.terminate(); }
+    console.log("best", best.score);
+  }
+}

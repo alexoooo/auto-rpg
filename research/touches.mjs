@@ -1,3 +1,4 @@
+import { isRefused } from "../src/core/refusal.ts";
 /**
  * **The touches a body makes** (`watchTouches`, `src/combat/touches.ts`): every segment of each core
  * body read, a touch lasting as long as the two are in contact (`lasts: "contact"`), on the ground
@@ -197,7 +198,7 @@ const balanceOf = (spec) => loadoutBalance(balance, spec);
  */
 async function labRun(kind, model, variant, { start, lead = 0, begin = () => {}, seconds, until = () => false, read }) {
   const spec = loadoutSpec(labAddress(`?model=${model}`)), stand = await coreStand(spec, { groundSize: GROUND });
-  const actor = labActor(stand.built, stand.world, { mind: LAB_MIND, assist: balanceCeiling(balanceOf(spec), PERCENT) });
+  const actor = admitted(labActor(stand.built, stand.world, { mind: LAB_MIND, assist: balanceCeiling(balanceOf(spec), PERCENT), rules: rulebook("arena") }));
   const { body } = actor, { world } = stand, own = { name: model, built: stand.built, body };
   const session = start(actor, stand);
   const heard = listen(world, [own]), breath = breathe(world, { built: stand.built, body });
@@ -417,3 +418,6 @@ for (const kind of kinds) {
   for (const model of models) for (const run of LAB[kind](model)) runs.push(await run);
   printLab(kind, runs);
 }
+
+/** A returned admission failure reaches this diagnostic with its original message. */
+function admitted(value) { if (isRefused(value)) throw new Error(value.refused); return value; }

@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
 import { rigidOf, rigidPoints } from "../../../core/bodies/build/rigid.ts";
-import { frameOf, type BodySpec, type SegmentSpec, type ShapeSpec, segmentOf } from "../../../core/bodies/spec/body.ts";
+import { frameOf, configurationShapeAt, type BodySpec, type SegmentSpec, type ShapeSpec, segmentOf } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
 import { add, scale, sub } from "../../../core/bodies/spec/vec.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
@@ -10,6 +10,8 @@ type Turn = Point & { readonly w: number };
 
 type Sight = {
   readonly stance: { readonly centre: { readonly x: number; readonly z: number } };
+  readonly segments?: Readonly<Record<string, { readonly position: Point; readonly rotation: Turn }>>;
+  readonly configurations?: Readonly<Record<string, { readonly applied: string }>>;
   readonly root?: { readonly position: Point; readonly rotation: Turn };
   readonly effectors?: Readonly<Record<string, { readonly points: Readonly<Record<string, Point>>; readonly rotation: Turn }>>;
 };
@@ -40,23 +42,41 @@ export function heldClearance(spec: BodySpec): (view: Sight) => number {
   const carriers = [...names].map(name => {
     const segment = segmentOf(spec, name);
     const effector = spec.effectors?.find(effector => effector.segment === name);
-    if (!segment || !effector) throw new Error(`${spec.model}: held clearance needs an observed effector for ${name}`);
-    const anchor = rigidPoints(spec, segment).get(effector.point)?.value;
-    if (!anchor) throw new Error(`${spec.model}: held clearance needs ${name}'s point ${effector.point}`);
-    return { name, anchor: effector.point, shapes: rigidOf(spec, segment).shapes.map(shape => {
+    if (!segment) throw new Error(`${spec.model}: held clearance needs segment ${name}`);
+    const anchorName = effector?.point;
+    const anchor = anchorName === undefined ? frameOf(segment).origin : rigidPoints(spec, segment).get(anchorName)?.value;
+    if (!anchor) throw new Error(`${spec.model}: held clearance needs ${name}'s point ${anchorName}`);
+    const shapesOf = (configuration: string | undefined) => rigidOf(spec, configuration === undefined ? segment : { ...segment, shape: configurationShapeAt(spec, segment, configuration) }).shapes.map(shape => {
       const support = supportOf(shape, segment);
-      return { radius: support.radius, offsets: support.points.map(point => sub(point, anchor)) };
-    }) };
+      const frame = frameOf(segment);
+      return { radius: support.radius, offsets: support.points.map(point => sub(point, anchor)), local: support.points.map(point => {
+        const d = sub(point, frame.origin);
+        return [d[0] * frame.x[0] + d[1] * frame.x[1] + d[2] * frame.x[2], d[0] * frame.y[0] + d[1] * frame.y[1] + d[2] * frame.y[2], d[0] * frame.z[0] + d[1] * frame.z[1] + d[2] * frame.z[2]] as Vec3;
+      }) };
+    });
+    return { name, segment, anchor: anchorName, shapes: shapesOf(undefined), configurations: Object.fromEntries(Object.keys(segment.configurations?.shapes ?? {}).map(name => [name, shapesOf(name)])) };
   });
   const at = new Vector3(), segmentTurn = new Quaternion(), rootTurn = new Quaternion();
   return view => {
     let radius = 0;
     for (const carrier of carriers) {
-      const root = view.root, observed = view.effectors?.[carrier.name], anchor = observed?.points[carrier.anchor];
+      const root = view.root, observed = view.effectors?.[carrier.name], anchor = carrier.anchor === undefined ? undefined : observed?.points[carrier.anchor];
+      const physical = view.segments?.[carrier.name];
+      const shapes = carrier.configurations[view.configurations?.[carrier.name]?.applied ?? ""] ?? carrier.shapes;
+      if ((!observed || !anchor) && physical) {
+        segmentTurn.copyFromFloats(physical.rotation.x, physical.rotation.y, physical.rotation.z, physical.rotation.w);
+        for (const shape of shapes) for (const point of shape.local) {
+          at.set(point[0], point[1], point[2]);
+          at.applyRotationQuaternionToRef(segmentTurn, at).addInPlaceFromFloats(physical.position.x, physical.position.y, physical.position.z);
+          const dx = at.x - view.stance.centre.x, dz = at.z - view.stance.centre.z;
+          radius = Math.max(radius, Math.sqrt(dx * dx + dz * dz) + shape.radius);
+        }
+        continue;
+      }
       if (!root || !observed || !anchor) throw new Error(`${spec.model}: held clearance has no current observation for ${carrier.name}`);
       segmentTurn.copyFromFloats(observed.rotation.x, observed.rotation.y, observed.rotation.z, observed.rotation.w);
       rootTurn.copyFromFloats(root.rotation.x, root.rotation.y, root.rotation.z, root.rotation.w);
-      for (const shape of carrier.shapes) for (const offset of shape.offsets) {
+      for (const shape of shapes) for (const offset of shape.offsets) {
         at.set(offset[0], offset[1], offset[2]).applyRotationQuaternionToRef(segmentTurn, at).addInPlaceFromFloats(anchor.x, anchor.y, anchor.z);
         at.applyRotationQuaternionToRef(rootTurn, at).addInPlaceFromFloats(root.position.x, root.position.y, root.position.z);
         const dx = at.x - view.stance.centre.x, dz = at.z - view.stance.centre.z;
@@ -78,14 +98,19 @@ export function bodyAhead(spec: BodySpec): (view: Sight, ax: number, az: number)
     const segment = segmentOf(spec, effector.segment);
     const anchor = segment && rigidPoints(spec, segment).get(effector.point)?.value;
     if (!segment || !anchor) throw new Error(`${spec.model}: a limb's end needs its segment and its point ${effector.point}`);
-    const rigid = rigidOf(spec, segment), offsets: number[] = [], radii: number[] = [];
-    rigid.shapes.forEach((shape, index) => {
+    const rigid = rigidOf(spec, segment);
+    const dataOf = (configuration: string | undefined) => {
+    const current = configuration === undefined ? rigid : rigidOf(spec, { ...segment, shape: configurationShapeAt(spec, segment, configuration) });
+    const offsets: number[] = [], radii: number[] = [];
+    current.shapes.forEach((shape, index) => {
       const owner = rigid.owners[index]!.kind;
       if (owner !== "segment" && owner !== "region") return;
       const support = supportOf(shape, segment);
       for (const point of support.points) { offsets.push(...sub(point, anchor)); radii.push(support.radius); }
     });
-    return { name: effector.segment, anchor: effector.point, offsets: Float64Array.from(offsets), radii: Float64Array.from(radii) };
+    return { offsets: Float64Array.from(offsets), radii: Float64Array.from(radii) };
+    };
+    return { name: effector.segment, anchor: effector.point, ...dataOf(undefined), configurations: Object.fromEntries(Object.keys(segment.configurations?.shapes ?? {}).map(name => [name, dataOf(name)])) };
   });
   return (view, ax, az) => {
     let ahead = trunk;
@@ -95,16 +120,16 @@ export function bodyAhead(spec: BodySpec): (view: Sight, ax: number, az: number)
     for (const limb of limbs) {
       const observed = view.effectors?.[limb.name], anchor = observed?.points[limb.anchor];
       if (!observed || !anchor) continue;
-      const q = observed.rotation;
-      for (let n = 0; n < limb.radii.length; n++) {
-        const vx = limb.offsets[3 * n]!, vy = limb.offsets[3 * n + 1]!, vz = limb.offsets[3 * n + 2]!;
+      const q = observed.rotation, shape = limb.configurations[view.configurations?.[limb.name]?.applied ?? ""] ?? limb;
+      for (let n = 0; n < shape.radii.length; n++) {
+        const vx = shape.offsets[3 * n]!, vy = shape.offsets[3 * n + 1]!, vz = shape.offsets[3 * n + 2]!;
         // Turned by the limb's quaternion, then by the root's: v + w t + q × t, t = 2 q × v.
         let tx = 2 * (q.y * vz - q.z * vy), ty = 2 * (q.z * vx - q.x * vz), tz = 2 * (q.x * vy - q.y * vx);
         const sx = vx + q.w * tx + (q.y * tz - q.z * ty) + anchor.x, sy = vy + q.w * ty + (q.z * tx - q.x * tz) + anchor.y,
           sz = vz + q.w * tz + (q.x * ty - q.y * tx) + anchor.z;
         tx = 2 * (r.y * sz - r.z * sy); ty = 2 * (r.z * sx - r.x * sz); tz = 2 * (r.x * sy - r.y * sx);
         const wx = sx + r.w * tx + (r.y * tz - r.z * ty) + root.position.x, wz = sz + r.w * tz + (r.x * ty - r.y * tx) + root.position.z;
-        ahead = Math.max(ahead, (wx - cx) * ax + (wz - cz) * az + limb.radii[n]!);
+        ahead = Math.max(ahead, (wx - cx) * ax + (wz - cz) * az + shape.radii[n]!);
       }
     }
     return ahead;

@@ -1,3 +1,4 @@
+import { fistTurns as authoredTurns } from "../../src/core/bodies/human/fist.ts";
 // Measures a hand pose on the workshop skin, offline: CPU-skins `base__skin` from the GLB and
 // reports, for every pair of hand parts that do not share a joint, how deep one's vertices sit
 // inside the other (behind the nearest vertex of the other, along its normal), mm.
@@ -173,3 +174,6 @@ export function nelderMead(f, x0, step, iterations) {
   }
   return simplex.sort((a, b) => a.f - b.f)[0];
 }
+
+/** Authored body-art turns in the skin sampler's quaternion representation. */
+export const fistTurns = (bones, side, pose) => new Map([...authoredTurns(bones, side, pose, Math)].map(([name, q]) => [name, new Quaternion(q.x, q.y, q.z, q.w)]));

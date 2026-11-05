@@ -1,3 +1,4 @@
+import { balanceCeiling, balancePercent, rulebook } from "../src/combat/rulebook.ts";
 /**
  * How long a felled body takes to lie still, and what Rapier does with a limp body put to sleep.
  *
@@ -32,7 +33,6 @@ import { woodenClub } from "../src/core/bodies/items/club.ts";
 import { centreOfToRef } from "../src/core/bodies/read-motion.ts";
 import { standIntent } from "../src/skills/intent/intent.ts";
 import { createMind } from "../src/minds/minds.ts";
-import { balanceCeiling, balancePercent, rulebook } from "../src/combat/rulebook.ts";
 import { driveBy } from "../src/minds/decider.ts";
 import { standingSkills } from "../src/app/standing-skills.ts";
 import { createWorld } from "../src/core/world/world.ts";
@@ -60,7 +60,7 @@ async function fall(model, shove) {
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const built = buildBody(spec, world, { position: [0, 0, 0] });
   const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(rules));
-  const { body } = createMind(GAME, built, world, defaultMind(model), { name: "probe", assist, orders: () => ({ move: null, face: null }) });
+  const { body } = createMind(GAME, built, world, defaultMind(model), { rules: rulebook("arena"), name: "probe", assist, orders: () => ({ move: null, face: null }) });
   const segments = [...built.segments.values()], root = rootSegment(built), at = new Vector3(), v = new Vector3();
   const weight = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) * -built.physics.gravity[1];
   const push = shove && new Vector3(shove[1], 0, shove[2]).scaleInPlace(weight * world.dt);

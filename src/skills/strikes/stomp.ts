@@ -1,10 +1,11 @@
+import { supportHeight } from "../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import { intoFrameToRef } from "../../control/kinematics.ts";
 import type { EffectorGoal } from "../../control/motor.ts";
 import { footStatesOf, readSupport, withinSupport } from "../../control/support.ts";
 import { STANCE_GAIT } from "../../control/stance-tuning.ts";
-import { supportReadiness, plantedSupport } from "../../control/support-readiness.ts";
+import { supportReadiness, plantedSupport } from "./stomp/support-readiness.ts";
 import { hypot, sin, cos } from "../../core/math/real.ts";
 import { turnAboutToRef } from "../../core/math/turn.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
@@ -142,7 +143,7 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
       const x = view.stance.ends[nameOf(foot)]!.middle.x, z = view.stance.ends[nameOf(foot)]!.middle.z, across = foot === "left" ? hipWidth : -hipWidth;
       const beside: readonly [number, number] = [x + across * cos(around.heading), z - across * sin(around.heading)];
       state.live = { request: { ...request }, foot, stage: "admitting", phase: "prepare", time: 0, held: 0, heading: around.heading,
-        height: view.standing - around.lower - tuning.lower, target: [...target], initial, back: null, withdrawn: false, ending: { kind: "completed" },
+        height: supportHeight(view) - around.lower - tuning.lower, target: [...target], initial, back: null, withdrawn: false, ending: { kind: "completed" },
         bearing: bearing.sole, bearingRotation: bearing.rotation, setting: null,
         footing: foot === "left" ? { left: [x, z], right: beside } : { left: beside, right: [x, z] } };
     },

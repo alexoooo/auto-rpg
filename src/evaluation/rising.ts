@@ -1,3 +1,5 @@
+import { isRefused } from "../core/refusal.ts";
+import { supportHeight } from "../control/support-reference.ts";
 /**
  * **The rising bed's falls**: the riser's mind (`risingMind`), a fall played as a job (`risingTrial`), a technique
  * played alone (`techniqueTrial`), the bed's jobs (`risingJobs`: everyday starts, the
@@ -10,7 +12,8 @@ import { commandedBody } from "../minds/host.ts";
 import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { loadEngine } from "../core/physics/engines.ts";
 import { humanoidSpec } from "../core/bodies/human/spec.ts";
-import { armedWith, loadoutKey, REPRESENTATIVE, type Held } from "../core/bodies/items/held.ts";
+import { armedWith, loadoutKey, type Held } from "../core/bodies/items/held.ts";
+import { REPRESENTATIVE } from "./loadouts.ts";
 import type { OptionMindConfig } from "../minds/option/mind.ts";
 import type { MindConfig } from "../minds/config.ts";
 import { groundReading } from "../control/ground-reading.ts";
@@ -31,7 +34,6 @@ import { cos, sin } from "../core/math/real.ts";
 import { medianOf } from "./stats.ts";
 import { createFall, checkFall, FALL_CAP, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
 import { type GameContext } from "../game/arena/context.ts";
-import type { Side } from "../core/bodies/bilateral.ts";
 
 /**
  * A job of the bed: a fall (`FallCase`, its mind given or Option Mind getting up by `techniques`), or with
@@ -53,7 +55,7 @@ export type RisingRow = RisingJob & Partial<Omit<FallReading, "status" | "attemp
   readonly cap?: number;
   readonly reached?: boolean;
   readonly error?: string;
-  readonly attempts?: readonly { readonly technique?: string; readonly controller?: string; readonly side?: Side | null; readonly end?: string; readonly seconds: number }[];
+  readonly attempts?: readonly { readonly technique?: string; readonly controller?: string; readonly side?: string | null; readonly end?: string; readonly seconds: number }[];
   readonly phases?: Readonly<Record<string, number>>;
   readonly assist?: Readonly<Record<string, number>> | null;
 };
@@ -150,7 +152,7 @@ export function createRising(context: GameContext) {
   /** The bed's riser: Option Mind (`option`) getting up by the ways up `techniques` in rank order (`withWaysUp`), by its own (the game's Stand up's) where none are given. Gameplay presets are untouched. */
   function risingMind(techniques?: readonly TechniqueName[] | null): OptionMindConfig {
     const option = MINDS.option!.config as OptionMindConfig;
-    return techniques ? { ...option, options: withWaysUp(option.options ?? (controllerOf(option).defaults as OptionMindConfig).options!, techniques.map((kind) => ({ kind }))) } : option;
+    return techniques ? { ...option, options: withWaysUp(partLookup, option.options ?? (controllerOf(option).defaults as OptionMindConfig).options!, techniques.map((kind) => ({ kind }))) } : option;
   }
 
   /**
@@ -159,18 +161,21 @@ export function createRising(context: GameContext) {
    * search has what it scores.
    */
   async function risingTrial(job: RisingJob, { stop }: { stop?: (world: World, built: BuiltBody, actor: Actor) => boolean } = {}): Promise<RisingRow> {
-    checkFall(job);
-    if (job.loadout !== undefined && job.technique) throw new Error("standalone technique trials do not accept per-hand loadouts");
+    const rejected = (error: string): RisingRow => ({ ...job, balance: job.balance ?? 0, status: "rejected start", stood: false,
+      handback: null, verified: null, error, trail: [], attempts: [], phases: {}, assist: null });
+    const refused = checkFall(job);
+    if (refused) return rejected(refused);
+    if (job.loadout !== undefined && job.technique) return rejected("standalone technique trials do not accept per-hand loadouts");
     if (job.technique) {
       const result = await techniqueTrial(job), phases: Record<string, number> = {}, attempts = [];
       for (let i = 0; i < result.trail.length; i++) {
         const entry = result.trail[i]!, until = result.trail[i + 1]?.at ?? result.endedAt ?? result.seconds;
         phases[entry.phase] = (phases[entry.phase] ?? 0) + Math.max(0, until - entry.at);
       }
-      if (job.after && result.predecessor) attempts.push({ controller: job.after, side: TECHNIQUES[job.after].sides[0]!,
+      if (job.after && result.predecessor) attempts.push({ controller: job.after, side: TECHNIQUES[job.after].starts[0]!,
         end: result.predecessor, seconds: result.predecessorSeconds! });
       if (result.candidateBegun) attempts.push({ controller: job.technique,
-        side: TECHNIQUES[job.technique].sides[0]!, end: result.end, seconds: result.seconds });
+        side: TECHNIQUES[job.technique].starts[0]!, end: result.end, seconds: result.seconds });
       return { ...result, cap: 8, status: result.end, stood: result.destination === "standing" && result.reached && result.survived,
         handback: result.reached ? result.seconds : null, verified: result.reached ? result.seconds : null,
         phases, attempts };
@@ -178,8 +183,10 @@ export function createRising(context: GameContext) {
     const fall: FallCase = { ...job, model: job.model!, start: job.start!, mind: job.mind ?? risingMind(job.techniques) };
     const balance = job.balance ?? 0;
     const start = fallStart(fall);
+    if (isRefused(start)) return rejected(start.refused);
     if ("refused" in start.placement) return { ...job, balance, status: "rejected start", stood: false, handback: null, verified: null, error: start.placement.refused, trail: [], attempts: [], phases: {}, assist: null };
     const built = await buildStandFall(fall, "rapier", { start });
+    if (isRefused(built)) return rejected(built.refused);
     try {
       while (!built.ended) {
         built.world.step();
@@ -226,7 +233,7 @@ export function createRising(context: GameContext) {
       return { name, has: () => name, dispose() {}, mind: { state: { control, run: run.state, predecessor: predecessor?.state ?? null },
         wants: () => control.active,
         begin() {
-          (predecessor ?? run).begin(TECHNIQUES[job.after ?? technique].sides[0]!); control.from = into.time;
+          (predecessor ?? run).begin(TECHNIQUES[job.after ?? technique].starts[0]!); control.from = into.time;
           if (!predecessor) control.candidateFrom = into.time;
         },
         end() { if (!control.end) run.end(); },
@@ -242,7 +249,7 @@ export function createRising(context: GameContext) {
             if (!end && into.time - control.from! >= 8) { predecessor!.end(); end = "timed-out"; }
             if (end) {
               control.predecessor = end; control.predecessorSeconds = into.time - control.from!;
-              run.begin(TECHNIQUES[technique].sides[0]!); control.candidateFrom = into.time;
+              run.begin(TECHNIQUES[technique].starts[0]!); control.candidateFrom = into.time;
             }
             return;
           }
@@ -250,7 +257,7 @@ export function createRising(context: GameContext) {
           if (control.end) { control.active = false; control.ended = into.time; }
         } } };
     }]);
-    body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: stanceFeet(spec).map((foot) => foot.end.name), centre: null, height: view.standing - .03, heading: 0 } }));
+    body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: stanceFeet(spec).map((foot) => foot.end.name), centre: null, height: supportHeight(view) - .03, heading: 0 } }));
     const trail: TrailEntry[] = [], saturation: Record<string, { peak: number; saturatedSeconds: number }> = {}, last = { phase: "", position: "" };
     let survived = false, verified = false;
     try {
@@ -322,7 +329,7 @@ export function createRising(context: GameContext) {
       landedStanding: cases.filter(row => row.status === "landed standing").length,
       phaseSeconds: Object.fromEntries([...new Set(cases.flatMap(row => Object.keys(row.phases ?? {})))].map(phase => [phase,
         cases.reduce((sum, row) => sum + (row.phases?.[phase] ?? 0), 0) / cases.length])) }));
-    const attempts = new Map<string, { technique: string; side: Side | null; begun: number; done: number; seconds: number }>();
+    const attempts = new Map<string, { technique: string; side: string | null; begun: number; done: number; seconds: number }>();
     for (const row of rows) for (const attempt of row.attempts ?? []) {
       const name = (attempt.technique ?? attempt.controller)!;
       if (name !== "flatten" && !(Object.hasOwn(TECHNIQUES, name) && isWayUp(TECHNIQUES[name as TechniqueName]))) continue;

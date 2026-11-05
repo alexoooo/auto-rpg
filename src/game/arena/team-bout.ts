@@ -21,7 +21,7 @@ import { arenaSolids } from "./solids.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
 import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";
 import { CAP_SECONDS, SIDES, senseDelayOf, type Verdict } from "./duel.ts";
-import { otherSide, type Side } from "../../core/bodies/bilateral.ts";
+import { otherSeat as otherSide, type ArenaSeat as Side } from "./seat.ts";
 
 /**
  * **A team bout in the arena**: a team a side, each body under the mind its side names (its

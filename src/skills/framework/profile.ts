@@ -13,27 +13,15 @@
  * read for another body, skill, rate or reaction time is stale (`staleness`), and a chooser prices
  * that skill by hand.
  *
- * Profiles are data scripts write from drill records: the strikes' from the Strike drill
- * (`research/strike-profiles.mjs`, `assets/skills/strikes/strike-profiles/strike-profiles.json`) and the ground edges' from
- * the Rise drill (`research/skills/recovery/edge-profiles.mjs`, `assets/skills/recovery/edge-profiles.json`). A mind reaches
- * them as mind data (`dataOf("strike-profiles")`, `"edge-profiles"`), which the parts that read
- * them declare (`Part.reads`), and reads one through `readProfile`, never a skill's code.
+ * Each dataset owner declares and loads its profiles. Readers use `readProfile`; identity
+ * selects the loaded data each provider declares relevant to a subject (`dataIdentity`).
  */
-import { dataOf, type DataKey } from "../../core/data/store.ts";
+import { dataIdentity, type DataKey } from "../../core/data/store.ts";
 import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { hypot } from "../../core/math/real.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
-
-declare module "../../core/data/store.ts" {
-  interface DataOf {
-    /** What the Strike drill measured every strike to bring. */
-    "strike-profiles": readonly Profile[];
-    /** What the Rise drill measured every ground edge to bring. */
-    "edge-profiles": readonly Profile[];
-  }
-}
 
 /**
  * What a profile was measured on: its body (`bodyKey`) and the digest of that body's spec
@@ -443,20 +431,21 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
       const of = read(at.phase);
       if (at.range > of.reach) return null;
       const shares = new Map<string, number>();
-      let done = 0, dealt = 0, seconds = 0, recovered = 0, recovers = 0, down = 0, exited = 0, exit = 0;
+      let done = 0, dealt = 0, seconds = 0, recovered = 0, recovers = 0, down = 0;
+      const exits: Record<string, number> = {}, exited: Record<string, number> = {};
       const n = eachNearest(of.run, at, (trial) => {
         if (trial.done) done++;
         if (trial.down) down++;
         dealt += trial.dealt; seconds += trial.seconds;
         if (trial.recovers !== null) { recovered++; recovers += trial.recovers; }
         if (trial.end !== undefined) shares.set(trial.end, (shares.get(trial.end) ?? 0) + 1);
-        if (trial.exit?.range !== undefined) { exited++; exit += trial.exit.range; }
+        for (const key in trial.exit) { exits[key] = (exits[key] ?? 0) + trial.exit[key]!; exited[key] = (exited[key] ?? 0) + 1; }
       });
       if (n === 0) return null;
       const letGo = at.progress === undefined ? null : letGoAt(of, at, at.progress);
       return { done: done / n, dealt: struck ? dealt / n / struck.wounds.hp.value : 0, seconds: seconds / n, recovers: recovered ? recovers / recovered : 0, down: down / n,
         ends: [...shares].map(([end, count]) => ({ at: end, share: count / n })),
-        ...(letGo ? { letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : {}), ...(exited ? { exit: { range: exit / exited } } : {}) };
+        ...(letGo ? { letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : {}), ...(Object.keys(exits).length ? { exit: Object.fromEntries(Object.keys(exits).map(key => [key, exits[key]! / exited[key]!])) } : {}) };
     },
     rate(at, struck) {
       const of = read(at.phase);
@@ -575,7 +564,7 @@ const NO_EXECUTOR = Object.freeze({}) as ExecutorEntry, NO_PART = Object.freeze(
 
 function readSkillDigest(part: ReturnType<typeof executorPart> | null, spec: BodySpec, executor: ExecutorEntry | null, action: ActionConfig): string {
   const body = bodyKey(spec);
-  const data = executor && part ? (part.reads?.(executor) ?? []).map((key) => digestOf((dataOf(key) as Readonly<Record<string, unknown>>)[body] ?? null)) : [];
+  const data = executor && part ? (part.reads?.(executor) ?? []).map((key) => digestOf(dataIdentity(key, body))) : [];
   const { name: _action, executor: _executor, ...does } = action;
   return digestOf({ action: does, executor: executor && (({ name: _, ...rest }) => rest)(executor), data });
 }
@@ -583,7 +572,7 @@ function readSkillDigest(part: ReturnType<typeof executorPart> | null, spec: Bod
 /** A ground technique's digest: its config and the body's records its part reads. */
 export function techniqueDigest(parts: PartLookup, spec: BodySpec, technique: PartConfig): string {
   const keys = parts.of("technique", technique).reads?.(technique) ?? [];
-  const body = bodyKey(spec), data = keys.map((key) => digestOf((dataOf(key) as Readonly<Record<string, unknown>>)[body] ?? null));
+  const body = bodyKey(spec), data = keys.map((key) => digestOf(dataIdentity(key, body)));
   return data.length ? digestOf({ technique, data }) : digestOf(technique);
 }
 
@@ -646,23 +635,4 @@ export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: num
     else if (profile.measured.body === body) stale ??= why;
   }
   return { fresh, stale: stale ?? `no drill measured the strikes of a ${body}` };
-}
-
-/** The postures a ground technique's trial began at (`Start.postures`): its body lying in position `from`, with no foe. */
-export const groundStart = (from: string): Postures => ({ own: from, target: "none" });
-
-/**
- * **What the ground technique `technique` is expected to bring a body of `spec` at `hz`, its command
- * `delay` steps late**, by where it is begun: its profile among `profiles` (`dataOf("edge-profiles")`
- * unless given) read through `readProfile` at its trials begun there (`groundStart`, `expected`),
- * null from a position none began at; and how it is priced, a sentence (`priced`): measured, or not,
- * and why (no drill measured it, or its profile is stale, `staleness`).
- */
-export function edgeExpected(parts: PartLookup, spec: BodySpec, technique: PartConfig, hz: number, delay: number, profiles: readonly Profile[] = dataOf("edge-profiles")): {
-  readonly expected: ((from: string) => Expected | null) | null; readonly priced: string } {
-  const found = profileFor(profiles, measuredOn(spec, techniqueDigest(parts, spec, technique), hz, null, hz, delay));
-  if (!found) return { expected: null, priced: "no drill measured it" };
-  if (found.stale !== null) return { expected: null, priced: found.stale };
-  const profile = found.profile;
-  return { expected: (from) => readProfile(profile, spec, groundStart(from)).expect({ range: 0, phase: "clear" }, null), priced: "measured" };
 }

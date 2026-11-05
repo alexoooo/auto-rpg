@@ -3,7 +3,7 @@ import { groundContact } from "../../control/support.ts";
 
 import type { World } from "../../core/world/world.ts";
 import { hypot } from "../../core/math/real.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
+import { SIDES, type Side } from "../../core/bodies/bilateral.ts";
 
 /**
  * **The lab's gait meter**: what a walk or a run does with its feet, read from the ground's contacts
@@ -14,7 +14,7 @@ import type { Side } from "../../core/bodies/bilateral.ts";
  * From the time it starts: the steps a second, the mean step (the distance between one touchdown
  * and the one before it, of either foot), and the share of the time on both feet and on none.
  *
- * This module has no page-only imports, so the Node stand can run it (`research/locomotion-run.mjs`).
+ * This module has no page-only imports, so the Node stand can run it (`research/skills/locomotion/locomotion-run.mjs`).
  */
 
 /** How long a foot is off the ground before it comes down again as a touchdown, s. */
@@ -35,36 +35,36 @@ export interface GaitReading {
 }
 
 interface GaitMeter {
+  readonly state: object;
   reading(): GaitReading;
   dispose(): void;
 }
 
 /** Meter `built`'s feet in `world` from now. */
 export function startGaitMeter(built: BuiltBody, world: World): GaitMeter {
-  const feet = (["left", "right"] as const).map((side) => ({ side, segment: built.segments.get(`foot.${side}`)! }));
-  const off: Record<Side, number> = { left: 0, right: 0 };
-  let seconds = 0, double = 0, flight = 0, touchdowns = 0, stepped = 0, last: [number, number] | null = null;
+  const feet = SIDES.map((side) => ({ side, segment: built.segments.get(`foot.${side}`)! }));
+  const state = { off: { left: 0, right: 0 } as Record<Side, number>, seconds: 0, double: 0, flight: 0, touchdowns: 0, stepped: 0, last: null as [number, number] | null };
   const hook = world.afterStep((dt) => {
     let down = 0;
     for (const { side, segment } of feet) {
-      if (!built.physics.contactsOf(segment.body).some((c) => groundContact(c, 0.5))) { off[side] += dt; continue; }
+      if (!built.physics.contactsOf(segment.body).some((c) => groundContact(c, 0.5))) { state.off[side] += dt; continue; }
       down++;
-      if (off[side] >= AIRBORNE) {
+      if (state.off[side] >= AIRBORNE) {
         const p = segment.pose.position;
-        if (last) stepped += hypot(p.x - last[0], p.z - last[1]);
-        last = [p.x, p.z];
-        touchdowns++;
+        if (state.last) state.stepped += hypot(p.x - state.last[0], p.z - state.last[1]);
+        state.last = [p.x, p.z];
+        state.touchdowns++;
       }
-      off[side] = 0;
+      state.off[side] = 0;
     }
-    seconds += dt;
-    if (down === 2) double += dt;
-    if (down === 0) flight += dt;
+    state.seconds += dt;
+    if (down === 2) state.double += dt;
+    if (down === 0) state.flight += dt;
   });
   return {
-    reading: () => ({
-      seconds, touchdowns, cadence: seconds > 0 ? touchdowns / seconds : 0, step: touchdowns > 1 ? stepped / (touchdowns - 1) : 0,
-      double: seconds > 0 ? double / seconds : 0, flight: seconds > 0 ? flight / seconds : 0,
+    state, reading: () => ({
+      seconds: state.seconds, touchdowns: state.touchdowns, cadence: state.seconds > 0 ? state.touchdowns / state.seconds : 0, step: state.touchdowns > 1 ? state.stepped / (state.touchdowns - 1) : 0,
+      double: state.seconds > 0 ? state.double / state.seconds : 0, flight: state.seconds > 0 ? state.flight / state.seconds : 0,
     }),
     dispose: () => hook.dispose(),
   };

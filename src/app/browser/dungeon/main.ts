@@ -1,3 +1,5 @@
+import { isRefused, type Refused } from "../../../core/refusal.ts";
+import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
 import { sceneProfile, visualGroup } from "../render/scene-profile.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
 import { viewModeControl } from "../ui/view-controls.ts";
@@ -24,7 +26,7 @@ import type { MindConfig } from "../../../minds/config.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
 import type { Clothing } from "../render/skin-view.ts";
-import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
+import { loadSkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { handsOf } from "../render/strike-hands.ts";
@@ -56,8 +58,7 @@ import type { ScreenContext } from "../ui/screen.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
 import type { Command } from "../../../minds/command/commands.ts";
 import type { CommanderConfig, CommanderEntry } from "../../../minds/command/kind.ts";
-import { commanderOf } from "../../../minds/command/commander.ts";
-import { COMMANDERS } from "../../../minds/command/commanders.ts";
+import { commanderOf, COMMANDERS } from "../../commanders.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
 
@@ -272,7 +273,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   function createPage(skeletonArt: Promise<SkeletonArt>): DungeonPage {
     const engine = new Engine(canvas, true, { stencil: true, antialias: true });
     engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
-    const hover = new EnemyHover(), audio = new GameAudio(true, need("dungeon-sound"));
+    const hover = new EnemyHover(), audio = new GameAudio({ dungeon: true, mount: need("dungeon-sound") });
     const meter = frameMeter(engine, context.signal);
     const panel = document.createElement("details"), label = document.createElement("summary");
     label.textContent = "View"; panel.className = "ui-drawer";
@@ -390,14 +391,18 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   }
 
   /** Replaces the run on show with one of `nextSeed`, in the scenario and with the party the start panel chose. */
-  async function buildRun(page: DungeonPage, nextSeed: number, stage: (label: string) => Promise<void>): Promise<void> {
+  async function buildRun(page: DungeonPage, nextSeed: number, stage: (label: string) => Promise<void>): Promise<void | Refused> {
     const { engine, audio, reference } = page;
     const art = await loadArtAssets();
     page.signal.throwIfAborted();
     const seed = nextSeed >>> 0;
     const cryptPlan = page.selectedScenario === "random-crypt" ? generateCryptDungeon(seed) : undefined;
+    if (cryptPlan && isRefused(cryptPlan)) return cryptPlan;
     const fielded = { seed, layout: cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined), hero: page.selectedHero, companions: page.companions, attributes: page.attributes };
-    const layout = runMap(fielded), prepared = prepareDungeonCharacters(layout, fielded);
+    const layout = runMap(fielded);
+    if (isRefused(layout)) return layout;
+    const prepared = prepareDungeonCharacters(layout, fielded);
+    if (isRefused(prepared)) return prepared;
     audio.reset();
     page.soundTorches = [];
     teardownRun(page);
@@ -533,22 +538,27 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     start.textContent = "Loading…";
     need("setup-error").hidden = true;
     need("start-panel").inert = true;
-    const previous = page.run;
+    const previousScene = page.scene;
     let failed = false;
-    try {
-      await context.loading("Preparing your expedition", async stage => { await buildRun(page, nextSeed, stage); });
-      if (!page.signal.aborted) canvas.focus();
-    } catch (error) {
-      if (page.signal.aborted) return;
+    const showFailure = (message: string) => {
       failed = true;
       page.audio.setActive(false);
-      if (page.run !== previous) teardownRun(page);
+      if (page.scene !== previousScene) teardownRun(page);
+      page.run?.play(false);
       page.paused = true;
       showScreen("setup");
       need("pause-panel").hidden = true;
       need("help").hidden = true;
       need("setup-error").hidden = false;
-      need("setup-error").textContent = `Could not load level: ${String(error)}`;
+      need("setup-error").textContent = `Could not load level: ${message}`;
+    };
+    try {
+      const result = await context.loading("Preparing your expedition", stage => buildRun(page, nextSeed, stage));
+      if (result && isRefused(result)) { showFailure(result.refused); return; }
+      if (!page.signal.aborted) canvas.focus();
+    } catch (error) {
+      if (page.signal.aborted) return;
+      showFailure(String(error));
       console.error(error);
     } finally {
       page.launching = false;
@@ -578,8 +588,9 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
         return;
       }
       seedInput.setCustomValidity("");
-      try { page.attributes = attributePanel.read(); }
-      catch (error) { need("setup-error").hidden = false; need("setup-error").textContent = String(error); return; }
+      const attributes = attributePanel.read();
+      if (!attributes) { need("setup-error").hidden = false; need("setup-error").textContent = "Correct the highlighted character attributes."; return; }
+      page.attributes = attributes;
       page.selectedHero = choice(heroChoices) as BodyModel;
       page.selectedScenario = scenarioOf(choice(scenario));
       page.reference = usesReferenceLook(page.selectedScenario);
@@ -941,6 +952,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const updatePreview = async () => {
       try {
         const attributes = attributePanel.read(), hero = choice(heroChoices) as BodyModel;
+        if (!attributes) return;
         await Promise.all(HEROES.map((row, index) => {
           const companion = selectedCompanions.indexOf(row.model), id = row.model === hero ? "hero" : companion >= 0 ? `ally-${companion}` : "";
           return preview.setCharacter(index, { model: row.model, attributes: id ? attributes({ id, model: row.model, side: "party" }) : {} });

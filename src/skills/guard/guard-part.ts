@@ -1,23 +1,13 @@
+import type { GuardPart, GuardSkill } from "../framework/guard.ts";
+import { soleRefusal } from "../../control/support.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
-import { fitsAll, fitsWhen, type KeysOf, type Part, type PartConfig } from "../../parts/parts.ts";
+import { fitsAll, fitsWhen } from "../../parts/parts.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { guardPosture, guardSkill, handsOf, wardSpeed, type Covering, type GuardSkill } from "./guard.ts";
-import { holdUp } from "../framework/hold.ts";
+import { guardPosture, guardSkill, handsOf, wardSpeed, type Covering } from "./guard.ts";
+import { holdUp } from "./hold.ts";
 
-/**
- * **A kind of guard**: a part of role `guard` that owns the arms' rest and makes the skill that
- * covers. Its posture is the one source of where a body of it is built (`Controller.builtIn`), where
- * the arbiter rests the arms no skill holds and where a blow returns (`ExecutorMaking.guard`).
- */
-export interface GuardPart<C extends PartConfig = PartConfig> extends Part<C> {
-  readonly role: "guard";
-  readonly keys: KeysOf<C>;
-  /** The arms' rest a body of `spec` holds under `config`, before any skill is made: what it is built in. */
-  posture(spec: BodySpec, config: C): Pose;
-  /** The guard skill of `config` for the body `built`; its `posture` is `posture`'s for the body's spec. */
-  make(built: ReadBody, config: C): GuardSkill;
-}
+
 
 /** **The cover guard**: the arms' posture (`guardPosture`), and a guarding hand's cover of what the mind names (`guardSkill`). */
 interface CoverGuardConfig {
@@ -63,7 +53,7 @@ interface RestGuardConfig { readonly kind: "rest" }
 const NO_POSTURE: Pose = Object.freeze({});
 
 /** The guard at rest: no hands, no posture, no hold and no cover. */
-const AT_REST: GuardSkill = Object.freeze({ hands: Object.freeze([]), posture: NO_POSTURE, hold: null, command: () => Object.freeze({}), resume: () => undefined });
+const AT_REST: GuardSkill = Object.freeze({ effectors: Object.freeze([]), posture: NO_POSTURE, hold: null, command: () => Object.freeze({}), resume: () => undefined });
 
 export const REST_GUARD: GuardPart<RestGuardConfig> = {
   role: "guard", label: "At rest", stage: "game", fields: [], slots: [], defaults: { kind: "rest" }, keys: { kind: true },
@@ -73,16 +63,11 @@ export const REST_GUARD: GuardPart<RestGuardConfig> = {
 
 export const SHIELD_GUARD: GuardPart<ShieldGuardConfig> = {
   role: "guard", label: "Guard faces and lines", stage: "game", fields: [], slots: [], defaults: { kind: "shield-guard" }, keys: { kind: true, tuning: true },
-  tuning: ["covering", "hold"], fits: fitsAll(coversWithHands, fitsWhen(wardsWithFace, "holds no item with a face to ward with")), faults: () => [],
+  tuning: ["covering", "hold"], fits: fitsAll(coversWithHands, soleRefusal, fitsWhen(wardsWithFace, "holds no item with a face to ward with")), faults: () => [],
   supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment),
   posture: (spec) => guardPosture(spec), make: coverMaker,
 };
 
-declare module "../../parts/lookup.ts" {
-  interface RoleParts {
-    readonly guard: GuardPart;
-  }
-}
 
 declare module "../config.ts" {
   interface GuardConfigs {

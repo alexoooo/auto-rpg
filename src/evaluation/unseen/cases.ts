@@ -3,6 +3,7 @@
  * Option Mind with sword and buckler on the same character, on each side.
  */
 import { LOADOUTS, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
+import { presetFitsModel } from "../../minds/controller.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { BODY_MODELS, modelHolds, type BodyModel } from "../../core/bodies/models.ts";
 
@@ -12,7 +13,7 @@ import { TOURNAMENT } from "../tournament/cases.ts";
 
 import { FIGHT_ENTRY } from "../../minds/catalog.ts";
 import { type GameContext } from "../../game/arena/context.ts";
-import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
+import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 /** The opponent: Option Mind with sword and buckler, the sword-and-buckler reference. */
 const OPPONENT = Object.freeze({ mind: "option", loadout: TOURNAMENT.loadouts.find((loadout) => loadoutKey(loadout) === "buckler,sword")! });
@@ -45,6 +46,7 @@ export function createUnseenCases(context: GameContext) {
       seconds: UNSEEN.capSeconds,
       faults: (value, { model, loadout }, subject) => {
         if (!isMind(value)) return ["no mind"];
+        if (subject && !presetFitsModel(subject, model)) return [`named calibration does not allow ${model}`];
         if (!modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) return [`${model} holds nothing`];
         const refused = modelRefusal(model, value as unknown as MindConfig, loadout, FIGHT_ENTRY, subject?.character),
           opposed = modelRefusal(model, MINDS[OPPONENT.mind].config, OPPONENT.loadout, FIGHT_ENTRY, MINDS[OPPONENT.mind].character);

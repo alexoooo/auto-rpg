@@ -1,3 +1,4 @@
+import { isRefused } from "../src/core/refusal.ts";
 /**
  * What lands in a crypt run: the hero explores a generated level (`DungeonRun`, no visuals),
  * `--companions` Warriors following it, until the run ends or `--seconds` of it have passed, and
@@ -13,7 +14,7 @@
  * the rule.
  */
 import { parseArgs } from "node:util";
-import { DungeonRun } from "../src/app/node/game.ts";
+import { createDungeonRun } from "../src/app/node/game.ts";
 import { lifeTaken } from "../src/combat/blows.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 
@@ -33,13 +34,13 @@ function kindOf(blow) {
 async function played(seed) {
   const landed = [];
   let run = null;
-  run = new DungeonRun({
+  run = admitted(createDungeonRun({
     seed, engine: await freshEngine(), companions,
     onBlow: (blow) => {
       const alive = blow.sides.map((side) => run.actors.find((actor) => actor.id === side.fighter)?.alive ?? false);
-      landed.push({ kind: kindOf(blow), energy: blow.energy, hp: hpOf(blow), out: alive.includes(false), living: blow.sides.reduce((sum, side, k) => sum + (alive[k] ? lost(side) : 0), 0) });
+      landed.push({ kind: kindOf(blow), energy: blow.energy, hp: hpOf(blow), out: alive.includes(false), living: blow.sides.reduce((sum, side, k) => sum + (alive[k] ? lifeTaken(side) : 0), 0) });
     },
-  });
+  }));
   run.commands.setMode({ keyboard: false, facing: true });
   const hz = run.world.hz;
   let steps = 0;
@@ -66,3 +67,6 @@ for (const kind of [...new Set(all.map((blow) => blow.kind))].sort()) {
   const sum = (list, of) => list.reduce((s, blow) => s + of(blow), 0);
   console.log(`| ${kind} | ${some.length} | ${(sum(some, (b) => b.energy) / some.length).toFixed(2)} | ${Math.max(...some.map((b) => b.energy)).toFixed(1)} | ${sum(some, (b) => b.hp).toFixed(3)} | ${out.length} | ${sum(out, (b) => b.hp).toFixed(3)} | ${sum(out, (b) => b.living).toFixed(3)} |`);
 }
+
+/** A returned admission failure reaches this diagnostic with its original message. */
+function admitted(value) { if (isRefused(value)) throw new Error(value.refused); return value; }

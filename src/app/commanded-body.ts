@@ -1,7 +1,7 @@
 import type { BodyOptions, HostedBody } from "../minds/hosted-body.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import type { World } from "../core/world/world.ts";
-import { wholeBodyMotor } from "../control/whole-body-motor.ts";
+import { stockMotor } from "./stance-balance.ts";
 import type { SubMindMaker } from "../minds/sub-mind.ts";
 import type { MotorMaker } from "../control/motor-part.ts";
 import { commandedBody as configuredBody } from "../minds/host.ts";
@@ -15,5 +15,5 @@ type StockBodyOptions = Omit<BodyOptions, "motor"> & { readonly motor?: MotorMak
  * holding the reference pose until something drives them (`HostedBody.drive`).
  */
 export function commandedBody(built: BuiltBody, world: World, options: StockBodyOptions, subs: readonly SubMindMaker[] = []): HostedBody {
-  return configuredBody(built, world, { ...options, motor: options.motor ?? wholeBodyMotor() }, subs);
+  return configuredBody(built, world, { ...options, motor: options.motor ?? stockMotor() }, subs);
 }

@@ -1,3 +1,4 @@
+import type { DataLoader } from "../../core/data/store.ts";
 import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
 
 /**
@@ -7,7 +8,7 @@ import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
  * they load (its `.meta.json`): a body with none does not use the skill and says so
  * (`recordFault`), and an experiment's research `tuning` sets settings over its body's, all of
  * them where it has none. A mind carries none of a skill's settings; a new body is rows, written by
- * the run that tuned the skill on it (`research/skills/framework/skill-records.mjs`).
+ * the run that tuned the skill on it (`research/skills/skill-records.mjs`).
  */
 export interface SkillRecord<S> {
   readonly made: string;
@@ -34,3 +35,8 @@ export function recordFault<T>(skill: string, bodies: readonly string[], whole: 
 /** The settings a skill throws on a body of `spec`: its record's among `records`, with `config`'s research tuning over them. */
 export const tunedSettings = <S>(records: SkillRecords<S>, spec: BodySpec, config: Tuned<S>): S =>
   ({ ...records[bodyKey(spec)]?.settings, ...config.tuning }) as S;
+
+/** A per-body record loader whose identity is the selected body's row. */
+export function bodyRecords(load: () => Promise<unknown>): DataLoader {
+  return Object.assign(load, { identity: (data: unknown, body: string) => (data as Readonly<Record<string, unknown>>)[body] ?? null });
+}

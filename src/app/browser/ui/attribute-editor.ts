@@ -1,11 +1,13 @@
 import { buttonInput as button } from "./inputs.ts";
-import { CHARACTER_ATTRIBUTES, type AttributeName, type AttributeOverrides } from "../../../core/bodies/character-attributes.ts";
-import { characterDefaults, resolveCharacter, type CharacterConfig, type ResolvedCharacter } from "../../../core/bodies/models.ts";
+import { type AttributeName, type AttributeOverrides } from "../../../core/bodies/character-attributes.ts";
+import { CHARACTER_ATTRIBUTES } from "./character-attribute-info.ts";
+import { characterDefaults, resolveCharacterChecked, type CharacterConfig, type ResolvedCharacter } from "../../../core/bodies/models.ts";
+import { isRefused } from "../../../core/refusal.ts";
 import type { Control } from "./controls.ts";
 
 interface AttributeEditor extends Control {
   /** Validate and return a detached draft, or report its error before a page starts a new world. */
-  read(): AttributeOverrides;
+  read(): AttributeOverrides | null;
   /** Show another model or setup; explicit overrides belong to the supplied configuration. */
   set(character: CharacterConfig): void;
   /** Show the draft over `base`, the attributes it inherits before the model's own (a mind's, `MindPreset.character`). */
@@ -28,16 +30,15 @@ export function attributeEditor(character: CharacterConfig, options: {
   const rows = new Map<AttributeName, { input: HTMLInputElement; reset: HTMLButtonElement }>();
   let apply: HTMLButtonElement | undefined;
   const validate = (): ResolvedCharacter | null => {
-    try {
-      const resolved = resolveCharacter({ model, attributes: { ...base, ...draft } });
-      error.textContent = ""; error.hidden = true;
-      if (apply) apply.disabled = false;
-      return resolved;
-    } catch (fault) {
-      error.textContent = fault instanceof Error ? fault.message : String(fault); error.hidden = false;
+    const resolved = resolveCharacterChecked({ model, attributes: { ...base, ...draft } });
+    if (isRefused(resolved)) {
+      error.textContent = resolved.refused; error.hidden = false;
       if (apply) apply.disabled = true;
       return null;
     }
+    error.textContent = ""; error.hidden = true;
+    if (apply) apply.disabled = false;
+    return resolved;
   };
   const refresh = () => {
     const defaults = characterDefaults(model);
@@ -74,12 +75,12 @@ export function attributeEditor(character: CharacterConfig, options: {
     rows.set(name, { input, reset }); fields.append(row);
   }
   element.append(fields, button("Reset all", () => { draft = {}; changed(); }), error);
-  const read = (): AttributeOverrides => {
-    if (!validate()) { element.open = true; throw new Error(error.textContent ?? "Invalid attributes"); }
+  const read = (): AttributeOverrides | null => {
+    if (!validate()) { element.open = true; return null; }
     return Object.freeze({ ...draft });
   };
   if (options.apply) {
-    apply = button("Apply and restart", () => { options.apply!(read()); }); element.append(apply);
+    apply = button("Apply and restart", () => { const attributes = read(); if (attributes) options.apply!(attributes); }); element.append(apply);
   }
   // Controls over the canvas retain pointer release so the game's held buttons can clear.
   for (const event of ["pointerdown", "pointermove"]) element.addEventListener(event, e => e.stopPropagation());

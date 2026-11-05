@@ -40,9 +40,9 @@ export function createBout(context: GameContext) {
   /** A world with the arena's solids and `recipe`'s bout in it. */
   async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
     const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(minds ? { minds } : {}) });
-    const solids = arenaSolids(recipe.level);
-    const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
     try {
+      const solids = arenaSolids(recipe.level);
+      const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
       const duel = new Duel(world, recipe, context, { solids, ...hooks });
       return { catalog: context.catalog, world, duel, colliders, dispose() { duel.dispose(); world.dispose(); } };
     } catch (error) { world.dispose(); throw error; }
@@ -64,9 +64,9 @@ export function createBout(context: GameContext) {
   /** A world with the arena's solids and `recipe`'s team bout in it. */
   async function buildTeamBout(recipe: TeamRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, minds }: Omit<BoutOptions, "hooks" | "actuation"> = {}): Promise<{ readonly world: World; readonly bout: TeamBout; dispose(): void }> {
     const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, ...(minds ? { minds } : {}) });
-    const solids = arenaSolids(recipe.level);
-    addArenaSolids(world.physics, solids);
     try {
+      const solids = arenaSolids(recipe.level);
+      addArenaSolids(world.physics, solids);
       const bout = new TeamBout(world, recipe, context, { solids });
       return { world, bout, dispose() { bout.dispose(); world.dispose(); } };
     } catch (error) { world.dispose(); throw error; }

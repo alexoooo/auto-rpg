@@ -1,3 +1,6 @@
+import { constructionScope } from "../core/construction.ts";
+import type { Refused } from "../core/refusal.ts";
+import { supportHeight } from "../control/support-reference.ts";
 import type { BodyControl } from "../core/bodies/body-control.ts";
 import { Vector3 } from "../core/math/vector.ts";
 import { addArenaSolids } from "../game/arena/solids.ts";
@@ -108,24 +111,33 @@ export function createTechnique(context: GameContext) {
    * technique that stands the body, or when one is not entered; once one ends not done, the body
    * lies slack until it comes to rest, for up to `TECHNIQUE_LIMITS.rest` s.
    */
-  async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engine"]): Promise<BuiltTechnique> {
-    if (one.chain.length === 0) throw new Error("a technique case plays at least one technique");
+  async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engine"]): Promise<BuiltTechnique | Refused> {
+    if (one.chain.length === 0) return { refused: "a technique case plays at least one technique" };
     const placement = techniquePlacement(one);
-    if ("refused" in placement) throw new Error(placement.refused);
+    if ("refused" in placement) return placement;
     const spec = techniqueSpec(one);
-    const world = createWorld(await loadEngine(engine));
+    for (const name of one.chain) {
+      const part = TECHNIQUES[name];
+      if (!part) return { refused: `unknown technique ${name}` };
+      const refused = part.fits(spec, part.defaults, partLookup);
+      if (refused) return { refused };
+    }
+    const scope = constructionScope(); let complete = false;
+    try {
+    const world = scope.own(createWorld(await loadEngine(engine)));
     addArenaSolids(world.physics);
-    const built = buildBody(spec, world, placement);
+    const built = scope.own(buildBody(spec, world, placement));
     const held: Record<string, number> = {};
     for (const joint of spec.joints) joint.dofs.forEach((dof, k) => { held[`${joint.name} ${dof.positive}`] = (placement.joints?.[joint.name]?.[k] ?? 0) + dof.bind.value; });
     const lying = one.start.kind === "shoved" || LYING.includes(one.start.posture);
-    const state = { link: 0, phase: "start" as "start" | "wait" | "run" | "rest" | "stood" | "over", since: 0, down: false,
+    const state = { link: 0, phase: "start" as "start" | "wait" | "run" | "rest" | "stood" | "over", since: 0, down: false, shoved: false,
       command: { activation: new Float64Array(spec.joints.reduce((n,j)=>n+j.dofs.length,0)), velocity: new Float64Array(spec.joints.reduce((n,j)=>n+j.dofs.length,0)) },
-      links: [] as LinkReading[], entry: null as LinkReading["entry"], last: "between" };
+      runs: [] as object[], links: [] as LinkReading[], entry: null as LinkReading["entry"], last: "between" };
     let runs: TechniqueRun[] = [];
     const body = commandedBody(built, world, { servoSeconds: .1, motor: kitOf(partLookup, spec).motor }, [(own, view, clock, afterPhysics) => {
       const kit = kitOf(partLookup, own.spec), drive = poseDrive(own.muscles);
       runs = one.chain.map((name) => { const part: TechniquePart = TECHNIQUES[name]; return part.make(own, view, clock, kit, part.defaults, afterPhysics); });
+      state.runs = runs.map(run => run.state);
       const command = state.command;
       const remember = (control: BodyControl) => { command.activation.set(control.muscles.activation); command.velocity.set(control.muscles.velocity); };
       const carry = (control: BodyControl) => { control.muscles.activation.set(command.activation); control.muscles.velocity.set(command.velocity); };
@@ -155,7 +167,7 @@ export function createTechnique(context: GameContext) {
             return;
           }
           if (state.phase === "wait") {
-            const run = runs[state.link]!, side = TECHNIQUES[one.chain[state.link]!].sides[0]!;
+            const run = runs[state.link]!, side = TECHNIQUES[one.chain[state.link]!].starts[0]!;
             if (g.settled && run.admits(g, side)) {
               state.entry = { position: g.raw, speed: Math.sqrt(g.velocity.lengthSquared()), spin: g.spin, waited: clock.time - state.since };
               state.phase = "run"; state.since = clock.time; run.begin(side);
@@ -180,21 +192,21 @@ export function createTechnique(context: GameContext) {
           else state.phase = "over";
         } } };
     }]);
-    body.drive(() => ({ posture: guardPosture(spec), pushes: [], stance: { feet: stanceFeet(spec).map((foot) => foot.end.name), centre: null, height: body.view.standing - .03, heading: 0 } }));
+    scope.own(body);
+    body.drive(() => ({ posture: guardPosture(spec), pushes: [], stance: { feet: stanceFeet(spec).map((foot) => foot.end.name), centre: null, height: supportHeight(body.view) - .03, heading: 0 } }));
     const root = built.segments.get("middleTrunk")!, mass = [...built.segments.values()].reduce((sum, part) => sum + part.rigid.mass, 0);
-    let shoved = false;
-    const shoving = world.beforeStep(() => {
-      if (one.start.kind !== "shoved" || shoved || world.time < 1) return;
-      shoved = true;
+    scope.own(world.beforeStep(() => {
+      if (one.start.kind !== "shoved" || state.shoved || world.time < 1) return;
+      state.shoved = true;
       const a = one.start.degrees * Math.PI / 180;
       root.body.applyImpulse(new Vector3(1.5 * mass * sin(a), 0, 1.5 * mass * cos(a)), root.pose.position);
-    });
+    }));
     const cap = TECHNIQUE_LIMITS.admit * (one.chain.length + 1) + TECHNIQUE_LIMITS.run * one.chain.length + TECHNIQUE_LIMITS.stood + TECHNIQUE_LIMITS.rest + 2;
-    return {
+    const result: BuiltTechnique = {
       world, body: built,
       get ended() { return state.phase === "over" || world.time >= cap; },
       afterStep() {
-        if (shoved && body.view.down) state.down = true;
+        if (state.shoved && body.view.down) state.down = true;
         if (state.phase === "stood") {
           if (body.view.down) { state.links[state.links.length - 1] = { ...state.links[state.links.length - 1]!, end: "fell" }; state.phase = "over"; }
           else if (world.time - state.since >= TECHNIQUE_LIMITS.stood) state.phase = "over";
@@ -205,8 +217,10 @@ export function createTechnique(context: GameContext) {
         for (let k = links.length; k < one.chain.length; k++) links.push({ technique: one.chain[k]!, end: "not entered", seconds: 0, entry: null, position: body.view.ground?.position ?? "between" });
         return { links };
       },
-      dispose() { shoving.dispose(); body.dispose(); built.dispose(); world.dispose(); },
+      dispose: scope.dispose,
     };
+    complete = true; return result;
+    } finally { if (!complete) scope.dispose(); }
   }
 
   /** The technique world kind: built by `buildTechnique`, its one body traced, played by the world's clock; its techniques are its parts. */

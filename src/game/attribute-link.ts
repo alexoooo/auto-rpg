@@ -1,4 +1,4 @@
-import { CHARACTER_ATTRIBUTES, attributeError, type AttributeName, type AttributeOverrides } from "../core/bodies/character-attributes.ts";
+import { ATTRIBUTE_NAMES, type AttributeName, type AttributeOverrides } from "../core/bodies/character-attributes.ts";
 import { balanceFrom } from "../combat/rulebook.ts";
 import { hasteFrom } from "../core/bodies/human/attributes.ts";
 
@@ -19,7 +19,7 @@ export function legacyAttributes(query: URLSearchParams, side = 0): AttributeOve
  */
 export function readAttributes(query: URLSearchParams, scope: string, legacy: AttributeOverrides = {}): AttributeOverrides {
   const values: Record<string, unknown> = { ...legacy };
-  for (const name of Object.keys(CHARACTER_ATTRIBUTES) as AttributeName[]) {
+  for (const name of ATTRIBUTE_NAMES) {
     const text = query.get(`${scope}.${name}`);
     if (text === null) continue;
     values[name] = text.trim() === "" ? NaN : Number(text);
@@ -27,14 +27,12 @@ export function readAttributes(query: URLSearchParams, scope: string, legacy: At
   return Object.freeze(values) as AttributeOverrides;
 }
 
-/** Write only explicit overrides; resetting a field removes it instead of pinning its current default. */
+/** Preserve explicit drafts, including invalid values the editor reports; resetting removes an override. */
 export function writeAttributes(query: URLSearchParams, scope: string, attributes: AttributeOverrides): void {
-  for (const name of Object.keys(CHARACTER_ATTRIBUTES) as AttributeName[]) {
+  for (const name of ATTRIBUTE_NAMES) {
     const key = `${scope}.${name}`, value = attributes[name];
     if (value === undefined) query.delete(key);
     else {
-      const error = attributeError(name, value);
-      if (error) throw new Error(error);
       query.set(key, String(value));
     }
   }

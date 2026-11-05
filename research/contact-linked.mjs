@@ -9,7 +9,7 @@ import { planarSupportPoints } from "../src/core/bodies/build/planar-support.ts"
 import { coupledDynamics } from "../src/core/bodies/build/coupled-dynamics.ts";
 import { predictPointContacts } from "../src/core/bodies/build/contact-step.ts";
 
-const zero = [0, 0, 0], q = (v, unit = "m") => sourced(v, unit, "de-leva-1996", "synthetic linked contact fixture; not anatomical data");
+const zero = [0, 0, 0], q = (v, unit = "m") => sourced(v, unit, "synthetic-contact-fixtures", "synthetic linked contact fixture; not anatomical data");
 const speed = { unloadedSpeed: q(30, "rad/s"), curvature: q(.25, "1"), eccentricCeiling: q(1.4, "1"), eccentricSlopeRatio: q(2, "1") };
 const spec = { model: "linked-contact", mass: q(2, "kg"), stature: q(.1),
   segments: [-.35, .35].map((x, i) => ({ name: i ? "right" : "left", proximal: q([x, .1, 0]), distal: q([x, 0, 0]),

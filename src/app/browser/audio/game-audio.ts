@@ -73,7 +73,7 @@ export class GameAudio {
     this.randomState = x; return (x >>> 0) / 4294967296; };
 
   /** `mount`, if given, takes the volume control in line with what it holds; without one it sits in the page's corner. */
-  constructor(dungeon = false, mount?: HTMLElement) {
+  constructor({ dungeon = false, mount }: { readonly dungeon?: boolean; readonly mount?: HTMLElement } = {}) {
     this.dungeon = dungeon;
     try { const saved = JSON.parse(localStorage.getItem(STORAGE) ?? "null");
       if (typeof saved?.muted === "boolean") this.muted = saved.muted;

@@ -2,7 +2,7 @@ import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/world/state.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
+import { SIDES as BODY_SIDES, type Side } from "../../core/bodies/bilateral.ts";
 
 /**
  * **The limbs an Option strikes with, by role**: either hand, a hand that holds nothing, the hand
@@ -16,7 +16,7 @@ export const LIMB_ROLES: readonly (readonly [LimbRole, string])[] = deepFreeze([
   ["holding-hand", "The hand that holds the item"], ["either-foot", "Either foot"], ["jaw", "The jaw"]]);
 
 /** The sides, the right first: the order a body's limbs of a role are offered in. */
-const SIDES: readonly Side[] = Object.freeze(["right", "left"]);
+const SIDES: readonly Side[] = Object.freeze([...BODY_SIDES].reverse());
 
 /** Whether `segment` of `spec` holds an item. */
 const holds = (spec: BodySpec, segment: string): boolean => spec.held?.some((held) => held.segment === segment) ?? false;
@@ -43,6 +43,3 @@ export function limbsOf(parts: PartLookup, spec: BodySpec, role: LimbRole, skill
   const part = parts.of("executor", skill);
   return ofRole(spec, role).filter((limb) => part.effectors.includes(limb) && (part.strikesWith?.(spec, skill, limb) ?? true));
 }
-
-/** Whether `value` is a limb role. */
-export const isLimbRole = (value: unknown): value is LimbRole => LIMB_ROLES.some(([role]) => role === value);

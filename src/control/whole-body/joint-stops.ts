@@ -16,14 +16,6 @@ export interface JointStopSettings {
   readonly relativeTolerance: number;
 }
 
-/** Immutable numerical settings, validated before a controller owns a body. */
-export function checkedJointStopSettings(settings: JointStopSettings): Readonly<JointStopSettings> {
-  if (!(settings.margin >= 0) || !Number.isFinite(settings.margin)
-    || ![settings.forceTolerance, settings.accelerationTolerance, settings.absoluteTolerance, settings.relativeTolerance].every((v) => v > 0 && Number.isFinite(v))
-    || !Number.isSafeInteger(settings.iterations) || settings.iterations < 1) throw new Error("invalid joint-stop tracking settings");
-  return Object.freeze({ ...settings });
-}
-
 /**
  * Inward motion rows near anatomical bounds. A backward-Euler coordinate step asks for
  * acceleration (-gap/dt - inwardRate)/dt at the bound, including the row's changing gradient.

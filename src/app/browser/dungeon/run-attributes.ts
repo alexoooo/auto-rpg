@@ -33,12 +33,18 @@ export function runAttributes(holder: HTMLElement, search: string) {
         editors.set(row.scope, editor); section.append(heading, editor.element); return section;
       }));
     },
-    read(): (participant: Participant) => AttributeOverrides {
-      const snapshot = new Map(rows.map(row => [row.scope, editors.get(row.scope)!.read()]));
+    read(): ((participant: Participant) => AttributeOverrides) | null {
+      const snapshot = new Map<string, AttributeOverrides>();
+      for (const row of rows) {
+        const draft = editors.get(row.scope)!.read();
+        if (!draft) return null;
+        snapshot.set(row.scope, draft);
+      }
       return participant => snapshot.get(attributeScope(participant)) ?? Object.freeze({});
     },
     write(url: URL): void {
       const attributes = this.read();
+      if (!attributes) return;
       for (const scope of scopes) writeAttributes(url.searchParams, scope, {});
       for (const row of rows) writeAttributes(url.searchParams, row.scope, attributes({ id: row.scope, model: row.model, side: row.scope.startsWith("enemy.") ? "enemy" : "party" }));
     },

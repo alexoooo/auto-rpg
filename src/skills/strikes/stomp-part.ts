@@ -1,6 +1,10 @@
+import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
+import { SIDES } from "../../core/bodies/bilateral.ts";
+import { soleRefusal } from "../../control/support.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import meta from "../../../assets/skills/strikes/stomp/stomp.meta.json" with { type: "json" };
 import { dataOf } from "../../core/data/store.ts";
-import { fitsAll, strikesWithOneOf } from "../../parts/parts.ts";
+import { fitsAll } from "../../parts/parts.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../framework/records.ts";
 import { deepFreeze } from "../../core/world/state.ts";
@@ -20,11 +24,24 @@ interface Config {
 }
 
 /** Whether `tuning` holds every stomp setting, each valid (`validStompTuning`). */
-const wholeStomp = (tuning: Partial<StompTuning>): boolean => Object.keys(STOMP_PATH).every((key) => key in tuning) && validStompTuning(tuning as StompTuning);
+const wholeStomp = (tuning: Partial<StompTuning>): boolean => validStompPart(tuning) && Object.keys(STOMP_PATH).every((key) => Object.hasOwn(tuning, key)) && validStompTuning(tuning as StompTuning);
 
 /** Whether each setting `tuning` names is a known one, finite and nonnegative. */
 const validStompPart = (tuning: Partial<StompTuning>): boolean =>
-  Object.entries(tuning).every(([key, value]) => key in STOMP_PATH && Number.isFinite(value) && value! >= 0);
+  !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => key in STOMP_PATH && Number.isFinite(value) && value! >= 0);
+
+/** The bilateral stance geometry and observed strike points used by this stomp. */
+export function stompRefusal(spec: BodySpec): string | null {
+  const soles = soleRefusal(spec);
+  if (soles) return soles;
+  for (const side of SIDES) {
+    const segment = spec.segments.find(one => one.name === "foot." + side);
+    if (!spec.joints.some(joint => joint.name === "hip." + side) || !segment?.points?.sole || !segment.points.strike
+      || !spec.effectors?.some(effector => effector.segment === segment.name))
+      return "the stomp needs bilateral named hips and foot effectors with sole and strike points";
+  }
+  return null;
+}
 
 /**
  * **The stomp** (`stompExecutor`): a stroke of either foot down from a high chamber on a body lying
@@ -34,9 +51,9 @@ const validStompPart = (tuning: Partial<StompTuning>): boolean =>
  * body has none.
  */
 export const STOMP_PART: ExecutorPart<Config> = {
-  role: "executor", label: "Stomp", stage: "experimental", defaults: { kind: "stomp" },
+  role: "executor", requires: [SUPPORT_REFERENCE], label: "Stomp", stage: "experimental", defaults: { kind: "stomp" },
   keys: { kind: true, tuning: true }, fields: [], slots: [], tuning: Object.keys(STOMP_PATH),
-  fits: fitsAll(strikesWithOneOf("foot.left", "foot.right"), recordFault("stomp", deepFreeze(meta.bodies), wholeStomp)),
+  fits: fitsAll(stompRefusal, recordFault("stomp", deepFreeze(meta.bodies), wholeStomp)),
   faults: (config) => config.tuning === undefined || validStompPart(config.tuning) ? [] : ["invalid stomp tuning"],
   reads: () => ["stomp"], effectors: ["foot.left", "foot.right"], aims: true,
   make: ({ body, aim }, config, actions) => stompExecutor(body, actions.map(a => a.name), tunedSettings(dataOf("stomp"), body.built.spec, config), aimedPoint(aim)),

@@ -1,35 +1,12 @@
 import type { Body, BodyView } from "../../control/body.ts";
-import { heldBody, heldCommand } from "./held-body.ts";
+import { heldBody, heldCommand, heldPushes } from "./held-body.ts";
 import type { Clock } from "../../core/world/clock.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
-import type { MusclePush } from "../../control/motor.ts";
 import type { ActionClaim, ActionEnding, ActionRequest, Executor, LifecycleUpdate, Phase, Readiness, Resource } from "../framework/action.ts";
 import type { ActionBinding, ExecutorBinding } from "../framework/action-instances.ts";
-import { segmentOf, type BodySpec } from "../../core/bodies/spec/body.ts";
 import type { MindKit } from "../kit.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { TechniqueEnd, TechniqueRun } from "./technique.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
-
-/** Each body's side effectors (`sideEffectors`), by its spec. */
-const SIDE_EFFECTORS = new WeakMap<BodySpec, Readonly<Record<Side, string>>>();
-
-/**
- * **What a ground action of a body of `spec` names the side it is begun on by**: each side's first
- * end it stands on (`BodySpec.ends`, a foot or a paw), on that side of the body (its centre of
- * mass's x: +x is the right). A thrown error for a body with none on a side, which no ground skill
- * fits.
- */
-export function sideEffectors(spec: BodySpec): Readonly<Record<Side, string>> {
-  let sides = SIDE_EFFECTORS.get(spec);
-  if (sides) return sides;
-  const on = (side: Side) => (spec.ends ?? []).find((end) => (end.kind === "foot" || end.kind === "paw")
-    && (segmentOf(spec, end.segment)!.centreOfMass.value[0] < 0 ? "left" : "right") === side)?.segment;
-  const left = on("left"), right = on("right");
-  if (!left || !right) throw new Error(`${spec.model} stands on no end on each side`);
-  SIDE_EFFECTORS.set(spec, sides = Object.freeze({ left, right }));
-  return sides;
-}
 
 /** An action's end as its record shows it: a technique done completes, one that failed stalls; one let go before its end is cancelled. */
 const endingOf = (end: TechniqueEnd | null): ActionEnding => end === null ? { kind: "cancelled", reason: "let go" } : end === "done" ? { kind: "completed" } : { kind: "stalled", reason: end };
@@ -44,8 +21,8 @@ const endingOf = (end: TechniqueEnd | null): ActionEnding => end === null ? { ki
 function groundBody(body: Body, runs: readonly TechniqueRun[]) {
   const n = body.muscles.channels.length;
   const state = { ...heldCommand(n), carriedAt: -Infinity };
-  const held = heldBody(body, state), { own, control } = held;
-  const needs: readonly Resource[] = Object.freeze([...bodyEffectors(body.built).map((effector) => effector.model.segment), "legs", "trunk"]);
+  const held = heldBody(body, state), { own, control } = held, pushes = heldPushes(own.muscles, control.muscles);
+  const needs: readonly Resource[] = Object.freeze([...bodyEffectors(body.built).map((effector) => effector.model.segment), ...body.built.configurations.model.map(one => `pose:${one.segment}`), "legs", "trunk", "assist"]);
   return {
     state, own, control, needs, afterPhysics: held.afterPhysics,
     /** A ground action runs at `view`'s step. */
@@ -60,9 +37,7 @@ function groundBody(body: Body, runs: readonly TechniqueRun[]) {
     },
     /** What a ground action pushes: every muscle as its run commanded it, at its activation and toward its speed, asking no stance. */
     claim(): ActionClaim {
-      const pushes: MusclePush[] = [];
-      for (let i = 0; i < n; i++) pushes.push({ channel: own.muscles.channels[i]!.name, sense: state.velocity[i]! < 0 ? -1 : 1, level: state.activation[i]!, speed: state.velocity[i]! });
-      return { pushes, legs: null, ...(state.assistAsked ? { assist: state.assist } : {}) };
+      return { pushes: pushes(), legs: null, configurations: state.configurations, ...(state.assistAsked ? { assist: state.assist } : {}) };
     },
   };
 }
@@ -71,14 +46,14 @@ type GroundBody = ReturnType<typeof groundBody>;
 
 /**
  * **A ground skill's executor**, the technique `name`'s run on the body its skills share (`groundBody`):
- * one action, named as the technique, begun on the side its effector names where its run admits the
+ * one action, named as the technique, begun with the start its effector binding names where its run admits the
  * body as it lies (`TechniqueRun.admits`). Stepped to its end it stays live, its stage `ended:` and
  * its end, holding its last command until it is let go; a mode runs until it is let go. Running, it
  * is prepared while its run has yielded since it began (`TechniqueRun.yields`), committed once it
  * does not, and released once ended, a run reaching its end done committing to it first. Its memory
  * is the action it runs, the run's and the shared body's.
  */
-function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock: Clock, sideOf: (effector: string) => Side): ExecutorBinding {
+function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock: Clock, starts: ReadonlyMap<string, string>): ExecutorBinding {
   const state = { live: null as { id: number; phase: Phase; end: TechniqueEnd | null } | null, run: run.state, body: ground.state };
   const refused: Readiness = Object.freeze({ kind: "blocked", reason: `${name} does not admit the body as it lies` });
   const stepLive = (view: BodyView, dt: number): TechniqueEnd | null => { const g = view.ground; return g ? run.step(g, view.senses, ground.control, dt) : null; };
@@ -89,7 +64,8 @@ function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock:
     readiness(view, action, effector): Readiness {
       if (action !== name) return { kind: "blocked", reason: `no ground action ${action}` };
       const g = view.ground;
-      return g && run.admits(g, sideOf(effector)) ? { kind: "ready" } : refused;
+      const start = starts.get(effector);
+      return start !== undefined && g && run.admits(g, start) ? { kind: "ready" } : refused;
     },
     update(view, continued: readonly ActionRequest[], _around, dt): readonly LifecycleUpdate[] {
       const live = state.live;
@@ -105,7 +81,9 @@ function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock:
       if (state.live) throw new Error(`two ${name} actions at once`);
       ground.take(view);
       state.live = { id: request.id, phase: "prepare", end: null };
-      run.begin(sideOf(request.effector));
+      const start = starts.get(request.effector);
+      if (start === undefined) throw new Error(`unsupported ${name} effector ${request.effector}`);
+      run.begin(start);
       state.live.end = stepLive(view, clock.dt);
     },
     command: () => ground.claim(),
@@ -118,8 +96,7 @@ function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock:
 /**
  * **A body's ground skills**: an executor each of `techniques` (each a technique's config, a way up
  * or a mode of the ground) that fits the body, run with the mind's motor and guard (`kit`) on the
- * body they share (`groundBody`), and its action, named as the technique, asked on either side
- * (`sideEffectors`).
+ * body they share (`groundBody`), and its action, named as the technique, asked through its declared action bindings (`TechniquePart.bindings`).
  */
 export function groundSkills(body: Body, clock: Clock, kit: MindKit, techniques: readonly PartConfig[]): { readonly executors: readonly ExecutorBinding[]; readonly actions: readonly ActionBinding[] } {
   const fitting = techniques.filter((config) => kit.parts.of("technique", config).fits(body.built.spec, config, kit.parts) === null);
@@ -127,8 +104,12 @@ export function groundSkills(body: Body, clock: Clock, kit: MindKit, techniques:
   const runs: TechniqueRun[] = [];
   const ground = groundBody(body, runs);
   for (const config of fitting) runs.push(kit.parts.of("technique", config).make(ground.own, body.view, clock, kit, config, ground.afterPhysics));
-  const sides = sideEffectors(body.built.spec), effectors = Object.freeze([sides.left, sides.right]);
-  const sideOf = (effector: string): Side => effector === sides.right ? "right" : "left";
-  const executors = fitting.map((config, i) => groundSkill(config.kind, runs[i]!, ground, clock, sideOf));
-  return { executors, actions: executors.map((executor) => ({ name: executor.name, executor: executor.name, effectors })) };
+  const bindings = fitting.map(config => {
+    const part = kit.parts.of("technique", config);
+    const declared = part.bindings(body.built.spec, config);
+    if (declared.some(one => !part.starts.includes(one.start) || !body.built.segments.has(one.segment)) || new Set(declared.map(one => one.segment)).size !== declared.length) throw new Error(`invalid action bindings for ${config.kind}`);
+    return declared;
+  });
+  const executors = fitting.map((config, i) => groundSkill(config.kind, runs[i]!, ground, clock, new Map(bindings[i]!.map(one => [one.segment, one.start]))));
+  return { executors, actions: executors.map((executor, i) => ({ name: executor.name, executor: executor.name, effectors: Object.freeze(bindings[i]!.map(one => one.segment)) })) };
 }

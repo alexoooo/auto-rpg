@@ -1,3 +1,4 @@
+import type { MindDescription } from "./description.ts";
 import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
 import type { Pose } from "../core/bodies/spec/pose.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
@@ -42,6 +43,8 @@ export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
    */
   builtIn(spec: BodySpec, config: C, parts: PartLookup): Pose;
   create(host: BodyHost, config: C, wiring: MindWiring): MindMade;
+  /** Configured execution capabilities and their actual component paths, where published. */
+  describe?(spec: BodySpec, config: C, parts: PartLookup): MindDescription;
 }
 
 /** No posture: a body built in its spec's reference pose. */

@@ -200,7 +200,7 @@ export const SIDES: readonly Side[] = Object.freeze([1, -1]);
  */
 function besideLying(view: BodyView, window: Window, lying: BodySense, heading: number, side: Side | null, kept?: HeldBeside, going?: MovementRequest | null): Beside | null {
   const obstacle = stepObstacle(view, lying), clear = obstacle.clear, axis = lyingAxis(lying), { ends, centre } = view.stance, y = view.stance.support.y;
-  const [a, b] = Object.values(ends), width = hypot(a!.middle.x - b!.middle.x, a!.middle.z - b!.middle.z) / 2, velocity = view.stance.velocity;
+  const supports = Object.values(ends), velocity = view.stance.velocity, facing = view.stance.facing;
   const from: Vec3 = [centre.x + velocity.x * LYING.lead, y, centre.z + velocity.z * LYING.lead];
   const stands = (x: number, z: number): boolean => {
     for (let h = 0; h <= 2; h++) {
@@ -211,8 +211,12 @@ function besideLying(view: BodyView, window: Window, lying: BodySense, heading: 
   };
   // Each foot of a place facing `face` at (`x`, `z`), as far to its side as the soles stand now, clear.
   const feetClear = (x: number, z: number, face: number): boolean => {
-    const rx = cos(face), rz = -sin(face);
-    return stands(x - width * rx, z - width * rz) && stands(x + width * rx, z + width * rz);
+    const turn = face - facing, c = cos(turn), s = sin(turn);
+    for (const end of supports) {
+      const dx = end.middle.x - centre.x, dz = end.middle.z - centre.z;
+      if (!stands(x + dx * c + dz * s, z - dx * s + dz * c)) return false;
+    }
+    return supports.length > 0 || stands(x, z);
   };
   const drift: readonly Drift[] | null = kept ? [{ at: [lying.centre.x, lying.centre.z], within: CROWD.settled }, { at: [window.at[0], window.at[2]], within: LYING.shift }] : null;
   if (kept && drift) {

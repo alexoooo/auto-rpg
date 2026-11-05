@@ -25,6 +25,8 @@ interface Command {
 }
 
 export interface Commands {
+  /** Mutable generator memory and cached destinations, when the course retains either. */
+  readonly state?: object;
   /** The square's side, m, centred on the start. */
   readonly area: number;
   /** The `i`th command, from 0: the same for the same area and seed. */
@@ -33,21 +35,21 @@ export interface Commands {
 
 /** The commands over a square of `area` m from `seed`: each destination inside it and `LEAST_LEG` or more from the last. */
 export function commandsOf(area: number, seed: number): Commands {
-  const random = randomStream(seed), drawn: Command[] = [];
+  const random = randomStream(seed), state = { random: random.state, drawn: [] as Command[] };
   const half = area / 2;
   return {
-    area,
+    area, state,
     at(i) {
-      while (drawn.length <= i) {
-        const last = drawn[drawn.length - 1] ?? { x: 0, z: 0 };
+      while (state.drawn.length <= i) {
+        const last = state.drawn[state.drawn.length - 1] ?? { x: 0, z: 0 };
         let x: number, z: number;
         do {
           x = (2 * random.next() - 1) * half;
           z = (2 * random.next() - 1) * half;
         } while ((x - last.x) * (x - last.x) + (z - last.z) * (z - last.z) < LEAST_LEG * LEAST_LEG);
-        drawn.push({ x, z, stand: LONGEST_STAND * random.next() });
+        state.drawn.push({ x, z, stand: LONGEST_STAND * random.next() });
       }
-      return drawn[i]!;
+      return state.drawn[i]!;
     },
   };
 }

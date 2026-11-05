@@ -1,3 +1,4 @@
+import type { Refused } from "../../core/refusal.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { modelSpec, type BodyModel } from "../../core/bodies/models.ts";
@@ -109,12 +110,14 @@ function windState(seed: number): WindState {
 }
 
 /** Blow on `built`'s upper trunk in `world` by `settings`, drawing from `seed`, until disposed. */
-export function startWind(built: BuiltBody, world: World, settings: WindSettings, seed: number): Wind {
+export function startWind(built: BuiltBody, world: World, settings: WindSettings, seed: number): Wind | Refused {
   const trunk = built.segments.get("upperTrunk");
-  if (!trunk) throw new Error(`${built.spec.model} has no upper trunk for the wind`);
-  const state = windState(seed), turn = new Quaternion(), at = new Vector3(), impulse = new Vector3();
+  if (!trunk) return { refused: `${built.spec.model} has no upper trunk for the wind` };
+  const state = { ...windState(seed), settings }, turn = new Quaternion(), at = new Vector3(), impulse = new Vector3();
   const wind: Wind = {
-    state, settings,
+    state,
+    get settings() { return state.settings; },
+    set settings(value) { state.settings = value; },
     dispose: () => hook.dispose(),
   };
   const hook = world.beforeStep(() => {

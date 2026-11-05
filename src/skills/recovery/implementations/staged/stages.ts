@@ -453,33 +453,6 @@ export const RISE: Recipe = deepFreeze({
 });
 
 /**
- * **The contact sequence**: the game's recipe with its kneel-up borne. From hands and knees the
- * weight is pushed back by the hands, which still bear a part of it, and the body is carried up
- * tall on its knees by the bearing solve on both shins, the hands let go once the centre of mass
- * is over the shins and the pelvis brought upright, where the recipe sits back on its heels and
- * poses its way up at full activation; its torques are the solve's, bounded by the muscles.
- * An experiment's: the shins bear on their
- * knees alone, their feet held up off the ground, so the hands are never let go.
- */
-export const CONTACT_RISE: Recipe = deepFreeze({
-  ...RISE,
-  rise: [
-    ...RISE.rise.slice(0, RISE.rise.findIndex((stage) => stage.name === "fours") + 1),
-    // The weight pushed back toward the knees by the hands, which still bear a part of it.
-    {
-      kind: "bear", name: "back", on: SIDES.flatMap((side) => [{ limb: `shin.${side}`, share: 0.4 }, { limb: `hand.${side}`, share: 0.1 }]), leave: [],
-      overProp: false, height: null, pitch: null, posture: bothSides(FOURS), seconds: BEAR_SECONDS, limit: BEAR_LIMIT,
-    },
-    // Then up, tall on the knees, the hands let go once the weight is over the shins.
-    {
-      kind: "bear", name: "kneel up", on: SIDES.map((side) => ({ limb: `shin.${side}`, share: 0.5 })), leave: SIDES.map((side) => `hand.${side}`),
-      overProp: false, height: null, pitch: KNEEL_PITCH, posture: bothSides(TALL), seconds: BEAR_SECONDS, limit: BEAR_LIMIT,
-    },
-    ...RISE.rise.slice(RISE.rise.findIndex((stage) => stage.name === "shift")),
-  ],
-});
-
-/**
  * On hands and knees with the toes planted: the shins brought down toward level so that the feet,
  * bent up at the ankles, reach the ground on their balls. The hands-and-knees knee of 2.4 rad holds
  * the balls well up; at 2.05 they come down without waiting on the trunk to sink back.
@@ -724,15 +697,15 @@ function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
     }
     for (const [channel, [min, max]] of ranges) {
       const angle = posture[channel] ?? 0;
-      if (angle < min || angle > max) faults.push(`stage ${stage.name} asks ${channel} for ${angle} rad, outside its range, ${min} to ${max}`);
+      if (!Number.isFinite(angle) || angle < min || angle > max) faults.push(`stage ${stage.name} asks ${channel} for ${angle} rad, outside its range, ${min} to ${max}`);
     }
   };
   for (const stage of stagesOf(recipe)) {
-    if (!(stage.seconds > 0)) faults.push(`stage ${stage.name} lasts ${stage.seconds} s`);
+    if (!(stage.seconds > 0) || !Number.isFinite(stage.seconds)) faults.push(`stage ${stage.name} lasts ${stage.seconds} s`);
     switch (stage.kind) {
       case "pose": {
         postureFaults(stage, stage.posture);
-        if (stage.drive && !(stage.drive.speed > 0 && stage.drive.within > 0)) faults.push(`stage ${stage.name} drives at ${stage.drive.speed} rad/s within ${stage.drive.within} s`);
+        if (stage.drive && !(stage.drive.speed > 0 && stage.drive.within > 0 && Number.isFinite(stage.drive.speed) && Number.isFinite(stage.drive.within))) faults.push(`stage ${stage.name} drives at ${stage.drive.speed} rad/s within ${stage.drive.within} s`);
         const { until, pace, press, level, follow } = stage;
         if (follow) {
           if (!(follow.span > 0 && Number.isFinite(follow.span))) faults.push(`stage ${stage.name} follows across ${follow.span} rad`);
@@ -747,7 +720,10 @@ function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
             if (value !== undefined && !(value > 0 && Number.isFinite(value))) faults.push(`stage ${stage.name} ends at ${name} ${value}`);
           }
           if (until.along !== undefined && !(pace && until.along > 0 && until.along <= 1)) faults.push(`stage ${stage.name} ends ${until.along} along a way it has none of`);
-          for (const channel of Object.keys(until.past ?? {})) if (!ranges.has(channel)) faults.push(`stage ${stage.name} ends past ${channel}, which ${spec.model} lacks`);
+          for (const [channel, angle] of Object.entries(until.past ?? {})) {
+            if (!ranges.has(channel)) faults.push(`stage ${stage.name} ends past ${channel}, which ${spec.model} lacks`);
+            if (!Number.isFinite(angle)) faults.push(`stage ${stage.name} ends past a nonfinite angle of ${channel}`);
+          }
         }
         if (pace) {
           if (!(pace.rate > 0 && pace.lift > 0 && pace.slow > 0) || ![pace.rate, pace.lift, pace.slow].every(Number.isFinite)) faults.push(`stage ${stage.name} paces at ${pace.rate} within ${pace.lift} m under ${pace.slow} m/s`);
@@ -773,7 +749,7 @@ function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
         if (stage.postureSeconds !== undefined && (!(stage.postureSeconds > 0) || !Number.isFinite(stage.postureSeconds)))
           faults.push(`stage ${stage.name} drives its posture within ${stage.postureSeconds} s`);
         if (stage.posture !== "reference") postureFaults(stage, stage.posture);
-        if (!(stage.limit > 0)) faults.push(`stage ${stage.name} may take ${stage.limit} s`);
+        if (!(stage.limit > 0) || !Number.isFinite(stage.limit)) faults.push(`stage ${stage.name} may take ${stage.limit} s`);
         // Each limb it drives, to bear on or to leave, with its channels where the body has it.
         const driven: { readonly name: string; readonly channels: readonly string[] }[] = [];
         const drive = (name: string, does: string): void => {
@@ -796,6 +772,9 @@ function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
             faults.push(`stage ${stage.name} stands ${limb} on its toes, which it does not bear on as a foot`);
           }
         }
+        if (stage.on.some(on => !Number.isFinite(on.share) || on.share < 0)) faults.push(`stage ${stage.name} has a nonfinite or negative bearing share`);
+        if (stage.height !== null && !Number.isFinite(stage.height)) faults.push(`stage ${stage.name} has a nonfinite height`);
+        if (stage.pitch !== null && !Number.isFinite(stage.pitch)) faults.push(`stage ${stage.name} has a nonfinite pitch`);
         const sum = stage.on.reduce((total, { share }) => total + share, 0);
         if (!(Math.abs(sum - 1) <= SHARES_SUM)) faults.push(`stage ${stage.name}'s shares sum to ${sum}`);
         break;

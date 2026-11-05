@@ -4,7 +4,8 @@ import { teamOfOne, type TeamOfOne } from "./team.ts";
 import { solidSenses, type SolidSense } from "../../core/bodies/object-senses.ts";
 import type { ContactTarget } from "../../core/bodies/contact-identity.ts";
 import type { AssistCeiling } from "../../core/bodies/assist.ts";
-import { modelHolding, modelLoadout, resolveCharacter, type BodyModel } from "../../core/bodies/models.ts";
+import { modelHolding, resolveCharacter, type BodyModel } from "../../core/bodies/models.ts";
+import { modelLoadout } from "../model-loadouts.ts";
 import { FIGHT_ENTRY, type EntryRule } from "../../minds/catalog.ts";
 import type { GameContext } from "./context.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
@@ -31,7 +32,7 @@ import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-ru
 import { carryOnRail, railFaults, type Rail } from "./rail.ts";
 import { shoveFaults, shoveOnCue, type Shove } from "./shove.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "../../core/world/recording.ts";
-import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
+import { type ArenaSeat as Side, otherSeat as otherSide, ARENA_SEATS as SIDES } from "./seat.ts";
 
 /**
  * **A bout in the arena**: two bodies, each carrying what the recipe names (`DuelRecipe.loadouts`,
@@ -77,7 +78,7 @@ import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
  */
 export const CAP_SECONDS = 120;
 
-export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);
+export { SIDES };
 
 /** How a bout ended: as the end rule that put the loser out names it (`EndRule.out`: `slain`, `fallen`), or `time`, the bars at the cap (`endingText`). */
 export type DuelEnding = string;
@@ -396,7 +397,7 @@ export class Duel {
     this.watch = watchBlows(world, SIDES.map((side) => duelists[side]), this.rules, hooks.onBlow);
     const sideState = ({ body, minded, pool }: Duelist): SideState => ({ body: body.state, mind: minded.state, pool: pool.state });
     // Each asked in the sensing phase after the tape's orders, as a page's team is.
-    const led = SIDES.flatMap((side) => { const config = recipe.commanders?.[side]; return config ? [[side, teamOfOne(this, side, config)] as const] : []; });
+    const led = SIDES.flatMap((side) => { const config = recipe.commanders?.[side]; return config ? [[side, teamOfOne(this, side, config, context.commanders)] as const] : []; });
     this.teams = Object.fromEntries(led);
     this.state = {
       start, startStep, verdict: null, given, tape: [], queued: [],

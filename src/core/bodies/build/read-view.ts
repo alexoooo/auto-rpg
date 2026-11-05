@@ -19,10 +19,9 @@ function refOf(body: SegmentBody | null): BodyRef | null {
   return ref;
 }
 
-/** A contact as read: its other side's engine body swapped for its identity, in place, since a reading is made afresh for each call. */
-function named<C extends Contact | ContactManifold>(contacts: C[]): readonly (Omit<C, "other"> & { readonly other: BodyRef | null })[] {
-  for (const contact of contacts) (contact as { other: unknown }).other = refOf(contact.other);
-  return contacts as unknown as readonly (Omit<C, "other"> & { readonly other: BodyRef | null })[];
+/** A detached identity projection; cached engine records retain their engine bodies. */
+function named<C extends Contact | ContactManifold>(contacts: readonly C[]): readonly (Omit<C, "other"> & { readonly other: BodyRef | null })[] {
+  return contacts.map((contact) => ({ ...contact, other: refOf(contact.other) }));
 }
 
 function segmentView(segment: BuiltSegment): ReadSegment {

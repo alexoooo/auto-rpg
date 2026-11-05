@@ -10,7 +10,7 @@ set -euo pipefail
 
 TAG=js-v0.21.0
 REVISION=b716d375efc0201003f0cd9ef7168eee0b62c177
-VERSION=0.21.0-auto-rpg.10
+VERSION=0.21.0-auto-rpg.11
 
 here="$(cd "$(dirname "$0")" && pwd)"
 work="${RAPIER_WORK:-$here/../../.tools/rapier-build}"
@@ -110,6 +110,7 @@ config = config.replace(list, "export default [config(\"3d\", \"3d-simd\")];").r
 fs.writeFileSync("rollup.auto-rpg.config.js", config);
 '
 npx rollup --config rollup.auto-rpg.config.js --bundleConfigAsCjs
+node "$here/package-contact-errors.mjs" "$build/pkg"
 echo 'export * from "./rapier_wasm3d";' > "$dist/raw.d.ts"
 
 # The package's version says it is ours, and npm packs it beside this script.
@@ -117,6 +118,6 @@ node -e '
 const fs = require("fs"), [file, version] = process.argv.slice(1);
 const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
 manifest.version = version;
-fs.writeFileSync(file, JSON.stringify(manifest, undefined, 2));
+fs.writeFileSync(file, JSON.stringify(manifest, undefined, 2) + "\n");
 ' "$build/pkg/package.json" "$VERSION"
 npm pack "$build/pkg" --pack-destination "$here" --silent

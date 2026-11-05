@@ -101,6 +101,11 @@ export function servoAsk(driver: MuscleReading, command: MuscleCommand, goal: (c
  */
 export function servoSolve(driver: MuscleReading, command: MuscleCommand, work: ServoWork, root?: ArrayLike<number>, moved?: ArrayLike<number>): void {
   const count = driver.channels.length;
+  let solving = solves.get(work);
+  if (!solving) {
+    solving = { fixed: new Int32Array(count), free: new Int32Array(count), factor: new Float64Array(count * count), rhs: new Float64Array(count) };
+    solves.set(work, solving);
+  }
   const { mass, gravity } = driver.dynamics;
   const { change, accel, torque, fixed } = work;
   // What the root's acceleration asks of each freedom goes with the motion under way.
@@ -113,7 +118,7 @@ export function servoSolve(driver: MuscleReading, command: MuscleCommand, work: 
   // The torques, solved around the fixed ones; a torque the muscles cannot give is held at their
   // strength and the rest solved again.
   for (let pass = 0; pass <= count; pass++) {
-    solveAround(mass, gravity, bias, fixed, torque, accel, count);
+    solveAround(mass, gravity, bias, fixed, torque, accel, count, solving);
     let clipped = false;
     for (let i = 0; i < count; i++) {
       if (fixed[i] || moved?.[i]) continue;
@@ -149,6 +154,8 @@ interface ServoFeed {
  */
 export interface ServoWork { change: Float64Array; accel: Float64Array; torque: Float64Array; fixed: Uint8Array; bias: Float64Array }
 const scratch = new WeakMap<MuscleReading, ServoWork>();
+interface SolveWork { readonly fixed: Int32Array; readonly free: Int32Array; readonly factor: Float64Array; readonly rhs: Float64Array }
+const solves = new WeakMap<ServoWork, SolveWork>();
 
 /**
  * With M u' + bias = torque + gravity: the fixed freedoms' accelerations from their torques and the
@@ -159,17 +166,19 @@ const scratch = new WeakMap<MuscleReading, ServoWork>();
  * step.
  */
 function solveAround(mass: readonly Float64Array[], gravity: Float64Array, bias: Float64Array, fixed: Uint8Array,
-  torque: Float64Array, accel: Float64Array, count: number): void {
-  const F: number[] = [], S: number[] = [];
-  for (let i = 0; i < count; i++) (fixed[i] ? F : S).push(i);
-  if (F.length) {
+  torque: Float64Array, accel: Float64Array, count: number, work: SolveWork): void {
+  const F = work.fixed, S = work.free;
+  let nf = 0, ns = 0;
+  for (let i = 0; i < count; i++) { if (fixed[i]) F[nf++] = i; else S[ns++] = i; }
+  if (nf) {
     // M_FF a_F = torque_F + gravity_F - bias_F - M_FS a_S
-    const m = F.length, L = new Float64Array(m * m), b = new Float64Array(m);
-    F.forEach((f, r) => {
+    const m = nf, L = work.factor, b = work.rhs;
+    for (let r = 0; r < m; r++) {
+      const f = F[r]!;
       let rhs = torque[f]! + gravity[f]! - bias[f]!;
-      for (const s of S) rhs -= mass[f]![s]! * accel[s]!;
+      for (let k = 0; k < ns; k++) { const s = S[k]!; rhs -= mass[f]![s]! * accel[s]!; }
       b[r] = rhs;
-    });
+    }
     for (let r = 0; r < m; r++) for (let c = 0; c <= r; c++) {
       let sum = mass[F[r]!]![F[c]!]!;
       for (let k = 0; k < c; k++) sum -= L[r * m + k]! * L[c * m + k]!;
@@ -177,9 +186,10 @@ function solveAround(mass: readonly Float64Array[], gravity: Float64Array, bias:
     }
     for (let r = 0; r < m; r++) { let sum = b[r]!; for (let k = 0; k < r; k++) sum -= L[r * m + k]! * b[k]!; b[r] = sum / L[r * m + r]!; }
     for (let r = m - 1; r >= 0; r--) { let sum = b[r]!; for (let k = r + 1; k < m; k++) sum -= L[k * m + r]! * b[k]!; b[r] = sum / L[r * m + r]!; }
-    F.forEach((f, r) => { accel[f] = b[r]!; });
+    for (let r = 0; r < m; r++) accel[F[r]!] = b[r]!;
   }
-  for (const s of S) {
+  for (let k = 0; k < ns; k++) {
+    const s = S[k]!;
     let sum = bias[s]! - gravity[s]!;
     for (let j = 0; j < count; j++) sum += mass[s]![j]! * accel[j]!;
     torque[s] = sum;

@@ -1,4 +1,4 @@
-import { MessageChannel, receiveMessageOnPort, Worker } from "node:worker_threads";
+import { MessageChannel, receiveMessageOnPort, Worker, type MessagePort } from "node:worker_threads";
 import type { MindPlace } from "../../minds/apart.ts";
 import { mindThreads, type ThreadLink } from "../apart/host.ts";
 import { ANSWERED, COUNTERS, DONE, POSTED, waitPast, type Reply } from "../apart/wire.ts";
@@ -17,9 +17,15 @@ const WAITING = Object.freeze({ spin: 8, timeout: 120_000 });
  */
 export function mindWorkers(threads: number): MindPlace {
   if (!(Number.isInteger(threads) && threads >= 1)) throw new Error(`minds run on a whole number of threads, one or more, not ${threads}`);
+  const workers: Worker[] = [], ports: MessagePort[] = [];
+  let complete = false;
+  try {
   const links = Array.from({ length: threads }, (): ThreadLink => {
-    const { port1: port, port2 } = new MessageChannel(), control = new Int32Array(new SharedArrayBuffer(4 * COUNTERS));
+    const { port1: port, port2 } = new MessageChannel();
+    ports.push(port, port2);
+    const control = new Int32Array(new SharedArrayBuffer(4 * COUNTERS));
     const worker = new Worker(new URL("./mind-worker.ts", import.meta.url), { workerData: { port: port2, control }, transferList: [port2] });
+    workers.push(worker);
     worker.unref();
     return {
       post(batch) {
@@ -36,5 +42,13 @@ export function mindWorkers(threads: number): MindPlace {
       },
     };
   });
-  return mindThreads(links);
+  const place = mindThreads(links);
+  complete = true;
+  return place;
+  } finally {
+    if (!complete) {
+      for (const port of ports) port.close();
+      for (const worker of workers) void worker.terminate();
+    }
+  }
 }

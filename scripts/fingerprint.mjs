@@ -1,3 +1,5 @@
+import { isRefused } from "../src/core/refusal.ts";
+import { rulebook } from "../src/combat/rulebook.ts";
 /**
  * A fingerprint of what the game does: fights in the arena and the crypt, the lab's run, the
  * generated levels, what a walk through one reveals, and the shader code the crypt's
@@ -53,7 +55,7 @@ import { CryptWeathering } from "../src/app/browser/dungeon/crypt-weathering.ts"
 import { generateLevel } from "../src/game/dungeon/level.ts";
 import { clearSegment, distance, findPath, reveal, walkable } from "../src/game/dungeon/map.ts";
 import { cutawayCondition } from "../src/app/browser/dungeon/reference-look.ts";
-import { DungeonRun } from "../src/app/node/game.ts";
+import { createDungeonRun } from "../src/app/node/game.ts";
 import { revealScenery } from "../src/app/browser/dungeon/scenery-visibility.ts";
 import { labActor } from "../src/app/node/game.ts";
 import { LAB_MIND } from "../src/app/node/setup.ts";
@@ -164,7 +166,7 @@ async function arena(recipe, { watch } = {}) {
  */
 async function stand(model) {
   const stand = await coreStand(modelSpec(model));
-  const body = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { name: "stand", orders: () => null }).body : commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const body = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { rules: rulebook("arena"), name: "stand", orders: () => null }).body : commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
     if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills);
     const trace = traceOf([stand.built]);
@@ -176,7 +178,7 @@ async function stand(model) {
 
 /** The level of `seed` with its start moved to open floor `gap` m from the first spawn, in its sight. */
 function faceToFace(seed, gap) {
-  const map = generateLevel(seed).map, spawn = map.spawns[0];
+  const map = admitted(generateLevel(seed)).map, spawn = map.spawns[0];
   for (let i = 0; i < 16; i++) {
     const a = i * Math.PI / 8, at = { x: spawn.x + Math.sin(a) * gap, z: spawn.z + Math.cos(a) * gap };
     if (walkable(map, at, 0.7, true) && clearSegment(map, spawn, at, 0.35, true)) { map.start = at; return map; }
@@ -186,7 +188,7 @@ function faceToFace(seed, gap) {
 
 /** 12 s of the crypt from 4 m off its first enemy, nobody ordered: every body built so far, each step. */
 async function cryptFight(seed) {
-  const run = new DungeonRun({ seed, engine: await freshEngine(), layout: faceToFace(seed, 4) });
+  const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), layout: faceToFace(seed, 4) }));
   try {
     const trace = traceOf({ *[Symbol.iterator]() { for (const actor of run.actors) if (actor.fighter) yield actor.fighter.built; } });
     for (let i = 0; i < 12 * run.world.hz && run.status === "playing"; i++) { run.step(); trace.take(); }
@@ -198,7 +200,7 @@ async function cryptFight(seed) {
 /** `model` round the lab's circle for 10 s. */
 async function labRun(model) {
   const stand = await coreStand(humanSpec(model), { ground: true });
-  const run = startLocomotion(labActor(stand.built, stand.world, { mind: LAB_MIND }), trackOf(TRACKS.circle.pieces));
+  const run = admitted(startLocomotion(admitted(labActor(stand.built, stand.world, { mind: LAB_MIND, rules: rulebook("arena") })), trackOf(TRACKS.circle.pieces)));
   try {
     const trace = traceOf([stand.built]);
     for (let i = 0; i < stand.seconds(10); i++) { stand.step(); trace.take(); }
@@ -209,14 +211,14 @@ async function labRun(model) {
 /** Every crypt the reference generator makes of `seeds`, whole. */
 function crypts(seeds) {
   const hash = createHash("sha256");
-  for (const seed of seeds) hash.update(written(generateCryptDungeon(seed)));
+  for (const seed of seeds) hash.update(written(admitted(generateCryptDungeon(seed))));
   return digestOf(hash);
 }
 
 /** Every level the game's generator makes of `seeds`, whole. */
 function levels(seeds) {
   const hash = createHash("sha256");
-  for (const seed of seeds) hash.update(written(generateLevel(seed)));
+  for (const seed of seeds) hash.update(written(admitted(generateLevel(seed))));
   return digestOf(hash);
 }
 
@@ -226,7 +228,7 @@ function weathering(seeds) {
   try {
     const hash = createHash("sha256");
     for (const seed of seeds) {
-      const plugin = new CryptWeathering(new PBRMaterial(`paving.${seed}`, scene), generateCryptDungeon(seed));
+      const plugin = new CryptWeathering(new PBRMaterial(`paving.${seed}`, scene), admitted(generateCryptDungeon(seed)));
       hash.update(written(plugin.getCustomCode("fragment")));
     }
     return digestOf(hash);
@@ -240,7 +242,7 @@ const CUTAWAY_BEARINGS = [35, 98, 200, 305];
 /** The condition that cuts the near walls away, for each crypt of `seeds` and for the reference chamber. */
 function cutaway(seeds) {
   const hash = createHash("sha256");
-  for (const plan of [undefined, ...seeds.map((seed) => generateCryptDungeon(seed))]) {
+  for (const plan of [undefined, ...seeds.map((seed) => admitted(generateCryptDungeon(seed)))]) {
     for (const bearing of CUTAWAY_BEARINGS) hash.update(cutawayCondition(bearing * Math.PI / 180, plan));
   }
   return digestOf(hash);
@@ -337,7 +339,7 @@ const SIGHT_STRIDE = 0.5;
  * `SIGHT_STRIDE`: the path's own points are too few to see past a pillar or into a corner.
  */
 function sight(seed) {
-  const map = generateCryptDungeon(seed).map, path = findPath(map, map.start, map.exit, 0.35);
+  const map = admitted(generateCryptDungeon(seed)).map, path = findPath(map, map.start, map.exit, 0.35);
   if (!path.length) throw new Error(`seed ${seed}: no path from the start to the exit`);
   const hash = createHash("sha256"), explored = new Set(), memory = new Set();
   let from = map.start, read = 0;
@@ -481,3 +483,6 @@ if (isMainThread) {
     catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
   });
 }
+
+/** A returned admission failure reaches this diagnostic with its original message. */
+function admitted(value) { if (isRefused(value)) throw new Error(value.refused); return value; }

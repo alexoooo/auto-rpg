@@ -16,6 +16,8 @@
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
+import { readFileSync } from "node:fs";
+import ts from "typescript";
 
 /** The registry an entrant is a line in, with its list's line: the game's entrants. */
 const REGISTRIES = Object.freeze({ "src/app/entrants.ts": /^export const ENTRANTS\b/ });
@@ -31,14 +33,37 @@ export function entrantOf(path) {
   return found ? found[1] : null;
 }
 
-/** Whether `line`, added to or taken from a registry, is entrant `name`'s: its manifest's import, or a registry's list. */
-const registryLine = (line, name) => line.includes(`"../entrants/${name}/`) || Object.values(REGISTRIES).some((list) => list.test(line.trim()));
+/** The registry with just this entrant removed; every other registration and statement must agree. */
+function otherRegistrations(text, name) {
+  const source = ts.createSourceFile("entrants.ts", text, ts.ScriptTarget.Latest, true), own = new Set();
+  const printer = ts.createPrinter({ removeComments: true });
+  for (const statement of source.statements) if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)
+    && statement.moduleSpecifier.text === `../entrants/${name}/index.ts`) {
+    const bindings = statement.importClause?.namedBindings;
+    if (bindings && ts.isNamedImports(bindings)) for (const binding of bindings.elements) own.add(binding.name.text);
+  }
+  const rest = [];
+  for (const statement of source.statements) {
+    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)
+      && statement.moduleSpecifier.text === `../entrants/${name}/index.ts`) continue;
+    if (ts.isVariableStatement(statement) && statement.declarationList.declarations.some(d => ts.isIdentifier(d.name) && d.name.text === "ENTRANTS")) {
+      if (statement.declarationList.declarations.length !== 1) return null;
+      const declaration = statement.declarationList.declarations[0], array = declaration.initializer;
+      if (!array || !ts.isArrayLiteralExpression(array)) return null;
+      if (array.elements.filter(e => ts.isIdentifier(e) && own.has(e.text)).length > 1) return null;
+      const kept = ts.factory.updateArrayLiteralExpression(array, array.elements.filter(e => !ts.isIdentifier(e) || !own.has(e.text)));
+      rest.push(printer.printNode(ts.EmitHint.Unspecified, ts.factory.updateVariableStatement(statement, statement.modifiers,
+        ts.factory.updateVariableDeclarationList(statement.declarationList, [ts.factory.updateVariableDeclaration(declaration, declaration.name, declaration.exclamationToken, declaration.type, kept)])), source));
+    } else rest.push(printer.printNode(ts.EmitHint.Unspecified, statement, source));
+  }
+  return rest.join("\n");
+}
 
 /**
  * What `paths` change (`{ kind: "entrant", name }`, `{ kind: "toolkit" }` or `{ kind: "mixed",
  * why }`), given the registries' changed lines (`registry`, each added or taken line's text).
  */
-export function changeOf(paths, registry = []) {
+export function changeOf(paths, registry = { before: "", after: "" }) {
   const names = new Set(paths.map(entrantOf).filter((name) => name !== null));
   const rest = paths.filter((path) => entrantOf(path) === null);
   if (names.size === 0) return { kind: "toolkit" };
@@ -46,8 +71,8 @@ export function changeOf(paths, registry = []) {
   const [name] = names, toolkit = rest.filter((path) => !Object.hasOwn(REGISTRIES, path));
   if (toolkit.length > 0) return { kind: "mixed", why: `entrant ${name} with toolkit files (${toolkit.join(", ")}): land the toolkit change on its own first, `
     + "and where a toolkit change must edit an entrant to keep it building, land that on its own and name the entrant in its message" };
-  const stray = registry.filter((line) => !registryLine(line, name));
-  if (stray.length > 0) return { kind: "mixed", why: `entrant ${name} changes the registry beyond its own line: ${stray.join(" | ")}` };
+  const before = otherRegistrations(registry.before, name), after = otherRegistrations(registry.after, name);
+  if (before === null || after === null || before !== after) return { kind: "mixed", why: `entrant ${name} changes another registry entry or statement` };
   return { kind: "entrant", name };
 }
 
@@ -57,8 +82,8 @@ function main() {
   const from = git("merge-base", values.base, "HEAD").trim();
   const paths = [...new Set([...git("diff", "--name-only", from).split("\n"), ...git("ls-files", "--others", "--exclude-standard").split("\n")]
     .map((path) => path.trim()).filter(Boolean))].sort();
-  const registry = Object.keys(REGISTRIES).filter((file) => paths.includes(file)).flatMap((file) => git("diff", "--unified=0", from, "--", file).split("\n")
-    .filter((line) => /^[+-]/.test(line) && !/^(\+\+\+|---) /.test(line)).map((line) => line.slice(1)));
+  const registryFile = Object.keys(REGISTRIES).find(file => paths.includes(file));
+  const registry = registryFile ? { before: git("show", `${from}:${registryFile}`), after: readFileSync(registryFile, "utf8") } : undefined;
   const change = changeOf(paths, registry);
   console.log(`${paths.length} files changed since ${values.base} (${from.slice(0, 8)})`);
   switch (change.kind) {

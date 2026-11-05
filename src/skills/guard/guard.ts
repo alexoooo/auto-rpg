@@ -1,13 +1,14 @@
+import type { GuardSkill } from "../framework/guard.ts";
 import { HAND_CONFIGURATION } from "../../core/bodies/human/hand-configurations.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { BodyView } from "../../control/body.ts";
 import { heldFrame, rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { copyFreedoms, effectorFreedoms } from "../../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, solveReach, specChainTo } from "../../control/kinematics.ts";
-import type { EffectorGoal, PointTask } from "../../control/motor.ts";
+import type { EffectorGoal } from "../../control/motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
-import type { Cover, Intent } from "../intent/intent.ts";
-import type { BodySpec, ConfigurationName, ItemSpec } from "../../core/bodies/spec/body.ts";
+import type { Cover } from "../intent/intent.ts";
+import type { BodySpec, ItemSpec } from "../../core/bodies/spec/body.ts";
 import { standingFooting, standingHeight } from "../../control/support.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";
 import { STANDARD_GRAVITY } from "../../core/bodies/spec/constants.ts";
@@ -15,7 +16,6 @@ import { channelName } from "../../core/bodies/muscle/driver.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { add, cross, distance, dot, length, scale, sub } from "../../core/bodies/spec/vec.ts";
 import { acos, sin } from "../../core/math/real.ts";
-import type { Skill } from "../framework/skill.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
 
 /**
@@ -194,6 +194,18 @@ const UP: Vec3 = [0, 1, 0], RIGHT: Vec3 = [1, 0, 0];
 /** Under this length, m, a line names no direction. A numeric setting: any length rounding alone does not reach. */
 const NO_LINE = 1e-6;
 
+
+
+/**
+ * How a guard skill is made beside its cover: `wardSpeeds`, each hand that wards with the covering
+ * face it holds, by segment, and the most speed its ward moves at (`wardSpeed`), none where it
+ * wards with none; `hold`, a free hand's hold (`GuardSkill.hold`).
+ */
+export interface GuardOptions {
+  readonly wardSpeeds?: Readonly<Record<string, number>> | null;
+  readonly hold?: GuardSkill["hold"];
+}
+
 /**
  * **The guard skill**: a guarding hand told what to cover (`Cover`) puts what it covers with
  * between the threat and the place guarded, by a hand goal that follows the two as they move.
@@ -213,31 +225,6 @@ const NO_LINE = 1e-6;
  * hand a strike has. A free hand that can change its pose is opened. The skill remembers where each
  * ward stands (`state`), and forgets it when the hand stops warding.
  */
-export interface GuardSkill extends Skill {
-  /** The hands it guards with, by segment (`handsOf` for the stock guards): what the arbiter asks it of, each free hand. */
-  readonly hands: readonly string[];
-  /** What it remembers, plain data saved and loaded with the mind (`src/core/world/state.ts`); none where it remembers nothing. */
-  readonly state?: object;
-  /** The arms' rest: where the arms no skill holds are put, and where a blow returns (`guardPosture` for the stock guards). */
-  readonly posture: Pose;
-  /** A free hand's hold of what it holds (`holdUp`), asked of each hand neither a cover nor an action drives; null, the posture's. */
-  readonly hold: ((hand: string) => PointTask | null) | null;
-  /** The pose a free hand that can change its pose is asked (`BodyCommand.configurations`); absent or null, it keeps what it was asked last. */
-  configuration?(hand: string): ConfigurationName | null;
-  /** Each hand's goal this step, by segment: a cover's places for a hand that guards with one; absent or null otherwise. */
-  command(view: BodyView, guard: Intent["guard"]): Readonly<Record<string, EffectorGoal | null>>;
-}
-
-/**
- * How a guard skill is made beside its cover: `wardSpeeds`, each hand that wards with the covering
- * face it holds, by segment, and the most speed its ward moves at (`wardSpeed`), none where it
- * wards with none; `hold`, a free hand's hold (`GuardSkill.hold`).
- */
-export interface GuardOptions {
-  readonly wardSpeeds?: Readonly<Record<string, number>> | null;
-  readonly hold?: GuardSkill["hold"];
-}
-
 /**
  * Where each warding hand's ward stands now, by segment: its face's place in the body frame, its
  * hand's turn there (a quaternion, x y z w; null until it is first turned) and the clock each was
@@ -329,9 +316,9 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, { w
     };
   };
   return {
-    hands, posture: guardPosture(spec), hold, state,
+    effectors: hands, posture: guardPosture(spec), hold, state,
     configuration: (hand) => segmentOf(spec, hand)?.configurations ? HAND_CONFIGURATION.open : null,
-    resume() {},
+    resume() { for (const hand in state.wards) state.wards[hand] = null; },
     command(view, guard) {
       let goals: Record<string, EffectorGoal | null> | null = null;
       for (const hand of hands) {

@@ -4,7 +4,7 @@ import { modelSpec } from "../../src/core/bodies/models.ts";
 import { embody } from "../../src/minds/embodiment.ts";
 import { commandedMind } from "../../src/minds/sub-mind.ts";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
-import { wholeBodyMotor } from "../../src/control/whole-body-motor.ts";
+import { stockMotor } from "../../src/app/stance-balance.ts";
 import { coreStand } from "../harness/core-stand.mjs";
 
 test("a stance's named bearing end excludes another controller of its segment", async () => {
@@ -15,7 +15,7 @@ test("a stance's named bearing end excludes another controller of its segment", 
   for (const owns of ["effectors", "points"]) {
     const stand = await coreStand(spec);
     const embodied = embody(stand.built, stand.world,
-      own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: wholeBodyMotor() }, stand.world));
+      own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: stockMotor() }, stand.world));
     try {
       const body = embodied.mind.body;
       let carried = 0;

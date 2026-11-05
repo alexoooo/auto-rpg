@@ -25,7 +25,7 @@ import { hypot } from "../../math/real.ts";
  *
  * A free, floating arm's measured response to a pulse at the fist matches this mass. Motors and
  * the ground raise a fist's measured mass above it; damage uses the free-joint mass all the same
- * (`research/punch-mass-audit.mjs` reads both).
+ * (`research/skills/strikes/straight-punch/punch-mass-audit.mjs` reads both).
  *
  * The speeds are the root's velocity and spin, then every freedom's (`dynamics.ts` has how a
  * freedom's speed turns what its joint carries, about its motion axis through the joint's centre).
@@ -79,6 +79,53 @@ interface Yield {
 }
 
 export function contactMass(built: BuiltBody): ContactMass {
+  const whole = articulatedMass(built), joints = [...built.joints.values()];
+  const topology = joints.map((joint) => joint.attached());
+  let initialized = false, components: ContactMass[] = [whole];
+  const owner = new Map<BuiltSegment, { readonly mass: ContactMass; readonly joints: ReadonlySet<string> }>();
+  const at = (segment: BuiltSegment): ContactMass => owner.get(segment)?.mass ?? whole;
+  return {
+    update() {
+      let changed = !initialized;
+      for (let k = 0; k < joints.length; k++) {
+        const attached = joints[k]!.attached();
+        if (attached !== topology[k]) { topology[k] = attached; changed = true; }
+      }
+      initialized = true;
+      if (changed) {
+        owner.clear(); components = [];
+        if (topology.every(Boolean)) components.push(whole);
+        else {
+          const unseen = new Set(built.segments.values());
+          while (unseen.size) {
+            const first = unseen.values().next().value!, members = new Set([first]);
+            unseen.delete(first);
+            for (const segment of members) for (const joint of joints) {
+              if (!joint.attached()) continue;
+              const other = joint.parent === segment ? joint.child : joint.child === segment ? joint.parent : null;
+              if (other && unseen.delete(other)) members.add(other);
+            }
+            const attached = new Map([...built.joints].filter(([, joint]) => joint.attached() && members.has(joint.parent) && members.has(joint.child)));
+            const mass = articulatedMass({ ...built, segments: new Map([...built.segments].filter(([, segment]) => members.has(segment))), joints: attached });
+            const component = { mass, joints: new Set(attached.keys()) };
+            components.push(mass);
+            for (const segment of members) owner.set(segment, component);
+          }
+        }
+      }
+      for (const component of components) component.update();
+    },
+    along: (segment, point, normal) => at(segment).along(segment, point, normal),
+    mobility: (segment, point) => at(segment).mobility(segment, point),
+    yielding(segment, point, direction, holds, most) {
+      const component = owner.get(segment);
+      return at(segment).yielding(segment, point, direction, component ? holds.filter((hold) => component.joints.has(hold.joint.spec.name)) : holds, most);
+    },
+  };
+}
+
+/** One connected tree's floating mass, retaining its independent root speeds. */
+function articulatedMass(built: BuiltBody): ContactMass {
   const segments = [...built.segments.values()], joints = [...built.joints.values()];
   const index = new Map(segments.map((segment, i) => [segment, i]));
   const jointIndex = new Map(joints.map((joint, j) => [joint.spec.name, j]));

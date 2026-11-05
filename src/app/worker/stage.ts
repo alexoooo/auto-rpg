@@ -11,7 +11,8 @@ import type { DuelNews } from "./duel-stage.ts";
 import type { CryptNews } from "./crypt-stage.ts";
 import type { TapeEntry } from "./protocol.ts";
 import { frameLayout, packFrame, type FramedBody, type RosterBody } from "./frame.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
+import { constructionScope } from "../../core/construction.ts";
 
 /** What a stage tells the page beside its frames. */
 export interface StageNews {
@@ -63,8 +64,11 @@ export async function teamStage(context: GameContext, recipe: TeamRecipe, afterm
   const { defaultMind } = context, { treeData, loadData } = context.catalog;
   const { buildTeamBout } = createBout(context);
   await loadData(SIDES.flatMap((side) => treeData(recipe[side].mind ?? defaultMind(recipe[side].model))));
-  const minds = makeMinds?.(), built = await buildTeamBout(recipe, { ...engine === undefined ? {} : { engine }, ...minds ? { minds } : {} });
-  const { world, bout } = built, dispose = () => { built.dispose(); minds?.dispose(); };
+  const scope = constructionScope();
+  let complete = false;
+  try {
+  const minds = scope.own(makeMinds?.()), built = scope.own(await buildTeamBout(recipe, { ...engine === undefined ? {} : { engine }, ...minds ? { minds } : {} }));
+  const { world, bout } = built, dispose = scope.dispose;
   const roster = bout.members.map((member) => ({ id: member.id, segments: [...member.built.segments.keys()], card: { side: member.side } }));
   const { length } = frameLayout(roster);
   const bodies: FramedBody[] = bout.members.map((member) => {
@@ -73,6 +77,7 @@ export async function teamStage(context: GameContext, recipe: TeamRecipe, afterm
       down: () => read().down, centre: () => read().centre };
   });
   let told = false;
+  complete = true;
   return {
     hz: world.hz, roster,
     step: () => world.step(),
@@ -87,4 +92,5 @@ export async function teamStage(context: GameContext, recipe: TeamRecipe, afterm
     tape: () => [],
     dispose,
   };
+  } finally { if (!complete) scope.dispose(); }
 }

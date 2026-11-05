@@ -1,5 +1,6 @@
 import type { MotorUnmet } from "../../control/motor.ts";
-import { stanceEnvelopeOf, turnAt } from "../../control/stance-envelope.ts";
+import { turnAt } from "../../control/stance-envelope.ts";
+import { stanceEnvelopeOf } from "../../skills/locomotion/stance/envelope.ts";
 import type { StancePhase, StanceReading } from "../../control/stance.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
@@ -593,7 +594,7 @@ export function perceiver(parts?: PartLookup) {
     if (read.has(config)) return read.get(config);
     if (!parts) throw new Error(`a ${role} part read with no part lookup: ${config.kind}`);
     let reading = made.get(config);
-    if (!reading) made.set(config, reading = parts.of(role, config).make(config) as Percept<unknown>);
+    if (!reading) made.set(config, reading = parts.of(role, config).make(config));
     const value = reading.read(memo.seen);
     read.set(config, value);
     return value;

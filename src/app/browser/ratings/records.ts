@@ -7,7 +7,7 @@ import type { Kept } from "../../../evaluation/history.ts";
 import { readRecord } from "../../../evaluation/record.ts";
 
 const FILES: Readonly<Record<string, string>> = import.meta.glob<string>(
-  ["../../assets/evaluations/*/*.jsonl", "!../../assets/evaluations/imports/**"], { query: "?url", import: "default", eager: true });
+  ["../../../../assets/evaluations/*/*.jsonl", "!../../../../assets/evaluations/imports/**"], { query: "?url", import: "default", eager: true });
 
 /** Each record file, by evaluation id, oldest first: the names sort by the moment each was written (`recordName`). */
 const BY_EVALUATION = (() => {
@@ -50,7 +50,7 @@ export function recordsOf(id: string): Promise<Kept[]> {
 interface Acceptance { readonly protocol: string; readonly subject: string; readonly version: string; readonly date: string; readonly note?: string }
 
 const ACCEPTED: Readonly<Record<string, readonly Acceptance[]>> = import.meta.glob<readonly Acceptance[]>(
-  "../../assets/evaluations/*/accepted.json", { import: "default", eager: true });
+  "../../../../assets/evaluations/*/accepted.json", { import: "default", eager: true });
 
 /** The acceptances of evaluation `id` (`accepted.json`). */
-export const acceptedOf = (id: string): readonly Acceptance[] => ACCEPTED[`../../assets/evaluations/${id}/accepted.json`] ?? [];
+export const acceptedOf = (id: string): readonly Acceptance[] => ACCEPTED[`../../../../assets/evaluations/${id}/accepted.json`] ?? [];

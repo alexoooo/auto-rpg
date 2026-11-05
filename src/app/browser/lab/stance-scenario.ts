@@ -95,6 +95,7 @@ export function stanceScenario(scene: Scene): LabScenario {
       const { world } = actor, { built } = actor.body;
       const shoved = shoveSound(built);
       const stance = startStance(actor, (segment, impulse, at) => heard(shoved(segment, impulse, at))), capture = new Vector3();
+      if ("refused" in stance) return stance;
       const recovery = {start:null as number|null,seconds:0,active:false};
       const history = recordHistory(built, puppet, world, HISTORY_SECONDS, (): StanceMoment => {
         const s = stance.body.view.stance;

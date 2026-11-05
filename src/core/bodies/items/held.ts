@@ -1,3 +1,4 @@
+import type { Refused } from "../../refusal.ts";
 import { armed, canHold } from "../human/grip.ts";
 import type { BodySpec, ItemSpec } from "../spec/body.ts";
 import { woodenClub } from "./club.ts";
@@ -15,14 +16,6 @@ export const EMPTY_LOADOUT: Loadout = Object.freeze({ left: "empty", right: "emp
 
 /** Every one-handed catalog assignment, with the left hand named first. */
 export const LOADOUTS: readonly Loadout[] = Object.freeze(HELD.flatMap((left) => HELD.map((right) => Object.freeze({ left, right }))));
-
-/**
- * **The loadouts minds are rated on**: bare hands, the club, the club and
- * buckler, the sword, the sword and buckler, each item in the hand it is made for. The rest of
- * `LOADOUTS` is unseen: no mind is rated on it, and how a mind carries to it is read apart.
- */
-export const REPRESENTATIVE: readonly Loadout[] = Object.freeze(([["empty", "empty"], ["empty", "club"], ["buckler", "club"], ["empty", "sword"], ["buckler", "sword"]] as const)
-  .map(([left, right]) => LOADOUTS.find((loadout) => loadout.left === left && loadout.right === right)!));
 
 /** Stable identity for both hands in match conditions and notes. */
 export const loadoutKey = (loadout: Loadout): string => `${loadout.left},${loadout.right}`;
@@ -84,4 +77,12 @@ export function withLoadout(spec: BodySpec, loadout: Loadout): BodySpec {
   const faults = loadoutFaults(loadout);
   if (faults.length) throw new Error(faults.join("; "));
   return armedWith(armedWith(spec, "left", loadout.left), "right", loadout.right);
+}
+
+/** Fit supplied equipment, returning malformed catalog assignments or unsupported hands before construction. */
+export function withLoadoutChecked(spec: BodySpec, loadout: Loadout): BodySpec | Refused {
+  const faults = loadoutFaults(loadout);
+  if (faults.length) return { refused: faults.join("; ") };
+  for (const hand of SIDES) if (!canHoldIn(spec, hand, loadout[hand])) return { refused: `${spec.model}'s ${hand} hand cannot hold ${loadout[hand]}` };
+  return withLoadout(spec, loadout);
 }

@@ -1,7 +1,8 @@
+import { isRefused } from "../core/refusal.ts";
 import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
 import type { Loadout } from "../core/bodies/items/held.ts";
 import type { MindConfig } from "../minds/config.ts";
-import { modelHolding, modelHolds, type BodyModel } from "../core/bodies/models.ts";
+import { modelHoldingChecked, type BodyModel } from "../core/bodies/models.ts";
 import { catalogOf, type Catalog, type EntryRule } from "../minds/catalog.ts";
 import { toolkitLists } from "./toolkit.ts";
 import { ENTRANTS } from "./entrants.ts";
@@ -32,6 +33,6 @@ export const defaultMind = (model: BodyModel): MindConfig => MINDS[DEFAULT_MINDS
  * only with one loadout says so in a part's `fits`, and is offered with no other.
  */
 export function modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides): string | null {
-  if (![loadout.left, loadout.right].every((item) => item === "empty") && !modelHolds(model)) return `${model} holds nothing`;
-  return stageRefusal(modelHolding(model, loadout, attributes), mind, entry);
+  const spec = modelHoldingChecked(model, loadout, attributes);
+  return isRefused(spec) ? spec.refused : stageRefusal(spec, mind, entry);
 }

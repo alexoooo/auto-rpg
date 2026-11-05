@@ -8,7 +8,7 @@ import type { AssistReading } from "../core/bodies/assist.ts";
 import type { Limb, Row } from "./bearing.ts";
 import { servoAsk, servoSolve, type ServoWork } from "./servo.ts";
 import { makeWholeBody, solveBody, type WholeBodyAsk } from "./solve.ts";
-import { stanceControl, type StanceControl, type StanceGoal, type StanceReading } from "./stance.ts";
+import { type StanceControl, type StanceGoal, type StanceReading } from "./stance.ts";
 import type { SupportGoal } from "./supported-motor.ts";
 import type { BalanceMaker } from "./balance-part.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
@@ -203,11 +203,11 @@ export type WholeBody = Carrying<"effectors" | "points" | "stance">;
 const WHOLE_GOALS: readonly MotorGoal[] = Object.freeze(["effectors", "points", "stance"]);
 
 /**
- * Motor control of `built`, servoing at a time constant of `seconds`; its balance (`balance`, the
- * stance unless given) asks `assist` for what the soles miss.
+ * Motor control of `built`, servoing at a time constant of `seconds`; the
+ * selected balance asks `assist` for what the soles miss.
  */
-export function motorControl(built: ReadBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: AssistReading | null = null,
-  balance: BalanceMaker = stanceControl): WholeBody {
+export function motorControl(built: ReadBody, seconds: number, posture: Pose, stanceTuning: StanceTuning | undefined, assist: AssistReading | null,
+  balance: BalanceMaker): WholeBody {
   const stance = balance(built, stanceTuning, assist);
   const root = rootSegment(built);
   // A path's solve begins from the limb's angles as they are: begun from another solve's, or the

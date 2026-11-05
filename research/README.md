@@ -5,9 +5,9 @@ Node scripts that measure the core (`src/core/`), most on its stand
 and run from the repository root; batteries spread their trials over worker threads (`--workers`),
 one stand a trial. A figure is read with its harness: Node, the stand or the module it drives, the
 engine and the rate. A script that writes a data file the core reads does so only when asked
-(`--write`, or `core-stance-envelope.mjs`'s `--add`); without it, it prints. Three always write:
-`run-cycle.mjs` (`assets/skills/locomotion/cycle-run/run-cycle.json`, or `--out`), `skills/framework/skill-records.mjs`
-(`assets/skills/<capability>/<implementation>/<skill>.json` and `.meta.json`) and `punch-export.mjs`
+(`--write`, or `skills/locomotion/stance/core-stance-envelope.mjs`'s `--add`); without it, it prints. Three always write:
+`skills/locomotion/walk-run/run-cycle.mjs` (`assets/skills/locomotion/cycle-run/run-cycle.json`, or `--out`), `skills/skill-records.mjs`
+(`assets/skills/<capability>/<implementation>/<skill>.json` and `.meta.json`) and `skills/strikes/straight-punch/punch-export.mjs`
 (`assets/skills/strikes/straight-punch/straight-punch.json`, or a held blow's `assets/skills/strikes/<kind>/<kind>.json`, with its
 `.meta.json`; or `--out`). Each script's doc comment gives its options, what it prints and the rule
 it reads by.
@@ -17,18 +17,17 @@ it reads by.
 | Script | What it measures | Writes |
 |---|---|---|
 | `physiques.mjs` | the physique grid and its ranges (`PHYSIQUE_GRID`, `physiqueRanges`, `physiqueGrid`) | |
-| `core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/skills/locomotion/<legs>/<legs>-envelope.json` |
-| `strike-profiles.mjs`, `skills/recovery/edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on; `edge-profiles --model` refreshes one body's at the existing offsets | core profiles with `--write`; ground falls and trials cached in `research/runs/edge-profiles/`, or `--rows` |
-| `skills/framework/skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/skills/<capability>/<implementation>/<skill>.json`, `.meta.json`, every run |
-| `skill-search.mjs` | a skill's settings (the stomp's, `SEARCHES`) searched on one body by CMA-ES on its task's trials; `--confirm` keeps the best only where it beats the start on fresh trials | `--out`; with `--confirm --write`, the body's row (through `skills/framework/skill-records.mjs`) |
-| `swing-drill.mjs` | a swung blow (`cut`, `club-blow`) searched on the Strike drill's still rung: each channel's windup and push, where it stands, how long it settles; `--verify` plays a found one | `--out` |
-| `sword-thrust-search.json` | the sword thrust's searched schedule (`punch-drill.mjs --blow sword-thrust --chamber --near`), which `assets/skills/strikes/sword-thrust/sword-thrust.json` names as how it was made | |
-| `learned-puncher.json` | a mind whose one action is the straight punch, thrown by the punch executor: a subject the Strike drill's records name | |
-| `punch-reshape.py` | no measurement: a steered punch's training run (`run-train.py`'s model and normalisation) carried from one learned-punch layout to another, input and output by name | the new run's directory |
-| `core-stance-sweep.mjs`, `core-stance-trials.mjs`, `core-stance-worker.mjs` | the stance's batteries (stand, edge, step, walk, gait, shove) over tunings (`--variants`) | |
-| `core-reach-map.mjs` | kinematics alone: where the knuckles and the club's swell reach, wrist held and freed | |
-| `core-posture.mjs`, `-trials.mjs`, `-worker.mjs` | statics: whether the Warrior can hold still on each support from knees and hands to standing, at what share of its strength, then held by its motors on the world | `research/runs/postures/` |
-| `man-postures.mjs`, `core-posture-runs.mjs`, `man-posture-starts.mjs` | the same statics on Man's envelopes (`--envelopes boot,barefoot,toe`), and the installed postures' starts; the bare foot, palm and passive toe hold no support posture the boot does not | `man-postures.mjs`: `research/runs/postures/envelopes.json`; `man-posture-starts.mjs`: `research/data/man-postures.json`'s starts, every run, from the sweep `--sweep` names (`research/runs/postures/envelopes.json` where not given) |
+| `skills/locomotion/stance/core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/skills/locomotion/<legs>/<legs>-envelope.json` |
+| `skills/strikes/strike-profiles.mjs`, `skills/recovery/edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on; `edge-profiles --model` refreshes one body's at the existing offsets | core profiles with `--write`; ground falls and trials cached in `research/runs/edge-profiles/`, or `--rows` |
+| `skills/skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/skills/<capability>/<implementation>/<skill>.json`, `.meta.json`, every run |
+| `skills/strikes/stomp/skill-search.mjs` | a skill's settings (the stomp's, `SEARCHES`) searched on one body by CMA-ES on its task's trials; `--confirm` keeps the best only where it beats the start on fresh trials | `--out`; with `--confirm --write`, the body's row (through `skills/skill-records.mjs`) |
+| `skills/strikes/swing/swing-drill.mjs` | a swung blow (`cut`, `club-blow`) searched on the Strike drill's still rung: each channel's windup and push, where it stands, how long it settles; `--verify` plays a found one | `--out` |
+| `skills/strikes/sword-thrust/sword-thrust-search.json` | the sword thrust's searched schedule (`skills/strikes/straight-punch/punch-drill.mjs --blow sword-thrust --chamber --near`), which `assets/skills/strikes/sword-thrust/sword-thrust.json` names as how it was made | |
+| `skills/strikes/straight-punch/punch-reshape.py` | no measurement: a steered punch's training run (`run-train.py`'s model and normalisation) carried from one learned-punch layout to another, input and output by name | the new run's directory |
+| `skills/locomotion/stance/core-stance-sweep.mjs`, `skills/locomotion/stance/core-stance-trials.mjs`, `skills/locomotion/stance/core-stance-worker.mjs` | the stance's batteries (stand, edge, step, walk, gait, shove) over tunings (`--variants`) | |
+| `humanoid/reach/core-reach-map.mjs` | kinematics alone: where the knuckles and the club's swell reach, wrist held and freed | |
+| `humanoid/posture/core-posture.mjs`, `humanoid/posture/core-posture-trials.mjs`, `humanoid/posture/core-posture-worker.mjs` | statics: whether the Warrior can hold still on each support from knees and hands to standing, at what share of its strength, then held by its motors on the world | `research/runs/postures/` |
+| `humanoid/posture/man-postures.mjs`, `humanoid/posture/core-posture-runs.mjs`, `humanoid/posture/man-posture-starts.mjs` | the same statics on Man's envelopes (`--envelopes boot,barefoot,toe`), and the installed postures' starts; the bare foot, palm and passive toe hold no support posture the boot does not | `humanoid/posture/man-postures.mjs`: `research/runs/postures/envelopes.json`; `humanoid/posture/man-posture-starts.mjs`: `research/humanoid/posture/data/man-postures.json`'s starts, every run, from the sweep `--sweep` names (`research/runs/postures/envelopes.json` where not given) |
 | `man-toe-solver.mjs` | Man's passive toe on the game's solver, at 120 and 480 Hz; a passive toe hinge does not hold as a spring under load | |
 | `skills/recovery/core-rise.mjs`, `-trials.mjs`, `-worker.mjs` | the battery of falls: every model shoved sixteen ways (`--shoves`, `--turn`), with the club and without, watched (`--watch`) under a mind (`--mind`): how many rose, how fast, the furthest stage | |
 | `skills/recovery/implementations/staged/core-rise-poses.mjs` | stages played on a body toppled stiff (`--lie`, `--degrees`): how it lies at each stage's end | |
@@ -46,12 +45,12 @@ it reads by.
 | `real-against-engine.mjs` | the core's real functions beside the engine's `Math`: values that differ, and each function's digest | |
 | `yaw-pitch-roll.mjs` | no measurement: a yaw, pitch and roll as the quaternion Babylon's `RotationYawPitchRollToRef` makes, for the scripts that place bodies by it | |
 
-`core-club-unit.json` is the club blow that sets the damage unit (`core-club-unit` in `SOURCES`):
+`skills/strikes/held-blow/core-club-unit.json` is the club blow that sets the damage unit (`core-club-unit` in `SOURCES`):
 the Warrior's strongest one-handed blow with the wooden club, found by a strike search.
 
 ```powershell
-node research/core-stance-envelope.mjs --legs walk-run --models workshop-fighter --holds empty --walks
-node research/core-posture.mjs --workers 30
+node research/skills/locomotion/stance/core-stance-envelope.mjs --legs walk-run --models workshop-fighter --holds empty --walks
+node research/humanoid/posture/core-posture.mjs --workers 30
 node research/skills/recovery/core-rise.mjs --workers 30 --watch 40 --only workshop-fighter --shoves 128 --falls
 node research/engine-adapter-cost.mjs --reference <commit> --runs 3
 ```
@@ -113,12 +112,12 @@ Scripts not listed above, by what they study; each is read by the record named.
 |---|---|---|
 | Standing up | `rising-*.mjs`, `skills/recovery/implementations/staged/recovery-transfer.mjs`; `skills/recovery/implementations/staged/sit-back.mjs`, the game's sit-back from hands and knees on toes | [the owner's target](../docs/reference/rising.md#the-owners-target) |
 | Punches | `punch-*.mjs` | |
-| Learning | `run-learning-server.mjs` (an environment file's copies on worker threads: `environments/punch.json`, `gait.json`, `bout.json`), `case-learning-environment.mjs` (any learnable part in an evaluation's cases), `run-train.py` (PPO or SAC against the server, from scratch or from another part's network), `learning-speed.mjs` (its decisions a second); a blow trains fastest with PPO from scratch on 8 workers of 4 environments, on the rate's curriculum (`curriculum`: 120 Hz first, the file's own rates mixed in) | |
-| Walking and running | `locomotion-*.mjs`, `run-cycle*.mjs`, `run-feasibility.mjs`, `mocap-import.mjs`, `bvh.mjs`, `combat-locomotion.mjs`; the run cycle is fitted to CMU clips (`run-cycle.mjs` names them and their licence) | |
-| Strikes and fights | `arena-combat*.mjs`, `combat-*.mjs`, `strike-*.mjs`, `empty-hand-league.mjs`, `stance-stagger.mjs`, `oracle-spread.mjs`, `cap-series.mjs` (shorter bout caps from recorded reports' bar series) | |
+| Learning | `run-learning-server.mjs` (an environment file's copies on worker threads: `skills/strikes/straight-punch/environments/punch.json`, `entrants/bare/environments/gait.json`, `entrants/bare/environments/bout.json`), `case-learning-environment.mjs` (any learnable part in an evaluation's cases), `run-train.py` (PPO or SAC against the server, from scratch or from another part's network), `learning-speed.mjs` (its decisions a second); a blow trains fastest with PPO from scratch on 8 workers of 4 environments, on the rate's curriculum (`curriculum`: 120 Hz first, the file's own rates mixed in) | |
+| Walking and running | `locomotion-*.mjs`, `run-cycle*.mjs`, `skills/locomotion/walk-run/run-feasibility.mjs`, `mocap-import.mjs`, `bvh.mjs`, `skills/locomotion/stance/combat-locomotion.mjs`; the run cycle is fitted to CMU clips (`skills/locomotion/walk-run/run-cycle.mjs` names them and their licence) | |
+| Strikes and fights | `arena-combat*.mjs`, `combat-*.mjs`, `strike-*.mjs`, `empty-hand-league.mjs`, `skills/locomotion/stance/stance-stagger.mjs`, `oracle-spread.mjs`, `cap-series.mjs` (shorter bout caps from recorded reports' bar series) | |
 | Held items | the court task is an evaluation (`src/evaluation/`) | |
-| Contact and the solver | `contact-*.mjs` (the one-step contact predictor, `predictPointContacts`, and the friction profiles, against the engine), `posture-limits.mjs` | |
-| The reptile | `reptile-*.mjs`, `bite-load.mjs`, `body-plan-regression.mjs` | [reptile](../docs/reference/reptile.md) |
+| Contact and the solver | `contact-*.mjs` (the one-step contact predictor, `predictPointContacts`, and the friction profiles, against the engine), `humanoid/posture/posture-limits.mjs` | |
+| The reptile | `skills/strikes/bite/reptile-combat.mjs`, `skills/strikes/bite/bite-load.mjs`, `body-plan-regression.mjs` | [reptile](../docs/reference/reptile.md) |
 | Other | `jump-test.mjs` (a squat jump's take-off), `pad-surface.mjs` (a pad's support surface) | |
 
 `cma.mjs` is the resumable CMA-ES the searches share.

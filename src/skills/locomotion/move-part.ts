@@ -1,6 +1,5 @@
 import { choice } from "../../parts/fields.ts";
 import type { LocomotionPart } from "../framework/locomotion-part.ts";
-import { fitsSoles } from "../../control/stance-balance.ts";
 import { slotList, type PartConfig } from "../../parts/parts.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 import { gaitNamed, STOCK_GAITS, type Gait, type GaitName } from "./gaits.ts";
@@ -57,6 +56,9 @@ const gaitsOf = (config: MoveConfig): readonly Gait[] => {
 /** What is wrong with `config`'s gaits: a name empty or twice, legs that name no kind, or a rule or `otherwise` naming a gait it does not have. */
 function gaitFaults(config: MoveConfig): readonly string[] {
   const gaits = gaitsOfMove(config), faults: string[] = [];
+  if (!Array.isArray(config.rules)) faults.push("rules: a list of move-rule parts");
+  if (config.gaits !== undefined && !Array.isArray(config.gaits)) faults.push("gaits: a list of named gait parts");
+  if (faults.length) return faults;
   if (!Array.isArray(gaits) || gaits.length === 0) return ["move: a gait to walk by"];
   const names = new Set<string>();
   for (const gait of gaits) {
@@ -78,7 +80,16 @@ function gaitFaults(config: MoveConfig): readonly string[] {
 export const MOVE_PART: LocomotionPart<MoveConfig> = deepFreeze({
   role: "locomotion", label: "Move", stage: "game", defaults: GOING, keys: { kind: true, gaits: true, rules: true, otherwise: true },
   fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
-  slots: [slotList("rules", "When", "move-rule")], fits: fitsSoles, uses: (config) => gaitsOf(config).map((gait) => gait.legs),
+  slots: [slotList("rules", "When", "move-rule")],
+  children: config => Array.isArray(gaitsOfMove(config)) ? gaitsOfMove(config).map((gait, i) => ({ path: config.gaits == null ? null : ["gaits", i, "legs"], role: "gait", config: gait?.legs })) : [],
+  fits: (spec, config, parts) => {
+    for (const gait of gaitsOf(config)) {
+      const refusal = parts.of("gait", gait.legs).fits(spec, gait.legs, parts);
+      if (refusal) return `${gait.name}: ${refusal}`;
+    }
+    return null;
+  },
+  uses: (config) => gaitsOf(config).map((gait) => gait.legs),
   faults: gaitFaults, gaits: gaitsOfMove,
   make(body, config, legs) {
     const walked = gaitsOf(config), names = walked.map((gait) => gait.name), built = new Map<string, Locomotion>();

@@ -16,6 +16,7 @@ import type { StanceEnvelope } from "./stance-envelope.ts";
  * (`MotorControl.carries`).
  */
 export interface MotorMaker {
+  readonly reference?: import("./support-reference.ts").SupportReference;
   make(built: ReadBody, muscles: MuscleReading, seconds: number, posture?: Pose, stanceTuning?: StanceTuning, assist?: AssistReading | null): MotorControl;
   /** The calibration this implementation supplies for the body and research settings. */
   envelope(spec: BodySpec, experiment: Experiment): StanceEnvelope | null;

@@ -224,6 +224,8 @@ export interface WoundSpec {
   readonly whole: readonly string[];
   /** The limbs, each with a bar of its own (`LimbSpec`). */
   readonly limbs: readonly LimbSpec[];
+  /** Bare extremities eligible for the rulebook's impact-injury threshold. Configurability alone grants none. */
+  readonly bareExtremities?: readonly string[];
 }
 
 /**

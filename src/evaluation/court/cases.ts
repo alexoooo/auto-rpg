@@ -20,7 +20,7 @@ import { sideAttributes, type Cases, type Json, type Subject } from "../evaluati
 import { FIGHT_ENTRY } from "../../minds/catalog.ts";
 import { createDrillOpponents } from "../drill-opponents.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
-import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
+import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 /**
  * The protocol: the strikers' bodies, the gaps, m, the sides they start on and the targets; how

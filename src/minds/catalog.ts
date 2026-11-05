@@ -200,7 +200,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     const { presets, entrantOf } = registered(), found = [...registered().faults];
     for (const [id, preset] of Object.entries(presets)) {
       const { formed, faults: wrong } = treeValidation(preset.config, "");
-      if (!formed) { found.push(`${entrantOf[id]}'s preset ${JSON.stringify(id)}: ${wrong.join("; ")}`); continue; }
+      if (!formed || wrong.length > 0) { found.push(`${entrantOf[id]}'s preset ${JSON.stringify(id)}: ${wrong.join("; ")}`); continue; }
       const other = scopesOf(preset.config).find((scope) => scope !== entrantOf[id]);
       if (other !== undefined) found.push(`${entrantOf[id]}'s preset ${JSON.stringify(id)} names ${other}'s kinds`);
     }
@@ -243,8 +243,10 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
   function held(config: PartConfig): { readonly slot: Part["slots"][number]; readonly parts: readonly unknown[] }[] {
     return slotsOf(partOf(config), config).map((slot) => {
       const value = (config as unknown as Record<string, unknown>)[slot.key];
-      return { slot, parts: slot.many ? (Array.isArray(value) ? value : [value]) : value === null || value === undefined ? [] : [value] };
-    });
+      return { slot, parts: slot.many ? (value == null && slot.optional ? [] : Array.isArray(value) ? value : [value]) : value === null || value === undefined ? [] : [value] };
+    }).concat((partOf(config).children?.(config) ?? []).map(child => ({
+      slot: { key: child.path?.join(".") ?? `implicit ${child.role}`, label: child.path?.join(".") ?? `implicit ${child.role}`, role: child.role, many: false, optional: false }, parts: [child.config],
+    })));
   }
 
   /** Whether `value` is a part's config: an object with a kind that names a part. */
@@ -264,7 +266,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     let formed = true;
     for (const { slot, parts } of held(config)) {
       const value = (config as unknown as Record<string, unknown>)[slot.key], path = at ? `${at}.${slot.key}` : slot.key;
-      if (slot.many && !Array.isArray(value)) { formed = false; slots.push(where(`a list of ${slot.role} parts`, path)); continue; }
+      if (slot.many && !(value == null && slot.optional) && !Array.isArray(value)) { formed = false; slots.push(where(`a list of ${slot.role} parts`, path)); continue; }
       if (!slot.many && parts.length === 0 && !slot.optional) { formed = false; slots.push(where(`a ${slot.role} part is needed`, path)); continue; }
       parts.forEach((child, i) => {
         const here = slot.many ? `${path}.${i}` : path;
@@ -377,12 +379,20 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
 
   function withoutTuning<C extends PartConfig>(config: C): C {
     const { tuning: _, ...rest } = config as C & { tuning?: unknown };
-    const out: Record<string, unknown> = rest;
-    for (const { slot } of held(config)) {
+    let out: Record<string, unknown> = rest;
+    for (const slot of slotsOf(partOf(config), config)) {
       const value = out[slot.key];
       if (Array.isArray(value)) out[slot.key] = value.map((child) => isPart(child) ? withoutTuning(child) : child);
       else if (isPart(value)) out[slot.key] = withoutTuning(value);
     }
+    const stripAt = (value: unknown, path: readonly (string | number)[], index: number): unknown => {
+      if (!value || typeof value !== "object" || !Object.hasOwn(value, path[index]!)) return value;
+      const key = path[index]!, before = (value as Record<string | number, unknown>)[key];
+      const next = index + 1 === path.length ? isPart(before) ? withoutTuning(before) : before : stripAt(before, path, index + 1);
+      if (next === before) return value;
+      return Array.isArray(value) ? value.map((child, i) => i === key ? next : child) : { ...value, [key]: next };
+    };
+    for (const child of partOf(config).children?.(config) ?? []) if (child.path?.length) out = stripAt(out, child.path, 0) as Record<string, unknown>;
     return out as C;
   }
 
@@ -434,7 +444,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
       });
     },
     treeFaults(config: PartConfig, at = ""): readonly string[] {
-      const { formed, faults: found } = treeValidation(config, at), scopes = formed ? scopesOf(config) : [];
+      const { formed, faults: found } = treeValidation(config, at), scopes = formed && found.length === 0 ? scopesOf(config) : [];
       return scopes.length < 2 ? found : [...found, `${at ? `${at}: ` : ""}it names the kinds of ${scopes.join(" and ")}: a tree is one entrant's`];
     },
     treeScope: (config: PartConfig): string | null => scopesOf(config)[0] ?? null,
@@ -446,10 +456,10 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
       eachPart(config, (one) => { for (const key of partOf(one).reads?.(one) ?? []) keys.add(key); });
       return [...keys];
     },
-    treeRefusal,
+    treeRefusal: (spec: BodySpec, config: PartConfig, at = ""): string | null => treeValidation(config, at).faults[0] ?? treeRefusal(spec, config, at),
     unusedParts,
     stageRefusal: (spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null =>
-      treeRefusal(spec, config) ?? entryRefusal(spec, config, rules),
+      treeValidation(config, "").faults[0] ?? treeRefusal(spec, config) ?? entryRefusal(spec, config, rules),
     withoutTuning,
     kindsFor(role: Role, spec: BodySpec, tree: PartConfig | null = null): readonly Offered[] {
       const scope = tree ? scopesOf(tree)[0] ?? null : null;

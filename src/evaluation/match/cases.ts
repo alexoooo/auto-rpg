@@ -4,7 +4,8 @@
  */
 import { CAP_SECONDS, SIDES } from "../../game/arena/duel.ts";
 import type { ArenaLevel } from "../../game/arena/levels.ts";
-import { REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
+import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
+import { REPRESENTATIVE } from "../loadouts.ts";
 import { presetFitsModel } from "../../minds/controller.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
@@ -13,7 +14,7 @@ import { readBout, type BoutReading } from "../contest.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
 
 /**
  * What a match plays: each body a mind may have against each the other may have, each loadout, and

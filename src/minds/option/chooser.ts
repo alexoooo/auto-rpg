@@ -1,3 +1,4 @@
+import { PROFILE_MODEL } from "./profile-contract.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 import type { PartField } from "../../parts/fields.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
@@ -474,7 +475,7 @@ function pricing(config: SearchConfig, parts: PartLookup): { readonly obedience:
  * targets keeps the one it runs at `KEEP` s.
  */
 export const VALUED_CHOOSER: OptionChooserPart<ValuedConfig> = deepFreeze({
-  role: "chooser", label: "By worth", stage: "game", fields: [obedienceField<ValuedConfig>()], slots: [slotOne("objective", "Objective", "objective", true, FEW_TERMS_PART.defaults)],
+  role: "chooser", model: PROFILE_MODEL, label: "By worth", stage: "game", fields: [obedienceField<ValuedConfig>()], slots: [slotOne("objective", "Objective", "objective", true, FEW_TERMS_PART.defaults)],
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config), ...searchFaults(config)],
   make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
@@ -506,7 +507,7 @@ interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs
  * targets keeps the one it runs at `KEEP` s.
  */
 export const TREE_CHOOSER: OptionChooserPart<TreeConfig> = deepFreeze({
-  role: "chooser", label: "By tree", stage: "game", fields: [obedienceField<TreeConfig>()], slots: [slotOne("objective", "Objective", "objective", true, FEW_TERMS_PART.defaults)],
+  role: "chooser", model: PROFILE_MODEL, label: "By tree", stage: "game", fields: [obedienceField<TreeConfig>()], slots: [slotOne("objective", "Objective", "objective", true, FEW_TERMS_PART.defaults)],
   defaults: { kind: "tree" }, keys: { kind: true, runs: true, exploration: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),
     ...config.runs === undefined || Number.isSafeInteger(config.runs) && config.runs > 0 ? [] : ["runs: a whole number, more than none"],
@@ -524,7 +525,7 @@ interface RankedConfig { readonly kind: "ranked"; readonly depth: number }
 
 /** **Ranked**: each option worth its place, the first the most. */
 export const RANKED_CHOOSER: OptionChooserPart<RankedConfig> = deepFreeze({
-  role: "chooser", label: "By rank", stage: "game", fields: [], slots: [], defaults: { kind: "ranked", depth: RANKED_DEPTH },
+  role: "chooser", model: PROFILE_MODEL, label: "By rank", stage: "game", fields: [], slots: [], defaults: { kind: "ranked", depth: RANKED_DEPTH },
   keys: { kind: true, depth: true }, fits: anyBody, faults: depthFaults([RANKED_DEPTH]),
   make: (_config: RankedConfig, options: readonly Option[], _seed: number, _parts: PartLookup, phase = 0) =>
     chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), { ...DECIDING, phase }),

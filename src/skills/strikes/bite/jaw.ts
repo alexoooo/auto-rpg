@@ -3,7 +3,7 @@ import type { BodyView } from "../../../control/body.ts";
 import { chainTo, pointAtToRef, specChainTo, type Frame } from "../../../control/kinematics.ts";
 import { lowsOf } from "../../../control/ground.ts";
 import type { JointKinematics, ReadBody, ReadJoint, ReadSegment } from "../../../core/bodies/read-body.ts";
-import { segmentOf, type BodySpec, type SegmentSpec } from "../../../core/bodies/spec/body.ts";
+import { pawsOf, segmentOf, type BodySpec, type SegmentSpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
 
 /** **A tooth**: its contact region's name and its tip, the point of its hull furthest along the way it pierces, body frame, reference pose. */
@@ -33,6 +33,19 @@ export interface Jaw {
   readonly mouth: Vec3;
   readonly teeth: readonly Tooth[];
   readonly piercing: { readonly direction: Vec3; readonly alignment: number };
+}
+
+/** The jaw, teeth, head actuator and support that the bite implementation consumes. */
+export function fitsJaw(spec: BodySpec): string | null {
+  const jaw = spec.segments.find(segment => segment.points?.bite);
+  const hinge = jaw && spec.joints.find(joint => joint.child === jaw.name);
+  const head = hinge && segmentOf(spec, hinge.parent), neck = head && spec.joints.find(joint => joint.child === head.name);
+  if (!jaw || !hinge?.dofs.length || !head?.points?.mouth || !neck || neck.dofs.length < 2
+    || !jaw.contacts?.some(contact => contact.surface.directed?.mechanism === "point")
+    || !spec.effectors?.some(effector => effector.segment === head.name) || head.name !== "head"
+    || pawsOf(spec).length === 0)
+    return "the bite needs a toothed jaw, an opening hinge, a two-freedom neck, a head effector with a mouth and paw support";
+  return null;
 }
 
 /** The jaw of `spec` (`Jaw`); a thrown error for a body with none, which a part refuses first (`fitsJaw`). */

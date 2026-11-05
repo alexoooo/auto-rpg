@@ -1,4 +1,4 @@
-import { cos, hypot, sin } from "../../core/math/real.ts";
+import { hypot } from "../../core/math/real.ts";
 
 /** A horizontal world point or direction, m for a point and dimensionless for a direction. */
 export interface GroundPoint { readonly x: number; readonly z: number }
@@ -56,16 +56,6 @@ export function copyMovement(request: MovementRequest): MovementRequest {
 
 /** A world direction remains independent of the body's facing. */
 export const directMovement = (x: number, z: number): MovementRequest => ({ kind: "direct", direction: { x, z } });
-
-/**
- * A walk worked out as a velocity, forward and to the right of `heading`, m/s, as a movement goal: a
- * direct walk its way, its speed the ceiling; nothing for no walk, which stands.
- */
-export function walkGoal(heading: number, move: readonly [forward: number, right: number] | null): { readonly movement?: MovementRequest; readonly pace?: number } {
-  const speed = move ? hypot(move[0], move[1]) : 0;
-  if (!move || speed === 0) return {};
-  return { movement: directMovement(move[0] * sin(heading) + move[1] * cos(heading), move[0] * cos(heading) - move[1] * sin(heading)), pace: speed };
-}
 
 /** How near a place a walk into an action's window counts as arrived, m, unless its asker says otherwise: about where a walk's last step lands. */
 export const ARRIVED = .04;

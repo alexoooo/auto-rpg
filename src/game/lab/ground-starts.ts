@@ -160,7 +160,7 @@ function inEnvironment(spec: BodySpec, placement: Placement, options: LabAddress
 export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed" | "ground">, waypoint?: Placement, spread?: number): Placement | GroundRefusal {
   const options = address.ground;
   if (options.start === "shoved" || options.start === "round") return inEnvironment(spec, { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) }, options);
-  if (!waypoint && !groundPostures(spec).includes(options.posture)) throw new Error(`${spec.model} has no installed ${options.posture} start`);
+  if (!waypoint && !groundPostures(spec).includes(options.posture)) return { refused: `${spec.model} has no installed ${options.posture} start` };
   const installed = options.start === "placed" ? poses.find(p => p.id === options.posture && p.model === spec.model) : undefined;
   for (let attempt = 0; attempt < 5; attempt++) {
     const random = mulberry32((address.seed + Math.imul(attempt, 0x9e3779b9)) >>> 0);
@@ -181,7 +181,7 @@ export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed"
         case "front": rotation = [half, 0, 0, half]; break;
         case "left": rotation = [0, 0, half, half]; break;
         case "right": rotation = [0, 0, -half, half]; break;
-        case "fours": case "kneeling": case "half-kneel": case "squat": throw new Error(`no installed ${options.posture} start`);
+        case "fours": case "kneeling": case "half-kneel": case "squat": return { refused: `no installed ${options.posture} start` };
         default: { const never: never = options.posture; throw new Error(`unknown ground posture ${never}`); }
       }
     }

@@ -1,3 +1,5 @@
+import { constructionScope } from "../core/construction.ts";
+import { isRefused, type Refused } from "../core/refusal.ts";
 /**
  * **A Crypt run as a case**: a laid-out level (`CryptLayout`), the party placed on it, every party
  * member under one mind or each under its model's own, and a script of the person's orders
@@ -7,6 +9,7 @@
  * engines, as a bout is: what lays it out, places it and steps it computes as the core does, and
  * its look (decals, dressing, the fog's shader) decides nothing a body meets.
  */
+import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
 import type { CommanderConfig } from "../minds/command/kind.ts";
 import type { Command } from "../minds/command/commands.ts";
 import { loadEngine, type EngineName } from "../core/physics/engines.ts";
@@ -70,6 +73,7 @@ export interface CryptCase {
   readonly layout: CryptLayout;
   readonly party: readonly { readonly model: BodyModel; readonly at: Point | null }[];
   readonly mind?: MindConfig;
+  readonly character?: AttributeOverrides;
   readonly script: readonly CryptLeg[];
   readonly commanders?: { readonly party?: CommanderConfig; readonly enemies?: CommanderConfig };
 }
@@ -122,14 +126,18 @@ export function createCrypt(context: GameContext) {
   const { defaultMind } = context;
 
   /** `crypt`'s run on `engine`: the party placed, every member under the case's mind and the enemies under their own, its script begun. */
-  async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCrypt> {
+  async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCrypt | Refused> {
     const map = cryptMap(crypt.layout), [hero, ...companions] = crypt.party;
-    if (!hero || !hero.at || distance(hero.at, map.start) > 1e-9) throw new Error("the hero stands at the start");
-    const options = { seed: 0, layout: map, hero: hero.model, companions: companions.map((member) => member.model) };
+    if (!hero || !hero.at || distance(hero.at, map.start) > 1e-9) return { refused: "the hero stands at the start" };
+    const options = { seed: 0, layout: map, hero: hero.model, companions: companions.map((member) => member.model),
+      attributes: (participant: { side: string }) => participant.side === "party" ? crypt.character ?? null : null };
     const prepared = prepareDungeonCharacters(map, options);
+    if (isRefused(prepared)) return prepared;
     companions.forEach((member, i) => { if (member.at) prepared.homes.set(`ally-${i}`, { ...member.at }); });
-    const run = new DungeonRun({ ...options, prepared, engine: await loadEngine(engine),
-      mind: (participant) => participant.side === "party" ? crypt.mind ?? null : null, party: crypt.commanders?.party, enemies: crypt.commanders?.enemies }, context);
+    const scope = constructionScope(); let complete = false;
+    try {
+    const run = scope.own(new DungeonRun({ ...options, prepared, engine: await loadEngine(engine),
+      mind: (participant) => participant.side === "party" ? crypt.mind ?? null : null, party: crypt.commanders?.party, enemies: crypt.commanders?.enemies }, context));
     const party = run.party, falls: { member: string; time: number }[] = [], down = new Map<string, boolean>(), slain = new Set<string>();
     let reached = true, leg = -1, began = 0, from: Point | null = null, pending: CryptAct[] = [], done: number | null = null, ended = false, contactSteps = 0, fallenContactSteps = 0;
     const member = (id: string) => {
@@ -175,6 +183,7 @@ export function createCrypt(context: GameContext) {
     for (const one of party) for (const segment of one.fighter!.built.segments.values()) bodyOf.set(segment.body, one.id);
     begin(0);
     if (pending.length) act();
+    complete = true;
     return {
       world: run.world, run,
       get ended() { return ended; },
@@ -209,8 +218,9 @@ export function createCrypt(context: GameContext) {
       },
       reading: () => ({ reached, legs: done !== null ? crypt.script.length : leg, of: crypt.script.length, done, falls: falls.map((fall) => ({ ...fall })),
         contactSteps, fallenContactSteps, seconds: run.clock }),
-      dispose() { run.dispose(); },
+      dispose: scope.dispose,
     };
+    } finally { if (!complete) scope.dispose(); }
   }
 
   /**

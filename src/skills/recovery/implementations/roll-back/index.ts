@@ -3,7 +3,8 @@ import type { BodyView } from "../../../../control/body.ts";
 import { deepFreeze } from "../../../../core/world/state.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
-import { mirrorPosture, phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "../../technique.ts";
+import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../technique.ts";
+import { mirrorPosture, technique } from "../../bilateral.ts";
 import type { Side } from "../../../../core/bodies/bilateral.ts";
 
 declare module "../../technique.ts" {
@@ -21,7 +22,7 @@ const POSES = deepFreeze<readonly Readonly<Record<string, number>>[]>([
 ]);
 
 /** A front-to-back roll with contact and orientation events; no phase duration proves a turn. */
-export function rollBack(own: OwnBody, _view: BodyView): TechniqueRun {
+export function rollBack(own: OwnBody, _view: BodyView): TechniqueRun<Side> {
   const drive = poseDrive(own.muscles), clock = phaseClock();
   const trunk = own.spec.segments.flatMap((s, i) => s.name.endsWith("Trunk") ? [i] : []);
   const sides = { right: POSES.map(mirrorPosture), left: POSES };

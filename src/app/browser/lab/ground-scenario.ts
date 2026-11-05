@@ -1,3 +1,5 @@
+import { isRefused, type Refused } from "../../../core/refusal.ts";
+import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
@@ -10,13 +12,14 @@ import { TECHNIQUES } from "../../recovery-techniques.ts";
 import { isWayUp, type TechniqueName, type TechniquePart } from "../../../skills/recovery/technique.ts";
 import { partLookup } from "../../catalog.ts";
 import { STAND_UP } from "../../recovery-selections.ts";
-import { waysUpIn, withWaysUp } from "../../../minds/option/rise.ts";
+import { describeMind } from "../../../minds/description.ts";
+import { GAME } from "../../catalog.ts";
 import type { MindConfig } from "../../../minds/config.ts";
 import type { PartConfig } from "../../../parts/parts.ts";
 import { recordHistory } from "./history.ts";
 import { createPlayer } from "../../../game/lab/player.ts";
 import { shoveSound } from "./sound-log.ts";
-import { loadoutSpec } from "../../../game/lab/loadout.ts";
+import { loadoutSpecChecked } from "../../../game/lab/loadout.ts";
 import { drawBody } from "../render/body-shapes.ts";
 import { followBody, puppetBody } from "../render/puppet.ts";
 import { action, choice, following, menu, note, quantity, readings, slider, toggle, when } from "../ui/controls.ts";
@@ -32,11 +35,9 @@ import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 /** What each way of getting up is called in the menu. */
 const RISES: Readonly<Record<GroundRise, string>> = { mind: "As its mind says", "stand-up": "Stand up, as the game" };
 
-/** A mind whose options name the ways up it gets up by from the ground, in rank order (`waysUpIn`). */
-type Rising = MindConfig & { readonly options: readonly PartConfig[] };
-
-/** Whether `mind` names the ways up it gets up by, so the Lab may give it others. */
-const rises = (mind: MindConfig): mind is Rising => Array.isArray((mind as Partial<Rising>).options) && waysUpIn((mind as Rising).options).length > 0;
+/** The selected controller publishes its recovery selection and owns rewriting that selection. */
+const recoveryOf = (mind: MindConfig, spec: BodySpec) => describeMind(GAME, spec, mind)?.recovery;
+const rises = (mind: MindConfig, spec: BodySpec): boolean => recoveryOf(mind, spec) !== undefined;
 
 /** The ways up `rise` names, or `drive`'s alone: the game's Stand up's, or `own`. */
 function techniquesBy(own: readonly PartConfig[], rise: GroundRise, drive: LabAddress["ground"]["drive"]): readonly PartConfig[] {
@@ -61,10 +62,21 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
   let kit: ReturnType<typeof sceneModel> | null = null;
   let address = labAddress("?scenario=ground"), fault = "";
   let current: { shove(): void } | null = null;
-  let shown: ReturnType<ReturnType<typeof startGround>["frame"]> | null = null;
+  let shown: ReturnType<Exclude<ReturnType<typeof startGround>, Refused>["frame"]> | null = null;
   const trail = note(() => shown?.trail.slice(-12).map(t => `${t.at.toFixed(2)} s: ${t.position} — ${t.controller}`).join("\n") ?? "");
   const attempts = note(() => shown?.attempts.map(a => `${a.controller}: ${a.end}, ${a.seconds.toFixed(2)} s`).join("\n") ?? "");
   const phases = note(() => shown ? Object.entries(shown.phases).map(([controller, seconds]) => `${controller}: ${seconds.toFixed(2)} s`).join("; ") : "");
+  const preview = (): BodySpec | null => {
+    const spec = loadoutSpecChecked(address);
+    return isRefused(spec) ? null : spec;
+  };
+  const canRise = (): boolean => { const spec = preview(); return spec !== null && rises(address.mind, spec); };
+  const postures = (): ReturnType<typeof groundPostures> => { const spec = preview(); return spec ? groundPostures(spec) : []; };
+  const fittingTechniques = () => {
+    const spec = preview();
+    return spec ? Object.entries(TECHNIQUES as Readonly<Record<string, TechniquePart>>)
+      .filter(([, technique]) => isWayUp(technique) && technique.fits(spec, technique.defaults, partLookup) === null) : [];
+  };
   const change = (ground: Partial<LabAddress["ground"]>) => shell.load({ ...address, ground: { ...address.ground, ...ground } });
   const meter = readings({ position: { name: "Position" }, doing: { name: "Controller" },
     level: { name: "Fall environment" }, seconds: { name: "Time down", unit: "s" }, check: { name: "Stand check" }, verified: { name: "Up and quiet", unit: "s from takeover" },
@@ -75,15 +87,15 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
   return {
     keys: new Set(),
     // A mind that names its ways up gets up by those the address chooses (`withWaysUp`); any other, as it says.
-    mind: (chosen, next) => rises(chosen) ? { ...chosen, options: withWaysUp(chosen.options, techniquesBy(waysUpIn(chosen.options), next.ground.rise, next.ground.drive)) } : chosen,
+    mind: (chosen, next, spec) => {
+      const recovery = recoveryOf(chosen, spec);
+      return recovery ? recovery.replace(techniquesBy(recovery.techniques, next.ground.rise, next.ground.drive)) : chosen;
+    },
     placement(spec, next) {
       address = next; shown = null; fault = "";
-      try {
-        const start = groundPlacement(spec, next);
-        if ("refused" in start) throw new Error(start.refused);
-        return start;
-      }
-      catch (error) { fault = String(error instanceof Error ? error.message : error); throw error; }
+      const start = groundPlacement(spec, next);
+      if ("refused" in start) fault = start.refused;
+      return start;
     },
     panels: {
       scenario: [
@@ -94,16 +106,16 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         quantity("Seed", 1, value => Number.isSafeInteger(value) && value >= 0 && value <= 4294967295, () => address.seed,
           seed => shell.load({ ...address, seed })),
         when(() => address.ground.start === "placed", following(() => address.model, () => menu("Posture",
-          groundPostures(loadoutSpec(address)).map(value => ({ value, name: value })), () => address.ground.posture, posture => change({ posture })))),
+          postures().map(value => ({ value, name: value })), () => address.ground.posture, posture => change({ posture })))),
         when(() => address.ground.start === "shoved", slider("Shove direction", 0, 360, 5, () => groundShove(address).degrees, degrees => change({ degrees }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", slider("Shove impulse, N s", 40, 90, 1, () => groundShove(address).impulse, impulse => change({ impulse }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", action("Draw shove from seed", () => change({ degrees: null, impulse: null }))),
         // A mind that names no ways up gets up only as it says.
-        following(() => `${address.model} ${rises(address.mind)}`, (key) => menu("Gets up by", key.endsWith("true") ? [
+        following(() => `${address.model} ${canRise()}`, (key) => menu("Gets up by", key.endsWith("true") ? [
           ...GROUND_RISES.map((rise) => ({ value: `rise:${rise}`, name: RISES[rise] })),
-          ...Object.entries(TECHNIQUES as Readonly<Record<string, TechniquePart>>).filter(([, technique]) => isWayUp(technique) && technique.fits(loadoutSpec(address), technique.defaults, partLookup) === null).map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))]
+          ...fittingTechniques().map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))]
           : [{ value: "rise:mind", name: RISES.mind }],
-        () => !rises(address.mind) ? "rise:mind" : address.ground.drive === "mind" ? `rise:${address.ground.rise}` : `alone:${address.ground.drive}`,
+        () => !canRise() ? "rise:mind" : address.ground.drive === "mind" ? `rise:${address.ground.rise}` : `alone:${address.ground.drive}`,
         value => value.startsWith("rise:") ? change({ drive: "mind", rise: value.slice(5) as GroundRise }) : change({ drive: value.slice(6) as TechniqueName }))),
         choice("Foe", ([0, 1, 2, 4] as const).map(value => ({ value, name: value === 0 ? "None" : `${value} m` })), () => address.ground.foe, foe => change({ foe })),
         toggle("Gusts", () => address.ground.gusts, () => change({ gusts: !address.ground.gusts })),
@@ -118,6 +130,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
       address = next;
       const sound = shoveSound(actor.body.built);
       const session = startGround(actor, next, { pushed: (part, impulse, at) => heard(sound(part, impulse, at)), hears });
+      if ("refused" in session) return session;
       const physical = solidGeometry(scene, session.environment.solids);
       const unregisterPhysical = shell.profile.register("tactical", physical);
       const registrations: (() => void)[] = [];
@@ -131,7 +144,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         });
         void kit.then(container => {
           if (closed) return;
-          for (const mesh of assembleCryptKit(container, session.environment.placements, false)) { mesh.material = obstacleMaterial; obstacles.push(mesh); registrations.push(shell.profile.register("world", { setEnabled(on) { mesh.setEnabled(on); } })); }
+          for (const mesh of assembleCryptKit(container, session.environment.placements, { merge: false })) { mesh.material = obstacleMaterial; obstacles.push(mesh); registrations.push(shell.profile.register("world", { setEnabled(on) { mesh.setEnabled(on); } })); }
         }).catch(error => { if (!closed) { fault = `Obstacle art unavailable: ${String(error)}`; } });
       } else for (const solid of session.environment.solids) {
         if (solid.kind !== "box") throw new Error("ground wall visual requires a box");

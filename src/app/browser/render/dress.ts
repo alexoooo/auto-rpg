@@ -1,9 +1,10 @@
+import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { DrawnBody } from "./drawn-body.ts";
 import type { BodyModel } from "../../../core/bodies/models.ts";
 import { drawBody } from "./body-shapes.ts";
-import { dressSkeleton, loadSkeletonArt, type SkeletonArt } from "./skeleton-skin.ts";
+import { dressSkeleton, loadSkeletonArt } from "./skeleton-skin.ts";
 import { dressBody, loadSkin } from "./skin.ts";
 import type { WorkshopModel } from "../../../core/bodies/human/rig.ts";
 import { appearanceFor, type Appearance } from "../../../game/appearance/appearance.ts";

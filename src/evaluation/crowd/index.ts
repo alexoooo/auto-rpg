@@ -27,9 +27,9 @@ export function createCrowdIndex(context: GameContext) {
     analysis: {},
     /** The minds named, by id or kind or given whole. None names the members' own (`modelInfo`). */
     subjects(choice) {
-      return (choice.length > 0 ? choice : ["own"]).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value)
+      return (choice.length > 0 ? choice : ["own"]).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value, one)
         : one === "own" ? mindSubject("own", "The Warrior's own", CROWD_MIND as unknown as Json)
-        : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, { models: MINDS[one].models })
+        : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, { models: MINDS[one].models, character: MINDS[one].character })
         : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults as unknown as Json)
         : (() => { throw new Error(`${one} is no mind: name own, a mind (${Object.keys(MINDS).join(", ")}), a kind, or a config`); })());
     },

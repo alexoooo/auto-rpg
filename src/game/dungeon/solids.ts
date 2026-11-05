@@ -58,6 +58,8 @@ export function dungeonSolids(map: DungeonMap, physics?: PhysicsWorld, opened: (
     openNearby(actors: readonly Point[]) {
       open(map.doors.filter(door => actors.some(p => hypot(p.x - door.point.x, p.z - door.point.z) < DOOR_OPEN_DISTANCE)));
     },
+    /** Rebuild detached observations after the owning state is restored. */
+    refresh() { sensed = senseSolids(); },
     /** Opens the doors of these ids, as a run in another world says it opened them. */
     opened(ids: readonly number[]) { open(map.doors.filter(door => ids.includes(door.id))); },
     dispose() { for (const collider of colliders) collider.dispose(); },

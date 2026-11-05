@@ -12,6 +12,10 @@ type Source =
   | { readonly kind: "tuned"; readonly for: string };
 
 export const SOURCES = Object.freeze({
+  "synthetic-contact-fixtures": {
+    kind: "tuned",
+    for: "Synthetic slab and hinge geometry, mass, stiffness and muscle values for controlled contact and stop diagnostics.",
+  },
   "owner-arena-items": {
     kind: "tuned",
     for: "The Arena's first equipment: mass, geometry and contact cones authored for play.",
@@ -85,7 +89,7 @@ export const SOURCES = Object.freeze({
   "workshop-envelope": {
     kind: "tuned",
     for: "Each foot's extents from the workshop models' clothed envelope, as "
-      + "scripts/core/workshop-envelope.mjs prints them.",
+      + "scripts/humanoid/workshop-envelope.mjs prints them.",
   },
   "workshop-fighter-rig": {
     kind: "asset", file: "assets/humanoid/workshop-fighter.json",
@@ -100,7 +104,7 @@ export const SOURCES = Object.freeze({
     kind: "asset", file: "assets/humanoid/workshop-fighter-trunk-hull.json",
     what: "The Warrior's trunk segments' surfaces: the convex hull corners of the clothed envelope's "
       + "vertices the trunk's bones weigh most on, body frame, authored size, rounded to 0.1 mm; written "
-      + "by scripts/core/workshop-envelope.mjs --write.",
+      + "by scripts/humanoid/workshop-envelope.mjs --write.",
   },
   "workshop-rogue-trunk-hull": {
     kind: "asset", file: "assets/humanoid/workshop-rogue-trunk-hull.json",
@@ -118,7 +122,7 @@ export const SOURCES = Object.freeze({
     kind: "asset", file: "assets/humanoid/workshop-fighter-hands.json",
     what: "The Warrior's hands from its bare skin: each open hand's convex hull with its palm patch and "
       + "the patch's centre, and each fist's convex hull, middle knuckle and strike point; body frame, "
-      + "authored size, rounded to 0.1 mm; written by scripts/core/hand-envelope.mjs --write.",
+      + "authored size, rounded to 0.1 mm; written by scripts/humanoid/hand-envelope.mjs --write.",
   },
   "workshop-rogue-hands": {
     kind: "asset", file: "assets/humanoid/workshop-rogue-hands.json",
@@ -129,7 +133,7 @@ export const SOURCES = Object.freeze({
     what: "Man's contact surfaces from the Warrior's skin: each open hand's and fist's convex hull with "
       + "its palm patch, and each bare foot cut at the ball into a foot and a toe piece with their "
       + "hinge, sole and toe pad; body frame, authored size, rounded to 0.1 mm; written by "
-      + "scripts/core/man-envelope.mjs --write.",
+      + "scripts/humanoid/man-envelope.mjs --write.",
   },
   "falisse-2022-toes": {
     kind: "literature",
@@ -452,14 +456,14 @@ export const SOURCES = Object.freeze({
       + "0.2-0.7 m/s five ways and the turn battery's half-turns at 0.25-4 rad/s both ways, walking at each "
       + "speed up to the fastest walk, begun from 0 to 1.5 s after the walk sets off and under way; how many "
       + "held at each, and the fastest held by the rule of "
-      + "src/control/stance-envelope.ts; written by research/core-stance-envelope.mjs --write, whose "
+      + "src/control/stance-envelope.ts; written by research/skills/locomotion/stance/core-stance-envelope.mjs --write, whose "
       + "harness it names.",
   },
   "walk-run-envelope": {
     kind: "asset", file: "assets/skills/locomotion/walk-run/walk-run-envelope.json",
     what: "How fast the walk and run (src/skills/locomotion/walk-run.ts) free to run walked each way with each body as a fight "
       + "plays it, with each thing held: the fastest speed, 0.2-4.5 m/s, at which every walk held, calm and in the lab's "
-      + "5 N gusts on four seeds; written by research/core-stance-envelope.mjs --legs walk-run --walks "
+      + "5 N gusts on four seeds; written by research/skills/locomotion/stance/core-stance-envelope.mjs --legs walk-run --walks "
       + "--gusts 1:5:1,2,3,4 --write, whose harness it names. It measured no turns.",
   },
   "core-grip": {

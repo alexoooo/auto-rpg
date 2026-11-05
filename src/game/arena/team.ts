@@ -1,5 +1,5 @@
 import type { CommanderConfig } from "../../minds/command/kind.ts";
-import { createCommander } from "../../minds/command/commander.ts";
+import { createCommander, type CommanderRegistry } from "../../minds/command/commander.ts";
 import { releaseCombatApproach } from "../../minds/command/delivery.ts";
 import { sameOrders, type Orders } from "../../skills/intent/orders.ts";
 import type { Command } from "../../minds/command/commands.ts";
@@ -9,7 +9,7 @@ import { hypot } from "../../core/math/real.ts";
 import type { Hook } from "../../core/world/world.ts";
 import { cryptModel } from "../dungeon/actors.ts";
 import type { Duel } from "./duel.ts";
-import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
+import { type ArenaSeat as Side, otherSeat as otherSide } from "./seat.ts";
 
 /**
  * The arena's ground as a team of one knows it: every body within range in sight, no door, nothing
@@ -41,8 +41,8 @@ export interface TeamOfOne {
  * looks every step; its member's home is where it stood when the team was made. Its state retains
  * raw orders so a reached combat approach can resume without a fresh Commander decision.
  */
-export function teamOfOne(duel: Duel, side: Side, config: CommanderConfig): TeamOfOne {
-  const commander = createCommander({ level: OPEN_GROUND }, config), other: Side = otherSide(side);
+export function teamOfOne(duel: Duel, side: Side, config: CommanderConfig, commanders: CommanderRegistry): TeamOfOne {
+  const commander = createCommander(commanders, { level: OPEN_GROUND }, config), other: Side = otherSide(side);
   const duelist = duel.duelists[side], { radius, attackMetres } = cryptModel(duelist.model);
   const at = (of: Side) => { const c = duel.duelists[of].body.physical.centre; return { x: c.x, z: c.z }; };
   const home = at(side);

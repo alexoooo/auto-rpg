@@ -1,3 +1,4 @@
+import { isRefused } from "../../core/refusal.ts";
 /**
  * **The Strike drill**: does a strike skill, thrown once, land on
  * the mark it was asked, and come back without felling the striker? Each rung is a protocol (rung
@@ -9,13 +10,13 @@
  * other parts are the mind's.
  */
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
-import { strikesIn } from "../../minds/option/kinds.ts";
-import type { PartConfig } from "../../parts/parts.ts";
+import { describeMind } from "../../minds/description.ts";
+import { BODY_MODELS, modelHoldingChecked } from "../../core/bodies/models.ts";
 import { HELD, loadoutFaults, loadoutKey, type Held, type Loadout } from "../../core/bodies/items/held.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { mindSubject, type Evaluation, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
-import { meetsBar, type StrikeReading } from "./read.ts";
+import type { StrikeReading } from "./read.ts";
 import { barScore } from "./score.ts";
 import { createStrikeCases, limbOf, type StrikeCondition } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
@@ -50,16 +51,10 @@ function loadoutNamed(key: string): Loadout {
  */
 const REACHED = .05;
 
-/** The bar's tests a hit failed, in words (`meetsBar`). */
-const failedTests = (hit: NonNullable<StrikeReading["hit"]>): string[] => ([["fast", "slow"], ["heavy", "light"], ["square", "glancing"], ["soon", "late"],
-  ["lined", "across the arm"], ["extended", "the elbow bent"], ["upright", "leaning"], ["hard", "too little energy"], ["faced", "not met with what it strikes with"]] as const)
-  .filter(([test]) => hit[test] === false).map(([, words]) => words);
-
 /**
  * Why a trial failed, in the drill's words: outside the entry condition (never admitted, the
  * reason its readiness gave), balance lost, blocked by the arms, the target moved (the limb reached
- * where it aimed and the target was not there), short of the aim, off the mark, short of the bar
- * (the tests it failed), or let go before it committed; undefined for one that passed.
+ * where it aimed and the target was not there), short of the aim, off the mark, met with the wrong surface, incomplete, or let go before it committed; undefined for one that passed.
  */
 function whyFailed(reading: StrikeReading): string | undefined {
   switch (reading.outcome) {
@@ -67,7 +62,7 @@ function whyFailed(reading: StrikeReading): string | undefined {
     case "fell": return "balance lost: the striker fell";
     case "guarded": return "blocked: the limb met the target's arms alone";
     case "elsewhere": return `off the mark: the limb met the target's ${reading.contacts.find((one) => one.time >= (reading.began ?? 0))?.on ?? "body"}`;
-    case "weak": return `short of the bar: ${reading.hit ? failedTests(reading.hit).join(", ") || "the action did not end" : "no hit"}`;
+    case "weak": return reading.hit?.faced === false ? "not met with what it strikes with" : "the action did not end";
     case "missed": {
       // A record line without the nearest approach does not say it.
       const nearest = reading.nearest ?? null;
@@ -89,7 +84,7 @@ const strikeOutcome = (reading: StrikeReading) => {
 };
 
 export function createStrikeIndex(context: GameContext) {
-  const { minds: MINDS, partLookup } = context.catalog;
+  const { minds: MINDS } = context.catalog;
   const { STRIKE_CASES } = createStrikeCases(context);
 
   /** A strike named (`<mind>/<skill>`, `skillSubject`) or given whole (`givenSubject`), as a subject; `none` where nothing is named. */
@@ -104,8 +99,11 @@ export function createStrikeIndex(context: GameContext) {
     const at = name.lastIndexOf("@"), named = at < 0 ? name : name.slice(0, at), held = at < 0 ? undefined : loadoutNamed(name.slice(at + 1));
     const slash = named.indexOf("/"), id = slash < 0 ? named : named.slice(0, slash), preset = Object.hasOwn(MINDS, id) ? MINDS[id]! : null;
     if (!preset) throw new Error(`${name} is no strike: name a mind and its skill, <mind>/<skill>[@<left>,<right>] (${Object.keys(MINDS).join(", ")})`);
-    const { options, frame } = preset.config as { readonly options?: readonly PartConfig[] | null; readonly frame?: unknown };
-    const skills = frame || !Array.isArray(options) ? [] : [...new Set(strikesIn(partLookup, options).map((strike) => strike.skill.kind))];
+    const skills = [...new Set(BODY_MODELS.filter(model => !preset.models || preset.models.includes(model)).flatMap(model => {
+      const spec = modelHoldingChecked(model, held ?? { left: "empty", right: "empty" }, preset.character);
+      if (isRefused(spec)) return [];
+      return describeMind(context.catalog, spec, preset.config)?.executors.map(executor => executor.kind) ?? [];
+    }))];
     const skill = slash < 0 ? skills[0] : named.slice(slash + 1);
     if (skill === undefined || !skills.includes(skill)) throw new Error(`${id} has no skill ${skill ?? ""}: one of ${skills.join(", ") || "none"}`);
     const value = { mind: preset.config as unknown as Json, skill, ...(held === undefined ? {} : { held }) };
@@ -126,13 +124,13 @@ export function createStrikeIndex(context: GameContext) {
     subjects: (choice) => strikeSubjects(choice, DRILLED),
     outcome: strikeOutcome,
     /**
-     * A learning environment's terms: the bar's score, a hit that meets every test counted landed
-     * (the striker's standing left to the drill, `barScore`); whether it met them, 1 or 0; and, where
+     * A learning environment's terms: the human-reference comparison score, whether the completed
+     * action landed physically, and, where
      * the limb met nothing on the mark, how far short of its aim it stayed at its nearest, m, to 0.5.
      */
     terms: {
-      score: (reading, condition) => barScore(reading.hit !== null && meetsBar(reading.hit) ? { ...reading, outcome: "landed" } : reading, "hand" in condition ? condition.hand : null),
-      met: (reading) => reading.hit !== null && meetsBar(reading.hit) ? 1 : 0,
+      score: (reading, condition) => barScore(reading, "hand" in condition ? condition.hand : null),
+      met: (reading) => reading.outcome === "landed" ? 1 : 0,
       short: (reading) => reading.hit ? 0 : Math.min(reading.nearest ?? Infinity, .5),
     },
     /**

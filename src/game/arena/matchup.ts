@@ -1,4 +1,6 @@
-import { BODY_MODELS, modelHolding, modelHolds, modelLoadout, type BodyModel } from "../../core/bodies/models.ts";
+import { isRefused } from "../../core/refusal.ts";
+import { BODY_MODELS, modelHolding, modelHoldingChecked, modelHolds, type BodyModel } from "../../core/bodies/models.ts";
+import { modelLoadout } from "../model-loadouts.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog.ts";
 import type { GameContext } from "./context.ts";
 import type { MindConfig } from "../../minds/config.ts";
@@ -11,7 +13,7 @@ import { mindLinks, type LinkedMind } from "../../minds/config-link.ts";
 import { legacyAttributes, readAttributes } from "../attribute-link.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { gapFits, LEVELS, type ArenaLevel } from "./levels.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "./seat.ts";
 
 /** A link chooses a named stage; malformed UI input starts on the open stage. */
 export function readLevel(search: string): ArenaLevel {
@@ -149,9 +151,8 @@ export function createMatchup(context: GameContext) {
     const parts = (new URLSearchParams(search).get("control") ?? "").split(",");
     const models = readMatchup(search), loadouts = loadoutsOf(search), attributes = arenaAttributes(search);
     const read = (s: string | undefined, side: Side): Control => {
-      let choices: readonly Control[];
-      try { choices = controlsFor(models[side], loadouts[side], attributes[side]); }
-      catch { choices = controlsFor(models[side], loadouts[side]); }
+      const admitted = modelHoldingChecked(models[side], loadouts[side], attributes[side]);
+      const choices = controlsFor(models[side], loadouts[side], isRefused(admitted) ? undefined : attributes[side]);
       // A preset the link names is its side's, offered or not: one the body cannot play is refused where it is built, never replaced.
       return s !== undefined && Object.hasOwn(MINDS, s) ? s : choices.find(c => MINDS[c]!.config === defaultMind(models[side])) ?? choices[0]!;
     };
@@ -185,9 +186,10 @@ export function createMatchup(context: GameContext) {
   function linkedMind(search: string, side: Side): LinkedMind {
     const control = readControls(search)[side], preset = MINDS[control]!.config;
     const model = readMatchup(search)[side], loadout = loadoutsOf(search)[side];
-    let spec;
-    try { spec = modelHolding(model, loadout, controlCharacter(control, arenaAttributes(search)[side])); }
-    catch { spec = modelHolding(model, loadout, controlCharacter(control)); }
+    const admitted = modelHoldingChecked(model, loadout, controlCharacter(control, arenaAttributes(search)[side]));
+    const fallback = isRefused(admitted) ? modelHoldingChecked(model, loadout, controlCharacter(control)) : admitted;
+    if (isRefused(fallback)) return { config: preset, faults: [fallback.refused] };
+    const spec = fallback;
     return parseMind(new URLSearchParams(search).get(mindKey(side)), spec, FIGHT_ENTRY) ?? { config: preset, faults: [] };
   }
 

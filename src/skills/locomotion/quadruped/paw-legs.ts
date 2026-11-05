@@ -1,3 +1,5 @@
+import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
+import { supportHeight } from "../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
 import type { Body, BodyView } from "../../../control/body.ts";
 import type { SupportGoal } from "../../../control/supported-motor.ts";
@@ -46,7 +48,7 @@ function envelopeOf(name: PawGaitName, reach: GaitReach): StanceEnvelope {
  * the crawl to creep, each step's support goal (`SupportGoal`) the body's paw motor carries out.
  *
  * - **The walk asked** (m/s, along the heading and to its right) is the gait's travel, a share of
- *   the trot's speed (`REPTILE_TROT.speed`), and the facing asked its heading. A gait named is the
+ *   its selected gait's travel speed (`Gait.travel`), and the facing asked its heading. A gait named is the
  *   one it goes by, changing to it once the one it goes by settles; none named, it trots to walk
  *   and keeps its gait to stand. The crawl carries the body at the height asked, a share of its
  *   standing height (`BodyView.standing`), its own where none is asked.
@@ -81,10 +83,10 @@ function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
   const origin = new Vector3(), drift = new Vector3(), grounded = { origin, drift, firm: false, response: 0 };
   const support = paws.map(() => ({ corners: [new Vector3()] })), loaded: typeof support = [];
   const resumeGaits = (): void => { trot.resume(seen); creep.resume(seen); state.support++; };
-  /** The orders `goal` asks of a gait: its walk a share of the trot's travel, world, and its facing. */
-  const ordersOf = (goal: LegsAsked, heading: number): TravelOrders => {
+  /** The orders `goal` asks of a gait: its walk a share of that gait's travel, world, and its facing. */
+  const ordersOf = (goal: LegsAsked, heading: number, speed: number): TravelOrders => {
     const walk = goal.walk, s = sin(heading), c = cos(heading);
-    return { move: walk ? { x: (walk[0] * s + walk[1] * c) / REPTILE_TROT.speed, z: (walk[0] * c - walk[1] * s) / REPTILE_TROT.speed } : null,
+    return { move: walk ? { x: (walk[0] * s + walk[1] * c) / speed, z: (walk[0] * c - walk[1] * s) / speed } : null,
       face: { x: sin(goal.face), z: cos(goal.face) } };
   };
   const goalOf = (view: BodyView, goal: LegsAsked, dt: number): SupportGoal => {
@@ -94,18 +96,18 @@ function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
       state.stable = stable ? state.stable + dt : 0;
       if (state.stable >= REPTILE_TROT.resumeHold) state.reacquire = false;
     }
-    const asked = ordersOf(goal, view.stance.facing);
-    const movement: TravelOrders = state.reacquire ? placing ? { move: { x: 0, z: 0 }, face: asked.face } : STAND_TRAVEL : asked;
     const named = goal.gait === "trot" || goal.gait === "crawl" ? goal.gait : null;
     const wanted: PawGaitName = state.reacquire ? "crawl" : named ?? (goal.walk ? "trot" : state.kind);
+    const asked = ordersOf(goal, view.stance.facing, gaits[wanted].travel.speed);
+    const movement: TravelOrders = state.reacquire ? placing ? { move: { x: 0, z: 0 }, face: asked.face } : STAND_TRAVEL : asked;
     let active = gaits[state.kind];
     if (wanted !== state.kind && active.state.phase === "settle") {
       state.kind = wanted; active = gaits[wanted];
       active.resume(seen); state.support++;
     }
     const T = active.settings, walking = wanted !== state.kind ? STAND_TRAVEL : movement;
-    state.pace = walking.move ? hypot(walking.move.x, walking.move.z) * REPTILE_TROT.speed : 0;
-    const command = state.kind === "crawl" ? creep.command(seen, walking, dt, goal.height === undefined ? creep.settings.crawlHeight : goal.height / view.standing)
+    state.pace = walking.move ? hypot(walking.move.x, walking.move.z) * active.travel.speed : 0;
+    const command = state.kind === "crawl" ? creep.command(seen, walking, dt, goal.height === undefined ? creep.settings.crawlHeight : goal.height / supportHeight(view))
       : trot.command(seen, walking, dt);
     const centre: [number, number, number] = [command.centre[0], command.centre[1], command.centre[2]];
     if (goal.centre) {
@@ -148,7 +150,7 @@ function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
     supports: Object.freeze(pawsOf(built.spec).map(paw => paw.name)),
     lower: 0,
     get heading() { return view.stance.facing; },
-    get stopping() { return REPTILE_TROT.acceleration; },
+    get stopping() { return gaits[state.kind].travel.stopping; },
     lag: 0,
     get pace() { return state.pace; },
     get placed() { return !state.reacquire && gaits[state.kind].state.phase === "settle"; },
@@ -167,7 +169,7 @@ function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
 
 /** **The paw legs** (`pawLegs`) as a kind of locomotion: a body on three paws or more (`fitsPaws`), its gaits the parts its config names (`PawGaitPart`). */
 export const PAW_MOVE: LocomotionPart<PawMoveConfig> = deepFreeze({
-  role: "locomotion", label: "Paw gaits", stage: "game", fields: [], defaults: { kind: "paw-move" }, keys: { kind: true, trot: true, crawl: true },
+  role: "locomotion", requires: [SUPPORT_REFERENCE], label: "Paw gaits", stage: "game", fields: [], defaults: { kind: "paw-move" }, keys: { kind: true, trot: true, crawl: true },
   slots: [slotOne("trot", "Trot", "paw-gait", true, STOCK.trot), slotOne("crawl", "Crawl", "paw-gait", true, STOCK.crawl)],
   fits: fitsPaws, faults: () => [],
   uses: (config) => [config.trot ?? STOCK.trot, config.crawl ?? STOCK.crawl],

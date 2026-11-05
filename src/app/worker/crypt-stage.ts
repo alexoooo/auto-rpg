@@ -1,12 +1,15 @@
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
+import { isRefused, type Refused } from "../../core/refusal.ts";
 import type { Command, DrawnRoute } from "../../minds/command/commands.ts";
 import type { CommanderConfig } from "../../minds/command/kind.ts";
 import { loadEngine, type EngineName } from "../../core/physics/engines.ts";
 import type { GroundPoint } from "../../skills/intent/movement.ts";
 import { armedWith } from "../../core/bodies/items/held.ts";
 import type { MindConfig } from "../../minds/config.ts";
-import { modelInfo, type BodyModel } from "../../core/bodies/models.ts";
+import { type BodyModel } from "../../core/bodies/models.ts";
+import { modelInfo } from "../../game/model-loadouts.ts";
 import { physicalReading } from "../../control/observation.ts";
+import { constructionScope } from "../../core/construction.ts";
 import { attachment } from "../../core/bodies/read-body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
@@ -133,19 +136,28 @@ export const cryptSpec = (character: { readonly spec: BodySpec }, model: BodyMod
  */
 export async function buildCryptRun(context: GameContext, start: CryptStart, { cues = [], minds: makeMinds }: StageRuntime & { readonly cues?: SoundCue[] } = {}) {
   const { defaultMind } = context, { treeData, loadData } = context.catalog;
-  const fielded = { seed: start.seed, layout: start.layout ? structuredClone(start.layout) : runMap(start),
+  const layout = start.layout ? structuredClone(start.layout) : runMap(start);
+  if (isRefused(layout)) return layout;
+  const fielded = { seed: start.seed, layout,
     ...start.hero ? { hero: start.hero } : {}, ...start.companions ? { companions: start.companions } : {},
     attributes: (participant: Participant) => start.attributes[participant.id] ?? {} };
   const mind = (participant: Participant) => start.minds[participant.id] ?? null;
+  const prepared = prepareDungeonCharacters(layout, fielded);
+  if (isRefused(prepared)) return prepared;
   await loadData(runParticipants(fielded.layout, fielded).flatMap((participant) => treeData(mind(participant) ?? defaultMind(participant.model))));
-  const prepared = prepareDungeonCharacters(fielded.layout, fielded), minds = makeMinds?.();
+  const scope = constructionScope();
+  let complete = false;
+  try {
+  const minds = scope.own(makeMinds?.());
   const seen = (point: Vec3) => run.visible.has(cellKey(run.map, { x: point[0], z: point[2] }));
-  const run: DungeonRun = new DungeonRun({ ...fielded, prepared, engine: await loadEngine(start.engine), mind,
+  const run: DungeonRun = scope.own(new DungeonRun({ ...fielded, prepared, engine: await loadEngine(start.engine), mind,
     ...start.party ? { party: start.party } : {}, ...start.enemies ? { enemies: start.enemies } : {}, ...minds ? { minds } : {},
-    onBlow: (blow) => { if (seen(blow.point)) cues.push(...debrisCues(blow)); } }, context);
+    onBlow: (blow) => { if (seen(blow.point)) cues.push(...debrisCues(blow)); } }, context));
   const apply = cryptInput(run);
   apply({ kind: "lead", lead: start.lead });
-  return { run, prepared, apply, dispose() { run.dispose(); minds?.dispose(); } };
+  complete = true;
+  return { run, prepared, apply, dispose: scope.dispose };
+  } finally { if (!complete) scope.dispose(); }
 }
 
 /**
@@ -198,10 +210,15 @@ const UNBUILT = Object.freeze({ pose: Object.freeze({ position: Object.freeze({ 
  * applied before the next step and kept on the run's tape, so a run a person played replays from
  * its start and its tape.
  */
-export async function cryptStage(context: GameContext, start: CryptStart, runtime: StageRuntime = {}): Promise<Stage<CryptCard, CryptInput>> {
+export async function cryptStage(context: GameContext, start: CryptStart, runtime: StageRuntime = {}): Promise<Stage<CryptCard, CryptInput> | Refused> {
+  const scope = constructionScope();
+  let complete = false;
+  try {
   const cues: SoundCue[] = [];
-  const { run, prepared, apply, dispose } = await buildCryptRun(context, start, { ...runtime, cues });
-  const hearing = hearRun(run, (cue) => { cues.push(cue); });
+  const building = await buildCryptRun(context, start, { ...runtime, cues });
+  if (isRefused(building)) return building;
+  const { run, prepared, apply } = scope.own(building);
+  const hearing = scope.own(hearRun(run, (cue) => { cues.push(cue); }));
   const tape: CryptTapeEntry[] = [];
   const roster = run.actors.map((actor) => ({ id: actor.id,
     segments: cryptSpec(prepared.characters.get(actor.id)!, actor.model).segments.map((segment) => segment.name),
@@ -230,7 +247,7 @@ export async function cryptStage(context: GameContext, start: CryptStart, runtim
     if (!fighter || looked === null) return null;
     const mind = fighter.minded, report = mind.report ?? null;
     return { id: looked, inspected: { body: { has: fighter.body.has, level: fighter.body.level },
-      skills: mind.skills ? { report: { holders: mind.skills.report.holders, actions: mind.skills.report.actions } } : null,
+      skills: mind.skills ? { report: { holders: mind.skills.report.holders, defaultOwners: mind.skills.report.defaultOwners, actions: mind.skills.report.actions } } : null,
       report: report ? { engagement: report.engagement, actions: report.actions, ended: report.ended } : null } };
   };
   const news = (): CryptNews => {
@@ -255,6 +272,7 @@ export async function cryptStage(context: GameContext, start: CryptStart, runtim
       ...told || run.world.steps % INSPECTED_STEPS === 0 ? { inspected: inspected() } : {},
     };
   };
+  complete = true;
   return {
     hz: run.world.hz, roster,
     step: () => run.step(),
@@ -269,6 +287,7 @@ export async function cryptStage(context: GameContext, start: CryptStart, runtim
       apply(input);
     },
     tape: () => tape,
-    dispose() { hearing.dispose(); dispose(); },
+    dispose: scope.dispose,
   };
+  } finally { if (!complete) scope.dispose(); }
 }

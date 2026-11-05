@@ -4,6 +4,7 @@ import { duelStage } from "../../worker/duel-stage.ts";
 import { cryptStage } from "../../worker/crypt-stage.ts";
 import { pageMinds } from "./minds.ts";
 import { CONTEXT } from "../context.ts";
+import { isRefused, type Refused } from "../../../core/refusal.ts";
 
 /** The most real time one pass steps the world through, s: a frame of a screen at 30 fps. Behind it the world plays in slow motion. */
 const CATCH_UP_SECONDS = 1 / 30;
@@ -72,7 +73,8 @@ export function serve(port: Port, close: () => void): void {
     owed = 0; last = performance.now(); marks.length = 0;
     timer = setTimeout(pass, 0);
   };
-  const build = (building: Promise<Stage<unknown, WorldInput>>) => building.then((built) => {
+  const build = (building: Promise<Stage<unknown, WorldInput> | Refused>) => building.then((built) => {
+    if (isRefused(built)) { fault(built.refused); return; }
     stage = built;
     const frame = built.frame(), news = built.news();
     port.postMessage({ kind: "ready", hz: built.hz, roster: built.roster, frame }, [frame.buffer]);
@@ -99,7 +101,7 @@ export function serve(port: Port, close: () => void): void {
         } catch (error) { fault(error); }
         return;
       case "tape":
-        port.postMessage({ kind: "tape", tape: stage?.tape() ?? [] }, []);
+        port.postMessage({ kind: "tape", tape: stage?.tape() ?? [], request: data.request }, []);
         return;
       case "run":
         running = data.running;
@@ -107,7 +109,7 @@ export function serve(port: Port, close: () => void): void {
         return;
       case "step":
         try { for (let k = 0; k < data.steps && stage && !stage.over(); k++) if (step(stage)) break; } catch (error) { fault(error); return; }
-        port.postMessage({ kind: "stepped" }, []);
+        port.postMessage({ kind: "stepped", request: data.request }, []);
         return;
       case "burden":
         burden = data.ms;

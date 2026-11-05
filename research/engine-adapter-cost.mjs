@@ -21,7 +21,7 @@ const temporary = await mkdtemp(resolve(parent, "adapter-cost-")), file = resolv
 try {
   const source = execFileSync("git", ["show", `${values.reference}:src/core/physics/rapier.ts`], { cwd: root, encoding: "utf8" });
   await writeFile(file, source.replace(/from "(\.[^"]+)"/g, (_, relative) =>
-    `from ${JSON.stringify(pathToFileURL(resolve(root, "src/core/engine", relative)).href)}`));
+    `from ${JSON.stringify(pathToFileURL(resolve(root, "src/core/physics", relative)).href)}`));
   const previous = (await import(pathToFileURL(file).href)).createRapierPhysics, R = await rapierModule();
   const recipe = { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 12 };
   const play = async (factory) => {

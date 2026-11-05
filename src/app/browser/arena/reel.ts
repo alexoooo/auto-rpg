@@ -62,25 +62,27 @@ function sameTrial(records: readonly Kept[], record: Kept, line: Kept["lines"][n
 }
 
 /** `reel`'s trials, in its order; an error naming the first case that is missing or cannot be played, or where they need more than one engine or level. */
-export async function reelTrials(reel: LinkedReel): Promise<Trial[]> {
+export async function reelTrials(reel: LinkedReel): Promise<{ readonly trials: Trial[]; readonly fault?: never } | { readonly fault: string; readonly trials?: never }> {
   const evaluation = Object.hasOwn(EVALUATIONS, reel.evaluation) ? EVALUATIONS[reel.evaluation]! : null;
-  if (!evaluation) throw new Error(`the reel's evaluation ${reel.evaluation} is not one this build has`);
+  if (!evaluation) return { fault: `the reel's evaluation ${reel.evaluation} is not one this build has` };
   const records = await recordsOf(reel.evaluation);
-  const trials = reel.cases.map((key): Trial => {
+  const trials: Trial[] = [];
+  for (const key of reel.cases) {
     const found = findCase(records, key);
-    if (!found) throw new Error(`no record of ${reel.evaluation} holds the case ${key}`);
+    if (!found) return { fault: `no record of ${reel.evaluation} holds the case ${key}` };
     const { record, line } = found, refused = refusal(line.world);
-    if (refused !== null) throw new Error(`the case ${key} cannot be played: ${refused}`);
+    if (refused !== null) return { fault: `the case ${key} cannot be played: ${refused}` };
     const beside = reel.previous === null ? null : sameTrial(records, record, line, reel.previous);
-    return { ...played(record, line), condition: conditionText(line.condition),
-      previous: beside && refusal(beside.line.world) === null ? { ...played(beside.record, beside.line), version: reel.previous! } : null };
-  });
+    trials.push({ ...played(record, line), condition: conditionText(line.condition),
+      previous: beside && refusal(beside.line.world) === null ? { ...played(beside.record, beside.line), version: reel.previous! } : null });
+  }
+  if (!trials.length) return { fault: "the reel names no case" };
   // The Arena builds its engine and level once, for every trial it plays.
   const { engine, recipe } = trials[0]!.world;
   if (trials.flatMap((one) => [one, ...one.previous ? [one.previous] : []]).some(({ world }) => world.engine !== engine || (world.recipe.level ?? "open") !== (recipe.level ?? "open"))) {
-    throw new Error("the reel's cases are of more than one engine or level");
+    return { fault: "the reel's cases are of more than one engine or level" };
   }
-  return trials;
+  return { trials };
 
   /** What the Arena plays of `line`, a bout case `refusal` passed. */
   function played(record: Kept, line: Kept["lines"][number]): Played {

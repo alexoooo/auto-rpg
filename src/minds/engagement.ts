@@ -1,3 +1,4 @@
+import type { Estimate } from "../skills/intent/estimate.ts";
 import type { Readiness, TargetRef } from "../skills/framework/action.ts";
 import type { Priced } from "./choice.ts";
 
@@ -28,7 +29,7 @@ interface EngagementCandidate {
   readonly effector: string;
   readonly target: Extract<TargetRef, { kind: "body" }>;
   readonly readiness: Readiness;
-  readonly estimate?: { readonly unit: "opening" | "net"; readonly value: number };
+  readonly estimate?: Estimate;
   readonly eligible: boolean;
 }
 
@@ -60,17 +61,4 @@ export interface Engagement {
   readonly offers?: readonly Offer[];
   readonly candidates?: readonly EngagementCandidate[];
   readonly pending?: EngagementPending | null;
-}
-
-/** A live report with a layer's lazy details appended; reading it changes no decision state. */
-export function engagementWithDetails(base: () => Engagement | undefined, details: () => readonly EngagementDetail[]): Engagement {
-  return {
-    get phase() { return base()?.phase ?? "unreported"; },
-    get focus() { return base()?.focus; },
-    get lost() { return base()?.lost; },
-    get candidates() { return base()?.candidates; },
-    get pending() { return base()?.pending; },
-    get offers() { return base()?.offers; },
-    get details() { return [...base()?.details ?? [], ...details()]; },
-  };
 }

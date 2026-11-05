@@ -1,4 +1,4 @@
-import type { GaitConfig } from "../config.ts";
+import type { PartConfig } from "../../parts/parts.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 
 /**
@@ -11,7 +11,7 @@ import { deepFreeze } from "../../core/world/state.ts";
 export interface Gait {
   readonly name: string;
   readonly label: string;
-  readonly legs: GaitConfig;
+  readonly legs: PartConfig;
 }
 
 /** A gait's name (`Gait.name`). */
@@ -23,10 +23,11 @@ export type GaitName = string;
  * not run, so that Move changes between them at once and a run gives way to the stance's walk at
  * its next landing.
  */
-export const GAITS = deepFreeze({
+const DEFAULT_GAITS = {
   "braced": { label: "Braced", legs: { kind: "walk-run", runs: false } },
   "run": { label: "Run", legs: { kind: "walk-run" } },
-} satisfies Readonly<Record<string, { readonly label: string; readonly legs: GaitConfig }>>);
+};
+export const GAITS = deepFreeze(DEFAULT_GAITS satisfies Readonly<Record<string, { readonly label: string; readonly legs: PartConfig }>>);
 
 /** Every stock gait's name, in `GAITS`' order. */
 export const GAIT_NAMES: readonly GaitName[] = Object.freeze(Object.keys(GAITS));

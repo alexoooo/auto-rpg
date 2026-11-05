@@ -148,7 +148,7 @@ export function observeBody(built: ReadBody, muscles: MuscleReading, clock: Cloc
     return deepFreeze({ time: clock.time, level: level(), model: built.spec.model,
       configurations: structuredClone(built.configurations.state),
       ...(equipment ? { equipment: equipment() } : {}),
-      centre: tuple(physical.centre), head: built.segments.has("head") ? tuple(physical.head) : null,
+      centre: tuple(physical.centre), head: built.spec.marks?.high && built.segments.has(built.spec.marks.high) ? tuple(physical.head) : null,
       height: physical.height, down: physical.down, segments, joints, contacts,
       senses: { time: external.time, side: external.side, out: external.out,
         ...(external.solids ? { solids: structuredClone(external.solids) } : {}),

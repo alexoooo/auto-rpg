@@ -53,15 +53,6 @@ export function checkedSupportEdge(edge: SupportEdge): SupportEdge {
   return { from: [edge.from[0], edge.from[1], edge.from[2]], to: [edge.to[0], edge.to[1], edge.to[2]], radius: edge.radius };
 }
 
-/** A material point within the requested edge's finite capsule, in the same local frame. */
-export function supportEdgeIncludes(point: Vec3, edge: SupportEdge): boolean {
-  const dx = edge.to[0] - edge.from[0], dy = edge.to[1] - edge.from[1], dz = edge.to[2] - edge.from[2],
-    px = point[0] - edge.from[0], py = point[1] - edge.from[1], pz = point[2] - edge.from[2],
-    u = Math.max(0, Math.min(1, (px * dx + py * dy + pz * dz) / (dx * dx + dy * dy + dz * dz))),
-    x = px - u * dx, y = py - u * dy, z = pz - u * dz;
-  return x * x + y * y + z * z <= edge.radius * edge.radius;
-}
-
 /** Finite requested load limits, with zero and an unbounded maximum as the omitted endpoints. */
 export function supportNormalBounds(load: NormalLoad): readonly [number, number, number] {
   if (!load || typeof load !== "object" || Array.isArray(load) || (load.min === undefined && load.max === undefined && load.pointMin === undefined)) throw new Error("invalid support load");

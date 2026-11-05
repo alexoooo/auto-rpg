@@ -1,6 +1,7 @@
 import { Vector3 } from "../../core/math/vector.ts";
 import type { BodyView } from "../../control/body.ts";
-import { contactResponse, type EffectorFeedback } from "../../control/effector-feedback.ts";
+import { type EffectorFeedback } from "../../control/effector-feedback.ts";
+import { contactResponse } from "./contact-response.ts";
 import type { EffectorGoal } from "../../control/motor.ts";
 import { hypot } from "../../core/math/real.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";

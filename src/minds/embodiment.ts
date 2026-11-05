@@ -1,3 +1,4 @@
+import { constructionScope } from "../core/construction.ts";
 import type { OwnBody } from "../core/bodies/own-body.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import type { ConfigurationRequest } from "../core/bodies/build/configurations.ts";
@@ -52,27 +53,21 @@ export interface Embodying {
  */
 export function embody<M extends MindConstruction>(built: BuiltBody, world: World, make: MindMaker<M>,
   { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, answered }: Embodying = {}): Embodied<M> {
+  let made: M, mirror: ReturnType<typeof mirrorBody>;
   const driven = mirrorDriven(built, world, length => new Float64Array(length), {
     answered() {},
     idle() { made.mind.interrupt(); mirror.idle(); },
   }, { senses: sense, assist: ceiling, contactIdentity, log });
   const { muscles, help, posed, writer, statics } = driven;
-  const mirror = mirrorBody(statics, writer.channel);
+  const scope = constructionScope(); scope.own(muscles); let complete = false;
+  try {
+  mirror = mirrorBody(statics, writer.channel);
   const own: OwnBody = { spec: built.spec, dt: world.dt, delay: world.delay,
     built: mirror.read, muscles: mirror.muscles, assist: mirror.assist,
     first: mirror.senses,
     ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}),
   };
-  const made = (() => {
-    let complete = false;
-    try {
-      const result = make(own);
-      complete = true;
-      return result;
-    } finally {
-      if (!complete) muscles.dispose();
-    }
-  })();
+  made = scope.own(make(own));
   const thinking = world.prepare(() => {
     if (muscles.level !== "full") return;
     writer.write();
@@ -80,12 +75,15 @@ export function embody<M extends MindConstruction>(built: BuiltBody, world: Worl
     answered?.();
     think(made.mind, mirror);
   });
-  const shown = world.onLoad(() => { writer.write(); mirror.refresh({ dynamics: false }); mirror.recall(); });
+  scope.own(thinking);
+  scope.own(world.onLoad(() => { writer.write(); mirror.refresh({ dynamics: false }); mirror.recall(); }));
+  complete = true;
   return { own, held: { muscles, assist: help.assist, senses: sense }, mind: made,
     state: { muscles: muscles.state, assist: help.state, configurations: built.configurations.state, posed, toes: built.toes, strength: built.strength,
       mind: made.mind.state, asked: mirror.command, seen: mirror.seen },
-    dispose() { made.dispose(); shown.dispose(); thinking.dispose(); muscles.dispose(); },
+    dispose: scope.dispose,
   };
+  } finally { if (!complete) scope.dispose(); }
 }
 
 /** **A body driven from its mirror's answers** (`mirrorDriven`): its muscles and assist, the segment configurations in flight, the numbers written for its mind and what they are first told, and its senses. */
@@ -110,16 +108,21 @@ export function mirrorDriven(built: BuiltBody, world: World, allocate: (length: 
   const way = commandPipeline(built, world.delay, ceiling);
   const configurations: ConfigurationRequest[] = [];
   const request: typeof way.request = log ? (segment, configuration) => { way.request(segment, configuration); configurations.push({ segment, configuration }); } : way.request;
+  let writer: MirrorWriter;
   const muscles = driveMuscles(built, world, (driver) => {
     answered();
     writer.carry(request);
     if (log) record(log, world.steps, driver, way.help.asked, configurations);
     way.settle();
   }, () => { idle(); way.reset(); }, { dynamics: false, prepared: true, delay: heldSteps(world.delay) });
+  let complete = false;
+  try {
   const statics = mirrorStatics(built, contactIdentity !== undefined, world.delay);
-  const writer = mirrorWriter(built, statics, world, muscles, way.help, sense, { allocate, ...(contactIdentity ? { labels: contactIdentity } : {}) });
+  writer = mirrorWriter(built, statics, world, muscles, way.help, sense, { allocate, ...(contactIdentity ? { labels: contactIdentity } : {}) });
   writer.write({ sensing: false });
+  complete = true;
   return { muscles, help: way.help, posed: way.posed, writer, statics, senses: sense };
+  } finally { if (!complete) muscles.dispose(); }
 }
 
 /** Write `driver`'s command, the assist's ask and the segment configurations asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */

@@ -92,6 +92,8 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   if (enlisting.replay) requireRecordingIdentity(enlisting.replay.identity, identity!);
   const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(enlisting.catalog, spec, mind),
     ...(heading ? { rotation: [0, sin(heading / 2), 0, cos(heading / 2)] as const } : {}) });
+  let completed = false, carried = false;
+  try {
   const pool = createPool(spec, rules);
   // The mind is made after the senses carry its body; it is asked whether the body is down from the first step.
   let minded: Minded | null = null;
@@ -104,6 +106,7 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
     return granted;
   } });
   const senses = enlisting.senses.add(sensed);
+  carried = true;
   const sheets = enlisting.replay ?? (enlisting.record ? sheetLog(identity!) : null);
   minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { identity: identity!, senses, assist }), state: {} } : createMind(enlisting.catalog, built, world, mind, {
     name: enlisting.name, senses, assist, orders: enlisting.orders, rules,
@@ -111,5 +114,9 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
     ...(enlisting.seed !== undefined ? { seed: enlisting.seed } : {}),
     ...(enlisting.phase !== undefined ? { phase: enlisting.phase } : {}),
   }, sheets ?? undefined);
+  completed = true;
   return { id, side, built, pool, minded, mind, senses, body: minded.body, muscles: minded.body.muscles, sheets };
+  } finally {
+    if (!completed) { if (carried) enlisting.senses.remove(id); built.dispose(); }
+  }
 }

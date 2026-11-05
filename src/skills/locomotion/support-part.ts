@@ -1,30 +1,19 @@
-import type { Body } from "../../control/body.ts";
+import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import { fitsSoles } from "../../control/stance-balance.ts";
-import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 import { supportFold } from "./support-fold.ts";
-import type { SupportSkill } from "../framework/support.ts";
+import type { SupportPart } from "../framework/support.ts";
 
-/** **A kind of low support**: a part of role `support` that makes the skill a body fights from low support by. */
-export interface SupportPart<C extends PartConfig = PartConfig> extends Part<C> {
-  readonly role: "support";
-  readonly keys: KeysOf<C>;
-  make(body: Body, config: C): SupportSkill;
-}
+
 
 /** **Fighting from low support** (`supportFold`): lowering, folding and rising again. */
 interface SupportFoldConfig { readonly kind: "support-fold" }
 
 /** Fighting from low support, offered as an experimental part (`stage`). */
 export const SUPPORT_FOLD: SupportPart<SupportFoldConfig> = {
-  role: "support", label: "Fight from low support", stage: "experimental", fields: [], slots: [], defaults: { kind: "support-fold" }, keys: { kind: true },
+  role: "support", requires: [SUPPORT_REFERENCE], label: "Fight from low support", stage: "experimental", fields: [], slots: [], defaults: { kind: "support-fold" }, keys: { kind: true },
   fits: fitsSoles, faults: () => [], make: (body) => supportFold(body),
 };
 
-declare module "../../parts/lookup.ts" {
-  interface RoleParts {
-    readonly support: SupportPart;
-  }
-}
 
 declare module "../config.ts" {
   interface SupportConfigs {

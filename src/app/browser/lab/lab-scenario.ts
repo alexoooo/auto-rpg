@@ -1,4 +1,5 @@
 import type { Scene } from "@babylonjs/core/scene.js";
+import type { Refused } from "../../../core/refusal.ts";
 import type { SoundCue } from "../../../game/audio/cues.ts";
 import type { buildBody, BuiltBody } from "../../../core/bodies/build/build-body.ts";
 import type { Player, Playhead } from "../../../game/lab/player.ts";
@@ -27,10 +28,10 @@ export interface LabScenario {
   /** What the transport bar's slider says it steps through. */
   readonly timelineLabel: string;
   /** The mind its body plays at `address`, from the one the page chose; absent, that one. */
-  mind?(chosen: MindConfig, address: LabAddress): MindConfig;
+  mind?(chosen: MindConfig, address: LabAddress, spec: BodySpec): MindConfig;
   /** A physical initial pose in place of the shell's standing guard. */
-  placement?(spec: BodySpec, address: LabAddress): Parameters<typeof buildBody>[2];
-  start(context: ScenarioContext): ScenarioRun;
+  placement?(spec: BodySpec, address: LabAddress): Parameters<typeof buildBody>[2] | Refused;
+  start(context: ScenarioContext): ScenarioRun | Refused;
 }
 
 /**

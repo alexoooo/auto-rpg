@@ -1,3 +1,4 @@
+import { isRefused, type Refused } from "../../core/refusal.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { HostedBody } from "../../minds/hosted-body.ts";
 import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
@@ -59,6 +60,7 @@ export interface StanceFrame {
 }
 
 interface StanceSession {
+  readonly state: { readonly actor: Actor["state"]; readonly orders: StanceOrders; readonly shoving: { shove: Vector3 | null } };
   readonly body: HostedBody;
   readonly orders: StanceOrders;
   /** Shove the middle trunk by `impulse` N s, level, `degrees` about up from the heading (90 to its right). */
@@ -88,7 +90,7 @@ export const LAB_TURN_RATE = 1;
  */
 function stanceScript(orders: StanceOrders): Script {
   return {
-    name: "keys",
+    name: "keys", state: { orders },
     decide({ report }, dt): Intent {
       const walking = orders.forward !== 0 || orders.right !== 0;
       return {
@@ -107,11 +109,14 @@ function stanceScript(orders: StanceOrders): Script {
  * driven by the page's orders. `pushed` is told of each shove as it is applied: the segment
  * pushed, the impulse, N s, and where, world.
  */
-export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void): StanceSession {
+export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void): StanceSession | Refused {
   const { body, world } = actor;
   const orders = restOrders();
-  const { report } = actor.drive(stanceScript(orders)).skills;
+  const driven = actor.drive(stanceScript(orders));
+  if (isRefused(driven)) return driven;
+  const { report } = driven.skills;
   const shoving = shoveBody(body, world, () => report.heading, pushed);
+  if (isRefused(shoving)) return shoving;
 
   const frame = (): StanceFrame => {
     const s = body.view.stance, height = s.centre.y - s.support.y;
@@ -124,7 +129,7 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
 
   const push = shoving.shove;
   return {
-    body, orders, frame,
+    state: { actor: actor.state, orders, shoving: shoving.state }, body, orders, frame,
     shove: push,
     capturePointToRef(out) {
       const g = -world.physics.gravity[1];
@@ -143,23 +148,23 @@ export function shoveBody(body: Pick<HostedBody, "built">, world: World, heading
   pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void) {
   const built = body.built;
   const trunk = built.segments.get("middleTrunk");
-  if (!trunk) throw new Error(`${built.spec.model} has no middle trunk to shove`);
-  let shove: Vector3 | null = null;
+  if (!trunk) return { refused: `${built.spec.model} has no middle trunk to shove` };
+  const state = { shove: null as Vector3 | null };
   const turn = new Quaternion(), at = new Vector3();
   // After the body's control, before the solver: the page's hand on the world, not the body's.
   const shoving = world.beforeStep(() => {
-    if (!shove) return;
+    if (!state.shove) return;
     trunk.pose.rotation.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
     const com = trunk.rigid.centre, o = trunk.frame.origin;
     at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.pose.position);
-    trunk.body.applyImpulse(shove, at);
-    pushed?.(trunk, shove, at);
-    shove = null;
+    trunk.body.applyImpulse(state.shove, at);
+    pushed?.(trunk, state.shove, at);
+    state.shove = null;
   });
 
   const push = (impulse: number, degrees: number): void => {
     const a = heading() + degrees * Math.PI / 180;
-    shove = new Vector3(impulse * sin(a), 0, impulse * cos(a));
+    state.shove = new Vector3(impulse * sin(a), 0, impulse * cos(a));
   };
-  return { shove: push, dispose: () => shoving.dispose() };
+  return { state, shove: push, dispose: () => shoving.dispose() };
 }

@@ -69,9 +69,10 @@ export function reachScenario(scene: Scene): LabScenario {
     mind(chosen) { played = chosen; return chosen; },
     start({ actor, puppet, changed, clock }) {
       const { world } = actor, body = actor.body, place = played ? placeOf(played) : null;
+      const mind = actor.drive();
+      if ("refused" in mind) return mind;
       const placeMark = place ? groundDisc(scene, "lab.reach.place", place.within, MARKS.place.colour, 0.5, 0.006) : null;
       if (placeMark && place) { placeMark.position.x = place.x; placeMark.position.z = place.z; placeMark.renderingGroupId = 1; }
-      const mind = actor.drive();
       let reached: number | null = null;
       const history = recordHistory(body.built, puppet, world, HISTORY_SECONDS, (): ReachMoment => {
         const stance = body.view.stance, centre = stance.centre;

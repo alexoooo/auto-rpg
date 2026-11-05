@@ -58,7 +58,7 @@ are served from the same deployment base, with their licence notices.
 
 The manifest also maps stable model and texture IDs to their hashed files. Every scene obtains
 a ready resolver before constructing textures or opening compressed models. The GLB reader
-(`readGlb`, `src/app/browser/render/glb.ts`), shared by the skeleton's skin (`src/app/browser/render/skeleton-skin.ts`) and
+(`readGlb`, `src/core/bodies/art/glb.ts`), shared by the skeleton's skin (`src/app/browser/render/skeleton-skin.ts`) and
 the skinned art (`src/app/browser/render/skinned-art.ts`), decodes Meshopt buffer views and respects accessor
 offsets and strides.
 

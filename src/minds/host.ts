@@ -4,7 +4,7 @@ import { clockOf, type Clock } from "../core/world/clock.ts";
 import type { AssistCeiling } from "../core/bodies/assist.ts";
 import type { ContactIdentity } from "../core/bodies/contact-identity.ts";
 import { physicalBody, type PhysicalBody } from "./physical-body.ts";
-import { rulebook, type Rulebook } from "../combat/rulebook.ts";
+import type { Rulebook } from "../combat/rulebook.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import type { World } from "../core/world/world.ts";
 import type { PartLookup } from "../parts/lookup.ts";
@@ -30,8 +30,8 @@ export interface HostGrants {
   readonly seed?: number;
   /** Where in each period its periodic work falls (`BodyHost.phase`): the fight's for this body (`phaseOf`); 0 unless given. */
   readonly phase?: number;
-  /** The rules its fight is played by (`BodyHost.rules`); the arena's unless given. */
-  readonly rules?: Rulebook;
+  /** The rules its fight is played by (`BodyHost.rules`); supplied by the scenario. */
+  readonly rules: Rulebook;
 }
 
 /** The golden ratio's fraction, (sqrt 5 - 1) / 2: successive multiples of it fall evenly over [0, 1). */
@@ -42,12 +42,6 @@ export function phaseOf(order: number): number {
   const turns = order * GOLDEN;
   return turns - Math.floor(turns);
 }
-
-/** The rules a body is played by where its fight names none. */
-const ARENA = rulebook("arena");
-
-/** The rules a body is played by: its fight's (`HostGrants.rules`), else the arena's. */
-export const rulesOf = (grants: Pick<HostGrants, "rules">): Rulebook => grants.rules ?? ARENA;
 
 /**
  * **What a mind's maker is given in place of the world and the built body**: the body's
@@ -103,12 +97,12 @@ export function commandedBody(built: BuiltBody, world: World, options: BodyOptio
  * `log` and `answered` called with each answer (`Embodying`) where given, and the body its mind
  * took through it (`made`), which the fight holds.
  */
-export function bodyHost(built: BuiltBody, world: World, grants: HostGrants, parts: PartLookup, { log, answered }: Pick<Embodying, "log" | "answered"> = {}): { readonly host: BodyHost; made(): PhysicalBody } {
+export function bodyHost(built: BuiltBody, world: World, grants: HostGrants, parts: PartLookup, { log, answered }: Pick<Embodying, "log" | "answered"> = {}): { readonly host: BodyHost; made(): PhysicalBody; dispose(): void } {
   let body: PhysicalBody | null = null;
   const given: Embodying = { senses: grants.senses, assist: grants.assist, contactIdentity: grants.contactIdentity, log,
     ...(answered ? { answered } : {}) };
   const host: BodyHost = Object.freeze({
-    spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, phase: grants.phase ?? 0, rules: rulesOf(grants),
+    spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, phase: grants.phase ?? 0, rules: grants.rules,
     take<M extends MindConstruction>(make: (own: OwnBody) => M): M {
       if (body) throw new Error("a mind takes its body once");
       const taken = hostBody(built, world, given, make);
@@ -116,7 +110,7 @@ export function bodyHost(built: BuiltBody, world: World, grants: HostGrants, par
       return taken.mind;
     },
   });
-  return { host, made() {
+  return { host, dispose: () => body?.dispose(), made() {
     if (!body) throw new Error("the mind took no body");
     return body;
   } };

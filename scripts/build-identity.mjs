@@ -8,7 +8,7 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 /** What runs of a build write, not what makes it: a file by its path, or a folder and all under it by its path and a slash. */
 const OUTPUTS = Object.freeze(["assets/minds/notes.json", "assets/evaluations/", "public/assets/generated/"]);
 const isOutput = path => OUTPUTS.some(output => output.endsWith("/") ? `${path}/`.startsWith(output) : path === output);
-const TEXT = new Set([".ts", ".mts", ".mjs", ".cjs", ".js", ".json", ".css", ".html", ".svg", ".wgsl", ".glsl", ".sh", ".patch"]);
+const TEXT = new Set([".ts", ".mts", ".mjs", ".cjs", ".js", ".json", ".css", ".html", ".svg", ".wgsl", ".glsl", ".sh", ".patch", ".py", ".ps1", ".md", ".txt", ".yml", ".yaml", ".xml", ".toml", ".csv", ".obj", ".mtl", ".gltf"]);
 
 /** Whether a path contributes to the build, including a removed input in a historical Git diff. */
 export function isBuildInput(file) {
@@ -116,7 +116,7 @@ export function importsOf(file, text) {
  */
 export const CUTS = Object.freeze({
   kinds: Object.freeze(["src/app/mind-kinds.ts", "src/app/entrants.ts"]), worlds: "src/evaluation/worlds.ts", identity: "src/app/node/build-identity.ts", store: "src/core/data/store.ts",
-  roles: Object.freeze(["src/app/registration/aims.ts", "src/app/registration/navigations.ts", "src/app/registration/executors.ts", "src/app/registration/guards.ts", "src/app/registration/supports.ts", "src/app/recovery-techniques.ts", "src/app/recovery-leg-adapters.ts", "src/app/registration/locomotions.ts", "src/app/registration/gait-parts.ts", "src/app/registration/move-rules.ts", "src/app/registration/motors.ts", "src/app/registration/balances.ts", "src/app/quadruped-parts.ts", "src/minds/option/choosers.ts", "src/minds/option/option-kinds.ts", "src/minds/option/objectives.ts", "src/minds/option/predictions.ts", "src/minds/command/commanders.ts", "src/game/arena/ends.ts"]),
+  roles: Object.freeze(["src/app/registration/aims.ts", "src/app/registration/navigations.ts", "src/app/registration/executors.ts", "src/app/registration/guards.ts", "src/app/registration/supports.ts", "src/app/recovery-techniques.ts", "src/app/recovery-leg-adapters.ts", "src/app/registration/locomotions.ts", "src/app/registration/gait-parts.ts", "src/app/registration/move-rules.ts", "src/app/registration/motors.ts", "src/app/registration/balances.ts", "src/app/quadruped-parts.ts", "src/app/registration/option-choosers.ts", "src/app/registration/option-kinds.ts", "src/app/registration/option-objectives.ts", "src/app/registration/option-predictions.ts", "src/app/registration/commanders.ts", "src/game/arena/ends.ts"]),
 });
 
 /** What every case plays besides its closure: the lockfile, the vendored solver and the installed one. */

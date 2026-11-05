@@ -22,6 +22,7 @@ import { HUMAN_HASTE } from "../../../core/bodies/human/attributes.ts";
 import { createWorld, type Hook, type World } from "../../../core/world/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labActor } from "../game.ts";
+import { constructionScope } from "../../../core/construction.ts";
 import { labCameraRig } from "./camera.ts";
 import type { Control } from "../ui/controls.ts";
 import { controlsSection } from "./hud/controls-section.ts";
@@ -32,7 +33,8 @@ import { thinkingSection } from "./hud/thinking-section.ts";
 import { labTransport } from "./hud/transport.ts";
 import { viewSection } from "./hud/view-section.ts";
 import type { LabScenario, LabShell, ScenarioRun } from "./lab-scenario.ts";
-import { loadoutSpec } from "../../../game/lab/loadout.ts";
+import { loadoutSpecChecked } from "../../../game/lab/loadout.ts";
+import { isRefused, type Refused } from "../../../core/refusal.ts";
 import { resolveCharacter } from "../../../core/bodies/models.ts";
 import { createMindLog, watchHas, watchSkills, type MindLog } from "./mind-log.ts";
 import { attackScenario } from "./attack-scenario.ts";
@@ -167,6 +169,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   const back = need<HTMLAnchorElement>("to-scenarios");
 
   interface Loaded {
+    dispose(): void;
     readonly built: BuiltBody; readonly view: BodyShapes; readonly held: BodyShapes; readonly skin: SkinSlot; appearance: Appearance | null; readonly run: ScenarioRun;
     /** The body as drawn, following the simulated one (`followBody`): everything on the page hangs on it. */
     readonly puppet: Puppet; readonly follows: Hook;
@@ -195,7 +198,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   // panels in theirs, what acts on the run under way beneath what starts it.
   const page: LabPage = { get shown() { return shown; }, get spec() {
     if (current) return current.built.spec;
-    try { return loadoutSpec(shown); } catch { return resolveCharacter({ model: shown.model }).spec; }
+    const spec = loadoutSpecChecked(shown);
+    return isRefused(spec) ? resolveCharacter({ model: shown.model }).spec : spec;
   }, load, show };
   const sections = labSections(context.root);
   const thinking = thinkingSection();
@@ -210,7 +214,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   sections.scenario.append(...(scenario.panels.scenario ?? []).map((control) => control.element), underWay);
   sections.readout.append(...(scenario.panels.readout ?? []).map((control) => control.element));
   const shellControls = [...Object.values(controls).flat(), ...restart];
-  const audio = new GameAudio(false, need("transport"));
+  const audio = new GameAudio({ mount: need("transport") });
   context.own(() => audio.dispose());
   context.own(() => { disposed = true; engine.stopRenderLoop(); unload(); context.remember(labHref(shown, location.search)); });
 
@@ -227,10 +231,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   function show(to: LabAddress): void {
     to = { ...to, appearance: appearanceFor(to.model, to.appearance) };
     shown = to;
-    try {
-      context.replace(labHref(to, location.search));
-      back.href = labHref({ ...to, scenario: null }, location.search);
-    } catch { /* Invalid linked attributes stay visible in their editor. */ }
+    context.replace(labHref(to, location.search));
+    back.href = labHref({ ...to, scenario: null }, location.search);
     rig.choose(to.camera, to.projection);
     // Clothing is the skin's alone: it changes no body, so nothing is rebuilt.
     current?.skin.wear(to);
@@ -247,18 +249,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
 
   function unload(): void {
-    if (current) {
-      current.has.dispose();
-      current.doing.dispose();
-      current.logging.dispose();
-      current.run.dispose();
-      current.skin?.dispose();
-      current.view.dispose();
-      current.held.dispose();
-      current.follows.dispose();
-      current.puppet.dispose();
-      current.built.dispose();
-    }
+    if (current) { current.dispose(); world = null; }
     current = null;
     world?.dispose(); world = null;
   }
@@ -267,36 +258,37 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   /** The mind a body of `spec` plays at `to`: the page's choice, as the scenario has it. */
   function mindAt(to: LabAddress, spec: BodySpec): MindConfig {
     const chosen = labMind(to.mind, spec, to.scenario).plays;
-    return scenario.mind?.(chosen, to) ?? chosen;
+    return scenario.mind?.(chosen, to, spec) ?? chosen;
   }
 
   /** The mind data a load of `to` reads (`loadData`): its mind's; none where `to` does not load, which `loadWorld` reports. */
   function dataAt(to: LabAddress): readonly DataKey[] {
-    try { return treeData(mindAt(to, loadoutSpec(to))); }
-    catch { return []; }
+    const spec = loadoutSpecChecked(to);
+    return isRefused(spec) ? [] : treeData(mindAt(to, spec));
   }
 
-  function loadWorld(to: LabAddress): void {
+  function loadWorld(to: LabAddress): void | Refused {
     if (disposed) return;
-    let spec: ReturnType<typeof loadoutSpec>;
-    try { spec = loadoutSpec(to); }
-    catch (error) {
+    const spec = loadoutSpecChecked(to);
+    if (isRefused(spec)) {
       show(to);
       const editor = document.querySelector<HTMLDetailsElement>(".attribute-editor");
       if (editor) editor.open = true;
-      console.error(error); return;
+      return spec;
     }
     // Until the physics engine has loaded there is no world to make: `to` is what is loaded then.
     if (!physicsEngine) { show(to); return; }
+    // The scenario supplies its initial placement; ordinary starts hold the standing guard.
+    const placement = scenario.placement?.(spec, to) ?? { position: [0, 0, 0] as const, joints: poseAngles(spec, guardPosture(spec)) };
+    if (isRefused(placement)) { show(to); return placement; }
     audio.reset();
     unload();
-    world = createWorld(physicsEngine, { hz: to.hz });
+    const scope = constructionScope();
+    let complete = false;
+    try {
+    world = scope.own(createWorld(physicsEngine, { hz: to.hz }));
     world.physics.addFixedBox([0, -0.5, 0], [FLOOR, 1, FLOOR]);
-    // The scenario supplies its initial placement; ordinary starts hold the standing guard.
-    let placement: Parameters<typeof buildBody>[2];
-    try { placement = scenario.placement?.(spec, to) ?? { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) }; }
-    catch (error) { console.error(error); show(to); return; }
-    const built = buildBody(spec, world, placement);
+    const built = scope.own(buildBody(spec, world, placement));
     // A limb crippled, and one cut off, from the start, where the body has it (`LabAddress.crippled`, `LabAddress.cut`).
     const crippled = spec.wounds.limbs.find((limb) => limb.name === to.crippled), cut = spec.wounds.limbs.find((limb) => limb.name === to.cut);
     if (crippled) crippleLimb(built, crippled.name, RULES);
@@ -304,23 +296,30 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const balance = built.spec.attributes.balance.value;
     const log = createMindLog();
     const mind = mindAt(to, spec);
-    const actor = labActor(built, world, { mind, assist: balanceCeiling(balance, PERCENT) });
+    const madeActor = labActor(built, world, { mind, rules: RULES, assist: balanceCeiling(balance, PERCENT) });
+    if (isRefused(madeActor)) return madeActor;
+    const actor = scope.own(madeActor);
     thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.mind?.skills ?? null, report: actor.mind?.report ?? null }), labStaging(to.scenario)));
     // The pelvis's turn as built, before the puppet follows the body anywhere.
-    const puppet = puppetBody(built.spec, scene), rest = puppet.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
-    const follows = followBody(puppet, built, world);
-    const view = drawBody(puppet, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(puppet, scene);
-    const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = logSounds(world, actor.body, sounds);
+    const puppet = scope.own(puppetBody(built.spec, scene)), rest = puppet.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
+    const follows = scope.own(followBody(puppet, built, world));
+    const view = scope.own(drawBody(puppet, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint))), heldView = scope.own(drawHeld(puppet, scene));
+    const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = scope.own(logSounds(world, actor.body, sounds));
     // A new body starts live: nothing of the last one's recording is shown.
-    const run = scenario.start({ scene, actor, puppet, address: to, changed: transport.showPlayhead, clock: () => performance.now(), heard: logging.heard, hears: logging.hears });
+    const started = scenario.start({ scene, actor, puppet, address: to, changed: transport.showPlayhead, clock: () => performance.now(), heard: logging.heard, hears: logging.hears });
+    if (isRefused(started)) return started;
+    const run = scope.own(started);
+    scope.forget(actor);
     const loaded: Loaded = {
-      built, view, held: heldView, skin: skinSlot(puppet, showView), appearance: null, run, rest, puppet, follows, helped: actor.body.assist.on ? balance : null,
-      hasted: built.spec.attributes.haste.value === HUMAN_HASTE.value ? null : built.spec.attributes.haste.value, log, has: watchHas(world, actor.body, log),
-      doing: watchSkills(world, actor.body, actor.mind.skills, log),
-      sounds, logging, heardTo: -Infinity,
+      built, view, held: heldView, skin: scope.own(skinSlot(puppet, showView)), appearance: null, run, rest, puppet, follows, helped: actor.body.assist.on ? balance : null,
+      hasted: built.spec.attributes.haste.value === HUMAN_HASTE.value ? null : built.spec.attributes.haste.value, log, has: scope.own(watchHas(world, actor.body, log)),
+      doing: scope.own(watchSkills(world, actor.body, actor.mind.skills, log)),
+      sounds, logging, heardTo: -Infinity, dispose: scope.dispose,
     };
     current = loaded;
     show(to);
+    complete = true;
+    } finally { if (!complete) { scope.dispose(); current = null; world = null; } }
   }
 
   async function prepare(to: LabAddress): Promise<void> {
@@ -331,7 +330,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
       await loadData(dataAt(to));
       context.signal.throwIfAborted();
       if (revision !== loadRevision) return;
-      loadWorld(to);
+      const result = loadWorld(to);
+      if (result && isRefused(result)) { loadError.hidden = false; loadError.textContent = result.refused; return; }
       await skinReady;
       context.signal.throwIfAborted();
     } finally {

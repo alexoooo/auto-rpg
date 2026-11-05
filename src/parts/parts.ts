@@ -1,3 +1,7 @@
+/** Requirement owners extend this map beside the capability that satisfies them. */
+export interface Requirements {}
+export type Requirement = keyof Requirements;
+
 import type { DataKey } from "../core/data/store.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import type { PartField } from "./fields.ts";
@@ -46,6 +50,10 @@ export interface Part<C extends PartConfig = PartConfig> {
   readonly role: Role;
   readonly label: string;
   readonly stage: Stage;
+  /** Physical facts the configured motor must publish before this part can execute. */
+  readonly requires?: readonly Requirement[];
+  /** Configured parts outside editable slots, with their required roles and actual paths; null marks an implicit default. */
+  children?(config: C): readonly { readonly path: readonly (string | number)[] | null; readonly role: Role; readonly config: unknown }[];
   readonly fields: readonly PartField<C>[];
   readonly slots: readonly Slot[];
   /** The slots a config of it has where they depend on what it holds: a subset of `slots`, or all of them where absent (`slotsOf`). */
@@ -133,4 +141,28 @@ export function fitsAll<C = PartConfig>(...fits: readonly ((spec: BodySpec, conf
     }
     return null;
   };
+}
+
+/** Mechanical requirements of selected configured children, including slot fallbacks, without candidate dependencies. */
+export function partRequirements(parts: PartLookup, role: Role, config: PartConfig, spec: BodySpec): readonly "support-reference"[] {
+  const found = new Set<"support-reference">();
+  const visit = (role: Role, config: PartConfig): void => {
+    const part: Part = parts.of(role, config);
+    const slots = slotsOf(part, config);
+    const contents = (slot: Slot): readonly PartConfig[] => {
+      const value = (config as unknown as Record<string, unknown>)[slot.key];
+      return slot.many ? Array.isArray(value) ? value : [] : value == null ? [] : [value as PartConfig];
+    };
+    if (slots.some(slot => slot.skills && contents(slot).some(child => { const owner: Part = parts.of(slot.role, child); return owner.fits(spec, child, parts) !== null; }))) return;
+    for (const requirement of part.requires ?? []) found.add(requirement);
+    for (const slot of slots) {
+      const value = (config as unknown as Record<string, unknown>)[slot.key];
+      const children = slot.many ? Array.isArray(value) ? value : [] : value == null ? [] : [value];
+      if (children.length === 0 && slot.fallback) visit(slot.role, slot.fallback);
+      for (const child of children) visit(slot.role, child as PartConfig);
+    }
+    for (const child of part.children?.(config) ?? []) visit(child.role, child.config as PartConfig);
+  };
+  visit(role, config);
+  return [...found];
 }

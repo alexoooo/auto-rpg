@@ -246,11 +246,11 @@ interface TrotConfig { readonly kind: "paw-trot"; readonly tuning?: Partial<type
 export const TROT_PART: PawGaitPart<TrotConfig> = deepFreeze({
   role: "paw-gait", label: "Trot", stage: "game", fields: [], slots: [], defaults: { kind: "paw-trot" }, keys: { kind: true, tuning: true },
   tuning: Object.keys(REPTILE_TROT), fits: fitsPaws,
-  faults: (config: TrotConfig) => Object.values(config.tuning ?? {}).every(Number.isFinite) ? [] : ["invalid trot setting"],
+  faults: (config: TrotConfig) => (config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning) && Object.entries(config.tuning).every(([key, value]) => Object.hasOwn(REPTILE_TROT, key) && Number.isFinite(value))) ? [] : ["invalid trot setting"],
   make(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], config: TrotConfig) {
     const settings = { ...REPTILE_TROT, ...config.tuning }, skill = trot(built, root, paws, names, settings);
     // It carries the body forward at its speed, no faster than its stance's sweep lets it; aside and back at what it keeps of travel across its heading.
     const reach = { forward: Math.min(settings.speed, skill.fastest), aside: settings.sideways, turn: settings.turnRate };
-    return { state: skill.state, settings, reach, resume: skill.resume, command: skill.command };
+    return { state: skill.state, settings, reach, travel: { speed: settings.speed, stopping: settings.acceleration }, resume: skill.resume, command: skill.command };
   },
 });

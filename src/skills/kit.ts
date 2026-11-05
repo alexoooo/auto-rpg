@@ -2,7 +2,7 @@ import type { Body } from "../control/body.ts";
 import type { MotorMaker } from "../control/motor-part.ts";
 import type { Pose } from "../core/bodies/spec/pose.ts";
 import type { ReadBody } from "../core/bodies/read-body.ts";
-import type { GuardSkill } from "./guard/guard.ts";
+import type { GuardSkill } from "./framework/guard.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import type { Locomotion } from "./locomotion/locomotion.ts";
 import type { Legs } from "./framework/locomotion-part.ts";
@@ -31,11 +31,13 @@ export function filledOf(parts: PartLookup, spec: BodySpec, filled: keyof typeof
   return part;
 }
 
-/** Why a body of `spec` has not one part under its skills of each place (`FILLED`) but where `given` passes one in, a sentence; null where it has. */
+/** Why a selected or automatically fitted part under the body's skills cannot serve `spec`; null where every filled place fits. */
 export function filledRefusal(parts: PartLookup, spec: BodySpec, given: Filled = {}): string | null {
   for (const filled of Object.keys(FILLED) as (keyof typeof FILLED)[]) {
     const part = given[filled] ?? parts.fitting(FILLED[filled], spec);
     if (typeof part === "string") return part;
+    const refused = parts.of(FILLED[filled], part).fits(spec, part, parts);
+    if (refused !== null) return `${filled}: ${refused}`;
   }
   return null;
 }
@@ -56,14 +58,6 @@ function legsFrom(parts: PartLookup): Legs {
  */
 export function legsOf(parts: PartLookup, body: Body, config: PartConfig): Locomotion {
   return adaptLegs(parts, body, parts.of("locomotion", config).make(body, config, legsFrom(parts)));
-}
-
-/**
- * **A gait's legs alone** `config` names for `body`, as `parts` finds it (`GaitPart.make`), lowering
- * the registered leg capabilities as the legs do (`legsOf`).
- */
-export function gaitLegsOf(parts: PartLookup, body: Body, config: PartConfig): Locomotion {
-  return adaptLegs(parts, body, parts.of("gait", config).make(body, config));
 }
 
 /**

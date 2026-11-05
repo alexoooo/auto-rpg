@@ -1,6 +1,7 @@
 import { deepFreeze } from "../../../../core/world/state.ts";
 import { brace, steadying } from "./steady.ts";
-import { poseDrive, technique, type TechniqueRun } from "../../technique.ts";
+import { poseDrive, type TechniqueRun } from "../../technique.ts";
+import { technique } from "../../bilateral.ts";
 
 declare module "../../technique.ts" {
   interface TechniqueConfigs {

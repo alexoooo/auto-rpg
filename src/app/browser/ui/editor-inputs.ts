@@ -1,3 +1,4 @@
+import { valueEditor } from "./value-editors.ts";
 import { buttonInput, selectInput } from "./inputs.ts";
 import type { PartField } from "../../../parts/fields.ts";
 
@@ -29,6 +30,7 @@ export function editorInput(value: string, changed: (value: string) => void, opt
 export function partFieldInput<C>(field: PartField<C>, config: C, write: (config: C) => void, readOnly: boolean): HTMLElement {
   const changed = (value: string) => write(field.write(config, value) ?? config);
   switch (field.kind) {
+    case "json": return valueEditor(field.editor, field.read(config), changed, readOnly);
     case "choice": return editorPicker(field.options.map(([value, text]) => ({ value, text })), field.read(config), changed, readOnly);
     case "text": return editorInput(field.read(config), changed, { disabled: readOnly, numeric: false });
     case "number": {

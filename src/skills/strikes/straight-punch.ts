@@ -1,3 +1,4 @@
+import { supportHeight } from "../../control/support-reference.ts";
 import { HAND_CONFIGURATION } from "../../core/bodies/human/hand-configurations.ts";
 import { Vector3 } from "../../core/math/vector.ts";
 import type { Body, BodyView } from "../../control/body.ts";
@@ -99,6 +100,7 @@ export const STRAIGHT_PUNCH_KEYS: readonly (keyof StraightPunch)[] = Object.free
  * chamber, the pace, reach, band and drive's length positive, each option of its kind.
  */
 export function validStraightPunchPart(settings: Partial<StraightPunch>): boolean {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return false;
   const flag = (value: unknown) => value === undefined || typeof value === "boolean";
   return REQUIRED.every((key) => settings[key] === undefined || Number.isFinite(settings[key]) && (settings[key] >= 0 || key === "chamber"))
     && (["pace", "reach", "band", "longest"] as const).every((key) => settings[key] === undefined || settings[key] > 0)
@@ -111,7 +113,7 @@ export function validStraightPunchPart(settings: Partial<StraightPunch>): boolea
 
 /** Whether `settings` are a straight punch's: each it names valid (`validStraightPunchPart`), and every one it must name named. */
 export function validStraightPunch(settings: Partial<StraightPunch>): settings is StraightPunch {
-  return REQUIRED.every((key) => settings[key] !== undefined) && validStraightPunchPart(settings);
+  return validStraightPunchPart(settings) && REQUIRED.every((key) => settings[key] !== undefined);
 }
 
 /** Why a body of `spec` cannot take `settings`' schedule, or null: a channel it pushes that the body lacks. */
@@ -528,7 +530,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const keeps = live.phase === "commit" ? keepsWalk(technique.steeredChannels[live.hand], motion.learner.outputs) : null;
       const hand = faces?.[live.hand] ? HAND_CONFIGURATION.grip : closesToStrike(body.built.spec, live.hand) ? HAND_CONFIGURATION.fist : null;
       return { posture: sparse(posture, live.hand), pushes, ...(hand ? { configurations: { [`hand.${live.hand}`]: hand } } : {}),
-        legs: { ...(keeps ? {} : { walk: null }), face: motion.face, ...((keeps === null ? settings.halts : !keeps) ? { halt: true } : {}), height: view.standing - live.lower,
+        legs: { ...(keeps ? {} : { walk: null }), face: motion.face, ...((keeps === null ? settings.halts : !keeps) ? { halt: true } : {}), height: supportHeight(view) - live.lower,
           ...(steer ? { heading: around.heading + steer } : {}),
           ...(shift[0] === 0 && shift[1] === 0 ? {} : { centre: [support.x + shift[0], support.z + shift[1]] as const }) } };
     },

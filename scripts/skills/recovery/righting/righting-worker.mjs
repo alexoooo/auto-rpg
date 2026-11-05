@@ -1,3 +1,4 @@
+import { rulebook } from "../../../../src/combat/rulebook.ts";
 // One righting trial for `scripts/skills/recovery/righting/righting.mjs`: a quadruped's game mind playing a
 // candidate recipe (its way up by recipe's research `tuning`), on a body built lying under stand
 // orders (Node stand), or in a fight forked where its righting took the body (Node Arena Duel).
@@ -71,7 +72,7 @@ export async function trial({ data, model, recipe, lying, heading = 0, forks, fo
   const turn = new Quaternion(0, Math.sin(heading / 2), 0, Math.cos(heading / 2));
   const stand = await coreStand(reptileSpec(data, model, `${model}-anatomy`), { groundSize: 100, position: [0, .3, 0], rotation: turn.multiply(new Quaternion(...LYING[lying])).asArray() });
   const config = withRecipe(model, recipe);
-  const mind = createMind(GAME, stand.built, stand.world, config, { name: model, orders: () => STAND_ORDERS });
+  const mind = createMind(GAME, stand.built, stand.world, config, { rules: rulebook("arena"), name: model, orders: () => STAND_ORDERS });
   const righting = rightingOf(mind.state), trunk = stand.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
   const steps = Math.round(seconds * 120), last = 240;
   let played = false, handed = null, down = 0, lie = null, plays = 0, was = righting.phase;

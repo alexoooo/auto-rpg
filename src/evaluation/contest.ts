@@ -4,7 +4,7 @@ import { isClash } from "../combat/blows.ts";
 
 import type { BuiltBout } from "./bout.ts";
 import type { ContestReading, Figure, Reader } from "./evaluation.ts";
-import type { Side } from "../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "../game/arena/seat.ts";
 
 /**
  * What a bout came to: the winner (null a draw) and how, when, how many blows landed (clashes not

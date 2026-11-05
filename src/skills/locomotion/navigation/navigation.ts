@@ -3,12 +3,12 @@ import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { heldClearance } from "./held-clearance.ts";
-import { clearanceExit, clearMove, clearStep, stockClearance } from "./clear-step.ts";
+import { clearanceExit, clearMove, clearStep, stockClearance, footprinter, footprints, NO_SOLIDS } from "./clear-step.ts";
 import { crowdWalk, fallenSolids, type FallenMemory } from "./crowd.ts";
 import { copyMovement, sameMovement, stands, type MovementRequest, type GroundPoint } from "../../intent/movement.ts";
 import type { NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "./navigator.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
-import { createRouter, footprinter, footprints, NO_SOLIDS } from "./route-search.ts";
+import { createRouter } from "./route-search.ts";
 import { travelSpeed, type Corner, type GaitLimits } from "../../intent/travel.ts";
 
 /**

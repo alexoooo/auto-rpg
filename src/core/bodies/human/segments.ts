@@ -1,8 +1,9 @@
+import { isRefused, type Refused } from "../../refusal.ts";
 import { handConfigurations } from "./hand-configurations.ts";
 import type { SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { segmentFrame } from "../spec/body.ts";
 import { square } from "../../math/real.ts";
-import { capsuleRadius, massShare } from "../spec/geometry.ts";
+import { capsuleError, capsuleRadius, massShare } from "../spec/geometry.ts";
 import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, distance, dot, lerp, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
@@ -157,17 +158,21 @@ function plans(figure: HumanFigure): Plan[] {
 }
 
 function shapeOf(figure: HumanFigure, plan: Plan, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, mass: Quantity<number>,
-  widest: Quantity<number> | undefined, solid: FittedSegment | undefined): ShapeSpec {
+  widest: Quantity<number> | undefined, solid: FittedSegment | undefined): ShapeSpec | Refused {
   const shape = plan.shape;
   switch (shape.kind) {
     case "capsule": {
+      const invalid = solid ? null : capsuleError(mass.value / si(SEGMENT_DENSITY[shape.density]).value, distance(proximal.value, distal.value));
+      if (invalid) return { refused: invalid };
       const radius = solid ? fittedRadius(figure, solid, proximal, distal, plan.right) : widest
         ? derive("m", "the capsule as long as the segment that holds its mass at its density, no wider than its figure leaves it room",
           [mass, si(SEGMENT_DENSITY[shape.density]), proximal, distal, widest],
-          (m, density, p, d, w) => Math.min(capsuleRadius(m / density, distance(p, d)), w))
+          (m, density, p, d, w) => Math.min(capsuleRadius(m / density, distance(p, d)), w),
+          (m, density, p, d) => capsuleError(m / density, distance(p, d)))
         : derive("m", "the capsule as long as the segment that holds its mass at its density",
           [mass, si(SEGMENT_DENSITY[shape.density]), proximal, distal],
-          (m, density, p, d) => capsuleRadius(m / density, distance(p, d)));
+          (m, density, p, d) => capsuleRadius(m / density, distance(p, d)),
+          (m, density, p, d) => capsuleError(m / density, distance(p, d)));
       return {
         kind: "capsule", radius,
         from: derive("m", "the proximal end, in by the radius", [proximal, distal, radius], (p, d, r) => add(p, scale(normalize(sub(d, p)), r))),
@@ -249,7 +254,7 @@ function fittedHull(figure: HumanFigure, hull: readonly Quantity<Vec3>[], proxim
 }
 
 /** The figure's segments at x1, head first, then the trunk, then each side's limbs. */
-export function humanSegments(figure: HumanFigure): SegmentSpec[] {
+export function humanSegments(figure: HumanFigure): SegmentSpec[] | Refused {
   const table = DE_LEVA_1996[figure.sex];
   const all = plans(figure);
   const shares = all.map((plan) => table[plan.row].mass);
@@ -263,7 +268,7 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
     if (!measured) throw new Error(`${figure.model} is fitted but has no measure of its ${plan.name}`);
     return measured;
   });
-  return all.map((plan, i) => {
+  const segments = all.map((plan, i) => {
     const row: DeLevaRow = table[plan.row];
     const proximal = atFit(plan.proximal), distal = atFit(plan.distal);
     const origin = atFit(plan.origin), end = atFit(plan.end);
@@ -285,6 +290,7 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
     })();
     const shape = solid?.hull && plan.row !== "hand" && plan.shape.kind === "capsule" ? fittedHull(figure, solid.hull, proximal, distal)
       : shapeOf(figure, plan, proximal, distal, mass, widestOf(plan), solid);
+    if (isRefused(shape)) return shape;
     const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape,
       surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) },
       ...(plan.row === "foot" && figure.toes && { toes: figure.toes }) };
@@ -313,4 +319,5 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
     }
     return { ...segment, ...(plan.right && { right: plan.right }), ...(points && { points }) };
   });
+  return segments.find(isRefused) ?? segments as SegmentSpec[];
 }

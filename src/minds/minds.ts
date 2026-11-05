@@ -1,3 +1,4 @@
+import { constructionScope } from "../core/construction.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import { poseAngles } from "../control/kinematics.ts";
 import type { Skills } from "../skills/framework/skills.ts";
@@ -7,7 +8,7 @@ import type { World } from "../core/world/world.ts";
 import type { MindConfig } from "./config.ts";
 import type { MindReport } from "./report.ts";
 import type { Catalog } from "./catalog.ts";
-import { bodyHost, rulesOf, type BodyHost, type HostGrants } from "./host.ts";
+import { bodyHost, type BodyHost, type HostGrants } from "./host.ts";
 import { mirrorDriven, type Embodying } from "./embodiment.ts";
 import { isMindPlace, reportNow, type At, type MindPlace, type MindRecipe, type ReportNow, type Seat } from "./apart.ts";
 import { physicalBody, type HeldReading, type PhysicalBody } from "./physical-body.ts";
@@ -68,25 +69,31 @@ export function createMind(catalog: Catalog, built: BuiltBody, world: World, con
   if (fault) throw new Error(fault);
   if (world.minds) {
     if (!isMindPlace(world.minds)) throw new Error("the world's minds run in a place no mind can be seated in");
-    const apart = embodyApart(built, world, world.minds, catalog, { config, name: wiring.name, seed: wiring.seed ?? 0, phase: wiring.phase ?? 0, rules: rulesOf(wiring),
+    const apart = embodyApart(built, world, world.minds, catalog, { config, name: wiring.name, seed: wiring.seed ?? 0, phase: wiring.phase ?? 0, rules: wiring.rules,
       ...(wiring.experiment ? { experiment: wiring.experiment } : {}) }, wiring.orders,
     { senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity, log });
     return { state: MIND_APART, report: apart.report, kind: config.kind, body: physicalBody(built, apart.held, world, apart.has, apart.state, apart.dispose) };
   }
-  let mind: MindMade | null = null, said: Omit<ReportNow, "engagement"> | null = null;
-  const { host, made } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { said = saidOf(mind!.report, said); } });
+  let mind: MindMade | null = null;
+  const state = { mind: null as object | null, said: null as Omit<ReportNow, "engagement"> | null };
+  const { host, made, dispose } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { state.said = saidOf(mind!.report, state.said); } });
+  let completed = false;
+  try {
   mind = catalog.controllerOf(config).create(host, config, wiring);
   const live = mind.report;
-  if (!live) return { ...mind, kind: config.kind, body: made() };
-  said = saidOf(live);
-  return { ...mind, report: saidReport(() => said!, live), kind: config.kind, body: made() };
+  if (!live) { const body = made(); completed = true; return { ...mind, kind: config.kind, body }; }
+  state.mind = mind.state;
+  state.said = saidOf(live);
+  const body = made(); completed = true;
+  return { ...mind, state, report: saidReport(() => state.said!, live), kind: config.kind, body };
+  } finally { if (!completed) dispose(); }
 }
 
 /** What `report` says now, its menu and engagement aside, as plain data that what it goes on to do leaves as it is: as a mind apart's crosses. */
 const saidOf = (report: MindReport | undefined, previous: Omit<ReportNow, "engagement"> | null = null): Omit<ReportNow, "engagement"> | null => {
   if (!report) return null;
-  const { kit, gait, engagement: _shown, ...rest } = reportNow(report);
-  return { ...snapshot(rest, previous) as typeof rest, kit, gait };
+  const { engagement: _shown, ...answer } = reportNow(report);
+  return snapshot(answer, previous) as typeof answer;
 };
 
 /**
@@ -159,8 +166,12 @@ export function embodyApart(built: BuiltBody, world: World, place: MindPlace, ca
   // `shown`: what it shows a person was read since its last step was asked, so the next answer says it.
   let seat: Seat | null = null, sent: string | undefined, shown = false;
   const { muscles, help, posed, writer, statics, senses: sense } = mirrorDriven(built, world, place.allocate, { answered: () => seat!.answer(), idle: () => seat!.ask({ kind: "idle", at: at() }) }, given);
+  const scope = constructionScope(); scope.own(muscles); let complete = false;
+  let thinking: ReturnType<World["prepare"]> | null = null;
+  scope.own({ dispose() { try { seat?.ask({ kind: "dispose" }); } finally { thinking?.dispose(); } } });
+  try {
   seat = place.seat(catalog, { ...recipe, statics, dt: world.dt }, writer.channel, at());
-  const thinking = world.prepare(() => {
+  thinking = world.prepare(() => {
     if (muscles.level !== "full") return;
     // Its last step answered, what its mind may still decide on is the array of numbers it was asked with, not the one written now (`MirrorWriter.write`).
     seat!.answer();
@@ -176,11 +187,13 @@ export function embodyApart(built: BuiltBody, world: World, place: MindPlace, ca
     get actions() { return said()?.actions ?? null; }, get ended() { return said()?.ended ?? null; },
     get menu() { return seat!.menu(at()); },
   };
+  complete = true;
   return {
     held: { muscles, assist: help.assist, senses: sense }, report, has: () => seat!.said().has,
     state: { muscles: muscles.state, assist: help.state, configurations: built.configurations.state, posed, toes: built.toes, strength: built.strength, mind: MIND_APART },
-    dispose: () => { seat!.ask({ kind: "dispose" }); thinking.dispose(); muscles.dispose(); },
+    dispose: scope.dispose,
   };
+  } finally { if (!complete) scope.dispose(); }
 }
 
 /**
@@ -195,8 +208,8 @@ export function warmApart(catalog: Catalog, built: BuiltBody, world: World, conf
   const place = world.minds, at: At = { steps: world.steps, time: world.time };
   const { muscles, writer, statics } = mirrorDriven(built, world, place.allocate, { answered: () => {}, idle: () => {} },
     { senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity });
-  place.warm(catalog, { config, name: wiring.name, seed: wiring.seed ?? 0, phase: wiring.phase ?? 0, rules: rulesOf(wiring), statics, dt: world.dt }, writer.channel, at);
-  muscles.dispose();
+  try { place.warm(catalog, { config, name: wiring.name, seed: wiring.seed ?? 0, phase: wiring.phase ?? 0, rules: wiring.rules, statics, dt: world.dt }, writer.channel, at); }
+  finally { muscles.dispose(); }
 }
 
 /**
@@ -205,6 +218,10 @@ export function warmApart(catalog: Catalog, built: BuiltBody, world: World, conf
  * one mind of its own.
  */
 export function hostedMind<W extends HostGrants, M extends object>(catalog: Catalog, built: BuiltBody, world: World, wiring: W, make: (host: BodyHost, wiring: W) => M): M & { readonly body: PhysicalBody } {
-  const { host, made } = bodyHost(built, world, wiring, catalog.partLookup), mind = make(host, wiring);
-  return { ...mind, body: made() };
+  const { host, made, dispose } = bodyHost(built, world, wiring, catalog.partLookup);
+  let completed = false;
+  try {
+    const mind = make(host, wiring), body = made(); completed = true;
+    return { ...mind, body };
+  } finally { if (!completed) dispose(); }
 }

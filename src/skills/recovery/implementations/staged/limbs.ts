@@ -33,6 +33,8 @@ const POINT_ROWS: readonly Row[] = [0, 1, 2].map((axis): Row => [[3 + axis, 1]])
 
 /** A body's bearing ends, made limbs. */
 export interface RiseLimbs {
+  /** Bearing modes that affect later reads and constraints. */
+  readonly state: object;
   /** The limbs as the solve takes them, in the spec's order. */
   readonly limbs: readonly Limb[];
   /** What they keep from step to step: each limb's task, in the spec's order. */
@@ -73,6 +75,7 @@ export interface RiseLimbs {
 
 /** A limb, and its kind's part of a step. */
 interface Part {
+  readonly memory?: object;
   readonly limb: Limb;
   readonly over: Vector3;
   read(ground: number, overProp: boolean, toes: boolean, centre: Readonly<{ x: number; z: number }> | undefined): void;
@@ -101,6 +104,7 @@ export function riseLimbs(own: OwnBody, options: Pick<Recipe, "heldSupport" | "t
     task.bearing = false;
   };
   return {
+    state: { feet: feet.map(foot => foot.memory), limbs: parts.map(part => part.memory ?? {}) },
     limbs: parts.map((part) => part.limb),
     tasks: parts.map((part) => part.limb.task),
     over: parts.map((part) => part.over),
@@ -317,7 +321,7 @@ function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState, policy?: 
     work: { at, rows: [...POINT_ROWS, tilt], ahead: chain.ahead, toward: chain.toward, patch: point, share: 1 },
   };
   return {
-    limb, over,
+    limb, over, memory: { along },
     read(ground, overProp) {
       pointOfToRef(segment, end.at, at).y -= end.radius;
       over.copyFrom(at);

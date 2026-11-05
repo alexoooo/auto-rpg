@@ -1,3 +1,4 @@
+import { skillsOf } from "../../src/minds/option/skills.ts";
 import "../harness/preload-data.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -6,7 +7,7 @@ import { allParts, MINDS, partLookup, treeLookup } from "../../src/app/catalog.t
 import { presetFitsModel } from "../../src/minds/controller.ts";
 import { BODY_MODELS, modelHolds, resolveCharacter } from "../../src/core/bodies/models.ts";
 import { LOADOUTS, loadoutFaults, withLoadout } from "../../src/core/bodies/items/held.ts";
-import { limbAction, skillsOf } from "../../src/minds/option/kinds.ts";
+import { limbAction } from "../../src/minds/option/kinds.ts";
 import { skillDigest, specDigest, techniqueDigest } from "../../src/skills/framework/profile.ts";
 import { bodyKey } from "../../src/core/bodies/spec/body.ts";
 import { record } from "../../src/minds/option/value.ts";

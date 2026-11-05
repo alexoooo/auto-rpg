@@ -1,7 +1,7 @@
 """Train a policy with PPO or SAC (Stable-Baselines3) against an environment file's copies on Node
-worker threads (research/run-learning-server.mjs, research/environments/), and export it as the core
-reads a network (src/core/learning/recovery-network.ts, Network: a straight punch record's `network`,
-a bare mind's `network`): ReLU layers, the observation's normalisation folded into the first,
+worker threads (research/run-learning-server.mjs and the selected environment file), and export it as the core
+reads a network (src/core/math/learning/recovery-network.ts, Network: a straight punch record's `network`,
+a bare mind's `network`): ReLU layers with explicit clipped observation normalisation,
 tanh on the outputs (PPO's mean, which the environment squashes; SAC's squashed mean, tanh of its
 mean layer). Each line of train.log has the mean of each of `--keywords` over the episodes lately
 ended, of those that have it. The latest policy is policy.json, and every `--keep` steps a copy
@@ -12,10 +12,10 @@ on rising as its battery falls), its battery does.
 a `network`, assets/skills/strikes/<blow>/<blow>.json), its inputs and outputs matched to this run's by name
 through `--start-layout` and the environment's `layout`: a weight of an input the source does not
 read starts at zero and an output it lacks starts at zero, so the run starts steering as the source
-did. Before anything learns, the source steers `--stats` messages so that the normalisation starts
-from this environment's observations, and its first layer is folded through it; the next
-`--critic-first` decisions train the critic alone, the policy held, after which its first layer is
-folded again through the normalisation as it has come to read. All count among the run's decisions,
+did. Before learning, the source steers `--stats` messages. A network with declared normalisation
+restores its matched statistics and holds them during `--critic-first` decisions, which train the
+critic alone. A network with normalisation folded into its weights uses the newly measured
+statistics, and its first layer is folded again after the critic warmup. All count among the run's decisions,
 and the start as written is kept as policy-<decisions>.json. Each chunk tells the server the decisions so
 far (`progress`), which an environment's curriculum reads.
 
@@ -71,13 +71,19 @@ class RunEnvs(VecEnv):
     """The server's environments as one vectorised environment; `squashed`, its actions in [-1, 1] as the environment's tanh gives them."""
 
     def __init__(self, config):
-        self.server = subprocess.Popen(['node', 'research/run-learning-server.mjs', config], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                       stderr=(output / 'server.log').open('a'), text=True, bufsize=1)
-        ready = self._receive()
-        n = ready['workers']; obs, act = ready['ready'][0]['observationSize'], ready['ready'][0]['actionSize']
-        bound = 1.0 if squashed else 3.0
-        super().__init__(n, spaces.Box(-np.inf, np.inf, (obs,), np.float32), spaces.Box(-bound, bound, (act,), np.float32))
-        self.actions = None
+        self.server_log = (output / 'server.log').open('a')
+        self.server = None
+        try:
+            self.server = subprocess.Popen(['node', 'research/run-learning-server.mjs', config], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                           stderr=self.server_log, text=True, bufsize=1)
+            ready = self._receive()
+            n = ready['workers']; obs, act = ready['ready'][0]['observationSize'], ready['ready'][0]['actionSize']
+            bound = 1.0 if squashed else 3.0
+            super().__init__(n, spaces.Box(-np.inf, np.inf, (obs,), np.float32), spaces.Box(-bound, bound, (act,), np.float32))
+            self.actions = None
+        except BaseException:
+            self.close()
+            raise
 
     def _receive(self):
         line = self.server.stdout.readline()
@@ -110,10 +116,20 @@ class RunEnvs(VecEnv):
         return np.asarray(a['observations'], np.float32), np.asarray(a['rewards'], np.float32), np.asarray(a['dones'], bool), infos
 
     def close(self):
-        try: self._call({'op': 'close'})
-        except Exception: pass
-        try: self.server.wait(timeout=60)
-        except subprocess.TimeoutExpired: self.server.kill()
+        if self.server is None:
+            self.server_log.close()
+            return
+        if self.server.stdin and not self.server.stdin.closed:
+            try:
+                self.server.stdin.write(json.dumps({'op': 'close'}) + '\n'); self.server.stdin.flush()
+            except (BrokenPipeError, OSError): pass
+            try: self.server.stdin.close()
+            except (BrokenPipeError, OSError): pass
+        try: self.server.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.server.kill(); self.server.wait()
+        self.server.stdout.close()
+        self.server_log.close()
 
     def get_attr(self, name, indices=None): return [None] * self.num_envs
     def set_attr(self, name, value, indices=None): pass
@@ -135,14 +151,15 @@ def scaling(normalize):
 
 
 def export(model, normalize, path):
-    """The policy's mean as the core reads it (`Network`): the normalisation folded into the first layer."""
+    """The actor and its preprocessing as the core reads them, including both input and action clamps."""
     mean, scale = scaling(normalize)
     layers = []
     for k, linear in enumerate(actor_linears(model)):
         w = linear.weight.detach().cpu().double().numpy(); b = linear.bias.detach().cpu().double().numpy()
-        if k == 0: b = b - w @ (mean * scale); w = w * scale[None, :]
         layers.append({'weights': w.tolist(), 'bias': b.tolist()})
-    path.write_text(json.dumps({'actions': int(model.action_space.shape[0]), 'layers': layers}))
+    path.write_text(json.dumps({'actions': int(model.action_space.shape[0]), 'layers': layers,
+                               'normalization': {'mean': mean.tolist(), 'scale': scale.tolist(), 'clip': float(normalize.clip_obs)},
+                               'actionLimit': float(np.arctanh(1 - 1e-6)) if isinstance(model, SAC) else 3.0}))
 
 
 def source_network(path):
@@ -168,16 +185,26 @@ def matched(network, source_layout, layout):
     wl, bl = layers[-1]
     last = np.stack([wl[o] if o is not None else np.zeros(wl.shape[1]) for o in outs]), np.array([bl[o] if o is not None else 0.0 for o in outs])
     print(f'start: {sum(i is not None for i in ins)} of {len(ins)} inputs and {sum(o is not None for o in outs)} of {len(outs)} outputs the source\'s', flush=True)
-    return [(first, b0)] + layers[1:-1] + [last]
+    result = {'layers': [(first, b0)] + layers[1:-1] + [last]}
+    if 'normalization' in network:
+        normal = network['normalization']
+        result['normalization'] = {'mean': np.array([normal['mean'][i] if i is not None else 0 for i in ins]),
+                                   'scale': np.array([normal['scale'][i] if i is not None else 1 for i in ins]), 'clip': normal['clip']}
+    if 'actionLimit' in network: result['actionLimit'] = network['actionLimit']
+    return result
 
 
-def act(layers, raw):
+def act(network, raw):
     """The start's outputs before the tanh for the raw observations `raw` (one row each)."""
     x = raw
+    if 'normalization' in network:
+        normal = network['normalization']
+        x = np.clip((x - normal['mean']) * normal['scale'], -normal['clip'], normal['clip'])
+    layers = network['layers']
     for k, (w, b) in enumerate(layers):
         x = x @ w.T + b
         if k + 1 < len(layers): x = np.maximum(x, 0)
-    return x
+    return np.clip(x, -network['actionLimit'], network['actionLimit']) if 'actionLimit' in network else x
 
 
 def read_stats(envs, layers):
@@ -189,15 +216,23 @@ def read_stats(envs, layers):
     return options.stats * envs.num_envs
 
 
-def write_start(model, envs, layers, first):
+def write_start(model, envs, network, first):
     """The start's layers written into the policy, its first through the normalisation as it reads now; `first`, a SAC's spread and target critic set too."""
+    normalized = network.get('normalization')
+    if normalized is not None:
+        limit = float(np.arctanh(1 - 1e-6)) if isinstance(model, SAC) else 3.0
+        if network.get('actionLimit', limit) != limit: raise ValueError('the start and trainer must use the same action preprocessing')
+        envs.obs_rms.mean = normalized['mean'].copy()
+        envs.obs_rms.var = np.maximum(0, 1 / normalized['scale'] ** 2 - envs.epsilon)
+        envs.clip_obs = normalized['clip']
     mean, scale = scaling(envs)
+    layers = network['layers']
     linears = actor_linears(model)
     if len(linears) != len(layers) or any(tuple(l.weight.shape) != w.shape for l, (w, _) in zip(linears[1:], layers[1:])):
         raise SystemExit(f"the start's layers {[w.shape for w, _ in layers]} are not this policy's {[tuple(l.weight.shape) for l in linears]}")
     with torch.no_grad():
         for k, (linear, (w, b)) in enumerate(zip(linears, layers)):
-            if k == 0: b = b + w @ mean; w = w / scale[None, :]
+            if k == 0 and normalized is None: b = b + w @ mean; w = w / scale[None, :]
             linear.weight.copy_(torch.as_tensor(w, dtype=linear.weight.dtype)); linear.bias.copy_(torch.as_tensor(b, dtype=linear.bias.dtype))
         if first and isinstance(model, SAC):
             model.actor.log_std.weight.zero_(); model.actor.log_std.bias.fill_(options.log_std)
@@ -215,57 +250,63 @@ def hold_policy(model, held):
 
 
 keywords = tuple(options.keywords.split(','))
-monitored = VecMonitor(RunEnvs(options.config), info_keywords=keywords)
-envs = VecNormalize(monitored, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=0.99)
-saved = output / 'model.zip'
-Algorithm = SAC if squashed else PPO
-net = {'pi': [options.hidden, options.hidden], ('qf' if squashed else 'vf'): [options.hidden, options.hidden]}
-started = time.monotonic()
-critic_until = 0
-layers = None
-if options.resume and saved.exists():
-    envs = VecNormalize.load(str(output / 'normalize.pkl'), monitored)
-    model = Algorithm.load(str(saved), env=envs, device=options.device)
-    if squashed and (output / 'replay.pkl').exists(): model.load_replay_buffer(str(output / 'replay.pkl'))
-else:
-    if squashed:
-        model = SAC('MlpPolicy', envs, device=options.device, buffer_size=options.buffer, batch_size=options.batch or 512, learning_rate=options.lr, gamma=0.99, tau=0.005,
-                    learning_starts=0 if options.start else 10_000, train_freq=1, gradient_steps=options.gradient_steps, ent_coef='auto_0.1', verbose=0,
-                    policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
+server_envs = RunEnvs(options.config)
+try:
+    monitored = VecMonitor(server_envs, info_keywords=keywords)
+    envs = VecNormalize(monitored, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=0.99)
+    saved = output / 'model.zip'
+    Algorithm = SAC if squashed else PPO
+    net = {'pi': [options.hidden, options.hidden], ('qf' if squashed else 'vf'): [options.hidden, options.hidden]}
+    started = time.monotonic()
+    critic_until = 0
+    layers = None
+    if options.resume and saved.exists():
+        envs = VecNormalize.load(str(output / 'normalize.pkl'), monitored)
+        model = Algorithm.load(str(saved), env=envs, device=options.device)
+        if squashed and (output / 'replay.pkl').exists(): model.load_replay_buffer(str(output / 'replay.pkl'))
     else:
-        model = PPO('MlpPolicy', envs, device=options.device, n_steps=options.rollout, batch_size=options.batch or 4096, n_epochs=5, learning_rate=options.lr, gamma=0.99, gae_lambda=0.95,
-                    clip_range=0.2, ent_coef=0.0, target_kl=0.03, verbose=0,
-                    policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
-    if options.start:
-        if not options.start_layout: raise SystemExit('a start names its layout (--start-layout)')
-        layout = json.loads(Path(layout_path).read_text(encoding='utf-8'))
-        layers = matched(source_network(options.start), json.loads(Path(options.start_layout).read_text(encoding='utf-8')), layout)
-        model.num_timesteps = read_stats(envs, layers)
-        write_start(model, envs, layers, first=True)
-        export(model, envs, output / f'policy-{model.num_timesteps}.json')
-        critic_until = model.num_timesteps + (options.critic_first if options.critic_first is not None else options.rollout * envs.num_envs * 8)
+        if squashed:
+            model = SAC('MlpPolicy', envs, device=options.device, buffer_size=options.buffer, batch_size=options.batch or 512, learning_rate=options.lr, gamma=0.99, tau=0.005,
+                        learning_starts=0 if options.start else 10_000, train_freq=1, gradient_steps=options.gradient_steps, ent_coef='auto_0.1', verbose=0,
+                        policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
+        else:
+            model = PPO('MlpPolicy', envs, device=options.device, n_steps=options.rollout, batch_size=options.batch or 4096, n_epochs=5, learning_rate=options.lr, gamma=0.99, gae_lambda=0.95,
+                        clip_range=0.2, ent_coef=0.0, target_kl=0.03, verbose=0,
+                        policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
+        if options.start:
+            if not options.start_layout: raise SystemExit('a start names its layout (--start-layout)')
+            layout = json.loads(Path(layout_path).read_text(encoding='utf-8'))
+            layers = matched(source_network(options.start), json.loads(Path(options.start_layout).read_text(encoding='utf-8')), layout)
+            model.num_timesteps = read_stats(envs, layers)
+            write_start(model, envs, layers, first=True)
+            export(model, envs, output / f'policy-{model.num_timesteps}.json')
+            critic_until = model.num_timesteps + (options.critic_first if options.critic_first is not None else options.rollout * envs.num_envs * 8)
 
-done = 0
-chunk = options.rollout * envs.num_envs * 8
-log = (output / 'train.log').open('a')
-while done < options.steps:
-    held = model.num_timesteps < critic_until
-    if not held and layers is not None:
-        # The critic has learnt; the policy, held meanwhile, is written again through the normalisation as it now reads.
-        write_start(model, envs, layers, first=False); layers = None
-    hold_policy(model, held)
-    monitored.venv.progress(model.num_timesteps)
-    model.learn(chunk, reset_num_timesteps=False, progress_bar=False)
-    done += chunk
-    infos = model.ep_info_buffer
-    model.save(str(saved)); envs.save(str(output / 'normalize.pkl')); export(model, envs, output / 'policy.json')
-    if model.num_timesteps // options.keep > (model.num_timesteps - chunk) // options.keep:
-        export(model, envs, output / f'policy-{model.num_timesteps}.json')
-    spread = float(torch.exp(model.policy.log_std.detach()).mean()) if not squashed else float(torch.exp(model.log_ent_coef.detach()).item())
-    line = {'steps': int(model.num_timesteps), 'minutes': round((time.monotonic() - started) / 60, 1),
-            'return': round(float(np.mean([i['r'] for i in infos])), 2) if infos else None, 'length': round(float(np.mean([i['l'] for i in infos])), 1) if infos else None,
-            **{k: (round(float(np.mean([float(i[k]) for i in infos if i.get(k) is not None])), 3) if any(i.get(k) is not None for i in infos) else None) for k in keywords},
-            ('entropy' if squashed else 'std'): round(spread, 3), **({'critic': True} if held else {})}
-    log.write(json.dumps(line) + '\n'); log.flush(); print(json.dumps(line), flush=True)
-if squashed: model.save_replay_buffer(str(output / 'replay.pkl'))
-envs.close()
+    done = 0
+    chunk = options.rollout * envs.num_envs * 8
+    log = (output / 'train.log').open('a')
+    while done < options.steps:
+        held = model.num_timesteps < critic_until
+        if not held and layers is not None:
+            envs.training = True
+            # The critic has learnt; the policy, held meanwhile, is written again through the normalisation as it now reads.
+            write_start(model, envs, layers, first=False); layers = None
+        if layers is not None and 'normalization' in layers: envs.training = not held
+        hold_policy(model, held)
+        monitored.venv.progress(model.num_timesteps)
+        model.learn(chunk, reset_num_timesteps=False, progress_bar=False)
+        done += chunk
+        infos = model.ep_info_buffer
+        model.save(str(saved)); envs.save(str(output / 'normalize.pkl')); export(model, envs, output / 'policy.json')
+        if model.num_timesteps // options.keep > (model.num_timesteps - chunk) // options.keep:
+            export(model, envs, output / f'policy-{model.num_timesteps}.json')
+        spread = float(torch.exp(model.policy.log_std.detach()).mean()) if not squashed else float(torch.exp(model.log_ent_coef.detach()).item())
+        line = {'steps': int(model.num_timesteps), 'minutes': round((time.monotonic() - started) / 60, 1),
+                'return': round(float(np.mean([i['r'] for i in infos])), 2) if infos else None, 'length': round(float(np.mean([i['l'] for i in infos])), 1) if infos else None,
+                **{k: (round(float(np.mean([float(i[k]) for i in infos if i.get(k) is not None])), 3) if any(i.get(k) is not None for i in infos) else None) for k in keywords},
+                ('entropy' if squashed else 'std'): round(spread, 3), **({'critic': True} if held else {})}
+        log.write(json.dumps(line) + '\n'); log.flush(); print(json.dumps(line), flush=True)
+    if squashed: model.save_replay_buffer(str(output / 'replay.pkl'))
+finally:
+    server_envs.close()
+    if 'log' in globals(): log.close()

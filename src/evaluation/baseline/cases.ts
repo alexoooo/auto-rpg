@@ -15,9 +15,9 @@
  * reading carries its competence (`part`), and a fight's is the subject's own side's.
  */
 import { CAP_SECONDS, SIDES } from "../../game/arena/duel.ts";
-import { REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
-import { strikesIn } from "../../minds/option/kinds.ts";
-import type { PartConfig } from "../../parts/parts.ts";
+import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
+import { REPRESENTATIVE } from "../loadouts.ts";
+import { describeMind } from "../../minds/description.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { presetFitsModel } from "../../minds/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
@@ -36,7 +36,7 @@ import { createLocomotionCases, type LocomotionCondition } from "../locomotion/c
 import { createRisingTargetCases, type TargetCondition } from "../rising-target/cases.ts";
 import { createStrikeCases, type StillCondition, type StrikeSubject } from "../strike/cases.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
-import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
+import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 /** The body every competence is read on. */
 export const BODY: BodyModel = "workshop-fighter";
@@ -75,7 +75,7 @@ function tagged<R extends Json>(part: BaselinePart, reader: Reader<R>): Reader<B
 const FIGHTS = deepFreeze({ loadouts: REPRESENTATIVE, gaps: [3, 4, 5], capSeconds: CAP_SECONDS });
 
 export function createBaselineCases(context: GameContext) {
-  const { minds: MINDS, partLookup } = context.catalog;
+  const { minds: MINDS } = context.catalog;
   const mindFaults = contextMindFaults.bind(undefined, context);
   const { LOCOMOTION_CASES } = createLocomotionCases(context);
   const { RISING_TARGET_CASES } = createRisingTargetCases(context);
@@ -83,8 +83,7 @@ export function createBaselineCases(context: GameContext) {
 
   /** The subject's first strike, as the Strike drill's subject, by its skill; null for a mind with none. */
   function strikeSubject(value: Json): StrikeSubject | null {
-    const { options, frame } = (value ?? {}) as { readonly options?: readonly PartConfig[] | null; readonly frame?: unknown };
-    const skill = frame || !Array.isArray(options) ? undefined : strikesIn(partLookup, options)[0]?.skill.kind;
+    const skill = describeMind(context.catalog, modelHolding(BODY, { left: "empty", right: "empty" }), value as unknown as MindConfig)?.executors[0]?.kind;
     return skill === undefined ? null : { mind: value as unknown as MindConfig, skill };
   }
 

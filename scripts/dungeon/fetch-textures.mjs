@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const registryPath = join(root, "src", "render", "textures.json");
+const registryPath = join(root, "src/app/browser/render/textures.json");
 const textureDir = join(root, "assets", "art", "environment", "textures");
 const catalogPath = join(root, "assets/art/catalog.json");
 const CC0 = { license: "CC0-1.0", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/" };

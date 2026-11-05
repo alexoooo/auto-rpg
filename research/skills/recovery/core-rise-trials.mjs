@@ -1,3 +1,4 @@
+import { rulebook } from "../../../src/combat/rulebook.ts";
 /**
  * The battery of falls, one world each (Node, the core's world, Rapier, 120 Hz): a body felled by a
  * shove or in a bout, and watched for whether it gets up. Each trial returns a plain row;
@@ -163,7 +164,7 @@ export async function toppled(shove, subs) {
 export async function shoved({ mind: given, watch = WATCH_SECONDS, ...shove }) {
   const mind = given ?? defaultMind(shove.model);
   const { world, built, body, dispose } = await felled(shove,
-    (made, into) => createMind(GAME, made, into, mind, { name: "battery", orders: () => STAND_ORDERS }).body, mind);
+    (made, into) => createMind(GAME, made, into, mind, { rules: rulebook("arena"), name: "battery", orders: () => STAND_ORDERS }).body, mind);
   try {
     return body.view.down ? watchFall(world, built, body, watch) : HELD;
   } finally { dispose(); }

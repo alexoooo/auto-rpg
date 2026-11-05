@@ -14,7 +14,7 @@ import { cos, sin } from "../../core/math/real.ts";
 import { spinBetweenToRef } from "../../core/math/turn.ts";
 
 import type { Hook, World } from "../../core/world/world.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "./seat.ts";
 
 /**
  * A rail's path, on the floor, from where the body was built (x, z, m): `line`, to `along` and

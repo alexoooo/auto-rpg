@@ -1,3 +1,4 @@
+import { footOn } from "../../../../../src/control/support.ts";
 /**
  * **The sit-back's reproduction**: the technique
  * (`sit-back`, `src/skills/recovery/implementations/staged/techniques.ts`) played alone from hands and knees at rest on
@@ -20,7 +21,7 @@ import { loadEngine } from "../../../../../src/core/physics/engines.ts";
 import { humanoidSpec } from "../../../../../src/core/bodies/human/spec.ts";
 import { armedWith } from "../../../../../src/core/bodies/items/held.ts";
 import { createWorld } from "../../../../../src/core/world/world.ts";
-import { recoveryMeasurement } from "../../../../../src/control/recovery-measurement.ts";
+import { recoveryMeasurement } from "../../../../../src/game/lab/recovery-measurement.ts";
 import { turnOfToRef } from "../../../../../src/core/bodies/read-motion.ts";
 import { observeBody } from "../../../../../src/control/observation.ts";
 import { clockSenses } from "../../../../../src/core/world/senses.ts";
@@ -46,16 +47,15 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock, afterPhysics) => {
     const part = TECHNIQUES[technique];
     const run = part.make(own, view, clock, kitOf(partLookup, own.spec), part.defaults, afterPhysics);
-    let reader = null, begun = false;
-    return { name: technique, has: () => technique, dispose() {}, mind: { state: { trial }, wants: () => trial.end === null, begin() {}, end() {}, interrupt() {},
+    const reader = groundReading(own.built, own.dt), state = { trial, run: run.state, reader: reader.state, begun: false };
+    return { name: technique, has: () => technique, dispose() {}, mind: { state, wants: () => trial.end === null, begin() {}, end() {}, interrupt() {},
       // The technique runs in the motor part, on the body as it is, as the game's ground actions do.
       think() {},
       act(control) {
         const dt = own.dt;
         const senses = view.senses;
-        reader ??= groundReading(own.built, dt);
         const g = reader.read();
-        if (!begun) { run.begin("left"); begun = true; }
+        if (!state.begun) { run.begin("left"); state.begun = true; }
         const end = run.step(g, senses, control, dt);
         if (trial.stage.at(-1) !== run.phase) trial.stage.push(run.phase);
         if (end === null) return;
@@ -64,7 +64,7 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
         trial.heading = Math.atan2(-across.z, across.x);
       } } };
   }]);
-  body.drive((view) => ({ posture: {}, pushes: [], stance: { feet: SIDES, centre: null, height: view.standing - .03, heading: trial.heading } }));
+  body.drive((view) => ({ posture: {}, pushes: [], stance: { feet: SIDES.map(side => footOn(spec, side)), centre: null, height: view.standing - .03, heading: trial.heading } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   let quiet = 0, verified = null, fell = false;
   try {

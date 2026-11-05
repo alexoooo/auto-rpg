@@ -7,7 +7,8 @@
  * leaves it the limb it uses (`Skill.limbs`).
  */
 import stompMeta from "../../../assets/skills/strikes/stomp/stomp.meta.json" with { type: "json" };
-import { loadoutKey, REPRESENTATIVE, type Held, type Loadout } from "../../core/bodies/items/held.ts";
+import { loadoutKey, type Held, type Loadout } from "../../core/bodies/items/held.ts";
+import { REPRESENTATIVE } from "../loadouts.ts";
 import { modelSpec, type HumanoidModel } from "../../core/bodies/models.ts";
 import { bodyKey } from "../../core/bodies/spec/body.ts";
 import { createStrikeCases } from "../strike/cases.ts";

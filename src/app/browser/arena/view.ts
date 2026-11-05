@@ -1,5 +1,5 @@
 import { CAMERA_MODES, PROJECTIONS, VIEW_MODES, type CameraMode, type ViewSettings } from "../../../game/appearance/view.ts";
-import type { Side } from "../../../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
 
 export type ArenaFocus = "both" | Side;
 export interface ArenaView extends ViewSettings { readonly focus: ArenaFocus }

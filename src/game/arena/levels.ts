@@ -4,7 +4,7 @@ import { deepFreeze } from "../../core/world/state.ts";
 
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { cryptFurnishing } from "../environment/furniture.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
+import type { ArenaSeat as Side } from "./seat.ts";
 
 /** Court columns leave open routes on either side of its central obstruction, m. */
 const court = [

@@ -1,5 +1,5 @@
 import type { WorkshopModel } from "../../../core/bodies/human/rig.ts";
-import type { FistPose } from "./fist.ts";
+import type { FistPose } from "../../../core/bodies/human/fist.ts";
 
 /**
  * **A hand closed on the club's haft**, built by `fist.ts`: finger angles are the

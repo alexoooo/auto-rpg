@@ -18,11 +18,13 @@ export interface DataOf {}
  * needs import attributes in Node, and the bundle keeps such an import's path unresolved. A loader
  * yields the data as its file holds it; its reader's declaration says what that is (`DataOf`).
  */
-export type DataLoaders = Readonly<Partial<Record<DataKey, () => Promise<unknown>>>>;
+export type DataLoader = (() => Promise<unknown>) & { readonly identity?: (data: unknown, subject: string) => unknown };
+export type DataLoaders = Readonly<Partial<Record<DataKey, DataLoader>>>;
 
 /** What has loaded, and what is loading, by key: a cache of frozen data, not a bout's state. */
 const loaded = new Map<DataKey, unknown>();
 const loading = new Map<DataKey, Promise<void>>();
+const identities = new Map<DataKey, NonNullable<DataLoader["identity"]>>();
 
 /** Load `keys`; a key loads once a realm, and a failed load can be asked again. */
 export function loadData(keys: Iterable<DataKey>, loaders: DataLoaders): Promise<void> {
@@ -33,7 +35,7 @@ export function loadData(keys: Iterable<DataKey>, loaders: DataLoaders): Promise
       const load = loaders[key];
       if (!load) throw new Error(`mind data ${JSON.stringify(key)} has no registered loader`);
       pending = load().then(
-        (data) => { loaded.set(key, data); loading.delete(key); },
+        (data) => { loaded.set(key, data); if (load.identity) identities.set(key, load.identity); loading.delete(key); },
         (error: unknown) => { loading.delete(key); throw error; });
       loading.set(key, pending);
     }
@@ -45,4 +47,11 @@ export function loadData(keys: Iterable<DataKey>, loaders: DataLoaders): Promise
 export function dataOf<K extends DataKey & keyof DataOf>(key: K): DataOf[K] {
   if (!loaded.has(key)) throw new Error(`mind data ${JSON.stringify(key)} is not loaded: a screen loads it with loadData(treeData(config)) before building the mind, and Node with tests/harness/preload-data.mjs`);
   return loaded.get(key) as DataOf[K];
+}
+
+/** The loaded data that affects a named subject, according to its registered owner. */
+export function dataIdentity(key: DataKey, subject: string): unknown {
+  const data = dataOf(key);
+  const select = identities.get(key);
+  return select ? select(data, subject) : data;
 }

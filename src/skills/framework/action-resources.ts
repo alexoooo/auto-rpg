@@ -22,7 +22,7 @@ export function actionResources(channels: readonly string[], effectors: readonly
   const support = feet.map((foot) => foot.segment);
   const footprints: Record<string, readonly string[]> = Object.create(null) as Record<string, readonly string[]>, limbChannels = new Set<string>();
   for (const effector of effectors) {
-    if (effector.segment === "legs" || effector.segment === "trunk" || footprints[effector.segment]) throw new Error("duplicate or reserved effector resource");
+    if (effector.segment === "legs" || effector.segment === "trunk" || effector.segment === "assist" || footprints[effector.segment]) throw new Error("duplicate or reserved effector resource");
     for (const channel of effector.channels) {
       if (!channels.includes(channel)) throw new Error(`unknown effector channel ${channel}`);
       limbChannels.add(channel);
@@ -35,6 +35,7 @@ export function actionResources(channels: readonly string[], effectors: readonly
     if (Object.hasOwn(footprints, resource)) throw new Error(`duplicate configuration resource ${resource}`);
     footprints[resource] = [resource];
   }
+  footprints.assist = ["assist"];
   footprints.trunk = channels.filter(c => !limbChannels.has(c)).map(c => `channel:${c}`);
   footprints.legs = ["stance", ...support.flatMap(name => {
     const footprint = footprints[name];
@@ -61,6 +62,7 @@ export function actionResources(channels: readonly string[], effectors: readonly
     for (const task of patch.points ?? []) owns(`effector:${task.segment}`);
     for (const segment of support) if (patch.effectors?.[segment] && !held.includes("stance")) throw new Error("a support effector needs legs");
     for (const segment in patch.configurations) owns(`pose:${segment}`);
+    if (patch.assist !== undefined) owns("assist");
     if (patch.stance !== undefined) owns("stance");
     if (patch.stance) for (const end of patch.stance.feet) {
       const segment = feet.find((foot) => foot.name === end)?.segment;

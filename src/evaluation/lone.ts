@@ -1,3 +1,5 @@
+import { isRefused, type Refused } from "../core/refusal.ts";
+import { constructionScope } from "../core/construction.ts";
 /**
  * **A lone body as a case**: one character under one mind, standing at the open stage's centre with
  * the arena's solids and no one else, for its reader to read: what a mind does alone (stands, walks
@@ -15,7 +17,7 @@ import type { MindConfig } from "../minds/config.ts";
 import type { Orders } from "../skills/intent/orders.ts";
 import { cos, sin } from "../core/math/real.ts";
 import { createSenses } from "../core/world/senses.ts";
-import { modelHolding, type BodyModel } from "../core/bodies/models.ts";
+import { modelHoldingChecked, type BodyModel } from "../core/bodies/models.ts";
 import { rulebook } from "../combat/rulebook.ts";
 import { createWorld, type World } from "../core/world/world.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
@@ -65,16 +67,23 @@ export function createLone(context: GameContext) {
    * played: each cue's orders from the step it falls on, and its
    * shove before that step.
    */
-  async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<BuiltLone> {
-    const world = createWorld(await loadEngine(engine));
+  async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<BuiltLone | Refused> {
+    const spec = modelHoldingChecked(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character);
+    if (isRefused(spec)) return spec;
+    if ((lone.script ?? []).some(cue => cue.shove) && !spec.segments.some(segment => segment.name === "middleTrunk")) return { refused: "a shove needs a middle trunk" };
+    const scope = constructionScope(); let complete = false;
     try {
+      const world = scope.own(createWorld(await loadEngine(engine)));
       addArenaSolids(world.physics);
       const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
       let orders: Orders | null = null, next = 0, steps = 0;
-      const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec: modelHolding(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character), rules: rulebook("arena"),
-        mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: createSenses(world), out: () => false, orders: () => orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
+      const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec, rules: rulebook("arena"),
+        mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: scope.own(createSenses(world)), out: () => false, orders: () => orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
         ...(lone.seed !== undefined ? { seed: lone.seed } : {}) });
+      scope.own(body.body); scope.own(body.built);
       const wind = lone.gusts ? startWind(body.built, world, labGusts(lone.model), lone.seed ?? 1) : null;
+      if (isRefused(wind)) return wind;
+      scope.own(wind);
       const trunk = body.built.segments.get("middleTrunk"), point = new Vector3(), impulse = new Vector3();
       // First in every step: the cues that fall on it, before the mind reads its orders.
       world.sense(() => {
@@ -90,8 +99,9 @@ export function createLone(context: GameContext) {
         }
         steps++;
       });
-      return { world, body, dispose() { wind?.dispose(); body.body.dispose(); body.built.dispose(); world.dispose(); } };
-    } catch (error) { world.dispose(); throw error; }
+      complete = true;
+      return { world, body, dispose: scope.dispose };
+    } finally { if (!complete) scope.dispose(); }
   }
 
   /** The lone-body world kind: built by `buildLone`, its one body traced, played by the world's clock. */

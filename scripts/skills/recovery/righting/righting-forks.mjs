@@ -12,7 +12,7 @@ import { forkBout, rightingOf } from "./righting-worker.mjs";
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? fallback : process.argv[i + 1]; };
 const MODEL = arg("model", "rat"), GAPS = arg("gaps", "1,1.5,2,3,4").split(",").map(Number);
-const OUT = arg("out", resolve(import.meta.dirname, `../../.tmp/righting/${MODEL}-forks.bin`));
+const OUT = arg("out", resolve(import.meta.dirname, `../../../../.tmp/righting/${MODEL}-forks.bin`));
 
 const forks = [];
 for (const gap of GAPS) {

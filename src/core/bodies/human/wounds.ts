@@ -22,9 +22,10 @@ const armsAndLegs = (arm: number, leg: number): LimbSpec[] => SIDES.flatMap((sid
  * on without, its arms 0.15 and its legs 0.25.
  */
 export function humanWounds(figure: HumanFigure): WoundSpec {
+  const bareExtremities = SIDES.flatMap((side) => [`hand.${side}`, `foot.${side}`]);
   return figure.model === SKELETON_MODEL
-    ? { hp: figure.hp, vital: ["upperTrunk"], whole: ["upperTrunk"], limbs: [limb("head", ["head"], 0.2, "fights on"), ...armsAndLegs(0.15, 0.25)] }
-    : { hp: figure.hp, vital: ["head"], whole: [], limbs: armsAndLegs(0.25, 0.35) };
+    ? { hp: figure.hp, vital: ["upperTrunk"], whole: ["upperTrunk"], limbs: [limb("head", ["head"], 0.2, "fights on"), ...armsAndLegs(0.15, 0.25)], bareExtremities }
+    : { hp: figure.hp, vital: ["head"], whole: [], limbs: armsAndLegs(0.25, 0.35), bareExtremities };
 }
 
 /** A workshop model's hit points: Warrior 6, Rogue 4. */

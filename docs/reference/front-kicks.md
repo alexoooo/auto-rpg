@@ -2,12 +2,12 @@
 
 The stomp's executor (`stompExecutor`, `src/skills/strikes/stomp.ts`) takes its settings
 from its body's record (`assets/skills/strikes/stomp/stomp.json`, by `bodyKey`), and each record is whole: it holds
-every key `STOMP_PATH` names (`research/skills/framework/skill-records.mjs` writes no other). A body with no record
+every key `STOMP_PATH` names (`research/skills/skill-records.mjs` writes no other). A body with no record
 throws no stomp (`recordFault`, `src/skills/framework/records.ts`), unless an experiment's
 research `tuning` is whole in its place (`wholeStomp`, `stomp-part.ts`); a research `tuning` sets
 settings over the record's (`tunedSettings`). `STOMP_PATH`'s values are the ones the records share
 outside [stomp settings](#stomp-settings); a search starts from a body's record, or the Warrior's
-where it has none (`research/skill-search.mjs`).
+where it has none (`research/skills/strikes/stomp/skill-search.mjs`).
 
 ## Execution settings
 
@@ -53,7 +53,7 @@ Each toed body's row of `assets/skills/strikes/stomp/stomp.json` differs from `S
 agrees with it in the rest. Each is set for a blow down on a body lying ahead: its stroke and window
 (`contactSpeed`, `swingSeconds`, `chamberSeconds`, `lift`, `over`, `alongNear`, `alongFar` and
 `brace`) searched on the Strike drill's `stomping` rung
-(`research/skill-search.mjs`, each row's `made`), the Rogue's `across` and `returnNear` the
+(`research/skills/strikes/stomp/skill-search.mjs`, each row's `made`), the Rogue's `across` and `returnNear` the
 Warrior's scaled by its stature. The Skeleton has no record and throws no stomp.
 
 | Setting | Warrior | Rogue | Why |

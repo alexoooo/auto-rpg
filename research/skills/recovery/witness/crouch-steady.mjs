@@ -1,3 +1,4 @@
+import { footOn } from "../../../../src/control/support.ts";
 /**
  * **Stand up's steady from a crouch** (`standUp`, `src/skills/recovery/stand-up.ts`): the body
  * placed in the Warrior's stored `squat` (its angles put on each body, seeds 1 up, refused draws
@@ -53,7 +54,7 @@ import { humanSpec, humanoidSpec } from "../../../../src/core/bodies/human/spec.
 import { armedWith } from "../../../../src/core/bodies/items/held.ts";
 import { guardPosture } from "../../../../src/skills/guard/guard.ts";
 import { createWorld } from "../../../../src/core/world/world.ts";
-import { recoveryMeasurement } from "../../../../src/control/recovery-measurement.ts";
+import { recoveryMeasurement } from "../../../../src/game/lab/recovery-measurement.ts";
 import { observeBody } from "../../../../src/control/observation.ts";
 import { clockSenses } from "../../../../src/core/world/senses.ts";
 import { groundPlacement } from "../../../../src/game/lab/ground-starts.ts";
@@ -97,7 +98,7 @@ export async function steady({ model = "workshop-fighter", held = "empty", seed,
       think() { pending.think(); steadying.step(pending.control, own.dt); },
     } };
   }]);
-  body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
+  body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: [footOn(spec, "left"), footOn(spec, "right")], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const rows = [];
   let quiet = 0, verified = null, fell = false, climbed = null;

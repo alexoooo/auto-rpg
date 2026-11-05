@@ -1,3 +1,4 @@
+import type { EstimateUnit } from "../intent/estimate.ts";
 import type { BodyView } from "../../control/body.ts";
 import type { Ended, TargetRef } from "./action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
@@ -20,7 +21,7 @@ export interface Aim {
 export interface AimPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "aim";
   /** The unit of the estimate its aims give (`Aimed.estimate`), or null where they give none: what estimate selection compares. */
-  readonly unit: "opening" | "net" | null;
+  readonly unit: EstimateUnit | null;
   /** Whether it aims a blow struck with `effector`; with any unless it says. */
   aimsWith?(effector: string): boolean;
   /** Its aim on a body of `spec`. */

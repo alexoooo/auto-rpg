@@ -77,13 +77,16 @@ export interface Reply { readonly seq: number; readonly said: readonly Said[]; r
  * Wait until `control[index]` is past `was`: spinning up to `spin` ms first, then sleeping until
  * notified; a thread that does not answer in `timeout` ms is a defect.
  */
-export function waitPast(control: Int32Array, index: number, was: number, { spin, timeout }: { readonly spin: number; readonly timeout: number }): void {
+export function waitPast(control: Int32Array, index: number, was: number, { spin, timeout, drain }: { readonly spin: number; readonly timeout: number; readonly drain?: () => void }): void {
   if (Atomics.load(control, index) > was) return;
   const until = performance.now() + spin;
-  while (performance.now() < until) if (Atomics.load(control, index) > was) return;
+  while (performance.now() < until) { drain?.(); if (Atomics.load(control, index) > was) return; }
   const deadline = performance.now() + timeout;
   for (let now = Atomics.load(control, index); now <= was; now = Atomics.load(control, index)) {
     const left = deadline - performance.now();
-    if (left <= 0 || Atomics.wait(control, index, now, left) === "timed-out" && Atomics.load(control, index) <= was) throw new Error(`a minds' thread did not answer in ${timeout} ms`);
+    drain?.();
+    if (Atomics.load(control, index) > was) return;
+    if (left <= 0) throw new Error(`a minds' thread did not answer in ${timeout} ms`);
+    Atomics.wait(control, index, now, drain ? Math.min(left, 5) : left);
   }
 }

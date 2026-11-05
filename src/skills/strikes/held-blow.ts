@@ -1,3 +1,4 @@
+import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import thrustMeta from "../../../assets/skills/strikes/sword-thrust/sword-thrust.meta.json" with { type: "json" };
 import thrustLayout from "../../../assets/skills/strikes/sword-thrust/sword-thrust.layout.json" with { type: "json" };
 import { recoveryNetwork, type Network } from "../../core/math/learning/recovery-network.ts";
@@ -95,7 +96,7 @@ interface Config<K extends HeldBlowKind = HeldBlowKind> {
 function heldBlowPart<K extends HeldBlowKind>(kind: K): ExecutorPart<Config<K>> {
   const blow = HELD_BLOWS[kind];
   return {
-    role: "executor", label: blow.label, stage: "game", defaults: { kind } as Config<K>,
+    role: "executor", requires: [SUPPORT_REFERENCE], label: blow.label, stage: "game", defaults: { kind } as Config<K>,
     keys: { kind: true, tuning: true }, tuning: STRAIGHT_PUNCH_KEYS,
     fields: [], slots: [],
     fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint"),

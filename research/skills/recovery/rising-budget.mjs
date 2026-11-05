@@ -1,3 +1,4 @@
+import { footOn } from "../../../src/control/support.ts";
 /**
  * **The stand-up's time budget** on the stand-up target (Node stand, core world, Rapier, 120 Hz):
  * what of the target's median is spent before and after the rise. Two readings:
@@ -54,7 +55,7 @@ async function squatStance({ model, held, seed }) {
     import("../../../assets/research/posture-holds.json", { with: { type: "json" } }),
     import("../../../src/app/commanded-body.ts"), import("../../../src/core/bodies/build/build-body.ts"), import("../../../src/core/physics/engines.ts"), import("../../../src/core/bodies/human/spec.ts"),
     import("../../../src/core/bodies/items/held.ts"), import("../../../src/skills/guard/guard.ts"), import("../../../src/core/world/world.ts"), import("../../../src/game/lab/ground-starts.ts"),
-    import("../../../src/control/recovery-measurement.ts"), import("../../../src/control/observation.ts"), import("../../../src/core/world/senses.ts"), import("../../../src/game/lab/ground-mode.ts")]);
+    import("../../../src/game/lab/recovery-measurement.ts"), import("../../../src/control/observation.ts"), import("../../../src/core/world/senses.ts"), import("../../../src/game/lab/ground-mode.ts")]);
   const spec = armedWith(humanoidSpec(model), "right", held), reference = humanSpec("workshop-fighter");
   const source = poses.find(p => p.model === "workshop-fighter" && p.id === "squat");
   const angles = Object.fromEntries(reference.joints.flatMap(j => j.dofs.map((d, k) => [`${j.name} ${d.positive}`, source.placement.joints[j.name][k] + d.bind.value])));
@@ -64,7 +65,7 @@ async function squatStance({ model, held, seed }) {
   const world = createWorld(await loadEngine("rapier"));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placement), body = commandedBody(built, world, { servoSeconds: .1 });
-  body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
+  body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: [footOn(spec, "left"), footOn(spec, "right")], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   let height = null, climbed = null, quiet = 0, verified = null, fell = false;
   while (world.time < 6 && (verified === null || world.time - verified <= STAND_CHECK.standing)) {

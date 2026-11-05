@@ -1,3 +1,4 @@
+import { isRefused, type Refused } from "../../refusal.ts";
 import type { Vec3 } from "./quantity.ts";
 import { cross, dot, length, scale, sub } from "./vec.ts";
 
@@ -28,10 +29,20 @@ interface Hull {
  */
 const HULL_TOLERANCE = 1e-9;
 
+/** Hull arithmetic for points already admitted by the geometry owner. */
 export function convexHull(points: readonly Vec3[]): Hull {
+  const hull = convexHullChecked(points);
+  if (isRefused(hull)) throw new Error(hull.refused);
+  return hull;
+}
+
+/** The hull, or why these points do not bound a representable solid. */
+export function convexHullChecked(points: readonly Vec3[]): Hull | Refused {
+  if (points.some(point => !point.every(Number.isFinite))) return { refused: "a hull needs finite points" };
   let kept = points.map((_, i) => i);
   for (;;) {
     const hull = incremental(kept.map((i) => points[i]!));
+    if (isRefused(hull)) return hull;
     const corners = hull.vertices.filter((v) => isCorner(hull, v));
     if (corners.length === hull.vertices.length) {
       const back = (i: number) => kept[i]!;
@@ -55,8 +66,8 @@ function isCorner(hull: Hull, vertex: number): boolean {
   return false;
 }
 
-function incremental(points: readonly Vec3[]): Hull {
-  if (points.length < 4) throw new Error(`a hull needs four points, not ${points.length}`);
+function incremental(points: readonly Vec3[]): Hull | Refused {
+  if (points.length < 4) return { refused: `a hull needs four points, not ${points.length}` };
   const extent = Math.max(...[0, 1, 2].map((axis) =>
     Math.max(...points.map((p) => p[axis]!)) - Math.min(...points.map((p) => p[axis]!))));
   const tolerance = HULL_TOLERANCE * extent;
@@ -72,7 +83,7 @@ function incremental(points: readonly Vec3[]): Hull {
   const across = cross(ab, sub(points[c]!, points[a]!));
   const d = farthest((p) => Math.abs(dot(across, sub(p, points[a]!))));
   if (!(Math.abs(dot(across, sub(points[d]!, points[a]!))) > tolerance * length(across))) {
-    throw new Error("the points lie in a plane and bound no volume");
+    return { refused: "the points lie in a plane and bound no volume" };
   }
 
   interface Face { readonly corners: readonly [number, number, number]; readonly normal: Vec3; readonly offset: number; alive: boolean }

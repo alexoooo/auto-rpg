@@ -35,9 +35,15 @@ export async function standBodies(count, model = "crypt-skeleton") {
  * **Lying still**: while its body is down (`BodyView.down`, its host's reading this step), it asks
  * its muscles for nothing and its assist nothing.
  */
-const lying = (own, view) => ({
-  name: "lie", wants: () => view.down, begin() {}, end() {},
-  step() { own.muscles.activation.fill(0); own.muscles.velocity.fill(0); },
+const lying = (_own, view) => ({
+  name: "lie", has: () => "lie", dispose() {},
+  mind: {
+    state: {}, wants: () => view.down, begin() {}, end() {}, think() {}, interrupt() {},
+    act(control) {
+      control.muscles.activation.fill(0); control.muscles.velocity.fill(0);
+      control.assist.force.setAll(0); control.assist.moment.setAll(0);
+    },
+  },
 });
 
 /** A Warrior on its back, lying still (`lying`), so every step reads all fixed support. */

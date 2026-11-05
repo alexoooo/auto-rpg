@@ -1,3 +1,4 @@
+import type { Refused } from "../../../core/refusal.ts";
 import "@babylonjs/core/Culling/ray.js";
 import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
@@ -27,7 +28,7 @@ const MARKS = {
 /** Attack orders against physical, sensed targets, with live wind and target movement controls. */
 export function attackScenario(scene: Scene): LabScenario {
   let speed = 0, wind: WindSettings = { rate: 0, strength: 0 }, weight = 0;
-  let current: ReturnType<typeof startAttack> | null = null;
+  let current: Exclude<ReturnType<typeof startAttack>, Refused> | null = null;
   const setWind = (settings: WindSettings): void => { wind = settings; if (current) current.wind.settings = settings; };
   const actionDetails = actionReadout();
   const shown = readings({ hits: { name: "Physical impacts" }, target: { name: "Focus" },
@@ -47,6 +48,7 @@ export function attackScenario(scene: Scene): LabScenario {
     start({ actor, puppet, address, changed, clock, hears }) {
       const { world } = actor, { built } = actor.body;
       const attack = startAttack(actor, { seed: address.seed, count: address.targets, targetPart: address.targetPart, speed, wind, hears });
+      if ("refused" in attack) return attack;
       current = attack;
       weight = massOf([...built.segments.values()]) * -world.physics.gravity[1];
       const hands = fighterHands({ minded: { body: actor.body } });

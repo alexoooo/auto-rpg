@@ -1,4 +1,5 @@
-import { resolveCharacter } from "../../core/bodies/models.ts";
+import type { Refused } from "../../core/refusal.ts";
+import { resolveCharacter, modelHoldingChecked } from "../../core/bodies/models.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { withLoadout } from "../../core/bodies/items/held.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
@@ -22,4 +23,9 @@ export function loadoutSpec(loadout: LabLoadout): BodySpec {
 /** The balance the body of `spec` has, per cent of its weight: `balance`, the address's, or its character's own. */
 export function loadoutBalance(balance: number | null, spec: BodySpec): number {
   return balance ?? spec.attributes.balance.value;
+}
+
+/** Admit external Lab attributes and equipment without allocating a world. */
+export function loadoutSpecChecked(loadout: LabLoadout): BodySpec | Refused {
+  return modelHoldingChecked(loadout.model, { left: loadout.left, right: loadout.right }, loadoutAttributes(loadout));
 }

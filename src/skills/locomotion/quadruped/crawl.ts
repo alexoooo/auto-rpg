@@ -163,12 +163,12 @@ interface CrawlConfig { readonly kind: "paw-crawl"; readonly tuning?: Partial<ty
 export const CRAWL_PART: PawGaitPart<CrawlConfig> = deepFreeze({
   role: "paw-gait", label: "Crawl", stage: "game", fields: [], slots: [], defaults: { kind: "paw-crawl" }, keys: { kind: true, tuning: true },
   tuning: Object.keys(REPTILE_CRAWL), fits: fitsPaws,
-  faults: (config: CrawlConfig) => Object.values(config.tuning ?? {}).every(Number.isFinite) ? [] : ["invalid crawl setting"],
+  faults: (config: CrawlConfig) => (config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning) && Object.entries(config.tuning).every(([key, value]) => Object.hasOwn(REPTILE_CRAWL, key) && Number.isFinite(value))) ? [] : ["invalid crawl setting"],
   make(built: ReadBody, root: ReadSegment, reading: PawReading, paws: readonly string[], config: CrawlConfig) {
     const settings = { ...REPTILE_CRAWL, ...config.tuning }, skill = crawl(built, root, reading, paws, settings);
     // A paw's step takes its settle, its shift, its swing and its plant; each paw steps once a stride, and a heading turns a yaw step a stride. It steps any way.
     const stride = paws.length * (settings.settle + settings.shift + settings.swing + settings.plant);
     const reach = { forward: settings.stride / stride, aside: 1, turn: settings.yawStep / stride };
-    return { state: skill.state, settings, reach, resume: skill.resume, command: skill.command };
+    return { state: skill.state, settings, reach, travel: { speed: reach.forward, stopping: reach.forward / stride }, resume: skill.resume, command: skill.command };
   },
 });

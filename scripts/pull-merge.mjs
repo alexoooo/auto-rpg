@@ -60,7 +60,7 @@ export function pullMerge(cwd, { resume = false } = {}) {
     if (changed.includes("package-lock.json")) stage("Dependencies", () => npm(["ci"]));
     stage("Build and typecheck", () => npm(["run", "build"]));
     stage("Tests", () => npm(["test"]));
-  } else console.log("Markdown only: check cited files and anchors before finishing a conflict resolution.");
+  } else stage("Documents", () => command(process.execPath, ["--test", "tests/documents.test.mjs"], true));
   if (git("rev-parse", "HEAD") !== head || git("write-tree") !== tree || git("status", "--porcelain").split("\n").some((line) => line && (line.startsWith("??") || line[1] !== " "))) {
     throw new Error("Repository changed during checks. Inspect the work before committing.");
   }

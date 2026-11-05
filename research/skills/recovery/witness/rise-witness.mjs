@@ -1,3 +1,4 @@
+import { footOn } from "../../../../src/control/support.ts";
 /**
  * **Whether a fast rise exists on the body as built**: a search for one witness, a trajectory from a
  * placed start at rest to verified standing (`STAND_CHECK`) within the target's allowance
@@ -51,7 +52,7 @@ import { armedWith } from "../../../../src/core/bodies/items/held.ts";
 import { guardPosture } from "../../../../src/skills/guard/guard.ts";
 import { createWorld } from "../../../../src/core/world/world.ts";
 import { groundPlacement, groundPostures } from "../../../../src/game/lab/ground-starts.ts";
-import { recoveryMeasurement } from "../../../../src/control/recovery-measurement.ts";
+import { recoveryMeasurement } from "../../../../src/game/lab/recovery-measurement.ts";
 import { observeBody } from "../../../../src/control/observation.ts";
 import { clockSenses } from "../../../../src/core/world/senses.ts";
 import { groundReading } from "../../../../src/control/ground-reading.ts";
@@ -214,19 +215,19 @@ function bearer(own, view) {
     shortfall: { force: new Vector3(), moment: new Vector3() } };
   const solve = makeBearing(null, made.limbs, memory, { effort: true });
   const work = { place: new Vector3(), spin: new Vector3(), rootSpin: new Vector3(), turn: new Quaternion(), yaw: new Quaternion(), pitch: new Quaternion(),
-    across: new Vector3(), right: new Vector3(1, 0, 0), toward: new Vector3(), moved: new Uint8Array(muscles.channels.length),
+    across: new Vector3(), right: new Vector3(1, 0, 0), moved: new Uint8Array(muscles.channels.length),
     aim: { centre: new Vector3(), spin: new Vector3() }, goal: new Float64Array(muscles.channels.length) };
-  const orient = { heading: 0 };
+  const orient = { heading: 0, toward: new Vector3() };
   return {
-    state: { memory, orient },
+    state: { memory, orient, limbs: made.state },
     /** Fixes the heading and the direction toward the feet from where the body is. */
     begin(g) {
       turnOfToRef(root, work.turn); work.across.set(1, 0, 0).applyRotationQuaternionToRef(work.turn, work.across);
       orient.heading = atan2(-work.across.z, work.across.x);
       const feet = ["foot.left", "foot.right"].map(name => own.built.segments.get(name).pose.position);
-      work.toward.set((feet[0].x + feet[1].x) / 2 - g.centre.x, 0, (feet[0].z + feet[1].z) / 2 - g.centre.z);
-      const length = work.toward.length();
-      if (length > 1e-6) work.toward.scaleInPlace(1 / length); else work.toward.set(0, 0, 1);
+      orient.toward.set((feet[0].x + feet[1].x) / 2 - g.centre.x, 0, (feet[0].z + feet[1].z) / 2 - g.centre.z);
+      const length = orient.toward.length();
+      if (length > 1e-6) orient.toward.scaleInPlace(1 / length); else orient.toward.set(0, 0, 1);
     },
     step(phase, g, output, dt) {
       for (let i = 0; i < muscles.channels.length; i++) {
@@ -242,11 +243,11 @@ function bearer(own, view) {
         else made.rest(l);
       }
       if (total > 0) work.place.scaleInPlace(1 / total); else work.place.set(g.centre.x, 0, g.centre.z);
-      work.place.addInPlaceFromFloats(work.toward.x * phase.toward, 0, work.toward.z * phase.toward);
+      work.place.addInPlaceFromFloats(orient.toward.x * phase.toward, 0, orient.toward.z * phase.toward);
       const height = ground + view.standing * phase.height;
-      work.aim.centre.set(n * n * (work.place.x - g.centre.x) + 2 * n * (work.toward.x * phase.along - g.velocity.x),
+      work.aim.centre.set(n * n * (work.place.x - g.centre.x) + 2 * n * (orient.toward.x * phase.along - g.velocity.x),
         n * n * (height - g.centre.y) + 2 * n * (phase.up - g.velocity.y),
-        n * n * (work.place.z - g.centre.z) + 2 * n * (work.toward.z * phase.along - g.velocity.z));
+        n * n * (work.place.z - g.centre.z) + 2 * n * (orient.toward.z * phase.along - g.velocity.z));
       root.body.angularVelocityToRef(work.rootSpin);
       turnAboutToRef(Vector3.UpReadOnly, orient.heading, work.yaw);
       turnAboutToRef(work.right, phase.pitch, work.pitch);
@@ -299,7 +300,7 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
         control.time += dt;
       } } };
   }]);
-  body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: SIDES, centre: null, height: view.standing - .03, heading: 0 } }));
+  body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: SIDES.map(side => footOn(spec, side)), centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const table = [], path = [], window = new Float64Array(Math.round(HELD / world.dt));
   let steps = 0, quiet = 0, verified = null, fell = false, progress = 0, last = "";

@@ -1,3 +1,6 @@
+import { buildBout } from "../../src/app/node/evaluation.ts";
+import { recipeOf } from "../../src/app/node/setup.ts";
+import { reportNow } from "../../src/minds/apart.ts";
 /** Command delivery, suspension and restoration, independent of skill capability. */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -15,7 +18,7 @@ import { commandedMind } from "../../src/minds/sub-mind.ts";
 import { driveBy } from "../../src/minds/decider.ts";
 import { standingSkills } from "../../src/app/standing-skills.ts";
 import { standIntent } from "../../src/skills/intent/intent.ts";
-import { wholeBodyMotor } from "../../src/control/whole-body-motor.ts";
+import { stockMotor } from "../../src/app/stance-balance.ts";
 import { isOrdersEntry } from "../../src/game/arena/duel.ts";
 import { MOVE_PART } from "../../src/skills/locomotion/move-part.ts";
 import { PAW_MOVE } from "../../src/skills/locomotion/quadruped/paw-legs.ts";
@@ -115,7 +118,7 @@ test("a fresh physics fork resets exactly the forces pending at its save", async
 test("a commanded Mind restores its driver's memory from its own state", async () => {
   const make = async () => {
     const stand = await coreStand(modelSpec("workshop-fighter"));
-    const embodied = embody(stand.built, stand.world, own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: wholeBodyMotor() }, stand.world));
+    const embodied = embody(stand.built, stand.world, own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: stockMotor() }, stand.world));
     const memory = { decisions: 0 };
     driveBy(embodied.mind.body, { name: "counted stand", state: memory, decide() {
       memory.decisions++;
@@ -146,4 +149,46 @@ test("recorded orders accept configured gait names across JSON transport", () =>
   const transported = JSON.parse(JSON.stringify(tape));
   assert.deepEqual(transported.filter(isOrdersEntry), tape);
   for (const gait of ["", null, 0]) assert.equal(isOrdersEntry({ step: 0, side: "left", orders: { face: null, gait } }), false);
+});
+
+
+test("a fresh bout load restores the whole published Mind report before another decision", async () => {
+  const recipe = { ...recipeOf("?matchup=workshop-fighter,workshop-fighter&control=option,option&left.loadout=empty,empty&right.loadout=empty,empty", { left: {}, right: {} }, "open"),
+    commanders: { left: { kind: "drill", after: 0 } } };
+  const original = await buildBout(recipe), fork = await buildBout(recipe);
+  const report = bout => structuredClone(reportNow(bout.duel.duelists.left.minded.report));
+  try {
+    original.world.step(120);
+    const said = report(original);
+    assert.ok(said.engagement?.offers?.length && said.engagement.details?.length, "the fixture must have decided and published its complete engagement");
+    assert.notDeepEqual(report(fork), said, "the fresh recipe must distinguish the saved report from its initial report");
+    fork.duel.load(original.duel.save());
+    assert.deepEqual(report(fork), said);
+  } finally { original.dispose(); fork.dispose(); }
+});
+
+
+test("a fallback recovery Option does not count its own transition as an ordinary ascent", async () => {
+  const { GAME } = await import("../../src/app/catalog.ts");
+  const { catalogOf } = await import("../../src/minds/catalog.ts");
+  const { toolkitLists } = await import("../../src/app/toolkit.ts");
+  const { REPOSITION_OPTION, WAY_UP_OPTION, waysUpIn, withWaysUp } = await import("../../src/minds/option/rise.ts");
+  const { walker } = await import("../../src/minds/option/walk.ts");
+  const { optionRecord } = await import("../../src/minds/option/record.ts");
+  const spec = modelSpec("workshop-fighter"), fallback = REPOSITION_OPTION.defaults;
+  const technique = GAME.partLookup.of("technique", fallback.skill), from = technique.edges[0]?.from;
+  assert.equal(technique.fits(spec, fallback.skill, GAME.partLookup), null, "the real fallback technique must fit the fixture body");
+  assert.ok(from && technique.starts.length, "the fallback must expose a transition and a declared beginning");
+  const [option] = REPOSITION_OPTION.make(fallback, { spec, hz: 120, rate: 120, delay: 0, parts: GAME.partLookup, legs: { kind: "move", rules: [], otherwise: "braced" },
+    options: [fallback], tables: { strikes: [], edges: [] }, walk: walker(spec), record: optionRecord(), sites: { all: [], names: [] } });
+  assert.ok(option, "the fallback constructor must produce its transition Option");
+  const ground = { settled: true, position: from, raw: from, side: "left", velocity: new Vector3(), spin: 0 };
+  const now = { ground, sight: { context: { heading: 0, placed: false, lower: 0, support: null, walk: null }, view: { ground }, readiness: () => ({ kind: "ready" }) } };
+  assert.deepEqual(option.entry(now), { kind: "ready" }, "a ready uncovered start must retain the fallback's own transition");
+  assert.deepEqual(waysUpIn(GAME.partLookup, spec, [fallback]), []);
+  const ascent = { ...WAY_UP_OPTION, defaults: { kind: "fixture:ascent", skill: fallback.skill } };
+  const catalog = catalogOf(() => ({ ...toolkitLists(), entrants: [{ name: "fixture", parts: [ascent], presets: {} }] }));
+  assert.deepEqual(catalog.faults, []);
+  assert.deepEqual(waysUpIn(catalog.partLookup, spec, [ascent.defaults, fallback]), [fallback.skill]);
+  assert.deepEqual(withWaysUp(catalog.partLookup, [ascent.defaults, fallback], [fallback.skill]), [{ kind: "way-up", skill: fallback.skill }]);
 });

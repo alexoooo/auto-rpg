@@ -4,9 +4,9 @@ The core's physics engine is Rapier's 3D SIMD build (`@dimforge/rapier3d-simd-co
 here from Rapier's source at commit `b716d375efc0201003f0cd9ef7168eee0b62c177`
 (`js-v0.21.0`) with our patch, and installed from the tarball `package.json` names.
 
-- Package `0.21.0-auto-rpg.10`, archive SHA256
-  `317197f478ddd9b7a09846c1683269ed52d583e91f7f283e009e689e25e75318`. The adapter's snapshot
-  revision, `REVISION` in `src/core/physics/rapier.ts`, is `adapter-13` and that hash: a snapshot
+- Package `0.21.0-auto-rpg.11`, archive SHA256
+  `3c523c432beb896620ad8a54ceae366a630062533a9efc4177b1ff14fd15ea90`. The adapter's snapshot
+  revision, `REVISION` in `src/core/physics/rapier.ts`, is `adapter-14` and that hash: a snapshot
   loads only into the package and adapter that wrote it.
 - `package.json` and the lockfile name the archive, with SHA512 integrity from its bytes;
   `npm ci` installs it. Rust is needed only to rebuild.
@@ -15,6 +15,10 @@ here from Rapier's source at commit `b716d375efc0201003f0cd9ef7168eee0b62c177`
 
 - `auto-rpg.patch`: our change to Rapier, against `js-v0.21.0` (Rapier 0.36.0, its JavaScript
   bindings 0.21.0).
+- `contact-errors.mjs`: the package boundary reports a contact-material callback's original thrown
+  value after Rust releases its step borrows. A failed step is a defect, never a usable result.
+- `package-contact-errors.mjs`: wraps both generated JavaScript module formats with that boundary;
+  generated bundles, source maps and WASM remain untouched. `build.sh` applies it after Rollup.
 - `build.sh`: Rapier's own build pipeline for the one variant the core uses, from a clone of
   Rapier at the tag with the patch applied, to the tarball.
 - `rustc-wrapper.cjs`: gives crates stable package/version/target/feature identities instead of
@@ -87,8 +91,8 @@ test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symm
 
 Needs git, bash (Git Bash on Windows), Node and npm, and Rust with the `wasm32-unknown-unknown`
 target (`rustup target add wasm32-unknown-unknown`). wasm-pack 0.12.1 and wasm-bindgen 0.2.129 come
-pinned by Rapier's own lockfiles. The archive is built with rustc 1.97.1 and Node 24.15.0; the
-build reproduces its bytes only on that toolchain.
+pinned by Rapier's own lockfiles. The WASM build uses rustc 1.97.1; JavaScript packaging uses
+Node 24.19.0 and npm 11.17.0. Byte reproduction requires these toolchains.
 
 ```bash
 bash vendor/rapier/build.sh   # RAPIER_WORK=<dir> to choose the work tree; CARGO_BUILD_JOBS to spare the machine

@@ -24,10 +24,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MeshoptDecoder } from "meshoptimizer";
-import { parseSkeletonArt, SKELETON_PIECES } from "../../src/app/browser/render/skeleton-skin.ts";
+import { parseSkeletonArt, SKELETON_PIECES } from "../../src/core/bodies/human/skeleton-art.ts";
 import { convexHull } from "../../src/core/bodies/spec/hull.ts";
 import { add, dot, normalize, orthogonalTo, scale, sub } from "../../src/core/bodies/spec/vec.ts";
-import { PATCH } from "../core/hand-envelope.mjs";
+import { PATCH } from "../humanoid/hand-envelope.mjs";
 import bind from "../../assets/skeleton/bind.json" with { type: "json" };
 import { SIDES } from "../../src/core/bodies/bilateral.ts";
 

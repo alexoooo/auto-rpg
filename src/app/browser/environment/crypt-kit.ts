@@ -9,7 +9,7 @@ import type { KitPlacement } from "../../../game/environment/furniture.ts";
  * each placement clones the piece's geometry in game metres. Individual pieces retain their
  * collider identity; merged decorative geometry retains only its material identity.
  */
-export function assembleCryptKit(container: AssetContainer, placements: readonly KitPlacement[], merge = true): Mesh[] {
+export function assembleCryptKit(container: AssetContainer, placements: readonly KitPlacement[], { merge = true }: { readonly merge?: boolean } = {}): Mesh[] {
   const root = container.meshes.find(mesh => mesh.name === "__root__");
   if (root) {
     root.rotationQuaternion = Quaternion.Identity();

@@ -1,10 +1,13 @@
+import { constructionScope } from "../../core/construction.ts";
+import { isRefused, type Refused } from "../../core/refusal.ts";
 import type { PhysicsEngine } from "../../core/physics/engine.ts";
 import { enlist, type Combatant } from "../combatant.ts";
 import { buildBody } from "../../core/bodies/build/build-body.ts";
 import { builtAngles, createMind, warmApart } from "../../minds/minds.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { armedWith } from "../../core/bodies/items/held.ts";
-import { modelInfo, resolveCharacter, type BodyModel, type ResolvedCharacter } from "../../core/bodies/models.ts";
+import { resolveCharacterChecked, type BodyModel, type ResolvedCharacter } from "../../core/bodies/models.ts";
+import { modelInfo } from "../model-loadouts.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { configuredSpawn } from "./attribute-placement.ts";
 import type { MindConfig } from "../../minds/config.ts";
@@ -16,7 +19,7 @@ import { reactionSteps, rulebook } from "../../combat/rulebook.ts";
 import { seedOf } from "../../core/math/random.ts";
 import { phaseOf } from "../../minds/host.ts";
 import { cryptModel } from "./actors.ts";
-import { createWorld, type Hook, type World } from "../../core/world/world.ts";
+import { createWorld, type World } from "../../core/world/world.ts";
 import type { MindPlace } from "../../minds/apart.ts";
 import { isBody } from "../../core/bodies/read-body.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, routeLength, sightIndex, walkable,
@@ -36,7 +39,6 @@ import { releaseCombatApproach } from "../../minds/command/delivery.ts";
 
 /** Each side's Commander where a run names none: the person's party, and a mob. */
 export const RUN_COMMANDERS: Readonly<Record<"party" | "enemies", CommanderConfig>> = Object.freeze({ party: Object.freeze({ kind: "party" }), enemies: Object.freeze({ kind: "mob" }) });
-import { SIGHT_METRES } from "../../minds/command/independent.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamLevel, TeamView } from "../../minds/command/team.ts";
 import type { Command } from "../../minds/command/commands.ts";
 import { doorApproach } from "./door-approach.ts";
@@ -74,7 +76,11 @@ import type { GameContext } from "../arena/context.ts";
  */
 
 /** The map a run of `options` plays: its layout, or the encounter level its seed generates. */
-export const runMap = (options: Pick<DungeonRunOptions, "seed" | "layout">): DungeonMap => options.layout ?? generateEncounterLevel(options.seed).map;
+export function runMap(options: Pick<DungeonRunOptions, "seed" | "layout">): DungeonMap | Refused {
+  if (options.layout) return options.layout;
+  const generated = generateEncounterLevel(options.seed);
+  return isRefused(generated) ? generated : generated.map;
+}
 const heroOf = (options: Pick<DungeonRunOptions, "hero">): BodyModel => options.hero ?? "workshop-fighter";
 const enemyAt = (map: DungeonMap, options: Pick<DungeonRunOptions, "enemy">, i: number): BodyModel =>
   options.enemy?.(i) ?? map.encounters?.[i]?.model ?? "crypt-skeleton";
@@ -134,7 +140,7 @@ export interface DungeonActor {
 
 /** How near a standing party member comes before an enemy is built: beyond its sight, so it is standing when it can
  * first see. */
-export const WAKE_METRES = SIGHT_METRES + 2;
+export const WAKE_METRES = 16;
 /**
  * The levels' rule (`levelsOf`): an enemy is let go with a party
  * member within `wake`, before it could see one, or a body going somewhere within `company`,
@@ -143,7 +149,7 @@ export const WAKE_METRES = SIGHT_METRES + 2;
  * lain `settle` seconds, longer than a fall takes to end. Each pair's gap (`wake` and `rest`,
  * `company` and `clear`) keeps a body on the line from being held and let go by turns.
  */
-export const LEVELS: LevelRule = Object.freeze({ wake: WAKE_METRES, rest: SIGHT_METRES + 4, company: 4, clear: 5, settle: 10 });
+export const LEVELS: LevelRule = Object.freeze({ wake: WAKE_METRES, rest: 18, company: 4, clear: 5, settle: 10 });
 /**
  * How much farther than the levels' lines that let a held enemy go (`LevelRule.wake`, `company`)
  * an enemy is built, held where it waits until they let it go: a second or more before it is
@@ -159,8 +165,8 @@ const EXIT_METRES = 1.1;
 /** A run goes on until its party has fallen or one of it stands at the exit. */
 export type RunStatus = "playing" | "won" | "dead";
 
-interface DungeonRunOptions {
-  readonly prepared?: ReturnType<typeof prepareDungeonCharacters>;
+export interface DungeonRunOptions {
+  readonly prepared?: PreparedDungeonCharacters;
   /** Resolved before placement, including for enemies that wake later. */
   readonly attributes?: (participant: Participant) => AttributeOverrides | null;
   /** The level's seed (`generateLevel`), unless `layout` is given. */
@@ -188,37 +194,69 @@ interface DungeonRunOptions {
 }
 
 /** Resolve every actor and its placement before allocating a world or replacing a running scene. */
-export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy" | "attributes">) {
+export interface PreparedDungeonCharacters {
+  readonly characters: Map<string, ResolvedCharacter>;
+  readonly homes: Map<string, Point>;
+}
+
+export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy" | "attributes">): PreparedDungeonCharacters | Refused {
   const characters = new Map<string, ResolvedCharacter>();
-  const prepare = (id: string, model: BodyModel, side: DungeonActor["side"]) => {
-    const character = resolveCharacter({ model, attributes: options.attributes?.({ id, model, side }) ?? {} });
-    characters.set(id, character); return cryptModel(model, character.spec);
-  };
-  const heroModel = heroOf(options), hero = prepare("hero", heroModel, "party");
+  for (const participant of runParticipants(map, options)) {
+    const character = resolveCharacterChecked({ model: participant.model, attributes: options.attributes?.(participant) ?? {} });
+    if (isRefused(character)) return character;
+    characters.set(participant.id, character);
+  }
+  const heroModel = heroOf(options), hero = cryptModel(heroModel, characters.get("hero")!.spec);
   const geometryChanged = (id: string) => {
     const a = characters.get(id)!.config.attributes; return a.size !== 1 || a.weight !== 1;
   };
   if (geometryChanged("hero") && (!walkable(map, map.start, hero.radius, true) || !findPath(map, map.start, map.exit, hero.radius).length))
-    throw new Error("Configured hero does not fit the dungeon's start or route to the exit.");
+    return { refused: "Configured hero does not fit the dungeon's start or route to the exit." };
   const homes = new Map<string, Point>(), occupied = [{ ...map.start, radius: hero.radius }];
-  const encounters = map.spawns.map((_, i) => prepare(`enemy-${i}`, enemyAt(map, options, i), "enemy"));
-  map.spawns.forEach((at, i) => {
+  const encounters = map.spawns.map((_, i) => cryptModel(enemyAt(map, options, i), characters.get(`enemy-${i}`)!.spec));
+  for (const [i, at] of map.spawns.entries()) {
     const id = `enemy-${i}`, info = encounters[i]!;
     const remaining = map.spawns.slice(i + 1).map((point, k) => ({ ...point, radius: encounters[i + 1 + k]!.radius }));
     const home = geometryChanged(id) ? configuredSpawn(map, at, info.radius, [...occupied, ...remaining]) : at;
+    if (isRefused(home)) return home;
     homes.set(id, home); occupied.push({ ...home, radius: info.radius });
-  });
+  }
   const partyTaken = [{ ...map.start, radius: hero.radius }];
-  (options.companions ?? []).forEach((model, i) => {
-    const id = `ally-${i}`, info = prepare(id, model, "party"), at = companionSpawn(map, partyTaken, info.radius);
-    if (!at) throw new Error(`No floor beside the start for companion ${i + 1}`);
+  for (const [i, model] of (options.companions ?? []).entries()) {
+    const id = `ally-${i}`, info = cryptModel(model, characters.get(id)!.spec), at = companionSpawn(map, partyTaken, info.radius);
+    if (!at) return { refused: `No floor beside the start for companion ${i + 1}` };
     partyTaken.push({ ...at, radius: info.radius }); homes.set(id, at);
-  });
+  }
   return { characters, homes };
 }
 
+/** A constructed run consumes placements that pure admission has accepted. */
+export type AdmittedDungeonRunOptions = DungeonRunOptions & { readonly layout: DungeonMap; readonly prepared: PreparedDungeonCharacters };
+
+/** Admit geometry and participants before allocating any runtime resources. */
+export function createDungeonRun(options: DungeonRunOptions, context: GameContext): DungeonRun | Refused {
+  const layout = runMap(options);
+  if (isRefused(layout)) return layout;
+  const prepared = options.prepared ?? prepareDungeonCharacters(layout, options);
+  if (isRefused(prepared)) return prepared;
+  return new DungeonRun({ ...options, layout, prepared }, context);
+}
+
+interface ActorMemory {
+  outAt: number | null;
+  readonly home: Point;
+  fighter: { readonly body: object; readonly mind: object; readonly pool: object; readonly built: object } | null;
+}
+
 export class DungeonRun {
-  readonly map: DungeonMap;
+  readonly state = {
+    map: null as DungeonMap | null, world: null as object | null, senses: null as object | null,
+    team: null as object | null, foes: null as object | null, watch: null as object | null,
+    actors: {} as Record<string, ActorMemory>, commands: null as object | null,
+    blows: [] as LandedBlow[], explored: new Set<number>(), visible: new Set<number>(),
+    status: "playing" as RunStatus, nextPerception: 0, given: new Map<string, Orders>(),
+  };
+  get map(): DungeonMap { return this.state.map!; }
   /** The left button's commands, each heard by the party's Commander as it is given. */
   readonly commands = new DungeonCommands((command) => this.command(command));
   /** The world every body and collider is in. */
@@ -231,51 +269,62 @@ export class DungeonRun {
   readonly party: DungeonActor[] = [];
   readonly enemies: DungeonActor[] = [];
   /** Every blow and clash so far. */
-  readonly blows: LandedBlow[] = [];
-  readonly explored = new Set<number>();
-  visible = new Set<number>();
-  status: RunStatus = "playing";
+  get blows(): LandedBlow[] { return this.state.blows; }
+  get explored(): Set<number> { return this.state.explored; }
+  get visible(): Set<number> { return this.state.visible; }
+  set visible(visible: Set<number>) { this.state.visible = visible; }
+  get status(): RunStatus { return this.state.status; }
+  set status(status: RunStatus) { this.state.status = status; }
   /** The camera's elevation, which decides where on a wall in front of the hero the cut-away falls. The page sets it. */
   pitch = CAMERA_PITCH;
   /** The unit step on the ground toward the camera, which decides what the keys walk along and which walls the
    * cut-away opens. The page sets it from its azimuth. */
   toward: Point = cameraToward(CAMERA_AZIMUTH);
-  private nextPerception = 0;
+  private get nextPerception(): number { return this.state.nextPerception; }
+  private set nextPerception(time: number) { this.state.nextPerception = time; }
   /** The map's sight index, and how many of its doors were open when it was made: `sight` makes it again when another has opened. */
   private seeing: { index: SightIndex; opened: number } | null = null;
   private watch: BlowWatch | null = null;
-  private readonly planning: Hook;
   private readonly rules = rulebook("dungeon");
   private readonly options: DungeonRunOptions;
   private readonly senses: SensesHub;
   /** The party's Commander and the enemies', and the orders each last gave by member id: a body given none stands. */
   private readonly team: Commander;
   private readonly foes: Commander;
-  private readonly given = new Map<string, Orders>();
+  private get given(): Map<string, Orders> { return this.state.given; }
   /** The levels' rule with its lines that let a held body go `AHEAD_METRES` farther: where an enemy is built (`wake`). */
   private readonly ahead: LevelRule;
 
+  private readonly lifetime = constructionScope();
   private readonly context: GameContext;
 
-  constructor(options: DungeonRunOptions, context: GameContext) {
+  constructor(options: AdmittedDungeonRunOptions, context: GameContext) {
     this.context = context;
     this.options = options;
     const rule = options.levels ?? LEVELS;
     this.ahead = { ...rule, wake: rule.wake + AHEAD_METRES, company: rule.company + AHEAD_METRES };
-    this.map = runMap(options);
-    const { characters, homes } = options.prepared ?? prepareDungeonCharacters(this.map, options);
-    this.world = createWorld(options.engine, options.minds ? { minds: options.minds } : {});
-    this.senses = createSenses(this.world, reactionSteps(this.rules.reaction.value, this.world.hz));
-    this.level = dungeonSolids(this.map, this.world.physics);
-    this.team = createCommander({ level: this.ground((places) => { this.visible = this.sight(places); }) }, options.party ?? RUN_COMMANDERS.party);
-    this.foes = createCommander({ level: this.ground(() => {}) }, options.enemies ?? RUN_COMMANDERS.enemies);
+    this.state.map = options.layout;
+    this.state.commands = this.commands.state;
+    const { characters, homes } = options.prepared;
+    this.world = this.lifetime.own(createWorld(options.engine, options.minds ? { minds: options.minds } : {}));
+    let completed = false;
+    try {
+    this.state.world = this.world.state;
+    this.senses = this.lifetime.own(createSenses(this.world, reactionSteps(this.rules.reaction.value, this.world.hz)));
+    this.state.senses = this.senses.state;
+    this.level = this.lifetime.own(dungeonSolids(this.map, this.world.physics));
+    this.team = createCommander(context.commanders, { level: this.ground((places) => { this.visible = this.sight(places); }) }, options.party ?? RUN_COMMANDERS.party);
+    this.foes = createCommander(context.commanders, { level: this.ground(() => {}) }, options.enemies ?? RUN_COMMANDERS.enemies);
+    this.state.team = this.team.state; this.state.foes = this.foes.state;
     // As the step is prepared, before any body's own hooks, so each body's mind reads this step's orders.
-    this.planning = this.world.prepare(() => this.plan());
+    this.lifetime.own(this.world.prepare(() => this.plan()));
     const run = this;
     const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
       const character = characters.get(id)!, info = cryptModel(model, character.spec);
+      const memory: ActorMemory = { outAt: null, home: { ...at }, fighter: null };
+      this.state.actors[id] = memory;
       const actor: DungeonActor = {
-        id, name: actorName(model), model, character, attackMetres: info.attackMetres, side, fighter: null, outAt: null,
+        id, name: actorName(model), model, character, attackMetres: info.attackMetres, side, fighter: null, get outAt() { return memory.outAt; }, set outAt(time) { memory.outAt = time; },
         feet() {
           if (!this.fighter) return { x: this.home.x, z: this.home.z };
           // A limp body's view is of the step its control left at; its root is where it lies now.
@@ -288,7 +337,7 @@ export class DungeonRun {
         get held() { return this.fighter?.body.level === "held"; },
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
         get target() { const id = run.report(this).target; return id === null ? null : run.actors.find((other) => other.id === id) ?? null; },
-        home: { ...at }, radius: info.radius,
+        get home() { return memory.home; }, radius: info.radius,
         get navigation() { return this.fighter?.minded.report?.navigation ?? null; },
         get skills() { return (this.fighter?.minded as { readonly skills?: Skills } | undefined)?.skills ?? null; },
       };
@@ -297,13 +346,16 @@ export class DungeonRun {
     this.hero = create("hero", heroOf(options), this.map.start, "party");
     this.party.push(this.hero);
     this.map.spawns.forEach((_, i) => this.enemies.push(create(`enemy-${i}`, enemyAt(this.map, options, i), homes.get(`enemy-${i}`)!, "enemy")));
-    (options.companions ?? []).forEach((model, i) => {
+    for (const [i, model] of (options.companions ?? []).entries()) {
       this.party.push(create(`ally-${i}`, model, homes.get(`ally-${i}`)!, "party"));
-    });
+    }
     for (const member of this.party) this.build(member);
     this.warm(options.engine);
     this.wake(Infinity);
     this.visible = this.sight(this.party.map(member => member.home));
+    this.lifetime.own({ dispose: () => this.watch?.dispose() });
+    completed = true;
+    } finally { if (!completed) { this.watch?.dispose(); this.lifetime.dispose(); } }
   }
 
   /** Seconds since the run began: the world's clock. */
@@ -334,10 +386,13 @@ export class DungeonRun {
       },
       orders: () => this.delivered(actor),
     });
+    this.lifetime.own(actor.fighter.body);
+    this.state.actors[actor.id]!.fighter = { body: actor.fighter.body.state, mind: actor.fighter.minded.state, pool: actor.fighter.pool.state, built: { strength: actor.fighter.built.strength, toes: actor.fighter.built.toes, configurations: actor.fighter.built.configurations.state } };
     this.watch?.dispose();
     // The party first: a touch is read from the fighter given first (`watchBlows`), and the party's bodies are the fewer.
     const fighters = [...this.party, ...this.enemies].flatMap((a) => a.fighter ? [a.fighter] : []);
     this.watch = watchBlows(this.world, fighters, this.rules, (blow) => { this.blows.push(blow); this.options.onBlow?.(blow); });
+    this.state.watch = this.watch.state;
     this.options.onBuilt?.(actor, this.world);
   }
 
@@ -483,6 +538,7 @@ export class DungeonRun {
   private ground(look: TeamLevel["look"]): TeamLevel {
     const map = this.map, routes = new Map<string, number | null>();
     let asked = -1;
+    this.world.onLoad(() => { this.senses.show(); routes.clear(); asked = -1; this.seeing = null; this.level.refresh(); });
     return {
       sees: (from, to, metres) => canSee(map, from, to, metres, this.sightIndex()),
       look,
@@ -556,12 +612,5 @@ export class DungeonRun {
   /** The steps owed after `seconds` of real time, no more than `most` (`World.advance`); none once the run is over. */
   advance(seconds: number, most?: number): number { return this.status === "playing" ? this.world.advance(seconds, most) : 0; }
 
-  dispose(): void {
-    this.watch?.dispose();
-    this.planning.dispose();
-    this.senses.dispose();
-    for (const actor of this.actors) actor.fighter?.body.dispose();
-    this.level.dispose();
-    this.world.dispose();
-  }
+  dispose(): void { this.lifetime.dispose(); }
 }
