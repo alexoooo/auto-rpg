@@ -273,10 +273,11 @@ function sampleOf(trials: readonly Trial[]): Sample {
  * nothing the nearest measured one does not: read as it is, its distance would outweigh the
  * range's and take the few trials begun at the sample's extreme, from whatever range they began at.
  */
-function within(sample: Sample, at: Start): Read {
-  const [closing, across] = at.velocity ?? STILL, [ahead, aside] = at.window ?? STILL, { low, high } = sample;
-  return [Math.min(high[0], Math.max(low[0], closing)), Math.min(high[1], Math.max(low[1], across)),
-    Math.min(high[2], Math.max(low[2], ahead)), Math.min(high[3], Math.max(low[3], aside))];
+function within(sample: Sample, at: Start, read: Nearest["read"]): void {
+  const velocity = at.velocity ?? STILL, closing = velocity[0], across = velocity[1],
+    window = at.window ?? STILL, ahead = window[0], aside = window[1], { low, high } = sample;
+  read[0] = Math.min(high[0], Math.max(low[0], closing)); read[1] = Math.min(high[1], Math.max(low[1], across));
+  read[2] = Math.min(high[2], Math.max(low[2], ahead)); read[3] = Math.min(high[3], Math.max(low[3], aside));
 }
 
 /** How far `sample`'s trial `i` lies from a start at `range` read at `read` (`within`), each part over its span (`NEAREST`). */
@@ -294,43 +295,66 @@ function firstFrom(sample: Sample, range: number): number {
 /** The nearest distances found, ascending, of a search (`nearestOf`): made once, as long as `NEAREST.trials`. */
 const BEST = new Float64Array(NEAREST.trials);
 
+/** A nearest query's clamped coordinates, bounds and visited interval, held through aggregation. */
+interface Nearest { from: number; to: number; bound: number; readonly read: [number, number, number, number]; visitedFrom: number; visitedTo: number }
+
+/** One query's work; nested queries use a frame of their own until the outer aggregation ends. */
+const nearestWork = (): Nearest => ({ from: 0, to: 0, bound: 0, read: [0, 0, 0, 0], visitedFrom: 0, visitedTo: 0 });
+const QUERY_WORK = { depth: 0, frames: [nearestWork()] };
+
+/** Keep distance `d` among the nearest `want`, returning how many have been found. */
+function keepNearest(d: number, found: number, want: number): number {
+  if (found === want && d >= BEST[want - 1]!) return found;
+  let k = found < want ? found++ : want - 1;
+  while (k > 0 && BEST[k - 1]! > d) { BEST[k] = BEST[k - 1]!; k--; }
+  BEST[k] = d;
+  return found;
+}
+
 /**
  * **The trials of `sample` nearest `at`** (`NEAREST`): the span of its indices `[from, to)` that
  * holds them, and the distance the farthest of them lies at (`bound`), each in the span within it;
- * null where `sample` is empty.
+ * written into `near`; false where `sample` is empty.
  */
-function nearestOf(sample: Sample, at: Start): { readonly from: number; readonly to: number; readonly bound: number; readonly read: Read; readonly visitedFrom: number; readonly visitedTo: number } | null {
+function nearestOf(sample: Sample, at: Start, near: Nearest): boolean {
   const n = sample.range.length;
-  if (n === 0) return null;
-  const read = within(sample, at), want = Math.min(NEAREST.trials, n);
-  const distance = (i: number): number => sample.distances[i] = apart(sample, i, at.range, read);
+  if (n === 0) return false;
+  const read = near.read;
+  within(sample, at, read);
+  const want = Math.min(NEAREST.trials, n);
   let found = 0;
-  const keep = (d: number): void => {
-    if (found === want && d >= BEST[want - 1]!) return;
-    let k = found < want ? found++ : want - 1;
-    while (k > 0 && BEST[k - 1]! > d) { BEST[k] = BEST[k - 1]!; k--; }
-    BEST[k] = d;
-  };
   // Out from the range asked, each way, until the range alone puts a trial past the farthest kept.
   const start = firstFrom(sample, at.range);
   let visitedFrom = start, visitedTo = start;
-  for (let i = start; i < n; i++) { if (found === want && (sample.range[i]! - at.range) / NEAREST.range > BEST[want - 1]!) break; keep(distance(i)); visitedTo = i + 1; }
-  for (let i = start - 1; i >= 0; i--) { if (found === want && (at.range - sample.range[i]!) / NEAREST.range > BEST[want - 1]!) break; keep(distance(i)); visitedFrom = i; }
+  for (let i = start; i < n; i++) {
+    if (found === want && (sample.range[i]! - at.range) / NEAREST.range > BEST[want - 1]!) break;
+    const distance = sample.distances[i] = apart(sample, i, at.range, read);
+    found = keepNearest(distance, found, want); visitedTo = i + 1;
+  }
+  for (let i = start - 1; i >= 0; i--) {
+    if (found === want && (at.range - sample.range[i]!) / NEAREST.range > BEST[want - 1]!) break;
+    const distance = sample.distances[i] = apart(sample, i, at.range, read);
+    found = keepNearest(distance, found, want); visitedFrom = i;
+  }
   const bound = BEST[want - 1]! + TIE, span = bound * NEAREST.range;
-  return { from: firstFrom(sample, at.range - span), to: firstFrom(sample, at.range + span + TIE * NEAREST.range), bound, read, visitedFrom, visitedTo };
+  near.from = firstFrom(sample, at.range - span); near.to = firstFrom(sample, at.range + span + TIE * NEAREST.range);
+  near.bound = bound; near.visitedFrom = visitedFrom; near.visitedTo = visitedTo;
+  return true;
 }
 
 /** Each trial of `sample` in `nearest`'s span within its bound, by `each`. */
 function eachNearest(sample: Sample, at: Start, each: (trial: Trial) => void): number {
-  const near = nearestOf(sample, at);
-  if (!near) return 0;
-  let n = 0;
-  for (let i = near.from; i < near.to; i++) {
-    // The tie tolerance can admit trials beyond the interval visited before pruning.
-    const distance = i >= near.visitedFrom && i < near.visitedTo ? sample.distances[i]! : apart(sample, i, at.range, near.read);
-    if (distance <= near.bound) { each(sample.trials[i]!); n++; }
-  }
-  return n;
+  const depth = QUERY_WORK.depth++, near = QUERY_WORK.frames[depth] ??= nearestWork();
+  try {
+    if (!nearestOf(sample, at, near)) return 0;
+    let n = 0;
+    for (let i = near.from; i < near.to; i++) {
+      // The tie tolerance can admit trials beyond the interval visited before pruning.
+      const distance = i >= near.visitedFrom && i < near.visitedTo ? sample.distances[i]! : apart(sample, i, at.range, near.read);
+      if (distance <= near.bound) { each(sample.trials[i]!); n++; }
+    }
+    return n;
+  } finally { QUERY_WORK.depth--; }
 }
 
 /** What a body's trials in one phase are read by: those its skill ran from (`run`), those it let go by the progress let go at (`letGo`), and its reach. */

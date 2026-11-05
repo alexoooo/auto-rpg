@@ -62,9 +62,11 @@ rewrite: no fingerprint case moves. Check: the cost reading; the worker tests re
 Each nearest-trial query (`src/core/skills/framework/profile.ts`) keeps the distances its
 selection computed in sample scratch and reuses them when aggregating the selected trials.
 Only the interval visited by that query is valid; trials admitted beyond it by the tie tolerance
-have their distances computed during aggregation. The distance arithmetic and trial order hold.
-Check: complete profile readings, interleaved queries, the fingerprint and paired search and step
-timings.
+have their distances computed during aggregation. Query work holds clamped start coordinates and
+neighbour bounds in frames reused by call depth through aggregation; fixed input tuples are read
+by index, and distance insertion uses a shared helper. The distance arithmetic and trial order hold.
+Check: complete profile readings, interleaved and nested queries, the fingerprint, allocation
+samples and paired search and step timings.
 
 ### Exact pressure queries
 
