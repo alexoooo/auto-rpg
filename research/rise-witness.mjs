@@ -271,8 +271,10 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view) => {
     const drive = poseDrive(own.muscles), bearing = bearer(own, view), steadying = crouchSteady(own, view, steady);
     control.steadying = steadying.control;
-    return { name: `witness:${move}`, state: { control, bearing: bearing.state, steady: steadying.state }, wants: () => control.active, begin() {}, end() {},
-      step(_senses, dt) {
+    return { name: `witness:${move}`, has: () => `witness:${move}`, dispose() {}, mind: {
+      state: { control, bearing: bearing.state, steady: steadying.state }, wants: () => control.active, begin() {}, end() {}, act() {}, interrupt() {},
+      think() {
+        const dt = own.dt;
         if (control.time < handover) {
           let at = control.time, k = 0;
           while (k < plan.length - 1 && at >= plan[k].duration) { at -= plan[k].duration; k++; }
@@ -291,7 +293,7 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
           control.active = steadying.control.on;
         }
         control.time += dt;
-      } };
+      } } };
   }]);
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));

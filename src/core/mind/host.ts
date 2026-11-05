@@ -8,7 +8,7 @@ import { rulebook, type Rulebook } from "../rules/rulebook.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { PartLookup } from "../parts/lookup.ts";
-import { embody, type Embodying, type Experiment, type Mind, type OwnBody } from "./mind.ts";
+import { embody, type Embodying, type Experiment, type MindConstruction, type OwnBody } from "./mind.ts";
 import type { Senses } from "./senses.ts";
 import { commandedMind, type SubMindMaker } from "./sub-mind.ts";
 
@@ -74,19 +74,19 @@ export interface BodyHost {
    * its senses, assist and contact labels among it), once; returns that mind. Whatever the mind
    * builds on its body (the command layers, sub-minds, a policy) is its own.
    */
-  take<M extends Mind>(make: (own: OwnBody) => M): M;
+  take<M extends MindConstruction>(make: (own: OwnBody) => M): M;
 }
 
 /**
  * **`built` in `world` under the mind `make` makes**, given `given` (`Embodying`): the one way a
  * body takes a mind, in a fight or out of one. The fight's `PhysicalBody` is built the same way for
- * every mind: who has the body is the mind's (`Mind.has`, its name where it hands nothing over),
- * and where the mind drives it through the command layers (`Mind.body`) it shows their view and
+ * every mind: who has the body is the mind's (`MindConstruction.has`, its name where it hands nothing over),
+ * and where the mind drives it through the command layers (`CommandedMind.body`) it shows their view and
  * drive as a `HostedBody` does.
  */
-export function hostBody<M extends Mind>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
+export function hostBody<M extends MindConstruction>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
   const { held, mind, state, dispose } = embody(built, world, make, given);
-  const body = physicalBody(built, held, world, () => mind.has ?? mind.name, state, dispose), driver = mind.body;
+  const body = physicalBody(built, held, world, () => mind.has(), state, dispose), driver = mind.body;
   return { mind, body: driver ? Object.assign(body, { view: driver.view, envelope: driver.envelope, drive: driver.drive, afterPhysics: driver.afterPhysics, driver }) : body };
 }
 
@@ -112,7 +112,7 @@ export function bodyHost(built: BuiltBody, world: World, grants: HostGrants, par
     ...(answered ? { answered } : {}) };
   const host: BodyHost = Object.freeze({
     spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, phase: grants.phase ?? 0, rules: rulesOf(grants),
-    take<M extends Mind>(make: (own: OwnBody) => M): M {
+    take<M extends MindConstruction>(make: (own: OwnBody) => M): M {
       if (body) throw new Error("a mind takes its body once");
       const taken = hostBody(built, world, given, make);
       body = taken.body;

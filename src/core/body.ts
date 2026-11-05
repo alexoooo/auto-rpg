@@ -31,6 +31,7 @@ import type { ReadBody } from "./read-body.ts";
  * the same, the driver is not asked, and the other writes the muscles.
  */
 export interface Body {
+  readonly dt: number;
   readonly built: ReadBody;
   /** The muscles, for readings (a view of the torques); a driver commands through `drive`. */
   readonly muscles: MuscleDriver;
@@ -65,7 +66,7 @@ export interface Body {
  */
 export type HostedBody = PhysicalBody & Pick<Body, "view" | "envelope" | "drive" | "afterPhysics"> & { readonly driver: Body };
 
-/** The command layers' ownership label (`Mind.name`), shared by them and their readers (`commandsBody`). */
+/** The command layers' ownership label (`MindConstruction.name`), shared by them and their readers (`commandsBody`). */
 export const COMMAND = "command";
 
 /** Whether the command layers currently drive this body, rather than a sub-mind or nobody. */
@@ -86,7 +87,7 @@ export type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | 
  * **A driver in two parts**: what it decides on the view as sensed (`decide`), and the command it
  * carries the decision out with on the body as it is (`carry`, null to keep the command). With no
  * delay it carries out each decision the step it is made; at a delay (`Body.delay`) it decides on
- * the mind's step and carries the decision out in its motor part (`Mind.move`) the delay's steps
+ * the mind's step and carries the decision out in its motor part (`Mind.act`) the delay's steps
  * later, on a view whose body is that step's and whose senses are still those it decided on. A
  * driver that is one function decides its command whole.
  */

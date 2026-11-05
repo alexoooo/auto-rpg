@@ -23,13 +23,13 @@ test("a body's command is applied the world's delay after it is sent, none befor
   const right = built.handPoses.model.find((hand) => hand.hand === "right"), poses = right.poses.slice(0, 2);
   assert.equal(poses.length, 2, "the fixture needs a hand with two poses");
   const sent = [], level = (k) => 0.05 + 0.1 * (k % 7), push = (k) => [k + 1, 0, 0];
-  const embodied = embody(built, world, (own) => ({ name: "delay probe", state: {}, step() {
+  const embodied = embody(built, world, (own) => ({ name: "delay probe", has: () => "delay probe", dispose() {}, mind: { state: {}, act() {}, interrupt() {}, think() {
     const k = sent.length;
     own.muscles.activation.fill(level(k)); own.muscles.velocity.fill(0);
     own.assist.ask(new Vector3(...push(k)), new Vector3());
     own.requestHandPoses([{ hand: "right", pose: poses[k % 2] }]);
     sent.push(k);
-  } }), { assist: { force: 10, moment: 10 } });
+  } } }), { assist: { force: 10, moment: 10 } });
   // The body's own muscles and assist, not the mind's view of them, which a world with a delay keeps on a mirror a step behind.
   const muscles = embodied.held.muscles, channel = muscles.channels.findIndex((c) => c.positive.tendon === null && c.negative.tendon === null);
   assert.ok(channel >= 0, "the fixture needs a channel without a tendon");

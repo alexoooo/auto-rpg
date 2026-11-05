@@ -4,7 +4,7 @@ import type { Rulebook } from "../rules/rulebook.ts";
 import type { MenuEntry } from "../skills/framework/menu.ts";
 import type { MindConfig } from "./config.ts";
 import type { BodyHost } from "./host.ts";
-import type { Experiment, Mind, OwnBody } from "./mind.ts";
+import type { Experiment, Mind, MindConstruction, OwnBody } from "./mind.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import { mirrorBody, type Mirror, type MirrorChannel, type MirrorStatics } from "./mirror.ts";
 import { answer, think, motorPart } from "./mind.ts";
@@ -46,7 +46,7 @@ export interface At { readonly steps: number; readonly time: number }
  * **What the world asks a seat**, in order: to make its mind from its recipe; to step on the numbers
  * the world has just written, with its orders where they have changed since the last step's, its
  * observers of the physics (`OwnBody.afterPhysics`) first shown the completed interval those
- * numbers hold; to go idle (`Mind.idle`); for its menu; and to go (`Mind.dispose`).
+ * numbers hold; to go idle (`Mind.interrupt`); for its menu; and to go (`MindConstruction.dispose`).
  */
 export type SeatAsk =
   | { readonly kind: "make"; readonly recipe: MindRecipe; readonly at: At }
@@ -59,7 +59,7 @@ export type SeatAsk =
 export type ReportNow = Omit<MindReport, "menu">;
 
 /**
- * **What a seat's mind says of itself**: who has its body (`Mind.has`) and its report, as it was
+ * **What a seat's mind says of itself**: who has its body (`MindConstruction.has`) and its report, as it was
  * made and then with each answer (`answer`), before the step's decision, so that what the world
  * reads of it never waits on a decision. What it shows a person (`MindReport.engagement`) is said
  * as it is made and with the answer to a step asked with `shown`, and is otherwise as it last said
@@ -125,6 +125,7 @@ interface Seated {
   readonly orders: { now: Orders | null };
   readonly listeners: Set<(step: number, time: number) => void>;
   readonly mind: Mind;
+  readonly construction: MindConstruction;
   readonly moves: ReturnType<typeof motorPart>;
   readonly made: MindMade;
   menu?: readonly MenuEntry[] | null;
@@ -171,12 +172,12 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
     const mirror = mirrorBody(statics, channel);
     const clock = { dt: recipe.dt, steps: at.steps, time: at.time }, orders = { now: null as Orders | null };
     const listeners = new Set<(step: number, time: number) => void>();
-    let mind: Mind | null = null;
-    const moves = motorPart(() => mind!);
+    let construction: MindConstruction | null = null;
+    const moves = motorPart(() => construction!.mind);
     const own: OwnBody = {
-      spec, delay: statics.delay, built: mirror.read, muscles: mirror.muscles, assist: mirror.assist,
+      spec, dt: recipe.dt, delay: statics.delay, built: mirror.read, muscles: mirror.muscles, assist: mirror.assist,
       requestHandPoses: (requests) => mirror.requestHandPoses(requests), senses: moves.guard(() => mirror.senses),
-      ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}), ...(recipe.experiment ? { experiment: recipe.experiment } : {}),
+      ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}),
       afterPhysics(listener) {
         listeners.add(listener);
         return () => { listeners.delete(listener); };
@@ -185,23 +186,23 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
     const host: BodyHost = Object.freeze({
       spec, parts: catalog.treeLookup(config), seed: recipe.seed, phase: recipe.phase, rules: recipe.rules,
       clock: Object.freeze({ dt: clock.dt, get steps() { return clock.steps; }, get time() { return clock.time; } }),
-      take<M extends Mind>(maker: (body: OwnBody) => M): M {
-        if (mind) throw new Error("a mind takes its body once");
+      take<M extends MindConstruction>(maker: (body: OwnBody) => M): M {
+        if (construction) throw new Error("a mind takes its body once");
         const taken = maker(own);
-        mind = taken;
+        construction = taken;
         return taken;
       },
     });
     const wiring: MindWiring = { name: recipe.name, seed: recipe.seed, phase: recipe.phase, rules: recipe.rules, orders: () => orders.now,
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}), ...(recipe.experiment ? { experiment: recipe.experiment } : {}) };
     const made = catalog.controllerOf(config).create(host, config, wiring);
-    if (!mind) throw new Error("the mind took no body");
-    return { recipe, mirror, clock, orders, listeners, mind, moves, made, deciding: false };
+    if (!construction) throw new Error("the mind took no body");
+    return { recipe, mirror, clock, orders, listeners, mind: (construction as MindConstruction).mind, construction, moves, made, deciding: false };
   };
   const decide = (seated: Seated | undefined): void => {
     if (!seated?.deciding) return;
     seated.deciding = false;
-    think(seated.mind, seated.mirror, seated.recipe.dt);
+    think(seated.mind, seated.mirror);
   };
   return {
     decide: (seat) => decide(seats.get(seat)),
@@ -218,14 +219,14 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
           if (ask.orders !== undefined) seated.orders.now = ask.orders;
           seated.mirror.refresh({ dynamics: true });
           for (const listener of seated.listeners) listener(ask.at.steps, ask.at.time);
-          answer(seated.mind, seated.moves, seated.mirror, seated.recipe.dt);
+          answer(seated.mind, seated.moves, seated.mirror);
           seated.deciding = true;
           return;
         }
         case "idle": {
           const seated = seatOf(seat);
           tick(seated, ask.at);
-          seated.mind.idle?.();
+          seated.mind.interrupt();
           seated.mirror.idle();
           return;
         }
@@ -236,15 +237,15 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
           return;
         }
         case "dispose":
-          seatOf(seat).mind.dispose?.();
+          seatOf(seat).construction.dispose();
           seats.delete(seat);
           return;
         default: { const never: never = ask; throw new Error(`no ask ${JSON.stringify(never)}`); }
       }
     },
     says(seat) {
-      const { mind, made } = seatOf(seat), report = made.report;
-      return { has: mind.has ?? mind.name, report: report ? reportNow(report) : null };
+      const { construction, made } = seatOf(seat), report = made.report;
+      return { has: construction.has(), report: report ? reportNow(report) : null };
     },
     menu(seat) {
       const seated = seatOf(seat);

@@ -139,13 +139,13 @@ const STIFF_SECONDS = 1.5;
 export async function toppled(shove, subs) {
   const until = (world) => Math.round((STAND_SECONDS + STIFF_SECONDS) * world.hz);
   const fall = await felled(shove, (made, into) => {
-    const stiff = (own) => ({
-      name: "stiff", wants: () => into.steps < until(into), begin() {}, end() {},
-      step() {
+    const stiff = (own) => ({ name: "stiff", has: () => "stiff", dispose() {}, mind: {
+      state: {}, wants: () => into.steps < until(into), begin() {}, end() {}, act() {}, interrupt() {},
+      think() {
         own.muscles.activation.fill(1);
         for (let i = 0; i < own.muscles.velocity.length; i++) own.muscles.velocity[i] = Math.max(-3, Math.min(3, -own.muscles.angle(i) / 0.2));
       },
-    });
+    } });
     return commandedBody(made, into, { servoSeconds: SERVO_SECONDS }, [stiff, ...subs]);
   });
   while (fall.world.steps < until(fall.world)) fall.world.step();

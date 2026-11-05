@@ -131,13 +131,16 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
       state.links.push({ technique: one.chain[state.link]!, end, seconds: state.phase === "run" ? clock.time - state.since : 0, entry: state.entry, position: g?.position ?? "between" });
       state.entry = null;
     };
-    return { name: "technique case", state,
+    const name = "technique case";
+    return { name, has: () => name, dispose() {}, mind: { state,
       wants: () => state.phase !== "over" && state.phase !== "stood" && (one.start.kind === "placed" || state.down),
       begin() { state.phase = "wait"; state.since = clock.time; if (lying) { own.muscles.activation.fill(0); own.muscles.velocity.fill(0); } else drive(held); remember(); },
       end() { if (state.phase === "run") { runs[state.link]!.end(); close("interrupted", view.ground); state.phase = "over"; } },
       // The chain runs in the motor part, on the body as it is, as the game's ground skills do (`groundSkills`).
-      step() {},
-      move(dt) {
+      think() {},
+      interrupt() {},
+      act() {
+        const dt = own.dt;
         const g = view.ground, senses = view.senses;
         if (!g) { carry(); return; }
         if (state.phase === "rest") {
@@ -173,7 +176,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
         else if (stands) { state.phase = "stood"; state.since = clock.time; }
         else if (end !== "done") { state.phase = "rest"; state.since = clock.time; }
         else state.phase = "over";
-      } };
+      } } };
   }]);
   body.drive(() => ({ posture: guardPosture(spec), pushes: [], stance: { feet: stanceFeet(spec).map((foot) => foot.end.name), centre: null, height: body.view.standing - .03, heading: 0 } }));
   const root = built.segments.get("middleTrunk")!, mass = [...built.segments.values()].reduce((sum, part) => sum + part.rigid.mass, 0);

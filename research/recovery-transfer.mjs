@@ -2,7 +2,7 @@ import { pathToFileURL } from 'node:url';
 import { Vector3 } from '../src/core/math/vector.ts';
 import { toppled, riserOf } from './core-rise-trials.mjs';
 import { riseLimbs } from '../src/core/recovery/implementations/staged/limbs.ts';
-import { stagedRise } from '../src/core/recovery/implementations/staged/staged.ts';
+import { stagedSubMind } from './staged-submind.mjs';
 import { RISE } from '../src/core/recovery/implementations/staged/stages.ts';
 import { uprightness } from '../src/core/control/ground.ts';
 import { withinSupport } from '../src/core/control/support.ts';
@@ -32,7 +32,7 @@ export async function transferTrial({ hand = 'left', hands = LEANING[CORE_ENGINE
       { limb: `hand.${hand === 'left' ? 'right' : 'left'}`, share: .2 }], leave: [`hand.${hand}`], limit: 3 };
   const recipe = { ...RISE, rise: [...RISE.rise.slice(0, at), fours, stage] };
   const { world, built, body, dispose } = await toppled({ model: 'workshop-fighter', held: 'empty', degrees: 0 },
-    [(own, view) => stagedRise(own, view, recipe)]);
+    [(own, view) => stagedSubMind(own, view, recipe)]);
   const made = riseLimbs({ spec: built.spec, built, muscles: body.muscles, assist: body.assist });
   const upright = uprightness(built), riser = riserOf(body), c = new Vector3(), p = new Vector3(), v = new Vector3();
   const segments = [...built.segments.values()], mass = segments.reduce((s, part) => s + part.rigid.mass, 0);

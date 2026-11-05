@@ -90,7 +90,10 @@ export async function steady({ model = "workshop-fighter", held = "empty", seed,
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view) => {
     const steadying = crouchSteady(own, view, variant);
     control = steadying.control;
-    return { name: "crouch steady", state: steadying.state, wants: () => control.on, begin() {}, end() {}, step: (_senses, dt) => steadying.step(dt) };
+    return { name: "crouch steady", has: () => "crouch steady", dispose() {}, mind: {
+      state: steadying.state, wants: () => control.on, begin() {}, end() {}, act() {}, interrupt() {},
+      think: () => steadying.step(own.dt),
+    } };
   }]);
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));

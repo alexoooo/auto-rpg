@@ -20,7 +20,7 @@ import { standingHeight } from "./support.ts";
  * **The command layers as a mind** (`commandLayers`): motor control under a driver that hands it
  * goals (`BodyDriver`), seen through a view. Each step it reads the view (`look`), then asks the
  * driver for a command and gives the command to motor control, which writes the muscles (`act`).
- * At a delay (`OwnBody.delay`) motor control is its motor part (`Mind.move`): it reads the body
+ * At a delay (`OwnBody.delay`) motor control is its motor part (`Mind.act`): it reads the body
  * as it is (`feel`), has the driver carry out what it decided the delay's steps before
  * (`SplitDriver.carry`) and carries the command out, and `act` only asks the driver to decide.
  * A mind that hands its body over hosts them (`HostMind`): released, motor control forgets what was
@@ -28,6 +28,8 @@ import { standingHeight } from "./support.ts";
  * its standing height; resumed, the driver is told (`BodyView.resumed`).
  */
 export interface CommandLayers extends HostMind {
+  readonly name: string;
+  dispose(): void;
   /** The view as the last step left it, or as built before the first. */
   readonly view: BodyView;
   /** The body its drivers have: the one to hand a decider's skills, a skill or a script. */
@@ -189,12 +191,14 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     state.felt = false;
     view.senses = senses;
   };
-  const act = (dt: number): void => {
+  const think = (): void => {
+    const dt = clock.dt;
     state.pending.push(driver ? driver.decide(view, dt) : null);
     state.resumed = false;
     moved();
   };
-  const move = (dt: number): void => {
+  const act = (): void => {
+    const dt = clock.dt;
     feel(clock.time);
     state.felt = true;
     if (state.pending.length >= own.delay) {
@@ -215,11 +219,11 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   own.afterPhysics((step) => { moved(); feedback?.read(step); });
   // What the stance holds walking, for a motor that stands the body by the stance.
   const envelope = balancing && !options.measuring && Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(own.spec) : null;
-  const body: Body = { built, muscles, assist: own.assist, view, envelope, drive, afterPhysics: own.afterPhysics, delay: own.delay,
+  const body: Body = { dt: clock.dt, built, muscles, assist: own.assist, view, envelope, drive, afterPhysics: own.afterPhysics, delay: own.delay,
     ...(own.contactIdentity ? { contactIdentity: own.contactIdentity } : {}) };
   return {
     name: COMMAND,
-    view, body, look, act, move, state,
+    view, body, look, think, act, state,
     feel() {
         feel(clock.time);
       state.felt = true;
@@ -228,7 +232,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       feedback?.read(clock.steps);
       look(own.senses());
     },
-    step(senses, dt) { look(senses); act(dt); },
+    interrupt() { this.release("idle"); },
     release(reason = "takeover") {
       state.released = true;
       state.pending.length = 0;

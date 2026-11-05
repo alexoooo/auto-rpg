@@ -45,10 +45,11 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const run = TECHNIQUES[technique].make(own, view, clock, kitOf(partLookup, own.spec));
     let reader = null, begun = false;
-    return { name: technique, state: { trial }, wants: () => trial.end === null, begin() {}, end() {},
+    return { name: technique, has: () => technique, dispose() {}, mind: { state: { trial }, wants: () => trial.end === null, begin() {}, end() {}, interrupt() {},
       // The technique runs in the motor part, on the body as it is, as the game's ground actions do.
-      step() {},
-      move(dt) {
+      think() {},
+      act() {
+        const dt = own.dt;
         const senses = view.senses;
         reader ??= groundReading(own.built, dt);
         const g = reader.read();
@@ -59,7 +60,7 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
         trial.end = end; trial.at = view.time;
         const turn = turnOfToRef(own.muscles.dynamics.root.segment, new Quaternion()), across = new Vector3(1, 0, 0).applyRotationQuaternionToRef(turn, new Vector3());
         trial.heading = Math.atan2(-across.z, across.x);
-      } };
+      } } };
   }]);
   body.drive((view) => ({ posture: {}, pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: trial.heading } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));

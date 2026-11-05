@@ -131,7 +131,7 @@ export const MIND_APART: object = Object.freeze(new MemoryApart());
 /** **A body under a mind apart** (`embodyApart`): the body as its fight holds it, and what its mind last said of itself. */
 export interface EmbodiedApart {
   readonly held: Pick<OwnBody, "muscles" | "assist" | "senses">;
-  /** Who has the body, as its mind last said (`Mind.has`). */
+  /** Who has the body, as its mind last said (`MindConstruction.has`). */
   has(): string;
   /** What its mind publishes, as it said it with its last answer, its menu asked for when read (`MindReport`). */
   readonly report: MindReport;

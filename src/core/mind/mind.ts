@@ -13,56 +13,24 @@ import { clockSenses, type Senses } from "./senses.ts";
 import { delayLine, heldSteps } from "../command-delay.ts";
 import type { SheetLog } from "./sheets.ts";
 
-/**
- * **A mind**: a stateful function from what its body senses to what its muscles are asked. It is
- * made with its own body (`OwnBody`) and each control step reads its senses and that body, and
- * writes the muscles' command: for each freedom an activation, 0 to 1, and a speed asked for
- * (`MuscleDriver.activation`, `.velocity`). A speed beyond the muscles' reach pushes at the
- * ceiling the activation sets, which is a torque; a speed of zero holds.
- *
- * That command, and what it asks of its assist (`Assist`, none unless its fight allows one), is
- * the whole of what a mind does to the world. How it gets there is its own: the
- * game's bodies run a decider, skills and motor control (`commandLayers`,
- * `src/core/control/command-layers.ts`, and `driveBy`, `decider.ts`), and a mind that writes
- * activations itself is as much a mind.
- *
- * The seam names no hand and no foot: the channels are the body's own
- * (`MuscleDriver.channels`), so a body of another shape takes a mind through the same call.
- */
+/** Plain saved memory: all values a mind carries from one step to the next. */
+export type MindState = object;
+
+/** A computation whose fast action precedes its next decision. */
 export interface Mind {
+  readonly state: MindState;
+  act(): void;
+  think(senses: Senses): void;
+  interrupt(): void;
+}
+
+/** Construction metadata and resources, separate from the computation. */
+export interface MindConstruction<M extends Mind = Mind> {
+  readonly mind: M;
   readonly name: string;
-  /**
-   * The name of the mind that has the body this step, where it hands its body over (`hosting`):
-   * its own, a sub-mind's, or `"nobody"`. Its own name where absent.
-   */
-  readonly has?: string;
-  /** One control step, before the solver's: write this step's command into the body's muscles. */
-  step(senses: Senses, dt: number): void;
-  /**
-   * **Its motor part**, where it has one: each control step, on the body as it is, it turns what its
-   * steps decided into the muscles' command. Its body takes that command at once; what a step
-   * decides reaches it `OwnBody.delay` steps later (`embody`). It reads its own body alone: the
-   * senses are its step's (`OwnBody.senses` refuses it).
-   */
-  move?(dt: number): void;
-  /**
-   * Its body is nobody's from now (`BodyLevel` below `full`): it is not stepped until the body
-   * is its own again, and then goes on from the body as it is. A mind with nothing under way
-   * need not answer.
-   */
-  idle?(): void;
-  /**
-   * Its memory, if it has any (`src/core/state.ts`): saved and loaded with its body's. A mind that
-   * remembers anywhere else does not go on from a load as it went on from the save.
-   */
-  readonly state?: object;
-  /** Its body is given up for good (`PhysicalBody.dispose`): it lets go of whatever drives it. A mind that holds nothing need not answer. */
-  dispose?(): void;
-  /**
-   * The body its drivers have, where it drives its body through the command layers
-   * (`commandLayers`): the fight's body shows its view and drive (`HostedBody`). None for a mind
-   * that drives its muscles itself.
-   */
+  has(): string;
+  dispose(): void;
+  /** The command layers exposed by constructions that use them. */
   readonly body?: Body;
 }
 
@@ -75,7 +43,8 @@ export interface Mind {
  */
 export interface OwnBody {
   readonly spec: BodySpec;
-  /** The steps between its mind's step and its motor part carrying out what the step decided (`World.delay`, `Mind.move`). */
+  readonly dt: number;
+  /** The steps between its mind's step and its motor part carrying out what the step decided (`World.delay`, `Mind.act`). */
   readonly delay: number;
   readonly built: ReadBody;
   readonly muscles: MuscleDriver;
@@ -87,8 +56,6 @@ export interface OwnBody {
   readonly senses: () => Senses;
   /** How it labels the other side of a contact (`ContactIdentity`), where its fight grants one. */
   readonly contactIdentity?: ContactIdentity;
-  /** An experiment's settings of its command layers (`Experiment`), in place of its mind's, where one is given. */
-  readonly experiment?: Experiment;
   /**
    * Call `listener` after each completed physics interval with the step and the time, after those
    * added before it, whether or not its mind steps; returns what stops it.
@@ -96,9 +63,9 @@ export interface OwnBody {
   afterPhysics(listener: (step: number, time: number) => void): () => void;
 }
 
-type MindMaker<M extends Mind = Mind> = (own: OwnBody) => M;
+type MindMaker<M extends MindConstruction = MindConstruction> = (own: OwnBody) => M;
 
-interface Embodied<M extends Mind = Mind> {
+interface Embodied<M extends MindConstruction = MindConstruction> {
   /** The mirror its mind reads. */
   readonly own: OwnBody;
   /** The body as its fight holds it: its muscles, its assist and its senses, the world's own whatever its mind reads. */
@@ -106,7 +73,7 @@ interface Embodied<M extends Mind = Mind> {
   readonly mind: M;
   /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, the mind's own or null, and on a mirror what its mind has asked and not yet answered (`Mirror.command`) and what its senses last showed it (`Mirror.seen`). */
   readonly state: object;
-  /** Stop driving: the mind lets go (`Mind.dispose`), its observers stop, and the motors are released. */
+  /** Stop driving: the mind lets go (`MindConstruction.dispose`), its observers stop, and the motors are released. */
   dispose(): void;
 }
 
@@ -139,38 +106,46 @@ export interface Embodying {
  * the muscles, assist and hand-pose rings before physics. A load refreshes the mirror and recalls
  * the senses held by the last decision.
  */
-export function embody<M extends Mind>(built: BuiltBody, world: World, make: MindMaker<M>,
-  { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, experiment, answered }: Embodying = {}): Embodied<M> {
+export function embody<M extends MindConstruction>(built: BuiltBody, world: World, make: MindMaker<M>,
+  { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, answered }: Embodying = {}): Embodied<M> {
   const listeners = new Set<(step: number, time: number) => void>();
   const driven = mirrorDriven(built, world, length => new Float64Array(length), {
     answered() {},
-    idle() { made.idle?.(); mirror.idle(); },
+    idle() { made.mind.interrupt(); mirror.idle(); },
   }, { senses: sense, assist: ceiling, contactIdentity, log });
   const { muscles, help, posed, writer, statics } = driven;
   const mirror = mirrorBody(statics, writer.channel);
-  const moves = motorPart(() => made);
-  const own: OwnBody = { spec: built.spec, delay: world.delay,
+  const moves = motorPart(() => made.mind);
+  const own: OwnBody = { spec: built.spec, dt: world.dt, delay: world.delay,
     built: mirror.read, muscles: mirror.muscles, assist: mirror.assist,
     requestHandPoses: mirror.requestHandPoses, senses: moves.guard(() => mirror.senses),
     ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}),
-    ...(experiment ? { experiment } : {}),
     afterPhysics(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
   };
-  const made = make(own);
-  const thinking = world.prepare((dt) => {
+  const made = (() => {
+    let complete = false;
+    try {
+      const result = make(own);
+      complete = true;
+      return result;
+    } finally {
+      if (!complete) { muscles.dispose(); listeners.clear(); }
+    }
+  })();
+  const thinking = world.prepare(() => {
     if (muscles.level !== "full") return;
     writer.write();
     mirror.refresh({ dynamics: true });
     for (const one of listeners) one(world.steps, world.time);
-    answer(made, moves, mirror, dt);
+    answer(made.mind, moves, mirror);
     answered?.();
-    think(made, mirror, dt);
+    think(made.mind, mirror);
   });
   const shown = world.onLoad(() => { writer.write(); mirror.refresh({ dynamics: false }); mirror.recall(); });
   return { own, held: { muscles, assist: help.assist, senses: sense }, mind: made,
     state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, posed, toes: built.toes, strength: built.strength,
-      mind: made.state ?? null, asked: mirror.command, seen: mirror.seen },
-    dispose() { made.dispose?.(); shown.dispose(); thinking.dispose(); listeners.clear(); muscles.dispose(); },
+      mind: made.mind.state, asked: mirror.command, seen: mirror.seen },
+    dispose() { made.dispose(); shown.dispose(); thinking.dispose(); listeners.clear(); muscles.dispose(); },
   };
 }
 
@@ -245,17 +220,15 @@ export function mirrorDriven(built: BuiltBody, world: World, allocate: (length: 
 }
 
 /**
- * **A mind's motor part as its body runs it** (`Mind.move`): `move` runs it where the mind has one,
+ * **A mind's motor part as its body runs it** (`Mind.act`): `move` runs it where the mind has one,
  * and `guard` makes a senses reader refuse while it runs.
  */
 export function motorPart(mind: () => Mind) {
   let moving = false;
   return {
-    move(dt: number): void {
-      const made = mind();
-      if (!made.move) return;
+    move(): void {
       moving = true;
-      try { made.move(dt); } finally { moving = false; }
+      try { mind().act(); } finally { moving = false; }
     },
     guard<S>(senses: () => S): () => S {
       return () => {
@@ -267,15 +240,15 @@ export function motorPart(mind: () => Mind) {
 }
 
 /** Send the motor command before the decision on the next command. */
-export function answer(_mind: Mind, moves: ReturnType<typeof motorPart>, mirror: Mirror, dt: number): void {
-  moves.move(dt);
+export function answer(_mind: Mind, moves: ReturnType<typeof motorPart>, mirror: Mirror): void {
+  moves.move();
   mirror.answer();
 }
 
 /** Read the senses after the answer, then choose the next command. */
-export function think(mind: Mind, mirror: Mirror, dt: number): void {
+export function think(mind: Mind, mirror: Mirror): void {
   mirror.sense();
-  mind.step(mirror.senses, dt);
+  mind.think(mirror.senses);
 }
 
 /** Write `driver`'s command, the assist's ask and the hand poses asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */

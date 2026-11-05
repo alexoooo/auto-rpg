@@ -16,7 +16,7 @@
 import { Vector3 } from "../src/core/math/vector.ts";
 import { centreOfToRef } from "../src/core/read-motion.ts";
 import { lieOf } from "../src/core/control/ground-reading.ts";
-import { stagedRise } from "../src/core/recovery/implementations/staged/staged.ts";
+import { stagedSubMind } from "./staged-submind.mjs";
 import { RISE } from "../src/core/recovery/implementations/staged/stages.ts";
 import { RISE_HARNESS, riserOf, toppled } from "./core-rise-trials.mjs";
 
@@ -33,7 +33,7 @@ export const SHOVE = Object.freeze({ front: 0, right: 90, back: 180, left: 270 }
  */
 export async function posed({ model, held = "empty", lie, degrees = SHOVE[lie], stages }) {
   const recipe = { trunk: RISE.trunk, roll: { back: stages, left: stages, right: stages }, rise: stages };
-  const { world, built, body, dispose } = await toppled({ model, held, degrees }, [(own, view) => stagedRise(own, view, recipe)]);
+  const { world, built, body, dispose } = await toppled({ model, held, degrees }, [(own, view) => stagedSubMind(own, view, recipe)]);
   try {
     if (!body.view.down) return null;
     const riser = riserOf(body), muscles = body.muscles, root = muscles.dynamics.root.segment, head = built.segments.get("head"), chest = built.segments.get("upperTrunk"), at = new Vector3();

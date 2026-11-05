@@ -147,7 +147,8 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
     run = part.make(own, view, into, kit, part.defaults);
     predecessor = after?.make(own, view, into, kit, after.defaults) ?? null;
     if (job.after && !predecessor) throw new Error(`unknown predecessor ${job.after}`);
-    return { name: `technique:${technique}`, state: { control, run: run.state, predecessor: predecessor?.state ?? null },
+    const name = `technique:${technique}`;
+    return { name, has: () => name, dispose() {}, mind: { state: { control, run: run.state, predecessor: predecessor?.state ?? null },
       wants: () => control.active,
       begin() {
         (predecessor ?? run).begin(TECHNIQUES[job.after ?? technique].sides[0]!); control.from = into.time;
@@ -155,8 +156,10 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
       },
       end() { if (!control.end) run.end(); },
       // The techniques run in the motor part, on the body as it is, as the game's ground skills do (`groundSkills`).
-      step() {},
-      move(dt) {
+      think() {},
+      interrupt() {},
+      act() {
+        const dt = own.dt;
         const senses = view.senses;
         if (!view.ground) return;
         if (control.predecessor === "running") {
@@ -170,7 +173,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
         }
         control.end = run.step(view.ground, senses, dt);
         if (control.end) { control.active = false; control.ended = into.time; }
-      } };
+      } } };
   }]);
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: stanceFeet(spec).map((foot) => foot.end.name), centre: null, height: view.standing - .03, heading: 0 } }));
   const trail: TrailEntry[] = [], saturation: Record<string, { peak: number; saturatedSeconds: number }> = {}, last = { phase: "", position: "" };

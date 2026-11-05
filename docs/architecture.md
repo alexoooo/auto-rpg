@@ -114,7 +114,7 @@ ceiling; zero holds.
   (`MuscleSpec`), a spring while its muscles push.
 - **A body runs at a level** (`BodyLevel`, `MuscleDriver.setLevel`): `full` (mind stepped, motors
   driven), `limp` (motors released, no mind), `held` (released, every segment fixed). Leaving
-  `full` the mind is told (`Mind.idle`); back, it goes on from the body as it is. The level is the
+  `full` the mind is told (`Mind.interrupt`); back, it goes on from the body as it is. The level is the
   rules' ([Rules and wounds](#rules-and-wounds)).
 
 ## Motor control
@@ -222,9 +222,11 @@ by the first end the body stands on there (`sideEffectors`).
 
 ## Minds
 
-**The seam.** A `Mind` (`src/core/mind/mind.ts`) is `step(senses, dt)`: from what its body senses
-to its muscles' command, its assist's ask and its hands' poses, which is all a mind does to the
-world. It is made with its own body (`OwnBody`); its memory is its `state`. A person gives `Orders`
+**The seam.** A `Mind` (`src/core/mind/mind.ts`) requires `state`, `act()`, `think(senses)` and
+`interrupt()`. Each step its fast action sends commands before its next decision. It is made with
+its own body (`OwnBody`) and fixed step duration; its memory is plain saved data in `state`.
+Construction metadata (`MindConstruction`) owns its name, ownership reader, disposal and any
+command layers exposed to drivers. A person gives `Orders`
 (`src/core/intent/orders.ts`), never muscle commands.
 
 - **The host** (`BodyHost`, `host.ts`) is all a mind's maker gets: the spec, the clock, the parts
@@ -247,7 +249,8 @@ world. It is made with its own body (`OwnBody`); its memory is its `state`. A pe
 makes it by the kind's `Controller` found in a `Catalog` (`src/core/parts/catalog.ts`). A mind is a
 tree of parts (`Part`, `parts.ts`), each with a role, a stage, fields, slots and defaults, saying
 why a body cannot carry it out (`fits`) and what is wrong with its config (`faults`). Roles are an
-open list (`RoleParts`). `treeFaults` names each fault by path; `tuning` never travels in a link.
+open list (`RoleParts`), augmented beside each role's contract. `treeFaults` names each fault by
+path; `tuning` never travels in a link.
 
 **Option Mind** (`src/core/option/`, `OPTION_MIND`) is the reference mind. It chooses among
 options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Option`): its entry

@@ -1,8 +1,8 @@
 /** Time the in-process mirror's observers, answer and decision for `mind-split.mjs`. */
 const CALLS = [
   /for \(const one of listeners\) one\(world\.steps, world\.time\);/,
-  /answer\(made, moves, mirror, dt\);/,
-  /think\(made, mirror, dt\);/,
+  /answer\(made.mind, moves, mirror\);/,
+  /think\(made.mind, mirror\);/,
 ];
 
 const textOf = (source) => typeof source === "string" ? source : new TextDecoder().decode(source);

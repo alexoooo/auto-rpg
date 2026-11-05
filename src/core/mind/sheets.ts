@@ -57,8 +57,8 @@ export function replayedBody(built: BuiltBody, world: World, log: SheetLog, gran
   requireRecordingIdentity(log.identity, grants.identity);
   const senses = grants.senses ?? clockSenses(world), force = new Vector3(), moment = new Vector3();
   const state = { steps: 0 };
-  // The sheets are what its body took each step, so they are written as a motor part writes, taken at once (`Mind.move`).
-  const embodied = embody(built, world, (own) => ({ name: "replay", state, step() {}, move() {
+  // The sheets are what its body took each step, so they are written as a motor part writes, taken at once (`Mind.act`).
+  const embodied = embody(built, world, (own) => ({ name: "replay", has: () => "replay", dispose() {}, mind: { state, think() {}, interrupt() {}, act() {
     const index = sheetAt(log.sheets, world.steps);
     if (index < 0) throw new Error(`no order sheet for step ${world.steps}`);
     const sheet = log.sheets[index]!;
@@ -66,6 +66,6 @@ export function replayedBody(built: BuiltBody, world: World, log: SheetLog, gran
     own.assist.ask(force.set(...sheet.force), moment.set(...sheet.moment));
     if (sheet.hands.length > 0) own.requestHandPoses(sheet.hands);
     state.steps++;
-  } }), { senses, assist: grants.assist });
+  } } }), { senses, assist: grants.assist });
   return physicalBody(built, embodied.held, world, () => "replay", embodied.state, embodied.dispose);
 }

@@ -108,7 +108,7 @@ function createOptionMind(host: BodyHost, config: OptionMindConfig, wiring: Mind
   const parts = host.parts, spec = host.spec, given = config.tuning?.parts ?? {}, named = skillsOf(parts, spec, config.options ?? OPTIONS);
   const legs = filledOf(parts, spec, "legs", given), kit: SkillKit = { legs, navigation: named.navigation ?? GAME_NAVIGATION, guard: filledOf(parts, spec, "guard", given),
     executors: named.executors, actions: named.actions, support: named.support };
-  const { body } = host.take((own) => commandedMind(own, kitBody(filledOf(parts, spec, "motor", given), parts), host.clock));
+  const { body } = host.take((own) => commandedMind(own, { ...kitBody(filledOf(parts, spec, "motor", given), parts), ...wiring.experiment }, host.clock));
   const ground = groundSkills(body, host.clock, kitOf(parts, spec, given), named.techniques);
   let skills: Skills | undefined;
   const aims = configuredAims(parts, spec, kit.actions);

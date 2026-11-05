@@ -13,7 +13,7 @@ import { turnOfToRef } from "../../../read-motion.ts";
 import { atan2 } from "../../../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../../math/turn.ts";
 import type { OwnBody } from "../../../mind/mind.ts";
-import type { SubMind } from "../../../mind/sub-mind.ts";
+import type { Senses } from "../../../mind/senses.ts";
 import { riseLimbs } from "./limbs.ts";
 import { RISE, stageFaults, stagesOf, type BearStage, type PoseStage, type Recipe, type Stage, type Until } from "./stages.ts";
 import type { ReadSegment } from "../../../read-body.ts";
@@ -152,8 +152,12 @@ function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["chan
  * purpose is not taken from it. What only a rise needs it reads itself: how it lies, the ground's
  * level, and where its limbs are.
  */
-export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind & {
+export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): {
   readonly state: { readonly phase: "idle" | "settle" | "roll" | "rise"; readonly tries: number; readonly lie: Lie; readonly stage: number; readonly time: number };
+  wants(): boolean;
+  begin(): void;
+  end(): void;
+  step(senses: Senses, dt: number): void;
   /** How many stages `phase` plays, as the body lies now. */
   stages(phase: "roll" | "rise"): number;
   /** Join the rise at its first bearing stage, its supports bearing and the trunk clear; false, nothing begun, where they are not. */
@@ -456,7 +460,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   }
 
   return {
-    name: "staged-rise", state,
+    state,
     stages: (phase) => playing(phase).length,
     // Lying slack, rolling or rising; or, its rise over, down and off its feet.
     wants: () => state.phase !== "idle" || fallen(),

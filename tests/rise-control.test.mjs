@@ -16,7 +16,9 @@ test("bearing posture accelerations use the joint turning map, including damping
   let own;
   const host = commandedBody(stand.built, stand.world, {}, [(body) => {
     own = body;
-    return { name: "bearing coordinates", state: {}, wants: () => false, begin() {}, end() {}, step() {} };
+    return { name: "bearing coordinates", has: () => "bearing coordinates", dispose() {}, mind: {
+      state: {}, wants: () => false, begin() {}, end() {}, think() {}, act() {}, interrupt() {},
+    } };
   }]);
   try {
     for (const name of ["shoulder.left", "hip.left"]) {
