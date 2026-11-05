@@ -21,8 +21,8 @@ import type { ConfigOf, Part } from "../parts/parts.ts";
 import { REPTILE_PARTS } from "./quadruped-parts.ts";
 import type { MoveRuleConfig } from "../skills/locomotion/move-part.ts";
 import { MOVE_RULES } from "./registration/move-rules.ts";
-import { STRIKE_DATA } from "../skills/strikes/data/registration.ts";
-import { LOCOMOTION_DATA } from "../skills/locomotion/data/registration.ts";
+import { STRIKE_DATA } from "./data/registration.ts";
+import { WALK_RUN_DATA } from "../skills/locomotion/walk-run/data/registration.ts";
 import { STAGED_DATA } from "../skills/recovery/implementations/staged/data/registration.ts";
 import { RECOVERY_DATA } from "../skills/recovery/data/registration.ts";
 import { RIGHTING_DATA } from "../skills/recovery/righting/data/registration.ts";
@@ -56,7 +56,7 @@ function merged<L extends readonly Readonly<Record<string, Part>>[]>(...lists: L
 export function toolkitLists(): CatalogLists {
   const below: Covered = merged(TECHNIQUES, LEG_ADAPTERS, MOVE_RULES, LOCOMOTIONS, GAIT_PARTS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
     REPTILE_PARTS, CHOOSERS, OPTION_KINDS, OBJECTIVES, PREDICTIONS);
-  return { minds: MIND_KINDS, parts: [below], entrants: [], data: [STRIKE_DATA, LOCOMOTION_DATA, STAGED_DATA, RECOVERY_DATA, RIGHTING_DATA, BITE_DATA] };
+  return { minds: MIND_KINDS, parts: [below], entrants: [], data: [STRIKE_DATA, WALK_RUN_DATA, STAGED_DATA, RECOVERY_DATA, RIGHTING_DATA, BITE_DATA] };
 }
 
 /** **The toolkit's catalog**: what the core's own tasks make a mind from; the game's is composed above the core (`src/app/catalog.ts`). */

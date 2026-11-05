@@ -7,6 +7,7 @@ import type { BearingEndSpec, BodySpec, JointSpec } from "../../../../core/bodie
 import { deepFreeze } from "../../../../core/world/state.ts";
 import { otherSide, segmentOf } from "../../../../core/bodies/spec/body.ts";
 import type { Lie } from "../../../../control/ground-reading.ts";
+import { takesOf, type BearingPolicy } from "./bearing-policy.ts";
 
 /**
  * **A posture**: goal angles by channel name, rad, each from its freedom's own zero (a human's,
@@ -161,6 +162,8 @@ export type Stage = PoseStage | BearStage;
  * segments and joints of the bodies it is for, and nothing in the player does.
  */
 export interface Recipe {
+  /** Channels selected for each bearing task; omitted ends use the staged policy. */
+  readonly takes?: BearingPolicy;
   /** Use loaded item contacts as force patches under nearby hands; absent, use the hands' geometric ends. */
   readonly heldSupport?: "loaded";
   /** Intermediate transition tolerances; final standing is verified by the recovery host. */
@@ -620,7 +623,7 @@ function unknownStage(stage: never): never {
 const FEET: readonly string[] = SIDES.map((side) => `foot.${side}`);
 
 /** What is wrong with `spec`'s bearing ends (`BodySpec.ends`) for a rise, in words. */
-function limbFaults(spec: BodySpec): string[] {
+function limbFaults(spec: BodySpec, policy: BearingPolicy | undefined): string[] {
   const faults: string[] = [], ends = spec.ends ?? [];
   ends.forEach((limb, at) => {
     if (ends.findIndex((other) => other.name === limb.name) !== at) faults.push(`limb ${limb.name} is named twice`);
@@ -630,7 +633,8 @@ function limbFaults(spec: BodySpec): string[] {
       return;
     }
     /** A limb on a capsule's end, or an end limb on a hand pose's hull: the shape, its chain, and the channels that take its task of `rows` rows, its chain's, each once. */
-    const onEnd = (on: Extract<BearingEndSpec, { readonly takes: unknown }>, rows: number): void => {
+    const onEnd = (on: Extract<BearingEndSpec, { readonly kind: "end" | "propped" }>, rows: number): void => {
+      const takes = takesOf(on, policy);
       if (segment.shape.kind !== "capsule") faults.push(`limb ${on.name} bears on an end of ${on.segment}, a ${segment.shape.kind}`);
       // An end limb bears on a hand pose's capsule ends or its hull's corners; a propped one on a capsule's end.
       for (const [pose, shape] of Object.entries(segment.handPoses ?? {})) {
@@ -641,11 +645,11 @@ function limbFaults(spec: BodySpec): string[] {
         faults.push(`limb ${on.name} begins at ${on.from}, which is not on the way to ${on.segment}`);
         return;
       }
-      on.takes.forEach((channel, k) => {
+      takes.forEach((channel, k) => {
         if (!channels.chain.includes(channel)) faults.push(`limb ${on.name} takes ${channel}, which is not a freedom of its chain`);
-        else if (on.takes.indexOf(channel) !== k) faults.push(`limb ${on.name} takes ${channel} twice`);
+        else if (takes.indexOf(channel) !== k) faults.push(`limb ${on.name} takes ${channel} twice`);
       });
-      if (on.takes.length < rows) faults.push(`limb ${on.name} takes ${on.takes.length} channels, and its task has ${rows} rows`);
+      if (takes.length < rows) faults.push(`limb ${on.name} takes ${takes.length} channels, and its task has ${rows} rows`);
     };
     switch (limb.kind) {
       case "end":
@@ -697,7 +701,7 @@ export function derivedRecipe(from: object, how: string, make: () => Recipe): Re
 }
 
 function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
-  const faults = limbFaults(spec);
+  const faults = limbFaults(spec, recipe.takes);
   for (const [name, value] of Object.entries(recipe.progress ?? {})) {
     if (!(value > 0) || !Number.isFinite(value)) faults.push(`recovery progress ${name} must be finite and positive`);
   }

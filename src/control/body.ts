@@ -74,6 +74,7 @@ export function commandsBody(body: { readonly has: string; readonly level: BodyL
  * state is not frozen. So a command, and whatever it holds, is made for the step, or frozen
  * (`deepFreeze`), or part of a state saved and loaded with the body's, as the skills' is
  * (`Skills.state`).
+ * A function driver is stateless; a driver that remembers between steps supplies `SplitDriver.state`.
  */
 export type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | SplitDriver<unknown>;
 
@@ -85,6 +86,8 @@ export type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | 
  * command whole.
  */
 export interface SplitDriver<T> {
+  /** All memory carried between decisions, saved under the Mind that owns these layers. */
+  readonly state: object;
   decide(view: BodyView, dt: number): T;
   carry(view: BodyView, decision: T, dt: number): BodyCommand | null;
 }
@@ -229,6 +232,9 @@ export interface LayerOptions {
   readonly stance?: StanceTuning;
   /** The envelope's own measurement (`research/core-stance-envelope.mjs`): the body has none to read yet. */
   readonly measuring?: boolean;
-  /** What makes what turns its goals into its muscles' command: its mind's motor (`motorOf`), the whole-body solve (`motorControl`) unless given. */
-  readonly motor?: MotorMaker | null;
+  /** The configured motor and its implementation-owned calibration (`motorOf`). */
+  readonly motor: MotorMaker;
 }
+
+/** Research overrides for the command layers: stance tuning and envelope measurement. */
+export type Experiment = Pick<LayerOptions, "stance" | "measuring">;

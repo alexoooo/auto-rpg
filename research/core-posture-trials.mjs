@@ -18,7 +18,7 @@
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { addArenaSolids } from "../src/game/arena/solids.ts";
 import { SERVO_SECONDS } from "../src/control/body.ts";
-import { commandedBody } from "../src/minds/host.ts";
+import { commandedBody } from "../src/app/commanded-body.ts";
 import { buildBody } from "../src/core/bodies/build/build-body.ts";
 import { bodyDynamics } from "../src/core/bodies/build/dynamics.ts";
 import { jointAngles, ratesToRef } from "../src/core/bodies/build/joint-state.ts";

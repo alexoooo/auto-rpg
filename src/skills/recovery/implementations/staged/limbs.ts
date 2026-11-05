@@ -16,6 +16,7 @@ import type { Vec3 } from "../../../../core/bodies/spec/quantity.ts";
 import { handShapeAt, type HandPose, type ShapeSpec } from "../../../../core/bodies/spec/body.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { limbChannels, type Recipe } from "./stages.ts";
+import { takesOf, type BearingPolicy } from "./bearing-policy.ts";
 import type { EndLimb, FootLimb, ProppedLimb } from "../../../../core/bodies/spec/body.ts";
 import type { ReadBody, ReadContact, ReadSegment } from "../../../../core/bodies/read-body.ts";
 
@@ -79,7 +80,7 @@ interface Part {
 }
 
 /** The bearing ends of `own`'s body (`BodySpec.ends`) as limbs, in its spec's order, which a rise can play (`stageFaults`). */
-export function riseLimbs(own: OwnBody, options: Pick<Recipe, "heldSupport"> = {}): RiseLimbs {
+export function riseLimbs(own: OwnBody, options: Pick<Recipe, "heldSupport" | "takes"> = {}): RiseLimbs {
   const ends = own.spec.ends ?? [];
   const feet = ends.some((limb) => limb.kind === "propped" || limb.kind === "foot") ? footStatesOf(own.built) : [];
   const footOf = (segment: string): FootState => feet.find((foot) => foot.segment.spec.name === segment)!;
@@ -87,7 +88,7 @@ export function riseLimbs(own: OwnBody, options: Pick<Recipe, "heldSupport"> = {
   const parts = ends.map((limb): Part => {
     switch (limb.kind) {
       case "end": return endLimb(own, limb, options);
-      case "propped": return proppedLimb(own, limb, footOf(limb.prop));
+      case "propped": return proppedLimb(own, limb, footOf(limb.prop), options.takes);
       case "foot": return footLimb(own, limb, footOf(limb.segment));
       // A rise bears on no paw: its stages' faults refuse a body that bears on one (`stageFaults`).
       case "paw": throw new Error(`${own.spec.model}: a rise bears on no paw, and ${limb.name} is one`);
@@ -178,9 +179,9 @@ type EndShape =
  * the rate it is given, and those that do beneath it (`LimbWork.toward`), at `TAKES_SECONDS`'s,
  * or a foot's, whose every freedom takes it, at the rate it is given.
  */
-function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb) {
+function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb, policy?: BearingPolicy) {
   const { muscles } = own, names = limbChannels(spec, own.spec)!;
-  const channels = names.chain.map((name) => muscles.channel(name)), takes = names.chain.map((name) => spec.kind === "foot" || spec.takes.includes(name));
+  const channels = names.chain.map((name) => muscles.channel(name)), takes = names.chain.map((name) => spec.kind === "foot" || takesOf(spec, policy).includes(name));
   const ahead = channels.map(() => NaN), toward = channels.map(() => 0), within = spec.kind === "foot" ? 0 : 1 / TAKES_SECONDS;
   const jointAcceleration = new Float64Array(channels.length);
   return {
@@ -214,10 +215,10 @@ function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb) {
  * point, as near the posture as the point lets them; the others are asked toward the posture
  * ahead of it. Its reach is its own shape's capsule radius, whatever pose its hand is in.
  */
-function endLimb(own: OwnBody, spec: EndLimb, support: Pick<Recipe, "heldSupport">): Part {
+function endLimb(own: OwnBody, spec: EndLimb, support: Pick<Recipe, "heldSupport" | "takes">): Part {
   const { built } = own, segment = built.segments.get(spec.segment)!;
   const loaded = support.heldSupport === "loaded";
-  const chain = chainOf(own, spec), reach = capsuleEnds(built, segment, segment.spec.shape).radius;
+  const chain = chainOf(own, spec, support.takes), reach = capsuleEnds(built, segment, segment.spec.shape).radius;
   const shape = byPose(built, segment, (s): EndShape => s.kind === "hull"
     ? { kind: "hull", corners: lowsOf(s, segment.frame).map((low) => low.at) }
     : { kind: "capsule", ...capsuleEnds(built, segment, s) });
@@ -302,9 +303,9 @@ function pressedOn(own: OwnBody, segment: ReadSegment, at: Vector3, accepts?: (c
  * While no corner of the foot's sole is on the ground the capsule bears at its end alone, and its
  * tilt is asked the way that brings the sole's lowest corner down.
  */
-function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState): Part {
+function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState, policy?: BearingPolicy): Part {
   const { built } = own, segment = built.segments.get(spec.segment)!;
-  const chain = chainOf(own, spec), end = endOf(built, segment, spec.end);
+  const chain = chainOf(own, spec, policy), end = endOf(built, segment, spec.end);
   const at = new Vector3(), over = new Vector3(), along = new Vector3(0, 0, 1), stands = new Vector3();
   const point: BearingPoint = { kind: "point", at }, sole = { kind: "sole" as const, middle: at, along, length: 0, width: 0, ankle: at, hold: UNHELD };
   /** How far the foot stands from the end's point across the ground, m, and its sole's lowest corner over the ground, m. */

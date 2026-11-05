@@ -147,7 +147,9 @@ driven points, a stance goal) into muscle commands.
 
 - **The command layers** (`commandLayers`) are what a mind builds on its own body: a `HostMind`
   over its motor, read each step through a `BodyView` (`src/control/body.ts`); they are independent of
-  skills and deciders.
+  skills and deciders. Their options supply the motor and its calibration. The application's
+  standalone body builder (`src/app/commanded-body.ts`) supplies the stock whole-body motor when
+  a study names none.
 - **The motor** is a part of role `motor` (`MOTORS`); the game's is the whole-body solve
   (`motorControl`, `solve.ts`): the bearing solve and the servo in one weighted least-squares
   problem, a torque past strength pinned and solved again. A body on paws has the paw support
@@ -165,6 +167,7 @@ driven points, a stance goal) into muscle commands.
   (`stance-balance.ts`): the centre of mass kept inside the support by forces the ground can give,
   steps placed from the capture point, a body without box soles refused. What a body was measured
   to hold is its envelope, read by `bodyKey` from its implementation in `assets/skills/locomotion/`.
+  Each balance supplies its calibration through its motor; command-layer wiring reads that result.
 - **The assist** (`Assist`, `assist.ts`) is a force at the root and a moment that no muscle gives:
   asked by the mind, shortened to the body's ceiling, applied through the solver step, metered. The
   ceiling is the character's balance, a per cent of its weight (`Rulebook.balance`,
@@ -224,19 +227,21 @@ arbiter releases every action when another mind takes the body.
 
 **Stand up** (`src/skills/recovery/`). A body down rises by techniques (`TECHNIQUES`): the ways up,
 each with edges (`isWayUp`), and the modes of the ground, with none (brace, land, steady, flatten).
-Each is a ground skill (`groundSkills`, `ground/skills.ts`), an executor holding the whole body and
+Each is a ground skill (`groundSkills`, `skills.ts`), an executor holding the whole body and
 asking no stance; a ground action is prepared while its run yields and committed once it does
 not. A posture (`Position`) names what bears the body, read each step by the ground reading
 (`groundReading`) from its spec's ends (`BodySpec.ends`), so any body has one: on the ends its
 stance stands on it stands, on its trunk it lies (named by the side up), and between it is named by
 the ends that bear it. A way up names the postures it begins from and reaches (its `edges`), begun
 `moving` or `still`, handing the body on at the first cut read slow enough (`CUTS`, `HAND_OVER`);
-the game's ways up (`STAND_UP`) reach standing from the back and the front (`standUpFaults`). The
+the Lab's ways up (`STAND_UP`, `src/app/recovery-selections.ts`) reach standing from the back and
+the front (`standUpFaults`). The
 Option Mind prices each way up, flatten and a brace that waits for one by their profiles from
 where each was begun (`assets/skills/recovery/edge-profiles.json`, `research/skills/recovery/edge-profiles.mjs`: its own tries
 in falls the stand-up target does not play, each until its next choice), as every Option is
 priced. The staged riser (`stagedRise`) plays a `Recipe` of pose and bearing stages
-(`rise/stages.ts`); a pose's selected channels can follow other joints folding across an angle
+(`implementations/staged/stages.ts`); its bearing policy (`Recipe.takes`, `bearing-policy.ts`)
+selects the channels that prioritize a contact task over the posture. A pose's selected channels can follow other joints folding across an angle
 span (`PoseStage.follow`), keeping their entry pose until every leading joint enters that span.
 A body on paws rights itself (`src/skills/recovery/righting/righting.ts`) by its recipe of
 poses from lying (`righting-recipe`, its record `assets/skills/recovery/righting/righting.json`) and by routes that
@@ -249,14 +254,17 @@ by the first end the body stands on there (`sideEffectors`).
 `interrupt()`. Each step its fast action sends commands before its next decision. It is made with
 its own body (`OwnBody`), fixed step duration and first senses; subsequent senses arrive only in
 `think`. Its memory is plain saved data in `state`.
-Construction metadata (`MindConstruction`) owns its name, ownership reader, disposal and any
-command layers exposed to drivers. A person gives `Orders`
+Construction metadata (`MindConstruction`) owns its name, ownership reader and disposal;
+`CommandedMind` adds the command layers exposed to drivers. A person gives `Orders`
 (`src/skills/intent/orders.ts`), never muscle commands.
 
 `OwnBody` holds fixed facts, body and actuator readings, and first senses. `BodyControl` views the
 saved mirror command directly: muscle arrays, assist vectors and ordered hand-pose pairs. Only
 `act` receives it. A hand request updates its requested pose immediately and refuses a duplicate
 before the answer; the answer clears the pairs. The body-side rings carry commands into physics.
+`embodiment.ts` wires the world and mirror, `execution.ts` defines the shared `answer` and `think`
+phases, and `src/core/bodies/command-pipeline.ts` owns delayed physical actuation. Command-layer
+research settings belong to `LayerOptions` in `src/control/body.ts`.
 
 - **The host** (`BodyHost`, `host.ts`) is all a mind's maker gets: the spec, the clock, the parts
   its config may name (`PartLookup`), the seed (its only chance, through `randomStream`), its phase,
@@ -266,6 +274,8 @@ before the answer; the answer clears the pairs. The body-side rings carry comman
 - **What a mind builds**: the command layers (`commandedMind`), sub-minds that take the body in rank
   order (`SubMind`, `hosting`), or its own computation. The bare entrant reads network inputs
   directly and saves pending pulls for its next `act`; `observeBody` supplies detached inspection.
+  A stateful driver supplies `SplitDriver.state`, retained under the command-layer Mind's saved
+  state; `driveBy` includes its skills, decider, pace and aim memory there.
 - **Deciding.** A decider (`Decider`, `decider.ts`) decides an intent at its pace (`Pace`), and at
   once when the body is back from another mind, its orders change or an action ends; the skills
   make the command every step from the intent last decided.
@@ -427,7 +437,8 @@ carried out (`BodyView.born`).
 Each mind reads a mirror of its body (`mirrorBody`), at a command delay of at least one step.
 `answer` refreshes the body, runs `act` and sends its command; `think` reads the senses and runs the
 next decision. The command layers observe the completed physics before any holder acts, feedback
-first and listeners in registration order, at full level only. The quadruped refuses a delay over
+first and listeners in registration order, at full level only. Sub-mind and recovery technique
+factories receive that same listener callback. The quadruped refuses a delay over
 one. Given a place for minds (`World.minds`), minds run on other threads
 (`mindThreads`, in Node or a cross-origin isolated page) and a bout is the same step for step, but
 not saved or forked (`MIND_APART`).

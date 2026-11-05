@@ -3,8 +3,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { coreStand } from "../../../../harness/core-stand.mjs";
 import { modelSpec } from "../../../../../src/core/bodies/models.ts";
-import { commandedBody } from "../../../../../src/minds/host.ts";
+import { commandedBody } from "../../../../../src/app/commanded-body.ts";
 import { riseLimbs } from "../../../../../src/skills/recovery/implementations/staged/limbs.ts";
+import { takesOf } from "../../../../../src/skills/recovery/implementations/staged/bearing-policy.ts";
 import { servoAsk } from "../../../../../src/control/servo.ts";
 import { Vector3 } from "../../../../../src/core/math/vector.ts";
 
@@ -36,7 +37,7 @@ test("bearing posture accelerations use the joint turning map, including damping
       const index = own.spec.ends.findIndex(end => end.name === name), end = own.spec.ends[index], limb = limbs.limbs[index];
       for (const transfer of [false, true]) {
         limbs.bear(index, goals, 2, -10, 1, transfer);
-        const seconds = i => !transfer && end.takes.includes(muscles.channels[i].name) ? .1 : .5;
+        const seconds = i => !transfer && takesOf(end).includes(muscles.channels[i].name) ? .1 : .5;
         const reference = servoAsk(muscles, command, i => goals[i], .5, stand.world.dt,
           { seconds, rate: () => 0, acceleration: () => 0 });
         for (let k = 0; k < limb.memory.channels.length; k++) {
@@ -45,7 +46,7 @@ test("bearing posture accelerations use the joint turning map, including damping
           different ||= Math.abs(unmapped - reference.accel[i]) > 1e-6;
           assert.ok(Math.abs(limb.work.toward[k] - reference.accel[i]) < 1e-10,
             `${name}, transfer ${transfer}, ${muscles.channels[i].name}: bearing ${limb.work.toward[k]}, servo ${reference.accel[i]}`);
-          if (end.takes.includes(muscles.channels[i].name)) assert.ok(Number.isNaN(limb.work.ahead[k]));
+          if (takesOf(end).includes(muscles.channels[i].name)) assert.ok(Number.isNaN(limb.work.ahead[k]));
           else assert.equal(limb.work.ahead[k], limb.work.toward[k]);
         }
       }

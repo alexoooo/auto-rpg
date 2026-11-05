@@ -5,7 +5,7 @@
  * where the steered punch lands, read on held-out trials, `punch-policy-check.mjs`; `aside` of
  * the punching shoulder's line, `squared`), and, with `--policy`, the steer's trained network
  * (`research/run-train.py`'s `policy.json`), written as the core reads them (`PunchRecord`,
- * `src/skills/strikes/punch-records.ts`) into `<out>.json` (`assets/skills/strikes/straight-punch/straight-punch` where not
+ * `src/skills/strikes/straight-punch/data/records.ts`) into `<out>.json` (`assets/skills/strikes/straight-punch/straight-punch` where not
  * given), each by its body's key (`bodyKey`: `workshop-fighter+toes`) beside the records already
  * there, and the bodies with one into `<out>.meta.json`. With `--halts`, the punch stops a walk at
  * once as it commits (`StraightPunch.halts`), as it was trained. A held blow's schedule (one searched

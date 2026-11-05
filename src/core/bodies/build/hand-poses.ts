@@ -14,7 +14,19 @@ import type { World } from "../../world/world.ts";
 export interface HandPoseRequest { readonly hand: "left" | "right"; readonly pose: HandPose }
 
 /** Hand-pose names in their command and mirror encoding order. */
-export const HAND_POSES: readonly HandPose[] = Object.freeze(["open", "fist", "grip"]);
+const HAND_POSES: readonly HandPose[] = Object.freeze(["open", "fist", "grip"]);
+
+/** A hand's code in an actuator command. */
+export const handCode = (hand: "left" | "right"): number => hand === "left" ? 0 : 1;
+
+/** The hand named by an actuator command's code. */
+export const handAt = (code: number): "left" | "right" => code === 0 ? "left" : "right";
+
+/** A pose's command code; an observation without a hand pose uses -1. */
+export const handPoseCode = (pose: HandPose | undefined): number => pose === undefined ? -1 : HAND_POSES.indexOf(pose);
+
+/** The pose named by a command or observation's code. */
+export const handPoseAt = (code: number): HandPose => HAND_POSES[code]!;
 
 /** Detached requests; an applied pose changes only at an unloaded, clear world-step boundary. */
 export interface HandPoses {

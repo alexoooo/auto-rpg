@@ -215,11 +215,11 @@ export function createRising(context: GameContext) {
     let run!: TechniqueRun, predecessor: TechniqueRun | null = null;
     const control = { active: start !== "shoved", end: null as string | null, from: null as number | null, ended: null as number | null,
       predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
-    const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, into) => {
+    const body = commandedBody(built, world, { servoSeconds: .1, motor: kitOf(partLookup, spec).motor }, [(own, view, into, afterPhysics) => {
       const kit = kitOf(partLookup, own.spec);
       const part: TechniquePart = TECHNIQUES[technique], after: TechniquePart | undefined = job.after ? TECHNIQUES[job.after] : undefined;
-      run = part.make(own, view, into, kit, part.defaults);
-      predecessor = after?.make(own, view, into, kit, after.defaults) ?? null;
+      run = part.make(own, view, into, kit, part.defaults, afterPhysics);
+      predecessor = after?.make(own, view, into, kit, after.defaults, afterPhysics) ?? null;
       if (job.after && !predecessor) throw new Error(`unknown predecessor ${job.after}`);
       const name = `technique:${technique}`;
       return { name, has: () => name, dispose() {}, mind: { state: { control, run: run.state, predecessor: predecessor?.state ?? null },

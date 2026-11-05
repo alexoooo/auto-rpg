@@ -114,7 +114,7 @@ function createOptionMind(host: BodyHost, config: Configured, wiring: MindWiring
   const aims = configuredAims(parts, spec, kit.actions);
   const make = (made: Body) => kitSkills(made, host.clock, parts, kit, () => skills?.report.ledger ?? [], ground, aims);
   const hz = Math.round(1 / host.clock.dt), every = everyOf(config.rate, hz);
-  const making: DeciderMaking = { spec, rules: host.rules, orders: (sight) => wiring.orders(sight.view.senses), parts };
+  const making: DeciderMaking = { spec, rules: host.rules, orders: (sight) => wiring.orders(sight.view.senses), parts, techniques: named.techniques };
   const driven = driveBy(body, optionDecider(making, hz, { ...config, legs }, host.seed, host.phase, hz / every, body.delay), make,
     { every, phase: host.phase, orders: making.orders }, aimsState(aims));
   skills = driven.skills;

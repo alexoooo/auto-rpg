@@ -46,7 +46,7 @@ function groundBody(body: Body, runs: readonly TechniqueRun[]) {
   const held = heldBody(body, state), { own, control } = held;
   const needs: readonly Resource[] = Object.freeze([...bodyEffectors(body.built).map((effector) => effector.model.segment), "legs", "trunk"]);
   return {
-    state, own, control, needs,
+    state, own, control, needs, afterPhysics: held.afterPhysics,
     /** A ground action runs at `view`'s step. */
     carry(view: BodyView): void { state.carriedAt = view.time; held.reset(); },
     /** Back from another mind: nothing is carried over. */
@@ -125,7 +125,7 @@ export function groundSkills(body: Body, clock: Clock, kit: MindKit, techniques:
   if (!fitting.length) return { executors: [], actions: [] };
   const runs: TechniqueRun[] = [];
   const ground = groundBody(body, runs);
-  for (const config of fitting) runs.push(kit.parts.of("technique", config).make(ground.own, body.view, clock, kit, config));
+  for (const config of fitting) runs.push(kit.parts.of("technique", config).make(ground.own, body.view, clock, kit, config, ground.afterPhysics));
   const sides = sideEffectors(body.built.spec), effectors = Object.freeze([sides.left, sides.right]);
   const sideOf = (effector: string): Side => effector === sides.right ? "right" : "left";
   const executors = fitting.map((config, i) => groundSkill(config.kind, runs[i]!, ground, clock, sideOf));

@@ -1,4 +1,4 @@
-import type { BodyView } from "../../control/body.ts";
+import type { Body, BodyView } from "../../control/body.ts";
 import { soleRefusal } from "../../control/support.ts";
 import type { MuscleReading, MuscleCommand } from "../../core/bodies/muscle/driver.ts";
 import type { BodyControl } from "../../core/bodies/body-control.ts";
@@ -35,13 +35,15 @@ export interface TechniqueRun {
  */
 export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "technique";
+  /** A sustained recovery mode, and its climbing phase where it has one. */
+  readonly mode?: { readonly kind: "brace" | "land" | "steady"; readonly climbing?: string };
   readonly keys: KeysOf<C>;
   readonly sides: readonly Side[];
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
   /** Its entry (`TechniqueRun.admits`) reads the body's motion and its raw position (`GroundReading.raw`): a stand-up begins it on a body still tumbling where it admits it, and braces one only where none does. */
   readonly moving: boolean;
   /** A run of it under `config` on the body, driving it with the mind's motor and guard (`kit`). */
-  make(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit, config: C): TechniqueRun;
+  make(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit, config: C, afterPhysics: Body["afterPhysics"]): TechniqueRun;
 }
 
 /** Whether `part` is a way up: it takes the body between positions (its `edges`), where a mode of the ground holds it (none). */
@@ -104,7 +106,7 @@ export function mirrorPosture(posture: Readonly<Record<string, number>>): Readon
 const fitsStance = (spec: BodySpec): string | null => soleRefusal(spec);
 
 /** A technique part of `kind` with no settings of its own, fitted to a body the stance stands (`fitsStance`) and, where `fits` is given, that `fits` admits. */
-export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "sides" | "edges" | "make"> & { reads?: Part["reads"]; moving?: boolean; fits?: (spec: BodySpec) => string | null }): TechniquePart<{ readonly kind: K }> => {
+export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "sides" | "edges" | "make" | "mode"> & { reads?: Part["reads"]; moving?: boolean; fits?: (spec: BodySpec) => string | null }): TechniquePart<{ readonly kind: K }> => {
   const { fits, ...rest } = part;
   return Object.freeze({ moving: false, ...rest, role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [],
     fits: fits ? fitsAll(fitsStance, fits) : fitsStance, faults: () => [] });

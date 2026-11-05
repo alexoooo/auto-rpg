@@ -1,6 +1,7 @@
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { Puppet } from "../render/puppet.ts";
-import { BODY_HEAD, HAND_POSES, SEGMENT_ROW, frameLayout, type RosterBody } from "../../worker/frame.ts";
+import { BODY_HEAD, SEGMENT_ROW, frameLayout, type RosterBody } from "../../worker/frame.ts";
+import { handPoseAt } from "../../../core/bodies/build/hand-poses.ts";
 import type { FromWorker, TapeEntry, ToWorker, WorldInput } from "../../worker/protocol.ts";
 import type { StageNews } from "../../worker/stage.ts";
 
@@ -164,7 +165,7 @@ export function posePuppet(puppet: Puppet, offset: number, at: Between): void {
     work.to.set(to[k + 3]!, to[k + 4]!, to[k + 5]!, to[k + 6]!);
     Quaternion.SlerpToRef(work.from, work.to, share, node.rotationQuaternion!);
     const pose = to[k + 7]!;
-    if (segment.handPose && pose >= 0) segment.handPose.applied = HAND_POSES[pose]!;
+    if (segment.handPose && pose >= 0) segment.handPose.applied = handPoseAt(pose);
     if (segment.toes) segment.toes.bend = to[k + 8]!;
     segment.attached = to[k + 9] === 1;
     k += SEGMENT_ROW;

@@ -52,7 +52,7 @@ async function squatStance({ model, held, seed }) {
   const [{ default: poses }, { commandedBody }, { buildBody }, { loadEngine }, { humanSpec, humanoidSpec }, { armedWith },
     { guardPosture }, { createWorld }, { groundPlacement }, { recoveryMeasurement }, { observeBody }, { clockSenses }, { STAND_CHECK }] = await Promise.all([
     import("../../../assets/research/posture-holds.json", { with: { type: "json" } }),
-    import("../../../src/minds/host.ts"), import("../../../src/core/bodies/build/build-body.ts"), import("../../../src/core/physics/engines.ts"), import("../../../src/core/bodies/human/spec.ts"),
+    import("../../../src/app/commanded-body.ts"), import("../../../src/core/bodies/build/build-body.ts"), import("../../../src/core/physics/engines.ts"), import("../../../src/core/bodies/human/spec.ts"),
     import("../../../src/core/bodies/items/held.ts"), import("../../../src/skills/guard/guard.ts"), import("../../../src/core/world/world.ts"), import("../../../src/game/lab/ground-starts.ts"),
     import("../../../src/control/recovery-measurement.ts"), import("../../../src/control/observation.ts"), import("../../../src/core/world/senses.ts"), import("../../../src/game/lab/ground-mode.ts")]);
   const spec = armedWith(humanoidSpec(model), "right", held), reference = humanSpec("workshop-fighter");

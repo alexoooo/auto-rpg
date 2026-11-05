@@ -13,8 +13,7 @@ import { dot } from "../core/bodies/spec/vec.ts";
 import { effectorFeedback } from "../control/effector-feedback.ts";
 import { uprightness } from "../control/ground.ts";
 import { rootFrameToRef } from "../control/kinematics.ts";
-import { carries, carrying, motorControl, type EffectorGoal, type FreedomPath, type PointTask } from "../control/motor.ts";
-import { stanceEnvelope } from "../control/stance-envelope.ts";
+import { carries, carrying, type EffectorGoal, type FreedomPath, type PointTask } from "../control/motor.ts";
 import { standingHeight } from "../control/support.ts";
 
 /**
@@ -38,8 +37,8 @@ export interface CommandLayers extends HostMind {
 
 /**
  * **The command layers over `own`** (`CommandLayers`), holding its reference pose until something
- * drives them, on `clock`: motor control of the maker `options` names (the whole-body solve unless
- * given), the view, and the effectors' touch where `options` asks for it (`LayerOptions.feedback`),
+ * drives them, on `clock`: motor control of the maker `options` names, the view, and the effectors'
+ * touch where `options` asks for it (`LayerOptions.feedback`),
  * labelled by the body's own contact labels (`OwnBody.contactIdentity`). They read the body as its
  * spec has it: a fist for each hand with knuckles (`fistOn`), the head where another body aims
  * high (`BodySpec.marks`), and what bears it on the ground (`groundReading`); what their motor
@@ -52,7 +51,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   const { servoSeconds, stance, feedback: feedbackEnabled, contacts, motor: makeMotor } = options;
   const { built, muscles } = own;
   // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`): its effectors' places, and whichever of the rest it carries.
-  const made = (makeMotor ?? ((b, _m, s, p, t, a) => motorControl(b, s, p, t, a)))(built, muscles, servoSeconds, {}, stance, own.assist);
+  const made = makeMotor.make(built, muscles, servoSeconds, {}, stance, own.assist);
   const motor = carrying(made, ["effectors"], "the command layers");
   const pointing = carries(made, "points") ? made : null, balancing = carries(made, "stance") ? made : null;
   const supporting = carries(made, "support") ? made : null, pathing = carries(made, "paths") ? made : null;
@@ -91,6 +90,8 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     pending: [] as unknown[],
     /** Whether the body was read this step, by the motor part before the look. */
     felt: false,
+    /** The registered driver's memory, including its skills, decider and pacing. */
+    driver: null as object | null,
   };
   // A hand is asked its pose by its segment; the port names it by its own name.
   const posable = new Map(built.handPoses.model.map((hand) => [hand.segment, hand.hand]));
@@ -209,15 +210,15 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     moved();
   };
   const drive: Body["drive"] = (next, onRelease) => {
-    const split = typeof next === "function" ? { decide: next, carry: carried } : next;
+    const split = typeof next === "function" ? { state: {}, decide: next, carry: carried } : next;
     if (driver && split?.decide !== driver.decide) { released?.(view, "replaced"); state.pending.length = 0; }
     driver = split;
+    state.driver = split === null ? null : split.state;
     released = onRelease;
   };
   const listeners = new Set<(step: number, time: number) => void>();
   const afterPhysics: Body["afterPhysics"] = listener => { listeners.add(listener); return () => { listeners.delete(listener); }; };
-  // What the stance holds walking, for a motor that stands the body by the stance.
-  const envelope = balancing && !options.measuring && Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(own.spec) : null;
+  const envelope = makeMotor.envelope(own.spec, options);
   const body: Body = { dt: clock.dt,
     readCommand(out) {
       if (!current) { out.muscles.activation.fill(0); out.muscles.velocity.fill(0); out.assist.force.setAll(0); out.assist.moment.setAll(0); return; }

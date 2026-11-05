@@ -17,7 +17,7 @@
  */
 import { Vector3 } from "../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../src/control/body.ts";
-import { commandedBody } from "../src/minds/host.ts";
+import { commandedBody } from "../src/app/commanded-body.ts";
 import { contactGive, contactMass } from "../src/core/bodies/build/contact-mass.ts";
 import { centreOfToRef } from "../src/core/bodies/read-motion.ts";
 import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";

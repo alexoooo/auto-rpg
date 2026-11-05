@@ -1,7 +1,7 @@
 import type { HostedBody } from "../../minds/hosted-body.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import type { AssistCeiling } from "../../core/bodies/assist.ts";
-import type { Experiment } from "../../minds/mind.ts";
+import type { Experiment } from "../../control/body.ts";
 import type { GameContext } from "../arena/context.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { createMind, type MindMade, type MindWiring } from "../../minds/minds.ts";

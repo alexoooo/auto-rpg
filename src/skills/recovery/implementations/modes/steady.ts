@@ -40,7 +40,7 @@ const CLIMB = deepFreeze({ seconds: .6, response: .08, below: .9 });
  * crouch (`CLIMB`). Its memory is the climb's, the motor's and the legs'.
  */
 export function steadying(own: OwnBody, view: BodyView, kit: MindKit) {
-  const motor = carrying(kit.motor(own.built, own.muscles, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the steady");
+  const motor = carrying(kit.motor.make(own.built, own.muscles, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the steady");
   const feet = stanceFeetOf(own.spec), legs = locomotion(feet, null), both = Object.keys(feet);
   const state = {
     climb: { on: false, done: false, time: 0, centre: [0, 0], velocity: [0, 0], to: [0, 0], height: 0, rise: 0, pitch: 0,

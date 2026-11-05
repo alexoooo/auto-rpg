@@ -12,7 +12,7 @@ import type { Vec3 } from "../core/bodies/spec/quantity.ts";
 import { deepFreeze } from "../core/world/state.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import { bodyDynamics } from "../core/bodies/build/dynamics.ts";
-import { HAND_POSES as POSES, checkHandPose, handPoseModel } from "../core/bodies/build/hand-poses.ts";
+import { checkHandPose, handPoseModel, handAt, handCode, handPoseAt, handPoseCode as poseCode } from "../core/bodies/build/hand-poses.ts";
 import { jointKinematics } from "../core/bodies/build/joint-kinematics.ts";
 import { segmentShapes } from "../core/bodies/build/segment-shapes.ts";
 
@@ -81,7 +81,7 @@ const channelFor = (layout: Layout, allocate: (length: number) => Float64Array):
 
 /** The clock and level: the steps, the time, the level (`LEVELS`). */
 const HEAD = 3;
-/** A segment's numbers: position 3, turn 4, velocity 3, spin 3, the hand's applied and requested pose (`POSES`), the toes' bend, mass 1, centre 3, moments 3, orientation 4. */
+/** A segment's numbers: position 3, turn 4, velocity 3, spin 3, the hand's applied and requested pose (`handPoseCode`), the toes' bend, mass 1, centre 3, moments 3, orientation 4. */
 const SEGMENT = 27;
 /** The assist's numbers: its ceilings 2, its gift 6, its meter 3, whether withdrawn. */
 const ASSIST = 12;
@@ -91,7 +91,7 @@ const CONTACT = 10;
 const PAIR = 9;
 /** A manifold's numbers before its points: the other, the fixed, mine, theirs, normal 3, impulse, its points' count. */
 const MANIFOLD = 9;
-/** A sensed segment's numbers, each of its body's spec's: its hand's pose (`POSES`, -1 none, `OFF_BODY` off its body), position 3, turn 4, centre 3, velocity 3, spin 3. */
+/** A sensed segment's numbers, each of its body's spec's: its hand's pose (`handPoseCode`, -1 none, `OFF_BODY` off its body), position 3, turn 4, centre 3, velocity 3, spin 3. */
 const SENSED_SEGMENT = 17;
 /** A sensed body's numbers after its segments: centre 3, velocity 3, out, down, life, time (NaN unread). */
 const SENSED_BODY = 10;
@@ -99,7 +99,6 @@ const SENSED_BODY = 10;
 const SENSED_OBJECT = 19;
 
 const LEVELS: readonly BodyLevel[] = ["full", "limp", "held"];
-const poseCode = (pose: HandPose | undefined): number => pose === undefined ? -1 : POSES.indexOf(pose);
 
 /** Where each section of a body's numbers starts, made once from its statics. */
 interface Layout {
@@ -314,7 +313,7 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
       assist.asked.moment.set(out[2 * n + 3]!, out[2 * n + 4]!, out[2 * n + 5]!);
       let at = layout.command;
       const count = out[at++]!;
-      for (let r = 0; r < count; r++, at += 2) asked(out[at] === 0 ? "left" : "right", POSES[out[at + 1]!]!);
+      for (let r = 0; r < count; r++, at += 2) asked(handAt(out[at]!), handPoseAt(out[at + 1]!));
     },
   };
 }
@@ -529,7 +528,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const control: BodyControl = { muscles: { activation: state.activation, velocity: state.velocity }, assist: asked,
     hands: { request(hand, pose) {
       checkHandPose(model, hand, pose);
-      const code = hand === "left" ? 0 : 1;
+      const code = handCode(hand);
       for (let i = 0; i < hands.length; i += 2) if (hands[i] === code) throw new Error("invalid or duplicate hand pose request");
       handState[hand]!.requested = pose;
       hands.push(code, poseCode(pose));
@@ -577,7 +576,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         record.pose.rotation.set(a[k + 3]!, a[k + 4]!, a[k + 5]!, a[k + 6]!);
         record.linear.set(a[k + 7]!, a[k + 8]!, a[k + 9]!);
         record.angular.set(a[k + 10]!, a[k + 11]!, a[k + 12]!);
-        if (record.handPose) { record.handPose.applied = POSES[a[k + 13]!]!; record.handPose.requested = POSES[a[k + 14]!]!; }
+        if (record.handPose) { record.handPose.applied = handPoseAt(a[k + 13]!); record.handPose.requested = handPoseAt(a[k + 14]!); }
         if (record.toes) record.toes.bend = a[k + 15]!;
         const m = record.motion.mass, o = m.orientation;
         if (m.mass !== a[k + 16] || m.centre[0] !== a[k + 17] || m.centre[1] !== a[k + 18] || m.centre[2] !== a[k + 19]
@@ -662,7 +661,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         for (let i = 0; i < view.all.length; i++) {
           const s = view.all[i]!, pose = a[k]!;
           view.mark(i, pose !== OFF_BODY);
-          if (pose >= 0) s.handPose = POSES[pose]!;
+          if (pose >= 0) s.handPose = handPoseAt(pose);
           s.position.set(a[k + 1]!, a[k + 2]!, a[k + 3]!);
           s.rotation.set(a[k + 4]!, a[k + 5]!, a[k + 6]!, a[k + 7]!);
           s.centre.set(a[k + 8]!, a[k + 9]!, a[k + 10]!);

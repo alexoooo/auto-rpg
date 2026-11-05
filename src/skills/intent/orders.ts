@@ -1,7 +1,7 @@
 import type { Region, TargetRef } from "../framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { regionSegments } from "./action-aim.ts";
-import { GAIT_NAMES, type GaitName } from "../locomotion/gaits.ts";
+import type { GaitName } from "../locomotion/gaits.ts";
 import { isMovement, type MovementRequest, type GroundPoint } from "./movement.ts";
 
 /** A direction on the ground, world. */
@@ -81,7 +81,7 @@ export function isOrders(value: unknown): value is Orders {
   const named = (one: unknown) => one === undefined || typeof one === "string" && one.length > 0 && foe !== undefined;
   return (move === undefined || move === null || isMovement(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
     && (lower === undefined || typeof lower === "number" && Number.isFinite(lower) && lower >= 0)
-    && (walk === undefined || walk === true) && (firm === undefined || firm === true) && (gait === undefined || (GAIT_NAMES as readonly unknown[]).includes(gait))
+    && (walk === undefined || walk === true) && (firm === undefined || firm === true) && (gait === undefined || typeof gait === "string" && gait.length > 0)
     && (foe === undefined || typeof foe === "string" && foe.length > 0)
     && (region === undefined || isRegion(region) && foe !== undefined) && named(skill) && named(limb)
     && Object.keys(value).every(key => ["move", "pace", "walk", "gait", "lower", "face", "foe", "region", "skill", "limb", "firm"].includes(key));

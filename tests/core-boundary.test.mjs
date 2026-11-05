@@ -254,7 +254,7 @@ const MIND_FOLDERS = ["src/minds/", "src/skills/intent/", "src/skills/locomotion
 
 /** The adapters in those folders, which make the report and carry out the order sheet, and so hold the world. */
 const MIND_ADAPTERS = new Set([
-  "src/minds/mind.ts", "src/minds/host.ts", "src/minds/physical-body.ts", "src/core/world/senses.ts",
+  "src/minds/embodiment.ts", "src/minds/host.ts", "src/minds/physical-body.ts", "src/core/world/senses.ts",
   "src/core/bodies/object-senses.ts", "src/minds/minds.ts",
   "src/minds/sheets.ts", "src/minds/mirror.ts", "src/core/bodies/assist.ts",
 ]);

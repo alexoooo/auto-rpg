@@ -3,7 +3,7 @@
  * the batteries `research/core-stance-sweep.mjs` sweeps a stance tuning over. Each returns plain numbers.
  */
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
-import { commandedBody } from "../src/minds/host.ts";
+import { commandedBody } from "../src/app/commanded-body.ts";
 import { armed } from "../src/core/bodies/human/grip.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { woodenClub } from "../src/core/bodies/items/club.ts";

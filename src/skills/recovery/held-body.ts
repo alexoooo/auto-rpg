@@ -12,7 +12,7 @@ export function heldCommand(channels: number) {
 }
 
 /** A body's readings beside a skill's own saved command arrays and assist request. */
-export function heldBody(body: Pick<Body, "built" | "muscles" | "assist" | "view" | "delay" | "dt" | "readCommand">,
+export function heldBody(body: Pick<Body, "built" | "muscles" | "assist" | "view" | "delay" | "dt" | "readCommand" | "afterPhysics">,
   command: ReturnType<typeof heldCommand>) {
   const muscles = { activation: command.activation, velocity: command.velocity };
   const snapshot = { muscles, assist: command.assist };
@@ -24,7 +24,7 @@ export function heldBody(body: Pick<Body, "built" | "muscles" | "assist" | "view
   const own: OwnBody = { spec: body.built.spec, dt: body.dt, delay: body.delay,
     built: body.built, muscles: body.muscles, assist: body.assist, first: body.view.senses };
   return {
-    own, control,
+    own, control, afterPhysics: body.afterPhysics,
     /** Start a fast step; a step that asks no assist leaves its host's request alone. */
     reset(): void { command.assistAsked = false; },
     /** Take the host's current command when this skill first takes the body. */

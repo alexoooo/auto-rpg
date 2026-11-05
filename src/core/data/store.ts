@@ -4,7 +4,7 @@ export type DataKey = keyof DataOf;
 /**
  * **What each key's data is, as its reader declares it**: the module that reads a key adds it here
  * (`declare module` of this module, `interface DataOf`), so the store names no reader's types:
- * every body's straight punch record (`PunchRecords`, `skills/strikes/punch-records.ts`), every
+ * every body's straight punch record (`PunchRecords`, `skills/strikes/straight-punch/data/records.ts`), every
  * body's record of each other skill tuned per body (`SkillRecords`, `skills/framework/records.ts`,
  * declared by the skill's part or module), and what
  * the Strike and Rise drills measured every strike and ground edge to bring (`Profile`,

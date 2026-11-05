@@ -25,6 +25,7 @@ Where the project is going and what is open. What is built is in the
 
 | Plan | What it builds |
 | --- | --- |
+| [Mind and organization boundaries](plans/mind-organization-boundaries.md) | separate general contracts from embodiment and implementation settings; complete Mind-owned saved memory and review the original acceptance requirements |
 | [Option Mind general](plans/2026-11-03-option-mind-general.md) | the known bugs fixed; Option Mind one loop and one body contract for every body, every act an Option; bodies told apart in data; skills developed against their own baselines |
 | [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
 | [Options trained body by body](plans/2026-11-03-options-training.md) | after Option Mind general: stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
@@ -68,8 +69,6 @@ Option Mind as its hero.
 - Rare dear steps break real time at a step's delay (the crowd fight's opening, a Crypt body's
   build step); cut one when it shows in play.
 - A step that allocates nothing beyond what Rapier does ([step cost](reference/step-cost.md)).
-- The bout's and the Crypt run's world builders sit among their screens' files; the Lab's
-  scenarios reach the page's render.
 - One notion of a task across evaluations, the Lab and the Ratings; the Ratings reel plays bout
   cases only.
 - The orders vocabulary is closed: a new kind of order edits `Orders`, `isOrders`, `Command` and

@@ -23,7 +23,8 @@ export interface HostMind extends Mind {
   resume(): void;
 }
 
-export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock) => MindConstruction<SubMind>;
+/** A sub-mind may observe completed physics through its host's ordered listeners. */
+export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock, afterPhysics: Body["afterPhysics"]) => MindConstruction<SubMind>;
 const HOST = -1, NOBODY = -2;
 
 /** A host and ranked sub-minds, with ownership in the saved state. */
@@ -67,7 +68,7 @@ export interface CommandedMind extends MindConstruction { readonly body: Body }
 
 export function commandedMind(own: OwnBody, options: LayerOptions, clock: Clock, subs: readonly SubMindMaker[] = []): CommandedMind {
   const layers = commandLayers(own, options, clock);
-  const made = subs.map(make => make(own, layers.view, clock));
+  const made = subs.map(make => make(own, layers.view, clock, layers.body.afterPhysics));
   layers.firstLook();
   return { ...hosting(layers, made), body: layers.body };
 }

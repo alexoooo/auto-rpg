@@ -1,13 +1,14 @@
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import { poseAngles } from "../control/kinematics.ts";
 import type { Skills } from "../skills/framework/skills.ts";
+import type { Experiment } from "../control/body.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import type { World } from "../core/world/world.ts";
 import type { MindConfig } from "./config.ts";
 import type { MindReport } from "./report.ts";
 import type { Catalog } from "./catalog.ts";
 import { bodyHost, rulesOf, type BodyHost, type HostGrants } from "./host.ts";
-import { mirrorDriven, type Embodying } from "./mind.ts";
+import { mirrorDriven, type Embodying } from "./embodiment.ts";
 import { isMindPlace, reportNow, type At, type MindPlace, type MindRecipe, type ReportNow, type Seat } from "./apart.ts";
 import { physicalBody, type HeldReading, type PhysicalBody } from "./physical-body.ts";
 import type { Orders } from "../skills/intent/orders.ts";
@@ -17,6 +18,8 @@ import type { SheetLog } from "./sheets.ts";
 /** **What a fight gives the mind it makes**, beside the body and the config: what it grants the body (`HostGrants`), and its orders. */
 export interface MindWiring extends HostGrants {
   readonly name: string;
+  /** Research settings passed to a mind that builds command layers. */
+  readonly experiment?: Experiment;
   /** Its orders this step, or null when it is left to itself. `senses` are its own, this step's. */
   orders(senses: Senses): Orders | null;
 }

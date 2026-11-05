@@ -131,5 +131,8 @@ function pawMotor(built: ReadBody, muscles: MuscleReading, posture: Pose = {}, a
 export const PAW_MOTOR: MotorPart<PawMotorConfig> = deepFreeze({
   role: "motor", label: "Paw support", stage: "game", fields: [], slots: [], defaults: { kind: "paw-motor" }, keys: { kind: true },
   fits: fitsPaws, faults: () => [],
-  make: () => (built, muscles, _seconds, posture, _tuning, assist) => pawMotor(built, muscles, posture, assist),
+  make: () => ({
+    make: (built, muscles, _seconds, posture, _tuning, assist) => pawMotor(built, muscles, posture, assist),
+    envelope: () => null,
+  }),
 });

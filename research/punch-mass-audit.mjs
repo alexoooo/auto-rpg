@@ -4,7 +4,7 @@ import {Vector3} from '../src/core/math/vector.ts';
 import {coreStand} from '../tests/harness/core-stand.mjs';
 import {modelSpec} from "../src/core/bodies/models.ts";
 import {SERVO_SECONDS} from "../src/control/body.ts";
-import {commandedBody} from "../src/minds/host.ts";
+import {commandedBody} from "../src/app/commanded-body.ts";
 import {contactMass} from "../src/core/bodies/build/contact-mass.ts";
 import {motionAtToRef,pointOfToRef} from "../src/core/bodies/read-motion.ts";
 import {rigidPoints} from "../src/core/bodies/build/rigid.ts";

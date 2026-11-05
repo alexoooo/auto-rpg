@@ -158,7 +158,7 @@ const HIP = 0, KNEE = 1;
  * after `recoveryLimit` s. It yields until its paws are placed.
  */
 function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit): TechniqueRun {
-  const motor = kit.motor(own.built, own.muscles, clock.dt);
+  const motor = kit.motor.make(own.built, own.muscles, clock.dt);
   if (!carries(motor, "support")) throw new Error("righting by routes needs a motor that carries a support over its paws");
   const reading = pawReader(own.built).state, feet = reading.endpoints, endpoints = pawEndpoints(own.built), root = own.muscles.dynamics.root.segment;
   const names = endpoints.map((e) => e.segment), paws = names.map((name) => own.built.segments.get(name)!);

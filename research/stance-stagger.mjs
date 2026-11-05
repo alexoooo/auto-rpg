@@ -12,7 +12,7 @@
  *     [--seconds 0.3] [--hz 120,480,1920]
  */
 import { parseArgs } from "node:util";
-import { commandedBody } from "../src/minds/host.ts";
+import { commandedBody } from "../src/app/commanded-body.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 

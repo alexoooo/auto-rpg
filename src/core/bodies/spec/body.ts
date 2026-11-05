@@ -21,12 +21,6 @@ export interface EndLimb {
   readonly segment: string;
   /** The joint its own chain begins at; the joints before it, from the root, are its stem (`Limb.stem`). */
   readonly from: string;
-  /**
-   * The channels of its chain that take its point's task, three or more: of the motions that give
-   * the task, theirs is the one nearest the stage's posture. The chain's others are driven toward
-   * the posture.
-   */
-  readonly takes: readonly string[];
 }
 
 /**
@@ -41,17 +35,14 @@ export interface ProppedLimb {
   /** Which end it is on: the one nearer the joint that carries the segment, or the farther. */
   readonly end: "near" | "far";
   readonly from: string;
-  /** The channels of its chain that take its task, the point's and its tilt's, four or more; as an end's. */
-  readonly takes: readonly string[];
   /** The foot that props it: a foot the stance stands on, hanging from `segment`. */
   readonly prop: string;
 }
 
 /**
  * **A foot, bearing on its sole, or on its sole's front edge once its heel is up**: a foot a stance
- * stands on, as the stance bears on it (`bearingSole`, `src/control/support.ts`). Its whole
- * chain from `from` takes its task: on its sole the foot is held flat, on its edge its turn about
- * the edge is left free.
+ * stands on, as the stance bears on it (`bearingSole`, `src/control/support.ts`). Its limb chain
+ * begins at `from`.
  */
 export interface FootLimb {
   readonly kind: "foot";

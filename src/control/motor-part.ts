@@ -6,13 +6,20 @@ import type { AssistReading } from "../core/bodies/assist.ts";
 import type { MotorControl } from "./motor.ts";
 import type { Pose } from "../core/bodies/spec/pose.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
+import type { BodySpec } from "../core/bodies/spec/body.ts";
+import type { Experiment } from "./body.ts";
+import type { StanceEnvelope } from "./stance-envelope.ts";
 
 /**
  * **What makes a motor control**: from the body, the muscles it drives, its servo's time constant,
  * its posture, its stance's tuning and its assist; it says the goals it carries out
  * (`MotorControl.carries`).
  */
-export type MotorMaker = (built: ReadBody, muscles: MuscleReading, seconds: number, posture?: Pose, stanceTuning?: StanceTuning, assist?: AssistReading | null) => MotorControl;
+export interface MotorMaker {
+  make(built: ReadBody, muscles: MuscleReading, seconds: number, posture?: Pose, stanceTuning?: StanceTuning, assist?: AssistReading | null): MotorControl;
+  /** The calibration this implementation supplies for the body and research settings. */
+  envelope(spec: BodySpec, experiment: Experiment): StanceEnvelope | null;
+}
 
 /**
  * **A kind of motor control**: a part of role `motor` that owns its config's type, keys, defaults,

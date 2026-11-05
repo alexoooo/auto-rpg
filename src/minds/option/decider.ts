@@ -23,6 +23,7 @@ export interface DeciderMaking {
   readonly rules: Rulebook;
   readonly orders: (sight: Sight) => Orders | null;
   readonly parts: PartLookup;
+  readonly techniques: readonly PartConfig[];
 }
 
 /** What Option Mind decides with: its chooser, its options (each a part of role `option`, in rank order), and the legs its body goes by. */
@@ -106,7 +107,7 @@ export function optionDecider(making: DeciderMaking, hz: number, deciding: Decid
   const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options,
     { spec, hz, rate, delay, parts, walk, legs: deciding.legs, tables, record });
   const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap((option) => option.modelled ? [option.modelled] : []), measured: tables.strikes,
-    ordersOf: making.orders, record, parts });
+    ordersOf: making.orders, record, parts, techniques: making.techniques });
   const chosen = chooserOf(parts, deciding.chooser, options, seed, phase);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), record: record.state, prospects: [] as Kept[] };
   let last: Sight | null = null, lastNow: Situation | null = null;

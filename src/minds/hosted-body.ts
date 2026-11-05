@@ -1,6 +1,6 @@
 import type { Body, LayerOptions } from "../control/body.ts";
 import type { PhysicalBody } from "./physical-body.ts";
-import type { Embodying } from "./mind.ts";
+import type { Embodying } from "./embodiment.ts";
 /**
  * **A body under the command layers as the one who built it holds it** (`commandedBody`): the
  * built body under it (`PhysicalBody`), its view, its drive, and the body its drivers have

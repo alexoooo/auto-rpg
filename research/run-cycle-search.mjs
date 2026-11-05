@@ -36,7 +36,7 @@ import { isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { commandedBody } from "../src/minds/host.ts";
+import { commandedBody } from "../src/app/commanded-body.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { modelHolding } from "../src/core/bodies/models.ts";
 import { LOADOUTS } from "../src/core/bodies/items/held.ts";

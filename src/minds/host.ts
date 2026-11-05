@@ -8,10 +8,11 @@ import { rulebook, type Rulebook } from "../combat/rulebook.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import type { World } from "../core/world/world.ts";
 import type { PartLookup } from "../parts/lookup.ts";
-import { embody, type Embodying, type Experiment, type MindConstruction } from "./mind.ts";
+import { embody, type Embodying } from "./embodiment.ts";
+import type { MindConstruction } from "./mind.ts";
 import { type OwnBody } from "../core/bodies/own-body.ts";
 import type { Senses } from "../core/bodies/senses.ts";
-import { commandedMind, type SubMindMaker } from "./sub-mind.ts";
+import { commandedMind, type CommandedMind, type SubMindMaker } from "./sub-mind.ts";
 
 /**
  * **What a fight grants a body**, read from its wiring and never from the mind it makes: its
@@ -31,8 +32,6 @@ export interface HostGrants {
   readonly phase?: number;
   /** The rules its fight is played by (`BodyHost.rules`); the arena's unless given. */
   readonly rules?: Rulebook;
-  /** A study's settings of its command layers (`OwnBody.experiment`); none in a fight. */
-  readonly experiment?: Experiment;
 }
 
 /** The golden ratio's fraction, (sqrt 5 - 1) / 2: successive multiples of it fall evenly over [0, 1). */
@@ -78,6 +77,8 @@ export interface BodyHost {
   take<M extends MindConstruction>(make: (own: OwnBody) => M): M;
 }
 
+type HostedConstruction = MindConstruction & Partial<Pick<CommandedMind, "body">>;
+
 /**
  * **`built` in `world` under the mind `make` makes**, given `given` (`Embodying`): the one way a
  * body takes a mind, in a fight or out of one. The fight's `PhysicalBody` is built the same way for
@@ -85,21 +86,16 @@ export interface BodyHost {
  * and where the mind drives it through the command layers (`CommandedMind.body`) it shows their view and
  * drive as a `HostedBody` does.
  */
-export function hostBody<M extends MindConstruction>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
+export function hostBody<M extends HostedConstruction>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
   const { held, mind, state, dispose } = embody(built, world, make, given);
   const body = physicalBody(built, held, world, () => mind.has(), state, dispose), driver = mind.body;
   return { mind, body: driver ? Object.assign(body, { view: driver.view, envelope: driver.envelope, drive: driver.drive, afterPhysics: driver.afterPhysics, driver }) : body };
 }
 
-/**
- * **`built` in `world` under the command layers**, built outside a fight (a test, a study, a task)
- * the one way a body takes a mind (`hostBody`): the layers `options` make, handed over to the
- * sub-minds of `subs` in rank order where one wants the body (`commandedMind`), none unless given,
- * holding the reference pose until something drives them (`HostedBody.drive`).
- */
+/** A body under explicitly configured command layers and ranked sub-minds. */
 export function commandedBody(built: BuiltBody, world: World, options: BodyOptions, subs: readonly SubMindMaker[] = []): HostedBody {
   const { senses, assist, contactIdentity, log, ...layers } = options;
-  return hostBody(built, world, { senses, assist, contactIdentity, log }, (own) => commandedMind(own, layers, clockOf(world), subs)).body as HostedBody;
+  return hostBody(built, world, { senses, assist, contactIdentity, log }, own => commandedMind(own, layers, clockOf(world), subs)).body as HostedBody;
 }
 
 /**
@@ -109,7 +105,7 @@ export function commandedBody(built: BuiltBody, world: World, options: BodyOptio
  */
 export function bodyHost(built: BuiltBody, world: World, grants: HostGrants, parts: PartLookup, { log, answered }: Pick<Embodying, "log" | "answered"> = {}): { readonly host: BodyHost; made(): PhysicalBody } {
   let body: PhysicalBody | null = null;
-  const given: Embodying = { senses: grants.senses, assist: grants.assist, contactIdentity: grants.contactIdentity, log, ...(grants.experiment ? { experiment: grants.experiment } : {}),
+  const given: Embodying = { senses: grants.senses, assist: grants.assist, contactIdentity: grants.contactIdentity, log,
     ...(answered ? { answered } : {}) };
   const host: BodyHost = Object.freeze({
     spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, phase: grants.phase ?? 0, rules: rulesOf(grants),

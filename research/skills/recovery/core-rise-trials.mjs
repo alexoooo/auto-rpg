@@ -7,7 +7,7 @@ import { Vector3 } from "../../../src/core/math/vector.ts";
 import { SIDES } from "../../../src/game/arena/duel.ts";
 import { addArenaSolids } from "../../../src/game/arena/solids.ts";
 import { SERVO_SECONDS } from "../../../src/control/body.ts";
-import { commandedBody } from "../../../src/minds/host.ts";
+import { commandedBody } from "../../../src/app/commanded-body.ts";
 import { buildBody } from "../../../src/core/bodies/build/build-body.ts";
 import { centreOfToRef } from "../../../src/core/bodies/read-motion.ts";
 import { armed } from "../../../src/core/bodies/human/grip.ts";

@@ -9,7 +9,7 @@ import { groundPlacement, groundPostures } from "../../../game/lab/ground-starts
 import { TECHNIQUES } from "../../recovery-techniques.ts";
 import { isWayUp, type TechniqueName, type TechniquePart } from "../../../skills/recovery/technique.ts";
 import { partLookup } from "../../catalog.ts";
-import { STAND_UP } from "../../../skills/recovery/stand-up.ts";
+import { STAND_UP } from "../../recovery-selections.ts";
 import { waysUpIn, withWaysUp } from "../../../minds/option/rise.ts";
 import type { MindConfig } from "../../../minds/config.ts";
 import type { PartConfig } from "../../../parts/parts.ts";

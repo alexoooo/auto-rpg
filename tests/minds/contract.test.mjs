@@ -7,9 +7,17 @@ import { poseAngles } from "../../src/control/kinematics.ts";
 import { GUARD } from "../../src/skills/guard/guard.ts";
 import { createWorld } from "../../src/core/world/world.ts";
 import { buildBody } from "../../src/core/bodies/build/build-body.ts";
-import { embody } from "../../src/minds/mind.ts";
+import { embody } from "../../src/minds/embodiment.ts";
 import { loadState, saveState } from "../../src/core/world/state.ts";
-import { freshEngine } from "../harness/core-stand.mjs";
+import { freshEngine, coreStand } from "../harness/core-stand.mjs";
+import { SERVO_SECONDS } from "../../src/control/body.ts";
+import { commandedMind } from "../../src/minds/sub-mind.ts";
+import { driveBy } from "../../src/minds/decider.ts";
+import { standIntent } from "../../src/skills/intent/intent.ts";
+import { wholeBodyMotor } from "../../src/control/whole-body-motor.ts";
+import { isOrdersEntry } from "../../src/game/arena/duel.ts";
+import { MOVE_PART } from "../../src/skills/locomotion/move-part.ts";
+import { PAW_MOVE } from "../../src/skills/locomotion/quadruped/paw-legs.ts";
 
 /** The command's delay a world is made with to show it: more than one step, so its ring is read through. */
 const SHOWN_DELAY = 2;
@@ -93,4 +101,40 @@ test("a fresh physics fork resets exactly the forces pending at its save", async
       assert.deepEqual(fork.world.save(), original.world.save(), `continuation step ${i + 1}`);
     }
   } finally { original.world.dispose(); fork.world.dispose(); }
+});
+
+test("a commanded Mind restores its driver's memory from its own state", async () => {
+  const make = async () => {
+    const stand = await coreStand(modelSpec("workshop-fighter"));
+    const embodied = embody(stand.built, stand.world, own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: wholeBodyMotor() }, stand.world));
+    const memory = { decisions: 0 };
+    driveBy(embodied.mind.body, { name: "counted stand", state: memory, decide() {
+      memory.decisions++;
+      return standIntent(0);
+    } });
+    return { stand, embodied, memory, dispose() { embodied.dispose(); stand.dispose(); } };
+  };
+  const original = await make(), fork = await make();
+  try {
+    original.stand.step(3);
+    assert.equal(original.memory.decisions, 3, "the driver must decide before its state is saved");
+    const saved = saveState(original.embodied.mind.mind.state);
+    loadState(fork.embodied.mind.mind.state, saved);
+    assert.deepEqual(fork.memory, original.memory);
+    original.stand.step(); fork.stand.step();
+    assert.deepEqual(fork.memory, original.memory);
+    assert.equal(fork.memory.decisions, 4);
+  } finally { original.dispose(); fork.dispose(); }
+});
+
+test("recorded orders accept configured gait names across JSON transport", () => {
+  const stock = MOVE_PART.gaits(MOVE_PART.defaults);
+  assert.ok(stock.length > 0, "the fixture needs a registered gait for its custom name");
+  const config = { ...MOVE_PART.defaults, gaits: [...stock, { ...stock[0], name: "entrant-step" }], otherwise: "entrant-step" };
+  assert.deepEqual(MOVE_PART.faults(config), [], "the locomotion must admit the configured gait");
+  const gaits = [...MOVE_PART.gaits(config), ...PAW_MOVE.gaits(PAW_MOVE.defaults)];
+  const tape = gaits.map(({ name }, step) => ({ step, side: "left", orders: { face: null, gait: name } }));
+  const transported = JSON.parse(JSON.stringify(tape));
+  assert.deepEqual(transported.filter(isOrdersEntry), tape);
+  for (const gait of ["", null, 0]) assert.equal(isOrdersEntry({ step: 0, side: "left", orders: { face: null, gait } }), false);
 });

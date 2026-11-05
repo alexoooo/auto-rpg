@@ -24,7 +24,7 @@
 import { parseArgs } from "node:util";
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../src/control/body.ts";
-import { commandedBody } from "../src/minds/host.ts";
+import { commandedBody } from "../src/app/commanded-body.ts";
 import { buildBody } from "../src/core/bodies/build/build-body.ts";
 import { armed } from "../src/core/bodies/human/grip.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";

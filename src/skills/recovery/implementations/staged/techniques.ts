@@ -161,7 +161,7 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, 
   const cuts = part.recipe ? [] : CUTS.map(cut => ({ index: at(cut.after), at: cut.at })).filter(cut => cut.index >= first && cut.at === part.to);
   const unrolled: Recipe = derivedRecipe(whole, `unrolled from ${first}`, () => ({ ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(first) }));
   const rise: StepUpRise = stagedRise(own, view, unrolled);
-  const motor = carrying(kit.motor(own.built, own.muscles, .1, kit.posture), ["stance"], "a part of step up's route");
+  const motor = carrying(kit.motor.make(own.built, own.muscles, .1, kit.posture), ["stance"], "a part of step up's route");
   const steady = stanceSteady(own, view, motor, tuning.climb);
   // `cut`: the latest of `cuts` begun, -1 for none.
   const state = { phase: "rise" as "rise" | "steady", rose: false,

@@ -123,9 +123,9 @@ export function createTechnique(context: GameContext) {
       command: { activation: new Float64Array(spec.joints.reduce((n,j)=>n+j.dofs.length,0)), velocity: new Float64Array(spec.joints.reduce((n,j)=>n+j.dofs.length,0)) },
       links: [] as LinkReading[], entry: null as LinkReading["entry"], last: "between" };
     let runs: TechniqueRun[] = [];
-    const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
+    const body = commandedBody(built, world, { servoSeconds: .1, motor: kitOf(partLookup, spec).motor }, [(own, view, clock, afterPhysics) => {
       const kit = kitOf(partLookup, own.spec), drive = poseDrive(own.muscles);
-      runs = one.chain.map((name) => { const part: TechniquePart = TECHNIQUES[name]; return part.make(own, view, clock, kit, part.defaults); });
+      runs = one.chain.map((name) => { const part: TechniquePart = TECHNIQUES[name]; return part.make(own, view, clock, kit, part.defaults, afterPhysics); });
       const command = state.command;
       const remember = (control: BodyControl) => { command.activation.set(control.muscles.activation); command.velocity.set(control.muscles.velocity); };
       const carry = (control: BodyControl) => { control.muscles.activation.set(command.activation); control.muscles.velocity.set(command.velocity); };

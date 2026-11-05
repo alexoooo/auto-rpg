@@ -1,17 +1,6 @@
-import { deepFreeze } from "../../core/world/state.ts";
 import type { Position } from "../../control/ground-reading.ts";
 import type { TechniqueConfig, TechniquePart } from "./technique.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-
-/**
- * **The game's Stand up**: the ways up a body rises by on its toes, in player order: the roll onto
- * its front, then down onto hands and knees and the sit-back, or the sit-back from the front, the
- * route each body takes priced by its edges' profiles.
- */
-export const STAND_UP: readonly TechniqueConfig[] = deepFreeze([{ kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" }]);
-
-/** The techniques a stand-up repositions the body by where no way up stands it: onto its back from its front, else onto its front. */
-export const REPOSITION: readonly TechniqueConfig[] = deepFreeze([{ kind: "roll" }, { kind: "roll-back" }]);
 
 /**
  * Whether the edges of `ways` (`TechniquePart.edges`), each begun on a side it has, take a body at

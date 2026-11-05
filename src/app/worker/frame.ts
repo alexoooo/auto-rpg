@@ -1,4 +1,5 @@
 import type { HandPose } from "../../core/bodies/spec/body.ts";
+import { handPoseCode } from "../../core/bodies/build/hand-poses.ts";
 
 /**
  * **A world's step as a worker sends it**: one `Float64Array` a step, its head, then each body of
@@ -10,7 +11,7 @@ import type { HandPose } from "../../core/bodies/spec/body.ts";
  * - A body's head (`BODY_HEAD`): its life, a fraction; 1 when it is down, else 0; 1 when it is out,
  *   else 0; its centre of mass, world, m.
  * - A segment's row (`SEGMENT_ROW`): its pose's position, world, m, and rotation, x, y, z, w, as the
- *   step left them; its hand's applied pose as an index of `HAND_POSES`, or -1 for a segment that
+ *   step left them; its hand's applied pose encoded by `handPoseCode`, or -1 for a segment that
  *   is no posable hand; its toes' bend, rad, 0 for a segment with none; 1 while it is on its body
  *   (`attachment`), 0 once it is cut off.
  */
@@ -18,9 +19,6 @@ import type { HandPose } from "../../core/bodies/spec/body.ts";
 export const FRAME_HEAD = 4;
 export const BODY_HEAD = 6;
 export const SEGMENT_ROW = 10;
-
-/** A hand's poses, by their index in a segment's row. */
-export const HAND_POSES: readonly HandPose[] = Object.freeze(["open", "fist", "grip"]);
 
 /** A body of a worker's world as the page is told of it once: its id, its segments in built order, and what the page makes its spec from. */
 export interface RosterBody<Card = unknown> {
@@ -68,7 +66,7 @@ export function packFrame(bodies: readonly FramedBody[], length: number, time: n
       const p = segment.pose.position, q = segment.pose.rotation;
       frame[at] = p.x; frame[at + 1] = p.y; frame[at + 2] = p.z;
       frame[at + 3] = q.x; frame[at + 4] = q.y; frame[at + 5] = q.z; frame[at + 6] = q.w;
-      frame[at + 7] = segment.handPose ? HAND_POSES.indexOf(segment.handPose.applied) : -1;
+      frame[at + 7] = handPoseCode(segment.handPose?.applied);
       frame[at + 8] = segment.toes ? segment.toes.bend : 0;
       frame[at + 9] = body.attached(name) ? 1 : 0;
       at += SEGMENT_ROW;

@@ -1,6 +1,8 @@
 import { standReady, tumbling, type GroundReading } from "../../control/ground-reading.ts";
 import type { Sight } from "../decider.ts";
-import { braces, climbs, isMode, steadies } from "../../skills/recovery/implementations/modes/index.ts";
+import type { TechniquePart } from "../../skills/recovery/technique.ts";
+import type { PartLookup } from "../../parts/lookup.ts";
+import type { PartConfig } from "../../parts/parts.ts";
 import type { OptionRecord } from "./record.ts";
 
 /** A body standing ready this long (`standReady`) with no try under way has risen, s: its rise is over. */
@@ -24,12 +26,17 @@ export const onFeet = (g: GroundReading): boolean => (g.onFeet || g.position ===
  * **What a body's reader keeps of its rise**, read once a decision, each count the seconds since
  * the decision before (the world's time, `BodyView.time`): whether its rise runs, from the decision the body is down until it has stood
  * ready (`standReady`, `READY_HOLD`) with no try under way, an action neither ended nor a mode of
- * the ground's (`isMode`), the steady not climbing
- * (`climbs`), or its steady's try is over with the body standing; the seconds it has been braced
- * tumbling off its feet (`braces`, `tumbling`) since the rise began or a try in `record` last
- * ended; and the seconds the steady has held it in its try (`steadies`, `STEADY_TRY`).
+ * the ground's (`TechniquePart.mode`), the steady not climbing
+ * (`TechniquePart.mode.climbing`), or its steady's try is over with the body standing; the seconds it has been braced
+ * tumbling off its feet (`TechniquePart.mode`, `tumbling`) since the rise began or a try in `record` last
+ * ended; and the seconds the steady has held it in its try (`TechniquePart.mode`, `STEADY_TRY`).
  */
-export function riseMemory(record: OptionRecord) {
+export function riseMemory(record: OptionRecord, parts: PartLookup, techniques: readonly PartConfig[]) {
+  const modes = new Map<string, NonNullable<TechniquePart["mode"]>>();
+  for (const config of techniques) {
+    const mode = parts.of("technique", config).mode;
+    if (mode) modes.set(config.kind, mode);
+  }
   const state = { rising: false, ready: 0, tumbled: 0, steadied: 0, noted: record.state.version, at: null as number | null };
   return {
     state,
@@ -41,9 +48,10 @@ export function riseMemory(record: OptionRecord) {
       if (!state.rising) return;
       let steady = false, climbing = false, trying = false, bracing = false;
       for (const action of sight.report.actions) {
-        if (steadies(action)) { steady = true; climbing ||= climbs(action); }
-        bracing ||= braces(action);
-        trying ||= !isMode(action) && !action.stage.startsWith("ended:");
+        const mode = modes.get(action.action);
+        if (mode?.kind === "steady") { steady = true; climbing ||= action.stage === mode.climbing; }
+        bracing ||= mode?.kind === "brace";
+        trying ||= mode === undefined && !action.stage.startsWith("ended:");
       }
       state.steadied = steady ? state.steadied + dt : 0;
       if (state.steadied >= STEADY_TRY) {

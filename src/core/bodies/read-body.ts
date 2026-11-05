@@ -8,7 +8,7 @@ import type { Vec3 } from "./spec/quantity.ts";
  * **A built body as its mind reads it**: the spec it was built from, each segment's pose and
  * motion, its joints' frames, what it touches and what its hands are set to. Every member reads;
  * none moves a body, sets a motor or reaches the engine. A mind, the skills and motor control
- * (`OwnBody`, `src/minds/mind.ts`) are given this and never the built body
+ * (`OwnBody`, `src/core/bodies/own-body.ts`) are given this and never the built body
  * (`BuiltBody`, `src/core/bodies/build/build-body.ts`), which extends it with what acts.
  */
 export interface ReadBody {

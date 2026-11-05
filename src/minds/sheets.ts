@@ -3,7 +3,7 @@ import type { HandPoseRequest } from "../core/bodies/build/hand-poses.ts";
 import type { AssistCeiling } from "../core/bodies/assist.ts";
 import { physicalBody, type PhysicalBody } from "./physical-body.ts";
 import type { World } from "../core/world/world.ts";
-import { embody } from "./mind.ts";
+import { embody } from "./embodiment.ts";
 import { requireRecordingIdentity, type RecordingIdentity } from "../core/world/recording.ts";
 import { clockSenses } from "../core/world/senses.ts";
 import { type Senses } from "../core/bodies/senses.ts";

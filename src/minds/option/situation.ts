@@ -8,6 +8,7 @@ import type { Sight } from "../decider.ts";
 import { READINGS, threatReader } from "../../skills/perception/threat.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
+import type { PartConfig } from "../../parts/parts.ts";
 import { perceiver, reachMemory, type ModelledStrike, type Seen } from "./percepts.ts";
 import { optionRecord, type OptionRecord } from "./record.ts";
 import { riseMemory } from "./rise-memory.ts";
@@ -32,6 +33,7 @@ export interface Reading {
   readonly ordersOf: (sight: Sight) => Orders | null;
   readonly record?: OptionRecord;
   readonly parts: PartLookup;
+  readonly techniques: readonly PartConfig[];
 }
 
 /** What a lazy input of a step's `Seen` holds before it is first asked for. */
@@ -64,7 +66,7 @@ type SeenAt = { -readonly [K in "sight" | "orders" | "focus"]: Seen[K] } & { ste
  */
 export function situationReader(reading: Reading) {
   const { spec, hz, delay, rules, strikes, measured, ordersOf } = reading, rate = reading.rate ?? hz;
-  const risen = riseMemory(reading.record ?? optionRecord()), reach = reachMemory();
+  const risen = riseMemory(reading.record ?? optionRecord(), reading.parts, reading.techniques), reach = reachMemory();
   const threats = threatReader(), state = { focus: null as string | null, risen: risen.state, reach: reach.state }, perceiving = perceiver(reading.parts);
   /** What every `Seen` it makes holds of the reader: one prototype, its step's lazy inputs read through `SeenAt.step`. */
   const base = Object.defineProperties({ spec, hz, rate, delay, rules, strikes, measured, threats, risen, reach }, {

@@ -45,7 +45,7 @@ import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import "../../../../tests/harness/preload-data.mjs";
 import poses from "../../../../assets/research/posture-holds.json" with { type: "json" };
-import { commandedBody } from "../../../../src/minds/host.ts";
+import { commandedBody } from "../../../../src/app/commanded-body.ts";
 import { pendingControl } from "../../../minds/pending-control.mjs";
 import { buildBody } from "../../../../src/core/bodies/build/build-body.ts";
 import { loadEngine } from "../../../../src/core/physics/engines.ts";

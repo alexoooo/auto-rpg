@@ -39,7 +39,7 @@ import { SIDES } from "../src/game/arena/duel.ts";
 import { CHARACTERS, WEAPONS, clipFor } from "../src/game/appearance/characters.ts";
 import { controlCharacter, controlsFor, defaultControl, readControls, readMinds } from "../src/app/node/setup.ts";
 import { SERVO_SECONDS, commandsBody } from "../src/control/body.ts";
-import { commandedBody } from "../src/minds/host.ts";
+import { commandedBody } from "../src/app/commanded-body.ts";
 import { humanSpec } from "../src/core/bodies/human/spec.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
 import { standIntent } from "../src/skills/intent/intent.ts";

@@ -3,6 +3,7 @@ import { deepFreeze } from "../core/world/state.ts";
 import type { BalancePart } from "./balance-part.ts";
 import { stanceControl } from "./stance.ts";
 import { soleRefusal } from "./support.ts";
+import { stanceEnvelope } from "./stance-envelope.ts";
 
 /** **The stance** (`stanceControl`): the centre of mass carried over two feet, stepping to catch it. */
 interface StanceBalanceConfig { readonly kind: "stance" }
@@ -17,4 +18,5 @@ export const STANCE_BALANCE: BalancePart<StanceBalanceConfig> = deepFreeze({
   role: "balance", label: "Stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance" }, keys: { kind: true },
   fits: fitsSoles, faults: () => [],
   make: () => stanceControl,
+  envelope: (spec, _config, experiment) => !experiment.measuring && Object.keys(experiment.stance ?? {}).length === 0 ? stanceEnvelope(spec) : null,
 });
