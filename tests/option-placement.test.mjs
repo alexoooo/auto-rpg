@@ -85,3 +85,47 @@ test("separate sights, predictions and searches retain their own readings", () =
   assert.deepEqual(observe(place(alone, { where: { x: -1, z: 2, face: 0 }, velocity: { x: 2, z: 1 } }, 1)),
     observe(placed(alone, { where: { x: -1, z: 2, face: 0 }, velocity: { x: 2, z: 1 } }, 1)));
 });
+
+test("search placements keep each situation's own properties and values", () => {
+  const { at } = situation(), place = placing();
+  const leaves = { where: { x: 4, z: 0, face: 1 }, around: .25, posture: "back", velocity: { x: 0, z: 0 }, grace: .4 };
+  const first = place(at, leaves, 2), before = observe(first);
+  const alone = Object.assign(Object.create(at), { focus: null });
+  const cases = [
+    { at, leaves: {}, own: ["ground", "incoming", "sight", "predictions", "grace"] },
+    { at: alone, leaves: { where: { x: 1, z: 2, face: 0 } }, own: ["ground", "incoming", "sight", "predictions", "where", "grace"] },
+    { at, leaves: { around: -.5, posture: "standing", velocity: { x: 2, z: 1 } }, own: ["ground", "incoming", "sight", "predictions", "around", "posture", "down", "velocity", "grace"] },
+    { at, leaves, own: ["ground", "incoming", "sight", "predictions", "where", "apart", "range", "around", "posture", "down", "velocity", "stride", "grace"] },
+  ];
+  for (const recipe of [...cases, ...cases.toReversed()]) {
+    const there = place(recipe.at, recipe.leaves, .5);
+    assert.equal(Object.getPrototypeOf(there), recipe.at);
+    assert.deepEqual(Reflect.ownKeys(there), recipe.own);
+    assert.deepEqual(Object.keys(there), []);
+    for (const key of recipe.own) assert.deepEqual(Object.getOwnPropertyDescriptor(there, key), {
+      value: there[key], writable: false, enumerable: false, configurable: false,
+    });
+    assert.deepEqual(observe(there), observe(placed(recipe.at, recipe.leaves, .5)));
+    assert.deepEqual(observe(first), before, "later placements leave existing situations intact");
+  }
+});
+
+test("a getter can make a nested placement without replacing outer descriptor values", () => {
+  const { at } = situation(), place = placing();
+  let nested;
+  const parent = Object.create(at, { range: { get() {
+    nested = place(at, { where: { x: -2, z: -1, face: -1 }, around: -.5, posture: "fours", velocity: { x: 0, z: 0 }, grace: .75 }, .5);
+    return at.range;
+  } } });
+  const leaves = { where: { x: 4, z: 0, face: 1 }, around: .25, posture: "back", velocity: { x: 2, z: 1 }, grace: .4 };
+  const outer = place(parent, leaves, 2);
+  assert.ok(nested, "the range getter made another placement during construction");
+  assert.deepEqual({ where: outer.where, apart: outer.apart, range: outer.range, around: outer.around, posture: outer.posture,
+    velocity: outer.velocity, stride: outer.stride, grace: outer.grace }, {
+    where: leaves.where, apart: 3, range: 2.5, around: .25, posture: "back", velocity: leaves.velocity, stride: "walk", grace: .4,
+  });
+  assert.deepEqual({ where: nested.where, posture: nested.posture, stride: nested.stride, grace: nested.grace }, {
+    where: { x: -2, z: -1, face: -1 }, posture: "fours", stride: "stand", grace: .75,
+  });
+  assert.deepEqual(observe(place(at, {}, .5)), observe(placed(at, {}, .5)));
+});
