@@ -95,8 +95,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   an asset, or tuned with what it is set for) or derived by a named rule that writes no factor.
   A spec never spreads another family's.
 - **Tuning is immutable**: an experiment passes an override in; nothing mutates a global.
-- **One world step** (`World.step`, 120 Hz) owns physics, control, combat and the clock; a page
-  advances by real time (`World.advance`). `scene.render()` never advances the world, and a test
+- **One world step** (`World.step`, 120 Hz) owns physics, the clock and the order of its hooks;
+  minds, control and blows run as hooks. A page advances by real time (`World.advance`). `scene.render()` never advances the world, and a test
   never steps by rendering.
 - **A body's level** comes from where the bodies are, never from the machine; a body is not
   rebuilt to save a step.
