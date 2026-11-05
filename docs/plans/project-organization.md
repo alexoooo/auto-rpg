@@ -2,12 +2,14 @@
 
 ## Problem
 
-The source tree is not organized by responsibility, ownership or runtime. `src/core/` holds
-foundations beside skill implementations, the Option Mind framework and one skill's private caches:
-the staged rise's `RiseTables` sits beside world stepping and arithmetic. Runtime-neutral
-simulation code also lives outside core, mixed with rendering in `src/arena/`, `src/dungeon/` and
-`src/lab/`, and is found only by tracing imports from a list of builders. A path tells a reader
-neither what a module is for, who owns it, what may depend on it, nor where it can run.
+The source tree has enforced layers, entrant manifests and replaceable components, but its package
+boundaries mix responsibilities and runtimes. `src/core/` holds physical foundations, skill
+implementations and the Option Mind framework. The staged rise's `RiseTables` is private to its
+module, but its enclosing package does not distinguish implementation ownership from shared
+foundations. Runtime-neutral simulation code also lives outside core, mixed with rendering in
+`src/arena/`, `src/dungeon/` and `src/lab/`, and the runtime checks trace imports from a list of
+builders. Paths do not consistently identify responsibility, ownership, permitted dependencies or
+runtime.
 
 ## Goal
 
@@ -121,12 +123,43 @@ code.
 check from a list of builders to paths. The architecture documents the permitted directions, public
 entry points and composition roots.
 
+## Implementation review
+
+The problem warrants this work. Responsibility-based packages, implementation-owned internals,
+runtime adapters and common entrant contracts are a sensible direction. Preserving behavior and
+keeping tuning separate make the migration reviewable. The placement and dependency-design slice
+is ready to begin; the remaining migration needs these decisions resolved:
+
+- **Contract placement.** `src/core/parts/lookup.ts` imports role contracts from control, skills and
+  minds; `src/core/parts/catalog.ts` imports mind contracts. Moving them together into `parts/`
+  violates the proposed dependency order. Separate generic registration contracts from role
+  contracts and higher-level assembly, using role augmentation where appropriate. Likewise, split
+  the low-level body contract from the higher-level dependencies in `src/core/mind/mind.ts` before
+  placing it in core. The placement map names these splits and the resulting dependency directions.
+- **Entrant-owned data.** `src/core/data/store.ts` has a closed `DataKey` union and central loader
+  table. Define how a manifest supplies an entrant's trained data, how Node and browser workers
+  load it, and how case identity includes it, without an edit to shared registration code.
+- **Evidence migration.** The fingerprint samples behavior; an unchanged result does not establish
+  equivalence for every stored case. Records also encode environment, subject versions and Git
+  provenance. Define an explicit equivalence mapping that preserves original records, or derived
+  records with traceable provenance, and the conditions permitting each mapping. The fingerprint
+  supports this policy rather than authorizing code replacement by itself.
+- **Acceptance fixtures.** Extend the existing component-swap tests to exercise two recovery
+  implementations fitting the same body, explicit selection with preserved defaults, and an
+  entrant-owned Option or chooser with owned data. `PartLookup.fitting` treats two fitting defaults
+  as a fault, so distinguish candidate applicability from automatic default selection. Boundary
+  fixtures demonstrate rejection of imports into package internals and runtime-specific code.
+
+The first slice produces the complete placement map, the dependency graph accounting for contract
+splits, and the evidence-migration policy. Checks report violations during that work and enforce
+the boundaries of each completed slice.
+
 ## Migration
 
-1. Place every directory. Write the layer and runtime checks against the target, reporting only.
-   Re-key stored evaluation rows when a slice moves modules: a case's code
-   (`caseCoder`) hashes module paths and contents, so a move changes it; a slice whose fingerprint
-   is unchanged maps old codes to new ones instead of replaying.
+1. Resolve the [implementation review](#implementation-review) and place every directory. Write
+   the layer and runtime checks against the target, reporting only until their slice lands.
+   A case's code (`caseCoder`) hashes module paths and contents, so a move changes it; carry stored
+   evaluation evidence under the migration policy instead of replaying equivalent cases.
 2. Recovery: each implementation owns its internals; shared recovery logic is identified; generic
    wiring receives implementations by registration. Its records, tests and tools move with it.
 3. Separate the Option Mind framework from fighter assemblies; package each entrant behind its
