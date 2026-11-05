@@ -7,9 +7,9 @@ import type { MindConfig } from "./config.ts";
 import type { MindReport } from "./report.ts";
 import type { Catalog } from "../parts/catalog.ts";
 import { bodyHost, rulesOf, type BodyHost, type HostGrants } from "./host.ts";
-import { mirrorDriven, type Embodying, type OwnBody } from "./mind.ts";
+import { mirrorDriven, type Embodying } from "./mind.ts";
 import { isMindPlace, reportNow, type At, type MindPlace, type MindRecipe, type ReportNow, type Seat } from "./apart.ts";
-import { physicalBody, type PhysicalBody } from "../physical-body.ts";
+import { physicalBody, type HeldReading, type PhysicalBody } from "../physical-body.ts";
 import type { Orders } from "../intent/orders.ts";
 import type { Senses } from "./senses.ts";
 import type { SheetLog } from "./sheets.ts";
@@ -130,7 +130,7 @@ export const MIND_APART: object = Object.freeze(new MemoryApart());
 
 /** **A body under a mind apart** (`embodyApart`): the body as its fight holds it, and what its mind last said of itself. */
 export interface EmbodiedApart {
-  readonly held: Pick<OwnBody, "muscles" | "assist" | "senses">;
+  readonly held: HeldReading;
   /** Who has the body, as its mind last said (`MindConstruction.has`). */
   has(): string;
   /** What its mind publishes, as it said it with its last answer, its menu asked for when read (`MindReport`). */

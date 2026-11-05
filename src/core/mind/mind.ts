@@ -11,6 +11,7 @@ import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import { clockSenses, type Senses } from "./senses.ts";
 import { delayLine, heldSteps } from "../command-delay.ts";
+import type { HeldReading } from "../physical-body.ts";
 import type { SheetLog } from "./sheets.ts";
 
 /** Plain saved memory: all values a mind carries from one step to the next. */
@@ -38,8 +39,8 @@ export interface MindConstruction<M extends Mind = Mind> {
  * **What a mind is made with: its own body, whole.** The spec with what it holds; its segments
  * and joints as read (`ReadBody`), whose poses, motion and contacts are its proprioception; its
  * muscles, which read each freedom (angle, rate, speed, strength, the body's dynamics) and take
- * the command; its assist, which takes an ask; its hands, which take a pose; its senses; how it
- * labels what it touches; and the completed physics intervals, which it may observe.
+ * the command; its assist, which takes an ask; its hands, which take a pose; its first senses; and how it
+ * labels what it touches.
  */
 export interface OwnBody {
   readonly spec: BodySpec;
@@ -52,15 +53,10 @@ export interface OwnBody {
   readonly assist: Assist;
   /** Ask each named hand for a pose, which the body applies when the hand has room (`HandPoses.request`). */
   requestHandPoses(requests: readonly HandPoseRequest[]): void;
-  /** What it senses of the world now (`Senses`): its fight's, the clock alone unless its fight gives more. */
-  readonly senses: () => Senses;
+  /** The senses shown at construction, before its first decision. */
+  readonly first: Senses;
   /** How it labels the other side of a contact (`ContactIdentity`), where its fight grants one. */
   readonly contactIdentity?: ContactIdentity;
-  /**
-   * Call `listener` after each completed physics interval with the step and the time, after those
-   * added before it, whether or not its mind steps; returns what stops it.
-   */
-  afterPhysics(listener: (step: number, time: number) => void): () => void;
 }
 
 type MindMaker<M extends MindConstruction = MindConstruction> = (own: OwnBody) => M;
@@ -69,9 +65,9 @@ interface Embodied<M extends MindConstruction = MindConstruction> {
   /** The mirror its mind reads. */
   readonly own: OwnBody;
   /** The body as its fight holds it: its muscles, its assist and its senses, the world's own whatever its mind reads. */
-  readonly held: Pick<OwnBody, "muscles" | "assist" | "senses">;
+  readonly held: HeldReading;
   readonly mind: M;
-  /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, the mind's own or null, and on a mirror what its mind has asked and not yet answered (`Mirror.command`) and what its senses last showed it (`Mirror.seen`). */
+  /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, the mind's own, what its mind has asked and not yet answered (`Mirror.command`) and what its senses last showed it (`Mirror.seen`). */
   readonly state: object;
   /** Stop driving: the mind lets go (`MindConstruction.dispose`), its observers stop, and the motors are released. */
   dispose(): void;
@@ -108,19 +104,16 @@ export interface Embodying {
  */
 export function embody<M extends MindConstruction>(built: BuiltBody, world: World, make: MindMaker<M>,
   { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, answered }: Embodying = {}): Embodied<M> {
-  const listeners = new Set<(step: number, time: number) => void>();
   const driven = mirrorDriven(built, world, length => new Float64Array(length), {
     answered() {},
     idle() { made.mind.interrupt(); mirror.idle(); },
   }, { senses: sense, assist: ceiling, contactIdentity, log });
   const { muscles, help, posed, writer, statics } = driven;
   const mirror = mirrorBody(statics, writer.channel);
-  const moves = motorPart(() => made.mind);
   const own: OwnBody = { spec: built.spec, dt: world.dt, delay: world.delay,
     built: mirror.read, muscles: mirror.muscles, assist: mirror.assist,
-    requestHandPoses: mirror.requestHandPoses, senses: moves.guard(() => mirror.senses),
+    requestHandPoses: mirror.requestHandPoses, first: mirror.senses,
     ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}),
-    afterPhysics(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
   };
   const made = (() => {
     let complete = false;
@@ -129,15 +122,13 @@ export function embody<M extends MindConstruction>(built: BuiltBody, world: Worl
       complete = true;
       return result;
     } finally {
-      if (!complete) { muscles.dispose(); listeners.clear(); }
+      if (!complete) muscles.dispose();
     }
   })();
   const thinking = world.prepare(() => {
     if (muscles.level !== "full") return;
     writer.write();
-    mirror.refresh({ dynamics: true });
-    for (const one of listeners) one(world.steps, world.time);
-    answer(made.mind, moves, mirror);
+    answer(made.mind, mirror);
     answered?.();
     think(made.mind, mirror);
   });
@@ -145,7 +136,7 @@ export function embody<M extends MindConstruction>(built: BuiltBody, world: Worl
   return { own, held: { muscles, assist: help.assist, senses: sense }, mind: made,
     state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, posed, toes: built.toes, strength: built.strength,
       mind: made.mind.state, asked: mirror.command, seen: mirror.seen },
-    dispose() { made.dispose(); shown.dispose(); thinking.dispose(); listeners.clear(); muscles.dispose(); },
+    dispose() { made.dispose(); shown.dispose(); thinking.dispose(); muscles.dispose(); },
   };
 }
 
@@ -219,29 +210,10 @@ export function mirrorDriven(built: BuiltBody, world: World, allocate: (length: 
   return { muscles, help: way.help, posed: way.posed, writer, statics, senses: sense };
 }
 
-/**
- * **A mind's motor part as its body runs it** (`Mind.act`): `move` runs it where the mind has one,
- * and `guard` makes a senses reader refuse while it runs.
- */
-export function motorPart(mind: () => Mind) {
-  let moving = false;
-  return {
-    move(): void {
-      moving = true;
-      try { mind().act(); } finally { moving = false; }
-    },
-    guard<S>(senses: () => S): () => S {
-      return () => {
-        if (moving) throw new Error("a mind's motor part reads its own body alone, not its senses");
-        return senses();
-      };
-    },
-  };
-}
-
-/** Send the motor command before the decision on the next command. */
-export function answer(_mind: Mind, moves: ReturnType<typeof motorPart>, mirror: Mirror): void {
-  moves.move();
+/** Refresh the body, carry the chosen action out and send its command. */
+export function answer(mind: Mind, mirror: Mirror): void {
+  mirror.refresh({ dynamics: true });
+  mind.act();
   mirror.answer();
 }
 

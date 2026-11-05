@@ -24,7 +24,7 @@ import { segmentShapes } from "../build/segment-shapes.ts";
  * mind on its mirror runs wherever the numbers can be carried.
  *
  * The world writes the whole body each time a mind could read it: as each completed physics interval
- * is observed (`OwnBody.afterPhysics`), and before the mind steps, so the mirror reads what the body
+ * is observed (`CommandLayers.observe`), and before the mind steps, so the mirror reads what the body
  * would have answered at each moment (`mirrorWriter`).
  *
  * Its numbers, by section (`layoutOf`): the clock and level; each segment's pose, motion, hand, toes

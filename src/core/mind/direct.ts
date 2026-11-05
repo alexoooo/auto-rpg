@@ -36,7 +36,8 @@ export interface Policy {
  * equipment port if given. `make` makes the policy from the body's actuators (`ActuatorModel`).
  */
 export function policyMind(own: OwnBody, make: (model: ActuatorModel) => Policy, clock: Clock, equipment?: EquipmentPort): MindConstruction {
-  const observe = observeBody(own.built, own.muscles, clock, own.senses, { equipment: equipment ? () => equipment.observe() : undefined });
+  let sensed = own.first;
+  const observe = observeBody(own.built, own.muscles, clock, () => sensed, { equipment: equipment ? () => equipment.observe() : undefined });
   const model = deepFreeze({ effectors: bodyEffectors(own.built).map(e => e.model), handPoses: own.built.handPoses.model, channels: own.muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value,
     max: c.dof.spec.max.value, positive: c.positive.peak, negative: c.negative.peak })),
     assist: { force: own.assist.most.force, moment: own.assist.most.moment },
@@ -45,7 +46,8 @@ export function policyMind(own: OwnBody, make: (model: ActuatorModel) => Policy,
   const ask = (asked: AssistAsk) => own.assist.ask(force.set(...asked.force), moment.set(...asked.moment));
   const policy = make(model);
   return { name: policy.name, has: () => policy.name, dispose() {}, mind: {
-    state: policy.state, act() {}, interrupt() { policy.idle?.(); }, think() {
+    state: policy.state, act() {}, interrupt() { policy.idle?.(); }, think(senses) {
+      sensed = senses;
       const action = checkedBodyAction(policy.step(observe(), clock.dt), model.channels.length, equipment, own.built.handPoses);
       applyBodyAction(own.muscles, action, equipment, { request: own.requestHandPoses }, ask);
     },

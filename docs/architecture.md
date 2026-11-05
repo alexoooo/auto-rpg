@@ -224,7 +224,8 @@ by the first end the body stands on there (`sideEffectors`).
 
 **The seam.** A `Mind` (`src/core/mind/mind.ts`) requires `state`, `act()`, `think(senses)` and
 `interrupt()`. Each step its fast action sends commands before its next decision. It is made with
-its own body (`OwnBody`) and fixed step duration; its memory is plain saved data in `state`.
+its own body (`OwnBody`), fixed step duration and first senses; subsequent senses arrive only in
+`think`. Its memory is plain saved data in `state`.
 Construction metadata (`MindConstruction`) owns its name, ownership reader, disposal and any
 command layers exposed to drivers. A person gives `Orders`
 (`src/core/intent/orders.ts`), never muscle commands.
@@ -377,9 +378,9 @@ world, bodies, enlistment, a mind's host and the senses hub, globals and chance.
 
 `createWorld(engine)` (`src/core/world.ts`) makes a world with one fixed step (`PHYSICS_HZ`). A
 step runs, in order: the sensing hooks (`World.sense`); the preparing hooks (`World.prepare`:
-hands' and toes' shapes, and at a delay each mind deciding on its mirror); the step hooks
-(`World.beforeStep`: each body's `driveMuscles`, the mind's motor part, or at no delay the mind
-itself, then the motors set); one solver step and the clock; the post-physics observations
+hands' and toes' shapes, each mind's mirror answer and decision); dispatch to minds apart; the step
+hooks (`World.beforeStep`: carry the answer into each body's `driveMuscles` and set the motors);
+one solver step and the clock; the post-physics observations
 (`World.afterPhysics`); the after-step hooks (`World.afterStep`: blows, readings). A page advances
 by real time (`World.advance`); `scene.render()` never steps. What a step writes is plain data in
 one `state` object a module (`src/core/state.ts`), so a bout forks by copying its state.
@@ -391,11 +392,11 @@ muscles' command, assist ask and hand poses, each through a ring (`src/core/comm
 is state, so a bout forks with commands in flight. A body's time starts at its first decision
 carried out (`BodyView.born`).
 
-At a delay each mind reads a mirror of its body (`mirrorBody`), refreshed from numbers the world
-writes once a step. The mind is split: **its step decides** on the body as the mirror shows it, and
-**its motor part carries the decision out** a delay later on the body as it is (`Mind.move`,
-`motorPart`), reading its own body alone and the senses as last decided on. The quadruped refuses
-a delay over one. Given a place for minds (`World.minds`), minds run on other threads
+Each mind reads a mirror of its body (`mirrorBody`), at a command delay of at least one step.
+`answer` refreshes the body, runs `act` and sends its command; `think` reads the senses and runs the
+next decision. The command layers observe the completed physics before any holder acts, feedback
+first and listeners in registration order, at full level only. The quadruped refuses a delay over
+one. Given a place for minds (`World.minds`), minds run on other threads
 (`mindThreads`, in Node or a cross-origin isolated page) and a bout is the same step for step, but
 not saved or forked (`MIND_APART`).
 

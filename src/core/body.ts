@@ -54,7 +54,7 @@ export interface Body {
    * out are dropped. `released` discards pending driver work on sub-mind takeover or idle.
    */
   drive(driver: BodyDriver | null, released?: (view: BodyView, reason: "takeover" | "idle" | "replaced") => void): void;
-  /** Observe completed physics intervals after effector feedback is sampled, including while idle or under a sub-mind (`OwnBody.afterPhysics`). */
+  /** Observe completed physics intervals after effector feedback is sampled, at full level under any holder (`CommandLayers.observe`). */
   afterPhysics(listener: (step: number, time: number) => void): () => void;
 }
 
@@ -85,11 +85,10 @@ export type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | 
 
 /**
  * **A driver in two parts**: what it decides on the view as sensed (`decide`), and the command it
- * carries the decision out with on the body as it is (`carry`, null to keep the command). With no
- * delay it carries out each decision the step it is made; at a delay (`Body.delay`) it decides on
- * the mind's step and carries the decision out in its motor part (`Mind.act`) the delay's steps
- * later, on a view whose body is that step's and whose senses are still those it decided on. A
- * driver that is one function decides its command whole.
+ * carries the decision out with on the body as it is (`carry`, null to keep the command). It
+ * decides in `think` and carries out the due decision in `act`, on a view whose body is current
+ * and whose senses are those the last decision read. A driver that is one function decides its
+ * command whole.
  */
 export interface SplitDriver<T> {
   decide(view: BodyView, dt: number): T;

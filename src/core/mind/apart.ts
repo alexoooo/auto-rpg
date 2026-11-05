@@ -7,7 +7,7 @@ import type { BodyHost } from "./host.ts";
 import type { Experiment, Mind, MindConstruction, OwnBody } from "./mind.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import { mirrorBody, type Mirror, type MirrorChannel, type MirrorStatics } from "./mirror.ts";
-import { answer, think, motorPart } from "./mind.ts";
+import { answer, think } from "./mind.ts";
 import { deriveSensed } from "../perception/openings.ts";
 import { specDigest } from "../skills/framework/profile.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -45,7 +45,7 @@ export interface At { readonly steps: number; readonly time: number }
 /**
  * **What the world asks a seat**, in order: to make its mind from its recipe; to step on the numbers
  * the world has just written, with its orders where they have changed since the last step's, its
- * observers of the physics (`OwnBody.afterPhysics`) first shown the completed interval those
+ * observers of the physics (`CommandLayers.observe`) first shown the completed interval those
  * numbers hold; to go idle (`Mind.interrupt`); for its menu; and to go (`MindConstruction.dispose`).
  */
 export type SeatAsk =
@@ -107,8 +107,7 @@ export interface Seat {
   /** Ask it `ask`, after every ask before it. */
   ask(ask: SeatAsk): void;
   /**
-   * Wait until its last step ask is answered (`answer`): with a delay, its motor part and its
-   * command, while its mind may still decide; with none, its whole step.
+   * Wait until its last step ask is answered (`answer`), while its mind may still decide.
    */
   answer(): void;
   /** What it said with its last answer, or as it was made, waiting for nothing more once it has been heard as made. */
@@ -123,10 +122,8 @@ interface Seated {
   readonly mirror: Mirror;
   readonly clock: { dt: number; steps: number; time: number };
   readonly orders: { now: Orders | null };
-  readonly listeners: Set<(step: number, time: number) => void>;
   readonly mind: Mind;
   readonly construction: MindConstruction;
-  readonly moves: ReturnType<typeof motorPart>;
   readonly made: MindMade;
   menu?: readonly MenuEntry[] | null;
   /** Whether its last step's decision is still to come (`think`). */
@@ -171,33 +168,27 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
     const { config, statics } = recipe, spec = statics.spec;
     const mirror = mirrorBody(statics, channel);
     const clock = { dt: recipe.dt, steps: at.steps, time: at.time }, orders = { now: null as Orders | null };
-    const listeners = new Set<(step: number, time: number) => void>();
-    let construction: MindConstruction | null = null;
-    const moves = motorPart(() => construction!.mind);
+    const taking: { made: MindConstruction | null } = { made: null };
     const own: OwnBody = {
       spec, dt: recipe.dt, delay: statics.delay, built: mirror.read, muscles: mirror.muscles, assist: mirror.assist,
-      requestHandPoses: (requests) => mirror.requestHandPoses(requests), senses: moves.guard(() => mirror.senses),
+      requestHandPoses: mirror.requestHandPoses, first: mirror.senses,
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}),
-      afterPhysics(listener) {
-        listeners.add(listener);
-        return () => { listeners.delete(listener); };
-      },
     };
     const host: BodyHost = Object.freeze({
       spec, parts: catalog.treeLookup(config), seed: recipe.seed, phase: recipe.phase, rules: recipe.rules,
       clock: Object.freeze({ dt: clock.dt, get steps() { return clock.steps; }, get time() { return clock.time; } }),
       take<M extends MindConstruction>(maker: (body: OwnBody) => M): M {
-        if (construction) throw new Error("a mind takes its body once");
+        if (taking.made) throw new Error("a mind takes its body once");
         const taken = maker(own);
-        construction = taken;
+        taking.made = taken;
         return taken;
       },
     });
     const wiring: MindWiring = { name: recipe.name, seed: recipe.seed, phase: recipe.phase, rules: recipe.rules, orders: () => orders.now,
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}), ...(recipe.experiment ? { experiment: recipe.experiment } : {}) };
     const made = catalog.controllerOf(config).create(host, config, wiring);
-    if (!construction) throw new Error("the mind took no body");
-    return { recipe, mirror, clock, orders, listeners, mind: (construction as MindConstruction).mind, construction, moves, made, deciding: false };
+    if (!taking.made) throw new Error("the mind took no body");
+    return { recipe, mirror, clock, orders, mind: taking.made.mind, construction: taking.made, made, deciding: false };
   };
   const decide = (seated: Seated | undefined): void => {
     if (!seated?.deciding) return;
@@ -217,9 +208,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
           const seated = seatOf(seat);
           tick(seated, ask.at);
           if (ask.orders !== undefined) seated.orders.now = ask.orders;
-          seated.mirror.refresh({ dynamics: true });
-          for (const listener of seated.listeners) listener(ask.at.steps, ask.at.time);
-          answer(seated.mind, seated.moves, seated.mirror);
+          answer(seated.mind, seated.mirror);
           seated.deciding = true;
           return;
         }

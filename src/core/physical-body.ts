@@ -1,10 +1,17 @@
 import type { BuiltBody } from "./build/build-body.ts";
 import type { Assist } from "./control/assist.ts";
-import type { OwnBody } from "./mind/mind.ts";
+import type { Senses } from "./mind/senses.ts";
 import type { EquipmentPort } from "./mind/equipment-port.ts";
 import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import { observeBody, physicalReading, type BodyObservation } from "./observation.ts";
 import type { World } from "./world.ts";
+
+/** The trusted body-side readings, independent of the mind's construction view. */
+export interface HeldReading {
+  readonly muscles: MuscleDriver;
+  readonly assist: Assist;
+  readonly senses: () => Senses;
+}
 
 /** Game-facing lifecycle shared by every controller. Physics handles stay on the trusted side. */
 export interface PhysicalBody {
@@ -27,7 +34,7 @@ export interface PhysicalBody {
 }
 
 /** Adapt an embodied mind, observed on its own senses, without constructing any stance, skill or motion controller. */
-export function physicalBody(built: BuiltBody, own: Pick<OwnBody, "muscles" | "assist" | "senses">, world: World, has: () => string, state: object, dispose: () => void,
+export function physicalBody(built: BuiltBody, own: HeldReading, world: World, has: () => string, state: object, dispose: () => void,
   equipment?: EquipmentPort): PhysicalBody {
   const read = physicalReading(built), physical = read();
   const hook = world.beforeStep(() => { if (own.muscles.level === "full") read(); });

@@ -50,7 +50,7 @@ export interface World {
   readonly delay: number;
   /**
    * Where the minds a fight makes run (`MindPlace`, `src/core/mind/apart.ts`): apart from the
-   * world, each on a mirror of its body, or, null, in the world's own thread on the body. A bout is
+   * world, each on a mirror of its body, or, null, in the world's own thread on its mirror. A bout is
    * the same either way, step for step.
    */
   readonly minds: MindsApart | null;

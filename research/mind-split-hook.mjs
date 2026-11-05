@@ -1,7 +1,6 @@
 /** Time the in-process mirror's observers, answer and decision for `mind-split.mjs`. */
 const CALLS = [
-  /for \(const one of listeners\) one\(world\.steps, world\.time\);/,
-  /answer\(made.mind, moves, mirror\);/,
+  /answer\(made.mind, mirror\);/,
   /think\(made.mind, mirror\);/,
 ];
 

@@ -15,6 +15,7 @@ export interface SubMind extends Mind {
 /** The host reads its body before deciding who controls it. */
 export interface HostMind extends Mind {
   look(senses: Senses): void;
+  observe(): void;
   feel(): void;
   release(reason?: "takeover" | "idle"): void;
   resume(): void;
@@ -47,6 +48,7 @@ export function hosting(host: HostMind & { readonly name: string; dispose(): voi
       else subs[want]!.mind.think(senses);
     },
     act() {
+      host.observe();
       if (state.has === HOST) host.act();
       else if (state.has >= 0) { host.feel(); subs[state.has]!.mind.act(); }
     },

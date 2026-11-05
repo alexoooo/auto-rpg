@@ -17,15 +17,9 @@ import { stanceEnvelope } from "./stance-envelope.ts";
 import { standingHeight } from "./support.ts";
 
 /**
- * **The command layers as a mind** (`commandLayers`): motor control under a driver that hands it
- * goals (`BodyDriver`), seen through a view. Each step it reads the view (`look`), then asks the
- * driver for a command and gives the command to motor control, which writes the muscles (`act`).
- * At a delay (`OwnBody.delay`) motor control is its motor part (`Mind.act`): it reads the body
- * as it is (`feel`), has the driver carry out what it decided the delay's steps before
- * (`SplitDriver.carry`) and carries the command out, and `act` only asks the driver to decide.
- * A mind that hands its body over hosts them (`HostMind`): released, motor control forgets what was
- * under way, so while another has the body the view shows no stance asked and the body is down by
- * its standing height; resumed, the driver is told (`BodyView.resumed`).
+ * Motor control under a split driver. `think` queues decisions; `act` reads the current body and
+ * carries the due decision into motor commands. `observe` samples completed physics before any
+ * holder acts. Releasing clears pending work and motor goals; resuming tells the driver.
  */
 export interface CommandLayers extends HostMind {
   readonly name: string;
@@ -50,7 +44,7 @@ export interface CommandLayers extends HostMind {
  * high (`BodySpec.marks`), and what bears it on the ground (`groundReading`); what their motor
  * cannot drive, it refuses as it is made (the stance a body without soles), and a command that
  * asks a goal their motor does not carry (`MotorControl.carries`), as it is given. Their touch is read
- * after each completed physics interval (`OwnBody.afterPhysics`), before any observer added after
+ * before each full-level action (`CommandLayers.observe`), before any observer added after
  * them.
  */
 export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock): CommandLayers {
@@ -216,21 +210,26 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     driver = split;
     released = onRelease;
   };
-  own.afterPhysics((step) => { moved(); feedback?.read(step); });
+  const listeners = new Set<(step: number, time: number) => void>();
+  const afterPhysics: Body["afterPhysics"] = listener => { listeners.add(listener); return () => { listeners.delete(listener); }; };
   // What the stance holds walking, for a motor that stands the body by the stance.
   const envelope = balancing && !options.measuring && Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(own.spec) : null;
-  const body: Body = { dt: clock.dt, built, muscles, assist: own.assist, view, envelope, drive, afterPhysics: own.afterPhysics, delay: own.delay,
+  const body: Body = { dt: clock.dt, built, muscles, assist: own.assist, view, envelope, drive, afterPhysics, delay: own.delay,
     ...(own.contactIdentity ? { contactIdentity: own.contactIdentity } : {}) };
   return {
     name: COMMAND,
     view, body, look, think, act, state,
+    observe() {
+      moved(); feedback?.read(clock.steps);
+      for (const listener of listeners) listener(clock.steps, clock.time);
+    },
     feel() {
-        feel(clock.time);
+      feel(clock.time);
       state.felt = true;
     },
     firstLook() {
       feedback?.read(clock.steps);
-      look(own.senses());
+      look(own.first);
     },
     interrupt() { this.release("idle"); },
     release(reason = "takeover") {
@@ -241,7 +240,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       for (const segment in goals) goals[segment] = null;
     },
     resume() { state.released = false; state.resumed = true; },
-    dispose() { drive(null); },
+    dispose() { drive(null); listeners.clear(); },
   };
 }
 

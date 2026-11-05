@@ -19,5 +19,5 @@ export function heldBody(body: Pick<Body, "built" | "muscles" | "assist" | "view
     dispose() { throw new Error("a held body is its host's to dispose"); },
   };
   return { spec: body.built.spec, dt: body.dt, delay: body.delay, built: body.built, muscles, assist: body.assist, requestHandPoses() { throw new Error("a held body asks no hand a pose"); },
-    senses: () => body.view.senses, afterPhysics: body.afterPhysics };
+    first: body.view.senses };
 }
