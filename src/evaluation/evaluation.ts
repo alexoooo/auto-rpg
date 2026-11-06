@@ -3,6 +3,7 @@
  * it in its task's units; the runner (`run.ts`) combines the readings. One definition serves Node,
  * its workers and a page.
  */
+import type { PartConfig } from "../parts/parts.ts";
 import type { Refused } from "../core/refusal.ts";
 import type { DuelRecipe, OrdersEntry } from "../game/arena/duel.ts";
 import type { EngineName } from "../core/physics/engines.ts";
@@ -15,7 +16,6 @@ import type { BuiltTechnique, TechniqueCase } from "./technique.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
 import type { MindConfig } from "../minds/config.ts";
-import type { MindPreset } from "../minds/controller.ts";
 import type { Minded } from "../minds/minds.ts";
 import type { ArenaSeat as Side } from "../game/arena/seat.ts";
 
@@ -34,7 +34,8 @@ export interface Subject {
   readonly models?: readonly string[];
   /** The attributes its bodies take (`MindPreset.character`); absent for none. */
   readonly character?: AttributeOverrides;
-  readonly parts: readonly { readonly id: string; readonly value: Json }[];
+  readonly parts: readonly { readonly id: string; readonly value: Json;
+    readonly component?: { readonly role: "mind" | "commander" | "part"; readonly config: PartConfig } }[];
   readonly value: Json;
 }
 
@@ -42,12 +43,17 @@ export interface Subject {
  * A mind as a subject: its id, the label shown, its config whole, and a preset's named
  * calibration and character, each a part where it has one.
  */
-export const mindSubject = (id: string, label: string, value: Json, preset: Pick<MindPreset, "models" | "character"> = {}): Subject => ({
-  id, label, value,
-  parts: [{ id: `mind:${id}`, value }, ...(preset.character === undefined ? [] : [{ id: `character:${id}`, value: preset.character as Json }])],
-  ...(preset.models === undefined ? {} : { models: preset.models }),
-  ...(preset.character === undefined ? {} : { character: preset.character }),
-});
+export function mindSubject(id: string, label: string, given: Json, preset: Pick<Subject, "models" | "character"> = {}): Subject {
+  const wrapped = given as { readonly mind?: Json; readonly models?: readonly string[]; readonly character?: AttributeOverrides } | null;
+  const value = wrapped && typeof wrapped === "object" && !Array.isArray(wrapped) && wrapped.mind !== undefined ? wrapped.mind : given;
+  const models = preset.models ?? (value !== given ? wrapped?.models : undefined);
+  const character = preset.character ?? (value !== given ? wrapped?.character : undefined);
+  return { id, label, value,
+    parts: [{ id: `mind:${id}`, value, component: { role: "mind", config: value as unknown as PartConfig } },
+      ...(character === undefined ? [] : [{ id: `character:${id}`, value: character as Json }])],
+    ...(models === undefined ? {} : { models }), ...(character === undefined ? {} : { character }),
+  };
+}
 
 /**
  * A bout recipe's `attributes` for each side's character, or none where neither side has one, so

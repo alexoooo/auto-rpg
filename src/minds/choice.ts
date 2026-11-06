@@ -1,3 +1,4 @@
+import { hasResource, BODY_RESOURCE } from "../skills/framework/action.ts";
 import { randomStream } from "../core/math/random.ts";
 import { hold, stillHeld, unheld, type Drift, type Held } from "../control/held.ts";
 import type { Readiness, Resource } from "../skills/framework/action.ts";
@@ -144,11 +145,11 @@ export interface Selection<S, T, C extends Choice<S>> {
 export const NOTHING: readonly Resource[] = Object.freeze([]);
 
 /** All the resources as a claim: it overlaps every other (`overlaps`). */
-export const WHOLE: readonly Resource[] = Object.freeze(["*"]);
+export const WHOLE: readonly Resource[] = Object.freeze([BODY_RESOURCE]);
 
 /** Whether two claims share a resource, the whole sharing every one. */
 export const overlaps = (a: readonly Resource[], b: readonly Resource[]): boolean =>
-  a.includes("*") && b.length > 0 || b.includes("*") && a.length > 0 || a.some((resource) => b.includes(resource));
+  hasResource(a, BODY_RESOURCE) && b.length > 0 || hasResource(b, BODY_RESOURCE) && a.length > 0 || a.some((resource) => hasResource(b, resource));
 
 /** Whether `choice` is on offer now: its entry admits. */
 export const onOffer = <S>(choice: Choice<S>, now: S): boolean => choice.entry(now).kind === "ready";

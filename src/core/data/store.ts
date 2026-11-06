@@ -1,3 +1,5 @@
+import { deepFreeze } from "../world/state.ts";
+
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
 export type DataKey = keyof DataOf;
 
@@ -35,8 +37,8 @@ export function loadData(keys: Iterable<DataKey>, loaders: DataLoaders): Promise
       const load = loaders[key];
       if (!load) throw new Error(`mind data ${JSON.stringify(key)} has no registered loader`);
       pending = load().then(
-        (data) => { loaded.set(key, data); if (load.identity) identities.set(key, load.identity); loading.delete(key); },
-        (error: unknown) => { loading.delete(key); throw error; });
+        (data) => { loaded.set(key, deepFreeze(data)); if (load.identity) identities.set(key, load.identity); })
+        .finally(() => { loading.delete(key); });
       loading.set(key, pending);
     }
     return pending;

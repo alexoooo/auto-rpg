@@ -34,7 +34,7 @@ import { add, cross, dot, normalize, scale, sub } from "../../src/core/bodies/sp
 import { SIDES } from "../../src/core/bodies/bilateral.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-export const MAN_GEOMETRY_FILE = path.join(ROOT, "assets", "humanoid", "man-contact-geometry.json");
+const MAN_GEOMETRY_FILE = path.join(ROOT, "assets", "humanoid", "man-contact-geometry.json");
 const MODEL = "workshop-fighter";
 
 export { PATCH };
@@ -133,7 +133,7 @@ async function foot(side) {
 }
 
 /** The whole artifact. */
-export async function manContactGeometry() {
+async function manContactGeometry() {
   const out = {
     about: "Man's contact geometry from the Warrior's GLB: bare hands and feet, body frame (+x right, +y up, +z front), "
       + "metres at the authored size, rounded to 0.1 mm. Written by scripts/humanoid/man-envelope.mjs --write, "

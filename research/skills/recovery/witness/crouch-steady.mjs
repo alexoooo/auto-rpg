@@ -143,10 +143,12 @@ if (!isMainThread && workerData.harness === "crouch-steady") {
   } else if (values.search) {
     const { cmaSearch, workerPool } = await import("../../../cma.mjs");
     const pool = workerPool(new URL(import.meta.url), { harness: "crouch-steady", model, held }, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
-    const result = await cmaSearch({ n: START.length, start: START, sigma: .15, lambda: 12, generations: Number(values.generations ?? 40), seed: 7,
-      score: async u => { const ts = await Promise.all(seeds.map(seed => pool.evaluate({ u, seed }).then(r => r.t))); return { score: -ts.reduce((a, b) => a + b, 0) / ts.length, ts }; },
+    let result;
+    try {
+    result = await cmaSearch({ n: START.length, start: START, sigma: .15, lambda: 12, generations: Number(values.generations ?? 40), seed: 7,
+      score: async u => { const ts = await Promise.all(seeds.map(seed => pool.evaluate({ u, seed }).then(r => { if (r.error) throw new Error(r.error); return r.t; }))); return { score: -ts.reduce((a, b) => a + b, 0) / ts.length, ts }; },
       onGeneration: (entry, search) => console.log(`g${entry.g} mean ${(-entry.best).toFixed(2)} s, best so far ${(-search.best.score).toFixed(2)} s`) });
-    await pool.terminate();
+    } finally { await pool.terminate(); }
     console.log(JSON.stringify(decode(result.best.u)), result.best.r.ts.map(fmt).join(" "));
   } else {
     const rows = [];

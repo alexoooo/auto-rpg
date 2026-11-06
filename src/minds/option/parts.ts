@@ -1,6 +1,5 @@
 import type { NamedSkills } from "./skills.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Percept, Prediction } from "./percepts.ts";
 import type { OptionEvaluation } from "./model.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
@@ -48,31 +47,6 @@ export interface ObjectivePart<C extends PartConfig = PartConfig, V = unknown> e
 }
 
 /**
- * **A kind of percept**: a part of role `percept` that owns its config's keys and faults, and makes
- * a reading of what the body senses (`P`), which a situation reads where an option or an objective
- * asks for it by its config (`Situation.perceive`); the part that asks names it in `uses`.
- */
-export interface PerceptPart<C extends PartConfig = PartConfig, P = unknown> extends Part<C> {
-  readonly role: "percept";
-  readonly keys: KeysOf<C>;
-  /** The percept a config of it names. */
-  make(config: C): Percept<P>;
-}
-
-/**
- * **A kind of prediction**: a part of role `prediction` that owns its config's keys and faults, and
- * makes what a situation predicts from what the body senses and the data it was given (`P`), read
- * where an option or an objective asks for it by its config (`Situation.predict`); the part that
- * asks names it in `uses`.
- */
-export interface PredictionPart<C extends PartConfig = PartConfig, P = unknown> extends Part<C> {
-  readonly role: "prediction";
-  readonly keys: KeysOf<C>;
-  /** The prediction a config of it names. */
-  make(config: C): Prediction<P>;
-}
-
-/**
  * **A kind of predictions**: a part of role `predictions` that owns its config's keys and faults,
  * and makes the data a mind predicts from (`T`: the tables a drill measured, or none, so each model
  * reads its prior), read by the mind whose slot holds the part as its own.
@@ -91,8 +65,6 @@ declare module "../../parts/lookup.ts" {
     readonly chooser: ChooserPart;
     readonly option: OptionPart;
     readonly objective: ObjectivePart;
-    readonly percept: PerceptPart;
-    readonly prediction: PredictionPart;
     readonly predictions: PredictionsPart;
   }
 }

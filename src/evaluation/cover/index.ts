@@ -13,7 +13,9 @@ import { createCoverCases, type CoverCondition } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
 /** What the strip shows a trial as: its outcome, and whether it passed (nothing on its head, the subject up). */
-const coverOutcome = (reading: CoverReading) => ({ label: reading.outcome, passed: reading.outcome === "covered" || reading.outcome === "untouched" });
+const coverOutcome = (reading: CoverReading) => reading.attempted !== true
+  ? { label: "unreached", passed: false, why: reading.attempted === false ? "the fixture never attempted an attack" : "the record does not retain attack attempts" }
+  : { label: reading.outcome, passed: reading.outcome === "covered" || reading.outcome === "untouched" };
 
 export function createCoverIndex(context: GameContext) {
   const { mindSubjects } = createLocomotionIndex(context);
@@ -31,6 +33,7 @@ export function createCoverIndex(context: GameContext) {
     subjects: (choice) => mindSubjects(choice, ["option"]),
     outcome: coverOutcome,
     figures: [
+      { name: "attempted", unit: "share of trials reaching an attack", kind: "rate", better: "higher", of: r => r.attempted ?? null },
       { name: "covered", unit: "share of trials, the guard alone met", kind: "rate", better: "higher", of: (r) => r.outcome === "covered" },
       { name: "head hit", unit: "share of trials", kind: "rate", better: "lower", of: (r) => r.touches.head > 0 },
       { name: "head taken", unit: "hit points lost on the head, the mean", kind: "mean", better: "lower", of: (r) => r.headTaken },

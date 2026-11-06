@@ -1,3 +1,4 @@
+import type { KeysOf, Part } from "../../parts/parts.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
 import { turnAt } from "../../control/stance-envelope.ts";
 import { stanceEnvelopeOf } from "../../skills/locomotion/stance/envelope.ts";
@@ -573,8 +574,8 @@ type Memoized = Record<typeof MEMO, Memo>;
 /**
  * **A body's situations** (`Situation`) read from a step's `Seen` (`at`): each percept and
  * prediction read the first time it is asked and kept, and each percept and prediction part an
- * option or an objective asks for by config (`perceive`, `predict`: a `PerceptPart`'s or
- * `PredictionPart`'s, made once a config through `parts`), read the same way. Every situation's
+ * option or an objective asks for by config (`perceive`, `predict`: a `ProfilePerceptPart`'s or
+ * `ProfilePredictionPart`'s, made once a config through `parts`), read the same way. Every situation's
  * readings are getters on one prototype made here; a situation keeps its own, so one kept past
  * its step reads its own step. Which cued percepts any of its situations was asked for is counted
  * for a chooser (`Cues`).
@@ -589,7 +590,7 @@ export function perceiver(parts?: PartLookup) {
     return value === UNREAD ? memo.values[i] = reading.read(memo.seen) : value;
   };
   /** What the part of `role` that `config` names reads in `memo`'s situation, once. */
-  const readPart = (memo: Memo, role: "percept" | "prediction", config: PartConfig): unknown => {
+  const readPart = (memo: Memo, role: "profile-percept" | "profile-prediction", config: PartConfig): unknown => {
     const read = memo.parts ??= new Map();
     if (read.has(config)) return read.get(config);
     if (!parts) throw new Error(`a ${role} part read with no part lookup: ${config.kind}`);
@@ -610,8 +611,8 @@ export function perceiver(parts?: PartLookup) {
   };
   const situation = {
     cues,
-    perceive(this: Memoized, config: PartConfig): unknown { return readPart(this[MEMO], "percept", config); },
-    predict(this: Memoized, config: PartConfig): unknown { return readPart(this[MEMO], "prediction", config); },
+    perceive(this: Memoized, config: PartConfig): unknown { return readPart(this[MEMO], "profile-percept", config); },
+    predict(this: Memoized, config: PartConfig): unknown { return readPart(this[MEMO], "profile-prediction", config); },
   };
   PERCEIVED.forEach((name, i) => {
     const percept = PERCEPTS[name] as Percept<unknown>, bit = CUED.includes(name) ? 1 << CUED.indexOf(name) : 0;
@@ -631,4 +632,25 @@ export function perceiver(parts?: PartLookup) {
       return now as unknown as Situation;
     },
   };
+}
+
+/** Percepts owned by the profile model consume that model's complete Seen value. */
+export interface ProfilePerceptPart<C extends PartConfig = PartConfig, P = unknown> extends Part<C> {
+  readonly role: "profile-percept";
+  readonly keys: KeysOf<C>;
+  make(config: C): Percept<P>;
+}
+
+/** Predictions owned by the profile model consume that model's complete Seen value. */
+export interface ProfilePredictionPart<C extends PartConfig = PartConfig, P = unknown> extends Part<C> {
+  readonly role: "profile-prediction";
+  readonly keys: KeysOf<C>;
+  make(config: C): Prediction<P>;
+}
+
+declare module "../../parts/lookup.ts" {
+  interface RoleParts {
+    readonly "profile-percept": ProfilePerceptPart;
+    readonly "profile-prediction": ProfilePredictionPart;
+  }
 }

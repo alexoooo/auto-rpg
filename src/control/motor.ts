@@ -31,6 +31,7 @@ export interface MusclePush {
 }
 
 export type { EffectorGoal } from "./effector-tracker.ts";
+export { sameEffectorGoal } from "./effector-tracker.ts";
 
 /**
  * **A point driven**: a named point of an effector's rigid body (`BodySpec.effectors`: a hand's

@@ -184,12 +184,17 @@ export function mindThreads(links: readonly ThreadLink[]): MindPlace {
     dispose() {
       if (disposed) return;
       disposed = true;
+      let failed = false, failure: unknown;
       for (const thread of pool) {
-        flush(thread);
-        send(thread, { asks: [], stop: true });
-        thread.link.stop();
+        try { flush(thread); send(thread, { asks: [], stop: true }); }
+        catch (error) { if (!failed) { failed = true; failure = error; } }
+        finally {
+          try { thread.link.stop(); }
+          catch (error) { if (!failed) { failed = true; failure = error; } }
+        }
       }
       seats.clear();
+      if (failed) throw failure;
     },
   };
 }

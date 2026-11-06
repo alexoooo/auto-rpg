@@ -39,7 +39,7 @@ export function createMatchIndex(context: GameContext) {
     analysis: {},
     subjects(choice) {
       if (choice.length !== 2) throw new Error("a match is of two minds");
-      return choice.map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value)
+      return choice.map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value, one)
         : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, MINDS[one])
         : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults as unknown as Json)
         : (() => { throw new Error(`${one} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind (${Object.keys(CONTROLLERS).join(", ")}), or a config`); })());

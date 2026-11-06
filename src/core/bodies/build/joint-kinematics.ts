@@ -12,6 +12,9 @@ import { cross, dot, normalize, orthogonalTo } from "../spec/vec.ts";
  */
 function constraintAxes(dofs: readonly DofSpec[]): { readonly x: Vec3; readonly y: Vec3; readonly z: Vec3; readonly signs: readonly (1 | -1)[] } {
   if (dofs.length < 1 || dofs.length > 3) throw new Error(`a joint has one to three freedoms, not ${dofs.length}`);
+  for (let i = 0; i < dofs.length; i++) for (let j = i + 1; j < dofs.length; j++)
+    if (Math.abs(dot(normalize(dofs[i]!.axis.value), normalize(dofs[j]!.axis.value))) > 1e-9)
+      throw new Error(`freedom ${dofs[j]!.positive}'s axis is not square to the others`);
   const x = normalize(dofs[0]!.axis.value);
   const y = dofs[1] ? normalize(dofs[1].axis.value) : orthogonalTo(Math.abs(x[1]) < Math.abs(x[0]) ? [0, 1, 0] : [1, 0, 0], x);
   const z = cross(x, y);

@@ -1,5 +1,6 @@
+import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../framework/action.ts";
 import { supportHeight } from "../../control/support-reference.ts";
-import { HAND_CONFIGURATION } from "../../core/bodies/human/hand-configurations.ts";
+import { handConfiguration } from "./held-strike.ts";
 import type { Body } from "../../control/body.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import { atan2 } from "../../core/math/real.ts";
@@ -104,7 +105,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
   const spec = body.built.spec, ahead = bodyAhead(spec);
   const alignerOf = (hand: Side) => align && faces[hand] ? faceAligner(spec, hand, faces[hand]!, { either: true }) : null;
   const aligners = { left: alignerOf("left"), right: alignerOf("right") };
-  const sides = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
+  const sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE, LEG_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE, LEG_RESOURCE] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
     if (effector === "hand.right") return "right";
@@ -212,7 +213,8 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
         for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
         if (x * x + y * y + z * z >= ALIGN_SPEED * ALIGN_SPEED) aligner.ask(view, live.path, posture, pushes);
       }
-      return { posture, pushes, configurations: { [`hand.${live.hand}`]: HAND_CONFIGURATION.grip },
+      const configuration = handConfiguration(body.built.spec, `hand.${live.hand}`, "grip");
+      return { posture, pushes, ...(configuration ? { configurations: { [`hand.${live.hand}`]: configuration } } : {}),
         legs: { walk: null, face: live.face, ...(settings.halts ? { halt: true } : {}), height: supportHeight(view) - live.lower } };
     },
   };

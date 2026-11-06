@@ -1,3 +1,5 @@
+import { SUPPORT_REFERENCE } from "../../../../control/support-reference.ts";
+import { MOTOR_STANCE } from "../../../../control/motor-part.ts";
 import type { BodyView } from "../../../../control/body.ts";
 import type { Clock } from "../../../../core/world/clock.ts";
 import { carrying } from "../../../../control/motor.ts";
@@ -5,7 +7,7 @@ import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
 import type { MindKit } from "../../../kit.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { stagedRise } from "./staged.ts";
-import { SIT_BACK, derivedRecipe, type Recipe } from "./stages.ts";
+import { SIT_BACK, derivedRecipe, stageFaults, type Recipe } from "./stages.ts";
 import { standReady, type GroundReading, type Position } from "../../../../control/ground-reading.ts";
 import { recordFault } from "../../../framework/records.ts";
 import { LIMIT, LOW, SIT_BACK_BODIES, STEP_UP_BODIES, stepUpRecipe, stepUpTuning, validStepUp, type StepUpRise, type StepUpTuning } from "./records.ts";
@@ -89,6 +91,19 @@ function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind,
   return PARTS[kind].first === null ? rollPart(own, view, kind, tuning) : risePart(own, view, kit, kind, tuning);
 }
 
+/** The exact roll or rise slices this route constructs, shared with its body admission. */
+function routeRecipes(kind: StagedKind, tuning: StepUpTuning): readonly Recipe[] {
+  const part: Part = PARTS[kind], whole = stepUpRecipe(tuning, part.recipe);
+  if (part.first === null) {
+    const across = otherSide(tuning.over ?? "right");
+    return [derivedRecipe(whole, "roll", () => ({ ...whole, rise: [] })),
+      derivedRecipe(tuning, `roll over ${across}`, () => ({ ...stepUpRecipe({ ...tuning, over: across }), rise: [] }))];
+  }
+  const first = whole.rise.findIndex(stage => stage.name === part.first);
+  if (first < 0) throw new Error(`the rise has no ${JSON.stringify(part.first)} stage`);
+  return [derivedRecipe(whole, `unrolled from ${first}`, () => ({ ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(first) }))];
+}
+
 /** Whether a body of step up's `tuning` is read in position `to`, slow enough for the part begun there (`slowFor`), else to hand over (`handsOver`). */
 const readsAt = (tuning: StepUpTuning, g: GroundReading, to: Position): boolean => {
   const next = partFrom(to);
@@ -103,12 +118,11 @@ const readsAt = (tuning: StepUpTuning, g: GroundReading, to: Position): boolean 
  * settling and rolling again are its own until it reads on its front.
  */
 function rollPart(own: OwnBody, view: BodyView, kind: StagedKind, tuning: StepUpTuning): TechniqueRun<Side> {
-  const whole = stepUpRecipe(tuning, (PARTS[kind] as Part).recipe);
-  const across = otherSide(tuning.over ?? "right");
+  const recipes = routeRecipes(kind, tuning);
   // `other`: the roll over the other side.
   const rises: Record<"whole" | "other", StepUpRise> = {
-    whole: stagedRise(own, view, derivedRecipe(whole, "roll", () => ({ ...whole, rise: [] }))),
-    other: stagedRise(own, view, derivedRecipe(tuning, `roll over ${across}`, () => ({ ...stepUpRecipe({ ...tuning, over: across }), rise: [] }))),
+    whole: stagedRise(own, view, recipes[0]!),
+    other: stagedRise(own, view, recipes[1]!),
   };
   // `flip`: this attempt rolls over the other side, the last having failed. `rolled`: the roll has begun turning the body.
   const state = { entry: "whole" as "whole" | "other", flip: false, rolled: false, ended: null as TechniqueEnd | null, elapsed: 0, reached: 0,
@@ -160,7 +174,7 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, 
   const first = at(part.first!);
   /** The cuts this part may end at, by the index of the stage each is read after: step up's, on its own recipe. */
   const cuts = part.recipe ? [] : CUTS.map(cut => ({ index: at(cut.after), at: cut.at })).filter(cut => cut.index >= first && cut.at === part.to);
-  const unrolled: Recipe = derivedRecipe(whole, `unrolled from ${first}`, () => ({ ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(first) }));
+  const unrolled = routeRecipes(kind, tuning)[0]!;
   const rise: StepUpRise = stagedRise(own, view, unrolled);
   const motor = carrying(kit.motor.make(own.built, own.muscles, .1, kit.posture), ["stance"], "a part of step up's route");
   const steady = stanceSteady(own, view, motor, tuning.climb);
@@ -219,8 +233,13 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, 
 /** A body has step up's route where it has a step-up record; the sit-back's parts (`SIT_BACK`), where it has a sit-back record as well. */
 const fitsStepUp = recordFault<never>("step up", STEP_UP_BODIES, () => false);
 const fitsSitBack = recordFault<never>("sit-back", SIT_BACK_BODIES, () => false);
-const fitsPart = (kind: StagedKind) => (spec: BodySpec): string | null =>
-  ((PARTS[kind] as Part).recipe === SIT_BACK ? fitsSitBack(spec, {}) : null) ?? fitsStepUp(spec, {});
+const fitsPart = (kind: StagedKind) => (spec: BodySpec, config: { readonly tuning?: StepUpTuning }): string | null => {
+  const missing = config.tuning === undefined ? ((PARTS[kind] as Part).recipe === SIT_BACK ? fitsSitBack(spec, {}) : null) ?? fitsStepUp(spec, {}) : null;
+  if (missing) return missing;
+  const tuning = config.tuning ?? stepUpTuning(spec);
+  if (!validStepUp(tuning)) return "invalid step-up settings";
+  return routeRecipes(kind, tuning).flatMap(recipe => stageFaults(recipe, spec))[0] ?? null;
+};
 
 /** An experiment may pass a whole immutable recipe tuning in place of the body's record. */
 interface StagedConfig<K extends StagedKind> { readonly kind: K; readonly tuning?: StepUpTuning }
@@ -236,8 +255,9 @@ declare module "../../technique.ts" {
 
 const routeTechnique = <K extends StagedKind>(kind: K, label: string): TechniquePart<StagedConfig<K>> => Object.freeze({ ...technique(kind, { label, stage: "experimental", moving: true,
   sides: Object.freeze(["left"] as const), edges: Object.freeze(PARTS[kind].from.map(from => Object.freeze({ from, to: PARTS[kind].to as Position }))),
-  fits: fitsPart(kind), reads: () => ["step-up", "sit-back"],
+  requires: PARTS[kind].first === null ? [] : [SUPPORT_REFERENCE, MOTOR_STANCE], reads: () => ["step-up", "sit-back"],
   make: (own, view, _clock: Clock, kit, config) => routePart(own, view, kit, kind, (config as StagedConfig<K>).tuning ?? stepUpTuning(own.spec)) }),
+  fits: fitsPart(kind),
   keys: { kind: true, tuning: true } as const, tuning: ["settle", "climb", "stages", "rest", "over", "roll", "sideSwing", "heldSupport", "loadouts"],
   faults: (config: StagedConfig<K>) => config.tuning === undefined || validStepUp(config.tuning) ? [] : ["tuning: invalid step-up settings"],
 });

@@ -4,6 +4,8 @@
  * a line per case. Versions and tables are derived when read.
  */
 import { recordingIdentity, recordingKey, requireRecordingIdentity, type RecordingIdentity } from "../core/world/recording.ts";
+import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
+import type { Refused } from "../core/refusal.ts";
 import type { Json, Subject } from "./evaluation.ts";
 import type { Row } from "./play.ts";
 import type { Case } from "./run.ts";
@@ -52,9 +54,12 @@ export interface Named {
 export interface RecordedSubject extends Named {
   readonly label: string;
   readonly value: Json;
+  /** Explicit execution facts; absent only in incompatible historical subjects. */
+  readonly models?: readonly string[] | null;
+  readonly character?: AttributeOverrides | null;
   readonly parent: Named | null;
   readonly changes: readonly Change[];
-  readonly parts: readonly (Named & { readonly parent: Named | null })[];
+  readonly parts: readonly (Named & { readonly parent: Named | null; readonly value?: Json; readonly component?: Subject["parts"][number]["component"] })[];
 }
 
 /** A record's first line. */
@@ -102,17 +107,30 @@ export const recordIdentity = (build: string, engine: string, harness: string, p
  */
 export function recordedSubject(subject: Subject, play: Json, environment: string, parent: RecordedSubject | null,
   code: (parts: Subject["parts"]) => string | null = () => null): RecordedSubject {
-  const own = { value: subject.value, parts: subject.parts.map(({ id, value }) => ({ id, value })) };
+  const own = subjectInputs(subject);
   const version = versionOf(own, play, environment, code(subject.parts)), kind = (id: string) => id.slice(0, id.indexOf(":") + 1);
   return {
-    id: subject.id, label: subject.label, value: subject.value, version,
+    id: subject.id, label: subject.label, value: subject.value, models: subject.models ?? null, character: subject.character ?? null, version,
     parent: parent && { id: parent.id, version: parent.version },
     changes: parent ? changesFrom(version, parent.version) : [],
     parts: subject.parts.map((part) => {
       const before = parent?.parts.find((one) => kind(one.id) === kind(part.id));
-      return { id: part.id, version: versionOf(part.value, play, environment, code([part])), parent: before ? { id: before.id, version: before.version } : null };
+      return { ...part, version: versionOf(part.value, play, environment, code([part])), parent: before ? { id: before.id, version: before.version } : null };
     }),
   };
+}
+
+/** A subject's complete execution input, independent of its display name. */
+const subjectInputs = (subject: Subject): Json => ({ value: subject.value, models: subject.models ?? null, character: subject.character ?? null,
+  parts: subject.parts.map(({ id, value, component }) => ({ id, value, ...(component ? { component: component as unknown as Json } : {}) })) });
+
+/** A retained configuration reconstructed only when the record keeps its complete execution facts. */
+export function restoredSubject(subject: RecordedSubject): Subject | Refused {
+  if (!Object.hasOwn(subject, "models") || !Object.hasOwn(subject, "character") || subject.parts.some(part => !Object.hasOwn(part, "value")))
+    return { refused: `${subject.id} has incompatible historical execution metadata; give its complete configuration` };
+  return { id: subject.id, label: subject.label, value: subject.value,
+    ...(subject.models === null ? {} : { models: subject.models }), ...(subject.character === null ? {} : { character: subject.character }),
+    parts: subject.parts.map(part => ({ id: part.id, value: part.value!, ...(part.component ? { component: part.component } : {}) })) };
 }
 
 /**
@@ -146,12 +164,25 @@ export function readRecord(text: string, name: string): { header: RecordHeader; 
   const header = first as RecordHeader;
   if (header?.identity?.protocol !== FORMAT) throw new Error(`${name} is not an ${FORMAT} record`);
   requireRecordingIdentity(header.identity, recordIdentity(header.identity.build, header.engine, header.harness, header.play));
+  recordingKey(header);
+  if (![header.evaluation, header.protocol, header.engine, header.harness, header.commit, header.date, header.schedule].every(value => typeof value === "string")
+    || !header.pool || typeof header.pool.protocol !== "string" || typeof header.pool.environment !== "string"
+    || !Array.isArray(header.subjects) || !header.subjects.every(subject => subject && typeof subject.id === "string" && typeof subject.label === "string"
+      && Object.hasOwn(subject, "value") && subject.version && typeof subject.version.version === "string" && Array.isArray(subject.parts)
+      && (subject.models === undefined || subject.models === null || Array.isArray(subject.models) && subject.models.every((model: unknown) => typeof model === "string"))
+      && (subject.character === undefined || subject.character === null || typeof subject.character === "object" && !Array.isArray(subject.character))))
+    throw new Error(`${name} has an incomplete header`);
+  const subjects = new Set(header.subjects.map(subject => subject.id));
   const lines = rest as RecordLine[];
   for (const line of lines) {
-    recordingKey(line);
-    if (typeof line.key !== "string" || !Array.isArray(line.subjects) || (line.fault === null) === (line.reading === null))
+    requireRow(line, name);
+    if (!Object.hasOwn(line, "condition") || !Object.hasOwn(line, "world") || typeof line.code !== "string"
+      || !Array.isArray(line.subjects) || !line.subjects.every(id => typeof id === "string" && subjects.has(id))
+      || line.world !== null && (typeof line.world !== "object" || !["bout", "fall", "crypt", "lone", "technique"].includes(line.world.kind)))
       throw new Error(`${name} has a case line that is not whole`);
+    if (!Object.hasOwn(line, "played")) (line as { played: number | null }).played = null;
   }
+  indexRows([{ name, rows: lines }]);
   return { header, lines };
 }
 
@@ -161,3 +192,34 @@ export const rowOf = ({ key, reading, digest: trace, played, fault }: RecordLine
 /** Whether two rows agree in key, reading, digest and fault; how long each played follows from them. */
 export const sameRow = (a: Row, b: Row): boolean =>
   recordingKey([a.key, a.reading, a.digest, a.fault]) === recordingKey([b.key, b.reading, b.digest, b.fault]);
+
+/** A row is a complete finite reading or a named fault, with its trace and elapsed time explicit. */
+function requireRow(row: Row, name: string): void {
+  recordingKey(row);
+  if (!row || typeof row !== "object" || typeof row.key !== "string" || !row.key
+    || !Object.hasOwn(row, "reading") || !Object.hasOwn(row, "digest") || !Object.hasOwn(row, "fault")
+    || row.digest !== null && typeof row.digest !== "string"
+    || row.played !== undefined && row.played !== null && (typeof row.played !== "number" || row.played < 0)
+    || row.fault === null && (row.reading === null || typeof row.digest !== "string")
+    || row.fault !== null && (row.reading !== null || typeof row.fault !== "object" || !row.fault
+      || !["error", "invalid", "refused"].includes(row.fault.kind) || typeof row.fault.message !== "string"))
+    throw new Error(`${name} has a case row that is not whole`);
+}
+
+/** Admit each case once and require all sources carrying its key to agree before any reader uses it. */
+export function indexRows<T extends Row>(sources: readonly { readonly name: string; readonly rows: readonly T[] }[]): Map<string, { readonly name: string; readonly row: T }> {
+  const indexed = new Map<string, { readonly name: string; readonly row: T }>();
+  for (const { name, rows } of sources) for (const row of rows) {
+    requireRow(row, name);
+    const had = indexed.get(row.key);
+    const metadata = (one: Row): unknown => {
+      const line = one as Partial<RecordLine>;
+      return [line.world, line.condition, line.code];
+    };
+    if (had && (!sameRow(had.row, row) || had.row.played != null && row.played != null && had.row.played !== row.played
+      || "world" in had.row && "world" in row && recordingKey(metadata(had.row)) !== recordingKey(metadata(row))))
+      throw new Error(`case ${row.key} reads differently in ${had.name} and ${name}`);
+    if (!had || had.row.played == null && row.played != null) indexed.set(row.key, { name, row });
+  }
+  return indexed;
+}

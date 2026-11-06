@@ -76,7 +76,7 @@ export function createCoverCases(context: GameContext) {
       conditions.push({ model, held: right as CoverHeld, ...(left === "empty" ? {} : { left: left as CoverShield }), across, gap });
     return {
       arity: 1,
-      play: protocol as unknown as Json,
+      play: { ...protocol, recordsAttackAttempt: true } as unknown as Json,
       conditions,
       seconds: protocol.seconds,
       faults: (value, condition, subject) => faultsOf(value, condition.model, loadoutOf(condition), subject),

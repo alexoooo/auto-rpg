@@ -53,6 +53,7 @@ export function standingFoot(make: Factory, settings: Settings, conditioning = 1
   const foot = model.segments.findIndex((s) => s.name === "foot.left");
   const scene: SceneSpec = { models: [model], ground: true, conditioning: conditioning === 1 ? undefined : { "foot.left": conditioning } };
   const sim = make(scene, settings);
+  try {
   const masses = massesOf(scene);
   const controller = createController([{ model, base: 0, root: () => foot, gravity: () => true, grounded: [foot] }], sim.segments, masses);
   const state = new Float64Array(STRIDE * sim.segments);
@@ -105,8 +106,8 @@ export function standingFoot(make: Factory, settings: Settings, conditioning = 1
     jointErrorMax: Math.max(...errors),
     msPerStep: ms,
   };
-  sim.dispose();
   return result;
+  } finally { sim.dispose(); }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -145,6 +146,7 @@ export function forearmChain(make: Factory, settings: Settings): ArmResult {
   const model = armModel();
   const scene: SceneSpec = { models: [model], ground: false };
   const sim = make(scene, settings);
+  try {
   const masses = massesOf(scene);
   const controller = createController([{ model, base: 0, root: () => -1, gravity: () => true }], sim.segments, masses);
   const shoulder = controller.byName.get("shoulder.right")!, elbow = controller.byName.get("elbow.right")!, wrist = controller.byName.get("wrist.right")!;
@@ -197,13 +199,13 @@ export function forearmChain(make: Factory, settings: Settings): ArmResult {
     sim.step();
   }
   const ms = (performance.now() - t0) / steps;
-  sim.dispose();
   return {
     label: sim.label,
     handJitterRms: rms(jitter), wristJitterRms: rms(wristJ),
     swingErrorMax: Math.max(...swingErr.map(Math.abs)), swingErrorRms: rms(swingErr),
     overshoot, ringRms: rms(ring), settle: lastOut - swingEnd, elbow: angles, msPerStep: ms,
   };
+  } finally { sim.dispose(); }
 }
 
 /** Largest difference between two elbow series over the swing and the second after it, rad. */
@@ -334,6 +336,7 @@ export function scaling(make: Factory, settings: Settings, kind: Layout, humans:
   const models = offsets.map((o) => placed(human, o));
   const scene: SceneSpec = { models, ground: true, conditioning: options.conditioning };
   const sim = options.build ? options.build(offsets) : make(scene, settings);
+  try {
   const masses = massesOf(scene);
   const n = human.segments.length;
   const controller = createController(models.map((m, i) => humanPlacement(m, i * n, `${i}:`)), sim.segments, masses);
@@ -368,12 +371,12 @@ export function scaling(make: Factory, settings: Settings, kind: Layout, humans:
     if (y / m > 0.7) upright++;
   }
   const label = sim.label;
-  sim.dispose();
   return {
     label, kind, humans, steps: measure,
     total: stat(times.total), solver: stat(times.solver), read: stat(times.read), control: stat(times.control),
     upright, maxSpeed,
   };
+  } finally { sim.dispose(); }
 }
 
 interface HumanResult {
@@ -397,6 +400,7 @@ export function standingHuman(make: Factory, settings: Settings, conditioning?: 
   const model = placed(human, [0, -lowest(human), 0]);
   const scene: SceneSpec = { models: [model], ground: true, conditioning };
   const sim = make(scene, settings);
+  try {
   const masses = massesOf(scene);
   const controller = createController([humanPlacement(model, 0)], sim.segments, masses);
   const state = new Float64Array(STRIDE * sim.segments);
@@ -418,6 +422,6 @@ export function standingHuman(make: Factory, settings: Settings, conditioning?: 
     comAtEnd = y;
   }
   const label = sim.label;
-  sim.dispose();
   return { label, comAtHalf, comAtEnd, maxSpeedLate, comDrift };
+  } finally { sim.dispose(); }
 }

@@ -18,6 +18,7 @@ import { chainTo, reachWork, solveReach } from "../../../control/kinematics.ts";
  * through; the trunk goes no faster than its bearing paws' reach lets it, and turns as it travels.
  */
 export function trot(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_TROT) {
+  if (!validTrot(T)) throw new Error("invalid trot settings");
   const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
   const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
     const m = p.mass.value / mass, at = p.centreOfMass.value;
@@ -239,14 +240,23 @@ const REACH_MISS = .003;
 /** The farthest a reach is sought along the body, m, and the halvings that find its edge. */
 const REACH_SEARCH = .5, REACH_STEPS = 16;
 
+/** The trot's complete settings keep travel and every consumed time divisor positive. */
+export function validTrot(settings: typeof REPTILE_TROT): boolean {
+  return !!settings && typeof settings === "object" && !Array.isArray(settings)
+    && Object.keys(REPTILE_TROT).every(key => Object.hasOwn(settings, key))
+    && Object.entries(settings).every(([key, value]) => Object.hasOwn(REPTILE_TROT, key) && Number.isFinite(value) && value >= 0)
+    && settings.speed > 0 && settings.acceleration > 0 && settings.swing + settings.settle > 0;
+}
+
 /** **The trot**'s config: research settings over `REPTILE_TROT`, none in the game. */
 interface TrotConfig { readonly kind: "paw-trot"; readonly tuning?: Partial<typeof REPTILE_TROT> }
 
 /** **The trot** as a gait: the quadruped's travel. */
 export const TROT_PART: PawGaitPart<TrotConfig> = deepFreeze({
   role: "paw-gait", label: "Trot", stage: "game", fields: [], slots: [], defaults: { kind: "paw-trot" }, keys: { kind: true, tuning: true },
-  tuning: Object.keys(REPTILE_TROT), fits: fitsPaws,
-  faults: (config: TrotConfig) => (config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning) && Object.entries(config.tuning).every(([key, value]) => Object.hasOwn(REPTILE_TROT, key) && Number.isFinite(value))) ? [] : ["invalid trot setting"],
+  tuning: Object.keys(REPTILE_TROT), fits: (spec, config) => fitsPaws(spec) ?? (validTrot({ ...REPTILE_TROT, ...config.tuning }) ? null : "invalid trot settings"),
+  faults: (config: TrotConfig) => config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning)
+    && validTrot({ ...REPTILE_TROT, ...config.tuning }) ? [] : ["invalid trot settings"],
   make(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], config: TrotConfig) {
     const settings = { ...REPTILE_TROT, ...config.tuning }, skill = trot(built, root, paws, names, settings);
     // It carries the body forward at its speed, no faster than its stance's sweep lets it; aside and back at what it keeps of travel across its heading.

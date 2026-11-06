@@ -4,7 +4,7 @@
  * (`assets/evaluations/imports/`) are not records.
  */
 import type { Kept } from "../../../evaluation/history.ts";
-import { readRecord } from "../../../evaluation/record.ts";
+import { indexRows, readRecord } from "../../../evaluation/record.ts";
 
 const FILES: Readonly<Record<string, string>> = import.meta.glob<string>(
   ["../../../../assets/evaluations/*/*.jsonl", "!../../../../assets/evaluations/imports/**"], { query: "?url", import: "default", eager: true });
@@ -34,7 +34,7 @@ export function recordsOf(id: string): Promise<Kept[]> {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`${name}: ${response.status} ${response.statusText}`);
       return { name, ...readRecord(await response.text(), name) };
-    }));
+    })).then(records => { indexRows(records.map(record => ({ name: record.name, rows: record.lines }))); return records; });
     records.catch(() => loaded.delete(id));
     loaded.set(id, records);
   }

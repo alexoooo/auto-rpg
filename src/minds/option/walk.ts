@@ -26,10 +26,10 @@ export function walker(_spec: BodySpec) {
   };
   return {
     pace,
-    /** The speed its gait holds forward, m/s, before any orders' pace: what a second of carrying out orders is priced by. */
+    /** The gait's measured forward speed, m/s, or the explicit ordered pace without an envelope: what a second of carrying out orders is priced by. */
     stride(now: Situation): number {
       const envelope = now.sight.envelope;
-      return envelope ? paceToward(envelope, 1, 0) : 0;
+      return envelope ? paceToward(envelope, 1, 0) : now.orders?.pace ?? 0;
     },
     /** The heading to the focus, or the body's own with none. */
     facing(now: Situation): number {

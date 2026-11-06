@@ -3,6 +3,7 @@
  * common ground and the matchup grid; a battery's figures by subject and condition field; a
  * subject's history across pools and its cases. No DOM; records come from `records.ts`.
  */
+import { indexRows } from "../../../evaluation/record.ts";
 import { isStalemate } from "../../../evaluation/compare.ts";
 import type { BoutReading } from "../../../evaluation/contest.ts";
 import type { Evaluation, Json } from "../../../evaluation/evaluation.ts";
@@ -194,9 +195,6 @@ export function casesBy(pool: Pool, name: string, key: (one: PoolCase, seat: num
 
 /** The record line of case `key` in `records`, and the record that holds it first. */
 export function findCase(records: readonly Kept[], key: string): { readonly record: Kept; readonly line: Kept["lines"][number] } | null {
-  for (const record of records) {
-    const line = record.lines.find((one) => one.key === key);
-    if (line) return { record, line };
-  }
-  return null;
+  const found = indexRows(records.map(record => ({ name: record.name, rows: record.lines }))).get(key);
+  return found ? { record: records.find(record => record.name === found.name)!, line: found.row } : null;
 }

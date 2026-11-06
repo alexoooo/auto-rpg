@@ -33,6 +33,11 @@ function shapeMesh(name: string, frame: SegmentFrame, shape: ShapeSpec, scene: S
   switch (shape.kind) {
     case "capsule": {
       const r = shape.radius.value, span = sub(shape.to.value, shape.from.value);
+      if (length(span) === 0) {
+        const mesh = MeshBuilder.CreateSphere(name, { diameter: 2 * r, segments: 16 }, scene);
+        mesh.position = local(frame, shape.from.value);
+        return mesh;
+      }
       const mesh = MeshBuilder.CreateCapsule(name, { radius: r, height: length(span) + 2 * r, tessellation: 16, subdivisions: 1 }, scene);
       mesh.position = local(frame, shape.from.value).add(local(frame, shape.to.value)).scaleInPlace(0.5);
       // The capsule is built along its y; turn y onto the span, in the segment's coordinates.

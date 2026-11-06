@@ -8,6 +8,9 @@ import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings } from "./walk-run.ts";
+import type { Body } from "../../control/body.ts";
+import type { Locomotion } from "./locomotion.ts";
+import { recordingKey } from "../../core/world/recording.ts";
 
 /** **The walk and run's settings for a body**: the walk's (`WalkRunSettings`) and its run's (`RunCycleSettings`). */
 export interface WalkRunRecord {
@@ -38,6 +41,9 @@ const tunedOver = (base: WalkRunRecord, config: WalkRunConfig): WalkRunRecord =>
 
 /** The defaults every body takes scaled to its leg (`scaledGait`) where it has no record of its own. */
 const DEFAULTS: WalkRunRecord = deepFreeze({ walk: WALK_RUN, run: WALK_RUN_CYCLE });
+
+/** Walk/run permission changes preserve a body's motion only under identical physical settings. */
+const motion = new WeakMap<Body, Map<string, Locomotion>>();
 
 /** The named anatomical channels consumed by the cycle and its arm swing. */
 export function walkRunRefusal(spec: BodySpec): string | null {
@@ -78,7 +84,15 @@ export const WALK_RUN_PART: GaitPart<WalkRunConfig> = deepFreeze({
   runs: (config) => config.runs ?? true,
   make: (body, config) => {
     const { walk, run } = tunedOver(dataOf("walk-run")[bodyKey(body.built.spec)]?.settings ?? DEFAULTS, config);
-    return walkRun(body, walk, run, config.runs ?? true);
+    let settings = motion.get(body);
+    if (!settings) motion.set(body, settings = new Map());
+    const key = recordingKey({ walk, run });
+    let shared = settings.get(key);
+    if (!shared) settings.set(key, shared = walkRun(body, walk, run, config.runs ?? true));
+    const controller = shared, may = config.runs ?? true;
+    const goal: Locomotion["goal"] = (view, asked, dt, context) => { controller.runs?.(may); return controller.goal(view, asked, dt, context); };
+    const resume: Locomotion["resume"] = view => { controller.runs?.(may); controller.resume(view); };
+    return Object.freeze(Object.create(controller, { goal: { value: goal }, resume: { value: resume } })) as Locomotion;
   },
 });
 

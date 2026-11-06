@@ -1,3 +1,4 @@
+import { workerJobs } from "../research/worker-jobs.mjs";
 import { isRefused } from "../src/core/refusal.ts";
 import { rulebook } from "../src/combat/rulebook.ts";
 /**
@@ -438,23 +439,11 @@ if (isMainThread) {
   const only = values.only === undefined ? null : new RegExp(values.only);
   const chosen = CASES.keys().filter((id) => !!CASES[id].workshop === !!values.character && (!only || only.test(CASES[id].name))).toArray();
   console.log(`engine ${CORE_ENGINE}, ${chosen.length} cases`);
-  const lanes = Math.min(chosen.length, Number(values.workers ?? Math.max(1, availableParallelism() - 2)));
+  const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   const lines = new Array(CASES.length);
-  let next = 0;
-  await Promise.all(Array.from({ length: lanes }, () => new Promise((resolve, reject) => {
-    const worker = new Worker(new URL(import.meta.url), { argv: process.argv.slice(2) });
-    const feed = () => {
-      if (next >= chosen.length) { worker.terminate(); resolve(); return; }
-      const id = chosen[next++];
-      worker.once("message", ({ told, error }) => {
-        if (error) { reject(new Error(`${CASES[id].name}: ${error}`)); return; }
-        lines[id] = told;
-        feed();
-      });
-      worker.postMessage(id);
-    };
-    feed();
-  })));
+  await workerJobs(chosen, { lanes,
+    create: () => new Worker(new URL(import.meta.url), { argv: process.argv.slice(2) }),
+    result: ({ told }, id) => { lines[id] = told; return told; } });
   for (const id of chosen) console.log(`${CASES[id].name}: ${lines[id].line}`);
   const cases = Object.fromEntries(chosen.map((id) => [CASES[id].name, lines[id].record]));
   if (values.json) await writeFile(values.json, JSON.stringify({ harness: "Node, core world (src/core/world/world.ts), 120 Hz", engine: CORE_ENGINE, cases }, null, 1));

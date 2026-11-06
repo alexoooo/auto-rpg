@@ -143,7 +143,7 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     let byTarget = byOption.get(option);
     if (!byTarget) byOption.set(option, byTarget = []);
     let terms = byTarget[target];
-    if (terms === undefined) byTarget[target] = terms = option.model(at, { target });
+    if (terms === undefined) byTarget[target] = terms = option.model(at, { target, ...option.open ? {} : { until: horizon } });
     return terms;
   };
   /** The Options on offer at `at`, at each of their targets. */

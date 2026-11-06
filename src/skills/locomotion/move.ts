@@ -102,7 +102,7 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     const s = view.stance, wants = wanted({ walking, foe: foeDistance(view), destination: destination ?? Infinity, ally: allyDistance(view) }, memory.gait, named);
     if (!memory.chosen) { memory.chosen = true; memory.gait = wants; return true; }
     if (wants === memory.gait) return true;
-    if (gaits[wants]!.legs === now()) { memory.gait = wants; return true; }
+    if (gaits[wants]!.legs.state === now().state) { memory.gait = wants; return true; }
     if (memory.driven || s.own || (s.phase !== "stand" && s.phase !== "shift")) return false;
     memory.gait = wants;
     told().resume(view);

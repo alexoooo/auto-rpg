@@ -1,3 +1,4 @@
+import { constructionScope } from "../src/core/construction.ts";
 import { isRefused } from "../src/core/refusal.ts";
 /**
  * **A learning environment over an evaluation's cases**: any learnable part (`Learner`,
@@ -204,28 +205,35 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
     return started(p) ? 'started' : p.reader.ended || p.kind.clock(p.built) >= longest(p) ? 'ended' : 'more';
   };
   /** A start: `p` at its first decision, and its save where it is pooled. */
-  const startOf = (p) => ({ ...p, saved: pooled ? p.kind.save(p.built) : null, inputs: p.learner.inputs.slice() });
+  const startOf = (p) => {
+    if (pooled && (!p.kind.save || !p.kind.load)) throw new Error("a pooled environment's world kind saves and loads");
+    return { ...p, saved: pooled ? p.kind.save(p.built) : null, inputs: p.learner.inputs.slice() };
+  };
   /** A start at a fresh draw: begun and played to its first decision, drawn again where it is left out or ends first. */
   const fresh = async () => {
     for (;;) {
       const p = await begin();
       if (!p) continue;
-      if (advance(p, Infinity) === 'started') return startOf(p);
-      p.built.dispose();
+      let kept = false;
+      try {
+        if (advance(p, Infinity) === 'started') { const start = startOf(p); kept = true; return start; }
+      } finally { if (!kept) p.built.dispose(); }
     }
   };
 
   const pooled = o.pool !== undefined;
-  const pool = [];
+  const pool = [], lifetime = constructionScope();
+  try {
   if (pooled) {
     if (o.pool < 2) throw new Error('a learning environment pools at least two starts, so that one can be replaced while another plays');
     while (pool.length < o.pool) {
       const s = await fresh();
-      if (!s.kind.save || !s.kind.load) { s.built.dispose(); throw new Error('a pooled environment\'s world kind saves and loads'); }
+      lifetime.own(s.built);
       pool.push(s);
     }
   }
   const first = pooled ? pool[0] : await fresh();
+  if (!pooled) lifetime.own(first.built);
   if (first.learner.inputs.length !== layout.inputs.length || ![0, layout.outputs.length].includes(first.learner.outputs.length))
     throw new Error(`the learner reads ${first.learner.inputs.length} inputs for ${first.learner.outputs.length} outputs; its layout ${o.layout} names ${layout.inputs.length} for ${layout.outputs.length}`);
   const observationSize = layout.inputs.length, actionSize = layout.outputs.length;
@@ -302,4 +310,5 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
   /** The trainer's decisions in all so far, which set the curriculum's share. */
   const progress = (made) => { decisions = made; };
   return { reset, step, idle, progress, observationSize, actionSize, dispose, inside: () => ep };
+  } catch (error) { lifetime.dispose(); throw error; }
 }

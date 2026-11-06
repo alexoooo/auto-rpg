@@ -1,3 +1,4 @@
+import { workerJobs } from "../../../../worker-jobs.mjs";
 import { isRefused } from "../../../../../src/core/refusal.ts";
 /**
  * **Where a whole mind's rise spends its time**: the stand-up target's falls (`risingJobs`, the falls
@@ -15,7 +16,7 @@ import { isRefused } from "../../../../../src/core/refusal.ts";
  *   node research/skills/recovery/implementations/staged/rise-trace.mjs [--model workshop-fighter] [--offsets 0,11.25] [--mind <file.json>]
  *     [--loadout <left>,<right>] [--only <degrees>,...] [--seeds <n>,...] [--workers N] [--out <rows.json>] [--falls]
  */
-import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
+import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -154,12 +155,9 @@ if (isMainThread) {
     .filter((job) => job.model === values.model && (!values.loadout || loadoutKey(job.loadout) === values.loadout) && (!only || only.has(String(job.degrees))))
     .flatMap(({ model, loadout, start, degrees, balance, grit, gusts }) => seeds.map(seed => ({
       key: { model, loadout: loadoutKey(loadout), degrees, seed }, fall: { model, loadout, seed, start, degrees, balance, grit, gusts, target: true, mind } })));
-  const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
+  const count = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
   const started = Date.now();
-  const rows = (await Promise.all(Array.from({ length: count }, (_, w) => new Promise((resolve, reject) => {
-    const worker = new Worker(new URL(import.meta.url), { workerData: jobs.filter((_, i) => i % count === w) });
-    worker.once("message", resolve); worker.once("error", reject);
-  })))).flat().sort((a, b) => a.loadout < b.loadout ? -1 : a.loadout > b.loadout ? 1 : a.degrees - b.degrees || a.seed - b.seed);
+  const rows = (await workerJobs(jobs, { lanes: count, create: () => new Worker(new URL(import.meta.url)), result: answer => answer })).flat().sort((a, b) => a.loadout < b.loadout ? -1 : a.loadout > b.loadout ? 1 : a.degrees - b.degrees || a.seed - b.seed);
   console.log(`rise trace: ${jobs.length} falls of ${values.model}, offsets ${values.offsets}, seeds ${values.seeds}; Node, core world, Rapier, 120 Hz; ${((Date.now() - started) / 1000).toFixed(0)} s\n`);
   if (values.falls) for (const row of rows) console.log(`${row.loadout} ${row.degrees} seed ${row.seed}: ${row.stood ? row.time.toFixed(2) : "not stood"}; ${row.actions.map((one) =>
     `${one.name}${one.from ? `(${one.from})` : ""} ${one.at.toFixed(1)}+${one.seconds.toFixed(1)} ${one.end ?? "cut"}${one.end === "done" ? "" : `@${one.stages.at(-1)?.name ?? "?"}`}`).join(" > ")}`);
@@ -167,7 +165,8 @@ if (isMainThread) {
   summary(rows);
   if (values.out) writeFileSync(values.out, JSON.stringify(rows, null, 1));
 } else {
-  const out = [];
-  for (const job of workerData) out.push(await traceFall(job));
-  parentPort.postMessage(out);
+  parentPort.on("message", async job => {
+    try { parentPort.postMessage([await traceFall(job)]); }
+    catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
+  });
 }

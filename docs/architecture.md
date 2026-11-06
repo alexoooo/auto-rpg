@@ -63,6 +63,8 @@ Role owners augment `RoleParts`; skill implementations augment their configurati
 an entrant supplies them in its manifest. The application catalog loads the same registered keys
 in Node and the browser. Case identity hashes the current module paths and contents; saved rows
 are reused only when their current case keys match.
+The data store deep-freezes each loaded value before publishing it; loaders supply immutable
+records and arrays.
 
 ## Spec and provenance
 
@@ -131,6 +133,11 @@ that comes apart (`EngineJoint.release`); grips (`addGrip`); a whole-world save 
 spec joint, a held item's mass folded into its segment, the body in the pose its joints demand (a
 fighter's guard, `builtAngles`). Readings back: `jointAngles`, `bodyDynamics` (mass matrix, gravity
 and bias), `contactMass` and `contactGive`.
+Construction owns completed allocations until the body takes their lifetime. Equipped specs are
+deep-frozen before caching. Joint frames require mutually orthogonal axes; reference clearance
+uses capsule-to-hull closest distance and hull separating axes, including pairs of edges.
+Physics snapshots require the same gravity and configured rate as well as the same constructed
+topology and recipe; an incompatible load leaves pending commands and solver state unchanged.
 
 - **Toes** (`src/core/bodies/build/toes.ts`): a massless slab hinged at the ball, bending as the heel
   lifts; the stance reads the sole from the box and the toes (`src/control/support.ts`).
@@ -164,7 +171,8 @@ driven points, a stance goal) into muscle commands.
   standalone body builder (`src/app/commanded-body.ts`) supplies the stock whole-body motor when
   a study names none.
   A selected motor declares its support reference; `BodyView.standing` is null when it supplies
-  none. Implementations requiring that reference declare the requirement in their applicability.
+  none. Skills declare the support reference, stance or support goals they consume as open
+  `Requirement`s; admission checks them against the configured motor before construction.
   The application supplies the stock balance and its calibrated envelope (`src/app/stance-balance.ts`);
   neutral envelope interpolation stays in control, and locomotion owns its measured asset readers.
 - **The motor** is a part of role `motor` (`MOTORS`); the game's is the whole-body solve
@@ -176,7 +184,8 @@ driven points, a stance goal) into muscle commands.
 - **Effector goals** (`EffectorGoal`, `kinematics.ts`): named points of an effector follow
   minimum-jerk paths to places in the root's frame, `through` a place or `follows` a moving end; a
   `firm` goal braces the limb through what it strikes. Only the channels between an effector's base
-  and its segment are its reach.
+  and its segment are its reach. Goal equality belongs to the endpoint tracker and compares every
+  path and tracking field before the command layers suppress a repeated goal.
 - **The bearing solve** (`bearing.ts`) asks the wrench the aim needs, shares it among the ground
   patches within friction and centre of pressure, and gives each limb its inverse dynamics; what the
   patches miss is asked of the assist.
@@ -201,12 +210,16 @@ arbiter releases every action when another mind takes the body.
   region. Admission reads readiness and reserves resources (joints, effectors, segment configurations, support limbs and whole-body assist);
   actions overlap where reservations allow. An executor runs `prepare`, `commit` and `release` and
   ends once (`Ended`). It never closes distance; the decider does.
+  Resources distinguish physical segments, pose channels and services. Support reservations read
+  the body's declared bearing chains independently of optional effector actuators.
 - **Parts.** Each kind is a line of its role's list (`EXECUTORS`, `GUARDS` and the like), its
   module owning its config's keys, defaults, faults, fit and maker. A body builds only the skills
   it fits (`Slot.skills`), naming the rest (`unusedParts`). What lies under every skill (the motor,
   the legs, the guard) is the one game part of its role that fits the body (`PartLookup.fitting`,
   `filledOf`); two fitting is a fault of the build, and an experiment passes another in
   (`OptionMindConfig.tuning`).
+  Admission resolves stock settings plus overrides through the implementation's execution
+  predicate. Skill assembly constructs configured aims once and roots their memory in `Skills.state`.
 - **Tuned per body**: a skill that reads a record (`Part.reads`: the blows, step up's and the
   sit-back's poses and timings, the righting's recipe) has its settings as its body's record (`SkillRecord`),
   read as mind data by `bodyKey` from its implementation in `assets/skills/` (`dataOf`). A body with no record
@@ -222,8 +235,10 @@ arbiter releases every action when another mind takes the body.
   (`assets/skills/locomotion/cycle-run/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis,
   its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`) where it has one, else the defaults
   scaled to its leg (`scaledGait`); each is a gait part (role `gait`).
-  `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. A body
-  on paws has `paw-move` (`src/skills/locomotion/quadruped/paw-legs.ts`): the trot and the crawl, the support goal
+  `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
+  shares gait instances only for identical complete configurations. Walk/run permission views
+  share motion through their concrete implementation when their physical settings agree.
+  A body on paws has `paw-move` (`src/skills/locomotion/quadruped/paw-legs.ts`): the trot and the crawl, the support goal
   each step for its motor.
 - **The straight punch** (`straight-punch.ts`) drives the arm flat out at a contact pose solved
   each step, on a timed schedule (`TimedPush`). Steered, a network (`learned-punch.ts`) adds to the
@@ -324,14 +339,15 @@ options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Optio
 body in (`Option.model`, `placed`; `Terms`: duration, what it deals and takes, and the ways it ends,
 each a state with its chance, `Outcome`), its step, and a status.
 
-The selected prediction provider constructs a complete decision session through `OptionEvaluation.build`,
+The selected evaluation provider constructs a complete decision session through `OptionEvaluation.build`,
 with its compatible Options, chooser protocol, situation reader and saved memory. Admission checks
 the protocol identifiers before construction. The stock profile model owns its tables and
 `ProfileOptionContext`; an independent provider supplies its own model without the profile schema.
 Components declare their data, phases and order-taking capability. Profile recovery Options
 declare whether they offer ascent or fallback transitions; route admission and brace readiness
 read the same declaration. The public Option entry point
-publishes the percept, prediction and evaluation callback contracts. Controller descriptions expose
+publishes the evaluation contract and the profile model's `Seen`-typed percept and prediction
+contracts. Controller descriptions expose
 configured components, command owners and their actual configuration paths to editors, inspection
 and evaluation adapters.
 
@@ -380,6 +396,8 @@ The profile model supplies these components:
   The walk (`walk`, `walkBy`) is one Option a gait of the body's legs, meaning go to a place by that gait; its targets
   are the sites its mind's Options name (`Sites`), which it reads as spots (`Spot`) and knows
   nothing else of, and the search prices a walk to one by what it finds where the walk ends.
+  No attainable pace gives no walk model; pressure sampling is bounded by the chooser's horizon.
+  Without a measured envelope, an explicit numeric order supplies the pace used to price obedience.
 - **Its config is Options** (`OptionMindConfig`): its chooser, what it predicts from, its rate and
   its Options in rank order. Each Option names the skill it uses and how: a strike its executor
   (`skill`), its limbs by role (`LimbRole`: either hand, a free hand, the holding hand, either foot,
@@ -472,6 +490,9 @@ queued control state.
 The state codec escapes plain records carrying internal discriminators and preserves shared
 references. Mutable maps, sets and typed arrays belong to state; deeply frozen constants use
 records and arrays.
+The senses retain opaque body identifiers in a `Map`. A decider keeps a detached copy of the
+orders it read, and gait transport compares published values. Fallen navigation footprints retain
+the height of their observed colliders.
 
 ### The command delay
 
@@ -502,6 +523,9 @@ abort and disposal reject pending requests. The browser drains the shared reply 
 for completion, so reply backpressure cannot prevent that completion. Mind workers load the data
 declared by the requested recipes. Construction lifetimes dispose partial resources before an
 unsuccessful build returns control to its reporting boundary.
+Host disposal attempts every worker stop. Evaluation lanes cancel pending siblings and stop their
+workers before reporting a fatal error. Research and tooling use `workerJobs` and its persistent
+pool to settle queued and active work on failure or close; closed pools refuse new work.
 
 ## Bouts, tapes and replay
 
@@ -528,6 +552,11 @@ path for Node, its workers and a page; `scripts/evaluate.mjs` runs it.
 - **A case's key** is the digest of everything it plays; a row (`Row`) is found again by its key, so
   only changed cases replay. `--write` keeps a record under `assets/evaluations/<id>/`
   (`record.ts`), grouped into pools with numbered versions (`history.ts`).
+  Subjects retain their body restrictions and character attributes through normalization,
+  scheduling, versioning and historical reconstruction. Each code-bearing part declares its
+  component configuration; identity follows those parts and the selected aim's declared data.
+  Record admission validates complete rows. One shared index requires duplicate agreement before
+  the CLI, history, Ratings or Arena reels consume evidence.
 - **Contests**: `match` (two minds, each on each side, one digest), `tournament` (Bradley-Terry,
   `rating.ts`), `unseen`. The panel report (`compare.ts`, `settle.ts`) pairs a subject with its
   baseline and stops once settled; `npm run compare` (`record-comparison.ts`) pairs saved records.
@@ -535,13 +564,18 @@ path for Node, its workers and a page; `scripts/evaluate.mjs` runs it.
   or fail, its rungs its protocols (the strike's bar in `strike/read.ts`). Only the owner accepts a
   rung (`accepted.json`).
 - **The table** (`src/evaluation/table/`): Option Mind on every body by loadout by skill
-  (`tableCells`), judged from the newest records: stand-up and the run met or short
+  (`tableCells`), judged from compatible records merged by case key: stand-up and the run met or short
   (`verdictOf`), every other cell its score (`scoreOf`) against its baseline
   (`assets/evaluations/<drill>/baselines.json`, `baselineOf`) and its best version, the person's
   figure beside a strike's (`personOf`).
+  A met verdict requires all current protocol case keys and passing readings. Partial coverage
+  leaves work to play; faults and unreached fixtures remain explicit. A baseline retains every
+  record contributing its rows. Cover records whether its opponent attempted an attack.
 - **Falls** (`fall.ts`): one body felled on one bed (`buildFall`), its stand verified
   (`STAND_CHECK`); a stand-up is read on the [owner's
   target](reference/rising.md#the-owners-target).
+  Lone, fall and Crypt evaluation scripts expose cue indices, orders and progress through their
+  state objects; their builders publish no save/load interface.
 
 ## Rules and wounds
 

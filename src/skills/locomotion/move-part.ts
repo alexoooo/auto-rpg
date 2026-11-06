@@ -73,8 +73,7 @@ function gaitFaults(config: MoveConfig): readonly string[] {
 
 /**
  * **Move** (`move`): the legs of the gait it goes by, so it holds that gait's envelope and stops at
- * its stopping. Its gaits are made once each, those whose legs differ only in whether they may run
- * sharing one walk (`MoveGait`); its rules are made as the lookup finds them (`MoveRulePart`). Its
+ * its stopping. Its gaits are made once for each complete configuration; its rules are made as the lookup finds them (`MoveRulePart`). Its
  * gaits are config (`MoveConfig.gaits`): a new gait is an entry, its legs any gait part's config (`GaitPart`).
  */
 export const MOVE_PART: LocomotionPart<MoveConfig> = deepFreeze({
@@ -95,7 +94,7 @@ export const MOVE_PART: LocomotionPart<MoveConfig> = deepFreeze({
     const walked = gaitsOf(config), names = walked.map((gait) => gait.name), built = new Map<string, Locomotion>();
     const gaits = walked.map((gait): MoveGait => {
       const of: PartConfig = gait.legs, runs = legs.runs(of);
-      const key = JSON.stringify(runs === undefined ? of : { ...of, runs: undefined });
+      const key = JSON.stringify(of);
       if (!built.has(key)) built.set(key, legs.make(body, of));
       return { name: gait.name, legs: built.get(key)!, ...(runs === undefined ? {} : { runs }) };
     });

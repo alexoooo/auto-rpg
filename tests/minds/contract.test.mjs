@@ -192,3 +192,28 @@ test("a fallback recovery Option does not count its own transition as an ordinar
   assert.deepEqual(waysUpIn(catalog.partLookup, spec, [ascent.defaults, fallback]), [fallback.skill]);
   assert.deepEqual(withWaysUp(catalog.partLookup, [ascent.defaults, fallback], [fallback.skill]), [{ kind: "way-up", skill: fallback.skill }]);
 });
+
+
+test("a measured Lab script follows an explicit numeric walk without a gait envelope", async () => {
+  const [{ LAB_MIND }, { labActor }, { startLocomotion }, { trackOf }] = await Promise.all([
+    import("../../src/app/node/setup.ts"), import("../../src/app/node/game.ts"),
+    import("../../src/game/lab/locomotion-mode.ts"), import("../../src/game/lab/track.ts"),
+  ]);
+  const stand = await coreStand(modelSpec("workshop-fighter"));
+  let session;
+  try {
+    const actor = labActor(stand.built, stand.world, { mind: LAB_MIND, experiment: { measuring: true } });
+    assert.equal("refused" in actor, false, "the measured Lab actor must be admitted");
+    const course = trackOf([{ kind: "corner", metres: 0, turn: 0 }, { kind: "straight", metres: 80 }]);
+    session = startLocomotion(actor, course, { top: .7, facing: 0 });
+    assert.equal("refused" in session, false, "the numeric walk must start");
+    assert.equal(actor.mind.skills.envelope, null, "the fixture must remove its measured gait envelope");
+    stand.step(stand.seconds(1));
+    assert.ok(Number.isFinite(actor.state.script.orders.pace) && actor.state.script.orders.pace > 0, "the script must publish a finite numeric movement");
+    assert.equal(actor.mind.report.engagement.phase, "follow orders");
+    stand.step(stand.seconds(2));
+    const reading = session.frame();
+    assert.ok(reading.gait.touchdowns > 0, "the selected ordered walk must reach its first landing");
+    assert.equal(reading.fallen, false);
+  } finally { session?.dispose(); stand.dispose(); }
+});

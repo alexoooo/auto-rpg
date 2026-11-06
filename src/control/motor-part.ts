@@ -1,5 +1,12 @@
 import type { PartLookup } from "../parts/lookup.ts";
-import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
+import type { KeysOf, Part, PartConfig, Requirement } from "../parts/parts.ts";
+import { SUPPORT_REFERENCE } from "./support-reference.ts";
+
+export const MOTOR_STANCE = "motor-stance";
+export const MOTOR_SUPPORT = "motor-support";
+declare module "../parts/parts.ts" {
+  interface Requirements { readonly [MOTOR_STANCE]: true; readonly [MOTOR_SUPPORT]: true }
+}
 import type { ReadBody } from "../core/bodies/read-body.ts";
 import type { MuscleReading } from "../core/bodies/muscle/driver.ts";
 import type { AssistReading } from "../core/bodies/assist.ts";
@@ -16,10 +23,24 @@ import type { StanceEnvelope } from "./stance-envelope.ts";
  * (`MotorControl.carries`).
  */
 export interface MotorMaker {
+  /** Mechanical requirements this configured motor satisfies before construction. */
+  readonly requirements?: readonly Requirement[];
   readonly reference?: import("./support-reference.ts").SupportReference;
   make(built: ReadBody, muscles: MuscleReading, seconds: number, posture?: Pose, stanceTuning?: StanceTuning, assist?: AssistReading | null): MotorControl;
   /** The calibration this implementation supplies for the body and research settings. */
   envelope(spec: BodySpec, experiment: Experiment): StanceEnvelope | null;
+}
+
+/** Admit the capabilities consumed by configured skills before constructing a motor. */
+export function motorRequirementRefusal(motor: MotorMaker, spec: BodySpec, requirements: readonly Requirement[]): string | null {
+  for (const requirement of requirements) {
+    if (requirement === SUPPORT_REFERENCE) {
+      if (!motor.reference) return "the selected skills require a motor support reference";
+      const refusal = motor.reference.fits(spec);
+      if (refusal) return refusal;
+    } else if (!motor.requirements?.includes(requirement)) return `the selected skills require ${requirement}`;
+  }
+  return null;
 }
 
 /**

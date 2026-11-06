@@ -1,5 +1,5 @@
 import type { GuardSkill } from "../framework/guard.ts";
-import { HAND_CONFIGURATION } from "../../core/bodies/human/hand-configurations.ts";
+import { handConfiguration } from "../strikes/held-strike.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { BodyView } from "../../control/body.ts";
 import { heldFrame, rigidPoints } from "../../core/bodies/build/rigid.ts";
@@ -70,6 +70,11 @@ export interface Covering {
   readonly out: number;
   readonly seconds: number;
 }
+
+/** A cover reaches in positive time, at a finite nonnegative distance from the guarded point. */
+export const validCovering = (value: Covering): boolean => !!value && typeof value === "object" && !Array.isArray(value)
+  && Object.keys(value).every(key => key === "out" || key === "seconds")
+  && Number.isFinite(value.out) && value.out >= 0 && Number.isFinite(value.seconds) && value.seconds > 0;
 
 /** `hand`'s chain from the root, split where its arm begins: the trunk's joints, and the arm's from the first off its effector's base (the shoulder) to the hand. */
 function armOf(spec: BodySpec, hand: string): { readonly trunk: ReturnType<typeof specChainTo>; readonly arm: ReturnType<typeof specChainTo> } {
@@ -233,6 +238,7 @@ export interface GuardOptions {
 interface GuardState { wards: Record<string, { at: Vec3; time: number; turn: [number, number, number, number] | null; turned: number } | null> }
 
 export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, { wardSpeeds = null, hold = null }: GuardOptions = {}): GuardSkill {
+  if (!validCovering(covering)) throw new Error("invalid guard cover settings");
   const hands = handsOf(spec), covers = Object.fromEntries(hands.map((hand) => [hand, coversOf(spec, hand)]));
   /** Each hand's ward, by segment: a hand holding a covering face that it wards with. */
   const wards: Readonly<Record<string, Ward>> = Object.fromEntries((spec.held ?? [])
@@ -317,7 +323,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, { w
   };
   return {
     effectors: hands, posture: guardPosture(spec), hold, state,
-    configuration: (hand) => segmentOf(spec, hand)?.configurations ? HAND_CONFIGURATION.open : null,
+    configuration: (hand) => handConfiguration(spec, hand, "open"),
     resume() { for (const hand in state.wards) state.wards[hand] = null; },
     command(view, guard) {
       let goals: Record<string, EffectorGoal | null> | null = null;

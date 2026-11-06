@@ -68,17 +68,19 @@ async function row(count) {
 async function sites() {
   const recipe = values.bare ? seededBareRecipe(values.left) : { left: values.left, right: values.right };
   const { world, duel, dispose } = await buildBout({ ...recipe, capSeconds: 60 }, { engine: BOUT_ENGINE });
+  try {
   world.step(2 * world.hz);
   let taken = 0;
   const { bytes, self, within, files } = await allocatedIn(() => { while (!duel.verdict) { world.step(); taken++; } });
-  dispose();
-  const line = ([name, size]) => `| ${(size / taken / 1024).toFixed(1)} | ${(100 * size / bytes).toFixed(1)} | ${name} |`;
+  if (taken === 0) { console.log(`Node, ${world.physics.engine}, 120 Hz: the bout ended before allocation sampling; no steps measured`); return; }
+  const line = ([name, size]) => `| ${(size / taken / 1024).toFixed(1)} | ${(bytes > 0 ? 100 * size / bytes : 0).toFixed(1)} | ${name} |`;
   const top = (map, most) => [...map].sort((a, b) => b[1] - a[1]).slice(0, most).map(line).join("\n");
   const head = "| KiB a step | Of all, % | Where |\n|---|---|---|";
-  console.log(`Node, an arena bout in the core world, ${CORE_ENGINE}, 120 Hz; ${recipe.left} against ${recipe.right}${values.bare ? ", seeded bare networks" : ""}, ${taken} steps to its verdict; ${(bytes / taken / 1024).toFixed(0)} KiB allocated a step\n`);
+  console.log(`Node, an arena bout in the core world, ${world.physics.engine} (${world.physics.revision}), 120 Hz; ${recipe.left} against ${recipe.right}${values.bare ? ", seeded bare networks" : ""}, ${taken} steps to its verdict; ${(bytes / taken / 1024).toFixed(0)} KiB allocated a step\n`);
   console.log(`By file, each function's own body\n\n${head}\n${top(files, 16)}\n`);
   console.log(`By function, its own body\n\n${head}\n${top(self, 30)}\n`);
   console.log(`By function, with everything it calls\n\n${head}\n${top(within, 45)}`);
+  } finally { dispose(); }
 }
 
 if (values.sites) await sites();

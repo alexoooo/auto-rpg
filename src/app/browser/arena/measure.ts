@@ -6,6 +6,7 @@ interface FrameSample {
   readonly frame: number;
   readonly interval: number;
   readonly physics: number;
+  readonly worker: number;
   readonly simulated: number;
   readonly time: number;
   readonly hz: number;
@@ -24,17 +25,17 @@ export function arenaMeasurement(parent: HTMLElement) {
     values.sort((a, b) => a - b); return values[Math.floor((values.length - 1) * part)]!;
   };
   return { record(sample: FrameSample) {
-    if (!sample.active || sample.time < WINDOW.startup || sample.simulated <= 0 || samples.length >= WINDOW.frames) return;
+    if (!sample.active || sample.time < WINDOW.startup || sample.simulated <= 0 || sample.steps <= 0 || samples.length >= WINDOW.frames) return;
     samples.push(sample);
     const now = performance.now();
     if (now - last < WINDOW.publish && samples.length < WINDOW.frames) return;
     last = now;
     const simulated = samples.reduce((sum, s) => sum + s.simulated, 0), interval = samples.reduce((sum, s) => sum + s.interval, 0);
     const steps = samples.reduce((sum, s) => sum + s.steps, 0);
-    const physics = samples.reduce((sum, s) => sum + s.physics, 0);
+    const physics = samples.reduce((sum, s) => sum + s.physics + s.worker, 0);
     const result = { frames: samples.length, steps, hz: sample.hz, simulated,
       meanStepMs: physics / steps,
-      batchStepP95Ms: percentile(samples.map(s => s.physics / s.steps), .95),
+      batchStepP95Ms: percentile(samples.map(s => (s.physics + s.worker) / s.steps), .95),
       frameCpuMedianMs: percentile(samples.map(s => s.frame), .5), frameCpuP95Ms: percentile(samples.map(s => s.frame), .95),
       frameIntervalMedianMs: percentile(samples.map(s => s.interval), .5), simulatedPerReal: simulated * 1000 / interval };
     output.dataset.measurement = JSON.stringify(result);

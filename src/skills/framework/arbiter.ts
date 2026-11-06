@@ -8,7 +8,7 @@ import type { EffectorGoal, FreedomPath, MusclePush, PointTask } from "../../con
 import type { StanceGoal } from "../../control/stance.ts";
 import type { SupportGoal } from "../../control/supported-motor.ts";
 import type { ConfigurationName } from "../../core/bodies/spec/body.ts";
-import type { ActionAround, ActionClaim } from "./action.ts";
+import { LEG_RESOURCE, type ActionAround, type ActionClaim } from "./action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "./action-instances.ts";
 import { actionResources } from "./action-resources.ts";
 import type { GuardSkill } from "./guard.ts";
@@ -19,10 +19,13 @@ import { ALL_MET, type LegsAsked, type LegsGoal } from "./skill.ts";
 import type { StanceEnvelope } from "../../control/stance-envelope.ts";
 import { directMovement } from "../intent/movement.ts";
 import { cos, hypot, sin } from "../../core/math/real.ts";
+import { chainTo } from "../../control/kinematics.ts";
+import { channelName } from "../../core/bodies/muscle/driver.ts";
 import { attachment } from "../../core/bodies/read-body.ts";
 
 /** Continuous services surround the independently owned action instances. */
 export interface SkillParts {
+  readonly aims?: readonly object[];
   readonly executors: readonly ExecutorBinding[];
   readonly actions: readonly ActionBinding[];
   readonly legs: Locomotion;
@@ -51,14 +54,17 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const models = bodyEffectors(body.built).map(e => e.model), feet = legs.supports.map(name => {
     const end = body.built.spec.ends?.find(end => end.name === name);
     if (!end) throw new Error(`unknown locomotion support ${name}`);
-    return { name, segment: end.segment };
+    const chain = chainTo(body.built, body.built.segments.get(end.segment)!);
+    const from = "from" in end ? chain.findIndex(joint => joint.spec.name === end.from) : 0;
+    return { name, segment: end.segment, channels: chain.slice(Math.max(0, from)).flatMap(joint => joint.dofs.map((_dof, k) => channelName(joint, k))) };
   });
-  const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet, body.built.configurations.model.map(hand => hand.segment));
-  const allControls = resources.controls(Object.keys(resources.footprints)), legsControls = resources.controls(["legs"]);
+  const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet, body.built.configurations.model.map(hand => hand.segment),
+    [...body.built.segments.values()].map(segment => ({ segment: segment.spec.name, channels: chainTo(body.built, segment).flatMap(joint => joint.dofs.map((_dof, k) => channelName(joint, k))) })));
+  const allControls = resources.controls(resources.all), legsControls = resources.controls([LEG_RESOURCE]);
   const on = attachment(body.built);
   const instances = actionInstances(executors, actions, resources, { attached: (effector) => on(body.built.segments.get(effector)!) }), guarding = guard.posture;
   const chains: Readonly<Record<string, readonly string[]>> = Object.fromEntries(models.map((model) => [model.segment, model.channels]));
-  const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null,
+  const state = { actions: instances.state, aims: services.aims ?? [], legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders, defaultOwners: {} as DefaultOwners,
     reservations: {} as Record<string, number>,
     /** The hands a cover drove at the last step (`SkillReport.covering`). */
@@ -125,7 +131,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       for (const item of instances.live) {
         const claim = instances.executor(item.id).command(view, item.id, near);
         resources.validate(item.holds, claim);
-        const controls = resources.controls(item.holds), unwritten = controls.filter((control) => !writes(claim, control, resources.footprints.legs, chains));
+        const controls = resources.controls(item.holds), unwritten = controls.filter((control) => !writes(claim, control, legsControls, chains));
         for (const control of controls) {
           if (!free(control)) throw new Error(`two instances own ${control}`);
           state.owners[control] = item.id;

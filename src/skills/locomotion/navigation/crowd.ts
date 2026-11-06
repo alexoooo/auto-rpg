@@ -1,6 +1,6 @@
 import { cos, hypot, sin } from "../../../core/math/real.ts";
 import { paceToward } from "../../../control/stance-envelope.ts";
-import { bodyClearance } from "./sensed-bounds.ts";
+import { bodyClearance, sensedBounds } from "./sensed-bounds.ts";
 import type { GroundPoint } from "../../intent/movement.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
 import type { Senses } from "../../../core/bodies/senses.ts";
@@ -73,12 +73,12 @@ function reachAnew(other: Senses["others"][number]): number {
  * footprint's least and most x and z, m, and where its centre of mass was when the footprint was
  * taken afresh. Its state (`src/core/world/state.ts`).
  */
-export type FallenMemory = Map<string, { x0: number; x1: number; z0: number; z1: number; x: number; z: number }>;
+export type FallenMemory = Map<string, { x0: number; x1: number; y0: number; y1: number; z0: number; z1: number; x: number; z: number }>;
 
 /**
  * Each fallen body of either side but `exempt`, down or out of the fight, as a fixed
  * solid a route keeps clear of: the box about its parts' centres, `CROWD.reach` wider, rounded out
- * to `CROWD.grid`, as high as a lying body. None where none lies.
+ * to `CROWD.grid`, spanning its sensed colliders' height. None where none lies.
  *
  * A footprint is kept in `memory` from step to step and grows to take in where the parts lie now,
  * so a body twitching where it lies comes to one footprint that holds; it is taken afresh once the
@@ -89,19 +89,25 @@ export function fallenSolids(senses: Pick<Senses, "side" | "others">, exempt: st
   let solids: SolidSense[] | null = null;
   for (const other of senses.others) {
     if (!(other.down || other.out)) { memory.delete(other.id); continue; }
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, y0 = Infinity, y1 = -Infinity;
     for (const segment of other.segments.values()) {
       minX = Math.min(minX, segment.centre.x); maxX = Math.max(maxX, segment.centre.x);
       minZ = Math.min(minZ, segment.centre.z); maxZ = Math.max(maxZ, segment.centre.z);
     }
+    for (const shape of sensedBounds(other)) if (shape.kind === "box") {
+      y0 = Math.min(y0, shape.centre[1] - shape.size[1] / 2);
+      y1 = Math.max(y1, shape.centre[1] + shape.size[1] / 2);
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(y0)) { memory.delete(other.id); continue; }
     const g = CROWD.grid, x0 = Math.floor((minX - CROWD.reach) / g) * g, x1 = Math.ceil((maxX + CROWD.reach) / g) * g;
     const z0 = Math.floor((minZ - CROWD.reach) / g) * g, z1 = Math.ceil((maxZ + CROWD.reach) / g) * g;
     let kept = memory.get(other.id);
     if (kept && hypot(other.centre.x - kept.x, other.centre.z - kept.z) <= CROWD.settled) {
       kept.x0 = Math.min(kept.x0, x0); kept.x1 = Math.max(kept.x1, x1); kept.z0 = Math.min(kept.z0, z0); kept.z1 = Math.max(kept.z1, z1);
-    } else memory.set(other.id, kept = { x0, x1, z0, z1, x: other.centre.x, z: other.centre.z });
+      kept.y0 = Math.min(kept.y0, y0); kept.y1 = Math.max(kept.y1, y1);
+    } else memory.set(other.id, kept = { x0, x1, y0, y1, z0, z1, x: other.centre.x, z: other.centre.z });
     if (other.id === exempt) continue;
-    (solids ??= []).push({ name: `fallen:${other.id}`, kind: "box", centre: [(kept.x0 + kept.x1) / 2, .25, (kept.z0 + kept.z1) / 2], size: [kept.x1 - kept.x0, .5, kept.z1 - kept.z0] });
+    (solids ??= []).push({ name: `fallen:${other.id}`, kind: "box", centre: [(kept.x0 + kept.x1) / 2, (kept.y0 + kept.y1) / 2, (kept.z0 + kept.z1) / 2], size: [kept.x1 - kept.x0, kept.y1 - kept.y0, kept.z1 - kept.z0] });
   }
   return solids ?? NONE;
 }

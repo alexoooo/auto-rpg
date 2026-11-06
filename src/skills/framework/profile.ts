@@ -419,7 +419,7 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
     let peak = 0, fastest = Infinity;
     for (const trial of of.run.trials) {
       const at = cycleAt(of.run, trial.start);
-      if (!at || at.dealt <= 0) continue;
+      if (!at || at.dealt <= 0 || at.cycle <= 0) continue;
       peak = Math.max(peak, at.dealt / at.cycle); fastest = Math.min(fastest, at.seconds);
     }
     return of.extremes = { peak, fastest };
@@ -451,7 +451,7 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
       const of = read(at.phase);
       if (at.range > of.reach) return null;
       const cycle = cycleAt(of.run, at);
-      return cycle ? (struck ? cycle.dealt / struck.wounds.hp.value : 0) / cycle.cycle : null;
+      return cycle ? cycle.cycle > 0 ? (struck ? cycle.dealt / struck.wounds.hp.value : 0) / cycle.cycle : 0 : null;
     },
     peak: (phase, struck) => extremes(phase).peak / struck.wounds.hp.value,
     fastest: (phase) => extremes(phase).fastest,
@@ -550,8 +550,8 @@ export function skillDigest(parts: PartLookup, spec: BodySpec, executors: readon
   let byPart = bySpec.get(spec);
   if (!byPart) bySpec.set(spec, byPart = new WeakMap());
   const part = executor === NO_EXECUTOR ? null : executorPart(parts, executor);
-  let digest = byPart.get(part ?? NO_PART);
-  if (digest === undefined) byPart.set(part ?? NO_PART, digest = readSkillDigest(part, spec, executor === NO_EXECUTOR ? null : executor, action));
+  let digest = byPart.get(parts);
+  if (digest === undefined) byPart.set(parts, digest = readSkillDigest(parts, part, spec, executor === NO_EXECUTOR ? null : executor, action));
   return digest;
 }
 
@@ -560,11 +560,13 @@ const SKILL_DIGESTS = new WeakMap<ActionConfig, WeakMap<ExecutorEntry, WeakMap<B
 /** `executor`'s part. */
 const executorPart = (parts: PartLookup, executor: ExecutorEntry) => parts.of("executor", executor) as { readonly reads?: (config: ExecutorEntry) => readonly DataKey[] };
 /** The keys of an action whose executor is none of those given. */
-const NO_EXECUTOR = Object.freeze({}) as ExecutorEntry, NO_PART = Object.freeze({});
+const NO_EXECUTOR = Object.freeze({}) as ExecutorEntry;
 
-function readSkillDigest(part: ReturnType<typeof executorPart> | null, spec: BodySpec, executor: ExecutorEntry | null, action: ActionConfig): string {
+function readSkillDigest(parts: PartLookup, part: ReturnType<typeof executorPart> | null, spec: BodySpec, executor: ExecutorEntry | null, action: ActionConfig): string {
   const body = bodyKey(spec);
-  const data = executor && part ? (part.reads?.(executor) ?? []).map((key) => digestOf(dataIdentity(key, body))) : [];
+  const aim = action.aim ? parts.of("aim", action.aim) : null;
+  const keys = [...new Set([...(executor && part ? part.reads?.(executor) ?? [] : []), ...(action.aim ? aim?.reads?.(action.aim) ?? [] : [])])];
+  const data = keys.map(key => digestOf(dataIdentity(key, body)));
   const { name: _action, executor: _executor, ...does } = action;
   return digestOf({ action: does, executor: executor && (({ name: _, ...rest }) => rest)(executor), data });
 }

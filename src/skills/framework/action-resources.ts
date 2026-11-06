@@ -1,12 +1,12 @@
 import type { BodyCommand } from "../../control/body.ts";
 import type { EffectorModel } from "../../control/effectors.ts";
 import { deepFreeze } from "../../core/world/state.ts";
-import type { ActionClaim, Resource } from "./action.ts";
+import { hasResource, LEG_RESOURCE, segmentResource, poseResource, ASSIST_RESOURCE, TRUNK_RESOURCE, type ActionClaim, type Resource } from "./action.ts";
 import type { BearingEnd } from "../../core/bodies/spec/body.ts";
 
 /** One compiled map serves both admission conflicts and command-write validation. */
 export interface ResourceMap {
-  readonly footprints: Readonly<Record<Resource, readonly string[]>>;
+  readonly all: readonly Resource[];
   overlap(a: readonly Resource[], b: readonly Resource[]): boolean;
   controls(resources: readonly Resource[]): readonly string[];
   validate(resources: readonly Resource[], claim: ActionClaim): void;
@@ -17,37 +17,44 @@ export interface ResourceMap {
  * Compile anatomical chains, segment configuration actuators and the stance's support limbs (its
  * feet, each by its end's name and its segment) into concrete control slots.
  */
-export function actionResources(channels: readonly string[], effectors: readonly EffectorModel[], feet: readonly { readonly name: BearingEnd; readonly segment: string }[],
-  posable: readonly string[]): ResourceMap {
+export function actionResources(channels: readonly string[], effectors: readonly EffectorModel[], feet: readonly { readonly name: BearingEnd; readonly segment: string; readonly channels: readonly string[] }[],
+  posable: readonly string[], segments: readonly { readonly segment: string; readonly channels: readonly string[] }[] = []): ResourceMap {
   const support = feet.map((foot) => foot.segment);
-  const footprints: Record<string, readonly string[]> = Object.create(null) as Record<string, readonly string[]>, limbChannels = new Set<string>();
+  const all: Resource[] = [];
+  const put = (resource: Resource, controls: readonly string[]): void => {
+    if (Object.hasOwn(footprints[resource.kind], resource.name)) throw new Error(`duplicate ${resource.kind} resource ${resource.name}`);
+    footprints[resource.kind][resource.name] = controls; all.push(resource);
+  };
+  const footprints: Record<Resource["kind"], Record<string, readonly string[]>> = { segment: Object.create(null), pose: Object.create(null), service: Object.create(null) };
+  const limbChannels = new Set<string>();
   for (const effector of effectors) {
-    if (effector.segment === "legs" || effector.segment === "trunk" || effector.segment === "assist" || footprints[effector.segment]) throw new Error("duplicate or reserved effector resource");
     for (const channel of effector.channels) {
       if (!channels.includes(channel)) throw new Error(`unknown effector channel ${channel}`);
       limbChannels.add(channel);
     }
-    footprints[effector.segment] = [`effector:${effector.segment}`, ...effector.channels.map(c => `channel:${c}`),
-      ...posable.includes(effector.segment) ? [`pose:${effector.segment}`] : []];
+    put(segmentResource(effector.segment), [`effector:${effector.segment}`, ...effector.channels.map(c => `channel:${c}`),
+      ...posable.includes(effector.segment) ? [`pose:${effector.segment}`] : []]);
   }
-  for (const segment of posable) {
-    const resource = `pose:${segment}`;
-    if (Object.hasOwn(footprints, resource)) throw new Error(`duplicate configuration resource ${resource}`);
-    footprints[resource] = [resource];
+  for (const foot of feet) {
+    if (!Object.hasOwn(footprints.segment, foot.segment)) put(segmentResource(foot.segment), [`effector:${foot.segment}`, ...foot.channels.map(channel => `channel:${channel}`),
+      ...posable.includes(foot.segment) ? [`pose:${foot.segment}`] : []]);
   }
-  footprints.assist = ["assist"];
-  footprints.trunk = channels.filter(c => !limbChannels.has(c)).map(c => `channel:${c}`);
-  footprints.legs = ["stance", ...support.flatMap(name => {
-    const footprint = footprints[name];
-    if (!footprint) throw new Error(`unknown support resource ${name}`);
-    return footprint;
-  })];
+  for (const segment of segments) if (!Object.hasOwn(footprints.segment, segment.segment)) {
+    put(segmentResource(segment.segment), [`effector:${segment.segment}`, ...segment.channels.map(channel => `channel:${channel}`),
+      ...posable.includes(segment.segment) ? [`pose:${segment.segment}`] : []]);
+  }
+  for (const segment of posable) put(poseResource(segment), [`pose:${segment}`]);
+  put(ASSIST_RESOURCE, ["assist"]);
+  const supportChannels = new Set(feet.flatMap(foot => foot.channels));
+  put(TRUNK_RESOURCE, channels.filter(c => !limbChannels.has(c) && !supportChannels.has(c)).map(c => `channel:${c}`));
+  put(LEG_RESOURCE, ["stance", ...feet.flatMap(foot => [`effector:${foot.segment}`, ...foot.channels.map(channel => `channel:${channel}`),
+    ...posable.includes(foot.segment) ? [`pose:${foot.segment}`] : []])]);
   deepFreeze(footprints);
   const controls = (resources: readonly Resource[]): readonly string[] => {
     const result: string[] = [];
     // Indexed: it runs for each action's readiness many times a step, and an iterator is garbage.
     for (let r = 0; r < resources.length; r++) {
-      const resource = resources[r]!, footprint = footprints[resource];
+      const resource = resources[r]!, footprint = footprints[resource.kind][resource.name];
       if (!footprint) throw new Error(`unknown resource ${resource}`);
       for (let c = 0; c < footprint.length; c++) { const control = footprint[c]!; if (!result.includes(control)) result.push(control); }
     }
@@ -70,10 +77,10 @@ export function actionResources(channels: readonly string[], effectors: readonly
     }
   };
   return {
-    footprints, controls,
+    all: deepFreeze(all), controls,
     overlap(a, b) {
       for (const left of a) for (const right of b) {
-        const one = footprints[left], two = footprints[right];
+        const one = footprints[left.kind][left.name], two = footprints[right.kind][right.name];
         if (!one || !two) throw new Error(`unknown resource ${!one ? left : right}`);
         if (one.some(control => two.includes(control))) return true;
       }
@@ -83,7 +90,7 @@ export function actionResources(channels: readonly string[], effectors: readonly
       const held = controls(resources);
       writes(held, claim);
       if (claim.legs !== undefined && !held.includes("stance")) throw new Error("action has no legs");
-      for (const effector of effectors) if (support.includes(effector.segment) && claim.effectors?.[effector.segment] && !resources.includes("legs")) throw new Error("a support effector needs legs");
+      for (const effector of effectors) if (support.includes(effector.segment) && claim.effectors?.[effector.segment] && !hasResource(resources, LEG_RESOURCE)) throw new Error("a support effector needs legs");
     },
     validatePatch(resources, patch) { writes(controls(resources), patch); },
   };

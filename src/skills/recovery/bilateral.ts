@@ -1,4 +1,3 @@
-import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import { soleRefusal } from "../../control/support.ts";
 import { fitsAll, type Part } from "../../parts/parts.ts";
 import type { TechniquePart, TechniqueRun } from "./technique.ts";
@@ -46,12 +45,13 @@ const fitsStance = (spec: BodySpec): string | null => soleRefusal(spec);
 export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "edges" | "mode"> & {
   readonly sides: readonly Side[];
   readonly make: (...args: Parameters<TechniquePart["make"]>) => TechniqueRun<Side>;
+  readonly requires?: TechniquePart["requires"];
   readonly reads?: Part["reads"]; readonly moving?: boolean; readonly fits?: (spec: BodySpec) => string | null;
 }): TechniquePart<{ readonly kind: K }> => {
   const { fits, sides, make, ...rest } = part;
   const supported = (start: string): start is Side => sides.some(side => side === start);
   return Object.freeze({ moving: false, starts: sides, bindings: (spec: BodySpec) => bilateralBindings(spec, sides), ...rest,
-    role: "technique", requires: [SUPPORT_REFERENCE] as const, defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [],
+    role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [],
     fits: fits ? fitsAll(fitsStance, fits) : fitsStance, faults: () => [],
     make(...args: Parameters<TechniquePart["make"]>): TechniqueRun {
       const run = make(...args);

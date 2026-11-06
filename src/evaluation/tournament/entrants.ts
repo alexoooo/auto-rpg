@@ -7,7 +7,7 @@ import { heldItem, loadoutKey, type Loadout } from "../../core/bodies/items/held
 import { presetFitsModel } from "../../minds/controller.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { BODY_MODELS, modelSpec, type BodyModel } from "../../core/bodies/models.ts";
-import type { Json, Subject, SubjectChoice } from "../evaluation.ts";
+import { mindSubject, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { TOURNAMENT, type Entrant } from "./cases.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog.ts";
 import { type GameContext } from "../../game/arena/context.ts";
@@ -24,8 +24,8 @@ const specOf = (model: BodyModel): Json => specs.get(model) ?? specs.set(model, 
 function entrant(id: string, label: string, config: Json, model: BodyModel, loadout: Loadout, character: AttributeOverrides): Subject {
   const value: Entrant = { mind: config, model, loadout }, own = Object.keys(character).length > 0;
   return {
-    id: `${id}/${model}/${loadoutKey(loadout)}`, label: `${label}, ${model}, ${loadoutKey(loadout)}`, value: value as unknown as Json,
-    parts: [{ id: `mind:${id}`, value: config }, { id: `model:${model}`, value: specOf(model) },
+    id: `${id}/${model}/${loadoutKey(loadout)}`, label: `${label}, ${model}, ${loadoutKey(loadout)}`, models: [model], value: value as unknown as Json,
+    parts: [...mindSubject(id, label, config).parts, { id: `model:${model}`, value: specOf(model) },
       { id: `left:${loadout.left}`, value: plain(heldItem(loadout.left)) }, { id: `right:${loadout.right}`, value: plain(heldItem(loadout.right)) },
       ...(own ? [{ id: `character:${id}`, value: character as Json }] : [])],
     ...(own ? { character } : {}),
@@ -53,7 +53,10 @@ export function createTournamentEntrants(context: GameContext) {
     const mind = (id: string) => MINDS[id] ?? (() => { throw new Error(`no mind ${id}: ${Object.keys(MINDS).join(", ")}`); })();
     const named = choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => partOf(MINDS[id]!.config).stage === "game");
     return named.flatMap((one) => {
-      if (typeof one !== "string") return entrantsOf(one.id, one.label, one.value);
+      if (typeof one !== "string") {
+        const subject = mindSubject(one.id, one.label, one.value, one);
+        return entrantsOf(subject.id, subject.label, subject.value, BODY_MODELS.filter(model => presetFitsModel(subject, model)), subject.character);
+      }
       if (!one.includes("/")) {
         const preset = mind(one);
         return entrantsOf(one, preset.label, preset.config as unknown as Json, BODY_MODELS.filter(model => presetFitsModel(preset, model)), preset.character);

@@ -1,4 +1,4 @@
-import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
+import { motorRequirementRefusal } from "../../control/motor-part.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ComponentDescription } from "../description.ts";
 import type { Body } from "../../control/body.ts";
@@ -128,17 +128,12 @@ export function optionMind(assembly: OptionAssembly) {
       if (named.faults.length) return named.faults[0]!;
       const admission = assembly.validate?.(spec, resolved.options, named.techniques, parts, parts.of("predictions", resolved.predictions).model);
       if (admission) return admission;
-      const needs = (role: Role, configs: readonly PartConfig[]) => configs.some(part => partRequirements(parts, role, part, spec).includes(SUPPORT_REFERENCE));
-      const needsSupport = needs("option", resolved.options) || needs("executor", named.executors) || needs("technique", named.techniques)
-        || needs("aim", named.actions.flatMap(action => action.aim ? [action.aim] : []))
-        || needs("support", named.support ? [named.support] : []) || needs("navigation", [named.navigation ?? resolved.navigation])
-        || (Object.keys(FILLED) as (keyof typeof FILLED)[]).some(place => needs(FILLED[place], [filledOf(parts, spec, place, config.tuning?.parts)]));
-      if (needsSupport) {
-        const reference = motorOf(parts, filledOf(parts, spec, "motor", config.tuning?.parts)).reference;
-        if (!reference) return "the selected skills require a motor support reference";
-        return reference.fits(spec);
-      }
-      return null;
+      const needs = (role: Role, configs: readonly PartConfig[]) => configs.flatMap(part => partRequirements(parts, role, part, spec));
+      const required = [...needs("option", resolved.options), ...needs("executor", named.executors), ...needs("technique", named.techniques),
+        ...needs("aim", named.actions.flatMap(action => action.aim ? [action.aim] : [])),
+        ...needs("support", named.support ? [named.support] : []), ...needs("navigation", [named.navigation ?? resolved.navigation]),
+        ...(Object.keys(FILLED) as (keyof typeof FILLED)[]).flatMap(place => needs(FILLED[place], [filledOf(parts, spec, place, config.tuning?.parts)]))];
+      return motorRequirementRefusal(motorOf(parts, filledOf(parts, spec, "motor", config.tuning?.parts)), spec, required);
     },
     describe: (spec, config, parts) => {
       const resolved = configured(config), named = skillsOf(parts, spec, resolved.options);

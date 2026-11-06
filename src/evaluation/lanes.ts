@@ -34,30 +34,60 @@ interface LaneOptions<J, A> {
  * is answered or lost, or `stop` says so. A lost job's worker is replaced; the others go on.
  */
 export async function runLanes<J, A>(jobs: readonly J[], { lanes, spawn, minutes, onAnswer, onLost, stop }: LaneOptions<J, A>): Promise<void> {
-  let next = 0;
+  if (!Number.isSafeInteger(lanes) || lanes < 1) throw new Error("worker lanes must be a positive integer");
+  if (!Number.isFinite(minutes) || minutes <= 0) throw new Error("a worker timeout must be positive");
+  let next = 0, failed = false, failure: unknown;
+  const cancel = new Set<() => void>();
+  const fail = (error: unknown) => {
+    if (!failed) { failed = true; failure = error; }
+    for (const stopLane of cancel) stopLane();
+  };
   const lane = async (): Promise<void> => {
-    let settle: ((outcome: { answer: A } | { lost: string }) => void) | null = null;
-    const listen: Listen<A> = {
-      answer: (answer) => { const done = settle; settle = null; done?.({ answer }); },
-      lost: (reason) => { const done = settle; settle = null; done?.({ lost: reason }); },
+    let settle: ((outcome: { answer: A } | { lost: string } | null) => void) | null = null;
+    let early: string | null = null, worker: Lane<J> | null = null, generation = 0;
+    const finish = (outcome: { answer: A } | { lost: string } | null) => { const done = settle; settle = null; done?.(outcome); };
+    const listening = (): Listen<A> => {
+      const born = ++generation;
+      return {
+        answer: (answer) => { if (born === generation && !failed) finish({ answer }); },
+        lost: (reason) => {
+          if (born !== generation || failed) return;
+          if (settle) finish({ lost: reason }); else early = reason;
+        },
+      };
     };
-    let worker: Lane<J> | null = null;
+    const abort = () => finish(null);
+    cancel.add(abort);
     try {
-      while (next < jobs.length && !stop?.()) {
-        const job = jobs[next++];
-        const current: Lane<J> = worker ??= spawn(listen);
-        const outcome = await new Promise<{ answer: A } | { lost: string }>((resolve) => {
-          const timer = setTimeout(() => listen.lost(`no answer in ${minutes} min`), minutes * 60_000);
-          settle = (outcome) => { clearTimeout(timer); resolve(outcome); };
-          current.post(job);
-        });
+      while (!failed && next < jobs.length && !stop?.()) {
+        const job = jobs[next++]!;
+        if (!worker) { early = null; worker = spawn(listening()); }
+        const current = worker;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let outcome: { answer: A } | { lost: string } | null;
+        try {
+          outcome = await new Promise<{ answer: A } | { lost: string } | null>((resolve, reject) => {
+            settle = resolve;
+            if (early !== null) { finish({ lost: early }); return; }
+            timer = setTimeout(() => finish({ lost: `no answer in ${minutes} min` }), minutes * 60_000);
+            try { current.post(job); } catch (error) { settle = null; reject(error); }
+          });
+        } finally { clearTimeout(timer); settle = null; }
+        if (outcome === null) return;
         if ("answer" in outcome) onAnswer(job, outcome.answer);
-        else { worker = null; current.terminate(); onLost(job, outcome.lost); }
+        else { worker = null; generation++; current.terminate(); onLost(job, outcome.lost); }
       }
     } catch (error) {
-      next = jobs.length;
+      fail(error);
       throw error;
-    } finally { worker?.terminate(); }
+    } finally {
+      cancel.delete(abort); generation++;
+      try { worker?.terminate(); } catch (error) { fail(error); }
+    }
   };
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(lanes, jobs.length)) }, lane));
+  const work = Array.from({ length: Math.min(lanes, jobs.length) }, lane);
+  const results = await Promise.allSettled(work);
+  if (failed) throw failure;
+  const rejected = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+  if (rejected) throw rejected.reason;
 }

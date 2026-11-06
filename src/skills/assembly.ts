@@ -6,7 +6,7 @@ import type { Ended } from "./framework/action.ts";
 import type { ActionBinding, ExecutorBinding } from "./framework/action-instances.ts";
 import type { Clock } from "../core/world/clock.ts";
 import type { SkillKit } from "./config.ts";
-import { configuredExecutors } from "./action-config.ts";
+import { aimsState, configuredAims, configuredExecutors } from "./action-config.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { PartConfig } from "../parts/parts.ts";
 import { navigatorOf } from "./locomotion/navigation/navigator.ts";
@@ -32,10 +32,12 @@ export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: S
   const guard = parts.of("guard", config.guard).make(made.built, config.guard);
   const legs = legsOf(parts, made, config.legs);
   const navigation = navigatorOf(parts, made.built.spec, config.navigation);
+  const configured = aims ?? configuredAims(parts, made.built.spec, config.actions);
   return skillSet(made, {
     legs, navigation, clearance: navigation, guard,
     support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
-    executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger, aims), ...more.executors],
+    aims: aimsState(configured),
+    executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger, configured), ...more.executors],
     actions: [...config.actions, ...more.actions],
   });
 }

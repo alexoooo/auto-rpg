@@ -33,11 +33,20 @@ export function createCode(context: GameContext) {
     return { world: world.kind, ...minds, parts: [...new Set([...minds.parts, ...kind.parts?.(world) ?? []])] };
   };
 
-  /** What `parts` name: the kinds and data of the minds among them (`mind:` parts), and the kinds of the Commanders (`commander:` parts). */
+  /** The component configurations each subject part declares, including every dependency its tree reads. */
   const partNames = (parts: Subject["parts"]): CodeNames => {
-    const minds = namesOf(parts.filter((part) => part.id.startsWith("mind:")).map((part) => part.value as unknown as MindConfig));
-    const commanders = parts.filter((part) => part.id.startsWith("commander:")).map((part) => (part.value as { kind: string }).kind);
-    return { ...minds, parts: [...new Set([...minds.parts, ...commanders])] };
+    const kinds: string[] = [], components: string[] = [], data: string[] = [];
+    for (const { component } of parts) {
+      if (!component) continue;
+      const { role, config } = component;
+      switch (role) {
+        case "mind": kinds.push(config.kind); components.push(...treeKinds(config)); data.push(...treeData(config)); break;
+        case "part": components.push(...treeKinds(config)); data.push(...treeData(config)); break;
+        case "commander": components.push(config.kind); break;
+        default: { const never: never = role; throw new Error(`no component role ${String(never)}`); }
+      }
+    }
+    return { kinds: [...new Set(kinds)], parts: [...new Set(components)], data: [...new Set(data)] };
   };
 
   return { caseNames, partNames };

@@ -145,13 +145,13 @@ async function runOnce({ model, pace, legs, seconds, from, scale }) {
     const ahead = (x, z) => x * sh + z * ch, right = (x, z) => x * ch - z * sh;
     if (reading.phase === "swing" && swing) swinging = swing;
     else if (swinging && reading.phase !== "swing") {
-      const sole = reading.ends[footOn(stand.built.spec, swinging.foot)].middle, dx = sole.x - swinging.to[0], dz = sole.z - swinging.to[1];
+      const sole = reading.ends[swinging.foot].middle, dx = sole.x - swinging.to[0], dz = sole.z - swinging.to[1];
       if (time >= from) kin.landings.push(Math.hypot(dx, dz));
       swinging = null;
     }
     if (time < from || !prior || subject.down()) return;
     const swung = reading.phase === "swing" && swing ? swing.foot : null;
-    const bearers = SIDES.filter((side) => side !== swung && reading.ends[footOn(stand.built.spec, side)].asked.force.y > 0);
+    const bearers = SIDES.filter((side) => footOn(stand.built.spec, side) !== swung && reading.ends[footOn(stand.built.spec, side)].asked.force.y > 0);
     if (!bearers.length) return;
     // The ground's wrench over the step, realised, and as planned, about the centre of mass at mid-step.
     const C = now.C.add(prior.C).scaleInPlace(0.5);

@@ -1,3 +1,5 @@
+import { constructionScope } from "../../../src/core/construction.ts";
+import { workerJobs } from "../../worker-jobs.mjs";
 import { footOn } from "../../../src/control/support.ts";
 /**
  * **The stand-up's time budget** on the stand-up target (Node stand, core world, Rapier, 120 Hz):
@@ -13,7 +15,7 @@ import { footOn } from "../../../src/control/support.ts";
  *
  *   node research/skills/recovery/rising-budget.mjs [--workers 12] [--out <rows.json>]
  */
-import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
+import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -62,9 +64,11 @@ async function squatStance({ model, held, seed }) {
   const waypoint = { ...source.placement, joints: Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map(d => (angles[`${j.name} ${d.positive}`] ?? 0) - d.bind.value)])) };
   const placement = groundPlacement(spec, { seed, ground: { start: "placed", posture: "squat", degrees: null, impulse: null, foe: 0, gusts: false } }, waypoint);
   if ("refused" in placement) return { reading: "squat", model, held, seed, refused: placement.refused };
-  const world = createWorld(await loadEngine("rapier"));
+  const lifetime = constructionScope();
+  try {
+  const world = lifetime.own(createWorld(await loadEngine("rapier")));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
-  const built = buildBody(spec, world, placement), body = commandedBody(built, world, { servoSeconds: .1 });
+  const built = lifetime.own(buildBody(spec, world, placement)), body = lifetime.own(commandedBody(built, world, { servoSeconds: .1 }));
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: [footOn(spec, "left"), footOn(spec, "right")], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   let height = null, climbed = null, quiet = 0, verified = null, fell = false;
@@ -76,8 +80,8 @@ async function squatStance({ model, held, seed }) {
     if (verified === null) { quiet = m.ready ? quiet + world.dt : 0; if (quiet + 1e-9 >= STAND_CHECK.quiet) verified = world.time; }
     else if (m.observation.down) fell = true;
   }
-  world.dispose();
   return { reading: "squat", model, held, seed, height, climbed, verified, held2s: verified !== null && !fell };
+  } finally { lifetime.dispose(); }
 }
 
 if (isMainThread) {
@@ -85,11 +89,8 @@ if (isMainThread) {
   const { risingJobs } = await import("../../../src/evaluation/rising.ts");
   const jobs = [...risingJobs({ target: true }).map(job => ({ kind: "fall", job })),
     ...["workshop-fighter", "workshop-rogue"].flatMap(model => ["empty", "club"].flatMap(held => Array.from({ length: 8 }, (_, k) => ({ kind: "squat", job: { model, held, seed: k + 1 } }))))];
-  const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
-  const rows = (await Promise.all(Array.from({ length: count }, (_, w) => new Promise((resolve, reject) => {
-    const worker = new Worker(new URL(import.meta.url), { workerData: jobs.filter((_, i) => i % count === w) });
-    worker.on("message", resolve); worker.on("error", reject);
-  })))).flat();
+  const count = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
+  const rows = (await workerJobs(jobs, { lanes: count, create: () => new Worker(new URL(import.meta.url)), result: answer => answer })).flat();
   if (values.out) writeFileSync(values.out, JSON.stringify(rows, null, 1) + "\n");
   const median = list => { const s = list.filter(v => v !== null).sort((a, b) => a - b), m = s.length >> 1; return s.length ? (s[m] + s[(s.length - 1) >> 1]) / 2 : null; };
   const f = v => v === null ? "-" : v.toFixed(2), short = model => model.replace("workshop-", "");
@@ -112,7 +113,8 @@ if (isMainThread) {
   }
 } else {
   await import("../../../tests/harness/preload-data.mjs");
-  const out = [];
-  for (const { kind, job } of workerData) out.push(kind === "fall" ? await targetFall(job) : await squatStance(job));
-  parentPort.postMessage(out);
+  parentPort.on("message", async ({ kind, job }) => {
+    try { parentPort.postMessage([kind === "fall" ? await targetFall(job) : await squatStance(job)]); }
+    catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
+  });
 }

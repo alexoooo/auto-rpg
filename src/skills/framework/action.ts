@@ -17,8 +17,20 @@ export type TargetRef = { readonly kind: "body"; readonly body: string; readonly
 /** Where an executor drives at `target` for `action` with `effector` this step, or null where it has no point. */
 export type TargetResolver = (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
 
-/** Named controls; the body's compiled footprints decide which names overlap. */
-export type Resource = string;
+/** Physical identifiers stay separate from continuous services and configuration channels. */
+export type Resource = { readonly kind: "segment" | "pose"; readonly name: string }
+  | { readonly kind: "service"; readonly name: "legs" | "trunk" | "assist" | "*" };
+
+export const segmentResource = (name: string): Resource => Object.freeze({ kind: "segment", name });
+export const poseResource = (name: string): Resource => Object.freeze({ kind: "pose", name });
+export const LEG_RESOURCE: Resource = Object.freeze({ kind: "service", name: "legs" });
+export const TRUNK_RESOURCE: Resource = Object.freeze({ kind: "service", name: "trunk" });
+export const ASSIST_RESOURCE: Resource = Object.freeze({ kind: "service", name: "assist" });
+export const BODY_RESOURCE: Resource = Object.freeze({ kind: "service", name: "*" });
+
+/** Resources compare by declared value across copied and restored state. */
+export const sameResource = (a: Resource, b: Resource): boolean => a.kind === b.kind && a.name === b.name;
+export const hasResource = (resources: readonly Resource[], wanted: Resource): boolean => resources.some(resource => sameResource(resource, wanted));
 export type Phase = "prepare" | "commit" | "release";
 export type ContactKind = "target" | "block" | "incidental" | "world";
 

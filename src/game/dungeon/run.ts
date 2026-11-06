@@ -445,9 +445,13 @@ export class DungeonRun {
         minds.add(mind);
         const built = buildBody(spec, world, { position: [0, 0, 0], joints: builtAngles(this.context.catalog, spec, mind) });
         const wiring = { name: "warm", orders: () => STAND_ORDERS, rules: this.rules };
-        if (apart) warmApart(this.context.catalog, built, world, mind, wiring);
-        else createMind(this.context.catalog, built, world, mind, wiring);
-        built.dispose();
+        try {
+          if (apart) warmApart(this.context.catalog, built, world, mind, wiring);
+          else {
+            const body = createMind(this.context.catalog, built, world, mind, wiring);
+            body.body.dispose();
+          }
+        } finally { built.dispose(); }
       }
     } finally { world.dispose(); }
   }

@@ -1486,7 +1486,7 @@ export async function least({ row, posture, variant = "built", drive = "side", s
 export async function handed({ row, posture, seconds = HANDED_SECONDS, lift = LIFT, solver = "game" }) {
   const body = await bodyOnce();
   const height = standingHeight(body) - STANCE_LOWER;
-  const stance = Object.freeze({ feet: SIDES.map(side => footOn(body.spec, side)), centre: null, height, heading: 0 });
+  const stance = Object.freeze({ feet: SIDES.map(side => footOn(body.built.spec, side)), centre: null, height, heading: 0 });
   const command = Object.freeze({ posture: Object.freeze({}), pushes: Object.freeze([]), stance });
   const stand = await placed(posture, { lift, solver, make: (built, world) => commandedBody(built, world, { servoSeconds: SERVO_SECONDS }) });
   try {

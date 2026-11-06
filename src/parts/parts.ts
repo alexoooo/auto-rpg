@@ -144,8 +144,8 @@ export function fitsAll<C = PartConfig>(...fits: readonly ((spec: BodySpec, conf
 }
 
 /** Mechanical requirements of selected configured children, including slot fallbacks, without candidate dependencies. */
-export function partRequirements(parts: PartLookup, role: Role, config: PartConfig, spec: BodySpec): readonly "support-reference"[] {
-  const found = new Set<"support-reference">();
+export function partRequirements(parts: PartLookup, role: Role, config: PartConfig, spec: BodySpec): readonly Requirement[] {
+  const found = new Set<Requirement>();
   const visit = (role: Role, config: PartConfig): void => {
     const part: Part = parts.of(role, config);
     const slots = slotsOf(part, config);

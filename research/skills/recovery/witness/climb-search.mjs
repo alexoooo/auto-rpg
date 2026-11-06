@@ -82,10 +82,12 @@ if (!isMainThread && workerData.harness === "climb-search") {
     const { cmaSearch, workerPool } = await import("../../../cma.mjs");
     const pool = workerPool(new URL(import.meta.url), { harness: "climb-search", model, held, only: values.only }, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
     const t0 = Date.now();
-    const result = await cmaSearch({ n: START.length, start: START, sigma: Number(values.sigma ?? .2), lambda: 12, generations: Number(values.generations ?? 40), seed: 7,
-      score: async u => { const ts = await Promise.all(list.map((_, start) => pool.evaluate({ u, start }).then(r => r.t))); return { score: -ts.reduce((a, b) => a + b, 0) / ts.length, ts }; },
+    let result;
+    try {
+    result = await cmaSearch({ n: START.length, start: START, sigma: Number(values.sigma ?? .2), lambda: 12, generations: Number(values.generations ?? 40), seed: 7,
+      score: async u => { const ts = await Promise.all(list.map((_, start) => pool.evaluate({ u, start }).then(r => { if (r.error) throw new Error(r.error); return r.t; }))); return { score: -ts.reduce((a, b) => a + b, 0) / ts.length, ts }; },
       onGeneration: (entry, search) => console.log(`g${entry.g} ${Math.round((Date.now() - t0) / 1000)} s: mean ${(-entry.best).toFixed(2)} s, best so far ${(-search.best.score).toFixed(2)} s`) });
-    await pool.terminate();
+    } finally { await pool.terminate(); }
     console.log(JSON.stringify(decode(result.best.u)));
     console.log(list.map((s, k) => `${label(s)}: ${fmt(result.best.r.ts[k])}`).join(", "));
   }

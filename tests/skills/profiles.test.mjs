@@ -69,3 +69,24 @@ test("a strike's record counts its own limb's tries its executor gave up on", ()
   assert.deepEqual(record(stalled, left), record([], left), "the other foot's record is its own");
   assert.deepEqual(record([...stalled, ended(4, "foot.right", "cancelled", false)], right), record(stalled, right), "a try let go is no try");
 });
+
+
+test("a skill's identity includes the selected aim's declared data", async () => {
+  const { loadData } = await import("../../src/core/data/store.ts");
+  await loadData(["aim-audit-a", "aim-audit-b"], { "aim-audit-a": async () => ({ value: 1 }), "aim-audit-b": async () => ({ value: 2 }) });
+  const spec = resolveCharacter({ model: "workshop-fighter" }).spec;
+  const action = Object.freeze({ name: "audit", executor: "audit", effectors: ["hand.right"], aim: { kind: "audit-aim" } });
+  const executors = [Object.freeze({ name: "audit", kind: "audit-executor" })];
+  const lookup = key => ({ of(role) { return role === "aim" ? { reads: () => [key] } : {}; } });
+  assert.notEqual(skillDigest(lookup("aim-audit-a"), spec, executors, action), skillDigest(lookup("aim-audit-b"), spec, executors, action));
+});
+
+test("a zero-length failed profile trial has a finite failed rate", async () => {
+  const { profileReading } = await import("../../src/skills/framework/profile.ts");
+  const spec = resolveCharacter({ model: "workshop-fighter" }).spec;
+  const start = { phase: "clear", range: 1 };
+  const reading = profileReading({ target: null, trials: [{ start, done: false, dealt: 0, taken: 0, seconds: 0, recovers: null, down: false }] }, spec);
+  assert.equal(reading.rate(start, spec), 0);
+  assert.equal(reading.expect(start, spec).done, 0);
+  assert.equal(reading.peak("clear", spec), 0);
+});

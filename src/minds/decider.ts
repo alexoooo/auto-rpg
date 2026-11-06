@@ -109,7 +109,7 @@ export function driveBy(body: Body, decider: Decider, make: (body: Body) => Skil
     if (state.held === null || view.resumed || ((step - offset) % every + every) % every === 0 || ended !== state.ended || !sameOrders(ordered, state.orders)) {
       state.held = decider.decide(sight, state.held === null ? dt : (step - state.decided) * dt);
       state.decided = step;
-      state.orders = ordered;
+      state.orders = ordered === null ? null : structuredClone(ordered);
       state.ended = ended;
     }
     return state.held;

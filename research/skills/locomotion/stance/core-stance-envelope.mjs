@@ -48,7 +48,7 @@ const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 
 const WAYS = [0, 90, 180, 270];
 /**
  * How long a walk trial sets off before it is measured and rests after, s, by the legs it measures
- * (`walk`): the run comes up to its pace and down from it at 0.6 m/s² (`RunCycleSettings.accel`,
+ * (`walk`): the run comes up to its pace and down from it at 0.6 m/sÂ² (`RunCycleSettings.accel`,
  * `brake`), from 0 to 4.5 m/s and back in some 8 s each way.
  */
 const TIMES_OF = { stance: {}, "walk-run": { setOff: 10, rest: 10 } };
@@ -222,7 +222,7 @@ const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the
   + (WINDS.length > 1 ? ", each walk calm and in each of `winds`" : "") + "; each way's and speed's fastest is the fastest at which every trial held, searched down from the fastest, and a level not played through is null",
   ...(walker ? { legs } : {}), ...TIMES_OF[legs], hz, measured: today,
   speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, turnings: TURNINGS, holds, afters: AFTERS, ...(WINDS.length > 1 ? { winds: WINDS.slice(1) } : {}), models: all };
-const asset = new URL(`../assets/skills/locomotion/${legs}/${legs}-envelope.json`, import.meta.url);
+const asset = new URL(`../../../../assets/skills/locomotion/${legs}/${legs}-envelope.json`, import.meta.url);
 if (values.add) {
   // The asset as it stands takes this run's bodies, its grid unchanged: a body measured on another grid is no body of it.
   const kept = JSON.parse(await readFile(asset, "utf8"));

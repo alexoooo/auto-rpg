@@ -12,7 +12,8 @@
 // recipe; --write keeps the best as the model's
 // record in assets/skills/recovery/righting/righting.json (`research/skills/skill-records.mjs`). Options: --gens 50 --pop 24 --workers 19 --frames 3 --seconds 9
 // --sigma .4 --seed 1.
-import { fork } from "node:child_process";
+import { Worker } from "node:worker_threads";
+import { workerJobPool } from "../../../../research/worker-jobs.mjs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { deserialize } from "node:v8";
@@ -53,27 +54,13 @@ const encode = (recipe) => (recipe[PART] ?? recipe.side).flatMap((f) => [...CHAN
   fromUnit((f.hold - HOLD[0]) / (HOLD[1] - HOLD[0])), fromUnit(f.up / MARK)]);
 const scoreOf = (r) => 2 * r.up + 2 * r.height / standing - r.down + (r.handed === null ? 0 : 1 - r.handed / SECONDS);
 
-const pool = [], waiting = new Map();
-let nextId = 0;
-await Promise.all(Array.from({ length: WORKERS }, () => new Promise((ok) => {
-  const w = fork(resolve(import.meta.dirname, "righting-worker.mjs"), [], { stdio: ["ignore", "ignore", "inherit", "ipc"] });
-  w.on("message", (m) => { if (m.ready) { pool.push(w); ok(); return; } const done = waiting.get(m.id); waiting.delete(m.id); done(m); });
-})));
-const free = [...pool], queue = [];
-const pump = () => {
-  while (free.length && queue.length) {
-    const w = free.pop(), { job, ok } = queue.shift(), id = nextId++;
-    waiting.set(id, (m) => { free.push(w); ok(m); pump(); });
-    w.send({ ...job, id });
-  }
-};
-const run = (job) => new Promise((ok) => { queue.push({ job, ok }); pump(); });
+const pool = workerJobPool({ lanes: WORKERS, create: () => new Worker(new URL("./righting-worker.mjs", import.meta.url)),
+  message: (job, id) => ({ ...job, id }) });
+try {
 const evaluate = async (x) => {
-  const recipe = decode(x), answers = await Promise.all(STARTS.map(({ lying, heading, fork }) => run({ data, model: MODEL, recipe, lying, heading, forks: FORKS, fork, seconds: SECONDS })));
-  const failed = answers.find((a) => a.error);
-  if (failed) throw new Error(failed.error);
-  const scores = answers.map((a) => scoreOf(a.result)), worst = Math.min(...scores);
-  return { score: (worst + scores.reduce((a, b) => a + b, 0) / scores.length) / 2, scores, results: answers.map((a) => a.result), recipe };
+  const recipe = decode(x), answers = await pool.run(STARTS.map(({ lying, heading, fork }) => ({ data, model: MODEL, recipe, lying, heading, forks: FORKS, fork, seconds: SECONDS })));
+  const scores = answers.map((a) => scoreOf(a)), worst = Math.min(...scores);
+  return { score: (worst + scores.reduce((a, b) => a + b, 0) / scores.length) / 2, scores, results: answers, recipe };
 };
 
 // CMA-ES.
@@ -136,7 +123,6 @@ for (let gen = 0; gen < GENS; gen++) {
   eigen();
   console.log(`gen ${gen} best ${top.score.toFixed(3)} [${top.scores.map((s) => s.toFixed(2)).join(" ")}] all-time ${best.score.toFixed(3)} sigma ${sigma.toFixed(3)} ${((Date.now() - started) / 1000).toFixed(0)} s`);
 }
-for (const worker of pool) worker.kill();
 const starts = STARTS.map((s, i) => ({ ...s, ...best.results[i] }));
 console.log(JSON.stringify({ starts, score: best.score }));
 if (process.argv.includes("--write")) {
@@ -147,3 +133,5 @@ if (process.argv.includes("--write")) {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, JSON.stringify(best.recipe, null, 2) + "\n");
 }
+
+} finally { await pool.close(); }

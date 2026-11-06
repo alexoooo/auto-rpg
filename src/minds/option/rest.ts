@@ -1,4 +1,5 @@
-import type { Resource, TargetRef } from "../../skills/framework/action.ts";
+import { segmentResource } from "../../skills/framework/action.ts";
+import type { TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 import { legsReadiness } from "../../skills/locomotion/locomotion.ts";
@@ -83,9 +84,9 @@ export function holdAt(x: number, z: number, within: number, walk: Pick<Walker, 
  * face) between a foe's weapon and the body while one is near (`Situation.ward`), as a shield's
  * guard is held.
  */
-export function guard(hands: readonly Resource[], shields: readonly Resource[] = NOTHING): Option {
+export function guard(hands: readonly string[], shields: readonly string[] = []): Option {
   const covers: Record<string, Cover> = {};
-  return { name: "guard", claims: Object.freeze([...hands]), state: {}, ...RESTING,
+  return { name: "guard", claims: Object.freeze(hands.map(segmentResource)), state: {}, ...RESTING,
     entry: (now) => legsReadiness(now.sight.view), model: (at, ask) => standing(at) ? holding(at, ask) : null,
     step: (now) => {
       const asked = { move: null, face: now.sight.report.heading, actions: [] };

@@ -12,13 +12,13 @@ import { BAR } from "../strike/read.ts";
 import type { Cell, HitFigure, MetJudge, Reading, ScoreReading } from "./cells.ts";
 
 /** A row as the table reads it: its condition and its reading. */
-export interface TableRow { readonly condition: Json; readonly reading: Json }
+export interface TableRow { readonly key?: string; readonly condition: Json; readonly reading: Json; readonly fault?: { readonly message: string } | null }
 
 /** What one met-or-short reading of a cell came to: met, short of its bar, or no rows; its figures in words. */
 export interface Verdict { readonly state: "met" | "short" | "unread"; readonly figures: string }
 
 /** What one scored reading of a cell came to: its score, in `unit` (every score is better higher), and the figures beside it in words. */
-export interface Score { readonly value: number; readonly unit: string; readonly figures: string }
+export interface Score { readonly value: number | null; readonly unit: string; readonly figures: string }
 
 /**
  * The run's bar: a held run's slowest second at least `HELD_PACE`, m/s; a turning run's slowest second at least `PACED` of the pace asked, and its
@@ -32,7 +32,7 @@ type Strike = { readonly outcome: string; readonly began: number | null; readonl
 type Fall = { readonly stood: boolean; readonly verified: number | null };
 type Walk = { readonly kind: string; readonly fell: boolean; readonly along: number | null };
 type Run = Walk & { readonly held: number | null; readonly trail: number | null; readonly speed: number | null; readonly halt: number | null };
-type Cover = { readonly blows: number; readonly shielded: number; readonly down: boolean };
+type Cover = { readonly blows: number; readonly shielded: number; readonly down: boolean; readonly outcome?: string; readonly attempted?: boolean };
 
 /** Whether a run trial met its bar: its pace held, its turn followed, its stop made. */
 function ran(one: Run): boolean {
@@ -67,8 +67,11 @@ const median = (values: readonly number[]): number | null => {
 };
 
 /** `rows` judged met or short by `judge` (`MetJudge`). */
-export function verdictOf(judge: MetJudge, rows: readonly TableRow[]): Verdict {
-  if (rows.length === 0) return { state: "unread", figures: "no rows" };
+export function verdictOf(judge: MetJudge, rows: readonly TableRow[], required: readonly { readonly key: string }[]): Verdict {
+  const present = new Map(rows.map(row => [row.key, row]));
+  const missing = required.filter(one => !present.has(one.key)), faults = rows.filter(row => row.fault != null || row.reading === null);
+  if (missing.length || faults.length) return { state: rows.length === 0 ? "unread" : "short", figures: `${required.length - missing.length} of ${required.length} cases, ${missing.length} missing, ${faults.length} faulted` };
+  if (required.length === 0 || rows.length === 0) return { state: "unread", figures: "no rows" };
   switch (judge) {
     case "target": {
       const falls = rows.map((row) => {
@@ -128,6 +131,10 @@ export function personOf(figure: HitFigure): string {
  */
 export function scoreOf(reading: ScoreReading, rows: readonly TableRow[]): Score | null {
   if (rows.length === 0) return null;
+  const faulty = rows.filter(row => row.reading === null || row.fault != null);
+  if (faulty.length) return { value: null,
+    unit: "hit" in reading ? unitOf(reading.hit) : reading.judge === "walk" ? "share not fallen" : "share of blows met by the buckler first",
+    figures: `${faulty.length} of ${rows.length} trials faulted` };
   switch (reading.judge) {
     case "landed": case "on-body": {
       const readings = rows.map((row) => row.reading as unknown as Strike), begun = readings.filter((one) => one.began !== null);
@@ -145,7 +152,10 @@ export function scoreOf(reading: ScoreReading, rows: readonly TableRow[]): Score
     case "buckler": {
       const readings = rows.map((row) => row.reading as unknown as Cover), fell = readings.filter((one) => one.down).length;
       const blows = readings.reduce((sum, one) => sum + one.blows, 0), shielded = readings.reduce((sum, one) => sum + one.shielded, 0);
-      return { value: blows > 0 ? shielded / blows : 0, unit: "share of blows met by the buckler first", figures: `${shielded} of ${blows} blows, ${fell} fell, ${rows.length} trials` };
+      const unreached = readings.filter(one => one.outcome === "unreached" || one.attempted === false).length;
+      const unknown = readings.filter(one => one.outcome !== "unreached" && one.attempted === undefined).length;
+      return { value: unreached || unknown ? null : blows > 0 ? shielded / blows : 0, unit: "share of blows met by the buckler first",
+        figures: `${shielded} of ${blows} blows, ${fell} fell, ${unreached} unreached, ${rows.length} trials${unknown ? `; ${unknown} attack attempts unrecorded` : ""}` };
     }
     default: { const never: never = reading; throw new Error(`no judge ${String((never as Reading).judge)}`); }
   }
@@ -163,6 +173,8 @@ export interface Baseline {
   readonly protocol: string;
   readonly subject: string;
   readonly record: string;
+  /** Every compatible partial record contributing to this baseline, where more than one does. */
+  readonly records?: readonly string[];
   readonly id: string;
   readonly version: string;
 }

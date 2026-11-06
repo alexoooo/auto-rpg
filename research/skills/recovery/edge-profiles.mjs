@@ -1,3 +1,4 @@
+import { workerJobs } from "../../worker-jobs.mjs";
 /**
  * **The ground Options' profiles** (`assets/skills/recovery/edge-profiles.json`, in the profiles' one type,
  * `src/skills/framework/profile.ts`): Option Mind, the game's preset on its priors alone and
@@ -38,7 +39,7 @@ if (isMainThread) {
   if (!jobs.length) throw new Error(`no profile falls for ${values.model}`);
   const retained = values.model ? JSON.parse(readFileSync(OUT, "utf8")) : null;
   if (retained && JSON.stringify(retained.source.offsets) !== JSON.stringify(offsets)) throw new Error("a body's profile refresh keeps the existing offsets");
-  const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 2)));
+  const count = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   // Each fall's trials kept by its place among the falls, so the profiles do not depend on which worker ends first.
   const cacheId = createHash("sha256").update(JSON.stringify([BUILD_IDENTITY, values.model ?? null, offsets])).digest("hex").slice(0, 20);
   const rowsFile = values.rows ?? `research/runs/edge-profiles/${cacheId}.jsonl`, cached = new Map();
@@ -54,17 +55,12 @@ if (isMainThread) {
     else queue.push([i, job]);
   }
   const reused = jobs.length - queue.length;
-  await Promise.all(Array.from({ length: Math.min(count, queue.length) }, () => new Promise((done, fail) => {
-    const worker = new Worker(new URL(import.meta.url));
-    const next = () => { const item = queue.shift(); if (item) worker.postMessage(item); else worker.terminate().then(done); };
-    worker.on("message", ([i, result]) => {
+  await workerJobs(queue, { lanes: count, create: () => new Worker(new URL(import.meta.url)),
+    result: ([i, result]) => {
       byFall[i] = result;
       appendFileSync(rowsFile, JSON.stringify({ build: BUILD_IDENTITY, job: jobs[i], result }) + "\n");
-      next();
-    });
-    worker.on("error", fail);
-    next();
-  })));
+      return result;
+    } });
   const all = byFall.flatMap(result => result.trials);
   const sorted = edgeProfiles(all);
   console.log(`edge profiles: ${all.length} trials in ${sorted.length} profiles, offsets ${offsets.join(", ")}; Node, core world, Rapier, 120 Hz; ${((Date.now() - started) / 1000).toFixed(0)} s; ${reused}/${jobs.length} falls reused; rows ${rowsFile}`);

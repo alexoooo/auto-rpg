@@ -2,6 +2,7 @@ import { standingHeight } from "../support.ts";
 import type { BodyControl } from "../../core/bodies/body-control.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { MotorPart } from "../motor-part.ts";
+import { MOTOR_SUPPORT } from "../motor-part.ts";
 import { UNREACHABLE, type Carrying, type FreedomPath, type MotorUnmet, type MusclePush } from "../motor.ts";
 import { effectorTracker } from "../effector-tracker.ts";
 import { servoAsk, servoSolve } from "../servo.ts";
@@ -133,6 +134,7 @@ export const PAW_MOTOR: MotorPart<PawMotorConfig> = deepFreeze({
   role: "motor", label: "Paw support", stage: "game", fields: [], slots: [], defaults: { kind: "paw-motor" }, keys: { kind: true },
   fits: fitsPaws, faults: () => [],
   make: () => ({
+    requirements: Object.freeze([MOTOR_SUPPORT]),
     reference: { fits: fitsPaws, read: standingHeight },
     make: (built, muscles, _seconds, posture, _tuning, assist) => pawMotor(built, muscles, posture, assist),
     envelope: () => null,

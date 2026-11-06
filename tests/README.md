@@ -126,3 +126,56 @@ it compares the complete sparse array alongside real `undefined` entries and esc
 | [learning-network.test.mjs](learning-network.test.mjs): `learned inference retains clipped observation and action preprocessing` | Reproduce exported inference omitting the trainer's observation clamp, including a non-saturated final action, and preserve its pre-tanh action bound. Successful drills do not establish export/trainer equivalence. |
 
 [rapier-hooks.test.mjs](rapier-hooks.test.mjs): `a contact-layer callback defect reaches the world-step caller unchanged` reproduces a material callback throwing while the vendored WASM bridge silently returns a successful step. The overlapping-contact fixture verifies the original thrown value and callback receiver at the actual engine boundary; a normal bout installs no material layer and cannot exercise this defect.
+
+## Layer contract regressions
+
+[layer-contracts.test.mjs](layer-contracts.test.mjs) reproduces the physical, command and observation
+failures below. Skill drills cannot establish admission before allocation, complete command delivery
+or exact saved-state compatibility.
+
+| Case | Concrete justification |
+| --- | --- |
+| `physics refuses different gravity and rate before changing the destination` | Same-topology worlds accepted incompatible snapshots, contradicting their public gravity and configured rate; compare the complete destination snapshot after refusal. |
+| `convex clearance separates rounded corners and edge-cross-edge hulls` | Face distances rejected a clear capsule at a hull corner, and face normals missed separated rotated hull edges; retain intersecting controls beside the observed fixtures. |
+| `two-freedom joints refuse nonorthogonal axes` | A two-axis frame accepted diagonal second axes because each axis was checked only against its own copy. |
+| `completed equipment and canonical up cannot contaminate shared constants` | Cached equipment and the canonical up vector permitted mutation shared by subsequent callers. |
+| `failed body construction removes every completed segment` | A second allocation failure left the first rigid body without a returned owner. |
+| `senses admit opaque prototype names and restore their complete frames` | Inherited object keys prevented valid body identifiers from entering the senses; restore and compare their complete saved frames. |
+| `paw admission consumes its declared support point and patch` | Fit accepted an absent declared endpoint and refused a valid renamed one; rectangular patches also require their constructor's box shape. |
+| `command layers deliver changed tracking, bracing and moving-frame goals` | Command equality dropped consumed response, firm, unbend, origin and drift fields before the real motor received them. |
+| `pacing detects changed orders from a provider reusing its object` | Aliased remembered orders hid a provider's pace change and delayed the next decision. |
+| `walk pricing refuses zero pace and bounds tiny-pace pressure sampling` | Valid zero pace hung the pressure loop; tiny positive pace made its work unbounded. |
+| `fallen footprints retain observed elevation through navigation memory` | A fixed world height made an elevated fallen body disappear from navigation at its supporting level. |
+
+[layer-lifetimes.test.mjs](layer-lifetimes.test.mjs) checks ownership and settlement that ordinary
+completed bouts do not exercise:
+
+| Case | Concrete justification |
+| --- | --- |
+| `reply boxes preserve FIFO beyond exact Number counters` | Converting a BigInt counter before taking its offset lost ring positions beyond exact Number representation. |
+| `mind thread disposal stops every link when its first post throws` | A failed stop post prevented disposal of later links. |
+| `a fatal lane answer closes pending siblings before rejection` | A fatal answer rejected while a sibling still owned its worker. |
+| `a lane retains loss reported during spawn and clears synchronous post failures` | Spawn-time loss was discarded and synchronous sends retained timeout state. |
+| `every browser physics benchmark disposes after its first prepare fails` | Benchmark worlds lost their only disposal path when preparation threw. |
+| `late Arena callbacks and local Dungeon warming release every hosted mind` | A late construction callback and local warm-up abandoned completed hosted minds. |
+| `a worker startup frame failure reports its error and disposes the completed stage` | Startup failures after stage creation left its resources live and its request unanswered. |
+| `mind threads resend values changed inside a stable gait object` | Transport compared object identity and suppressed changed gait values. |
+| `frame measurement retains worker cost and excludes interpolation-only batches` | Worker time was omitted and zero-step presentation batches were divided into timing figures. |
+| `the shape renderer draws an admitted capsule with coincident endpoints` | Valid zero-length capsules reached a renderer that rejected their coincident endpoints. |
+
+| File and case | Concrete justification |
+| --- | --- |
+| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `custom subjects retain execution scope through normalization, recording and reconstruction` | Custom subject adapters lost body restrictions and attributes, while code identity skipped standalone strike and technique implementations. |
+| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `record admission and every keyed evidence reader refuse incomplete or conflicting cases` | Incomplete rows were admitted and history, Ratings and reels selected conflicting first occurrences without agreement. |
+| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `a table cell requires every protocol case and keeps faulted coverage failed` | One passing row satisfied a full run cell; null fault readings were dereferenced. |
+| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `Cover requires an attempted attack before untouched can pass` | An opponent that never attacked produced a passing untouched result. |
+| [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `resource compilation separates segment names from services and uses physical bearing chains` | Valid segment names collided with logical services, and a bearing end without an effector lost its support channels. |
+| [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `Option skills assemble with physical feet alone and an effector named assist` | Stock physical feet without optional actuators and an opaque renamed hand failed before their skill assembly could stand. |
+| [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `admission resolves guard, staged channels and timed strike and gait settings before construction` | Admitted null guard tuning, absent staged channels and zero divisors threw during construction; a neutral-only hand received an undeclared open command. |
+| [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `default skill assembly roots the one configured memoryful aim` | Saving the default assembly omitted its hidden aim's memory and retained later calls after restoration. |
+| [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `Move does not erase a gait's complete runs setting when sharing instances` | Generic gait sharing erased a concrete configuration field and merged independently configured controllers. |
+| [skills/profiles.test.mjs](skills/profiles.test.mjs): `a skill's identity includes the selected aim's declared data` | Aim-owned data changed without changing the skill digest. |
+| [skills/profiles.test.mjs](skills/profiles.test.mjs): `a zero-length failed profile trial has a finite failed rate` | A failed zero-duration trial produced NaN instead of a failed finite rate. |
+| [tooling.test.mjs](tooling.test.mjs): `closing research workers settles queued work and refuses work after close` | Closing a pool left queued promises pending and admitted subsequent work. |
+| [tooling.test.mjs](tooling.test.mjs): `research worker exit after a completed sibling rejects and closes all workers` | Research pools omitted exit settlement after another worker had already completed its job. |
+| [minds/contract.test.mjs](minds/contract.test.mjs): `a measured Lab script follows an explicit numeric walk without a gait envelope` | A valid numeric order reached the script but received zero obedience value without a calibration, so the chooser held still; trace the measured actor through selection to its first landing. Calibrated drills do not reach this path. |

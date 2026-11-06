@@ -5,7 +5,7 @@
  *   Cross-Origin-Embedder-Policy: require-corp
  *   Cross-Origin-Resource-Policy: same-origin
  * so the page gets `crossOriginIsolated` and SharedArrayBuffer: a fight's minds then run on workers
- * of their own (`src/isolate.ts` installs it over the game's pages), and MuJoCo's threaded build
+ * of their own (`src/app/browser/isolate.ts` installs it over the game's pages), and MuJoCo's threaded build
  * (Emscripten pthreads) runs (`physics-bench.html?mt=1`, research/physics-bakeoff/REPORT.md). The
  * first visit loads without it and reloads once.
  */

@@ -13,7 +13,7 @@ import { dot } from "../core/bodies/spec/vec.ts";
 import { effectorFeedback } from "../control/effector-feedback.ts";
 import { uprightness } from "../control/ground.ts";
 import { rootFrameToRef } from "../control/kinematics.ts";
-import { carries, carrying, type EffectorGoal, type FreedomPath, type PointTask } from "../control/motor.ts";
+import { carries, carrying, sameEffectorGoal, type EffectorGoal, type FreedomPath, type PointTask } from "../control/motor.ts";
 
 /**
  * Motor control under a split driver. `think` queues decisions; `act` reads the current body and
@@ -161,7 +161,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     for (const segment in goals) {
       const goal = command.effectors?.[segment] ?? null, was = goals[segment];
       if (!goal) { if (was) motor.release(segment); }
-      else if (!was || !sameGoal(goal, was)) motor.reach(segment, goal);
+      else if (!was || !sameEffectorGoal(goal, was)) motor.reach(segment, goal);
       goals[segment] = goal;
     }
   };
@@ -274,18 +274,6 @@ const NO_PATHS: Readonly<Record<string, FreedomPath>> = Object.freeze({});
 
 /** A command that holds the reference pose. */
 const restCommand = (): BodyCommand => ({ posture: {}, pushes: [], stance: null });
-
-const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>
-  (a.initialVelocity === b.initialVelocity || (a.initialVelocity !== undefined && b.initialVelocity !== undefined
-    && a.initialVelocity.every((v, k) => v === b.initialVelocity![k])))
-  && (a.terminalVelocity === b.terminalVelocity || (a.terminalVelocity !== undefined && b.terminalVelocity !== undefined
-    && a.terminalVelocity.every((v, k) => v === b.terminalVelocity![k])))
-  && (a.curve === b.curve || (a.curve !== undefined && b.curve !== undefined && a.curve.every((v, k) => v === b.curve![k])))
-  && (a.orientation === b.orientation || (a.orientation !== undefined && b.orientation !== undefined
-    && a.orientation.seconds === b.orientation.seconds && a.orientation.target.every((v, k) => v === b.orientation!.target[k])))
-  && a.sequence === b.sequence && a.carried === b.carried
-  && a.seconds === b.seconds && a.through === b.through && a.follows === b.follows && a.places.length === b.places.length
-  && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));
 
 /** A segment's named point and its rigid-body velocity, without differencing corrected poses. */
 function pointMotionOf(built: ReadBody, segment: string, point: string): { motion: PointMotion; update(): void } {

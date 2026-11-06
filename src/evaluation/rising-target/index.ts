@@ -5,7 +5,7 @@
  * unless others are named. The summary is the bed's report with the target's gates (`risingReport`).
  */
 import { isWayUp, type TechniqueName } from "../../skills/recovery/technique.ts";
-import type { Evaluation, Figure, Json, Subject, SubjectChoice, Table } from "../evaluation.ts";
+import { mindSubject, type Evaluation, type Figure, type Json, type Subject, type SubjectChoice, type Table } from "../evaluation.ts";
 import { FALL_CAP, type BuiltFall, type FallReading } from "../fall.ts";
 import { createLocomotionIndex } from "../locomotion/index.ts";
 import { createRising, STAND_WITHIN, type RisingRow } from "../rising.ts";
@@ -13,7 +13,7 @@ import { createRisingTargetCases, type TargetCondition } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
 /** A riser as a subject: its id, the label shown, and its mind whole. */
-const riserSubject = (id: string, label: string, value: Json): Subject => ({ id, label, parts: [{ id: `mind:${id}`, value }], value });
+const riserSubject = mindSubject;
 
 /** Whether a fall was made: the body was taken over by its rise; one not made did not reach its case. */
 const made = (r: FallReading): boolean => r.takeover !== null;
@@ -44,7 +44,7 @@ export function createRisingTargetIndex(context: GameContext) {
    * for a stand-up with it alone, or a mind given whole; the game's Stand up when none is.
    */
   function riserSubjects(choice: SubjectChoice): readonly Subject[] {
-    return (choice.length > 0 ? choice : ["game"]).map((one) => typeof one !== "string" ? riserSubject(one.id, one.label, one.value)
+    return (choice.length > 0 ? choice : ["game"]).map((one) => typeof one !== "string" ? riserSubject(one.id, one.label, one.value, one)
       : one === "game" ? riserSubject(one, "The game's Stand up", risingMind() as unknown as Json)
       : one === "stand-up" ? riserSubject(one, "Stand up, every technique", risingMind(WAYS_UP) as unknown as Json)
       : (WAYS_UP as readonly string[]).includes(one) ? riserSubject(one, `Stand up by ${TECHNIQUES[one as TechniqueName].label}`, risingMind([one as TechniqueName]) as unknown as Json)

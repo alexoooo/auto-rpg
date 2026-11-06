@@ -1,3 +1,4 @@
+import { workerJobs } from "./worker-jobs.mjs";
 /**
  * **The empty-hand league**: Arena bouts between fighter minds, both sides bare-handed, played as
  * the Arena plays them unless asked (`Duel`: the game's 120 s cap, recovery left to continue, the
@@ -105,27 +106,19 @@ if (!isMainThread) {
       if (!played.has(keyOf(ha, hb, gap))) { played.add(keyOf(ha, hb, gap)); jobs.push({ a: known[p], b: known[q], gap, cap, names: [p, q], ha, hb }); }
     }
   }
+  if (!Number.isSafeInteger(lanes) || lanes < 1) throw new Error("worker lanes must be a positive integer");
   if (jobs.length) {
     console.error(`playing ${jobs.length} bouts on ${Math.min(lanes, jobs.length)} lanes`);
     const started = Date.now();
-    let next = 0, done = 0;
-    await Promise.all(Array.from({ length: Math.min(lanes, jobs.length) }, () => new Promise((resolveLane, rejectLane) => {
-      const worker = new Worker(new URL(import.meta.url));
-      const feed = () => {
-        if (next >= jobs.length) { worker.terminate(); resolveLane(); return; }
-        const id = next++, job = jobs[id];
-        worker.once("message", ({ row, error }) => {
-          if (error) { worker.terminate(); rejectLane(new Error(error)); return; }
-          const record = { identity, build: BUILD_IDENTITY, engine: BOUT_ENGINE, hz: 120, epoch, a: job.names[0], b: job.names[1], ha: job.ha, hb: job.hb, gap: job.gap, cap, ...row };
-          appendFileSync(store, JSON.stringify(record) + "\n");
-          rows.push(record);
-          if (++done % 20 === 0) console.error(`${done}/${jobs.length} in ${((Date.now() - started) / 60000).toFixed(1)} min`);
-          feed();
-        });
-        worker.postMessage({ id, a: job.a, b: job.b, gap: job.gap, cap: job.cap });
-      };
-      feed();
-    })));
+    let done = 0;
+    await workerJobs(jobs, { lanes, create: () => new Worker(new URL(import.meta.url)),
+      message: (job, id) => ({ id, a: job.a, b: job.b, gap: job.gap, cap: job.cap }),
+      result: ({ row }, job) => {
+        const record = { identity, build: BUILD_IDENTITY, engine: BOUT_ENGINE, hz: 120, epoch, a: job.names[0], b: job.names[1], ha: job.ha, hb: job.hb, gap: job.gap, cap, ...row };
+        appendFileSync(store, JSON.stringify(record) + "\n"); rows.push(record);
+        if (++done % 20 === 0) console.error(`${done}/${jobs.length} in ${((Date.now() - started) / 60000).toFixed(1)} min`);
+        return record;
+      } });
   }
 
   // The table: every entrant named, rated over the bouts between any two of them in this epoch, at their current configs.

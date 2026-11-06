@@ -1,3 +1,4 @@
+import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../framework/action.ts";
 import { supportHeight } from "../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { Body, BodyView } from "../../control/body.ts";
@@ -48,7 +49,7 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
   const strikeOf = (side: Side) => effectorStrike({ effector: `foot.${side}`, point: "strike", limits, firm: true, brace: tuning.brace,
     chamberSeconds: tuning.chamberSeconds, returnSeconds: tuning.returnSeconds, response: tuning.response });
   const strikes = { left: strikeOf("left"), right: strikeOf("right") };
-  const footprints = { left: Object.freeze(["foot.left", "legs", "trunk"]), right: Object.freeze(["foot.right", "legs", "trunk"]) };
+  const footprints = { left: Object.freeze([segmentResource("foot.left"), LEG_RESOURCE, TRUNK_RESOURCE]), right: Object.freeze([segmentResource("foot.right"), LEG_RESOURCE, TRUNK_RESOURCE]) };
   const sideOf = (name: string): Side => {
     if (name === "foot.left") return "left";
     if (name === "foot.right") return "right";

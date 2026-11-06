@@ -73,6 +73,21 @@ export interface EffectorGoal {
   readonly orientation?: { readonly target: readonly [number, number, number, number]; readonly seconds: number };
 }
 
+const sameNumbers = (a: readonly number[] | undefined, b: readonly number[] | undefined): boolean =>
+  a === b || a !== undefined && b !== undefined && a.length === b.length && a.every((v, k) => v === b[k]);
+
+/** Whether two endpoint goals ask the same path and tracking behaviour. */
+export const sameEffectorGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>
+  a.seconds === b.seconds && a.through === b.through && a.follows === b.follows
+  && a.response === b.response && a.firm === b.firm && a.unbend === b.unbend
+  && a.sequence === b.sequence && a.carried === b.carried
+  && sameNumbers(a.initialVelocity, b.initialVelocity) && sameNumbers(a.terminalVelocity, b.terminalVelocity)
+  && sameNumbers(a.curve, b.curve) && sameNumbers(a.origin, b.origin) && sameNumbers(a.drift, b.drift)
+  && (a.orientation === b.orientation || a.orientation !== undefined && b.orientation !== undefined
+    && a.orientation.seconds === b.orientation.seconds && sameNumbers(a.orientation.target, b.orientation.target))
+  && a.places.length === b.places.length
+  && a.places.every((place, i) => place.point === b.places[i]!.point && sameNumbers(place.position, b.places[i]!.position));
+
 /** A place's task as `solveReach` reads it: its point and target, written before each solve. */
 interface Task { point: Vec3; readonly target: [number, number, number] }
 

@@ -111,3 +111,93 @@ test("every evaluation's default panel names entrants it has", () => {
   for (const evaluation of panels) for (const id of evaluation.analysis.panel)
     assert.doesNotThrow(() => evaluation.subjects([id]), `${evaluation.id}'s panel names ${id}`);
 });
+
+
+test("custom subjects retain execution scope through normalization, recording and reconstruction", async () => {
+  const { recordedSubject, restoredSubject } = await import("../../src/evaluation/record.ts");
+  const { partNames } = await import("../../src/app/node/evaluation.ts");
+  const scope = { models: ["workshop-fighter"], character: { strength: 1.1 } };
+  const choice = { id: "independent", label: "Independent", value: MINDS.option.config, ...scope };
+  for (const name of ["locomotion", "match", "court", "rising-target"]) {
+    const [subject] = EVALUATIONS[name].subjects(name === "match" ? [choice, "option"] : [choice]);
+    assert.deepEqual({ models: subject.models, character: subject.character }, scope, `${name} retains execution facts`);
+    const recorded = recordedSubject(subject, {}, "scope-environment", null);
+    assert.deepEqual(restoredSubject(recorded), subject, `${name} reconstructs the complete subject`);
+    assert.notEqual(recorded.version.version, recordedSubject({ ...subject, character: { strength: 1.2 } }, {}, "scope-environment", null).version.version);
+    const { models: _models, ...legacy } = recorded;
+    assert.match(restoredSubject(legacy).refused, /incompatible historical execution metadata/);
+  }
+  const entrants = EVALUATIONS.tournament.subjects([choice]);
+  assert.ok(entrants.length > 0, "the restricted custom mind enters at least one loadout");
+  assert.ok(entrants.every(subject => subject.value.model === "workshop-fighter"));
+  assert.ok(entrants.every(subject => JSON.stringify(subject.character) === JSON.stringify(scope.character)));
+  const [strike] = EVALUATIONS.strike.subjects([{ ...choice, value: { mind: choice.value, skill: "straight-punch" } }]);
+  assert.deepEqual({ models: strike.models, character: strike.character }, scope);
+  assert.ok(partNames(strike.parts).kinds.includes("option"), "a custom strike declares its mind independently of its id prefix");
+  const [edge] = EVALUATIONS.rise.subjects(["staged-roll"]);
+  assert.ok(partNames(edge.parts).parts.includes("staged-roll"), "standalone techniques declare their implementation code");
+});
+
+test("record admission and every keyed evidence reader refuse incomplete or conflicting cases", async () => {
+  const { mindSubject } = await import("../../src/evaluation/evaluation.ts");
+  const { readRecord, recordIdentity, recordedSubject, recordText, indexRows } = await import("../../src/evaluation/record.ts");
+  const { poolsOf } = await import("../../src/evaluation/history.ts");
+  const { findCase } = await import("../../src/app/browser/ratings/analysis.ts");
+  const play = {}, engine = "rapier", harness = "Node fixture, rapier, 120 Hz";
+  const subject = recordedSubject(mindSubject("fixture", "Fixture", { kind: "bare" }), play, "fixture", null);
+  const header = { identity: recordIdentity(`sha256:${"a".repeat(64)}`, engine, harness, play), evaluation: "fixture", protocol: "fixture", play,
+    engine, harness, commit: "fixture", date: "fixture", schedule: "all", pool: { protocol: "fixture", environment: "fixture" }, subjects: [subject] };
+  const line = { key: "case", subjects: [subject.id], condition: {}, world: { kind: "lone", engine, lone: { model: "workshop-fighter", mind: { kind: "bare" } } },
+    code: "fixture", digest: "trace", played: 0, reading: { met: true }, fault: null };
+  const complete = readRecord(recordText(header, [line]), "complete");
+  assert.deepEqual(complete, { header, lines: [line] });
+  for (const field of ["world", "condition", "code", "digest", "reading", "fault", "subjects"]) {
+    const partial = { ...line }; delete partial[field];
+    assert.throws(() => readRecord(recordText(header, [partial]), `missing-${field}`), /not whole/);
+  }
+  const first = { name: "first", ...complete }, other = { name: "other", header, lines: [{ ...line, reading: { met: false } }] };
+  for (const admit of [records => indexRows(records.map(record => ({ name: record.name, rows: record.lines }))), poolsOf, records => findCase(records, line.key)]) {
+    assert.throws(() => admit([first, other]), /case case reads differently in first and other/);
+  }
+  assert.equal(poolsOf([first, { ...first, name: "again" }])[0].cases.length, 1);
+  assert.deepEqual(findCase([first], line.key), { record: first, line });
+});
+
+test("a table cell requires every protocol case and keeps faulted coverage failed", async () => {
+  const { verdictOf, scoreOf } = await import("../../src/evaluation/table/judge.ts");
+  const { indexRows } = await import("../../src/evaluation/record.ts");
+  const conditions = EVALUATIONS.locomotion.protocols.run.conditions.filter(condition => condition.model === "workshop-fighter"
+    && condition.loadout.left === "empty" && condition.loadout.right === "empty");
+  assert.ok(conditions.some(condition => condition.kind === "run-held") && conditions.some(condition => condition.kind === "run-turn")
+    && conditions.some(condition => condition.kind === "run-stop"), "the fixture reaches every run kind");
+  const rows = conditions.map((condition, k) => ({ key: `case-${k}`, condition, reading: { kind: condition.kind, fell: false,
+    held: 3, trail: 0, speed: 3, halt: 0 }, digest: "trace", played: 1, fault: null }));
+  assert.equal(verdictOf("run", [rows[0]], rows).state, "short", "one successful row cannot satisfy the cell");
+  const merged = [...indexRows([{ name: "a", rows: rows.slice(0, 1) }, { name: "b", rows: rows.slice(1) }]).values()].map(({ row }) => row);
+  assert.equal(verdictOf("run", merged, rows).state, "met", "compatible partial evidence completes the required coverage");
+  const faulted = [{ ...rows[0], reading: null, digest: null, played: null, fault: { kind: "error", message: "case failed" } }, ...rows.slice(1)];
+  assert.deepEqual(verdictOf("run", faulted, rows), { state: "short", figures: `${rows.length} of ${rows.length} cases, 0 missing, 1 faulted` });
+  assert.deepEqual(scoreOf({ judge: "landed", hit: "fist" }, faulted), { value: null, unit: "m/s", figures: `1 of ${rows.length} trials faulted` });
+  assert.deepEqual(scoreOf({ judge: "buckler" }, [{ condition: {}, reading: { blows: 0, shielded: 0, down: false, outcome: "unreached", attempted: false } }]),
+    { value: null, unit: "share of blows met by the buckler first", figures: "0 of 0 blows, 0 fell, 1 unreached, 1 trials" });
+});
+
+
+test("Cover requires an attempted attack before untouched can pass", async () => {
+  const { readCover } = await import("../../src/evaluation/cover/read.ts");
+  const { modelSpec } = await import("../../src/core/bodies/models.ts");
+  const spec = modelSpec("workshop-fighter"), world = { time: 0 };
+  const attacker = { kit: [{ action: "punch", regions: [{ kind: "mark", mark: "high" }] }], report: { actions: [], ledger: [] } };
+  const duel = { blows: [], duelists: { left: { built: { spec }, body: { down: false }, minded: { skills: { report: { covering: [] } } } },
+    right: { built: { spec }, minded: { skills: attacker } } } };
+  const reader = readCover({ world, duel }, { seconds: 8 });
+  world.time = 8; reader.afterStep();
+  const reading = { outcome: "unreached", attempted: false, touches: { head: 0, guard: 0, body: 0 }, taken: 0, headTaken: 0,
+    covering: 0, first: null, blows: 0, shielded: 0, down: false, seconds: 8 };
+  assert.deepEqual(reader.reading(), reading);
+  assert.equal(EVALUATIONS.cover.outcome(reader.reading()).passed, false);
+  attacker.report.actions.push({ action: "punch", target: { kind: "body", id: "left" } });
+  reader.afterStep();
+  assert.deepEqual(reader.reading(), { ...reading, outcome: "untouched", attempted: true });
+  assert.equal(EVALUATIONS.cover.outcome(reader.reading()).passed, true, "an attempted attack can miss a successful cover");
+});

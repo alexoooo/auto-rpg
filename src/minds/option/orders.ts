@@ -1,3 +1,5 @@
+import type { Resource } from "../../skills/framework/action.ts";
+import { sameResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../skills/framework/action.ts";
 import { NO_COVER } from "../../skills/intent/intent.ts";
 import { orderedIntent } from "../../skills/intent/ordered.ts";
 import { legsReadiness } from "../../skills/locomotion/locomotion.ts";
@@ -23,15 +25,16 @@ const fights = (now: Situation): boolean => now.orders?.foe !== undefined && (no
  * and the trunk, and holds the legs and what its walk holds; it yields, but to firm orders to move
  * or stand that name no foe (`Orders.firm`), which it keeps: a foe's are its strikes' to carry out.
  * Its model: carrying out the orders for `AHEAD` s, a walk, a stand or a facing, is worth the metres
- * its gait would walk as long (`Walker.stride`), whatever pace the orders set and however near the
- * walk ends, but none where they are to stand and fight a foe (`fights`); through the blow coming
+ * its gait would walk as long (`Walker.stride`), or the explicitly ordered pace where it has no
+ * measured envelope, however near the walk ends; none where they are to stand and fight a foe
+ * (`fights`); through the blow coming
  * and the focus's reach where it stands in it; where the orders take it is theirs, so it is priced
  * as leaving the body where it is. On offer at a state where the body stands (`standing`) with
  * such orders.
  */
 export function followOrders(walk: Pick<Walker, "stride" | "kept">): Option {
-  const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly string[] = Object.freeze(["legs"]);
-  const claims: readonly string[] = Object.freeze(["legs", "trunk"]);
+  const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly Resource[] = Object.freeze([LEG_RESOURCE]);
+  const claims: readonly Resource[] = Object.freeze([LEG_RESOURCE, TRUNK_RESOURCE]);
   return {
     name: "follow orders", claims, state: {},
     entry: (now) => {
@@ -50,7 +53,7 @@ export function followOrders(walk: Pick<Walker, "stride" | "kept">): Option {
       // The body an ordered way goes round (`MovementRequest`'s `by`) is not kept off as a fallen one.
       const move = now.orders?.move, by = move?.kind === "place" ? move.by ?? null : null;
       const asked = walk.kept(now, { ...ordered, actions: [] }, by);
-      return { asked, holds: [...LEGS_HELD, ...asking(now, asked).filter((resource) => resource !== "legs")] };
+      return { asked, holds: [...LEGS_HELD, ...asking(now, asked).filter((resource) => !sameResource(resource, LEG_RESOURCE))] };
     },
   };
 }

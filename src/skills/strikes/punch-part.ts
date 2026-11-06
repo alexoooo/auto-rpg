@@ -4,7 +4,7 @@ import { dataOf } from "../../core/data/store.ts";
 import { strikesWithOneOf, fitsAll, fitsWhen } from "../../parts/parts.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { STRAIGHT_PUNCH_KEYS, timedChannelFault, straightPunchExecutor, straightPunchFits, validStraightPunch, validStraightPunchPart, type StraightPunch } from "./straight-punch.ts";
-import { holdsNothing } from "./held-strike.ts";
+import { handConfigurationRefusal, holdsNothing } from "./held-strike.ts";
 import { PUNCH_BODIES } from "./straight-punch/data/records.ts";
 import { recordFault } from "../framework/records.ts";
 import { bodyKey } from "../../core/bodies/spec/body.ts";
@@ -26,6 +26,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Straight punch", stage: "game", defaults: { kind: "straight-punch" },
   keys: { kind: true, tuning: true }, tuning: STRAIGHT_PUNCH_KEYS,
   fields: [], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk, each with a fist, and a thoracic joint"),
+    (spec) => handConfigurationRefusal(spec, ["hand.left", "hand.right"], "fist"),
     recordFault("straight punch", PUNCH_BODIES, validStraightPunch), (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
   faults: (config) => config.tuning === undefined || validStraightPunchPart(config.tuning) ? [] : ["invalid straight punch tuning"],
   reads: () => ["straight-punch"], effectors: ["hand.left", "hand.right"], aims: true,

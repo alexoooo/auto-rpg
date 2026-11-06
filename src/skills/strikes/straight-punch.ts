@@ -1,5 +1,6 @@
+import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../framework/action.ts";
 import { supportHeight } from "../../control/support-reference.ts";
-import { HAND_CONFIGURATION } from "../../core/bodies/human/hand-configurations.ts";
+
 import { Vector3 } from "../../core/math/vector.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import { bodyEffectors, copyFreedoms, type Freedom } from "../../control/effectors.ts";
@@ -15,7 +16,7 @@ import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";
 import { sensedActionTarget } from "../intent/action-aim.ts";
 import { stepShare, timedPushes, validPush, type TimedPush } from "./timed-push.ts";
-import { closesToStrike } from "./held-strike.ts";
+import { handConfiguration, closesToStrike } from "./held-strike.ts";
 import { keepsWalk, PUNCH_DECIDE, PUNCH_LAYOUT, punchChannels, punchFeatures, stanceAsks, steerPushes, type PunchLayout } from "./learned-punch.ts";
 import { learnerOf } from "../../core/math/learning/learner.ts";
 import { legOf } from "../locomotion/gait-scale.ts";
@@ -433,7 +434,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
   const ahead = bodyAhead(body.built.spec);
   const alignerOf = (hand: Side) => faces?.[hand] ? faceAligner(body.built.spec, hand, faces[hand]!, { either: false }) : null;
   const aligners = { left: alignerOf("left"), right: alignerOf("right") }, aimed = new Vector3(), toward = new Float64Array(3);
-  const sides = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
+  const sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE, LEG_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE, LEG_RESOURCE] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
     if (effector === "hand.right") return "right";
@@ -528,7 +529,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const steer = live.phase === "commit" ? sense * settings.hips + turn : 0, support = view.stance.support;
       // A walk under way kept where the steer keeps it (`keepsWalk`), else stood, and halted where the steer or `halts` says.
       const keeps = live.phase === "commit" ? keepsWalk(technique.steeredChannels[live.hand], motion.learner.outputs) : null;
-      const hand = faces?.[live.hand] ? HAND_CONFIGURATION.grip : closesToStrike(body.built.spec, live.hand) ? HAND_CONFIGURATION.fist : null;
+      const hand = faces?.[live.hand] ? handConfiguration(body.built.spec, `hand.${live.hand}`, "grip") : closesToStrike(body.built.spec, live.hand) ? handConfiguration(body.built.spec, `hand.${live.hand}`, "fist") : null;
       return { posture: sparse(posture, live.hand), pushes, ...(hand ? { configurations: { [`hand.${live.hand}`]: hand } } : {}),
         legs: { ...(keeps ? {} : { walk: null }), face: motion.face, ...((keeps === null ? settings.halts : !keeps) ? { halt: true } : {}), height: supportHeight(view) - live.lower,
           ...(steer ? { heading: around.heading + steer } : {}),

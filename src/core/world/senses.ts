@@ -68,7 +68,7 @@ function frameLength(segments: number): number { return (3 + 4 + 3 + 3 + 3 + 1) 
 export function createSenses(world: World, delay = 0, clock?: { readonly begins: number; readonly ends: number }): SensesHub {
   if (!Number.isInteger(delay) || delay < 0) throw new Error(`a delay is whole steps, not ${delay}`);
   const carried: Carried[] = [];
-  const state: Record<string, Remembered> = {};
+  const state = new Map<string, Remembered>();
   const p = new Vector3(), v = new Vector3(), w = new Vector3();
 
   /** `entry`'s body as it stands, into `frame`: each segment, then the centre of the parts on it, its velocity, whether it is out, whether it is down, its life and its observation time. */
@@ -122,7 +122,7 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
   const hook = world.sense(() => {
     for (const entry of carried) {
       // The newest frame goes where the oldest was; the one after it is now `delay` steps old.
-      const memory = state[entry.sensed.id]!;
+      const memory = state.get(entry.sensed.id)!;
       read(entry, memory.frames[memory.at]!, entry.sensed.out(), entry.sensed.down?.() ?? false, entry.sensed.life?.() ?? 1);
       memory.at = (memory.at + 1) % memory.frames.length;
       show(entry, memory.frames[memory.at]!);
@@ -135,7 +135,7 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
       const index = carried.findIndex((entry) => entry.sensed.id === id);
       if (index < 0) return;
       carried.splice(index, 1);
-      delete state[id];
+      state.delete(id);
       for (const entry of carried) {
         const other = entry.others.findIndex((body) => body.id === id);
         if (other >= 0) entry.others.splice(other, 1);
@@ -143,12 +143,12 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
     },
     show() {
       for (const entry of carried) {
-        const memory = state[entry.sensed.id]!;
+        const memory = state.get(entry.sensed.id)!;
         show(entry, memory.frames[memory.at]!);
       }
     },
     add(sensed) {
-      if (sensed.id in state) throw new Error(`the senses carry a body called ${sensed.id} already`);
+      if (state.has(sensed.id)) throw new Error(`the senses carry a body called ${sensed.id} already`);
       const segments = [...sensed.built.segments.values()], view = shownSegments([...sensed.built.segments.keys()]);
       const shown = {
         id: sensed.id, side: sensed.side, spec: sensed.built.spec, out: false, down: false, life: 1, time: world.time,
@@ -159,7 +159,7 @@ export function createSenses(world: World, delay = 0, clock?: { readonly begins:
       const standing = new Float64Array(frameLength(segments.length)), memory: Remembered = { at: 0, frames: [] };
       read(entry, standing, false, false, sensed.life?.() ?? 1);
       for (let i = 0; i <= delay; i++) memory.frames.push(standing.slice());
-      state[sensed.id] = memory;
+      state.set(sensed.id, memory);
       show(entry, standing);
       for (const other of carried) { other.others.push(shown); entry.others.push(other.shown); }
       carried.push(entry);

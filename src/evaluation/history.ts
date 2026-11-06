@@ -4,7 +4,7 @@
  * is read once, by its key, whichever records hold it. Records are given oldest first.
  */
 import { recordingKey } from "../core/world/recording.ts";
-import type { RecordedSubject, RecordHeader, RecordLine } from "./record.ts";
+import { indexRows, type RecordedSubject, type RecordHeader, type RecordLine } from "./record.ts";
 
 /** A record as read: its file name, header and lines. */
 export interface Kept {
@@ -40,6 +40,7 @@ export interface Pool {
 
 /** `records`' pools, in the order of each pool's first record. */
 export function poolsOf(records: readonly Kept[]): Pool[] {
+  indexRows(records.map(record => ({ name: record.name, rows: record.lines })));
   const pools = new Map<string, { protocol: string; environment: string; records: Kept[]; cases: Map<string, PoolCase>; newest: Map<string, string>; last: Map<string, string> }>();
   for (const record of records) {
     const { header } = record, key = recordingKey(header.pool);

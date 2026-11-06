@@ -2,11 +2,13 @@ import { slotOne, type PartConfig } from "../parts/parts.ts";
 import { deepFreeze } from "../core/world/state.ts";
 import { motorControl } from "./motor.ts";
 import type { MotorMaker, MotorPart } from "./motor-part.ts";
+import { MOTOR_STANCE } from "./motor-part.ts";
 import type { BalanceMaker } from "./balance-part.ts";
 
 /** The whole-body solve and the calibration supplied by its configured balance. */
 export function wholeBodyMotor({ balance, envelope, reference }: { readonly balance: BalanceMaker; readonly envelope: MotorMaker["envelope"]; readonly reference?: MotorMaker["reference"] }): MotorMaker {
   return {
+    requirements: Object.freeze([MOTOR_STANCE]),
     reference,
     make: (built, _muscles, seconds, posture, stanceTuning, assist) => motorControl(built, seconds, posture ?? {}, stanceTuning, assist ?? null, balance),
     envelope,

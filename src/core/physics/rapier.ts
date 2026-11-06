@@ -152,6 +152,7 @@ interface RapierPhysics extends PhysicsWorld {
 export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, revision = "unidentified-rapier",
   { coordinateAngularLimits = false, pointContactFriction = false }: SolverProfile = {}): RapierPhysics {
   const g: Vec3 = gravity ? [0, -STANDARD_GRAVITY.value, 0] : [0, 0, 0];
+  Object.freeze(g);
   let raw = new R.World({ x: g[0], y: g[1], z: g[2] });
   raw.integrationParameters.coordinateAngularLimits = coordinateAngularLimits;
   raw.integrationParameters.pointContactFriction = pointContactFriction;
@@ -555,7 +556,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   const worldDigest = () => {
     if (named !== null) return named;
     const order = [...made.bodies.keys()], at = (body: RapierBody) => order.indexOf(body);
-    return named = digest([revision, ...made.bodies.values(),
+    return named = digest([revision, JSON.stringify({ gravity: g, hz }), ...made.bodies.values(),
       ...[...made.joints.values()].map(({ parent, child, asked }) => `joint ${at(parent)} ${at(child)} ${asked}`),
       ...[...made.grips.values()].map(({ parent, child }) => `grip ${at(parent)} ${at(child)}`),
       ...made.fixed.values()].join("\n"));
@@ -608,8 +609,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       return bytes;
     },
     load(bytes) {
-      // A refused load leaves the world as it was, its motors set.
-      setMotors();
+      // Compatibility is checked before pending motor commands reach the solver.
       const header = bytes.length >= 8 * HEADER ? new Float64Array(bytes.slice(0, 8 * HEADER).buffer) : [];
       const count = header[1] ?? NaN, gripCount = header[2] ?? NaN, jointCount = header[3] ?? NaN;
       if (header[0]! < 0 && header[0]! > SAVE_VERSION) throw new Error("that save is in an older format: make it again");
@@ -654,6 +654,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         next.free();
         throw new Error("that save has other bodies, joints or colliders, or a different physics configuration");
       }
+      setMotors();
       raw.free();
       raw = next;
       moment += 1;

@@ -17,6 +17,7 @@ const OUT = arg("out", resolve(import.meta.dirname, `../../../../.tmp/righting/$
 const forks = [];
 for (const gap of GAPS) {
   const { duel, world, dispose } = await buildBout(forkBout(MODEL, gap));
+  try {
   const righting = rightingOf(duel.duelists.left.minded.state);
   let was = righting.phase;
   while (duel.clock < 40 && !duel.verdict) {
@@ -24,7 +25,7 @@ for (const gap of GAPS) {
     if (was === "idle" && righting.phase !== "idle") forks.push({ gap, clock: Math.round(duel.clock * 1000) / 1000, save: duel.save() });
     was = righting.phase;
   }
-  dispose();
+  } finally { dispose(); }
   console.log(`gap ${gap}: ${forks.filter((f) => f.gap === gap).length} forks`);
 }
 mkdirSync(dirname(OUT), { recursive: true });

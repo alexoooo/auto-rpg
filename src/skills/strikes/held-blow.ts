@@ -16,6 +16,7 @@ import { recordFault, tunedSettings, type SkillRecord } from "../framework/recor
 import { faceFault, STRAIGHT_PUNCH_KEYS, straightPunchExecutor, straightPunchFits, timedChannelFault, validStraightPunch, validStraightPunchPart,
   type StraightPunch, type StrikingFace } from "./straight-punch.ts";
 import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
+import { handConfigurationRefusal } from "./held-strike.ts";
 
 /**
  * **The held blows driven straight**, by kind: what each is thrown with (`item`, by `HELD`'s name),
@@ -100,6 +101,7 @@ function heldBlowPart<K extends HeldBlowKind>(kind: K): ExecutorPart<Config<K>> 
     keys: { kind: true, tuning: true }, tuning: STRAIGHT_PUNCH_KEYS,
     fields: [], slots: [],
     fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint"),
+      (spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"),
       recordFault(blow.label.toLowerCase(), deepFreeze(blow.bodies), validStraightPunch),
       (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) ?? faceFault(config.tuning) : null),
     faults: (config) => config.tuning === undefined || validStraightPunchPart(config.tuning) ? [] : [`invalid ${blow.label.toLowerCase()} tuning`],

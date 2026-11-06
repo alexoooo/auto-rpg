@@ -1,3 +1,4 @@
+import { hasResource, LEG_RESOURCE } from "../../skills/framework/action.ts";
 import type { Readiness, Resource } from "../../skills/framework/action.ts";
 import { SETTLED, type Spot } from "../../skills/intent/action-window.ts";
 import { intentOfSet, type Intent, type SelectedAsk } from "../../skills/intent/intent.ts";
@@ -24,9 +25,9 @@ export interface Situation extends Percepts {
   readonly grace?: number;
   /** What its chooser watches: the cued percepts asked for of any situation its reader made (`Cues`). */
   readonly cues: Cues;
-  /** What the percept part `config` names reads now (`PerceptPart`). */
+  /** What the percept part `config` names reads now (`ProfilePerceptPart`). */
   perceive<V>(config: PartConfig): V;
-  /** What the prediction part `config` names predicts now (`PredictionPart`). */
+  /** What the prediction part `config` names predicts now (`ProfilePredictionPart`). */
   predict<V>(config: PartConfig): V;
 }
 
@@ -42,8 +43,8 @@ export interface Step {
 /**
  * **What an Option is asked to price** besides the state: the target it runs at, by its place in
  * its `targets` (its first unless given), so a search prices each without aiming it (`Choice.aim`);
- * and, for an Option that runs as long as it is held (`Option.open`), the seconds it is priced
- * over (none unless given: it is priced as an instant).
+ * and the chooser's horizon in seconds. An Option that runs as long as it is held (`Option.open`)
+ * is priced over that time (as an instant unless given); a finite walk uses it to bound sampling.
  */
 export interface Ask {
   readonly target?: number;
@@ -218,13 +219,13 @@ export function asking(now: Situation, asked: Asked): readonly Resource[] {
   const held: Resource[] = [];
   for (const request of asked.actions) {
     const live = now.sight.report.actions.find((action) => action.id === request.id);
-    for (const resource of live ? live.holds : now.sight.needs(request.action, request.effector)) if (!held.includes(resource)) held.push(resource);
+    for (const resource of live ? live.holds : now.sight.needs(request.action, request.effector)) if (!hasResource(held, resource)) held.push(resource);
   }
   return held;
 }
 
 /** What footwork holds: the legs. */
-export const LEGS: readonly Resource[] = Object.freeze(["legs"]);
+export const LEGS: readonly Resource[] = Object.freeze([LEG_RESOURCE]);
 
 /**
  * **What a set of options asks in a step**: each member's step as a selected set's

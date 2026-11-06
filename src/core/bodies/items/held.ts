@@ -1,4 +1,5 @@
 import type { Refused } from "../../refusal.ts";
+import { deepFreeze } from "../../world/state.ts";
 import { armed, canHold } from "../human/grip.ts";
 import type { BodySpec, ItemSpec } from "../spec/body.ts";
 import { woodenClub } from "./club.ts";
@@ -62,7 +63,7 @@ export function armedWith(spec: BodySpec, hand: Side, held: Held): BodySpec {
   if (!by) ARMED.set(spec, by = new Map());
   const key = `${hand} ${held}`;
   let made = by.get(key);
-  if (!made) by.set(key, made = armedAnew(spec, hand, held));
+  if (!made) by.set(key, made = deepFreeze(armedAnew(spec, hand, held)));
   return made;
 }
 

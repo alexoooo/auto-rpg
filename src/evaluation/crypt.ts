@@ -115,6 +115,7 @@ export function floorRows(map: Pick<DungeonMap, "size" | "floor">): string[] {
 /** A run's world, played a step at a time: after each step `afterStep`, until `ended`; then its `reading`. */
 export interface BuiltCrypt {
   readonly world: World;
+  readonly state: object;
   readonly run: DungeonRun;
   readonly ended: boolean;
   afterStep(): void;
@@ -138,8 +139,9 @@ export function createCrypt(context: GameContext) {
     try {
     const run = scope.own(new DungeonRun({ ...options, prepared, engine: await loadEngine(engine),
       mind: (participant) => participant.side === "party" ? crypt.mind ?? null : null, party: crypt.commanders?.party, enemies: crypt.commanders?.enemies }, context));
-    const party = run.party, falls: { member: string; time: number }[] = [], down = new Map<string, boolean>(), slain = new Set<string>();
-    let reached = true, leg = -1, began = 0, from: Point | null = null, pending: CryptAct[] = [], done: number | null = null, ended = false, contactSteps = 0, fallenContactSteps = 0;
+    const party = run.party;
+    const state = { falls: [] as { member: string; time: number }[], down: new Map<string, boolean>(), slain: new Set<string>(),
+      reached: true, leg: -1, began: 0, from: null as Point | null, pending: [] as CryptAct[], done: null as number | null, ended: false, contactSteps: 0, fallenContactSteps: 0 };
     const member = (id: string) => {
       const found = party.find((one) => one.id === id);
       if (!found) throw new Error(`no party member ${id}`);
@@ -148,13 +150,13 @@ export function createCrypt(context: GameContext) {
     const actor = (id: string) => run.actors.find((one) => one.id === id) ?? (() => { throw new Error(`no body ${id}`); })();
     /** Begin leg `k`: its acts given one a step, from the next. */
     const begin = (k: number): void => {
-      leg = k; began = run.clock; pending = [...(crypt.script[k]?.acts ?? [])];
+      state.leg = k; state.began = run.clock; state.pending = [...(crypt.script[k]?.acts ?? [])];
       const until = crypt.script[k]?.until;
-      from = until?.kind === "gone" ? member(until.member).feet() : null;
+      state.from = until?.kind === "gone" ? member(until.member).feet() : null;
     };
     /** Give the next act: the person's command to its members, selected first, or a member slain. */
     const act = (): void => {
-      const next = pending.shift()!;
+      const next = state.pending.shift()!;
       switch (next.kind) {
         case "command":
           run.select(next.members);
@@ -163,7 +165,7 @@ export function createCrypt(context: GameContext) {
         case "slain": {
           const body = member(next.member).fighter!;
           body.pool.slay();
-          slain.add(next.member);
+          state.slain.add(next.member);
           return;
         }
         default: { const never: never = next; throw new Error(`no act ${JSON.stringify(never)}`); }
@@ -172,26 +174,26 @@ export function createCrypt(context: GameContext) {
     const met = (until: CryptUntil): boolean => {
       switch (until.kind) {
         case "arrived": return until.members.every((id) => { const task = run.report(member(id)).task; return task === "holding" || task === "standing"; });
-        case "gone": return distance(member(until.member).feet(), from!) >= until.metres;
+        case "gone": return distance(member(until.member).feet(), state.from!) >= until.metres;
         case "held": { const enemy = actor(until.enemy); return enemy.alive && enemy.held === until.held; }
-        case "seconds": return run.clock - began >= until.seconds;
-        case "unaware": return run.clock - began >= until.seconds && run.report(actor(until.enemy)).target === null;
+        case "seconds": return run.clock - state.began >= until.seconds;
+        case "unaware": return run.clock - state.began >= until.seconds && run.report(actor(until.enemy)).target === null;
         default: { const never: never = until; throw new Error(`no condition ${JSON.stringify(never)}`); }
       }
     };
     const bodyOf = new Map<unknown, string>();
     for (const one of party) for (const segment of one.fighter!.built.segments.values()) bodyOf.set(segment.body, one.id);
     begin(0);
-    if (pending.length) act();
+    if (state.pending.length) act();
     complete = true;
     return {
-      world: run.world, run,
-      get ended() { return ended; },
+      world: run.world, run, state,
+      get ended() { return state.ended; },
       afterStep() {
         for (const one of party) {
           const now = !!one.fighter?.body.down;
-          if (now && !down.get(one.id) && one.alive && !slain.has(one.id)) falls.push({ member: one.id, time: run.clock });
-          down.set(one.id, now);
+          if (now && !state.down.get(one.id) && one.alive && !state.slain.has(one.id)) state.falls.push({ member: one.id, time: run.clock });
+          state.down.set(one.id, now);
         }
         let touched = false, touchedFallen = false;
         for (const one of party) {
@@ -202,22 +204,22 @@ export function createCrypt(context: GameContext) {
             if (member(other).alive) touched = true; else touchedFallen = true;
           }
         }
-        if (touched) contactSteps++;
-        if (touchedFallen) fallenContactSteps++;
-        if (ended) return;
-        if (run.status !== "playing" || run.clock >= CRYPT_CAP) { ended = true; return; }
-        if (pending.length) { act(); return; }
+        if (touched) state.contactSteps++;
+        if (touchedFallen) state.fallenContactSteps++;
+        if (state.ended) return;
+        if (run.status !== "playing" || run.clock >= CRYPT_CAP) { state.ended = true; return; }
+        if (state.pending.length) { act(); return; }
         // With no script, the run plays to its end.
-        const current = crypt.script[leg];
+        const current = crypt.script[state.leg];
         if (!current) return;
         if (met(current.until)) {
-          if (leg + 1 >= crypt.script.length) { done = run.clock; ended = true; return; }
-          begin(leg + 1);
-          if (pending.length) act();
-        } else if (run.clock - began > current.most) { ended = true; reached = !current.fixture; }
+          if (state.leg + 1 >= crypt.script.length) { state.done = run.clock; state.ended = true; return; }
+          begin(state.leg + 1);
+          if (state.pending.length) act();
+        } else if (run.clock - state.began > current.most) { state.ended = true; state.reached = !current.fixture; }
       },
-      reading: () => ({ reached, legs: done !== null ? crypt.script.length : leg, of: crypt.script.length, done, falls: falls.map((fall) => ({ ...fall })),
-        contactSteps, fallenContactSteps, seconds: run.clock }),
+      reading: () => ({ reached: state.reached, legs: state.done !== null ? crypt.script.length : state.leg, of: crypt.script.length, done: state.done, falls: state.falls.map((fall) => ({ ...fall })),
+        contactSteps: state.contactSteps, fallenContactSteps: state.fallenContactSteps, seconds: run.clock }),
       dispose: scope.dispose,
     };
     } finally { if (!complete) scope.dispose(); }

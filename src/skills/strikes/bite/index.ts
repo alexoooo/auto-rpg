@@ -1,3 +1,4 @@
+import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../framework/action.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import { supportHeight } from "../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
@@ -47,13 +48,15 @@ declare module "../../../core/data/store.ts" {
 
 /** Whether each setting `tuning` names is a known one, finite and nonnegative. */
 const validBite = (tuning: Partial<BiteTuning>): boolean =>
-  !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => (BITE_SETTINGS as readonly string[]).includes(key) && Number.isFinite(value) && value! >= 0);
+  !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => (BITE_SETTINGS as readonly string[]).includes(key) && Number.isFinite(value) && value! >= 0
+    && (key !== "prepare" && key !== "snap" || value! > 0));
 
 /** Whether `tuning` holds every bite setting, each valid (`validBite`). */
 export const wholeBite = (tuning: Partial<BiteTuning>): boolean => validBite(tuning) && BITE_SETTINGS.every((key) => Object.hasOwn(tuning, key));
 
 /** Whether a body of `spec` has a bite, its jaw (`fitsJaw`) and its record of the bite, or a whole research `tuning` in its place. */
-export const fitsBite = fitsAll<PartConfig & { readonly tuning?: Partial<BiteTuning> }>(fitsJaw, recordFault("bite", deepFreeze(meta.bodies), wholeBite));
+export const fitsBite = fitsAll<PartConfig & { readonly tuning?: Partial<BiteTuning> }>(fitsJaw, recordFault("bite", deepFreeze(meta.bodies), wholeBite),
+  (spec, config) => wholeBite(biteSettings(spec, config)) ? null : "invalid bite settings");
 
 /** The bite's settings on a body of `spec`: its record's, with `config`'s research tuning over them. */
 export const biteSettings = (spec: BodySpec, config: { readonly tuning?: Partial<BiteTuning> }): BiteTuning => tunedSettings(dataOf("bite"), spec, config);
@@ -104,8 +107,9 @@ interface Live {
  * stroke; cancelled where its request is withdrawn before it.
  */
 export function biteExecutor(body: Body, actions: readonly string[], T: BiteTuning, aim: ExecutorMaking["aim"]): Executor {
+  if (!wholeBite(T)) throw new Error("invalid bite settings");
   const built = body.built, muscles = body.muscles, jaw = jawOf(built.spec), { lower, hinge, head, neck, teeth } = mouthOf(built);
-  const effector = jaw.head.name, footprint = Object.freeze([effector, "legs", "trunk"]);
+  const effector = jaw.head.name, footprint = Object.freeze([segmentResource(effector), LEG_RESOURCE, TRUNK_RESOURCE]);
   const jawName = channelName(hinge, 0), jawChannel = muscles.channel(jawName), tip = lower.spec.points!.bite!.value;
   const neckName = channelName(neck, 1), neckChannel = muscles.channel(neckName), retract = Math.max(neck.dofs[1]!.spec.min.value, -T.neckRetract);
   const paws = pawReader(built).state.endpoints, own = new Set<BodyRef>([...built.segments.values()].map((part) => part.body));

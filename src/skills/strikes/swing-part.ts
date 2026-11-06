@@ -1,3 +1,4 @@
+import { handConfigurationRefusal } from "./held-strike.ts";
 import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import clubMeta from "../../../assets/skills/strikes/club-blow/club-blow.meta.json" with { type: "json" };
 import cutMeta from "../../../assets/skills/strikes/cut/cut.meta.json" with { type: "json" };
@@ -59,7 +60,7 @@ function swingPart<K extends SwingKind>(kind: K): ExecutorPart<Config<K>> {
     role: "executor", requires: [SUPPORT_REFERENCE], label: swing.label, stage: "game", defaults: { kind } as Config<K>,
     keys: { kind: true, tuning: true }, tuning: SWING_KEYS,
     fields: [], slots: [],
-    fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), recordFault(swing.label.toLowerCase(), deepFreeze(swing.bodies), validSwing),
+    fits: fitsAll((spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"), strikesWithOneOf("hand.left", "hand.right"), recordFault(swing.label.toLowerCase(), deepFreeze(swing.bodies), validSwing),
       (spec, config) => config.tuning ? swingChannelFault(spec, config.tuning) : null),
     faults: (config) => config.tuning === undefined || validSwingPart(config.tuning) ? [] : [`invalid ${swing.label.toLowerCase()} tuning`],
     reads: () => [kind], effectors: ["hand.left", "hand.right"], aims: true, meets: swing.mechanism,

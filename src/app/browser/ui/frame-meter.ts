@@ -54,7 +54,7 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
   let since = performance.now(), previous: number | null = null, frames = 0, cpu = 0, physics = 0, substeps = 0;
   const worker = { steps: 0, ms: 0, speed: null as number | null };
   let gpuTotal = gpu?.total ?? 0, gpuCount = gpu?.count ?? 0;
-  const sample = { frame: 0, interval: 0, physics: 0, steps: 0 };
+  const sample = { frame: 0, interval: 0, physics: 0, worker: 0, steps: 0 };
   const reset = () => {
     since = performance.now(); previous = null; frames = cpu = physics = substeps = 0; worker.steps = worker.ms = 0;
     gpuTotal = gpu?.total ?? 0; gpuCount = gpu?.count ?? 0;
@@ -91,12 +91,12 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
     },
     /** Counts the steps a worker sent, the worker's time for them, ms, and the world's speed now; inside `frame`. */
     world(received: { readonly steps: number; readonly ms: number }, speed: number): void {
-      sample.steps += received.steps; worker.steps += received.steps; worker.ms += received.ms; worker.speed = speed;
+      sample.worker += received.ms; sample.steps += received.steps; worker.steps += received.steps; worker.ms += received.ms; worker.speed = speed;
     },
     /** Runs one frame's work and counts it. */
     frame(work: () => void): Readonly<typeof sample> {
       const started = performance.now();
-      sample.physics = sample.steps = 0;
+      sample.physics = sample.worker = sample.steps = 0;
       sample.interval = previous === null ? 0 : started - previous;
       previous = started;
       work();

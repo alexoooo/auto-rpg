@@ -32,9 +32,10 @@ const DRILLED = ["option/straight-punch"];
  * A subject given whole (a file or JSON): its mind and skill, and the character its bodies take
  * where it names one (`character`, as a preset's).
  */
-function givenSubject(one: { readonly id: string; readonly label: string; readonly value: Json }): Subject {
-  const character = (one.value as { readonly character?: AttributeOverrides } | null)?.character;
-  return { id: one.id, label: one.label, parts: [{ id: `strike:${one.id}`, value: one.value }], value: one.value, ...(character === undefined ? {} : { character }) };
+function givenSubject(one: Exclude<SubjectChoice[number], string>): Subject {
+  const value = one.value as { readonly mind: Json; readonly character?: AttributeOverrides };
+  const subject = mindSubject(one.id, one.label, value.mind, { ...one, character: one.character ?? value.character });
+  return { ...subject, value: one.value };
 }
 
 /** The loadout `key` names, its left hand first (`buckler,club`), as `loadoutKey` writes it. */

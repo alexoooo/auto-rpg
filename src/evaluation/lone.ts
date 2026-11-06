@@ -55,6 +55,7 @@ export interface LoneCase {
 /** A lone body's world, for its reader. */
 export interface BuiltLone {
   readonly world: World;
+  readonly state: object;
   readonly body: Combatant;
   dispose(): void;
 }
@@ -76,9 +77,9 @@ export function createLone(context: GameContext) {
       const world = scope.own(createWorld(await loadEngine(engine)));
       addArenaSolids(world.physics);
       const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
-      let orders: Orders | null = null, next = 0, steps = 0;
+      const state = { orders: null as Orders | null, next: 0, steps: 0 };
       const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec, rules: rulebook("arena"),
-        mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: scope.own(createSenses(world)), out: () => false, orders: () => orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
+        mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: scope.own(createSenses(world)), out: () => false, orders: () => state.orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
         ...(lone.seed !== undefined ? { seed: lone.seed } : {}) });
       scope.own(body.body); scope.own(body.built);
       const wind = lone.gusts ? startWind(body.built, world, labGusts(lone.model), lone.seed ?? 1) : null;
@@ -87,9 +88,9 @@ export function createLone(context: GameContext) {
       const trunk = body.built.segments.get("middleTrunk"), point = new Vector3(), impulse = new Vector3();
       // First in every step: the cues that fall on it, before the mind reads its orders.
       world.sense(() => {
-        for (; next < cues.length && cues[next]!.step <= steps; next++) {
-          const cue = cues[next]!;
-          if (cue.orders !== undefined) orders = cue.orders;
+        for (; state.next < cues.length && cues[state.next]!.step <= state.steps; state.next++) {
+          const cue = cues[state.next]!;
+          if (cue.orders !== undefined) state.orders = cue.orders;
           if (cue.shove) {
             if (!trunk) throw new Error("a shove needs a middle trunk");
             const way = cue.shove.degrees * Math.PI / 180, pose = trunk.body.pose, centre = trunk.body.massProperties.centre;
@@ -97,10 +98,10 @@ export function createLone(context: GameContext) {
             trunk.body.applyImpulse(impulse.set(cue.shove.impulse * sin(way), 0, cue.shove.impulse * cos(way)), point);
           }
         }
-        steps++;
+        state.steps++;
       });
       complete = true;
-      return { world, body, dispose: scope.dispose };
+      return { world, body, state, dispose: scope.dispose };
     } finally { if (!complete) scope.dispose(); }
   }
 

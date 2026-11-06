@@ -1,3 +1,6 @@
+import { constructionScope } from "../core/construction.ts";
+import { partRequirements } from "../parts/parts.ts";
+import { motorRequirementRefusal } from "../control/motor-part.ts";
 import { isRefused } from "../core/refusal.ts";
 import { supportHeight } from "../control/support-reference.ts";
 /**
@@ -204,9 +207,18 @@ export function createRising(context: GameContext) {
     if (!Number.isFinite(factor) || factor < 1 || factor > 1.5) throw new Error("research strength factor stays between 1 and 1.5");
     const technique = job.technique ?? "sit-back";
     if (!TECHNIQUES[technique] || !isWayUp(TECHNIQUES[technique])) throw new Error(`no way up ${technique}`);
+    const rejected = (error: string): TechniqueResult => ({ ...job, factor, reached: false, survived: false, end: "rejected start", phase: null, seconds: cap, error, trail: [], saturation: {} });
+    if (job.after && !TECHNIQUES[job.after]) return rejected(`unknown predecessor ${job.after}`);
     const destination = TECHNIQUES[technique].edges[0]!.to;
     if (!["workshop-fighter", "workshop-rogue", "crypt-skeleton"].includes(model)) throw new Error(`unsupported humanoid technique model ${model}`);
     const spec = strengthSpec(armedWith(humanoidSpec(model as "workshop-fighter"), "right", job.held ?? "empty"), factor);
+    const kit = kitOf(partLookup, spec);
+    for (const name of [technique, ...(job.after ? [job.after] : [])]) {
+      const part = TECHNIQUES[name];
+      const refusal = part.fits(spec, part.defaults, partLookup)
+        ?? motorRequirementRefusal(kit.motor, spec, partRequirements(partLookup, "technique", part.defaults, spec));
+      if (refusal) return rejected(`${name}: ${refusal}`);
+    }
     const start = job.start ?? "placed", posture = job.posture ?? "squat", seed = job.seed ?? 1;
     const key = JSON.stringify([model, job.held ?? "empty", start, posture, seed]);
     let fixture = starts.get(key);
@@ -217,13 +229,15 @@ export function createRising(context: GameContext) {
     }
     if ("refused" in fixture) return { ...job, factor, reached: false, survived: false, end: "rejected start", phase: null, seconds: cap, error: fixture.refused, trail: [], saturation: {} };
     const placement = fixture;
-    const world = createWorld(await loadEngine("rapier"));
+    const lifetime = constructionScope();
+    try {
+    const world = lifetime.own(createWorld(await loadEngine("rapier")));
     world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
-    const built = buildBody(spec, world, placement), reader = groundReading(built, world.dt);
+    const built = lifetime.own(buildBody(spec, world, placement)), reader = groundReading(built, world.dt);
     let run!: TechniqueRun, predecessor: TechniqueRun | null = null;
     const control = { active: start !== "shoved", end: null as string | null, from: null as number | null, ended: null as number | null,
       predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
-    const body = commandedBody(built, world, { servoSeconds: .1, motor: kitOf(partLookup, spec).motor }, [(own, view, into, afterPhysics) => {
+    const body = lifetime.own(commandedBody(built, world, { servoSeconds: .1, motor: kit.motor }, [(own, view, into, afterPhysics) => {
       const kit = kitOf(partLookup, own.spec);
       const part: TechniquePart = TECHNIQUES[technique], after: TechniquePart | undefined = job.after ? TECHNIQUES[job.after] : undefined;
       run = part.make(own, view, into, kit, part.defaults, afterPhysics);
@@ -256,11 +270,10 @@ export function createRising(context: GameContext) {
           control.end = run.step(view.ground, senses, bodyControl, dt);
           if (control.end) { control.active = false; control.ended = into.time; }
         } } };
-    }]);
+    }]));
     body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: stanceFeet(spec).map((foot) => foot.end.name), centre: null, height: supportHeight(view) - .03, heading: 0 } }));
     const trail: TrailEntry[] = [], saturation: Record<string, { peak: number; saturatedSeconds: number }> = {}, last = { phase: "", position: "" };
     let survived = false, verified = false;
-    try {
       while (world.time < cap + 2.1 + (predecessor ? 8 : 0) + 4) {
         if (start === "shoved" && !control.shoved && world.time >= 1) {
           const radians = (job.degrees ?? 0) * Math.PI / 180, mass = [...built.segments.values()].reduce((sum, part) => sum + part.rigid.mass, 0);
@@ -297,7 +310,7 @@ export function createRising(context: GameContext) {
         endedAt: control.ended ?? world.time, candidateBegun: control.candidateFrom !== null, trail, saturation,
         predecessor: control.predecessor, predecessorSeconds: control.predecessorSeconds,
         balance: 0, assist: { force: body.assist.given.force.length(), moment: body.assist.given.moment.length() } };
-    } finally { body.dispose(); built.dispose(); world.dispose(); }
+    } finally { lifetime.dispose(); }
   }
 
   /**

@@ -1,7 +1,7 @@
+import { segmentResource, poseResource, LEG_RESOURCE, TRUNK_RESOURCE, ASSIST_RESOURCE } from "../framework/action.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import { heldBody, heldCommand, heldPushes } from "./held-body.ts";
 import type { Clock } from "../../core/world/clock.ts";
-import { bodyEffectors } from "../../control/effectors.ts";
 import type { ActionClaim, ActionEnding, ActionRequest, Executor, LifecycleUpdate, Phase, Readiness, Resource } from "../framework/action.ts";
 import type { ActionBinding, ExecutorBinding } from "../framework/action-instances.ts";
 import type { MindKit } from "../kit.ts";
@@ -22,7 +22,7 @@ function groundBody(body: Body, runs: readonly TechniqueRun[]) {
   const n = body.muscles.channels.length;
   const state = { ...heldCommand(n), carriedAt: -Infinity };
   const held = heldBody(body, state), { own, control } = held, pushes = heldPushes(own.muscles, control.muscles);
-  const needs: readonly Resource[] = Object.freeze([...bodyEffectors(body.built).map((effector) => effector.model.segment), ...body.built.configurations.model.map(one => `pose:${one.segment}`), "legs", "trunk", "assist"]);
+  const needs: readonly Resource[] = Object.freeze([...[...body.built.segments.keys()].map(segmentResource), ...body.built.configurations.model.map(one => poseResource(one.segment)), LEG_RESOURCE, TRUNK_RESOURCE, ASSIST_RESOURCE]);
   return {
     state, own, control, needs, afterPhysics: held.afterPhysics,
     /** A ground action runs at `view`'s step. */

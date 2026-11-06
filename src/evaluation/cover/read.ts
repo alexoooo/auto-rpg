@@ -18,15 +18,16 @@ export type Met = "head" | "guard" | "body";
 type CoverTouch = { readonly time: number; readonly by: string; readonly on: string; readonly met: Met; readonly damage: number };
 
 /**
- * How a trial came out: `fell`, the subject down at any time of the trial; `hit`, a touch on its
+ * How a trial came out: `unreached`, the opponent attempted no attack; `fell`, the subject down at any time of the trial; `hit`, a touch on its
  * head; `struck`, on the rest of it but not its head; `covered`, its guard alone met the touches;
  * `untouched`, nothing of the opponent's met it.
  */
-type CoverOutcome = "fell" | "hit" | "struck" | "covered" | "untouched";
+type CoverOutcome = "unreached" | "fell" | "hit" | "struck" | "covered" | "untouched";
 
 /** What a trial came to. */
 export type CoverReading = {
   readonly outcome: CoverOutcome;
+  readonly attempted: boolean;
   /** How many touches met it, by where. */
   readonly touches: Readonly<Record<Met, number>>;
   /** The hit points the subject lost in the opponent's touches, all of them, and those on its head. */
@@ -74,12 +75,15 @@ export function readCover({ world, duel }: { readonly world: World; readonly due
   const spec = left.built.spec, head = new Set(regionSegments(spec, { kind: "mark", mark: "high" }));
   const guard = new Set(SIDES.flatMap((side) => armOf(spec, `hand.${side}`)));
   const shield = spec.held?.find((held) => held.segment === "hand.left")?.item.name ?? null;
-  let down = false, covering = 0, last = world.time;
+  const foe = duel.duelists.right.minded.skills;
+  const attacks = new Set((foe?.kit ?? []).filter(entry => entry.regions.length > 0).map(entry => entry.action));
+  const state = { down: false, covering: 0, last: world.time, attempted: false };
   return {
     afterStep() {
-      if (skills.report.covering.length > 0) covering += world.time - last;
-      last = world.time;
-      down ||= left.body.down;
+      if (skills.report.covering.length > 0) state.covering += world.time - state.last;
+      state.last = world.time;
+      state.down ||= left.body.down;
+      state.attempted ||= [...foe?.report.actions ?? [], ...foe?.report.ledger ?? []].some(action => attacks.has(action.action) && action.target.kind === "body");
     },
     get ended() { return world.time >= seconds; },
     reading() {
@@ -92,7 +96,7 @@ export function readCover({ world, duel }: { readonly world: World; readonly due
       });
       const count = (met: Met) => touches.filter((touch) => touch.met === met).length;
       const counts = { head: count("head"), guard: count("guard"), body: count("body") };
-      const outcome: CoverOutcome = down ? "fell" : counts.head ? "hit" : counts.body ? "struck" : counts.guard ? "covered" : "untouched";
+      const outcome: CoverOutcome = !state.attempted ? "unreached" : state.down ? "fell" : counts.head ? "hit" : counts.body ? "struck" : counts.guard ? "covered" : "untouched";
       const taken = touches.reduce((sum, touch) => sum + touch.damage, 0), headTaken = touches.reduce((sum, touch) => sum + (touch.met === "head" ? touch.damage : 0), 0);
       let blows = 0, shielded = 0;
       touches.forEach((touch, k) => {
@@ -100,7 +104,7 @@ export function readCover({ world, duel }: { readonly world: World; readonly due
         blows++;
         if (shield !== null && touch.on === shield) shielded++;
       });
-      return { outcome, touches: counts, taken, headTaken, covering, first: touches[0] ?? null, blows, shielded, down, seconds: world.time };
+      return { outcome, attempted: state.attempted, touches: counts, taken, headTaken, covering: state.covering, first: touches[0] ?? null, blows, shielded, down: state.down, seconds: world.time };
     },
   };
 }

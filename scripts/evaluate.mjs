@@ -43,7 +43,7 @@ import { recordingKey } from "../src/core/world/recording.ts";
 import { EVALUATIONS } from "../src/app/node/evaluation.ts";
 import { CONTROLLERS, MINDS } from "../src/app/catalog.ts";
 import { poolsOf } from "../src/evaluation/history.ts";
-import { harnessOf, readRecord, recordedSubject, recordEnd, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
+import { harnessOf, readRecord, recordedSubject, recordEnd, recordIdentity, recordName, recordText, rowOf, indexRows, restoredSubject } from "../src/evaluation/record.ts";
 import { COMMAND_DELAY } from "../src/core/world/world.ts";
 import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf, tableOf } from "../src/evaluation/run.ts";
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
@@ -67,14 +67,7 @@ const filesIn = (directory) => existsSync(directory)
 
 /** The rows of `sources` by key: two that differ under one key stop the run, naming both. */
 function rowsFrom(sources) {
-  const rows = new Map(), from = new Map();
-  for (const { name, rows: found } of sources) for (const row of found) {
-    const had = rows.get(row.key);
-    if (had && !sameRow(had, row)) throw new Error(`case ${row.key} reads differently in ${from.get(row.key)} and ${name}`);
-    // A row that says how long it played is kept over one from before rows said it.
-    if (!had || had.played === null && row.played != null) { rows.set(row.key, rowOf(row)); from.set(row.key, name); }
-  }
-  return rows;
+  return new Map([...indexRows(sources)].map(([key, { row }]) => [key, rowOf(row)]));
 }
 
 const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
@@ -161,10 +154,12 @@ function baselineOf(evaluation, first, previous, chosen, records) {
   const baseline = [];
   for (const one of mine) {
     const old = records.flatMap(({ header }) => header.subjects)
-      .filter((each) => each.id === one.id && each.value !== null && recordingKey(each.value) !== recordingKey(one.value)).at(-1);
+      .filter((each) => each.id === one.id && each.value !== null && (each.models === undefined || each.character === undefined || recordingKey({ value: each.value, models: each.models, character: each.character }) !== recordingKey({ value: one.value, models: one.models ?? null, character: one.character ?? null }))).at(-1);
     if (!old) continue;
     const tag = old.version.version.slice(0, 8), id = `${prefix}@${tag}${one.id.slice(prefix.length)}`;
-    baseline.push({ id, label: `${old.label} (${tag})`, value: old.value, parts: [] });
+    const restored = restoredSubject(old);
+    if (isRefused(restored)) throw new Error(restored.refused);
+    baseline.push({ ...restored, id, label: `${old.label} (${tag})` });
     counterpart.set(one.id, id);
     revived.set(one.id, old);
   }

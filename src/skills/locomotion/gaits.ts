@@ -19,9 +19,9 @@ export type GaitName = string;
 
 /**
  * **The stock gaits**, by name: the game's controller and its searched settings, none of them a
- * person's to tune. Braced and the run are one walk and run (`WalkRunConfig`), braced told it may
- * not run, so that Move changes between them at once and a run gives way to the stance's walk at
- * its next landing.
+ * person's to tune. Braced and the run configure the walk and run (`WalkRunConfig`) separately, braced
+ * told it may not run. Their implementation shares motion for identical physical settings, so
+ * Move changes permission at once while a run finishes its current landing.
  */
 const DEFAULT_GAITS = {
   "braced": { label: "Braced", legs: { kind: "walk-run", runs: false } },

@@ -28,7 +28,7 @@ const evals = Number(option("evals", 1500));
 // Row names hold commas, so `--rows` takes them apart at semicolons.
 const only = option("rows", null)?.split(";").map((name) => name.trim());
 const variants = option("variants", Object.keys(VARIANTS).join(",")).split(",");
-const OUT = new URL("../../runs/postures", import.meta.url);
+const OUT = new URL("../../runs/postures/", import.meta.url);
 const run = (jobs) => runJobs(jobs, { lanes, out: OUT, defaults: { evals } });
 
 /** Each row, once a height for a row that scans them. */

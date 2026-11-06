@@ -1,3 +1,4 @@
+import { constructionScope } from "../../core/construction.ts";
 import type { CommanderConfig } from "../../minds/command/kind.ts";
 import type { MemberReport } from "../../minds/command/team.ts";
 import { teamOfOne, type TeamOfOne } from "./team.ts";
@@ -350,16 +351,18 @@ export class Duel {
     // Each side senses when the clock gives the verdict at the latest: the cap, or a drain's end before it.
     let ends = this.cap;
     for (const [rule, config] of this.ends) ends = Math.min(ends, rule.drainedBy?.(config) ?? Infinity);
-    this.senses = createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), { begins: start, ends: start + ends });
+    const lifetime = constructionScope();
+    try {
+    this.senses = lifetime.own(createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), { begins: start, ends: start + ends }));
     // In the step's sensing phase, after the senses and before every mind: a taped order is given
     // before the step it names.
-    this.feeding = world.sense(() => {
+    this.feeding = lifetime.own(world.sense(() => {
       const { queued } = this.state;
       while (queued.length > 0 && queued[0]!.step <= this.steps) {
         const { side, orders } = queued.shift()!;
         this.order(side, orders);
       }
-    });
+    }));
     const contactLabels = new Map<number, ContactTarget>();
     const duelists = {} as Record<Side, Duelist>;
     for (const { side, model, config, enlisting } of enlistments) {
@@ -375,6 +378,7 @@ export class Duel {
         // Out of the fight it is left to itself, as a side nobody orders is.
         orders: (sensed) => sensed.out ? null : given[side],
       });
+      lifetime.own(combatant.built); lifetime.own(combatant.body);
       for (const [segment, part] of combatant.built.segments) contactLabels.set(part.body.id, Object.freeze({ kind: "body", body: side, segment, guard: spec.marks.guards.includes(segment) }));
       const { pool, body } = combatant;
       duelists[side] = {
@@ -390,14 +394,12 @@ export class Duel {
     });
     const shoveFaulted = recipe.shove ? shoveFaults(recipe.shove, duelists[recipe.shove.side]?.built ?? duelists.left.built) : [];
     if (spawnFaults.length || shoveFaulted.length) {
-      this.feeding.dispose(); this.senses.dispose();
-      for (const side of SIDES) { duelists[side].body.dispose(); duelists[side].built.dispose(); }
       throw new Error(spawnFaults.length ? `invalid ${level} spawn:\n${spawnFaults.join("\n")}` : `invalid shove: ${shoveFaulted.join("; ")}`);
     }
-    this.watch = watchBlows(world, SIDES.map((side) => duelists[side]), this.rules, hooks.onBlow);
+    this.watch = lifetime.own(watchBlows(world, SIDES.map((side) => duelists[side]), this.rules, hooks.onBlow));
     const sideState = ({ body, minded, pool }: Duelist): SideState => ({ body: body.state, mind: minded.state, pool: pool.state });
     // Each asked in the sensing phase after the tape's orders, as a page's team is.
-    const led = SIDES.flatMap((side) => { const config = recipe.commanders?.[side]; return config ? [[side, teamOfOne(this, side, config, context.commanders)] as const] : []; });
+    const led = SIDES.flatMap((side) => { const config = recipe.commanders?.[side]; return config ? [[side, lifetime.own(teamOfOne(this, side, config, context.commanders))] as const] : []; });
     this.teams = Object.fromEntries(led);
     this.state = {
       start, startStep, verdict: null, given, tape: [], queued: [],
@@ -407,10 +409,11 @@ export class Duel {
       ...(led.length ? { commanders: Object.fromEntries(led.map(([side, team]) => [side, team.state])) } : {}),
       ...(recipe.shove ? { shove: { at: null } } : {}),
     };
-    this.judging = world.afterStep(() => this.judge());
-    this.rail = recipe.rail ? carryOnRail(world, duelists[recipe.rail.side].built, recipe.rail, () => this.clock) : null;
-    this.shoving = recipe.shove ? shoveOnCue(world, duelists[recipe.shove.side].built, recipe.shove, this.state.shove!, () => this.clock) : null;
+    this.judging = lifetime.own(world.afterStep(() => this.judge()));
+    this.rail = lifetime.own(recipe.rail ? carryOnRail(world, duelists[recipe.rail.side].built, recipe.rail, () => this.clock) : null);
+    this.shoving = lifetime.own(recipe.shove ? shoveOnCue(world, duelists[recipe.shove.side].built, recipe.shove, this.state.shove!, () => this.clock) : null);
     for (const side of SIDES) hooks.onBuilt?.(duelists[side], duelists[side].built);
+    } catch (error) { lifetime.dispose(); throw error; }
   }
 
   /** Null while the bout is on. */

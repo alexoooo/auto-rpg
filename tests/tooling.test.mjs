@@ -8,7 +8,7 @@ import { changeOf } from "../scripts/entrant-check.mjs";
 import { importRun } from "../scripts/evaluation-import.mjs";
 import { hashBuildInputs } from "../scripts/build-identity.mjs";
 import { learningWorker } from "../research/learning-worker.mjs";
-import { workerJobs } from "../research/worker-jobs.mjs";
+import { workerJobPool, workerJobs } from "../research/worker-jobs.mjs";
 import { Worker } from "node:worker_threads";
 
 const temporary = run => {
@@ -61,6 +61,31 @@ test("a reported research job failure closes every worker before rejecting", asy
     const worker = new Worker('const {parentPort}=require("node:worker_threads");parentPort.on("message",()=>parentPort.postMessage({error:"research job failed"}));', { eval: true });
     workers.push(worker); return worker;
   } }), /research job failed/);
+  assert.equal(workers.length, 2);
+  assert.ok(workers.every(worker => worker.threadId === -1));
+});
+
+
+test("closing research workers settles queued work and refuses work after close", async () => {
+  const workers = [];
+  const pool = workerJobPool({ lanes: 1, create: () => {
+    const worker = new Worker('const {parentPort}=require("node:worker_threads");parentPort.on("message",()=>{});', { eval: true });
+    workers.push(worker); return worker;
+  } });
+  const pending = assert.rejects(pool.run([0, 1]), /worker pool closed/);
+  await pool.close(); await pending;
+  assert.equal(workers.length, 1);
+  assert.equal(workers[0].threadId, -1);
+  await assert.rejects(pool.run([2]), /worker pool closed/);
+});
+
+test("research worker exit after a completed sibling rejects and closes all workers", async () => {
+  const workers = [], completed = [];
+  await assert.rejects(workerJobs([0, 1], { lanes: 2, create: () => {
+    const worker = new Worker('const {parentPort}=require("node:worker_threads");parentPort.on("message",job=>{if(job===0)parentPort.postMessage({result:0});else setTimeout(()=>process.exit(0),30);});', { eval: true });
+    workers.push(worker); return worker;
+  }, result: ({ result }) => { completed.push(result); return result; } }), /research worker exited/);
+  assert.deepEqual(completed, [0]);
   assert.equal(workers.length, 2);
   assert.ok(workers.every(worker => worker.threadId === -1));
 });

@@ -1,3 +1,4 @@
+import { workerJobs } from "../../worker-jobs.mjs";
 /**
  * The battery of falls and its table: every model shoved
  * sixteen ways with the club in hand and with nothing, and the fall of each of the arena's nine
@@ -48,23 +49,8 @@ cells.push({
 
 /** Every job on `lanes` workers, each worker one fall at a time; the rows in the jobs' order, each back by message. */
 async function run(jobs) {
-  const rows = new Array(jobs.length);
-  const pool = Array.from({ length: Math.min(lanes, jobs.length) }, () => new Worker(new URL("./core-rise-worker.mjs", import.meta.url)));
-  let next = 0;
-  await Promise.all(pool.map((worker) => new Promise((resolve, reject) => {
-    const feed = () => {
-      if (next >= jobs.length) { worker.terminate(); resolve(); return; }
-      const id = next++;
-      worker.once("message", ({ result, error }) => {
-        if (error) { reject(new Error(error)); return; }
-        rows[id] = result;
-        feed();
-      });
-      worker.postMessage({ ...jobs[id], mind, watch, id });
-    };
-    feed();
-  })));
-  return rows;
+  return workerJobs(jobs, { lanes, create: () => new Worker(new URL("./core-rise-worker.mjs", import.meta.url)),
+    message: (job, id) => ({ ...job, mind, watch, id }) });
 }
 
 const median = (values) => {

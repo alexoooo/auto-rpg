@@ -4,8 +4,6 @@
  * shoves by a script (`cases.ts`), its gaits the ones its mind chooses for them. The subject is a
  * mind that takes orders.
  */
-import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
-import type { BodyModel } from "../../core/bodies/models.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { mindSubject, type Evaluation, type Figure, type Json, type Subject, type SubjectChoice, type Table } from "../evaluation.ts";
 import type { BuiltLone } from "../lone.ts";
@@ -16,17 +14,6 @@ import type { Orders } from "../../skills/intent/orders.ts";
 import type { LocomotionReading } from "./read.ts";
 import { createLocomotionCases, scriptOf, type LocomotionCondition } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
-
-/**
- * A mind given whole as a subject: a config, or `{ mind, character, models }`, a config with the
- * character its bodies take and the bodies it is calibrated for, as a preset names them.
- */
-function givenMind(id: string, label: string, value: Json): Subject {
-  const given = value as { readonly mind?: Json; readonly character?: AttributeOverrides; readonly models?: readonly BodyModel[] } | null;
-  return given && typeof given === "object" && !Array.isArray(given) && given.mind !== undefined
-    ? mindSubject(id, label, given.mind, { ...(given.character ? { character: given.character } : {}), ...(given.models ? { models: given.models } : {}) })
-    : mindSubject(id, label, value);
-}
 
 /** Whether a walk came to its pace: along within 0.8 to 1.25 of it, under a quarter of it across, on its feet. */
 const onPace = (r: LocomotionReading): boolean => !r.fell && r.along !== null && r.across !== null && r.along >= .8 && r.along <= 1.25 && Math.abs(r.across) < .25;
@@ -101,9 +88,9 @@ export function createLocomotionIndex(context: GameContext) {
   const { controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const { LOCOMOTION_CASES } = createLocomotionCases(context);
 
-  /** A mind named or given whole, as a subject: a preset (its calibration and character), a kind's defaults, or a config (`givenMind`). */
+  /** A mind named or given whole, as a subject: a preset (its calibration and character), a kind's defaults, or a complete configuration (`mindSubject`). */
   function mindSubjects(choice: SubjectChoice, none: readonly string[]): readonly Subject[] {
-    return (choice.length > 0 ? choice : none).map((one) => typeof one !== "string" ? givenMind(one.id, one.label, one.value)
+    return (choice.length > 0 ? choice : none).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value, one)
       : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one]!.label, MINDS[one]!.config as unknown as Json, MINDS[one])
       : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one]!.label, CONTROLLERS[one]!.defaults as unknown as Json)
       : (() => { throw new Error(`${one} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind (${Object.keys(CONTROLLERS).join(", ")}), or a config`); })());

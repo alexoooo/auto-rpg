@@ -1,3 +1,4 @@
+import { hasResource, segmentResource } from "../../skills/framework/action.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { coveringHand } from "../../skills/intent/cover-hand.ts";
@@ -40,7 +41,7 @@ export function covers(spec: BodySpec): readonly Option[] {
     return state.hand = coveringHand(spec, dx * cos(h) - dz * sin(h) >= 0 ? "right" : "left");
   };
   const OFF = blocked("no blow for a hand to cover"), HELD = blocked("an action holds the covering hand");
-  const claims: Readonly<Record<Side, readonly Resource[]>> = { left: Object.freeze(["hand.left"]), right: Object.freeze(["hand.right"]) };
+  const claims: Readonly<Record<Side, readonly Resource[]>> = { left: Object.freeze([segmentResource("hand.left")]), right: Object.freeze([segmentResource("hand.right")]) };
   const sides = SIDES.filter((side) => spec.segments.some((segment) => segment.name === `hand.${side}`));
   const option: Option = {
     name: "cover", state,
@@ -49,7 +50,7 @@ export function covers(spec: BodySpec): readonly Option[] {
     entry: (now) => {
       const side = handAt(now);
       if (side === null || !sides.includes(side)) return OFF;
-      return now.sight.report.actions.some((action) => action.holds.includes(`hand.${side}`)) ? HELD : READY;
+      return now.sight.report.actions.some((action) => hasResource(action.holds, segmentResource(`hand.${side}`))) ? HELD : READY;
     },
     open: true, status: () => "yields", begin() {}, end() {},
     model: (at, ask) => at.incoming ? holding(at, ask, (1 - STOPS) * at.predictions.danger) : null,

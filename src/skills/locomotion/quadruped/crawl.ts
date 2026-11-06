@@ -33,6 +33,7 @@ function overPaws(built: ReadBody, paws: readonly string[]): readonly [number, n
  * `built`, its trunk `root`, on its paws `names` as `paws` reads them.
  */
 export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_CRAWL) {
+  if (!validCrawl(T)) throw new Error("invalid crawl settings");
   const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
   const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
     const m = p.mass.value / mass, at = p.centreOfMass.value;
@@ -156,14 +157,23 @@ export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, name
   return skill;
 }
 
+/** The crawl's complete settings keep travel and every consumed time divisor positive. */
+export function validCrawl(settings: typeof REPTILE_CRAWL): boolean {
+  return !!settings && typeof settings === "object" && !Array.isArray(settings)
+    && Object.keys(REPTILE_CRAWL).every(key => Object.hasOwn(settings, key))
+    && Object.entries(settings).every(([key, value]) => Object.hasOwn(REPTILE_CRAWL, key) && Number.isFinite(value) && value >= 0)
+    && settings.stride > 0 && settings.settle + settings.shift + settings.swing + settings.plant > 0;
+}
+
 /** **The crawl**'s config: research settings over `REPTILE_CRAWL`, none in the game. */
 interface CrawlConfig { readonly kind: "paw-crawl"; readonly tuning?: Partial<typeof REPTILE_CRAWL> }
 
 /** **The crawl** as a gait: the quadruped's close and careful steps. */
 export const CRAWL_PART: PawGaitPart<CrawlConfig> = deepFreeze({
   role: "paw-gait", label: "Crawl", stage: "game", fields: [], slots: [], defaults: { kind: "paw-crawl" }, keys: { kind: true, tuning: true },
-  tuning: Object.keys(REPTILE_CRAWL), fits: fitsPaws,
-  faults: (config: CrawlConfig) => (config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning) && Object.entries(config.tuning).every(([key, value]) => Object.hasOwn(REPTILE_CRAWL, key) && Number.isFinite(value))) ? [] : ["invalid crawl setting"],
+  tuning: Object.keys(REPTILE_CRAWL), fits: (spec, config) => fitsPaws(spec) ?? (validCrawl({ ...REPTILE_CRAWL, ...config.tuning }) ? null : "invalid crawl settings"),
+  faults: (config: CrawlConfig) => config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning)
+    && validCrawl({ ...REPTILE_CRAWL, ...config.tuning }) ? [] : ["invalid crawl settings"],
   make(built: ReadBody, root: ReadSegment, reading: PawReading, paws: readonly string[], config: CrawlConfig) {
     const settings = { ...REPTILE_CRAWL, ...config.tuning }, skill = crawl(built, root, reading, paws, settings);
     // A paw's step takes its settle, its shift, its swing and its plant; each paw steps once a stride, and a heading turns a yaw step a stride. It steps any way.

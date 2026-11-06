@@ -1,3 +1,4 @@
+import { hasResource, segmentResource, LEG_RESOURCE, BODY_RESOURCE } from "../framework/action.ts";
 import type { ActionRequest, Resource } from "../framework/action.ts";
 import type { GaitName } from "../locomotion/gaits.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
@@ -79,7 +80,7 @@ export interface SelectedAsk {
 }
 
 /** Whether `claims` hold the legs, the whole body holding every resource. */
-const claimsLegs = (claims: readonly Resource[]): boolean => claims.includes("legs") || claims.includes("*");
+const claimsLegs = (claims: readonly Resource[]): boolean => hasResource(claims, LEG_RESOURCE) || hasResource(claims, BODY_RESOURCE);
 
 /**
  * **The intent of a set selected** (`SelectedAsk`, a mind's intent as the options it selected): the
@@ -91,10 +92,10 @@ export function intentOfSet(set: readonly SelectedAsk[], idle: () => Omit<Intent
   const actions: ActionRequest[] = [], held: Resource[] = [], guard: Record<string, Cover> = {};
   for (const { claims, holds, asked } of set) {
     for (const action of asked.actions) actions.push(action);
-    for (const resource of holds) if (!held.includes(resource)) held.push(resource);
+    for (const resource of holds) if (!hasResource(held, resource)) held.push(resource);
     if (asked.guard) Object.assign(guard, asked.guard);
     if (legs === null && claimsLegs(claims)) legs = asked;
   }
-  for (const hand of Object.keys(guard)) if (held.includes(hand)) delete guard[hand];
+  for (const hand of Object.keys(guard)) if (hasResource(held, segmentResource(hand))) delete guard[hand];
   return { ...(legs ?? idle()), actions, guard: { ...NO_COVER, ...guard } };
 }

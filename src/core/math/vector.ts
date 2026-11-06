@@ -203,6 +203,7 @@ export class Vector3 {
 }
 
 const UP = Vector3.Up();
+Object.freeze(UP);
 
 export class Quaternion {
   declare private readonly brand: "core";

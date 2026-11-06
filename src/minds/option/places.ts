@@ -36,7 +36,7 @@ const WALK_READ = .05;
  * gait's falls are its own profile's to measure; none is, so a walk is taken to stay up. With no
  * focus, the way at the gait's pace.
  */
-export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker): Terms {
+export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker, horizon = WALK_READ): Terms | null {
   const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = at.predictions.pressure;
   const reach = focus ? edgeOf(at, pressure) + offset : 0, points = spot.route ?? [spot];
   let duration = 0, taken = 0, grace = graceAt(at), x = from.x, z = from.z;
@@ -44,10 +44,13 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker)
     const dx = point.x - x, dz = point.z - z, length = hypot(dx, dz);
     if (length > 0) {
       const face = walk.facing(at), forward = (dx * sin(face) + dz * cos(face)) / length, right = (dx * cos(face) - dz * sin(face)) / length;
-      const way = walk.pace(at, gait.name, forward, right), pace = way > 0 ? way : walk.pace(at, gait.name), seconds = length / pace;
+      const way = walk.pace(at, gait.name, forward, right), pace = way > 0 ? way : walk.pace(at, gait.name);
+      if (!(pace > 0)) return null;
+      const seconds = length / pace;
+      if (!Number.isFinite(seconds) || !Number.isFinite(duration + seconds)) return null;
       duration += seconds;
       if (focus) {
-        const pieces = Math.max(1, Math.ceil(seconds / WALK_READ)), dt = seconds / pieces;
+        const pieces = Math.max(1, Math.ceil(Math.min(seconds, horizon) / WALK_READ)), dt = seconds / pieces;
         const moving = { x: dx / length * pace - focus.velocity.x, z: dz / length * pace - focus.velocity.z };
         for (let i = 0; i < pieces; i++) {
           const along = (i + .5) / pieces, tx = focus.centre.x - (x + along * dx), tz = focus.centre.z - (z + along * dz), apart = hypot(tx, tz);
@@ -69,7 +72,7 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker)
 }
 
 /** No site to walk to. */
-const NOWHERE = blocked("no site to walk to"), THERE = blocked("at its site");
+const NOWHERE = blocked("no site to walk to"), THERE = blocked("at its site"), NO_PACE = blocked("no attainable walking pace");
 
 /**
  * **Walk by `gait`**: one option a gait, meaning go to a place by that gait, its targets
@@ -95,14 +98,15 @@ export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker)
     aim(index) { state.at = index; },
     entry: (now) => {
       const legs = legsReadiness(now.sight.view);
-      return legs.kind !== "ready" ? legs : away(now, state.at) ? READY : sites[state.at]?.spot(now) ? THERE : NOWHERE;
+      return legs.kind !== "ready" ? legs : !(walk.pace(now, gait.name) > 0) ? NO_PACE
+        : away(now, state.at) ? READY : sites[state.at]?.spot(now) ? THERE : NOWHERE;
     },
     status: (now): Status => away(now, state.at) ? "yields" : "over",
     begin() {},
     end() {},
     model(at, ask) {
       const spot = standing(at) ? away(at, ask?.target ?? 0) : null;
-      return spot ? walkTerms(at, spot, gait, walk) : null;
+      return spot ? walkTerms(at, spot, gait, walk, ask?.until) : null;
     },
     step: (now) => {
       const spot = away(now, state.at), heading = now.sight.report.heading;

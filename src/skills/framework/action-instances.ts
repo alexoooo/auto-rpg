@@ -1,4 +1,4 @@
-import { copyActionTarget, sameActionIdentity } from "./action.ts";
+import { copyActionTarget, sameActionIdentity, hasResource, segmentResource, LEG_RESOURCE } from "./action.ts";
 import type { BodyView } from "../../control/body.ts";
 import type { ContactTarget } from "../../core/bodies/contact-identity.ts";
 import type { ActionAround, ActionEnding, ActionRequest, ActionStatus, ContactKind, Ended, Executor, LifecycleUpdate, Observation, Phase, Readiness, Region, Resource, TargetRef } from "./action.ts";
@@ -65,14 +65,14 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
   const needsOf = (executor: Executor, action: string, effector: string): readonly Resource[] => {
     const needs = executor.needs(action, effector);
     resources.controls(needs);
-    if (!needs.includes(effector)) throw new Error(`action ${action} does not reserve its effector`);
-    if (resources.controls(["legs"]).includes(`effector:${effector}`) && !needs.includes("legs")) throw new Error(`action ${action} needs legs for its support effector`);
+    if (!hasResource(needs, segmentResource(effector))) throw new Error(`action ${action} does not reserve its effector`);
+    if (resources.controls([LEG_RESOURCE]).includes(`effector:${effector}`) && !hasResource(needs, LEG_RESOURCE)) throw new Error(`action ${action} needs legs for its support effector`);
     return needs;
   };
   for (const action of actions) {
     if (!action.name || bindings.has(action.name) || !registered.has(action.executor)) throw new Error(`invalid action ${action.name}`);
     // Every resource an action may hold is checked as the skill set is built, before any motion.
-    for (const effector of action.effectors) { resources.controls([effector]); needsOf(executors[registered.get(action.executor)!]!.executor, action.name, effector); }
+    for (const effector of action.effectors) { resources.controls([segmentResource(effector)]); needsOf(executors[registered.get(action.executor)!]!.executor, action.name, effector); }
     bindings.set(action.name, deepFreeze({ ...action, effectors: [...action.effectors] }));
   }
   const state = { issued: 0, seen: 0, sequence: 0, observedStep: -1, observedTime: 0, live: [] as Live[], ledger: [] as Ended[],
@@ -108,7 +108,7 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
     if ("ending" in change) { end(item, change.ending, time); return; }
     if ((item.phase === "release" && change.phase !== "release") || (item.phase === "commit" && change.phase === "prepare")) throw new Error("action phase reversed");
     if (item.withdrawn && !item.committed && change.phase === "commit") throw new Error("withdrawn preparation cannot commit");
-    if (change.holds.some(resource => !item.holds.includes(resource))) throw new Error("action acquired a resource after admission");
+    if (change.holds.some(resource => !hasResource(item.holds, resource))) throw new Error("action acquired a resource after admission");
     resources.controls(change.holds);
     item.phase = change.phase; item.stage = change.stage; item.holds = [...change.holds];
     if (change.aim) { const aim = item.aim ??= [0, 0, 0]; aim[0] = change.aim[0]; aim[1] = change.aim[1]; aim[2] = change.aim[2]; }

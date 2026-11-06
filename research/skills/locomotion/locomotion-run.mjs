@@ -1,6 +1,6 @@
 import { isRefused } from "../../../src/core/refusal.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
-import { footOn } from "../../../src/control/support.ts";
+import { stanceFeet, footOn } from "../../../src/control/support.ts";
 import { workerJobs } from "../../worker-jobs.mjs";
 /**
  * **The locomotion test bed on the Node stand** (Rapier, 120 Hz): the Lab's Locomotion scenario
@@ -192,7 +192,7 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
     steps++;
     {
       const r = run.body.view.stance, swing = stanceState.step.swing;
-      const swung = r.phase === "swing" && swing ? swing.foot : null;
+      const swung = r.phase === "swing" && swing ? stanceFeet(stand.built.spec).find(one => one.end.name === swing.foot)?.side : null;
       roleSteps.bearing += swung ? 1 : 2;
       if (swung) roleSteps.swinging++;
       for (const { i, name, side } of legChannels) {
@@ -206,11 +206,11 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
       const ahead = (x, z) => x * sh + z * ch, right = (x, z) => x * ch - z * sh;
       if (r.phase === "swing" && swing) swinging = swing;
       else if (swinging && r.phase !== "swing") {
-        const sole = r.ends[footOn(stand.built.spec, swinging.foot)].middle, other = r.ends[footOn(stand.built.spec, swinging.foot === "left" ? "right" : "left")].middle;
+        const sole = r.ends[swinging.foot].middle, side = stanceFeet(stand.built.spec).find(one => one.end.name === swinging.foot).side, other = r.ends[footOn(stand.built.spec, side === "left" ? "right" : "left")].middle;
         const dx = sole.x - swinging.to[0], dz = sole.z - swinging.to[1], w = Math.sqrt(g / Math.max(r.plan.y, 0.1));
         const cx = r.centre.x + r.velocity.x / w - (swinging.capture?.[0] ?? NaN), cz = r.centre.z + r.velocity.z / w - (swinging.capture?.[1] ?? NaN);
-        landings.push({ ahead: ahead(dx, dz), right: right(dx, dz) * (swinging.foot === "right" ? 1 : -1), up: sole.y - other.y,
-          capture: Number.isFinite(cx) ? { ahead: ahead(cx, cz), out: right(cx, cz) * (swinging.foot === "right" ? 1 : -1) } : null });
+        landings.push({ ahead: ahead(dx, dz), right: right(dx, dz) * (side === "right" ? 1 : -1), up: sole.y - other.y,
+          capture: Number.isFinite(cx) ? { ahead: ahead(cx, cz), out: right(cx, cz) * (side === "right" ? 1 : -1) } : null });
         swinging = null;
       }
       velocities.push([r.velocity.x, r.velocity.y, r.velocity.z]);
@@ -258,7 +258,7 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
     }
   } finally { hook.dispose(); run.dispose(); stand.dispose(); }
   return {
-    model, hold, track: id, pace, wind, seed, seconds, fell: frame.fallen ? +frame.time.toFixed(2) : null, fellOn,
+    model, hold, track: id, pace, wind, seed, seconds, scenario: { side, radius, distance, area, physique, probe, stop, played }, fell: frame.fallen ? +frame.time.toFixed(2) : null, fellOn,
     ...(stop !== null ? { rest: +(speeds.reduce((a, b) => a + b, 0) / speeds.length).toFixed(3) } : {}),
     travelled: +frame.travelled.toFixed(3), mean: +frame.mean.toFixed(3), walking: frame.walking, off: +off.toFixed(3),
     pieces: frame.pieces.map((v) => v === null ? null : +v.toFixed(3)), gait: Object.fromEntries(Object.entries(frame.gait).map(([k, v]) => [k, +v.toFixed(3)])),

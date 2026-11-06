@@ -1,3 +1,4 @@
+import { segmentResource, ASSIST_RESOURCE } from "../../src/skills/framework/action.ts";
 /** Reproduced applicability, command ownership and observation failures at skill boundaries. */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -51,9 +52,9 @@ test("configuration observations select the sensed collision surface", () => {
 test("assist writes require ownership and conflict across otherwise independent limbs", () => {
   const resources = actionResources([], [{ segment: "arm.a", channels: [] }, { segment: "arm.b", channels: [] }], [], []);
   const assist = { force: new Vector3(), moment: new Vector3() };
-  assert.throws(() => resources.validatePatch(["arm.a"], { assist }), /undeclared.*assist/);
-  assert.doesNotThrow(() => resources.validatePatch(["arm.a", "assist"], { assist }));
-  assert.equal(resources.overlap(["arm.a", "assist"], ["arm.b", "assist"]), true);
+  assert.throws(() => resources.validatePatch([segmentResource("arm.a")], { assist }), /undeclared.*assist/);
+  assert.doesNotThrow(() => resources.validatePatch([segmentResource("arm.a"), ASSIST_RESOURCE], { assist }));
+  assert.equal(resources.overlap([segmentResource("arm.a"), ASSIST_RESOURCE], [segmentResource("arm.b"), ASSIST_RESOURCE]), true);
 });
 
 test("profiles retain every observed exit percept and hash global data", async () => {
@@ -283,4 +284,109 @@ test("a low quadruped clears its supporting arena floor while retaining real par
     view.stance = { ...view.stance, centre: new Vector3(wall.centre[0], y, wall.centre[2] - wall.size[2] / 2 - bodyClearance(spec) - .1) };
     assert.notDeepEqual(clear.keepClear(view, 0, [1, 0]), [1, 0], "the walk into the parapet is still blocked or steered");
   } finally { body.dispose(); stand.dispose(); }
+});
+
+import { COVER_GUARD } from "../../src/skills/guard/guard-part.ts";
+import { STOMP_PART } from "../../src/skills/strikes/stomp-part.ts";
+import { STAGED_DOWN } from "../../src/skills/recovery/implementations/staged/techniques.ts";
+import { stepUpTuning } from "../../src/skills/recovery/implementations/staged/records.ts";
+import { TROT_PART } from "../../src/skills/locomotion/quadruped/trot.ts";
+import { CRAWL_PART } from "../../src/skills/locomotion/quadruped/crawl.ts";
+import { JAW_BITE } from "../../src/skills/strikes/bite/index.ts";
+import { ROLL_POSES } from "../../src/skills/recovery/implementations/staged/stages.ts";
+import { kitSkills } from "../../src/skills/assembly.ts";
+import { LEG_RESOURCE, TRUNK_RESOURCE, poseResource, hasResource } from "../../src/skills/framework/action.ts";
+import { MOVE_PART } from "../../src/skills/locomotion/move-part.ts";
+
+test("resource compilation separates segment names from services and uses physical bearing chains", () => {
+  const resources = actionResources(["hip flexion", "arm flexion"], [{ segment: "assist", channels: ["arm flexion"] }],
+    [{ name: "support", segment: "bare-foot", channels: ["hip flexion"] }], ["assist"]);
+  assert.deepEqual(resources.controls([LEG_RESOURCE]), ["stance", "effector:bare-foot", "channel:hip flexion"]);
+  assert.deepEqual(resources.controls([TRUNK_RESOURCE]), []);
+  assert.equal(resources.overlap([segmentResource("assist")], [ASSIST_RESOURCE]), false);
+  assert.equal(resources.overlap([segmentResource("assist")], [poseResource("assist")]), true);
+  assert.doesNotThrow(() => resources.validate([LEG_RESOURCE, segmentResource("bare-foot")], { legs: null, pushes: [{ channel: "hip flexion", speed: 0, level: 1 }] }));
+  assert.equal(hasResource(structuredClone([segmentResource("assist")]), segmentResource("assist")), true);
+});
+
+test("Option skills assemble with physical feet alone and an effector named assist", async () => {
+  const rename = value => Array.isArray(value) ? value.map(rename) : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).map(([key, one]) => [key, rename(one)]))
+    : value === "hand.left" ? "assist" : value;
+  const variants = [
+    { ...stock, effectors: stock.effectors.filter(effector => !effector.segment.startsWith("foot.")) },
+    rename(stock),
+  ];
+  for (const spec of variants) {
+    const stand = await coreStand(spec), actor = commandedBody(stand.built, stand.world, { servoSeconds: .1 });
+    let skills;
+    try {
+      skills = kitSkills(actor.driver, stand.world.clock, partLookup, { legs: partLookup.fitting("locomotion", spec), guard: partLookup.fitting("guard", spec), navigation: partLookup.game("navigation")[0],
+        actions: [], executors: [], support: null }, () => []);
+      actor.drive((view, dt) => skills.command(view, standIntent(0), dt));
+      stand.step(120);
+      assert.equal(actor.view.down, false, "the assembled services hold the altered body standing");
+      for (const segment of stand.built.segments.values()) assert.ok([segment.pose.position.x, segment.pose.position.y, segment.pose.position.z].every(Number.isFinite));
+    } finally { skills?.release(actor.view, "replaced"); actor.dispose(); stand.dispose(); }
+  }
+});
+
+test("admission resolves guard, staged channels and timed strike and gait settings before construction", () => {
+  const hand = stock.segments.find(segment => segment.name === "hand.left"), neutral = { ...hand, configurations: { initial: "neutral", shapes: { neutral: hand.shape } } };
+  const spec = { ...stock, segments: stock.segments.map(segment => segment === hand ? neutral : segment) };
+  assert.match(COVER_GUARD.fits(spec, COVER_GUARD.defaults, partLookup), /hand.left.*open.*configuration/);
+  assert.deepEqual(COVER_GUARD.faults({ kind: "cover-guard", tuning: { covering: null } }), ["invalid guard tuning"]);
+  assert.match(COVER_GUARD.fits(stock, { kind: "cover-guard", tuning: { covering: null } }, partLookup), /invalid guard tuning/);
+  const tuning = structuredClone(stepUpTuning(stock));
+  tuning.stages.fold = { ...tuning.stages.fold, scale: 1, posture: { "unknown channel": 0 } };
+  assert.deepEqual(STAGED_DOWN.faults({ kind: "staged-down", tuning }), []);
+  assert.match(STAGED_DOWN.fits(stock, { kind: "staged-down", tuning }, partLookup), /unknown channel/);
+  assert.match(STOMP_PART.fits(stock, { kind: "stomp", tuning: { swingSeconds: 0 } }, partLookup), /invalid stomp/);
+  const reptile = modelSpec("reptile");
+  for (const [part, tuning] of [[TROT_PART, { speed: 0 }], [CRAWL_PART, { settle: 0, shift: 0, swing: 0, plant: 0 }], [JAW_BITE, { prepare: 0 }], [JAW_BITE, { snap: 0 }]]) {
+    const config = { ...part.defaults, tuning };
+    assert.match(part.fits(reptile, config, partLookup), /invalid .*settings/);
+    assert.notDeepEqual(part.faults(config, partLookup), []);
+  }
+  assert.equal(TROT_PART.fits(reptile, { ...TROT_PART.defaults, tuning: { settle: 0 } }, partLookup), null);
+  assert.ok(Object.isFrozen(ROLL_POSES.wind) && Object.isFrozen(ROLL_POSES.swing));
+});
+
+test("default skill assembly roots the one configured memoryful aim", async () => {
+  const stand = await coreStand(stock), body = commandedBody(stand.built, stand.world, { servoSeconds: .1 });
+  let made = 0, aim;
+  const memory = { calls: 0 };
+  const custom = {
+    ...partLookup,
+    of(role, config) {
+      if (role === "aim" && config.kind === "remember-aim") return { make() { made++; return Object.assign(() => { memory.calls++; return null; }, { state: memory }); } };
+      if (role === "executor" && config.kind === "read-aim") return { make(given) {
+        aim = given.aim;
+        return { state: {}, needs: () => [], readiness: () => ({ kind: "blocked", reason: "probe" }), update: () => [], start() {}, command: () => ({}), resume() {} };
+      } };
+      return partLookup.of(role, config);
+    },
+  };
+  const navigation = partLookup.game("navigation")[0];
+  let skills;
+  try {
+    skills = kitSkills(body.driver, stand.world.clock, custom, { legs: partLookup.fitting("locomotion", stock), guard: partLookup.fitting("guard", stock), navigation,
+      support: null, executors: [{ kind: "read-aim", name: "reader" }], actions: [{ name: "remember", executor: "reader", effectors: [], aim: { kind: "remember-aim" } }] }, () => []);
+    assert.equal(made, 1);
+    const target = { kind: "point", at: [0, 0, 0] };
+    aim(body.view, target, "remember", "hand.left");
+    const saved = saveState(skills.state);
+    aim(body.view, target, "remember", "hand.left"); aim(body.view, target, "remember", "hand.left");
+    assert.deepEqual(memory, { calls: 3 });
+    loadState(skills.state, saved);
+    assert.deepEqual(memory, { calls: 1 });
+  } finally { skills?.release(body.view, "replaced"); body.dispose(); stand.dispose(); }
+});
+
+test("Move does not erase a gait's complete runs setting when sharing instances", () => {
+  const made = [];
+  const config = { kind: "move", gaits: [{ name: "one", label: "One", legs: { kind: "independent", runs: false } }, { name: "two", label: "Two", legs: { kind: "independent", runs: true } }], rules: [], otherwise: "one" };
+  const legs = { runs: config => config.runs, parts: partLookup, make(_body, config) { made.push(config); return { state: {}, supports: [], lower: 0, heading: 0, reference: null, resume() {}, goal: () => ({ kind: "stance", goal: null }) }; } };
+  const built = MOVE_PART.make({}, config, legs);
+  assert.equal(made.length, 2);
+  assert.equal(built.state.gaits.length, 2);
 });

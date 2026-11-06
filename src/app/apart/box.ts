@@ -42,15 +42,17 @@ export function replyBox(from: SharedArrayBuffer | number): ReplyBox {
       for (let read = Atomics.load(counters, READ); Number(written - read) + need > size; read = Atomics.load(counters, READ)) Atomics.wait(counters, READ, read);
       const length = new Uint8Array(4);
       new DataView(length.buffer).setUint32(0, body.length, true);
-      copyIn(length, Number(written));
-      copyIn(body, Number(written) + 4);
+      const offset = Number(written % BigInt(size));
+      copyIn(length, offset);
+      copyIn(body, offset + 4);
       Atomics.store(counters, WRITTEN, written + BigInt(need));
     },
     take() {
       const read = Atomics.load(counters, READ);
       if (read === Atomics.load(counters, WRITTEN)) return null;
-      const length = new DataView(copyOut(Number(read), 4).buffer).getUint32(0, true);
-      const text = decoder.decode(copyOut(Number(read) + 4, length));
+      const offset = Number(read % BigInt(size));
+      const length = new DataView(copyOut(offset, 4).buffer).getUint32(0, true);
+      const text = decoder.decode(copyOut(offset + 4, length));
       Atomics.store(counters, READ, read + BigInt(4 + length));
       Atomics.notify(counters, READ);
       return text;

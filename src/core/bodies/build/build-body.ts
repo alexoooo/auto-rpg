@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from "../../math/vector.ts";
+import { constructionScope } from "../../construction.ts";
 import type { ColliderShape, EngineJoint, PhysicsWorld, Pose, SegmentBody } from "../../physics/engine.ts";
 import type { ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 import { jointKinematics } from "./joint-kinematics.ts";
@@ -187,10 +188,14 @@ function initialPoses(spec: BodySpec, placement: Placement): ReadonlyMap<string,
 /** Build `spec` at its declared initial pose, with coincident joint anchors before physics starts. */
 export function buildBody(spec: BodySpec, world: World, placement: Placement): BuiltBody {
   const poses = initialPoses(spec, placement);
+  const lifetime = constructionScope();
+  try {
   const segments = new Map<string, BuiltSegment>();
   for (const segment of spec.segments) {
     if (segments.has(segment.name)) throw new Error(`${spec.model} names ${segment.name} twice`);
-    segments.set(segment.name, buildSegment(spec, segment, placement, world, poses?.get(segment.name)));
+    const made = buildSegment(spec, segment, placement, world, poses?.get(segment.name));
+    lifetime.own({ dispose: () => world.physics.removeBody(made.body) });
+    segments.set(segment.name, made);
   }
   for (const held of spec.held ?? []) if (!segments.has(held.segment)) throw new Error(`${spec.model} has no ${held.segment} to hold ${held.item.name}`);
   const joints = new Map<string, BuiltJoint>();
@@ -201,18 +206,12 @@ export function buildBody(spec: BodySpec, world: World, placement: Placement): B
     if (!parent || !child) throw new Error(`${spec.model}'s ${joint.name} joins a segment it does not have`);
     joints.set(joint.name, buildJoint(joint, parent, child, world, strength.subarray(channel, channel += joint.dofs.length)));
   }
-  const configurations = createConfigurations(spec, segments, world);
-  const toes = createToes([...segments.values()], world);
+  const configurations = lifetime.own(createConfigurations(spec, segments, world));
+  const toes = lifetime.own(createToes([...segments.values()], world));
   return {
     spec, physics: world.physics, segments, joints,
     configurations, toes: toes.state, strength,
-    dispose() {
-      configurations.dispose();
-      toes.dispose();
-      // Removing a body removes its colliders and joints with it.
-      for (const segment of segments.values()) {
-        world.physics.removeBody(segment.body);
-      }
-    },
+    dispose: lifetime.dispose,
   };
+  } catch (error) { lifetime.dispose(); throw error; }
 }

@@ -1,4 +1,4 @@
-import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
+import { MOTOR_SUPPORT } from "../../../control/motor-part.ts";
 import { bilateralBindings } from "../bilateral.ts";
 import type { BodyControl } from "../../../core/bodies/body-control.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
@@ -318,7 +318,7 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
 interface RecipeConfig { readonly kind: "righting-recipe"; readonly tuning?: Partial<RightingRecipe> }
 
 /** What the rightings share: begun on either side, from where the body lies as it moves, to standing. */
-const RIGHTING = { bindings: (spec: BodySpec) => bilateralBindings(spec, BOTH), role: "technique", requires: [SUPPORT_REFERENCE], stage: "game", moving: true, starts: BOTH, fields: [], slots: [] } as const;
+const RIGHTING = { bindings: (spec: BodySpec) => bilateralBindings(spec, BOTH), role: "technique", stage: "game", moving: true, starts: BOTH, fields: [], slots: [] } as const;
 
 /**
  * **Righting by recipe** (`rightingByRecipe`) as a way up from lying (`LYING`): a body on paws
@@ -357,7 +357,7 @@ const holdsRoutes = (spec: BodySpec): boolean => pawsOf(spec).every((paw) => {
  * up by its mind's motor.
  */
 export const RIGHTING_ROUTES: TechniquePart<{ readonly kind: "righting-routes" }> = deepFreeze({
-  ...RIGHTING, edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true },
+  ...RIGHTING, requires: [MOTOR_SUPPORT], edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true },
   fits: fitsAll(fitsPaws, fitsWhen(holdsRoutes, "needs legs whose ranges hold the righting routes' poses")), faults: () => [],
   make: (own: OwnBody, view: BodyView, clock: Clock, kit: MindKit) => rightingByRoutes(own, view, clock, kit),
 });

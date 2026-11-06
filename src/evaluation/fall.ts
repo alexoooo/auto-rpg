@@ -114,6 +114,7 @@ function characterOf(fall: Pick<FallCase, "character">): AttributeOverrides {
 /** A fall's world, played a step at a time: after each step `afterStep`, until `ended`; then its `reading`. */
 export interface BuiltFall {
   readonly world: World;
+  readonly state: object;
   readonly body: BuiltBody;
   /** The Lab's actor on the stand bed; null on the fall bed. */
   readonly actor: Actor | null;
@@ -200,29 +201,29 @@ export function createFall(context: GameContext) {
     scope.own(run);
     const check = run.check.state;
     scope.forget(actor);
-    let stood = false, ended = false, read: FallReading | null = null;
+    const state = { stood: false, ended: false, read: null as FallReading | null, run: run.state, check: run.check.state, meter: run.meter.state };
     const result: BuiltFall = {
-      world, body, actor, combatant: null,
-      get ended() { return ended; },
+      world, body, actor, combatant: null, state,
+      get ended() { return state.ended; },
       afterStep() {
         if (verifying) {
-          if (run.check.done()) { stood = check.stage === "stood"; ended = true; }
-          else if (check.takeover === null && world.time >= SHOVED_UNFELLED) ended = true;
-        } else if (run.meter.state.handback !== null) { stood = true; ended = true; }
+          if (run.check.done()) { state.stood = check.stage === "stood"; state.ended = true; }
+          else if (check.takeover === null && world.time >= SHOVED_UNFELLED) state.ended = true;
+        } else if (run.meter.state.handback !== null) { state.stood = true; state.ended = true; }
         else if (run.state.status !== "running"
           || run.meter.state.from !== null && world.time - run.meter.state.from >= cap
-          || run.meter.state.from === null && world.time >= SHOVED_UNFELLED) ended = true;
-        if (world.time >= cap + FALL_AFTER) ended = true;
+          || run.meter.state.from === null && world.time >= SHOVED_UNFELLED) state.ended = true;
+        if (world.time >= cap + FALL_AFTER) state.ended = true;
       },
       reading() {
-        if (read) return read;
-        if (!stood) run.meter.cap();
+        if (state.read) return state.read;
+        if (!state.stood) run.meter.cap();
         const frame = run.frame();
-        read = { status: stood ? "stood" : run.state.status === "landed standing" ? "landed standing"
+        state.read = { status: state.stood ? "stood" : run.state.status === "landed standing" ? "landed standing"
           : check.takeover === null && fall.start === "shoved" ? "no takeover" : check.stage === "fell after verification" ? "fell after verification" : "failed",
-          stood, handback: frame.handback, takeover: check.takeover, verified: check.verified, walked: check.walked,
+          stood: state.stood, handback: frame.handback, takeover: check.takeover, verified: check.verified, walked: check.walked,
           trail: frame.trail as unknown as Json, attempts: frame.attempts as unknown as Json, phases: frame.phases as unknown as Json, assist: frame.assist as unknown as Json };
-        return read;
+        return state.read;
       },
       dispose: scope.dispose,
     };
@@ -271,10 +272,10 @@ export function createFall(context: GameContext) {
     if (isRefused(wind)) return wind;
     scope.own(wind);
     const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;
-    const state = { shoves: 0, shovedAt: null as number | null, ended: false };
     const ledger = groundLedger(fighter.minded.report ?? null, () => world.time);
+    const state = { shoves: 0, shovedAt: null as number | null, ended: false, check: check.state, meter: meter?.state ?? null, ledger: ledger.state };
     const result: BuiltFall = {
-      world, body: fighter.built, actor: null, combatant: fighter,
+      world, body: fighter.built, actor: null, combatant: fighter, state,
       get ended() { return state.ended; },
       afterStep() {
         meter?.sample();
@@ -306,20 +307,19 @@ export function createFall(context: GameContext) {
    */
   function groundLedger(report: MindReport | null, clock: () => number) {
     const ground = new Set((report?.kit ?? []).filter((entry) => Object.hasOwn(context.techniques, entry.kind)).map((entry) => entry.action));
-    const kept: GroundAttempt[] = [], begun = new Map<number, number>();
-    let seen = 0;
-    return {
+    const state = { kept: [] as GroundAttempt[], begun: new Map<number, number>(), seen: 0 };
+    return { state,
       sample() {
-        for (const action of report?.actions ?? []) if (ground.has(action.action) && !begun.has(action.id)) begun.set(action.id, clock());
+        for (const action of report?.actions ?? []) if (ground.has(action.action) && !state.begun.has(action.id)) state.begun.set(action.id, clock());
         for (const ended of report?.ended ?? []) {
-          if (ended.sequence <= seen) continue;
-          seen = ended.sequence;
-          if (ground.has(ended.action)) kept.push({ at: ended.began, seconds: ended.ended - ended.began, controller: ended.action,
+          if (ended.sequence <= state.seen) continue;
+          state.seen = ended.sequence;
+          if (ground.has(ended.action)) state.kept.push({ at: ended.began, seconds: ended.ended - ended.began, controller: ended.action,
             end: ended.ending.kind === "completed" ? "done" : ended.ending.reason ?? ended.ending.kind });
         }
       },
-      attempts: (time: number): readonly GroundAttempt[] => [...kept, ...(report?.actions ?? []).filter((action) => ground.has(action.action))
-        .map((action) => { const at = begun.get(action.id) ?? time; return { at, seconds: time - at, controller: action.action, end: "cap" }; })],
+      attempts: (time: number): readonly GroundAttempt[] => [...state.kept, ...(report?.actions ?? []).filter((action) => ground.has(action.action))
+        .map((action) => { const at = state.begun.get(action.id) ?? time; return { at, seconds: time - at, controller: action.action, end: "cap" }; })],
     };
   }
 

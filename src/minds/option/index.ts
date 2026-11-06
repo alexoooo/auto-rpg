@@ -6,8 +6,8 @@ export { ORDERS_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, WALK_OPTION, HO
 export { BRACE_OPTION, BRACE_TUMBLING_OPTION, STEADY_OPTION, FLATTEN_OPTION, LAND_OPTION } from "./rise.ts";
 export { RANKED_CHOOSER, type OptionChooserPart, type Chooser } from "./chooser.ts";
 export type { Option, Situation } from "./option.ts";
-export type { OptionPart, ChooserPart, ObjectivePart, PredictionPart, PredictionsPart, PerceptPart } from "./parts.ts";
-export type { Seen, Percept, Prediction } from "./percepts.ts";
+export type { OptionPart, ChooserPart, ObjectivePart, PredictionsPart } from "./parts.ts";
+export type { Seen, Percept, Prediction, ProfilePerceptPart, ProfilePredictionPart } from "./percepts.ts";
 export type { OptionEvaluation, OptionEvaluationInput } from "./model.ts";
 export { PROFILE_MODEL, type ProfileOptionContext, type ProfileTables } from "./profile-contract.ts";
 export type { NamedSkills, OptionSkills } from "./skills.ts";

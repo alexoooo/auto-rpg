@@ -36,8 +36,8 @@ import { SIDES } from "../../src/core/bodies/bilateral.ts";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const RIGS = { "workshop-fighter": fighterRig, "workshop-rogue": rogueRig };
 /** The models whose hands are measured: the workshop humans. */
-export const HAND_MODELS = Object.freeze(Object.keys(RIGS));
-export const handsFile = (model) => path.join(ROOT, "assets", "humanoid", `${model}-hands.json`);
+const HAND_MODELS = Object.freeze(Object.keys(RIGS));
+const handsFile = (model) => path.join(ROOT, "assets", "humanoid", `${model}-hands.json`);
 
 /**
  * How far a corner may stand from a piece's supporting plane and belong to its patch, m: the
@@ -149,7 +149,7 @@ export async function hand(model, side) {
 }
 
 /** One model's artifact. */
-export async function handGeometry(model) {
+async function handGeometry(model) {
   const out = {
     about: `${model}'s hands from its GLB's bare skin: each side's open hull with its palm patch, and its fist's hull, `
       + "knuckles and strike; body frame (+x right, +y up, +z front), metres at the authored size, rounded to 0.1 mm. "

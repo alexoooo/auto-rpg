@@ -1,3 +1,4 @@
+import { constructionScope } from "../../core/construction.ts";
 import { solidSenses, type SolidSense } from "../../core/bodies/object-senses.ts";
 import type { ContactTarget } from "../../core/bodies/contact-identity.ts";
 import { modelHolding, resolveCharacter, type BodyModel } from "../../core/bodies/models.ts";
@@ -147,7 +148,9 @@ export class TeamBout {
     const start = world.time, startStep = world.steps;
     let ends = this.cap;
     for (const [rule, config] of this.ends) ends = Math.min(ends, rule.drainedBy?.(config) ?? Infinity);
-    this.senses = createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), { begins: start, ends: start + ends });
+    const lifetime = constructionScope();
+    try {
+    this.senses = lifetime.own(createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), { begins: start, ends: start + ends }));
     const contactLabels = new Map<number, ContactTarget>();
     const members: Member[] = [];
     let order = 0;
@@ -165,6 +168,7 @@ export class TeamBout {
           contactIdentity: (other) => other ? contactLabels.get(other.id) ?? null : { kind: "world" },
           orders: () => null,
         });
+        lifetime.own(combatant.built); lifetime.own(combatant.body);
         for (const [segment, part] of combatant.built.segments) contactLabels.set(part.body.id, Object.freeze({ kind: "body", body: id, segment, guard: spec.marks.guards.includes(segment) }));
         members.push({ ...combatant, side, model });
       }
@@ -175,17 +179,16 @@ export class TeamBout {
       return spawnClearanceFaults(sensedBounds(observer.senses().others.find((other) => other.id === member.id)!), arenaSolids(level));
     });
     if (spawnFaults.length) {
-      this.senses.dispose();
-      for (const member of members) { member.body.dispose(); member.built.dispose(); }
       throw new Error(`invalid ${level} spawn:\n${spawnFaults.join("\n")}`);
     }
-    this.watch = watchBlows(world, members, this.rules, hooks.onBlow);
+    this.watch = lifetime.own(watchBlows(world, members, this.rules, hooks.onBlow));
     this.state = {
       start, startStep, verdict: null, world: world.state, senses: this.senses.state, watch: this.watch.state,
       bodies: Object.fromEntries(members.map(({ id, body, minded, pool }) => [id, { body: body.state, mind: minded.state, pool: pool.state }])),
     };
-    this.judging = world.afterStep(() => this.judge());
+    this.judging = lifetime.own(world.afterStep(() => this.judge()));
     for (const member of members) hooks.onBuilt?.(member, member.built);
+    } catch (error) { lifetime.dispose(); throw error; }
   }
 
   /** Null while the bout is on. */

@@ -80,7 +80,12 @@ export function serve(port: Port, close: () => void): void {
     port.postMessage({ kind: "ready", hz: built.hz, roster: built.roster, frame }, [frame.buffer]);
     if (news) port.postMessage({ kind: "news", news }, []);
     if (running) resume();
-  }, fault);
+  }).catch((error: unknown) => {
+    const built = stage;
+    stage = null;
+    try { fault(error); }
+    finally { built?.dispose(); }
+  });
   port.addEventListener("message", ({ data }) => {
     switch (data.kind) {
       case "team":

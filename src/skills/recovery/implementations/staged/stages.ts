@@ -240,7 +240,7 @@ const FLAT = { "shoulder.near flexion": 2.8, "shoulder.far internal rotation": -
 export interface RollPoses { readonly wind: Posture; readonly swing: Posture; readonly over: Posture; readonly flat: Posture }
 
 /** The game's roll: found on the Warrior. */
-export const ROLL_POSES: RollPoses = Object.freeze({ wind: WIND, swing: SWING, over: OVER, flat: FLAT });
+export const ROLL_POSES: RollPoses = deepFreeze({ wind: WIND, swing: SWING, over: OVER, flat: FLAT });
 
 /** The stages that turn a body on its back onto its front, over its `over` side, by `poses`. */
 export const rollOver = (over: Side, poses: RollPoses = ROLL_POSES): PoseStage[] => [

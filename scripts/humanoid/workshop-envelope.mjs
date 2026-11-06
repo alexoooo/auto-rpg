@@ -65,7 +65,7 @@ const extents = (points) => ({ x: extent(points, 0), y: extent(points, 1), z: ex
  * stretch of the CERV-MIDH line (the upper trunk everything cranial of XYPH, the middle XYPH to
  * OMPH, the lower everything caudal of OMPH), body frame, rounded to 0.1 mm.
  */
-export function trunkHulls(model) {
+function trunkHulls(model) {
   const at = (q) => q.value;
   const { CERV, XYPH, OMPH, MIDH } = trunkLandmarks(model);
   const line = segmentFrame(at(CERV), at(MIDH)).y;
@@ -80,7 +80,7 @@ export function trunkHulls(model) {
 }
 
 /** Where `model`'s trunk hulls are written. */
-export const trunkHullFile = (model) => path.join(ROOT, "assets", "humanoid", `${model}-trunk-hull.json`);
+const trunkHullFile = (model) => path.join(ROOT, "assets", "humanoid", `${model}-trunk-hull.json`);
 
 /** One foot's footprint: its vertices' extents in the body frame. `side` is the model's own. */
 export function footprint(model, side) {
