@@ -9,7 +9,7 @@ import { coreStand } from '../../../tests/harness/core-stand.mjs';
 import { commandedBody } from '../../../src/app/commanded-body.ts';
 import { modelSpec } from '../../../src/core/bodies/models.ts';
 import { Quaternion, Vector3 } from '../../../src/core/math/vector.ts';
-import { massCentreToRef, massOf } from '../../../src/core/bodies/read-motion.ts';
+import { massCentreToRef, massOf, motionAtToRef } from '../../../src/core/bodies/read-motion.ts';
 import { sin, cos, exp } from '../../../src/core/math/real.ts';
 import { DEFAULT_ENGINE } from '../../../src/core/physics/engines.ts';
 import { rootSegment } from '../../../src/core/bodies/read-body.ts';
@@ -71,6 +71,7 @@ export async function residualEnvironment(configuration = {}) {
   })]));
   const up = new Vector3(), forward = new Vector3(), spin = new Vector3();
   const centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), physicalTurn = new Quaternion();
+  const contactPoint = new Vector3(), contactVelocity = new Vector3(), contactSpin = new Vector3();
   let stand = null, host = null, body, skill, root, channels, control, observation, goal;
   let physicalParts, physicalRoot, mass, rootInverse, runView;
   let randomState = o.seed >>> 0;
@@ -85,6 +86,21 @@ export async function residualEnvironment(configuration = {}) {
       control: { centre: [s.centre.x, s.centre.y, s.centre.z], velocity: [s.velocity.x, s.velocity.y, s.velocity.z], root: { ...body.view.root.rotation } },
       phase: skill.state.run.phase, running: skill.state.walkRun.running,
       down: o.fallRule === 'physical' ? host.down : body.view.down, postureDown: body.view.down, physicalDown: host.down, lineX: control.physicalLineX,
+      ...(o.contacts ? { feet: Object.fromEntries(['left', 'right'].map(side => {
+        const foot = body.built.segments.get(ends[side]);
+        return [side, body.built.physics.contactsOf(foot.body).filter(contact => contact.other === null).map(contact => {
+          contactPoint.set(...contact.point);
+          motionAtToRef(foot, contactPoint, contactVelocity, contactSpin);
+          return { point: [...contact.point], normal: [...contact.normal], impulse: contact.impulse,
+            velocity: [contactVelocity.x, contactVelocity.y, contactVelocity.z] };
+        })];
+      })), footMotion: Object.fromEntries(['left', 'right'].map(side => {
+        const foot = body.built.segments.get(ends[side]);
+        motionAtToRef(foot, foot.pose.position, contactVelocity, contactSpin);
+        return [side, { position: [foot.pose.position.x, foot.pose.position.y, foot.pose.position.z],
+          velocity: [contactVelocity.x, contactVelocity.y, contactVelocity.z],
+          spin: [contactSpin.x, contactSpin.y, contactSpin.z] }];
+      })) } : {}),
       ...(o.poses ? { parts: physicalParts.map(part => ({ name: part.spec.name, position: { ...part.pose.position },
         rotation: { ...part.pose.rotation }, ...(part.toes ? { bend: part.toes.bend } : {}) })) } : {}) };
   };

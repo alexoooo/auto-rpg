@@ -8,10 +8,10 @@ import { recoveryNetwork } from '../../../src/core/math/learning/recovery-networ
 
 const { values: o } = parseArgs({ options: { config: { type: 'string' }, policy: { type: 'string' },
   out: { type: 'string' }, starts: { type: 'string', default: '2.2,4.2,5.8' }, seconds: { type: 'string' },
-  'from-rest': { type: 'boolean' }, poses: { type: 'boolean' } } });
+  'from-rest': { type: 'boolean' }, poses: { type: 'boolean' }, contacts: { type: 'boolean' } } });
 if (!o.config || !o.out) throw Error('--config and --out name the pretraining protocol and saved rows');
 const config = JSON.parse(readFileSync(o.config, 'utf8'));
-const settings = { ...JSON.parse(readFileSync(config.environment, 'utf8')), ...config, trace: true, poses: o.poses === true,
+const settings = { ...JSON.parse(readFileSync(config.environment, 'utf8')), ...config, trace: true, poses: o.poses === true, contacts: o.contacts === true,
   ...(o.seconds === undefined ? o['from-rest'] ? { seconds: 14 } : {} : { seconds: Number(o.seconds) }) };
 const policyBytes = o.policy ? readFileSync(o.policy) : null;
 const policy = policyBytes ? recoveryNetwork(JSON.parse(policyBytes)) : () => new Array(12).fill(0);
