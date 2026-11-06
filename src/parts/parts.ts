@@ -14,7 +14,7 @@ import type { PartLookup, RoleParts } from "./lookup.ts";
  */
 export type Role = keyof RoleParts & string;
 
-/** Whether a part is the game's, or research offered beside it: either is shown and may be chosen. */
+/** Whether a part belongs to the game or experimental research. */
 type Stage = "game" | "experimental";
 
 /** **A part's config**: plain data, its kind naming the part. */
@@ -50,6 +50,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   readonly role: Role;
   readonly label: string;
   readonly stage: Stage;
+  /** False: omitted from new selections; existing configurations remain visible. */
+  readonly offered?: false;
   /** Physical facts the configured motor must publish before this part can execute. */
   readonly requires?: readonly Requirement[];
   /** Configured parts outside editable slots, with their required roles and actual paths; null marks an implicit default. */
@@ -99,6 +101,9 @@ export interface Part<C extends PartConfig = PartConfig> {
   /** Whether it carries out a person's `Orders`: a mind whose tree holds no part that does plays as its own while a person leads its side (`treeObeys`). */
   readonly obeys?: boolean;
 }
+
+/** Whether a part is offered for a new selection. */
+export const partOffered = (part: Pick<Part, "offered">): boolean => part.offered !== false;
 
 /** Every key of `C`, each `true`: the keys a config of it may hold, a key missing or extra refused by the compiler. */
 export type KeysOf<C> = { readonly [P in keyof C]-?: true };

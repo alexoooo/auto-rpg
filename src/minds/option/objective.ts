@@ -87,7 +87,7 @@ function reachPlace(config: ReachConfig): Objective {
 
 /** **Reaching a place** (`reachPlace`) as a part of role `objective`. */
 export const REACH_PLACE_PART: ObjectivePart<ReachConfig, Objective> = deepFreeze({
-  role: "objective", label: "Reach a place", stage: "game", fields: [], slots: [], defaults: { kind: "reach-place", x: 0, z: 0 },
+  role: "objective", label: "Reach a place", stage: "game", offered: false, fields: [], slots: [], defaults: { kind: "reach-place", x: 0, z: 0 },
   keys: { kind: true, x: true, z: true } as KeysOf<ReachConfig>, fits: anyBody,
   faults: (config: ReachConfig) => Number.isFinite(config.x) && Number.isFinite(config.z) ? [] : ["x, z: a place, m"],
   make: reachPlace,

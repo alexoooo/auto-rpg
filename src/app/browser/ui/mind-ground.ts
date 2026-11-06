@@ -1,7 +1,7 @@
 import { buttonInput } from "./inputs.ts";
 import type { Offered } from "../../catalog.ts";
 import type { TechniquePart } from "../../../skills/recovery/technique.ts";
-import type { PartConfig } from "../../../parts/parts.ts";
+import { partOffered, type PartConfig } from "../../../parts/parts.ts";
 
 /**
  * A list slot of techniques (`TechniquePart`) as a person ranks them: each technique `offered`,
@@ -11,7 +11,7 @@ export function techniqueEditor(chosen: readonly PartConfig[], offered: readonly
   const root = document.createElement("div"); root.className = "mind-slot";
   const title = document.createElement("strong"); title.textContent = "Recovery techniques, in preference order"; root.append(title);
   const kinds = chosen.map((technique) => technique.kind);
-  const shown = [...kinds.flatMap((kind) => offered.filter((one) => one.kind === kind)), ...offered.filter((one) => !kinds.includes(one.kind))];
+  const shown = [...kinds.flatMap((kind) => offered.filter((one) => one.kind === kind)), ...offered.filter((one) => partOffered(one.part) && !kinds.includes(one.kind))];
   for (const { kind, part, reason } of shown) {
     const technique = part as TechniquePart, index = kinds.indexOf(kind), line = document.createElement("div"), label = document.createElement("label");
     const enabled = document.createElement("input"); enabled.type = "checkbox"; enabled.checked = index >= 0;

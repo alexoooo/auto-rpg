@@ -2,7 +2,7 @@ import { editorRow as row, editorPicker as picker, editorButton as button, partF
 import { techniqueEditor } from "./mind-ground.ts";
 import { isKind, kindsFor, partOf, unusedParts, type EntryRule } from "../../catalog.ts";
 import type { MindConfig } from "../../../minds/config.ts";
-import { slotsOf, type Part, type PartConfig, type Slot } from "../../../parts/parts.ts";
+import { partOffered, slotsOf, type Part, type PartConfig, type Slot } from "../../../parts/parts.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { mindFaults } from "../setup.ts";
 import { recordingKey } from "../../../core/world/recording.ts";
@@ -57,6 +57,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
   const choices = (slot: Slot, child?: PartConfig | null) => [
     ...(slot.optional && !slot.many ? [{ value: "", text: slot.fallback ? `Default: ${partOf(slot.fallback).label}` : "None" }] : []),
     ...kindsFor(slot.role, spec, current)
+      .filter(({ kind, part }) => partOffered(part) || child?.kind === kind)
       .filter(({ kind }) => !defaultFallback(slot) || kind !== slot.fallback!.kind || child?.kind === kind && !same(child, slot.fallback))
       .map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
   ];
@@ -128,7 +129,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       item.className = "mind-item"; line.className = "mind-item-line";
       const replace = (next: PartConfig) => set(list.map((other, j) => j === i ? next : other));
       const childPath = [...path, slot.key, i], detail = settings(child, drawPart(child, replace, childPath), childPath, isKind(child.kind) ? partOf(child).label : slot.label);
-      line.append(detail.toggle, picker(choices(slot), child.kind, (kind) => replace(defaultsOf(kind)), readOnly),
+      line.append(detail.toggle, picker(choices(slot, child), child.kind, (kind) => replace(defaultsOf(kind)), readOnly),
         button("↑", `Move ${slot.label.toLowerCase()} ${i + 1} up`, () => set(list.map((other, j) => j === i - 1 ? child : j === i ? list[i - 1]! : other)), readOnly || i === 0),
         button("✕", `Remove ${slot.label.toLowerCase()} ${i + 1}`, () => set(list.filter((_, j) => j !== i)), readOnly));
       item.append(line, detail.panel);
