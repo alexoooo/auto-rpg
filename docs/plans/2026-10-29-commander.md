@@ -59,7 +59,7 @@ Mind and Commander are unchanged by it.
 | Its entry (`Readiness`) | A foe seen, a member standing, a frontier or the exit known |
 | Its model (`Terms`: time, life dealt and taken, where it leaves the body) | Time, life dealt and taken, where it leaves the team |
 | The value of a position (`PositionValue`, `FEW_TERMS`) | The score predicted from a team's place |
-| Its chooser, a part (`ChooserPart`: `valued`, `ranked`) | Its chooser, named by its config (`valued`, `ranked`), over the set selection shared with Option Mind |
+| Its chooser, a part (`ChooserPart`: `valued`, `tree`) | Its chooser, named by its config (`valued`, `ranked`), over the set selection shared with Option Mind |
 | Following orders at `OBEDIENCE` | A person's commands, later, as an option weighted alike |
 
 **The team's options**, for one unit first:
@@ -134,15 +134,14 @@ selection:
   reports are its user's type (`T`): a body's (`OfferTerms`) for a mind, a team's for a Commander.
   It reaches no body, skill or mind module.
 - **Option Mind's commit**: `Option` extends `Choice<Situation, OfferTerms>`; its chooser is
-  `selectSet` with its cue; `VALUED_CHOOSER` and `RANKED_CHOOSER` unchanged in behaviour.
+  `selectSet` with its cue and an appraisal from `VALUED_CHOOSER` or `TREE_CHOOSER`.
 - Chance: the valued chooser draws only between offers within its `margin`, none by default, and
-  the ranked never draws, so a Commander passes none and needs no seed.
+  a Commander passes no chance and needs no seed for selection.
 
 Built: `selectSet` over `Choice<S>` (`src/minds/choice.ts`), priced as `Priced<T>`, the
 readout's `Offer` a body's; one toolkit commit, Option Mind's framework being the toolkit's.
 
-Check: the gate; the fingerprint against the commit before, no case moved; one bout of Option Mind
-with `ranked`, its digest equal before and after.
+Check: the gate, the fingerprint and an exact replay of one bout of Option Mind with `valued`.
 
 ### 3. What the team reads: the exit, routes, foes' life and prospects
 

@@ -81,9 +81,6 @@ export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C
 export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number, phase: number): Chooser =>
   parts.of("chooser", config).make(config, options, seed, parts, phase) as Chooser;
 
-/** How many options ahead the ranked chooser looks: the one it takes. */
-const RANKED_DEPTH = 1;
-
 /** How many options deep the valued chooser searches: the one it takes, or that and the best from where it leaves the body (`searching`). */
 const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
 
@@ -518,15 +515,4 @@ export const TREE_CHOOSER: OptionChooserPart<TreeConfig> = deepFreeze({
     return chooser(options, searching((now) => treeSearch(now, options, objective, obedience, horizon, runs, exploration, stream)), { ...DECIDING, phase, keep: KEEP },
       { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING, { tree: stream.state });
   },
-});
-
-/** The ranked chooser's config: its depth (`RANKED_DEPTH`). */
-interface RankedConfig { readonly kind: "ranked"; readonly depth: number }
-
-/** **Ranked**: each option worth its place, the first the most. */
-export const RANKED_CHOOSER: OptionChooserPart<RankedConfig> = deepFreeze({
-  role: "chooser", model: PROFILE_MODEL, label: "By rank", stage: "game", fields: [], slots: [], defaults: { kind: "ranked", depth: RANKED_DEPTH },
-  keys: { kind: true, depth: true }, fits: anyBody, faults: depthFaults([RANKED_DEPTH]),
-  make: (_config: RankedConfig, options: readonly Option[], _seed: number, _parts: PartLookup, phase = 0) =>
-    chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), { ...DECIDING, phase }),
 });
