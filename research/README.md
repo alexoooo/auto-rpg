@@ -125,6 +125,11 @@ Scripts not listed above, by what they study; each is read by the record named.
 
 `cma.mjs` is the resumable CMA-ES the searches share.
 
+Travel policy seeds declare their observation transform (`normalization`) explicitly. When
+estimating a transform, collect statistics through standing, entry and running phase. Replay the
+initial and critic-only exports against the seed before interpreting learned checkpoints: input
+clipping and float32 conversion can change physical outcomes even while the actor's weights are held.
+
 ## The physics bake-off
 
 `physics-bakeoff/` compares engines under one controller on the same cases: a standing foot and a
