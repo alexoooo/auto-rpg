@@ -767,7 +767,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   /** Draws each living party member's current navigation path. */
   function drawRoutes(page: DungeonPage): void {
     page.routes?.update(page.run?.party.filter(member => member.alive).map(member => ({
-      forced: member.news.forced, from: member.news.feet, points: member.news.route ?? [],
+      forced: member.news.forced, attacking: member.news.target !== null, from: member.news.feet, points: member.news.route ?? [],
     })) ?? []);
   }
 

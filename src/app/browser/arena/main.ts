@@ -779,7 +779,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const news = bout?.news;
     if (!bout || !news) return;
     const own = bout.person ? news.sides[bout.person] : null;
-    routes.update(own && !news.verdict ? [{ from: own.feet, points: own.route ?? [], forced: false }] : []);
+    routes.update(own && !news.verdict ? [{ from: own.feet, points: own.route ?? [], forced: false, attacking: own.target !== null }] : []);
     const time = news.start + (news.verdict?.time ?? news.clock);
     for (const row of rows) {
       const side = news.sides[row.side], controller = controllers[row.side];
