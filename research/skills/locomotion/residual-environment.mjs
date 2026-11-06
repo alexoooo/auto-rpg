@@ -1,4 +1,4 @@
-/** Residual muscle control around the retained gait, for running-state pretraining only.
+/** Residual muscle control around the retained gait, for development and pretraining.
  * Node core stand, explicit engine, 120 Hz, Balance 0, empty hands in guard. Fresh bodies warm
  * through the ordinary gait before each training episode. A from-rest development screen includes
  * that walk-in; complete travel confirmation also requires stops, loadouts and fresh conditions.
@@ -118,7 +118,7 @@ export async function residualEnvironment(configuration = {}) {
     const horizontal = Math.max(1e-9, Math.sqrt(forward.x * forward.x + forward.z * forward.z));
     root.body.angularVelocityToRef(spin);
     observation.length = 0;
-    observation.push(o.pace, skill.state.run.pace, sin(4 * Math.PI * phase), cos(4 * Math.PI * phase),
+    observation.push(control.stopOrder ? 0 : o.pace, skill.state.run.pace, sin(4 * Math.PI * phase), cos(4 * Math.PI * phase),
       s.velocity.x * fx + s.velocity.z * fz, mirror * (s.velocity.x * rx + s.velocity.z * rz), s.velocity.y,
       up.x * fx + up.z * fz, mirror * (up.x * rx + up.z * rz), up.y,
       mirror * (forward.x * rx + forward.z * rz) / horizontal, (forward.x * fx + forward.z * fz) / horizontal,
@@ -147,7 +147,7 @@ export async function residualEnvironment(configuration = {}) {
     physicalRoot = rootSegment(stand.built); rootInverse = Quaternion.Inverse(physicalRoot.rest);
     channels = Object.fromEntries(['left', 'right'].map(side => [side, names[side].map(name => body.muscles.channel(name))]));
     skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve }, runCycleSettings(cycle, WALK_RUN_CYCLE), { stride });
-    control = { asked: null, action: new Array(12).fill(0), reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
+    control = { asked: null, stopOrder: false, action: new Array(12).fill(0), reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
     observation = []; goal = null;
     body.drive((view, dt) => {
       const d = skill.goal(o.fallRule === 'physical' ? runView : view, { walk: control.asked, face: 0 }, dt);
@@ -197,19 +197,20 @@ export async function residualEnvironment(configuration = {}) {
       along = velocity.z; off = Math.abs(centre.x - control.physicalLineX);
       episode.along += along; episode.maxOff = Math.max(episode.maxOff, off);
       down ||= o.fallRule === 'physical' ? host.down : body.view.down;
-      if (down || off > 1 || (episode.everRan && !skill.state.walkRun.running)) break;
+      if (down || off > 1 || (episode.everRan && !skill.state.walkRun.running && !control.stopOrder)) break;
     }
     episode.steps++;
     const effort = control.action.reduce((sum, x) => sum + x * x, 0) / 12;
-    const reward = exp(-(((along - o.pace) / o.speedWidth) ** 2)) + .15 * up.y - .1 * velocity.x ** 2 - .05 * off ** 2
+    const reward = exp(-(((along - (control.stopOrder ? 0 : o.pace)) / o.speedWidth) ** 2)) + .15 * up.y - .1 * velocity.x ** 2 - .05 * off ** 2
       - .005 * effort - (down || off > 1 ? 5 : 0);
-    return { observation: observation.slice(), reward, ...(samples ? { samples } : {}), terminated: down || off > 1 || (episode.everRan && !skill.state.walkRun.running),
+    return { observation: observation.slice(), reward, ...(samples ? { samples } : {}), terminated: down || off > 1 || (episode.everRan && !skill.state.walkRun.running && !control.stopOrder),
       truncated: episode.steps >= o.seconds * 30,
       info: { along: episode.along / episode.ticks, command: o.pace, down, corridor: episode.maxOff,
         seconds: episode.ticks / stand.world.hz, fromRest: episode.fromRest } };
   };
   await reset();
   return { observationSize: layout.inputs.length, actionSize: layout.outputs.length, layout, reset, step, reading, dispose,
+    halt() { control.asked = null; control.stopOrder = true; },
     harness: Object.freeze({ model: o.model, engine: o.engine, hz: stand.world.hz, delay: stand.world.delay,
       actuation: stand.world.actuation, balance: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt,
       residual: o.residual, scale: o.scale }) };
