@@ -10,8 +10,9 @@ retains and disposes what it owns.
 
 The [fresh audit](../analysis/2026-11-05-fresh-layer-boundary-audit.md) supplies the failure recipes;
 its [file ledger](../analysis/2026-11-05-fresh-layer-boundary-files.md) the producers and consumers.
-All 56 confirmed findings and six open questions are closed here, each by its simplest correct fix.
-A violation exposed along the same path is fixed in the same work.
+This plan addresses all 56 confirmed findings and records a disposition for each of the six open
+questions. Allocation profiling belongs to the roadmap's framework allocation goal. A violation
+exposed along the same path is fixed in the same work.
 
 ## Design rules
 
@@ -28,18 +29,6 @@ A violation exposed along the same path is fixed in the same work.
 - **Durable values live in the owner's state object**; shared constants are frozen when published.
   Change detection compares values, not producer identity.
 - **Missing, faulted and unreached work stays explicit** through every reader.
-
-## Work ownership
-
-| Work area | Confirmed findings |
-| --- | --- |
-| Body generality | FF03, BH-01, BH-03, BH-05, BH-15 |
-| State and immutable values | FF01, FF04, BH-02, BH-10, BH-12, BH-14, EVD-005, APPF-004 |
-| Admission and geometry | FF02, FF07, FF10, BH-06, BH-07, BH-08, BH-09, BH-11, BH-13, APPF-009 |
-| Lifetimes | FF06, APPF-001, APPF-005, APPF-006, APPF-007, APPF-010, EVD-004, EVD-006, TOOL-001, RF01, RF02, RF05 |
-| Evidence | BH-04, EVD-001, EVD-002, EVD-003, EVD-007, EVD-008, APPF-008, RF03, RF04, BR-06 |
-| Research callers | BR-01, BR-02, BR-03, BR-04, BR-05 |
-| Small corrections | FF05, FF08, APPF-002, APPF-003, TOOL-002, DOC-001 |
 
 ## Order
 
@@ -79,7 +68,7 @@ assemble and stand; a hand declaring only `neutral` gets a named guard refusal.
 - **BH-02**: skill assembly constructs each configured aim once and roots its state in
   `Skills.state`, on the default path too.
 - **BH-10**: effector-goal equality lives with `EffectorGoal` and compares every field. Stomp, effector
-  strikes and paw legs set `unbend`, `firm` and the moving frame, so this can change behaviour: name the moved fingerprint cases and read the affected skills paired.
+  strikes and paw legs set `unbend`, `firm` and the moving frame, so this can change behaviour.
 - **BH-12, APPF-004**: the decider keeps a copy of the orders it read; the gait transport compares
   gait values, not object identity.
 - **EVD-005**: the Lone, fall and Crypt scripts keep cue indices, orders and progress in their
@@ -92,16 +81,13 @@ assemble and stand; a hand declaring only `neutral` gets a named guard refusal.
   durations). Divisors must be positive; legitimate zero settings stay valid.
 - **FF07**: paw fit checks the declared support point and its patch shape.
 - **FF10**: joint frames reject non-orthogonal axes.
-- **FF02**: capsule-to-hull and hull-to-hull clearance compute true distance (closest point;
-  edge-cross-edge axes for hulls, as the box branch already does).
+- **FF02**: intersection checks use closest distance for capsules against hulls and complete
+  separating axes, including edge-cross-edge axes, for hulls against hulls.
 - **APPF-009**: a zero-length capsule draws as a sphere.
 - **BH-13**: a fallen body's footprint takes its height from its observed segments.
 - **BH-11**: a zero attainable pace gives no walk option; sampling is bounded by the decision
   horizon for tiny paces too.
 - **BH-09**: a zero-length failed trial reads as a failure with a finite rate.
-
-Check each with the audit's recipe: the supported side runs, the unsupported side returns its
-reason before allocating.
 
 ## Lifetimes
 
@@ -151,14 +137,14 @@ takes its offset modulo capacity in BigInt (APPF-002) and completion waits compa
 sequence arithmetic (APPF-003); the unused geometry-tool exports become private (TOOL-002); the
 isolation worker cites `src/app/browser/isolate.ts` (DOC-001).
 
-## Open questions
+## Decisions and deferred work
 
 | Question | Resolution |
 | --- | --- |
 | Q-ALLOC | Moves to the roadmap's framework allocation goal; no change here. |
 | Q-REQUIREMENTS | Each technique declares only the capabilities it reads; inert landing and pose-only modes declare no support reference, so recovery does not require the support it restores. |
-| Q-MOTOR | No capability declaration on the motor factory. Where a stock motor lacks a goal a recovery path requests, that skill's fit refuses the body. |
-| Q-GAIT | Deduplicate gaits on their complete configuration; remove the `runs` deletion if walk/run continuity holds without it. |
+| Q-MOTOR | Reject an incompatible skill/motor combination before construction, using the motor owner's compatibility rule. Admission checks the selected controller as well as the anatomy. |
+| Q-GAIT | Share gait instances only for identical complete configurations. Any necessary walk/run state sharing belongs to that gait's implementation; repair continuity there. |
 | Q-DATA | The data store deep-freezes what it publishes. |
 | Q-CONTACTS | Closed: contacts describe the last completed interval, and the audit found no defect against that. |
 
@@ -167,7 +153,11 @@ isolation worker cites `src/app/browser/isolate.ts` (DOC-001).
 Each landable change names its findings, its checks and any moved fingerprint case, and runs the
 [gates its change requires](../../AGENTS.md#doing-the-work). A retained test is added only for an
 observed regression lacking coverage, and is listed in the [test inventory](../../tests/README.md).
-Behaviour changes get paired readings of their affected cells; skill claims need watched drills.
+Check each repair with the audit's recipe; admission refusals precede allocation. Behaviour changes
+get paired readings of their affected cells; skill claims need watched drills.
+
+Before declaring completion, reread each affected producer-to-consumer path against the goal,
+including related violations exposed during implementation.
 
 Done when every finding is closed in the code, the architecture describes the resulting contracts,
 and the gates pass. Commit each change on main without pushing; delete this plan and the audit
