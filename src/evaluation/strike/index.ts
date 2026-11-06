@@ -165,7 +165,10 @@ export function createStrikeIndex(context: GameContext) {
       { name: "bonk intended contact", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.contact ?? null },
       { name: "bonk recovery", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.recovery ?? null },
       { name: "bonk safety", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.safety ?? null },
-      { name: "bonk energy", unit: "J over all requested attacks, misses zero, the median", kind: "median", better: "higher", of: (r) => r.bonk ? r.bonk.contact?.energy ?? 0 : null },
+      { name: "bonk intended-hit share", unit: "share of requested contact attacks", kind: "rate", better: "higher", of: (r) => r.bonk
+        && (r.bonk.fixture === undefined || r.bonk.fixture.requested.mode === "contact") ? (r.bonk.effectiveness === undefined ? r.bonk.contact : r.bonk.effectiveness.contact) !== null : null },
+      { name: "bonk energy", unit: "J over all requested contact attacks, misses zero, the median", kind: "median", better: "higher", of: (r) => r.bonk
+        && (r.bonk.fixture === undefined || r.bonk.fixture.requested.mode === "contact") ? (r.bonk.effectiveness === undefined ? r.bonk.contact : r.bonk.effectiveness.contact)?.energy ?? 0 : null },
     ],
     /** Each subject's trials as a table, in the conditions' order. */
     summary({ subjects, cases }) {
@@ -190,6 +193,7 @@ export function createStrikeIndex(context: GameContext) {
             `${row.mark}: bonk gates: ${row.bonk!.failures.join("; ") || "met"}.`,
             `Chamber hold: ${f(row.bonk!.chamberHold)} / ${row.bonk!.limits.chamberHold} s; admission to commitment: ${f(row.bonk!.admitted !== null && row.bonk!.committed !== null ? row.bonk!.committed - row.bonk!.admitted : null)} / ${row.bonk!.limits.prepare} s.`,
             `Physical stroke end: ${row.bonk!.physicalEnd?.reason ?? "unreached"} at ${f(row.bonk!.physicalEnd?.at)} s; guard hold at ${f(row.bonk!.recovered)} s.`,
+            ...row.bonk!.fixture ? [`Fixture: ${row.bonk!.fixture.requested.mode}; entry ${row.bonk!.fixture.admission?.normalized.map(value => f(value, 6)).join(", ") ?? "unreached"}; request ${f(row.bonk!.fixture.requestedAt)} s; admission ${f(row.bonk!.fixture.admittedAt)} s; withdrawal ${f(row.bonk!.fixture.cancelledAt)} s; post-switch impulse ${f(row.bonk!.fixture.missImpulses)} N s; ${row.bonk!.fixture.faults.join("; ") || "reached"}.`] : [],
             `Geometric self-separation: ${f(row.bonk!.safety.least, 6)} / 0 m at ${f(row.bonk!.safety.at)} s, ${row.bonk!.safety.pair?.join(" against ") ?? "unreached"}.`, "",
             "| Physical phase | From, s | To, s | Hand error, m | Swell error, m | Club error / 15 deg | Chest error / 15 deg | Wrist reversal / 15 deg | Club excess / 15 deg | Collision-exempt steps |",
             "|---|---|---|---|---|---|---|---|---|---|",

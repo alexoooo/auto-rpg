@@ -23,6 +23,7 @@
 import type { MindConfig } from "../../minds/config.ts";
 import type { Approach, DrillCommanderConfig } from "../../minds/command/drill.ts";
 import { randomStream } from "../../core/math/random.ts";
+import { sin, cos } from "../../core/math/real.ts";
 import { presetFitsModel } from "../../minds/controller.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
@@ -36,6 +37,7 @@ import { type GameContext, mindFaults as contextMindFaults } from "../../game/ar
 import { SIDES } from "../../core/bodies/bilateral.ts";
 import { validBonkTechnique, type BonkTechnique } from "../../skills/strikes/bonk-course.ts";
 import type { StrikeConfig } from "../../minds/option/kinds.ts";
+import { BONK_ENTRY, type BonkFixtureConfig } from "./bonk-fixture.ts";
 
 /**
  * A subject's value: a mind given whole, the skill it drills (its executor's kind, as an order
@@ -99,6 +101,12 @@ const BONK_REFERENCE = deepFreeze({ ...SWING_MOTION, marks: ["high"] as Mark[], 
 
 /** The same physical delay as the game's 120 Hz step, at the higher native rate. */
 const BONK_REFERENCE_FAST = deepFreeze({ ...BONK_REFERENCE, timing: { hz: 480, delay: 4 } });
+
+/** Central standing contact, miss and early withdrawal at the frozen useful entry. */
+const BONK_SCREEN = deepFreeze({ ...BONK_REFERENCE, timing: { hz: 120, delay: 1 }, entry: BONK_ENTRY, fixture: true as const });
+const BONK_SCREEN_FAST = deepFreeze({ ...BONK_SCREEN, timing: { hz: 480, delay: 4 } });
+const BONK_SCREEN_CONDITIONS: readonly StillCondition[] = deepFreeze((["contact", "miss", "cancel"] as const).map(mode =>
+  ({ model: "workshop-fighter", mark: "high", hand: "right", gap: 1.2, across: 0, entry: { u: .5, v: 0, heading: 0, mode } })));
 
 /**
  * **Starts drawn at random**, the `sampled` rung: the still rung's trials on every striker's body,
@@ -224,6 +232,7 @@ const FIGHT = deepFreeze({
 
 /** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
 export type StillCondition = { readonly model: BodyModel; readonly mark: Mark } & Limb & {
+  readonly entry?: Pick<BonkFixtureConfig, "u" | "v" | "heading" | "mode">;
   /** The target's body, where its rung names one: a Warrior's where it does not. */
   readonly target?: BodyModel;
   /** Which way and how fast the target moves on its rail, m/s, where its rung moves it. */
@@ -308,7 +317,7 @@ export function createStrikeCases(context: GameContext) {
   }
 
   function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: readonly number[];
-    readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID; readonly motion?: true; readonly bonk?: BonkTechnique; readonly timing?: BoutTiming } & Partial<Moving>,
+    readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID; readonly motion?: true; readonly bonk?: BonkTechnique; readonly timing?: BoutTiming; readonly fixture?: true } & Partial<Moving>,
     drawn?: readonly StillCondition[]): Cases<StrikeCondition, StrikeReading> {
     const conditions: StillCondition[] = drawn ? [...drawn] : [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
     const moving: Moving | null = protocol.directions === undefined ? null : protocol as Moving;
@@ -333,16 +342,20 @@ export function createStrikeCases(context: GameContext) {
         const configured = subject.mind as MindConfig & { readonly options?: readonly StrikeConfig[] };
         const drilled = protocol.bonk ? { ...subject, mind: { ...configured, options: configured.options?.map(option => option.skill?.kind === subject.skill
           ? { ...option, regions: [{ kind: "mark" as const, mark }], aim: { kind: "centre", lead: 0 } } : option) } } : subject;
+        const entry = (condition as StillCondition).entry, heading = entry?.heading ?? Math.PI / 2;
+        const leading = opposed(striker(drilled, effectorOf(condition), mark, { after: protocol.settled, pace: protocol.pace,
+          walking: start === "walking" || carried !== null || approach !== undefined, ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }) }), opponentOf(protocol.opponent ?? STANDING)!);
         return { kind: "bout", engine, tape: [], ...protocol.timing === undefined ? {} : { timing: protocol.timing },
+        ...protocol.fixture && entry ? { fixture: { kind: "bonk" as const, ...entry, hand: hand!, skill: subject.skill, settled: protocol.settled, patience: protocol.patience } } : {},
         // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
         recipe: { left: model, right: target ?? "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
           ...(protocol.motion ? { balance: { left: 0, right: 0 } } : {}),
           ...loadoutsOf(value as unknown as StrikeSubject),
           // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
-          start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: carried ? [...carried.from] : [gap / 2, side], heading: -Math.PI / 2 } },
-          ...opposed(striker(drilled, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace,
-            walking: start === "walking" || carried !== null || approach !== undefined, ...(approach === undefined ? {} : { approach }), ...(letGo === undefined ? {} : { letGo }) }),
-            opponentOf(protocol.opponent ?? STANDING)!),
+          start: entry ? { left: { at: [-gap / 2 * sin(heading), -gap / 2 * cos(heading)], heading },
+            right: { at: [gap / 2 * sin(heading) + side * cos(heading), gap / 2 * cos(heading) - side * sin(heading)], heading: heading + Math.PI } }
+            : { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: carried ? [...carried.from] : [gap / 2, side], heading: -Math.PI / 2 } },
+          ...protocol.fixture ? { minds: leading.minds, senseDelay: 0 } : leading,
           ...(carried ? { rail: carried.rail } : {}),
           // Facing -x, its back is toward +x: 90 degrees from +z.
           ...(protocol.laid ? { shove: { side: "right", segment: protocol.laid.segment, degrees: 90, at: 0,
@@ -379,6 +392,8 @@ export function createStrikeCases(context: GameContext) {
     "swing-motion": stillCases(SWING_MOTION),
     "bonk-reference": stillCases(BONK_REFERENCE),
     "bonk-reference-480": stillCases(BONK_REFERENCE_FAST),
+    "bonk-screen": stillCases(BONK_SCREEN, BONK_SCREEN_CONDITIONS),
+    "bonk-screen-480": stillCases(BONK_SCREEN_FAST, BONK_SCREEN_CONDITIONS),
     moving: stillCases(MOVING), walk: stillCases(WALK),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),

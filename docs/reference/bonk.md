@@ -68,3 +68,29 @@ The `bonk-reference-480` protocol plays the head-target reference at 480 Hz with
 delay steps. The 120 Hz reference uses one delay step, so both wait 1/120 s. Each saved bout
 with explicit timing carries its rate and delay into Node execution and the browser worker.
 Reels require matching rates and delays for trials played step for step.
+
+## Standing fixtures
+
+The `bonk-screen` and `bonk-screen-480` protocols request central contact, an unobstructed miss
+and an early precommit cancellation with the right hand. Both fighters have zero balance
+assistance. Their observations have zero delay; command delay remains 1/120 s and Option
+decisions remain at 60 Hz. The saved world carries these settings and its trusted fixture.
+
+[bonk-fixture.ts](../../src/evaluation/strike/bonk-fixture.ts) places the target before sensing
+until admission. It computes the frozen useful window from current posed anatomy, the head's
+offset from the striker's centre and `BONK_ENTRY`. Normalized depth and lateral placement are
+recorded at admission, with 0.00001 m precision for fixture placement. Placement stops at
+admission; the target keeps its pose, velocities, muscles and floor contacts.
+
+At commitment, the miss fixture changes fighter-to-fighter collision groups while retaining
+floor contact and sensed geometry. The early cancellation withdraws the order six native
+steps after admission at 120 Hz, or 24 at 480 Hz. The record names the request, admission,
+commitment, miss switch and withdrawal, and reports an unreached condition as a fixture fault.
+Fixture state and collision groups restore with a bout-world snapshot.
+
+Effectiveness counts the first swell/head blunt impact during the executor's committed stroke,
+including an attack whose preparation already fails its form deadline. Its intended-hit share
+and median energy include every requested contact attack, with misses counted as zero.
+Explicit miss and cancellation fixtures are separate conditions. Form contact still requires
+the physical stroke interval and descending velocity. Coverage remains incomplete until the
+complete fixture suite is verified.

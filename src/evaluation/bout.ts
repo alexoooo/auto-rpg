@@ -9,6 +9,9 @@ import { createWorld, type World } from "../core/world/world.ts";
 import type { MindPlace } from "../minds/apart.ts";
 import { type GameContext } from "../game/arena/context.ts";
 import type { Catalog } from "../minds/catalog.ts";
+import { bonkFixture, validBonkFixture, type BonkFixture, type BonkFixtureConfig } from "./strike/bonk-fixture.ts";
+import { loadState, saveState } from "../core/world/state.ts";
+import { recordingKey } from "../core/world/recording.ts";
 
 /** How a bout's world is built beside its recipe. */
 interface BoutOptions {
@@ -23,6 +26,7 @@ interface BoutOptions {
   /** Where its minds run (`World.minds`); in the world's thread unless given. */
   readonly minds?: MindPlace;
   readonly hooks?: ConstructorParameters<typeof Duel>[3];
+  readonly fixture?: BonkFixtureConfig;
 }
 
 /** A bout's world, its duel, and each solid's fixed collider by name. */
@@ -31,6 +35,7 @@ export interface BuiltBout {
   readonly world: World;
   readonly duel: Duel;
   readonly colliders: ReadonlyMap<string, number>;
+  readonly fixture?: BonkFixture;
   dispose(): void;
 }
 
@@ -38,13 +43,17 @@ export function createBout(context: GameContext) {
   const { defaultMind } = context;
 
   /** A world with the arena's solids and `recipe`'s bout in it. */
-  async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
+  async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, minds, hooks = {}, fixture: fixtureConfig }: BoutOptions = {}): Promise<BuiltBout> {
     const world = createWorld(physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(minds ? { minds } : {}) });
     try {
       const solids = arenaSolids(recipe.level);
       const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
+      let fixture: BonkFixture | undefined;
+      const placement = fixtureConfig ? world.sense(() => fixture?.beforeSense()) : null;
       const duel = new Duel(world, recipe, context, { solids, ...hooks });
-      return { catalog: context.catalog, world, duel, colliders, dispose() { duel.dispose(); world.dispose(); } };
+      try { if (fixtureConfig) fixture = bonkFixture({ world, duel }, fixtureConfig); }
+      catch (error) { duel.dispose(); throw error; }
+      return { catalog: context.catalog, world, duel, colliders, ...fixture ? { fixture } : {}, dispose() { placement?.dispose(); fixture?.dispose(); duel.dispose(); world.dispose(); } };
     } catch (error) { world.dispose(); throw error; }
   }
 
@@ -52,8 +61,10 @@ export function createBout(context: GameContext) {
   const BOUT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "bout" }>, BuiltBout> = {
     build: (world, options) => {
       if (world.timing !== undefined && !validBoutTiming(world.timing)) return Promise.resolve({ refused: "invalid recorded bout timing" });
+      if (world.fixture !== undefined && (!validBonkFixture(world.fixture) || world.recipe.senseDelay !== 0 || world.recipe.commanders?.left || world.recipe.commanders?.right))
+        return Promise.resolve({ refused: "a bonk fixture needs valid placement, immediate observations and external orders" });
       if (world.timing && options?.hz !== undefined && options.hz !== world.timing.hz) return Promise.resolve({ refused: "a recorded bout's rate cannot be overridden" });
-      return buildBout(world.recipe, { engine: world.engine, ...world.timing ?? (options?.hz === undefined ? {} : { hz: options.hz }) });
+      return buildBout(world.recipe, { engine: world.engine, ...world.timing ?? (options?.hz === undefined ? {} : { hz: options.hz }), ...world.fixture ? { fixture: world.fixture } : {} });
     },
     start: (built, world) => built.duel.play(world.tape),
     traced: (built) => SIDES.map((side) => built.duel.duelists[side].built),
@@ -61,8 +72,14 @@ export function createBout(context: GameContext) {
     minds: (world) => SIDES.map((side) => world.recipe.minds?.[side] ?? defaultMind(world.recipe[side])),
     parts: (world) => [...(world.recipe.ends ?? GAME_ENDS).map((end) => end.kind), ...SIDES.flatMap((side) => world.recipe.commanders?.[side]?.kind ?? [])],
     hosted: (built) => SIDES.map((side) => built.duel.duelists[side].minded),
-    save: (built) => built.duel.save(),
-    load: (built, saved) => built.duel.load(saved as ReturnType<Duel["save"]>),
+    save: (built) => ({ ...built.duel.save(), ...built.fixture ? { fixture: { config: built.fixture.reading().requested, state: saveState(built.fixture.state) } } : {} }),
+    load: (built, saved) => {
+      const snapshot = saved as ReturnType<Duel["save"]> & { readonly fixture?: { readonly config: BonkFixtureConfig; readonly state: unknown } };
+      if (Boolean(built.fixture) !== (snapshot.fixture !== undefined)
+        || built.fixture && recordingKey(built.fixture.reading().requested) !== recordingKey(snapshot.fixture!.config)) throw new Error("the saved bout has another fixture");
+      built.duel.load(snapshot);
+      if (built.fixture) loadState(built.fixture.state, snapshot.fixture!.state);
+    },
   };
 
   /** A world with the arena's solids and `recipe`'s team bout in it. */

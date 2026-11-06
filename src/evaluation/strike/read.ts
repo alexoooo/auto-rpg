@@ -304,7 +304,7 @@ const LIES = 1 / 3;
  * fighting (`DrillPhase`) are the fight's, not the drill's. With no `bar`, a hand's blow is judged
  * by its body's (`barOf`).
  */
-export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "duel" | "catalog">, limbAsked: { readonly mark: Mark } & Limb,
+export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "world" | "duel" | "catalog" | "fixture">, limbAsked: { readonly mark: Mark } & Limb,
   ending: Ending, given?: Bar): Reader<StrikeReading> {
   const left = duel.duelists.left, skills = left.minded.skills;
   if (!skills) throw new Error("the striker runs no skills");
@@ -315,7 +315,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   const limb = left.built.segments.get(effector);
   if (!limb) throw new Error(`the striker has no ${effector}`);
   const motion = ending.motion ? swingMotion(left.built, effector) : null;
-  const bonk = ending.bonk ? readBonk({ world, duel, catalog }, effector, ending.bonk, ending.seconds) : null;
+  const bonk = ending.bonk ? readBonk({ world, duel, catalog, fixture }, effector, ending.bonk, ending.seconds) : null;
   const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = given ?? barOf(spec);
   /** Whether the asked hand holds an item, its blow judged by the held item's bar (`Bar.held`) and its strike point the item's. */
   const armed = hand !== null && !holdsNothing(spec, effector);
