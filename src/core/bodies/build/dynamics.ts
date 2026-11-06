@@ -38,6 +38,8 @@ import { partsOn, type Parts } from "../read-motion.ts";
  * It includes each segment's gyroscopic torque, w x I w, because the engine does: Rapier keeps a
  * free body's angular momentum, not its spin (`research/core-rapier-probe.mjs` spins a box to show
  * it).
+ * Passive spring torques are subtracted from the inertial bias, so the remaining torque is what
+ * the muscles and contacts supply; this includes elasticity when every segment is still.
  *
  * The joints' rows take the root to be held still: its spin enters the bias, but a root carried or
  * pushed adds its own acceleration to every segment. **The root's own rows** (`root`) carry that:
@@ -62,12 +64,12 @@ export interface BodyDynamics {
   readonly mass: readonly Float64Array[];
   /** By freedom, N m: the torque gravity puts on each freedom's motion. */
   readonly gravity: Float64Array;
-  /** By freedom, N m: the torque the motion under way needs with no joint's speed changing; zero unless `update` is given `motion`. */
+  /** By freedom, N m: inertial velocity products minus known passive spring torque. */
   readonly bias: Float64Array;
   /**
    * Reads the pose as it stands; `angles` by joint, each its freedoms' (`jointAngles`), for the
    * motion axes. With `motion`, each segment's angular velocity (world frame, rad/s), it reads
-   * `bias` too.
+   * the inertial part of `bias` too; passive elasticity is read even without motion.
    */
   update(angles: readonly (readonly number[])[], motion?: BodyMotion): void;
   /** The root's rows, as last read. */
@@ -136,6 +138,10 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
     whole.mass = segments.reduce((sum, s, i) => off[i] ? sum : sum + s.rigid.mass, 0);
   };
   const freedoms = joints.flatMap((joint, j) => joint.dofs.map((_, k) => ({ joint: j, k })));
+  const passive = freedoms.flatMap(({ joint: j, k }, f) => {
+    const spring = joints[j]!.dofs[k]!.spec.passive;
+    return spring ? [{ f, j, k, spring, parent: index.get(joints[j]!.parent)!, child: index.get(joints[j]!.child)! }] : [];
+  });
   const n = freedoms.length;
   const mass = freedoms.map(() => new Float64Array(n));
   const weight = new Float64Array(n);
@@ -329,6 +335,13 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
       }
       if (motion) velocityProducts(motion);
       else { bias.fill(0); root.bias.fill(0); for (const a of accel) a.fill(0); for (const a of alpha) a.fill(0); spins.forEach((s) => s.fill(0)); }
+      // Known internal spring forces move to the bias side; they exert no net root wrench.
+      for (const { f, j, k, spring, parent, child } of passive) {
+        if (!joints[j]!.attached()) continue;
+        const u = spins[child]!, v = spins[parent]!, axis = axes[j]![k]!;
+        const speed = (u[0] - v[0]) * axis[0] + (u[1] - v[1]) * axis[1] + (u[2] - v[2]) * axis[2];
+        bias[f] += spring.stiffness.value * (angles[j]![k]! - spring.rest.value) + spring.damping.value * speed;
+      }
       for (let f = 0; f < n; f++) {
         const { joint: a, k } = freedoms[f]!, mf = axes[a]![k]!, pf = pivots[a]!;
         const own = composite[a]!;

@@ -119,7 +119,7 @@ export function humanModel(): Model {
     name: j.name, parent: index.get(j.parent)!, child: index.get(j.child)!, centre: [...j.centre.value] as V3,
     dofs: j.dofs.map((d) => ({
       name: `${j.name} ${d.positive}`, axis: [...d.axis.value] as V3, min: d.min.value, max: d.max.value,
-      peakPositive: d.muscle.peakPositive.value, peakNegative: d.muscle.peakNegative.value,
+      peakPositive: d.muscle?.peakPositive.value ?? 0, peakNegative: d.muscle?.peakNegative.value ?? 0,
     })),
   }));
   return { name: "human", segments, joints };

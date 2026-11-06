@@ -364,7 +364,9 @@ function holdOf(corners: readonly Vec3[], ahead: readonly number[], ankle: Vec3,
   const halfWidth = hypot(corners[ahead[0]!]![0] - corners[ahead[1]!]![0], corners[ahead[0]!]![2] - corners[ahead[1]!]![2]) / 2;
   const strength = (name: string, sense: "peakPositive" | "peakNegative"): number => {
     const dof = joint.dofs.findIndex((d) => d.spec.positive === name);
-    return dof >= 0 ? ankleStrength(joint.dofs[dof]!.spec.muscle, joint.strength(dof), sense, name === "inversion") : Infinity;
+    if (dof < 0) return Infinity;
+    const muscle = joint.dofs[dof]!.spec.muscle;
+    return muscle ? ankleStrength(muscle, joint.strength(dof), sense, name === "inversion") : 0;
   };
   // Dorsiflexion (toes up) presses the heel into the ground, plantar flexion the toes; inversion and eversion each press a side.
   const hold: AnkleHold = { toe: strength("dorsiflexion", "peakNegative"), heel: strength("dorsiflexion", "peakPositive"),

@@ -119,7 +119,7 @@ function pairShare(kg: number, struck: number, target: BodySpec): number {
 /** A body's strength: its muscles' peak isometric torques, both ways about every joint's every axis, summed, N m. */
 function strengthOf(spec: BodySpec): number {
   let sum = 0;
-  for (const joint of spec.joints) for (const dof of joint.dofs) sum += dof.muscle.peakPositive.value + dof.muscle.peakNegative.value;
+  for (const joint of spec.joints) for (const dof of joint.dofs) if (dof.muscle) sum += dof.muscle.peakPositive.value + dof.muscle.peakNegative.value;
   return sum;
 }
 

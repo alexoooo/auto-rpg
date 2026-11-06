@@ -89,7 +89,7 @@ export type FallReading = {
 /** `spec` with every muscle's peak torques scaled by `factor`: a search's raised ceilings, never the game's. */
 export function strengthSpec(spec: BodySpec, factor: number): BodySpec {
   if (factor === 1) return spec;
-  return { ...spec, joints: spec.joints.map(joint => ({ ...joint, dofs: joint.dofs.map(dof => ({ ...dof,
+  return { ...spec, joints: spec.joints.map(joint => ({ ...joint, dofs: joint.dofs.map(dof => dof.passive ? dof : ({ ...dof,
     muscle: { ...dof.muscle, peakPositive: { ...dof.muscle.peakPositive, value: dof.muscle.peakPositive.value * factor },
       peakNegative: { ...dof.muscle.peakNegative, value: dof.muscle.peakNegative.value * factor } } })) })) };
 }

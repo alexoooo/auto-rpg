@@ -81,7 +81,7 @@ export function swingLegOf(chain: readonly ReadJoint[]): SwingLeg {
   const foot = parts[2]!.spec, fc = foot.centreOfMass.value;
   return {
     length, thigh: hypot(k[0] - h[0], k[1] - h[1], k[2] - h[2]), shank: hypot(a[0] - k[0], a[1] - k[1], a[2] - k[2]), aboutHip: inertia + mass * centre * centre,
-    torque: hip!.strength(0) * Math.min(flexion!.muscle.peakPositive.value, flexion!.muscle.peakNegative.value),
+    torque: hip!.strength(0) * Math.min(flexion!.muscle?.peakPositive.value ?? 0, flexion!.muscle?.peakNegative.value ?? 0),
     range: {
       ahead: lean(flexion!.max.value, flexion!.bind.value), behind: lean(-flexion!.min.value, -flexion!.bind.value),
       out: lean(abduction!.max.value, abduction!.bind.value), in: lean(-abduction!.min.value, -abduction!.bind.value),

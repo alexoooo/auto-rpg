@@ -221,6 +221,7 @@ const armJoint = (joint: string): boolean => joint.startsWith("shoulder.") || jo
  */
 export function skeletonMotors(spec: BodySpec): BodySpec {
   const joints = spec.joints.map((joint) => ({ ...joint, dofs: joint.dofs.map((dof) => {
+    if (dof.passive) return dof;
     const { peakPositive, peakNegative, speedPositive, speedNegative } = dof.muscle;
     const peak = derive("N m", "the stronger side's peak, either way", [peakPositive, peakNegative], Math.max);
     const unloaded = derive("rad/s", "the more powerful side's motor speed, either way",

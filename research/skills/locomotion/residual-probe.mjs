@@ -51,6 +51,8 @@ try {
     diff: execFileSync('git', ['diff', 'HEAD', '--', ...trees], { encoding: 'utf8' }), node: process.version,
     reader: createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex'),
     environment: createHash('sha256').update(readFileSync(new URL('./residual-environment.mjs', import.meta.url))).digest('hex') };
+  if (settings.bodyVariant === 'passive-toes') code.bodyVariant = createHash('sha256')
+    .update(readFileSync(new URL('./passive-toe-body.mjs', import.meta.url))).digest('hex');
   if (settings.residual === 'steering' || settings.steeringPolicy)
     code.steeringAdapter = createHash('sha256').update(readFileSync(new URL('./learned-run-steering.mjs', import.meta.url))).digest('hex');
   writeFileSync(o.out, JSON.stringify({ protocol: 'residual development screen, physical COM at 120 Hz', settings,

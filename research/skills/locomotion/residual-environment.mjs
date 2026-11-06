@@ -24,6 +24,7 @@ import { legOf } from '../../../src/skills/locomotion/gait-scale.ts';
 import { balanceCeiling, balancePercent, rulebook } from '../../../src/combat/rulebook.ts';
 import { learnedRunSteering, learnedRunFeatures, steeringFrom, STEERING_LAYOUT } from './learned-run-steering.mjs';
 import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
+import { passiveToeBody } from './passive-toe-body.mjs';
 
 const ROLES = Object.freeze(['stance', 'swing']);
 const JOINTS = Object.freeze(['hip flexion', 'hip abduction', 'hip internal rotation', 'knee flexion', 'ankle dorsiflexion', 'ankle inversion']);
@@ -79,7 +80,10 @@ export async function residualEnvironment(configuration = {}) {
   const referencePolicy = o.referencePolicy ? recoveryNetwork(JSON.parse(readFileSync(o.referencePolicy, 'utf8'))) : null;
   if (referencePolicy && (o.residual !== 'steering' || !(o.referenceScale >= 0) || !Number.isFinite(o.referenceScale)))
     throw Error('a frozen reference policy accompanies steering with a finite nonnegative referenceScale');
-  const spec = modelSpec(o.model), guard = guardPosture(spec), leg = legOf(spec);
+  if (o.bodyVariant !== undefined && o.bodyVariant !== 'passive-toes') throw Error('unknown residual body variant');
+  const original = modelSpec(o.model);
+  const spec = o.bodyVariant === 'passive-toes' ? passiveToeBody(original) : original;
+  const guard = guardPosture(spec), leg = legOf(spec);
   const ends = Object.fromEntries(['left', 'right'].map(side => [side, footOn(spec, side)]));
   const names = Object.fromEntries(['left', 'right'].map(side => [side, JOINTS.map(name => {
     const [joint, ...motion] = name.split(' '); return `${joint}.${side} ${motion.join(' ')}`;
@@ -254,6 +258,7 @@ export async function residualEnvironment(configuration = {}) {
   return { observationSize: layout.inputs.length, actionSize: layout.outputs.length, layout, reset, step, reading, dispose,
     halt() { control.asked = null; control.stopOrder = true; },
     harness: Object.freeze({ model: o.model, engine: o.engine, hz: stand.world.hz, delay: stand.world.delay,
+      ...(o.bodyVariant ? { bodyVariant: o.bodyVariant } : {}),
       actuation: stand.world.actuation, balance: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt,
       residual: o.residual, scale: o.scale, entry: o.entry ?? 'landing', trim: o.trim ?? 'continuous' }) };
 }
