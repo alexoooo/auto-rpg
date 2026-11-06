@@ -18,7 +18,8 @@ the ten-second stand-up target remains separate work rather than an entry requir
 
 ## Movement contract
 
-Movement direction is independent of facing. With facing free, travel turns toward its destination
+Movement direction is independent of facing. Held facing keeps the pelvis within 20 degrees of
+the requested facing throughout movement and stopping. With facing free, travel turns toward its destination
 and runs forward. With facing held, it moves in the requested direction relative to that facing,
 using a declared safe speed for that direction. Test both contracts; turning around and running
 forward does not demonstrate backward movement with facing held.
