@@ -7,6 +7,7 @@
  * --from selects the first rolling window's end; --seconds ends the run. Neither changes a gate.
  * --resume continues the saved CMA state and rows under the same protocol and code identity.
  * --stop-at pairs with --running-policy to freeze entry and train only the four-second braking window.
+ * Comma-separated stop times score the worst independent case; --seconds is the latest stop plus four.
  * --period-range adds one unit-cube coordinate for jointly training cadence and trajectory.
  * --ahead-range adds a playback-lead coordinate after cadence where both are present.
  * --feedback speed adds signed command-minus-speed features to each selected channel.
@@ -51,37 +52,47 @@ if (!isMainThread) {
           ...(period === null ? {} : { period }), ...(ahead === null ? {} : { ahead }) } });
       }
       const policy = recoveryNetwork(networkAt(u, workerData.basis, workerData.channels, workerData.feedback));
-      let observation = await env.reset({ fromRest: true }), result, sum = 0, count = 0, held = Infinity, enteredAt = null;
-      const window = new Float64Array(120);
-      let halted = false, stopEntry = null, quietFrom = null, settledAt = null, stopSpeed = 0, stopCount = 0, deadlineSpeed = null;
-      do {
-        if (runningPolicy && !halted && count >= workerData.stopAt * 120) { env.halt(); halted = true; stopEntry = sum / 120; }
-        result = env.step((runningPolicy && !halted ? runningPolicy : policy)(observation), { squashed: true }); observation = result.observation;
-        for (const sample of result.samples) {
-          enteredAt ??= sample.running ? sample.time : null;
-          const slot = count % 120; sum += sample.velocity[2] - window[slot]; window[slot] = sample.velocity[2]; count++;
-          if (count >= 120 && sample.time >= workerData.creditFrom) held = Math.min(held, sum / 120);
-          if (halted) {
-            const speed = Math.hypot(sample.velocity[0], sample.velocity[2]);
-            stopSpeed += speed; stopCount++;
-            if (count <= (workerData.stopAt + 2) * 120) deadlineSpeed = speed;
-            const standing = !sample.physicalDown && !sample.postureDown
-              && Object.values(sample.feet).some(contacts => contacts.some(c => c.impulse > 0 && c.normal[1] < -.5));
-            if (standing && speed < .15) quietFrom ??= sample.time; else quietFrom = null;
-            if (quietFrom !== null && Math.round((sample.time - quietFrom) * 120) >= 240
-              && Math.round((quietFrom - workerData.stopAt) * 120) <= 240) settledAt ??= quietFrom - workerData.stopAt;
+      const readings = [];
+      for (const stopAt of workerData.stopCases ?? [workerData.stopAt]) {
+        const seconds = stopAt === undefined ? workerData.seconds : stopAt + 4;
+        let observation = await env.reset({ fromRest: true }), result, sum = 0, count = 0, held = Infinity, enteredAt = null;
+        const window = new Float64Array(120);
+        let halted = false, stopEntry = null, quietFrom = null, settledAt = null, stopSpeed = 0, stopCount = 0, deadlineSpeed = null;
+        do {
+          if (runningPolicy && !halted && count >= stopAt * 120) { env.halt(); halted = true; stopEntry = sum / 120; }
+          result = env.step((runningPolicy && !halted ? runningPolicy : policy)(observation), { squashed: true }); observation = result.observation;
+          for (const sample of result.samples) {
+            enteredAt ??= sample.running ? sample.time : null;
+            const slot = count % 120; sum += sample.velocity[2] - window[slot]; window[slot] = sample.velocity[2]; count++;
+            if (count >= 120 && sample.time >= workerData.creditFrom) held = Math.min(held, sum / 120);
+            if (halted) {
+              const speed = Math.hypot(sample.velocity[0], sample.velocity[2]);
+              stopSpeed += speed; stopCount++;
+              if (count <= (stopAt + 2) * 120) deadlineSpeed = speed;
+              const standing = !sample.physicalDown && !sample.postureDown
+                && Object.values(sample.feet).some(contacts => contacts.some(c => c.impulse > 0 && c.normal[1] < -.5));
+              if (standing && speed < .15) quietFrom ??= sample.time; else quietFrom = null;
+              if (quietFrom !== null && Math.round((sample.time - quietFrom) * 120) >= 240
+                && Math.round((quietFrom - stopAt) * 120) <= 240) settledAt ??= quietFrom - stopAt;
+            }
           }
-        }
-      } while (!result.terminated && !result.truncated);
-      const complete = !result.terminated && count >= workerData.seconds * 120 && enteredAt !== null && enteredAt <= 4;
-      const stopMet = halted && complete && stopEntry >= workerData.pace && settledAt !== null;
-      // A valid quiet interval outranks all continuous rewards; otherwise weight deadline and mean speed equally.
-      const stopScore = settledAt !== null ? 2 + 1 / (1 + settledAt)
-        : (1 / (1 + (deadlineSpeed ?? Infinity)) + 1 / (1 + stopSpeed / Math.max(1, stopCount))) / 2;
-      // Partial survival guides development but ranks below every completed forward run.
-      parentPort.postMessage({ id, r: { score: complete ? halted ? stopScore : Math.max(0, held) : -1 + Math.min(1, count / (workerData.seconds * 120)),
-        ...(runningPolicy ? { stopEntry, deadlineSpeed, settledAt, stopMet } : {}), ...(period === null ? {} : { period }), ...(ahead === null ? {} : { ahead }),
-        held: Number.isFinite(held) ? held : null, enteredAt, complete, harness: env.harness, ...result.info } });
+        } while (!result.terminated && !result.truncated && count < seconds * 120);
+        if (halted && count < (stopAt + 2) * 120) deadlineSpeed = null;
+        const complete = !result.terminated && count >= seconds * 120 && enteredAt !== null && enteredAt <= 4;
+        const stopMet = halted && complete && stopEntry >= workerData.pace && settledAt !== null;
+        // A valid quiet interval outranks all continuous rewards; otherwise weight deadline and mean speed equally.
+        const stopScore = settledAt !== null ? 2 + 1 / (1 + settledAt)
+          : (1 / (1 + (deadlineSpeed ?? Infinity)) + 1 / (1 + stopSpeed / Math.max(1, stopCount))) / 2;
+        // Braking survival credits only the controlled post-order window, excluding the frozen run.
+        const survival = stopAt === undefined ? count / (seconds * 120) : Math.max(0, count - stopAt * 120) / 480;
+        readings.push({ score: complete ? halted ? stopScore : Math.max(0, held) : -1 + Math.min(1, survival),
+          ...(runningPolicy ? { stopEntry, deadlineSpeed, settledAt, stopMet } : {}), ...(period === null ? {} : { period }), ...(ahead === null ? {} : { ahead }),
+          held: Number.isFinite(held) ? held : null, enteredAt, complete, harness: env.harness, ...result.info });
+      }
+      const r = readings.length === 1 ? readings[0] : { score: Math.min(...readings.map(r => r.score)),
+        complete: readings.every(r => r.complete), stopMet: readings.every(r => r.stopMet),
+        cases: readings.map((r, i) => ({ stopAt: workerData.stopCases[i], ...r })) };
+      parentPort.postMessage({ id, r });
     } catch (error) { parentPort.postMessage({ id, r: { error: String(error.stack ?? error), score: -1 } }); }
   });
 } else {
@@ -95,18 +106,20 @@ if (!isMainThread) {
     feedback: { type: 'string', default: 'none' } } });
   if (!o.config || !o.out) throw Error('--config and --out name calibration and retained search evidence');
   const config = JSON.parse(readFileSync(o.config, 'utf8'));
+  const stopCases = o['stop-at'] === undefined ? null : o['stop-at'].split(',').map(Number);
   const settings = { ...JSON.parse(readFileSync(config.environment, 'utf8')), ...config,
     seconds: Number(o.seconds), creditFrom: Number(o.from), basis: o.basis, feedback: o.feedback,
     channels: o.channels === 'all' ? Array.from({ length: 12 }, (_, i) => i) : CHANNELS,
-    ...(o['stop-at'] !== undefined ? { stopAt: Number(o['stop-at']), runningPolicy: o['running-policy'] ? JSON.parse(readFileSync(o['running-policy'], 'utf8')) : null } : {}),
+    ...(stopCases ? { stopAt: Math.max(...stopCases), ...(stopCases.length > 1 ? { stopCases } : {}),
+      runningPolicy: o['running-policy'] ? JSON.parse(readFileSync(o['running-policy'], 'utf8')) : null } : {}),
     ...(o['period-range'] ? { periodRange: o['period-range'].split(',').map(Number) } : {}),
     ...(o['ahead-range'] ? { aheadRange: o['ahead-range'].split(',').map(Number) } : {}) };
   for (const [name, range] of [['period', settings.periodRange], ['ahead', settings.aheadRange]])
     if (range && (range.length !== 2 || !range.every(x => Number.isFinite(x) && x > 0) || range[0] >= range[1] || settings.stopAt !== undefined))
       throw Error(`${name} range needs positive increasing limits and a running-only search`);
   if ((o['stop-at'] === undefined) !== (o['running-policy'] === undefined)
-    || (settings.stopAt !== undefined && (!Number.isInteger(settings.stopAt) || settings.stopAt < 4 || settings.seconds !== settings.stopAt + 4)))
-    throw Error('braking search needs --stop-at and --running-policy, with four seconds after the stop');
+    || (stopCases && (stopCases.some(at => !Number.isInteger(at) || at < 4) || new Set(stopCases).size !== stopCases.length || settings.seconds !== settings.stopAt + 4)))
+    throw Error('braking search needs distinct stop times of at least four seconds and --running-policy; --seconds is the latest stop plus four');
   if (!['sine', 'quadrature'].includes(settings.basis)) throw Error('basis is sine or quadrature');
   if (!['none', 'speed'].includes(settings.feedback)) throw Error('feedback is none or speed');
   if (!['sagittal', 'all'].includes(o.channels)) throw Error('channels is sagittal or all');

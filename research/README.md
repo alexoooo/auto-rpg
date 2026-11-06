@@ -30,6 +30,12 @@ development score weights speed at the two-second deadline and mean braking spee
 A valid quiet standing interval outranks those continuous rewards. `stopMet` also requires the declared entry speed; a higher development
 score alone does not establish the stop gate.
 
+Use comma-separated `--stop-at` times to train braking across independent entry conditions.
+Each case ends four seconds after its stop; `--seconds` names the latest stop plus four.
+The candidate receives its worst case's score, and rows retain every case's entry and outcome.
+Partial braking survival credits only time after the stop order. An unreached deadline has no
+speed reading.
+
 For running-only development, `--period-range low,high` trains cadence jointly with the
 trajectory coefficients; `--ahead-range low,high` also trains playback lead. Quote range arguments
 to preserve their decimal bounds in PowerShell. The checkpoint's best reading records the selected
