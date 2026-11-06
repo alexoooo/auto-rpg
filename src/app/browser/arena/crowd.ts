@@ -11,6 +11,7 @@ import { handsOf } from "../render/strike-hands.ts";
 import { puppetBody } from "../render/puppet.ts";
 import { warmScene } from "../render/ready.ts";
 import { frameMeter } from "../ui/frame-meter.ts";
+import { cameraControls } from "../ui/camera-controls.ts";
 import { bodyBetween, openWorld, posePuppet, type Between } from "../worker/client.ts";
 import type { TeamCard } from "../../worker/stage.ts";
 import { buildArena } from "./scene.ts";
@@ -73,9 +74,7 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
   };
   const subjects: ArenaSubjects = { left: middle("left"), right: middle("right") };
   const rig = arenaCameraRig(camera, readArenaView("", null));
-  canvas.addEventListener("pointermove", (event) => { if (event.buttons & 6) rig.orbit(event.movementX, event.movementY); }, { signal: context.signal });
-  canvas.addEventListener("wheel", (event) => { event.preventDefault(); rig.zoom(event.deltaY); }, { signal: context.signal, passive: false });
-  canvas.addEventListener("contextmenu", (event) => event.preventDefault(), { signal: context.signal });
+  cameraControls(canvas, { signal: context.signal, enabled: () => true, camera: rig });
 
   // A bar for each body, in its line's order, its side's colour.
   const bars = bodies.map((body, k) => {

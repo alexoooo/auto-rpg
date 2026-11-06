@@ -16,7 +16,7 @@ const DRAWN: Named<Projection> = { orthographic: { name: "Orthographic" }, persp
  * A view panel reads settings and requests edits; its screen owns their application and persistence.
  * Each screen uses the same choices and presentation.
  */
-export function viewModeControl(read: () => ViewMode, change: (view: ViewMode) => void): Control {
+function viewModeControl(read: () => ViewMode, change: (view: ViewMode) => void): Control {
   return choice("View", entries(VIEW_MODES, VIEWS), read, change);
 }
 

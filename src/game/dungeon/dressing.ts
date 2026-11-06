@@ -78,9 +78,8 @@ const webFacesCamera = (into: Point, toward: Point) => (into.x * toward.x + into
 
 /**
  * Whether the camera sees a point in front of a wall. Its sight line back toward the camera rises tan(pitch) a metre
- * across the ground, and has to clear the walls' top before it passes over rock. Taken at `CAMERA_PITCH`, the
- * page's default, so a steeper `?pitch=` sees at least as much; the comparison goes down to 25 degrees, where a piece
- * judged seen here may be partly hidden.
+ * across the ground, and has to clear the walls' top before it passes over rock. Placement uses `CAMERA_PITCH`;
+ * a lower camera can partly hide scenery admitted here.
  */
 function seen(map: DungeonMap, p: { x: number; y: number; z: number }, toward: Point): boolean {
   const rise = Math.tan(CAMERA_PITCH);

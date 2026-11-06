@@ -11,8 +11,8 @@ export function referenceChamber(seed = 271828): DungeonMap {
     spawns:[{x:5.5,z:10.5},{x:12.5,z:10.5},{x:12,z:8.5}],
     obstacles:[{id:"reference.sarcophagus",x:12.8,z:6.6,width:2.5,depth:1.15,height:1.1,blocksSight:false}]};
 }
-/** The reference chamber's camera: its elevation and bearing, rad, and its zoom, set by eye. */
-export const REFERENCE_CAMERA={pitch:42*Math.PI/180,azimuth:135*Math.PI/180,zoom:6.5};
+/** The reference chamber's opening vertical half-span, m, set by eye. */
+export const REFERENCE_ZOOM=6.5;
 /** The reference chamber's two torches: the wall cell each hangs on, the way it faces, and where its flame and its
  * light stand, m. */
 export const REFERENCE_TORCHES: readonly TorchPlacement[] = [

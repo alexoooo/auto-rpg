@@ -2,7 +2,7 @@ import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js
 import { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { CameraMode, Projection } from "../../../game/appearance/view.ts";
-import { behind, CHASE_BETA, easeAngle, facingOf, ISO_ALPHA, ISO_BETA, orthoExtents, VIEW_CAMERA } from "../render/camera-math.ts";
+import { followCameraAngles, orthoExtents, VIEW_CAMERA } from "../render/camera-math.ts";
 
 /**
  * **How the lab's camera follows the body.** One orbit camera, in one of three ways:
@@ -28,7 +28,7 @@ interface LabCameraRig {
 export function labCameraRig(camera: ArcRotateCamera): LabCameraRig {
   const free = { x: camera.angularSensibilityX, y: camera.angularSensibilityY, pan: camera.panningSensibility };
   let mode: CameraMode = "free", projection: Projection = "orthographic";
-  let facing = { x: 0, z: 1 };
+  const angles = { azimuth: -Math.PI / 2 - camera.alpha, pitch: Math.PI / 2 - camera.beta, facing: { x: 0, z: 1 } };
   const target = new Vector3();
   return {
     choose(to, drawn) {
@@ -43,19 +43,10 @@ export function labCameraRig(camera: ArcRotateCamera): LabCameraRig {
     follow(position, rotation, rest, dt, aspect) {
       target.set(position.x, VIEW_CAMERA.lookHeight, position.z);
       camera.target = Vector3.Lerp(camera.target, target, VIEW_CAMERA.follow);
-      const approach = 1 - Math.exp(-dt / VIEW_CAMERA.turnSeconds);
-      switch (mode) {
-        case "free": break;
-        case "isometric":
-          camera.alpha = easeAngle(camera.alpha, ISO_ALPHA, dt, VIEW_CAMERA.turnSeconds);
-          camera.beta += (ISO_BETA - camera.beta) * approach;
-          break;
-        case "chase":
-          facing = facingOf(rotation, rest, facing);
-          camera.alpha = easeAngle(camera.alpha, behind(facing), dt, VIEW_CAMERA.turnSeconds);
-          camera.beta += (CHASE_BETA - camera.beta) * approach;
-          break;
-        default: { const never: never = mode; throw new Error(`no camera ${String(never)}`); }
+      if (mode !== "free") {
+        angles.azimuth = -Math.PI / 2 - camera.alpha; angles.pitch = Math.PI / 2 - camera.beta;
+        followCameraAngles(mode, angles, { rotation, rest }, dt);
+        camera.alpha = -Math.PI / 2 - angles.azimuth; camera.beta = Math.PI / 2 - angles.pitch;
       }
       const flat = mode === "isometric" && projection === "orthographic";
       camera.mode = flat ? Camera.ORTHOGRAPHIC_CAMERA : Camera.PERSPECTIVE_CAMERA;

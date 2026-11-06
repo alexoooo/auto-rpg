@@ -54,6 +54,8 @@ import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
 import { choice, following, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
+import { cameraControls } from "../ui/camera-controls.ts";
+import { cameraSubject } from "../render/orbit-camera.ts";
 import { playerControls } from "../ui/player-controls.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
@@ -118,7 +120,6 @@ const BESIDE = 4;
 const BESIDE_SHADE = .55;
 
 /** The segment of `spec` no joint carries: the one the chase camera turns with. */
-const rootOf = (spec: BodySpec): string => spec.segments.find((segment) => !spec.joints.some((joint) => joint.child === segment.name))!.name;
 
 /** A ray as the worker reads it (`Ray`). */
 const vec = ({ x, y, z }: { readonly x: number; readonly y: number; readonly z: number }): Vec3 => [x, y, z];
@@ -615,13 +616,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           const hands = handsOf(puppet.configurations.state);
           const skin = dress.get(side)!(puppet, { clothing: { boots: true, armour: true }, closure: hands.closure });
           const shapes = drawBody(puppet, scene, Color3.FromHexString(ARENA_SIDES[side].colour));
-          const held = drawHeld(puppet, scene), root = puppet.segments.get(rootOf(puppet.spec))!.node;
-          const rest = root.rotationQuaternion!.clone();
+          const held = drawHeld(puppet, scene);
           highlights.add(side, [...skin.meshes, ...shapes.meshes, ...held.meshes]);
-          bodies.set(side, { body, skin, shapes, head: puppet.segments.get("head")?.node ?? null, subject: {
-            get position() { return body.centre; },
-            get rotation() { return root.rotationQuaternion!; }, rest,
-          } });
+          bodies.set(side, { body, skin, shapes, head: puppet.segments.get("head")?.node ?? null, subject: cameraSubject(puppet, body.centre) });
           for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
           drawn.push(skin, shapes, held);
         });
@@ -741,15 +738,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     releaseInput();
     if (bout && !bout.news?.verdict) setPaused(true);
   }, { signal: context.signal });
-  // Orbit uses the spare buttons; left-button orders remain independent of camera mode.
-  canvas.addEventListener("contextmenu", event => event.preventDefault());
-  canvas.addEventListener("pointermove", event => {
-    if (screen === "fight" && (event.buttons & 6)) rig.orbit(event.movementX, event.movementY);
-  });
-  canvas.addEventListener("wheel", event => {
-    event.preventDefault();
-    if (screen === "fight") rig.zoom(event.deltaY);
-  }, { passive: false });
+  cameraControls(canvas, { signal: context.signal, enabled: () => screen === "fight", camera: rig });
   const steer = () => {
     if (!bout?.person) return;
     const lead = player.sample({ x: -Math.sin(rig.azimuth), z: -Math.cos(rig.azimuth) });
@@ -838,14 +827,15 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const shownBefore = shownTime;
     const timing = meter.frame(() => {
       const seconds = firstFrame ? 0 : engine.getDeltaTime() / 1000; firstFrame = false;
-      if (!context.busy) steer();
       if (bout) {
         meter.world(bout.link.received(), running ? bout.link.newest[2]! : 0);
         pose(bout.link.between(performance.now()));
         if (!paused && bout.news) for (const { side, speed, at } of bout.news.air) audio.swish(side, speed, airAt.set(at[0], at[1], at[2]));
       }
       if (!paused && !context.busy && profile.view === "world") arena.fire.burn(seconds);
-      frame(); readout(); audio.update(); overlay?.update(); besideOverlay?.update();
+      frame();
+      if (!context.busy) steer();
+      readout(); audio.update(); overlay?.update(); besideOverlay?.update();
       scene.render();
     });
     measurement?.record({ ...timing, simulated: shownTime - shownBefore, time: shownTime, hz: bout?.link.hz ?? 0,

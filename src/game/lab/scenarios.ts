@@ -1,4 +1,4 @@
-import { VIEW_MODES, CAMERA_MODES, PROJECTIONS, type ViewSettings } from "../appearance/view.ts";
+import { readViewSettings, viewSearch, type ViewSettings } from "../appearance/view.ts";
 import { appearanceFor, type Appearance } from "../appearance/appearance.ts";
 import { playHref } from "../route.ts";
 import { CHARACTERS } from "../appearance/characters.ts";
@@ -251,9 +251,7 @@ export function createLabScenarios(context: GameContext) {
       cut: modelSpec(model).wounds.limbs.find((limb) => limb.name === query.get("cut"))?.name ?? null,
       mind,
       hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
-      view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],
-      camera: CAMERA_MODES.find((c) => c === query.get("camera")) ?? CAMERA_MODES[0],
-      projection: PROJECTIONS.find((p) => p === query.get("projection")) ?? PROJECTIONS[0],
+      ...readViewSettings(search),
       targets: whole(query.get("targets"), 0, LAB_TARGETS.most, LAB_TARGETS.count),
       targetPart: targetPartOf(modelSpec(model), mind, query.get("targetPart")),
       // A seed is taken modulo 2^32 (`mulberry32`), so any whole number under it names one stream.
@@ -291,9 +289,8 @@ export function createLabScenarios(context: GameContext) {
     if (address.cut !== null) query.set("cut", address.cut);
     query.set("mind", mindText(address.mind, labMindsForModel(address.model)));
     query.set("hz", String(address.hz));
-    query.set("view", address.view);
-    query.set("camera", address.camera);
-    query.set("projection", address.projection);
+    const shown = new URLSearchParams(viewSearch("", address));
+    for (const [key, value] of shown) query.set(key, value);
     if (address.targets !== LAB_TARGETS.count) query.set("targets", String(address.targets));
     const spec = modelSpec(address.model), part = targetPartOf(spec, address.mind, address.targetPart);
     if (part !== attackTargetPart(spec, address.mind)) query.set("targetPart", part);

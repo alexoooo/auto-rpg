@@ -651,5 +651,9 @@ Bench have their own `index.html` beside their modules. Every entry document is 
 - **Player input** (`src/app/browser/ui/player-controls.ts`): Arena and Dungeon share click and held-pointer
   orders, cancellation, camera-relative movement keys and Shift to walk. Screens supply world picking
   and command transport; workers receive movement in world coordinates (`PlayerLead`).
+- **View** (`src/app/browser/ui/view-controls.ts`): Arena, Dungeon and Lab share presentation settings,
+  address fields and camera-mode calculations. Arena and Dungeon use one orbit camera and pointer controls;
+  each supplies the body or point to follow and its opening frame. Dungeon panels scroll separately in
+  the space above its footer.
 - **Sound** (`src/app/browser/audio/`) is synthesized (`GameAudio`): a body is heard by its touches and its
   motion through the air (`hearTouches`, `airOf`); a blow's debris is its own cue.

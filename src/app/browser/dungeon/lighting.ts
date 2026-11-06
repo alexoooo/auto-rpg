@@ -6,7 +6,7 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTexture.js";
 import { SSAO2RenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline.js";
 import type { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline.js";
-import type { Camera } from "@babylonjs/core/Cameras/camera.js";
+import type { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
 import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent.js";
@@ -16,7 +16,6 @@ import { isTactical } from "../render/scene-profile.ts";
 import { postPipeline } from "../render/post.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { CAMERA_AZIMUTH } from "../../../game/dungeon/bearing.ts";
-import { cameraDistance } from "./camera.ts";
 import { flames as makeFlames } from "../render/fire.ts";
 import { cutAway } from "../../../game/dungeon/fog.ts";
 import { orthographicLightProxy } from "./light-proxy.ts";
@@ -95,7 +94,7 @@ export interface DungeonLighting {
   dispose(): void;
 }
 
-export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torches: readonly TorchPlacement[],
+export function lightDungeon(scene: Scene, camera: FreeCamera, map: DungeonMap, torches: readonly TorchPlacement[],
   azimuth = CAMERA_AZIMUTH, profile?: Readonly<DungeonLightProfile>): DungeonLighting {
   let presentationEnabled = true;
   const look: LookSwitches = { torches: true, ssao: true, post: true };
@@ -138,7 +137,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   let ao: SSAO2RenderingPipeline | null = null, post: DefaultRenderingPipeline | null = null, zoom = 10, pitch = Math.PI / 6;
   // SSAO fades out from 0.75 of `maxZ`, so the farthest thing on screen -- the ground at the top edge, `zoom / tan`
   // beyond the target and `1 / sin` below it -- has to sit short of that.
-  const setMaxZ = () => { if (ao) ao.maxZ = (cameraDistance(pitch) + 1 / Math.sin(pitch) + zoom / Math.tan(pitch)) / 0.75 + 1; };
+  const setMaxZ = () => { if (ao) ao.maxZ = (Vector3.Distance(camera.position, camera.getTarget()) + 1 / Math.sin(pitch) + zoom / Math.tan(pitch)) / 0.75 + 1; };
   // Always rebuilt whole and in this order: a pipeline detached and re-attached appends its passes to the end of
   // the camera's list, and a frame-cost reading taken after that does not compare with one taken before.
   const buildPost = () => {

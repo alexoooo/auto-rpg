@@ -1,4 +1,4 @@
-import { CAMERA_MODES, PROJECTIONS, VIEW_MODES, type CameraMode, type ViewSettings } from "../../../game/appearance/view.ts";
+import { readViewSettings, viewSearch, type CameraMode, type ViewSettings } from "../../../game/appearance/view.ts";
 import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
 
 export type ArenaFocus = "both" | Side;
@@ -22,16 +22,13 @@ export function normalizeArenaView(view: ArenaView, you: Side | null): ArenaView
 export function readArenaView(search: string, you: Side | null): ArenaView {
   const query = new URLSearchParams(search);
   return normalizeArenaView({
-    view: VIEW_MODES.find(value => value === query.get("view")) ?? "world",
-    camera: CAMERA_MODES.find(value => value === query.get("camera")) ?? "free",
-    projection: PROJECTIONS.find(value => value === query.get("projection")) ?? "orthographic",
+    ...readViewSettings(search),
     focus: cameraFocuses("free").find(value => value === query.get("focus")) ?? "both",
   }, you);
 }
 
 export function arenaViewSearch(search: string, view: ArenaView): string {
-  const query = new URLSearchParams(search);
-  query.set("view", view.view); query.set("camera", view.camera);
-  query.set("projection", view.projection); query.set("focus", view.focus);
+  const query = new URLSearchParams(viewSearch(search, view));
+  query.set("focus", view.focus);
   return `?${query.toString().replace(/%2C/g, ",")}`;
 }

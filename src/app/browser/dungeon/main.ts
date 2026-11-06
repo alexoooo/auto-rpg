@@ -3,9 +3,10 @@ import { isRefused, type Refused } from "../../../core/refusal.ts";
 import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
 import { sceneProfile, visualGroup } from "../render/scene-profile.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
-import { viewModeControl } from "../ui/view-controls.ts";
-import { slider, type Control } from "../ui/controls.ts";
-import type { ViewMode } from "../../../game/appearance/view.ts";
+import { viewControls } from "../ui/view-controls.ts";
+import { cameraControls } from "../ui/camera-controls.ts";
+import type { Control } from "../ui/controls.ts";
+import { readViewSettings, viewSearch, type ViewSettings } from "../../../game/appearance/view.ts";
 import { boundary, cutAway, CUT_AWAY, fogMask, WALL_HEIGHT } from "../../../game/dungeon/fog.ts";
 import { isFloor } from "../../../game/dungeon/map.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
@@ -15,7 +16,6 @@ import { browserTextures } from "../render/surface.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
-import { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { Vector3, Matrix } from "@babylonjs/core/Maths/math.vector.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { movementRoutes } from "../render/movement-routes.ts";
@@ -41,7 +41,8 @@ import { runAttributes } from "./run-attributes.ts";
 import type { AttributeOverrides } from "../../../core/bodies/character-attributes.ts";
 import { cellKey } from "../../../game/dungeon/map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "../../../game/dungeon/bearing.ts";
-import { frameDungeon } from "./camera.ts";
+import { orbitCamera, cameraSubject, type CameraSubject } from "../render/orbit-camera.ts";
+import { VIEW_CAMERA } from "../render/camera-math.ts";
 import { pickingCoordinates } from "../render/picking.ts";
 import { DRESSING, dressingPlacements, torchPlacements } from "../../../game/dungeon/dressing.ts";
 import { lightDungeon, CRYPT_LIGHT, REFERENCE_LIGHT, type DungeonLighting } from "./lighting.ts";
@@ -53,7 +54,7 @@ import { ENCOUNTER_MODELS } from "../../../game/dungeon/encounters.ts";
 
 import type { CryptRoomPlan } from "../../../game/dungeon/crypt-plan.ts";
 import { generateCryptDungeon } from "../../../game/dungeon/crypt-dungeon.ts";
-import { referenceChamber, REFERENCE_CAMERA, REFERENCE_TORCHES } from "../../../game/dungeon/reference.ts";
+import { referenceChamber, REFERENCE_ZOOM, REFERENCE_TORCHES } from "../../../game/dungeon/reference.ts";
 import { dressReference, type ReferenceQuality } from "./reference-look.ts";
 import { need as find } from "../dom.ts";
 import type { ScreenContext } from "../ui/screen.ts";
@@ -63,9 +64,6 @@ import type { CommanderConfig, CommanderEntry } from "../../../minds/command/kin
 import { commanderOf, COMMANDERS } from "../../commanders.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
-
-/** The camera's available elevations, degrees. */
-const PITCH_LIMITS = Object.freeze({ least: 25, most: 65 });
 
 /** The scenario `text` names, as the scene's menu and the address write it. */
 function scenarioOf(text: string): DungeonScenario {
@@ -106,31 +104,21 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   const heroChoices = need("hero-choices"), seedInput = need<HTMLInputElement>("seed");
   const companionCount = need<HTMLFieldSetElement>("companions"), partyList = need<HTMLOListElement>("party-list");
   const choice = (group: HTMLElement): string => group.querySelector<HTMLInputElement>("input:checked")!.value;
-  let view: ViewMode = context.address.searchParams.get("view") === "tactical" ? "tactical" : "world";
+  let view = readViewSettings(location.search, { view: "world", camera: "isometric", projection: "orthographic" });
   let profile: ReturnType<typeof sceneProfile> | null = null;
   let geometry: ReturnType<typeof solidGeometry> | null = null;
   let geometryVersion = "";
   let geometryMaskVersion = "", geometryMask = new Uint8Array(0);
   const bodies: { skin: import("../render/skin-view.ts").SkinView; shapes: ReturnType<typeof drawBody> }[] = [];
   const applyView = () => {
-    profile?.setView(view);
-    for (const { skin, shapes } of bodies) { skin.setEnabled(view === "world"); for (const mesh of shapes.meshes) mesh.setEnabled(view === "tactical"); }
+    profile?.setView(view.view);
+    for (const { skin, shapes } of bodies) { skin.setEnabled(view.view === "world"); for (const mesh of shapes.meshes) mesh.setEnabled(view.view === "tactical"); }
   };
   const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
-  /** The address's pitch, held between 25 and 65 degrees, in radians; `otherwise` when the address gives none. */
-  const pitchOr = (otherwise: number): number => {
-    const value = Number(context.address.searchParams.get("pitch"));
-    return Number.isFinite(value) && value > 0 ? Math.max(PITCH_LIMITS.least, Math.min(PITCH_LIMITS.most, value)) * Math.PI / 180 : otherwise;
-  };
-  let pitch = pitchOr(CAMERA_PITCH);
-  /** The address's bearing in radians, normalized to one turn; `otherwise` when absent or invalid. */
-  const azimuthOr = (otherwise: number): number => {
-    const text = context.address.searchParams.get("azimuth")?.trim(), value = text ? Number(text) : NaN;
-    return Number.isFinite(value) ? (value % 360 + 360) % 360 * Math.PI / 180 : otherwise;
-  };
-  let azimuth = azimuthOr(CAMERA_AZIMUTH);
+  let pitch = CAMERA_PITCH, azimuth = CAMERA_AZIMUTH;
   let toward = cameraToward(azimuth);
   const viewFields: Control[] = [];
+  const cameraTarget = new Vector3();
   // `?floor=flat` and `?wall=flat` draw the untextured colours, the control for what the stone's maps cost, and
   // `?masonry=0` the flat wall skin, the control for what the blocks cost; `?dressing=0` leaves the clutter out.
   const stone = stoneQuery(location.search);
@@ -248,6 +236,9 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     /** The run, its world in a worker (`RunView`). */
     run: RunView | null;
     camera: FreeCamera | null;
+    rig: ReturnType<typeof orbitCamera> | null;
+    /** The body poses available to the common Chase camera. */
+    subjects: Map<ViewActor, CameraSubject>;
     lighting: DungeonLighting | null;
     referenceLook: Awaited<ReturnType<typeof dressReference>> | null;
     /** The bodies' visual instances and their simulation-step presentation hooks. */
@@ -261,7 +252,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     /** True while a run is being built: no frame is drawn, and no second build starts. */
     launching: boolean;
     freshFrame: boolean;
-    zoom: number;
     /** When the HUD was last refreshed, by `performance.now()`. */
     lastUi: number;
     controls: ReturnType<typeof playerControls<Command>> | null;
@@ -282,19 +272,12 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const panel = need("dungeon-view");
     panel.querySelector("summary")!.addEventListener("click", event => (event.currentTarget as HTMLElement).blur());
     for (const type of ["pointerdown", "pointermove", "wheel"]) panel.addEventListener(type, event => event.stopPropagation(), { signal: context.signal });
-    const changeAngles = (next: { pitch?: number; azimuth?: number }) => {
-      pitch = next.pitch ?? pitch; azimuth = next.azimuth ?? azimuth; toward = cameraToward(azimuth);
-      const url = new URL(context.address);
-      url.searchParams.set("pitch", String(Math.round(pitch * 180 / Math.PI)));
-      url.searchParams.set("azimuth", String(Math.round(azimuth * 180 / Math.PI) % 360));
-      context.replace(url); meter.reset();
+    const chooseView = (patch: Partial<ViewSettings>) => {
+      view = { ...view, ...patch }; page.rig?.choose(view); applyView(); meter.reset();
+      context.replace(viewSearch(context.address.search, view) + context.address.hash);
+      for (const control of viewFields) control.refresh();
     };
-    viewFields.push(viewModeControl(() => view, next => {
-      view = next; applyView(); meter.reset();
-      const url = new URL(context.address); url.searchParams.set("view", view); context.replace(url);
-    }),
-    slider("Elevation", PITCH_LIMITS.least, PITCH_LIMITS.most, 1, () => Math.round(pitch * 180 / Math.PI), value => changeAngles({ pitch: value * Math.PI / 180 }), value => `${value}°`),
-    slider("Bearing", 0, 360, 1, () => Math.round(azimuth * 180 / Math.PI), value => changeAngles({ azimuth: value * Math.PI / 180 }), value => `${value}°`));
+    viewFields.push(...viewControls(() => view, chooseView));
     need("dungeon-view-controls").append(...viewFields.map(control => control.element));
     need("pause-button").before(meter.element);
     const abort = new AbortController();
@@ -306,9 +289,9 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       party: null,
       selectedHero: "workshop-fighter", mind: () => null, attributes: () => ({}), companions: [], clothing: { boots: true, armour: true },
       selectedScenario: "generated", selectedQuality: "high", reference: false, commanders: { party: { kind: "party" }, enemies: { kind: "mob" } },
-      seed: 0, cryptPlan: undefined, scene: null, run: null, camera: null, lighting: null, referenceLook: null,
+      seed: 0, cryptPlan: undefined, scene: null, run: null, camera: null, rig: null, subjects: new Map(), lighting: null, referenceLook: null,
       drawn: [], soundTorches: [], routes: null,
-      paused: false, launching: false, freshFrame: true, zoom: 10, lastUi: 0, controls: null, hoverPointer: null, hovered: null, inspected: null,
+      paused: false, launching: false, freshFrame: true, lastUi: 0, controls: null, hoverPointer: null, hovered: null, inspected: null,
     };
     return page;
   }
@@ -331,24 +314,20 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     need("pause-button").textContent = value ? "Resume · Esc" : "Pause · Esc";
   }
 
-  /** Points the camera and the light at the leader. The reference chamber keeps its composed view when the zoom is
-   * wide and follows the leader as it closes in; every other level follows the leader. */
+  /** The common camera follows the party's leader; fog, lighting and movement read its actual pose. */
   function framing(page: DungeonPage): void {
-    const { run, camera, lighting, zoom, engine } = page;
-    if (!run || !camera || !lighting) return;
+    const { run, camera, rig, lighting, engine } = page;
+    if (!run || !camera || !rig || !lighting) return;
     const hero = run.leader.feet();
-    const follow = 0.4 + 0.6 * Math.max(0, Math.min(1, (6.5 - zoom) / 3.5));
-    // The chamber's middle.
-    const centre = { x: 9.5, z: 9 };
-    const target = page.reference && !page.cryptPlan
-      ? { x: centre.x + (hero.x - centre.x) * follow, z: centre.z + (hero.z - centre.z) * follow }
-      : hero;
-    frameDungeon(camera, target, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
-    if (run.pitch !== pitch || run.toward !== toward) {
-      run.pitch = pitch; run.toward = toward; run.present();
+    cameraTarget.set(hero.x, VIEW_CAMERA.lookHeight, hero.z);
+    rig.frame(cameraTarget, page.subjects.get(run.leader) ?? null, engine.getDeltaTime() / 1000, engine.getAspectRatio(camera));
+    pitch = rig.pitch; azimuth = rig.azimuth + Math.PI;
+    const nextToward = cameraToward(azimuth);
+    if (run.pitch !== pitch || toward.x !== nextToward.x || toward.z !== nextToward.z) {
+      toward = nextToward; run.pitch = pitch; run.toward = toward; run.present();
     }
     page.referenceLook?.setAzimuth(azimuth);
-    lighting.update(hero, zoom, pitch, toward);
+    lighting.update(hero, rig.extent, pitch, toward);
     run.level.setHero(hero);
   }
 
@@ -385,17 +364,15 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     geometry?.dispose(); geometry = null; bodies.length = 0;
     page.scene?.dispose();
     page.scene = null;
+    page.camera = null; page.rig = null; page.subjects.clear();
   }
 
-  /** The view a run of the page's scenario opens with: the address's pitch and bearing where it gives them, and
-   * otherwise the reference look's or the generated level's; the zoom; and the engine's hardware scaling. */
-  function cameraFor(page: DungeonPage): { pitch: number; azimuth: number; zoom: number; scaling: number } {
+  /** The scenario's opening frame and rendering scale. Camera modes belong to the shared View settings. */
+  function cameraFor(page: DungeonPage): { zoom: number; scaling: number } {
     const { reference } = page;
     return {
-      pitch: pitchOr(reference ? REFERENCE_CAMERA.pitch : CAMERA_PITCH),
-      azimuth: azimuthOr(reference ? REFERENCE_CAMERA.azimuth : CAMERA_AZIMUTH),
       // A random crypt is followed at the scale of a room, rather than fitted whole.
-      zoom: page.cryptPlan ? 5.2 : reference ? REFERENCE_CAMERA.zoom : 10,
+      zoom: page.cryptPlan ? 5.2 : reference ? REFERENCE_ZOOM : 10,
       scaling: reference ? page.selectedQuality === "reduced" ? 1.4 : 1 : 1 / Math.min(devicePixelRatio, 1.5),
     };
   }
@@ -418,11 +395,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     teardownRun(page);
     page.seed = seed; page.cryptPlan = cryptPlan;
     const cameraSettings = cameraFor(page);
-    pitch = cameraSettings.pitch;
-    azimuth = cameraSettings.azimuth;
-    toward = cameraToward(azimuth);
-    for (const control of viewFields) control.refresh();
-    page.zoom = cameraSettings.zoom;
     engine.setHardwareScalingLevel(cameraSettings.scaling);
 
     const scene = page.scene = new Scene(engine);
@@ -434,9 +406,11 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     };
     scene.preventDefaultOnPointerDown = scene.preventDefaultOnPointerUp = false;
     const camera = page.camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene);
-    camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1;
     camera.maxZ = 160;
+    page.rig = orbitCamera(camera, view, { extent: cameraSettings.zoom });
+    pitch = page.rig.pitch; azimuth = CAMERA_AZIMUTH;
+    toward = cameraToward(azimuth);
     // The skin of each model the run fields, loaded once a scene; a body whose skin did not load is drawn as its shapes.
     const dressers = new Map<BodyModel, Dresser>();
     await Promise.all(runModels(layout, fielded).map((model) =>
@@ -444,10 +418,11 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     stillShown();
     const dress = (actor: ViewActor) => {
       const puppet = actor.puppet!, hands = handsOf(puppet.configurations.state);
+      page.subjects.set(actor, cameraSubject(puppet, actor.centre));
       const skin = dressers.get(actor.model)!(puppet, { clothing: page.clothing, closure: hands.closure }), held = drawHeld(puppet, scene);
       const shapes = drawBody(puppet, scene, Color3.FromHexString(MODEL_DISPLAY[actor.model].tint));
       bodies.push({ skin, shapes });
-      skin.setEnabled(view === "world"); for (const mesh of shapes.meshes) mesh.setEnabled(view === "tactical");
+      skin.setEnabled(view.view === "world"); for (const mesh of shapes.meshes) mesh.setEnabled(view.view === "tactical");
       page.drawn.push(hands, skin, held, shapes);
       actor.meshes.push(...skin.meshes, ...held.meshes, ...shapes.meshes);
     };
@@ -730,21 +705,11 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     return { x, y, ground: p ? { x: p.x, z: p.z } : null };
   }
 
-  /** Selection and party orders beside the shared movement controls; hover and camera zoom. */
+  /** Shared player and camera gestures, with the Dungeon's selection and world picking. */
   function wirePointer(page: DungeonPage, party: Party): void {
     const { signal, hover, engine } = page;
-    canvas.addEventListener("contextmenu", (event) => event.preventDefault(), { signal });
-    canvas.addEventListener("pointerdown", (event) => {
-      const { run, scene, camera } = page;
-      if (page.paused || !run || !scene || !camera || event.button !== 2) return;
-      canvas.focus();
-      const p = pointerOn(page, scene, camera, event);
-      if (!p.ground) return;
-      const friend = scene.pick(p.x, p.y, (mesh) => run.memberAt(mesh) !== null, false, camera);
-      const member = friend?.pickedMesh ? run.memberAt(friend.pickedMesh) : null;
-      run.command(member ? { kind: "follow", member: member.id } : { kind: "face", toward: p.ground });
-      party.partyStatus();
-    }, { signal });
+    cameraControls(canvas, { signal, enabled: () => page.rig !== null && !page.launching,
+      camera: { orbit: (dx, dy) => page.rig?.orbit(dx, dy), zoom: delta => page.rig?.zoom(delta) } });
     page.controls = playerControls<Command>(canvas, {
       signal,
       enabled: () => !!page.run && !page.paused && !page.launching && page.run.status === "playing",
@@ -779,10 +744,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     };
     canvas.addEventListener("pointerleave", unhover, { signal });
     window.addEventListener("blur", unhover, { signal });
-    canvas.addEventListener("wheel", (event) => {
-      event.preventDefault();
-      page.zoom = Math.max(2, Math.min(18, page.zoom * Math.exp(event.deltaY * 0.001)));
-    }, { passive: false, signal });
     window.addEventListener("resize", () => engine.resize(), { signal });
   }
 
@@ -866,7 +827,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       meter.world(run.received(), !page.paused && playing() ? run.speed : 0);
       if (!page.paused && playing()) {
         for (const { id, speed, at } of run.air) audio.swish(id, speed, at);
-        if (view === "world") page.lighting?.burn(seconds);
+        if (view.view === "world") page.lighting?.burn(seconds);
       }
       run.pose(run.between(performance.now()));
       // The steps may have ended the run.
@@ -887,13 +848,13 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       hoverEnemy(page, scene, run);
       const hero = run.leader.feet();
       const known = `${run.explored.size}:${run.map.doors.map(door => door.open).join(",")}`;
-      if (view === "tactical" && known !== geometryMaskVersion) {
+      if (view.view === "tactical" && known !== geometryMaskVersion) {
         geometryMaskVersion = known;
         // Reuse the level's reveal rule for walls, closed doors and opaque furnishings, without a texture upload.
         fogMask(run.map, run.explored, run.explored, geometryMask);
       }
       const visibleGeometry = `${hero.x},${hero.z},${pitch},${azimuth}:${known}`;
-      if (view === "tactical" && visibleGeometry !== geometryVersion) {
+      if (view.view === "tactical" && visibleGeometry !== geometryVersion) {
         geometryVersion = visibleGeometry;
         geometry?.show(solid => {
           if (solid.name.startsWith("door.") && run.map.doors.some(d => solid.name === `door.${d.id}` && d.open)) return false;

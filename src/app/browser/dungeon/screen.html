@@ -1,10 +1,11 @@
 <div id="dungeon-play" hidden>
 <canvas id="dungeon" aria-label="Dungeon game" tabindex="0"></canvas>
+<div class="dungeon-hud">
 <header class="topbar">
   <a href="./" class="brand">AUTO-RPG <span>/ THE DEPTHS</span></a>
   <small id="seed-label"></small>
   <div class="topbar-end">
-    <div class="topbar-panels">
+    <div class="topbar-panels ui-panel-stack">
       <details id="dungeon-view" class="ui-drawer"><summary>View</summary><div id="dungeon-view-controls"></div></details>
       <details id="mind-panel"><summary>Mind <small id="mind-who"></small></summary><div id="mind-view"></div></details>
     </div>
@@ -24,6 +25,7 @@
   </section>
   <button id="help-button" type="button" aria-expanded="false">Controls <kbd>?</kbd></button>
 </footer>
+</div>
 <section id="pause-panel" class="dialog compact" hidden aria-labelledby="pause-title">
   <span class="eyebrow">THE DEPTHS</span><h2 id="pause-title">Paused</h2><p id="run-time" hidden></p>
   <button id="resume" class="primary">Resume</button><button id="retry">Retry same seed</button><button id="new-run">New dungeon</button>
@@ -35,8 +37,7 @@
     <dt>Click floor</dt><dd>Go there, fighting on the way; several take places about it</dd>
     <dt>Click enemy</dt><dd>Attack it</dd>
     <dt>Hold / drag floor</dt><dd>Update the destination; the line shows the planned path</dd>
-    <dt>Right-click floor</dt><dd>Face there</dd>
-    <dt>Right-click ally</dt><dd>Follow it</dd>
+    <dt>Right / middle drag</dt><dd>Orbit the Free camera</dd>
     <dt>Q / E</dt><dd>Turn left / right</dd>
     <dt>H</dt><dd>Hold where they stand</dd>
     <dt>X</dt><dd>Stop</dd>

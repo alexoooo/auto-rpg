@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { CameraMode } from "../../../game/appearance/view.ts";
 
 /** Isometric's diagonal bearing. */
 export const ISO_ALPHA = -3 * Math.PI / 4;
@@ -10,7 +11,7 @@ export const CHASE_BETA = 1.2;
 export const VIEW_CAMERA = Object.freeze({ turnSeconds: .3, lookHeight: 1, follow: .05 });
 
 /** The angle `from` approaches `to` by over `dt`, turning the short way round. */
-export function easeAngle(from: number, to: number, dt: number, seconds: number): number {
+function easeAngle(from: number, to: number, dt: number, seconds: number): number {
   const d = to - from, short = d - 2 * Math.PI * Math.round(d / (2 * Math.PI));
   return from + short * (1 - Math.exp(-dt / seconds));
 }
@@ -20,7 +21,7 @@ const AHEAD = new Vector3(0, 0, 1);
  * Where a body faces on the ground: +z turned by the pelvis's rotation since `rest`, its rotation
  * facing +z. A pelvis turned onto its side keeps `last`.
  */
-export function facingOf(rotation: Quaternion, rest: Quaternion, last: { x: number; z: number }): { x: number; z: number } {
+function facingOf(rotation: Quaternion, rest: Quaternion, last: { x: number; z: number }): { x: number; z: number } {
   const turn = rotation.multiply(Quaternion.Inverse(rest)), ahead = new Vector3();
   AHEAD.applyRotationQuaternionToRef(turn, ahead);
   return horizontalForward(ahead.x, ahead.z, last.x, last.z);
@@ -38,8 +39,26 @@ function horizontalForward(x: number, z: number, fallbackX: number, fallbackZ: n
   return { x: 0, z: 1 };
 }
 
-/** The orbit camera's bearing (alpha) that stands it behind a body facing `facing`. */
-export const behind = (facing: { x: number; z: number }): number => Math.atan2(-facing.z, -facing.x);
+export interface CameraFacing { readonly rotation: Quaternion; readonly rest: Quaternion }
+
+/** The common camera modes turn toward the isometric diagonal or behind the body's facing. */
+export function followCameraAngles(mode: CameraMode,
+  state: { azimuth: number; pitch: number; facing: { x: number; z: number } }, subject: CameraFacing | null, dt: number): void {
+  const approach = 1 - Math.exp(-dt / VIEW_CAMERA.turnSeconds);
+  switch (mode) {
+    case "free": break;
+    case "isometric":
+      state.azimuth = easeAngle(state.azimuth, -Math.PI / 2 - ISO_ALPHA, dt, VIEW_CAMERA.turnSeconds);
+      state.pitch += (Math.PI / 2 - ISO_BETA - state.pitch) * approach;
+      break;
+    case "chase":
+      if (subject) state.facing = facingOf(subject.rotation, subject.rest, state.facing);
+      state.azimuth = easeAngle(state.azimuth, Math.atan2(state.facing.x, state.facing.z), dt, VIEW_CAMERA.turnSeconds);
+      state.pitch += (Math.PI / 2 - CHASE_BETA - state.pitch) * approach;
+      break;
+    default: { const never: never = mode; throw new Error(`no camera ${never}`); }
+  }
+}
 
 /**
  * The orthographic extents that frame what the perspective camera frames at the target, `radius`

@@ -114,7 +114,7 @@ const smoothstep = (a: number, b: number, v: number) => { const t = Math.min(1, 
 
 /**
  * The share of a wall's pixels at `at` that the cut-away drops, 0 to `CUT_AWAY.most`, with the camera at `pitch`
- * and standing `toward` of the hero (`cameraToward` of its azimuth), as `frameDungeon` puts it. The shader in
+ * and standing `toward` of the hero (`cameraToward` of its azimuth). The shader in
  * `fog-plugin.ts` is the same rule: change both.
  */
 export function cutAway(hero: Point, at: { x: number; y: number; z: number }, pitch: number,

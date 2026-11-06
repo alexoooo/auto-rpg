@@ -11,3 +11,22 @@ export interface ViewSettings {
   readonly camera: CameraMode;
   readonly projection: Projection;
 }
+
+const DEFAULT_VIEW: ViewSettings = Object.freeze({ view: "world", camera: "free", projection: "orthographic" });
+
+/** Read the common presentation choices, retaining the caller's defaults for absent or invalid values. */
+export function readViewSettings(search: string, defaults: ViewSettings = DEFAULT_VIEW): ViewSettings {
+  const query = new URLSearchParams(search);
+  return {
+    view: VIEW_MODES.find(value => value === query.get("view")) ?? defaults.view,
+    camera: CAMERA_MODES.find(value => value === query.get("camera")) ?? defaults.camera,
+    projection: PROJECTIONS.find(value => value === query.get("projection")) ?? defaults.projection,
+  };
+}
+
+/** Write the common presentation choices while preserving the screen's other address fields. */
+export function viewSearch(search: string, view: ViewSettings): string {
+  const query = new URLSearchParams(search);
+  query.set("view", view.view); query.set("camera", view.camera); query.set("projection", view.projection);
+  return `?${query.toString().replace(/%2C/g, ",")}`;
+}
