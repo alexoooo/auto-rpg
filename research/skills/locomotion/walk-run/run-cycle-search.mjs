@@ -2,7 +2,7 @@ import { isRefused } from "../../../../src/core/refusal.ts";
 import { footOn } from "../../../../src/control/support.ts";
 /**
  * **The run's settings searched** (`RunCycleSettings`, `src/skills/locomotion/cycle-run.ts`) through the
- * walk and run that hands over to it (`walkRun`, `src/skills/locomotion/walk-run.ts`), Node stand, Rapier, 120 Hz, by diagonal CMA-ES in the unit
+ * walk and run that hands over to it (`walkRun`, `src/skills/locomotion/walk-run.ts`), Node stand, `CORE_ENGINE` (Rapier by default), 120 Hz, by diagonal CMA-ES in the unit
  * cube (`research/cma.mjs`).
  *
  * Each trial stands the body a second in its guard (`guardPosture`), which holds the arms wherever the gait does not, as a fighter's does, under its
@@ -21,7 +21,7 @@ import { footOn } from "../../../../src/control/support.ts";
  *
  *   node research/skills/locomotion/walk-run/run-cycle-search.mjs --out research/runs/run-cycle-search/a [--models workshop-fighter,workshop-rogue,crypt-skeleton]
  *     [--speeds 3,3.5,4] [--turns 0.4,0.8] [--stops 2,3.5 [--stop-at 2.5,4,6]] [--seconds 25] [--generations 60] [--lambda 28] [--sigma 0.1] [--workers 28]
- *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club,sword,buckler+club,buckler+sword] [--turn-speed 2 --turn-at 3 --turn-angle 6.2832] [--stop-within 1.5 --stop-under 0.15] [--balance 25] [--haste 0,50 --hasted 0.5] [--narrow 0.15] [--fallen 0.5] [--slowest 3] [--entry-within 4] [--score] [--windows]
+ *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club,sword,buckler+club,buckler+sword] [--turn-speed 2 --turn-at 3 --turn-angle 6.2832] [--stop-within 1.5 --stop-under 0.15] [--balance 25] [--haste 0,50 --hasted 0.5] [--narrow 0.15] [--fallen 0.5] [--slowest 3] [--entry-within 4] [--trace path.json] [--score] [--windows]
  *
  * - `--score` scores the start alone and prints each trial, with the metres it took to stop and the gait its landings show
  *   (`gaitOf`: step width, cadence and step length); with `--windows` each trial's speed in each 2 s window.
@@ -29,6 +29,7 @@ import { footOn } from "../../../../src/control/support.ts";
  * - `--fallen <share>` scales a fallen trial's credit by that share, so that a fall late in a trial costs more than the distance it ends.
  * - `--slowest <s>` credits a trial that runs on, or turns, and stays up with its slowest second's speed over the ground from `<s>` s after
  *   it is asked to run (a turning trial from the turn's start) to its end, the run's bar's reading (`src/evaluation/locomotion/read.ts`), in place of the speed it made.
+ * - `--trace <file>` with `--score` retains each step's motion, handover state, contacts and muscle targets.
  * - `--entry-within <s>` gives no credit unless the run begins within that time after the order.
  * - Otherwise it searches, and writes each generation to `<out>.jsonl` and the best to `<out>-best.json`.
  *
@@ -108,17 +109,21 @@ function loadoutOf(held) {
  * One trial: `model` asked `speed` m/s forward for `seconds` under the run `run`, its face turned at
  * `turn` rad/s if given (`TURN`), or asked to stop if `stop` (`STOP`), in the gusts of `wind` if given, holding `held` (`empty` or `club`); its credit, and its 2 s windows' speeds.
  */
-async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: stopSeconds = STOP.at, stopWithin = STOP.within, stopUnder = STOP.under, wind = null, held = "empty", balance = null, haste, hasted, narrow = null, fallen = 1, slowestFrom = null, entryWithin = null, turnAt = TURN.at, turnAngle = TURN.angle, run: { at, swerve = WALK_RUN.swerve, ...run } }) {
+async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: stopSeconds = STOP.at, stopWithin = STOP.within, stopUnder = STOP.under, wind = null, held = "empty", balance = null, haste, hasted, narrow = null, fallen = 1, slowestFrom = null, entryWithin = null, trace = false, turnAt = TURN.at, turnAngle = TURN.angle, run: { at, swerve = WALK_RUN.swerve, ...run } }) {
   const own = modelSpec(model, undefined, { haste }), spec = modelHolding(model, loadoutOf(held), haste === undefined ? undefined : { haste }), guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
   const assist = balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
-  const body = commandedBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
+  const host = commandedBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
+  const body = host.driver;
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
-  if (isRefused(blowing)) { body.dispose(); stand.dispose(); throw new Error(blowing.refused); }
+  if (isRefused(blowing)) { host.dispose(); stand.dispose(); throw new Error(blowing.refused); }
   const skill = walkRun(body, { ...WALK_RUN, run: at, swerve, hasted: hasted ?? WALK_RUN.hasted }, runCycleSettings(run, WALK_RUN_CYCLE));
   let asked = null, goal = null, face = 0;
+  const samples = [];
+  let pushes = [];
   body.drive((view, dt) => {
     const d = skill.goal(view, { walk: asked, face }, dt);
+    pushes = d.kind === "drive" ? d.pushes : [];
     if (d.kind === "drive") return { posture: { ...guard, ...d.posture }, pushes: d.pushes, stance: null };
     goal = d.goal ?? goal;
     return { posture: guard, pushes: [], stance: view.time > 0 ? goal : null };
@@ -140,6 +145,7 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
       stand.step(1);
       if (enteredAt === null && skill.state.walkRun.running) enteredAt = i / stand.world.hz;
       const s = body.view.stance;
+      if (trace) samples.push(structuredClone({time: i / stand.world.hz, centre: s.centre, velocity: s.velocity, root: body.view.root.rotation, run: skill.state.run, handover: skill.state.walkRun, ends: s.ends, pushes: pushes.map(p => { const i = body.muscles.channel(p.channel); return {...p, axis: [...body.muscles.dynamics.axis(i)], angle: body.muscles.angle(i), actual: body.muscles.speed(i)}; })}));
       for (const side of SIDES) {
         if (s.ends[footOn(spec, side)].touching && !was[side] && from !== null && i > at + stand.seconds(GAIT.after) && i <= gaitTo)
           landings.push({ side, i, across: s.ends[footOn(spec, side)].middle.x * Math.cos(face) - s.ends[footOn(spec, side)].middle.z * Math.sin(face), along: s.centre.z });
@@ -169,8 +175,8 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
     const narrowed = narrow === null || gait.width === null ? 1 : Math.min(1, narrow * legOf(own) / gait.width);
     const entered = entryWithin === null || (enteredAt !== null && enteredAt <= entryWithin);
     const credit = (entered ? 1 : 0) * (Math.min(made, speed + OVER) - Math.max(0, made - speed - OVER)) * (turned ? 1 : 0.5) * stood * soon * (stopped ? 1 : 0.5) * narrowed * (fell === null ? 1 : fallen);
-    return { model, speed, turn, stop, stopAt: stop ? stopSeconds : null, wind: wind?.seed ?? null, held, haste: haste ?? null, credit, made: +made.toFixed(3), fell, enteredAt, turned, under, metres: metres === null ? null : +metres.toFixed(2), windows, ...gait };
-  } finally { blowing?.dispose(); body.dispose(); stand.dispose(); }
+    return { model, speed, turn, stop, stopAt: stop ? stopSeconds : null, wind: wind?.seed ?? null, held, haste: haste ?? null, credit, made: +made.toFixed(3), fell, enteredAt, turned, under, metres: metres === null ? null : +metres.toFixed(2), windows, ...gait, ...(trace ? { hz: stand.world.hz, delay: stand.world.delay, samples } : {}) };
+  } finally { blowing?.dispose(); host.dispose(); stand.dispose(); }
 }
 
 if (!isMainThread) {
@@ -183,10 +189,11 @@ if (!isMainThread) {
   });
 } else {
   const { values: o } = parseArgs({ options: {
-    out: { type: "string" }, "entry-within": { type: "string" }, models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, speeds: { type: "string", default: "3,3.5,4" }, turns: { type: "string" }, stops: { type: "string" }, "stop-at": { type: "string" },
+    trace: { type: "string" }, out: { type: "string" }, "entry-within": { type: "string" }, models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, speeds: { type: "string", default: "3,3.5,4" }, turns: { type: "string" }, stops: { type: "string" }, "stop-at": { type: "string" },
     seconds: { type: "string", default: "25" }, generations: { type: "string", default: "60" }, lambda: { type: "string", default: "28" },
     sigma: { type: "string", default: "0.1" }, workers: { type: "string", default: "28" }, start: { type: "string" }, dims: { type: "string" }, score: { type: "boolean" }, windows: { type: "boolean" }, winds: { type: "string" }, holds: { type: "string", default: "empty" }, "turn-speed": { type: "string" }, "stop-within": { type: "string" }, "stop-under": { type: "string" }, balance: { type: "string" }, haste: { type: "string" }, hasted: { type: "string" }, narrow: { type: "string" }, fallen: { type: "string" }, slowest: { type: "string" }, "turn-at": { type: "string" }, "turn-angle": { type: "string" },
   } });
+  if (o.trace && !o.score) throw new Error("--trace is read with --score, not a search");
   const BASE = WALK_RUN_CYCLE, D = DIMS;
   const KEYS = o.dims ? o.dims.split(",") : Object.keys(D).filter((key) => key in BASE || WALK.includes(key));
   const WINDS = [null, ...(o.winds ? (([rate, strength, seeds]) => seeds.split(",").map((seed) => ({ rate: Number(rate), strength: Number(strength), seed: Number(seed) })))(o.winds.split(":")) : [])];
@@ -198,6 +205,7 @@ if (!isMainThread) {
     ...(o.turns ? o.turns.split(",") : []).map((turn) => ({ model, speed: o["turn-speed"] === undefined ? TURN.speed : Number(o["turn-speed"]), turn: Number(turn), seconds: Number(o.seconds), ...(o["turn-at"] === undefined ? {} : { turnAt: Number(o["turn-at"]) }), ...(o["turn-angle"] === undefined ? {} : { turnAngle: Number(o["turn-angle"]) }) })),
     ...(o.stops ? o.stops.split(",") : []).flatMap((speed) => (o["stop-at"] ? o["stop-at"].split(",").map(Number) : [STOP.at]).map((stopAt) => ({ model, speed: Number(speed), stop: true, stopAt, seconds: Number(o.seconds),
       ...(o["stop-within"] === undefined ? {} : { stopWithin: Number(o["stop-within"]) }), ...(o["stop-under"] === undefined ? {} : { stopUnder: Number(o["stop-under"]) }) })))]).flatMap((cell) => WINDS.map((wind) => ({ ...cell, wind }))).flatMap((cell) => o.holds.split(",").map((held) => ({ ...cell, held, balance: o.balance === undefined ? null : Number(o.balance),
+    ...(o.trace ? {trace: true} : {}),
     ...(o["entry-within"] === undefined ? {} : { entryWithin: Number(o["entry-within"]) }),
     ...(o.hasted === undefined ? {} : { hasted: Number(o.hasted) }), ...(o.narrow === undefined ? {} : { narrow: Number(o.narrow) }), ...(o.fallen === undefined ? {} : { fallen: Number(o.fallen) }), ...(o.slowest === undefined ? {} : { slowestFrom: Number(o.slowest) }) }))).flatMap((cell) => o.haste === undefined ? [cell] : o.haste.split(",").map((haste) => ({ ...cell, haste: Number(haste) })));
   const toUnit = (p) => KEYS.map((k) => ((p[k] ?? D[k][0]) - D[k][0]) / (D[k][1] - D[k][0]));
@@ -208,6 +216,7 @@ if (!isMainThread) {
     try { trials = (await Promise.all(cells.map((cell) => pool.evaluate({ cells: [cell], run: start })))).flatMap((r) => { if (r.error) throw new Error(r.error); return r.trials; }); }
     finally { await pool.terminate(); }
     for (const t of trials) console.log(`${t.model}${t.held === "empty" ? "" : ` holding ${t.held}`}${t.haste === null ? "" : ` at haste ${t.haste}`}${t.wind === null ? "" : ` in gusts ${t.wind}`} asked ${t.speed}${t.turn ? ` turning ${t.turn}${t.turned ? "" : " (not turned)"}` : ""}${t.stop ? ` then to stop at ${t.stopAt} s (under after ${t.under} s, ${t.metres} m)` : ""}: made ${t.made} m/s, fell ${t.fell}${t.width === null ? "" : `; width ${t.width} m, cadence ${t.cadence}/s, step ${t.step} m`}${o.windows ? `; windows ${t.windows.join(" ")}` : ""}`);
+    if (o.trace) writeFileSync(o.trace, JSON.stringify({ engine: process.env.CORE_ENGINE ?? "rapier", cells, run: start, trials }) + "\n");
     const fallen = trials.filter((t) => t.fell !== null);
     console.log(`fallen ${fallen.length} of ${trials.length}${o.models.split(",").map((m) => `; ${m} ${fallen.filter((t) => t.model === m).length}`).join("")}`);
     console.log("run entry, s", trials.map(t => t.enteredAt));
