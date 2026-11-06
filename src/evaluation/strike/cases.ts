@@ -108,6 +108,17 @@ const BONK_SCREEN_FAST = deepFreeze({ ...BONK_SCREEN, timing: { hz: 480, delay: 
 const BONK_SCREEN_CONDITIONS: readonly StillCondition[] = deepFreeze((["contact", "miss", "cancel"] as const).map(mode =>
   ({ model: "workshop-fighter", mark: "high", hand: "right", gap: 1.2, across: 0, entry: { u: .5, v: 0, heading: 0, mode } })));
 
+const BONK_CONTACT_ENTRIES = deepFreeze([.1, .5, .9].flatMap(u => [-.8, 0, .8].map(v => ({ u, v, heading: 0 }))));
+const BONK_RESERVED_ENTRIES = deepFreeze([45, 135, 225, 315].flatMap(degrees => [.25, .75].flatMap(u => [-.4, .4].map(v => ({ u, v, heading: degrees * Math.PI / 180 })))));
+const BONK_CONTACT = deepFreeze({ ...BONK_SCREEN, hands: [...SIDES] as Hand[], entries: BONK_CONTACT_ENTRIES, suite: "development" });
+const BONK_CONTACT_FAST = deepFreeze({ ...BONK_CONTACT, timing: { hz: 480, delay: 4 } });
+const BONK_RESERVED = deepFreeze({ ...BONK_SCREEN, hands: [...SIDES] as Hand[], entries: BONK_RESERVED_ENTRIES, suite: "reserved" });
+const BONK_RESERVED_FAST = deepFreeze({ ...BONK_RESERVED, timing: { hz: 480, delay: 4 } });
+
+/** A contact grid keeps each hand's normalized coordinates independent of its mirrored world placement. */
+const bonkContacts = (entries: readonly Pick<BonkFixtureConfig, "u" | "v" | "heading">[]): readonly StillCondition[] =>
+  deepFreeze(SIDES.flatMap(hand => entries.map(entry => ({ model: "workshop-fighter", mark: "high", hand, gap: 1.2, across: 0, entry: { ...entry, mode: "contact" } }))));
+
 /**
  * **Starts drawn at random**, the `sampled` rung: the still rung's trials on every striker's body,
  * each begun from a start drawn from a fixed stream (`seed`), so its trials are the same at every
@@ -394,6 +405,10 @@ export function createStrikeCases(context: GameContext) {
     "bonk-reference-480": stillCases(BONK_REFERENCE_FAST),
     "bonk-screen": stillCases(BONK_SCREEN, BONK_SCREEN_CONDITIONS),
     "bonk-screen-480": stillCases(BONK_SCREEN_FAST, BONK_SCREEN_CONDITIONS),
+    "bonk-contact": stillCases(BONK_CONTACT, bonkContacts(BONK_CONTACT_ENTRIES)),
+    "bonk-contact-480": stillCases(BONK_CONTACT_FAST, bonkContacts(BONK_CONTACT_ENTRIES)),
+    "bonk-reserved": stillCases(BONK_RESERVED, bonkContacts(BONK_RESERVED_ENTRIES)),
+    "bonk-reserved-480": stillCases(BONK_RESERVED_FAST, bonkContacts(BONK_RESERVED_ENTRIES)),
     moving: stillCases(MOVING), walk: stillCases(WALK),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),

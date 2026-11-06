@@ -94,3 +94,9 @@ and median energy include every requested contact attack, with misses counted as
 Explicit miss and cancellation fixtures are separate conditions. Form contact still requires
 the physical stroke interval and descending velocity. Coverage remains incomplete until the
 complete fixture suite is verified.
+
+The `bonk-contact` protocols cover depths 0.1, 0.5 and 0.9 at lateral positions -0.8, 0 and 0.8.
+The `bonk-reserved` protocols keep depths 0.25 and 0.75 at lateral positions -0.4 and 0.4 under
+headings 45, 135, 225 and 315 degrees. Each grid names both hands; a subject plays the hand
+holding its club. The `-480` protocol names the higher native rate. Reserved cases stay outside
+candidate ranking.
