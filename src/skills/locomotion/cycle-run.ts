@@ -181,8 +181,8 @@ export type RunTrim = "continuous" | "at-pace" | "after-pace";
  * quickened past `gainsFrom`, and shortened under the slowest one's pace (`short`). The cycles' speeds and times go to the body's leg by Froude (`k`, the
  * body's leg over the clip's); the settings come scaled to it.
  *
- * A braking calibration supplies the cycle while the requested pace is below its current pace or
- * the body's forward speed; omitted, the running calibration supplies both.
+ * A braking calibration supplies the cycle while the requested pace is below its reference pace
+ * or the order is to stop; omitted, the running calibration supplies both.
  * At-pace trim holds its integral while the reference pace accelerates or brakes toward the order.
  * After-pace trim integrates the whole speed cycle once the reference reaches an unchanged order.
  * The phase runs on at the cycle's rate. A sole landing near its own phase's end sets it to 0, and
@@ -304,7 +304,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
     drive(view, dt, heading, asked) {
       const s = view.stance, c = s.centre, v = s.velocity;
       const fx = sin(heading), fz = cos(heading), rx = cos(heading), rz = -sin(heading), along = v.x * fx + v.z * fz;
-      const p = asked < memory.pace || asked < along ? braking : settings;
+      const p = asked === 0 || asked < memory.pace ? braking : settings;
       memory.pace += Math.max(-p.brake * dt, Math.min(p.accel * dt, Math.min(asked, along + p.ahead) - memory.pace));
       blend(memory.pace, p);
       // The phase: on at the cycle's rate, set to a landing near its own, held a while for one late.

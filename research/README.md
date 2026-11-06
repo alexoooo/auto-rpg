@@ -54,6 +54,9 @@ acceleration and braking. Each mode retains the configured trim bound; the harne
 `after-pace` begins integrating once the reference reaches the order and continues through its
 speed oscillation. A changed order pauses accumulation until the reference reaches that order.
 
+Braking overrides activate while the reference pace exceeds the order or the order is to stop.
+This keeps a stopping posture independent of an unchanged running order.
+
 Set `actuationTrace` in a residual environment configuration to retain each leg channel's command,
 activation, delivered mean torque and directional bounds. Joint angles and speeds are the driver's
 last readings; torque is the last world step's mean. The same samples retain reference pace,
