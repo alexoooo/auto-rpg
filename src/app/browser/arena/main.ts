@@ -35,7 +35,7 @@ import { dresserFor, type Dresser } from "../render/dress.ts";
 import { handsOf } from "../render/strike-hands.ts";
 import { puppetBody, type Puppet } from "../render/puppet.ts";
 import { bodyBetween, openWorld, posePuppet, type Between, type WorldLink } from "../worker/client.ts";
-import type { DuelCard, DuelNews, LeadInput, Ray } from "../../worker/duel-stage.ts";
+import type { DuelCard, DuelNews, Ray } from "../../worker/duel-stage.ts";
 import { duelSpec, entryRules, SIDES, type DuelRecipe } from "../../../game/arena/duel.ts";
 import { trialOverlay } from "./trial-overlay.ts";
 import { endingText } from "../../../game/arena/end-rule.ts";
@@ -54,7 +54,7 @@ import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
 import { choice, following, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
-import { keysToMove } from "./keys-input.ts";
+import { playerControls } from "../ui/player-controls.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
 import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
@@ -73,9 +73,9 @@ import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
  *
  * A person who takes a side leads it as a team of one (`teamOfOne`) under the party's Commander,
  * which picks no foe untold and gives the side its orders (`Duel.order`): the keys walk it, as the
- * camera sees the ground and it faces the pointer. Clicking selects an opponent or floor destination;
+ * camera sees the ground. Clicking selects an opponent or floor destination;
  * holding the left button updates that order. The page turns the keys and pointer into world directions
- * and a ray (`orders-input.ts`, `LeadInput`) before the worker's Commander reads them, so nothing of
+ * and a ray (`orders-input.ts`, `PlayerLead`) before the worker's Commander reads them, so nothing of
  * the camera reaches a mind.
  *
  * Each side shows its choices (`MenuEntry`, `choicePanel`); the person picks one of their side's,
@@ -699,18 +699,17 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const help = (open: boolean) => show("help", open);
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
-  // What the person's hands are doing: the walking keys held, and whether Shift is, which walks; where the
-  // pointer is in viewport pixels, and whether its left button is down.
-  const keys = { up: false, down: false, left: false, right: false };
-  let pointer: { x: number; y: number } | null = null, pointing = false, walking = false;
-  const walkKeys: Readonly<Record<string, keyof typeof keys>> = {
-    w: "up", arrowup: "up", s: "down", arrowdown: "down", a: "left", arrowleft: "left", d: "right", arrowright: "right",
-  };
-  const releaseInput = () => {
-    keys.up = keys.down = keys.left = keys.right = false;
-    walking = false; pointing = false; pointer = null;
-    leadSent = "";
-  };
+  const player = playerControls<Ray>(canvas, {
+    signal: context.signal,
+    enabled: () => !!bout?.person && !paused && screen === "fight" && !bout.news?.verdict,
+    pick: ({ clientX, clientY }) => {
+      const pick = pickingCoordinates(clientX, clientY, canvas.getBoundingClientRect(), engine.getRenderWidth(), engine.getRenderHeight(), engine.getHardwareScalingLevel());
+      const ray = scene.createPickingRay(pick.x, pick.y, null, camera);
+      return { origin: vec(ray.origin), direction: vec(ray.direction), length: camera.maxZ };
+    },
+    order: ray => bout?.link.input({ kind: "point", ray }),
+  });
+  const releaseInput = () => { player.reset(); leadSent = ""; };
   youPicker.addEventListener("change", () => {
     youPicker.blur();
     if (!bout || trial) return;
@@ -729,47 +728,18 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     setPaused(paused);
     readout();
   });
-  /** Whether `event` was a walking key, now held or let go. */
-  const walkKey = (event: KeyboardEvent, held: boolean): boolean => {
-    const key = walkKeys[event.key.toLowerCase()];
-    if (!key) return false;
-    keys[key] = held;
-    if (event.key.startsWith("Arrow")) event.preventDefault();
-    return true;
-  };
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Shift") { walking = true; return; }
     if (event.target instanceof HTMLElement && event.target.matches("input, select, textarea")) return;
     if (event.key === "?") { help(need("help").classList.contains("gone")); return; }
-    if (!bout || walkKey(event, true)) return;
+    if (!bout) return;
     if (event.key === " " || event.key === "Escape") { event.preventDefault(); if (!bout.news?.verdict) setPaused(!paused); }
     else if (event.key === "r" || event.key === "R") replay();
   }, { signal: context.signal });
-  window.addEventListener("keyup", (event) => { if (event.key === "Shift") walking = false; walkKey(event, false); }, { signal: context.signal });
   // Losing focus pauses the bout, and lets go of every key and button: their releases are not heard.
   window.addEventListener("blur", () => {
     releaseInput();
     if (bout && !bout.news?.verdict) setPaused(true);
   }, { signal: context.signal });
-  // The left button is a level, read from every pointer event, since a release is not guaranteed.
-  for (const type of ["pointerdown", "pointermove", "pointerup"] as const) {
-    canvas.addEventListener(type, (event) => {
-      pointer = { x: event.clientX, y: event.clientY };
-      pointing = (event.buttons & 1) !== 0;
-    });
-  }
-  canvas.addEventListener("pointerleave", () => { pointer = null; pointing = false; });
-  /** The person's ray through viewport coordinates (`x`, `y`). */
-  const rayAt = (x: number, y: number): Ray => {
-    const pick = pickingCoordinates(x, y, canvas.getBoundingClientRect(), engine.getRenderWidth(), engine.getRenderHeight(), engine.getHardwareScalingLevel());
-    const ray = scene.createPickingRay(pick.x, pick.y, null, camera);
-    return { origin: vec(ray.origin), direction: vec(ray.direction), length: camera.maxZ };
-  };
-  canvas.addEventListener("pointerup", (event) => {
-    if (event.button !== 0 || !bout?.person || paused) return;
-    bout.link.input({ kind: "click", ray: rayAt(event.clientX, event.clientY) });
-  });
-
   // Orbit uses the spare buttons; left-button orders remain independent of camera mode.
   canvas.addEventListener("contextmenu", event => event.preventDefault());
   canvas.addEventListener("pointermove", event => {
@@ -779,15 +749,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     event.preventDefault();
     if (screen === "fight") rig.zoom(event.deltaY);
   }, { passive: false });
-  /**
-   * The person's lead for this frame, from the keys and the pointer as the camera has them: the keys a
-   * direction on the ground, Shift a walk, the pointer's ray, which the worker turns into a point to
-   * face on the level of the side's centre of mass, and the left button held, which continuously
-   * updates its destination or opponent. Sent when it changes.
-   */
   const steer = () => {
     if (!bout?.person) return;
-    const lead: LeadInput = { keys: keysToMove(keys, rig.azimuth), walk: walking, ray: pointer ? rayAt(pointer.x, pointer.y) : null, pointing };
+    const lead = player.sample({ x: -Math.sin(rig.azimuth), z: -Math.cos(rig.azimuth) });
     const sent = JSON.stringify(lead);
     if (sent !== leadSent) { leadSent = sent; bout.link.input({ kind: "lead", lead }); }
   };

@@ -1,3 +1,4 @@
+import { playerControls } from "../ui/player-controls.ts";
 import { isRefused, type Refused } from "../../../core/refusal.ts";
 import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
 import { sceneProfile, visualGroup } from "../render/scene-profile.ts";
@@ -32,7 +33,7 @@ import { handsOf } from "../render/strike-hands.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { EnemyHover } from "./hover.ts";
 import { prepareDungeonCharacters, runMap, runModels, runParticipants, type Participant, type RunStatus } from "../../../game/dungeon/run.ts";
-import { leadOf, RunView, type ViewActor } from "./run-view.ts";
+import { RunView, type ViewActor } from "./run-view.ts";
 import { openWorld } from "../worker/client.ts";
 import type { CryptCard } from "../../worker/crypt-stage.ts";
 import { runAttributes } from "./run-attributes.ts";
@@ -99,7 +100,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
   const canvas = need<HTMLCanvasElement>("dungeon"), start = need<HTMLButtonElement>("start");
   const heroChoices = need("hero-choices"), seedInput = need<HTMLInputElement>("seed");
-  const keyboard = need<HTMLInputElement>("keyboard"), facing = need<HTMLInputElement>("facing");
   const companionCount = need<HTMLFieldSetElement>("companions"), partyList = need<HTMLOListElement>("party-list");
   const choice = (group: HTMLElement): string => group.querySelector<HTMLInputElement>("input:checked")!.value;
   let view: ViewMode = context.address.searchParams.get("view") === "tactical" ? "tactical" : "world";
@@ -258,8 +258,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     zoom: number;
     /** When the HUD was last refreshed, by `performance.now()`. */
     lastUi: number;
-    /** The movement keys held down, by `KeyboardEvent.code`. */
-    readonly held: Set<string>;
+    controls: ReturnType<typeof playerControls<Command>> | null;
     /** Where the pointer is over the canvas, for the hover's pick; null when it is not over it. */
     hoverPointer: { clientX: number; clientY: number } | null;
     /** The enemy under the pointer, outlined; null when there is none. */
@@ -293,7 +292,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       selectedScenario: "generated", selectedQuality: "high", reference: false, commanders: { party: { kind: "party" }, enemies: { kind: "mob" } },
       seed: 0, cryptPlan: undefined, scene: null, run: null, camera: null, lighting: null, referenceLook: null,
       drawn: [], soundTorches: [], routes: null,
-      paused: false, launching: false, freshFrame: true, zoom: 10, lastUi: 0, held: new Set(), hoverPointer: null, hovered: null, inspected: null,
+      paused: false, launching: false, freshFrame: true, zoom: 10, lastUi: 0, controls: null, hoverPointer: null, hovered: null, inspected: null,
     };
     return page;
   }
@@ -306,9 +305,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     page.paused = value;
     if (value) run.play(false);
     page.audio.setActive(!value && run.status === "playing");
-    page.held.clear();
-    run.commands.right = run.commands.up = 0;
-    run.commands.cancelPointer();
+    page.controls?.reset();
+    run.lead = { keys: null, walk: false };
     need("pause-panel").hidden = !value;
     need("pause-title").textContent = pauseTitle(run.status);
     need("run-time").hidden = run.status === "playing";
@@ -345,14 +343,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   function undraw(page: DungeonPage): void {
     for (const view of page.drawn) view.dispose();
     page.drawn = [];
-  }
-
-  /** The movement keys held down, as the run's two axes. */
-  function sampleKeys(page: DungeonPage): void {
-    const { run, held } = page;
-    if (!run) return;
-    run.commands.right = Number(held.has("KeyD") || held.has("ArrowRight")) - Number(held.has("KeyA") || held.has("ArrowLeft"));
-    run.commands.up = Number(held.has("KeyW") || held.has("ArrowUp")) - Number(held.has("KeyS") || held.has("ArrowDown"));
   }
 
   /** Frees the run on show and all that was built for it: what is drawn over the scene first, then the run, then
@@ -443,8 +433,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     await stage("Building the dungeon");
     stillShown();
     // The run's world steps in a worker (`cryptStage`), which hears it (`hearRun`) and says what it heard.
-    const participants = runParticipants(layout, fielded), mode = { keyboard: keyboard.checked, facing: facing.checked };
-    const lead = leadOf({ mode, cursor: null, right: 0, up: 0, walk: false }, toward);
+    const participants = runParticipants(layout, fielded);
+    const lead = { keys: null, walk: false };
     const minds = Object.fromEntries(participants.flatMap((participant) => { const mind = page.mind(participant); return mind ? [[participant.id, mind]] : []; }));
     const link = await openWorld<CryptCard>({ kind: "crypt", start: { seed, layout, hero: page.selectedHero, companions: page.companions, minds,
       attributes: Object.fromEntries(participants.map((participant) => [participant.id, page.attributes(participant)])),
@@ -455,7 +445,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       stillShown();
       made = new RunView(scene, link, {
         map: layout, visuals: { ...dungeonStone(scene, stone.floor, stone.wall, browserTextures(art)), masonry: reference ? false : stone.masonry },
-        characters: prepared.characters, mind: (card) => page.mind(card) ?? defaultMind(card.model), lead, built: dress, heard: (cue) => audio.cue(cue),
+        characters: prepared.characters, mind: (card) => page.mind(card) ?? defaultMind(card.model), lead, toward, built: dress, heard: (cue) => audio.cue(cue),
       });
     } catch (error) { link.dispose(); throw error; }
     const run = page.run = made;
@@ -513,7 +503,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       if (page.run !== run) return;
       await link.step(steps);
       run.pose({ from: link.newest, to: link.newest, share: 1 });
-      framing(page); refreshHud(page, page.party!);
+      framing(page);
+      refreshHud(page, page.party!);
       scene.render();
     };
     Object.assign(window, { __dungeon: {
@@ -567,16 +558,9 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     }
   }
 
-  /** The control modes, the start panel, the pause panel and the help. */
+  /** The start panel, the pause panel and the help. */
   function wireControls(page: DungeonPage): void {
     const { signal } = page;
-    const modeChanged = () => {
-      page.held.clear();
-      page.run?.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
-      if (page.run) canvas.focus();
-    };
-    keyboard.addEventListener("change", modeChanged, { signal });
-    facing.addEventListener("change", modeChanged, { signal });
     start.disabled = false;
     start.textContent = "Start";
     start.addEventListener("click", () => {
@@ -675,16 +659,11 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     KeyQ: { kind: "face", turn: -Math.PI / 4 }, KeyE: { kind: "face", turn: Math.PI / 4 },
   });
 
-  /** The keyboard: pause and help, the digits that select, the command keys, the movement keys and Caps Lock's walk; and the pause a
-   * page takes when it loses the person's attention. */
   function wireKeys(page: DungeonPage, party: Party): void {
-    const { signal, held } = page;
-    // Caps Lock walks, as every key's event reads it: Shift selects.
-    const capsLock = (event: KeyboardEvent) => { if (page.run) page.run.commands.walk = event.getModifierState("CapsLock"); };
+    const { signal } = page;
     window.addEventListener("keydown", (event) => {
-      capsLock(event);
       if (!need("start-panel").hidden || page.launching) return;
-      if ((event.target as HTMLElement).matches("input, select, textarea")) return;
+      if (event.target instanceof HTMLElement && event.target.matches("input, select, textarea")) return;
       if (event.code === "Escape" || event.code === "Space") {
         event.preventDefault();
         if (event.repeat) return;
@@ -713,22 +692,12 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
         party.partyStatus();
         return;
       }
-      if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) {
-        event.preventDefault();
-        held.add(event.code);
-        sampleKeys(page);
-      }
-    }, { signal });
-    window.addEventListener("keyup", (event) => {
-      capsLock(event);
-      held.delete(event.code);
-      sampleKeys(page);
     }, { signal });
     window.addEventListener("blur", () => setPaused(page, true), { signal });
     document.addEventListener("visibilitychange", () => { if (document.hidden) setPaused(page, true); }, { signal });
   }
 
-  /** Where a pointer at `clientX`, `clientY` is: on the canvas for a pick, on the screen, and on the ground. */
+  /** Where a pointer at `clientX`, `clientY` is: on the canvas for a pick and on the ground. */
   function pointerOn(page: DungeonPage, scene: Scene, camera: FreeCamera, event: { clientX: number; clientY: number }) {
     const { engine } = page;
     const { x, y } = pickingCoordinates(event.clientX, event.clientY, canvas.getBoundingClientRect(),
@@ -736,45 +705,50 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const ray = scene.createPickingRay(x, y, Matrix.Identity(), camera);
     const t = ray.intersectsPlane(new Plane(0, 1, 0, 0));
     const p = t !== null && t >= 0 ? ray.origin.add(ray.direction.scale(t)) : null;
-    return { x, y, screen: { x: event.clientX, z: event.clientY }, ground: p ? { x: p.x, z: p.z } : null };
+    return { x, y, ground: p ? { x: p.x, z: p.z } : null };
   }
 
-  /** The pointer on the canvas: a click selects a member or gives an order, a drag draws a forced route, a right
-   * click has the selected follow a member or face the floor, the wheel zooms; and the window's size. */
+  /** Selection and party orders beside the shared movement controls; hover and camera zoom. */
   function wirePointer(page: DungeonPage, party: Party): void {
     const { signal, hover, engine } = page;
     canvas.addEventListener("contextmenu", (event) => event.preventDefault(), { signal });
     canvas.addEventListener("pointerdown", (event) => {
       const { run, scene, camera } = page;
-      if (page.paused || !run || !scene || !camera || (event.button !== 0 && event.button !== 2)) return;
+      if (page.paused || !run || !scene || !camera || event.button !== 2) return;
       canvas.focus();
       const p = pointerOn(page, scene, camera, event);
       if (!p.ground) return;
       const friend = scene.pick(p.x, p.y, (mesh) => run.memberAt(mesh) !== null, false, camera);
       const member = friend?.pickedMesh ? run.memberAt(friend.pickedMesh) : null;
-      if (event.button === 2) {
-        run.command(member ? { kind: "follow", member: member.id } : { kind: "face", toward: p.ground });
-        party.partyStatus();
-        return;
-      }
-      // A click on a party member selects it, and is not an order.
-      if (member) {
-        party.selectMember(member.id, event.shiftKey);
-        return;
-      }
-      const picked = scene.pick(p.x, p.y, (mesh) => run.targetAt(mesh) !== null, false, camera);
-      const target = picked?.pickedMesh ? run.targetAt(picked.pickedMesh) : null;
-      if (!target && !run.explored.has(cellKey(run.map, p.ground))) return;
-      run.commands.down(p.screen, p.ground, target?.id ?? null);
-      canvas.setPointerCapture(event.pointerId);
+      run.command(member ? { kind: "follow", member: member.id } : { kind: "face", toward: p.ground });
+      party.partyStatus();
     }, { signal });
-    canvas.addEventListener("pointermove", (event) => {
+    page.controls = playerControls<Command>(canvas, {
+      signal,
+      enabled: () => !!page.run && !page.paused && !page.launching && page.run.status === "playing",
+      select: (point, extend) => {
+        const { run, scene, camera } = page;
+        if (!run || !scene || !camera) return false;
+        const p = pointerOn(page, scene, camera, point);
+        const hit = scene.pick(p.x, p.y, mesh => run.memberAt(mesh) !== null, false, camera);
+        const member = hit?.pickedMesh ? run.memberAt(hit.pickedMesh) : null;
+        if (!member) return false;
+        party.selectMember(member.id, extend);
+        return true;
+      },
+      pick: point => {
+        const { run, scene, camera } = page;
+        if (!run || !scene || !camera) return null;
+        const p = pointerOn(page, scene, camera, point);
+        const hit = scene.pick(p.x, p.y, mesh => mesh.isVisible && run.targetAt(mesh) !== null, false, camera);
+        const target = hit?.pickedMesh ? run.targetAt(hit.pickedMesh) : null;
+        if (target) return { kind: "attack", foe: target.id };
+        return p.ground && run.explored.has(cellKey(run.map, p.ground)) ? { kind: "go", destination: p.ground } : null;
+      },
+      order: command => { page.run?.command(command); party.partyStatus(); },
+    });
+    canvas.addEventListener("pointermove", event => {
       page.hoverPointer = { clientX: event.clientX, clientY: event.clientY };
-      const { run, scene, camera } = page;
-      if (page.paused || !run || !scene || !camera) return;
-      const p = pointerOn(page, scene, camera, event);
-      if (!(event.buttons & 1)) run.commands.cancelPointer();
-      run.commands.move(p.screen, p.ground);
     }, { signal });
     const unhover = () => {
       page.hoverPointer = null;
@@ -783,13 +757,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     };
     canvas.addEventListener("pointerleave", unhover, { signal });
     window.addEventListener("blur", unhover, { signal });
-    canvas.addEventListener("pointerup", (event) => {
-      if (event.button !== 0 || !page.run) return;
-      page.run.commands.upPointer();
-      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-    }, { signal });
-    canvas.addEventListener("pointercancel", () => page.run?.commands.cancelPointer(), { signal });
-    canvas.addEventListener("lostpointercapture", () => page.run?.commands.cancelPointer(), { signal });
     canvas.addEventListener("wheel", (event) => {
       event.preventDefault();
       page.zoom = Math.max(2, Math.min(18, page.zoom * Math.exp(event.deltaY * 0.001)));
@@ -875,7 +842,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       // The world runs while the page draws it, unpaused: never under the loading screen or in a hidden tab.
       run.play(!page.paused && playing());
       if (!page.paused && playing()) {
-        run.send();
         meter.world(run.received(), run.speed);
         for (const { id, speed, at } of run.air) audio.swish(id, speed, at);
         if (view === "world") page.lighting?.burn(seconds);
@@ -884,6 +850,10 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       // The steps may have ended the run.
       if (!page.paused && !playing()) setPaused(page, true);
       framing(page);
+      if (!page.paused && playing()) {
+        run.lead = page.controls!.sample(toward);
+        run.send();
+      }
       const seen = page.soundTorches.filter((torch) =>
         run.visible.has(cellKey(run.map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z })));
       audio.setView(run.leader.feet(), toward, seen.map((torch) => torch.flame));

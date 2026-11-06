@@ -99,6 +99,218 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
   };
   const report: NavigationReport = { get status() { return state.report.status; }, get remaining() { return state.report.remaining; },
     get goal() { return state.report.goal; }, get route() { return state.route; }, get request() { return state.request; } };
+  /** Geometry and progress remain current while actuation is unavailable. */
+  const plan = (sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available: boolean): NavigationStep => {
+    const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
+    const sensed = view.senses.solids ?? NO_SOLIDS;
+    let solids = printsOf(sensed, centre.y, view.stance.support?.y);
+    // The fallen bodies, foe or friend, are fixed solids to route round, but the body it ranges about or goes to a place by.
+    const fallen = fallenSolids(view.senses, request?.kind === "range" ? request.focus : request?.kind === "place" ? request.by ?? null : null, state.lying);
+    const lying = fallen.length ? footprints(fallen, centre.y, view.stance.support?.y) : NO_SOLIDS;
+    if (lying.length) solids = [...solids, ...lying];
+    const radius = radiusOf(view);
+    // Whether the router is ready from here among this step's solids.
+    let readied = false;
+    const previous = state.request, same = sameMovement(request, previous);
+    const following = request?.kind === "place" && previous?.kind === "place" && request.near === previous.near
+      && request.points.length >= previous.points.length && previous.points.every((p, i) => apart(p, request.points[i]!) < NAV.moved);
+    const changed = !same && !following;
+    if (!same) state.request = request && copyMovement(request);
+    if (changed) { state.stood = false; state.route = []; state.failure = null; state.waypoint = 0; state.goal = null; state.offset = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time; }
+    const elapsed = state.lastTime === null ? dt : view.time - state.lastTime;
+    state.lastTime = view.time;
+    if (!available) state.lastProgress += Math.max(0, elapsed);
+    if (!request) { state.route = []; update("stopped", 0, null); return { move: null, face: null }; }
+    const along = (x: number, z: number, speed: number) => {
+      const distance = hypot(x, z), h = report.heading;
+      return distance > 0 && speed > 0 ? [(x * sin(h) + z * cos(h)) * speed / distance, (x * cos(h) - z * sin(h)) * speed / distance] as const : null;
+    };
+    /**
+     * The walk the ground way (`x`, `z`) at `speed`, kept clear of its own side's standing bodies
+     * (`crowdWalk`) and, where turned for them, of the solids, in the heading's frame; and the way
+     * it goes, or, held to a stop, the way asked.
+     */
+    const steered = (x: number, z: number, speed: number): { readonly move: readonly [number, number] | null; readonly face: number | null } => {
+      const distance = hypot(x, z), crowd = distance > 0 && speed > 0 ? crowdWalk(view, radius, report.heading, { x: x * speed / distance, z: z * speed / distance }, gait) : null;
+      state.held = crowd?.held ?? false;
+      if (!crowd) return { move: along(x, z, speed), face: distance > 0 && speed > 0 ? atan2(x, z) : null };
+      const most = hypot(crowd.x, crowd.z);
+      return { move: clearMove(centre, solids, report.heading, along(crowd.x, crowd.z, most), radius, .5), face: most > 0 ? atan2(crowd.x, crowd.z) : atan2(x, z) };
+    };
+    /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead, from the speed the body has that way. */
+    const going = (x: number, z: number, left: number, corners: readonly Corner[]): number => {
+      const h = report.heading, way = hypot(x, z), velocity = view.stance.velocity, on = way > 0 ? (velocity.x * x + velocity.z * z) / way : 0;
+      const speed = travelSpeed(gait, [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, on, ceiling);
+      return Number.isFinite(speed) ? speed : 0;
+    };
+    if (request.kind === "direct") {
+      const direction = request.direction, speed = going(direction.x, direction.z, Infinity, NO_CORNERS);
+      const move = clearMove(centre, solids, report.heading, steered(direction.x, direction.z, speed).move, radius, .5);
+      update(move ? "moving" : "stopped", null, null);
+      return { move, face: hypot(direction.x, direction.z) > 0 ? atan2(direction.x, direction.z) : null };
+    }
+    const focus = request.kind === "range" ? view.senses.others.find(other => other.id === request.focus && !other.out) : null;
+    const focusAt = focus ? { x: focus.centre.x, z: focus.centre.z } : null;
+    const failure = state.failure;
+    if (failure && sameSolids(failure.solids, sensed) && sameSolids(failure.fallen, fallen) && apart(failure.from, here) < NAV.moved && Math.abs(failure.radius - radius) < NAV.margin
+      && (focusAt && failure.focus ? apart(focusAt, failure.focus) < NAV.moved : focusAt === failure.focus)) {
+      update("unreachable", null, state.goal); return { move: null, face: null };
+    }
+    state.failure = null;
+    const unreachable = (goal: GroundPoint | null) => {
+      state.failure = { from: here, solids: sensed, fallen, radius, focus: focusAt };
+      state.route = []; state.goal = goal; update("unreachable", null, goal);
+      return { move: null, face: null };
+    };
+    // Whether the solids sensed are not those its route was found among.
+    const reshaped = !state.solids || !sameSolids(state.solids, sensed);
+    if (!reshaped) state.solids = sensed;
+    // Whether its route crosses where the fallen bodies lie now, where they have changed: a route clear of them stands, found among them.
+    let crossed = false;
+    if (!reshaped && !sameSolids(state.fallen, fallen)) {
+      let from = here;
+      for (const point of state.route) {
+        if (!clearStep(atHeight(from, centre.y), atHeight(point, centre.y), radius, lying)) { crossed = true; break; }
+        from = point;
+      }
+      if (!crossed) state.fallen = fallen;
+    }
+    // Whether the route no longer fits: the geometry changed across it, the body takes more room than it was found for, or much less.
+    const refit = reshaped || crossed || radius > state.clearance || state.clearance - radius > NAV.margin;
+    /**
+     * Whether a route reaches `aim`: the route kept, its end moved there where `aim` moved, while it
+     * still fits; straight from here, as a search would find it; or by the kept route's last leg
+     * from the corner before it. Where that leg is not clear, a route that ends within `NAV.moved`
+     * of `aim` keeps its end and still leads there. Its other legs stand while the geometry does;
+     * the body turns onto the next `NAV.waypoint` m before a corner, so a sweep from here along it
+     * may graze the corner by design.
+     */
+    const reaches = (aim: GroundPoint): boolean => {
+      const route = state.route, n = route.length;
+      if (!refit && n && route[n - 1]!.x === aim.x && route[n - 1]!.z === aim.z) return true;
+      const to = atHeight(aim, centre.y);
+      if (clearStep(atHeight(here, centre.y), to, radius, solids)) {
+        state.route = [{ ...aim }]; state.solids = sensed; state.fallen = fallen; state.clearance = radius; return true;
+      }
+      if (refit) return false;
+      if (n >= 2 && clearStep(atHeight(route[n - 2]!, centre.y), to, radius, solids)) { route[n - 1] = { ...aim }; return true; }
+      return n > 0 && apart(route[n - 1]!, aim) <= NAV.moved;
+    };
+    // A route this step's search has found already.
+    let planned: readonly GroundPoint[] | null = null;
+    let goal: GroundPoint, near: number;
+    switch (request.kind) {
+      case "place": {
+        // The points before its last are corners of its way, passed within `NAV.waypoint` as a route's are.
+        while (state.waypoint < request.points.length - 1 && apart(here, request.points[state.waypoint]!) <= Math.max(request.near, NAV.waypoint)) { state.waypoint++; state.route = []; state.stood = false; }
+        goal = request.points[state.waypoint]!; near = request.near;
+        break;
+      }
+      case "range": {
+        if (!focus) { state.route = []; update("lost-focus", null, null); return { move: null, face: null }; }
+        const target = { x: focus.centre.x, z: focus.centre.z }, distance = apart(here, target);
+        if (distance >= request.near && distance <= request.far) { state.route = []; state.progress = null; state.bestRemaining = null; state.lastProgress = view.time;
+          const correction = (distance - (request.near + request.far) / 2) / NAV.rangeResponse;
+          const dx = (focus.velocity?.x ?? 0) + (distance > 0 ? (target.x - here.x) * correction / distance : 0);
+          const dz = (focus.velocity?.z ?? 0) + (distance > 0 ? (target.z - here.z) * correction / distance : 0);
+          const speed = Math.min(going(dx, dz, Infinity, NO_CORNERS), hypot(dx, dz)), walk = steered(dx, dz, speed);
+          update("arrived", 0, here);
+          return { move: clearMove(centre, solids, report.heading, walk.move, radius, .5), face: walk.face, destination: 0 };
+        }
+        const range = (request.near + request.far) / 2, bearing = atan2(here.x - target.x, here.z - target.z);
+        const focusRadius = focus.spec ? bodyClearance(focus.spec) : .2;
+        solids = [...solids, { name: `focus:${focus.id}`, kind: "box", centre: [target.x, centre.y, target.z], size: [2 * focusRadius, 2, 2 * focusRadius] }];
+        near = Math.min(.15, (request.far - request.near) / 2);
+        // The nearest spot, where no side is asked and it is open and straight ahead, is the one a search would find.
+        const nearest = { x: target.x + range * sin(bearing), z: target.z + range * cos(bearing) };
+        if (!request.side && clearanceExit(atHeight(nearest, centre.y), radius, solids) === null && clearStep(atHeight(here, centre.y), atHeight(nearest, centre.y), radius, solids)) {
+          state.offset = { x: nearest.x - target.x, z: nearest.z - target.z }; goal = nearest; planned = [nearest]; break;
+        }
+        // Else the spot kept goes where the foe goes: it stays at the range, on the side it was chosen on, while it is open and the route still reaches it.
+        const kept = state.offset && { x: target.x + state.offset.x, z: target.z + state.offset.z };
+        if (kept && apart(kept, target) >= request.near && apart(kept, target) <= request.far
+          && clearanceExit(atHeight(kept, centre.y), radius, solids) === null && reaches(kept)) { goal = kept; break; }
+        let best: GroundPoint | null = null, bestCost = Infinity;
+        router.ready(here, solids, radius, centre.y); readied = true;
+        for (let i = 0; i < NAV.rangeSamples; i++) {
+          const offset = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 2 * 3.141592653589793 / NAV.rangeSamples;
+          const candidate = { x: target.x + range * sin(bearing + offset), z: target.z + range * cos(bearing + offset) };
+          const preference = request.side && Math.sign(offset) !== request.side ? NAV.sideCost : 0;
+          if (apart(here, candidate) + preference >= bestCost) continue;
+          const route = router.route(candidate);
+          if (!route.length) continue;
+          let cost = 0, previous = here;
+          for (const point of route) { cost += apart(previous, point); previous = point; }
+          cost += preference;
+          if (cost < bestCost) { best = candidate; bestCost = cost; planned = route; }
+        }
+        if (!best) return unreachable(null);
+        state.offset = { x: best.x - target.x, z: best.z - target.z };
+        goal = best;
+        break;
+      }
+      default: { const never: never = request; throw new Error(`unknown movement ${JSON.stringify(never)}`); }
+    }
+    // A place routes to itself, or where the body's clearance does not fit there, to the first point that fits within its `near`
+    // (half way out, then all the way, on eight bearings): it arrives once within `near` of the place either way.
+    let aim = goal;
+    if (request.kind === "place" && clearanceExit(atHeight(goal, centre.y), radius, solids) !== null) {
+      for (let k = 1; k <= 2 && aim === goal; k++) for (let i = 0; i < 8; i++) {
+        const ring = near * k / 2, at = { x: goal.x + sin(i * Math.PI / 4) * ring, z: goal.z + cos(i * Math.PI / 4) * ring };
+        if (clearanceExit(atHeight(at, centre.y), radius, solids) === null) { aim = at; break; }
+      }
+    }
+    // Progress is reckoned toward the goal as it was when it last moved `NAV.moved` or the geometry changed across its route.
+    if (!state.goal || apart(state.goal, goal) > NAV.moved || reshaped || crossed) { state.goal = { ...goal }; state.bestRemaining = null; state.lastProgress = view.time; }
+    // A route is searched for only where none found reaches the goal: a range's spot is kept only where its route reaches it.
+    if (planned || request.kind === "place" && !reaches(aim)) {
+      state.solids = sensed; state.fallen = fallen; state.clearance = radius;
+      if (planned) state.route = [...planned];
+      else {
+        const among = solids;
+        state.route = [...search(here, aim, among, radius, centre.y, () => {
+          if (!readied) { router.ready(here, among, radius, centre.y); readied = true; }
+          return router;
+        })];
+      }
+    }
+    const distance = apart(here, goal), speed = hypot(view.stance.velocity.x, view.stance.velocity.z);
+    state.stood = stands(distance, near, state.stood);
+    if (state.stood) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance, rest: [aim.x, aim.z] }; }
+    // A corner is passed within `NAV.waypoint` of it, or once the leg past it is clear from here.
+    while (state.route.length > 1 && (apart(here, state.route[0]!) <= NAV.waypoint
+      || clearStep(atHeight(here, centre.y), atHeight(state.route[1]!, centre.y), radius, solids))) state.route.shift();
+    if (!state.route.length) return unreachable(goal);
+    // The way on: the route to the goal, then a place's points after it.
+    const way = request.kind === "place" ? [...state.route, ...request.points.slice(state.waypoint + 1)] : state.route;
+    let remaining = 0, from = here;
+    for (const point of way) { remaining += apart(from, point); from = point; }
+    if (state.bestRemaining === null || remaining <= state.bestRemaining - NAV.progress) {
+      state.progress = here; state.bestRemaining = remaining; state.lastProgress = view.time;
+    }
+    // A body still going the other way while it brakes, or held back by its own side, is not stalled.
+    const next = state.route[0]!, velocity = view.stance.velocity, ahead = apart(here, next);
+    if (state.held || ahead > 0 && (velocity.x * (next.x - here.x) + velocity.z * (next.z - here.z)) / ahead < -NAV.quiet) {
+      state.progress = here; state.bestRemaining = remaining; state.lastProgress = view.time;
+    }
+    if (view.time - state.lastProgress > NAV.stalled) {
+      state.held = false; state.route = []; state.solids = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time;
+      update("stalled", remaining, goal); return { move: null, face: null };
+    }
+    // Each corner of the way ahead: how far along it, and the tangent of half its turn.
+    const corners: Corner[] = [];
+    let to = apart(here, way[0]!);
+    for (let k = 0; k + 1 < way.length; k++) {
+      const from = k === 0 ? here : way[k - 1]!, at = way[k]!, after = way[k + 1]!;
+      const ax = at.x - from.x, az = at.z - from.z, bx = after.x - at.x, bz = after.z - at.z, la = hypot(ax, az), lb = hypot(bx, bz);
+      const sum = la * lb + ax * bx + az * bz;
+      corners.push({ distance: to, halfTurn: la === 0 || lb === 0 ? 0 : sum > 0 ? Math.abs(ax * bz - az * bx) / sum : Infinity, room: NAV.waypoint });
+      to += lb;
+    }
+    update("moving", remaining, goal);
+    const walk = steered(next.x - here.x, next.z - here.z, going(next.x - here.x, next.z - here.z, remaining - near, corners));
+    return { move: walk.move, face: walk.face ?? atan2(next.x - here.x, next.z - here.z), destination: remaining };
+  };
   return { state, report, ...stockClearance(spec),
     steer(view: NavigationSight["view"], heading: number, move: readonly [number, number] | null) {
       return clearMove(view.stance.centre, printsOf(view.senses.solids ?? NO_SOLIDS, view.stance.centre.y, view.stance.support?.y), heading, move, radiusOf(view), .5);
@@ -109,216 +321,10 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
      * the speed rule's speed (`travelSpeed`) for `gait` under `ceiling`, the way the walk goes
      * relative to the heading; and the way it goes, which a body that faces its travel turns to. A gait that states no limit, under no ceiling, gives no speed: the body does not go.
      */
-    step(sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available = true): NavigationStep {
-      const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
-      const sensed = view.senses.solids ?? NO_SOLIDS;
-      let solids = printsOf(sensed, centre.y, view.stance.support?.y);
-      // The fallen bodies, foe or friend, are fixed solids to route round, but the body it ranges about or goes to a place by.
-      const fallen = fallenSolids(view.senses, request?.kind === "range" ? request.focus : request?.kind === "place" ? request.by ?? null : null, state.lying);
-      const lying = fallen.length ? footprints(fallen, centre.y, view.stance.support?.y) : NO_SOLIDS;
-      if (lying.length) solids = [...solids, ...lying];
-      const radius = radiusOf(view);
-      // Whether the router is ready from here among this step's solids.
-      let readied = false;
-      const previous = state.request, same = sameMovement(request, previous);
-      const following = request?.kind === "place" && previous?.kind === "place" && request.near === previous.near
-        && request.points.length >= previous.points.length && previous.points.every((p, i) => apart(p, request.points[i]!) < NAV.moved);
-      const changed = !same && !following;
-      if (!same) state.request = request && copyMovement(request);
-      if (changed) { state.stood = false; state.route = []; state.failure = null; state.waypoint = 0; state.goal = null; state.offset = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time; }
-      const elapsed = state.lastTime === null ? dt : view.time - state.lastTime;
-      state.lastTime = view.time;
-      if (!available) { state.lastProgress += Math.max(0, elapsed); update("unavailable", state.report.remaining, state.goal); return { move: null, face: null }; }
-      if (!request) { state.route = []; update("stopped", 0, null); return { move: null, face: null }; }
-      const along = (x: number, z: number, speed: number) => {
-        const distance = hypot(x, z), h = report.heading;
-        return distance > 0 && speed > 0 ? [(x * sin(h) + z * cos(h)) * speed / distance, (x * cos(h) - z * sin(h)) * speed / distance] as const : null;
-      };
-      /**
-       * The walk the ground way (`x`, `z`) at `speed`, kept clear of its own side's standing bodies
-       * (`crowdWalk`) and, where turned for them, of the solids, in the heading's frame; and the way
-       * it goes, or, held to a stop, the way asked.
-       */
-      const steered = (x: number, z: number, speed: number): { readonly move: readonly [number, number] | null; readonly face: number | null } => {
-        const distance = hypot(x, z), crowd = distance > 0 && speed > 0 ? crowdWalk(view, radius, report.heading, { x: x * speed / distance, z: z * speed / distance }, gait) : null;
-        state.held = crowd?.held ?? false;
-        if (!crowd) return { move: along(x, z, speed), face: distance > 0 && speed > 0 ? atan2(x, z) : null };
-        const most = hypot(crowd.x, crowd.z);
-        return { move: clearMove(centre, solids, report.heading, along(crowd.x, crowd.z, most), radius, .5), face: most > 0 ? atan2(crowd.x, crowd.z) : atan2(x, z) };
-      };
-      /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead, from the speed the body has that way. */
-      const going = (x: number, z: number, left: number, corners: readonly Corner[]): number => {
-        const h = report.heading, way = hypot(x, z), velocity = view.stance.velocity, on = way > 0 ? (velocity.x * x + velocity.z * z) / way : 0;
-        const speed = travelSpeed(gait, [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, on, ceiling);
-        return Number.isFinite(speed) ? speed : 0;
-      };
-      if (request.kind === "direct") {
-        const direction = request.direction, speed = going(direction.x, direction.z, Infinity, NO_CORNERS);
-        const move = clearMove(centre, solids, report.heading, steered(direction.x, direction.z, speed).move, radius, .5);
-        update(move ? "moving" : "stopped", null, null);
-        return { move, face: hypot(direction.x, direction.z) > 0 ? atan2(direction.x, direction.z) : null };
-      }
-      const focus = request.kind === "range" ? view.senses.others.find(other => other.id === request.focus && !other.out) : null;
-      const focusAt = focus ? { x: focus.centre.x, z: focus.centre.z } : null;
-      const failure = state.failure;
-      if (failure && sameSolids(failure.solids, sensed) && sameSolids(failure.fallen, fallen) && apart(failure.from, here) < NAV.moved && Math.abs(failure.radius - radius) < NAV.margin
-        && (focusAt && failure.focus ? apart(focusAt, failure.focus) < NAV.moved : focusAt === failure.focus)) {
-        update("unreachable", null, state.goal); return { move: null, face: null };
-      }
-      state.failure = null;
-      const unreachable = (goal: GroundPoint | null) => {
-        state.failure = { from: here, solids: sensed, fallen, radius, focus: focusAt };
-        state.route = []; state.goal = goal; update("unreachable", null, goal);
-        return { move: null, face: null };
-      };
-      // Whether the solids sensed are not those its route was found among.
-      const reshaped = !state.solids || !sameSolids(state.solids, sensed);
-      if (!reshaped) state.solids = sensed;
-      // Whether its route crosses where the fallen bodies lie now, where they have changed: a route clear of them stands, found among them.
-      let crossed = false;
-      if (!reshaped && !sameSolids(state.fallen, fallen)) {
-        let from = here;
-        for (const point of state.route) {
-          if (!clearStep(atHeight(from, centre.y), atHeight(point, centre.y), radius, lying)) { crossed = true; break; }
-          from = point;
-        }
-        if (!crossed) state.fallen = fallen;
-      }
-      // Whether the route no longer fits: the geometry changed across it, the body takes more room than it was found for, or much less.
-      const refit = reshaped || crossed || radius > state.clearance || state.clearance - radius > NAV.margin;
-      /**
-       * Whether a route reaches `aim`: the route kept, its end moved there where `aim` moved, while it
-       * still fits; straight from here, as a search would find it; or by the kept route's last leg
-       * from the corner before it. Where that leg is not clear, a route that ends within `NAV.moved`
-       * of `aim` keeps its end and still leads there. Its other legs stand while the geometry does;
-       * the body turns onto the next `NAV.waypoint` m before a corner, so a sweep from here along it
-       * may graze the corner by design.
-       */
-      const reaches = (aim: GroundPoint): boolean => {
-        const route = state.route, n = route.length;
-        if (!refit && n && route[n - 1]!.x === aim.x && route[n - 1]!.z === aim.z) return true;
-        const to = atHeight(aim, centre.y);
-        if (clearStep(atHeight(here, centre.y), to, radius, solids)) {
-          state.route = [{ ...aim }]; state.solids = sensed; state.fallen = fallen; state.clearance = radius; return true;
-        }
-        if (refit) return false;
-        if (n >= 2 && clearStep(atHeight(route[n - 2]!, centre.y), to, radius, solids)) { route[n - 1] = { ...aim }; return true; }
-        return n > 0 && apart(route[n - 1]!, aim) <= NAV.moved;
-      };
-      // A route this step's search has found already.
-      let planned: readonly GroundPoint[] | null = null;
-      let goal: GroundPoint, near: number;
-      switch (request.kind) {
-        case "place": {
-          // The points before its last are corners of its way, passed within `NAV.waypoint` as a route's are.
-          while (state.waypoint < request.points.length - 1 && apart(here, request.points[state.waypoint]!) <= Math.max(request.near, NAV.waypoint)) { state.waypoint++; state.route = []; state.stood = false; }
-          goal = request.points[state.waypoint]!; near = request.near;
-          break;
-        }
-        case "range": {
-          if (!focus) { state.route = []; update("lost-focus", null, null); return { move: null, face: null }; }
-          const target = { x: focus.centre.x, z: focus.centre.z }, distance = apart(here, target);
-          if (distance >= request.near && distance <= request.far) { state.route = []; state.progress = null; state.bestRemaining = null; state.lastProgress = view.time;
-            const correction = (distance - (request.near + request.far) / 2) / NAV.rangeResponse;
-            const dx = (focus.velocity?.x ?? 0) + (distance > 0 ? (target.x - here.x) * correction / distance : 0);
-            const dz = (focus.velocity?.z ?? 0) + (distance > 0 ? (target.z - here.z) * correction / distance : 0);
-            const speed = Math.min(going(dx, dz, Infinity, NO_CORNERS), hypot(dx, dz)), walk = steered(dx, dz, speed);
-            update("arrived", 0, here);
-            return { move: clearMove(centre, solids, report.heading, walk.move, radius, .5), face: walk.face, destination: 0 };
-          }
-          const range = (request.near + request.far) / 2, bearing = atan2(here.x - target.x, here.z - target.z);
-          const focusRadius = focus.spec ? bodyClearance(focus.spec) : .2;
-          solids = [...solids, { name: `focus:${focus.id}`, kind: "box", centre: [target.x, centre.y, target.z], size: [2 * focusRadius, 2, 2 * focusRadius] }];
-          near = Math.min(.15, (request.far - request.near) / 2);
-          // The nearest spot, where no side is asked and it is open and straight ahead, is the one a search would find.
-          const nearest = { x: target.x + range * sin(bearing), z: target.z + range * cos(bearing) };
-          if (!request.side && clearanceExit(atHeight(nearest, centre.y), radius, solids) === null && clearStep(atHeight(here, centre.y), atHeight(nearest, centre.y), radius, solids)) {
-            state.offset = { x: nearest.x - target.x, z: nearest.z - target.z }; goal = nearest; planned = [nearest]; break;
-          }
-          // Else the spot kept goes where the foe goes: it stays at the range, on the side it was chosen on, while it is open and the route still reaches it.
-          const kept = state.offset && { x: target.x + state.offset.x, z: target.z + state.offset.z };
-          if (kept && apart(kept, target) >= request.near && apart(kept, target) <= request.far
-            && clearanceExit(atHeight(kept, centre.y), radius, solids) === null && reaches(kept)) { goal = kept; break; }
-          let best: GroundPoint | null = null, bestCost = Infinity;
-          router.ready(here, solids, radius, centre.y); readied = true;
-          for (let i = 0; i < NAV.rangeSamples; i++) {
-            const offset = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 2 * 3.141592653589793 / NAV.rangeSamples;
-            const candidate = { x: target.x + range * sin(bearing + offset), z: target.z + range * cos(bearing + offset) };
-            const preference = request.side && Math.sign(offset) !== request.side ? NAV.sideCost : 0;
-            if (apart(here, candidate) + preference >= bestCost) continue;
-            const route = router.route(candidate);
-            if (!route.length) continue;
-            let cost = 0, previous = here;
-            for (const point of route) { cost += apart(previous, point); previous = point; }
-            cost += preference;
-            if (cost < bestCost) { best = candidate; bestCost = cost; planned = route; }
-          }
-          if (!best) return unreachable(null);
-          state.offset = { x: best.x - target.x, z: best.z - target.z };
-          goal = best;
-          break;
-        }
-        default: { const never: never = request; throw new Error(`unknown movement ${JSON.stringify(never)}`); }
-      }
-      // A place routes to itself, or where the body's clearance does not fit there, to the first point that fits within its `near`
-      // (half way out, then all the way, on eight bearings): it arrives once within `near` of the place either way.
-      let aim = goal;
-      if (request.kind === "place" && clearanceExit(atHeight(goal, centre.y), radius, solids) !== null) {
-        for (let k = 1; k <= 2 && aim === goal; k++) for (let i = 0; i < 8; i++) {
-          const ring = near * k / 2, at = { x: goal.x + sin(i * Math.PI / 4) * ring, z: goal.z + cos(i * Math.PI / 4) * ring };
-          if (clearanceExit(atHeight(at, centre.y), radius, solids) === null) { aim = at; break; }
-        }
-      }
-      // Progress is reckoned toward the goal as it was when it last moved `NAV.moved` or the geometry changed across its route.
-      if (!state.goal || apart(state.goal, goal) > NAV.moved || reshaped || crossed) { state.goal = { ...goal }; state.bestRemaining = null; state.lastProgress = view.time; }
-      // A route is searched for only where none found reaches the goal: a range's spot is kept only where its route reaches it.
-      if (planned || request.kind === "place" && !reaches(aim)) {
-        state.solids = sensed; state.fallen = fallen; state.clearance = radius;
-        if (planned) state.route = [...planned];
-        else {
-          const among = solids;
-          state.route = [...search(here, aim, among, radius, centre.y, () => {
-            if (!readied) { router.ready(here, among, radius, centre.y); readied = true; }
-            return router;
-          })];
-        }
-      }
-      const distance = apart(here, goal), speed = hypot(view.stance.velocity.x, view.stance.velocity.z);
-      state.stood = stands(distance, near, state.stood);
-      if (state.stood) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance, rest: [aim.x, aim.z] }; }
-      // A corner is passed within `NAV.waypoint` of it, or once the leg past it is clear from here.
-      while (state.route.length > 1 && (apart(here, state.route[0]!) <= NAV.waypoint
-        || clearStep(atHeight(here, centre.y), atHeight(state.route[1]!, centre.y), radius, solids))) state.route.shift();
-      if (!state.route.length) return unreachable(goal);
-      // The way on: the route to the goal, then a place's points after it.
-      const way = request.kind === "place" ? [...state.route, ...request.points.slice(state.waypoint + 1)] : state.route;
-      let remaining = 0, from = here;
-      for (const point of way) { remaining += apart(from, point); from = point; }
-      if (state.bestRemaining === null || remaining <= state.bestRemaining - NAV.progress) {
-        state.progress = here; state.bestRemaining = remaining; state.lastProgress = view.time;
-      }
-      // A body still going the other way while it brakes, or held back by its own side, is not stalled.
-      const next = state.route[0]!, velocity = view.stance.velocity, ahead = apart(here, next);
-      if (state.held || ahead > 0 && (velocity.x * (next.x - here.x) + velocity.z * (next.z - here.z)) / ahead < -NAV.quiet) {
-        state.progress = here; state.bestRemaining = remaining; state.lastProgress = view.time;
-      }
-      if (view.time - state.lastProgress > NAV.stalled) {
-        state.held = false; state.route = []; state.solids = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time;
-        update("stalled", remaining, goal); return { move: null, face: null };
-      }
-      // Each corner of the way ahead: how far along it, and the tangent of half its turn.
-      const corners: Corner[] = [];
-      let to = apart(here, way[0]!);
-      for (let k = 0; k + 1 < way.length; k++) {
-        const from = k === 0 ? here : way[k - 1]!, at = way[k]!, after = way[k + 1]!;
-        const ax = at.x - from.x, az = at.z - from.z, bx = after.x - at.x, bz = after.z - at.z, la = hypot(ax, az), lb = hypot(bx, bz);
-        const sum = la * lb + ax * bx + az * bz;
-        corners.push({ distance: to, halfTurn: la === 0 || lb === 0 ? 0 : sum > 0 ? Math.abs(ax * bz - az * bx) / sum : Infinity, room: NAV.waypoint });
-        to += lb;
-      }
-      update("moving", remaining, goal);
-      const walk = steered(next.x - here.x, next.z - here.z, going(next.x - here.x, next.z - here.z, remaining - near, corners));
-      return { move: walk.move, face: walk.face ?? atan2(next.x - here.x, next.z - here.z), destination: remaining };
+    step(sight, request, gait, ceiling, dt, available = true) {
+      const result = plan(sight, request, gait, ceiling, dt, available);
+      if (!available) { update("unavailable", state.report.remaining, state.report.goal); return { move: null, face: null }; }
+      return result;
     },
   };
 }

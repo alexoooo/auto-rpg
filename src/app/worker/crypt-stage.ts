@@ -1,6 +1,7 @@
+import type { PlayerLead } from "../../game/player-input.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { isRefused, type Refused } from "../../core/refusal.ts";
-import type { Command, DrawnRoute } from "../../minds/command/commands.ts";
+import type { Command } from "../../minds/command/commands.ts";
 import type { CommanderConfig } from "../../minds/command/kind.ts";
 import { loadEngine, type EngineName } from "../../core/physics/engines.ts";
 import type { GroundPoint } from "../../skills/intent/movement.ts";
@@ -38,34 +39,18 @@ export interface CryptStart {
   readonly attributes: Readonly<Record<string, AttributeOverrides>>;
   readonly party?: CommanderConfig;
   readonly enemies?: CommanderConfig;
-  readonly lead: CryptLead;
+  readonly lead: PlayerLead;
   readonly engine?: EngineName;
-}
-
-/**
- * The person's live lead of the party (`DungeonCommands`): what the keys and the pointer steer, the
- * ground point under the pointer where it aims, the keys' two axes, Caps Lock's walk, and the unit
- * step on the ground toward the camera that the keys walk along (`DungeonRun.toward`).
- */
-export interface CryptLead {
-  readonly mode: { readonly keyboard: boolean; readonly facing: boolean };
-  readonly cursor: GroundPoint | null;
-  readonly right: number;
-  readonly up: number;
-  readonly walk: boolean;
-  readonly toward: GroundPoint;
 }
 
 /** What a Crypt page tells its run as it plays, each applied before the next step. */
 export type CryptInput =
   /** The person's command, heard by the party's Commander (`DungeonRun.command`). */
   | { readonly kind: "command"; readonly command: Command }
-  /** The route the last command's go draws, as it stands now (`DrawnRoute`). */
-  | { readonly kind: "route"; readonly points: readonly GroundPoint[]; readonly drawing: boolean }
   /** Which party members the person's next commands go to, every one for null (`DungeonRun.select`). */
   | { readonly kind: "select"; readonly ids: readonly string[] | null }
   /** The person's lead, read every step until the next. */
-  | { readonly kind: "lead"; readonly lead: CryptLead }
+  | { readonly kind: "lead"; readonly lead: PlayerLead }
   /** The body whose mind the page inspects, or none: the news carries it (`CryptNews.inspected`). */
   | { readonly kind: "look"; readonly id: string | null };
 
@@ -162,34 +147,14 @@ export async function buildCryptRun(context: GameContext, start: CryptStart, { c
 
 /**
  * How `run` takes a page's input, as its stage does before the next step and a replay of its tape
- * does: a command heard, the route drawn grown, the selection and the lead set.
+ * does: a command heard, the selection and the lead set.
  */
 function cryptInput(run: DungeonRun): (input: CryptInput) => void {
-  /** The route the person's last go draws, while it is drawn. */
-  let drawn: DrawnRoute | null = null;
   return (input) => {
     switch (input.kind) {
-      case "command": {
-        const given = input.command;
-        if (given.kind === "go" && "route" in given) {
-          drawn = { points: given.route.points.map((point) => ({ ...point })), drawing: given.route.drawing };
-          run.command({ kind: "go", route: drawn });
-        } else run.command(given);
-        return;
-      }
-      case "route":
-        if (!drawn) return;
-        drawn.points.splice(0, drawn.points.length, ...input.points.map((point) => ({ ...point })));
-        drawn.drawing = input.drawing;
-        if (!input.drawing) drawn = null;
-        return;
+      case "command": run.command(input.command); return;
       case "select": run.select(input.ids); return;
-      case "lead": {
-        const { mode, cursor, right, up, walk, toward } = input.lead, commands = run.commands;
-        commands.mode = { ...mode }; commands.cursor = cursor ? { ...cursor } : null;
-        commands.right = right; commands.up = up; commands.walk = walk; run.toward = { ...toward };
-        return;
-      }
+      case "lead": run.lead = input.lead; return;
       case "look": return;
       default: { const never: never = input; throw new Error(`unknown input ${JSON.stringify(never)}`); }
     }

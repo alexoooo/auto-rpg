@@ -24,9 +24,9 @@ import type { MindPlace } from "../../minds/apart.ts";
 import { isBody } from "../../core/bodies/read-body.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, routeLength, sightIndex, walkable,
   type DungeonMap, type Point, type SightIndex } from "./map.ts";
-import { DungeonCommands, screenMovement } from "./commands.ts";
+import type { PlayerLead } from "../player-input.ts";
 import { dungeonSolids } from "./solids.ts";
-import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./bearing.ts";
+import { CAMERA_PITCH } from "./bearing.ts";
 import { companionSpawn } from "./party-placement.ts";
 import { generateEncounterLevel } from "./encounters.ts";
 import type { NavigationReport } from "../../skills/locomotion/navigation/navigator.ts";
@@ -49,7 +49,7 @@ import type { GameContext } from "../arena/context.ts";
  * (`dungeonSolids`), and the party and the enemies are bodies (`src/core/`), each under a mind
  * that carries out its team's orders. Each side is a team under a Commander (`src/minds/command/`):
  * the party under the person's (`partyCommander`), whose commands reach it only as `Command`s
- * and the live input of the keys and pointer (`DungeonCommands`), unless the run is given another
+ * and live movement input (`PlayerLead`), unless the run is given another
  * (`DungeonRunOptions.party`: the `clearer` plays the party by itself); the enemies under a mob
  * (`mobCommander`) unless given another (`DungeonRunOptions.enemies`). The run is their host: it answers for the map
  * (`TeamLevel`), asks the party's Commander and then the enemies' once a step, before every mind,
@@ -252,13 +252,14 @@ export class DungeonRun {
   readonly state = {
     map: null as DungeonMap | null, world: null as object | null, senses: null as object | null,
     team: null as object | null, foes: null as object | null, watch: null as object | null,
-    actors: {} as Record<string, ActorMemory>, commands: null as object | null,
+    actors: {} as Record<string, ActorMemory>, lead: { keys: null, walk: false } as PlayerLead,
     blows: [] as LandedBlow[], explored: new Set<number>(), visible: new Set<number>(),
     status: "playing" as RunStatus, nextPerception: 0, given: new Map<string, Orders>(),
   };
   get map(): DungeonMap { return this.state.map!; }
-  /** The left button's commands, each heard by the party's Commander as it is given. */
-  readonly commands = new DungeonCommands((command) => this.command(command));
+  /** Live movement of the controlled party member. */
+  get lead(): PlayerLead { return this.state.lead; }
+  set lead(value: PlayerLead) { this.state.lead = value; }
   /** The world every body and collider is in. */
   readonly world: World;
   /** The level built: its floor, walls and doors, drawn, and their colliders in `world`. */
@@ -277,9 +278,6 @@ export class DungeonRun {
   set status(status: RunStatus) { this.state.status = status; }
   /** The camera's elevation, which decides where on a wall in front of the hero the cut-away falls. The page sets it. */
   pitch = CAMERA_PITCH;
-  /** The unit step on the ground toward the camera, which decides what the keys walk along and which walls the
-   * cut-away opens. The page sets it from its azimuth. */
-  toward: Point = cameraToward(CAMERA_AZIMUTH);
   private get nextPerception(): number { return this.state.nextPerception; }
   private set nextPerception(time: number) { this.state.nextPerception = time; }
   /** The map's sight index, and how many of its doors were open when it was made: `sight` makes it again when another has opened. */
@@ -304,7 +302,6 @@ export class DungeonRun {
     const rule = options.levels ?? LEVELS;
     this.ahead = { ...rule, wake: rule.wake + AHEAD_METRES, company: rule.company + AHEAD_METRES };
     this.state.map = options.layout;
-    this.state.commands = this.commands.state;
     const { characters, homes } = options.prepared;
     this.world = this.lifetime.own(createWorld(options.engine, options.minds ? { minds: options.minds } : {}));
     let completed = false;
@@ -563,12 +560,10 @@ export class DungeonRun {
     };
   }
 
-  /** What the party senses now, the person's keys and pointer its lead. */
+  /** What the party senses now, with live movement as its lead. */
   private partyView(look: boolean): TeamView {
-    const { mode, cursor } = this.commands;
     return this.view(this.party, this.enemies, look, {
-      keys: mode.keyboard ? screenMovement(this.commands.right, this.commands.up, this.toward) : null, walk: this.commands.walk,
-      aim: mode.facing ? cursor : null, strike: null, explore: mode.facing,
+      ...this.lead, aim: null, strike: null, explore: false,
     });
   }
 

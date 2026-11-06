@@ -15,6 +15,9 @@ import { driveBy } from "../src/minds/decider.ts";
 import { stockMotor } from "../src/app/stance-balance.ts";
 import { SERVO_SECONDS } from "../src/control/body.ts";
 import { fitsPaws } from "../src/control/quadruped/fit.ts";
+import { VISIBILITY_NAVIGATION } from "../src/skills/locomotion/navigation/visibility-navigation.ts";
+import { bodyClearance } from "../src/skills/locomotion/navigation/sensed-bounds.ts";
+import { clearStep } from "../src/skills/locomotion/navigation/clear-step.ts";
 import { fallenSolids } from "../src/skills/locomotion/navigation/crowd.ts";
 import { walkTerms } from "../src/minds/option/places.ts";
 import { walker } from "../src/minds/option/walk.ts";
@@ -170,4 +173,28 @@ test("fallen footprints retain observed elevation through navigation memory", ()
   const solids = fallenSolids({ others: [other] }, null, new Map());
   assert.equal(solids.length, 1);
   assert.ok(solids[0].centre[1] - solids[0].size[1] / 2 > 1, "the observed elevated body must stay above the lower floor");
+});
+
+
+test("a changed destination retains a planned route while locomotion is unavailable", () => {
+  const navigation = VISIBILITY_NAVIGATION.make(modelSpec("workshop-fighter")),
+    solids = [{ name: "wall", kind: "box", centre: [0, 1, 3], size: [2, 2, 2] }],
+    sight = { view: { time: 0, stance: { centre: { x: 0, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } },
+      senses: { side: "party", others: [], solids } }, report: { heading: 0 } },
+    gait = { envelope: null, stopping: 1, lag: 0 },
+    request = x => ({ kind: "place", points: [{ x, z: 6 }], near: .1 });
+  navigation.step(sight, request(0), gait, 1, 1 / 120);
+  assert.ok(navigation.report.route.length > 1, "fixture must route around the wall");
+  sight.view.time += 1 / 120;
+  assert.deepEqual(navigation.step(sight, request(1), gait, 1, 1 / 120, false), { move: null, face: null });
+  assert.equal(navigation.report.status, "unavailable");
+  const route = navigation.report.route;
+  assert.ok(route.length > 1, "unavailability must not erase the new geometric plan");
+  assert.deepEqual(route.at(-1), { x: 1, z: 6 });
+  let from = [0, 1, 0];
+  for (const point of route) {
+    const to = [point.x, 1, point.z];
+    assert.ok(clearStep(from, to, bodyClearance(modelSpec("workshop-fighter")), solids), "published legs must clear the wall");
+    from = to;
+  }
 });

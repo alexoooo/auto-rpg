@@ -2,16 +2,16 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { SoundCue } from "../../../game/audio/cues.ts";
-import type { Command, DrawnRoute } from "../../../minds/command/commands.ts";
+import type { Command } from "../../../minds/command/commands.ts";
 import type { MindConfig } from "../../../minds/config.ts";
 import type { BodyModel, ResolvedCharacter } from "../../../core/bodies/models.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { puppetBody, type Puppet } from "../render/puppet.ts";
 import { bodyBetween, posePuppet, type Between, type WorldLink } from "../worker/client.ts";
-import { cryptSpec, type ActorNews, type CryptCard, type CryptLead, type CryptNews } from "../../worker/crypt-stage.ts";
+import { cryptSpec, type ActorNews, type CryptCard, type CryptNews } from "../../worker/crypt-stage.ts";
 import { BODY_HEAD } from "../../worker/frame.ts";
 import { CAMERA_PITCH } from "../../../game/dungeon/bearing.ts";
-import { DungeonCommands } from "../../../game/dungeon/commands.ts";
+import type { PlayerLead } from "../../../game/player-input.ts";
 import { cellKey, type DungeonMap, type Point } from "../../../game/dungeon/map.ts";
 import { actorName, type RunStatus } from "../../../game/dungeon/run.ts";
 import type { DungeonSurfaces } from "./stone.ts";
@@ -41,12 +41,6 @@ export interface ViewActor {
   feet(): Point;
 }
 
-/** The person's lead of a run as `commands` and the camera hold it: the pointer only where it aims (`CryptLead`). */
-export function leadOf(commands: Pick<DungeonCommands, "mode" | "cursor" | "right" | "up" | "walk">, toward: Point): CryptLead {
-  const { mode, cursor, right, up, walk } = commands;
-  return { mode: { ...mode }, cursor: mode.facing && cursor ? { x: cursor.x, z: cursor.z } : null, right, up, walk, toward: { x: toward.x, z: toward.z } };
-}
-
 /** Whether a frame holds a body at `offset` not yet built: its first segment at the origin, unturned (`cryptStage`). */
 const unbuilt = (frame: Float64Array, offset: number): boolean => {
   const at = offset + BODY_HEAD;
@@ -57,9 +51,8 @@ const unbuilt = (frame: Float64Array, offset: number): boolean => {
  * **A Crypt run as its page holds it**, its world in a worker (`cryptStage`): the level drawn with
  * no colliders, each body a puppet from the run's first news that it is built, and what the run
  * last said (`CryptNews`): what the party has explored and sees, the doors open, the status, the
- * selection and the notice. The person's commands and selection go to the run as input; the keys,
- * the pointer's aim and the camera's bearing as the lead (`CryptLead`), sent when they change
- * (`send`), with the route the pointer draws.
+ * selection and the notice. Commands and selection go to the run as input; live movement
+ * (`PlayerLead`) is sent when it changes (`send`).
  */
 export class RunView {
   readonly map: DungeonMap;
@@ -88,15 +81,14 @@ export class RunView {
   /** The camera's elevation and the unit step on the ground toward it, which the cut-away and the keys follow. The page sets them. */
   pitch = CAMERA_PITCH;
   toward: Point;
-  /** The left button's commands, each sent to the run as it is given. */
-  readonly commands = new DungeonCommands((command) => this.command(command));
+  /** Live movement sent to the worker in world coordinates. */
+  lead: PlayerLead = { keys: null, walk: false };
   private leaderId = "hero";
   private looked: string | null = null;
   private running = false;
   private disposed = false;
-  /** The lead last sent, and the route the pointer draws with what of it was last sent. */
+  /** The lead last sent. */
   private sentLead: string;
-  private drawn: { readonly route: DrawnRoute; sent: string } | null = null;
   private readonly link: WorldLink<CryptCard>;
   private readonly scene: Scene;
   private readonly built: (actor: ViewActor) => void;
@@ -109,14 +101,14 @@ export class RunView {
    */
   constructor(scene: Scene, link: WorldLink<CryptCard>, options: {
     readonly map: DungeonMap; readonly visuals: DungeonSurfaces; readonly characters: ReadonlyMap<string, ResolvedCharacter>;
-    readonly mind: (card: CryptCard) => MindConfig; readonly lead: CryptLead;
+    readonly mind: (card: CryptCard) => MindConfig; readonly lead: PlayerLead; readonly toward: Point;
     readonly built: (actor: ViewActor) => void; readonly heard: (cue: SoundCue) => void;
   }) {
     this.scene = scene; this.link = link; this.built = options.built; this.heard = options.heard;
     this.map = options.map;
     this.level = buildDungeonWorld(scene, this.map, options.visuals);
-    this.commands.mode = { ...options.lead.mode };
-    this.toward = { ...options.lead.toward };
+    this.lead = options.lead;
+    this.toward = { ...options.toward };
     this.sentLead = JSON.stringify(options.lead);
     this.actors = link.roster.map(({ card }, k): ViewActor => {
       const actor: ViewActor = {
@@ -199,7 +191,7 @@ export class RunView {
 
   /**
    * Sends the person's next commands to these party members, or to everybody when `ids` is null,
-   * after the lead and route as they stand; the selection shows so until the run says otherwise.
+   * after the current lead; the selection shows so until the run says otherwise.
    */
   select(ids: readonly string[] | null): void {
     this.send();
@@ -207,10 +199,9 @@ export class RunView {
     this.link.input({ kind: "select", ids });
   }
 
-  /** The person's command, sent to the party's Commander after the lead and route as they stand. */
+  /** The person's command, sent to the party's Commander after the current lead. */
   command(command: Command): void {
     this.send();
-    if (command.kind === "go" && "route" in command) this.drawn = { route: command.route, sent: JSON.stringify(command.route) };
     this.link.input({ kind: "command", command });
   }
 
@@ -221,18 +212,10 @@ export class RunView {
     this.link.input({ kind: "look", id });
   }
 
-  /** Send the lead, where it has changed, and the route the pointer draws, where it has grown or been drawn. */
+  /** Send the lead when it changes. */
   send(): void {
-    const lead = leadOf(this.commands, this.toward), text = JSON.stringify(lead);
+    const lead = this.lead, text = JSON.stringify(lead);
     if (text !== this.sentLead) { this.sentLead = text; this.link.input({ kind: "lead", lead }); }
-    const drawn = this.drawn;
-    if (!drawn) return;
-    const route = JSON.stringify(drawn.route);
-    if (route !== drawn.sent) {
-      drawn.sent = route;
-      this.link.input({ kind: "route", points: drawn.route.points, drawing: drawn.route.drawing });
-    }
-    if (!drawn.route.drawing) this.drawn = null;
   }
 
   /** The fog from what the party sees and has seen, and each body shown where the party sees it. */
