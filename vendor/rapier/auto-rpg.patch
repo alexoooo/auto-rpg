@@ -1092,25 +1092,94 @@ index baad269..4f763eb 100644
                          warmstart_tangent_impulses.extract(ii);
                      {
 diff --git a/src/dynamics/solver/contact_constraint/generic_contact_constraint.rs b/src/dynamics/solver/contact_constraint/generic_contact_constraint.rs
-index e599062..c6e1df5 100644
+index e5990621..ea6765c2 100644
 --- a/src/dynamics/solver/contact_constraint/generic_contact_constraint.rs
 +++ b/src/dynamics/solver/contact_constraint/generic_contact_constraint.rs
-@@ -236,6 +236,7 @@ impl GenericContactConstraintBuilder {
+@@ -236,6 +236,9 @@ impl GenericContactConstraintBuilder {
                      rhs: Default::default(),
                      rhs_wo_bias: Default::default(),
                      cfm_factor: Default::default(),
-+                    layer_backstop: 0.0, layer_enabled: 0.0, layer_distance: 0.0, layer_work: 0.0,
++                    layer_backstop: 0.0,
++                    layer_enabled: if manifold.data.layer[0] > 0.0 { 1.0 } else { 0.0 },
++                    layer_distance: dist, layer_work: 0.0,
                      // Minus the warm-start impulse, so the first substep's `update` cancels it
                      // when it folds `impulse` in: that value belongs to the previous step (see
                      // the coulomb-friction `generate`).
-@@ -361,6 +362,7 @@ impl GenericContactConstraintBuilder {
+@@ -361,6 +364,9 @@ impl GenericContactConstraintBuilder {
                  }
              };
              let infos = CoulombContactPointInfos {
-+                layer_k: 0.0, layer_c: 0.0, layer_depth: 0.0,
++                layer_k: manifold.data.layer[0] / manifold.data.solver_contacts.len().max(1) as Real,
++                layer_c: manifold.data.layer[1] / manifold.data.solver_contacts.len().max(1) as Real,
++                layer_depth: manifold.data.layer[2],
                  local_p1: local_point(multibody1.is_some(), solver_vel1, rb1, point),
                  local_p2: local_point(multibody2.is_some(), solver_vel2, rb2, point2),
                  tangent_vel: manifold_point.tangent_velocity,
+@@ -476,6 +482,14 @@ impl GenericContactConstraintBuilder {
+ 
+                 normal_part.rhs_wo_bias = rhs_wo_bias;
+                 normal_part.rhs = new_rhs;
++                if normal_part.layer_enabled > 0.0 {
++                    let denom = info.layer_c + info.layer_k * params.dt;
++                    let gamma = utils::inv(params.dt * denom);
++                    normal_part.rhs = dist * info.layer_k * utils::inv(denom);
++                    normal_part.cfm_factor = utils::inv(1.0 + normal_part.r * gamma);
++                    normal_part.layer_backstop = (dist + info.layer_depth) * inv_dt;
++                    normal_part.layer_distance = dist;
++                }
+                 // Bank the previous substep's impulse before the warm-start scaling (see the
+                 // coulomb-friction `update`).
+                 normal_part.impulse_accumulator += normal_part.impulse;
+@@ -497,6 +511,32 @@ impl GenericContactConstraintBuilder {
+         constraint.cfm_factor = cfm_factor;
+     }
+ 
++    /// Preserve material spring rows during relaxation and meter their compression work.
++    pub fn update_material_rhs_wo_bias(
++        &self, params: &IntegrationParameters, solved_dt: Real, bodies: &SolverBodies,
++        multibodies: &MultibodyJointSet, constraint: &mut GenericContactConstraint,
++    ) {
++        constraint.remove_cfm_and_bias_from_rhs();
++        let pose = |handle, id, is_multibody| {
++            if id == u32::MAX { crate::math::Pose::IDENTITY }
++            else if is_multibody {
++                multibodies.rigid_body_link(handle)
++                    .map(|m| multibodies[m.multibody].link(m.id).unwrap().local_to_world)
++                    .unwrap_or(crate::math::Pose::IDENTITY)
++            } else { bodies.get_pose(id).pose() }
++        };
++        let p1 = pose(self.handle1, constraint.solver_vel1, constraint.generic_constraint_mask & 1 != 0);
++        let p2 = pose(self.handle2, constraint.solver_vel2, constraint.generic_constraint_mask & 2 != 0);
++        for (info, normal) in self.infos[..constraint.num_contacts as usize].iter()
++            .zip(constraint.normal_part.iter_mut()) {
++            if normal.layer_enabled > 0.0 {
++                let dist = info.dist + (p1 * info.local_p1 + info.tangent_vel * solved_dt - p2 * info.local_p2).dot(constraint.dir1);
++                normal.layer_work += normal.impulse * params.inv_dt() * (normal.layer_distance - dist);
++                normal.layer_distance = dist;
++            }
++        }
++    }
++
+     /// Does any active point of this constraint hold a restitution seed (an approaching
+     /// bouncy contact captured at prepare time)? Cheap pre-check gating
+     /// [`Self::apply_restitution`].
+@@ -725,6 +765,7 @@ impl GenericContactConstraint {
+             }
+             active_contact.data.impulse =
+                 utils::canonicalize_zero(self.normal_part[k].total_impulse());
++            active_contact.data.layer_work += self.normal_part[k].layer_work;
+             active_contact.data.tangent_impulse =
+                 utils::canonicalize_zero(self.tangent_part[k].total_impulse());
+         }
+@@ -733,7 +774,7 @@ impl GenericContactConstraint {
+     pub fn remove_cfm_and_bias_from_rhs(&mut self) {
+         self.cfm_factor = 1.0;
+         for normal_part in &mut self.normal_part {
+-            normal_part.rhs = normal_part.rhs_wo_bias;
++            if normal_part.layer_enabled == 0.0 { normal_part.rhs = normal_part.rhs_wo_bias; }
+         }
+         for tangent_part in &mut self.tangent_part {
+             tangent_part.rhs = tangent_part.rhs_wo_bias;
 diff --git a/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs b/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
 index 7ffb528..624bea3 100644
 --- a/src/dynamics/solver/joint_constraint/generic_joint_constraint.rs
@@ -1130,7 +1199,7 @@ index 7ffb528..624bea3 100644
 +    }
  }
 diff --git a/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs b/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
-index 3eddbe6..e4c5f1e 100644
+index 3eddbe61..0289d45b 100644
 --- a/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
 +++ b/src/dynamics/solver/joint_constraint/generic_joint_constraint_builder.rs
 @@ -619,7 +619,7 @@ impl JointConstraintHelper<Real> {
@@ -1170,7 +1239,22 @@ index 3eddbe6..e4c5f1e 100644
  
          let mut constraint = self.lock_jacobians_generic(
              jacobians,
-@@ -777,7 +783,7 @@ impl JointConstraintHelper<Real> {
+@@ -763,11 +769,10 @@ impl JointConstraintHelper<Real> {
+         let mut rhs_wo_bias = 0.0;
+         if motor_params.erp_inv_dt != 0.0 {
+             #[cfg(feature = "dim2")]
+-            let s_ang_dist = (self.ang_err.angle() / 2.0).sin();
++            let ang_dist = self.ang_err.angle();
+             #[cfg(feature = "dim3")]
+-            let s_ang_dist = self.ang_err.xyz()[_motor_axis];
+-            let s_target_ang = (motor_params.target_pos / 2.0).sin();
+-            rhs_wo_bias += utils::smallest_abs_diff_between_sin_angles(s_ang_dist, s_target_ang)
++            let ang_dist = self.ang_err.xyz()[_motor_axis].clamp(-1.0, 1.0).asin() * 2.0;
++            rhs_wo_bias += utils::smallest_abs_diff_between_angles(ang_dist, motor_params.target_pos)
+                 * motor_params.erp_inv_dt;
+         }
+ 
+@@ -777,7 +782,7 @@ impl JointConstraintHelper<Real> {
          constraint.rhs = rhs_wo_bias;
          constraint.cfm_coeff = motor_params.cfm_coeff;
          constraint.cfm_gain = motor_params.cfm_gain;
@@ -1661,3 +1745,40 @@ index 913cc7a..b656e6a 100644
  
          // Apply some of delayed wake-ups.
          self.counters.stages.user_changes.start();
+diff --git a/src/dynamics/solver/contact_constraint/generic_contact_constraint_element.rs b/src/dynamics/solver/contact_constraint/generic_contact_constraint_element.rs
+index 1867a49e..e87c7bf8 100644
+--- a/src/dynamics/solver/contact_constraint/generic_contact_constraint_element.rs
++++ b/src/dynamics/solver/contact_constraint/generic_contact_constraint_element.rs
+@@ -411,7 +411,13 @@ impl ContactConstraintNormalPart<Real> {
+             solver_vels,
+         ) + self.rhs;
+ 
+-        let new_impulse = cfm_factor * (self.impulse - self.r * dvel).max(0.0);
++        let material = self.layer_enabled > 0.0;
++        let factor = if material { self.cfm_factor } else { cfm_factor };
++        let soft_impulse = factor * (self.impulse - self.r * dvel).max(0.0);
++        let new_impulse = if material {
++            let backstop = (self.impulse - self.r * (dvel - self.rhs + self.layer_backstop)).max(0.0);
++            soft_impulse.max(backstop)
++        } else { soft_impulse };
+         let dlambda = new_impulse - self.impulse;
+         self.impulse = new_impulse;
+ 
+diff --git a/src/dynamics/solver/staged_island_solver/solve.rs b/src/dynamics/solver/staged_island_solver/solve.rs
+index 955f79bc..b327ce4a 100644
+--- a/src/dynamics/solver/staged_island_solver/solve.rs
++++ b/src/dynamics/solver/staged_island_solver/solve.rs
+@@ -340,9 +340,11 @@ pub(super) unsafe fn solve_pass(
+             let contacts = unsafe { &mut *ctx.contact_constraints };
+             let vs = unsafe { &mut *ctx.velocity_solver };
+             let jac = &contacts.generic_jacobians;
+-            for c in contacts.generic_velocity_constraints.iter_mut() {
++            for (builder, c) in contacts.generic_velocity_constraints_builder.iter()
++                .zip(contacts.generic_velocity_constraints.iter_mut()) {
+                 if wo_bias {
+-                    c.remove_cfm_and_bias_from_rhs();
++                    builder.update_material_rhs_wo_bias(params, solved_dt, &vs.solver_bodies,
++                        unsafe { &*ctx.multibodies }, c);
+                 }
+                 c.solve(
+                     jac,

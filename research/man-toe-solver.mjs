@@ -46,6 +46,8 @@
  * `--articulated` uses a reduced-coordinate hinge and a separate motor-only impulse joint.
  * An explicit angular constraint holds the foot; root rotation-lock flags do not hold an
  * articulation. The recorded pose error establishes whether that fixture reaches its case.
+ * That angular constraint reads the parent's inertia: the articulated variant includes the
+ * ankle point load's parallel-axis contribution about the combined centre of mass.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -152,12 +154,16 @@ function eigen(m) {
 /** A solid's mass properties at `mass` kg, at the fit scale: principal moments and their turn. */
 function massOf(solid, mass) {
   const tensor = solid.inertia.map((row) => row.map((c) => c * mass * FIT_SCALE.value * FIT_SCALE.value));
+  return { mass, centre: fit(solid.centre), ...inertiaOf(tensor) };
+}
+
+function inertiaOf(tensor) {
   const { values, vectors: v } = eigen(tensor);
   // A right-handed frame: the third axis the cross of the first two.
   const det = v[0][0] * (v[1][1] * v[2][2] - v[2][1] * v[1][2]) - v[0][1] * (v[1][0] * v[2][2] - v[2][0] * v[1][2]) + v[0][2] * (v[1][0] * v[2][1] - v[2][0] * v[1][1]);
   if (det < 0) for (let k = 0; k < 3; k++) v[k][2] = -v[k][2];
   const matrix = Matrix.FromValues(v[0][0], v[1][0], v[2][0], 0, v[0][1], v[1][1], v[2][1], 0, v[0][2], v[1][2], v[2][2], 0, 0, 0, 0, 1);
-  return { mass, centre: fit(solid.centre), moments: values, orientation: Quaternion.FromRotationMatrix(matrix), tensor };
+  return { moments: values, orientation: Quaternion.FromRotationMatrix(matrix), tensor };
 }
 
 /** A Babylon turn as the core's, by its numbers: what the core is handed is the core's own. */
@@ -203,6 +209,16 @@ function run(kase, config) {
   const foot = pieces[0].props, whole = foot.mass + legMass;
   pieces[0].props = { ...foot, mass: whole, centre: foot.centre.map((c, k) => (foot.mass * c + legMass * ankle.centre.value[k]) / whole),
     tensor: foot.tensor.map((row) => row.map((c) => (c * whole) / foot.mass)) };
+  if (options.articulated) {
+    // An angular constraint reads inertia; include the ankle point load about the combined CoM.
+    const centre = pieces[0].props.centre, offsets = [
+      { mass: foot.mass, r: sub(foot.centre, centre) },
+      { mass: legMass, r: sub(ankle.centre.value, centre) },
+    ];
+    const tensor = foot.tensor.map((row, i) => row.map((value, j) => value + offsets.reduce(
+      (sum, part) => sum + part.mass * ((i === j ? dot(part.r, part.r) : 0) - part.r[i] * part.r[j]), 0)));
+    pieces[0].props = { ...pieces[0].props, ...inertiaOf(tensor) };
+  }
   const bodies = {};
   for (const piece of pieces) {
     if (piece.name === "toes" && config.inertiaScale) {
@@ -332,6 +348,7 @@ function run(kase, config) {
     ...(options.conditioning ? { fixture: { hz: config.hz, iterations, friction: friction ?? null,
       coordinateAngularLimits: !options["legacy-limits"], planted: options.planted,
       articulated: options.articulated,
+      parentInertia: options.articulated ? "foot plus ankle point load" : "rotation locked",
       actualFootTurn: mean(last.map(sample => sample.footTurn)),
       maxFootTurnError: Math.max(...last.map(sample => Math.abs(sample.footTurn - kase.turn))),
       layer: config.layer, layerDepth, stiffness, massScale, inertiaScale: config.inertiaScale } } : {}),

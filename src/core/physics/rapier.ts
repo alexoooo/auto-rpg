@@ -33,7 +33,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 type Rapier = typeof RAPIER;
 
 /** The vendored archive's identity (`vendor/rapier/README.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-14/sha256:3c523c432beb896620ad8a54ceae366a630062533a9efc4177b1ff14fd15ea90";
+const REVISION = "rapier/adapter-14/sha256:fda4d3949fc146e40653e644b7a77025435f865badf0d122f60603c67dd106d9";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while

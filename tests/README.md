@@ -133,6 +133,12 @@ it compares the complete sparse array alongside real `undefined` entries and esc
 
 [rapier-hooks.test.mjs](rapier-hooks.test.mjs): `a contact-layer callback defect reaches the world-step caller unchanged` reproduces a material callback throwing while the vendored WASM bridge silently returns a successful step. The overlapping-contact fixture verifies the original thrown value and callback receiver at the actual engine boundary; a normal bout installs no material layer and cannot exercise this defect.
 
+`an articulated force-based angular spring uses radians` catches a generic motor row using a
+half-angle sine instead of radians, doubling a free spring's displacement.
+`an articulated contact enforces its material compression cap` catches generic contacts ignoring
+a requested compression cap. Both use a fixed root to isolate those contracts;
+ordinary capability drills use impulse joints and rigid contacts, so cannot expose these defects.
+
 ## Layer contract regressions
 
 [layer-contracts.test.mjs](layer-contracts.test.mjs) reproduces the physical, command and observation
