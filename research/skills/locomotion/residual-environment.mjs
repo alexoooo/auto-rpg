@@ -6,6 +6,7 @@
  * `cycleTuning` supplies immutable running-cycle overrides for joint trajectory searches.
  * `rewardPace` selects the training target without changing the order. Progress credit is capped
  * at the target; stopping uses Gaussian tracking. `fallPenalty` covers falls and corridor exits.
+ * `controlTrace` pairs the run's phase change with the contact input of that control decision.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -113,6 +114,7 @@ export async function residualEnvironment(configuration = {}) {
       centre: [centre.x, centre.y, centre.z], velocity: [velocity.x, velocity.y, velocity.z], root: { ...physicalTurn },
       control: { centre: [s.centre.x, s.centre.y, s.centre.z], velocity: [s.velocity.x, s.velocity.y, s.velocity.z], root: { ...body.view.root.rotation } },
       phase: skill.state.run.phase, running: skill.state.walkRun.running,
+      ...(o.controlTrace ? { controlDecision: control.lastDecision } : {}),
       ...(o.actuationTrace ? { actuation: { pace: skill.state.run.pace, trim: skill.state.run.trim, lean: skill.state.run.lean,
         channels: Object.values(channels).flat().map(i => ({ name: host.muscles.channels[i].name,
           angle: host.muscles.angle(i), speed: host.muscles.speed(i), requested: host.muscles.velocity[i],
@@ -201,7 +203,16 @@ export async function residualEnvironment(configuration = {}) {
       reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
     observation = []; goal = null;
     body.drive((view, dt) => {
+      if (o.controlTrace) control.lastDecision = {
+        time: view.time - o.settle, runningBefore: skill.state.walkRun.running, phaseBefore: skill.state.run.phase,
+        previousTouch: { ...skill.state.run.touching },
+        sensed: Object.fromEntries(['left', 'right'].map(side => [side, {
+          touching: view.stance.ends[ends[side]].touching, middle: { ...view.stance.ends[ends[side]].middle },
+        }])), velocity: { ...view.stance.velocity },
+      };
       const d = skill.goal(o.fallRule === 'physical' ? runView : view, { walk: control.asked, face: 0 }, dt);
+      if (o.controlTrace) Object.assign(control.lastDecision, { phaseAfter: skill.state.run.phase,
+        runningAfter: skill.state.walkRun.running, waited: skill.state.run.waited, cadence: skill.state.run.steer.cadence });
       observe(view);
       if (d.kind === 'drive') {
         const side = skill.state.run.phase < .5 ? 'left' : 'right', opposite = side === 'left' ? 'right' : 'left';
