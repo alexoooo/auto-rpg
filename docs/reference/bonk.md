@@ -144,3 +144,13 @@ commitment step. A probe that does not reach adjacent preparation and commitment
 a fixture fault. The reading requires precommit withdrawal at that native step without a launch.
 The `bonk-boundary-screen` protocols isolate this fixture at the central development entry with
 the right hand. Both protocol pairs have `-480` variants.
+
+The `bonk-approach` protocols order a half-metre walk toward the target at a requested pace of
+0.5 m/s, then order a controlled stop. They use both hands and the reserved headings. Their
+`bonk-approach-screen` counterparts isolate the right hand at heading zero; both pairs have
+`-480` variants. Entry placement and the strike request wait for the movement rule's continuous
+settling hold. The reading records requested pace, actual forward travel, peak physical speed,
+stop and settling times, and physical speed at admission. A missed walk, fall, unmet pace request
+or admission before a settled stop fails fixture coverage.
+After placement, the request stays issued only while the published menu is ready and physical
+speed remains within the movement settling limit.

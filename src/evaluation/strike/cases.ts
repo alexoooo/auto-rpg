@@ -37,7 +37,7 @@ import { type GameContext, mindFaults as contextMindFaults } from "../../game/ar
 import { SIDES } from "../../core/bodies/bilateral.ts";
 import { validBonkTechnique, type BonkTechnique } from "../../skills/strikes/bonk-course.ts";
 import type { StrikeConfig } from "../../minds/option/kinds.ts";
-import { BONK_ENTRY, type BonkFixtureConfig } from "./bonk-fixture.ts";
+import { BONK_APPROACH, BONK_ENTRY, type BonkFixtureConfig } from "./bonk-fixture.ts";
 
 /**
  * A subject's value: a mind given whole, the skill it drills (its executor's kind, as an order
@@ -125,6 +125,12 @@ const BONK_BOUNDARY_SCREEN = deepFreeze({ ...BONK_SCREEN, cancellation: "last-pr
 const BONK_BOUNDARY_SCREEN_FAST = deepFreeze({ ...BONK_BOUNDARY_SCREEN, timing: { hz: 480, delay: 4 } });
 const BONK_BOUNDARY_SCREEN_CONDITIONS: readonly StillCondition[] = deepFreeze([{ ...BONK_SCREEN_CONDITIONS[2]!,
   entry: { ...BONK_SCREEN_CONDITIONS[2]!.entry!, cancellation: "last-preparation" } }]);
+const BONK_APPROACH_CASES = deepFreeze({ ...BONK_MISS, mode: "contact", approach: BONK_APPROACH });
+const BONK_APPROACH_FAST = deepFreeze({ ...BONK_APPROACH_CASES, timing: { hz: 480, delay: 4 } });
+const BONK_APPROACH_SCREEN = deepFreeze({ ...BONK_SCREEN, approach: BONK_APPROACH });
+const BONK_APPROACH_SCREEN_FAST = deepFreeze({ ...BONK_APPROACH_SCREEN, timing: { hz: 480, delay: 4 } });
+const approachConditions = (conditions: readonly StillCondition[]): readonly StillCondition[] => deepFreeze(conditions.map(condition => ({ ...condition, gap: 2.2,
+  entry: { ...condition.entry!, entryMotion: "approach" as const } })));
 
 /** A fixture grid keeps each hand's normalized coordinates independent of its mirrored world placement. */
 const bonkConditions = (entries: readonly Pick<BonkFixtureConfig, "u" | "v" | "heading">[], mode: BonkFixtureConfig["mode"], cancellation?: BonkFixtureConfig["cancellation"]): readonly StillCondition[] =>
@@ -254,7 +260,7 @@ const FIGHT = deepFreeze({
 
 /** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
 export type StillCondition = { readonly model: BodyModel; readonly mark: Mark } & Limb & {
-  readonly entry?: Pick<BonkFixtureConfig, "u" | "v" | "heading" | "mode" | "cancellation">;
+  readonly entry?: Pick<BonkFixtureConfig, "u" | "v" | "heading" | "mode" | "cancellation" | "entryMotion">;
   /** The target's body, where its rung names one: a Warrior's where it does not. */
   readonly target?: BodyModel;
   /** Which way and how fast the target moves on its rail, m/s, where its rung moves it. */
@@ -428,6 +434,10 @@ export function createStrikeCases(context: GameContext) {
     "bonk-cancel-boundary-480": stillCases(BONK_CANCEL_BOUNDARY_FAST, bonkConditions(BONK_CENTRAL_ENTRIES, "cancel", "last-preparation")),
     "bonk-boundary-screen": stillCases(BONK_BOUNDARY_SCREEN, BONK_BOUNDARY_SCREEN_CONDITIONS),
     "bonk-boundary-screen-480": stillCases(BONK_BOUNDARY_SCREEN_FAST, BONK_BOUNDARY_SCREEN_CONDITIONS),
+    "bonk-approach": stillCases(BONK_APPROACH_CASES, approachConditions(bonkConditions(BONK_CENTRAL_ENTRIES, "contact"))),
+    "bonk-approach-480": stillCases(BONK_APPROACH_FAST, approachConditions(bonkConditions(BONK_CENTRAL_ENTRIES, "contact"))),
+    "bonk-approach-screen": stillCases(BONK_APPROACH_SCREEN, approachConditions([BONK_SCREEN_CONDITIONS[0]!])),
+    "bonk-approach-screen-480": stillCases(BONK_APPROACH_SCREEN_FAST, approachConditions([BONK_SCREEN_CONDITIONS[0]!])),
     moving: stillCases(MOVING), walk: stillCases(WALK),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
