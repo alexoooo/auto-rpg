@@ -50,13 +50,13 @@ interface HeldOpening {
   value: number;
 }
 /** **The surface aim**'s config: the opening reader's (`openingSelector`) choice of a surface point, by its preferences. */
-interface SurfaceConfig { readonly kind: "surface"; readonly tuning: OpeningTuning }
+interface SurfaceConfig { readonly kind: "surface"; readonly tuning?: OpeningTuning }
 /** The opening reader's preference for `key`'s part, a score; written empty, the reader's own. */
 const preference = (key: "head" | "upperTrunk" | "middleTrunk", label: string): PartField<SurfaceConfig> => ({
   kind: "number", key, label, least: -2, most: 2, step: .05, unit: "score",
-  read: (config) => config.tuning[key] === undefined ? "" : String(config.tuning[key]),
+  read: (config) => config.tuning?.[key] === undefined ? "" : String(config.tuning[key]),
   write: (config, text) => {
-    const { [key]: _, ...rest } = config.tuning;
+    const { [key]: _, ...rest } = config.tuning ?? {};
     if (text.trim() === "") return { ...config, tuning: rest };
     const value = Number(text);
     return Number.isFinite(value) && value >= -2 && value <= 2 ? { ...config, tuning: { ...rest, [key]: value } } : null;
@@ -66,7 +66,7 @@ export const SURFACE_AIM: AimPart<SurfaceConfig> = deepFreeze({
   role: "aim", label: "Surface opening", stage: "game", unit: "opening", slots: [], defaults: { kind: "surface", tuning: {} }, keys: { kind: true, tuning: true },
   tuning: ["head", "upperTrunk", "middleTrunk", "blocked", "reachPenalty", "repeated", "overhand", "headLateral", "hookCost", "uppercut", "uppercutReserve", "square"],
   fields: [preference("head", "Head"), preference("upperTrunk", "Upper trunk"), preference("middleTrunk", "Middle trunk")], fits: surfaceAimRefusal,
-  faults: (config: SurfaceConfig) => validOpeningTuning(config.tuning) ? [] : ["unsupported surface aim"],
+  faults: (config: SurfaceConfig) => validOpeningTuning(config.tuning === undefined ? {} : config.tuning) ? [] : ["unsupported surface aim"],
   aimsWith: (effector: string) => effector === "hand.left" || effector === "hand.right",
   make(spec, config: SurfaceConfig) {
     const surface = openingSelector(spec, config.tuning);
