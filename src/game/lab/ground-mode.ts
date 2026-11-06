@@ -36,6 +36,12 @@ import { hypot } from "../../core/math/real.ts";
 export const STAND_CHECK = deepFreeze({ quiet: .5, standing: 2, walking: 1, pace: .3, cap: 30, within: 10 });
 /** The stand-up target's shove: N s for each kg of the body, once, at the chest. */
 const TARGET_SHOVE = 1.5;
+/** A held shove is repeated harder to establish a fall, doubling at each retry. */
+export function shoveImpulse(impulse: number, previousShoves: number): number {
+  let scaled = impulse;
+  for (let i = 0; i < previousShoves; i++) scaled *= 2;
+  return scaled;
+}
 /** A round's falls: sixteen ways round, 22.5 degrees apart, the target's directions. */
 export const ROUND_FALLS = 16;
 /**
@@ -44,8 +50,8 @@ export const ROUND_FALLS = 16;
  */
 const ROUND_FIRST = 1, ROUND_REST = 1, ROUND_UNFELLED = 3;
 /**
- * A shoved start's shove, given at 1 s, is given again the same way `again` s after the last while
- * the body holds it, at most `most` shoves in all: the target's falls are falls, and a body whose
+ * A shoved start's shove, given at 1 s, is given again with doubled impulse the same way
+ * `again` s after the last while the body holds it, at most `most` shoves in all: the target's falls are falls, and a body whose
  * stance holds one shove has no stand-up to read.
  */
 export const SHOVED = deepFreeze({ first: 1, again: 1.5, most: 3 });
@@ -174,7 +180,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
     if (address.ground.start !== "shoved") return;
     const held = state.shoved && check.state.takeover === null && !body.view.down && state.shoves < SHOVED.most && world.time - state.shovedAt! >= SHOVED.again;
     if (!state.shoved && world.time >= SHOVED.first || held) {
-      shoving.shove(shove.impulse, shove.degrees); state.shoved = true; state.shovedAt = world.time; state.shoves++;
+      shoving.shove(shoveImpulse(shove.impulse, state.shoves), shove.degrees); state.shoved = true; state.shovedAt = world.time; state.shoves++;
     }
   }));
   scope.own(world.afterStep(() => {

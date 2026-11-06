@@ -29,7 +29,7 @@ const HELD_PACE = 3, PACED = .9, TRAIL = .35, HALT = 1.5;
 
 type Hit = { readonly speed: number | null; readonly energy: number; readonly closing: number; readonly held: { readonly value: number } | null };
 type Strike = { readonly outcome: string; readonly began: number | null; readonly down: boolean; readonly hit: Hit | null };
-type Fall = { readonly stood: boolean; readonly verified: number | null };
+type Fall = { readonly stood: boolean; readonly verified: number | null; readonly takeover: number | null };
 type Walk = { readonly kind: string; readonly fell: boolean; readonly along: number | null };
 type Run = Walk & { readonly held: number | null; readonly trail: number | null; readonly speed: number | null; readonly halt: number | null };
 type Cover = { readonly blows: number; readonly shielded: number; readonly down: boolean; readonly outcome?: string; readonly attempted?: boolean };
@@ -76,11 +76,11 @@ export function verdictOf(judge: MetJudge, rows: readonly TableRow[], required: 
     case "target": {
       const falls = rows.map((row) => {
         const fall = row.reading as unknown as Fall;
-        return { degrees: (row.condition as { degrees?: number }).degrees ?? 0, time: fall.stood && fall.verified !== null ? fall.verified : null };
+        return { degrees: (row.condition as { degrees?: number }).degrees ?? 0, made: fall.takeover !== null, time: fall.stood && fall.verified !== null ? fall.verified : null };
       });
-      const { seconds, gates } = targetGates(falls), stood = falls.filter((one) => one.time !== null);
+      const { seconds, gates } = targetGates(falls), stood = falls.filter((one) => one.made && one.time !== null);
       const failed = (Object.keys(gates) as (keyof typeof gates)[]).filter((gate) => !gates[gate]);
-      return { state: failed.length === 0 ? "met" : "short", figures: `${stood.length} of ${falls.length} stood, ${stood.filter((one) => one.time! <= STAND_WITHIN).length} within ${STAND_WITHIN} s, `
+      return { state: failed.length === 0 ? "met" : "short", figures: `${stood.length} of ${falls.filter(one => one.made).length} actual falls stood, ${falls.filter(one => !one.made).length} not exercised, ${stood.filter((one) => one.time! <= STAND_WITHIN).length} within ${STAND_WITHIN} s, `
         + `median ${seconds.toFixed(1)} s${failed.length ? `; short: ${failed.join(", ")}` : ""}` };
     }
     case "run": {

@@ -110,17 +110,19 @@ const TARGET_MEDIAN = 10;
  * **The stand-up target's gates on one body and loadout's falls**
  * (`docs/reference/rising.md#the-owners-target`), each fall its shove's direction, degrees, and its
  * time to a verified stand, s, null for none: its sixteen directions each once, turned by `offset`
- * (`complete`); at least 15 within `STAND_WITHIN` (`within`); every cardinal direction within it
+ * (`complete`, with every fall produced); at least 15 within `STAND_WITHIN` (`within`); every cardinal direction within it
  * (`cardinals`); a failure-inclusive median, a fall not stood at the cap (`FALL_CAP`), of at most
- * `TARGET_MEDIAN` (`median`, with the median itself, `seconds`).
+ * `TARGET_MEDIAN` (`median`, with the median itself, `seconds`). Unproduced falls are excluded
+ * from recovery statistics; at least one actual fall is required.
  */
-export function targetGates(falls: readonly { readonly degrees: number; readonly time: number | null }[], offset = 0) {
+export function targetGates(falls: readonly { readonly degrees: number; readonly time: number | null; readonly made: boolean }[], offset = 0) {
   const directions = falls.map((fall) => fall.degrees).sort((a, b) => a - b);
-  const complete = JSON.stringify(directions) === JSON.stringify(Array.from({ length: 16 }, (_, k) => k * 22.5 + offset));
+  const complete = falls.every(fall => fall.made) && JSON.stringify(directions) === JSON.stringify(Array.from({ length: 16 }, (_, k) => k * 22.5 + offset));
   const inTime = (fall: { readonly time: number | null }): boolean => fall.time !== null && fall.time <= STAND_WITHIN;
-  const seconds = medianOf(falls.map((fall) => fall.time ?? FALL_CAP)) ?? FALL_CAP;
-  return { seconds, gates: { complete, within: complete && falls.filter(inTime).length >= 15,
-    cardinals: complete && falls.filter((fall) => (fall.degrees - offset) % 90 === 0).every(inTime), median: complete && seconds <= TARGET_MEDIAN } };
+  const exercised = falls.filter(fall => fall.made);
+  const seconds = medianOf(exercised.map((fall) => fall.time ?? FALL_CAP)) ?? FALL_CAP;
+  return { seconds, gates: { complete, within: complete && exercised.filter(inTime).length >= 15,
+    cardinals: complete && exercised.length > 0 && exercised.filter((fall) => (fall.degrees - offset) % 90 === 0).every(inTime), median: complete && seconds <= TARGET_MEDIAN } };
 }
 
 /**
@@ -333,11 +335,12 @@ export function createRising(context: GameContext) {
     const successful = (row: RisingRow, within = Infinity) => time(row) !== null && time(row)! <= within;
     // The fresh falls are read against the same gates, their cardinals the directions just past each.
     const offset = rows.length > 0 && rows.every(row => row.degrees! % 22.5 === FRESH_OFFSET) ? FRESH_OFFSET : 0;
-    const meets = (cases: readonly RisingRow[]): boolean => Object.values(targetGates(cases.map(row => ({ degrees: row.degrees!, time: time(row) })), offset).gates).every(Boolean);
-    const groups = [...grouped].map(([key, cases]) => ({ key, all: cases.length, ...(target ? { meets: meets(cases) } : {}), stood: cases.filter(row => successful(row)).length,
+    const made = (row: RisingRow): boolean => row.status !== "no takeover" && !(row.start === "shoved" && row.takeover === null);
+    const meets = (cases: readonly RisingRow[]): boolean => Object.values(targetGates(cases.map(row => ({ degrees: row.degrees!, time: time(row), made: made(row) })), offset).gates).every(Boolean);
+    const groups = [...grouped].map(([key, cases]) => ({ key, all: cases.length, exercised: cases.filter(made).length, ...(target ? { meets: meets(cases) } : {}), stood: cases.filter(row => successful(row)).length,
       reached: cases.filter(row => row.reached).length,
       within: cases.filter(row => successful(row, STAND_WITHIN)).length, within12: cases.filter(row => successful(row, 12)).length,
-      median: medianOf(cases.map(row => time(row) ?? row.cap ?? 30)), rejected: cases.filter(row => row.status === ("rejected start" as string)).length,
+      median: medianOf(cases.filter(made).map(row => time(row) ?? row.cap ?? 30)), rejected: cases.filter(row => row.status === ("rejected start" as string)).length,
       noTakeover: cases.filter(row => row.start === "shoved" && row.takeover === null).length,
       landedStanding: cases.filter(row => row.status === "landed standing").length,
       phaseSeconds: Object.fromEntries([...new Set(cases.flatMap(row => Object.keys(row.phases ?? {})))].map(phase => [phase,

@@ -59,8 +59,8 @@ export function createRisingTargetIndex(context: GameContext) {
       return { subject: subject.id, mode, groups, gates, techniques, claims };
     });
     const lines = reports.flatMap(({ subject, groups, gates, claims }) => [
-      `${subject}:`, "", `| Group | Within ${STAND_WITHIN} s | Within 12 s | Stood | Median, s | No takeover |${gates ? " Meets the target |" : ""}`, `|---|---|---|---|---|---|${gates ? "---|" : ""}`,
-      ...[...groups].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map((g) => `| ${g.key} | ${g.within}/${g.all} | ${g.within12}/${g.all} | ${g.stood}/${g.all} | ${g.median?.toFixed(2) ?? "none"} | ${g.noTakeover} |`
+      `${subject}:`, "", `| Group | Within ${STAND_WITHIN} s | Within 12 s | Stood | Median, s | Not exercised |${gates ? " Meets the target |" : ""}`, `|---|---|---|---|---|---|${gates ? "---|" : ""}`,
+      ...[...groups].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map((g) => `| ${g.key} | ${g.within}/${g.exercised} | ${g.within12}/${g.exercised} | ${g.stood}/${g.exercised} | ${g.median?.toFixed(2) ?? "none"} | ${g.noTakeover} |`
         + (gates ? ` ${g.meets ? "yes" : "no"} |` : "")),
       ...(gates ? ["", `gates: ${Object.entries(gates).map(([gate, met]) => `${gate} ${met ? "met" : "not met"}`).join(", ")}`] : []),
       `meets the owner's target: ${claims.meetsOwnerTarget}`, "",

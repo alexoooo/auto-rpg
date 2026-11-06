@@ -59,7 +59,7 @@ async function candidate({jobs,profileJobs,offsets,tuning}) {
   const profiles=edgeProfiles(calibration.flatMap(row=>row.trials)).map(({label,...profile})=>profile);
   const mind={...template,predictions:{kind:'measured',edges:profiles}}, rows=[];
   for(const job of jobs) rows.push(await trial(job,mind));
-  const gates=offsets.map((offset,index)=>({offset,...targetGates(rows.slice(index*16,(index+1)*16).map(row=>({degrees:row.degrees,time:row.time})),offset)}));
+  const gates=offsets.map((offset,index)=>({offset,...targetGates(rows.slice(index*16,(index+1)*16).map(row=>({degrees:row.degrees,time:row.time,made:row.reading.takeover!==null})),offset)}));
   const met=gates.every(group=>Object.values(group.gates).every(Boolean));
   // Meeting every target gate outranks a faster record that remains short.
   return {score:rows.reduce((sum,row)=>sum+row.score,0)/rows.length+(met?20:0),met,gates,

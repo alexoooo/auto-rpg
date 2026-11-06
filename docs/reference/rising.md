@@ -12,8 +12,9 @@ npm run evaluate -- rising-target [riser ...]
   rated loadout (empty hands, the club, the sword, the club and buckler, the sword and buckler;
   `REPRESENTATIVE`), each shoved sixteen ways 22.5 degrees apart: 240 falls (`risingJobs`), on the
   fall bed every mind is felled on (`buildFall`, `src/evaluation/fall.ts`); a shove the body holds
-  is given again the same way 1.5 s later, at most three (`SHOVED`, `src/game/lab/ground-mode.ts`). A
-  fall not made is no stand-up.
+  is given again with doubled impulse the same way 1.5 s later, at most three (`SHOVED`,
+  `src/game/lab/ground-mode.ts`). A fall not made is reported as not exercised and excluded from
+  recovery statistics.
 - **The conditions**: Node stand, core world, Rapier, 120 Hz, calm air, Balance 0 and Grit 0, a
   30 s cap. A riser is a mind by its preset's or kind's name (`option`, the table's), on its own
   character, refused on a body it cannot rise as holding the fall's loadout; or the game's Stand
@@ -25,8 +26,8 @@ npm run evaluate -- rising-target [riser ...]
   `STAND_CHECK` (`standCheck`), through landing, orientation and retries. A fall not stood counts
   at the cap.
 - **The bar**, on each body and loadout's sixteen falls (`targetGates`): every direction present
-  once; at least 15 within `STAND_WITHIN`, 10 s; every cardinal direction within 10 s; a
-  failure-inclusive median of at most 10 s. A riser meets the target where every body and loadout
+  once and every fall produced; at least 15 within `STAND_WITHIN`, 10 s; every cardinal
+  direction within 10 s; a failure-inclusive median of at most 10 s. A riser meets the target where every body and loadout
   meets its bar, on Balance 0 and Grit 0 (`risingReport`'s gates); the table reads each body and
   loadout's alone (`stand-up`, [the table](the-table.md)).
 - **Against people**: young adults rising from the floor at a comfortable rate take 1.4 to 2.6 s

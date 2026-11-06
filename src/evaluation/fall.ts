@@ -28,7 +28,7 @@ import type { BodySpec } from "../core/bodies/spec/body.ts";
 import { createWorld, type World } from "../core/world/world.ts";
 import { labActor, type Actor } from "../game/lab/actor.ts";
 import { groundPlacement } from "../game/lab/ground-starts.ts";
-import { groundShove, SHOVED, SHOVED_UNFELLED, standCheck, startGround, targetImpulse } from "../game/lab/ground-mode.ts";
+import { groundShove, shoveImpulse, SHOVED, SHOVED_UNFELLED, standCheck, startGround, targetImpulse } from "../game/lab/ground-mode.ts";
 import { groundMeter } from "../game/lab/ground-meter.ts";
 import { shoveBody } from "../game/lab/stance-mode.ts";
 import { CALM, labGusts, startWind } from "../game/lab/wind.ts";
@@ -282,7 +282,7 @@ export function createFall(context: GameContext) {
         check!.sample();
         const { takeover } = check!.state;
         const held = state.shovedAt !== null && takeover === null && !body.down && state.shoves < SHOVED.most && world.time - state.shovedAt >= SHOVED.again;
-        if (state.shovedAt === null && world.time >= SHOVED.first || held) { shoving.shove(impulse, degrees); state.shovedAt = world.time; state.shoves++; }
+        if (state.shovedAt === null && world.time >= SHOVED.first || held) { shoving.shove(shoveImpulse(impulse, state.shoves), degrees); state.shovedAt = world.time; state.shoves++; }
         ledger.sample();
         if (check!.done() || takeover === null && world.time >= SHOVED_UNFELLED || world.time >= cap + FALL_AFTER) state.ended = true;
       },

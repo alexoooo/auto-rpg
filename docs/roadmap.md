@@ -44,7 +44,7 @@ Option Mind as its hero.
 - Haste's range and each character's value.
 - The Crypt's set values: how near a foe the party sets upon it, how wide the leader's aim picks,
   how wide the passages are; how the dead disappear.
-- The stand-up target's falls: a shove the body holds is given again, up to three.
+- The stand-up target's falls: a shove the body holds is given again with doubled impulse, up to three.
 - An optional skeleton costume, after seeing the bones in play.
 
 **To watch:**

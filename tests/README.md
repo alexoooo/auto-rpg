@@ -179,3 +179,9 @@ completed bouts do not exercise:
 | [tooling.test.mjs](tooling.test.mjs): `closing research workers settles queued work and refuses work after close` | Closing a pool left queued promises pending and admitted subsequent work. |
 | [tooling.test.mjs](tooling.test.mjs): `research worker exit after a completed sibling rejects and closes all workers` | Research pools omitted exit settlement after another worker had already completed its job. |
 | [minds/contract.test.mjs](minds/contract.test.mjs): `a measured Lab script follows an explicit numeric walk without a gait envelope` | A valid numeric order reached the script but received zero obedience value without a calibration, so the chooser held still; trace the measured actor through selection to its first landing. Calibrated drills do not reach this path. |
+
+## Recovery fixture and reporting
+
+| Case | Concrete justification |
+| --- | --- |
+| [evaluation/rising-target.test.mjs](evaluation/rising-target.test.mjs) | The saved Warrior club-and-buckler fresh fixture contains an unproduced fall counted against recovery by the gate and median; verify exclusion and explicit coverage without admitting an empty or incomplete suite. The same observed shove must produce a fall with escalating retries. Drills do not establish fixture coverage or report arithmetic. |
