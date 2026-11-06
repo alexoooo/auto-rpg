@@ -66,6 +66,8 @@ Option Mind as its hero.
 
 ### Framework
 
+- Close the remaining ownership, capability, state, admission and evidence findings in the
+  [fresh layer boundary audit](analysis/2026-11-05-fresh-layer-boundary-audit.md).
 - Rare dear steps break real time at a step's delay (the crowd fight's opening, a Crypt body's
   build step); cut one when it shows in play.
 - A step that allocates nothing beyond what Rapier does ([step cost](reference/step-cost.md)).
