@@ -8,6 +8,7 @@ import { bodyClearance } from "../../skills/locomotion/navigation/sensed-bounds.
 import { CROWDED } from "../../skills/strikes/strike-window.ts";
 import { skillOf } from "../../skills/framework/menu.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
+import type { SegmentSpec, ShapeSpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import type { Orders } from "../../skills/intent/orders.ts";
 import type { BuiltBout } from "../bout.ts";
@@ -43,12 +44,21 @@ export type BonkFixtureReading = {
   readonly faults: readonly string[];
 };
 
+/** Immutable local geometry is shared across readings of a segment's current shape. */
+const LOCAL = new WeakMap<SegmentSpec, WeakMap<ShapeSpec, Exclude<ReturnType<typeof shapeGeometry>, { readonly refused: string }>>>();
+
 /** World projection of current anatomical collider geometry; held items do not set the entry window. */
 function anatomy(body: BuiltBody) {
   return [...body.segments.values()].flatMap(segment => segment.rigid.shapes.flatMap((shape, index) => {
     if (segment.rigid.owners[index]!.kind === "held") return [];
-    const local = shapeGeometry(segment.spec, shape);
-    if (isRefused(local)) throw new Error(local.refused);
+    let shapes = LOCAL.get(segment.spec);
+    if (!shapes) { shapes = new WeakMap(); LOCAL.set(segment.spec, shapes); }
+    let local = shapes.get(shape);
+    if (!local) {
+      const geometry = shapeGeometry(segment.spec, shape);
+      if (isRefused(geometry)) throw new Error(geometry.refused);
+      local = geometry; shapes.set(shape, local);
+    }
     return [{ name: segment.spec.name, segment, local }];
   }));
 }

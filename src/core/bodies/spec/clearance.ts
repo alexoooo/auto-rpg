@@ -7,7 +7,7 @@ import type { Vec3 } from "./quantity.ts";
 
 type Capsule = { kind: "capsule"; from: Vec3; to: Vec3; radius: number };
 type Box = { kind: "box"; centre: Vec3; axes: Vec3[]; half: Vec3 };
-type Hull = { kind: "hull"; points: Vec3[]; faces: readonly (readonly [Vec3, Vec3, Vec3])[]; edges: readonly Vec3[]; planes: readonly { normal: Vec3; offset: number }[] };
+type Hull = { kind: "hull"; points: Vec3[]; coordinates: Float64Array; faces: readonly (readonly [Vec3, Vec3, Vec3])[]; edges: readonly Vec3[]; planes: readonly { normal: Vec3; offset: number }[] };
 type Solid = Capsule | Box | Hull;
 
 function hull(points: Vec3[]): Hull | Refused {
@@ -17,7 +17,8 @@ function hull(points: Vec3[]): Hull | Refused {
   const edges = new Map<string, Vec3>();
   for (const [a, b, c] of faces) for (const [u, v] of [[a, b], [b, c], [c, a]] as const)
     edges.set(`${Math.min(u, v)},${Math.max(u, v)}`, sub(points[v]!, points[u]!));
-  return { kind: "hull", points: vertices.map(i => points[i]!), faces: faces.map(([a, b, c]) => [points[a]!, points[b]!, points[c]!] as const), edges: [...edges.values()], planes };
+  const corners = vertices.map(i => points[i]!);
+  return { kind: "hull", points: corners, coordinates: Float64Array.from(corners.flat()), faces: faces.map(([a, b, c]) => [points[a]!, points[b]!, points[c]!] as const), edges: [...edges.values()], planes };
 }
 
 function solid(segment: SegmentSpec): Solid | Refused {
@@ -103,6 +104,17 @@ function boxHull(b: Box): Hull | Refused {
   return hull(points);
 }
 
+/** Project corners in their declared order, with the same dot arithmetic on contiguous coordinates. */
+function projectHull(hull: Hull, axis: Vec3, out: Float64Array, offset: number): void {
+  const points = hull.coordinates, ax = axis[0], ay = axis[1], az = axis[2];
+  let low = Infinity, high = -Infinity;
+  for (let i = 0; i < points.length; i += 3) {
+    const at = ax * points[i]! + ay * points[i + 1]! + az * points[i + 2]!;
+    low = Math.min(low, at); high = Math.max(high, at);
+  }
+  out[offset] = low; out[offset + 1] = high;
+}
+
 function clearance(a: Solid, b: Solid): number | Refused {
   if (a.kind === "box" && b.kind === "box") {
     const axes = [...a.axes, ...b.axes];
@@ -120,11 +132,10 @@ function clearance(a: Solid, b: Solid): number | Refused {
     if (isRefused(x)) return x;
     if (isRefused(y)) return y;
     let best = -Infinity;
+    const projections = new Float64Array(4);
     const separated = (axis: Vec3): boolean => {
-      let amin = Infinity, amax = -Infinity, bmin = Infinity, bmax = -Infinity;
-      for (const p of x.points) { const at = dot(axis, p); amin = Math.min(amin, at); amax = Math.max(amax, at); }
-      for (const p of y.points) { const at = dot(axis, p); bmin = Math.min(bmin, at); bmax = Math.max(bmax, at); }
-      best = Math.max(best, amin - bmax, bmin - amax);
+      projectHull(x, axis, projections, 0); projectHull(y, axis, projections, 2);
+      best = Math.max(best, projections[0]! - projections[3]!, projections[2]! - projections[1]!);
       return best > 0;
     };
     for (const plane of [...x.planes, ...y.planes]) if (separated(plane.normal)) return best;
@@ -164,12 +175,12 @@ export function poseGeometry(shape: Solid, frame: SegmentFrame, at: Vec3, turn: 
   switch (shape.kind) {
     case "capsule": return { ...shape, from: point(shape.from), to: point(shape.to) };
     case "box": return { ...shape, centre: point(shape.centre), axes: shape.axes.map(direction) };
-    case "hull": return { ...shape, points: shape.points.map(point),
+    case "hull": { const points = shape.points.map(point); return { ...shape, points, coordinates: Float64Array.from(points.flat()),
       faces: shape.faces.map(face => face.map(point) as [Vec3, Vec3, Vec3]), edges: shape.edges.map(direction),
       planes: shape.planes.map(plane => {
         const normal = direction(plane.normal), onPlane = point(scale(plane.normal, plane.offset));
         return { normal, offset: dot(normal, onPlane) };
-      }) };
+      }) }; }
     default: { const never: never = shape; throw new Error(`unknown geometric shape ${String(never)}`); }
   }
 }
