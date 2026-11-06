@@ -12,22 +12,31 @@ const BOX_BYTES = 4 << 20, ARENA_BYTES = 4 << 20;
 
 /** What a minds' worker is told first (`mind.worker.ts`): its counters, its reply box and the memory it makes numbers in. */
 export interface MindWorkerStart { readonly kind: "start"; readonly control: Int32Array; readonly box: SharedArrayBuffer; readonly arena: SharedArrayBuffer }
+export interface MindWorkerReady { readonly kind: "ready" }
 
 /**
  * **Minds apart in the browser's workers** (`mindThreads`, `src/app/apart/host.ts`), from a world's own
- * worker: `threads` module workers (`mind.worker.ts`), each sent its batches by message and answering
+ * worker: `threads` module workers (`mind.worker.ts`), all initialized before the pool is returned,
+ * each sent its batches by message and answering
  * in a reply box in shared memory (`replyBox`), since the world's thread waits for an answer without
  * returning to take a message; the numbers a thread makes anew lie in an arena both share and
  * cross by where they lie. The same bout as on one thread.
  */
-export function browserMindWorkers(threads: number): MindPlace {
+export async function browserMindWorkers(threads: number): Promise<MindPlace> {
   if (!(Number.isInteger(threads) && threads >= 1)) throw new Error(`minds run on a whole number of threads, one or more, not ${threads}`);
   const workers: Worker[] = [];
+  const ready: Promise<void>[] = [];
   let complete = false;
   try {
   const links = Array.from({ length: threads }, (): ThreadLink => {
     const worker = new Worker(new URL("./mind.worker.ts", import.meta.url), { type: "module" });
     workers.push(worker);
+    ready.push(new Promise((resolve, reject) => {
+      const clean = () => { worker.removeEventListener("message", initialized); worker.removeEventListener("error", failed); };
+      const initialized = (event: MessageEvent<MindWorkerReady>) => { if (event.data.kind === "ready") { clean(); resolve(); } };
+      const failed = (event: ErrorEvent) => { clean(); reject(new Error(event.message || "a minds' worker failed to start")); };
+      worker.addEventListener("message", initialized); worker.addEventListener("error", failed);
+    }));
     const control = new Int32Array(new SharedArrayBuffer(4 * COUNTERS)), box = replyBox(BOX_BYTES), arena = new SharedArrayBuffer(ARENA_BYTES);
     worker.postMessage({ kind: "start", control, box: box.buffer, arena } satisfies MindWorkerStart);
     const unshelve = ({ offset, length }: { readonly offset: number; readonly length: number }) => new Float64Array(arena, 8 * offset, length);
@@ -42,6 +51,7 @@ export function browserMindWorkers(threads: number): MindPlace {
       stop: () => worker.terminate(),
     };
   });
+  await Promise.all(ready);
   const place = mindThreads(links);
   complete = true;
   return place;
@@ -56,4 +66,4 @@ const mindThreadCount = (): number => Math.max(1, Math.min(4, (globalThis.naviga
  * where the page is cross-origin isolated and so may share memory; else in the world's own thread
  * (none), the same bout. Its fight disposes it.
  */
-export const pageMinds = (): MindPlace | undefined => globalThis.crossOriginIsolated === true ? browserMindWorkers(mindThreadCount()) : undefined;
+export const pageMinds = (): Promise<MindPlace> | undefined => globalThis.crossOriginIsolated === true ? browserMindWorkers(mindThreadCount()) : undefined;

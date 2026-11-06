@@ -4,7 +4,6 @@ import { ClusteredLightContainer } from "@babylonjs/core/Lights/Clustered/cluste
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTexture.js";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { SSAO2RenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline.js";
 import type { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline.js";
 import type { Camera } from "@babylonjs/core/Cameras/camera.js";
@@ -18,7 +17,8 @@ import { postPipeline } from "../render/post.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { CAMERA_AZIMUTH } from "../../../game/dungeon/bearing.ts";
 import { cameraDistance } from "./camera.ts";
-import { FLAME_VOLUME, flameFade, flameMaterial } from "./fire.ts";
+import { flames as makeFlames } from "../render/fire.ts";
+import { cutAway } from "../../../game/dungeon/fog.ts";
 import { orthographicLightProxy } from "./light-proxy.ts";
 import { cellKey, type DungeonMap, type Point } from "../../../game/dungeon/map.ts";
 import type { TorchPlacement } from "../../../game/dungeon/dressing.ts";
@@ -114,13 +114,12 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   lantern.intensity = profile?.lanternIntensity ?? DUNGEON_LOOK.lantern.intensity;
   lantern.range = lightRange(lantern.intensity);
 
-  const flameLook = flameMaterial(scene), fire = flameLook.material;
+  const flameLook = makeFlames(scene);
   const torchColor = Color3.FromHexString(DUNGEON_LOOK.torch.color);
   const flames = torches.map((torch, i) => {
-    const flame = MeshBuilder.CreateBox(`torch.flame.${i}`, { ...FLAME_VOLUME }, scene);
-    flame.position.set(torch.flame.x, torch.flame.y+DUNGEON_LOOK.flameLift, torch.flame.z);
+    const flame = flameLook.create(`torch.flame.${i}`, new Vector3(torch.flame.x, torch.flame.y+DUNGEON_LOOK.flameLift, torch.flame.z));
     if(torch.color)flameLook.setTint(flame,Color3.FromHexString(torch.color));
-    flame.material = fire; flame.isPickable = false; flame.isVisible = false;
+    flame.isVisible = false;
     return { flame, floor: cellKey(map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z }) };
   });
   const lights = torches.map((torch, i) => {
@@ -163,7 +162,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
       .sort((a, b) => a.d - b.d).slice(0, DUNGEON_LOOK.fallbackLights).map(o => o.i);
     lights.forEach((light, i) => { const on = look.torches && order.includes(i); if (light.isEnabled() !== on) light.setEnabled(on); });
   };
-  let time = 0, lastHero: Point = { x: 0, z: 0 };
+  let lastHero: Point = { x: 0, z: 0 };
 
   return {
     lantern, clustered, torchCount: torches.length,
@@ -173,7 +172,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
       const behind = DUNGEON_LOOK.lantern.behind;
       lantern.position.set(hero.x + toward.x * behind, DUNGEON_LOOK.lantern.height, hero.z + toward.z * behind);
       zoom = nextZoom; pitch = nextPitch; setMaxZ();
-      for (const { flame } of flames) flameLook.setFade(flame, flameFade(hero, flame.position, pitch, toward));
+      for (const { flame } of flames) flameLook.setFade(flame, 1 - cutAway(hero, flame.position, pitch, toward));
       if (Math.hypot(hero.x - lastHero.x, hero.z - lastHero.z) > 0.5) { lastHero = { x: hero.x, z: hero.z }; nearest(hero); }
     },
     refreshFog(next) { explored = next; showFlames(); },
@@ -191,8 +190,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
     },
     burn(seconds) {
       if (isTactical(scene)) return;
-      time += Math.min(seconds * 1000, 50) / 1000;
-      fire.setFloat("time", time);
+      const time = flameLook.burn(seconds);
       lights.forEach((light, i) => light.intensity = (torches[i].intensity ?? DUNGEON_LOOK.torch.intensity) + Math.sin(time * 8 + i * 1.7) * DUNGEON_LOOK.torch.flicker);
     },
     dispose() { flameLook.dispose(); ao?.dispose(true); post?.dispose(); ao = post = null; },

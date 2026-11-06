@@ -1,6 +1,7 @@
 import { Vector3 } from "../../core/math/vector.ts";
 import type { EngineName } from "../../core/physics/engines.ts";
 import type { Heading } from "../../skills/intent/orders.ts";
+import type { GroundPoint } from "../../skills/intent/movement.ts";
 import type { StrikeChoice } from "../../minds/command/commands.ts";
 import type { MenuEntry } from "../../skills/framework/menu.ts";
 import { physicalReading } from "../../control/observation.ts";
@@ -95,6 +96,8 @@ interface SideNews {
   /** Whether an assist helps it now. */
   readonly assisted: boolean;
   readonly hud: FighterReading;
+  readonly feet: GroundPoint;
+  readonly route: readonly GroundPoint[] | null;
   /** Its mind's choices, where the page looks at them. */
   readonly menu?: readonly MenuEntry[] | null;
   /** Its mind's ownership and actions, where the page inspects it. */
@@ -211,8 +214,10 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
     const fighter = duel.duelists[side], mind = fighter.minded, look = looks[side];
     const phase = mind.skills ? mind.skills.report.actions[0]?.stage ?? mind.report?.engagement?.phase ?? "guard / move" : mind.body.has;
     const report = mind.report ?? null;
+    const centre = fighter.body.physical.centre;
     return { phase, has: fighter.body.has, down: fighter.body.down, downFor: duel.state.recovery?.[side] ?? null,
       assisted: fighter.body.assist.on, hud: readings[side].read(time()),
+      feet: { x: centre.x, z: centre.z }, route: report?.navigation?.route.map(point => ({ x: point.x, z: point.z })) ?? null,
       ...look.menu ? { menu: report?.menu ?? null } : {},
       ...look.mind ? { inspected: { body: { has: fighter.body.has, level: fighter.body.level },
         skills: mind.skills ? { report: { holders: mind.skills.report.holders, defaultOwners: mind.skills.report.defaultOwners, actions: mind.skills.report.actions } } : null,

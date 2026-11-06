@@ -148,7 +148,7 @@ export async function buildCryptRun(context: GameContext, start: CryptStart, { c
   const scope = constructionScope();
   let complete = false;
   try {
-  const minds = scope.own(makeMinds?.());
+  const minds = scope.own(await makeMinds?.());
   const seen = (point: Vec3) => run.visible.has(cellKey(run.map, { x: point[0], z: point[2] }));
   const run: DungeonRun = scope.own(new DungeonRun({ ...fielded, prepared, engine: await loadEngine(start.engine), mind,
     ...start.party ? { party: start.party } : {}, ...start.enemies ? { enemies: start.enemies } : {}, ...minds ? { minds } : {},

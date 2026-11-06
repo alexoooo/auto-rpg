@@ -10,6 +10,43 @@ import { sourced } from "../src/core/bodies/spec/quantity.ts";
 import { Worker } from "node:worker_threads";
 import { replyBox } from "../src/app/apart/box.ts";
 import { waitPast } from "../src/app/apart/wire.ts";
+import { browserMindWorkers } from "../src/app/browser/worker/minds.ts";
+
+test("browser mind pools wait for every worker to initialize before the world can block", async () => {
+  const original = globalThis.Worker, workers = [];
+  class WorkerStub {
+    listeners = new Map();
+    sent = [];
+    stopped = 0;
+    constructor() { workers.push(this); }
+    addEventListener(type, listener) { this.listeners.set(type, listener); }
+    removeEventListener(type, listener) { if (this.listeners.get(type) === listener) this.listeners.delete(type); }
+    postMessage(message) { this.sent.push(message); }
+    terminate() { this.stopped++; }
+    emit(type, event) { this.listeners.get(type)?.(event); }
+  }
+  globalThis.Worker = WorkerStub;
+  try {
+    let ready = false;
+    const opening = Promise.resolve(browserMindWorkers(2)).then(pool => { ready = true; return pool; });
+    await Promise.resolve();
+    assert.equal(ready, false, "world construction must yield while its nested workers start");
+    workers[0].emit("message", { data: { kind: "ready" } });
+    await Promise.resolve();
+    assert.equal(ready, false, "the pool needs both workers");
+    workers[1].emit("message", { data: { kind: "ready" } });
+    const pool = await opening;
+    assert.equal(ready, true);
+    pool.dispose();
+    assert.deepEqual(workers.map(worker => ({ start: worker.sent[0].kind, stopped: worker.stopped, listeners: worker.listeners.size })),
+      [{ start: "start", stopped: 1, listeners: 0 }, { start: "start", stopped: 1, listeners: 0 }]);
+
+    const failed = browserMindWorkers(2);
+    workers[2].emit("error", { message: "mind module failed" });
+    await assert.rejects(failed, /mind module failed/);
+    assert.deepEqual(workers.slice(2).map(worker => worker.stopped), [1, 1]);
+  } finally { globalThis.Worker = original; }
+});
 
 test("saved user discriminators and prototype keys retain whole records and sharing", () => {
   const item = JSON.parse('{"~":"vector","at":[1,2,3],"label":"keep","__proto__":{"keep":true}}');

@@ -20,11 +20,3 @@ export function frameDungeon(camera: FreeCamera, hero: Point, zoom: number, aspe
   camera.orthoLeft = -zoom * aspect; camera.orthoRight = zoom * aspect;
   camera.orthoTop = zoom; camera.orthoBottom = -zoom;
 }
-
-/** Babylon scales picking inputs itself. Passing physical pixels scales a HiDPI pointer twice. */
-export function pickingCoordinates(clientX: number, clientY: number,
-  rect: { left: number; top: number; width: number; height: number },
-  renderWidth: number, renderHeight: number, hardwareScaling: number): { x: number; y: number } {
-  return { x: (clientX - rect.left) * renderWidth * hardwareScaling / rect.width,
-    y: (clientY - rect.top) * renderHeight * hardwareScaling / rect.height };
-}

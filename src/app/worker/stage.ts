@@ -48,9 +48,9 @@ export interface Stage<Card = unknown, Input = never> {
   dispose(): void;
 }
 
-/** Runtime adapters supplied by the application's worker or Node composition. */
+/** Runtime adapters supplied by composition; a mind pool initializes before its world is built. */
 export interface StageRuntime {
-  readonly minds?: () => MindPlace | undefined;
+  readonly minds?: () => MindPlace | undefined | Promise<MindPlace | undefined>;
 }
 
 /** A body of a team bout as the page makes its spec: its side, whose `TeamSide` names it (`teamSpec`). */
@@ -67,7 +67,7 @@ export async function teamStage(context: GameContext, recipe: TeamRecipe, afterm
   const scope = constructionScope();
   let complete = false;
   try {
-  const minds = scope.own(makeMinds?.()), built = scope.own(await buildTeamBout(recipe, { ...engine === undefined ? {} : { engine }, ...minds ? { minds } : {} }));
+  const minds = scope.own(await makeMinds?.()), built = scope.own(await buildTeamBout(recipe, { ...engine === undefined ? {} : { engine }, ...minds ? { minds } : {} }));
   const { world, bout } = built, dispose = scope.dispose;
   const roster = bout.members.map((member) => ({ id: member.id, segments: [...member.built.segments.keys()], card: { side: member.side } }));
   const { length } = frameLayout(roster);

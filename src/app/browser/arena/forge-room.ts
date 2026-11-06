@@ -1,7 +1,6 @@
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
-import { ShaderMaterial } from "@babylonjs/core/Materials/shaderMaterial.js";
 import { PointLight } from "@babylonjs/core/Lights/pointLight.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
@@ -10,7 +9,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { ROOM_GROUPS, validateRoomPlacements, validateVisualColliderPairs } from "./room.ts";
 import { ARENA_POSTS, ROOM } from "../../../game/arena/solids.ts";
 import type { ForgeStyle } from "./forge-style.ts";
-import "../render/fire.ts";
+import { flames } from "../render/fire.ts";
 
 /**
  * The walls' masonry, set by eye: the courses up a wall, the
@@ -22,14 +21,12 @@ const FORGE_MASONRY = Object.freeze({ courses: 3, columns: 4, joint: [.008, .006
 const FORGE_FIRE = Object.freeze({
   /** A flame burns on every post of this stride round the ring, and a light with it on the posts named. */
   every: 1, lit: [1, 5],
-  /** A flame's plane, m, and how far above its post's centre it stands. */
-  width: 1.05, height: 1.6, lift: 1.35,
+  /** A flame's volume, m, and how far above its post's centre it stands. */
+  width: 1.05, height: 1.6, depth: 1.05, lift: 1.35,
   /** A light's colour and its range, m. */
   colour: [1, .42, .12], range: 16,
   /** The flicker: about `mean`, by `swing` either way, at `rate` rad/s, a radian apart from one light to the next. */
   mean: 13, swing: .8, rate: 8,
-  /** The most one frame burns the flames, ms. */
-  frameCap: 50,
 } as const);
 
 /** The forge's fire: its flames and their lights, at a time of their own that only `burn` moves. */
@@ -83,10 +80,8 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): ForgeFire {
     if (failures.length) throw new Error(failures.join("\n"));
   }
 
-  const fire = new ShaderMaterial("forge.fire", scene, "flame", {
-    attributes: ["position", "uv"], uniforms: ["worldViewProjection", "time"], needAlphaBlending: true,
-  });
-  fire.backFaceCulling = false; fire.disableDepthWrite = true;
+  const fire = flames(scene);
+  scene.onDisposeObservable.addOnce(() => fire.dispose());
   const lights: PointLight[] = [];
   const lit: readonly number[] = FORGE_FIRE.lit;
   for (let i = 0; i < ARENA_POSTS.count; i += FORGE_FIRE.every) {
@@ -108,20 +103,16 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): ForgeFire {
       band.material = forge.materials.brazierBronze;
       band.metadata = { roomPlacement: { role: "brazier", solid: true, collider: post.name } };
     }
-    const flame = MeshBuilder.CreatePlane(`forge.torch.${i}`, { width: FORGE_FIRE.width, height: FORGE_FIRE.height }, scene);
-    flame.position.copyFrom(post.position.add(new Vector3(0, FORGE_FIRE.lift, 0)));
-    flame.material = fire; flame.billboardMode = Mesh.BILLBOARDMODE_Y; flame.isPickable = false;
+    const flame = fire.create(`forge.torch.${i}`, post.position.add(new Vector3(0, FORGE_FIRE.lift, 0)), FORGE_FIRE);
     if (lit.includes(i)) {
       const light = new PointLight(`forge.torchlight.${i}`, flame.position, scene);
       light.diffuse = new Color3(...FORGE_FIRE.colour); light.intensity = FORGE_FIRE.mean; light.range = FORGE_FIRE.range;
       lights.push(light);
     }
   }
-  let time = 0;
   return {
     burn(seconds) {
-      time += Math.min(seconds * 1000, FORGE_FIRE.frameCap) / 1000;
-      fire.setFloat("time", time);
+      const time = fire.burn(seconds);
       lights.forEach((light, i) => light.intensity = FORGE_FIRE.mean + Math.sin(time * FORGE_FIRE.rate + i) * FORGE_FIRE.swing);
     },
   };

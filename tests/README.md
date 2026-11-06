@@ -62,6 +62,9 @@ startup or leaving earlier requests pending. It also reproduces invalid characte
 for overlapping or impossible geometry, finite scaling factors overflowing or underflowing
 physical quantities, and mixed extremes collapsing a hull. These admission failures happen
 before a world exists, so capability drills cannot establish the returned refusal contract.
+The browser pool case reproduces Random Crypt startup blocking before nested workers initialize:
+the pool stays pending until every worker acknowledges startup, and a failed startup stops the
+whole pool. Node skill drills start threads through a different transport.
 
 These cases inspect results directly rather than replaying a skill's physical trajectory.
 

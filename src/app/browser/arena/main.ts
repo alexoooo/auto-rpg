@@ -4,6 +4,8 @@ import { solidGeometry } from "../render/solid-geometry.ts";
 import { warmScene } from "../render/ready.ts";
 import { arenaMeasurement } from "./measure.ts";
 import { frameMeter } from "../ui/frame-meter.ts";
+import { movementRoutes } from "../render/movement-routes.ts";
+import { pickingCoordinates } from "../render/picking.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 // `scene.createPickingRay` is this module's patch: without it the build compiles and the ray is missing.
 import "@babylonjs/core/Culling/ray.js";
@@ -153,6 +155,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const arena = await buildArena(engine, level, context.signal);
   const { scene, camera, shadows } = arena;
   context.own(() => scene.dispose());
+  const routes = movementRoutes(scene);
+  context.own(routes.dispose);
   context.signal.throwIfAborted();
 
   // Setup: a contender panel on each side, each with its model.
@@ -440,6 +444,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   };
   document.addEventListener("visibilitychange", sync, { signal: context.signal });
   const end = () => {
+    routes.update([]);
     choosing = false;
     for (const row of rows) row.choices.reset();
     for (const row of rows) row.condition.reset();
@@ -694,7 +699,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
   // What the person's hands are doing: the walking keys held, and whether Shift is, which walks; where the
-  // pointer is on the canvas, px, and whether its left button is down.
+  // pointer is in viewport pixels, and whether its left button is down.
   const keys = { up: false, down: false, left: false, right: false };
   let pointer: { x: number; y: number } | null = null, attacking = false, walking = false;
   const walkKeys: Readonly<Record<string, keyof typeof keys>> = {
@@ -712,6 +717,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     if (next === bout.person) return;
     releaseInput();
     you = next; bout.person = next;
+    routes.update([]);
     bout.link.input({ kind: "control", side: next });
     showControl();
     for (const row of rows) {
@@ -747,7 +753,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   // The left button is a level, read from every pointer event, since a release is not guaranteed.
   for (const type of ["pointerdown", "pointermove", "pointerup"] as const) {
     canvas.addEventListener(type, (event) => {
-      pointer = { x: event.offsetX, y: event.offsetY };
+      pointer = { x: event.clientX, y: event.clientY };
       attacking = (event.buttons & 1) !== 0;
     });
   }
@@ -756,18 +762,19 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   // the floor under it, where its ray meets no body part first (`DuelInput` "go").
   const CLICK_PIXELS = 6;
   let press: { x: number; y: number } | null = null;
-  /** The person's ray from the camera through (`x`, `y`) on the canvas. */
+  /** The person's ray through viewport coordinates (`x`, `y`). */
   const rayAt = (x: number, y: number): Ray => {
-    const ray = scene.createPickingRay(x, y, null, camera);
+    const pick = pickingCoordinates(x, y, canvas.getBoundingClientRect(), engine.getRenderWidth(), engine.getRenderHeight(), engine.getHardwareScalingLevel());
+    const ray = scene.createPickingRay(pick.x, pick.y, null, camera);
     return { origin: vec(ray.origin), direction: vec(ray.direction), length: camera.maxZ };
   };
   canvas.addEventListener("pointerdown", (event) => {
-    press = event.button === 0 && bout?.person ? { x: event.offsetX, y: event.offsetY } : null;
+    press = event.button === 0 && bout?.person ? { x: event.clientX, y: event.clientY } : null;
   });
   canvas.addEventListener("pointerup", (event) => {
     const pressed = press; press = null;
-    if (event.button !== 0 || !pressed || !bout?.person || paused || Math.abs(event.offsetX - pressed.x) + Math.abs(event.offsetY - pressed.y) >= CLICK_PIXELS) return;
-    bout.link.input({ kind: "go", ray: rayAt(event.offsetX, event.offsetY) });
+    if (event.button !== 0 || !pressed || !bout?.person || paused || Math.abs(event.clientX - pressed.x) + Math.abs(event.clientY - pressed.y) >= CLICK_PIXELS) return;
+    bout.link.input({ kind: "go", ray: rayAt(event.clientX, event.clientY) });
   });
 
   // Orbit uses the spare buttons; left-button attack remains independent of camera mode.
@@ -813,6 +820,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const readout = () => {
     const news = bout?.news;
     if (!bout || !news) return;
+    const own = bout.person ? news.sides[bout.person] : null;
+    routes.update(own && !news.verdict ? [{ from: own.feet, points: own.route ?? [], forced: false }] : []);
     const time = news.start + (news.verdict?.time ?? news.clock);
     for (const row of rows) {
       const side = news.sides[row.side], controller = controllers[row.side];

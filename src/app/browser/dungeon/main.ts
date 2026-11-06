@@ -16,8 +16,7 @@ import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { Vector3, Matrix } from "@babylonjs/core/Maths/math.vector.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
-import type { LinesMesh } from "@babylonjs/core/Meshes/linesMesh.js";
+import { movementRoutes } from "../render/movement-routes.ts";
 import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
 import { HUMANOID_MODELS, type BodyModel } from "../../../core/bodies/models.ts";
@@ -40,7 +39,8 @@ import { runAttributes } from "./run-attributes.ts";
 import type { AttributeOverrides } from "../../../core/bodies/character-attributes.ts";
 import { cellKey } from "../../../game/dungeon/map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "../../../game/dungeon/bearing.ts";
-import { frameDungeon, pickingCoordinates } from "./camera.ts";
+import { frameDungeon } from "./camera.ts";
+import { pickingCoordinates } from "../render/picking.ts";
 import { DRESSING, dressingPlacements, torchPlacements } from "../../../game/dungeon/dressing.ts";
 import { lightDungeon, CRYPT_LIGHT, REFERENCE_LIGHT, type DungeonLighting } from "./lighting.ts";
 import { lookProbe } from "./look-probe.ts";
@@ -248,9 +248,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     drawn: { dispose(): void }[];
     /** The torches whose flames are heard. */
     soundTorches: ReturnType<typeof torchPlacements>;
-    /** The party's routes as they are drawn, and what they were drawn from. */
-    route: LinesMesh | null;
-    routeSignature: string;
+    /** The party's current navigation paths. */
+    routes: ReturnType<typeof movementRoutes> | null;
 
     paused: boolean;
     /** True while a run is being built: no frame is drawn, and no second build starts. */
@@ -293,7 +292,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       selectedHero: "workshop-fighter", mind: () => null, attributes: () => ({}), companions: [], clothing: { boots: true, armour: true },
       selectedScenario: "generated", selectedQuality: "high", reference: false, commanders: { party: { kind: "party" }, enemies: { kind: "mob" } },
       seed: 0, cryptPlan: undefined, scene: null, run: null, camera: null, lighting: null, referenceLook: null,
-      drawn: [], soundTorches: [], route: null, routeSignature: "",
+      drawn: [], soundTorches: [], routes: null,
       paused: false, launching: false, freshFrame: true, zoom: 10, lastUi: 0, held: new Set(), hoverPointer: null, hovered: null, inspected: null,
     };
     return page;
@@ -369,6 +368,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     profile?.dispose(); profile = null;
     page.lighting?.dispose();
     page.lighting = null;
+    page.routes?.dispose(); page.routes = null;
     undraw(page);
     page.run?.dispose();
     page.run = null;
@@ -406,8 +406,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     audio.reset();
     page.soundTorches = [];
     teardownRun(page);
-    page.route = null;
-    page.routeSignature = "";
     page.seed = seed; page.cryptPlan = cryptPlan;
     const cameraSettings = cameraFor(page);
     pitch = cameraSettings.pitch;
@@ -417,6 +415,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     engine.setHardwareScalingLevel(cameraSettings.scaling);
 
     const scene = page.scene = new Scene(engine);
+    page.routes = movementRoutes(scene);
     /** A page torn down while a part of the run loaded has no scene, or another: the build stops there. */
     const stillShown = () => {
       context.signal.throwIfAborted();
@@ -798,29 +797,11 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     window.addEventListener("resize", () => engine.resize(), { signal });
   }
 
-  /** Draws every standing member's current geometric route from its selected Mind. The
-   * lines are made again only when the routes change. */
+  /** Draws each living party member's current navigation path. */
   function drawRoutes(page: DungeonPage): void {
-    const { run, scene } = page;
-    if (!run || !scene) return;
-    const walks = run.party.filter((member) => member.alive).map((member) => {
-      return {
-        force: member.news.forced, from: member.news.feet,
-        points: member.news.route ?? [],
-      };
-    }).filter((walk) => walk.points.length);
-    const signature = JSON.stringify(walks.map((walk) => [walk.force, walk.points]));
-    if (signature === page.routeSignature) return;
-    page.route?.dispose();
-    page.route = null;
-    page.routeSignature = signature;
-    if (!walks.length) return;
-    const cool = Color3.FromHexString("#70d8e0"), warm = Color3.FromHexString("#dec693");
-    const lines = walks.map((walk) => [new Vector3(walk.from.x, 0.06, walk.from.z), ...walk.points.map((p) => new Vector3(p.x, 0.06, p.z))]);
-    page.route = MeshBuilder.CreateLineSystem("movement route", {
-      lines, colors: walks.map((walk, i) => lines[i].map(() => (walk.force ? cool : warm).toColor4())),
-    }, scene);
-    page.route.isPickable = false;
+    page.routes?.update(page.run?.party.filter(member => member.alive).map(member => ({
+      forced: member.news.forced, from: member.news.feet, points: member.news.route ?? [],
+    })) ?? []);
   }
 
   /** Brings the HUD up to date with the run: what is seen, the hero, the party, the target, the notice and the

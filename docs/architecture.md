@@ -524,8 +524,9 @@ before the next step and taped. The page (`openWorld`) poses a puppet of each bo
 frames it shows (`posePuppet`).
 Step and tape requests carry identifiers, and each reply completes its matching request. Faults,
 abort and disposal reject pending requests. The browser drains the shared reply ring while waiting
-for completion, so reply backpressure cannot prevent that completion. Mind workers load the data
-declared by the requested recipes. Construction lifetimes dispose partial resources before an
+for completion, so reply backpressure cannot prevent that completion. World construction awaits
+each nested mind worker's initialization before using shared-memory waits. Mind workers load the
+data declared by the requested recipes. Construction lifetimes dispose partial resources before an
 unsuccessful build returns control to its reporting boundary.
 Host disposal attempts every worker stop. Evaluation lanes cancel pending siblings and stop their
 workers before reporting a fatal error. Research and tooling use `workerJobs` and its persistent
@@ -643,5 +644,7 @@ Bench have their own `index.html` beside their modules. Every entry document is 
   The Crypt's walls and doors are fixed boxes (`dungeonSolids`).
 - **Drawing** (`src/app/browser/render/`): a skin reads only segment poses and whether each is on its body, else
   the collision shapes are drawn; art comes through the asset pipeline ([assets](art/assets.md)).
+  Arena and Dungeon share flame volumes (`fire.ts`), navigation paths (`movement-routes.ts`) and
+  pointer-coordinate conversion (`picking.ts`).
 - **Sound** (`src/app/browser/audio/`) is synthesized (`GameAudio`): a body is heard by its touches and its
   motion through the air (`hearTouches`, `airOf`); a blow's debris is its own cue.
