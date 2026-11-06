@@ -82,9 +82,15 @@ test("closing research workers settles queued work and refuses work after close"
 test("research worker exit after a completed sibling rejects and closes all workers", async () => {
   const workers = [], completed = [];
   await assert.rejects(workerJobs([0, 1], { lanes: 2, create: () => {
-    const worker = new Worker('const {parentPort}=require("node:worker_threads");parentPort.on("message",job=>{if(job===0)parentPort.postMessage({result:0});else setTimeout(()=>process.exit(0),30);});', { eval: true });
+    const worker = new Worker('const {parentPort,threadId}=require("node:worker_threads");parentPort.on("message",job=>{if(job===0)parentPort.postMessage({result:0,threadId});else if(job==="exit")process.exit(0);});', { eval: true });
     workers.push(worker); return worker;
-  }, result: ({ result }) => { completed.push(result); return result; } }), /research worker exited/);
+  }, result: ({ result, threadId }) => {
+    completed.push(result);
+    const sibling = workers.find(worker => worker.threadId !== threadId);
+    assert.ok(sibling, "the fixture needs a live sibling before requesting its exit");
+    sibling.postMessage("exit");
+    return result;
+  } }), /research worker exited/);
   assert.deepEqual(completed, [0]);
   assert.equal(workers.length, 2);
   assert.ok(workers.every(worker => worker.threadId === -1));

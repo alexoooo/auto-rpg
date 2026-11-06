@@ -183,7 +183,7 @@ completed bouts do not exercise:
 | [skills/profiles.test.mjs](skills/profiles.test.mjs): `a skill's identity includes the selected aim's declared data` | Aim-owned data changed without changing the skill digest. |
 | [skills/profiles.test.mjs](skills/profiles.test.mjs): `a zero-length failed profile trial has a finite failed rate` | A failed zero-duration trial produced NaN instead of a failed finite rate. |
 | [tooling.test.mjs](tooling.test.mjs): `closing research workers settles queued work and refuses work after close` | Closing a pool left queued promises pending and admitted subsequent work. |
-| [tooling.test.mjs](tooling.test.mjs): `research worker exit after a completed sibling rejects and closes all workers` | Research pools omitted exit settlement after another worker had already completed its job. |
+| [tooling.test.mjs](tooling.test.mjs): `research worker exit after a completed sibling rejects and closes all workers` | A worker exit after its sibling completes settles the remaining job and terminates both workers. The fixture requests that exit from the completion callback; skill outcomes do not establish worker cleanup. |
 | [minds/contract.test.mjs](minds/contract.test.mjs): `a measured Lab script follows an explicit numeric walk without a gait envelope` | A valid numeric order reached the script but received zero obedience value without a calibration, so the chooser held still; trace the measured actor through selection to its first landing. Calibrated drills do not reach this path. |
 
 ## Recovery fixture and reporting
