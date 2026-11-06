@@ -12,6 +12,7 @@ import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.
 import { MaterialPluginBase } from "@babylonjs/core/Materials/materialPluginBase.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
 import type { Scene } from "@babylonjs/core/scene.js";
+import type { UniformBuffer } from "@babylonjs/core/Materials/uniformBuffer.js";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import { surface } from "../render/surface.ts";
 import { TEXTURED_SURFACES } from "../render/materials.ts";
@@ -21,7 +22,7 @@ import { flatStone } from "./stone.ts";
 import { REFERENCE_TORCHES } from "../../../game/dungeon/reference.ts";
 import type { buildDungeonWorld } from "./world.ts";
 
-import type { CryptPlacement, CryptRoomPlan } from "../../../game/dungeon/crypt-plan.ts";
+import type { CryptRoomPlan } from "../../../game/dungeon/crypt-plan.ts";
 import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import type { TorchPlacement } from "../../../game/dungeon/dressing.ts";
 
@@ -77,25 +78,40 @@ class CryptDamp extends MaterialPluginBase {
     } : null;
   }
 }
-/** The GLSL condition, over a fragment's world position, that is true in the walls between the camera at `azimuth`
- * and the floor: every wall piece of `plan` that faces away from the camera, or the reference chamber's two near
- * walls. */
-export function cutawayCondition(azimuth: number, plan?: CryptRoomPlan): string {
+/** The shader predicate for walls between the camera at `cryptToward` and the floor. */
+export function cutawayShader(plan?: CryptRoomPlan): string {
   if (!plan) {
     const { min, max } = REFERENCE_CHAMBER;
-    const nearX = Math.sin(azimuth) > 0 ? `vPositionW.x > ${max.x}` : `vPositionW.x < ${min.x}`;
-    const nearZ = Math.cos(azimuth) > 0 ? `vPositionW.z > ${max.z}` : `vPositionW.z < ${min.z}`;
-    return `${nearX} || ${nearZ}`;
+    return `bool cryptCutaway() {
+      return (cryptToward.x > 0.0 ? vPositionW.x > ${max.x} : vPositionW.x < ${min.x})
+        || (cryptToward.y > 0.0 ? vPositionW.z > ${max.z} : vPositionW.z < ${min.z});
+    }`;
   }
-  // A piece turned to face along z runs along x, and the other way about.
-  const box = (p: CryptPlacement): string => {
-    const halfX = Math.abs(Math.cos(p.turn)) > .5 ? CUTAWAY.along : CUTAWAY.through;
-    const halfZ = Math.abs(Math.sin(p.turn)) > .5 ? CUTAWAY.along : CUTAWAY.through;
-    return `(abs(vPositionW.x-${p.x.toFixed(3)}) < ${halfX} && abs(vPositionW.z-${p.z.toFixed(3)}) < ${halfZ})`;
-  };
-  return plan.placements
-    .filter(p => WALL_PIECES.includes(p.piece) && facesAway(Math.sin(p.turn), Math.cos(p.turn), azimuth))
-    .map(box).join(" || ");
+  // Overlapping cuts along one wall form one interval, keeping the shader proportional to wall runs rather than kit pieces.
+  const strips = new Map<string, { turn: number; across: number; alongX: boolean; ranges: { from: number; to: number }[] }>();
+  for (const p of plan.placements) {
+    if (!WALL_PIECES.includes(p.piece)) continue;
+    const alongX = Math.abs(Math.cos(p.turn)) > .5, across = alongX ? p.z : p.x, along = alongX ? p.x : p.z;
+    const key = `${p.turn}:${across}`;
+    let strip = strips.get(key);
+    if (!strip) { strip = { turn: p.turn, across, alongX, ranges: [] }; strips.set(key, strip); }
+    strip.ranges.push({ from: along - CUTAWAY.along, to: along + CUTAWAY.along });
+  }
+  const checks: string[] = [];
+  for (const { turn, across, alongX, ranges } of strips.values()) {
+    const merged: { from: number; to: number }[] = [];
+    for (const range of ranges.sort((a, b) => a.from - b.from)) {
+      const previous = merged.at(-1);
+      if (previous && range.from < previous.to) previous.to = Math.max(previous.to, range.to);
+      else merged.push({ ...range });
+    }
+    const along = alongX ? "x" : "z", through = alongX ? "z" : "x";
+    for (const { from, to } of merged) checks.push(`if (
+      dot(vec2(${Math.sin(turn).toFixed(3)},${Math.cos(turn).toFixed(3)}),cryptToward) < ${CUTAWAY.facing}
+      && abs(vPositionW.${through}-${across.toFixed(3)}) < ${CUTAWAY.through}
+      && vPositionW.${along} > ${from.toFixed(3)} && vPositionW.${along} < ${to.toFixed(3)}) return true;`);
+  }
+  return `bool cryptCutaway() {\n${checks.join("\n")}\nreturn false;\n}`;
 }
 /** Whether what faces along the unit `(x, z)` has its back to the camera at `azimuth`. */
 function facesAway(x: number, z: number, azimuth: number): boolean {
@@ -119,15 +135,26 @@ function shadowMapSize(quality: ReferenceQuality): number {
 }
 /** The front walls remain as low sills: a cutaway, never a change to collision. */
 class CryptCutaway extends MaterialPluginBase {
-  private readonly condition: string;
-  constructor(material: Material, condition: string) {
+  private readonly shader: string;
+  private readonly toward: { x: number; z: number };
+  constructor(material: Material, shader: string, toward: { x: number; z: number }) {
     super(material, "CryptCutaway", 210, {});
-    this.condition = condition;
+    this.shader = shader;
+    this.toward = toward;
     this._enable(true);
   }
   override getClassName() { return "CryptCutaway"; }
+  override getUniforms() {
+    return { ubo: [{ name: "cryptToward", size: 2, type: "vec2" }], fragment: "uniform vec2 cryptToward;" };
+  }
+  override bindForSubMesh(uniformBuffer: UniformBuffer): void {
+    uniformBuffer.updateFloat2("cryptToward", this.toward.x, this.toward.z);
+  }
   override getCustomCode(shaderType: string) {
-    return shaderType === "fragment" ? { CUSTOM_FRAGMENT_MAIN_BEGIN: `if (vPositionW.y > ${CUTAWAY.sill} && (${this.condition})) discard;` } : null;
+    return shaderType === "fragment" ? {
+      CUSTOM_FRAGMENT_DEFINITIONS: this.shader,
+      CUSTOM_FRAGMENT_MAIN_BEGIN: `if (vPositionW.y > ${CUTAWAY.sill} && cryptCutaway()) discard;`,
+    } : null;
   }
 }
 /** Visual-only owner: all solid props have already been built by the level (`buildDungeonWorld`). */
@@ -137,7 +164,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   container.addAllToScene();
   if(plan) assembleCryptKit(container,plan.placements);
   const torches=plan?.torches??REFERENCE_TORCHES;
-  const cutaway=cutawayCondition(azimuth,plan);
+  const cutaway=cutawayShader(plan), toward={x:Math.sin(azimuth),z:Math.cos(azimuth)};
   const root=container.meshes.find(m=>m.name==="__root__");
   // The export uses game metre coordinates. Remove the loader's RH-to-LH root
   // conversion; glTF meshes retain their explicit clockwise face convention.
@@ -182,9 +209,9 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   const cloth=plan ? textured("crypt.cloth","#8b3023","cloth") : flatStone(scene,"crypt.cloth","#752c25",.95);
   cloth.backFaceCulling=false;
   const materials={wall,trim,floor,root:rootMat,earth,iron,tomb,wood,cloth};
-  new CryptCutaway(wood, cutaway);
+  new CryptCutaway(wood, cutaway, toward);
   if(doorWood!==wood) {
-    new CryptCutaway(doorWood,cutaway);
+    new CryptCutaway(doorWood,cutaway,toward);
     doorWood.maxSimultaneousLights=6;level.fog?.attach(doorWood,"wall");
   }
   for(const door of level.doorVisuals) { door.wood.material=doorWood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
@@ -194,7 +221,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   }
   for(const [name,material] of Object.entries(materials)) {
     material.maxSimultaneousLights=6;level.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan)?"wall":null);
-    if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, cutaway);
+    if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, cutaway, toward);
   }
   // Retain working doors and exit; replace only the generated architectural skin.
   for(const mesh of level.surfaces)if(mesh.name.startsWith("wall.")||mesh.name.startsWith("floor."))mesh.setEnabled(false);
@@ -207,9 +234,18 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   const shadows:ShadowGenerator[]=[];
   // A cut-away wall must take its elevated fittings with it. Keep its light contribution;
   // this is the same presentation-only cross-section as the wall, not an extinguished torch.
-  torches.forEach((torch, i) => {
-    if (frontTorch(torch, azimuth, plan)) for (const name of [`torch.flame.${i}`, `torch.sconce.${i}`]) scene.getMeshByName(name)?.setEnabled(false);
-  });
+  const fittings = torches.map((torch, i) => ({ torch,
+    meshes: [`torch.flame.${i}`, `torch.sconce.${i}`].map(name => scene.getMeshByName(name)).filter(mesh => mesh !== null),
+  }));
+  const view = { bearing: azimuth, enabled: true };
+  const showFittings = () => {
+    for (const { torch, meshes } of fittings) for (const mesh of meshes) mesh.setEnabled(view.enabled && !frontTorch(torch, view.bearing, plan));
+  };
+  const setAzimuth = (next: number) => {
+    if (next === view.bearing) return;
+    view.bearing = next; toward.x = Math.sin(next); toward.z = Math.cos(next);
+    showFittings();
+  };
   const lights=torches.map((torch,i)=>{
     const light=new SpotLight(`reference.shadow.${i}`,new Vector3(torch.light.x,torch.light.y+.4,torch.light.z),
       new Vector3(torch.facing.x,-.85,torch.facing.z).normalize(),Math.PI*.68,1.5,scene);
@@ -228,5 +264,16 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
     const nearest=lights.map((light,i)=>({i,d:Vector3.DistanceSquared(light.position,target)})).sort((a,b)=>a.d-b.d).slice(0,2).map(v=>v.i);
     lights.forEach((light,i)=>light.setEnabled(nearest.includes(i)));
   }) : null;
-  return {dispose(){if(observer)scene.onBeforeRenderObservable.remove(observer);shadows.forEach(s=>s.dispose());lights.forEach(l=>l.dispose());container.dispose();Object.values(materials).forEach(m=>m.dispose(false,false));if(doorWood!==wood)doorWood.dispose(false,false);maps.forEach(t=>t.dispose());}};
+  showFittings();
+  return {
+    setAzimuth,
+    setEnabled(enabled: boolean) { view.enabled = enabled; showFittings(); },
+    dispose() {
+      if(observer)scene.onBeforeRenderObservable.remove(observer);
+      shadows.forEach(shadow=>shadow.dispose());lights.forEach(light=>light.dispose());container.dispose();
+      Object.values(materials).forEach(material=>material.dispose(false,false));
+      if(doorWood!==wood)doorWood.dispose(false,false);
+      maps.forEach(texture=>texture.dispose());
+    },
+  };
 }

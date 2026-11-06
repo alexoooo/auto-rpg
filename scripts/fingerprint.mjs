@@ -55,7 +55,7 @@ import { generateCryptDungeon } from "../src/game/dungeon/crypt-dungeon.ts";
 import { CryptWeathering } from "../src/app/browser/dungeon/crypt-weathering.ts";
 import { generateLevel } from "../src/game/dungeon/level.ts";
 import { clearSegment, distance, findPath, reveal, walkable } from "../src/game/dungeon/map.ts";
-import { cutawayCondition } from "../src/app/browser/dungeon/reference-look.ts";
+import { cutawayShader } from "../src/app/browser/dungeon/reference-look.ts";
 import { createDungeonRun } from "../src/app/node/game.ts";
 import { revealScenery } from "../src/app/browser/dungeon/scenery-visibility.ts";
 import { labActor } from "../src/app/node/game.ts";
@@ -236,15 +236,11 @@ function weathering(seeds) {
   } finally { scene.dispose(); engine.dispose(); }
 }
 
-/** The camera bearings the cut-away case reads at, degrees: one in each quarter, the second 8 degrees past an
- * axis, where a wall just counts as facing away. */
-const CUTAWAY_BEARINGS = [35, 98, 200, 305];
-
-/** The condition that cuts the near walls away, for each crypt of `seeds` and for the reference chamber. */
+/** The shader condition that cuts the near walls away at the camera's bearing, for each crypt and the reference chamber. */
 function cutaway(seeds) {
   const hash = createHash("sha256");
   for (const plan of [undefined, ...seeds.map((seed) => admitted(generateCryptDungeon(seed)))]) {
-    for (const bearing of CUTAWAY_BEARINGS) hash.update(cutawayCondition(bearing * Math.PI / 180, plan));
+    hash.update(cutawayShader(plan));
   }
   return digestOf(hash);
 }

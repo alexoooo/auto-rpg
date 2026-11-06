@@ -173,7 +173,7 @@ test("frame measurement retains worker cost and excludes interpolation-only batc
     const { frameMeter } = await import("../src/app/browser/ui/frame-meter.ts?lifetime-regression");
     const { arenaMeasurement } = await import("../src/app/browser/arena/measure.ts");
     const meter = frameMeter({ getCaps: () => ({ timerQuery: false }) }, new AbortController().signal);
-    const sample = meter.frame(() => meter.world({ steps: 2, ms: 8 }, 1));
+    const sample = meter.frame(() => meter.world({ steps: 2, ms: 8 }, { speed: 1, hz: 120 }));
     assert.equal(sample.steps, 2); assert.equal(sample.worker, 8); assert.equal(sample.physics, 0);
     let output;
     const measurement = arenaMeasurement({ append(value) { output = value; } });

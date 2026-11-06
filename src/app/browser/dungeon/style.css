@@ -5,9 +5,16 @@
 :where(#screen-root[data-screen="dungeon"]) button { cursor: pointer; } :where(#screen-root[data-screen="dungeon"]) button:hover { border-color: #c4b088; background: #262c31; } :where(#screen-root[data-screen="dungeon"]) button:disabled { opacity: .5; cursor: wait; }
 :where(#screen-root[data-screen="dungeon"]) button:focus-visible, :where(#screen-root[data-screen="dungeon"]) a:focus-visible, :where(#screen-root[data-screen="dungeon"]) input:focus-visible { outline: 2px solid #dfc99c; outline-offset: 3px; }
 :where(#screen-root[data-screen="dungeon"]) a { color: #d7c5a2; text-decoration: none; } :where(#screen-root[data-screen="dungeon"]) kbd { color: #8b949b; font: 11px system-ui; margin-left: 12px; }
-:where(#screen-root[data-screen="dungeon"]) .topbar { position: fixed; top: 0; left: 0; right: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; padding: 20px 28px; background: linear-gradient(#0a0e16ed, #0a0e1680, transparent); pointer-events: none; }
+:where(#screen-root[data-screen="dungeon"]) .topbar { position: fixed; top: 0; left: 0; right: 0; display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: start; gap: 20px; padding: 20px 28px; background: linear-gradient(#0a0e16ed, #0a0e1680, transparent); pointer-events: none; }
 :where(#screen-root[data-screen="dungeon"]) .topbar > * { pointer-events: auto; } :where(#screen-root[data-screen="dungeon"]) .brand { justify-self: start; font-weight: 700; font-size: 12px; letter-spacing: .15em; } :where(#screen-root[data-screen="dungeon"]) .brand span { color: #8d959f; font-weight: 400; margin-left: 8px; }
-:where(#screen-root[data-screen="dungeon"]) .topbar-end { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 16px; }
+:where(#screen-root[data-screen="dungeon"]) .topbar-end { grid-column: 3; justify-self: end; display: flex; align-items: start; gap: 16px; min-width: 0; max-width: 100%; }
+:where(#screen-root[data-screen="dungeon"]) .topbar-end > :is(.frame-meter, button) { flex-shrink: 0; white-space: nowrap; }
+:where(#screen-root[data-screen="dungeon"]) .topbar-panels { display: grid; gap: 12px; width: 320px; min-width: 0; max-height: calc(100vh - 180px); overflow-y: auto; }
+:where(#screen-root[data-screen="dungeon"]) #dungeon-view .field { margin-top: 12px; }
+:where(#screen-root[data-screen="dungeon"]) #dungeon-view .label { margin: 0 0 8px; }
+:where(#screen-root[data-screen="dungeon"]) #dungeon-view .options { display: flex; align-items: center; gap: 8px; }
+:where(#screen-root[data-screen="dungeon"]) #dungeon-view input[type="range"] { flex: 1; min-width: 0; }
+:where(#screen-root[data-screen="dungeon"]) #dungeon-view output { min-width: 4ch; text-align: right; }
 :where(#screen-root[data-screen="dungeon"]) #seed-label { color: #858e98; font-size: 11px; letter-spacing: .06em; }
 :where(#screen-root[data-screen="dungeon"]) .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; gap: 32px; align-items: center; padding: 28px; background: linear-gradient(transparent, #0a0e16ee 40%); pointer-events: none; }
 :where(#screen-root[data-screen="dungeon"]) .bottom-bar > * { pointer-events: auto; } :where(#screen-root[data-screen="dungeon"]) .hero-panel { min-width: 205px; } :where(#screen-root[data-screen="dungeon"]) .eyebrow { display: block; font-size: 10px; letter-spacing: .2em; color: #b5a37f; margin-bottom: 9px; } :where(#screen-root[data-screen="dungeon"]) .hero-panel strong { font-family: Georgia, serif; font-size: 22px; font-weight: 400; text-transform: capitalize; }
@@ -26,7 +33,7 @@
 :where(#screen-root[data-screen="dungeon"]) .primary { background: #bba276; border-color: #d5bd92; color: #171b1e; font-weight: 650; } :where(#screen-root[data-screen="dungeon"]) .primary:hover { background: #d0ba91; color: #171b1e; }
 :where(#screen-root[data-screen="dungeon"]) .dialog > button { display: block; width: 100%; margin-top: 12px; } :where(#screen-root[data-screen="dungeon"]) .dialog > small { display: block; text-align: center; color: #77838e; font-size: 10px; margin-top: 18px; line-height: 1.5; }
 :where(#screen-root[data-screen="dungeon"]) .compact { top: auto; bottom: 160px; left: 28px; transform: none; width: 290px; padding: 25px; } :where(#screen-root[data-screen="dungeon"]) .compact a { display: block; font-size: 12px; margin-top: 20px; } :where(#screen-root[data-screen="dungeon"]) .help { width: min(500px, calc(100vw - 32px)); max-height: 80vh; overflow: auto; }
-:where(#screen-root[data-screen="dungeon"]) #mind-panel { position: fixed; top: 85px; right: 16px; width: min(320px, calc(100vw - 32px)); max-height: calc(100vh - 220px); overflow-y: auto; background: #0a0e16d0; padding: 10px 12px; border-radius: 3px; font-size: 11px; color: #d8cbb6; }
+:where(#screen-root[data-screen="dungeon"]) #mind-panel { min-width: 0; background: #0a0e16d0; padding: 10px 12px; border-radius: 3px; font-size: 11px; color: #d8cbb6; }
 :where(#screen-root[data-screen="dungeon"]) #mind-panel summary { cursor: pointer; letter-spacing: .1em; text-transform: uppercase; }
 :where(#screen-root[data-screen="dungeon"]) #mind-panel small { text-transform: capitalize; opacity: .8; }
 :where(#screen-root[data-screen="dungeon"]) #mind-panel select { background: #171210; color: #e6d6bd; border: 1px solid #66513d; }

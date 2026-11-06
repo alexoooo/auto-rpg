@@ -5,7 +5,7 @@ import "./frame-meter.css";
 
 /**
  * A screen's frame counter and timing popover, which say where a frame goes:
- * - frames a second, and the mean interval between them;
+ * - frames and completed physics steps a second, and the mean frame interval;
  * - `physics`: the world's steps a frame took -- the run's plan, the bodies' control and the solver
  *   (`World.advance`) -- with how many (x2 is 60 fps at 120 Hz; more means it is catching up);
  * - `other`: the rest of the render callback -- framing, the HUD, fog, and submitting the draw. Input handlers, garbage
@@ -21,7 +21,7 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
   const element = document.createElement("div"), summary = document.createElement("button"), output = document.createElement("div");
   element.className = "frame-meter";
   summary.type = "button";
-  summary.title = "Frame rate and timing";
+  summary.title = "Rendered frames and completed physics steps per second; timing details";
   summary.setAttribute("aria-expanded", "false");
   output.popover = "auto";
   output.setAttribute("role", "group");
@@ -52,7 +52,7 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
   if (timed) engine.captureGPUFrameTime(true);
   const gpu = timed ? engine.getGPUFrameTimeCounter() : null;
   let since = performance.now(), previous: number | null = null, frames = 0, cpu = 0, physics = 0, substeps = 0;
-  const worker = { steps: 0, ms: 0, speed: null as number | null };
+  const worker = { steps: 0, ms: 0, speed: null as number | null, hz: null as number | null };
   let gpuTotal = gpu?.total ?? 0, gpuCount = gpu?.count ?? 0;
   const sample = { frame: 0, interval: 0, physics: 0, worker: 0, steps: 0 };
   const reset = () => {
@@ -68,7 +68,9 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
     const gained = gpu ? gpu.count - gpuCount : 0;
     const gpuMs = gpu && gained > 0 ? (gpu.total - gpuTotal) / gained / 1e6 : null;
     const fps = frames * 1000 / span;
-    summary.textContent = `${fps.toFixed(fps < 10 ? 1 : 0)} FPS`;
+    const stepRate = substeps * 1000 / span;
+    summary.textContent = `${fps.toFixed(fps < 10 ? 1 : 0)} FPS`
+      + (worker.hz === null ? "" : `\n${stepRate.toFixed(0)}/${worker.hz} steps/s`);
     output.textContent = `Frame   ${(span / frames).toFixed(1)} ms\n`
       + (worker.speed === null
         ? `Physics ${(physics / frames).toFixed(1)} ms (×${(substeps / frames).toFixed(1)} steps)\n`
@@ -90,8 +92,9 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
       sample.physics += performance.now() - started;
     },
     /** Counts the steps a worker sent, the worker's time for them, ms, and the world's speed now; inside `frame`. */
-    world(received: { readonly steps: number; readonly ms: number }, speed: number): void {
-      sample.worker += received.ms; sample.steps += received.steps; worker.steps += received.steps; worker.ms += received.ms; worker.speed = speed;
+    world(received: { readonly steps: number; readonly ms: number }, timing: { readonly speed: number; readonly hz: number }): void {
+      sample.worker += received.ms; sample.steps += received.steps; worker.steps += received.steps; worker.ms += received.ms;
+      worker.speed = timing.speed; worker.hz = timing.hz;
     },
     /** Runs one frame's work and counts it. */
     frame(work: () => void): Readonly<typeof sample> {

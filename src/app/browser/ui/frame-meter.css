@@ -15,6 +15,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
+  white-space: pre-line;
   cursor: pointer;
 }
 :where(#screen-root) .frame-meter > button:hover { background: transparent; border-color: transparent; color: var(--ui-brass); }

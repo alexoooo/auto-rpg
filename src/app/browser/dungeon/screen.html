@@ -3,10 +3,15 @@
 <header class="topbar">
   <a href="./" class="brand">AUTO-RPG <span>/ THE DEPTHS</span></a>
   <small id="seed-label"></small>
-  <div class="topbar-end"><button id="pause-button" type="button">Pause <kbd>Esc</kbd></button></div>
+  <div class="topbar-end">
+    <div class="topbar-panels">
+      <details id="dungeon-view" class="ui-drawer"><summary>View</summary><div id="dungeon-view-controls"></div></details>
+      <details id="mind-panel"><summary>Mind <small id="mind-who"></small></summary><div id="mind-view"></div></details>
+    </div>
+    <button id="pause-button" type="button">Pause <kbd>Esc</kbd></button>
+  </div>
 </header>
 <section id="target-panel" hidden aria-label="Selected enemy"><span id="target-name"></span><progress id="target-hp" max="1" value="1"></progress></section>
-<details id="mind-panel"><summary>Mind <small id="mind-who"></small></summary><div id="mind-view"></div></details>
 <div id="notice" role="status" hidden></div>
 <footer class="bottom-bar">
   <section class="hero-panel"><span class="eyebrow">HERO</span><strong id="hero-name">Warrior</strong>

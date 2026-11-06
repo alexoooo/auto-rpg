@@ -120,7 +120,7 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
     meter.frame(() => {
       const now = performance.now(), seconds = last < 0 ? 0 : (now - last) / 1000;
       last = now;
-      meter.world(link.received(), link.newest[2]!);
+      meter.world(link.received(), { speed: link.newest[2]!, hz: link.hz });
       pose(link.between(now));
       rig.frame("fight", subjects, seconds, engine.getAspectRatio(camera));
       scene.render();

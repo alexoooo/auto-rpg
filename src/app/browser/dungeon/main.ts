@@ -4,6 +4,7 @@ import type { SkeletonArt } from "../../../core/bodies/human/skeleton-art.ts";
 import { sceneProfile, visualGroup } from "../render/scene-profile.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
 import { viewModeControl } from "../ui/view-controls.ts";
+import { slider, type Control } from "../ui/controls.ts";
 import type { ViewMode } from "../../../game/appearance/view.ts";
 import { boundary, cutAway, CUT_AWAY, fogMask, WALL_HEIGHT } from "../../../game/dungeon/fog.ts";
 import { isFloor } from "../../../game/dungeon/map.ts";
@@ -63,6 +64,9 @@ import { commanderOf, COMMANDERS } from "../../commanders.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
 
+/** The camera's available elevations, degrees. */
+const PITCH_LIMITS = Object.freeze({ least: 25, most: 65 });
+
 /** The scenario `text` names, as the scene's menu and the address write it. */
 function scenarioOf(text: string): DungeonScenario {
   if (text === "generated" || text === "reference" || text === "random-crypt") return text;
@@ -113,18 +117,20 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     for (const { skin, shapes } of bodies) { skin.setEnabled(view === "world"); for (const mesh of shapes.meshes) mesh.setEnabled(view === "tactical"); }
   };
   const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
-  // `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
-  const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
   /** The address's pitch, held between 25 and 65 degrees, in radians; `otherwise` when the address gives none. */
-  const pitchOr = (otherwise: number): number =>
-    Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : otherwise;
+  const pitchOr = (otherwise: number): number => {
+    const value = Number(context.address.searchParams.get("pitch"));
+    return Number.isFinite(value) && value > 0 ? Math.max(PITCH_LIMITS.least, Math.min(PITCH_LIMITS.most, value)) * Math.PI / 180 : otherwise;
+  };
   let pitch = pitchOr(CAMERA_PITCH);
-  // `?azimuth=` in degrees, any finite value, to compare the camera's bearing: 45 is a diagonal. An absent or
-  // empty parameter is the default, not 0, which `Number` would make of it.
-  const azimuthText = new URLSearchParams(location.search).get("azimuth")?.trim();
-  const azimuthQuery = azimuthText ? Number(azimuthText) : NaN;
-  let azimuth = Number.isFinite(azimuthQuery) ? (azimuthQuery % 360 + 360) % 360 * Math.PI / 180 : CAMERA_AZIMUTH;
+  /** The address's bearing in radians, normalized to one turn; `otherwise` when absent or invalid. */
+  const azimuthOr = (otherwise: number): number => {
+    const text = context.address.searchParams.get("azimuth")?.trim(), value = text ? Number(text) : NaN;
+    return Number.isFinite(value) ? (value % 360 + 360) % 360 * Math.PI / 180 : otherwise;
+  };
+  let azimuth = azimuthOr(CAMERA_AZIMUTH);
   let toward = cameraToward(azimuth);
+  const viewFields: Control[] = [];
   // `?floor=flat` and `?wall=flat` draw the untextured colours, the control for what the stone's maps cost, and
   // `?masonry=0` the flat wall skin, the control for what the blocks cost; `?dressing=0` leaves the clutter out.
   const stone = stoneQuery(location.search);
@@ -273,14 +279,24 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
     const hover = new EnemyHover(), audio = new GameAudio({ dungeon: true, mount: need("dungeon-sound") });
     const meter = frameMeter(engine, context.signal);
-    const panel = document.createElement("details"), label = document.createElement("summary");
-    label.textContent = "View"; panel.className = "ui-drawer";
-    const control = viewModeControl(() => view, next => {
+    const panel = need("dungeon-view");
+    panel.querySelector("summary")!.addEventListener("click", event => (event.currentTarget as HTMLElement).blur());
+    for (const type of ["pointerdown", "pointermove", "wheel"]) panel.addEventListener(type, event => event.stopPropagation(), { signal: context.signal });
+    const changeAngles = (next: { pitch?: number; azimuth?: number }) => {
+      pitch = next.pitch ?? pitch; azimuth = next.azimuth ?? azimuth; toward = cameraToward(azimuth);
+      const url = new URL(context.address);
+      url.searchParams.set("pitch", String(Math.round(pitch * 180 / Math.PI)));
+      url.searchParams.set("azimuth", String(Math.round(azimuth * 180 / Math.PI) % 360));
+      context.replace(url); meter.reset();
+    };
+    viewFields.push(viewModeControl(() => view, next => {
       view = next; applyView(); meter.reset();
       const url = new URL(context.address); url.searchParams.set("view", view); context.replace(url);
-    });
-    panel.append(label, control.element);
-    need("pause-button").before(panel, meter.element);
+    }),
+    slider("Elevation", PITCH_LIMITS.least, PITCH_LIMITS.most, 1, () => Math.round(pitch * 180 / Math.PI), value => changeAngles({ pitch: value * Math.PI / 180 }), value => `${value}°`),
+    slider("Bearing", 0, 360, 1, () => Math.round(azimuth * 180 / Math.PI), value => changeAngles({ azimuth: value * Math.PI / 180 }), value => `${value}°`));
+    need("dungeon-view-controls").append(...viewFields.map(control => control.element));
+    need("pause-button").before(meter.element);
     const abort = new AbortController();
     const page: DungeonPage = {
       skeletonArt, engine, audio, hover,
@@ -328,6 +344,10 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       ? { x: centre.x + (hero.x - centre.x) * follow, z: centre.z + (hero.z - centre.z) * follow }
       : hero;
     frameDungeon(camera, target, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
+    if (run.pitch !== pitch || run.toward !== toward) {
+      run.pitch = pitch; run.toward = toward; run.present();
+    }
+    page.referenceLook?.setAzimuth(azimuth);
     lighting.update(hero, zoom, pitch, toward);
     run.level.setHero(hero);
   }
@@ -373,7 +393,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const { reference } = page;
     return {
       pitch: pitchOr(reference ? REFERENCE_CAMERA.pitch : CAMERA_PITCH),
-      azimuth: Number.isFinite(azimuthQuery) ? azimuthQuery * Math.PI / 180 : reference ? REFERENCE_CAMERA.azimuth : CAMERA_AZIMUTH,
+      azimuth: azimuthOr(reference ? REFERENCE_CAMERA.azimuth : CAMERA_AZIMUTH),
       // A random crypt is followed at the scale of a room, rather than fitted whole.
       zoom: page.cryptPlan ? 5.2 : reference ? REFERENCE_CAMERA.zoom : 10,
       scaling: reference ? page.selectedQuality === "reduced" ? 1.4 : 1 : 1 / Math.min(devicePixelRatio, 1.5),
@@ -401,6 +421,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     pitch = cameraSettings.pitch;
     azimuth = cameraSettings.azimuth;
     toward = cameraToward(azimuth);
+    for (const control of viewFields) control.refresh();
     page.zoom = cameraSettings.zoom;
     engine.setHardwareScalingLevel(cameraSettings.scaling);
 
@@ -491,6 +512,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     profile = sceneProfile(scene); profile.register("world", visualGroup(scene.meshes.filter(mesh => !run.actors.some(a => a.meshes.includes(mesh)) && !run.level.markers.some(marker => marker === mesh))));
     geometry = solidGeometry(scene, physical); profile.register("tactical", geometry);
     profile.register("world", { setEnabled(on) { lighting.setPresentationEnabled(on); } });
+    if (page.referenceLook) profile.register("world", page.referenceLook);
     applyView();
     await stage("Preparing lighting");
     stillShown();
@@ -841,8 +863,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       const playing = () => run.status === "playing";
       // The world runs while the page draws it, unpaused: never under the loading screen or in a hidden tab.
       run.play(!page.paused && playing());
+      meter.world(run.received(), { speed: !page.paused && playing() ? run.speed : 0, hz: run.hz });
       if (!page.paused && playing()) {
-        meter.world(run.received(), run.speed);
         for (const { id, speed, at } of run.air) audio.swish(id, speed, at);
         if (view === "world") page.lighting?.burn(seconds);
       }
