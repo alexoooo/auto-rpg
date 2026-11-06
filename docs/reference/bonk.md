@@ -56,6 +56,8 @@ The reader compares club and chest orientations by shortest quaternion distance 
 their angular increments for travel. Each wrist channel's signed increments are unwrapped.
 Preparation and return use their declared joint direction; the stroke asks a stationary wrist,
 so its wrist travel counts against the reversal allowance.
+Return control accounting ends once both physical recovery and ownership release are verified.
+The following safety observation retains all native samples.
 
 The physical stroke ends on crossing the follow-through endpoint within its tracking limits,
 or on a measured impact stop followed by withdrawal. A deadline produces a failed return.

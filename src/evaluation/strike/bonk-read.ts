@@ -266,6 +266,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
       const until = state.firstContact === null ? null : Math.min(stepOf(state.firstContact) + stepOf(BONK_LIMITS.collision), stepOf(state.lastContact ?? state.firstContact) + stepOf(BONK_LIMITS.recoil)) / world.hz;
       const exempt = (time: number) => state.firstContact !== null && until !== null && time >= state.firstContact && time <= until;
       const prolonged = state.firstContact !== null && state.lastContact !== null && elapsed(state.lastContact, state.firstContact) > BONK_LIMITS.collision;
+      const controlledUntil = state.recovered !== null && state.ownerEnded !== null ? Math.max(state.recovered, state.ownerEnded) : null;
       const phases: PhaseReading[] = (["prepare", "stroke", "return"] as const).map(phase => {
         const result: PhaseReading = { phase, from: null, to: null, steps: 0, exemptSteps: 0, handError: 0, swellError: 0, clubError: 0, chestError: 0,
           rawHandError: 0, rawSwellError: 0, rawClubError: 0, rawChestError: 0,
@@ -275,6 +276,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
         let previous: Sample | null = null, progress: number | null = null;
         for (const sample of state.samples) {
           if (sample.phase !== phase) { previous = sample; continue; }
+          if (phase === "return" && controlledUntil !== null && sample.time > controlledUntil) break;
           result.from ??= previous?.time ?? sample.time; result.to = sample.time; result.steps++;
           const masked = exempt(sample.time);
           result.exemptSteps += Number(masked);
