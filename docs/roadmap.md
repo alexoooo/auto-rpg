@@ -28,14 +28,14 @@ Where the project is going and what is open. What is built is in the
 | [Option Mind control and evidence](plans/2026-11-03-option-mind-general.md) | walking, stopping and strike-entry contracts checked at their owners; supported bodies read against current paired baselines before training |
 | [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
 | [Options trained body by body](plans/2026-11-03-options-training.md) | after Option Mind general: stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
+| [Warrior travel](plans/warrior-travel.md) | retrain the toed Warrior for 4 m/s forward travel, safe movement in every direction, steering, corners, reversals and stops in every loadout |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
 | [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |
 
-Now: verify the Option Mind control contracts, then the Warrior's equipped stand-up within 10 s,
-held on fresh falls, then the
-remaining Options trained body by body, the rat's open steps, fights
-the owner watches, the Strike drill's rungs, Footwork's rungs, the Commander in the Crypt with
-Option Mind as its hero.
+Now: the Warrior's [travel capabilities](plans/warrior-travel.md), with recovery performance
+preserved; the remaining Option control contracts and body-by-body training, the rat's open
+steps, fights the owner watches, the Strike and Footwork rungs, and the Commander in the Crypt
+with Option Mind as its hero.
 
 ## Waiting on the owner
 
@@ -86,7 +86,7 @@ Option Mind as its hero.
   0.7 m/s and the run's turns need it held.
 - Braking: the walk's pace ramp, and the stance envelope measured again at it.
 - The stance asked to stand a lying body diverges; no mind asks it.
-- Running toward 5 m/s on the Warrior, with stops and turns; the club throws the Rogue's run.
+- The Warrior's [travel gates](plans/warrior-travel.md); the club throws the Rogue's run.
 - Stand-up on the [owner's target](reference/rising.md#the-owners-target), every body in every
   loadout; the Rogue's arms on hands and knees; the Skeleton holding the club.
 - Strikes on every body: the punch, then sword, club and buckler; the stomp on the Warrior and

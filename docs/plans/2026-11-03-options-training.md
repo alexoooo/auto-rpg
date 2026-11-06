@@ -20,7 +20,9 @@ starts: [the table](../reference/the-table.md). How well the quadrupeds move is
 
 - **Stand-up, hard**: the owner's target ([rising](../reference/rising.md#the-owners-target)) on
   every body in every loadout, unassisted, held again on fresh falls.
-- **The run, hard**, on the Warrior and the Rogue in every loadout, calm air and the lab's gusts,
+- **Warrior travel, hard**: [Warrior travel](warrior-travel.md) owns its forward, directional,
+  turning and stopping gates and retraining on the toed body.
+- **The Rogue's run, hard**, in every loadout, calm air and the lab's gusts,
   seeds 1 to 4, none fallen: 3 m/s forward held 10 s, a turn at 1 rad/s at 2 m/s, a stop from
   3 m/s within 1.5 s; read as the slowest second of the hold at 3 m/s, of the turn at 1.8 m/s with
   the way travelled at most 0.35 rad behind the way asked, and a stop asked at 2.7 m/s or more and
@@ -49,7 +51,8 @@ looks in the Lab's Stand-up mode.
 
 ### 2. The run
 
-On toes on the Warrior and the Rogue to the requirement in every loadout, then priced by its own
+The Warrior follows [Warrior travel](warrior-travel.md); its recovery remains serviceable while
+travel is developed. The Rogue runs on toes to its requirement in every loadout, then priced by its own
 profile, measured from its starts as every Option's is, so that Option Mind chooses it where it
 pays. Where the toes or the body are the limit, the limit is read and the body's numbers are set
 for the result, sourced as tuned for it.
