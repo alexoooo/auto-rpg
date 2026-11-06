@@ -10,9 +10,9 @@ retains and disposes what it owns.
 
 The [fresh audit](../analysis/2026-11-05-fresh-layer-boundary-audit.md) supplies the failure recipes;
 its [file ledger](../analysis/2026-11-05-fresh-layer-boundary-files.md) the producers and consumers.
-This plan addresses all 56 confirmed findings and records a disposition for each of the six open
-questions. Allocation profiling belongs to the roadmap's framework allocation goal. A violation
-exposed along the same path is fixed in the same work.
+This plan repairs 55 of the 56 confirmed findings and decides five of the six open questions.
+APPF-003 needs 2^31 completed asks and Q-CONTACTS found no defect against the last-interval
+contract; neither gets work.
 
 ## Design rules
 
@@ -67,8 +67,7 @@ assemble and stand; a hand declaring only `neutral` gets a named guard refusal.
   cached or exported.
 - **BH-02**: skill assembly constructs each configured aim once and roots its state in
   `Skills.state`, on the default path too.
-- **BH-10**: effector-goal equality lives with `EffectorGoal` and compares every field. Stomp, effector
-  strikes and paw legs set `unbend`, `firm` and the moving frame, so this can change behaviour.
+- **BH-10**: effector-goal equality lives with `EffectorGoal` and compares every field.
 - **BH-12, APPF-004**: the decider keeps a copy of the orders it read; the gait transport compares
   gait values, not object identity.
 - **EVD-005**: the Lone, fall and Crypt scripts keep cue indices, orders and progress in their
@@ -133,8 +132,7 @@ scoring them (BR-05). Check each with a bounded run to its first handover or lan
 ## Small corrections
 
 `UpReadOnly` returns a frozen vector (FF05); senses key bodies in a `Map` (FF08); the reply ring
-takes its offset modulo capacity in BigInt (APPF-002) and completion waits compare with wrap-aware
-sequence arithmetic (APPF-003); the unused geometry-tool exports become private (TOOL-002); the
+takes its offset modulo capacity in BigInt (APPF-002); the unused geometry-tool exports become private (TOOL-002); the
 isolation worker cites `src/app/browser/isolate.ts` (DOC-001).
 
 ## Decisions and deferred work
@@ -143,22 +141,20 @@ isolation worker cites `src/app/browser/isolate.ts` (DOC-001).
 | --- | --- |
 | Q-ALLOC | Moves to the roadmap's framework allocation goal; no change here. |
 | Q-REQUIREMENTS | Each technique declares only the capabilities it reads; inert landing and pose-only modes declare no support reference, so recovery does not require the support it restores. |
-| Q-MOTOR | Reject an incompatible skill/motor combination before construction, using the motor owner's compatibility rule. Admission checks the selected controller as well as the anatomy. |
+| Q-MOTOR | Recovery's stance and support goals are `Requirement`s, checked against the selected motor by the admission that already checks the support reference. |
 | Q-GAIT | Share gait instances only for identical complete configurations. Any necessary walk/run state sharing belongs to that gait's implementation; repair continuity there. |
 | Q-DATA | The data store deep-freezes what it publishes. |
-| Q-CONTACTS | Closed: contacts describe the last completed interval, and the audit found no defect against that. |
 
 ## Completion
 
 Each landable change names its findings, its checks and any moved fingerprint case, and runs the
 [gates its change requires](../../AGENTS.md#doing-the-work). A retained test is added only for an
 observed regression lacking coverage, and is listed in the [test inventory](../../tests/README.md).
-Check each repair with the audit's recipe; admission refusals precede allocation. Behaviour changes
-get paired readings of their affected cells; skill claims need watched drills.
+Check each repair with the audit's recipe. Behaviour changes get paired readings of their affected
+cells; skill claims need watched drills. A violation exposed along a repaired path is fixed in the
+same work; before declaring completion, reread each affected producer-to-consumer path against the
+goal.
 
-Before declaring completion, reread each affected producer-to-consumer path against the goal,
-including related violations exposed during implementation.
-
-Done when every finding is closed in the code, the architecture describes the resulting contracts,
+Done when every repair above is in the code, the architecture describes the resulting contracts,
 and the gates pass. Commit each change on main without pushing; delete this plan and the audit
 documents when the work lands.
