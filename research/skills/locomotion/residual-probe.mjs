@@ -54,6 +54,9 @@ try {
   writeFileSync(o.out, JSON.stringify({ protocol: 'residual development screen, physical COM at 120 Hz', settings,
     harness: env.harness, layout: env.layout, code,
     calibration: { settings: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: JSON.parse(readFileSync(settings.stride, 'utf8')),
-      ...(settings.braking ? { braking: JSON.parse(readFileSync(settings.braking, 'utf8')) } : {}) },
+      ...(settings.braking ? { braking: JSON.parse(readFileSync(settings.braking, 'utf8')) } : {}),
+      ...(settings.steeringPolicy ? { steering: { path: settings.steeringPolicy,
+        hash: createHash('sha256').update(readFileSync(settings.steeringPolicy)).digest('hex'),
+        adapter: createHash('sha256').update(readFileSync(new URL('./learned-run-steering.mjs', import.meta.url))).digest('hex') } } : {}) },
     policy: o.policy ?? null, policyHash: policyBytes ? createHash('sha256').update(policyBytes).digest('hex') : null, trials }) + '\n');
 } finally { env.dispose(); }

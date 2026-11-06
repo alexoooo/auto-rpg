@@ -22,6 +22,7 @@ import { walkRun, WALK_RUN, WALK_RUN_CYCLE } from '../../../src/skills/locomotio
 import { runCycleSettings } from '../../../src/skills/locomotion/cycle-run.ts';
 import { legOf } from '../../../src/skills/locomotion/gait-scale.ts';
 import { balanceCeiling, balancePercent, rulebook } from '../../../src/combat/rulebook.ts';
+import { learnedRunSteering } from './learned-run-steering.mjs';
 
 const ROLES = Object.freeze(['stance', 'swing']);
 const JOINTS = Object.freeze(['hip flexion', 'hip abduction', 'hip internal rotation', 'knee flexion', 'ankle dorsiflexion', 'ankle inversion']);
@@ -72,6 +73,7 @@ export async function residualEnvironment(configuration = {}) {
   const running = runCycleSettings(o.cycleTuning, runCycleSettings(cycle, WALK_RUN_CYCLE));
   const braking = o.braking ? runCycleSettings(JSON.parse(readFileSync(o.braking, 'utf8')), running) : running;
   const stride = JSON.parse(readFileSync(o.stride, 'utf8'));
+  const steeringPolicy = o.steeringPolicy ? JSON.parse(readFileSync(o.steeringPolicy, 'utf8')) : null;
   const spec = modelSpec(o.model), guard = guardPosture(spec), leg = legOf(spec);
   const ends = Object.fromEntries(['left', 'right'].map(side => [side, footOn(spec, side)]));
   const names = Object.fromEntries(['left', 'right'].map(side => [side, JOINTS.map(name => {
@@ -156,7 +158,9 @@ export async function residualEnvironment(configuration = {}) {
     physicalParts = [...stand.built.segments.values()]; mass = massOf(physicalParts);
     physicalRoot = rootSegment(stand.built); rootInverse = Quaternion.Inverse(physicalRoot.rest);
     channels = Object.fromEntries(['left', 'right'].map(side => [side, names[side].map(name => body.muscles.channel(name))]));
-    skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve }, running, { stride, braking, entry: o.entry, trim: o.trim });
+    skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve,
+      ...(steeringPolicy ? { hasted: steeringPolicy.hasted } : {}) }, running,
+      { stride, braking, entry: o.entry, trim: o.trim, steer: steeringPolicy ? learnedRunSteering(body, steeringPolicy) : undefined });
     control = { asked: null, stopOrder: false, action: new Array(12).fill(0), reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
     observation = []; goal = null;
     body.drive((view, dt) => {
