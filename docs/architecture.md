@@ -240,6 +240,8 @@ arbiter releases every action when another mind takes the body.
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
   shares gait instances only for identical complete configurations. Walk/run permission views
   share motion through their concrete implementation when their physical settings agree.
+  Idle foot placement limits the horizontal speed of its planned weight shift through
+  `SwingGoal.shiftSpeed`, keeping neutral-stance adjustment from demanding a brisk body sway.
   A body on paws has `paw-move` (`src/skills/locomotion/quadruped/paw-legs.ts`): the trot and the crawl, the support goal
   each step for its motor.
 - **The straight punch** (`straight-punch.ts`) drives the arm flat out at a contact pose solved

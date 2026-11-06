@@ -81,6 +81,8 @@ export interface SwingGoal {
    * once.
    */
   readonly shift?: boolean;
+  /** Horizontal plan speed limit during the weight shift, m/s. */
+  readonly shiftSpeed?: number;
   /**
    * Where the capture point is brought by the time the foot lands, world (x, z), m: the pivot the
    * body falls about in the bearing sole is chosen for it. None, and the middle of the stance the
@@ -361,6 +363,11 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     // Before a step the plan goes toward the bearing sole's middle, as fast as its constant
     // takes it, past what a stance on both feet holds: the foot lifts before it gets there.
     reading.place.set(bearer!.middle.x, 0, bearer!.middle.z);
+    if (swing!.shiftSpeed !== undefined) {
+      const x = n * (bearer!.middle.x - r.x) / 2, z = n * (bearer!.middle.z - r.z) / 2;
+      const speed = Math.sqrt(x * x + z * z), share = speed > swing!.shiftSpeed ? swing!.shiftSpeed / speed : 1;
+      return [2 * n * (x * share - u.x), 2 * n * (z * share - u.z)];
+    }
     return [n * n * (bearer!.middle.x - r.x) - 2 * n * u.x, n * n * (bearer!.middle.z - r.z) - 2 * n * u.z];
   }
   // A place outside what the ankles can hold is taken at the nearest point that they can.

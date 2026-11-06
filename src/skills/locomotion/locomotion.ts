@@ -64,6 +64,8 @@ export const validCarriage = (carriage: Carriage): boolean =>
 
 /** Idle placement's quiet horizontal speed before beginning a step, m/s. */
 const CARRIAGE_STILL = 0.1;
+/** Requested horizontal plan speed during an idle placement's weight shift, m/s. */
+const IDLE_SHIFT_SPEED = 0.1;
 
 /** A carriage's stride at its requested width, cached per stride and carriage. */
 const carriageSteps = new WeakMap<GaitTuning, WeakMap<Carriage, GaitTuning>>();
@@ -374,7 +376,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
   };
   /** Until its first step the stance faces as the body was built. */
   const born = (view: BodyView): void => { if (view.time <= view.born) state.heading = facing(view); };
-  const place = (view: BodyView, footing: Footing, height?: number, near: number = PLACING.near, alignment?: number): StanceGoal | null => {
+  const place = (view: BodyView, footing: Footing, height?: number, near: number = PLACING.near, alignment?: number, shiftSpeed?: number): StanceGoal | null => {
     born(view);
     state.pace = 0;
     state.going = 0;
@@ -404,7 +406,8 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     const off = (foot: Side): number => placing.stepped[foot] ? 0 : error(foot);
     const foot: Side = off("left") >= off("right") ? "left" : "right";
     if (off(foot) <= near) { state.placed = true; return base; }
-    placing.step = { foot: ends[foot], to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true };
+    placing.step = { foot: ends[foot], to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true,
+      ...(shiftSpeed === undefined ? {} : { shiftSpeed }) };
     placing.lifted = false;
     return { ...base, swing: placing.step };
   };
@@ -483,11 +486,11 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
       reset(); return null;
     }
     if (goal.walk !== null) {
-      if (idle.target && s.phase === "swing" && state.placing?.step) return place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
+      if (idle.target && s.phase === "swing" && state.placing?.step) return place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05, IDLE_SHIFT_SPEED);
       reset(); return null;
     }
     if (idle.target) {
-      const result = place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
+      const result = place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05, IDLE_SHIFT_SPEED);
       if (state.placed) reset();
       return result;
     }
@@ -514,7 +517,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     state.heading = h;
     idle.target = target;
     state.placing = { footing: target, stepped: { left: stays === "left", right: stays === "right" }, step: null, lifted: false };
-    return place(view, target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
+    return place(view, target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05, IDLE_SHIFT_SPEED);
   }
 
   /** Whether the body stands still enough to take its carriage's footing: no step under way, and slower than `CARRIAGE_STILL`. */
