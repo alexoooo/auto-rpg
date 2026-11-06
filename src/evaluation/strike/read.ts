@@ -315,7 +315,9 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
   const limb = left.built.segments.get(effector);
   if (!limb) throw new Error(`the striker has no ${effector}`);
   const motion = ending.motion ? swingMotion(left.built, effector) : null;
-  const bonk = ending.bonk ? readBonk({ world, duel, catalog, fixture }, effector, ending.bonk, ending.seconds) : null;
+  /** The skill requested by trusted composition or its drill Commander. */
+  const drilled = fixture?.config.skill ?? (duel.recipe.commanders?.left as { readonly skill?: string } | undefined)?.skill;
+  const bonk = ending.bonk ? readBonk({ world, duel, catalog, fixture }, effector, drilled, ending.bonk, ending.seconds) : null;
   const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = given ?? barOf(spec);
   /** Whether the asked hand holds an item, its blow judged by the held item's bar (`Bar.held`) and its strike point the item's. */
   const armed = hand !== null && !holdsNothing(spec, effector);
@@ -379,8 +381,6 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
   };
   let exit: StrikeReading["exit"] = null;
   type Sensed = { readonly phase: string; readonly at: StrikeReading["foeAt"]; readonly window: StrikeReading["inWindow"] };
-  /** The skill the drill orders, where its Commander names one. */
-  const drilled = (duel.recipe.commanders?.left as { readonly skill?: string } | undefined)?.skill;
   /** Where the striker stands now in the window of the drill's choice (`placeInWindow`), as its menu reads it; null where it names none. */
   const placed = (): StrikeReading["inWindow"] => {
     if (!view) return null;

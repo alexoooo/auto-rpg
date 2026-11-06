@@ -4,8 +4,9 @@ import { SUPPORT_REFERENCE } from "./support-reference.ts";
 
 export const MOTOR_STANCE = "motor-stance";
 export const MOTOR_SUPPORT = "motor-support";
+export const MOTOR_PATHS = "motor-paths";
 declare module "../parts/parts.ts" {
-  interface Requirements { readonly [MOTOR_STANCE]: true; readonly [MOTOR_SUPPORT]: true }
+  interface Requirements { readonly [MOTOR_STANCE]: true; readonly [MOTOR_SUPPORT]: true; readonly [MOTOR_PATHS]: true }
 }
 import type { ReadBody } from "../core/bodies/read-body.ts";
 import type { MuscleReading } from "../core/bodies/muscle/driver.ts";

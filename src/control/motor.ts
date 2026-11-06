@@ -198,10 +198,10 @@ export function carrying<G extends MotorGoal>(motor: MotorControl, goals: readon
 }
 
 /** **The whole-body solve**: its effectors' places, driven points and a stance (`motorControl`). */
-export type WholeBody = Carrying<"effectors" | "points" | "stance">;
+export type WholeBody = Carrying<"effectors" | "points" | "stance" | "paths">;
 
 /** The whole-body solve's goals. */
-const WHOLE_GOALS: readonly MotorGoal[] = Object.freeze(["effectors", "points", "stance"]);
+const WHOLE_GOALS = Object.freeze(["effectors", "points", "stance", "paths"] as const);
 
 /**
  * Motor control of `built`, servoing at a time constant of `seconds`; the
@@ -223,17 +223,18 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose, st
   const unmet: MotorUnmet = { pushes: new Uint8Array(freedoms), points: 0 };
   // Each firm freedom's speed at the step's end as the servo asks it (`EffectorGoal.firm`); NaN where none is firm.
   const firm = new Float64Array(freedoms);
-  const state = { pose: posture, pushes: [] as readonly MusclePush[], points: [] as readonly PointTask[], standing: null as StanceGoal | null,
+  const state = { pose: posture, pushes: [] as readonly MusclePush[], points: [] as readonly PointTask[], paths: NO_PATHS, standing: null as StanceGoal | null,
     effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state, unmet };
   const control = (driver: MuscleReading, command: BodyControl, dt: number) => {
     const { pose, pushes, standing } = state;
     const owned = tracker.step(driver, pose, dt, !!standing?.pose);
+    const path = (i: number): FreedomPath | undefined => state.paths[driver.channels[i]!.name];
     stance.command(driver, standing, dt);
     unmet.pushes.fill(0);
     const work = servoAsk(driver, command.muscles, (i) => {
       const name = driver.channels[i]!.name;
       const push = pushes.find((p) => p.channel === name);
-      if (!push) return standing && stance.owned[i] ? undefined : owned(i)?.[0] ?? pose[name] ?? 0;
+      if (!push) return standing && stance.owned[i] ? undefined : path(i)?.angle ?? owned(i)?.[0] ?? pose[name] ?? 0;
       // The stance's solve gives a freedom its legs drive its own torque, over the push.
       if (standing && stance.owned[i]) unmet.pushes[i] = 1;
       command.muscles.velocity[i] = push.speed ?? push.sense * UNREACHABLE;
@@ -241,16 +242,17 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose, st
       return undefined;
     }, seconds, dt, {
       seconds: (i) => {
+        if (path(i)) return path(i)!.seconds ?? seconds;
         if (!owned(i)) return standing?.pose?.seconds ?? seconds;
         const name = driver.channels[i]!.name;
         return tracker.response(name) ?? seconds;
       },
-      rate: (i) => owned(i)?.[1] ?? 0,
-      acceleration: (i) => owned(i)?.[2] ?? 0,
+      rate: (i) => path(i)?.rate ?? owned(i)?.[1] ?? 0,
+      acceleration: (i) => path(i)?.acceleration ?? owned(i)?.[2] ?? 0,
     });
     let anyFirm = false;
     for (let i = 0; i < freedoms; i++) {
-      firm[i] = !work.fixed[i] && owned(i) && tracker.firm(i) ? driver.speed(i) + work.accel[i]! * dt : NaN;
+      firm[i] = !path(i) && !work.fixed[i] && owned(i) && tracker.firm(i) ? driver.speed(i) + work.accel[i]! * dt : NaN;
       if (!Number.isNaN(firm[i]!)) anyFirm = true;
     }
     const ask = standing ? stance.ask(driver) : null;
@@ -281,6 +283,7 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose, st
     reach: tracker.reach,
     release: tracker.release,
     setPushes(next) { state.pushes = next; },
+    setPaths(next) { state.paths = next; },
     setPoints(next) {
       for (const [k, task] of next.entries()) {
         const one = points.find((limb) => limb.limb.segment.spec.name === task.segment);
@@ -295,6 +298,7 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose, st
     reset() {
       state.pushes = NO_PUSHES;
       state.points = NO_POINTS;
+      state.paths = NO_PATHS;
       state.standing = null;
       tracker.reset();
       stance.reset();
@@ -310,6 +314,8 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose, st
 const NO_PUSHES: readonly MusclePush[] = Object.freeze([]);
 /** No point driven. */
 const NO_POINTS: readonly PointTask[] = Object.freeze([]);
+/** No freedom follows an explicit coordinate path. */
+const NO_PATHS: Readonly<Record<string, FreedomPath>> = Object.freeze({});
 
 /** The three rows of a point's linear motion, and of its segment's spin. */
 const LINEAR: readonly Row[] = Object.freeze([Object.freeze([[3, 1]] as const), Object.freeze([[4, 1]] as const), Object.freeze([[5, 1]] as const)]);

@@ -59,6 +59,9 @@ export interface BonkPose {
   readonly joints: readonly (readonly number[])[];
 }
 
+/** Writable coordinates for the existing freedom-path tracker. */
+export type BonkPath = { angle: number; rate: number; acceleration: number };
+
 /** Numerical construction settings: geometric target closure and samples checking joint representability. */
 const COURSE_SOLVER = Object.freeze({ target: .001, samples: 96 });
 const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
@@ -93,6 +96,7 @@ export function bonkModel(spec: BodySpec, effector: string) {
   const chestPoint = frameOf(spec.segments.find(one => one.name === description.base)!).origin;
   const p = new Vector3(), q = new Quaternion(), axis = new Vector3(), delta = new Quaternion(), before = new Quaternion(), inverse = new Quaternion();
   const angleWork: [number, number, number] = [0, 0, 0], scalar: [number, number, number] = [0, 0, 0];
+  const pathParent = new Quaternion(), pathAxes = [chain[base]!.axes.x, chain[base]!.axes.y, chain[base]!.axes.z];
   const chainTurn = (angles: readonly (readonly number[])[], through: number): Quaternion => {
     const result = Quaternion.Identity();
     for (let j = 0; j <= through; j++) result.multiplyInPlace(rotationAtToRef(chain[j]!, angles[j]!, q));
@@ -193,6 +197,45 @@ export function bonkModel(spec: BodySpec, effector: string) {
         chamber: rotated(contact, direction, technique.windup), follow: rotated(contact, direction, -technique.follow), axis: direction, pivot: [...pivot] as Vec3 });
       const checked = shape(course);
       return checked.failures.length ? { refused: checked.failures.join("; ") } : course;
+    },
+    /** Fill native angle, rate and acceleration coordinates without resampling an observed trajectory. */
+    paths(course: BonkCourse, phase: BonkPhase, time: number, out: readonly (readonly BonkPath[])[], returning?: readonly (readonly number[])[]): void {
+      const seconds = phase === "prepare" ? course.technique.prepareSeconds : phase === "stroke" ? course.technique.strokeSeconds : course.technique.returnSeconds;
+      scalarPathToRef(0, 0, 1, Math.max(0, time), seconds, scalar);
+      const [u, rate, acceleration] = scalar;
+      const from = phase === "prepare" ? course.guard : returning ?? course.follow, to = phase === "prepare" ? course.chamber : course.guard;
+      for (let j = 0; j < chain.length; j++) for (let k = 0; k < chain[j]!.dofs.length; k++) {
+        const path = out[j]![k]!;
+        if (phase === "stroke") { path.angle = course.contact[j]![k]!; path.rate = 0; path.acceleration = 0; }
+        else {
+          const delta = to[j]![k]! - from[j]![k]!;
+          path.angle = from[j]![k]! + delta * u; path.rate = delta * rate; path.acceleration = delta * acceleration;
+        }
+      }
+      if (phase !== "stroke") return;
+      pathParent.copyFromFloats(0, 0, 0, 1);
+      for (let j = 0; j < base; j++) pathParent.multiplyInPlace(rotationAtToRef(chain[j]!, course.contact[j]!, q));
+      Quaternion.InverseToRef(pathParent, inverse);
+      axis.set(...course.axis).applyRotationQuaternionToRef(inverse, axis);
+      const span = course.technique.windup + course.technique.follow, theta = course.technique.windup - span * u;
+      turnAboutToRef(axis, theta, delta);
+      delta.multiplyToRef(rotationAtToRef(chain[base]!, course.contact[base]!, q), before);
+      anglesOf(before, chain[base]!.axes, angleWork);
+      const { x, y, z, w } = before;
+      const dx = (axis.x * w + axis.y * z - axis.z * y) / 2;
+      const dy = (-axis.x * z + axis.y * w + axis.z * x) / 2;
+      const dz = (axis.x * y - axis.y * x + axis.z * w) / 2;
+      const dw = -(axis.x * x + axis.y * y + axis.z * z) / 2;
+      for (let k = 0; k < chain[base]!.dofs.length; k++) {
+        const a = pathAxes[k]!, v = x * a[0] + y * a[1] + z * a[2], dv = dx * a[0] + dy * a[1] + dz * a[2];
+        const denominator = v * v + w * w, numerator = w * dv - v * dw;
+        const first = 2 * numerator / denominator;
+        const second = -4 * numerator * (v * dv + w * dw) / (denominator * denominator);
+        const path = out[base]![k]!, sign = chain[base]!.dofs[k]!.sign;
+        path.angle = sign * angleWork[k]!;
+        path.rate = sign * first * -span * rate;
+        path.acceleration = sign * (first * -span * acceleration + second * span * span * rate * rate);
+      }
     },
     pose,
     sample: sampler,

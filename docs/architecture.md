@@ -180,7 +180,9 @@ driven points, a stance goal) into muscle commands.
   problem, a torque past strength pinned and solved again. A body on paws has the paw support
   (`pawMotor`, `src/control/quadruped/paw-motor.ts`), which carries a support over its paws
   (`SupportGoal`). A motor says what goals it carries and what it left undone
-  (`MotorControl.carries`, `unmet`).
+  (`MotorControl.carries`, `unmet`). Both motors carry explicit joint angle, rate and acceleration
+  paths through the servo; an explicit path takes precedence over an effector's coordinate on
+  the same freedom, while the support solve retains its owned channels.
 - **Effector goals** (`EffectorGoal`, `kinematics.ts`): named points of an effector follow
   minimum-jerk paths to places in the root's frame, `through` a place or `follows` a moving end; a
   `firm` goal braces the limb through what it strikes. Only the channels between an effector's base

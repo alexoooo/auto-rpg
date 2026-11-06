@@ -144,6 +144,7 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
     }
   });
   return {
+    config,
     state,
     beforeSense() {
       if (state.id !== null && !active()) duel.order("left", stand);

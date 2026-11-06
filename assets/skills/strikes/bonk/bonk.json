@@ -1,0 +1,16 @@
+{
+  "workshop-fighter+toes": {
+    "made": "Declared descending arc and continuous tracker starting record; short until the bonk confirmation gates pass",
+    "settings": {
+      "reach": 0.48554877761411536,
+      "band": 0.15,
+      "aside": 0.15,
+      "pace": 1.021,
+      "response": 0.12,
+      "techniques": {
+        "left": { "posture": {}, "windup": 1.3089969389957472, "follow": 0.3490658503988659, "prepareSeconds": 0.6, "strokeSeconds": 0.4, "returnSeconds": 0.7 },
+        "right": { "posture": {}, "windup": 1.3089969389957472, "follow": 0.3490658503988659, "prepareSeconds": 0.6, "strokeSeconds": 0.4, "returnSeconds": 0.7 }
+      }
+    }
+  }
+}

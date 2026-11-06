@@ -15,6 +15,7 @@ import type { BuiltBout } from "../bout.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { uprightness } from "../../control/ground.ts";
 import type { BonkFixtureReading } from "./bonk-fixture.ts";
+import { describeMind } from "../../minds/description.ts";
 import { senseDelayOf } from "../../game/arena/duel.ts";
 
 type StrokeEnd = { readonly at: number; readonly reason: "endpoint" | "impact withdrawal" | "stroke deadline" | "preparation deadline" | "cancelled" };
@@ -72,7 +73,7 @@ const degreesOfFreedom = (model: BonkModel, body: BuiltBout["duel"]["duelists"][
   });
 
 /** Physical bonk readings against an independently constructed course, including motion after executor release. */
-export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "fixture">, effector: string, technique: BonkTechnique, seconds: number) {
+export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "fixture">, effector: string, skill: string | undefined, fallback: BonkTechnique, seconds: number) {
   const { world, duel, catalog, fixture } = built, left = duel.duelists.left, foe = duel.duelists.right, body = left.built;
   const stepOf = (time: number): number => Math.round(time * world.hz);
   const elapsed = (time: number, since: number): number => (stepOf(time) - stepOf(since)) / world.hz;
@@ -81,6 +82,13 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
   const model: BonkModel = checkedModel;
   const mind = duel.recipe.minds?.left;
   if (!mind) throw new Error("a bonk reference needs its striker's mind configuration");
+  const configured = describeMind(catalog, body.spec, mind)?.executors.filter(config => config.kind === skill).flatMap(config => {
+    const reference = catalog.partLookup.of("executor", config).reference?.(body.spec, config, effector);
+    return reference ? [reference] : [];
+  }) ?? [];
+  if (configured.length > 1) throw new Error("a bonk reading needs one declared motion reference");
+  const reference = configured[0];
+  const technique = reference ? reference.technique : fallback;
   const guard = catalog.controllerOf(mind).builtIn(body.spec, mind, catalog.partLookup);
   const limb = body.segments.get(effector)!, description = body.spec.effectors!.find(one => one.segment === effector)!;
   const chest = body.segments.get(description.base)!, root = rootSegment(body);

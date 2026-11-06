@@ -11,7 +11,8 @@ body's reference coordinates into the world. The configured guard supplies the j
 and guard positions relative to the chest.
 
 The contact solve moves the arm base and elbow toward the observed target with the wrist at
-the declared posture. The joints between the root and the arm base stay at the guard's angles.
+the declared posture. The technique supplies trunk angles over the guard; the contact solve
+leaves those angles fixed.
 An unreachable contact returns a refusal.
 
 The stroke rotates the whole arm about its base. Its plane contains the contact point and
@@ -25,6 +26,24 @@ the physical stroke end to the configured guard; its hand and club courses follo
 Each coordinate uses a quintic course with zero endpoint velocity and acceleration. The stroke
 uses that same progress law for its rotation. Preparation can update its observed target;
 commitment freezes the stroke's frame and geometry.
+
+`BonkModel.paths` supplies joint angle, rate and acceleration to freedom tracking. Its stroke
+derivatives follow the joint's quaternion angle convention analytically; its preparation and
+return derivatives follow the quintic coordinates.
+
+## Execution
+
+The experimental [bonk executor](../../src/skills/strikes/bonk.ts) owns the striking hand, trunk
+and support through preparation, stroke and guard settling. Its immutable per-body record
+supplies bilateral techniques, the entry window and the tracking response. The separate
+`strike-bonk` Option defaults to the high mark and centre aim.
+
+Preparation tracks the sensed aim and commits only after the physical chamber hold. Commitment
+freezes the course. An endpoint or impact stop with withdrawal starts return; a deadline starts
+a failed return. Withdrawal during preparation cancels the stroke and starts return. The
+executor holds its resources until the configured guard meets its continuous physical hold,
+including after a deadline has failed the action. A configured executor publishes its declared
+technique for the physical reader through `ExecutorPart.reference`.
 
 ## Reading
 
