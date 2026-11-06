@@ -1,10 +1,10 @@
-/** Solver override for development stands without save/load; articulated replacements are diagnostic only. */
+/** Solver override for development stands without save/load; toeLayerOnly retains normal foot-box contacts. */
 import {rapierModule} from '../../../src/core/physics/rapier.ts';
 import {local} from '../../../src/core/bodies/build/collider.ts';
 import {Vector3} from '../../../src/core/math/vector.ts';
 export async function conditionToeStand(stand,configuration) {
- const {pgs=32,stiffness=1e6,damping=12500,depth=.0005,articulated=false,soleLayer=true}=configuration;
- if(typeof articulated!=='boolean'||typeof soleLayer!=='boolean')throw Error('articulation and sole-layer selectors are boolean');
+ const {pgs=32,stiffness=1e6,damping=12500,depth=.0005,articulated=false,soleLayer=true,toeLayerOnly=false}=configuration;
+ if(typeof articulated!=='boolean'||typeof soleLayer!=='boolean'||typeof toeLayerOnly!=='boolean')throw Error('articulation and contact-layer selectors are boolean');
  if(!Number.isInteger(pgs)||pgs<1||![stiffness,depth].every(v=>Number.isFinite(v)&&v>0)||!Number.isFinite(damping)||damping<0)
   throw Error('toe contact conditioning requires positive PGS, stiffness and depth, and nonnegative damping');
  const R=await rapierModule(),raw=stand.world.physics.raw,handles=new Set(),layer=Object.freeze([stiffness,damping,depth]);
@@ -29,7 +29,7 @@ export async function conditionToeStand(stand,configuration) {
   joint.attached=()=>hinge.isValid();
  }
  raw.numInternalPgsIterations=pgs;
- if(soleLayer)for(const part of stand.built.segments.values())if(part.spec.name.startsWith('foot.')||part.spec.name.startsWith('toe.'))
+ if(soleLayer)for(const part of stand.built.segments.values())if((!toeLayerOnly&&part.spec.name.startsWith('foot.'))||part.spec.name.startsWith('toe.'))
   for(let k=0;k<part.body.rigid.numColliders();k++) {
    const collider=part.body.rigid.collider(k);
    handles.add(collider.handle);collider.setActiveHooks(collider.activeHooks()|R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
@@ -38,5 +38,5 @@ export async function conditionToeStand(stand,configuration) {
   const step=raw.step.bind(raw);
   raw.step=(events,hooks)=>step(events,{...hooks,contactLayer:(a,b)=>handles.has(a)||handles.has(b)?layer:null});
  }
- return Object.freeze({pgs,stiffness,damping,depth,articulated,soleLayer});
+ return Object.freeze({pgs,stiffness,damping,depth,articulated,soleLayer,...(toeLayerOnly?{toeLayerOnly}:{})});
 }
