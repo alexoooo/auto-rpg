@@ -87,6 +87,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   faults(config: C, parts: PartLookup): readonly string[];
   /** The mind data a part of `config` reads when built (`dataOf`); none where absent. Its slots' parts answer for their own (`treeData`). */
   reads?(config: C): readonly DataKey[];
+  /** Data compatibility checks read before construction: loaded before a screen offers this part. */
+  readonly fitReads?: readonly DataKey[];
   /**
    * What a person is shown for each phase it reports (`Decider.engagement`'s `phase`, or the
    * name of a sub-mind that has the body), by the phase's name: a label, or null for a phase a feed

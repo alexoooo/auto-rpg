@@ -65,6 +65,12 @@ before a world exists, so capability drills cannot establish the returned refusa
 
 These cases inspect results directly rather than replaying a skill's physical trajectory.
 
+[arena-setup.test.mjs](arena-setup.test.mjs) reproduces the Arena's controller menu and mind
+editor reading unloaded stomp and recovery data during compatibility checks. It loads the declared
+compatibility data, checks both human bodies, and leaves construction
+data unloaded in a fresh process without the Node preload; capability drills preload the data and
+cannot expose this startup failure.
+
 | File and case | Concrete justification |
 | --- | --- |
 | [runtime-data.test.mjs](runtime-data.test.mjs): `nested configured parts return whole role and value faults before graph traversal` | Reproduce explicit Option service tuning throwing for a wrong role and nested Move gait settings bypassing validation. Check complete path-prefixed role, unknown-kind, value and malformed-shape refusals, plus nested tuning removal; physical drills construct admitted settings and cannot establish this configuration boundary. |

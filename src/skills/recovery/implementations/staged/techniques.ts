@@ -257,7 +257,7 @@ const routeTechnique = <K extends StagedKind>(kind: K, label: string): Technique
   sides: Object.freeze(["left"] as const), edges: Object.freeze(PARTS[kind].from.map(from => Object.freeze({ from, to: PARTS[kind].to as Position }))),
   requires: PARTS[kind].first === null ? [] : [SUPPORT_REFERENCE, MOTOR_STANCE], reads: () => ["step-up", "sit-back"],
   make: (own, view, _clock: Clock, kit, config) => routePart(own, view, kit, kind, (config as StagedConfig<K>).tuning ?? stepUpTuning(own.spec)) }),
-  fits: fitsPart(kind),
+  fitReads: ["step-up", "sit-back"] as const, fits: fitsPart(kind),
   keys: { kind: true, tuning: true } as const, tuning: ["settle", "climb", "stages", "rest", "over", "roll", "sideSwing", "heldSupport", "loadouts"],
   faults: (config: StagedConfig<K>) => config.tuning === undefined || validStepUp(config.tuning) ? [] : ["tuning: invalid step-up settings"],
 });

@@ -228,6 +228,8 @@ arbiter releases every action when another mind takes the body.
   manifest's `data`. The catalog supplies those loaders to the store (`DataKey`, `keyof DataOf`)
   through `Catalog.loadData`, with the same registrations in Node and the page. A loader declares
   whether its identity is the whole dataset or the actual subject record used by its consumer.
+  Parts declare data their compatibility checks read in `Part.fitReads`; the browser shell loads
+  it through `Catalog.loadFitData` before opening a game screen's setup.
 - **Locomotion** (`Locomotion`): legs take one goal (`LegsGoal`) and say what they left undone
   (`LegsUnmet`), their envelope and how fast they stop. Each declares the bearing ends
   it controls (`supports`) and its default lowering (`lower`). `stance-walk` walks within the stance's

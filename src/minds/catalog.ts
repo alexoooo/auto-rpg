@@ -55,6 +55,8 @@ export interface Catalog {
   readonly dataKeys: readonly DataKey[];
   /** Load registered data before building a mind that reads it. */
   loadData(keys: Iterable<DataKey>): Promise<void>;
+  /** Load the data every offered part's compatibility check reads before screen setup. */
+  loadFitData(): Promise<void>;
   /**
    * **Every controller, by its mind's kind** (its defaults' `kind`): the toolkit's, then each
    * entrant's; the one place a kind is made, matched to a body.
@@ -424,6 +426,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
   return Object.freeze({
     get dataKeys() { return Object.freeze(Object.keys(registered().data) as DataKey[]); },
     loadData: (keys: Iterable<DataKey>) => loadData(keys, registered().data),
+    loadFitData: () => loadData(Object.values(registered().parts).flatMap(part => part.fitReads ?? []), registered().data),
     get controllers() { return registered().controllers; },
     get minds() { return registered().presets; },
     get faults() { return faultsOf(); },
@@ -453,7 +456,10 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     phaseLabels: (config: PartConfig): Readonly<Record<string, string | null>> => Object.assign({}, ...treeKinds(config).map((kind) => partOf({ kind }).phases ?? {})),
     treeData(config: PartConfig): readonly DataKey[] {
       const keys = new Set<DataKey>();
-      eachPart(config, (one) => { for (const key of partOf(one).reads?.(one) ?? []) keys.add(key); });
+      eachPart(config, (one) => {
+        const part = partOf(one);
+        for (const key of [...part.reads?.(one) ?? [], ...part.fitReads ?? []]) keys.add(key);
+      });
       return [...keys];
     },
     treeRefusal: (spec: BodySpec, config: PartConfig, at = ""): string | null => treeValidation(config, at).faults[0] ?? treeRefusal(spec, config, at),

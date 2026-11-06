@@ -27,6 +27,10 @@ function mount(templateId: string, root: HTMLElement): void {
 async function open(route: Route, context: ScreenContext): Promise<void> {
   const root = context.root;
   const check = () => context.signal.throwIfAborted();
+  if (route !== "menu" && route !== "tools") {
+    const { CONTEXT } = await import("./context.ts"); check();
+    await CONTEXT.catalog.loadFitData(); check();
+  }
   switch (route) {
     case "menu": {
       document.title = "Auto-RPG"; mount("menu-screen", root);

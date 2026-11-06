@@ -56,7 +56,7 @@ export const STOMP_PART: ExecutorPart<Config> = {
   fits: fitsAll(stompRefusal, recordFault("stomp", deepFreeze(meta.bodies), wholeStomp),
     (spec, config) => validStompTuning(tunedSettings(dataOf("stomp"), spec, config)) ? null : "invalid stomp executor settings"),
   faults: (config) => config.tuning === undefined || validStompPart(config.tuning) ? [] : ["invalid stomp tuning"],
-  reads: () => ["stomp"], effectors: ["foot.left", "foot.right"], aims: true,
+  fitReads: ["stomp"], reads: () => ["stomp"], effectors: ["foot.left", "foot.right"], aims: true,
   make: ({ body, aim }, config, actions) => stompExecutor(body, actions.map(a => a.name), tunedSettings(dataOf("stomp"), body.built.spec, config), aimedPoint(aim)),
 };
 
