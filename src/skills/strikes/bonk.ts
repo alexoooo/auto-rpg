@@ -175,7 +175,7 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
       const one = handOf(live.request.effector)!;
       one.model.paths(live.course, live.phase === "commit" ? "stroke" : live.phase === "release" ? "return" : "prepare", elapsed(view.time, live.since) + body.dt * body.delay, one.paths, live.returning ?? undefined);
       return { paths: one.channels, ...(one.grip ? { configurations: { [one.effector]: one.grip } } : {}),
-        legs: { walk: null, face: live.face, halt: true, height: supportHeight(view) - live.lower } };
+        legs: { walk: null, face: live.face, heading: live.face, halt: true, height: supportHeight(view) - live.lower } };
     },
   };
 }
