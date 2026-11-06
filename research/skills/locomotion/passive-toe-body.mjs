@@ -48,5 +48,7 @@ export function passiveToeBody(spec) {
     return {...base,mass:remaining,centreOfMass:remainingCentre,inertia:remainingInertia};
   });
   const down=spec.down.kind==='touch'?{...spec.down,bearers:[...spec.down.bearers,...toes.map(toe=>toe.name)]}:spec.down;
-  return deepFreeze({...spec,variant:'passive-toes',down,segments:[...segments,...toes],joints:[...spec.joints,...joints]});
+  const wounds={...spec.wounds,limbs:spec.wounds.limbs.map(limb=>({...limb,
+    segments:[...limb.segments,...joints.filter(joint=>limb.segments.includes(joint.parent)).map(joint=>joint.child)]}))};
+  return deepFreeze({...spec,variant:'passive-toes',down,wounds,segments:[...segments,...toes],joints:[...spec.joints,...joints]});
 }

@@ -13,6 +13,7 @@ import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { loadEngine, type EngineName } from "../core/physics/engines.ts";
 import { loadoutFaults, type Held, type Loadout } from "../core/bodies/items/held.ts";
 import type { MindConfig } from "../minds/config.ts";
+import type { Experiment } from "../control/body.ts";
 import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
 import { modelHoldingChecked, type BodyModel, type HumanoidModel } from "../core/bodies/models.ts";
 import type { HostedBody } from "../minds/hosted-body.ts";
@@ -174,12 +175,12 @@ export function createFall(context: GameContext) {
 
   /**
    * **The Lab's stand bed**, the research rising bed's: `fall`'s world on `engine`, from its start
-   * (`fallStart`'s, unless given): the body built in its placement, its mind hosted as the Lab hosts
-   * it with its balance's assist, and the
-   * Stand-up mode started. It ends once the stand is verified or failed (`target`, `obstacle`),
+   * (`fallStart`'s, unless given): the body built in its placement, its mind hosted with the supplied
+   * immutable experiment where given and its balance's assist, and the Stand-up mode started.
+   * It ends once the stand is verified or failed (`target`, `obstacle`),
    * else at hand-back or when the run stops; at `FALL_AFTER` s past the cap in any case.
    */
-  async function buildStandFall(fall: FallCase, engine: EngineName, given: { start?: Exclude<ReturnType<typeof fallStart>, Refused> } = {}): Promise<BuiltFall | Refused> {
+  async function buildStandFall(fall: FallCase, engine: EngineName, given: { start?: Exclude<ReturnType<typeof fallStart>, Refused>; experiment?: Experiment } = {}): Promise<BuiltFall | Refused> {
     const { start = fallStart(fall) } = given;
     if (isRefused(start)) return start;
     const { spec, placement } = start;
@@ -192,7 +193,8 @@ export function createFall(context: GameContext) {
     const body = scope.own(buildBody(spec, world, placement));
     const address = verifying ? { ...start.address, ground: { ...start.address.ground, impulse: targetImpulse(body) } } : start.address;
     const actor = labActor(context, body, world, { mind: fall.mind, rules: rulebook("arena"),
-      assist: balanceCeiling(balance, balancePercent(rulebook("arena"))) });
+      assist: balanceCeiling(balance, balancePercent(rulebook("arena"))),
+      ...(given.experiment ? { experiment: given.experiment } : {}) });
     if (isRefused(actor)) return actor;
     scope.own(actor);
     const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
