@@ -840,7 +840,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const seconds = firstFrame ? 0 : engine.getDeltaTime() / 1000; firstFrame = false;
       if (!context.busy) steer();
       if (bout) {
-        meter.world(bout.link.received(), { speed: running ? bout.link.newest[2]! : 0, hz: bout.link.hz });
+        meter.world(bout.link.received(), running ? bout.link.newest[2]! : 0);
         pose(bout.link.between(performance.now()));
         if (!paused && bout.news) for (const { side, speed, at } of bout.news.air) audio.swish(side, speed, airAt.set(at[0], at[1], at[2]));
       }

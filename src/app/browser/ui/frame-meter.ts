@@ -52,7 +52,7 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
   if (timed) engine.captureGPUFrameTime(true);
   const gpu = timed ? engine.getGPUFrameTimeCounter() : null;
   let since = performance.now(), previous: number | null = null, frames = 0, cpu = 0, physics = 0, substeps = 0;
-  const worker = { steps: 0, ms: 0, speed: null as number | null, hz: null as number | null };
+  const worker = { steps: 0, ms: 0, speed: null as number | null };
   let gpuTotal = gpu?.total ?? 0, gpuCount = gpu?.count ?? 0;
   const sample = { frame: 0, interval: 0, physics: 0, worker: 0, steps: 0 };
   const reset = () => {
@@ -70,7 +70,7 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
     const fps = frames * 1000 / span;
     const stepRate = substeps * 1000 / span;
     summary.textContent = `${fps.toFixed(fps < 10 ? 1 : 0)} FPS`
-      + (worker.hz === null ? "" : `\n${stepRate.toFixed(0)}/${worker.hz} steps/s`);
+      + (worker.speed === null ? "" : `\n${stepRate.toFixed(0)} steps/s`);
     output.textContent = `Frame   ${(span / frames).toFixed(1)} ms\n`
       + (worker.speed === null
         ? `Physics ${(physics / frames).toFixed(1)} ms (×${(substeps / frames).toFixed(1)} steps)\n`
@@ -92,9 +92,9 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
       sample.physics += performance.now() - started;
     },
     /** Counts the steps a worker sent, the worker's time for them, ms, and the world's speed now; inside `frame`. */
-    world(received: { readonly steps: number; readonly ms: number }, timing: { readonly speed: number; readonly hz: number }): void {
+    world(received: { readonly steps: number; readonly ms: number }, speed: number): void {
       sample.worker += received.ms; sample.steps += received.steps; worker.steps += received.steps; worker.ms += received.ms;
-      worker.speed = timing.speed; worker.hz = timing.hz;
+      worker.speed = speed;
     },
     /** Runs one frame's work and counts it. */
     frame(work: () => void): Readonly<typeof sample> {

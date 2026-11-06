@@ -9,7 +9,8 @@
 :where(#screen-root[data-screen="dungeon"]) .topbar > * { pointer-events: auto; } :where(#screen-root[data-screen="dungeon"]) .brand { justify-self: start; font-weight: 700; font-size: 12px; letter-spacing: .15em; } :where(#screen-root[data-screen="dungeon"]) .brand span { color: #8d959f; font-weight: 400; margin-left: 8px; }
 :where(#screen-root[data-screen="dungeon"]) .topbar-end { grid-column: 3; justify-self: end; display: flex; align-items: start; gap: 16px; min-width: 0; max-width: 100%; }
 :where(#screen-root[data-screen="dungeon"]) .topbar-end > :is(.frame-meter, button) { flex-shrink: 0; white-space: nowrap; }
-:where(#screen-root[data-screen="dungeon"]) .topbar-panels { display: grid; gap: 12px; width: 320px; min-width: 0; max-height: calc(100vh - 180px); overflow-y: auto; }
+:where(#screen-root[data-screen="dungeon"]) .topbar-panels { display: grid; gap: 12px; width: 320px; min-width: 0; }
+:where(#screen-root[data-screen="dungeon"]) .topbar-panels > details { max-height: calc((100vh - 180px - 12px) / 2); overflow-y: auto; overscroll-behavior-y: contain; }
 :where(#screen-root[data-screen="dungeon"]) #dungeon-view .field { margin-top: 12px; }
 :where(#screen-root[data-screen="dungeon"]) #dungeon-view .label { margin: 0 0 8px; }
 :where(#screen-root[data-screen="dungeon"]) #dungeon-view .options { display: flex; align-items: center; gap: 8px; }

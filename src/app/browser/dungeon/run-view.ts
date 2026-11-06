@@ -189,9 +189,6 @@ export class RunView {
   /** How fast the world plays: world seconds a real second, 1 in real time. */
   get speed(): number { return this.link.newest[2]!; }
 
-  /** The world's fixed physics rate, steps a simulated second. */
-  get hz(): number { return this.link.hz; }
-
   /**
    * Sends the person's next commands to these party members, or to everybody when `ids` is null,
    * after the current lead; the selection shows so until the run says otherwise.

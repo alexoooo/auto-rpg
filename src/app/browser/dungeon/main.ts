@@ -863,7 +863,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       const playing = () => run.status === "playing";
       // The world runs while the page draws it, unpaused: never under the loading screen or in a hidden tab.
       run.play(!page.paused && playing());
-      meter.world(run.received(), { speed: !page.paused && playing() ? run.speed : 0, hz: run.hz });
+      meter.world(run.received(), !page.paused && playing() ? run.speed : 0);
       if (!page.paused && playing()) {
         for (const { id, speed, at } of run.air) audio.swish(id, speed, at);
         if (view === "world") page.lighting?.burn(seconds);
