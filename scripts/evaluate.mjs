@@ -1,4 +1,5 @@
 import { isRefused } from "../src/core/refusal.ts";
+import "../tests/harness/preload-data.mjs";
 /**
  * **Evaluate**: an evaluation's cases for its subjects, each played only where no row has its key,
  * on worker threads; then what the complete rows give each subject, and the evaluation's summary.

@@ -85,6 +85,10 @@ const STILL = deepFreeze({
   settled: .5, pace: 1, patience: 8, seconds: 11, settle: .5, recover: 2,
 });
 
+/** A small held-swing observation: physical travel and guard settling through and after executor ownership. */
+const SWING_MOTION = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], gaps: [1.2], across: [0],
+  marks: ["middle"] as Mark[], hands: ["right"] as Hand[], motion: true as const, settle: 2 });
+
 /**
  * **Starts drawn at random**, the `sampled` rung: the still rung's trials on every striker's body,
  * each begun from a start drawn from a fixed stream (`seed`), so its trials are the same at every
@@ -293,7 +297,7 @@ export function createStrikeCases(context: GameContext) {
   }
 
   function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: readonly number[];
-    readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID } & Partial<Moving>,
+    readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID; readonly motion?: true } & Partial<Moving>,
     drawn?: readonly StillCondition[]): Cases<StrikeCondition, StrikeReading> {
     const conditions: StillCondition[] = drawn ? [...drawn] : [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
     const moving: Moving | null = protocol.directions === undefined ? null : protocol as Moving;
@@ -306,7 +310,8 @@ export function createStrikeCases(context: GameContext) {
       play: protocol as unknown as Json,
       conditions,
       seconds: protocol.seconds,
-      faults: (value, { model }, subject) => faultsOf(value, model, subject),
+      faults: (value, condition, subject) => [...faultsOf(value, condition.model, subject),
+        ...protocol.motion && (value as unknown as StrikeSubject).held?.[handOf(condition)!] !== "club" ? ["swing motion observes the hand holding a club"] : []],
       world: ([value], condition, engine, [character]) => {
         const { model, gap, across, mark, target, start, approach, letGo, direction, speed } = condition as StillCondition, hand = handOf(condition as StillCondition);
         const side = protocol.toward === "hand" && hand === "left" ? across : -across;
@@ -314,6 +319,7 @@ export function createStrikeCases(context: GameContext) {
         return { kind: "bout", engine, tape: [],
         // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
         recipe: { left: model, right: target ?? "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+          ...(protocol.motion ? { balance: { left: 0, right: 0 } } : {}),
           ...loadoutsOf(value as unknown as StrikeSubject),
           // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
           start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: carried ? [...carried.from] : [gap / 2, side], heading: -Math.PI / 2 } },
@@ -353,6 +359,7 @@ export function createStrikeCases(context: GameContext) {
 
   /** Every protocol the Strike drill may be played on, by name: its rungs. */
   const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
+    "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), walk: stillCases(WALK),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),

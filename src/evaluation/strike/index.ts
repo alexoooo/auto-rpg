@@ -78,8 +78,10 @@ function whyFailed(reading: StrikeReading): string | undefined {
   }
 }
 
-/** What the strip shows a trial as: its outcome, whether it passed (landed, the striker on its feet), and why it failed (`whyFailed`). */
+/** Contact outcomes and diagnostic failures; an observation with incomplete motion coverage cannot pass. */
 const strikeOutcome = (reading: StrikeReading) => {
+  if (reading.motion?.chatter) return { label: "uncontrolled", passed: false, why: "unobstructed stroke: a wrist channel reverses beyond the monotonic-phase allowance" };
+  if (reading.motion && reading.began !== null) return { label: "unverified", passed: false, why: "course, clearance and physical stroke-end gates are not covered" };
   const why = whyFailed(reading);
   return { label: reading.outcome, passed: reading.outcome === "landed", ...(why === undefined ? {} : { why }) };
 };
@@ -154,6 +156,8 @@ export function createStrikeIndex(context: GameContext) {
       { name: "return", unit: "s from the release, the median", kind: "median", better: "lower", of: (r) => r.released !== null && r.ended !== null ? r.ended - r.released : null },
       { name: "fell", unit: "share of trials", kind: "rate", better: "lower", of: (r) => r.down },
       { name: "taken", unit: "hit points the striker lost in its contacts with the target, the mean", kind: "mean", better: "lower", of: (r) => r.taken ?? null },
+      { name: "unobstructed wrist chatter", unit: "share of observed swings", kind: "rate", better: "lower", of: (r) => r.motion?.chatter ?? null },
+      { name: "settled at ownership release", unit: "share of observed releases", kind: "rate", better: "higher", of: (r) => r.motion?.guard.settledAtRelease ?? null },
     ],
     /** Each subject's trials as a table, in the conditions' order. */
     summary({ subjects, cases }) {
@@ -167,6 +171,13 @@ export function createStrikeIndex(context: GameContext) {
           ...rows.filter((row) => row.subject === subject.id).map((r) =>
             `| ${r.model} | ${r.mark} | ${r.limb} | ${r.where} | ${r.outcome} | ${r.reason || "-"} | ${f(r.hit && r.began !== null ? r.hit.time - r.began : null)} | ${f(r.hit?.speed)} | ${f(r.hit?.kg)} | ${f(r.hit?.straight)} | ${f(r.hit?.energy)} | ${f(r.released !== null && r.ended !== null ? r.ended - r.released : null)} |`),
           "",
+          ...rows.filter(row => row.subject === subject.id && row.motion).flatMap(row => [
+            `${row.mark}: motion observation; course, clearance and physical stroke-end coverage incomplete.`, "",
+            "| Executor phase | From, s | To, s | Club travel, deg | Chest travel, deg | Largest wrist reversal lower bound, deg | Contact steps |",
+            "|---|---|---|---|---|---|---|",
+            ...row.motion!.intervals.map(interval => `| ${interval.label} | ${f(interval.from)} | ${f(interval.to)} | ${f(interval.clubTravel * 180 / Math.PI)} | ${f(interval.chestTravel * 180 / Math.PI)} | ${f(Math.max(...interval.wrist.map(channel => channel.leastReversal)) * 180 / Math.PI)} | ${interval.contactSteps} |`),
+            "", `Settled at ownership release: ${row.motion!.guard.settledAtRelease ?? "unreached"}; verified guard hold at ${f(row.motion!.guard.recovered)} s.`, "",
+          ]),
         ]),
         json: rows.map(({ subject, model, mark, limb, where, outcome }) => ({ subject, model, mark, limb, where, outcome })) as unknown as Json,
       };

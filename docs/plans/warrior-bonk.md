@@ -195,6 +195,6 @@ normal time and slow motion. Supply versioned Ratings links, the actual subject 
 the observed motion, the gate and baseline summaries, checks run and any failure left. Leave
 `accepted.json` untouched until the owner accepts the rung.
 
-After acceptance, put the implemented motion contract in reference documentation, update the
-architecture and table where changed, and delete this plan. The broader strikes work remains
+As implementation lands, put the implemented motion contract in reference documentation and
+update the architecture and table where changed. After acceptance, delete this plan. The broader strikes work remains
 under [Options trained body by body](2026-11-03-options-training.md).

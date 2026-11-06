@@ -548,6 +548,13 @@ the bit in Node and in the page (`buildBout`, `src/evaluation/bout.ts`).
 Every question of how well something does is an evaluation (`src/evaluation/`, `EVALUATIONS`), one
 path for Node, its workers and a page; `scripts/evaluate.mjs` runs it.
 
+The Strike drill's `swing-motion` protocol observes one right-hand club swing on the Warrior
+without assistance. Its reader (`src/evaluation/strike/motion.ts`) partitions native-step hand,
+swell, chest and wrist travel by executor phase and watches the entry guard's position,
+orientation and stillness through a continuous return hold after ownership ends. It reports
+unobstructed wrist chatter separately from contact and leaves course, clearance and physical
+stroke-end coverage explicitly incomplete.
+
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)
   the question, subjects, figures and a drill trial's `outcome`.
