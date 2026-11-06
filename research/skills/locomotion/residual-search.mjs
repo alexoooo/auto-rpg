@@ -65,7 +65,8 @@ if (!isMainThread) {
     code: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     diff: execFileSync('git', ['diff', 'HEAD'], { encoding: 'utf8' }),
     search: hash(new URL(import.meta.url)), environment: hash(new URL('./residual-environment.mjs', import.meta.url)),
-    calibration: { cycle: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: JSON.parse(readFileSync(settings.stride, 'utf8')) } };
+    calibration: { cycle: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: JSON.parse(readFileSync(settings.stride, 'utf8')),
+      ...(settings.braking ? { braking: JSON.parse(readFileSync(settings.braking, 'utf8')) } : {}) } };
   const saved = o.resume ? JSON.parse(readFileSync(o.out + '-checkpoint.json', 'utf8')) : null;
   if (o.resume && o.start) throw Error('--resume uses the saved start');
   if (saved && JSON.stringify(JSON.parse(readFileSync(o.out + '-protocol.json', 'utf8'))) !== JSON.stringify(identity))

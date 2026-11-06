@@ -2,6 +2,7 @@
  * Node core stand, explicit engine, 120 Hz, Balance 0, empty hands in guard. Fresh bodies warm
  * through the ordinary gait before each training episode. A from-rest development screen includes
  * that walk-in; complete travel confirmation also requires stops, loadouts and fresh conditions.
+ * Configuration's optional `braking` file overrides the running cycle's braking settings.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -67,6 +68,8 @@ export async function residualEnvironment(configuration = {}) {
   if (!(o.fromRestShare >= 0 && o.fromRestShare <= 1) || !(o.speedWidth > 0) || !Number.isFinite(o.speedWidth))
     throw Error('residual training needs a from-rest share in [0,1] and a finite positive speed width');
   const { at, swerve, ...cycle } = JSON.parse(readFileSync(o.settings, 'utf8'));
+  const running = runCycleSettings(cycle, WALK_RUN_CYCLE);
+  const braking = o.braking ? runCycleSettings(JSON.parse(readFileSync(o.braking, 'utf8')), running) : running;
   const stride = JSON.parse(readFileSync(o.stride, 'utf8'));
   const spec = modelSpec(o.model), guard = guardPosture(spec), leg = legOf(spec);
   const ends = Object.fromEntries(['left', 'right'].map(side => [side, footOn(spec, side)]));
@@ -146,7 +149,7 @@ export async function residualEnvironment(configuration = {}) {
     physicalParts = [...stand.built.segments.values()]; mass = massOf(physicalParts);
     physicalRoot = rootSegment(stand.built); rootInverse = Quaternion.Inverse(physicalRoot.rest);
     channels = Object.fromEntries(['left', 'right'].map(side => [side, names[side].map(name => body.muscles.channel(name))]));
-    skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve }, runCycleSettings(cycle, WALK_RUN_CYCLE), { stride });
+    skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve }, running, { stride, braking });
     control = { asked: null, stopOrder: false, action: new Array(12).fill(0), reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
     observation = []; goal = null;
     body.drive((view, dt) => {

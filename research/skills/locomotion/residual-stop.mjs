@@ -35,6 +35,8 @@ try {
   const entryMade = entry !== null && entry >= settings.pace;
   const reading = { entry, entryMade, ordered, settledAt, fell: samples.some(s => s.physicalDown), ...result.info };
   writeFileSync(o.out, JSON.stringify({ settings, stop, harness: env.harness, reading, samples,
+    calibration: { running: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: JSON.parse(readFileSync(settings.stride, 'utf8')),
+      ...(settings.braking ? { braking: JSON.parse(readFileSync(settings.braking, 'utf8')) } : {}) },
     policyHash: bytes ? createHash('sha256').update(bytes).digest('hex') : null,
     environmentHash: createHash('sha256').update(readFileSync(new URL('./residual-environment.mjs', import.meta.url))).digest('hex'),
     readerHash: createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex') }) + '\n');
