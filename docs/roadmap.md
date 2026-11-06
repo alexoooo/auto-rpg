@@ -29,11 +29,13 @@ Where the project is going and what is open. What is built is in the
 | [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
 | [Options trained body by body](plans/2026-11-03-options-training.md) | after Option Mind general: stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
 | [Warrior travel](plans/warrior-travel.md) | retrain the toed Warrior for 4 m/s forward travel, safe movement in every direction, steering, corners, reversals and stops in every loadout |
+| [Warrior bonk](plans/warrior-bonk.md) | a controlled descending club strike at the head, with physical motion, contact, recovery and repetition gates and watched confirmation |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
 | [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |
 
-Now: the Warrior's [travel capabilities](plans/warrior-travel.md), with recovery performance
-preserved; the remaining Option control contracts and body-by-body training, the rat's open
+Now: the Warrior's [travel capabilities](plans/warrior-travel.md) and
+[bonk](plans/warrior-bonk.md), with recovery performance preserved; the remaining Option control
+contracts and body-by-body training, the rat's open
 steps, fights the owner watches, the Strike and Footwork rungs, and the Commander in the Crypt
 with Option Mind as its hero.
 
