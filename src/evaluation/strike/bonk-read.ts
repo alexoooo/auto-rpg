@@ -22,7 +22,7 @@ type StrokeEnd = { readonly at: number; readonly reason: "endpoint" | "impact wi
 type AssistRead = { force: number; moment: number; ceilingForce: number; ceilingMoment: number };
 type Physical = { time: number; pose: BonkPose; frame: BonkFrame; relativeHand: Vec3; relativeSwell: Vec3; relativeClub: BonkTurn;
   handSpeed: number; swellSpeed: number; velocity: Vec3; impulse: boolean; touching: boolean;
-  normal: Vec3 | null; contact: { shape: number; on: string; impulse: number }[]; clearance: SelfClearance; down: boolean; grip: boolean;
+  stopped: boolean; contact: { shape: number; on: string; impulse: number }[]; clearance: SelfClearance; down: boolean; grip: boolean;
   assists: { left: AssistRead; right: AssistRead } };
 type Sample = Physical & { phase: BonkPhase; reference: BonkCourse | null };
 type PhaseReading = { phase: BonkPhase; from: number | null; to: number | null; steps: number; exemptSteps: number;
@@ -111,7 +111,6 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
     chamberHold: 0, chamberSince: null as number | null, preparedHold: 0, chamberAbove: null as number | null,
     guardHold: 0, guardSince: null as number | null, recovered: null as number | null, ownerEnded: null as number | null, settledAtRelease: null as boolean | null,
     firstContact: null as number | null, lastContact: null as number | null, contactClosed: false, stopped: false,
-    contactNormal: null as Vec3 | null,
     hit: null as BonkReading["contact"], effectiveness: { committed: null as number | null, contact: null as BonkReading["contact"] },
     ownership: { held: [] as string[], handovers: [] as { at: number; resources: string[]; settled: boolean }[] } };
   const ownership = state.ownership;
@@ -139,7 +138,8 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
       shaft: a.map((v, k) => (b[k]! - v) / shaftLength) as unknown as Vec3 }, relativeHand, relativeSwell, relativeClub,
       handSpeed: state.previous ? distance(relativeHand, state.previous.relativeHand) / dt : 0,
       swellSpeed: state.previous ? distance(relativeSwell, state.previous.relativeSwell) / dt : 0,
-      velocity: xyz(velocity), impulse: !!first, touching: manifolds.some(one => one.points.some(point => point.distance <= 0)), normal: first?.normal ?? null,
+      velocity: xyz(velocity), impulse: !!first, touching: manifolds.some(one => one.points.some(point => point.distance <= 0)),
+      stopped: contacts.some(one => one.pairs.some(pair => pair.impulse > 0 && velocity.x * pair.normal[0] + velocity.y * pair.normal[1] + velocity.z * pair.normal[2] <= 0)),
       contact, clearance: tracking ? clearance() : { least: null, pair: null, pairs: 0, excluded: [] }, down: upright.fallen(), grip: attached(limb) && (grip === null || limb.configuration?.applied === grip),
       assists: { left: assistOf(left), right: assistOf(foe) } };
   }
@@ -225,12 +225,12 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
         else if (!action) finish(now, "cancelled");
         else if (elapsed(now.time, state.entry.time) >= BONK_LIMITS.prepare) finish(now, "preparation deadline");
       }
-      if (state.committed !== null && !state.end && now.impulse && state.firstContact === null) { state.firstContact = now.time; state.contactNormal = now.normal; }
+      if (state.committed !== null && !state.end && now.impulse && state.firstContact === null) state.firstContact = now.time;
       if (state.firstContact !== null && !state.contactClosed) {
           if (now.touching || now.impulse) state.lastContact = now.time;
           else state.contactClosed = true;
       }
-      if (state.contactNormal && now.velocity.reduce((sum, v, k) => sum + v * state.contactNormal![k]!, 0) <= 0) state.stopped = true;
+      if (state.committed !== null && !state.end && now.stopped) state.stopped = true;
       if (state.committed !== null && !state.end) {
         state.hit ??= intended;
         if (state.course) {

@@ -67,11 +67,11 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
   const handOf = (effector: string) => hands.find(one => one?.effector === effector) ?? null;
   type Hand = NonNullable<ReturnType<typeof handOf>>;
   type Live = { request: ActionRequest; hand: "left" | "right"; phase: "prepare" | "commit" | "release";
-    course: BonkCourse; returning: readonly (readonly number[])[] | null; frame: BonkFrame;
+    course: BonkCourse; returning: readonly (readonly number[])[] | null; returnSince: number | null; frame: BonkFrame;
     began: number; since: number; heldSince: number | null; lower: number; face: number;
     withdrawn: boolean; ending: ActionEnding; target: Vec3;
     previous: { relative: Relative; swell: Vec3 } | null;
-    guard: Relative; contact: number | null; normal: Vec3 | null; stopped: boolean };
+    guard: Relative; contact: number | null; stopped: boolean };
   const state = { live: null as Live | null };
   const frame = (): BonkFrame => ({ origin: root.frame.origin, at: xyz(root.pose.position), turn: xyzw(turnOfToRef(root, q)) });
   const relativeToChest = (pose: Pick<BonkPose, "hand" | "swell" | "club" | "chest" | "chestAt">): Relative => {
@@ -84,7 +84,7 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
     shaft: [0, 0, 0], joints: one.model.channels.map(row => row.map(name => view.angles[name]!)) });
   const elapsed = (now: number, since: number): number => (Math.round(now / body.dt) - Math.round(since / body.dt)) * body.dt;
   const beginReturn = (live: Live, now: BonkPose, time: number, ending: ActionEnding) => {
-    live.phase = "release"; live.since = time; live.heldSince = null; live.returning = now.joints; live.ending = ending;
+    live.phase = "release"; live.since = time; live.heldSince = null; live.returning ??= now.joints; live.returnSince ??= time; live.ending = ending;
     live.course = deepFreeze({ ...live.course, frame: frame() });
   };
   return {
@@ -109,9 +109,9 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
       if (!one || !at) throw new Error("an admitted bonk has no hand or target");
       const entry = frame(), course = one.model.make(entry, guard, at, settings.techniques[one.hand]);
       if (isRefused(course)) throw new Error(`an admitted bonk has no course: ${course.refused}`);
-      state.live = { request: structuredClone(request), hand: one.hand, phase: "prepare", course, returning: null, frame: entry, began: view.time, since: view.time,
+      state.live = { request: structuredClone(request), hand: one.hand, phase: "prepare", course, returning: null, returnSince: null, frame: entry, began: view.time, since: view.time,
         heldSince: null, lower: around.lower, face: view.stance.facing, withdrawn: false, ending: { kind: "completed" }, target: [...at], previous: null,
-        guard: relativeToChest(one.model.pose(course, course.guard)), contact: null, normal: null, stopped: false };
+        guard: relativeToChest(one.model.pose(course, course.guard)), contact: null, stopped: false };
     },
     resume() { state.live = null; },
     interrupt(_view, id) { if (state.live?.request.id === id) state.live = null; },
@@ -146,13 +146,17 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
       } else if (live.phase === "commit") {
         const near = one.model.nearest(live.course, now.swell);
         const touch = view.effectors[one.effector]?.feedback;
-        if (touch && touch.impulse > 0 && live.contact === null) { live.contact = view.time; live.normal = touch.contact?.normal ?? touch.obstruction?.normal ?? null; }
+        if (touch) for (const pair of touch.pairs ?? []) if (pair.loaded) {
+          live.contact ??= view.time;
+          if (touch.velocity[0] * pair.normal[0] + touch.velocity[1] * pair.normal[1] + touch.velocity[2] * pair.normal[2] <= 0) live.stopped = true;
+        }
         const end = one.model.pose(live.course, live.course.follow);
         const endpoint = near.progress === 1
           && distance(now.swell, end.swell) <= BONK_LIMITS.swellError && distance(now.hand, end.hand) <= BONK_LIMITS.handError;
-        if (live.normal && previous && ((now.swell[0] - previous.swell[0]) * live.normal[0]
-          + (now.swell[1] - previous.swell[1]) * live.normal[1] + (now.swell[2] - previous.swell[2]) * live.normal[2]) <= 0) live.stopped = true;
-        const withdrawal = live.stopped && previous && live.contact !== null && !touch?.pairs?.length
+        if (live.stopped && live.returning === null) { live.returning = now.joints; live.returnSince = view.time; }
+        // Predictive contact pairs can persist across a positive gap; physical release reads signed gaps.
+        const withdrawal = live.stopped && previous && live.contact !== null
+          && !body.built.physics.contactManifoldsOf(one.limb.body).some(manifold => manifold.points.some(point => point.distance <= 0))
           && distance(relative.swell, live.guard.swell) < distance(previous.relative.swell, live.guard.swell) && distance(now.swell, previous.swell) > 0;
         if (endpoint || withdrawal) beginReturn(live, now, view.time, { kind: "completed" });
         else if (elapsed(view.time, live.since) >= BONK_LIMITS.stroke) beginReturn(live, now, view.time, { kind: "stalled", reason: "physical stroke deadline" });
@@ -166,14 +170,16 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
         if (elapsed(view.time, live.since) >= BONK_LIMITS.return) live.ending = { kind: "stalled", reason: "guard settling deadline" };
       }
       live.previous = { relative, swell: now.swell };
-      const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.phase === "prepare" ? "chamber" : live.phase === "commit" ? "stroke" : "guard hold", holds: one.holds, aim: live.target }];
+      const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.phase === "prepare" ? "chamber" : live.phase === "commit"
+        ? live.returning === null ? "stroke" : "withdrawal" : "guard hold", holds: one.holds, aim: live.target }];
       return updates;
     },
     command(view, id) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`a bonk has no instance ${id}`);
       const one = handOf(live.request.effector)!;
-      one.model.paths(live.course, live.phase === "commit" ? "stroke" : live.phase === "release" ? "return" : "prepare", elapsed(view.time, live.since) + body.dt * body.delay, one.paths, live.returning ?? undefined);
+      one.model.paths(live.course, live.returning !== null ? "return" : live.phase === "commit" ? "stroke" : "prepare",
+        elapsed(view.time, live.returnSince ?? live.since) + body.dt * body.delay, one.paths, live.returning ?? undefined);
       return { paths: one.channels, ...(one.grip ? { configurations: { [one.effector]: one.grip } } : {}),
         legs: { walk: null, face: live.face, heading: live.face, halt: true, height: supportHeight(view) - live.lower } };
     },

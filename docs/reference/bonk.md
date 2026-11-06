@@ -21,8 +21,8 @@ The elbow and wrist keep their contact angles through the stroke. The constructo
 chamber height, descending contact tangent, shaft sweep, contact closure and joint ranges.
 A single rotation below a half turn makes the stroke simple and prevents a repeated windup.
 
-Preparation interpolates the guard's joint angles to the chamber's. Return interpolates from
-the physical stroke end to the configured guard; its hand and club courses follow the chest.
+Preparation interpolates the guard's joint angles to the chamber's. Withdrawal and return
+interpolate measured joint angles toward the configured guard; their hand and club courses follow the chest.
 Each coordinate uses a quintic course with zero endpoint velocity and acceleration. The stroke
 uses that same progress law for its rotation. Preparation can update its observed target;
 commitment freezes the stroke's frame and geometry.
@@ -39,8 +39,11 @@ supplies bilateral techniques, the entry window and the tracking response. The s
 `strike-bonk` Option defaults to the high mark and centre aim.
 
 Preparation tracks the sensed aim and commits only after the physical chamber hold. Commitment
-freezes the course. An endpoint or impact stop with withdrawal starts return; a deadline starts
-a failed return. Withdrawal during preparation cancels the stroke and starts return. The
+freezes the course. A measured stop against a loaded contact's current normal commands withdrawal
+while retaining the committed phase. Separation and motion toward guard end the stroke; its
+return course continues across that transition. Signed contact gaps distinguish physical touch
+from a retained predictive pair. An endpoint starts return; a deadline starts a failed return.
+Withdrawal during preparation cancels the stroke and starts return. The
 executor holds its resources until the configured guard meets its continuous physical hold,
 including after a deadline has failed the action. A configured executor publishes its declared
 technique for the physical reader through `ExecutorPart.reference`.
@@ -70,6 +73,7 @@ Complete confirmation also requires every case in the confirmation suite.
 
 The physical stroke ends on crossing the follow-through endpoint within its tracking limits,
 or on a measured impact stop followed by withdrawal. A deadline produces a failed return.
+The stop reading uses loaded contacts' current normals and the swell's physical velocity.
 Executor phase names and an executor's completed outcome do not establish that endpoint or
 guard recovery. The reader checks each resource release against the continuous guard hold.
 
