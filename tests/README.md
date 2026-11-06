@@ -185,3 +185,5 @@ completed bouts do not exercise:
 | Case | Concrete justification |
 | --- | --- |
 | [evaluation/rising-target.test.mjs](evaluation/rising-target.test.mjs) | The saved Warrior club-and-buckler fresh fixture contains an unproduced fall counted against recovery by the gate and median; verify exclusion and explicit coverage without admitting an empty or incomplete suite. The same observed shove must produce a fall with escalating retries. Drills do not establish fixture coverage or report arithmetic. |
+
+| [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `idle foot placement survives its own weight-shift tracking error and yields to a catch` | A wide placed Warrior cancels its own weight shift when tracking lags, repeating planted-foot attempts. Preserve the lift request through that observed lag and release it for a real catch; a recovery drill does not isolate cancellation ownership. |

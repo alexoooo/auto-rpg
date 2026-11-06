@@ -62,7 +62,7 @@ export const validCarriage = (carriage: Carriage): boolean =>
   && Number.isFinite(carriage.stagger) && carriage.stagger >= 0 && Number.isFinite(carriage.lower) && carriage.lower >= 0
   && (carriage.lead === "left" || carriage.lead === "right");
 
-/** Idle placement's quiet speed and maximum horizontal velocity error from its plan before yielding, m/s. */
+/** Idle placement's quiet horizontal speed before beginning a step, m/s. */
 const CARRIAGE_STILL = 0.1;
 
 /** A carriage's walk: the stance's steps (`STANCE_GAIT`) at its width; made once a carriage. */
@@ -80,7 +80,7 @@ const stepsOf = (carriage: Carriage, width: number): GaitTuning => {
  */
 const RISING_SECONDS = 1.3;
 
-/** How fast the stance's walk is asked to slow to a stop, m/s² (`Locomotion.stopping`): a controller setting. */
+/** How fast the stance's walk is asked to slow to a stop, m/sÃ‚Â² (`Locomotion.stopping`): a controller setting. */
 export const STANCE_STOPPING = 0.5;
 
 /**
@@ -182,7 +182,7 @@ export interface Locomotion extends Skill {
   /** The heading the legs face, rad: the frame a walk is asked in. */
   readonly heading: number;
   /**
-   * How fast it slows to a stop, m/s²: the deceleration the movement pipeline brakes by before a
+   * How fast it slows to a stop, m/sÃ‚Â²: the deceleration the movement pipeline brakes by before a
    * place and a corner (`travelSpeed`, `src/skills/intent/travel.ts`); 0 for legs that do not walk, which the speed rule takes nowhere.
    */
   readonly stopping: number;
@@ -471,8 +471,9 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
       && goal.pose === undefined && goal.swing === undefined && !goal.halt;
     const reset = (): void => { if (idle.target) state.placing = null; idle.target = null; idle.seconds = 0; };
     if (!free) { reset(); return null; }
-    if (idle.target && (s.own || hypot(s.velocity.x - s.planVelocity.x, s.velocity.z - s.planVelocity.z) > CARRIAGE_STILL)) {
-      // A push breaks the placement's plan: give the stance its catch steps before moving another foot.
+    if (idle.target && s.own) {
+      // A catch owns the step until it lands; the placement's own weight shift can lag its plan.
+      // That tracking error alone does not cancel a step before its foot lifts.
       reset(); return null;
     }
     if (goal.walk !== null) {

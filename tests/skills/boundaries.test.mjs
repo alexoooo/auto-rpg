@@ -390,3 +390,22 @@ test("Move does not erase a gait's complete runs setting when sharing instances"
   assert.equal(made.length, 2);
   assert.equal(built.state.gaits.length, 2);
 });
+
+
+test("idle foot placement survives its own weight-shift tracking error and yields to a catch", async () => {
+  const stand = await coreStand(stock, {posture:{"hip.left abduction":.35,"hip.right abduction":.35}});
+  const body = commandedBody(stand.built, stand.world, {servoSeconds:.1});
+  try {
+    const legs = locomotion(stanceFeetOf(stock), null, {segments:stanceSegmentsOf(stock), idleFooting:standingFooting(stand.built)});
+    const ends = Object.fromEntries(Object.entries(body.view.stance.ends).map(([name,end]) => [name,{...end,touching:true}]));
+    const view = {...body.view, time:1, born:0, down:false, stance:{...body.view.stance, phase:"stand", velocity:new Vector3(), planVelocity:new Vector3(), own:null, ends}};
+    const first = legs.goal(view, {walk:null,face:0}, .25).goal;
+    assert.ok(first?.swing, "the wide placed pose must request a neutral-footing step");
+    const shifting = {...view, time:1.1, stance:{...view.stance, phase:"shift", planVelocity:new Vector3(.11,0,0)}};
+    const next = legs.goal(shifting, {walk:null,face:0}, .01).goal;
+    assert.deepEqual(next.swing, first.swing, "tracking lag must retain the pending lift and its target");
+    const catchView = {...shifting, stance:{...shifting.stance, own:{...first.swing,shift:false}}};
+    legs.goal(catchView, {walk:null,face:0}, .01);
+    assert.deepEqual({idle:legs.state.idle, placing:legs.state.placing}, {idle:{seconds:0,target:null},placing:null}, "a stance-owned catch releases idle placement");
+  } finally {body.dispose();stand.dispose();}
+});
