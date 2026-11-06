@@ -73,8 +73,8 @@ import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
  *
  * A person who takes a side leads it as a team of one (`teamOfOne`) under the party's Commander,
  * which picks no foe untold and gives the side its orders (`Duel.order`): the keys walk it, as the
- * camera sees the ground, it faces the pointer, the left button attacks where the pointer is, and a
- * click on the floor sends it there. The page turns the keys and the pointer into world directions
+ * camera sees the ground and it faces the pointer. Clicking selects an opponent or floor destination;
+ * holding the left button updates that order. The page turns the keys and pointer into world directions
  * and a ray (`orders-input.ts`, `LeadInput`) before the worker's Commander reads them, so nothing of
  * the camera reaches a mind.
  *
@@ -464,15 +464,16 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const column = document.createElement("div"), label = document.createElement("strong"), bar = document.createElement("progress");
     column.className = "hud-col"; column.dataset.side = side; bar.max = 1; bar.value = 1;
     column.style.setProperty("--side-colour", ARENA_SIDES[side].colour);
-    const status = document.createElement("small"), mind = document.createElement("details"), summary = document.createElement("summary");
+    const status = document.createElement("small"), target = document.createElement("small"), mind = document.createElement("details"), summary = document.createElement("summary");
+    target.hidden = true;
     const condition = fighterHud(ARENA_SIDES[side].label);
     mind.className = "hud-mind"; summary.textContent = "Mind"; mind.append(summary);
     bar.setAttribute("aria-label", `${ARENA_SIDES[side].label} fighter health`);
-    // A pick goes to the person's side as an attack, as their pointer's strike does, and the bout goes on.
+    // A choice orders an attack on the person's side and resumes the bout.
     const choices = choicePanel((foe) => ARENA_SIDES[foe as Side]?.name ?? foe,
       (strike, among) => { if (!bout?.person) return; bout.link.input({ kind: "attack", strike, among }); setPaused(false); });
-    column.append(label, bar, condition.element, status, choices.element, mind); hud.append(column);
-    return { side, label, bar, status, mind, condition, choices, inspector: null as ReturnType<typeof mindInspector> | null };
+    column.append(label, bar, condition.element, status, target, choices.element, mind); hud.append(column);
+    return { side, label, bar, status, target, mind, condition, choices, inspector: null as ReturnType<typeof mindInspector> | null };
   });
   const showControl = () => {
     choiceLabel.hidden = bout?.person == null;
@@ -701,13 +702,13 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   // What the person's hands are doing: the walking keys held, and whether Shift is, which walks; where the
   // pointer is in viewport pixels, and whether its left button is down.
   const keys = { up: false, down: false, left: false, right: false };
-  let pointer: { x: number; y: number } | null = null, attacking = false, walking = false;
+  let pointer: { x: number; y: number } | null = null, pointing = false, walking = false;
   const walkKeys: Readonly<Record<string, keyof typeof keys>> = {
     w: "up", arrowup: "up", s: "down", arrowdown: "down", a: "left", arrowleft: "left", d: "right", arrowright: "right",
   };
   const releaseInput = () => {
     keys.up = keys.down = keys.left = keys.right = false;
-    walking = false; attacking = false; pointer = null; press = null;
+    walking = false; pointing = false; pointer = null;
     leadSent = "";
   };
   youPicker.addEventListener("change", () => {
@@ -754,30 +755,22 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   for (const type of ["pointerdown", "pointermove", "pointerup"] as const) {
     canvas.addEventListener(type, (event) => {
       pointer = { x: event.clientX, y: event.clientY };
-      attacking = (event.buttons & 1) !== 0;
+      pointing = (event.buttons & 1) !== 0;
     });
   }
-  canvas.addEventListener("pointerleave", () => { pointer = null; attacking = false; press = null; });
-  // A left click that moves less than `CLICK_PIXELS` before its release sends the person's side to
-  // the floor under it, where its ray meets no body part first (`DuelInput` "go").
-  const CLICK_PIXELS = 6;
-  let press: { x: number; y: number } | null = null;
+  canvas.addEventListener("pointerleave", () => { pointer = null; pointing = false; });
   /** The person's ray through viewport coordinates (`x`, `y`). */
   const rayAt = (x: number, y: number): Ray => {
     const pick = pickingCoordinates(x, y, canvas.getBoundingClientRect(), engine.getRenderWidth(), engine.getRenderHeight(), engine.getHardwareScalingLevel());
     const ray = scene.createPickingRay(pick.x, pick.y, null, camera);
     return { origin: vec(ray.origin), direction: vec(ray.direction), length: camera.maxZ };
   };
-  canvas.addEventListener("pointerdown", (event) => {
-    press = event.button === 0 && bout?.person ? { x: event.clientX, y: event.clientY } : null;
-  });
   canvas.addEventListener("pointerup", (event) => {
-    const pressed = press; press = null;
-    if (event.button !== 0 || !pressed || !bout?.person || paused || Math.abs(event.clientX - pressed.x) + Math.abs(event.clientY - pressed.y) >= CLICK_PIXELS) return;
-    bout.link.input({ kind: "go", ray: rayAt(event.clientX, event.clientY) });
+    if (event.button !== 0 || !bout?.person || paused) return;
+    bout.link.input({ kind: "click", ray: rayAt(event.clientX, event.clientY) });
   });
 
-  // Orbit uses the spare buttons; left-button attack remains independent of camera mode.
+  // Orbit uses the spare buttons; left-button orders remain independent of camera mode.
   canvas.addEventListener("contextmenu", event => event.preventDefault());
   canvas.addEventListener("pointermove", event => {
     if (screen === "fight" && (event.buttons & 6)) rig.orbit(event.movementX, event.movementY);
@@ -789,12 +782,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   /**
    * The person's lead for this frame, from the keys and the pointer as the camera has them: the keys a
    * direction on the ground, Shift a walk, the pointer's ray, which the worker turns into a point to
-   * face on the level of the side's centre of mass, and the left button held, which strikes the body
-   * part under the pointer. Sent when it changes.
+   * face on the level of the side's centre of mass, and the left button held, which continuously
+   * updates its destination or opponent. Sent when it changes.
    */
   const steer = () => {
     if (!bout?.person) return;
-    const lead: LeadInput = { keys: keysToMove(keys, rig.azimuth), walk: walking, ray: pointer ? rayAt(pointer.x, pointer.y) : null, attacking };
+    const lead: LeadInput = { keys: keysToMove(keys, rig.azimuth), walk: walking, ray: pointer ? rayAt(pointer.x, pointer.y) : null, pointing };
     const sent = JSON.stringify(lead);
     if (sent !== leadSent) { leadSent = sent; bout.link.input({ kind: "lead", lead }); }
   };
@@ -834,6 +827,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         : `${controller} - ${side.phase}`;
       if (row.mind.open) row.inspector?.refresh();
       const leads = bout.person === row.side && !news.verdict;
+      row.target.hidden = !leads || side.target === null;
+      row.target.textContent = side.target === null ? "" : `Target: ${ARENA_SIDES[side.target as Side]?.name ?? side.target}`;
       // What the worker sends of the side: its choices while their list is open or opens, its mind while inspected.
       const look = { menu: row.choices.element.open || leads && choosing, mind: row.mind.open }, looked = JSON.stringify(look);
       if (looked !== looksSent[row.side]) { looksSent[row.side] = looked; bout.link.input({ kind: "look", side: row.side, ...look }); }

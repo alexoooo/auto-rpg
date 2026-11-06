@@ -2,7 +2,7 @@ import { Vector3 } from "../../core/math/vector.ts";
 import type { EngineName } from "../../core/physics/engines.ts";
 import type { Heading } from "../../skills/intent/orders.ts";
 import type { GroundPoint } from "../../skills/intent/movement.ts";
-import type { StrikeChoice } from "../../minds/command/commands.ts";
+import type { Command, StrikeChoice } from "../../minds/command/commands.ts";
 import type { MenuEntry } from "../../skills/framework/menu.ts";
 import { physicalReading } from "../../control/observation.ts";
 import { constructionScope } from "../../core/construction.ts";
@@ -60,13 +60,13 @@ export interface Ray {
 /**
  * A person's live lead of their side, as the page reads the keys and the pointer: the ground
  * direction the keys ask as the camera sees the ground (`keysToMove`), whether Shift walks, the
- * pointer's ray, and whether its left button is down, which strikes the body part under it.
+ * pointer's ray, and whether its left button is down, which continuously points out a destination or opponent.
  */
 export interface LeadInput {
   readonly keys: Heading | null;
   readonly walk: boolean;
   readonly ray: Ray | null;
-  readonly attacking: boolean;
+  readonly pointing: boolean;
 }
 
 /** What a page tells a duel's stage as it runs: each is applied before the next step. */
@@ -75,8 +75,8 @@ export type DuelInput =
   | { readonly kind: "control"; readonly side: Side | null }
   /** The person's lead, read before every step until the next; null for none. */
   | { readonly kind: "lead"; readonly lead: LeadInput | null }
-  /** A click: the person's side goes where `ray` meets the floor, unless it meets a body part first. */
-  | { readonly kind: "go"; readonly ray: Ray }
+  /** A click selects the sensed opponent under `ray`, or sends the fighter to the floor point. */
+  | { readonly kind: "click"; readonly ray: Ray }
   /** A choice picked (`choicePanel`): an attack, and the entries it picks among. */
   | { readonly kind: "attack"; readonly strike: StrikeChoice & { readonly foe: string }; readonly among: readonly MenuEntry[] }
   /** What the page shows of `side` beyond its status: its choices (`menu`), its mind's inspection (`mind`). */
@@ -98,6 +98,7 @@ interface SideNews {
   readonly hud: FighterReading;
   readonly feet: GroundPoint;
   readonly route: readonly GroundPoint[] | null;
+  readonly target: string | null;
   /** Its mind's choices, where the page looks at them. */
   readonly menu?: readonly MenuEntry[] | null;
   /** Its mind's ownership and actions, where the page inspects it. */
@@ -193,7 +194,22 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   const { length } = frameLayout(roster);
   const looks = Object.fromEntries(SIDES.map((side) => [side, { menu: false, mind: false }])) as Record<Side, { menu: boolean; mind: boolean }>;
   const watch = choiceWatch();
-  const state = { person: start.person, lead: null as LeadInput | null, hold: start.hold, choosing: false, taken: 0 };
+  const state = { person: start.person, lead: null as LeadInput | null, pointed: null as string | null, hold: start.hold, choosing: false, taken: 0 };
+
+  /** Clicks and held points share one command; unchanged points retain the Commander's route progress. */
+  const pointAt = ({ origin, direction, length }: Ray) => {
+    if (!led || !state.person) return;
+    const own = duel.duelists[state.person], target = rayTarget(own.senses(), origin, direction, length), floor = aimPoint(origin, direction, 0);
+    const command: Command | null = target ? { kind: "attack", foe: target.foe }
+      : floor ? { kind: "go", destination: { x: floor[0], z: floor[2] } } : null;
+    const signature = JSON.stringify(command);
+    if (signature === state.pointed) return;
+    state.pointed = signature;
+    if (command) {
+      led.hear(command);
+      if (command.kind === "attack") watch.picked([]);
+    }
+  };
 
   /** The person's lead as the team reads it, from their input and the world as it stands. */
   const leading = () => {
@@ -201,8 +217,8 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
     const input = state.lead, own = duel.duelists[state.person];
     if (!input) { led.lead = null; return; }
     const point = input.ray ? aimPoint(input.ray.origin, input.ray.direction, own.body.physical.centre.y) : null;
-    const strike = input.attacking && input.ray ? rayTarget(own.senses(), input.ray.origin, input.ray.direction, input.ray.length) : null;
-    led.lead = { keys: input.keys, walk: input.walk, aim: point ? { x: point[0], z: point[2] } : null, strike, explore: false };
+    if (input.pointing && input.ray) pointAt(input.ray);
+    led.lead = { keys: input.keys, walk: input.walk, aim: point ? { x: point[0], z: point[2] } : null, strike: null, explore: false };
   };
   /** Whether the person's side has a new choice to hold for. */
   const chose = (): boolean => {
@@ -218,6 +234,7 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
     return { phase, has: fighter.body.has, down: fighter.body.down, downFor: duel.state.recovery?.[side] ?? null,
       assisted: fighter.body.assist.on, hud: readings[side].read(time()),
       feet: { x: centre.x, z: centre.z }, route: report?.navigation?.route.map(point => ({ x: point.x, z: point.z })) ?? null,
+      target: duel.state.given[side]?.foe ?? null,
       ...look.menu ? { menu: report?.menu ?? null } : {},
       ...look.mind ? { inspected: { body: { has: fighter.body.has, level: fighter.body.level },
         skills: mind.skills ? { report: { holders: mind.skills.report.holders, defaultOwners: mind.skills.report.defaultOwners, actions: mind.skills.report.actions } } : null,
@@ -255,17 +272,14 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
           led?.dispose(); led = null;
           if (state.person) duel.order(state.person, null);
           state.person = input.side;
-          state.lead = null; state.choosing = false; watch.reset();
+          state.lead = null; state.pointed = null; state.choosing = false; watch.reset();
           led = leadSide(state.person);
           return;
-        case "lead": state.lead = input.lead; return;
-        case "go": {
-          if (!led || !state.person) return;
-          const own = duel.duelists[state.person], { origin, direction, length: reach } = input.ray;
-          const floor = aimPoint(origin, direction, 0);
-          if (floor && !rayTarget(own.senses(), origin, direction, reach)) led.hear({ kind: "go", destination: { x: floor[0], z: floor[2] } });
+        case "lead":
+          if (!input.lead?.pointing || JSON.stringify(input.lead.keys) !== JSON.stringify(state.lead?.keys)) state.pointed = null;
+          state.lead = input.lead;
           return;
-        }
+        case "click": pointAt(input.ray); return;
         case "attack":
           if (!led) return;
           led.hear({ kind: "attack", ...input.strike });
