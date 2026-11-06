@@ -255,9 +255,10 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       bind: { hip: bindOf(`hip.${side}`), knee: bindOf(`knee.${side}`), ankle: bindOf(`ankle.${side}`) }, spread: bindOf(`hip.${side}`, 1) };
   };
   const legs = { left: limbOf("left"), right: limbOf("right") };
+  const legChannels = SIDES.flatMap(side => [...legs[side].hip, legs[side].knee, ...legs[side].ankle]);
   const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, touching: { left: true, right: true }, root: new Quaternion(), heading: 0, lean: 0, bank: 0 };
   const scratch = { up: new Vector3(), spin: new Vector3(), target: new Quaternion(), pitch: new Quaternion(), roll: new Quaternion(), error: new Vector3(), relative: new Vector3(),
-    speeds: [0, 0, 0] as [number, number, number] };
+    speeds: [0, 0, 0] as [number, number, number], rates: new Float64Array(muscles.channels.length), pushes: new Int32Array(muscles.channels.length) };
   const runner = armSwing(spec, settings.arms, true), brakeRunner = armSwing(spec, braking.arms, true), feet = { left: footOn(spec, "left"), right: footOn(spec, "right") };
   /** Whether the ground bore the foot on `side` in the last step (`StanceEnd.touching`). */
   const touching = (view: BodyView, side: Side): boolean => view.stance.ends[feet[side]]!.touching;
@@ -322,9 +323,12 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       const pitch = atan2(up.x * fx + up.z * fz, up.y), roll = atan2(up.x * rx + up.z * rz, up.y);
       const spin = spinBetweenToRef(memory.root, turn, dt, scratch.spin);
       memory.root.copyFrom(turn);
-      const pushes: MusclePush[] = [];
+      const pushes: { channel: string; sense: 1 | -1; level: number; speed: number }[] = [];
+      scratch.pushes.fill(-1);
       const drive = (name: string, i: number, goal: number, level: number, more = 0): void => {
         const u = more + (goal - muscles.angle(i)) / p.settle;
+        scratch.rates[i] = u;
+        scratch.pushes[i] = pushes.length;
         pushes.push({ channel: name, sense: u >= 0 ? 1 : -1, level: Math.min(1, level), speed: u });
       };
       const a = dynamics.pivot(st.ankle[0]), across = v.x * rx + v.z * rz;
@@ -366,6 +370,17 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
         drive(st.names.hip[0], st.hip[0], angle("hip") - st.bind.hip - blended.lean + pitch, p.swing, rate("hip"));
         drive(st.names.hip[1], st.hip[1], -st.spread, p.swing);
         drive(st.names.hip[2], st.hip[2], 0, p.swing);
+      }
+      // Pose errors and clip derivatives are coordinate rates; motors read channel speeds.
+      // The bearing hip already computes its channel speeds from the requested world spin.
+      for (const i of legChannels) {
+        const at = scratch.pushes[i]!;
+        if (at < 0) continue;
+        const channel = muscles.channels[i]!, first = i - channel.index;
+        let speed = 0;
+        for (let k = 0; k < channel.joint.dofs.length; k++) speed += muscles.turning(i, k) * scratch.rates[first + k]!;
+        pushes[at]!.speed = speed;
+        pushes[at]!.sense = speed >= 0 ? 1 : -1;
       }
       // The arms swing at the sides, neither drawn in nor out (`RUN_ARMS`), whatever the guard holds.
       const swung = (p === braking ? brakeRunner : runner)(view, heading, { step: null, swung: 0, off: false });

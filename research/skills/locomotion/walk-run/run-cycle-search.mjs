@@ -27,8 +27,8 @@ import { footOn } from "../../../../src/control/support.ts";
  *   (`gaitOf`: step width, cadence and step length); with `--windows` each trial's speed in each 2 s window.
  * - `--narrow <share>` scales a trial's credit down by as much as its step width is over that share of the body's leg (`legOf`).
  * - `--fallen <share>` scales a fallen trial's credit by that share, so that a fall late in a trial costs more than the distance it ends.
- * - `--slowest <s>` credits a trial that runs on, or turns, and stays up with its slowest second's speed over the ground from `<s>` s after
- *   it is asked to run (a turning trial from the turn's start) to its end, the run's bar's reading (`src/evaluation/locomotion/read.ts`), in place of the speed it made.
+ * - `--slowest <s>` credits a trial that runs on, or turns, and stays up with its slowest rolling second's speed projected along the requested direction from `<s>` s after
+ *   it is asked to run (a turning trial from the turn's start) to its end, the travel speed contract, in place of the speed it made.
  * - `--trace <file>` with `--score` retains each step's motion, handover state, contacts and muscle targets.
  * - `--stop-hold <s>` requires the speed to remain below the stopping threshold for that span; otherwise a first dip is read.
  * - `--braking-only` fixes the running calibration to the start and searches only the decelerating cycle.
@@ -58,7 +58,7 @@ import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
 
 /** Each setting searched and its range. */
 const DIMS = {
-  blend: [0, 1], short: [0, 1], swingGain: [0, 0.4], cadenceGain: [0, 0.3], gainsFrom: [2.2, 5], period: [0.8, 1.25], accel: [0.3, 2], brake: [0.3, 4], ahead: [0.1, 1.5],
+  blend: [0, 1], short: [0, 1], swingGain: [0, 0.4], cadenceGain: [0, 0.3], gainsFrom: [2.2, 5], period: [0.8, 1.25], accel: [0.3, 4], brake: [0.3, 4], ahead: [0.1, 1.5],
   lean: [-0.05, 0.45], pelvis: [0.04, 0.2], leanGain: [0, 1], leanMost: [0, 0.6], bank: [-0.5, 1.5], hold: [0.5, 1], settle: [0.02, 0.15], stance: [0.4, 1], swing: [0.3, 1], ankle: [0.2, 1],
   cv: [-0.1, 0.4], cd: [-0.5, 0.8], late: [0.5, 0.95], paceGain: [0, 0.5], paceMost: [0, 0.4],
   contact: [0.1, 0.4], gainSide: [0, 0.4], width: [-0.05, 0.2], cvAnkleSide: [-1, 1], cdSide: [-0.5, 1],
@@ -142,7 +142,8 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
     let from = null, at = 0, z = 0, path = 0, fell = null, under = null, metres = null, asked0 = null, mark = body.view.stance.centre.z, enteredAt = null, quietFrom = null;
     // The slowest second's speed over the ground from `slowestFrom` s after the walk is asked (or the turn's start) to the stop or the end.
     const second = stand.seconds(1), slowFrom = slowestFrom === null ? null : turn !== 0 ? turnFrom : stand.seconds(slowestFrom);
-    let slowest = Infinity, ground = 0;
+    let slowest = Infinity, heldSamples = 0, heldTotal = 0;
+    const speedWindow = new Float64Array(second);
     const was = { left: true, right: true }, landings = [], gaitTo = turn !== 0 ? turnFrom : stopAt;
     for (let i = 1; i <= steps; i++) {
       if (turn !== 0 && i > turnFrom) face = turn > 0 ? Math.min(turnAngle, face + turn / stand.world.hz) : Math.max(-turnAngle, face + turn / stand.world.hz);
@@ -150,7 +151,7 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
       stand.step(1);
       if (enteredAt === null && skill.state.walkRun.running) enteredAt = i / stand.world.hz;
       const s = body.view.stance;
-      if (trace) samples.push(structuredClone({time: i / stand.world.hz, centre: s.centre, velocity: s.velocity, root: body.view.root.rotation, run: skill.state.run, handover: skill.state.walkRun, ends: s.ends, pushes: pushes.map(p => { const i = body.muscles.channel(p.channel); return {...p, axis: [...body.muscles.dynamics.axis(i)], angle: body.muscles.angle(i), actual: body.muscles.speed(i)}; })}));
+      if (trace) samples.push(structuredClone({time: i / stand.world.hz, centre: s.centre, velocity: s.velocity, root: body.view.root.rotation, run: skill.state.run, handover: skill.state.walkRun, ends: s.ends, pushes: pushes.map(p => { const i = body.muscles.channel(p.channel); return {...p, axis: [...body.muscles.dynamics.axis(i)], turning: Array.from({length:body.muscles.channels[i].joint.dofs.length},(_,k)=>body.muscles.turning(i,k)), torque: body.muscles.pulled[i], ceiling: body.muscles.ceiling[i], angle: body.muscles.angle(i), actual: body.muscles.speed(i)}; })}));
       for (const side of SIDES) {
         if (s.ends[footOn(spec, side)].touching && !was[side] && from !== null && i > at + stand.seconds(GAIT.after) && i <= gaitTo)
           landings.push({ side, i, across: s.ends[footOn(spec, side)].middle.x * Math.cos(face) - s.ends[footOn(spec, side)].middle.z * Math.sin(face), along: s.centre.z });
@@ -159,8 +160,11 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
       if (from === null && s.velocity.z >= CREDIT_FROM) { from = s.centre.z; at = i; }
       if (from !== null) path += Math.sqrt(s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z) / stand.world.hz;
       if (slowFrom !== null && i > slowFrom && i <= stopAt) {
-        ground += Math.sqrt(s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z) / stand.world.hz;
-        if ((i - slowFrom) % second === 0) { slowest = Math.min(slowest, ground); ground = 0; }
+        const at = heldSamples % second, projected = (s.velocity.x * Math.sin(face) + s.velocity.z * Math.cos(face)) / stand.world.hz;
+        heldTotal += projected - speedWindow[at];
+        speedWindow[at] = projected;
+        heldSamples++;
+        if (heldSamples >= second) slowest = Math.min(slowest, heldTotal);
       }
       if (i <= stopAt) { z = s.centre.z; asked0 = s.centre.clone(); }
       else {
