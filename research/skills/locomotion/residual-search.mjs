@@ -10,7 +10,7 @@ import { parseArgs } from 'node:util';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { cmaSearch, workerPool } from '../../cma.mjs';
-import { residualEnvironment, RESIDUAL_LAYOUT } from './residual-environment.mjs';
+import { residualEnvironment, RESIDUAL_LAYOUT, residualLayout } from './residual-environment.mjs';
 import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
 
 const CHANNELS = [0, 3, 4, 6, 9, 10];
@@ -54,7 +54,7 @@ if (!isMainThread) {
     seconds: Number(o.seconds), creditFrom: Number(o.from) };
   if (!(settings.creditFrom >= 1 && settings.seconds > settings.creditFrom) || !Number.isFinite(settings.seconds)) throw Error('the credit window follows entry and precedes the episode end');
   const hash = file => createHash('sha256').update(readFileSync(file)).digest('hex');
-  const identity = { settings, layout: RESIDUAL_LAYOUT, channels: CHANNELS,
+  const identity = { settings, layout: residualLayout(settings.residual), channels: CHANNELS,
     code: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     diff: execFileSync('git', ['diff', 'HEAD'], { encoding: 'utf8' }),
     search: hash(new URL(import.meta.url)), environment: hash(new URL('./residual-environment.mjs', import.meta.url)),

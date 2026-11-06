@@ -3,7 +3,7 @@ import { parseArgs } from 'node:util';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { residualEnvironment, RESIDUAL_LAYOUT } from './residual-environment.mjs';
+import { residualEnvironment } from './residual-environment.mjs';
 import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
 
 const { values: o } = parseArgs({ options: { config: { type: 'string' }, policy: { type: 'string' },
@@ -52,7 +52,7 @@ try {
     reader: createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex'),
     environment: createHash('sha256').update(readFileSync(new URL('./residual-environment.mjs', import.meta.url))).digest('hex') };
   writeFileSync(o.out, JSON.stringify({ protocol: 'residual development screen, physical COM at 120 Hz', settings,
-    harness: env.harness, layout: RESIDUAL_LAYOUT, code,
+    harness: env.harness, layout: env.layout, code,
     calibration: { settings: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: JSON.parse(readFileSync(settings.stride, 'utf8')) },
     policy: o.policy ?? null, policyHash: policyBytes ? createHash('sha256').update(policyBytes).digest('hex') : null, trials }) + '\n');
 } finally { env.dispose(); }

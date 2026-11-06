@@ -1,4 +1,4 @@
-/** Residual velocity control around the retained gait, for running-state pretraining only.
+/** Residual muscle control around the retained gait, for running-state pretraining only.
  * Node core stand, explicit engine, 120 Hz, Balance 0, empty hands in guard. Fresh bodies warm
  * through the ordinary gait before each training episode. A from-rest development screen includes
  * that walk-in; complete travel confirmation also requires stops, loadouts and fresh conditions.
@@ -30,6 +30,17 @@ export const RESIDUAL_LAYOUT = Object.freeze({
       ...JOINTS.flatMap(joint => [`${role} ${joint} angle`, `${role} ${joint} speed`])])]),
   outputs: Object.freeze(ROLES.flatMap(role => JOINTS.map(joint => `${role} ${joint} velocity`))),
 });
+const ACTIVATION_LAYOUT = Object.freeze({ ...RESIDUAL_LAYOUT,
+  outputs: Object.freeze(ROLES.flatMap(role => JOINTS.map(joint => `${role} ${joint} activation`))),
+});
+/** The observation and action names for the selected bounded muscle correction. */
+export function residualLayout(kind = 'velocity') {
+  switch (kind) {
+    case 'velocity': return RESIDUAL_LAYOUT;
+    case 'activation': return ACTIVATION_LAYOUT;
+    default: throw Error('a travel residual controls velocity or activation');
+  }
+}
 const tanh = value => {
   const t = exp(-2 * Math.abs(value));
   return (value < 0 ? -1 : 1) * (1 - t) / (1 + t);
@@ -37,7 +48,16 @@ const tanh = value => {
 
 export async function residualEnvironment(configuration = {}) {
   const o = { model: 'workshop-fighter', engine: DEFAULT_ENGINE, pace: 4.2, seconds: 8,
-    starts: [1.8, 3.5, 6], fromRestShare: 0, speedWidth: 1, actionAt: 0, fallRule: 'physical', scale: 2, seed: 1, ...configuration };
+    starts: [1.8, 3.5, 6], fromRestShare: 0, speedWidth: 1, actionAt: 0, fallRule: 'physical', residual: 'velocity', scale: 2, seed: 1, ...configuration };
+  const layout = residualLayout(o.residual);
+  if (!(o.scale >= 0) || !Number.isFinite(o.scale)) throw Error('residual scale is finite and nonnegative');
+  const applyResidual = o.residual === 'activation'
+    ? (push, action) => ({ ...push, level: Math.max(0, Math.min(1, push.level + action * o.scale)) })
+    : (push, action) => {
+      if (!Number.isFinite(push.speed)) return push;
+      const speed = push.speed + action * o.scale;
+      return { ...push, speed, sense: speed >= 0 ? 1 : -1 };
+    };
   if (!(o.actionAt >= 0) || !Number.isFinite(o.actionAt)) throw Error('residual onset is finite and nonnegative');
   if (!['posture', 'physical'].includes(o.fallRule)) throw Error('residual fall rule is posture or physical');
   if (!(o.fromRestShare >= 0 && o.fromRestShare <= 1) || !(o.speedWidth > 0) || !Number.isFinite(o.speedWidth))
@@ -117,9 +137,8 @@ export async function residualEnvironment(configuration = {}) {
         const pushes = d.pushes.map(push => {
           let i = names[side].indexOf(push.channel);
           if (i < 0) { const other = names[opposite].indexOf(push.channel); i = other < 0 ? -1 : other + 6; }
-          if (i < 0 || !Number.isFinite(push.speed)) return push;
-          const speed = push.speed + (view.time >= 1 + o.actionAt ? control.action[i] * o.scale : 0);
-          return { ...push, speed, sense: speed >= 0 ? 1 : -1 };
+          if (i < 0) return push;
+          return applyResidual(push, view.time >= 1 + o.actionAt ? control.action[i] : 0);
         });
         return { posture: { ...guard, ...d.posture }, pushes, stance: null };
       }
@@ -162,7 +181,8 @@ export async function residualEnvironment(configuration = {}) {
         seconds: episode.ticks / stand.world.hz, fromRest: episode.fromRest } };
   };
   await reset();
-  return { observationSize: RESIDUAL_LAYOUT.inputs.length, actionSize: 12, reset, step, reading, dispose,
+  return { observationSize: layout.inputs.length, actionSize: layout.outputs.length, layout, reset, step, reading, dispose,
     harness: Object.freeze({ model: o.model, engine: o.engine, hz: stand.world.hz, delay: stand.world.delay,
-      actuation: stand.world.actuation, balance: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt }) };
+      actuation: stand.world.actuation, balance: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt,
+      residual: o.residual, scale: o.scale }) };
 }
