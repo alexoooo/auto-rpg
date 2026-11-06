@@ -6,6 +6,7 @@ import bpy, bmesh, math, random, json, hashlib
 import numpy as np
 from pathlib import Path
 from mathutils import Matrix
+from crypt_surfaces import STONE_REPEAT
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'assets/art/environment/dungeon-reference'
@@ -41,7 +42,7 @@ def finish(o,mat,shade=None):
         for li in poly.loop_indices:
             v=o.matrix_world @ o.data.vertices[o.data.loops[li].vertex_index].co
             a,b=(v.y,v.z) if axis==0 else ((v.x,v.z) if axis==1 else (v.x,v.y))
-            layer[li].uv=(a/1.35+du,b/1.35+dv)
+            layer[li].uv=(a/STONE_REPEAT+du,b/STONE_REPEAT+dv)
             color.data[li].color=(shade,shade,shade,1)
     return o
 

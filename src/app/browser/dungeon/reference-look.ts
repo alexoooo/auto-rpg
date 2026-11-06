@@ -74,7 +74,8 @@ class CryptDamp extends MaterialPluginBase {
       CUSTOM_FRAGMENT_BEFORE_LIGHTS: `float cryptWet=cryptDamp(vPositionW.xz);
         surfaceAlbedo *= mix(1.0,0.64,cryptWet);
         normalW=normalize(mix(normalW,geometricNormalW,cryptWet*.7));`,
-      CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS: "metallicRoughness.g = mix(metallicRoughness.g, 0.24, cryptDamp(vPositionW.xz));",
+      // A damp porous surface keeps a broad highlight over its chipped relief.
+      CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS: "metallicRoughness.g = mix(metallicRoughness.g, 0.45, cryptDamp(vPositionW.xz));",
     } : null;
   }
 }
@@ -188,8 +189,8 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
     material.useMetallnessFromMetallicTextureBlue = true;
     material.useAmbientOcclusionFromMetallicTextureRed = true;
     material.albedoTexture = channels[0]; material.bumpTexture = channels[1]; material.metallicTexture = channels[2];
-    // Worn flake interiors reflect differently from the dry wall stone.
-    if (plan) material.roughness = family === "floor" ? .72 : 1;
+    // The packed map carries the authored roughness without an additional gloss multiplier.
+    material.roughness = 1;
     material.invertNormalMapX = true; material.invertNormalMapY = false;
     return material;
   };

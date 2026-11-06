@@ -155,15 +155,15 @@
   "textures": [
     {
       "file": "floor-albedo.png",
-      "sha256": "bffff0caaac5dd2e3a7ed801d3ab10a11705254c1d7bfa8e7599552cf0083137"
+      "sha256": "d58cb74e557821bd17ed805c9946d4676ce61c4fe32a5c295745cf14557efbed"
     },
     {
       "file": "floor-normal.png",
-      "sha256": "6d7e71a4df64d7b89371553954fc2cf2a565941163588e0485c57f4810618cd1"
+      "sha256": "0ec6b5eaaaab0769a561ee9921a2347c598c96ee60a6d1759457aeba29b705ac"
     },
     {
       "file": "floor-orm.png",
-      "sha256": "2aba44ea1ce8ddee0a1ad67ff4267d4535faacd510551fe1bab66547e0125ab1"
+      "sha256": "41f4769c35ca70b645c8305729961709f495b1126b28f653cc0874f0440c2f98"
     },
     {
       "file": "cloth-albedo.png",
@@ -179,15 +179,15 @@
     },
     {
       "file": "wood-albedo.png",
-      "sha256": "d0c619f9d8754d02c292febe064b8a7291695f9e571a8f5bde446d4caf21f23c"
+      "sha256": "e48c47bc1102a74af4d1fdb57d3271f3466c23804c510aa7d767dce4c901691e"
     },
     {
       "file": "wood-normal.png",
-      "sha256": "5ef313ce7689ea683482cdbdbf9e72dc98051f63b1c69c3417acbcb4a422a731"
+      "sha256": "464acc95f66647540b9257c0de505a8802433885d133238dba08bdc020a172f8"
     },
     {
       "file": "wood-orm.png",
-      "sha256": "f5ace4c7254096741620f21bb38b67b3a450a9b910fcfa6aad852e59061f7b12"
+      "sha256": "881c0d6358a81a1ad7052e55b322c6defc17c08bb5c51dc2e39ab763ca3556de"
     }
   ]
 }

@@ -3,6 +3,11 @@ import hashlib
 import bpy
 import numpy as np
 
+# The planar stone UVs span this distance in metres.
+STONE_REPEAT = 1.35
+# Height per unit image luminance, in metres: fine relief complements the chipped mesh.
+STONE_RELIEF = .012
+
 
 def build_surfaces(folder):
     image=bpy.data.images.load(str(folder/'stone-source.png'),check_existing=False)
@@ -11,13 +16,17 @@ def build_surfaces(folder):
     bpy.data.images.remove(image)
 
     def resize(a,size):
-        # Periodic bilinear sampling retains the material's geological detail.
-        y=np.arange(size)*a.shape[0]/size;x=np.arange(size)*a.shape[1]/size
-        iy=y.astype(int);ix=x.astype(int);fy=y-iy;fx=x-ix
-        return ((a[iy[:,None]%a.shape[0],ix[None,:]%a.shape[1]]*(1-fx)[None,:,None]
-                 +a[iy[:,None]%a.shape[0],(ix[None,:]+1)%a.shape[1]]*fx[None,:,None])*(1-fy)[:,None,None]
-                +(a[(iy[:,None]+1)%a.shape[0],ix[None,:]%a.shape[1]]*(1-fx)[None,:,None]
-                  +a[(iy[:,None]+1)%a.shape[0],(ix[None,:]+1)%a.shape[1]]*fx[None,:,None])*fy[:,None,None])
+        # Integrate each destination texel's source footprint before reducing resolution.
+        for axis in [0,1]:
+            values=np.moveaxis(a,axis,0)
+            step=values.shape[0]/size
+            edges=np.arange(size+1)*step
+            indices=np.minimum(edges.astype(int),values.shape[0]-1)
+            fraction=(edges-indices).reshape((-1,)+(1,)*(values.ndim-1))
+            integral=np.concatenate([np.zeros_like(values[:1]),np.cumsum(values,axis=0,dtype=np.float64)])
+            samples=integral[indices]+values[indices]*fraction
+            a=np.moveaxis(np.diff(samples,axis=0)/step,0,axis)
+        return a
 
     def save(name,rgb,data):
         n=rgb.shape[0];pixels=np.ones((n,n,4),dtype=np.float32);pixels[:,:,:3]=np.clip(rgb,0,1)
@@ -34,8 +43,10 @@ def build_surfaces(folder):
     ky=np.fft.fftfreq(384)[:,None];kx=np.fft.fftfreq(384)[None,:]
     blurred=np.fft.ifft2(np.fft.fft2(luminance)*np.exp(-2*np.pi*np.pi*25*(kx*kx+ky*ky))).real
     height=luminance-blurred
-    dx=(np.roll(height,-1,axis=1)-np.roll(height,1,axis=1))*6.75
-    dy=(np.roll(height,-1,axis=0)-np.roll(height,1,axis=0))*6.75
+    pixel_metres=STONE_REPEAT/height.shape[0]
+    slope=STONE_RELIEF/(2*pixel_metres)
+    dx=(np.roll(height,-1,axis=1)-np.roll(height,1,axis=1))*slope
+    dy=(np.roll(height,-1,axis=0)-np.roll(height,1,axis=0))*slope
     normal=np.stack([-dx,-dy,np.ones_like(dx)],axis=-1)
     normal/=np.linalg.norm(normal,axis=-1)[:,:,None]
     save('floor-normal.png',normal*.5+.5,True)

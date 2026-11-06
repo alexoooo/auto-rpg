@@ -55,8 +55,9 @@ and packed occlusion/roughness/metalness at 256 px; timber at 512/256/128 px; cl
 The stone and timber source PNGs (`stone-source.png`, `wood-source.png`) are generated material
 inputs; [the material prompts](../../assets/crypt-kit/stone-source.json) record their provenance.
 Fine normal relief is inferred from the source images' luminance; it is not a measured height
-scan. Macro stone relief is geometry. Cloth weave is authored at seed 161803. No chamber file is
-rewritten.
+scan. Texture reduction averages each source footprint, and stone normal slopes use the UVs'
+metre scale and the authored relief depth. Macro stone relief is geometry. Cloth weave is
+authored at seed 161803.
 
 ## Textures
 
