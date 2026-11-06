@@ -25,8 +25,8 @@ it reads by.
 
 The residual search's `--stop-at` and `--running-policy` freeze the movement before a stop and
 train a separate braking correction. Set `--seconds` four seconds beyond the stop order. Its
-development score rewards an upright braking window and lower mean speed, with a bonus for the
-quiet standing interval. `stopMet` also requires the declared entry speed; a higher development
+development score weights speed at the two-second deadline and mean braking speed equally.
+A valid quiet standing interval outranks those continuous rewards. `stopMet` also requires the declared entry speed; a higher development
 score alone does not establish the stop gate.
 | `skills/strikes/strike-profiles.mjs`, `skills/recovery/edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on; `edge-profiles --model` refreshes one body's at the existing offsets | core profiles with `--write`; ground falls and trials cached in `research/runs/edge-profiles/`, or `--rows` |
 | `skills/skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/skills/<capability>/<implementation>/<skill>.json`, `.meta.json`, every run |

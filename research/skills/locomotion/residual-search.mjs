@@ -1,5 +1,5 @@
 /**
- * Phase-dependent sagittal residual search; a development screen, excluding stops and equipment.
+ * Phase-dependent sagittal residual search; development running or braking, excluding equipment.
  * --config names the residual environment wrapper; --out prefixes retained evidence.
  * --basis sine uses twelve coefficients; quadrature adds cosine, giving twenty-four.
  * --start reads unit-cube coefficients, zero residual at .5, each mapped to [-1,1].
@@ -35,7 +35,7 @@ if (!isMainThread) {
       const policy = recoveryNetwork(networkAt(u, workerData.basis));
       let observation = await env.reset({ fromRest: true }), result, sum = 0, count = 0, held = Infinity, enteredAt = null;
       const window = new Float64Array(120);
-      let halted = false, stopEntry = null, quietFrom = null, settledAt = null, stopSpeed = 0, stopCount = 0;
+      let halted = false, stopEntry = null, quietFrom = null, settledAt = null, stopSpeed = 0, stopCount = 0, deadlineSpeed = null;
       do {
         if (runningPolicy && !halted && count >= workerData.stopAt * 120) { env.halt(); halted = true; stopEntry = sum / 120; }
         result = env.step((runningPolicy && !halted ? runningPolicy : policy)(observation), { squashed: true }); observation = result.observation;
@@ -46,6 +46,7 @@ if (!isMainThread) {
           if (halted) {
             const speed = Math.hypot(sample.velocity[0], sample.velocity[2]);
             stopSpeed += speed; stopCount++;
+            if (count <= (workerData.stopAt + 2) * 120) deadlineSpeed = speed;
             const standing = !sample.physicalDown && !sample.postureDown
               && Object.values(sample.feet).some(contacts => contacts.some(c => c.impulse > 0 && c.normal[1] < -.5));
             if (standing && speed < .15) quietFrom ??= sample.time; else quietFrom = null;
@@ -56,10 +57,12 @@ if (!isMainThread) {
       } while (!result.terminated && !result.truncated);
       const complete = !result.terminated && count >= workerData.seconds * 120 && enteredAt !== null && enteredAt <= 4;
       const stopMet = halted && complete && stopEntry >= workerData.pace && settledAt !== null;
-      const stopScore = (settledAt !== null ? 1 : 0) + 1 / (1 + stopSpeed / Math.max(1, stopCount));
+      // A valid quiet interval outranks all continuous rewards; otherwise weight deadline and mean speed equally.
+      const stopScore = settledAt !== null ? 2 + 1 / (1 + settledAt)
+        : (1 / (1 + (deadlineSpeed ?? Infinity)) + 1 / (1 + stopSpeed / Math.max(1, stopCount))) / 2;
       // Partial survival guides development but ranks below every completed forward run.
       parentPort.postMessage({ id, r: { score: complete ? halted ? stopScore : Math.max(0, held) : -1 + Math.min(1, count / (workerData.seconds * 120)),
-        ...(runningPolicy ? { stopEntry, settledAt, stopMet } : {}),
+        ...(runningPolicy ? { stopEntry, deadlineSpeed, settledAt, stopMet } : {}),
         held: Number.isFinite(held) ? held : null, enteredAt, complete, harness: env.harness, ...result.info } });
     } catch (error) { parentPort.postMessage({ id, r: { error: String(error.stack ?? error), score: -1 } }); }
   });
