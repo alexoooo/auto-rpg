@@ -37,7 +37,8 @@ const tanh = value => {
 
 export async function residualEnvironment(configuration = {}) {
   const o = { model: 'workshop-fighter', engine: DEFAULT_ENGINE, pace: 4.2, seconds: 8,
-    starts: [1.8, 3.5, 6], fromRestShare: 0, speedWidth: 1, fallRule: 'physical', scale: 2, seed: 1, ...configuration };
+    starts: [1.8, 3.5, 6], fromRestShare: 0, speedWidth: 1, actionAt: 0, fallRule: 'physical', scale: 2, seed: 1, ...configuration };
+  if (!(o.actionAt >= 0) || !Number.isFinite(o.actionAt)) throw Error('residual onset is finite and nonnegative');
   if (!['posture', 'physical'].includes(o.fallRule)) throw Error('residual fall rule is posture or physical');
   if (!(o.fromRestShare >= 0 && o.fromRestShare <= 1) || !(o.speedWidth > 0) || !Number.isFinite(o.speedWidth))
     throw Error('residual training needs a from-rest share in [0,1] and a finite positive speed width');
@@ -117,7 +118,7 @@ export async function residualEnvironment(configuration = {}) {
           let i = names[side].indexOf(push.channel);
           if (i < 0) { const other = names[opposite].indexOf(push.channel); i = other < 0 ? -1 : other + 6; }
           if (i < 0 || !Number.isFinite(push.speed)) return push;
-          const speed = push.speed + control.action[i] * o.scale;
+          const speed = push.speed + (view.time >= 1 + o.actionAt ? control.action[i] * o.scale : 0);
           return { ...push, speed, sense: speed >= 0 ? 1 : -1 };
         });
         return { posture: { ...guard, ...d.posture }, pushes, stance: null };
@@ -163,5 +164,5 @@ export async function residualEnvironment(configuration = {}) {
   await reset();
   return { observationSize: RESIDUAL_LAYOUT.inputs.length, actionSize: 12, reset, step, reading, dispose,
     harness: Object.freeze({ model: o.model, engine: o.engine, hz: stand.world.hz, delay: stand.world.delay,
-      actuation: stand.world.actuation, balance: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule }) };
+      actuation: stand.world.actuation, balance: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt }) };
 }
