@@ -78,9 +78,10 @@ decisions remain at 60 Hz. The saved world carries these settings and its truste
 
 [bonk-fixture.ts](../../src/evaluation/strike/bonk-fixture.ts) places the target before sensing
 until admission. It computes the frozen useful window from current posed anatomy, the head's
-offset from the striker's centre and `BONK_ENTRY`. Normalized depth and lateral placement are
+offset from the striker's centre, the published skill heading and `BONK_ENTRY`. Normalized depth and lateral placement are
 recorded at admission, with 0.00001 m precision for fixture placement. Placement stops at
-admission; the target keeps its pose, velocities, muscles and floor contacts.
+admission; the target keeps its pose, velocities, muscles and floor contacts. An unadmitted
+request is withdrawn at the entry deadline and reports a fixture fault.
 
 At commitment, the miss fixture changes fighter-to-fighter collision groups while retaining
 floor contact and sensed geometry. The early cancellation withdraws the order six native

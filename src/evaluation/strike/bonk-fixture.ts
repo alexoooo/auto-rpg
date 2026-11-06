@@ -33,7 +33,7 @@ export const validBonkFixture = (value: unknown): value is BonkFixtureConfig => 
     && (fixture.mode === "contact" || fixture.mode === "miss" || fixture.mode === "cancel");
 };
 
-type Window = { readonly at: Vec3; readonly along: readonly [number, number]; readonly across: readonly [number, number] };
+type Window = { readonly at: Vec3; readonly heading: number; readonly along: readonly [number, number]; readonly across: readonly [number, number] };
 export type BonkFixtureReading = {
   readonly kind: "bonk"; readonly requested: BonkFixtureConfig; readonly entryRule: typeof BONK_ENTRY;
   readonly requestedAt: number | null; readonly admittedAt: number | null; readonly committedAt: number | null;
@@ -50,7 +50,8 @@ const LOCAL = new WeakMap<SegmentSpec, WeakMap<ShapeSpec, Exclude<ReturnType<typ
 /** World projection of current anatomical collider geometry; held items do not set the entry window. */
 function anatomy(body: BuiltBody) {
   return [...body.segments.values()].flatMap(segment => segment.rigid.shapes.flatMap((shape, index) => {
-    if (segment.rigid.owners[index]!.kind === "held") return [];
+    const owner = segment.rigid.owners[index]!.kind;
+    if (owner !== "segment" && owner !== "region") return [];
     let shapes = LOCAL.get(segment.spec);
     if (!shapes) { shapes = new WeakMap(); LOCAL.set(segment.spec, shapes); }
     let local = shapes.get(shape);
@@ -93,15 +94,16 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
   if (!skills) throw new Error("a bonk fixture needs published skills");
   const limbs = new Set(left.built.spec.effectors?.map(one => one.segment));
   const read = physicalReading(left.built), foeRead = physicalReading(right.built), mark = centreReading(right.built, right.built.spec.marks.high);
-  const ax = sin(config.heading), az = cos(config.heading), acrossX = az, acrossZ = -ax;
+  const ax = sin(config.heading), az = cos(config.heading);
   const stand: Orders = deepFreeze({ move: null, face: { x: ax, z: az }, firm: true });
   const strike: Orders = deepFreeze({ ...stand, skill: config.skill, limb: `hand.${config.hand}`, foe: right.id, region: { kind: "mark", mark: "high" } });
   const state = { requestedAt: null as number | null, admittedAt: null as number | null, admittedStep: null as number | null, committedAt: null as number | null,
     placed: null as BonkFixtureReading["placed"], admission: null as BonkFixtureReading["admission"],
     missAt: null as number | null, missImpulses: 0, cancelledAt: null as number | null, precommit: null as boolean | null,
-    id: null as number | null, faults: [] as string[] };
+    id: null as number | null, expired: false, faults: [] as string[] };
   const velocity = new Vector3(), spin = new Vector3();
   const currentWindow = (): Window => {
+    const heading = skills.report.heading, ax = sin(heading), az = cos(heading), acrossX = az, acrossZ = -ax;
     const physical = read(); mark.update();
     const centre = physical.centre, head = physical.head, at: Vec3 = [mark.centre.x, mark.centre.y, mark.centre.z];
     const headAhead = (head.x - centre.x) * ax + (head.z - centre.z) * az;
@@ -109,9 +111,10 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
     const ownAhead = Math.max(bodyClearance(left.built.spec), interval(anatomy(left.built), ax, az, limbs)[1] - centre.x * ax - centre.z * az);
     const foeNear = interval(anatomy(right.built), ax, az)[0] - at[0] * ax - at[2] * az;
     const near = Math.max(BONK_ENTRY.reach + headAhead, ownAhead - foeNear + CROWDED);
-    return { at, along: [near - CROWDED, near + BONK_ENTRY.band], across: [headAcross - BONK_ENTRY.aside, headAcross + BONK_ENTRY.aside] };
+    return { at, heading, along: [near - CROWDED, near + BONK_ENTRY.band], across: [headAcross - BONK_ENTRY.aside, headAcross + BONK_ENTRY.aside] };
   };
   const normalized = (window: Window): readonly [number, number] => {
+    const ax = sin(window.heading), az = cos(window.heading), acrossX = az, acrossZ = -ax;
     const centre = read().centre, dx = window.at[0] - centre.x, dz = window.at[2] - centre.z;
     return [(dx * ax + dz * az - window.along[0]) / (window.along[1] - window.along[0]),
       ((dx * acrossX + dz * acrossZ) - (window.across[0] + window.across[1]) / 2) / BONK_ENTRY.aside * (config.hand === "left" ? -1 : 1)];
@@ -144,8 +147,12 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
     state,
     beforeSense() {
       if (state.id !== null && !active()) duel.order("left", stand);
-      if (state.admittedAt === null && world.time >= config.settled && world.time <= config.settled + config.patience) {
+      if (state.admittedAt === null && !state.expired && world.time > config.settled + config.patience) {
+        state.expired = true; state.faults.push("entry admission deadline expired"); duel.order("left", stand);
+      }
+      if (state.admittedAt === null && !state.expired && world.time >= config.settled) {
         const window = currentWindow(), centre = read().centre;
+        const ax = sin(window.heading), az = cos(window.heading), acrossX = az, acrossZ = -ax;
         const along = window.along[0] + config.u * (window.along[1] - window.along[0]);
         const across = (window.across[0] + window.across[1]) / 2 + config.v * BONK_ENTRY.aside * (config.hand === "left" ? -1 : 1);
         const dx = centre.x + along * ax + across * acrossX - window.at[0], dz = centre.z + along * az + across * acrossZ - window.at[2];
