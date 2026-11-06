@@ -27,6 +27,8 @@ import { placeInWindow } from "../../skills/intent/action-window.ts";
 import type { Reader } from "../evaluation.ts";
 import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 import { swingMotion, type SwingMotion } from "./motion.ts";
+import { readBonk, type BonkReading } from "./bonk-read.ts";
+import type { BonkTechnique } from "../../skills/strikes/bonk-course.ts";
 
 export type Mark = "high" | "middle" | "legs";
 
@@ -206,6 +208,7 @@ type StrikeOutcome = "landed" | "weak" | "guarded" | "elsewhere" | "missed" | "a
 /** What a trial came to. */
 export type StrikeReading = {
   readonly motion?: SwingMotion;
+  readonly bonk?: BonkReading;
   readonly outcome: StrikeOutcome;
   /** The drill's last phase before its action, and the reason its readiness last gave. */
   readonly phase: DrillPhase;
@@ -286,6 +289,7 @@ const BACK = Object.freeze({ within: .05, still: .3 });
 export interface Ending {
   readonly seconds: number; readonly settle: number; readonly recover: number; readonly settled: number; readonly patience: number;
   readonly motion?: true;
+  readonly bonk?: BonkTechnique;
   /** How the rung lays its target down (a shove at a segment, m/s of its mass): it lies once its middle trunk's centre is under `LIES` of its height as built. */
   readonly laid?: { readonly segment: string; readonly speed: number };
 }
@@ -311,6 +315,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   const limb = left.built.segments.get(effector);
   if (!limb) throw new Error(`the striker has no ${effector}`);
   const motion = ending.motion ? swingMotion(left.built, effector) : null;
+  const bonk = ending.bonk ? readBonk({ world, duel, catalog }, effector, ending.bonk, ending.seconds) : null;
   const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = given ?? barOf(spec);
   /** Whether the asked hand holds an item, its blow judged by the held item's bar (`Bar.held`) and its strike point the item's. */
   const armed = hand !== null && !holdsNothing(spec, effector);
@@ -466,6 +471,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       }
       if (id !== null && times.ended === null && !skills.report.actions.some((one) => one.id === id)) times.ended = world.time;
       motion?.take(world.time, action && action.id === id ? action.phase : null);
+      bonk?.afterStep(action && action.id === id ? action : null);
       const aimed = action && action.id === id ? action.aim : null;
       const tip = !aimed ? null : hand === null || armed ? pointOfToRef(limb, aim, point) : view?.pointMotion[effector]?.knuckles?.position ?? null;
       if (aimed && tip) {
@@ -500,6 +506,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       down ||= left.body.down;
     },
     get ended() {
+      if (bonk) return bonk.ended;
       const watched = letAt ?? watching;
       return world.time >= ending.seconds || times.ended !== null && world.time >= times.ended + ending.settle
         && (again !== null || watched !== null && world.time >= watched + ending.recover)
@@ -556,7 +563,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, inWindow: foe?.window ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, contacts: touches.map(({ contact }) => contact), taken,
         ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }),
         recovers: watching !== null && again !== null ? again - watching : null, nearest, exit, down, seconds: world.time,
-        ...(motion ? { motion: motion.reading() } : {}) };
+        ...(motion ? { motion: motion.reading() } : {}), ...(bonk ? { bonk: bonk.reading() } : {}) };
     },
   };
 }

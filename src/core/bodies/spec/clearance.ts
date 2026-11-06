@@ -1,5 +1,6 @@
 import { isRefused, type Refused } from "../../refusal.ts";
-import { frameOf, type BodySpec, type SegmentSpec } from "./body.ts";
+import { frameOf, type BodySpec, type SegmentSpec, type ShapeSpec, type SegmentFrame } from "./body.ts";
+import { Quaternion, Vector3 } from "../../math/vector.ts";
 import { convexHullChecked } from "./hull.ts";
 import { add, cross, dot, length, scale, sub } from "./vec.ts";
 import type { Vec3 } from "./quantity.ts";
@@ -144,6 +145,38 @@ function clearance(a: Solid, b: Solid): number | Refused {
     return length(sub(p, add(b.from, scale(ab, k))));
   }) - a.radius - b.radius;
 }
+
+/** A declared collider's geometry in the body's reference frame, independent of contact admission. */
+export const shapeGeometry = (segment: SegmentSpec, shape: ShapeSpec): Solid | Refused => solid({ ...segment, shape });
+
+/** Geometry carried rigidly from its reference origin to an observed pose. */
+export function poseGeometry(shape: Solid, frame: SegmentFrame, at: Vec3, turn: readonly [number, number, number, number]): Solid {
+  const q = new Quaternion(...turn), work = new Vector3();
+  const carried = (p: Vec3): void => { work.set(dot(p, frame.x), dot(p, frame.y), dot(p, frame.z)).applyRotationQuaternionToRef(q, work); };
+  const point = (p: Vec3): Vec3 => {
+    carried(sub(p, frame.origin));
+    return [at[0] + work.x, at[1] + work.y, at[2] + work.z];
+  };
+  const direction = (p: Vec3): Vec3 => {
+    carried(p);
+    return [work.x, work.y, work.z];
+  };
+  switch (shape.kind) {
+    case "capsule": return { ...shape, from: point(shape.from), to: point(shape.to) };
+    case "box": return { ...shape, centre: point(shape.centre), axes: shape.axes.map(direction) };
+    case "hull": return { ...shape, points: shape.points.map(point),
+      faces: shape.faces.map(face => face.map(point) as [Vec3, Vec3, Vec3]), edges: shape.edges.map(direction),
+      planes: shape.planes.map(plane => {
+        const normal = direction(plane.normal), onPlane = point(scale(plane.normal, plane.offset));
+        return { normal, offset: dot(normal, onPlane) };
+      }) };
+    default: { const never: never = shape; throw new Error(`unknown geometric shape ${String(never)}`); }
+  }
+}
+
+/** Signed geometric separation, including filtered pairs; negative means penetration. */
+export const geometricClearance = (a: Solid, b: Solid): number | Refused =>
+  a.kind === "capsule" && b.kind === "capsule" ? segmentDistance(a.from, a.to, b.from, b.to) - a.radius - b.radius : clearance(a, b);
 
 /** Nonadjacent collision shapes that intersect in the reference pose, before any solver can move them. */
 export function bodyIntersections(spec: BodySpec): readonly string[] {

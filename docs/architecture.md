@@ -555,6 +555,11 @@ orientation and stillness through a continuous return hold after ownership ends.
 unobstructed wrist chatter separately from contact and leaves course, clearance and physical
 stroke-end coverage explicitly incomplete.
 
+The `bonk-reference` protocol binds a head target and reads the physical stroke against a
+declared rigid-arm course. The [course and reader contract](reference/bonk.md) covers chamber,
+tracking, contact collider, geometric self-clearance, guard hold and resource handover; each
+case keeps its coverage beside its gates.
+
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)
   the question, subjects, figures and a drill trial's `outcome`.
