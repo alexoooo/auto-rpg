@@ -64,12 +64,22 @@ export const sideAttributes = (sides: Readonly<Partial<Record<Side, AttributeOve
   return Object.keys(left).length + Object.keys(right).length === 0 ? {} : { attributes: { left, right } };
 };
 
+/** A bout's native physics rate, Hz, and command delay, whole steps. */
+export type BoutTiming = { readonly hz: number; readonly delay: number };
+
+/** A recorded bout runs at a positive whole rate with at least one command-delay step. */
+export const validBoutTiming = (value: unknown): value is BoutTiming => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const timing = value as Partial<BoutTiming>;
+  return Number.isInteger(timing.hz) && timing.hz! > 0 && Number.isInteger(timing.delay) && timing.delay! >= 1;
+};
+
 /**
  * What a case plays, as plain data: one kind of world each (`WorldKind`, listed in `WORLD_BUILDERS`,
  * `worlds.ts`). A bout, a lone body and a Crypt run are bit-equal between JavaScript engines; a
  * fall and techniques in turn are not (`fall.ts`, `technique.ts`).
  */
-export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[] }
+export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[]; readonly timing?: BoutTiming }
   | { readonly kind: "fall"; readonly engine: EngineName; readonly fall: FallCase }
   | { readonly kind: "crypt"; readonly engine: EngineName; readonly crypt: CryptCase }
   | { readonly kind: "lone"; readonly engine: EngineName; readonly lone: LoneCase }
@@ -116,6 +126,8 @@ export interface Cases<C extends Json = Json, R extends Json = Json, B extends B
   readonly play: Json;
   /** The one engine the protocol is played on; any the runner is given, unless named. */
   readonly engine?: EngineName;
+  /** A bout protocol's native physics rate and command delay in steps, recorded in every world. */
+  readonly timing?: BoutTiming;
   readonly conditions: readonly C[];
   readonly seconds: number;
   /** Why a subject cannot play `condition`; its scheduling metadata is available where admission needs it. */

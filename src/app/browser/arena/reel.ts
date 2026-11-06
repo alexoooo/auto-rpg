@@ -9,7 +9,7 @@ import { isEngineName } from "../../../core/physics/engines.ts";
 import { recordingKey } from "../../../core/world/recording.ts";
 import type { Kept } from "../../../evaluation/history.ts";
 import { BODY_MODELS } from "../../../core/bodies/models.ts";
-import type { CaseWorld } from "../../../evaluation/evaluation.ts";
+import { validBoutTiming, type CaseWorld } from "../../../evaluation/evaluation.ts";
 import { EVALUATIONS } from "../evaluation.ts";
 import { conditionText, findCase } from "../ratings/analysis.ts";
 import { recordsOf } from "../ratings/records.ts";
@@ -42,6 +42,7 @@ export interface Trial extends Played {
 function refusal(world: CaseWorld | null): string | null {
   if (world?.kind !== "bout") return "the Arena opens recorded bout cases only";
   if (!isEngineName(world.engine)) return `its engine ${String(world.engine)} is not one this build has`;
+  if (world.timing !== undefined && !validBoutTiming(world.timing)) return "its timing is invalid";
   if (!BODY_MODELS.includes(world.recipe.left) || !BODY_MODELS.includes(world.recipe.right)) return "its recipe names a character this build does not have";
   if (!world.tape.every((entry, k, tape) => isOrdersEntry(entry) && (k === 0 || entry.step >= tape[k - 1]!.step))) return "its tape has invalid or unordered orders";
   return null;
@@ -78,9 +79,10 @@ export async function reelTrials(reel: LinkedReel): Promise<{ readonly trials: T
   }
   if (!trials.length) return { fault: "the reel names no case" };
   // The Arena builds its engine and level once, for every trial it plays.
-  const { engine, recipe } = trials[0]!.world;
-  if (trials.flatMap((one) => [one, ...one.previous ? [one.previous] : []]).some(({ world }) => world.engine !== engine || (world.recipe.level ?? "open") !== (recipe.level ?? "open"))) {
-    return { fault: "the reel's cases are of more than one engine or level" };
+  const { engine, recipe, timing } = trials[0]!.world;
+  if (trials.flatMap((one) => [one, ...one.previous ? [one.previous] : []]).some(({ world }) => world.engine !== engine || (world.recipe.level ?? "open") !== (recipe.level ?? "open")
+    || (world.timing?.hz ?? 120) !== (timing?.hz ?? 120) || (world.timing?.delay ?? 1) !== (timing?.delay ?? 1))) {
+    return { fault: "the reel's cases use different engines, levels, rates or command delays" };
   }
   return { trials };
 

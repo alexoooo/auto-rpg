@@ -1,6 +1,6 @@
 import { Duel, SIDES, type DuelRecipe } from "../game/arena/duel.ts";
 import { TeamBout, type TeamRecipe } from "../game/arena/team-bout.ts";
-import type { CaseWorld, WorldKind } from "./evaluation.ts";
+import { validBoutTiming, type CaseWorld, type WorldKind } from "./evaluation.ts";
 import { GAME_ENDS } from "../game/arena/end-rule.ts";
 import { addArenaSolids, arenaSolids } from "../game/arena/solids.ts";
 import type { PhysicsEngine } from "../core/physics/engine.ts";
@@ -50,7 +50,11 @@ export function createBout(context: GameContext) {
 
   /** The bout world kind: built by `buildBout`, handed its tape, both sides traced, played by the bout's clock, each side under its recipe's mind or else its model's (`defaultMind`), ended by its recipe's end rules or the game's (`GAME_ENDS`), a side led by its recipe's Commander where it names one. */
   const BOUT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "bout" }>, BuiltBout> = {
-    build: (world, options) => buildBout(world.recipe, { engine: world.engine, ...(options?.hz === undefined ? {} : { hz: options.hz }) }),
+    build: (world, options) => {
+      if (world.timing !== undefined && !validBoutTiming(world.timing)) return Promise.resolve({ refused: "invalid recorded bout timing" });
+      if (world.timing && options?.hz !== undefined && options.hz !== world.timing.hz) return Promise.resolve({ refused: "a recorded bout's rate cannot be overridden" });
+      return buildBout(world.recipe, { engine: world.engine, ...world.timing ?? (options?.hz === undefined ? {} : { hz: options.hz }) });
+    },
     start: (built, world) => built.duel.play(world.tape),
     traced: (built) => SIDES.map((side) => built.duel.duelists[side].built),
     clock: (built) => built.duel.clock,

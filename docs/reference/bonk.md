@@ -63,3 +63,8 @@ contact collider, assistance readings and explicit coverage in the case record. 
 those fields in the case view and plays failed outcomes first. Its coverage fields distinguish
 course and native-step observations from entry-window, fixture, repetition and cancellation
 evidence; incomplete coverage cannot pass.
+
+The `bonk-reference-480` protocol plays the head-target reference at 480 Hz with four command
+delay steps. The 120 Hz reference uses one delay step, so both wait 1/120 s. Each saved bout
+with explicit timing carries its rate and delay into Node execution and the browser worker.
+Reels require matching rates and delays for trials played step for step.

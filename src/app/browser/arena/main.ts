@@ -564,9 +564,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         // A trial plays as recorded; a person leads their side of a new bout.
         const person = given ? null : you;
         const link = await openWorld<DuelCard>({ kind: "duel", start: {
-          recipe, tape: given?.world.tape ?? [], played: given?.played ?? null, ...given ? { engine: given.world.engine } : {},
+          recipe, tape: given?.world.tape ?? [], played: given?.played ?? null, ...given ? { engine: given.world.engine, ...given.world.timing === undefined ? {} : { timing: given.world.timing } } : {},
           person, hold: pauseOnChoice, traced: given !== null,
-          beside: previous ? { recipe: previous.world.recipe, tape: previous.world.tape, played: previous.played, engine: previous.world.engine } : null,
+          beside: previous ? { recipe: previous.world.recipe, tape: previous.world.tape, played: previous.played, engine: previous.world.engine, ...previous.world.timing === undefined ? {} : { timing: previous.world.timing } } : null,
         } }, context.signal);
         const specs = { left: duelSpec(recipe, "left"), right: duelSpec(recipe, "right") };
         const besideSpecs = previous ? { left: duelSpec(previous.world.recipe, "left"), right: duelSpec(previous.world.recipe, "right") } : null;

@@ -18,6 +18,7 @@ import { fighterReading, type FighterReading } from "../../game/arena/fighter-re
 import { airOf, hearTouches } from "../../game/audio/body-sounds.ts";
 import { debrisCues, type SoundCue } from "../../game/audio/cues.ts";
 import { createBout } from "../../evaluation/bout.ts";
+import type { BoutTiming } from "../../evaluation/evaluation.ts";
 import { choiceWatch } from "../../game/arena/choice-watch.ts";
 import type { Inspected } from "./inspection.ts";
 import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
@@ -31,6 +32,7 @@ interface BesideStart {
   /** The bout's clock it stops at, s: where its record was scored; null plays it to its verdict's aftermath. */
   readonly played: number | null;
   readonly engine?: EngineName;
+  readonly timing?: BoutTiming;
 }
 
 /** **A duel as the Arena plays it** (`duelStage`): a recorded bout, or one a person may lead a side of. */
@@ -126,7 +128,7 @@ async function played(context: GameContext, start: BesideStart, hooks: Construct
   const { defaultMind } = context, { loadData, treeData } = context.catalog;
   const { buildBout } = createBout(context);
   await loadData(SIDES.flatMap((side) => treeData(start.recipe.minds?.[side] ?? defaultMind(start.recipe[side]))));
-  const built = await buildBout(start.recipe, { ...start.engine === undefined ? {} : { engine: start.engine }, hooks });
+  const built = await buildBout(start.recipe, { ...start.engine === undefined ? {} : { engine: start.engine }, ...start.timing, hooks });
   let complete = false;
   try {
   const playback = arenaPlayback(built.duel, start.played ?? Infinity);

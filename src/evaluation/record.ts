@@ -83,11 +83,11 @@ export interface RecordHeader {
 export type RecordLine = Omit<Case, "seconds"> & Omit<Row, "key">;
 
 /**
- * **A record's harness** (`RecordHeader.harness`): Node's core world on `engine` at 120 Hz, and the
- * steps each body's command waited (`World.delay`) where it waited any.
+ * **A record's harness** (`RecordHeader.harness`): Node's core world on `engine`, its native rate,
+ * and the steps each body's command waited (`World.delay`). An explicit rate also names the delay in seconds.
  */
-export const harnessOf = (engine: string, delay: number): string =>
-  `Node, core world (src/core/world/world.ts), ${engine}, 120 Hz${delay === 0 ? "" : `, each command ${delay} step${delay === 1 ? "" : "s"} late`}`;
+export const harnessOf = (engine: string, delay: number, hz?: number): string =>
+  `Node, core world (src/core/world/world.ts), ${engine}, ${hz ?? 120} Hz${delay === 0 ? "" : `, each command ${delay} step${delay === 1 ? "" : "s"} late`}${hz === undefined ? "" : `, command delay ${delay / hz} s`}`;
 
 /** **The world's rate, Hz, and command delay, steps, that a record's `harness` names** (`harnessOf`): no delay where it names none; null where it names no rate. */
 export function harnessRule(harness: string): { readonly hz: number; readonly delay: number } | null {
