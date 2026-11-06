@@ -9,6 +9,8 @@
  * `controlTrace` pairs the run's phase change with the contact input of that control decision.
  * `frozenSteeringPolicy` preserves a steering teacher at policy-decision cadence while a
  * velocity residual learns individual joint corrections, optionally over a frozen reference.
+ * `speeds` samples episode orders; `warm` samples independent physically played warm-up orders.
+ * `paceRelativeShare` widens shortfall credit with the movement controller's commanded pace.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -66,10 +68,19 @@ export async function residualEnvironment(configuration = {}) {
   const o = { model: 'workshop-fighter', engine: DEFAULT_ENGINE, pace: 4.2, seconds: 8,
     starts: [1.8, 3.5, 6], settle: 1, speedReward: 'tracking', fallPenalty: 5, fromRestShare: 0, speedWidth: 1, actionAt: 0, fallRule: 'physical', residual: 'velocity', scale: 2, seed: 1, ...configuration };
   const layout = residualLayout(o.residual);
+  if (o.speeds && (!Array.isArray(o.speeds) || o.speeds.length !== 2
+    || !o.speeds.every(Number.isFinite) || o.speeds[0] < 0 || o.speeds[1] < o.speeds[0]))
+    throw Error('training speeds are an ordered nonnegative range');
+  if (o.warm && (!Array.isArray(o.warm) || !o.warm.length || !o.warm.every(x => Number.isFinite(x) && x > 0)))
+    throw Error('warm-up speeds are finite and positive');
+  if (o.paceRelativeShare !== undefined && !(Number.isFinite(o.paceRelativeShare) && o.paceRelativeShare > 0))
+    throw Error('pace-relative shortfall share is finite and positive');
   if (!['tracking', 'progress'].includes(o.speedReward)) throw Error('residual speed reward is tracking or progress');
   const rewardPace = o.rewardPace ?? o.pace;
   if (!Number.isFinite(rewardPace) || o.speedReward === 'progress' && rewardPace <= 0)
     throw Error('residual reward pace is finite, and positive for progress credit');
+  if (o.speedReward === 'progress' && o.rewardPace === undefined && o.speeds?.[0] === 0)
+    throw Error('sampled progress targets are positive');
   if (!Number.isFinite(o.fallPenalty) || o.fallPenalty < 0) throw Error('residual failure penalty is finite and nonnegative');
   if (!(o.settle > 0) || !Number.isFinite(o.settle)) throw Error('residual settling time is finite and positive');
   if (!(o.scale >= 0) || !Number.isFinite(o.scale)) throw Error('residual scale is finite and nonnegative');
@@ -161,6 +172,7 @@ export async function residualEnvironment(configuration = {}) {
   };
   const dispose = () => { host?.dispose(); stand?.dispose(); host = null; stand = null; };
   const observe = view => {
+    const command = control.stopOrder ? 0 : o.warm ? control.asked?.[0] ?? o.pace : o.pace;
     const s = view.stance, phase = skill.state.run.phase, h = skill.state.walkRun.heading;
     const fx = sin(h), fz = cos(h), rx = fz, rz = -fx;
     const side = phase < .5 ? 'left' : 'right', mirror = side === 'left' ? 1 : -1;
@@ -169,7 +181,7 @@ export async function residualEnvironment(configuration = {}) {
     const horizontal = Math.max(1e-9, Math.sqrt(forward.x * forward.x + forward.z * forward.z));
     root.body.angularVelocityToRef(spin);
     observation.length = 0;
-    observation.push(control.stopOrder ? 0 : o.pace, skill.state.run.pace, sin(4 * Math.PI * phase), cos(4 * Math.PI * phase),
+    observation.push(command, skill.state.run.pace, sin(4 * Math.PI * phase), cos(4 * Math.PI * phase),
       s.velocity.x * fx + s.velocity.z * fz, mirror * (s.velocity.x * rx + s.velocity.z * rz), s.velocity.y,
       up.x * fx + up.z * fz, mirror * (up.x * rx + up.z * rz), up.y,
       mirror * (forward.x * rx + forward.z * rz) / horizontal, (forward.x * fx + forward.z * fz) / horizontal,
@@ -184,12 +196,13 @@ export async function residualEnvironment(configuration = {}) {
     }
     if (referencePolicy) control.referenceObservation = observation.slice();
     if (frozenSteering) control.steeringObservation = steeringFeatures(view, h,
-      control.stopOrder ? 0 : o.pace, skill.state.walkRun.spin, skill.state.run).slice();
+      command, skill.state.walkRun.spin, skill.state.run).slice();
     if (o.residual === 'steering') observation.splice(0, observation.length,
-      ...steeringFeatures(view, h, control.stopOrder ? 0 : o.pace, skill.state.walkRun.spin, skill.state.run));
+      ...steeringFeatures(view, h, command, skill.state.walkRun.spin, skill.state.run));
   };
   const reset = async given => {
     dispose();
+    if (o.speeds) o.pace = given?.pace ?? o.speeds[0] + random() * (o.speeds[1] - o.speeds[0]);
     const fromRest = given?.fromRest ?? (given?.start === undefined && o.fromRestShare > 0 && random() < o.fromRestShare);
     const start = fromRest ? 0 : given?.start ?? o.starts[Math.floor(random() * o.starts.length)];
     if (!Number.isFinite(start) || start < 0) throw Error('a residual episode needs a finite running start time');
@@ -254,7 +267,8 @@ export async function residualEnvironment(configuration = {}) {
     else stand.step(stand.seconds(o.settle));
     control.lineX = body.view.stance.centre.x;
     massCentreToRef(physicalParts, mass, centre, work, velocity); control.physicalLineX = centre.x;
-    control.asked = [o.pace, 0];
+    const warmPace = !fromRest && o.warm ? given?.warmPace ?? o.warm[Math.floor(random() * o.warm.length)] : o.pace;
+    control.asked = [warmPace, 0];
     const warmSteps = stand.seconds(start);
     if (referencePolicy || frozenSteering) {
       for (let warmed = 0; warmed < warmSteps; warmed += 4) {
@@ -263,11 +277,16 @@ export async function residualEnvironment(configuration = {}) {
         stand.step(Math.min(4, warmSteps - warmed));
       }
     } else stand.step(warmSteps);
+    massCentreToRef(physicalParts, mass, centre, work, velocity);
     const rejectSetup = message => { const error = new Error(message, { cause: { setup } }); dispose(); throw error; };
     if (o.fallRule === 'physical' ? host.down : body.view.down) rejectSetup(`residual fixture is down at ${start}s`);
     if (!fromRest && !skill.state.walkRun.running) rejectSetup(`residual fixture did not enter its run at ${start}s`);
+    if (!fromRest && Math.abs(centre.x - control.physicalLineX) > 1)
+      rejectSetup(`residual fixture left its corridor at ${start}s`);
     if (fromRest && Math.hypot(body.view.stance.velocity.x, body.view.stance.velocity.z) > .15)
       rejectSetup(`residual from-rest fixture is still moving: stance ${Math.hypot(body.view.stance.velocity.x, body.view.stance.velocity.z)} m/s, physical ${Math.hypot(velocity.x, velocity.z)} m/s after ${o.settle}s`);
+    control.asked = [o.pace, 0];
+    if (o.warm || o.speeds) observe(body.view);
     episode = { steps: 0, ticks: 0, along: 0, maxOff: 0, everRan: skill.state.walkRun.running, fromRest };
     return observation.slice();
   };
@@ -292,8 +311,11 @@ export async function residualEnvironment(configuration = {}) {
     }
     episode.steps++;
     const effort = control.action.reduce((sum, x) => sum + x * x, 0) / 12;
-    const speedCredit = o.speedReward === 'progress' && !control.stopOrder ? Math.min(1, along / rewardPace)
-      : exp(-(((along - (control.stopOrder ? 0 : rewardPace)) / o.speedWidth) ** 2));
+    const currentRewardPace = o.rewardPace ?? o.pace;
+    const target = control.stopOrder ? 0 : o.paceRelativeShare ? skill.pace : currentRewardPace;
+    const width = o.paceRelativeShare && along < target ? Math.max(.1, o.paceRelativeShare * target) : o.speedWidth;
+    const speedCredit = o.speedReward === 'progress' && !control.stopOrder ? Math.min(1, along / currentRewardPace)
+      : exp(-(((along - target) / width) ** 2));
     const reward = speedCredit + .15 * up.y - .1 * velocity.x ** 2 - .05 * off ** 2
       - .005 * effort - (down || off > 1 ? o.fallPenalty : 0);
     return { observation: observation.slice(), reward, ...(samples ? { samples } : {}), terminated: down || off > 1 || (episode.everRan && !skill.state.walkRun.running && !control.stopOrder),
