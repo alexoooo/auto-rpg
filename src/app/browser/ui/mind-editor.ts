@@ -55,7 +55,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
   const defaultFallback = (slot: Slot): boolean => slot.fallback !== undefined && same(slot.fallback, partOf(slot.fallback).defaults);
   /** Parts the screen supplies, with incompatible bodies explained by disabled choices. */
   const choices = (slot: Slot, child?: PartConfig | null) => [
-    ...(slot.optional && !slot.many ? [{ value: "", text: slot.fallback ? `Default: ${partOf(slot.fallback).label}` : "None" }] : []),
+    ...(slot.optional && !slot.many ? [{ value: "", text: slot.fallback ? `Default: ${partOf(slot.fallback).label}` : "None", disabled: false }] : []),
     ...kindsFor(slot.role, spec, current)
       .filter(({ kind, part }) => partOffered(part) || child?.kind === kind)
       .filter(({ kind }) => !defaultFallback(slot) || kind !== slot.fallback!.kind || child?.kind === kind && !same(child, slot.fallback))
@@ -97,25 +97,33 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       shown.className = "mind-tuning"; shown.textContent = `Research tuning, read-only\n${JSON.stringify(tuning, null, 1)}`;
       block.append(shown);
     }
-    for (const slot of slotsOf(part, config)) block.append(slot.role === "technique" && slot.many
-      ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, current),
-        (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)
-      : drawSlot(config, slot, write, path));
+    for (const slot of slotsOf(part, config)) {
+      const child = slot.role === "technique" && slot.many
+        ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, current),
+          (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)
+        : drawSlot(config, slot, write, path);
+      if (child) block.append(child);
+    }
     return block;
   };
 
   /** `slot` of `config`: its part or parts, each with its own block beneath. */
-  const drawSlot = (config: PartConfig, slot: Slot, write: (config: PartConfig) => void, path: readonly (string | number)[]): HTMLElement => {
+  const drawSlot = (config: PartConfig, slot: Slot, write: (config: PartConfig) => void, path: readonly (string | number)[]): HTMLElement | null => {
     const holder = document.createElement("div"), value = (config as unknown as Record<string, unknown>)[slot.key];
     holder.className = "mind-slot"; holder.dataset.slot = slot.key;
     const set = (next: unknown) => write({ ...config, [slot.key]: next } as PartConfig);
     if (!slot.many) {
       const child = value as PartConfig | null;
       const chosen = child ?? slot.fallback, selected = defaultFallback(slot) && same(child, slot.fallback) ? "" : child?.kind ?? "";
+      const options = choices(slot, child), fixed = options.length === 1 && options[0]!.value === selected && !options[0]!.disabled;
+      const childPath = [...path, slot.key], content = chosen ? drawPart(chosen, set, childPath) : null;
+      if (fixed && !content?.hasChildNodes()) return null;
       const line = document.createElement("div"); line.className = "mind-choice-line";
-      const field = row(slot.label, picker(choices(slot, child), selected, (kind) => set(kind ? defaultsOf(kind) : null), readOnly));
-      if (chosen) {
-        const childPath = [...path, slot.key], detail = settings(chosen, drawPart(chosen, set, childPath), childPath, slot.label);
+      const input = fixed ? document.createElement("span") : picker(options, selected, (kind) => set(kind ? defaultsOf(kind) : null), readOnly);
+      if (fixed) input.textContent = options[0]!.text;
+      const field = row(slot.label, input);
+      if (chosen && content) {
+        const detail = settings(chosen, content, childPath, slot.label);
         line.append(detail.toggle, field); holder.append(line, detail.panel);
       } else { line.append(field); holder.append(line); }
       return holder;
