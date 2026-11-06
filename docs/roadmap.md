@@ -25,6 +25,7 @@ Where the project is going and what is open. What is built is in the
 
 | Plan | What it builds |
 | --- | --- |
+| [Complete layer contracts](plans/2026-11-05-complete-layer-contracts.md) | close the fresh audit's capability, state, admission, lifetime and evidence violations through simple owner-defined contracts |
 | [Option Mind control and evidence](plans/2026-11-03-option-mind-general.md) | walking, stopping and strike-entry contracts checked at their owners; supported bodies read against current paired baselines before training |
 | [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
 | [Options trained body by body](plans/2026-11-03-options-training.md) | after Option Mind general: stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
@@ -66,8 +67,6 @@ Option Mind as its hero.
 
 ### Framework
 
-- Close the remaining ownership, capability, state, admission and evidence findings in the
-  [fresh layer boundary audit](analysis/2026-11-05-fresh-layer-boundary-audit.md).
 - Rare dear steps break real time at a step's delay (the crowd fight's opening, a Crypt body's
   build step); cut one when it shows in play.
 - A step that allocates nothing beyond what Rapier does ([step cost](reference/step-cost.md)).
