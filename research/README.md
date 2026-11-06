@@ -54,6 +54,11 @@ channel gets two coefficients after its phase coefficients. Use unit-cube values
 zero feedback when expanding a phase-only checkpoint. The exported policy includes these
 features; the environment and muscle ceilings remain the same.
 
+`--posture-policy` freezes an exported quadrature/speed actor and trains signed forward-tilt and
+pitch-rate feedback around it. Use `--basis quadrature --feedback speed`; each selected channel
+gets four new coefficients, with 0.5 giving zero added feedback. The exported actor includes the
+frozen policy and the new features, under the same action bound.
+
 Set `trim` to `at-pace` to accumulate the cycle's integral speed correction only when its
 reference pace equals the order. The default `continuous` mode also integrates during reference
 acceleration and braking. Each mode retains the configured trim bound; the harness names the mode.

@@ -11,6 +11,7 @@
  * --period-range adds one unit-cube coordinate for jointly training cadence and trajectory.
  * --ahead-range adds a playback-lead coordinate after cadence where both are present.
  * --feedback speed adds signed command-minus-speed features to each selected channel.
+ * --posture-policy freezes a phase/speed actor and trains forward-tilt and pitch-rate feedback.
  */
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
@@ -19,11 +20,19 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { cmaSearch, workerPool } from '../../cma.mjs';
 import { residualEnvironment, RESIDUAL_LAYOUT, residualLayout } from './residual-environment.mjs';
-import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
+import { recoveryNetwork, networkFaults } from '../../../src/core/math/learning/recovery-network.ts';
 
 const CHANNELS = [0, 3, 4, 6, 9, 10];
-const featureCount = (basis, feedback) => (basis === 'quadrature' ? 4 : 2) + (feedback === 'speed' ? 2 : 0);
-function networkAt(u, basis, channels, feedback) {
+const featureCount = (basis, feedback, fixed) => fixed ? 4 : (basis === 'quadrature' ? 4 : 2) + (feedback === 'speed' ? 2 : 0);
+function networkAt(u, basis, channels, feedback, fixed) {
+  if (fixed) {
+    const features = ['up forward', 'spin side'].flatMap(feature => [1, -1].map(sign => RESIDUAL_LAYOUT.inputs.map(name => name === feature ? sign : 0)));
+    return { ...fixed, layers: [{ weights: [...fixed.layers[0].weights, ...features], bias: [...fixed.layers[0].bias, 0, 0, 0, 0] },
+      { weights: fixed.layers[1].weights.map((row, i) => {
+        const j = channels.indexOf(i);
+        return [...row, ...features.map((_, k) => j < 0 ? 0 : 2 * u[4 * j + k] - 1)];
+      }), bias: fixed.layers[1].bias }] };
+  }
   const names = basis === 'quadrature' ? ['phase sin', 'phase cos'] : ['phase sin'];
   const first = names.flatMap(phase => [1, -1].map(sign => RESIDUAL_LAYOUT.inputs.map(name => name === phase ? sign : 0)));
   if (feedback === 'speed') first.push(...[1, -1].map(sign => RESIDUAL_LAYOUT.inputs.map(name =>
@@ -41,7 +50,7 @@ if (!isMainThread) {
   const runningPolicy = workerData.runningPolicy ? recoveryNetwork(workerData.runningPolicy) : null;
   parentPort.on('message', async ({ id, x: u }) => {
     try {
-      const policySize = workerData.channels.length * featureCount(workerData.basis, workerData.feedback);
+      const policySize = workerData.channels.length * featureCount(workerData.basis, workerData.feedback, workerData.posturePolicy);
       const period = workerData.periodRange
         ? workerData.periodRange[0] + u[policySize] * (workerData.periodRange[1] - workerData.periodRange[0]) : null;
       const ahead = workerData.aheadRange
@@ -51,7 +60,7 @@ if (!isMainThread) {
         env = await residualEnvironment({ ...environment, cycleTuning: { ...workerData.cycleTuning,
           ...(period === null ? {} : { period }), ...(ahead === null ? {} : { ahead }) } });
       }
-      const policy = recoveryNetwork(networkAt(u, workerData.basis, workerData.channels, workerData.feedback));
+      const policy = recoveryNetwork(networkAt(u, workerData.basis, workerData.channels, workerData.feedback, workerData.posturePolicy));
       const readings = [];
       for (const stopAt of workerData.stopCases ?? [workerData.stopAt]) {
         const seconds = stopAt === undefined ? workerData.seconds : stopAt + 4;
@@ -103,13 +112,14 @@ if (!isMainThread) {
     resume: { type: 'boolean' }, basis: { type: 'string', default: 'sine' },
     'stop-at': { type: 'string' }, 'running-policy': { type: 'string' }, 'period-range': { type: 'string' },
     channels: { type: 'string', default: 'sagittal' }, 'ahead-range': { type: 'string' },
-    feedback: { type: 'string', default: 'none' } } });
+    feedback: { type: 'string', default: 'none' }, 'posture-policy': { type: 'string' } } });
   if (!o.config || !o.out) throw Error('--config and --out name calibration and retained search evidence');
   const config = JSON.parse(readFileSync(o.config, 'utf8'));
   const stopCases = o['stop-at'] === undefined ? null : o['stop-at'].split(',').map(Number);
   const settings = { ...JSON.parse(readFileSync(config.environment, 'utf8')), ...config,
     seconds: Number(o.seconds), creditFrom: Number(o.from), basis: o.basis, feedback: o.feedback,
     channels: o.channels === 'all' ? Array.from({ length: 12 }, (_, i) => i) : CHANNELS,
+    ...(o['posture-policy'] ? { posturePolicy: JSON.parse(readFileSync(o['posture-policy'], 'utf8')) } : {}),
     ...(stopCases ? { stopAt: Math.max(...stopCases), ...(stopCases.length > 1 ? { stopCases } : {}),
       runningPolicy: o['running-policy'] ? JSON.parse(readFileSync(o['running-policy'], 'utf8')) : null } : {}),
     ...(o['period-range'] ? { periodRange: o['period-range'].split(',').map(Number) } : {}),
@@ -123,7 +133,14 @@ if (!isMainThread) {
   if (!['sine', 'quadrature'].includes(settings.basis)) throw Error('basis is sine or quadrature');
   if (!['none', 'speed'].includes(settings.feedback)) throw Error('feedback is none or speed');
   if (!['sagittal', 'all'].includes(o.channels)) throw Error('channels is sagittal or all');
-  const dimensions = settings.channels.length * featureCount(settings.basis, settings.feedback) + (settings.periodRange ? 1 : 0) + (settings.aheadRange ? 1 : 0);
+  if (o['posture-policy']) {
+    const fixed = settings.posturePolicy, expected = networkAt(new Array(72).fill(.5), 'quadrature', Array.from({ length: 12 }, (_, i) => i), 'speed');
+    if (networkFaults(fixed).faults.length || fixed.actions !== 12 || fixed.layers.length !== 2 || fixed.normalization !== undefined
+      || fixed.layers[1].weights.length !== 12 || JSON.stringify(fixed.layers[0]) !== JSON.stringify(expected.layers[0])
+      || settings.basis !== 'quadrature' || settings.feedback !== 'speed')
+      throw Error('posture feedback needs an unnormalized quadrature/speed actor and --basis quadrature --feedback speed');
+  }
+  const dimensions = settings.channels.length * featureCount(settings.basis, settings.feedback, settings.posturePolicy) + (settings.periodRange ? 1 : 0) + (settings.aheadRange ? 1 : 0);
   if (!(settings.creditFrom >= 1 && settings.seconds > settings.creditFrom) || !Number.isFinite(settings.seconds)) throw Error('the credit window follows entry and precedes the episode end');
   const hash = file => createHash('sha256').update(readFileSync(file)).digest('hex');
   const identity = { settings, layout: residualLayout(settings.residual), channels: settings.channels,
@@ -151,14 +168,14 @@ if (!isMainThread) {
       throw Error(`start needs ${dimensions} finite unit-cube coefficients for ${settings.basis}`);
     if (!saved) {
       const baseline = await score(start);
-      writeFileSync(o.out + '-baseline.json', JSON.stringify({ u: start, network: networkAt(start, settings.basis, settings.channels, settings.feedback), ...baseline }) + '\n');
+      writeFileSync(o.out + '-baseline.json', JSON.stringify({ u: start, network: networkAt(start, settings.basis, settings.channels, settings.feedback, settings.posturePolicy), ...baseline }) + '\n');
       console.log(JSON.stringify({ baseline }));
     }
     await cmaSearch({ n: dimensions, start, sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1, score, resume: saved,
       onGeneration: (entry, { best, checkpoint }) => {
         appendFileSync(o.out + '.jsonl', JSON.stringify({ ...entry, best: best.score, reading: best.r }) + '\n');
         writeFileSync(o.out + '-checkpoint.json', JSON.stringify(checkpoint) + '\n');
-        writeFileSync(o.out + '-policy.json', JSON.stringify(networkAt(best.u, settings.basis, settings.channels, settings.feedback)) + '\n');
+        writeFileSync(o.out + '-policy.json', JSON.stringify(networkAt(best.u, settings.basis, settings.channels, settings.feedback, settings.posturePolicy)) + '\n');
         console.log(JSON.stringify({ ...entry, best: best.score, reading: best.r }));
       } });
   } finally { await pool.terminate(); }
