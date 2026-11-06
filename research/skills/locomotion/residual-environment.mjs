@@ -151,7 +151,7 @@ export async function residualEnvironment(configuration = {}) {
     physicalParts = [...stand.built.segments.values()]; mass = massOf(physicalParts);
     physicalRoot = rootSegment(stand.built); rootInverse = Quaternion.Inverse(physicalRoot.rest);
     channels = Object.fromEntries(['left', 'right'].map(side => [side, names[side].map(name => body.muscles.channel(name))]));
-    skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve }, running, { stride, braking });
+    skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve }, running, { stride, braking, entry: o.entry });
     control = { asked: null, stopOrder: false, action: new Array(12).fill(0), reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
     observation = []; goal = null;
     body.drive((view, dt) => {
@@ -218,5 +218,5 @@ export async function residualEnvironment(configuration = {}) {
     halt() { control.asked = null; control.stopOrder = true; },
     harness: Object.freeze({ model: o.model, engine: o.engine, hz: stand.world.hz, delay: stand.world.delay,
       actuation: stand.world.actuation, balance: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt,
-      residual: o.residual, scale: o.scale }) };
+      residual: o.residual, scale: o.scale, entry: o.entry ?? 'landing' }) };
 }

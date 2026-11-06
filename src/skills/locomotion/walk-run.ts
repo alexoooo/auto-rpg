@@ -168,9 +168,13 @@ const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "cen
  * states it stops at its walk's rate, and while it may run at `RUN_STOPPING`. Its
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
  * they were set for, and quickened by its haste (`quickness`), as the run's envelope is.
+ * The optional first-lift entry takes the first clear swinging foot after facing settles,
+ * beginning the cycle on the opposite planted sole; landing entry waits for a walking landing.
  */
 export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE,
-  { may = true, braking = givenRun, stride }: { readonly may?: boolean; readonly braking?: RunCycleSettings; readonly stride?: GaitTuning } = {}): Locomotion {
+  { may = true, braking = givenRun, stride, entry = "landing" }: { readonly may?: boolean; readonly braking?: RunCycleSettings; readonly stride?: GaitTuning;
+    readonly entry?: "landing" | "first-lift" } = {}): Locomotion {
+  if (entry !== "landing" && entry !== "first-lift") throw new Error("run entry is landing or first-lift");
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
   if (!validRunCycle(givenRun)) throw new Error("a run cycle needs every setting finite, its times and the cycle's positive and its shares of strength within (0, 1]");
   if (!validRunCycle(braking)) throw new Error("a braking cycle needs the run cycle's complete valid settings");
@@ -278,6 +282,11 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face, facing = Math.abs(wrap(way - memory.facing)) <= RUN_SWITCH.facing;
         memory.faced = memory.capped > 0 && facing ? memory.faced + dt : 0;
         if (landed && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.swayed && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) memory.bearing = landed;
+        if (entry === "first-lift" && memory.bearing === null && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled
+          && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.swayed && s.phase === "swing" && s.own) {
+          const swung = feet[s.own.foot];
+          if (swung && touching(view, otherSide(swung)) && !touching(view, swung)) memory.bearing = otherSide(swung);
+        }
         // A sole that leaves the ground again before it bears alone has not landed; one asked no longer to run waits no more.
         if (memory.bearing !== null && !touching(view, memory.bearing)) { memory.swinging = memory.bearing; memory.bearing = null; }
         if (memory.capped === 0) memory.bearing = null;

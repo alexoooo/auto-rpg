@@ -1,7 +1,8 @@
 /**
  * Phase-dependent sagittal residual search; development running or braking, excluding equipment.
  * --config names the residual environment wrapper; --out prefixes retained evidence.
- * --basis sine uses twelve coefficients; quadrature adds cosine, giving twenty-four.
+ * --basis sine uses two coefficients per selected channel; quadrature adds cosine, giving four.
+ * --channels all includes lateral and rotational leg corrections; sagittal is the default.
  * --start reads unit-cube coefficients, zero residual at .5, each mapped to [-1,1].
  * --from selects the first rolling window's end; --seconds ends the run. Neither changes a gate.
  * --resume continues the saved CMA state and rows under the same protocol and code identity.
@@ -18,12 +19,12 @@ import { residualEnvironment, RESIDUAL_LAYOUT, residualLayout } from './residual
 import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
 
 const CHANNELS = [0, 3, 4, 6, 9, 10];
-function networkAt(u, basis) {
+function networkAt(u, basis, channels) {
   const names = basis === 'quadrature' ? ['phase sin', 'phase cos'] : ['phase sin'];
   const first = names.flatMap(phase => [1, -1].map(sign => RESIDUAL_LAYOUT.inputs.map(name => name === phase ? sign : 0)));
   return { actions: 12, layers: [{ weights: first, bias: new Array(first.length).fill(0) },
     { weights: RESIDUAL_LAYOUT.outputs.map((_, i) => {
-      const j = CHANNELS.indexOf(i);
+      const j = channels.indexOf(i);
       return first.map((_, k) => j < 0 ? 0 : 2 * u[first.length * j + k] - 1);
     }), bias: new Array(12).fill(0) }] };
 }
@@ -40,7 +41,7 @@ if (!isMainThread) {
         env?.dispose();
         env = await residualEnvironment({ ...environment, cycleTuning: { ...workerData.cycleTuning, period } });
       }
-      const policy = recoveryNetwork(networkAt(u, workerData.basis));
+      const policy = recoveryNetwork(networkAt(u, workerData.basis, workerData.channels));
       let observation = await env.reset({ fromRest: true }), result, sum = 0, count = 0, held = Infinity, enteredAt = null;
       const window = new Float64Array(120);
       let halted = false, stopEntry = null, quietFrom = null, settledAt = null, stopSpeed = 0, stopCount = 0, deadlineSpeed = null;
@@ -80,11 +81,13 @@ if (!isMainThread) {
     sigma: { type: 'string', default: '.02' }, workers: { type: 'string', default: '8' },
     from: { type: 'string', default: '4' }, seconds: { type: 'string', default: '14' }, start: { type: 'string' },
     resume: { type: 'boolean' }, basis: { type: 'string', default: 'sine' },
-    'stop-at': { type: 'string' }, 'running-policy': { type: 'string' }, 'period-range': { type: 'string' } } });
+    'stop-at': { type: 'string' }, 'running-policy': { type: 'string' }, 'period-range': { type: 'string' },
+    channels: { type: 'string', default: 'sagittal' } } });
   if (!o.config || !o.out) throw Error('--config and --out name calibration and retained search evidence');
   const config = JSON.parse(readFileSync(o.config, 'utf8'));
   const settings = { ...JSON.parse(readFileSync(config.environment, 'utf8')), ...config,
     seconds: Number(o.seconds), creditFrom: Number(o.from), basis: o.basis,
+    channels: o.channels === 'all' ? Array.from({ length: 12 }, (_, i) => i) : CHANNELS,
     ...(o['stop-at'] !== undefined ? { stopAt: Number(o['stop-at']), runningPolicy: o['running-policy'] ? JSON.parse(readFileSync(o['running-policy'], 'utf8')) : null } : {}),
     ...(o['period-range'] ? { periodRange: o['period-range'].split(',').map(Number) } : {}) };
   if (settings.periodRange && (settings.periodRange.length !== 2 || !settings.periodRange.every(x => Number.isFinite(x) && x > 0)
@@ -94,10 +97,11 @@ if (!isMainThread) {
     || (settings.stopAt !== undefined && (!Number.isInteger(settings.stopAt) || settings.stopAt < 4 || settings.seconds !== settings.stopAt + 4)))
     throw Error('braking search needs --stop-at and --running-policy, with four seconds after the stop');
   if (!['sine', 'quadrature'].includes(settings.basis)) throw Error('basis is sine or quadrature');
-  const dimensions = CHANNELS.length * (settings.basis === 'quadrature' ? 4 : 2) + (settings.periodRange ? 1 : 0);
+  if (!['sagittal', 'all'].includes(o.channels)) throw Error('channels is sagittal or all');
+  const dimensions = settings.channels.length * (settings.basis === 'quadrature' ? 4 : 2) + (settings.periodRange ? 1 : 0);
   if (!(settings.creditFrom >= 1 && settings.seconds > settings.creditFrom) || !Number.isFinite(settings.seconds)) throw Error('the credit window follows entry and precedes the episode end');
   const hash = file => createHash('sha256').update(readFileSync(file)).digest('hex');
-  const identity = { settings, layout: residualLayout(settings.residual), channels: CHANNELS,
+  const identity = { settings, layout: residualLayout(settings.residual), channels: settings.channels,
     code: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     diff: execFileSync('git', ['diff', 'HEAD'], { encoding: 'utf8' }),
     search: hash(new URL(import.meta.url)), environment: hash(new URL('./residual-environment.mjs', import.meta.url)),
@@ -122,14 +126,14 @@ if (!isMainThread) {
       throw Error(`start needs ${dimensions} finite unit-cube coefficients for ${settings.basis}`);
     if (!saved) {
       const baseline = await score(start);
-      writeFileSync(o.out + '-baseline.json', JSON.stringify({ u: start, network: networkAt(start, settings.basis), ...baseline }) + '\n');
+      writeFileSync(o.out + '-baseline.json', JSON.stringify({ u: start, network: networkAt(start, settings.basis, settings.channels), ...baseline }) + '\n');
       console.log(JSON.stringify({ baseline }));
     }
     await cmaSearch({ n: dimensions, start, sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1, score, resume: saved,
       onGeneration: (entry, { best, checkpoint }) => {
         appendFileSync(o.out + '.jsonl', JSON.stringify({ ...entry, best: best.score, reading: best.r }) + '\n');
         writeFileSync(o.out + '-checkpoint.json', JSON.stringify(checkpoint) + '\n');
-        writeFileSync(o.out + '-policy.json', JSON.stringify(networkAt(best.u, settings.basis)) + '\n');
+        writeFileSync(o.out + '-policy.json', JSON.stringify(networkAt(best.u, settings.basis, settings.channels)) + '\n');
         console.log(JSON.stringify({ ...entry, best: best.score, reading: best.r }));
       } });
   } finally { await pool.terminate(); }
