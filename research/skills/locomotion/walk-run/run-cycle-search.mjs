@@ -28,7 +28,7 @@ import { footOn } from "../../../../src/control/support.ts";
  * - `--narrow <share>` scales a trial's credit down by as much as its step width is over that share of the body's leg (`legOf`).
  * - `--fallen <share>` scales a fallen trial's credit by that share, so that a fall late in a trial costs more than the distance it ends.
  * - `--slowest <s>` credits a trial that runs on, or turns, and stays up with its slowest rolling second's speed projected along the requested direction from `<s>` s after
- *   it is asked to run (a turning trial from the turn's start) to its end, the travel speed contract, in place of the speed it made.
+ *   it is asked to run (a turning trial from the turn's start) to its end, the travel speed contract, in place of the speed it made. A fall gives no credit in this mode.
  * - `--trace <file>` with `--score` retains each step's motion, handover state, contacts and muscle targets.
  * - `--stop-hold <s>` requires the speed to remain below the stopping threshold for that span; otherwise a first dip is read.
  * - `--braking-only` fixes the running calibration to the start and searches only the decelerating cycle.
@@ -180,7 +180,7 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
       if (!Number.isFinite(height) || height < FALLEN * standing || body.view.down) { fell = i / stand.world.hz; break; }
       if (i % window === 0) { windows.push(+((s.centre.z - mark) / 2).toFixed(2)); mark = s.centre.z; }
     }
-    const made = slowFrom !== null && !stop && fell === null ? (Number.isFinite(slowest) ? slowest : 0)
+    const made = slowFrom !== null && !stop ? (fell === null && Number.isFinite(slowest) ? slowest : 0)
       : from === null ? 0 : (turn !== 0 ? path : z - from) / ((stopAt - at) / stand.world.hz);
     const v = body.view.stance.velocity, off = Math.abs(Math.atan2(Math.sin(Math.atan2(v.x, v.z) - face), Math.cos(Math.atan2(v.x, v.z) - face))), turned = turn === 0 || fell !== null || off <= TURNED;
     const stood = !stop ? 1 : fell === null ? 1 : Math.max(0, fell - stopSeconds) / (seconds - stopSeconds), stopped = !stop || (fell === null && v.length() < stopUnder);

@@ -209,8 +209,9 @@ function skillCommand(skill, view, walk, face, dt, posture, keep) {
  * lab's gusts blow on it throughout (`startWind`, `src/game/lab/wind.ts`). `stood` is the soles' distance
  * apart across the way as it sets off, m, and `width` their mean as each lands over the 3 s measured
  * (null if none landed), and the greatest absolute pelvis facing, rad, through travel and rest.
+ * `trace` retains each step's motion, stance recovery state and hip rotation readings.
  */
-export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null, setOff = 5, rest = 4, balance = null, stride }) {
+export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null, setOff = 5, rest = 4, balance = null, stride, trace = false }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance });
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   if (isRefused(blowing)) { b.dispose(); stand.dispose(); throw new Error(blowing.refused); }
@@ -226,6 +227,9 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
   try {
     stand.step(stand.seconds(1));
     let low = -Infinity, down = false, measuring = false, facing = 0;
+    const samples = [], muscles = b.driver.muscles;
+    const yawChannels = trace ? muscles.channels.flatMap((channel, i) =>
+      channel.name.includes("hip.") && channel.name.includes("internal rotation") ? [i] : []) : [];
     const was = { left: true, right: true }, widths = [];
     const run = (seconds) => {
       for (let i = 0; i < stand.seconds(seconds); i++) {
@@ -235,6 +239,14 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
         if (goal) low = Math.max(low, goal.height - (s.centre.y - Math.min(s.ends[footOn(b.built.spec, "left")].middle.y, s.ends[footOn(b.built.spec, "right")].middle.y)));
         down ||= b.view.down;
         facing = Math.max(facing, Math.abs(s.facing));
+        if (trace) {
+          const step = b.state.mind.host.motor.stance.step;
+          samples.push(structuredClone({ time: stand.world.time, facing: s.facing, phase: s.phase,
+            velocity: s.velocity, centre: s.centre, ends: s.ends,
+            catching: step.catching, recovering: step.recovering, stepFacing: step.facing,
+            yaw: yawChannels.map(i => ({ channel: muscles.channels[i].name, angle: muscles.angle(i),
+              speed: muscles.speed(i), torque: muscles.pulled[i], ceiling: muscles.ceiling[i] })) }));
+        }
         // The soles' distance apart across the way walked as each lands, over the walk measured.
         for (const side of SIDES) {
           if (measuring && s.ends[footOn(b.built.spec, side)].touching && !was[side]) widths.push(Math.abs((s.ends[footOn(b.built.spec, "left")].middle.x - s.ends[footOn(b.built.spec, "right")].middle.x) * uz - (s.ends[footOn(b.built.spec, "left")].middle.z - s.ends[footOn(b.built.spec, "right")].middle.z) * ux));
@@ -258,7 +270,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
     const settled = b.view.stance.strides;
     run(2);
     const s = b.view.stance;
-    return { strides, capped, fell: low > 0.25 || down || !Number.isFinite(low), facing, along, across: sideways, speed: s.velocity.length(), phase: s.phase,
+    return { strides, capped, fell: low > 0.25 || down || !Number.isFinite(low), facing, ...(trace ? { samples } : {}), along, across: sideways, speed: s.velocity.length(), phase: s.phase,
       stepped: s.strides - settled, off: across(s.centre, s.place), stood, width: widths.length ? widths.reduce((a, w) => a + w, 0) / widths.length : null };
   } finally { blowing?.dispose(); b.dispose(); stand.dispose(); }
 }
