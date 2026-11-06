@@ -23,12 +23,14 @@
  * foot as the cause, 120 Hz with the toes' mass and moments ten and a hundred times theirs and their
  * weight kept (`conditioned`), which is solver conditioning and not anatomy.
  *
- * Read every 1/120 s over the hold: the hinge's separation, the toe's angle, the moment the ground's
- * normal pushes put on the toes about the hinge with the toes' weight and any applied moment, the
+ * Read every 1/120 s over the hold: the hinge's separation, the toe's angle, the ground's
+ * normal impulse rate on the toes, their weight and any applied moment, the
  * spring's torque from its step impulse beside the torque its law gives at that angle and speed, the
  * deepest any piece sinks into the ground, the foot's creep along it, and the fixture's mechanical
- * energy (motion, height, the spring). The static prediction is `TOE.rest` plus that moment over
- * the stiffness, each averaged over the last second.
+ * energy (motion, height, the spring). A static angle prediction uses the known external moment
+ * only while the toes bear no ground load. Contact centroids are not centres of pressure and
+ * cannot supply the ground's moment. The spring's read torque is compared with its law over the
+ * last second; oscillation is reported separately.
  *
  *   node research/man-toe-solver.mjs
  */
@@ -231,16 +233,12 @@ function run(kase, config) {
     const sample = { t, energy: energyOf() };
     if (config.toe !== "none") {
       sample.separation = norm(sub(toWorld(bodies.foot.rigid, hinge), toWorld(bodies.toes.rigid, hinge)));
-      // The ground's pushes on the toes and their weight, about the hinge, positive plantarflexing.
+      // The known external moment, excluding ground reactions whose centre of pressure is unread.
       const c = toWorld(bodies.toes.rigid, hinge), u = axisNow();
       let moment = kase.torque ?? 0;
-      for (const contact of physics.contactsOf(bodies.toes)) {
-        const force = contact.normal.map((n) => (-n * contact.impulse) / dt);
-        moment += dot(cross(sub(contact.point, c), force), u);
-      }
       const com = bodies.toes.rigid.worldCom();
       moment += dot(cross(sub([com.x, com.y, com.z], c), [0, (-bodies.toes.rigid.mass() * g) / (config.conditioned ?? 1), 0]), u);
-      sample.moment = moment;
+      sample.freeMoment = moment;
       sample.load = physics.contactsOf(bodies.toes).reduce((s, contact) => s + contact.impulse / dt, 0);
     }
     // How deep the foot is in the ground: the deepest solver point of any piece, m, 0 when clear.
@@ -269,12 +267,12 @@ function run(kase, config) {
   summary.creep = Math.sqrt((footEnd.x - footAtHold[0]) ** 2 + (footEnd.z - footAtHold[2]) ** 2) / LAST;
   summary.settled = footEnd.y - footStart.y;
   if (toeJoint) {
-    const angle = mean(last.map((s) => s.angle)), moment = mean(last.map((s) => s.moment));
+    const angle = mean(last.map((s) => s.angle));
     summary.angle = angle;
-    summary.predicted = TOE.rest + moment / TOE.stiffness;
-    summary.moment = moment;
+    summary.freePrediction = last.every(s => s.load === 0) ? TOE.rest + mean(last.map(s => s.freeMoment)) / TOE.stiffness : null;
     summary.spring = mean(last.map((s) => s.spring));
     summary.law = mean(last.map((s) => s.law));
+    summary.lawError = Math.abs(summary.spring - summary.law) / TOE.stiffness;
     summary.peakToPeak = Math.max(...last.map((s) => s.angle)) - Math.min(...last.map((s) => s.angle));
     const a = angle - TOE.rest;
     summary.springEnergy = 0.5 * TOE.stiffness * a * a;
@@ -288,7 +286,8 @@ function accept(s) {
   if (s.angle === undefined) return null;
   return {
     separation: s.separation <= 0.001,
-    prediction: Math.abs(s.angle - s.predicted) <= 0.05,
+    ...(s.freePrediction === null ? {} : { prediction: Math.abs(s.angle - s.freePrediction) <= 0.05 }),
+    spring: s.lawError <= 0.05,
     steady: s.peakToPeak <= 0.01,
     energy: s.energyRise <= 0.01 * s.springEnergy,
   };
@@ -304,15 +303,15 @@ for (const kase of CASES) for (const config of CONFIGS) {
 const f = (v, d = 3) => (v === null || v === undefined ? "-" : v.toFixed(d));
 const mark = (ok) => (ok === undefined ? "" : ok ? "" : " ✗");
 console.log(`Harness: Node, the core's Rapier world (createRapierPhysics, coordinate limits, SOLVER), ${AUDITED}'s ${SIDE} foot. Foot ${(legMass + footSpec.mass.value * (1 - toeShare)).toFixed(2)} kg, turn held, ramped over ${RAMP} s, held ${HOLD} s; toes ${(footSpec.mass.value * toeShare).toFixed(3)} kg on k ${TOE.stiffness} N m/rad, d ${DAMPING} N m s/rad, range [${f(TOE.lo)}, ${f(TOE.hi)}].\n`);
-console.log("| case | configuration | toe, rad | predicted, rad | ground's moment, N m | spring as read, N m | spring by its law, N m | toe load, N | deepest, mm | peak-to-peak, rad | separation, mm | energy rise, J | drift, J | spring energy, J | creep, mm/s |");
+console.log("| case | configuration | toe, rad | free prediction, rad | spring law error, rad | spring as read, N m | spring by its law, N m | toe load, N | deepest, mm | peak-to-peak, rad | separation, mm | energy rise, J | drift, J | spring energy, J | creep, mm/s |");
 console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 for (const s of results) {
   const a = s.accept ?? {};
-  console.log(`| ${s.case} | ${s.config} | ${f(s.angle)} | ${f(s.predicted)}${mark(a.prediction)} | ${f(s.moment, 2)} | ${f(s.spring, 2)} | ${f(s.law, 2)} | ${f(s.load, 0)} | ${f(s.depth * 1000, 1)} | ${f(s.peakToPeak, 4)}${mark(a.steady)} | ${s.separation === null ? "-" : f(s.separation * 1000, 3)}${mark(a.separation)} | ${f(s.energyRise, 4)}${mark(a.energy)} | ${f(s.energyDrift, 4)} | ${f(s.springEnergy, 3)} | ${f(s.creep * 1000, 2)} |`);
+  console.log(`| ${s.case} | ${s.config} | ${f(s.angle)} | ${f(s.freePrediction)}${mark(a.prediction)} | ${f(s.lawError)}${mark(a.spring)} | ${f(s.spring, 2)} | ${f(s.law, 2)} | ${f(s.load, 0)} | ${f(s.depth * 1000, 1)} | ${f(s.peakToPeak, 4)}${mark(a.steady)} | ${s.separation === null ? "-" : f(s.separation * 1000, 3)}${mark(a.separation)} | ${f(s.energyRise, 4)}${mark(a.energy)} | ${f(s.energyDrift, 4)} | ${f(s.springEnergy, 3)} | ${f(s.creep * 1000, 2)} |`);
 }
 const passive = (name) => results.filter((s) => s.config === name);
 const meets = (name) => passive(name).every((s) => Object.values(s.accept).every(Boolean));
 console.log(`\nAcceptance at 120 Hz: ${meets("120 Hz") ? "met" : "not met"}; at 480 Hz: ${meets("480 Hz") ? "met" : "not met"}.`);
-const out = new URL("./runs", import.meta.url);
+const out = new URL("./runs/", import.meta.url);
 mkdirSync(out, { recursive: true });
 writeFileSync(new URL("man-toe-solver.json", out), JSON.stringify(results, null, 1));

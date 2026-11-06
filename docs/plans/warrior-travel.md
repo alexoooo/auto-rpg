@@ -6,7 +6,7 @@ The Warrior travels at 4 m/s or faster forward, moves safely in every direction,
 moving, takes corners, reverses direction and stops without falling. Travel uses its own speed
 and turning limits; the braced walk remains available for fighting.
 
-Train and confirm on the current toed Warrior, unassisted. Use existing gait implementations,
+Train and confirm on the game's toed Warrior, unassisted. Use existing gait implementations,
 records and training checkpoints as seeds, replayed on this body before reuse; they do not
 establish that its travel meets the gates. Establish the baseline on the current body and
 controller before changing them, and retain the current recovery readings as a guard.
@@ -15,6 +15,8 @@ This plan owns the Warrior's movement requirement within [Options trained body b
 body](2026-11-03-options-training.md). The Rogue's run remains that plan's. Warrior recovery is
 serviceable for this work: preserve its ability to get up and its recorded recovery performance;
 the ten-second stand-up target remains separate work rather than an entry requirement here.
+Body and controller changes serve travel and recovery together. A changed toe or other body part
+retains the recovery capability; calibrate and read both skills on the changed body before keeping it.
 
 ## Movement contract
 
@@ -88,6 +90,12 @@ headings between the eight training directions to check the envelope's interpola
 2. Retrain the forward gait on the toed Warrior until acceleration, sustained speed and stopping
    meet their gates. Repair demonstrated controller or contact defects at their owning layer.
    A body change follows a measured anatomical limit and is sourced for the requested result.
+   Establish a toe replacement on a mechanical fixture before whole-body integration: its passive
+   torque law, ground clearance, support reactions and convergence across physics rates, with the
+   heel raised, the foot rocking and the foot near vertical. Derive the physical toe's mass and
+   inertia from its geometry and the foot's mass distribution; keep solver conditioning in
+   `SOLVER`. Read reaction moments from actual force application points rather than contact
+   centroids. Pair the resulting body's recovery and travel readings before retaining the change.
 3. Establish facing-held directional speeds, then steering, corners and reversals. Retain paired
    evidence for each change and keep the forward and stopping gates met while adding manoeuvres.
 4. Extend to every rated loadout: empty hands, club, sword, club and buckler, sword and buckler.
