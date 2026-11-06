@@ -22,9 +22,22 @@ interface Evidence {
 const opponentKey = (subject: RecordedSubject | null): Json => subject === null ? null
   : { id: subject.id, own: subject.version.own, code: subject.version.code ?? null };
 
-/** Non-policy parts hold the body's and equipment's identity, rather than the implementation being compared. */
-const fixedParts = (subject: RecordedSubject): Json => subject.parts.filter(part => !/^(mind|commander|tuning):/.test(part.id))
-  .map(part => ({ id: part.id, own: part.version.own })).sort((a, b) => a.id.localeCompare(b.id));
+/** A strike's complete configuration, whether the subject is named or supplied whole. */
+const strikeInput = (subject: RecordedSubject) => {
+  const value = subject.value;
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const fields = value as { readonly [key: string]: Json };
+  return typeof fields.skill === "string" && fields.mind !== undefined ? fields : null;
+};
+
+/** Body and equipment identity; a strike's selected skill belongs to the policy being compared. */
+const fixedParts = (subject: RecordedSubject): Json => {
+  const strike = strikeInput(subject);
+  const fixed: ({ id: string; own: string } | { id: string; value: Json })[] = subject.parts.filter(part => !/^(mind|commander|tuning):/.test(part.id)
+    && !(strike && (part.id === "skill" || part.id === "held"))).map(part => ({ id: part.id, own: part.version.own }));
+  if (strike) fixed.push({ id: "held", value: strike.held ?? subject.parts.find(part => part.id === "held")?.value ?? null });
+  return fixed.sort((a, b) => a.id.localeCompare(b.id));
+};
 
 function evidence(record: Kept, prefix: string): { readonly units: Map<string, Evidence>; readonly withinSubject: readonly string[] } {
   const subjects = new Map(record.header.subjects.map(subject => [subject.id, subject]));
@@ -74,7 +87,15 @@ function physicalContext(unit: Evidence, line: RecordLine): string {
       return kept === undefined ? [] : [[name, kept]];
     }));
   };
-  return recordingKey(withoutInputs(line.world as unknown as Json));
+  const strike = strikeInput(unit.subject), world = line.world;
+  // A trusted bonk fixture binds the selected left participant's skill, like its mind config.
+  const boundFixture = strike && line.subjects[0] === unit.subject.id && world.kind === "bout" && world.fixture?.kind === "bonk" && world.fixture.skill === strike.skill
+    ? { ...world, fixture: Object.fromEntries(Object.entries(world.fixture).filter(([key]) => key !== "skill")) } : world;
+  // A protocol may bind a participant's aim before construction; its recorded seat still owns that mind.
+  const seats = new Set(line.subjects.flatMap((id, seat) => id === unit.subject.id || id === unit.opponent?.id ? [seat === 0 ? "left" : "right"] : []));
+  const physical = world.kind === "bout" && world.recipe.minds ? { ...boundFixture, recipe: { ...world.recipe,
+    minds: Object.fromEntries(Object.entries(world.recipe.minds).filter(([side]) => !seats.has(side))) } } : boundFixture;
+  return recordingKey(withoutInputs(physical as unknown as Json));
 }
 
 /** Missing provenance or changed shared conditions qualify every difference as descriptive. */
