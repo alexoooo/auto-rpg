@@ -31,8 +31,10 @@ A valid quiet standing interval outranks those continuous rewards. `stopMet` als
 score alone does not establish the stop gate.
 
 For running-only development, `--period-range low,high` trains cadence jointly with the
-trajectory coefficients. The checkpoint's best reading records the selected `period`; replay its
-policy with that value in the configuration's `cycleTuning.period`. Cycle overrides apply only
+trajectory coefficients; `--ahead-range low,high` also trains playback lead. Quote range arguments
+to preserve their decimal bounds in PowerShell. The checkpoint's best reading records the selected
+`period` and `ahead`; replay its policy with those values in the configuration's `cycleTuning`.
+Cycle overrides apply only
 to the experiment and do not replace a body's published record.
 
 Set `entry` to `first-lift` in a residual environment configuration to try handover on the

@@ -8,6 +8,7 @@
  * --resume continues the saved CMA state and rows under the same protocol and code identity.
  * --stop-at pairs with --running-policy to freeze entry and train only the four-second braking window.
  * --period-range adds one unit-cube coordinate for jointly training cadence and trajectory.
+ * --ahead-range adds a playback-lead coordinate after cadence where both are present.
  */
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
@@ -31,15 +32,19 @@ function networkAt(u, basis, channels) {
 
 if (!isMainThread) {
   const environment = { ...workerData, trace: true, poses: false, contacts: workerData.stopAt !== undefined || workerData.contacts === true };
-  let env = workerData.periodRange ? null : await residualEnvironment(environment);
+  let env = workerData.periodRange || workerData.aheadRange ? null : await residualEnvironment(environment);
   const runningPolicy = workerData.runningPolicy ? recoveryNetwork(workerData.runningPolicy) : null;
   parentPort.on('message', async ({ id, x: u }) => {
     try {
+      const policySize = workerData.channels.length * (workerData.basis === 'quadrature' ? 4 : 2);
       const period = workerData.periodRange
-        ? workerData.periodRange[0] + u.at(-1) * (workerData.periodRange[1] - workerData.periodRange[0]) : null;
-      if (period !== null) {
+        ? workerData.periodRange[0] + u[policySize] * (workerData.periodRange[1] - workerData.periodRange[0]) : null;
+      const ahead = workerData.aheadRange
+        ? workerData.aheadRange[0] + u[policySize + (workerData.periodRange ? 1 : 0)] * (workerData.aheadRange[1] - workerData.aheadRange[0]) : null;
+      if (period !== null || ahead !== null) {
         env?.dispose();
-        env = await residualEnvironment({ ...environment, cycleTuning: { ...workerData.cycleTuning, period } });
+        env = await residualEnvironment({ ...environment, cycleTuning: { ...workerData.cycleTuning,
+          ...(period === null ? {} : { period }), ...(ahead === null ? {} : { ahead }) } });
       }
       const policy = recoveryNetwork(networkAt(u, workerData.basis, workerData.channels));
       let observation = await env.reset({ fromRest: true }), result, sum = 0, count = 0, held = Infinity, enteredAt = null;
@@ -71,7 +76,7 @@ if (!isMainThread) {
         : (1 / (1 + (deadlineSpeed ?? Infinity)) + 1 / (1 + stopSpeed / Math.max(1, stopCount))) / 2;
       // Partial survival guides development but ranks below every completed forward run.
       parentPort.postMessage({ id, r: { score: complete ? halted ? stopScore : Math.max(0, held) : -1 + Math.min(1, count / (workerData.seconds * 120)),
-        ...(runningPolicy ? { stopEntry, deadlineSpeed, settledAt, stopMet } : {}), ...(period === null ? {} : { period }),
+        ...(runningPolicy ? { stopEntry, deadlineSpeed, settledAt, stopMet } : {}), ...(period === null ? {} : { period }), ...(ahead === null ? {} : { ahead }),
         held: Number.isFinite(held) ? held : null, enteredAt, complete, harness: env.harness, ...result.info } });
     } catch (error) { parentPort.postMessage({ id, r: { error: String(error.stack ?? error), score: -1 } }); }
   });
@@ -82,23 +87,24 @@ if (!isMainThread) {
     from: { type: 'string', default: '4' }, seconds: { type: 'string', default: '14' }, start: { type: 'string' },
     resume: { type: 'boolean' }, basis: { type: 'string', default: 'sine' },
     'stop-at': { type: 'string' }, 'running-policy': { type: 'string' }, 'period-range': { type: 'string' },
-    channels: { type: 'string', default: 'sagittal' } } });
+    channels: { type: 'string', default: 'sagittal' }, 'ahead-range': { type: 'string' } } });
   if (!o.config || !o.out) throw Error('--config and --out name calibration and retained search evidence');
   const config = JSON.parse(readFileSync(o.config, 'utf8'));
   const settings = { ...JSON.parse(readFileSync(config.environment, 'utf8')), ...config,
     seconds: Number(o.seconds), creditFrom: Number(o.from), basis: o.basis,
     channels: o.channels === 'all' ? Array.from({ length: 12 }, (_, i) => i) : CHANNELS,
     ...(o['stop-at'] !== undefined ? { stopAt: Number(o['stop-at']), runningPolicy: o['running-policy'] ? JSON.parse(readFileSync(o['running-policy'], 'utf8')) : null } : {}),
-    ...(o['period-range'] ? { periodRange: o['period-range'].split(',').map(Number) } : {}) };
-  if (settings.periodRange && (settings.periodRange.length !== 2 || !settings.periodRange.every(x => Number.isFinite(x) && x > 0)
-    || settings.periodRange[0] >= settings.periodRange[1] || settings.stopAt !== undefined))
-    throw Error('period range needs positive increasing limits and a running-only search');
+    ...(o['period-range'] ? { periodRange: o['period-range'].split(',').map(Number) } : {}),
+    ...(o['ahead-range'] ? { aheadRange: o['ahead-range'].split(',').map(Number) } : {}) };
+  for (const [name, range] of [['period', settings.periodRange], ['ahead', settings.aheadRange]])
+    if (range && (range.length !== 2 || !range.every(x => Number.isFinite(x) && x > 0) || range[0] >= range[1] || settings.stopAt !== undefined))
+      throw Error(`${name} range needs positive increasing limits and a running-only search`);
   if ((o['stop-at'] === undefined) !== (o['running-policy'] === undefined)
     || (settings.stopAt !== undefined && (!Number.isInteger(settings.stopAt) || settings.stopAt < 4 || settings.seconds !== settings.stopAt + 4)))
     throw Error('braking search needs --stop-at and --running-policy, with four seconds after the stop');
   if (!['sine', 'quadrature'].includes(settings.basis)) throw Error('basis is sine or quadrature');
   if (!['sagittal', 'all'].includes(o.channels)) throw Error('channels is sagittal or all');
-  const dimensions = settings.channels.length * (settings.basis === 'quadrature' ? 4 : 2) + (settings.periodRange ? 1 : 0);
+  const dimensions = settings.channels.length * (settings.basis === 'quadrature' ? 4 : 2) + (settings.periodRange ? 1 : 0) + (settings.aheadRange ? 1 : 0);
   if (!(settings.creditFrom >= 1 && settings.seconds > settings.creditFrom) || !Number.isFinite(settings.seconds)) throw Error('the credit window follows entry and precedes the episode end');
   const hash = file => createHash('sha256').update(readFileSync(file)).digest('hex');
   const identity = { settings, layout: residualLayout(settings.residual), channels: settings.channels,
