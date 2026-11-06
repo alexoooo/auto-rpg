@@ -143,6 +143,8 @@ export interface JointFrames {
   readonly frameChild: Quaternion;
   /** Each freedom's range, rad, about its constraint axis: freedom k's is `limits[k]`. */
   readonly limits: readonly (readonly [number, number])[];
+  /** Passive spring settings by freedom; null leaves the freedom's actuator available. */
+  readonly springs?: readonly ({ readonly rest: number; readonly stiffness: number; readonly damping: number } | null)[];
 }
 
 export interface EngineJoint {

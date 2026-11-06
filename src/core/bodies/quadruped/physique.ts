@@ -53,7 +53,10 @@ export function reptilePhysique(spec: BodySpec, physique: Physique = {}, haste =
     };
   });
   return { ...spec, mass: mass(spec.mass), stature: derive("m", "stature times size", [spec.stature, size], (h, s) => h * s), segments,
-    joints: spec.joints.map(j => ({ ...j, centre: scaled(j.centre), dofs: j.dofs.map(d => ({ ...d, muscle: { ...d.muscle,
+    joints: spec.joints.map(j => ({ ...j, centre: scaled(j.centre), dofs: j.dofs.map(d => d.passive ? { ...d, passive: { ...d.passive,
+      stiffness: derive(d.passive.stiffness.unit, "passive stiffness times size cubed", [d.passive.stiffness, size], (k, s) => k * s * s * s),
+      damping: derive(d.passive.damping.unit, "passive damping times size cubed", [d.passive.damping, size], (c, s) => c * s * s * s),
+    } } : ({ ...d, muscle: { ...d.muscle,
       peakPositive: derive("N m", "torque times size cubed and strength", [d.muscle.peakPositive, size, torque], (t, s, k) => t * s * s * s * k),
       peakNegative: derive("N m", "torque times size cubed and strength", [d.muscle.peakNegative, size, torque], (t, s, k) => t * s * s * s * k),
       ...Object.fromEntries((["speedPositive", "speedNegative"] as const).map(key => [key, { ...d.muscle[key],

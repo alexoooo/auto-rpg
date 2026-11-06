@@ -23,16 +23,38 @@
  * foot as the cause, 120 Hz with the toes' mass and moments ten and a hundred times theirs and their
  * weight kept (`conditioned`), which is solver conditioning and not anatomy.
  *
- * Read every 1/120 s over the hold: the hinge's separation, the toe's angle, the moment the ground's
- * normal pushes put on the toes about the hinge with the toes' weight and any applied moment, the
+ * Read every 1/120 s over the hold: the hinge's separation, the toe's angle, the ground's
+ * normal impulse rate on the toes, their weight and any applied moment, the
  * spring's torque from its step impulse beside the torque its law gives at that angle and speed, the
  * deepest any piece sinks into the ground, the foot's creep along it, and the fixture's mechanical
- * energy (motion, height, the spring). The static prediction is `TOE.rest` plus that moment over
- * the stiffness, each averaged over the last second.
+ * energy (motion, height, the spring). A static angle prediction uses the known external moment
+ * only while the toes bear no ground load. Contact centroids are not centres of pressure and
+ * cannot supply the ground's moment. The spring's read torque is compared with its law over the
+ * last second; oscillation is reported separately.
  *
  *   node research/man-toe-solver.mjs
+ *   node research/man-toe-solver.mjs --conditioning [--planted] [--stiffness 25]
+ *
+ * The conditioning diagnostic keeps toe mass and weight unchanged, varies only rotational
+ * inertia, and applies toe-hinge.mjs's stiff contact control. `--planted` starts the toes flat
+ * against the ground while the foot is raised, separating load holding from contact entry.
+ * `--stiffness` overrides the fixture spring, not the body's anatomy.
+ * `--legacy-limits`, `--friction`, `--iterations`, `--depth` and `--native-contact` isolate the
+ * angular-limit formulation, tangential constraints, convergence and contact regularization.
+ * `--mass` scales toe mass and inertia with gravity compensated to retain its weight; compare
+ * it with an equal inertia-only multiplier to isolate translational mass conditioning.
+ * `--articulated` uses a reduced-coordinate hinge and a separate motor-only impulse joint.
+ * An explicit angular constraint holds the foot; root rotation-lock flags do not hold an
+ * articulation. The recorded pose error establishes whether that fixture reaches its case.
+ * That angular constraint reads the parent's inertia: the articulated variant includes the
+ * ankle point load's parallel-axis contribution about the combined centre of mass.
+ * `--trace <file>` records every native step of the kneeling cases at the base rotational
+ * inertia multiplier, including the ramp and initial geometry. `--ccd` enables a sweep control;
+ * the fixture's default has CCD disabled.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
+import { parseArgs } from "node:util";
+import { dirname } from "node:path";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import * as core from "../src/core/math/vector.ts";
 import { addArenaSolids } from "../src/game/arena/solids.ts";
@@ -41,7 +63,7 @@ import { FIT_SCALE } from "../src/core/bodies/human/model.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { STANDARD_GRAVITY } from "../src/core/bodies/spec/constants.ts";
 import { hullSolid } from "../scripts/humanoid/man-envelope.mjs";
-import { AUDITED, TOE } from "./humanoid/posture/core-posture-trials.mjs";
+import { AUDITED, TOE as REFERENCE_TOE } from "./humanoid/posture/core-posture-trials.mjs";
 import MAN from "../assets/humanoid/man-contact-geometry.json" with { type: "json" };
 
 /** The toe's damping, N m s/rad: `SOURCES["falisse-2022-toes"]`. */
@@ -60,7 +82,31 @@ const CASES = [
   { name: "heel raised", turn: 0.5 },
   { name: "kneel on toes", turn: 1.45 },
 ];
-const CONFIGS = [
+const { values: options } = parseArgs({ options: { conditioning: { type: "boolean", default: false },
+  planted: { type: "boolean", default: false },
+  "legacy-limits": { type: "boolean", default: false },
+  friction: { type: "string" }, iterations: { type: "string", default: "1" },
+  depth: { type: "string", default: "0.0005" },
+  "native-contact": { type: "boolean", default: false },
+  mass: { type: "string", default: "1" },
+  articulated: { type: "boolean", default: false },
+  trace: { type: "string" },
+  ccd: { type: "boolean", default: false },
+  stiffness: { type: "string", default: String(REFERENCE_TOE.stiffness) } } });
+const stiffness = Number(options.stiffness);
+if (!Number.isFinite(stiffness) || stiffness <= 0) throw Error('--stiffness is positive N m/rad');
+const TOE = Object.freeze({ ...REFERENCE_TOE, stiffness });
+if (options.articulated && !options.conditioning) throw Error('--articulated requires --conditioning');
+const massScale = Number(options.mass);
+if (!Number.isFinite(massScale) || massScale <= 0) throw Error('--mass is a positive conditioning multiplier');
+const layerDepth = Number(options.depth);
+if (!Number.isFinite(layerDepth) || layerDepth <= 0) throw Error('--depth is positive metres');
+const iterations = Number(options.iterations), friction = options.friction === undefined ? undefined : Number(options.friction);
+if (!Number.isInteger(iterations) || iterations < 1 || (friction !== undefined && (!Number.isFinite(friction) || friction < 0))) throw Error('iterations is a positive integer and friction is nonnegative');
+const CONFIGS = options.conditioning ? [120, 480].flatMap(hz => [1, 10, 100].map(inertiaScale => ({
+  name: `${options["native-contact"] ? "native contact" : "contact layer"}, inertia x${inertiaScale}, ${hz} Hz`, hz, every: hz / 120,
+  iterations, toe: "passive", inertiaScale, layer: !options["native-contact"], conditioned: massScale,
+}))) : [
   { name: "120 Hz", hz: 120, every: 1, iterations: 1, toe: "passive" },
   { name: "480 Hz", hz: 480, every: 4, iterations: 1, toe: "passive" },
   { name: "120 Hz, 4x iterations", hz: 120, every: 1, iterations: 4, toe: "passive" },
@@ -114,12 +160,16 @@ function eigen(m) {
 /** A solid's mass properties at `mass` kg, at the fit scale: principal moments and their turn. */
 function massOf(solid, mass) {
   const tensor = solid.inertia.map((row) => row.map((c) => c * mass * FIT_SCALE.value * FIT_SCALE.value));
+  return { mass, centre: fit(solid.centre), ...inertiaOf(tensor) };
+}
+
+function inertiaOf(tensor) {
   const { values, vectors: v } = eigen(tensor);
   // A right-handed frame: the third axis the cross of the first two.
   const det = v[0][0] * (v[1][1] * v[2][2] - v[2][1] * v[1][2]) - v[0][1] * (v[1][0] * v[2][2] - v[2][0] * v[1][2]) + v[0][2] * (v[1][0] * v[2][1] - v[2][0] * v[1][1]);
   if (det < 0) for (let k = 0; k < 3; k++) v[k][2] = -v[k][2];
   const matrix = Matrix.FromValues(v[0][0], v[1][0], v[2][0], 0, v[0][1], v[1][1], v[2][1], 0, v[0][2], v[1][2], v[2][2], 0, 0, 0, 0, 1);
-  return { mass, centre: fit(solid.centre), moments: values, orientation: Quaternion.FromRotationMatrix(matrix), tensor };
+  return { moments: values, orientation: Quaternion.FromRotationMatrix(matrix), tensor };
 }
 
 /** A Babylon turn as the core's, by its numbers: what the core is handed is the core's own. */
@@ -143,7 +193,7 @@ const norm = (a) => Math.sqrt(dot(a, a));
 
 /** One run: `config` on `kase`. Its readings over the hold, and the summary. */
 function run(kase, config) {
-  const physics = createRapierPhysics(R, { hz: config.hz, gravity: true }, "man-toe-solver", { coordinateAngularLimits: true });
+  const physics = createRapierPhysics(R, { hz: config.hz, gravity: true }, "man-toe-solver", { coordinateAngularLimits: !options["legacy-limits"] });
   const raw = physics.raw;
   raw.numSolverIterations *= config.iterations;
   addArenaSolids(physics);
@@ -152,6 +202,7 @@ function run(kase, config) {
     ? [{ name: "foot", hull: geometry.rigidFoot.hull.map(fit), props: massOf(hullSolid(geometry.rigidFoot.hull), footSpec.mass.value), turned: true }]
     : [{ name: "foot", hull: geometry.foot.hull.map(fit), props: massOf(geometry.foot.solid, footSpec.mass.value * (1 - toeShare)), turned: true },
       { name: "toes", hull: geometry.toes.hull.map(fit), props: massOf(geometry.toes.solid, footSpec.mass.value * toeShare * (config.conditioned ?? 1)), turned: true }];
+  if (options.planted && config.toe !== "none") pieces[1].turned = false;
   // The whole posed, then lifted so that its lowest corner clears the ground.
   const posedPoints = pieces.flatMap((p) => p.hull.map((x) => (p.turned ? turnedAbout(x, turn, hinge) : x)));
   const lift = CLEARANCE - Math.min(...posedPoints.map((p) => p[1]));
@@ -164,19 +215,61 @@ function run(kase, config) {
   const foot = pieces[0].props, whole = foot.mass + legMass;
   pieces[0].props = { ...foot, mass: whole, centre: foot.centre.map((c, k) => (foot.mass * c + legMass * ankle.centre.value[k]) / whole),
     tensor: foot.tensor.map((row) => row.map((c) => (c * whole) / foot.mass)) };
+  if (options.articulated) {
+    // An angular constraint reads inertia; include the ankle point load about the combined CoM.
+    const centre = pieces[0].props.centre, offsets = [
+      { mass: foot.mass, r: sub(foot.centre, centre) },
+      { mass: legMass, r: sub(ankle.centre.value, centre) },
+    ];
+    const tensor = foot.tensor.map((row, i) => row.map((value, j) => value + offsets.reduce(
+      (sum, part) => sum + part.mass * ((i === j ? dot(part.r, part.r) : 0) - part.r[i] * part.r[j]), 0)));
+    pieces[0].props = { ...pieces[0].props, ...inertiaOf(tensor) };
+  }
   const bodies = {};
   for (const piece of pieces) {
+    if (piece.name === "toes" && config.inertiaScale) {
+      piece.props.moments = piece.props.moments.map(value => value * config.inertiaScale);
+      piece.props.tensor = piece.props.tensor.map(row => row.map(value => value * config.inertiaScale));
+    }
     const { mass, centre, moments, orientation } = piece.props;
-    bodies[piece.name] = physics.addBody(poseAt(piece.name, piece.turned), [{ kind: "hull", points: piece.hull }], { mass, centre, moments, orientation: toCore(orientation) });
+    bodies[piece.name] = physics.addBody(poseAt(piece.name, piece.turned), [{ kind: "hull", points: piece.hull }], { mass, centre, moments, orientation: toCore(orientation) }, { ccd: options.ccd });
+    if (friction !== undefined) {
+      const collider = bodies[piece.name].rigid.collider(0);
+      collider.setFriction(friction); collider.setFrictionCombineRule(R.CoefficientCombineRule.Min);
+    }
   }
-  bodies.foot.rigid.setEnabledRotations(false, false, false, true);
+  if (config.layer) {
+    const collider = bodies.toes.rigid.collider(0), step = raw.step.bind(raw);
+    collider.setActiveHooks(collider.activeHooks() | R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
+    // Numerical contact control, matching toe-hinge.mjs; mass and gravity remain physical.
+    raw.step = (events, hooks) => step(events, { ...hooks, contactLayer: (a, b) =>
+      a === collider.handle || b === collider.handle ? [1e6, 0, layerDepth] : null });
+  }
+  if (options.articulated) {
+    // Articulations do not enforce the root rigid body's rotation-lock flags.
+    const fixed = raw.createRigidBody(R.RigidBodyDesc.fixed()), zero = { x: 0, y: 0, z: 0 };
+    const angular = raw.createImpulseJoint(R.JointData.generic(zero, zero, { x: 1, y: 0, z: 0 },
+      R.JointAxesMask.AngX | R.JointAxesMask.AngY | R.JointAxesMask.AngZ), fixed, bodies.foot.rigid, true);
+    angular.setLocalFrame1(zero, { x: turn.x, y: turn.y, z: turn.z, w: turn.w });
+    angular.setLocalFrame2(zero, { x: 0, y: 0, z: 0, w: 1 });
+  } else bodies.foot.rigid.setEnabledRotations(false, false, false, true);
   if (config.conditioned) bodies.toes.rigid.setGravityScale(1 / config.conditioned, true);
   bodies.foot.rigid.setGravityScale(0, true);
   const frameOf = (u) => { const q = new Quaternion(); Quaternion.FromUnitVectorsToRef(new Vector3(1, 0, 0), new Vector3(...u), q); return q; };
   let toeJoint = null;
   if (config.toe === "passive") {
     const toeFrame = toCore(frameOf(axis));
-    toeJoint = physics.addJoint(bodies.foot, bodies.toes, { anchorParent: hinge, anchorChild: hinge, frameParent: toeFrame, frameChild: toeFrame, limits: [[TOE.lo, TOE.hi]] });
+    if (options.articulated) {
+      const anchor = { x: hinge[0], y: hinge[1], z: hinge[2] }, direction = { x: axis[0], y: axis[1], z: axis[2] };
+      const data = R.JointData.revolute(anchor, anchor, direction);
+      const hingeJoint = raw.createMultibodyJoint(data, bodies.foot.rigid, bodies.toes.rigid, true);
+      hingeJoint.setContactsEnabled(false);
+      raw.multibodyJoints.raw.jointSetLimits(hingeJoint.handle, R.JointAxis.AngX, TOE.lo, TOE.hi);
+      // Only the spring is an impulse row; the articulation owns all hinge constraints.
+      const motor = raw.createImpulseJoint(R.JointData.generic(anchor, anchor, direction, 0), bodies.foot.rigid, bodies.toes.rigid, true);
+      motor.setContactsEnabled(false);
+      toeJoint = { raw: motor, motorStepImpulse: () => -raw.impulseJoints.raw.jointMotorStepImpulse(motor.handle, R.JointAxis.AngX) };
+    } else toeJoint = physics.addJoint(bodies.foot, bodies.toes, { anchorParent: hinge, anchorChild: hinge, frameParent: toeFrame, frameChild: toeFrame, limits: [[TOE.lo, TOE.hi]] });
     const set = raw.impulseJoints.raw, handle = toeJoint.raw.handle;
     set.jointConfigureMotorModel(handle, R.JointAxis.AngX, R.MotorModel.ForceBased);
     set.jointConfigureMotorPosition(handle, R.JointAxis.AngX, TOE.rest, TOE.stiffness, DAMPING);
@@ -215,6 +308,16 @@ function run(kase, config) {
     return [a.x, a.y, a.z];
   };
   const footStart = bodies.foot.rigid.worldCom();
+  const trace = options.trace && kase.name === "kneel on toes" && (config.inertiaScale ?? 1) === 1 ? [] : null;
+  const snapshot = t => ({ t, angle: toeJoint ? toeAngle() : null, energy: energyOf(),
+    bodies: Object.fromEntries(Object.entries(bodies).map(([name, body]) => {
+      const rigid = body.rigid, piece = pieces.find(piece => piece.name === name);
+      return [name, { position: rigid.translation(), rotation: rigid.rotation(), centre: rigid.worldCom(),
+        velocity: rigid.linvel(), spin: rigid.angvel(), anchor: toWorld(rigid, hinge),
+        lowest: Math.min(...piece.hull.map(point => toWorld(rigid, point)[1])),
+        contacts: physics.contactsOf(body).map(c => ({ point: c.point, normal: c.normal, impulse: c.impulse })) }];
+    })) });
+  if (trace) trace.push(snapshot(0));
   let footAtHold = null;
   for (let step = 1; step <= steps; step++) {
     const t = step * dt;
@@ -226,21 +329,22 @@ function run(kase, config) {
       bodies.foot.applyTorque(new core.Vector3(...u).scale(-kase.torque));
     }
     physics.step(dt);
+    if (trace) trace.push(snapshot(t));
     if (Math.abs(t - (RAMP + HOLD - LAST)) < dt / 2) { const c = bodies.foot.rigid.worldCom(); footAtHold = [c.x, c.y, c.z]; }
     if (step % config.every !== 0 || t <= RAMP + 1e-9) continue;
     const sample = { t, energy: energyOf() };
+    if (options.conditioning) {
+      const q = bodies.foot.rigid.rotation(), sense = q.w < 0 ? -1 : 1;
+      sample.footTurn = 2 * Math.atan2(sense * (q.x * axis[0] + q.y * axis[1] + q.z * axis[2]), sense * q.w);
+    }
     if (config.toe !== "none") {
       sample.separation = norm(sub(toWorld(bodies.foot.rigid, hinge), toWorld(bodies.toes.rigid, hinge)));
-      // The ground's pushes on the toes and their weight, about the hinge, positive plantarflexing.
+      // The known external moment, excluding ground reactions whose centre of pressure is unread.
       const c = toWorld(bodies.toes.rigid, hinge), u = axisNow();
       let moment = kase.torque ?? 0;
-      for (const contact of physics.contactsOf(bodies.toes)) {
-        const force = contact.normal.map((n) => (-n * contact.impulse) / dt);
-        moment += dot(cross(sub(contact.point, c), force), u);
-      }
       const com = bodies.toes.rigid.worldCom();
       moment += dot(cross(sub([com.x, com.y, com.z], c), [0, (-bodies.toes.rigid.mass() * g) / (config.conditioned ?? 1), 0]), u);
-      sample.moment = moment;
+      sample.freeMoment = moment;
       sample.load = physics.contactsOf(bodies.toes).reduce((s, contact) => s + contact.impulse / dt, 0);
     }
     // How deep the foot is in the ground: the deepest solver point of any piece, m, 0 when clear.
@@ -258,6 +362,14 @@ function run(kase, config) {
   const mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
   const summary = {
     case: kase.name, config: config.name, turn: kase.turn,
+    ...(options.conditioning ? { fixture: { hz: config.hz, iterations, friction: friction ?? null,
+      coordinateAngularLimits: !options["legacy-limits"], planted: options.planted,
+      articulated: options.articulated,
+      ccd: options.ccd,
+      parentInertia: options.articulated ? "foot plus ankle point load" : "rotation locked",
+      actualFootTurn: mean(last.map(sample => sample.footTurn)),
+      maxFootTurnError: Math.max(...last.map(sample => Math.abs(sample.footTurn - kase.turn))),
+      layer: config.layer, layerDepth, stiffness, massScale, inertiaScale: config.inertiaScale } } : {}),
     separation: config.toe === "none" ? null : Math.max(...samples.map((s) => s.separation)),
     energyRise: Math.max(...samples.map((s) => s.energy)) - samples[0].energy,
     energyDrift: samples.at(-1).energy - samples[0].energy,
@@ -269,50 +381,58 @@ function run(kase, config) {
   summary.creep = Math.sqrt((footEnd.x - footAtHold[0]) ** 2 + (footEnd.z - footAtHold[2]) ** 2) / LAST;
   summary.settled = footEnd.y - footStart.y;
   if (toeJoint) {
-    const angle = mean(last.map((s) => s.angle)), moment = mean(last.map((s) => s.moment));
+    const angle = mean(last.map((s) => s.angle));
     summary.angle = angle;
-    summary.predicted = TOE.rest + moment / TOE.stiffness;
-    summary.moment = moment;
+    summary.freePrediction = last.every(s => s.load === 0) ? TOE.rest + mean(last.map(s => s.freeMoment)) / TOE.stiffness : null;
     summary.spring = mean(last.map((s) => s.spring));
     summary.law = mean(last.map((s) => s.law));
+    summary.lawError = Math.abs(summary.spring - summary.law) / TOE.stiffness;
     summary.peakToPeak = Math.max(...last.map((s) => s.angle)) - Math.min(...last.map((s) => s.angle));
     const a = angle - TOE.rest;
     summary.springEnergy = 0.5 * TOE.stiffness * a * a;
   }
   physics.dispose();
-  return { summary, samples };
+  return { summary, samples, trace };
 }
 
 /** The acceptance: each bar, true where met. */
 function accept(s) {
   if (s.angle === undefined) return null;
   return {
+    ...(s.fixture ? { caseReached: s.fixture.maxFootTurnError <= 0.001 } : {}),
     separation: s.separation <= 0.001,
-    prediction: Math.abs(s.angle - s.predicted) <= 0.05,
+    ...(s.freePrediction === null ? {} : { prediction: Math.abs(s.angle - s.freePrediction) <= 0.05 }),
+    spring: s.lawError <= 0.05,
     steady: s.peakToPeak <= 0.01,
     energy: s.energyRise <= 0.01 * s.springEnergy,
   };
 }
 
 const results = [];
+const traces = [];
 for (const kase of CASES) for (const config of CONFIGS) {
-  const { summary } = run(kase, config);
+  const { summary, trace } = run(kase, config);
   summary.accept = accept(summary);
   results.push(summary);
+  if (trace) traces.push({ case: kase.name, config, steps: trace });
+}
+if (options.trace) {
+  mkdirSync(dirname(options.trace), { recursive: true });
+  writeFileSync(options.trace, JSON.stringify({ options, traces }));
 }
 
 const f = (v, d = 3) => (v === null || v === undefined ? "-" : v.toFixed(d));
 const mark = (ok) => (ok === undefined ? "" : ok ? "" : " ✗");
-console.log(`Harness: Node, the core's Rapier world (createRapierPhysics, coordinate limits, SOLVER), ${AUDITED}'s ${SIDE} foot. Foot ${(legMass + footSpec.mass.value * (1 - toeShare)).toFixed(2)} kg, turn held, ramped over ${RAMP} s, held ${HOLD} s; toes ${(footSpec.mass.value * toeShare).toFixed(3)} kg on k ${TOE.stiffness} N m/rad, d ${DAMPING} N m s/rad, range [${f(TOE.lo)}, ${f(TOE.hi)}].\n`);
-console.log("| case | configuration | toe, rad | predicted, rad | ground's moment, N m | spring as read, N m | spring by its law, N m | toe load, N | deepest, mm | peak-to-peak, rad | separation, mm | energy rise, J | drift, J | spring energy, J | creep, mm/s |");
+console.log(`Harness: Node, the core's Rapier world (createRapierPhysics, ${options["legacy-limits"] ? "native" : "coordinate"} limits, SOLVER), ${AUDITED}'s ${SIDE} foot. Foot ${(legMass + footSpec.mass.value * (1 - toeShare)).toFixed(2)} kg, turn held, ramped over ${RAMP} s, held ${HOLD} s; physical toe weight ${(footSpec.mass.value * toeShare * g).toFixed(3)} N on k ${TOE.stiffness} N m/rad, d ${DAMPING} N m s/rad, range [${f(TOE.lo)}, ${f(TOE.hi)}].\n`);
+console.log("| case | configuration | toe, rad | free prediction, rad | spring law error, rad | spring as read, N m | spring by its law, N m | toe load, N | deepest, mm | peak-to-peak, rad | separation, mm | energy rise, J | drift, J | spring energy, J | creep, mm/s |");
 console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 for (const s of results) {
   const a = s.accept ?? {};
-  console.log(`| ${s.case} | ${s.config} | ${f(s.angle)} | ${f(s.predicted)}${mark(a.prediction)} | ${f(s.moment, 2)} | ${f(s.spring, 2)} | ${f(s.law, 2)} | ${f(s.load, 0)} | ${f(s.depth * 1000, 1)} | ${f(s.peakToPeak, 4)}${mark(a.steady)} | ${s.separation === null ? "-" : f(s.separation * 1000, 3)}${mark(a.separation)} | ${f(s.energyRise, 4)}${mark(a.energy)} | ${f(s.energyDrift, 4)} | ${f(s.springEnergy, 3)} | ${f(s.creep * 1000, 2)} |`);
+  console.log(`| ${s.case} | ${s.config} | ${f(s.angle)} | ${f(s.freePrediction)}${mark(a.prediction)} | ${f(s.lawError)}${mark(a.spring)} | ${f(s.spring, 2)} | ${f(s.law, 2)} | ${f(s.load, 0)} | ${f(s.depth * 1000, 1)} | ${f(s.peakToPeak, 4)}${mark(a.steady)} | ${s.separation === null ? "-" : f(s.separation * 1000, 3)}${mark(a.separation)} | ${f(s.energyRise, 4)}${mark(a.energy)} | ${f(s.energyDrift, 4)} | ${f(s.springEnergy, 3)} | ${f(s.creep * 1000, 2)} |`);
 }
 const passive = (name) => results.filter((s) => s.config === name);
 const meets = (name) => passive(name).every((s) => Object.values(s.accept).every(Boolean));
-console.log(`\nAcceptance at 120 Hz: ${meets("120 Hz") ? "met" : "not met"}; at 480 Hz: ${meets("480 Hz") ? "met" : "not met"}.`);
-const out = new URL("./runs", import.meta.url);
+if (!options.conditioning) console.log(`\nAcceptance at 120 Hz: ${meets("120 Hz") ? "met" : "not met"}; at 480 Hz: ${meets("480 Hz") ? "met" : "not met"}.`);
+const out = new URL("./runs/", import.meta.url);
 mkdirSync(out, { recursive: true });
-writeFileSync(new URL("man-toe-solver.json", out), JSON.stringify(results, null, 1));
+writeFileSync(new URL(options.conditioning ? `man-toe-conditioning-${stiffness}${options.planted ? "-planted" : ""}${options["legacy-limits"] ? "-legacy-limits" : ""}${friction === undefined ? "" : `-friction${friction}`}${iterations === 1 ? "" : `-iterations${iterations}`}${layerDepth === .0005 ? "" : `-depth${layerDepth}`}${options["native-contact"] ? "-native-contact" : ""}${massScale === 1 ? "" : `-mass${massScale}`}${options.articulated ? "-articulated" : ""}${options.ccd ? "-ccd" : ""}.json` : "man-toe-solver.json", out), JSON.stringify(results, null, 1));

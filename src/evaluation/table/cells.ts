@@ -30,7 +30,7 @@ export const TABLE_MIND = "option";
  * a fight's the same (`on-body`); a walk's trials by the share not fallen (`walk`); the Cover drill
  * by the share of blows that touch the body the buckler meets first (`buckler`).
  */
-export type MetJudge = "target" | "run";
+export type MetJudge = "target" | "run" | "travel";
 
 export type ScoreJudge = "landed" | "on-body" | "walk" | "buckler";
 
@@ -117,8 +117,10 @@ export function createTableCells(context: GameContext) {
     { name: "walk", kind: "best", bodies: TABLE_BODIES, limbs: always, readings: () => [{ drill: "locomotion", protocol: "every", subject: TABLE_MIND, judge: "walk", byLoadout: true }],
       bar: "the share of the Locomotion screen's trials not fallen, its walks in the gusts; the forward pace read beside it" },
     { name: "run", kind: "met", bodies: ["workshop-fighter", "workshop-rogue"], limbs: always,
-      readings: () => [{ drill: "locomotion", protocol: "run", subject: TABLE_MIND, judge: "run", byLoadout: true }],
-      bar: "3 m/s held 10 s; turns at 1 rad/s at 2 m/s; a stop from 3 m/s within 1.5 s; calm and gusts, seeds 1 to 4, none fallen" },
+      readings: body => body === "workshop-fighter"
+        ? [{ drill: "travel", protocol: "confirmation", subject: TABLE_MIND, judge: "travel", byLoadout: true }]
+        : [{ drill: "locomotion", protocol: "run", subject: TABLE_MIND, judge: "run", byLoadout: true }],
+      bar: "Warrior: 4 m/s forward, directional travel, steering, corners, reversals and stops, both first legs; Rogue: the Locomotion run bar; calm and gusts, seeds 1 to 4" },
     { name: "punch", kind: "best", bodies: TABLE_BODIES, limbs: (loadout) => holds(loadout, "empty"), readings: (body, loadout) => blowRungs("straight-punch", "fist", body, loadout),
       bar: `the fist's speed over its last 0.1 m, ${BLOW}` },
     { name: "stomp", kind: "best", bodies: STOMPERS, limbs: always, readings: (body, loadout) => [strikeRung("stomping", "landed", "foot", "stomp", body, loadout)],

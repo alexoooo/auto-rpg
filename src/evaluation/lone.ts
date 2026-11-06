@@ -42,6 +42,10 @@ export interface LoneCue {
  * where it names none, the gusts' 1).
  */
 export interface LoneCase {
+  /** An open square floor's side, m, in place of the Arena, for travel beyond its walls. */
+  readonly floorSize?: number;
+  /** Initial facing, radians about up; the body and its recording use the same heading. */
+  readonly heading?: number;
   readonly model: BodyModel;
   readonly character?: AttributeOverrides;
   readonly loadout?: Loadout;
@@ -64,22 +68,25 @@ export function createLone(context: GameContext) {
   const GAME = context.catalog;
 
   /**
-   * A world with the arena's solids and `lone`'s body in it at the centre, facing +z, its script
+   * A world with the arena's solids or an open floor and `lone`'s body at the centre, facing +z, its script
    * played: each cue's orders from the step it falls on, and its
    * shove before that step.
    */
   async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<BuiltLone | Refused> {
+    if (lone.heading !== undefined && !Number.isFinite(lone.heading)) return { refused: "a lone body's heading must be finite" };
+    if (lone.floorSize !== undefined && (!Number.isFinite(lone.floorSize) || lone.floorSize <= 0)) return { refused: "an open floor needs a finite positive side" };
     const spec = modelHoldingChecked(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character);
     if (isRefused(spec)) return spec;
     if ((lone.script ?? []).some(cue => cue.shove) && !spec.segments.some(segment => segment.name === "middleTrunk")) return { refused: "a shove needs a middle trunk" };
     const scope = constructionScope(); let complete = false;
     try {
       const world = scope.own(createWorld(await loadEngine(engine)));
-      addArenaSolids(world.physics);
+      if (lone.floorSize === undefined) addArenaSolids(world.physics);
+      else world.physics.addFixedBox([0, -0.5, 0], [lone.floorSize, 1, lone.floorSize]);
       const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
       const state = { orders: null as Orders | null, next: 0, steps: 0 };
       const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec, rules: rulebook("arena"),
-        mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: scope.own(createSenses(world)), out: () => false, orders: () => state.orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
+        mind: lone.mind, catalog: GAME, at: [0, 0, 0], ...(lone.heading !== undefined ? { heading: lone.heading } : {}), senses: scope.own(createSenses(world)), out: () => false, orders: () => state.orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
         ...(lone.seed !== undefined ? { seed: lone.seed } : {}) });
       scope.own(body.body); scope.own(body.built);
       const wind = lone.gusts ? startWind(body.built, world, labGusts(lone.model), lone.seed ?? 1) : null;

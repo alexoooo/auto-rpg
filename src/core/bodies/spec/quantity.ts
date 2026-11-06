@@ -32,6 +32,7 @@ type Unit =
   | "N m" | "N" | "kN"
   | "N/m" | "N/mm" | "N/cm"
   | "N s/m"
+  | "N m/rad" | "N m s/rad"
   | "rad" | "deg"
   | "rad/s" | "deg/s"
   | "m/s" | "cm/s" | "m/min" | "m/s2"

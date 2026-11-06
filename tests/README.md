@@ -84,6 +84,12 @@ cannot expose this startup failure.
 
 ## Evaluation integrity
 
+[evaluation/travel.test.mjs](evaluation/travel.test.mjs) replays contact inputs on a real body's read geometry without playing a gait.
+
+| Case | Concrete justification |
+| --- | --- |
+| `travel reads attached toe support for entry, stepping and quiet standing` | The travel reader misses physical toe-only support, losing entry, first-leg coverage and quiet standing. Replay the observed contact topology through the whole reading and exclude detached toes; a gait drill cannot isolate reader arithmetic from controller behaviour. |
+
 [evaluation/swap.test.mjs](evaluation/swap.test.mjs) constructs schedules and resolves subjects without playing them.
 The calibration fixture supplies an independently scoped entrant. These checks protect the
 measurement system itself; a result computed on the wrong cases cannot validate its own scope.
@@ -136,7 +142,19 @@ it compares the complete sparse array alongside real `undefined` entries and esc
 
 [rapier-hooks.test.mjs](rapier-hooks.test.mjs): `a contact-layer callback defect reaches the world-step caller unchanged` reproduces a material callback throwing while the vendored WASM bridge silently returns a successful step. The overlapping-contact fixture verifies the original thrown value and callback receiver at the actual engine boundary; a normal bout installs no material layer and cannot exercise this defect.
 
+`an articulated force-based angular spring uses radians` catches a generic motor row using a
+half-angle sine instead of radians, doubling a free spring's displacement.
+`an articulated contact enforces its material compression cap` catches generic contacts ignoring
+a requested compression cap. Both use a fixed root to isolate those contracts;
+ordinary capability drills use impulse joints and rigid contacts, so cannot expose these defects.
+
 ## Layer contract regressions
+
+[skills/locomotion/cycle-run.test.mjs](skills/locomotion/cycle-run.test.mjs) checks the running reference through its published knee-channel requests.
+
+| Case | Concrete justification |
+| --- | --- |
+| `run cadence scales clip feedforward with the reference phase` | Cadence advances the reference faster or slower while its feed-forward velocity can retain the unscaled rate. Two servo times separate that velocity from pose feedback on a real body, then compare it with the reference's finite difference. A locomotion drill can hide the missing factor through pose feedback. |
 
 [layer-contracts.test.mjs](layer-contracts.test.mjs) reproduces the physical, command and observation
 failures below. Skill drills cannot establish admission before allocation, complete command delivery

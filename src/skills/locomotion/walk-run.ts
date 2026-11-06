@@ -9,8 +9,9 @@ import { atan2, cos, sin } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
-import { runCycle, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
-import { legOf, quickness, scaledGait } from "./gait-scale.ts";
+import { runCycle, validRunCycle, type RunCycleSettings, type RunTrim, type RunSteering } from "./cycle-run.ts";
+import { legOf, quickness, scaledGait, scaledStride } from "./gait-scale.ts";
+import { validGaitTuning, type GaitTuning } from "../../control/stance-tuning.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "./stance-feet.ts";
 import { ALL_MET, fieldsOf, maskOf, setIn, type LegsField } from "../framework/skill.ts";
 import { otherSide, type Side } from "../../core/bodies/bilateral.ts";
@@ -96,11 +97,10 @@ const RUN_STOPPING = 0.2;
 const RUN_SWITCH = { past: 0.05, short: 0.1, below: 0.2, top: 2, landings: 2, facing: 0.15, settled: 0.6, sway: 0.5, swayed: 0.2 } as const;
 
 /**
- * The farthest the way asked may be from the face asked for the walk and run to run it, rad: the
- * walk turns the body to face that way as it comes up to the run, and the run goes it. Farther round,
- * to the side and back, the body walks at the walk's own pace, facing as it is asked.
+ * Forward alignment for run entry, rad: numerical heading mismatch is tolerated, while a
+ * diagonal or sideways order retains its requested facing and uses the walking stride.
  */
-const RUN_WAY = Math.PI / 3;
+const RUN_WAY = 0.01;
 
 /**
  * Running, the farthest the face asked may be from the run's heading for it to run on, rad: past
@@ -117,6 +117,8 @@ const REACH = 0.2;
 
 /** **What the walk and run remembers**, besides the stance's legs' own (`locomotion`) and the run's (`runCycle`). */
 interface WalkRunMemory {
+  /** Whether the selected gait permits travel, independently of its flight envelope. */
+  travel: boolean;
   /** Whether it may run (`Locomotion.runs`, and a run that goes faster forward than the walk), and whether it runs. */
   may: boolean;
   running: boolean;
@@ -166,21 +168,30 @@ const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "cen
  * states it stops at its walk's rate, and while it may run at `RUN_STOPPING`. Its
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
  * they were set for, and quickened by its haste (`quickness`), as the run's envelope is.
+ * The optional first-lift entry takes the first clear swinging foot after facing settles,
+ * beginning the cycle on the opposite planted sole; landing entry waits for a walking landing.
  */
-export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE, may = true): Locomotion {
+export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE,
+  { may = true, braking = givenRun, stride, entry = "landing", trim, steer }: { readonly may?: boolean; readonly braking?: RunCycleSettings; readonly stride?: GaitTuning;
+    readonly entry?: "landing" | "first-lift"; readonly trim?: RunTrim; readonly steer?: RunSteering } = {}): Locomotion {
+  if (entry !== "landing" && entry !== "first-lift") throw new Error("run entry is landing or first-lift");
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
   if (!validRunCycle(givenRun)) throw new Error("a run cycle needs every setting finite, its times and the cycle's positive and its shares of strength within (0, 1]");
+  if (!validRunCycle(braking)) throw new Error("a braking cycle needs the run cycle's complete valid settings");
+  if (stride !== undefined && !validGaitTuning(stride)) throw new Error("a travel stride needs complete valid gait settings");
   const k = legOf(body.built.spec) / given.leg, quick = quickness(hasteOver(body.built.spec), given.hasted);
-  const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick);
+  const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick, scaledGait(braking, k, quick), { trim, steer });
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
-  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, body.envelope, { segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built) });
+  const travelStride = stride && scaledStride(stride, k, quick);
+  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, body.envelope, { segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built),
+    gait: () => memory.travel ? travelStride : undefined });
   /** Whether the ground bore the foot on `side` in the last step (`StanceEnd.touching`). */
   const ends = { left: footOn(body.built.spec, "left"), right: footOn(body.built.spec, "right") };
   const touching = (view: BodyView, side: Side): boolean => view.stance.ends[ends[side]]!.touching;
   // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
   const pays = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
-  const memory: WalkRunMemory = { may: may && pays, running: false, swinging: null, bearing: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
+  const memory: WalkRunMemory = { travel: may, may: may && pays, running: false, swinging: null, bearing: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
     assisted: { root: new Quaternion(), read: false, request: { force: new Vector3(), moment: new Vector3() } }, unmet: { ...ALL_MET } };
   const state = { legs: legs.state, walkRun: memory, run: cycle.state };
 
@@ -240,7 +251,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     get envelope() { return envelopeNow(); },
     get stopping() { return memory.may ? RUN_STOPPING : legs.stopping; },
     get lag() { return memory.may ? 0 : legs.lag; },
-    runs(may) { memory.may = may && pays; },
+    runs(may) { memory.travel = may; memory.may = may && pays; },
     envelopeRunning: (may) => may && pays ? runEnvelope : body.envelope,
     get heading() { return memory.running ? memory.heading : legs.heading; },
     get pace() { return memory.running ? memory.pace : legs.pace; },
@@ -271,6 +282,11 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face, facing = Math.abs(wrap(way - memory.facing)) <= RUN_SWITCH.facing;
         memory.faced = memory.capped > 0 && facing ? memory.faced + dt : 0;
         if (landed && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.swayed && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) memory.bearing = landed;
+        if (entry === "first-lift" && memory.bearing === null && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled
+          && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.swayed && s.phase === "swing" && s.own) {
+          const swung = feet[s.own.foot];
+          if (swung && touching(view, otherSide(swung)) && !touching(view, swung)) memory.bearing = otherSide(swung);
+        }
         // A sole that leaves the ground again before it bears alone has not landed; one asked no longer to run waits no more.
         if (memory.bearing !== null && !touching(view, memory.bearing)) { memory.swinging = memory.bearing; memory.bearing = null; }
         if (memory.capped === 0) memory.bearing = null;

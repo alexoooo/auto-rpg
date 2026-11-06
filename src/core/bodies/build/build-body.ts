@@ -135,6 +135,9 @@ function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, 
     frameParent: inFrame(parent.frame),
     frameChild: inFrame(child.frame),
     limits: dofs.map(({ spec: { min, max }, sign }) => (sign > 0 ? [min.value, max.value] as const : [-max.value, -min.value] as const)),
+    ...(dofs.some(d => d.spec.passive) ? { springs: dofs.map(d => d.spec.passive ? {
+      rest: d.sign * d.spec.passive.rest.value, stiffness: d.spec.passive.stiffness.value, damping: d.spec.passive.damping.value,
+    } : null) } : {}),
   });
   return { spec, parent, child, joint, dofs, axes, strength: (dof) => strength[dof]!, attached: () => joint.attached };
 }

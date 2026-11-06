@@ -4,8 +4,8 @@ The core's physics engine is Rapier's 3D SIMD build (`@dimforge/rapier3d-simd-co
 here from Rapier's source at commit `b716d375efc0201003f0cd9ef7168eee0b62c177`
 (`js-v0.21.0`) with our patch, and installed from the tarball `package.json` names.
 
-- Package `0.21.0-auto-rpg.11`, archive SHA256
-  `3c523c432beb896620ad8a54ceae366a630062533a9efc4177b1ff14fd15ea90`. The adapter's snapshot
+- Package `0.21.0-auto-rpg.12`, archive SHA256
+  `fda4d3949fc146e40653e644b7a77025435f865badf0d122f60603c67dd106d9`. The adapter's snapshot
   revision, `REVISION` in `src/core/physics/rapier.ts`, is `adapter-14` and that hash: a snapshot
   loads only into the package and adapter that wrote it.
 - `package.json` and the lockfile name the archive, with SHA512 integrity from its bytes;
@@ -50,6 +50,9 @@ test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symm
   (single-precision sums of many substeps drift off a motor's cap), serialized with the joint and
   never a warm-start seed: an observation, not a solver input. Scalar, SIMD and external multibody rows
   contribute; internal multibody motors have no readback. It is not work or an absolute effort.
+- **Articulated angular spring coordinates.** An external motor row on an articulated body uses
+  the same angle in radians as a rigid-body motor, so force-based stiffness retains its torque
+  per radian meaning.
 - **CCD-only pair filtering** (`ActiveHooks.FILTER_CCD_PAIRS`) runs the pair filter for sweeps
   without disabling contact recycling, so connected-pair exclusions reach continuous collision
   detection: a CCD sweep otherwise ignores a joint's exclusion, and a gripped item, which overlaps
@@ -62,7 +65,8 @@ test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symm
 - **Pair-local compliant contact** (`PhysicsHooks.contactLayer`): spring stiffness, damping and
   maximum compression for a manifold, an implicit normal row with a rigid depth backstop, and
   `contactLayerWork`, the reaction times anchor displacement over substeps. Parameters and
-  readings are serialized. The core installs no layer: every contact it makes is rigid.
+  readings are serialized. Rigid-body and articulated contact rows read the layer parameters and
+  meter its work. The core installs no layer: every contact it makes is rigid.
 - **Angular-limit gradients** (`coordinateAngularLimits`): impulse-joint and external limit rows
   follow the spatial gradient of their reported coordinate; motor rows are unchanged. Serialized;
   the adapter's `rapier-coordinate`. For the relative rotation `q = (w, x, y, z)` the limited

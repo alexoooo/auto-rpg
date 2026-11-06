@@ -33,7 +33,9 @@ import { turnAboutToRef } from "../math/turn.ts";
 type Rapier = typeof RAPIER;
 
 /** The vendored archive's identity (`vendor/rapier/README.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-14/sha256:3c523c432beb896620ad8a54ceae366a630062533a9efc4177b1ff14fd15ea90";
+const REVISION = "rapier/adapter-14/sha256:fda4d3949fc146e40653e644b7a77025435f865badf0d122f60603c67dd106d9";
+/** Largest finite native force: a passive spring has no actuator ceiling. */
+const NATIVE_MAX_FORCE = 3.4028234663852886e38;
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -834,6 +836,11 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       setMotors();
       const M = R.JointAxesMask, n = frames.limits.length;
       if (n < 1 || n > 3) throw new Error(`a joint has one to three freedoms, not ${n}`);
+      if (frames.springs && frames.springs.length !== n) throw new Error("passive springs must match the joint's freedoms");
+      if (n !== 1 && frames.springs?.some(Boolean)) throw new Error("passive springs require a single-axis joint");
+      for (const spring of frames.springs ?? []) if (spring && (!Number.isFinite(spring.rest)
+        || !(spring.stiffness > 0) || !Number.isFinite(spring.stiffness)
+        || !(spring.damping >= 0) || !Number.isFinite(spring.damping))) throw new Error("invalid passive spring");
       const locked = M.LinX | M.LinY | M.LinZ | (n < 2 ? M.AngY : 0) | (n < 3 ? M.AngZ : 0);
       const data = R.JointData.generic(xyz(frames.anchorParent), xyz(frames.anchorChild), { x: 1, y: 0, z: 0 }, locked);
       const joint = raw.createImpulseJoint(data, parent.rigid, child.rigid, true);
@@ -852,6 +859,12 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         joints.jointSetLimits(joint.handle, axes[k]! as never, min, max);
         joints.jointConfigureMotorVelocity(joint.handle, axes[k]! as never, 0, Infinity);
         joints.jointSetMotorMaxForce(joint.handle, axes[k]! as never, 0);
+        const spring = frames.springs?.[k];
+        if (spring) {
+          joints.jointConfigureMotorModel(joint.handle, axes[k]! as never, R.MotorModel.ForceBased as never);
+          joints.jointConfigureMotorPosition(joint.handle, axes[k]! as never, spring.rest, spring.stiffness, spring.damping);
+          joints.jointSetMotorMaxForce(joint.handle, axes[k]! as never, NATIVE_MAX_FORCE);
+        }
       });
       return {
         get raw() {

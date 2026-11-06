@@ -153,6 +153,21 @@ const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05
 export const STANCE_GAIT: GaitTuning = Object.freeze({ seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, reserve: 0.9, effort: 0.5, clearance: 0.03, accel: 2, crouch: 0.1, horizon: 0.1, transfer: 0.08,
   preswing: Object.freeze({ knee: 0.61, seconds: 0.04 }) });
 
+/** A complete stride has finite geometry, positive timing, and bounded strength and reach reserves. */
+export function validGaitTuning(gait: GaitTuning): boolean {
+  if (!gait || typeof gait !== "object" || Array.isArray(gait)) return false;
+  const keys = ["seconds", "lift", "width", "longest", "reserve", "effort", "clearance", "accel", "crouch", "horizon"] as const;
+  if (Object.keys(gait).some(key => !keys.some(known => known === key) && key !== "transfer" && key !== "preswing")) return false;
+  if (!keys.every(key => Number.isFinite(gait[key]))) return false;
+  return gait.seconds > 0 && gait.longest > 0 && gait.accel > 0 && gait.horizon > 0
+    && gait.lift >= 0 && gait.width >= 0 && gait.clearance >= 0 && gait.crouch >= 0
+    && gait.reserve > 0 && gait.reserve <= 1 && gait.effort > 0 && gait.effort <= 1
+    && (gait.transfer === undefined || Number.isFinite(gait.transfer) && gait.transfer >= 0)
+    && (gait.preswing === undefined || gait.preswing !== null && typeof gait.preswing === "object" && !Array.isArray(gait.preswing)
+      && Object.keys(gait.preswing).every(key => key === "knee" || key === "seconds") && Number.isFinite(gait.preswing.knee) && gait.preswing.knee >= 0
+      && Number.isFinite(gait.preswing.seconds) && gait.preswing.seconds > 0);
+}
+
 /**
  * The time constant, s, critically damped, at which the centre of mass's errors from its plan are
  * taken up, and a bearing foot's motion damped out.

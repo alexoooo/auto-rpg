@@ -2,7 +2,7 @@ import { Vector3 } from "../../math/vector.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import { readView } from "../build/read-view.ts";
 import type { EngineJoint } from "../../physics/engine.ts";
-import type { MuscleSpec } from "../spec/body.ts";
+import { isMuscleDof, type MuscleSpec } from "../spec/body.ts";
 import { jointTracker, type JointTracker } from "../build/joint-state.ts";
 import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
 import type { Hook, World } from "../../world/world.ts";
@@ -73,6 +73,7 @@ import { delayLine } from "../../world/command-delay.ts";
  * **How much of itself a body runs.** `full`: its joints are read, its mind steps and its motors
  * are driven. `limp`: none of the three, and its motors are released: the solver alone moves it.
  * `held`: limp, and every segment on it (`attachment`) fixed where it is; a part cut off stays free.
+ * Passive springs remain anatomical constraints at every level.
  */
 export type BodyLevel = "full" | "limp" | "held";
 
@@ -171,9 +172,12 @@ export interface MuscleCommand {
   readonly velocity: Float64Array;
 }
 
-/** **Each freedom of `read`'s joints as a muscle channel** (`MuscleChannel`), in its joints' order and each joint's freedoms': the driver's and its mirror's alike. */
+/** Coordinates in joint order: passive slots preserve dynamics indexing and expose zero muscle capability. */
 export function muscleChannels(read: Pick<ReadBody, "joints">): MuscleChannel[] {
   return [...read.joints.values()].flatMap((joint) => joint.dofs.map((dof, index) => {
+    if (!isMuscleDof(dof.spec)) return {
+      name: channelName(joint, index), joint, index, dof, positive: PASSIVE_SIDE, negative: PASSIVE_SIDE,
+    };
     const muscle = dof.spec.muscle;
     return {
       name: channelName(joint, index), joint, index, dof,
@@ -183,8 +187,13 @@ export function muscleChannels(read: Pick<ReadBody, "joints">): MuscleChannel[] 
   }));
 }
 
+// Unactuated coordinates retain the dynamics' indexing and have identically zero capability.
+const PASSIVE_SIDE: MuscleSide = Object.freeze({ peak: 0, tendon: null,
+  curve: Object.freeze({ unloadedSpeed: 1, curvature: 1, eccentricCeiling: 1, eccentricSlopeRatio: 1 }) });
+
 /** The torque `channel`'s muscles toward `sense` give at full activation at `speed`, N m (`MuscleDriver.strength`): their peak at their joint's strength now (`ReadJoint.strength`). */
 export function strengthAt(channel: MuscleChannel, sense: 1 | -1, speed: number): number {
+  if (!isMuscleDof(channel.dof.spec)) return 0;
   const side = sense > 0 ? channel.positive : channel.negative;
   return peakOf(channel, side) * forceVelocityFactor(sense * speed, side.curve);
 }
@@ -220,10 +229,10 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   for (const joint of built.joints.values()) {
     const tracker = jointTracker(joint);
     trackers.push(tracker);
-    joint.dofs.forEach((_, index) => {
+    joint.dofs.forEach((dof, index) => {
       motors.push(joint.joint);
       trackerOf.push(tracker);
-      joint.joint.setMotor(index, 0, 0);
+      if (isMuscleDof(dof.spec)) joint.joint.setMotor(index, 0, 0);
     });
   }
   // Each segment's angular velocity, read once per step: a velocity read allocates. Found by the built segment or its view.
@@ -281,7 +290,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
         state.stretch.negative.fill(0); state.stretch.positive.fill(0);
         line.reset();
         for (const sent of [...state.sent.activation, ...state.sent.velocity]) sent.fill(0);
-        channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
+        channels.forEach((c, i) => { if (isMuscleDof(c.dof.spec)) motors[i]!.setMotor(c.index, 0, 0); });
       }
       if (fixedAt(next) !== fixedAt(state.level)) {
         for (const segment of built.segments.values()) if (!fixedAt(next) || on(segment)) segment.body.setFixed(fixedAt(next));
@@ -301,7 +310,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       reads = null;
       after?.dispose();
       after = null;
-      channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
+      channels.forEach((c, i) => { if (isMuscleDof(c.dof.spec)) motors[i]!.setMotor(c.index, 0, 0); });
     },
   };
   const sense = () => {
@@ -321,6 +330,11 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     const asked = due < 0 ? none : state.sent.activation[due]!, wanted = due < 0 ? none : state.sent.velocity[due]!;
     for (let i = 0; i < n; i++) {
       const c = channels[i]!;
+      if (!isMuscleDof(c.dof.spec)) {
+        state.activation[i] = 0; state.velocity[i] = 0;
+        state.bounds.positive[i] = 0; state.bounds.negative[i] = 0; driver.ceiling[i] = 0;
+        continue;
+      }
       const speed = driver.speed(i), target = wanted[i]!;
       const activation = Math.max(0, Math.min(1, asked[i]!));
       const push = target - speed;
@@ -355,6 +369,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   after = world.afterStep(() => {
     for (let i = 0; i < n; i++) {
       const c = channels[i]!;
+      if (!isMuscleDof(c.dof.spec)) { state.pulled[i] = 0; continue; }
       state.pulled[i] = c.dof.sign * motors[i]!.motorStepImpulse(c.index) / dt;
       if (state.pulled[i] !== 0) state.ceiling[i] = state.pulled[i]! > 0 ? state.bounds.positive[i]! : state.bounds.negative[i]!;
       if (c.positive.tendon !== null) state.stretch.positive[i] = Math.max(0, state.pulled[i]!) / c.positive.tendon;

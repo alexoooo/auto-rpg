@@ -18,6 +18,67 @@ it reads by.
 |---|---|---|
 | `physiques.mjs` | the physique grid and its ranges (`PHYSIQUE_GRID`, `physiqueRanges`, `physiqueGrid`) | |
 | `skills/locomotion/stance/core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/skills/locomotion/<legs>/<legs>-envelope.json` |
+| `skills/locomotion/residual-environment.mjs` | bounded velocity, activation or channel-reference residuals around a calibrated run, trained through the learning server's `travel` kind; `residual: steering` trains the learned cycle's twelve leg, pelvis, cadence, pace and effort offsets against its 47-input layout; physical centre-of-mass reward and physical-fall termination, with an explicit posture-rule comparison mode; reference offsets smooth across physical leg-role changes and add displacement feedback and rate feed-forward; an optional `braking` file overrides braking settings; muscle ceilings remain unchanged | |
+| `skills/locomotion/idle-footing.mjs` | physical neutral-foot placement from a wide placed stance on each rated humanoid, with Balance 0; reports a fixture that never requests placement explicitly, falls and peak shift speed | `--out`: harness and per-body samples |
+| `skills/locomotion/residual-probe.mjs` | a residual policy or zero residual on the Node stand at 120 Hz, Balance 0 and empty hands; `--from-rest` reads forward entry and hold, excluding stops and equipped confirmation; `--contacts` retains foot impulses, contact-point velocity and rigid foot motion; the physical mode substitutes the body's fall predicate for the run's posture guard; configuration's `steeringPolicy` replays a 47-input learned cycle actor through `learned-run-steering.mjs` | `--out`: raw samples, calibration, harness, source and policy identity |
+| `skills/locomotion/residual-stop.mjs` | a stop order after a declared development run; `--braking-policy` selects an independent post-order correction; reads physical entry speed, falls and two seconds of standing below 0.15 m/s reached within two seconds; an unreached entry remains explicit; `--stance-trace` retains planned catches and physical support readings | `--out`: protocol, policy identity, readings and samples |
+| `skills/locomotion/residual-search.mjs` | hip, knee and ankle corrections mirrored by leg role, sagittal by default or every leg channel with `--channels all`, using phase sine or quadrature; CMA search credits the slowest rolling second after a complete upright run inside the corridor, ranking partial survival below completed candidates; `--from` and `--seconds` select a development window, and the environment's `actionAt` defers corrections after the movement order | `--out`: protocol, trial rows, baseline, CMA checkpoint and policy |
+
+Steering training can retain a calibrated reference actor with configuration's `referencePolicy`
+and `referenceScale`. Its joint corrections stay fixed while the steering actor learns the cycle's
+other controls. Both actors decide at the environment's action interval. The reference actor also
+drives warm-up to moving starts, preserving the calibrated trajectory before training takes over.
+Contact traces retain each loaded shape pair, its region and rigid contact-point velocity so a
+toe contact can be distinguished from the foot's main box.
+
+The residual search's `--stop-at` and `--running-policy` freeze the movement before a stop and
+train a separate braking correction. Set `--seconds` four seconds beyond the stop order. Its
+development score weights speed at the two-second deadline and mean braking speed equally.
+A valid quiet standing interval outranks those continuous rewards. `stopMet` also requires the declared entry speed; a higher development
+score alone does not establish the stop gate.
+
+Use comma-separated `--stop-at` times to train braking across independent entry conditions.
+Each case ends four seconds after its stop; `--seconds` names the latest stop plus four.
+The candidate receives its worst case's score, and rows retain every case's entry and outcome.
+Partial braking survival credits only time after the stop order. An unreached deadline has no
+speed reading.
+
+For running-only development, `--period-range low,high` trains cadence jointly with the
+trajectory coefficients; `--ahead-range low,high` also trains playback lead. Quote range arguments
+to preserve their decimal bounds in PowerShell. The checkpoint's best reading records the selected
+`period` and `ahead`; replay its policy with those values in the configuration's `cycleTuning`.
+Cycle overrides apply only
+to the experiment and do not replace a body's published record.
+
+Set `entry` to `first-lift` in a residual environment configuration to try handover on the
+first clear swing after facing settles, with the opposite foot planted. Omit it for the default
+walking-landing handover. The environment records this choice in its harness; early entry is an
+experimental controller choice and does not establish the forward-speed gate.
+
+For state-dependent corrections, `--feedback speed` adds the positive and negative parts of
+commanded speed minus observed forward speed to the actor's hidden features. Each selected
+channel gets two coefficients after its phase coefficients. Use unit-cube values of 0.5 for
+zero feedback when expanding a phase-only checkpoint. The exported policy includes these
+features; the environment and muscle ceilings remain the same.
+
+`--posture-policy` freezes an exported quadrature/speed actor and trains signed forward-tilt and
+pitch-rate feedback around it. Use `--basis quadrature --feedback speed`; each selected channel
+gets four new coefficients, with 0.5 giving zero added feedback. The exported actor includes the
+frozen policy and the new features, under the same action bound.
+
+Set `trim` to `at-pace` to accumulate the cycle's integral speed correction only when its
+reference pace equals the order. The default `continuous` mode also integrates during reference
+acceleration and braking. Each mode retains the configured trim bound; the harness names the mode.
+`after-pace` begins integrating once the reference reaches the order and continues through its
+speed oscillation. A changed order pauses accumulation until the reference reaches that order.
+
+Braking overrides activate while the reference pace exceeds the order or the order is to stop.
+This keeps a stopping posture independent of an unchanged running order.
+
+Set `actuationTrace` in a residual environment configuration to retain each leg channel's command,
+activation, delivered mean torque and directional bounds. Joint angles and speeds are the driver's
+last readings; torque is the last world step's mean. The same samples retain reference pace,
+integral trim and requested lean for diagnosing tracking and saturation.
 | `skills/strikes/strike-profiles.mjs`, `skills/recovery/edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on; `edge-profiles --model` refreshes one body's at the existing offsets | core profiles with `--write`; ground falls and trials cached in `research/runs/edge-profiles/`, or `--rows` |
 | `skills/skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/skills/<capability>/<implementation>/<skill>.json`, `.meta.json`, every run |
 | `skills/strikes/stomp/skill-search.mjs` | a skill's settings (the stomp's, `SEARCHES`) searched on one body by CMA-ES on its task's trials; `--confirm` keeps the best only where it beats the start on fresh trials | `--out`; with `--confirm --write`, the body's row (through `skills/skill-records.mjs`) |
@@ -28,7 +89,9 @@ it reads by.
 | `humanoid/reach/core-reach-map.mjs` | kinematics alone: where the knuckles and the club's swell reach, wrist held and freed | |
 | `humanoid/posture/core-posture.mjs`, `humanoid/posture/core-posture-trials.mjs`, `humanoid/posture/core-posture-worker.mjs` | statics: whether the Warrior can hold still on each support from knees and hands to standing, at what share of its strength, then held by its motors on the world | `research/runs/postures/` |
 | `humanoid/posture/man-postures.mjs`, `humanoid/posture/core-posture-runs.mjs`, `humanoid/posture/man-posture-starts.mjs` | the same statics on Man's envelopes (`--envelopes boot,barefoot,toe`), and the installed postures' starts; the bare foot, palm and passive toe hold no support posture the boot does not | `humanoid/posture/man-postures.mjs`: `research/runs/postures/envelopes.json`; `humanoid/posture/man-posture-starts.mjs`: `research/humanoid/posture/data/man-postures.json`'s starts, every run, from the sweep `--sweep` names (`research/runs/postures/envelopes.json` where not given) |
-| `man-toe-solver.mjs` | Man's passive toe on the game's solver, at 120 and 480 Hz; a passive toe hinge does not hold as a spring under load | |
+| `man-toe-solver.mjs` | Man's passive toe on the game's solver, at 120 and 480 Hz; compares spring torque with its law, with a static angle prediction only while the toe bears no ground load; `--conditioning` controls contact and rotational inertia, `--planted` starts the toe against the ground, and `--stiffness` varies the fixture spring; `--mass` adds mass and inertia while retaining weight, compared with inertia alone; `--legacy-limits`, `--native-contact`, `--friction`, `--depth` and `--iterations` isolate solver constraints | `research/runs/man-toe-solver.json`; conditioning: `research/runs/man-toe-conditioning-<settings>.json`, with fixture settings per row |
+| `toe-hinge.mjs` | a light passive toe isolated from a gait: free torque, loaded tip and heel-up ground contact at 120 and 480 Hz; `--mode layer` adds a stiff contact control and `--mode conditioning` varies inertia while retaining mass; `--pitch` selects the heel angle and `--frequency` rocks the held foot; `--articulated` checks a reduced-coordinate hinge with a motor-only impulse joint on a stationary held foot | `--out`: fixture settings and mechanical readings |
+| `toe-support.mjs` | a physical slab toe sized from the Warrior's current foot, its mass split by volume and its load placed at the ankle; flat, heel-up and kneeling poses at 120 and 480 Hz, read at 120 Hz; `--load` selects the body-mass share, `--sole-layer` shares contact regularization across both sole parts, and `--contact-damping` and `--pgs` control the solver; `--frequency` uses an external velocity drive to rock the foot and meters its pitch torque; reports whole-run clearance, hinge and tracking errors and flags a fixture that leaves its floor | `--out`: settings, mechanical readings and source identity |
 | `skills/recovery/core-rise.mjs`, `-trials.mjs`, `-worker.mjs` | the battery of falls: every model shoved sixteen ways (`--shoves`, `--turn`), with the club and without, watched (`--watch`) under a mind (`--mind`): how many rose, how fast, the furthest stage | |
 | `skills/recovery/implementations/staged/core-rise-poses.mjs` | stages played on a body toppled stiff (`--lie`, `--degrees`): how it lies at each stage's end | |
 | `skills/recovery/implementations/staged/rise-trace.mjs` | where a whole mind's rise spends its time on the stand-up target's falls: each ground action, where it began, how long, its stages and how it ended; `--seeds` checks other seeds | `--out` |
@@ -121,6 +184,15 @@ Scripts not listed above, by what they study; each is read by the record named.
 | Other | `jump-test.mjs` (a squat jump's take-off), `pad-surface.mjs` (a pad's support surface) | |
 
 `cma.mjs` is the resumable CMA-ES the searches share.
+
+Travel policy seeds declare their observation transform (`normalization`) explicitly. When
+estimating a transform, collect statistics through standing, entry and running phase. Replay the
+initial and critic-only exports against the seed before interpreting learned checkpoints: input
+clipping and float32 conversion can change physical outcomes even while the actor's weights are held.
+
+Price a residual search with a short generation limit, then use `--resume` with the same output
+prefix to extend it. The saved protocol, calibration and code identity must match; its baseline
+and completed candidates are reused.
 
 ## The physics bake-off
 

@@ -180,11 +180,11 @@ function shoveTrunk(stand, impulse, way) {
  * of the stance's goal itself; `"walk-run"` for the walk and run (`src/skills/locomotion/walk-run.ts`),
  * free to run; `"braced"` for it told it may not run.
  */
-function skillOf(legs, b) {
+function skillOf(legs, b, stride) {
   switch (legs) {
     case null: case undefined: return null;
-    case "walk-run": return walkRun(b);
-    case "braced": return walkRun(b, WALK_RUN, WALK_RUN_CYCLE, false);
+    case "walk-run": return walkRun(b.driver, WALK_RUN, WALK_RUN_CYCLE, { stride });
+    case "braced": return walkRun(b.driver, WALK_RUN, WALK_RUN_CYCLE, { may: false });
     default: throw new Error(`no locomotion skill named ${legs}`);
   }
 }
@@ -208,13 +208,14 @@ function skillCommand(skill, view, walk, face, dt, posture, keep) {
  * by the locomotion skill `legs` names (`skillOf`). Given `wind` (`{ rate, strength, seed }`), the
  * lab's gusts blow on it throughout (`startWind`, `src/game/lab/wind.ts`). `stood` is the soles' distance
  * apart across the way as it sets off, m, and `width` their mean as each lands over the 3 s measured
- * (null if none landed).
+ * (null if none landed), and the greatest absolute pelvis facing, rad, through travel and rest.
+ * `trace` retains each step's motion, stance recovery state and hip rotation readings.
  */
-export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null, setOff = 5, rest = 4, balance = null }) {
+export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null, setOff = 5, rest = 4, balance = null, stride, trace = false }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance });
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   if (isRefused(blowing)) { b.dispose(); stand.dispose(); throw new Error(blowing.refused); }
-  const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way), skill = skillOf(legs, b);
+  const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way), skill = skillOf(legs, b, stride);
   let goal = null, pace = null;
   b.drive((view, dt) => {
     const posture = held === null ? {} : guard;
@@ -225,7 +226,10 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
   });
   try {
     stand.step(stand.seconds(1));
-    let low = -Infinity, down = false, measuring = false;
+    let low = -Infinity, down = false, measuring = false, facing = 0;
+    const samples = [], muscles = b.driver.muscles;
+    const yawChannels = trace ? muscles.channels.flatMap((channel, i) =>
+      channel.name.includes("hip.") && channel.name.includes("internal rotation") ? [i] : []) : [];
     const was = { left: true, right: true }, widths = [];
     const run = (seconds) => {
       for (let i = 0; i < stand.seconds(seconds); i++) {
@@ -234,6 +238,15 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
         // The sink is read over the lower sole: the stance's support is raised with a sole that swings high, as a run's does.
         if (goal) low = Math.max(low, goal.height - (s.centre.y - Math.min(s.ends[footOn(b.built.spec, "left")].middle.y, s.ends[footOn(b.built.spec, "right")].middle.y)));
         down ||= b.view.down;
+        facing = Math.max(facing, Math.abs(s.facing));
+        if (trace) {
+          const step = b.state.mind.host.motor.stance.step;
+          samples.push(structuredClone({ time: stand.world.time, facing: s.facing, phase: s.phase,
+            velocity: s.velocity, centre: s.centre, ends: s.ends,
+            catching: step.catching, recovering: step.recovering, stepFacing: step.facing,
+            yaw: yawChannels.map(i => ({ channel: muscles.channels[i].name, angle: muscles.angle(i),
+              speed: muscles.speed(i), torque: muscles.pulled[i], ceiling: muscles.ceiling[i] })) }));
+        }
         // The soles' distance apart across the way walked as each lands, over the walk measured.
         for (const side of SIDES) {
           if (measuring && s.ends[footOn(b.built.spec, side)].touching && !was[side]) widths.push(Math.abs((s.ends[footOn(b.built.spec, "left")].middle.x - s.ends[footOn(b.built.spec, "right")].middle.x) * uz - (s.ends[footOn(b.built.spec, "left")].middle.z - s.ends[footOn(b.built.spec, "right")].middle.z) * ux));
@@ -257,7 +270,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
     const settled = b.view.stance.strides;
     run(2);
     const s = b.view.stance;
-    return { strides, capped, fell: low > 0.25 || down || !Number.isFinite(low), along, across: sideways, speed: s.velocity.length(), phase: s.phase,
+    return { strides, capped, fell: low > 0.25 || down || !Number.isFinite(low), facing, ...(trace ? { samples } : {}), along, across: sideways, speed: s.velocity.length(), phase: s.phase,
       stepped: s.strides - settled, off: across(s.centre, s.place), stood, width: widths.length ? widths.reduce((a, w) => a + w, 0) / widths.length : null };
   } finally { blowing?.dispose(); b.dispose(); stand.dispose(); }
 }
@@ -274,10 +287,10 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
  * quarter round onto it; the walk off the heading goes no faster than the ellipse through `speed`
  * along it and `side` m/s across it (`paceToward`'s, the side way's fastest walk).
  */
-export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null, balance = null, onto = null }) {
+export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null, balance = null, onto = null, stride }) {
   if (!Number.isFinite(rate) || rate <= 0) throw new Error("a turn rate must be finite and positive");
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance });
-  const skill = skillOf(legs, b);
+  const skill = skillOf(legs, b, stride);
   const round = onto ? Math.PI / 2 : Math.PI;
   let goal = null, heading = 0, turning = false, walking = false, turned = 0;
   b.drive((view, dt) => {
@@ -331,9 +344,9 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
  * (`skillOf`): whether it fell, when, and the catch steps it took. With `envelope`, the body reads
  * its stance's measured envelope as a game's does (`body`).
  */
-export async function orders({ model, speed, seed, seconds = 30, stance, hz = 120, held = null, actuation, physique, legs = null, balance = null, envelope = false, shoves = 0 }) {
+export async function orders({ model, speed, seed, seconds = 30, stance, hz = 120, held = null, actuation, physique, legs = null, balance = null, envelope = false, shoves = 0, stride }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance, envelope });
-  const skill = skillOf(legs, b);
+  const skill = skillOf(legs, b, stride);
   if (!skill) throw new Error("orders are given to a locomotion skill");
   let state = (seed * 2654435761) % 4294967296;
   const random = () => { state = (state * 1664525 + 1013904223) % 4294967296; return state / 4294967296; };

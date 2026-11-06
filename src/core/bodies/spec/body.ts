@@ -88,6 +88,8 @@ export type BearingEndSpec = EndLimb | ProppedLimb | FootLimb | PawLimb;
 export interface BodySpec {
   /** Which body it is, such as `workshop-fighter`; a spec never spreads another family's spec. */
   readonly model: string;
+  /** An explicit anatomy variant keeps its measured skill data separate. */
+  readonly variant?: string;
   /** Whole-body mass: the segments' masses sum to it. */
   readonly mass: Quantity<number>;
   readonly stature: Quantity<number>;
@@ -420,7 +422,7 @@ export interface JointSpec {
  * about `axis` in the sense the motion `positive` names (flexion, abduction, ...), and `negative`
  * names the opposite one.
  */
-export interface DofSpec {
+interface RotationalDofSpec {
   readonly positive: string;
   readonly negative: string;
   /** Unit axis, body frame. */
@@ -434,8 +436,23 @@ export interface DofSpec {
    * reference poses differ, and is this much less from the reference pose.
    */
   readonly bind: Quantity<number>;
-  readonly muscle: MuscleSpec;
 }
+
+/** A coordinate is either actuated by muscles or moved by an anatomical passive spring. */
+export type DofSpec = RotationalDofSpec & (
+  | { readonly muscle: MuscleSpec; readonly passive?: never }
+  | { readonly passive: PassiveSpringSpec; readonly muscle?: never }
+);
+
+/** A passive rotational spring, with torque -stiffness * (angle - rest) - damping * speed. */
+interface PassiveSpringSpec {
+  readonly rest: Quantity<number>;
+  readonly stiffness: Quantity<number>;
+  readonly damping: Quantity<number>;
+}
+
+/** Whether this coordinate has a muscle actuator. */
+export const isMuscleDof = (dof: DofSpec): dof is RotationalDofSpec & { readonly muscle: MuscleSpec; readonly passive?: never } => dof.muscle !== undefined;
 
 /**
  * The muscles acting on one freedom, lumped: what the joint can do, not which muscle does it. The
@@ -485,11 +502,13 @@ const BODY_RIGHT: Vec3 = [1, 0, 0];
 
 /**
  * **The key a body's measured data is read under** (a walk's envelope, a technique's profile, a
- * learned skill's settings): its model, and `+toes` where its feet have toes (`ToesSpec`), since
- * what depends on the foot is measured on each foot apart.
+ * learned skill's settings): its model, `+toes` where its feet have toes (`ToesSpec`), and its
+ * explicit anatomy variant. Each foot and variant has its own measurements.
  */
-export const bodyKey = (spec: Pick<BodySpec, "model" | "segments">): string =>
-  spec.segments.some((segment) => segment.toes !== undefined) ? `${spec.model}+toes` : spec.model;
+export const bodyKey = (spec: Pick<BodySpec, "model" | "segments" | "variant">): string => {
+  const base = spec.segments.some((segment) => segment.toes !== undefined) ? `${spec.model}+toes` : spec.model;
+  return spec.variant ? `${base}+${spec.variant}` : base;
+};
 
 /**
  * A segment's frame from its ends: origin at `proximal`, y toward `distal`, x `right` made square

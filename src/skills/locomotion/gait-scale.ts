@@ -1,5 +1,6 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { RunCycleSettings } from "./cycle-run.ts";
+import type { GaitTuning } from "../../control/stance-tuning.ts";
 import type { WalkRunSettings } from "./walk-run.ts";
 
 /**
@@ -45,6 +46,16 @@ export function scaledGait<T extends Partial<Record<keyof typeof DIMENSION, numb
   if (k === 1 && quick === 1) return settings;
   const root = Math.sqrt(k);
   return Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, value * factor(DIMENSION[key as keyof typeof DIMENSION], k, root, quick)])) as T;
+}
+
+/** A stride on another leg: lengths follow the leg, times its pendulum time and haste. */
+export function scaledStride(stride: GaitTuning, k: number, quick = 1): GaitTuning {
+  if (k === 1 && quick === 1) return stride;
+  const time = Math.sqrt(k) / quick;
+  return { ...stride, seconds: stride.seconds * time, lift: stride.lift * k, width: stride.width * k,
+    clearance: stride.clearance * k, crouch: stride.crouch * k, horizon: stride.horizon * time,
+    ...(stride.transfer === undefined ? {} : { transfer: stride.transfer * time }),
+    ...(stride.preswing === undefined ? {} : { preswing: { ...stride.preswing, seconds: stride.preswing.seconds * time } }) };
 }
 
 /** How many times as quick the gait of a body hasted `haste` times a person (`hasteOver`) is, timed by `hasted` (`WalkRunSettings.hasted`). */
