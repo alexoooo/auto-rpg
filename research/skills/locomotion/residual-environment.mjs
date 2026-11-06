@@ -4,6 +4,8 @@
  * that walk-in; complete travel confirmation also requires stops, loadouts and fresh conditions.
  * Configuration's optional `braking` file overrides the running cycle's braking settings.
  * `cycleTuning` supplies immutable running-cycle overrides for joint trajectory searches.
+ * `rewardPace` selects the training target without changing the order. Progress credit is capped
+ * at the target; stopping uses Gaussian tracking. `fallPenalty` covers falls and corridor exits.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -59,8 +61,13 @@ const tanh = value => {
 
 export async function residualEnvironment(configuration = {}) {
   const o = { model: 'workshop-fighter', engine: DEFAULT_ENGINE, pace: 4.2, seconds: 8,
-    starts: [1.8, 3.5, 6], settle: 1, fromRestShare: 0, speedWidth: 1, actionAt: 0, fallRule: 'physical', residual: 'velocity', scale: 2, seed: 1, ...configuration };
+    starts: [1.8, 3.5, 6], settle: 1, speedReward: 'tracking', fallPenalty: 5, fromRestShare: 0, speedWidth: 1, actionAt: 0, fallRule: 'physical', residual: 'velocity', scale: 2, seed: 1, ...configuration };
   const layout = residualLayout(o.residual);
+  if (!['tracking', 'progress'].includes(o.speedReward)) throw Error('residual speed reward is tracking or progress');
+  const rewardPace = o.rewardPace ?? o.pace;
+  if (!Number.isFinite(rewardPace) || o.speedReward === 'progress' && rewardPace <= 0)
+    throw Error('residual reward pace is finite, and positive for progress credit');
+  if (!Number.isFinite(o.fallPenalty) || o.fallPenalty < 0) throw Error('residual failure penalty is finite and nonnegative');
   if (!(o.settle > 0) || !Number.isFinite(o.settle)) throw Error('residual settling time is finite and positive');
   if (!(o.scale >= 0) || !Number.isFinite(o.scale)) throw Error('residual scale is finite and nonnegative');
   const applyResidual = o.residual === 'activation'
@@ -259,8 +266,10 @@ export async function residualEnvironment(configuration = {}) {
     }
     episode.steps++;
     const effort = control.action.reduce((sum, x) => sum + x * x, 0) / 12;
-    const reward = exp(-(((along - (control.stopOrder ? 0 : o.pace)) / o.speedWidth) ** 2)) + .15 * up.y - .1 * velocity.x ** 2 - .05 * off ** 2
-      - .005 * effort - (down || off > 1 ? 5 : 0);
+    const speedCredit = o.speedReward === 'progress' && !control.stopOrder ? Math.min(1, along / rewardPace)
+      : exp(-(((along - (control.stopOrder ? 0 : rewardPace)) / o.speedWidth) ** 2));
+    const reward = speedCredit + .15 * up.y - .1 * velocity.x ** 2 - .05 * off ** 2
+      - .005 * effort - (down || off > 1 ? o.fallPenalty : 0);
     return { observation: observation.slice(), reward, ...(samples ? { samples } : {}), terminated: down || off > 1 || (episode.everRan && !skill.state.walkRun.running && !control.stopOrder),
       truncated: episode.steps >= o.seconds * 30,
       info: { along: episode.along / episode.ticks, command: o.pace, down, corridor: episode.maxOff,
@@ -274,5 +283,8 @@ export async function residualEnvironment(configuration = {}) {
       ...(o.toeConditioning ? { toeConditioning: Object.freeze({ ...o.toeConditioning }) } : {}),
       settle: o.settle,
       actuation: stand.world.actuation, balance: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt,
+      fallPenalty: o.fallPenalty,
+      speedReward: o.speedReward,
+      ...(o.rewardPace === undefined ? {} : { rewardPace }),
       residual: o.residual, scale: o.scale, entry: o.entry ?? 'landing', trim: o.trim ?? 'continuous' }) };
 }
