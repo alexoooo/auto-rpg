@@ -3,7 +3,12 @@
 .mind-editor select, .mind-editor input, .mind-editor textarea { min-width: 0; width: 100%; }
 .mind-part .mind-part { margin: 4px 0 0 10px; padding-left: 8px; border-left: 1px solid #8b684861; }
 .mind-slot-name { display: block; margin-top: 8px; }
-.mind-item-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px; margin-top: 6px; }
+.mind-choice-line { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px; align-items: center; }
+.mind-choice-line > .field:only-child { grid-column: 2; }
+.mind-item-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 4px; align-items: center; margin-top: 6px; }
+.mind-editor .mind-settings-toggle, .mind-settings-spacer { box-sizing: border-box; width: 24px; }
+.mind-editor .mind-settings-toggle { padding: 4px 0; cursor: pointer; }
+.mind-settings[hidden] { display: none; }
 .mind-tuning { margin: 6px 0 0; padding: 6px; max-height: 12em; overflow: auto; font-size: 11px; white-space: pre-wrap; background: #0000004d; }
 .mind-editor .settings-fault { margin: 6px 0 0; color: #d0705e; }
 .mind-editor .settings-note { margin: 6px 0 0; opacity: .75; font-size: 12px; }

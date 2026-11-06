@@ -56,7 +56,7 @@ export const FEW_TERMS: Objective = deepFreeze({ name: "few terms", worth: fewTe
 
 /** **The few terms** (`FEW_TERMS`) as a part of role `objective`: what a chooser that values options prices them by. */
 export const FEW_TERMS_PART: ObjectivePart<{ readonly kind: "few-terms" }, Objective> = deepFreeze({
-  role: "objective", label: "Few terms", stage: "game", fields: [], slots: [], defaults: { kind: "few-terms" }, keys: { kind: true },
+  role: "objective", label: "Combat", stage: "game", fields: [], slots: [], defaults: { kind: "few-terms" }, keys: { kind: true },
   fits: anyBody, faults: () => [], make: () => FEW_TERMS,
 });
 
