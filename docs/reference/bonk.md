@@ -29,7 +29,8 @@ commitment freezes the stroke's frame and geometry.
 
 `BonkModel.paths` supplies joint angle, rate and acceleration to freedom tracking. Its stroke
 derivatives follow the joint's quaternion angle convention analytically; its preparation and
-return derivatives follow the quintic coordinates.
+return derivatives follow the quintic coordinates. Execution samples the current control time:
+the framework delays decisions and builds continuous commands when it carries them out.
 
 ## Execution
 

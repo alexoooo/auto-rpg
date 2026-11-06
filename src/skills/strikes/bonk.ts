@@ -178,8 +178,9 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`a bonk has no instance ${id}`);
       const one = handOf(live.request.effector)!;
+      // The continuous command is carried on the current body view; only the decision is delayed.
       one.model.paths(live.course, live.returning !== null ? "return" : live.phase === "commit" ? "stroke" : "prepare",
-        elapsed(view.time, live.returnSince ?? live.since) + body.dt * body.delay, one.paths, live.returning ?? undefined);
+        elapsed(view.time, live.returnSince ?? live.since), one.paths, live.returning ?? undefined);
       return { paths: one.channels, ...(one.grip ? { configurations: { [one.effector]: one.grip } } : {}),
         legs: { walk: null, face: live.face, heading: live.face, halt: true, height: supportHeight(view) - live.lower } };
     },
