@@ -22,7 +22,8 @@ import { walkRun, WALK_RUN, WALK_RUN_CYCLE } from '../../../src/skills/locomotio
 import { runCycleSettings } from '../../../src/skills/locomotion/cycle-run.ts';
 import { legOf } from '../../../src/skills/locomotion/gait-scale.ts';
 import { balanceCeiling, balancePercent, rulebook } from '../../../src/combat/rulebook.ts';
-import { learnedRunSteering } from './learned-run-steering.mjs';
+import { learnedRunSteering, learnedRunFeatures, steeringFrom, STEERING_LAYOUT } from './learned-run-steering.mjs';
+import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
 
 const ROLES = Object.freeze(['stance', 'swing']);
 const JOINTS = Object.freeze(['hip flexion', 'hip abduction', 'hip internal rotation', 'knee flexion', 'ankle dorsiflexion', 'ankle inversion']);
@@ -45,7 +46,8 @@ export function residualLayout(kind = 'velocity') {
     case 'velocity': return RESIDUAL_LAYOUT;
     case 'activation': return ACTIVATION_LAYOUT;
     case 'reference': return REFERENCE_LAYOUT;
-    default: throw Error('a travel residual controls velocity, activation or reference');
+    case 'steering': return STEERING_LAYOUT;
+    default: throw Error('a travel residual controls velocity, activation, reference or cycle steering');
   }
 }
 const tanh = value => {
@@ -74,6 +76,9 @@ export async function residualEnvironment(configuration = {}) {
   const braking = o.braking ? runCycleSettings(JSON.parse(readFileSync(o.braking, 'utf8')), running) : running;
   const stride = JSON.parse(readFileSync(o.stride, 'utf8'));
   const steeringPolicy = o.steeringPolicy ? JSON.parse(readFileSync(o.steeringPolicy, 'utf8')) : null;
+  const referencePolicy = o.referencePolicy ? recoveryNetwork(JSON.parse(readFileSync(o.referencePolicy, 'utf8'))) : null;
+  if (referencePolicy && (o.residual !== 'steering' || !(o.referenceScale >= 0) || !Number.isFinite(o.referenceScale)))
+    throw Error('a frozen reference policy accompanies steering with a finite nonnegative referenceScale');
   const spec = modelSpec(o.model), guard = guardPosture(spec), leg = legOf(spec);
   const ends = Object.fromEntries(['left', 'right'].map(side => [side, footOn(spec, side)]));
   const names = Object.fromEntries(['left', 'right'].map(side => [side, JOINTS.map(name => {
@@ -83,7 +88,7 @@ export async function residualEnvironment(configuration = {}) {
   const centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), physicalTurn = new Quaternion();
   const contactPoint = new Vector3(), contactVelocity = new Vector3(), contactSpin = new Vector3();
   let stand = null, host = null, body, skill, root, channels, control, observation, goal;
-  let physicalParts, physicalRoot, mass, rootInverse, runView;
+  let physicalParts, physicalRoot, mass, rootInverse, runView, steeringFeatures;
   let randomState = o.seed >>> 0;
   const random = () => ((randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0) / 4294967296);
   let episode = { steps: 0, ticks: 0, along: 0, maxOff: 0 };
@@ -143,6 +148,9 @@ export async function residualEnvironment(configuration = {}) {
         (foot.middle.y - s.centre.y) / leg);
       for (const i of channels[roleSide]) observation.push(body.muscles.angle(i), body.muscles.speed(i) / 10);
     }
+    if (referencePolicy) control.referenceObservation = observation.slice();
+    if (o.residual === 'steering') observation.splice(0, observation.length,
+      ...steeringFeatures(view, h, control.stopOrder ? 0 : o.pace, skill.state.walkRun.spin, skill.state.run));
   };
   const reset = async given => {
     dispose();
@@ -158,10 +166,13 @@ export async function residualEnvironment(configuration = {}) {
     physicalParts = [...stand.built.segments.values()]; mass = massOf(physicalParts);
     physicalRoot = rootSegment(stand.built); rootInverse = Quaternion.Inverse(physicalRoot.rest);
     channels = Object.fromEntries(['left', 'right'].map(side => [side, names[side].map(name => body.muscles.channel(name))]));
+    steeringFeatures = learnedRunFeatures(body);
     skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve,
-      ...(steeringPolicy ? { hasted: steeringPolicy.hasted } : {}) }, running,
-      { stride, braking, entry: o.entry, trim: o.trim, steer: steeringPolicy ? learnedRunSteering(body, steeringPolicy) : undefined });
-    control = { asked: null, stopOrder: false, action: new Array(12).fill(0), reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
+      ...(o.hasted !== undefined ? { hasted: o.hasted } : steeringPolicy ? { hasted: steeringPolicy.hasted } : {}) }, running,
+      { stride, braking, entry: o.entry, trim: o.trim, steer: o.residual === 'steering'
+        ? () => steeringFrom(control.action) : steeringPolicy ? learnedRunSteering(body, steeringPolicy) : undefined });
+    control = { asked: null, stopOrder: false, action: new Array(12).fill(0), referenceAction: new Array(12).fill(0), referenceObservation: [],
+      reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
     observation = []; goal = null;
     body.drive((view, dt) => {
       const d = skill.goal(o.fallRule === 'physical' ? runView : view, { walk: control.asked, face: 0 }, dt);
@@ -169,15 +180,16 @@ export async function residualEnvironment(configuration = {}) {
       if (d.kind === 'drive') {
         const side = skill.state.run.phase < .5 ? 'left' : 'right', opposite = side === 'left' ? 'right' : 'left';
         const pushes = d.pushes.map(push => {
+          if (o.residual === 'steering' && !referencePolicy) return push;
           let i = names[side].indexOf(push.channel);
           if (i < 0) { const other = names[opposite].indexOf(push.channel); i = other < 0 ? -1 : other + 6; }
           if (i < 0) return push;
-          const action = view.time >= 1 + o.actionAt ? control.action[i] : 0;
-          if (o.residual !== 'reference') return applyResidual(push, action);
+          const action = view.time >= 1 + o.actionAt ? (referencePolicy ? control.referenceAction[i] : control.action[i]) : 0;
+          if (o.residual !== 'reference' && !referencePolicy) return applyResidual(push, action);
           const physical = i < 6 ? side : opposite, channel = i % 6;
           const before = control.reference[physical][channel];
           // Smooth physical-channel offsets across role changes; track their rate as well as their displacement.
-          const offset = before + Math.min(1, 30 * dt) * (action * o.scale - before);
+          const offset = before + Math.min(1, 30 * dt) * (action * (referencePolicy ? o.referenceScale : o.scale) - before);
           control.reference[physical][channel] = offset;
           const speed = push.speed + offset / running.settle + (offset - before) / dt;
           return { ...push, speed, sense: speed >= 0 ? 1 : -1 };
@@ -200,6 +212,7 @@ export async function residualEnvironment(configuration = {}) {
     if (!Array.isArray(action) || action.length !== 12 || !action.every(Number.isFinite)) throw Error('residual control needs twelve finite actions');
     if (squashed && action.some(x => Math.abs(x) > 1)) throw Error('squashed residual actions exceed one');
     for (let i = 0; i < 12; i++) control.action[i] = squashed ? action[i] : tanh(action[i]);
+    if (referencePolicy) control.referenceAction = referencePolicy(control.referenceObservation);
     const samples = o.trace ? [] : null;
     let down = false, off = 0, along = 0;
     for (let k = 0; k < 4; k++) {

@@ -51,12 +51,16 @@ try {
     diff: execFileSync('git', ['diff', 'HEAD', '--', ...trees], { encoding: 'utf8' }), node: process.version,
     reader: createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex'),
     environment: createHash('sha256').update(readFileSync(new URL('./residual-environment.mjs', import.meta.url))).digest('hex') };
+  if (settings.residual === 'steering' || settings.steeringPolicy)
+    code.steeringAdapter = createHash('sha256').update(readFileSync(new URL('./learned-run-steering.mjs', import.meta.url))).digest('hex');
   writeFileSync(o.out, JSON.stringify({ protocol: 'residual development screen, physical COM at 120 Hz', settings,
     harness: env.harness, layout: env.layout, code,
     calibration: { settings: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: JSON.parse(readFileSync(settings.stride, 'utf8')),
       ...(settings.braking ? { braking: JSON.parse(readFileSync(settings.braking, 'utf8')) } : {}),
       ...(settings.steeringPolicy ? { steering: { path: settings.steeringPolicy,
         hash: createHash('sha256').update(readFileSync(settings.steeringPolicy)).digest('hex'),
-        adapter: createHash('sha256').update(readFileSync(new URL('./learned-run-steering.mjs', import.meta.url))).digest('hex') } } : {}) },
+        adapter: createHash('sha256').update(readFileSync(new URL('./learned-run-steering.mjs', import.meta.url))).digest('hex') } } : {}),
+      ...(settings.referencePolicy ? { reference: { path: settings.referencePolicy, scale: settings.referenceScale,
+        hash: createHash('sha256').update(readFileSync(settings.referencePolicy)).digest('hex') } } : {}) },
     policy: o.policy ?? null, policyHash: policyBytes ? createHash('sha256').update(policyBytes).digest('hex') : null, trials }) + '\n');
 } finally { env.dispose(); }

@@ -9,14 +9,32 @@ const ranges = Object.freeze({ swingHip: .3, swingOut: .15, swingKnee: .4, swing
   stanceKnee: .3, stanceAnkle: .3, stanceRoll: .15, lean: .2, bank: .1, cadence: .3, pace: 1.5, effort: .5 });
 const joints = ['hip.%s flexion', 'hip.%s abduction', 'hip.%s internal rotation', 'knee.%s flexion', 'ankle.%s dorsiflexion', 'ankle.%s inversion'];
 
+export const STEERING_LAYOUT = Object.freeze({ inputs: Object.freeze(['phase sin', 'phase cos', 'command', 'playback',
+  'forward speed', 'mirrored side speed', 'vertical speed', 'height', 'centre from bearing forward', 'centre from bearing side',
+  'swing from centre forward', 'swing from centre side', 'swing over bearing', 'up forward', 'mirrored up side', 'facing error',
+  'momentum right', 'momentum up', 'momentum forward', 'bearing contact', 'swing contact', 'haste', 'turning',
+  ...['angle', 'speed'].flatMap(kind => ['bearing', 'swing'].flatMap(role => joints.map(joint => `${role} ${joint} ${kind}`)))]),
+  outputs: Object.freeze(Object.keys(ranges)) });
+
+/** Convert squashed actor outputs to the cycle controller's bounded physical offsets. */
+export function steeringFrom(actions) {
+  return Object.fromEntries(Object.entries(ranges).map(([key, range], i) => [key, Math.max(-1, Math.min(1, actions[i])) * range]));
+}
+
 /** The actor's 47 inputs and twelve offsets retain its training's mirrored bearing-leg convention. */
 export function learnedRunSteering(body, policy) {
   if (policy.actions !== 12 || policy.layers[0]?.weights[0]?.length !== 47) throw Error('a learned cycle policy reads 47 features and writes twelve offsets');
-  const act = recoveryNetwork(policy), features = [], decisionSteps = Math.max(1, Math.round(1 / (30 * body.dt)));
+  const act = recoveryNetwork(policy), read = learnedRunFeatures(body), decisionSteps = Math.max(1, Math.round(1 / (30 * body.dt)));
+  return (view, heading, asked, turning, run) => run.steps % decisionSteps !== 0 ? run.steer
+    : steeringFrom(act(read(view, heading, asked, turning, run)));
+}
+
+/** Read the raw observations used in both learned-cycle inference and training. */
+export function learnedRunFeatures(body) {
+  const features = [];
   const ends = Object.fromEntries(['left', 'right'].map(side => [side, footOn(body.built.spec, side)]));
   const channels = Object.fromEntries(['left', 'right'].map(side => [side, joints.map(name => body.muscles.channel(name.replace('%s', side)))]));
   return (view, heading, asked, turning, run) => {
-    if (run.steps % decisionSteps !== 0) return run.steer;
     const s = view.stance, c = s.centre, v = s.velocity, m = s.momentum;
     const bearing = run.phase < .5 ? 'left' : 'right', swinging = bearing === 'left' ? 'right' : 'left', side = bearing === 'left' ? 1 : -1;
     const own = bearing === 'left' ? run.phase : run.phase - .5;
@@ -35,7 +53,6 @@ export function learnedRunSteering(body, policy) {
       hasteOver(body.built.spec) - 1, turning * side);
     for (const leg of [bearing, swinging]) for (const channel of channels[leg]) features.push(body.muscles.angle(channel));
     for (const leg of [bearing, swinging]) for (const channel of channels[leg]) features.push(body.muscles.speed(channel));
-    const actions = act(features);
-    return Object.fromEntries(Object.entries(ranges).map(([key, range], i) => [key, Math.max(-1, Math.min(1, actions[i])) * range]));
+    return features;
   };
 }
