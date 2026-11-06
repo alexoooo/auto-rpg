@@ -5,6 +5,8 @@
  * diagnose numerical conditioning; their values are fixture settings, not a proposed anatomy.
  *
  * node research/toe-hinge.mjs --mode native|layer|conditioning --pitch 0.5 --out <file.json>
+ * `--articulated` replaces hinge constraint rows with a reduced-coordinate articulation,
+ * retaining a motor-only impulse joint for its force-based spring and integrated effort read.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -15,6 +17,7 @@ import { Quaternion, Vector3 } from '../src/core/math/vector.ts';
 import { sin, cos, atan2 } from '../src/core/math/real.ts';
 
 const { values: options } = parseArgs({ options: { mode: { type: 'string', default: 'native' },
+  articulated: { type: 'boolean', default: false },
   pitch: { type: 'string', default: '0.5' }, frequency: { type: 'string', default: '0' }, out: { type: 'string' } } });
 const configurations = {
   native: [null, 'tip-load', 'toeoff'].flatMap(contact => [0, 2].map(damping => ({ contact, damping, layer: false, inertiaScale: 1 }))),
@@ -26,6 +29,7 @@ const contactPitch = Number(options.pitch);
 if (!Number.isFinite(contactPitch) || contactPitch < 0 || contactPitch > Math.PI / 2) throw Error('--pitch lies between zero and pi/2 radians');
 const frequency = Number(options.frequency);
 if (!Number.isFinite(frequency) || frequency < 0) throw Error('--frequency is nonnegative Hz');
+if (options.articulated && frequency) throw Error('articulated calibration uses a stationary held foot');
 
 const fixture = Object.freeze({ mass: .05, width: .1, length: .06, thickness: .025, stiffness: 25,
   seconds: 4, ramp: 1, readLast: 1, torque: 2, force: 500,
@@ -48,7 +52,21 @@ async function play({ hz, contact, damping, layer, inertiaScale }) {
       mass * (width ** 2 + thickness ** 2) / 12].map(value => value * inertiaScale);
     const toe = physics.addBody(toePose, [{ kind: 'box', centre: [0, thickness / 2, length / 2], size: [width, thickness, length] }],
       { mass, centre: [0, thickness / 2, length / 2], moments, orientation: Quaternion.Identity() });
-    const joint = physics.addJoint(base, toe, { anchorParent: [0, 0, 0], anchorChild: [0, 0, 0],
+    let joint;
+    if (options.articulated) {
+      const raw = physics.raw, zero = { x: 0, y: 0, z: 0 }, axis = { x: 1, y: 0, z: 0 };
+      const hinge = raw.createMultibodyJoint(R.JointData.revolute(zero, zero, axis), base.rigid, toe.rigid, true);
+      hinge.setContactsEnabled(false);
+      raw.multibodyJoints.raw.jointSetLimits(hinge.handle, R.JointAxis.AngX, -Math.PI / 2, Math.PI / 2);
+      const motor = raw.createImpulseJoint(R.JointData.generic(zero, zero, axis, 0), base.rigid, toe.rigid, true);
+      motor.setContactsEnabled(false);
+      const set = raw.impulseJoints.raw;
+      joint = { raw: motor, setSpring: (_axis, target, stiffness, negative, positive) => {
+        set.jointConfigureMotorModel(motor.handle, R.JointAxis.AngX, R.MotorModel.ForceBased);
+        set.jointConfigureMotorPosition(motor.handle, R.JointAxis.AngX, target, stiffness, 0);
+        set.jointSetMotorForceBounds(motor.handle, R.JointAxis.AngX, -positive, negative);
+      }, motorStepImpulse: () => -set.jointMotorStepImpulse(motor.handle, R.JointAxis.AngX) };
+    } else joint = physics.addJoint(base, toe, { anchorParent: [0, 0, 0], anchorChild: [0, 0, 0],
       frameParent: Quaternion.Identity(), frameChild: Quaternion.Identity(), limits: [[-Math.PI / 2, Math.PI / 2]] });
     if (contact) physics.addFixedBox([0, -.5, 0], [10, 1, 10]);
     if (layer) {
@@ -87,7 +105,7 @@ async function play({ hz, contact, damping, layer, inertiaScale }) {
         hingeError: toe.pose.position.subtract(base.pose.position).length() });
     }
     const mean = name => samples.reduce((sum, sample) => sum + sample[name], 0) / samples.length;
-    return { hz, contact: contact ?? 'free', pitch, frequency: contact === 'toeoff' ? frequency : 0, damping, layer, inertiaScale,
+    return { hz, contact: contact ?? 'free', articulated: options.articulated, pitch, frequency: contact === 'toeoff' ? frequency : 0, damping, layer, inertiaScale,
       deepest: mean('deepest'), maxDepth: Math.max(...samples.map(sample => sample.deepest)), angle: mean('angle'),
       freePrediction: contact === null ? fixture.torque / fixture.stiffness : null,
       spring: mean('spring'), staticSpring: -fixture.stiffness * mean('angle'),

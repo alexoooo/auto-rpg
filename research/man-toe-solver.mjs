@@ -43,6 +43,9 @@
  * angular-limit formulation, tangential constraints, convergence and contact regularization.
  * `--mass` scales toe mass and inertia with gravity compensated to retain its weight; compare
  * it with an equal inertia-only multiplier to isolate translational mass conditioning.
+ * `--articulated` uses a reduced-coordinate hinge and a separate motor-only impulse joint.
+ * An explicit angular constraint holds the foot; root rotation-lock flags do not hold an
+ * articulation. The recorded pose error establishes whether that fixture reaches its case.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -80,10 +83,12 @@ const { values: options } = parseArgs({ options: { conditioning: { type: "boolea
   depth: { type: "string", default: "0.0005" },
   "native-contact": { type: "boolean", default: false },
   mass: { type: "string", default: "1" },
+  articulated: { type: "boolean", default: false },
   stiffness: { type: "string", default: String(REFERENCE_TOE.stiffness) } } });
 const stiffness = Number(options.stiffness);
 if (!Number.isFinite(stiffness) || stiffness <= 0) throw Error('--stiffness is positive N m/rad');
 const TOE = Object.freeze({ ...REFERENCE_TOE, stiffness });
+if (options.articulated && !options.conditioning) throw Error('--articulated requires --conditioning');
 const massScale = Number(options.mass);
 if (!Number.isFinite(massScale) || massScale <= 0) throw Error('--mass is a positive conditioning multiplier');
 const layerDepth = Number(options.depth);
@@ -218,14 +223,31 @@ function run(kase, config) {
     raw.step = (events, hooks) => step(events, { ...hooks, contactLayer: (a, b) =>
       a === collider.handle || b === collider.handle ? [1e6, 0, layerDepth] : null });
   }
-  bodies.foot.rigid.setEnabledRotations(false, false, false, true);
+  if (options.articulated) {
+    // Articulations do not enforce the root rigid body's rotation-lock flags.
+    const fixed = raw.createRigidBody(R.RigidBodyDesc.fixed()), zero = { x: 0, y: 0, z: 0 };
+    const angular = raw.createImpulseJoint(R.JointData.generic(zero, zero, { x: 1, y: 0, z: 0 },
+      R.JointAxesMask.AngX | R.JointAxesMask.AngY | R.JointAxesMask.AngZ), fixed, bodies.foot.rigid, true);
+    angular.setLocalFrame1(zero, { x: turn.x, y: turn.y, z: turn.z, w: turn.w });
+    angular.setLocalFrame2(zero, { x: 0, y: 0, z: 0, w: 1 });
+  } else bodies.foot.rigid.setEnabledRotations(false, false, false, true);
   if (config.conditioned) bodies.toes.rigid.setGravityScale(1 / config.conditioned, true);
   bodies.foot.rigid.setGravityScale(0, true);
   const frameOf = (u) => { const q = new Quaternion(); Quaternion.FromUnitVectorsToRef(new Vector3(1, 0, 0), new Vector3(...u), q); return q; };
   let toeJoint = null;
   if (config.toe === "passive") {
     const toeFrame = toCore(frameOf(axis));
-    toeJoint = physics.addJoint(bodies.foot, bodies.toes, { anchorParent: hinge, anchorChild: hinge, frameParent: toeFrame, frameChild: toeFrame, limits: [[TOE.lo, TOE.hi]] });
+    if (options.articulated) {
+      const anchor = { x: hinge[0], y: hinge[1], z: hinge[2] }, direction = { x: axis[0], y: axis[1], z: axis[2] };
+      const data = R.JointData.revolute(anchor, anchor, direction);
+      const hingeJoint = raw.createMultibodyJoint(data, bodies.foot.rigid, bodies.toes.rigid, true);
+      hingeJoint.setContactsEnabled(false);
+      raw.multibodyJoints.raw.jointSetLimits(hingeJoint.handle, R.JointAxis.AngX, TOE.lo, TOE.hi);
+      // Only the spring is an impulse row; the articulation owns all hinge constraints.
+      const motor = raw.createImpulseJoint(R.JointData.generic(anchor, anchor, direction, 0), bodies.foot.rigid, bodies.toes.rigid, true);
+      motor.setContactsEnabled(false);
+      toeJoint = { raw: motor, motorStepImpulse: () => -raw.impulseJoints.raw.jointMotorStepImpulse(motor.handle, R.JointAxis.AngX) };
+    } else toeJoint = physics.addJoint(bodies.foot, bodies.toes, { anchorParent: hinge, anchorChild: hinge, frameParent: toeFrame, frameChild: toeFrame, limits: [[TOE.lo, TOE.hi]] });
     const set = raw.impulseJoints.raw, handle = toeJoint.raw.handle;
     set.jointConfigureMotorModel(handle, R.JointAxis.AngX, R.MotorModel.ForceBased);
     set.jointConfigureMotorPosition(handle, R.JointAxis.AngX, TOE.rest, TOE.stiffness, DAMPING);
@@ -278,6 +300,10 @@ function run(kase, config) {
     if (Math.abs(t - (RAMP + HOLD - LAST)) < dt / 2) { const c = bodies.foot.rigid.worldCom(); footAtHold = [c.x, c.y, c.z]; }
     if (step % config.every !== 0 || t <= RAMP + 1e-9) continue;
     const sample = { t, energy: energyOf() };
+    if (options.conditioning) {
+      const q = bodies.foot.rigid.rotation(), sense = q.w < 0 ? -1 : 1;
+      sample.footTurn = 2 * Math.atan2(sense * (q.x * axis[0] + q.y * axis[1] + q.z * axis[2]), sense * q.w);
+    }
     if (config.toe !== "none") {
       sample.separation = norm(sub(toWorld(bodies.foot.rigid, hinge), toWorld(bodies.toes.rigid, hinge)));
       // The known external moment, excluding ground reactions whose centre of pressure is unread.
@@ -305,6 +331,9 @@ function run(kase, config) {
     case: kase.name, config: config.name, turn: kase.turn,
     ...(options.conditioning ? { fixture: { hz: config.hz, iterations, friction: friction ?? null,
       coordinateAngularLimits: !options["legacy-limits"], planted: options.planted,
+      articulated: options.articulated,
+      actualFootTurn: mean(last.map(sample => sample.footTurn)),
+      maxFootTurnError: Math.max(...last.map(sample => Math.abs(sample.footTurn - kase.turn))),
       layer: config.layer, layerDepth, stiffness, massScale, inertiaScale: config.inertiaScale } } : {}),
     separation: config.toe === "none" ? null : Math.max(...samples.map((s) => s.separation)),
     energyRise: Math.max(...samples.map((s) => s.energy)) - samples[0].energy,
@@ -335,6 +364,7 @@ function run(kase, config) {
 function accept(s) {
   if (s.angle === undefined) return null;
   return {
+    ...(s.fixture ? { caseReached: s.fixture.maxFootTurnError <= 0.001 } : {}),
     separation: s.separation <= 0.001,
     ...(s.freePrediction === null ? {} : { prediction: Math.abs(s.angle - s.freePrediction) <= 0.05 }),
     spring: s.lawError <= 0.05,
@@ -364,4 +394,4 @@ const meets = (name) => passive(name).every((s) => Object.values(s.accept).every
 if (!options.conditioning) console.log(`\nAcceptance at 120 Hz: ${meets("120 Hz") ? "met" : "not met"}; at 480 Hz: ${meets("480 Hz") ? "met" : "not met"}.`);
 const out = new URL("./runs/", import.meta.url);
 mkdirSync(out, { recursive: true });
-writeFileSync(new URL(options.conditioning ? `man-toe-conditioning-${stiffness}${options.planted ? "-planted" : ""}${options["legacy-limits"] ? "-legacy-limits" : ""}${friction === undefined ? "" : `-friction${friction}`}${iterations === 1 ? "" : `-iterations${iterations}`}${layerDepth === .0005 ? "" : `-depth${layerDepth}`}${options["native-contact"] ? "-native-contact" : ""}${massScale === 1 ? "" : `-mass${massScale}`}.json` : "man-toe-solver.json", out), JSON.stringify(results, null, 1));
+writeFileSync(new URL(options.conditioning ? `man-toe-conditioning-${stiffness}${options.planted ? "-planted" : ""}${options["legacy-limits"] ? "-legacy-limits" : ""}${friction === undefined ? "" : `-friction${friction}`}${iterations === 1 ? "" : `-iterations${iterations}`}${layerDepth === .0005 ? "" : `-depth${layerDepth}`}${options["native-contact"] ? "-native-contact" : ""}${massScale === 1 ? "" : `-mass${massScale}`}${options.articulated ? "-articulated" : ""}.json` : "man-toe-solver.json", out), JSON.stringify(results, null, 1));
