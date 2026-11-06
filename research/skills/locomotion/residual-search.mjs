@@ -1,7 +1,8 @@
 /**
  * Phase-dependent sagittal residual search; a development screen, excluding stops and equipment.
  * --config names the residual environment wrapper; --out prefixes retained evidence.
- * --start reads twelve unit-cube coefficients, zero residual at .5, each mapped to [-1,1].
+ * --basis sine uses twelve coefficients; quadrature adds cosine, giving twenty-four.
+ * --start reads unit-cube coefficients, zero residual at .5, each mapped to [-1,1].
  * --from selects the first rolling window's end; --seconds ends the run. Neither changes a gate.
  * --resume continues the saved CMA state and rows under the same protocol and code identity.
  */
@@ -15,12 +16,13 @@ import { residualEnvironment, RESIDUAL_LAYOUT, residualLayout } from './residual
 import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
 
 const CHANNELS = [0, 3, 4, 6, 9, 10];
-function networkAt(u) {
-  const first = [1, -1].map(sign => RESIDUAL_LAYOUT.inputs.map(name => name === 'phase sin' ? sign : 0));
-  return { actions: 12, layers: [{ weights: first, bias: [0, 0] },
+function networkAt(u, basis) {
+  const names = basis === 'quadrature' ? ['phase sin', 'phase cos'] : ['phase sin'];
+  const first = names.flatMap(phase => [1, -1].map(sign => RESIDUAL_LAYOUT.inputs.map(name => name === phase ? sign : 0)));
+  return { actions: 12, layers: [{ weights: first, bias: new Array(first.length).fill(0) },
     { weights: RESIDUAL_LAYOUT.outputs.map((_, i) => {
       const j = CHANNELS.indexOf(i);
-      return j < 0 ? [0, 0] : [2 * u[2 * j] - 1, 2 * u[2 * j + 1] - 1];
+      return first.map((_, k) => j < 0 ? 0 : 2 * u[first.length * j + k] - 1);
     }), bias: new Array(12).fill(0) }] };
 }
 
@@ -28,7 +30,7 @@ if (!isMainThread) {
   const env = await residualEnvironment({ ...workerData, trace: true, poses: false });
   parentPort.on('message', async ({ id, x: u }) => {
     try {
-      const policy = recoveryNetwork(networkAt(u));
+      const policy = recoveryNetwork(networkAt(u, workerData.basis));
       let observation = await env.reset({ fromRest: true }), result, sum = 0, count = 0, held = Infinity, enteredAt = null;
       const window = new Float64Array(120);
       do {
@@ -40,7 +42,8 @@ if (!isMainThread) {
         }
       } while (!result.terminated && !result.truncated);
       const complete = !result.terminated && count >= workerData.seconds * 120 && enteredAt !== null && enteredAt <= 4;
-      parentPort.postMessage({ id, r: { score: complete ? Math.max(0, held) : 0,
+      // Partial survival guides development but ranks below every completed forward run.
+      parentPort.postMessage({ id, r: { score: complete ? Math.max(0, held) : -1 + Math.min(1, count / (workerData.seconds * 120)),
         held: Number.isFinite(held) ? held : null, enteredAt, complete, harness: env.harness, ...result.info } });
     } catch (error) { parentPort.postMessage({ id, r: { error: String(error.stack ?? error), score: -1 } }); }
   });
@@ -49,11 +52,13 @@ if (!isMainThread) {
     generations: { type: 'string', default: '2' }, lambda: { type: 'string', default: '24' },
     sigma: { type: 'string', default: '.02' }, workers: { type: 'string', default: '8' },
     from: { type: 'string', default: '4' }, seconds: { type: 'string', default: '14' }, start: { type: 'string' },
-    resume: { type: 'boolean' } } });
+    resume: { type: 'boolean' }, basis: { type: 'string', default: 'sine' } } });
   if (!o.config || !o.out) throw Error('--config and --out name calibration and retained search evidence');
   const config = JSON.parse(readFileSync(o.config, 'utf8'));
   const settings = { ...JSON.parse(readFileSync(config.environment, 'utf8')), ...config,
-    seconds: Number(o.seconds), creditFrom: Number(o.from) };
+    seconds: Number(o.seconds), creditFrom: Number(o.from), basis: o.basis };
+  if (!['sine', 'quadrature'].includes(settings.basis)) throw Error('basis is sine or quadrature');
+  const dimensions = CHANNELS.length * (settings.basis === 'quadrature' ? 4 : 2);
   if (!(settings.creditFrom >= 1 && settings.seconds > settings.creditFrom) || !Number.isFinite(settings.seconds)) throw Error('the credit window follows entry and precedes the episode end');
   const hash = file => createHash('sha256').update(readFileSync(file)).digest('hex');
   const identity = { settings, layout: residualLayout(settings.residual), channels: CHANNELS,
@@ -75,17 +80,19 @@ if (!isMainThread) {
   };
   try {
     const previous = saved ? JSON.parse(readFileSync(o.out + '-baseline.json', 'utf8')) : null;
-    const start = previous?.u ?? (o.start ? JSON.parse(readFileSync(o.start, 'utf8')) : new Array(12).fill(.5));
+    const start = previous?.u ?? (o.start ? JSON.parse(readFileSync(o.start, 'utf8')) : new Array(dimensions).fill(.5));
+    if (start.length !== dimensions || !start.every(x => Number.isFinite(x) && x >= 0 && x <= 1))
+      throw Error(`start needs ${dimensions} finite unit-cube coefficients for ${settings.basis}`);
     if (!saved) {
       const baseline = await score(start);
-      writeFileSync(o.out + '-baseline.json', JSON.stringify({ u: start, network: networkAt(start), ...baseline }) + '\n');
+      writeFileSync(o.out + '-baseline.json', JSON.stringify({ u: start, network: networkAt(start, settings.basis), ...baseline }) + '\n');
       console.log(JSON.stringify({ baseline }));
     }
-    await cmaSearch({ n: 12, start, sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1, score, resume: saved,
+    await cmaSearch({ n: dimensions, start, sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1, score, resume: saved,
       onGeneration: (entry, { best, checkpoint }) => {
         appendFileSync(o.out + '.jsonl', JSON.stringify({ ...entry, best: best.score, reading: best.r }) + '\n');
         writeFileSync(o.out + '-checkpoint.json', JSON.stringify(checkpoint) + '\n');
-        writeFileSync(o.out + '-policy.json', JSON.stringify(networkAt(best.u)) + '\n');
+        writeFileSync(o.out + '-policy.json', JSON.stringify(networkAt(best.u, settings.basis)) + '\n');
         console.log(JSON.stringify({ ...entry, best: best.score, reading: best.r }));
       } });
   } finally { await pool.terminate(); }
