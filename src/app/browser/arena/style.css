@@ -25,9 +25,6 @@
 }
 
 :where(#screen-root[data-screen="arena"]) #stage {
-  /* A drag that starts on the canvas orbits the camera and must not select text too. */
-  user-select: none;
-  -webkit-user-select: none;
   position: fixed;
   inset: 0;
   width: 100%;

@@ -7,7 +7,8 @@ html, body, #app-root, #screen-root { margin: 0; width: 100%; height: 100%; over
   background: linear-gradient(#100d0de8, #100d0df5), url("/assets/menu/cathedral.jpg") center / cover;
   color: var(--ui-ink); text-align: center; opacity: 1; transition: opacity 140ms ease; }
 #app-loading.leaving { opacity: 0; }
-#screen-root { color: var(--ui-ink); }
+#screen-root { color: var(--ui-ink); user-select: none; -webkit-user-select: none; caret-color: transparent; }
+:where(#screen-root) :is(input, textarea, [contenteditable]:not([contenteditable="false"])) { user-select: text; -webkit-user-select: text; caret-color: auto; }
 :where(#screen-root) :is(button, select, input) { font: inherit; }
 :where(#screen-root) :is(button, a, summary) { -webkit-tap-highlight-color: transparent; }
 :where(#screen-root) :is(button, a, summary, select, input):focus-visible { outline: 2px solid var(--ui-brass); outline-offset: 4px; }

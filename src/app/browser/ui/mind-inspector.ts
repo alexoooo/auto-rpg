@@ -15,7 +15,10 @@ export function mindInspector(config: MindConfig, spec: BodySpec, inspected: () 
   element.className = "mind-inspector"; live.className = "mind-live";
   const tree = mindEditor(config, { spec, ...staging, readOnly: true }), actions = actionReadout();
   const described = describeMind(GAME, spec, config);
-  element.append(live, actions.element, tree.element);
+  const diagnostics = document.createElement("details"), summary = document.createElement("summary");
+  summary.textContent = "Diagnostics";
+  diagnostics.append(summary, live, actions.element);
+  element.append(tree.element, diagnostics);
   const row = (term: string): HTMLElement => {
     const name = document.createElement("dt"), value = document.createElement("dd");
     name.textContent = term; live.append(name, value); return value;

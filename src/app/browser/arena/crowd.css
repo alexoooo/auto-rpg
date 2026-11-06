@@ -4,8 +4,7 @@
   font-family: system-ui, sans-serif;
 }
 :where(#screen-root[data-screen="crowd"]) #stage {
-  /* A drag that starts on the canvas orbits the camera and must not select text too. */
-  user-select: none; -webkit-user-select: none; touch-action: none; outline: none;
+  touch-action: none; outline: none;
   position: fixed; inset: 0; width: 100%; height: 100%; display: block;
 }
 #crowd-hud {
