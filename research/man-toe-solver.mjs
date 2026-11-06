@@ -39,6 +39,10 @@
  * inertia, and applies toe-hinge.mjs's stiff contact control. `--planted` starts the toes flat
  * against the ground while the foot is raised, separating load holding from contact entry.
  * `--stiffness` overrides the fixture spring, not the body's anatomy.
+ * `--legacy-limits`, `--friction`, `--iterations`, `--depth` and `--native-contact` isolate the
+ * angular-limit formulation, tangential constraints, convergence and contact regularization.
+ * `--mass` scales toe mass and inertia with gravity compensated to retain its weight; compare
+ * it with an equal inertia-only multiplier to isolate translational mass conditioning.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -71,13 +75,24 @@ const CASES = [
 ];
 const { values: options } = parseArgs({ options: { conditioning: { type: "boolean", default: false },
   planted: { type: "boolean", default: false },
+  "legacy-limits": { type: "boolean", default: false },
+  friction: { type: "string" }, iterations: { type: "string", default: "1" },
+  depth: { type: "string", default: "0.0005" },
+  "native-contact": { type: "boolean", default: false },
+  mass: { type: "string", default: "1" },
   stiffness: { type: "string", default: String(REFERENCE_TOE.stiffness) } } });
 const stiffness = Number(options.stiffness);
 if (!Number.isFinite(stiffness) || stiffness <= 0) throw Error('--stiffness is positive N m/rad');
 const TOE = Object.freeze({ ...REFERENCE_TOE, stiffness });
+const massScale = Number(options.mass);
+if (!Number.isFinite(massScale) || massScale <= 0) throw Error('--mass is a positive conditioning multiplier');
+const layerDepth = Number(options.depth);
+if (!Number.isFinite(layerDepth) || layerDepth <= 0) throw Error('--depth is positive metres');
+const iterations = Number(options.iterations), friction = options.friction === undefined ? undefined : Number(options.friction);
+if (!Number.isInteger(iterations) || iterations < 1 || (friction !== undefined && (!Number.isFinite(friction) || friction < 0))) throw Error('iterations is a positive integer and friction is nonnegative');
 const CONFIGS = options.conditioning ? [120, 480].flatMap(hz => [1, 10, 100].map(inertiaScale => ({
-  name: `contact layer, inertia x${inertiaScale}, ${hz} Hz`, hz, every: hz / 120,
-  iterations: 1, toe: "passive", inertiaScale, layer: true,
+  name: `${options["native-contact"] ? "native contact" : "contact layer"}, inertia x${inertiaScale}, ${hz} Hz`, hz, every: hz / 120,
+  iterations, toe: "passive", inertiaScale, layer: !options["native-contact"], conditioned: massScale,
 }))) : [
   { name: "120 Hz", hz: 120, every: 1, iterations: 1, toe: "passive" },
   { name: "480 Hz", hz: 480, every: 4, iterations: 1, toe: "passive" },
@@ -161,7 +176,7 @@ const norm = (a) => Math.sqrt(dot(a, a));
 
 /** One run: `config` on `kase`. Its readings over the hold, and the summary. */
 function run(kase, config) {
-  const physics = createRapierPhysics(R, { hz: config.hz, gravity: true }, "man-toe-solver", { coordinateAngularLimits: true });
+  const physics = createRapierPhysics(R, { hz: config.hz, gravity: true }, "man-toe-solver", { coordinateAngularLimits: !options["legacy-limits"] });
   const raw = physics.raw;
   raw.numSolverIterations *= config.iterations;
   addArenaSolids(physics);
@@ -191,13 +206,17 @@ function run(kase, config) {
     }
     const { mass, centre, moments, orientation } = piece.props;
     bodies[piece.name] = physics.addBody(poseAt(piece.name, piece.turned), [{ kind: "hull", points: piece.hull }], { mass, centre, moments, orientation: toCore(orientation) });
+    if (friction !== undefined) {
+      const collider = bodies[piece.name].rigid.collider(0);
+      collider.setFriction(friction); collider.setFrictionCombineRule(R.CoefficientCombineRule.Min);
+    }
   }
   if (config.layer) {
     const collider = bodies.toes.rigid.collider(0), step = raw.step.bind(raw);
     collider.setActiveHooks(collider.activeHooks() | R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
     // Numerical contact control, matching toe-hinge.mjs; mass and gravity remain physical.
     raw.step = (events, hooks) => step(events, { ...hooks, contactLayer: (a, b) =>
-      a === collider.handle || b === collider.handle ? [1e6, 0, 0.0005] : null });
+      a === collider.handle || b === collider.handle ? [1e6, 0, layerDepth] : null });
   }
   bodies.foot.rigid.setEnabledRotations(false, false, false, true);
   if (config.conditioned) bodies.toes.rigid.setGravityScale(1 / config.conditioned, true);
@@ -284,6 +303,9 @@ function run(kase, config) {
   const mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
   const summary = {
     case: kase.name, config: config.name, turn: kase.turn,
+    ...(options.conditioning ? { fixture: { hz: config.hz, iterations, friction: friction ?? null,
+      coordinateAngularLimits: !options["legacy-limits"], planted: options.planted,
+      layer: config.layer, layerDepth, stiffness, massScale, inertiaScale: config.inertiaScale } } : {}),
     separation: config.toe === "none" ? null : Math.max(...samples.map((s) => s.separation)),
     energyRise: Math.max(...samples.map((s) => s.energy)) - samples[0].energy,
     energyDrift: samples.at(-1).energy - samples[0].energy,
@@ -330,7 +352,7 @@ for (const kase of CASES) for (const config of CONFIGS) {
 
 const f = (v, d = 3) => (v === null || v === undefined ? "-" : v.toFixed(d));
 const mark = (ok) => (ok === undefined ? "" : ok ? "" : " ✗");
-console.log(`Harness: Node, the core's Rapier world (createRapierPhysics, coordinate limits, SOLVER), ${AUDITED}'s ${SIDE} foot. Foot ${(legMass + footSpec.mass.value * (1 - toeShare)).toFixed(2)} kg, turn held, ramped over ${RAMP} s, held ${HOLD} s; toes ${(footSpec.mass.value * toeShare).toFixed(3)} kg on k ${TOE.stiffness} N m/rad, d ${DAMPING} N m s/rad, range [${f(TOE.lo)}, ${f(TOE.hi)}].\n`);
+console.log(`Harness: Node, the core's Rapier world (createRapierPhysics, ${options["legacy-limits"] ? "native" : "coordinate"} limits, SOLVER), ${AUDITED}'s ${SIDE} foot. Foot ${(legMass + footSpec.mass.value * (1 - toeShare)).toFixed(2)} kg, turn held, ramped over ${RAMP} s, held ${HOLD} s; physical toe weight ${(footSpec.mass.value * toeShare * g).toFixed(3)} N on k ${TOE.stiffness} N m/rad, d ${DAMPING} N m s/rad, range [${f(TOE.lo)}, ${f(TOE.hi)}].\n`);
 console.log("| case | configuration | toe, rad | free prediction, rad | spring law error, rad | spring as read, N m | spring by its law, N m | toe load, N | deepest, mm | peak-to-peak, rad | separation, mm | energy rise, J | drift, J | spring energy, J | creep, mm/s |");
 console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 for (const s of results) {
@@ -342,4 +364,4 @@ const meets = (name) => passive(name).every((s) => Object.values(s.accept).every
 if (!options.conditioning) console.log(`\nAcceptance at 120 Hz: ${meets("120 Hz") ? "met" : "not met"}; at 480 Hz: ${meets("480 Hz") ? "met" : "not met"}.`);
 const out = new URL("./runs/", import.meta.url);
 mkdirSync(out, { recursive: true });
-writeFileSync(new URL(options.conditioning ? `man-toe-conditioning-${stiffness}${options.planted ? "-planted" : ""}.json` : "man-toe-solver.json", out), JSON.stringify(results, null, 1));
+writeFileSync(new URL(options.conditioning ? `man-toe-conditioning-${stiffness}${options.planted ? "-planted" : ""}${options["legacy-limits"] ? "-legacy-limits" : ""}${friction === undefined ? "" : `-friction${friction}`}${iterations === 1 ? "" : `-iterations${iterations}`}${layerDepth === .0005 ? "" : `-depth${layerDepth}`}${options["native-contact"] ? "-native-contact" : ""}${massScale === 1 ? "" : `-mass${massScale}`}.json` : "man-toe-solver.json", out), JSON.stringify(results, null, 1));
