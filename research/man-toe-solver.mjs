@@ -48,9 +48,13 @@
  * articulation. The recorded pose error establishes whether that fixture reaches its case.
  * That angular constraint reads the parent's inertia: the articulated variant includes the
  * ankle point load's parallel-axis contribution about the combined centre of mass.
+ * `--trace <file>` records every native step of the kneeling cases at the base rotational
+ * inertia multiplier, including the ramp and initial geometry. `--ccd` enables a sweep control;
+ * the fixture's default has CCD disabled.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { dirname } from "node:path";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import * as core from "../src/core/math/vector.ts";
 import { addArenaSolids } from "../src/game/arena/solids.ts";
@@ -86,6 +90,8 @@ const { values: options } = parseArgs({ options: { conditioning: { type: "boolea
   "native-contact": { type: "boolean", default: false },
   mass: { type: "string", default: "1" },
   articulated: { type: "boolean", default: false },
+  trace: { type: "string" },
+  ccd: { type: "boolean", default: false },
   stiffness: { type: "string", default: String(REFERENCE_TOE.stiffness) } } });
 const stiffness = Number(options.stiffness);
 if (!Number.isFinite(stiffness) || stiffness <= 0) throw Error('--stiffness is positive N m/rad');
@@ -226,7 +232,7 @@ function run(kase, config) {
       piece.props.tensor = piece.props.tensor.map(row => row.map(value => value * config.inertiaScale));
     }
     const { mass, centre, moments, orientation } = piece.props;
-    bodies[piece.name] = physics.addBody(poseAt(piece.name, piece.turned), [{ kind: "hull", points: piece.hull }], { mass, centre, moments, orientation: toCore(orientation) });
+    bodies[piece.name] = physics.addBody(poseAt(piece.name, piece.turned), [{ kind: "hull", points: piece.hull }], { mass, centre, moments, orientation: toCore(orientation) }, { ccd: options.ccd });
     if (friction !== undefined) {
       const collider = bodies[piece.name].rigid.collider(0);
       collider.setFriction(friction); collider.setFrictionCombineRule(R.CoefficientCombineRule.Min);
@@ -302,6 +308,16 @@ function run(kase, config) {
     return [a.x, a.y, a.z];
   };
   const footStart = bodies.foot.rigid.worldCom();
+  const trace = options.trace && kase.name === "kneel on toes" && (config.inertiaScale ?? 1) === 1 ? [] : null;
+  const snapshot = t => ({ t, angle: toeJoint ? toeAngle() : null, energy: energyOf(),
+    bodies: Object.fromEntries(Object.entries(bodies).map(([name, body]) => {
+      const rigid = body.rigid, piece = pieces.find(piece => piece.name === name);
+      return [name, { position: rigid.translation(), rotation: rigid.rotation(), centre: rigid.worldCom(),
+        velocity: rigid.linvel(), spin: rigid.angvel(), anchor: toWorld(rigid, hinge),
+        lowest: Math.min(...piece.hull.map(point => toWorld(rigid, point)[1])),
+        contacts: physics.contactsOf(body).map(c => ({ point: c.point, normal: c.normal, impulse: c.impulse })) }];
+    })) });
+  if (trace) trace.push(snapshot(0));
   let footAtHold = null;
   for (let step = 1; step <= steps; step++) {
     const t = step * dt;
@@ -313,6 +329,7 @@ function run(kase, config) {
       bodies.foot.applyTorque(new core.Vector3(...u).scale(-kase.torque));
     }
     physics.step(dt);
+    if (trace) trace.push(snapshot(t));
     if (Math.abs(t - (RAMP + HOLD - LAST)) < dt / 2) { const c = bodies.foot.rigid.worldCom(); footAtHold = [c.x, c.y, c.z]; }
     if (step % config.every !== 0 || t <= RAMP + 1e-9) continue;
     const sample = { t, energy: energyOf() };
@@ -348,6 +365,7 @@ function run(kase, config) {
     ...(options.conditioning ? { fixture: { hz: config.hz, iterations, friction: friction ?? null,
       coordinateAngularLimits: !options["legacy-limits"], planted: options.planted,
       articulated: options.articulated,
+      ccd: options.ccd,
       parentInertia: options.articulated ? "foot plus ankle point load" : "rotation locked",
       actualFootTurn: mean(last.map(sample => sample.footTurn)),
       maxFootTurnError: Math.max(...last.map(sample => Math.abs(sample.footTurn - kase.turn))),
@@ -374,7 +392,7 @@ function run(kase, config) {
     summary.springEnergy = 0.5 * TOE.stiffness * a * a;
   }
   physics.dispose();
-  return { summary, samples };
+  return { summary, samples, trace };
 }
 
 /** The acceptance: each bar, true where met. */
@@ -391,10 +409,16 @@ function accept(s) {
 }
 
 const results = [];
+const traces = [];
 for (const kase of CASES) for (const config of CONFIGS) {
-  const { summary } = run(kase, config);
+  const { summary, trace } = run(kase, config);
   summary.accept = accept(summary);
   results.push(summary);
+  if (trace) traces.push({ case: kase.name, config, steps: trace });
+}
+if (options.trace) {
+  mkdirSync(dirname(options.trace), { recursive: true });
+  writeFileSync(options.trace, JSON.stringify({ options, traces }));
 }
 
 const f = (v, d = 3) => (v === null || v === undefined ? "-" : v.toFixed(d));
@@ -411,4 +435,4 @@ const meets = (name) => passive(name).every((s) => Object.values(s.accept).every
 if (!options.conditioning) console.log(`\nAcceptance at 120 Hz: ${meets("120 Hz") ? "met" : "not met"}; at 480 Hz: ${meets("480 Hz") ? "met" : "not met"}.`);
 const out = new URL("./runs/", import.meta.url);
 mkdirSync(out, { recursive: true });
-writeFileSync(new URL(options.conditioning ? `man-toe-conditioning-${stiffness}${options.planted ? "-planted" : ""}${options["legacy-limits"] ? "-legacy-limits" : ""}${friction === undefined ? "" : `-friction${friction}`}${iterations === 1 ? "" : `-iterations${iterations}`}${layerDepth === .0005 ? "" : `-depth${layerDepth}`}${options["native-contact"] ? "-native-contact" : ""}${massScale === 1 ? "" : `-mass${massScale}`}${options.articulated ? "-articulated" : ""}.json` : "man-toe-solver.json", out), JSON.stringify(results, null, 1));
+writeFileSync(new URL(options.conditioning ? `man-toe-conditioning-${stiffness}${options.planted ? "-planted" : ""}${options["legacy-limits"] ? "-legacy-limits" : ""}${friction === undefined ? "" : `-friction${friction}`}${iterations === 1 ? "" : `-iterations${iterations}`}${layerDepth === .0005 ? "" : `-depth${layerDepth}`}${options["native-contact"] ? "-native-contact" : ""}${massScale === 1 ? "" : `-mass${massScale}`}${options.articulated ? "-articulated" : ""}${options.ccd ? "-ccd" : ""}.json` : "man-toe-solver.json", out), JSON.stringify(results, null, 1));
