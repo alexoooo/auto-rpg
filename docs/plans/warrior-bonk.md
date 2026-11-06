@@ -3,8 +3,8 @@
 ## Goal objective
 
 Make Option Mind's toed Warrior perform a recognizable, controlled club bonk with either hand:
-chamber above the target, swing down through the head with the club's swell, follow through and
-return to a settled guard. Meet every gate below on the complete confirmation suite, unassisted,
+chamber above the target, deliver an effective head strike with the club's swell, follow through
+and return to a settled guard. Meet every gate below on the complete confirmation suite, unassisted,
 with the club alone and with the buckler in the opposite hand. Preserve paired attack
 effectiveness and affected recovery and movement performance. Deliver saved evidence, passing implementation checks and
 versioned drill links after watching their reels, failures first, at normal speed and slow motion.
@@ -78,14 +78,17 @@ a failed candidate does not justify relaxing a limit or changing confirmation ca
 
 | Gate | Requirement |
 | --- | --- |
+| Complete attack | A contact case passes only when the same attack meets preparation, directed stroke, limb and trunk control, effective head strike, recovery and safety requirements, with complete case coverage. One failed or unverified requirement fails the attack. Component passes from different cases cannot combine into a successful attack. |
 | Preparation | From admission in an eligible standing entry, reach the declared chamber within 1 s. Hold the swell and hand within 0.05 m of their chamber positions, their speeds relative to the chest at or below 0.3 m/s, and club orientation within 10 degrees of its chamber orientation for 0.1 s before commitment. A stalled limb elsewhere fails. |
 | Directed stroke | Complete the stroke and follow-through within 0.5 s of commitment. Outside collision, keep the swell within 0.10 m and the hand within 0.05 m of their declared courses. Cumulative backward progress along the stroke course is at most 0.05 m. |
 | Limb and trunk control | Outside collision, keep club and chest orientations within 15 degrees of their courses. For each phase, excess angular travel above each declared orientation course is at most 15 degrees. For each wrist channel, cumulative reversals away from its declared phase direction are at most 15 degrees. Keep chest tilt within 30 degrees of upright throughout the attack. Apply the same accounting to preparation and return so chatter cannot move between phases. |
-| Intended contact | In contact cases, the swell's collision shape meets the requested head region during the committed stroke with a blunt impact. Count the first qualifying impact once. Hand, haft, windup and return contacts cannot satisfy the gate. |
+| Effective head strike | Identify the first blunt impact from the swell's collision shape on the requested head region during the committed stroke. Its pre-impact motion must meet the contact descent bound, and it must deliver at least 60 J, using the existing physical impact-energy calculation. A weak first impact fails; a later impact cannot replace it, and energies cannot be added across contacts or attacks. Hand, haft, windup and return contacts cannot satisfy the gate. |
 | Recovery | Within 1 s of the physical stroke's end, return the swell and hand within 0.05 m of their guard positions relative to the chest, with speed at or below 0.3 m/s and club orientation within 10 degrees of guard. Hold all conditions for 0.2 s before becoming ready again. A deadline expiry fails; elapsed time cannot establish recovery. |
 | Safety | Remain upright throughout preparation, stroke, collision, return and the following 0.5 s. Admit no penetration between nonadjacent body segments or between the club and the body outside its grip. Measure geometric clearance even for collision-filtered pairs; exclude only the spec's joint overlap and intended grip geometry. Keep the club gripped and require zero assistance. |
-| Repetition and cancellation | Complete ten successive requests, each beginning only after verified recovery, within 30 s after the first admission. Each cycle meets its applicable gates. A precommit cancellation never launches, returns within 1 s of cancellation and releases resources only through a safe handover. |
-| Effectiveness | On identical contact cases, preserve or improve the baseline's intended-hit share and median impact energy over all requested attacks, counting a miss as zero. Report each hand, loadout and rate separately. A candidate also meets every form and safety gate; impact cannot compensate for a failure. |
+| Contact repetition | Complete ten consecutive successful contact attacks within 30 s after the first admission, each beginning only after verified recovery. Every cycle meets the complete attack requirements, including its own effective head strike. One weak hit or failed recovery fails the sequence. |
+| Miss handling | An unobstructed miss meets preparation, directed stroke, limb and trunk control, recovery and safety requirements without relying on impact to stop. Report its result as "miss recovered safely" or failed handling. It cannot count as a successful attack. |
+| Cancellation handling | A precommit cancellation never launches, maintains control and safety, returns within 1 s of cancellation and releases resources only through a safe handover after verified recovery. Report its result as "cancelled safely" or failed handling. It cannot count as a hit or a successful attack. |
+| Effectiveness | On identical contact cases, preserve or improve the baseline's intended-hit share and median impact energy over all requested attacks, counting a miss as zero. Report each hand, loadout and rate separately. The energy floor for an effective head strike applies to every required contact attack; a mean or median cannot compensate for a weak hit, and meeting the floor cannot excuse a baseline regression. |
 
 Measure cumulative backward progress from successive nearest positions along the simple course,
 with a fixed tie rule; never move the course to absorb an error. Measure orientation travel as
@@ -95,17 +98,17 @@ angular phases before execution where a deliberate change of direction is requir
 split phases retrospectively to hide reversals.
 
 The collision interval runs from the first physical contact impulse through the last contiguous
-contact, plus 0.05 s for recoil. It exempts path and angular tracking only, never safety, contact
-identity or recovery. Cap that exemption at 0.15 s from first contact; prolonged contact fails
+contact, plus 0.05 s for recoil. It exempts path and angular tracking only, never safety, effective
+head strike or recovery. Cap that exemption at 0.15 s from first contact; prolonged contact fails
 the stroke gate. An unobstructed miss has no exempt interval. Continue measuring all motion
 during impact and report it. Do not substitute a global acceleration or jerk limit for these
 phase readings.
 
 The physical stroke ends at the declared follow-through endpoint, or a measured impact stop
 followed by withdrawal; its deadline starts a failed return rather than completing the attack.
-Record the reason and time independently of the executor's phase labels. A cancellation has
-its own outcome and cannot count as a hit or a completed bonk. The human `BAR` remains a reported
-scale and gates nothing.
+Record the reason and time independently of the executor's phase labels. The human `BAR`,
+including its 64.8 J [held-blow reference](../reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling),
+remains a reported scale. The task's energy floor is a separate acceptance requirement.
 
 ## Cases and confirmation
 
@@ -123,13 +126,13 @@ the actual eligible entry, rather than treating an initial head-to-head gap as a
 
 | Suite | Cases per hand, loadout and rate |
 | --- | --- |
-| Development screen | Standing contact at `(u,v) = (0.5,0)`, one matching unobstructed miss and one precommit cancellation. Start with the club alone in calm air; widen after the failed gate is understood. |
+| Development screen | Standing contact at `(u,v) = (0.5,0)` is the primary attack screen. Keep one matching unobstructed miss and one precommit cancellation as separate handling checks. Start with the club alone in calm air; widen after the failed gate is understood. |
 | Development contact | Depths `0.1, 0.5, 0.9`, each at lateral positions `-0.8, 0, 0.8`, starting heading 0 degrees; target is a standing, empty-handed Warrior. |
 | Reserved contact | Depths `0.25, 0.75`, each at lateral positions `-0.4, 0.4`, with starting headings `45, 135, 225, 315` degrees. |
 | Entry and moving target | At central entry, approach at 0.5 m/s and stop before admission; separately move the standing target sideways left and right at 0.3 m/s, crossing central entry at the strike request. Use all reserved headings. |
 | Miss | At central entry, remove the target's collision response at commitment while retaining the same sensed aim and frozen course. Use all reserved headings. A miss must complete its stroke and return without relying on impact to stop. |
 | Cancellation | At central entry, withdraw the request 0.05 s after admission and separately on the last preparation step before commitment. Use all reserved headings and establish that the action actually reaches each cancellation point. |
-| Repetition | Ten-request standing-contact sequence and a ten-request unobstructed-miss sequence at central entry, each at all reserved headings. Reset or replace the target between attacks only after verified recovery; preserve the striker's physical state continuously. |
+| Repetition | Ten-attack standing-contact sequence meeting the contact repetition gate, and a ten-request unobstructed-miss handling sequence at central entry, each at all reserved headings. The miss sequence completes within 30 s after its first admission, each cycle meeting the miss handling gate and beginning only after verified recovery. Reset or replace the target between attacks only after verified recovery; preserve the striker's physical state continuously. |
 
 Implement the missed-contact fixture in trusted evaluation composition; do not expose a
 collision switch to the Mind. Preserve the command and observation contract when changing the
@@ -139,8 +142,10 @@ cancellation or target-crossing condition report that failure explicitly.
 
 The final suite includes every development and reserved case, all four loadouts and both rates.
 Every required case passes its applicable gates. Missing, faulted, timed-out and unreached cases
-prevent completion. All stationary and moving contact cases require an intended hit. Keep
-reserved cases out of candidate ranking. A confirmation failure returns the candidate to development; retain that case
+prevent completion. All stationary and moving contact cases require a complete successful attack.
+Keep reserved cases out of candidate ranking. Miss and cancellation handling results do not enter
+the successful-attack count or compensate for a failed contact case.
+A confirmation failure returns the candidate to development; retain that case
 and reconfirm on additional frozen starts before claiming generalization.
 
 ## Work
@@ -148,8 +153,9 @@ and reconfirm on additional frozen starts before claiming generalization.
 1. Reproduce the visible flailing on the current code in a small standing-contact or repeated
    attack recipe. Watch it and keep its recipe and rows. Separate preparation chatter, stroke
    reversal, collision recoil, return and repeated-request handover before choosing a repair.
-2. Extend the Strike evaluation or add bonk protocols and a focused reader. Include gate values,
-   limits, phase intervals, contact shape identity and explicit coverage in saved rows and Ratings.
+2. Extend the Strike evaluation or add bonk protocols and a focused reader. Include the complete
+   attack result, gate values, limits, phase intervals, contact shape identity and explicit coverage
+   in saved rows and Ratings. Keep physical contact detection distinct from an effective head strike.
    Show that the reader rejects the reproduced flailing for a physical reason before training.
    Reuse guard-return measurement while extending its hold, orientation and lifecycle checks.
 3. Read the unchanged controller on the new high-target contact cases for the paired effectiveness
@@ -162,9 +168,10 @@ and reconfirm on additional frozen starts before claiming generalization.
    through the work they own. Add a distinct bonk Option configuration with the head target and
    compatible aim; retain any trunk use under its own name and profile.
 5. Screen one change against the previous implementation on the same cases; keep or drop it with
-   its physical reason. Then run one bounded search for the Warrior's record with form and safety
-   as hard feasibility constraints. Optimize effectiveness only among feasible candidates. The
-   pulse schedule, course representation and training method may change where the evidence calls
+   its physical reason. Then run one bounded search for the Warrior's record with form, safety
+   and effective head strike as hard feasibility constraints. Optimize effectiveness only among
+   candidates whose contact attacks meet the complete attack requirements. The pulse schedule,
+   course representation and training method may change where the evidence calls
    for it. Do not train around a broken lifecycle or raise muscles for visual force.
 6. Freeze the candidate and run confirmation. Refresh the bonk's profiles and verify that the
    configured Option Mind selects and completes it in the Arena. A drill Commander performing
@@ -190,9 +197,14 @@ score or green implementation checks alone leaves the goal unmet.
 
 Run implementation checks by change under AGENTS.md. Capability evidence belongs in drills and
 paired evaluations; add a retained test only for a concrete reproduced regression that those
-diagnostics do not establish. Watch the failure-first reel and representative successes in
-normal time and slow motion. Supply versioned Ratings links, the actual subject and protocol,
-the observed motion, the gate and baseline summaries, checks run and any failure left. Leave
+diagnostics do not establish. Watch failed contact cases first, then representative successful
+contact attacks, in normal time and slow motion. Review miss and cancellation handling separately.
+Lead each result summary with successful contact attacks out of requested contact attacks,
+each attack's head-impact energy and failed requirements. Include missing, faulted, timed-out and
+unreached requested contact attacks as failures in that count. Component readings follow as
+diagnostics; a pooled gate-pass table cannot substitute for the attack results. Supply versioned
+Ratings links, the actual subject and protocol, the observed motion, the baseline summaries,
+checks run and any failure left. Leave
 `accepted.json` untouched until the owner accepts the rung.
 
 As implementation lands, put the implemented motion contract in reference documentation and
