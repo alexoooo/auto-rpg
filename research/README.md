@@ -29,6 +29,11 @@ train a separate braking correction. Set `--seconds` four seconds beyond the sto
 development score weights speed at the two-second deadline and mean braking speed equally.
 A valid quiet standing interval outranks those continuous rewards. `stopMet` also requires the declared entry speed; a higher development
 score alone does not establish the stop gate.
+
+For running-only development, `--period-range low,high` trains cadence jointly with the
+trajectory coefficients. The checkpoint's best reading records the selected `period`; replay its
+policy with that value in the configuration's `cycleTuning.period`. Cycle overrides apply only
+to the experiment and do not replace a body's published record.
 | `skills/strikes/strike-profiles.mjs`, `skills/recovery/edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on; `edge-profiles --model` refreshes one body's at the existing offsets | core profiles with `--write`; ground falls and trials cached in `research/runs/edge-profiles/`, or `--rows` |
 | `skills/skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/skills/<capability>/<implementation>/<skill>.json`, `.meta.json`, every run |
 | `skills/strikes/stomp/skill-search.mjs` | a skill's settings (the stomp's, `SEARCHES`) searched on one body by CMA-ES on its task's trials; `--confirm` keeps the best only where it beats the start on fresh trials | `--out`; with `--confirm --write`, the body's row (through `skills/skill-records.mjs`) |

@@ -3,6 +3,7 @@
  * through the ordinary gait before each training episode. A from-rest development screen includes
  * that walk-in; complete travel confirmation also requires stops, loadouts and fresh conditions.
  * Configuration's optional `braking` file overrides the running cycle's braking settings.
+ * `cycleTuning` supplies immutable running-cycle overrides for joint trajectory searches.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -68,7 +69,7 @@ export async function residualEnvironment(configuration = {}) {
   if (!(o.fromRestShare >= 0 && o.fromRestShare <= 1) || !(o.speedWidth > 0) || !Number.isFinite(o.speedWidth))
     throw Error('residual training needs a from-rest share in [0,1] and a finite positive speed width');
   const { at, swerve, ...cycle } = JSON.parse(readFileSync(o.settings, 'utf8'));
-  const running = runCycleSettings(cycle, WALK_RUN_CYCLE);
+  const running = runCycleSettings(o.cycleTuning, runCycleSettings(cycle, WALK_RUN_CYCLE));
   const braking = o.braking ? runCycleSettings(JSON.parse(readFileSync(o.braking, 'utf8')), running) : running;
   const stride = JSON.parse(readFileSync(o.stride, 'utf8'));
   const spec = modelSpec(o.model), guard = guardPosture(spec), leg = legOf(spec);
@@ -169,7 +170,7 @@ export async function residualEnvironment(configuration = {}) {
           // Smooth physical-channel offsets across role changes; track their rate as well as their displacement.
           const offset = before + Math.min(1, 30 * dt) * (action * o.scale - before);
           control.reference[physical][channel] = offset;
-          const speed = push.speed + offset / cycle.settle + (offset - before) / dt;
+          const speed = push.speed + offset / running.settle + (offset - before) / dt;
           return { ...push, speed, sense: speed >= 0 ? 1 : -1 };
         });
         return { posture: { ...guard, ...d.posture }, pushes, stance: null };
