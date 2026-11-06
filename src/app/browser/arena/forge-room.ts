@@ -4,7 +4,7 @@ import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { PointLight } from "@babylonjs/core/Lights/pointLight.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3, Vector4 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { ROOM_GROUPS, validateRoomPlacements, validateVisualColliderPairs } from "./room.ts";
 import { ARENA_POSTS, ROOM } from "../../../game/arena/solids.ts";
@@ -16,6 +16,9 @@ import { flames } from "../render/fire.ts";
  * blocks along it, and the joint left round each block across, up and through the wall, m.
  */
 const FORGE_MASONRY = Object.freeze({ courses: 3, columns: 4, joint: [.008, .006, .008] } as const);
+
+/** Bronze strips replace the stone surface at these heights, m. */
+const FORGE_BANDS = Object.freeze({ centres: [.12, 1.35, 1.65], height: .09 });
 
 /** The posts' fire, set by eye. */
 const FORGE_FIRE = Object.freeze({
@@ -86,23 +89,28 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): ForgeFire {
   const lit: readonly number[] = FORGE_FIRE.lit;
   for (let i = 0; i < ARENA_POSTS.count; i += FORGE_FIRE.every) {
     const post = scene.getMeshByName(`post${i}`);
-    if (!post) continue;
-    // The bronze bands stay inside the pedestal's physical envelope.
-    post.material = forge.materials.basalt ?? post.material;
+    if (!(post instanceof Mesh)) continue;
+    // Adjacent stone and bronze sections share the collider's surface without overlapping faces.
+    const { height, diameter, sides } = ARENA_POSTS;
+    const cuts = [0, ...FORGE_BANDS.centres.flatMap(y => [y - FORGE_BANDS.height / 2, y + FORGE_BANDS.height / 2]), height];
+    const sections = cuts.slice(1).map((top, section) => {
+      const bottom = cuts[section];
+      const cap = section === 0 ? Mesh.CAP_START : section === cuts.length - 2 ? Mesh.CAP_END : Mesh.NO_CAP;
+      const mesh = MeshBuilder.CreateCylinder(`forge.post-section.${i}.${section}`, {
+        diameter, height: top - bottom, tessellation: sides, cap,
+        faceUV: [new Vector4(0, 0, 1, 1), new Vector4(0, bottom / height, 1, top / height), new Vector4(0, 0, 1, 1)],
+      }, scene);
+      mesh.position.y = (bottom + top - height) / 2;
+      mesh.material = section % 2 ? forge.materials.brazierBronze : forge.materials.basalt;
+      return mesh;
+    });
+    Mesh.MergeMeshes(sections, true, false, post, false, true);
     const bowl = MeshBuilder.CreateCylinder(`forge.bowl.${i}`, {
       diameterTop: 1.08, diameterBottom: .7, height: .28, tessellation: ARENA_POSTS.sides,
     }, scene);
     bowl.position.set(post.position.x, 1.55, post.position.z);
     bowl.material = forge.materials.brazierBronze;
     bowl.metadata = { roomPlacement: { role: "brazier", solid: true, collider: post.name } };
-    for (const y of [.12, 1.35, 1.65]) {
-      const band = MeshBuilder.CreateCylinder(`forge.brazier.${i}.${y}`, {
-        diameter: ARENA_POSTS.diameter, height: .09, tessellation: ARENA_POSTS.sides,
-      }, scene);
-      band.position.set(post.position.x, y, post.position.z);
-      band.material = forge.materials.brazierBronze;
-      band.metadata = { roomPlacement: { role: "brazier", solid: true, collider: post.name } };
-    }
     const flame = fire.create(`forge.torch.${i}`, post.position.add(new Vector3(0, FORGE_FIRE.lift, 0)), FORGE_FIRE);
     if (lit.includes(i)) {
       const light = new PointLight(`forge.torchlight.${i}`, flame.position, scene);

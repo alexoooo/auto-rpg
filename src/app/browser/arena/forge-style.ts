@@ -61,8 +61,23 @@ export function paveForge(scene: Scene, material: PBRMaterial, bronze: PBRMateri
   mesh.material = material; mesh.receiveShadows = true;
   mesh.metadata = { roomPlacement: { role: "floor", solid: true, collider: "ground" } };
   const ring = (name: string, radius: number, thickness: number, surface: PBRMaterial) => {
-    const line = MeshBuilder.CreateTorus(name, { diameter: radius * 2, thickness, tessellation: 128 }, scene);
-    line.position.y = .009; line.scaling.y = .12; line.material = surface; line.isPickable = false;
+    // Flat inlay keeps one surface normal across the strip, clear of the stone below it.
+    const line = new Mesh(name, scene), data = new VertexData();
+    const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
+    const segments = 512;
+    for (let i = 0; i <= segments; i++) {
+      const angle = i * Math.PI * 2 / segments;
+      for (const r of [radius - thickness / 2, radius + thickness / 2]) {
+        const x = Math.sin(angle) * r, z = Math.cos(angle) * r;
+        positions.push(x, .012, z); normals.push(0, 1, 0); uvs.push(x / 2.4, z / 2.4);
+      }
+      if (i < segments) {
+        const at = i * 2;
+        indices.push(at, at + 2, at + 1, at + 1, at + 2, at + 3);
+      }
+    }
+    data.positions = positions; data.normals = normals; data.uvs = uvs; data.indices = indices; data.applyToMesh(line);
+    line.material = surface; line.isPickable = false;
   };
   for (const radius of [1.25, 3.4, 6.4, 9.5, 12.8]) ring(`forge.inlay.${radius}`, radius, .055, bronze);
   ring("forge.ember-ring", 12.87, .025, ember);
