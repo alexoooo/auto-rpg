@@ -130,6 +130,10 @@ estimating a transform, collect statistics through standing, entry and running p
 initial and critic-only exports against the seed before interpreting learned checkpoints: input
 clipping and float32 conversion can change physical outcomes even while the actor's weights are held.
 
+Price a residual search with a short generation limit, then use `--resume` with the same output
+prefix to extend it. The saved protocol, calibration and code identity must match; its baseline
+and completed candidates are reused.
+
 ## The physics bake-off
 
 `physics-bakeoff/` compares engines under one controller on the same cases: a standing foot and a

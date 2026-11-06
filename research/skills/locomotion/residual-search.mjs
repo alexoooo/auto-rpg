@@ -3,6 +3,7 @@
  * --config names the residual environment wrapper; --out prefixes retained evidence.
  * --start reads twelve unit-cube coefficients, zero residual at .5, each mapped to [-1,1].
  * --from selects the first rolling window's end; --seconds ends the run. Neither changes a gate.
+ * --resume continues the saved CMA state and rows under the same protocol and code identity.
  */
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
@@ -47,7 +48,8 @@ if (!isMainThread) {
   const { values: o } = parseArgs({ options: { config: { type: 'string' }, out: { type: 'string' },
     generations: { type: 'string', default: '2' }, lambda: { type: 'string', default: '24' },
     sigma: { type: 'string', default: '.02' }, workers: { type: 'string', default: '8' },
-    from: { type: 'string', default: '4' }, seconds: { type: 'string', default: '14' }, start: { type: 'string' } } });
+    from: { type: 'string', default: '4' }, seconds: { type: 'string', default: '14' }, start: { type: 'string' },
+    resume: { type: 'boolean' } } });
   if (!o.config || !o.out) throw Error('--config and --out name calibration and retained search evidence');
   const config = JSON.parse(readFileSync(o.config, 'utf8'));
   const settings = { ...JSON.parse(readFileSync(config.environment, 'utf8')), ...config,
@@ -59,7 +61,11 @@ if (!isMainThread) {
     diff: execFileSync('git', ['diff', 'HEAD'], { encoding: 'utf8' }),
     search: hash(new URL(import.meta.url)), environment: hash(new URL('./residual-environment.mjs', import.meta.url)),
     calibration: { cycle: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: JSON.parse(readFileSync(settings.stride, 'utf8')) } };
-  writeFileSync(o.out + '-protocol.json', JSON.stringify(identity) + '\n');
+  const saved = o.resume ? JSON.parse(readFileSync(o.out + '-checkpoint.json', 'utf8')) : null;
+  if (o.resume && o.start) throw Error('--resume uses the saved start');
+  if (saved && JSON.stringify(JSON.parse(readFileSync(o.out + '-protocol.json', 'utf8'))) !== JSON.stringify(identity))
+    throw Error('residual checkpoint protocol, calibration or code differs');
+  if (!saved) writeFileSync(o.out + '-protocol.json', JSON.stringify(identity) + '\n');
   const pool = workerPool(new URL(import.meta.url), settings, Number(o.workers));
   const score = async u => {
     const row = await pool.evaluate(u);
@@ -68,10 +74,14 @@ if (!isMainThread) {
     return row;
   };
   try {
-    const start = o.start ? JSON.parse(readFileSync(o.start, 'utf8')) : new Array(12).fill(.5), baseline = await score(start);
-    writeFileSync(o.out + '-baseline.json', JSON.stringify({ u: start, network: networkAt(start), ...baseline }) + '\n');
-    console.log(JSON.stringify({ baseline }));
-    await cmaSearch({ n: 12, start, sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1, score,
+    const previous = saved ? JSON.parse(readFileSync(o.out + '-baseline.json', 'utf8')) : null;
+    const start = previous?.u ?? (o.start ? JSON.parse(readFileSync(o.start, 'utf8')) : new Array(12).fill(.5));
+    if (!saved) {
+      const baseline = await score(start);
+      writeFileSync(o.out + '-baseline.json', JSON.stringify({ u: start, network: networkAt(start), ...baseline }) + '\n');
+      console.log(JSON.stringify({ baseline }));
+    }
+    await cmaSearch({ n: 12, start, sigma: Number(o.sigma), lambda: Number(o.lambda), generations: Number(o.generations), seed: 1, score, resume: saved,
       onGeneration: (entry, { best, checkpoint }) => {
         appendFileSync(o.out + '.jsonl', JSON.stringify({ ...entry, best: best.score, reading: best.r }) + '\n');
         writeFileSync(o.out + '-checkpoint.json', JSON.stringify(checkpoint) + '\n');
