@@ -65,12 +65,15 @@ try {
     .update(readFileSync(new URL('./passive-toe-body.mjs', import.meta.url))).digest('hex');
   if (settings.toeConditioning) code.toeConditioning = createHash('sha256')
     .update(readFileSync(new URL('./toe-conditioning.mjs', import.meta.url))).digest('hex');
-  if (settings.residual === 'steering' || settings.steeringPolicy)
+  if (settings.residual === 'steering' || settings.steeringPolicy || settings.frozenSteeringPolicy)
     code.steeringAdapter = createHash('sha256').update(readFileSync(new URL('./learned-run-steering.mjs', import.meta.url))).digest('hex');
   writeFileSync(o.out, JSON.stringify({ protocol: 'residual development screen, physical COM at 120 Hz', settings,
     harness: env.harness, layout: env.layout, code,
     calibration: { settings: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: settings.stride ? JSON.parse(readFileSync(settings.stride, 'utf8')) : null,
       ...(settings.braking ? { braking: JSON.parse(readFileSync(settings.braking, 'utf8')) } : {}),
+      ...(settings.frozenSteeringPolicy ? { frozenSteering: { path: settings.frozenSteeringPolicy,
+        hash: createHash('sha256').update(readFileSync(settings.frozenSteeringPolicy)).digest('hex'),
+        adapter: code.steeringAdapter } } : {}),
       ...(settings.steeringPolicy ? { steering: { path: settings.steeringPolicy,
         hash: createHash('sha256').update(readFileSync(settings.steeringPolicy)).digest('hex'),
         adapter: createHash('sha256').update(readFileSync(new URL('./learned-run-steering.mjs', import.meta.url))).digest('hex') } } : {}),

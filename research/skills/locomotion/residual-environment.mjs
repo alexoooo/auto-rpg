@@ -7,6 +7,8 @@
  * `rewardPace` selects the training target without changing the order. Progress credit is capped
  * at the target; stopping uses Gaussian tracking. `fallPenalty` covers falls and corridor exits.
  * `controlTrace` pairs the run's phase change with the contact input of that control decision.
+ * `frozenSteeringPolicy` preserves a steering teacher at policy-decision cadence while a
+ * velocity residual learns individual joint corrections, optionally over a frozen reference.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -87,8 +89,13 @@ export async function residualEnvironment(configuration = {}) {
   const braking = o.braking ? runCycleSettings(JSON.parse(readFileSync(o.braking, 'utf8')), running) : running;
   const stride = o.stride ? JSON.parse(readFileSync(o.stride, 'utf8')) : undefined;
   const steeringPolicy = o.steeringPolicy ? JSON.parse(readFileSync(o.steeringPolicy, 'utf8')) : null;
+  const frozenSteeringData = o.frozenSteeringPolicy ? JSON.parse(readFileSync(o.frozenSteeringPolicy, 'utf8')) : null;
+  if (frozenSteeringData && (o.residual !== 'velocity' || steeringPolicy || frozenSteeringData.actions !== 12
+    || frozenSteeringData.layers?.[0]?.weights?.[0]?.length !== STEERING_LAYOUT.inputs.length))
+    throw Error('a frozen steering teacher needs the steering layout and a velocity residual without steeringPolicy');
+  const frozenSteering = frozenSteeringData ? recoveryNetwork(frozenSteeringData) : null;
   const referencePolicy = o.referencePolicy ? recoveryNetwork(JSON.parse(readFileSync(o.referencePolicy, 'utf8'))) : null;
-  if (referencePolicy && (o.residual !== 'steering' || !(o.referenceScale >= 0) || !Number.isFinite(o.referenceScale)))
+  if (referencePolicy && (!(o.residual === 'steering' || frozenSteering) || !(o.referenceScale >= 0) || !Number.isFinite(o.referenceScale)))
     throw Error('a frozen reference policy accompanies steering with a finite nonnegative referenceScale');
   if (o.bodyVariant !== undefined && o.bodyVariant !== 'passive-toes') throw Error('unknown residual body variant');
   const original = modelSpec(o.model);
@@ -176,6 +183,8 @@ export async function residualEnvironment(configuration = {}) {
       for (const i of channels[roleSide]) observation.push(body.muscles.angle(i), body.muscles.speed(i) / 10);
     }
     if (referencePolicy) control.referenceObservation = observation.slice();
+    if (frozenSteering) control.steeringObservation = steeringFeatures(view, h,
+      control.stopOrder ? 0 : o.pace, skill.state.walkRun.spin, skill.state.run).slice();
     if (o.residual === 'steering') observation.splice(0, observation.length,
       ...steeringFeatures(view, h, control.stopOrder ? 0 : o.pace, skill.state.walkRun.spin, skill.state.run));
   };
@@ -198,8 +207,10 @@ export async function residualEnvironment(configuration = {}) {
     skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve,
       ...(o.hasted !== undefined ? { hasted: o.hasted } : steeringPolicy ? { hasted: steeringPolicy.hasted } : {}) }, running,
       { stride, braking, entry: o.entry, trim: o.trim, steer: o.residual === 'steering'
-        ? () => steeringFrom(control.action) : steeringPolicy ? learnedRunSteering(body, steeringPolicy) : undefined });
+        ? () => steeringFrom(control.action) : frozenSteering ? () => steeringFrom(control.frozenSteerAction)
+          : steeringPolicy ? learnedRunSteering(body, steeringPolicy) : undefined });
     control = { asked: null, stopOrder: false, action: new Array(12).fill(0), referenceAction: new Array(12).fill(0), referenceObservation: [],
+      frozenSteerAction: new Array(12).fill(0), steeringObservation: [],
       reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
     observation = []; goal = null;
     body.drive((view, dt) => {
@@ -228,7 +239,9 @@ export async function residualEnvironment(configuration = {}) {
           // Smooth physical-channel offsets across role changes; track their rate as well as their displacement.
           const offset = before + Math.min(1, 30 * dt) * (action * (referencePolicy ? o.referenceScale : o.scale) - before);
           control.reference[physical][channel] = offset;
-          const speed = push.speed + offset / running.settle + (offset - before) / dt;
+          let speed = push.speed + offset / running.settle + (offset - before) / dt;
+          if (frozenSteering && view.time >= o.settle + o.actionAt && control.action[i] !== 0)
+            speed += control.action[i] * o.scale;
           return { ...push, speed, sense: speed >= 0 ? 1 : -1 };
         });
         return { posture: { ...guard, ...d.posture }, pushes, stance: null };
@@ -243,9 +256,10 @@ export async function residualEnvironment(configuration = {}) {
     massCentreToRef(physicalParts, mass, centre, work, velocity); control.physicalLineX = centre.x;
     control.asked = [o.pace, 0];
     const warmSteps = stand.seconds(start);
-    if (referencePolicy) {
+    if (referencePolicy || frozenSteering) {
       for (let warmed = 0; warmed < warmSteps; warmed += 4) {
-        control.referenceAction = referencePolicy(control.referenceObservation);
+        if (referencePolicy) control.referenceAction = referencePolicy(control.referenceObservation);
+        if (frozenSteering) control.frozenSteerAction = frozenSteering(control.steeringObservation);
         stand.step(Math.min(4, warmSteps - warmed));
       }
     } else stand.step(warmSteps);
@@ -262,6 +276,7 @@ export async function residualEnvironment(configuration = {}) {
     if (squashed && action.some(x => Math.abs(x) > 1)) throw Error('squashed residual actions exceed one');
     for (let i = 0; i < 12; i++) control.action[i] = squashed ? action[i] : tanh(action[i]);
     if (referencePolicy) control.referenceAction = referencePolicy(control.referenceObservation);
+    if (frozenSteering) control.frozenSteerAction = frozenSteering(control.steeringObservation);
     const samples = o.trace ? [] : null;
     let down = false, off = 0, along = 0;
     for (let k = 0; k < 4; k++) {
