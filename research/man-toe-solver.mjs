@@ -33,8 +33,15 @@
  * last second; oscillation is reported separately.
  *
  *   node research/man-toe-solver.mjs
+ *   node research/man-toe-solver.mjs --conditioning [--planted] [--stiffness 25]
+ *
+ * The conditioning diagnostic keeps toe mass and weight unchanged, varies only rotational
+ * inertia, and applies toe-hinge.mjs's stiff contact control. `--planted` starts the toes flat
+ * against the ground while the foot is raised, separating load holding from contact entry.
+ * `--stiffness` overrides the fixture spring, not the body's anatomy.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
+import { parseArgs } from "node:util";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import * as core from "../src/core/math/vector.ts";
 import { addArenaSolids } from "../src/game/arena/solids.ts";
@@ -43,7 +50,7 @@ import { FIT_SCALE } from "../src/core/bodies/human/model.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { STANDARD_GRAVITY } from "../src/core/bodies/spec/constants.ts";
 import { hullSolid } from "../scripts/humanoid/man-envelope.mjs";
-import { AUDITED, TOE } from "./humanoid/posture/core-posture-trials.mjs";
+import { AUDITED, TOE as REFERENCE_TOE } from "./humanoid/posture/core-posture-trials.mjs";
 import MAN from "../assets/humanoid/man-contact-geometry.json" with { type: "json" };
 
 /** The toe's damping, N m s/rad: `SOURCES["falisse-2022-toes"]`. */
@@ -62,7 +69,16 @@ const CASES = [
   { name: "heel raised", turn: 0.5 },
   { name: "kneel on toes", turn: 1.45 },
 ];
-const CONFIGS = [
+const { values: options } = parseArgs({ options: { conditioning: { type: "boolean", default: false },
+  planted: { type: "boolean", default: false },
+  stiffness: { type: "string", default: String(REFERENCE_TOE.stiffness) } } });
+const stiffness = Number(options.stiffness);
+if (!Number.isFinite(stiffness) || stiffness <= 0) throw Error('--stiffness is positive N m/rad');
+const TOE = Object.freeze({ ...REFERENCE_TOE, stiffness });
+const CONFIGS = options.conditioning ? [120, 480].flatMap(hz => [1, 10, 100].map(inertiaScale => ({
+  name: `contact layer, inertia x${inertiaScale}, ${hz} Hz`, hz, every: hz / 120,
+  iterations: 1, toe: "passive", inertiaScale, layer: true,
+}))) : [
   { name: "120 Hz", hz: 120, every: 1, iterations: 1, toe: "passive" },
   { name: "480 Hz", hz: 480, every: 4, iterations: 1, toe: "passive" },
   { name: "120 Hz, 4x iterations", hz: 120, every: 1, iterations: 4, toe: "passive" },
@@ -154,6 +170,7 @@ function run(kase, config) {
     ? [{ name: "foot", hull: geometry.rigidFoot.hull.map(fit), props: massOf(hullSolid(geometry.rigidFoot.hull), footSpec.mass.value), turned: true }]
     : [{ name: "foot", hull: geometry.foot.hull.map(fit), props: massOf(geometry.foot.solid, footSpec.mass.value * (1 - toeShare)), turned: true },
       { name: "toes", hull: geometry.toes.hull.map(fit), props: massOf(geometry.toes.solid, footSpec.mass.value * toeShare * (config.conditioned ?? 1)), turned: true }];
+  if (options.planted && config.toe !== "none") pieces[1].turned = false;
   // The whole posed, then lifted so that its lowest corner clears the ground.
   const posedPoints = pieces.flatMap((p) => p.hull.map((x) => (p.turned ? turnedAbout(x, turn, hinge) : x)));
   const lift = CLEARANCE - Math.min(...posedPoints.map((p) => p[1]));
@@ -168,8 +185,19 @@ function run(kase, config) {
     tensor: foot.tensor.map((row) => row.map((c) => (c * whole) / foot.mass)) };
   const bodies = {};
   for (const piece of pieces) {
+    if (piece.name === "toes" && config.inertiaScale) {
+      piece.props.moments = piece.props.moments.map(value => value * config.inertiaScale);
+      piece.props.tensor = piece.props.tensor.map(row => row.map(value => value * config.inertiaScale));
+    }
     const { mass, centre, moments, orientation } = piece.props;
     bodies[piece.name] = physics.addBody(poseAt(piece.name, piece.turned), [{ kind: "hull", points: piece.hull }], { mass, centre, moments, orientation: toCore(orientation) });
+  }
+  if (config.layer) {
+    const collider = bodies.toes.rigid.collider(0), step = raw.step.bind(raw);
+    collider.setActiveHooks(collider.activeHooks() | R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
+    // Numerical contact control, matching toe-hinge.mjs; mass and gravity remain physical.
+    raw.step = (events, hooks) => step(events, { ...hooks, contactLayer: (a, b) =>
+      a === collider.handle || b === collider.handle ? [1e6, 0, 0.0005] : null });
   }
   bodies.foot.rigid.setEnabledRotations(false, false, false, true);
   if (config.conditioned) bodies.toes.rigid.setGravityScale(1 / config.conditioned, true);
@@ -311,7 +339,7 @@ for (const s of results) {
 }
 const passive = (name) => results.filter((s) => s.config === name);
 const meets = (name) => passive(name).every((s) => Object.values(s.accept).every(Boolean));
-console.log(`\nAcceptance at 120 Hz: ${meets("120 Hz") ? "met" : "not met"}; at 480 Hz: ${meets("480 Hz") ? "met" : "not met"}.`);
+if (!options.conditioning) console.log(`\nAcceptance at 120 Hz: ${meets("120 Hz") ? "met" : "not met"}; at 480 Hz: ${meets("480 Hz") ? "met" : "not met"}.`);
 const out = new URL("./runs/", import.meta.url);
 mkdirSync(out, { recursive: true });
-writeFileSync(new URL("man-toe-solver.json", out), JSON.stringify(results, null, 1));
+writeFileSync(new URL(options.conditioning ? `man-toe-conditioning-${stiffness}${options.planted ? "-planted" : ""}.json` : "man-toe-solver.json", out), JSON.stringify(results, null, 1));
