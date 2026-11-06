@@ -5,6 +5,7 @@
  * --start reads unit-cube coefficients, zero residual at .5, each mapped to [-1,1].
  * --from selects the first rolling window's end; --seconds ends the run. Neither changes a gate.
  * --resume continues the saved CMA state and rows under the same protocol and code identity.
+ * --stop-at pairs with --running-policy to freeze entry and train only the four-second braking window.
  */
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
@@ -27,23 +28,38 @@ function networkAt(u, basis) {
 }
 
 if (!isMainThread) {
-  const env = await residualEnvironment({ ...workerData, trace: true, poses: false });
+  const env = await residualEnvironment({ ...workerData, trace: true, poses: false, contacts: workerData.stopAt !== undefined || workerData.contacts === true });
+  const runningPolicy = workerData.runningPolicy ? recoveryNetwork(workerData.runningPolicy) : null;
   parentPort.on('message', async ({ id, x: u }) => {
     try {
       const policy = recoveryNetwork(networkAt(u, workerData.basis));
       let observation = await env.reset({ fromRest: true }), result, sum = 0, count = 0, held = Infinity, enteredAt = null;
       const window = new Float64Array(120);
+      let halted = false, stopEntry = null, quietFrom = null, settledAt = null, stopSpeed = 0, stopCount = 0;
       do {
-        result = env.step(policy(observation), { squashed: true }); observation = result.observation;
+        if (runningPolicy && !halted && count >= workerData.stopAt * 120) { env.halt(); halted = true; stopEntry = sum / 120; }
+        result = env.step((runningPolicy && !halted ? runningPolicy : policy)(observation), { squashed: true }); observation = result.observation;
         for (const sample of result.samples) {
           enteredAt ??= sample.running ? sample.time : null;
           const slot = count % 120; sum += sample.velocity[2] - window[slot]; window[slot] = sample.velocity[2]; count++;
           if (count >= 120 && sample.time >= workerData.creditFrom) held = Math.min(held, sum / 120);
+          if (halted) {
+            const speed = Math.hypot(sample.velocity[0], sample.velocity[2]);
+            stopSpeed += speed; stopCount++;
+            const standing = !sample.physicalDown && !sample.postureDown
+              && Object.values(sample.feet).some(contacts => contacts.some(c => c.impulse > 0 && c.normal[1] < -.5));
+            if (standing && speed < .15) quietFrom ??= sample.time; else quietFrom = null;
+            if (quietFrom !== null && Math.round((sample.time - quietFrom) * 120) >= 240
+              && Math.round((quietFrom - workerData.stopAt) * 120) <= 240) settledAt ??= quietFrom - workerData.stopAt;
+          }
         }
       } while (!result.terminated && !result.truncated);
       const complete = !result.terminated && count >= workerData.seconds * 120 && enteredAt !== null && enteredAt <= 4;
+      const stopMet = halted && complete && stopEntry >= workerData.pace && settledAt !== null;
+      const stopScore = (settledAt !== null ? 1 : 0) + 1 / (1 + stopSpeed / Math.max(1, stopCount));
       // Partial survival guides development but ranks below every completed forward run.
-      parentPort.postMessage({ id, r: { score: complete ? Math.max(0, held) : -1 + Math.min(1, count / (workerData.seconds * 120)),
+      parentPort.postMessage({ id, r: { score: complete ? halted ? stopScore : Math.max(0, held) : -1 + Math.min(1, count / (workerData.seconds * 120)),
+        ...(runningPolicy ? { stopEntry, settledAt, stopMet } : {}),
         held: Number.isFinite(held) ? held : null, enteredAt, complete, harness: env.harness, ...result.info } });
     } catch (error) { parentPort.postMessage({ id, r: { error: String(error.stack ?? error), score: -1 } }); }
   });
@@ -52,11 +68,16 @@ if (!isMainThread) {
     generations: { type: 'string', default: '2' }, lambda: { type: 'string', default: '24' },
     sigma: { type: 'string', default: '.02' }, workers: { type: 'string', default: '8' },
     from: { type: 'string', default: '4' }, seconds: { type: 'string', default: '14' }, start: { type: 'string' },
-    resume: { type: 'boolean' }, basis: { type: 'string', default: 'sine' } } });
+    resume: { type: 'boolean' }, basis: { type: 'string', default: 'sine' },
+    'stop-at': { type: 'string' }, 'running-policy': { type: 'string' } } });
   if (!o.config || !o.out) throw Error('--config and --out name calibration and retained search evidence');
   const config = JSON.parse(readFileSync(o.config, 'utf8'));
   const settings = { ...JSON.parse(readFileSync(config.environment, 'utf8')), ...config,
-    seconds: Number(o.seconds), creditFrom: Number(o.from), basis: o.basis };
+    seconds: Number(o.seconds), creditFrom: Number(o.from), basis: o.basis,
+    ...(o['stop-at'] !== undefined ? { stopAt: Number(o['stop-at']), runningPolicy: o['running-policy'] ? JSON.parse(readFileSync(o['running-policy'], 'utf8')) : null } : {}) };
+  if ((o['stop-at'] === undefined) !== (o['running-policy'] === undefined)
+    || (settings.stopAt !== undefined && (!Number.isInteger(settings.stopAt) || settings.stopAt < 4 || settings.seconds !== settings.stopAt + 4)))
+    throw Error('braking search needs --stop-at and --running-policy, with four seconds after the stop');
   if (!['sine', 'quadrature'].includes(settings.basis)) throw Error('basis is sine or quadrature');
   const dimensions = CHANNELS.length * (settings.basis === 'quadrature' ? 4 : 2);
   if (!(settings.creditFrom >= 1 && settings.seconds > settings.creditFrom) || !Number.isFinite(settings.seconds)) throw Error('the credit window follows entry and precedes the episode end');
