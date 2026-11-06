@@ -65,11 +65,13 @@ export const validCarriage = (carriage: Carriage): boolean =>
 /** Idle placement's quiet horizontal speed before beginning a step, m/s. */
 const CARRIAGE_STILL = 0.1;
 
-/** A carriage's walk: the stance's steps (`STANCE_GAIT`) at its width; made once a carriage. */
-const carriageSteps = new WeakMap<Carriage, GaitTuning>();
-const stepsOf = (carriage: Carriage, width: number): GaitTuning => {
-  let steps = carriageSteps.get(carriage);
-  if (!steps) carriageSteps.set(carriage, steps = deepFreeze({ ...STANCE_GAIT, width }));
+/** A carriage's stride at its requested width, cached per stride and carriage. */
+const carriageSteps = new WeakMap<GaitTuning, WeakMap<Carriage, GaitTuning>>();
+const stepsOf = (carriage: Carriage, width: number, base = STANCE_GAIT): GaitTuning => {
+  let carriages = carriageSteps.get(base);
+  if (!carriages) carriageSteps.set(base, carriages = new WeakMap());
+  let steps = carriages.get(carriage);
+  if (!steps) carriages.set(carriage, steps = deepFreeze({ ...base, width }));
   return steps;
 };
 
@@ -154,6 +156,8 @@ export interface LocomotionContext { readonly idleSettle: boolean }
 
 /** Construction settings; recovery legs omit idleFooting to keep their supports planted. */
 interface WalkOptions {
+  /** A configured gait's current stride; omitted leaves stride planning to the motor. */
+  readonly gait?: () => GaitTuning | undefined;
   readonly segments: Readonly<Record<Side, string>>;
   readonly turnLimit?: number;
   readonly turnStartup?: TurnStartup;
@@ -336,7 +340,7 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
     && Number.isFinite(startup.limit) && startup.limit > 0);
 }
 
-export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { turnLimit, turnStartup, carriage = CARRIAGES.square, idleFooting, segments }: WalkOptions): StanceWalk {
+export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { gait, turnLimit, turnStartup, carriage = CARRIAGES.square, idleFooting, segments }: WalkOptions): StanceWalk {
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
   if (!validCarriage(carriage)) throw new Error("locomotion carriage needs a positive width or none, and a finite stagger and lowering");
@@ -450,7 +454,9 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
         stance = place(view, state.stood, goal.height);
         state.placed = false;
       } else { state.stood = null; stance = walking(view, goal.walk, goal.face, dt, goal.height); }
-      if (stance && held.width !== null) stance = { ...stance, gait: stepsOf(held, held.width) };
+      const stride = gait?.();
+      if (stance && (held.width !== null || stride)) stance = { ...stance,
+        gait: held.width === null ? stride! : stepsOf(held, held.width, stride) };
       const done = completed(stance, leaves & FIELD_BIT.heading ? { ...goal, heading: undefined } : goal);
       state.asked = done?.centre ?? null;
       state.askedHeight = done ? goal.height ?? null : null;
