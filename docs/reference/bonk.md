@@ -59,6 +59,15 @@ so its wrist travel counts against the reversal allowance.
 Return control accounting ends once both physical recovery and ownership release are verified.
 The following safety observation retains all native samples.
 
+Each case grades its applicable requirements. A precommit cancellation grades preparation and
+return control, no launch, recovery and safety; its chamber, stroke and intended-contact gates
+are `null`. An unobstructed miss requires preparation and the complete stroke and return, with
+intended contact `null`. Inapplicable gates do not contribute to their figure's denominator.
+Coverage is case-scoped: native readings, a valid course, geometric clearance and the reached
+fixture are required. Repetition and boundary-cancellation coverage are `null` for a case that
+requests neither. A passed cancellation is labelled cancelled, rather than a completed bonk.
+Complete confirmation also requires every case in the confirmation suite.
+
 The physical stroke ends on crossing the follow-through endpoint within its tracking limits,
 or on a measured impact stop followed by withdrawal. A deadline produces a failed return.
 Executor phase names and an executor's completed outcome do not establish that endpoint or

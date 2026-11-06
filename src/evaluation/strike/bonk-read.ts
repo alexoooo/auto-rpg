@@ -37,9 +37,9 @@ export type BonkReading = {
   readonly effectiveness?: { readonly committed: number | null; readonly contact: BonkReading["contact"] };
   readonly limits: typeof BONK_LIMITS;
   readonly harness: { readonly engine: string; readonly hz: number; readonly commandDelay: number; readonly decisionRate: number | null; readonly observationDelay: number };
-  readonly coverage: { readonly course: boolean; readonly nativeSteps: boolean; readonly clearance: boolean;
+  readonly coverage: { readonly scope: "case"; readonly course: boolean; readonly nativeSteps: boolean; readonly clearance: boolean;
     readonly unreferencedSteps: number;
-    readonly entryWindow: boolean; readonly fixtures: boolean; readonly repetition: false; readonly cancellationBoundary: false };
+    readonly entryWindow: boolean; readonly fixtures: boolean; readonly repetition: boolean | null; readonly cancellationBoundary: boolean | null };
   readonly course: BonkCourse | null;
   readonly shape: ReturnType<BonkModel["shape"]> | null;
   readonly courseFault: string | null;
@@ -55,10 +55,10 @@ export type BonkReading = {
     readonly at: number | null; readonly down: boolean; readonly gripped: boolean;
     readonly assists: { readonly left: AssistRead & { readonly balance: number }; readonly right: AssistRead & { readonly balance: number } };
     readonly watchedAfterRecovery: number };
-  readonly gates: { readonly preparation: boolean; readonly stroke: boolean; readonly control: boolean; readonly contact: boolean;
-    readonly recovery: boolean; readonly safety: boolean; readonly coverage: false };
+  readonly gates: { readonly preparation: boolean | null; readonly stroke: boolean | null; readonly control: boolean; readonly contact: boolean | null;
+    readonly cancellation: boolean | null; readonly recovery: boolean; readonly safety: boolean; readonly coverage: boolean };
   readonly failures: readonly string[];
-  readonly passed: false;
+  readonly passed: boolean;
 };
 
 const xyz = (v: Vector3): Vec3 => [v.x, v.y, v.z];
@@ -340,28 +340,37 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
       const after = state.recovered === null ? 0 : elapsed(world.time, state.recovered);
       const shape = state.course ? (model as BonkModel).shape(state.course) : null;
       const unreferenced = state.samples.filter(one => one.reference === null).length;
+      const mode = fixtureReading?.requested.mode ?? "contact", cancelled = mode === "cancel";
+      const coverage: BonkReading["coverage"] = { scope: "case",
+        course: state.course !== null && !state.courseFault && unreferenced === 0 && shape?.failures.length === 0,
+        nativeSteps: state.samples.length > 0, unreferencedSteps: unreferenced,
+        clearance: state.samples.length > 0 && state.samples.every(one => one.clearance.pairs > 0),
+        entryWindow: Boolean(fixtureReading?.admission?.standing && fixtureReading.placed && !fixtureReading.faults.includes("normalized entry was not reached")),
+        fixtures: fixtureReading !== undefined && fixtureReading.faults.length === 0,
+        repetition: null, cancellationBoundary: null };
       const gates = {
-        preparation: state.entry !== null && state.committed !== null && elapsed(state.committed, state.entry.time) <= BONK_LIMITS.prepare && state.preparedHold >= BONK_LIMITS.chamberHold
+        preparation: cancelled ? null : state.entry !== null && state.committed !== null && elapsed(state.committed, state.entry.time) <= BONK_LIMITS.prepare && state.preparedHold >= BONK_LIMITS.chamberHold
           && state.chamberAbove !== null && state.chamberAbove >= BONK_LIMITS.chamberAbove,
-        stroke: state.committed !== null && state.end !== null && ["endpoint", "impact withdrawal"].includes(state.end.reason)
+        stroke: cancelled ? null : state.committed !== null && state.end !== null && ["endpoint", "impact withdrawal"].includes(state.end.reason)
           && elapsed(state.end.at, state.committed) <= BONK_LIMITS.stroke && !prolonged && phases[1]!.handError <= BONK_LIMITS.handError
           && phases[1]!.swellError <= BONK_LIMITS.swellError && phases[1]!.backward <= BONK_LIMITS.backward
           && phases[1]!.outsideShaftTravel >= BONK_LIMITS.sweep[0] && phases[1]!.outsideShaftTravel <= BONK_LIMITS.sweep[1],
-        control: state.course !== null && unreferenced === 0 && phases.every(one => one.steps > 0 && one.clubError <= BONK_LIMITS.angleError && one.chestError <= BONK_LIMITS.angleError && one.tilt <= BONK_LIMITS.tilt
+        control: state.course !== null && unreferenced === 0 && phases.filter(one => !cancelled || one.phase !== "stroke").every(one => one.steps > 0 && one.clubError <= BONK_LIMITS.angleError && one.chestError <= BONK_LIMITS.angleError && one.tilt <= BONK_LIMITS.tilt
           && one.outsideClubTravel - one.declaredClubTravel <= BONK_LIMITS.excessTurn && one.outsideChestTravel - one.declaredChestTravel <= BONK_LIMITS.excessTurn
           && one.outsideWristReversals.every(value => value <= BONK_LIMITS.wristReversal)),
-        contact: state.hit !== null && state.hit.descent >= BONK_LIMITS.descent,
+        contact: mode === "contact" ? state.hit !== null && state.hit.descent >= BONK_LIMITS.descent : null,
+        cancellation: cancelled ? fixtureReading?.cancelledAt !== null && fixtureReading?.precommit === true && fixtureReading.committedAt === null
+          && state.effectiveness.committed === null && state.committed === null && state.end?.reason === "cancelled" && phases[1]!.steps === 0 : null,
         recovery: state.end !== null && state.recovered !== null && elapsed(state.recovered, state.end.at) <= BONK_LIMITS.return
           && state.ownerEnded !== null && state.settledAtRelease === true && ownership.handovers.every(one => one.settled),
         safety: !down && gripped && !assisted && least !== null && least.clearance.least !== null && least.clearance.least >= 0 && after >= BONK_LIMITS.after,
-        coverage: false as const,
+        coverage: coverage.course && coverage.nativeSteps && coverage.clearance && coverage.entryWindow && coverage.fixtures,
       };
+      const failures = [...Object.entries(gates).filter(([, passed]) => passed === false).map(([gate]) => gate),
+        ...state.courseFault ? [state.courseFault] : [], ...fixtureReading?.faults ?? []];
       return { ...fixtureReading ? { fixture: fixtureReading } : {}, effectiveness: { ...state.effectiveness }, limits: BONK_LIMITS, harness: { engine: world.physics.engine, hz: world.hz, commandDelay: world.delay / world.hz,
         decisionRate: (duel.recipe.minds?.left as { readonly rate?: number } | undefined)?.rate ?? null, observationDelay: senseDelayOf(duel.recipe) },
-        coverage: { course: state.course !== null && !state.courseFault && unreferenced === 0 && shape?.failures.length === 0, nativeSteps: state.samples.length > 0, unreferencedSteps: unreferenced,
-          clearance: state.samples.length > 0 && state.samples.every(one => one.clearance.pairs > 0),
-          entryWindow: Boolean(fixtureReading?.admission?.standing && fixtureReading.placed && !fixtureReading.faults.includes("normalized entry was not reached")),
-          fixtures: fixtureReading !== undefined && fixtureReading.faults.length === 0, repetition: false, cancellationBoundary: false },
+        coverage,
         course: state.course, shape, courseFault: state.courseFault, admitted: state.entry?.time ?? null, committed: state.committed, physicalEnd: state.end,
         recovered: state.recovered, ownerEnded: state.ownerEnded, chamberHold: state.preparedHold, chamberAbove: state.chamberAbove, guardHold: state.guardHold, settledAtRelease: state.settledAtRelease,
         handovers: ownership.handovers,
@@ -369,7 +378,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
         safety: { least: least?.clearance.least ?? null, pair: least?.clearance.pair ?? null, pairsPerStep: state.samples[0]?.clearance.pairs ?? 0,
           exclusions: state.samples[0]?.clearance.excluded ?? [],
           at: least?.time ?? null, down, gripped, assists, watchedAfterRecovery: after }, gates,
-        failures: [...Object.entries(gates).filter(([, passed]) => !passed).map(([gate]) => gate), ...state.courseFault ? [state.courseFault] : [], ...fixtureReading?.faults ?? []], passed: false };
+        failures, passed: failures.length === 0 };
     },
   };
 }

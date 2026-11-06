@@ -80,7 +80,8 @@ function whyFailed(reading: StrikeReading): string | undefined {
 
 /** Contact outcomes and diagnostic failures; an observation with incomplete motion coverage cannot pass. */
 const strikeOutcome = (reading: StrikeReading) => {
-  if (reading.bonk) return { label: reading.bonk.failures[0] ?? "unverified", passed: reading.bonk.passed, why: reading.bonk.failures.join("; ") };
+  if (reading.bonk) return { label: reading.bonk.passed ? ({ contact: "bonk", miss: "unobstructed miss", cancel: "cancelled" }[reading.bonk.fixture?.requested.mode ?? "contact"])
+    : reading.bonk.failures[0] ?? "unverified", passed: reading.bonk.passed, why: reading.bonk.failures.join("; ") };
   if (reading.motion?.chatter) return { label: "uncontrolled", passed: false, why: "unobstructed stroke: a wrist channel reverses beyond the monotonic-phase allowance" };
   if (reading.motion && reading.began !== null) return { label: "unverified", passed: false, why: "course, clearance and physical stroke-end gates are not covered" };
   const why = whyFailed(reading);
@@ -163,6 +164,7 @@ export function createStrikeIndex(context: GameContext) {
       { name: "bonk stroke", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.stroke ?? null },
       { name: "bonk control", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.control ?? null },
       { name: "bonk intended contact", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.contact ?? null },
+      { name: "bonk cancellation", unit: "share of requested precommit cancellations", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.cancellation ?? null },
       { name: "bonk recovery", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.recovery ?? null },
       { name: "bonk safety", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.safety ?? null },
       { name: "bonk intended-hit share", unit: "share of requested contact attacks", kind: "rate", better: "higher", of: (r) => r.bonk
