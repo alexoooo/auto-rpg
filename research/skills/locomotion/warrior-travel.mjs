@@ -7,6 +7,7 @@
  * node research/skills/locomotion/warrior-travel.mjs --out research/runs/warrior-travel/forward.json
  *   [--mode forward|heading|facing|circle|corner|reverse] [--way 90] [--sense -1|1]
  *   [--pace 1] [--held club|sword|buckler+club|buckler+sword] [--seed 1] [--gusts]
+ *   [--settings walk-run-record-settings.json]
  */
 import '../../../tests/harness/preload-data.mjs';
 import { parseArgs } from 'node:util';
@@ -19,10 +20,15 @@ import { DEFAULT_ENGINE } from '../../../src/core/physics/engines.ts';
 import { massCentreToRef, massOf } from '../../../src/core/bodies/read-motion.ts';
 import { Quaternion, Vector3 } from '../../../src/core/math/vector.ts';
 import { recordingKey } from '../../../src/core/world/recording.ts';
+import { MOVE } from '../../../src/skills/locomotion/move-part.ts';
+import { STOCK_GAITS } from '../../../src/skills/locomotion/gaits.ts';
+import { stanceEnvelope } from '../../../src/skills/locomotion/stance/envelope.ts';
+import { walkRunEnvelope } from '../../../src/skills/locomotion/walk-run/envelope.ts';
 
 const { values: o } = parseArgs({ options: {
   out: { type: 'string' }, way: { type: 'string', default: '0' },
   mode: { type: 'string', default: 'forward' }, sense: { type: 'string', default: '1' }, pace: { type: 'string' },
+  settings: { type: 'string' },
   held: { type: 'string', default: 'empty' }, seed: { type: 'string', default: '1' }, gusts: { type: 'boolean' },
 } });
 if (!o.out) throw Error('--out names the retained development reading');
@@ -62,12 +68,24 @@ if (circle) {
   script.push({ at: cue, orders: moveOrder(final, pace) });
 }
 script.push({ at: stop, orders: { move: null, face: o.mode === 'facing' ? { x: 0, z: 1 } : final } });
-const lone = { model: 'workshop-fighter', mind: defaultMind('workshop-fighter'), balance: 0,
+let mind = defaultMind('workshop-fighter');
+if (o.settings) {
+  const tuning = JSON.parse(readFileSync(o.settings, 'utf8'));
+  mind = { ...mind, tuning: { ...mind.tuning, parts: { ...mind.tuning?.parts, legs: { ...MOVE,
+    gaits: STOCK_GAITS.map(gait => ({ ...gait, legs: { ...gait.legs, tuning } })) } } } };
+}
+const lone = { model: 'workshop-fighter', mind, balance: 0,
   floorSize: 400, loadout: loadouts[o.held], seed, ...(o.gusts ? { gusts: true } : {}), script };
 const built = await LONE_WORLD.build({ kind: 'lone', engine: DEFAULT_ENGINE, lone });
 if ('refused' in built) throw Error(built.refused);
 try {
   const { world, body } = built, parts = [...body.built.segments.values()], mass = massOf(parts);
+  const walkEnvelope = stanceEnvelope(body.built.spec), runEnvelope = walkRunEnvelope(body.built.spec);
+  const calibration = {
+    walk: Object.fromEntries(Object.entries(walkEnvelope.ways).map(([way, quantity]) => [way, quantity.value])),
+    run: Object.fromEntries(Object.entries(runEnvelope.ways).map(([way, quantity]) => [way, quantity.value])),
+    runEligible: runEnvelope.ways.forward.value > walkEnvelope.ways.forward.value,
+  };
   const centre = new Vector3(), work = new Vector3(), velocity = new Vector3(), rows = [];
   const rootName = body.built.spec.segments.find(segment => !body.built.spec.joints.some(joint => joint.child === segment.name)).name;
   const rootPart = body.built.segments.get(rootName), root = new Quaternion(), restInverse = Quaternion.Inverse(rootPart.rest);
@@ -152,6 +170,6 @@ try {
     reader: createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex'),
     condition: { mode: o.mode, way, sense, pace, loadout: loadouts[o.held], seed, gusts: !!o.gusts }, engine: DEFAULT_ENGINE,
     hz: world.hz, delay: world.delay, commit: git('rev-parse', 'HEAD'), diff: git('diff', '--', 'src', 'assets'),
-    body: recordingKey(body.built.spec), lone, reading, rows }) + '\n');
-  console.log(JSON.stringify({ out: o.out, engine: DEFAULT_ENGINE, hz: world.hz, delay: world.delay, reading }));
+    body: recordingKey(body.built.spec), lone, calibration, reading, rows }) + '\n');
+  console.log(JSON.stringify({ out: o.out, engine: DEFAULT_ENGINE, hz: world.hz, delay: world.delay, calibration, reading }));
 } finally { built.dispose(); }

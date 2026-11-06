@@ -183,8 +183,8 @@ function shoveTrunk(stand, impulse, way) {
 function skillOf(legs, b) {
   switch (legs) {
     case null: case undefined: return null;
-    case "walk-run": return walkRun(b);
-    case "braced": return walkRun(b, WALK_RUN, WALK_RUN_CYCLE, { may: false });
+    case "walk-run": return walkRun(b.driver);
+    case "braced": return walkRun(b.driver, WALK_RUN, WALK_RUN_CYCLE, { may: false });
     default: throw new Error(`no locomotion skill named ${legs}`);
   }
 }
