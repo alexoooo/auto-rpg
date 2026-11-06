@@ -6,7 +6,7 @@ The course constructor is [bonk-course.ts](../../src/skills/strikes/bonk-course.
 
 ## Construction
 
-A course owns copies of its entry frame, observed target and technique. The frame carries the
+A course owns copies of its construction frame, observed target and technique. The frame carries the
 body's reference coordinates into the world. The configured guard supplies the joint angles
 and guard positions relative to the chest.
 
@@ -28,8 +28,9 @@ stopping angles to the configured guard. Braking uses the recovery budget remain
 technique's guard-return duration and required hold. Its Hermite course travels half the initial
 rate times that braking duration, with zero endpoint accelerations. The guard segment and
 preparation use quintic courses at rest at both ends. The stroke uses that same progress law
-for its rotation. Preparation can update its observed target;
-commitment freezes the stroke's frame and geometry.
+for its rotation. Preparation rebuilds its solve from the current physical base frame and sensed
+target, so a standing base's motion does not leave the chamber in its admission frame. Commitment
+freezes that current stroke frame and geometry.
 A moving return with no braking budget reports a refusal. Its guard command retains ownership
 through recovery with a failed outcome, and its declared course fails coverage.
 
@@ -70,7 +71,7 @@ return. The reader constructs that return from physical angles and rates at its 
 its stopping angles and stage times fixed. It counts each native increment against the declared
 braking, guard-return or hold direction, splitting increments at those predetermined boundaries.
 Reversal errors accumulate across all return stages under the single return allowance.
-The reference-only club protocols use a return starting at rest.
+The reference-only club protocols use their admission frame and a return starting at rest.
 Cancellation's recovery deadline starts at its request. Preparation control includes the command
 latency before the declared return handover; that handover identifies the return reference's
 start and does not establish physical recovery.

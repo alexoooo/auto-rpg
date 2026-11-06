@@ -97,6 +97,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
   const reference = configured[0];
   const technique = reference ? reference.technique : fallback;
   const braking = reference?.returning === "brake";
+  const currentPreparationFrame = reference?.preparationFrame === "current";
   const guard = catalog.controllerOf(mind).builtIn(body.spec, mind, catalog.partLookup);
   const limb = body.segments.get(effector)!, description = body.spec.effectors!.find(one => one.segment === effector)!;
   const chest = body.segments.get(description.base)!, root = rootSegment(body);
@@ -199,7 +200,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
       state.entry ??= was ?? now;
       const target = action?.aim ?? fixture?.state.admission?.window.at;
       if (target && state.committed === null && state.end === null) {
-        const made = (model as BonkModel).make(state.entry.frame, guard, target, technique);
+        const made = (model as BonkModel).make(currentPreparationFrame ? (was ?? now).frame : state.entry.frame, guard, target, technique);
         if (isRefused(made)) { state.courseFault = made.refused; state.course = null; }
         else {
           state.courseFault = null; state.course = made;

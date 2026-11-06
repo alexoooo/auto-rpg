@@ -67,7 +67,7 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
   const handOf = (effector: string) => hands.find(one => one?.effector === effector) ?? null;
   type Hand = NonNullable<ReturnType<typeof handOf>>;
   type Live = { request: ActionRequest; hand: "left" | "right"; phase: "prepare" | "commit" | "release";
-    course: BonkCourse; returning: BonkReturn | null; returnSince: number | null; frame: BonkFrame;
+    course: BonkCourse; returning: BonkReturn | null; returnSince: number | null;
     began: number; since: number; heldSince: number | null; lower: number; face: number;
     withdrawn: boolean; ending: ActionEnding; target: Vec3;
     previous: { relative: Relative; swell: Vec3 } | null;
@@ -114,7 +114,7 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
       if (!one || !at) throw new Error("an admitted bonk has no hand or target");
       const entry = frame(), course = one.model.make(entry, guard, at, settings.techniques[one.hand]);
       if (isRefused(course)) throw new Error(`an admitted bonk has no course: ${course.refused}`);
-      state.live = { request: structuredClone(request), hand: one.hand, phase: "prepare", course, returning: null, returnSince: null, frame: entry, began: view.time, since: view.time,
+      state.live = { request: structuredClone(request), hand: one.hand, phase: "prepare", course, returning: null, returnSince: null, began: view.time, since: view.time,
         heldSince: null, lower: around.lower, face: view.stance.facing, withdrawn: false, ending: { kind: "completed" }, target: [...at], previous: null,
         guard: relativeToChest(one.model.pose(course, course.guard)), contact: null, stopped: false };
     },
@@ -135,7 +135,7 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
         const source = request ?? live.request, at = resolve(view, source.target, source.action, source.effector);
         if (live.withdrawn || !at) beginReturn(live, now, view.time, at ? { kind: "cancelled" } : { kind: "lost", reason: "target is no longer sensed" });
         else {
-          const course = one.model.make(live.frame, guard, at, settings.techniques[live.hand]);
+          const course = one.model.make(frame(), guard, at, settings.techniques[live.hand]);
           if (isRefused(course)) beginReturn(live, now, view.time, { kind: "lost", reason: course.refused });
           else {
             live.course = course; live.target = [...at];
