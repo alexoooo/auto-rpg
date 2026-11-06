@@ -63,9 +63,9 @@ export interface FootMemory {
    */
   readonly hip: Vector3;
   /**
-   * The ground's height under the sole, m: its lowest corner's (`lowestCorner`) where the ground
-   * last pressed it (`StanceEnd.touching`, the stance's `read`), or the ground a rising body
-   * is given. A foot in the air keeps the ground it left.
+   * The ground's height under the sole, m: the bearing contact's for an articulated foot, the
+   * lowest corner's for a rigid sole, or the ground a rising body is given. Read where the ground
+   * last pressed it (`StanceEnd.touching`); a foot in the air keeps the ground it left.
    */
   ground: number;
   /**
@@ -98,6 +98,8 @@ export interface FootState {
   readonly name: BearingEnd;
   readonly side: Side;
   readonly segment: ReadSegment;
+  /** The foot and its passive articulated descendants, with the joints that attach each part. */
+  readonly contactParts: readonly { readonly segment: ReadSegment; readonly chain: readonly ReadJoint[] }[];
   /**
    * What it reads from its sole with its toes, and without (the same for a foot without toes), and
    * the most bend of its toes, rad, at which it reads them: their tips, read with the foot, are
@@ -238,11 +240,17 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
     const segment = built.segments.get(end.segment);
     if (!segment) throw new Error(`${built.spec.model} has no segment ${end.segment} for its foot ${end.name}`);
     const chain = chainTo(built, segment), strength = new Float64Array(chain.reduce((sum, joint) => sum + joint.dofs.length, 0));
+    const contactParts: { segment: ReadSegment; chain: readonly ReadJoint[] }[] = [{ segment, chain: [] }];
+    for (let i = 0; i < contactParts.length; i++) {
+      const part = contactParts[i]!;
+      for (const joint of built.joints.values()) if (joint.parent === part.segment && joint.dofs.every(dof => dof.spec.passive))
+        contactParts.push({ segment: joint.child, chain: [...part.chain, joint] });
+    }
     strengthOf(chain, strength);
     const fits = fitsOf(segment, chain, weight, inset), flat = fits.flat;
     const held = flat.hold.map(() => new Vector3());
     const regions = (o: number): HeldRegions => ({ all: { corners: held.slice(o, o + 4) }, toe: { corners: [held[o]!, held[o + 1]!, held[o + 4]!, held[o + 5]!] }, heel: { corners: [held[o + 2]!, held[o + 3]!, held[o + 4]!, held[o + 5]!] } });
-    return { ...flat, fits, read: { parts, weight, inset, strength }, toesFlat: true, turns: turnsOf(chain[0]!), name: end.name, side, segment, chain,
+    return { ...flat, fits, read: { parts, weight, inset, strength }, toesFlat: true, turns: turnsOf(chain[0]!), name: end.name, side, segment, chain, contactParts,
       memory: { channels: [] as number[], rolled: null, hip: new Vector3(), ground: 0, lifted: 0 },
       corners: flat.sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       held: { points: held, under: new Vector3(), ankle: held[12]!, full: regions(0), half: regions(6) },

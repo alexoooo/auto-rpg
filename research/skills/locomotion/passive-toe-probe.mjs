@@ -14,8 +14,15 @@ import {guardPosture} from '../../../src/skills/guard/guard.ts';
 import {commandedBody} from '../../../src/app/commanded-body.ts';
 import {uprightness} from '../../../src/control/ground.ts';
 import {walkRun} from '../../../src/skills/locomotion/walk-run.ts';
-const {values:o}=parseArgs({options:{out:{type:'string'}}});
+import {rapierModule} from '../../../src/core/physics/rapier.ts';
+import {pointOfToRef} from '../../../src/core/bodies/read-motion.ts';
+const {values:o}=parseArgs({options:{out:{type:'string'},'sole-layer':{type:'boolean'},physical:{type:'boolean'},pgs:{type:'string'},seconds:{type:'string',default:'1'},hz:{type:'string',default:'120'}}});
 if(!o.out)throw Error('--out names the diagnostic record');
+const seconds=Number(o.seconds),pgs=o.pgs===undefined?null:Number(o.pgs);
+const hz=Number(o.hz);
+if(![120,480].includes(hz))throw Error('ground screen runs at 120 or 480 Hz');
+if(!Number.isFinite(seconds)||seconds<=0||pgs!==null&&(!Number.isInteger(pgs)||pgs<1))throw Error('seconds and PGS are positive');
+const R=await rapierModule(),layer=Object.freeze([1e6,12500,.0005]);
 const original=modelSpec('workshop-fighter'),spec=passiveToeBody(original);
 const segments=spec.segments.filter(s=>s.name==='foot.left'||s.name==='toe.left');
 const foot={...spec,segments,joints:spec.joints.filter(j=>j.name==='mtp.left'),held:[],ends:[],effectors:[],
@@ -44,29 +51,44 @@ try {
 }finally{muscles.dispose();stand.dispose();}
 const ground=[];
 for(const body of [original,spec]) {
- const s=await coreStand(body,{ground:true,posture:guardPosture(body),engine:'rapier-coordinate'});
+ const s=await coreStand(body,{ground:true,posture:guardPosture(body),engine:'rapier-coordinate',hz});
  try {
+  const raw=s.world.physics.raw;
+  if(pgs!==null)raw.numInternalPgsIterations=pgs;
+  if(o['sole-layer']) {
+   const handles=new Set();
+   for(const part of s.built.segments.values())if(part.spec.name.startsWith('foot.')||part.spec.name.startsWith('toe.'))
+    for(let k=0;k<part.body.rigid.numColliders();k++) {
+     const collider=part.body.rigid.collider(k);
+     handles.add(collider.handle);collider.setActiveHooks(collider.activeHooks()|R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
+    }
+   const step=raw.step.bind(raw);
+   raw.step=(events,hooks)=>step(events,{...hooks,contactLayer:(a,b)=>handles.has(a)||handles.has(b)?layer:null});
+  }
   const host=commandedBody(s.built,s.world,{servoSeconds:.1,measuring:true});
   const skill=walkRun(host.driver);
+  const physical=uprightness(s.built),runView=Object.create(host.view,{down:{get:()=>physical.fallen()}});
   let goal=null;
   host.drive((view,dt)=>{
-   const d=skill.goal(view,{walk:null,face:0},dt);
+   const d=skill.goal(o.physical?runView:view,{walk:null,face:0},dt);
    goal=d.goal??goal;
    return {posture:guardPosture(body),pushes:[],stance:view.time>0?goal:null};
   });
-  const physical=uprightness(s.built),rows=[];
-  for(let i=0;i<=120;i++) {
-   if(i%12===0)rows.push({time:i/120,down:physical.fallen(),height:physical.height(),
+  const rows=[];
+  for(let i=0;i<=seconds*hz;i++) {
+   if(i%(hz/10)===0)rows.push({time:i/hz,down:physical.fallen(),height:physical.height(),
     feet:[...s.built.segments.values()].filter(p=>p.spec.name.startsWith('foot.')||p.spec.name.startsWith('toe.')).map(p=>({name:p.spec.name,
      position:{...p.pose.position},speed:p.body.linearVelocityToRef(new Vector3()).length(),
      groundImpulse:s.world.physics.contactsOf(p.body).filter(c=>c.fixed!==null).reduce((sum,c)=>sum+c.impulse,0)})),
-    toes:[...s.built.joints.values()].filter(j=>j.spec.name.startsWith('mtp.')).map(j=>({name:j.spec.name,angle:jointAngles(j)[0]}))});
-   if(i<120)s.step();
+    toes:[...s.built.joints.values()].filter(j=>j.spec.name.startsWith('mtp.')).map(j=>({name:j.spec.name,angle:jointAngles(j)[0],
+     anchorError:pointOfToRef(j.parent,j.spec.centre.value,new Vector3()).subtract(pointOfToRef(j.child,j.spec.centre.value,new Vector3())).length()}))});
+   if(i<seconds*hz)s.step();
   }
   ground.push({key:bodyKey(body),rows});
  }finally{s.dispose();}
 }
 const result={protocol:'passive authority and braced guard contact screen; no travel or recovery acceptance',
+ conditioning:{soleLayer:o['sole-layer']?layer:null,physicalFallRule:o.physical===true,pgs,seconds,hz,groundImpulseReading:'last native step, not rate aligned'},
  body:{key:bodyKey(spec),segments:spec.segments.length,joints:spec.joints.length,mass:spec.segments.reduce((s,p)=>s+p.mass.value,0)},authority,ground};
 writeFileSync(o.out,JSON.stringify(result,null,2)+'\n');
 console.log(JSON.stringify({authority,ground:ground.map(g=>({key:g.key,last:g.rows.at(-1)}))}));

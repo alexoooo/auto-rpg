@@ -851,8 +851,19 @@ const groundOnly = (other: unknown): boolean => other === null;
 
 /** Whether the ground pushed on `foot` in the last step, from below (`LANDED_NORMAL`). */
 function soleOnGround(s: Stance, foot: FootState): boolean {
-  const contact = s.built.physics.contactsOf(foot.segment.body, groundOnly).find((c) => groundContact(c, LANDED_NORMAL));
-  return contact !== undefined;
+  for (const part of foot.contactParts) if (part.chain.every(joint => joint.attached())
+    && s.built.physics.contactsOf(part.segment.body, groundOnly).some(c => groundContact(c, LANDED_NORMAL))) return true;
+  return false;
+}
+
+/** An articulated foot's bearing contact height; a rigid sole retains its geometric reading. */
+function soleGroundHeight(s: Stance, foot: FootState): number {
+  if (foot.contactParts.length === 1) return lowestCorner(foot);
+  let height = Infinity;
+  for (const part of foot.contactParts) if (part.chain.every(joint => joint.attached()))
+    for (const contact of s.built.physics.contactsOf(part.segment.body, groundOnly))
+      if (groundContact(contact, LANDED_NORMAL)) height = Math.min(height, contact.point[1]);
+  return height === Infinity ? lowestCorner(foot) : height;
 }
 
 /**
@@ -943,7 +954,7 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       reading.facing = atan2(p.x, p.z);
       const on = which ?? s.state.last;
       readSupport(feet, on ? feet.filter((foot) => on.includes(foot.name)) : feet, reading.support);
-      for (const foot of feet) if ((reading.ends[foot.name]!.touching = soleOnGround(s, foot))) foot.memory.ground = lowestCorner(foot);
+      for (const foot of feet) if ((reading.ends[foot.name]!.touching = soleOnGround(s, foot))) foot.memory.ground = soleGroundHeight(s, foot);
     },
     command(muscles, goal, dt) {
       const { feet, state } = s, { reading, plan } = state;

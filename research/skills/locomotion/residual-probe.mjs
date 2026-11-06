@@ -15,7 +15,17 @@ const settings = { ...JSON.parse(readFileSync(config.environment, 'utf8')), ...c
   ...(o.seconds === undefined ? o['from-rest'] ? { seconds: 14 } : {} : { seconds: Number(o.seconds) }) };
 const policyBytes = o.policy ? readFileSync(o.policy) : null;
 const policy = policyBytes ? recoveryNetwork(JSON.parse(policyBytes)) : () => new Array(12).fill(0);
-const env = await residualEnvironment(settings), trials = [];
+let env;
+try { env = await residualEnvironment(settings); }
+catch (error) {
+  writeFileSync(o.out, JSON.stringify({ protocol: 'residual development screen, unreached fixture', settings,
+    fixtureReached: false, reason: error.message, setup: error.cause?.setup ?? [],
+    sources: Object.fromEntries(['./residual-environment.mjs', ...(settings.bodyVariant ? ['./passive-toe-body.mjs'] : []),
+      ...(settings.toeConditioning ? ['./toe-conditioning.mjs'] : [])].map(path =>
+      [path, createHash('sha256').update(readFileSync(new URL(path, import.meta.url))).digest('hex')])) }) + '\n');
+  throw new Error(error.message);
+}
+const trials = [];
 try {
   for (const start of o['from-rest'] ? [0] : o.starts.split(',').map(Number)) {
     let observation = await env.reset({ start, fromRest: o['from-rest'] });
@@ -53,11 +63,13 @@ try {
     environment: createHash('sha256').update(readFileSync(new URL('./residual-environment.mjs', import.meta.url))).digest('hex') };
   if (settings.bodyVariant === 'passive-toes') code.bodyVariant = createHash('sha256')
     .update(readFileSync(new URL('./passive-toe-body.mjs', import.meta.url))).digest('hex');
+  if (settings.toeConditioning) code.toeConditioning = createHash('sha256')
+    .update(readFileSync(new URL('./toe-conditioning.mjs', import.meta.url))).digest('hex');
   if (settings.residual === 'steering' || settings.steeringPolicy)
     code.steeringAdapter = createHash('sha256').update(readFileSync(new URL('./learned-run-steering.mjs', import.meta.url))).digest('hex');
   writeFileSync(o.out, JSON.stringify({ protocol: 'residual development screen, physical COM at 120 Hz', settings,
     harness: env.harness, layout: env.layout, code,
-    calibration: { settings: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: JSON.parse(readFileSync(settings.stride, 'utf8')),
+    calibration: { settings: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: settings.stride ? JSON.parse(readFileSync(settings.stride, 'utf8')) : null,
       ...(settings.braking ? { braking: JSON.parse(readFileSync(settings.braking, 'utf8')) } : {}),
       ...(settings.steeringPolicy ? { steering: { path: settings.steeringPolicy,
         hash: createHash('sha256').update(readFileSync(settings.steeringPolicy)).digest('hex'),

@@ -147,7 +147,9 @@ if (!isMainThread) {
     code: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     diff: execFileSync('git', ['diff', 'HEAD'], { encoding: 'utf8' }),
     search: hash(new URL(import.meta.url)), environment: hash(new URL('./residual-environment.mjs', import.meta.url)),
-    calibration: { cycle: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: JSON.parse(readFileSync(settings.stride, 'utf8')),
+    ...(settings.bodyVariant === 'passive-toes' ? { bodyVariant: hash(new URL('./passive-toe-body.mjs', import.meta.url)) } : {}),
+    ...(settings.toeConditioning ? { toeConditioning: hash(new URL('./toe-conditioning.mjs', import.meta.url)) } : {}),
+    calibration: { cycle: JSON.parse(readFileSync(settings.settings, 'utf8')), stride: settings.stride ? JSON.parse(readFileSync(settings.stride, 'utf8')) : null,
       ...(settings.braking ? { braking: JSON.parse(readFileSync(settings.braking, 'utf8')) } : {}) } };
   const saved = o.resume ? JSON.parse(readFileSync(o.out + '-checkpoint.json', 'utf8')) : null;
   if (o.resume && o.start) throw Error('--resume uses the saved start');

@@ -25,6 +25,7 @@ import { balanceCeiling, balancePercent, rulebook } from '../../../src/combat/ru
 import { learnedRunSteering, learnedRunFeatures, steeringFrom, STEERING_LAYOUT } from './learned-run-steering.mjs';
 import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
 import { passiveToeBody } from './passive-toe-body.mjs';
+import { conditionToeStand } from './toe-conditioning.mjs';
 
 const ROLES = Object.freeze(['stance', 'swing']);
 const JOINTS = Object.freeze(['hip flexion', 'hip abduction', 'hip internal rotation', 'knee flexion', 'ankle dorsiflexion', 'ankle inversion']);
@@ -58,8 +59,9 @@ const tanh = value => {
 
 export async function residualEnvironment(configuration = {}) {
   const o = { model: 'workshop-fighter', engine: DEFAULT_ENGINE, pace: 4.2, seconds: 8,
-    starts: [1.8, 3.5, 6], fromRestShare: 0, speedWidth: 1, actionAt: 0, fallRule: 'physical', residual: 'velocity', scale: 2, seed: 1, ...configuration };
+    starts: [1.8, 3.5, 6], settle: 1, fromRestShare: 0, speedWidth: 1, actionAt: 0, fallRule: 'physical', residual: 'velocity', scale: 2, seed: 1, ...configuration };
   const layout = residualLayout(o.residual);
+  if (!(o.settle > 0) || !Number.isFinite(o.settle)) throw Error('residual settling time is finite and positive');
   if (!(o.scale >= 0) || !Number.isFinite(o.scale)) throw Error('residual scale is finite and nonnegative');
   const applyResidual = o.residual === 'activation'
     ? (push, action) => ({ ...push, level: Math.max(0, Math.min(1, push.level + action * o.scale)) })
@@ -75,7 +77,7 @@ export async function residualEnvironment(configuration = {}) {
   const { at, swerve, ...cycle } = JSON.parse(readFileSync(o.settings, 'utf8'));
   const running = runCycleSettings(o.cycleTuning, runCycleSettings(cycle, WALK_RUN_CYCLE));
   const braking = o.braking ? runCycleSettings(JSON.parse(readFileSync(o.braking, 'utf8')), running) : running;
-  const stride = JSON.parse(readFileSync(o.stride, 'utf8'));
+  const stride = o.stride ? JSON.parse(readFileSync(o.stride, 'utf8')) : undefined;
   const steeringPolicy = o.steeringPolicy ? JSON.parse(readFileSync(o.steeringPolicy, 'utf8')) : null;
   const referencePolicy = o.referencePolicy ? recoveryNetwork(JSON.parse(readFileSync(o.referencePolicy, 'utf8'))) : null;
   if (referencePolicy && (o.residual !== 'steering' || !(o.referenceScale >= 0) || !Number.isFinite(o.referenceScale)))
@@ -100,7 +102,7 @@ export async function residualEnvironment(configuration = {}) {
     const s = body.view.stance;
     massCentreToRef(physicalParts, mass, centre, work, velocity);
     physicalRoot.pose.rotation.multiplyToRef(rootInverse, physicalTurn);
-    return { time: (Math.round(stand.world.time * stand.world.hz) - stand.world.hz) / stand.world.hz,
+    return { time: (Math.round(stand.world.time * stand.world.hz) - stand.seconds(o.settle)) / stand.world.hz,
       centre: [centre.x, centre.y, centre.z], velocity: [velocity.x, velocity.y, velocity.z], root: { ...physicalTurn },
       control: { centre: [s.centre.x, s.centre.y, s.centre.z], velocity: [s.velocity.x, s.velocity.y, s.velocity.z], root: { ...body.view.root.rotation } },
       phase: skill.state.run.phase, running: skill.state.walkRun.running,
@@ -127,7 +129,11 @@ export async function residualEnvironment(configuration = {}) {
                 velocity: [contactVelocity.x, contactVelocity.y, contactVelocity.z] };
             }) };
         })];
-      })), footMotion: Object.fromEntries(['left', 'right'].map(side => {
+      })), footSensors: Object.fromEntries(['left', 'right'].map(side => [side, s.ends[ends[side]].touching])),
+      passiveContacts: Object.fromEntries(spec.joints.filter(joint => joint.dofs.every(dof => dof.passive)).map(joint =>
+        [joint.child, body.built.physics.contactsOf(body.built.segments.get(joint.child).body).filter(contact => contact.other === null)
+          .map(contact => ({ impulse: contact.impulse, normal: [...contact.normal], point: [...contact.point] }))])),
+      footMotion: Object.fromEntries(['left', 'right'].map(side => {
         const foot = body.built.segments.get(ends[side]);
         motionAtToRef(foot, foot.pose.position, contactVelocity, contactSpin);
         return [side, { position: [foot.pose.position.x, foot.pose.position.y, foot.pose.position.z],
@@ -170,6 +176,7 @@ export async function residualEnvironment(configuration = {}) {
     const start = fromRest ? 0 : given?.start ?? o.starts[Math.floor(random() * o.starts.length)];
     if (!Number.isFinite(start) || start < 0) throw Error('a residual episode needs a finite running start time');
     stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard, engine: o.engine });
+    if (o.toeConditioning) await conditionToeStand(stand, o.toeConditioning);
     host = commandedBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
       assist: balanceCeiling(0, balancePercent(rulebook('arena'))) });
     body = host.driver; root = rootSegment(body.built);
@@ -196,7 +203,7 @@ export async function residualEnvironment(configuration = {}) {
           let i = names[side].indexOf(push.channel);
           if (i < 0) { const other = names[opposite].indexOf(push.channel); i = other < 0 ? -1 : other + 6; }
           if (i < 0) return push;
-          const action = view.time >= 1 + o.actionAt ? (referencePolicy ? control.referenceAction[i] : control.action[i]) : 0;
+          const action = view.time >= o.settle + o.actionAt ? (referencePolicy ? control.referenceAction[i] : control.action[i]) : 0;
           if (o.residual !== 'reference' && !referencePolicy) return applyResidual(push, action);
           const physical = i < 6 ? side : opposite, channel = i % 6;
           const before = control.reference[physical][channel];
@@ -211,7 +218,10 @@ export async function residualEnvironment(configuration = {}) {
       goal = d.goal ?? goal;
       return { posture: guard, pushes: [], stance: view.time > 0 ? goal : null };
     });
-    stand.step(stand.seconds(1)); control.lineX = body.view.stance.centre.x;
+    const setup = [];
+    if (o.trace) for (let i = 0; i < stand.seconds(o.settle); i++) { stand.step(); setup.push(reading()); }
+    else stand.step(stand.seconds(o.settle));
+    control.lineX = body.view.stance.centre.x;
     massCentreToRef(physicalParts, mass, centre, work, velocity); control.physicalLineX = centre.x;
     control.asked = [o.pace, 0];
     const warmSteps = stand.seconds(start);
@@ -221,9 +231,11 @@ export async function residualEnvironment(configuration = {}) {
         stand.step(Math.min(4, warmSteps - warmed));
       }
     } else stand.step(warmSteps);
-    if ((o.fallRule === 'physical' ? host.down : body.view.down) || (!fromRest && !skill.state.walkRun.running)) throw Error(`residual fixture did not enter its run at ${start}s`);
+    const rejectSetup = message => { const error = new Error(message, { cause: { setup } }); dispose(); throw error; };
+    if (o.fallRule === 'physical' ? host.down : body.view.down) rejectSetup(`residual fixture is down at ${start}s`);
+    if (!fromRest && !skill.state.walkRun.running) rejectSetup(`residual fixture did not enter its run at ${start}s`);
     if (fromRest && Math.hypot(body.view.stance.velocity.x, body.view.stance.velocity.z) > .15)
-      throw Error('residual from-rest fixture is still moving');
+      rejectSetup(`residual from-rest fixture is still moving: stance ${Math.hypot(body.view.stance.velocity.x, body.view.stance.velocity.z)} m/s, physical ${Math.hypot(velocity.x, velocity.z)} m/s after ${o.settle}s`);
     episode = { steps: 0, ticks: 0, along: 0, maxOff: 0, everRan: skill.state.walkRun.running, fromRest };
     return observation.slice();
   };
@@ -259,6 +271,8 @@ export async function residualEnvironment(configuration = {}) {
     halt() { control.asked = null; control.stopOrder = true; },
     harness: Object.freeze({ model: o.model, engine: o.engine, hz: stand.world.hz, delay: stand.world.delay,
       ...(o.bodyVariant ? { bodyVariant: o.bodyVariant } : {}),
+      ...(o.toeConditioning ? { toeConditioning: Object.freeze({ ...o.toeConditioning }) } : {}),
+      settle: o.settle,
       actuation: stand.world.actuation, balance: 0, loadout: 'empty', posture: 'guard', fallRule: o.fallRule, actionAt: o.actionAt,
       residual: o.residual, scale: o.scale, entry: o.entry ?? 'landing', trim: o.trim ?? 'continuous' }) };
 }

@@ -47,5 +47,6 @@ export function passiveToeBody(spec) {
       dofs:[{positive:'dorsiflexion',negative:'plantarflexion',axis,min,max,bind:rest,passive:{rest,stiffness,damping}}]});
     return {...base,mass:remaining,centreOfMass:remainingCentre,inertia:remainingInertia};
   });
-  return deepFreeze({...spec,variant:'passive-toes',segments:[...segments,...toes],joints:[...spec.joints,...joints]});
+  const down=spec.down.kind==='touch'?{...spec.down,bearers:[...spec.down.bearers,...toes.map(toe=>toe.name)]}:spec.down;
+  return deepFreeze({...spec,variant:'passive-toes',down,segments:[...segments,...toes],joints:[...spec.joints,...joints]});
 }
