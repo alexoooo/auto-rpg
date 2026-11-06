@@ -281,7 +281,7 @@ interface JawBiteConfig {
  */
 export const JAW_BITE: ExecutorPart<JawBiteConfig> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Bite", stage: "game", defaults: { kind: "jaw-bite" }, keys: { kind: true, tuning: true }, fields: [], slots: [],
-  tuning: [...BITE_SETTINGS], fits: fitsBite, reads: () => ["bite"],
+  tuning: [...BITE_SETTINGS], fits: fitsBite, fitReads: ["bite"], reads: () => ["bite"],
   faults: (config) => config.tuning === undefined || validBite(config.tuning) ? [] : ["invalid bite tuning"],
   effectors: ["head"], aims: true, meets: "point",
   strikesWith: (spec, _config, effector) => jawOf(spec).head.name === effector,

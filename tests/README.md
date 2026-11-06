@@ -65,9 +65,9 @@ before a world exists, so capability drills cannot establish the returned refusa
 
 These cases inspect results directly rather than replaying a skill's physical trajectory.
 
-[arena-setup.test.mjs](arena-setup.test.mjs) reproduces the Arena's controller menu and mind
-editor reading unloaded stomp and recovery data during compatibility checks. It loads the declared
-compatibility data, checks both human bodies, and leaves construction
+[arena-setup.test.mjs](arena-setup.test.mjs) reproduces screen menus and mind editors reading
+unloaded stomp, recovery and bite data during compatibility checks. It loads the declared
+compatibility data, checks human and jawed bodies, and leaves unrelated construction
 data unloaded in a fresh process without the Node preload; capability drills preload the data and
 cannot expose this startup failure.
 

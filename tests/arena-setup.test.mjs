@@ -19,5 +19,8 @@ test("Arena setup loads compatibility data before offering Option Mind", async (
     assert.deepEqual(mindFaults(mind.config, spec), []);
     assert.equal(catalog.kindsFor("executor", spec, mind.config).find(part => part.kind === "stomp").reason, null);
   }
+  const reptile = modelSpec("reptile"), config = catalog.minds.option.config;
+  assert.equal(catalog.kindsFor("aim", reptile, config).find(part => part.kind === "first-exposed").reason, null);
+  assert.equal(catalog.kindsFor("executor", reptile, config).find(part => part.kind === "jaw-bite").reason, null);
   assert.throws(() => dataOf("straight-punch"), /mind data "straight-punch" is not loaded/);
 });
