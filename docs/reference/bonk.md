@@ -131,3 +131,8 @@ The `bonk-reserved` protocols keep depths 0.25 and 0.75 at lateral positions -0.
 headings 45, 135, 225 and 315 degrees. Each grid names both hands; a subject plays the hand
 holding its club. The `-480` protocol names the higher native rate. Reserved cases stay outside
 candidate ranking.
+
+The `bonk-miss` and `bonk-cancel` protocols use central entry under each reserved heading,
+with both hands represented. Cancellation withdraws 0.05 s after admission. Their `-480`
+variants preserve the physical command delay. These confirmation protocols keep miss and
+early-cancellation evidence separate from contact and development ranking.

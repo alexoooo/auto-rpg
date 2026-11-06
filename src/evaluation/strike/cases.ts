@@ -114,10 +114,15 @@ const BONK_CONTACT = deepFreeze({ ...BONK_SCREEN, hands: [...SIDES] as Hand[], e
 const BONK_CONTACT_FAST = deepFreeze({ ...BONK_CONTACT, timing: { hz: 480, delay: 4 } });
 const BONK_RESERVED = deepFreeze({ ...BONK_SCREEN, hands: [...SIDES] as Hand[], entries: BONK_RESERVED_ENTRIES, suite: "reserved" });
 const BONK_RESERVED_FAST = deepFreeze({ ...BONK_RESERVED, timing: { hz: 480, delay: 4 } });
+const BONK_CENTRAL_ENTRIES = deepFreeze([45, 135, 225, 315].map(degrees => ({ u: .5, v: 0, heading: degrees * Math.PI / 180 })));
+const BONK_MISS = deepFreeze({ ...BONK_SCREEN, hands: [...SIDES] as Hand[], entries: BONK_CENTRAL_ENTRIES, mode: "miss", suite: "confirmation" });
+const BONK_MISS_FAST = deepFreeze({ ...BONK_MISS, timing: { hz: 480, delay: 4 } });
+const BONK_CANCEL = deepFreeze({ ...BONK_MISS, mode: "cancel" });
+const BONK_CANCEL_FAST = deepFreeze({ ...BONK_CANCEL, timing: { hz: 480, delay: 4 } });
 
-/** A contact grid keeps each hand's normalized coordinates independent of its mirrored world placement. */
-const bonkContacts = (entries: readonly Pick<BonkFixtureConfig, "u" | "v" | "heading">[]): readonly StillCondition[] =>
-  deepFreeze(SIDES.flatMap(hand => entries.map(entry => ({ model: "workshop-fighter", mark: "high", hand, gap: 1.2, across: 0, entry: { ...entry, mode: "contact" } }))));
+/** A fixture grid keeps each hand's normalized coordinates independent of its mirrored world placement. */
+const bonkConditions = (entries: readonly Pick<BonkFixtureConfig, "u" | "v" | "heading">[], mode: BonkFixtureConfig["mode"]): readonly StillCondition[] =>
+  deepFreeze(SIDES.flatMap(hand => entries.map(entry => ({ model: "workshop-fighter", mark: "high", hand, gap: 1.2, across: 0, entry: { ...entry, mode } }))));
 
 /**
  * **Starts drawn at random**, the `sampled` rung: the still rung's trials on every striker's body,
@@ -405,10 +410,14 @@ export function createStrikeCases(context: GameContext) {
     "bonk-reference-480": stillCases(BONK_REFERENCE_FAST),
     "bonk-screen": stillCases(BONK_SCREEN, BONK_SCREEN_CONDITIONS),
     "bonk-screen-480": stillCases(BONK_SCREEN_FAST, BONK_SCREEN_CONDITIONS),
-    "bonk-contact": stillCases(BONK_CONTACT, bonkContacts(BONK_CONTACT_ENTRIES)),
-    "bonk-contact-480": stillCases(BONK_CONTACT_FAST, bonkContacts(BONK_CONTACT_ENTRIES)),
-    "bonk-reserved": stillCases(BONK_RESERVED, bonkContacts(BONK_RESERVED_ENTRIES)),
-    "bonk-reserved-480": stillCases(BONK_RESERVED_FAST, bonkContacts(BONK_RESERVED_ENTRIES)),
+    "bonk-contact": stillCases(BONK_CONTACT, bonkConditions(BONK_CONTACT_ENTRIES, "contact")),
+    "bonk-contact-480": stillCases(BONK_CONTACT_FAST, bonkConditions(BONK_CONTACT_ENTRIES, "contact")),
+    "bonk-reserved": stillCases(BONK_RESERVED, bonkConditions(BONK_RESERVED_ENTRIES, "contact")),
+    "bonk-reserved-480": stillCases(BONK_RESERVED_FAST, bonkConditions(BONK_RESERVED_ENTRIES, "contact")),
+    "bonk-miss": stillCases(BONK_MISS, bonkConditions(BONK_CENTRAL_ENTRIES, "miss")),
+    "bonk-miss-480": stillCases(BONK_MISS_FAST, bonkConditions(BONK_CENTRAL_ENTRIES, "miss")),
+    "bonk-cancel": stillCases(BONK_CANCEL, bonkConditions(BONK_CENTRAL_ENTRIES, "cancel")),
+    "bonk-cancel-480": stillCases(BONK_CANCEL_FAST, bonkConditions(BONK_CENTRAL_ENTRIES, "cancel")),
     moving: stillCases(MOVING), walk: stillCases(WALK),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
