@@ -260,7 +260,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
   const rate = (channel: Channel): number => {
     const x = series[channel]; let y = 0;
     for (let k = 1; 2 * k < terms; k++) y += 2 * Math.PI * k * (x[2 * k]! * harmonics.cos[k]! - x[2 * k - 1]! * harmonics.sin[k]!);
-    return y / blended.period;
+    return y * (1 + memory.steer.cadence) / blended.period;
   };
   const bindOf = (joint: string, dof = 0): number => {
     const found = spec.joints.find((j) => j.name === joint);

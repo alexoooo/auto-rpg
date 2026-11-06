@@ -141,6 +141,12 @@ ordinary capability drills use impulse joints and rigid contacts, so cannot expo
 
 ## Layer contract regressions
 
+[skills/locomotion/cycle-run.test.mjs](skills/locomotion/cycle-run.test.mjs) checks the running reference through its published knee-channel requests.
+
+| Case | Concrete justification |
+| --- | --- |
+| `run cadence scales clip feedforward with the reference phase` | Cadence advances the reference faster or slower while its feed-forward velocity can retain the unscaled rate. Two servo times separate that velocity from pose feedback on a real body, then compare it with the reference's finite difference. A locomotion drill can hide the missing factor through pose feedback. |
+
 [layer-contracts.test.mjs](layer-contracts.test.mjs) reproduces the physical, command and observation
 failures below. Skill drills cannot establish admission before allocation, complete command delivery
 or exact saved-state compatibility.
