@@ -9,7 +9,7 @@ import { atan2, cos, sin } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
-import { runCycle, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
+import { runCycle, validRunCycle, type RunCycleSettings, type RunTrim } from "./cycle-run.ts";
 import { legOf, quickness, scaledGait, scaledStride } from "./gait-scale.ts";
 import { validGaitTuning, type GaitTuning } from "../../control/stance-tuning.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "./stance-feet.ts";
@@ -172,15 +172,15 @@ const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "cen
  * beginning the cycle on the opposite planted sole; landing entry waits for a walking landing.
  */
 export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE,
-  { may = true, braking = givenRun, stride, entry = "landing" }: { readonly may?: boolean; readonly braking?: RunCycleSettings; readonly stride?: GaitTuning;
-    readonly entry?: "landing" | "first-lift" } = {}): Locomotion {
+  { may = true, braking = givenRun, stride, entry = "landing", trim }: { readonly may?: boolean; readonly braking?: RunCycleSettings; readonly stride?: GaitTuning;
+    readonly entry?: "landing" | "first-lift"; readonly trim?: RunTrim } = {}): Locomotion {
   if (entry !== "landing" && entry !== "first-lift") throw new Error("run entry is landing or first-lift");
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
   if (!validRunCycle(givenRun)) throw new Error("a run cycle needs every setting finite, its times and the cycle's positive and its shares of strength within (0, 1]");
   if (!validRunCycle(braking)) throw new Error("a braking cycle needs the run cycle's complete valid settings");
   if (stride !== undefined && !validGaitTuning(stride)) throw new Error("a travel stride needs complete valid gait settings");
   const k = legOf(body.built.spec) / given.leg, quick = quickness(hasteOver(body.built.spec), given.hasted);
-  const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick, scaledGait(braking, k, quick));
+  const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick, scaledGait(braking, k, quick), { trim });
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
   const travelStride = stride && scaledStride(stride, k, quick);

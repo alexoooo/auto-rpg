@@ -168,6 +168,9 @@ interface RunCycleMemory {
   bank: number;
 }
 
+/** When the speed-error integral accumulates: throughout motion or only at the requested reference pace. */
+export type RunTrim = "continuous" | "at-pace";
+
 /**
  * **A run that tracks a person's** (the tracking of a captured cycle, Lee, Kim and Lee 2010,
  * "Data-driven biped control"): each leg's hip, knee and ankle follow a clip's run cycle as a
@@ -178,13 +181,15 @@ interface RunCycleMemory {
  *
  * A braking calibration supplies the cycle while the requested pace is below its current pace or
  * the body's forward speed; omitted, the running calibration supplies both.
+ * At-pace trim holds its integral while the reference pace accelerates or brakes toward the order.
  * The phase runs on at the cycle's rate. A sole landing near its own phase's end sets it to 0, and
  * one not yet down holds it a while. While a leg's sole bears, its hip turns the pelvis upright,
  * leaning `lean`, less as the body goes faster than its pace (`leanGain`), and into a turn (`bank`), toward the heading, as SIMBICON's stance hip does (Yin, Loken and van de Panne 2007); the swinging thigh's reference is set
  * in the world, the clip's lean taken off, with the pace's feedback late in the swing; across the
  * heading the swinging sole is placed by Raibert's rule.
  */
-export function runCycle(body: Body, settings: RunCycleSettings, leg: number, quick = 1, braking: RunCycleSettings = settings): {
+export function runCycle(body: Body, settings: RunCycleSettings, leg: number, quick = 1, braking: RunCycleSettings = settings,
+  { trim = "continuous" }: { readonly trim?: RunTrim } = {}): {
   readonly state: RunCycleMemory;
   /** Begins the run from the body as it is, as the sole `landed` lands. */
   begin(view: BodyView, heading: number, landed: Side): void;
@@ -193,6 +198,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
   /** One step toward `asked` m/s along `heading`: the legs' pushes and the arms' posture; and the sole that landed, if one did. */
   drive(view: BodyView, dt: number, heading: number, asked: number): { readonly posture: Pose; readonly pushes: MusclePush[]; readonly landed: Side | null };
 } {
+  if (trim !== "continuous" && trim !== "at-pace") throw new Error("run trim is continuous or at-pace");
   const muscles = body.muscles, dynamics = muscles.dynamics, spec = body.built.spec;
   if (CYCLES.length < 2) throw new Error("a run cycle needs two clips' cycles to blend between");
   const scale = (c: Cycle): number => Math.sqrt(leg / c.leg);
@@ -334,7 +340,8 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       const a = dynamics.pivot(st.ankle[0]), across = v.x * rx + v.z * rz;
       const error = along - memory.pace, turned = heading - memory.heading, turning = (turned - 2 * Math.PI * Math.round(turned / (2 * Math.PI))) / dt;
       memory.heading = heading;
-      memory.trim = Math.max(-p.paceMost, Math.min(p.paceMost, memory.trim + p.paceGain * error * dt));
+      if (trim === "continuous" || memory.pace === asked)
+        memory.trim = Math.max(-p.paceMost, Math.min(p.paceMost, memory.trim + p.paceGain * error * dt));
       // The swinging leg: its thigh in the world, the clip's lean taken off, with the feedback late in its swing.
       at(ow);
       const feedback = ow >= p.late || ow < 0.5 ? p.cv * error + p.cd * ((c.x - a[0]!) * fx + (c.z - a[2]!) * fz) + memory.trim : 0;

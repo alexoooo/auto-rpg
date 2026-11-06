@@ -47,6 +47,10 @@ commanded speed minus observed forward speed to the actor's hidden features. Eac
 channel gets two coefficients after its phase coefficients. Use unit-cube values of 0.5 for
 zero feedback when expanding a phase-only checkpoint. The exported policy includes these
 features; the environment and muscle ceilings remain the same.
+
+Set `trim` to `at-pace` to accumulate the cycle's integral speed correction only when its
+reference pace equals the order. The default `continuous` mode also integrates during reference
+acceleration and braking. Both modes retain the configured trim bound; the harness names the mode.
 | `skills/strikes/strike-profiles.mjs`, `skills/recovery/edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground Option's from Option Mind's own tries in falls the stand-up target does not play, naming what they were measured on; `edge-profiles --model` refreshes one body's at the existing offsets | core profiles with `--write`; ground falls and trials cached in `research/runs/edge-profiles/`, or `--rows` |
 | `skills/skill-records.mjs` | no measurement: a skill's row for one body (`SkillRecord`) written from a file of settings, refused unless whole and valid, or removed (`--remove`) | `assets/skills/<capability>/<implementation>/<skill>.json`, `.meta.json`, every run |
 | `skills/strikes/stomp/skill-search.mjs` | a skill's settings (the stomp's, `SEARCHES`) searched on one body by CMA-ES on its task's trials; `--confirm` keeps the best only where it beats the start on fresh trials | `--out`; with `--confirm --write`, the body's row (through `skills/skill-records.mjs`) |
