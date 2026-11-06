@@ -158,6 +158,8 @@ interface RunCycleMemory {
   /** The pace it runs at, m/s, and the swinging thigh's trim, rad. */
   pace: number;
   trim: number;
+  /** The order whose initial reference acceleration has completed, or none yet. */
+  trimOrder: number | null;
   /** Whether each sole touched at the last step. */
   touching: { left: boolean; right: boolean };
   /** The pelvis's turn as the last step found it, for its spin; and the heading, rad, for its rate. */
@@ -168,8 +170,8 @@ interface RunCycleMemory {
   bank: number;
 }
 
-/** When the speed-error integral accumulates: throughout motion or only at the requested reference pace. */
-export type RunTrim = "continuous" | "at-pace";
+/** Whether speed-error trim integrates during reference acceleration or waits for the requested pace. */
+export type RunTrim = "continuous" | "at-pace" | "after-pace";
 
 /**
  * **A run that tracks a person's** (the tracking of a captured cycle, Lee, Kim and Lee 2010,
@@ -182,6 +184,7 @@ export type RunTrim = "continuous" | "at-pace";
  * A braking calibration supplies the cycle while the requested pace is below its current pace or
  * the body's forward speed; omitted, the running calibration supplies both.
  * At-pace trim holds its integral while the reference pace accelerates or brakes toward the order.
+ * After-pace trim integrates the whole speed cycle once the reference reaches an unchanged order.
  * The phase runs on at the cycle's rate. A sole landing near its own phase's end sets it to 0, and
  * one not yet down holds it a while. While a leg's sole bears, its hip turns the pelvis upright,
  * leaning `lean`, less as the body goes faster than its pace (`leanGain`), and into a turn (`bank`), toward the heading, as SIMBICON's stance hip does (Yin, Loken and van de Panne 2007); the swinging thigh's reference is set
@@ -198,7 +201,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
   /** One step toward `asked` m/s along `heading`: the legs' pushes and the arms' posture; and the sole that landed, if one did. */
   drive(view: BodyView, dt: number, heading: number, asked: number): { readonly posture: Pose; readonly pushes: MusclePush[]; readonly landed: Side | null };
 } {
-  if (trim !== "continuous" && trim !== "at-pace") throw new Error("run trim is continuous or at-pace");
+  if (trim !== "continuous" && trim !== "at-pace" && trim !== "after-pace") throw new Error("run trim is continuous, at-pace or after-pace");
   const muscles = body.muscles, dynamics = muscles.dynamics, spec = body.built.spec;
   if (CYCLES.length < 2) throw new Error("a run cycle needs two clips' cycles to blend between");
   const scale = (c: Cycle): number => Math.sqrt(leg / c.leg);
@@ -262,7 +265,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
   };
   const legs = { left: limbOf("left"), right: limbOf("right") };
   const legChannels = SIDES.flatMap(side => [...legs[side].hip, legs[side].knee, ...legs[side].ankle]);
-  const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, touching: { left: true, right: true }, root: new Quaternion(), heading: 0, lean: 0, bank: 0 };
+  const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, trimOrder: null, touching: { left: true, right: true }, root: new Quaternion(), heading: 0, lean: 0, bank: 0 };
   const scratch = { up: new Vector3(), spin: new Vector3(), target: new Quaternion(), pitch: new Quaternion(), roll: new Quaternion(), error: new Vector3(), relative: new Vector3(),
     speeds: [0, 0, 0] as [number, number, number], rates: new Float64Array(muscles.channels.length), pushes: new Int32Array(muscles.channels.length) };
   const runner = armSwing(spec, settings.arms, true), brakeRunner = armSwing(spec, braking.arms, true), feet = { left: footOn(spec, "left"), right: footOn(spec, "right") };
@@ -290,6 +293,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       memory.waited = 0;
       memory.pace = Math.max(0, s.velocity.x * fx + s.velocity.z * fz);
       memory.trim = 0;
+      memory.trimOrder = null;
       memory.touching.left = touching(view, "left");
       memory.touching.right = touching(view, "right");
       memory.root.copyFrom(view.root.rotation);
@@ -340,8 +344,17 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       const a = dynamics.pivot(st.ankle[0]), across = v.x * rx + v.z * rz;
       const error = along - memory.pace, turned = heading - memory.heading, turning = (turned - 2 * Math.PI * Math.round(turned / (2 * Math.PI))) / dt;
       memory.heading = heading;
-      if (trim === "continuous" || memory.pace === asked)
-        memory.trim = Math.max(-p.paceMost, Math.min(p.paceMost, memory.trim + p.paceGain * error * dt));
+      let accumulate: boolean;
+      switch (trim) {
+        case "continuous": accumulate = true; break;
+        case "at-pace": accumulate = memory.pace === asked; break;
+        case "after-pace":
+          memory.trimOrder = memory.trimOrder === asked || memory.pace === asked ? asked : null;
+          accumulate = memory.trimOrder === asked;
+          break;
+        default: { const never: never = trim; throw new Error(`no run trim ${never}`); }
+      }
+      if (accumulate) memory.trim = Math.max(-p.paceMost, Math.min(p.paceMost, memory.trim + p.paceGain * error * dt));
       // The swinging leg: its thigh in the world, the clip's lean taken off, with the feedback late in its swing.
       at(ow);
       const feedback = ow >= p.late || ow < 0.5 ? p.cv * error + p.cd * ((c.x - a[0]!) * fx + (c.z - a[2]!) * fz) + memory.trim : 0;

@@ -93,6 +93,11 @@ export async function residualEnvironment(configuration = {}) {
       centre: [centre.x, centre.y, centre.z], velocity: [velocity.x, velocity.y, velocity.z], root: { ...physicalTurn },
       control: { centre: [s.centre.x, s.centre.y, s.centre.z], velocity: [s.velocity.x, s.velocity.y, s.velocity.z], root: { ...body.view.root.rotation } },
       phase: skill.state.run.phase, running: skill.state.walkRun.running,
+      ...(o.actuationTrace ? { actuation: { pace: skill.state.run.pace, trim: skill.state.run.trim, lean: skill.state.run.lean,
+        channels: Object.values(channels).flat().map(i => ({ name: host.muscles.channels[i].name,
+          angle: host.muscles.angle(i), speed: host.muscles.speed(i), requested: host.muscles.velocity[i],
+          activation: host.muscles.activation[i], torque: host.muscles.pulled[i],
+          negative: host.muscles.bounds.negative[i], positive: host.muscles.bounds.positive[i] })) } } : {}),
       ...(o.stanceTrace ? { stance: structuredClone(s) } : {}),
       down: o.fallRule === 'physical' ? host.down : body.view.down, postureDown: body.view.down, physicalDown: host.down, lineX: control.physicalLineX,
       ...(o.contacts ? { feet: Object.fromEntries(['left', 'right'].map(side => {
