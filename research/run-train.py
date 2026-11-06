@@ -5,7 +5,8 @@ a bare mind's `network`): ReLU layers with explicit clipped observation normalis
 tanh on the outputs (PPO's mean, which the environment squashes; SAC's squashed mean, tanh of its
 mean layer). Each line of train.log has the mean of each of `--keywords` over the episodes lately
 ended, of those that have it. The latest policy is policy.json, and every `--keep` steps a copy
-stays as policy-<steps>.json: the training return does not choose a policy (a run's return can go
+stays as policy-<steps>.json with its model-<steps>.zip and normalize-<steps>.pkl for resuming:
+the training return does not choose a policy (a run's return can go
 on rising as its battery falls), its battery does.
 
 `--start` begins from a trained network (an exported `Network`, or a record whose one entry holds
@@ -317,6 +318,8 @@ try:
         model.save(str(saved)); envs.save(str(output / 'normalize.pkl')); export(model, envs, output / 'policy.json')
         if model.num_timesteps // options.keep > (model.num_timesteps - chunk) // options.keep:
             export(model, envs, output / f'policy-{model.num_timesteps}.json')
+            model.save(str(output / f'model-{model.num_timesteps}.zip'))
+            envs.save(str(output / f'normalize-{model.num_timesteps}.pkl'))
         spread = float(torch.exp(model.policy.log_std.detach()).mean()) if not squashed else float(torch.exp(model.log_ent_coef.detach()).item())
         line = {'steps': int(model.num_timesteps), 'minutes': round((time.monotonic() - started) / 60, 1),
                 'return': round(float(np.mean([i['r'] for i in infos])), 2) if infos else None, 'length': round(float(np.mean([i['l'] for i in infos])), 1) if infos else None,
