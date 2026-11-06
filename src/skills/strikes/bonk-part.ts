@@ -20,7 +20,7 @@ declare module "../config.ts" {
   interface ExecutorConfigs { readonly bonk: Config }
 }
 declare module "../framework/executor-part.ts" {
-  interface MotionReferences { readonly bonk: { readonly kind: "bonk"; readonly technique: BonkTechnique } }
+  interface MotionReferences { readonly bonk: { readonly kind: "bonk"; readonly technique: BonkTechnique; readonly returning: "brake" } }
 }
 
 /** A separate held-club bonk, whose declared course is available to independent physical readers. */
@@ -34,7 +34,7 @@ export const BONK_PART: ExecutorPart<Config> = {
   strikesWith: (spec, _config, effector) => effector === "hand.left" && heldBy(spec, "left") === "club" || effector === "hand.right" && heldBy(spec, "right") === "club",
   reference(spec, config, effector) {
     const settings = tunedSettings(dataOf("bonk"), spec, config);
-    return effector === "hand.left" || effector === "hand.right" ? { kind: "bonk", technique: settings.techniques[effector === "hand.left" ? "left" : "right"] } : null;
+    return effector === "hand.left" || effector === "hand.right" ? { kind: "bonk", technique: settings.techniques[effector === "hand.left" ? "left" : "right"], returning: "brake" } : null;
   },
   make({ body, guard, aim }, config, actions) {
     return bonkExecutor(body, guard, actions.map(one => one.name), tunedSettings(dataOf("bonk"), body.built.spec, config), aimedPoint(aim));

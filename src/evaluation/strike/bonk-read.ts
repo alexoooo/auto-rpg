@@ -3,12 +3,12 @@ import { acos } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { isRefused } from "../../core/refusal.ts";
 import { deepFreeze } from "../../core/world/state.ts";
-import { jointAngles } from "../../core/bodies/build/joint-state.ts";
+import { jointAngles, jointTracker } from "../../core/bodies/build/joint-state.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { selfClearance, type SelfClearance } from "../../core/bodies/build/clearance.ts";
 import { attachment, rootSegment } from "../../core/bodies/read-body.ts";
 import { motionAtToRef, pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
-import { bonkModel, BONK_LIMITS, type BonkCourse, type BonkFrame, type BonkModel, type BonkPhase, type BonkPose, type BonkTechnique, type BonkTurn } from "../../skills/strikes/bonk-course.ts";
+import { bonkModel, BONK_LIMITS, type BonkCourse, type BonkFrame, type BonkModel, type BonkPhase, type BonkPose, type BonkReturn, type BonkTechnique, type BonkTurn } from "../../skills/strikes/bonk-course.ts";
 import { handConfiguration } from "../../skills/strikes/held-strike.ts";
 import type { ActionStatus } from "../../skills/framework/action.ts";
 import type { BuiltBout } from "../bout.ts";
@@ -20,7 +20,7 @@ import { senseDelayOf } from "../../game/arena/duel.ts";
 
 type StrokeEnd = { readonly at: number; readonly reason: "endpoint" | "impact withdrawal" | "stroke deadline" | "preparation deadline" | "cancelled" };
 type AssistRead = { force: number; moment: number; ceilingForce: number; ceilingMoment: number };
-type Physical = { time: number; pose: BonkPose; frame: BonkFrame; relativeHand: Vec3; relativeSwell: Vec3; relativeClub: BonkTurn;
+type Physical = { time: number; pose: BonkPose; rates: readonly (readonly number[])[]; frame: BonkFrame; relativeHand: Vec3; relativeSwell: Vec3; relativeClub: BonkTurn;
   handSpeed: number; swellSpeed: number; velocity: Vec3; impulse: boolean; touching: boolean;
   stopped: boolean; contact: { shape: number; on: string; impulse: number }[]; clearance: SelfClearance; down: boolean; grip: boolean;
   assists: { left: AssistRead; right: AssistRead } };
@@ -43,6 +43,7 @@ export type BonkReading = {
     readonly crossing?: boolean;
     readonly entryWindow: boolean; readonly fixtures: boolean; readonly repetition: boolean | null; readonly cancellationBoundary: boolean | null };
   readonly course: BonkCourse | null;
+  readonly returning: { readonly since: number; readonly plan: BonkReturn } | null;
   readonly shape: ReturnType<BonkModel["shape"]> | null;
   readonly courseFault: string | null;
   readonly admitted: number | null; readonly committed: number | null; readonly physicalEnd: StrokeEnd | null;
@@ -82,6 +83,10 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
   const checkedModel = bonkModel(body.spec, effector);
   if (isRefused(checkedModel)) throw new Error(checkedModel.refused);
   const model: BonkModel = checkedModel;
+  const joints = model.channels.map(channels => {
+    const joint = [...body.joints.values()].find(one => channels[0]?.startsWith(`${one.spec.name} `));
+    return joint ? { tracker: jointTracker(joint), parent: new Vector3(), child: new Vector3() } : null;
+  });
   const mind = duel.recipe.minds?.left;
   if (!mind) throw new Error("a bonk reference needs its striker's mind configuration");
   const configured = describeMind(catalog, body.spec, mind)?.executors.filter(config => config.kind === skill).flatMap(config => {
@@ -91,6 +96,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
   if (configured.length > 1) throw new Error("a bonk reading needs one declared motion reference");
   const reference = configured[0];
   const technique = reference ? reference.technique : fallback;
+  const braking = reference?.returning === "brake";
   const guard = catalog.controllerOf(mind).builtIn(body.spec, mind, catalog.partLookup);
   const limb = body.segments.get(effector)!, description = body.spec.effectors!.find(one => one.segment === effector)!;
   const chest = body.segments.get(description.base)!, root = rootSegment(body);
@@ -107,7 +113,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
   const p = new Vector3(), q = new Quaternion(), inverse = new Quaternion(), relative = new Vector3(), velocity = new Vector3(), spin = new Vector3();
   const state = { previous: null as Physical | null, entry: null as Physical | null, course: null as BonkCourse | null,
     courseFault: null as string | null, samples: [] as Sample[], committed: null as number | null, end: null as StrokeEnd | null,
-    returnCourse: null as BonkCourse | null, returnStart: null as readonly (readonly number[])[] | null,
+    returnCourse: null as BonkCourse | null, returnStart: null as BonkReturn | null, returnSince: null as number | null,
     guardReference: null as null | { hand: Vec3; swell: Vec3; turn: BonkTurn },
     chamberHold: 0, chamberSince: null as number | null, preparedHold: 0, chamberAbove: null as number | null,
     guardHold: 0, guardSince: null as number | null, recovered: null as number | null, ownerEnded: null as number | null, settledAtRelease: null as boolean | null,
@@ -116,6 +122,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
     ownership: { held: [] as string[], handovers: [] as { at: number; resources: string[]; settled: boolean }[] } };
   const ownership = state.ownership;
   function physical(tracking: boolean): Physical {
+    for (const joint of joints) if (joint) joint.tracker.update(segment => segment.body.angularVelocityToRef(segment === joint.tracker.joint.parent ? joint.parent : joint.child));
     const hand = xyz(pointOfToRef(limb, limb.frame.origin, p)), swell = xyz(pointOfToRef(limb, point, p));
     const chestAt = xyz(pointOfToRef(chest, chest.frame.origin, p)), chestTurn = xyzw(turnOfToRef(chest, q));
     const club = xyzw(turnOfToRef(limb, q));
@@ -135,7 +142,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
     const a = xyz(pointOfToRef(limb, shaftA, p)), b = xyz(pointOfToRef(limb, shaftB, p)), shaftLength = distance(a, b);
     const assistOf = (one: typeof left): AssistRead => ({ force: one.body.assist.given.force.length(), moment: one.body.assist.given.moment.length(),
       ceilingForce: one.body.assist.most.force, ceilingMoment: one.body.assist.most.moment });
-    return { time: world.time, frame, pose: { hand, swell, club, chest: chestTurn, chestAt, joints: degreesOfFreedom(model as BonkModel, body),
+    return { time: world.time, frame, rates: joints.map(joint => joint ? [...joint.tracker.rates] : []), pose: { hand, swell, club, chest: chestTurn, chestAt, joints: degreesOfFreedom(model as BonkModel, body),
       shaft: a.map((v, k) => (b[k]! - v) / shaftLength) as unknown as Vec3 }, relativeHand, relativeSwell, relativeClub,
       handSpeed: state.previous ? distance(relativeHand, state.previous.relativeHand) / dt : 0,
       swellSpeed: state.previous ? distance(relativeSwell, state.previous.relativeSwell) / dt : 0,
@@ -147,13 +154,18 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
   const quiet = (now: Physical, target: BonkPose): boolean => distance(now.pose.hand, target.hand) <= BONK_LIMITS.chamberNear
     && distance(now.pose.swell, target.swell) <= BONK_LIMITS.chamberNear && now.handSpeed <= BONK_LIMITS.still && now.swellSpeed <= BONK_LIMITS.still
     && angle(now.pose.club, target.club) <= BONK_LIMITS.settledAngle;
+  function startReturn(now: Physical): void {
+    if (!state.course || state.returnStart) return;
+    state.returnStart = model.returnPlan(state.course, now.pose.joints, braking ? now.rates : now.rates.map(row => row.map(() => 0))); state.returnSince = now.time;
+    state.returnCourse = deepFreeze({ ...state.course, frame: now.frame });
+  }
   function finish(now: Physical, reason: StrokeEnd["reason"]): void {
-    state.end = { at: now.time, reason }; state.returnStart = now.pose.joints;
-    if (state.course) state.returnCourse = deepFreeze({ ...state.course, frame: now.frame });
+    state.end = { at: now.time, reason };
+    if (!braking || reason !== "cancelled") startReturn(now);
   }
   function nearest(course: BonkCourse, phase: BonkPhase, now: Physical): { progress: number; pose: BonkPose } {
     if (phase === "stroke") return (model as BonkModel).nearest(course, now.pose.swell);
-    const duration = phase === "prepare" ? technique.prepareSeconds : technique.returnSeconds;
+    const duration = phase === "prepare" ? technique.prepareSeconds : state.returnStart?.seconds ?? technique.returnSeconds;
     const at = (u: number): BonkPose => {
       const pose = model.sample(course, phase, u * duration, phase === "return" ? state.returnStart ?? undefined : undefined);
       if (phase !== "return") return pose;
@@ -231,7 +243,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
           if (now.touching || now.impulse) state.lastContact = now.time;
           else state.contactClosed = true;
       }
-      if (state.committed !== null && !state.end && now.stopped) state.stopped = true;
+      if (state.committed !== null && !state.end && now.stopped && !state.stopped) { state.stopped = true; if (braking) startReturn(now); }
       if (state.committed !== null && !state.end) {
         state.hit ??= intended;
         if (state.course) {
@@ -242,6 +254,8 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
         }
         if (!state.end && elapsed(now.time, state.committed) >= BONK_LIMITS.stroke) finish(now, "stroke deadline");
       }
+      // Cancellation's deadline starts at the request; its declared return begins when that decision is carried.
+      if (braking && state.end?.reason === "cancelled" && !state.returnStart && action?.phase === "release") startReturn(was ?? now);
       if (state.end) {
         const rest = state.guardReference;
         const settled = rest !== null && distance(now.relativeHand, rest.hand) <= BONK_LIMITS.chamberNear
@@ -256,7 +270,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
       const released = ownership.held.filter(resource => !held.includes(resource));
       if (released.length) ownership.handovers.push({ at: now.time, resources: released, settled: state.guardHold >= BONK_LIMITS.guardHold });
       ownership.held = held;
-      const phase: BonkPhase = state.end && state.end.at < now.time ? "return" : state.committed !== null ? "stroke" : "prepare";
+      const phase: BonkPhase = state.end && state.end.at < now.time && (!braking || state.returnStart !== null) ? "return" : state.committed !== null ? "stroke" : "prepare";
       state.samples.push({ ...now, phase, reference: phase === "return" ? state.returnCourse : state.course });
     },
     get ended(): boolean {
@@ -301,12 +315,22 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
             }
             progress = expected.progress;
             if (previous) {
-              const from = phase === "prepare" ? course.guard : phase === "return" ? state.returnStart ?? course.follow : course.contact;
+              const from = phase === "prepare" ? course.guard : phase === "return" ? state.returnStart?.from ?? course.follow : course.contact;
               const to = phase === "prepare" ? course.chamber : phase === "return" ? course.guard : course.contact;
               result.wristReversals.forEach((_, k) => {
                 const delta = wrap(sample.pose.joints[(model as BonkModel).wrist]![k]! - previous!.pose.joints[(model as BonkModel).wrist]![k]!);
                 const direction = Math.sign(to[(model as BonkModel).wrist]![k]! - from[(model as BonkModel).wrist]![k]!);
-                const reversal = direction === 0 ? Math.abs(delta) : Math.max(0, -direction * delta);
+                const against = (change: number, direction: number) => direction === 0 ? Math.abs(change) : Math.max(0, -direction * change);
+                let reversal = against(delta, direction);
+                if (braking && phase === "return" && state.returnStart && state.returnSince !== null) {
+                  const plan = state.returnStart, before = previous!.time - state.returnSince, after = sample.time - state.returnSince;
+                  const portion = (boundary: number) => Math.max(0, Math.min(1, (boundary - before) / (after - before)));
+                  const brakeShare = portion(plan.brake), returnShare = portion(plan.seconds) - brakeShare;
+                  const wrist = (model as BonkModel).wrist;
+                  reversal = against(delta * brakeShare, Math.sign(plan.rates[wrist]![k]!))
+                    + against(delta * returnShare, Math.sign(course.guard[wrist]![k]! - plan.stopped[wrist]![k]!))
+                    + Math.abs(delta * (1 - brakeShare - returnShare));
+                }
                 result.wristReversals[k]! += reversal; if (!masked) result.outsideWristReversals[k]! += reversal;
               });
             }
@@ -322,7 +346,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
         }
         const course = phase === "return" ? state.returnCourse : state.course;
         if (course) {
-          const duration = phase === "prepare" ? technique.prepareSeconds : phase === "stroke" ? technique.strokeSeconds : technique.returnSeconds;
+          const duration = phase === "prepare" ? technique.prepareSeconds : phase === "stroke" ? technique.strokeSeconds : state.returnStart?.seconds ?? technique.returnSeconds;
           let was = (model as BonkModel).sample(course, phase, 0, phase === "return" ? state.returnStart ?? undefined : undefined);
           for (let k = 1; k <= 96; k++) {
             const next = (model as BonkModel).sample(course, phase, duration * k / 96, phase === "return" ? state.returnStart ?? undefined : undefined);
@@ -344,7 +368,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
       const unreferenced = state.samples.filter(one => one.reference === null).length;
       const mode = fixtureReading?.requested.mode ?? "contact", cancelled = mode === "cancel";
       const coverage: BonkReading["coverage"] = { scope: "case",
-        course: state.course !== null && !state.courseFault && unreferenced === 0 && shape?.failures.length === 0,
+        course: state.course !== null && !state.courseFault && unreferenced === 0 && shape?.failures.length === 0 && !state.returnStart?.refusal,
         nativeSteps: state.samples.length > 0, unreferencedSteps: unreferenced,
         clearance: state.samples.length > 0 && state.samples.every(one => one.clearance.pairs > 0),
         entryWindow: Boolean(fixtureReading?.admission?.standing && fixtureReading.placed && !fixtureReading.faults.includes("normalized entry was not reached")),
@@ -372,11 +396,12 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
         coverage: coverage.course && coverage.nativeSteps && coverage.clearance && coverage.entryWindow && coverage.fixtures && coverage.approach !== false && coverage.crossing !== false,
       };
       const failures = [...Object.entries(gates).filter(([, passed]) => passed === false).map(([gate]) => gate),
-        ...state.courseFault ? [state.courseFault] : [], ...fixtureReading?.faults ?? []];
+        ...state.courseFault ? [state.courseFault] : [], ...state.returnStart?.refusal ? [state.returnStart.refusal] : [], ...fixtureReading?.faults ?? []];
       return { ...fixtureReading ? { fixture: fixtureReading } : {}, effectiveness: { ...state.effectiveness }, limits: BONK_LIMITS, harness: { engine: world.physics.engine, hz: world.hz, commandDelay: world.delay / world.hz,
         decisionRate: (duel.recipe.minds?.left as { readonly rate?: number } | undefined)?.rate ?? null, observationDelay: senseDelayOf(duel.recipe) },
         coverage,
-        course: state.course, shape, courseFault: state.courseFault, admitted: state.entry?.time ?? null, committed: state.committed, physicalEnd: state.end,
+        course: state.course, returning: state.returnStart && state.returnSince !== null ? { since: state.returnSince, plan: state.returnStart } : null,
+        shape, courseFault: state.courseFault, admitted: state.entry?.time ?? null, committed: state.committed, physicalEnd: state.end,
         recovered: state.recovered, ownerEnded: state.ownerEnded, chamberHold: state.preparedHold, chamberAbove: state.chamberAbove, guardHold: state.guardHold, settledAtRelease: state.settledAtRelease,
         handovers: ownership.handovers,
         collision: { first: state.firstContact, last: state.lastContact, until, prolonged }, contact: state.hit, phases,

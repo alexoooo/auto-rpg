@@ -14,7 +14,7 @@ import { sensedActionTarget } from "../intent/action-aim.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, segmentResource, type ActionEnding, type ActionRequest, type Executor, type LifecycleUpdate, type TargetResolver } from "../framework/action.ts";
 import { handConfiguration } from "./held-strike.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
-import { BONK_LIMITS, bonkModel, validBonkTechnique, type BonkCourse, type BonkFrame, type BonkPath, type BonkPose, type BonkTechnique, type BonkTurn } from "./bonk-course.ts";
+import { BONK_LIMITS, bonkModel, validBonkTechnique, type BonkCourse, type BonkFrame, type BonkPath, type BonkPose, type BonkReturn, type BonkTechnique, type BonkTurn } from "./bonk-course.ts";
 
 /** Immutable body record: entry, tracking response and each hand's declared technique. */
 export interface BonkSettings {
@@ -67,7 +67,7 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
   const handOf = (effector: string) => hands.find(one => one?.effector === effector) ?? null;
   type Hand = NonNullable<ReturnType<typeof handOf>>;
   type Live = { request: ActionRequest; hand: "left" | "right"; phase: "prepare" | "commit" | "release";
-    course: BonkCourse; returning: readonly (readonly number[])[] | null; returnSince: number | null; frame: BonkFrame;
+    course: BonkCourse; returning: BonkReturn | null; returnSince: number | null; frame: BonkFrame;
     began: number; since: number; heldSince: number | null; lower: number; face: number;
     withdrawn: boolean; ending: ActionEnding; target: Vec3;
     previous: { relative: Relative; swell: Vec3 } | null;
@@ -83,8 +83,13 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
     club: xyzw(turnOfToRef(one.limb, q)), chest: xyzw(turnOfToRef(one.chest, q)), chestAt: xyz(pointOfToRef(one.chest, one.chest.frame.origin, p)),
     shaft: [0, 0, 0], joints: one.model.channels.map(row => row.map(name => view.angles[name]!)) });
   const elapsed = (now: number, since: number): number => (Math.round(now / body.dt) - Math.round(since / body.dt)) * body.dt;
+  const returnPlan = (live: Live, now: BonkPose): BonkReturn => {
+    const one = handOf(live.request.effector)!;
+    return one.model.returnPlan(live.course, now.joints, one.model.channels.map(row => row.map(name => body.muscles.rate(body.muscles.channel(name)))));
+  };
   const beginReturn = (live: Live, now: BonkPose, time: number, ending: ActionEnding) => {
-    live.phase = "release"; live.since = time; live.heldSince = null; live.returning ??= now.joints; live.returnSince ??= time; live.ending = ending;
+    live.phase = "release"; live.since = time; live.heldSince = null; live.returning ??= returnPlan(live, now); live.returnSince ??= time;
+    live.ending = live.returning.refusal ? { kind: "stalled", reason: live.returning.refusal } : ending;
     live.course = deepFreeze({ ...live.course, frame: frame() });
   };
   return {
@@ -153,7 +158,7 @@ export function bonkExecutor(body: Body, guard: Pose, actions: readonly string[]
         const end = one.model.pose(live.course, live.course.follow);
         const endpoint = near.progress === 1
           && distance(now.swell, end.swell) <= BONK_LIMITS.swellError && distance(now.hand, end.hand) <= BONK_LIMITS.handError;
-        if (live.stopped && live.returning === null) { live.returning = now.joints; live.returnSince = view.time; }
+        if (live.stopped && live.returning === null) { live.returning = returnPlan(live, now); live.returnSince = view.time; }
         // Predictive contact pairs can persist across a positive gap; physical release reads signed gaps.
         const withdrawal = live.stopped && previous && live.contact !== null
           && !body.built.physics.contactManifoldsOf(one.limb.body).some(manifold => manifold.points.some(point => point.distance <= 0))

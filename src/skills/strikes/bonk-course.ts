@@ -62,6 +62,16 @@ export interface BonkPose {
 /** Writable coordinates for the existing freedom-path tracker. */
 export type BonkPath = { angle: number; rate: number; acceleration: number };
 
+/** A causal return declaration: brake incoming rates, then move from rest to guard. */
+export type BonkReturn = {
+  readonly from: readonly (readonly number[])[];
+  readonly rates: readonly (readonly number[])[];
+  readonly stopped: readonly (readonly number[])[];
+  readonly brake: number;
+  readonly seconds: number;
+  readonly refusal: string | null;
+};
+
 /** Numerical construction settings: geometric target closure and samples checking joint representability. */
 const COURSE_SOLVER = Object.freeze({ target: .001, samples: 96 });
 const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
@@ -133,12 +143,24 @@ export function bonkModel(spec: BodySpec, effector: string) {
   }
   const strokeJoints = (course: BonkCourse, progress: number): number[][] =>
     rotated(course.contact, course.axis, course.technique.windup - (course.technique.windup + course.technique.follow) * Math.max(0, Math.min(1, progress)));
-  const sampler = (course: BonkCourse, phase: BonkPhase, time: number, returning?: readonly (readonly number[])[]): BonkPose => {
+  function returnPath(course: BonkCourse, returning: BonkReturn, j: number, k: number, time: number, out: [number, number, number]): void {
+    if (time >= returning.seconds) { out[0] = course.guard[j]![k]!; out[1] = 0; out[2] = 0; return; }
+    if (time <= 0 && returning.brake > 0) {
+      out[0] = returning.from[j]![k]!; out[1] = returning.rates[j]![k]!; out[2] = 0; return;
+    }
+    if (time === returning.brake) { out[0] = returning.stopped[j]![k]!; out[1] = 0; out[2] = 0; return; }
+    if (time < returning.brake) scalarPathToRef(returning.from[j]![k]!, returning.rates[j]![k]!, returning.stopped[j]![k]!, Math.max(0, time), returning.brake, out);
+    else scalarPathToRef(returning.stopped[j]![k]!, 0, course.guard[j]![k]!, Math.max(0, time - returning.brake), course.technique.returnSeconds, out);
+  }
+  const sampler = (course: BonkCourse, phase: BonkPhase, time: number, returning?: BonkReturn): BonkPose => {
     const seconds = phase === "prepare" ? course.technique.prepareSeconds : phase === "stroke" ? course.technique.strokeSeconds : course.technique.returnSeconds;
     scalarPathToRef(0, 0, 1, Math.max(0, time), seconds, scalar);
     const u = scalar[0];
-    const from = phase === "prepare" ? course.guard : returning ?? course.follow, to = phase === "prepare" ? course.chamber : course.guard;
-    return pose(course, phase === "stroke" ? strokeJoints(course, u) : from.map((one, j) => one.map((v, k) => v + (to[j]![k]! - v) * u)));
+    const from = phase === "prepare" ? course.guard : returning?.from ?? course.follow, to = phase === "prepare" ? course.chamber : course.guard;
+    return pose(course, phase === "stroke" ? strokeJoints(course, u) : from.map((one, j) => one.map((v, k) => {
+      if (phase === "return" && returning && returning.brake > 0) { returnPath(course, returning, j, k, time, scalar); return scalar[0]; }
+      return v + (to[j]![k]! - v) * u;
+    })));
   };
   function shape(course: BonkCourse): { readonly failures: readonly string[]; readonly chamberAbove: number; readonly descent: number; readonly sweep: number } {
     const chamber = pose(course, course.chamber), contact = pose(course, course.contact), end = pose(course, course.follow);
@@ -167,6 +189,16 @@ export function bonkModel(spec: BodySpec, effector: string) {
   return {
     channels: chain.map(joint => joint.dofs.map((_, k) => channelName(joint, k))),
     wrist,
+    /** Brake from the measured state in the unused recovery budget, then return from rest. */
+    returnPlan(course: BonkCourse, from: readonly (readonly number[])[], rates: readonly (readonly number[])[]): BonkReturn {
+      const moving = rates.some(row => row.some(rate => rate !== 0));
+      const brake = moving
+        ? Math.max(0, BONK_LIMITS.return - BONK_LIMITS.guardHold - course.technique.returnSeconds) : 0;
+      // This Hermite brake travels half its initial rate times its duration.
+      return deepFreeze({ from: copy(from), rates: copy(rates), brake, seconds: brake + course.technique.returnSeconds,
+        stopped: from.map((row, j) => row.map((angle, k) => angle + rates[j]![k]! * brake / 2)),
+        refusal: moving && brake === 0 ? "return duration leaves no time to brake incoming motion" : null });
+    },
     /** A course from declared posture and observed entry frame and aim, never from a fitted trajectory. */
     make(frame: BonkFrame, guard: Pose, target: Vec3, technique: BonkTechnique): BonkCourse | Refused {
       if (!validBonkTechnique(technique)) return { refused: "invalid bonk technique" };
@@ -199,15 +231,18 @@ export function bonkModel(spec: BodySpec, effector: string) {
       return checked.failures.length ? { refused: checked.failures.join("; ") } : course;
     },
     /** Fill native angle, rate and acceleration coordinates without resampling an observed trajectory. */
-    paths(course: BonkCourse, phase: BonkPhase, time: number, out: readonly (readonly BonkPath[])[], returning?: readonly (readonly number[])[]): void {
+    paths(course: BonkCourse, phase: BonkPhase, time: number, out: readonly (readonly BonkPath[])[], returning?: BonkReturn): void {
       const seconds = phase === "prepare" ? course.technique.prepareSeconds : phase === "stroke" ? course.technique.strokeSeconds : course.technique.returnSeconds;
       scalarPathToRef(0, 0, 1, Math.max(0, time), seconds, scalar);
       const [u, rate, acceleration] = scalar;
-      const from = phase === "prepare" ? course.guard : returning ?? course.follow, to = phase === "prepare" ? course.chamber : course.guard;
+      const from = phase === "prepare" ? course.guard : returning?.from ?? course.follow, to = phase === "prepare" ? course.chamber : course.guard;
       for (let j = 0; j < chain.length; j++) for (let k = 0; k < chain[j]!.dofs.length; k++) {
         const path = out[j]![k]!;
         if (phase === "stroke") { path.angle = course.contact[j]![k]!; path.rate = 0; path.acceleration = 0; }
-        else {
+        else if (phase === "return" && returning && returning.brake > 0) {
+          returnPath(course, returning, j, k, time, scalar);
+          path.angle = scalar[0]; path.rate = scalar[1]; path.acceleration = scalar[2];
+        } else {
           const delta = to[j]![k]! - from[j]![k]!;
           path.angle = from[j]![k]! + delta * u; path.rate = delta * rate; path.acceleration = delta * acceleration;
         }

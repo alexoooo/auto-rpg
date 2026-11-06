@@ -22,10 +22,16 @@ chamber height, descending contact tangent, shaft sweep, contact closure and joi
 A single rotation below a half turn makes the stroke simple and prevents a repeated windup.
 
 Preparation interpolates the guard's joint angles to the chamber's. Withdrawal and return
-interpolate measured joint angles toward the configured guard; their hand and club courses follow the chest.
-Each coordinate uses a quintic course with zero endpoint velocity and acceleration. The stroke
-uses that same progress law for its rotation. Preparation can update its observed target;
+start from measured joint angles and rates; their hand and club courses follow the chest.
+The return first brakes the incoming rates monotonically to rest, then moves from its declared
+stopping angles to the configured guard. Braking uses the recovery budget remaining after the
+technique's guard-return duration and required hold. Its Hermite course travels half the initial
+rate times that braking duration, with zero endpoint accelerations. The guard segment and
+preparation use quintic courses at rest at both ends. The stroke uses that same progress law
+for its rotation. Preparation can update its observed target;
 commitment freezes the stroke's frame and geometry.
+A moving return with no braking budget reports a refusal. Its guard command retains ownership
+through recovery with a failed outcome, and its declared course fails coverage.
 
 `BonkModel.paths` supplies joint angle, rate and acceleration to freedom tracking. Its stroke
 derivatives follow the joint's quaternion angle convention analytically; its preparation and
@@ -58,8 +64,16 @@ backward travel; the course stays fixed through a miss.
 
 The reader compares club and chest orientations by shortest quaternion distance and sums
 their angular increments for travel. Each wrist channel's signed increments are unwrapped.
-Preparation and return use their declared joint direction; the stroke asks a stationary wrist,
-so its wrist travel counts against the reversal allowance.
+Preparation uses its declared joint direction; the stroke asks a stationary wrist, so its wrist
+travel counts against the reversal allowance. The bonk's published reference declares its braking
+return. The reader constructs that return from physical angles and rates at its start and keeps
+its stopping angles and stage times fixed. It counts each native increment against the declared
+braking, guard-return or hold direction, splitting increments at those predetermined boundaries.
+Reversal errors accumulate across all return stages under the single return allowance.
+The reference-only club protocols use a return starting at rest.
+Cancellation's recovery deadline starts at its request. Preparation control includes the command
+latency before the declared return handover; that handover identifies the return reference's
+start and does not establish physical recovery.
 Return control accounting ends once both physical recovery and ownership release are verified.
 The following safety observation retains all native samples.
 
