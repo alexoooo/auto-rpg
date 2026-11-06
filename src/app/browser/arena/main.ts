@@ -126,7 +126,7 @@ interface Bout {
   readonly link: WorldLink<DuelCard>;
   readonly recipe: DuelRecipe;
   readonly specs: Readonly<Record<Side, BodySpec>>;
-  readonly person: Side | null;
+  person: Side | null;
   news: DuelNews | null;
 }
 
@@ -163,8 +163,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   /** The reel's trial under way, if the bout plays one: it then takes no orders from a person. */
   let trial: Trial | null = null;
   const youPicker = need<HTMLSelectElement>("you");
+  const controlField = youPicker.closest<HTMLElement>("label")!;
   youPicker.value = you ?? "";
-  youPicker.addEventListener("change", () => { for (const side of SIDES) renameControl[side]?.(); });
   const controlPickers = {} as Record<Side, HTMLSelectElement>, loadoutPickers = {} as Record<Side, Record<Side, HTMLSelectElement>>;
   // Each side's mind as its panel shows it (`mindEditor`).
   const mindOf = {} as Record<Side, () => MindConfig>, mindFaultsOf = {} as Record<Side, () => readonly string[]>;
@@ -469,6 +469,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     column.append(label, bar, condition.element, status, choices.element, mind); hud.append(column);
     return { side, label, bar, status, mind, condition, choices, inspector: null as ReturnType<typeof mindInspector> | null };
   });
+  const showControl = () => {
+    choiceLabel.hidden = bout?.person == null;
+    for (const row of rows) row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === bout?.person ? " (you)" : ""}`;
+  };
   const clockColumn = document.createElement("div"), clock = document.createElement("span"), pauseButton = document.createElement("button");
   const meter = frameMeter(engine, context.signal);
   clockColumn.className = "hud-col hud-clock";
@@ -482,10 +486,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   choiceLabel.className = "hud-choice-setting"; choiceLabel.append(choiceBox, " Pause on choice"); choiceLabel.hidden = true;
   choosingLine.className = "hud-choosing"; choosingLine.hidden = true;
   choosingLine.append(Object.assign(document.createElement("span"), { textContent: "A new choice: pick one under your side, or go on (Space)" }), goOn);
-  for (const control of [choiceLabel, goOn]) for (const type of ["pointerdown", "pointermove"]) control.addEventListener(type, event => event.stopPropagation());
+  for (const control of [controlField, choiceLabel, goOn]) for (const type of ["pointerdown", "pointermove"]) control.addEventListener(type, event => event.stopPropagation());
   choiceBox.addEventListener("change", () => { choiceBox.blur(); pauseOnChoice = choiceBox.checked; bout?.link.input({ kind: "hold", hold: pauseOnChoice }); });
   goOn.addEventListener("click", () => { goOn.blur(); setPaused(false); });
-  clockColumn.append(clock, pauseButton, choiceLabel, choosingLine, viewPanel, meter.element); hud.insertBefore(clockColumn, rows[1].label.parentElement);
+  clockColumn.append(clock, controlField, pauseButton, choiceLabel, choosingLine, viewPanel, meter.element); hud.insertBefore(clockColumn, rows[1].label.parentElement);
   // A reel's trial: which, its conditions and recorded outcome, auto-play and the next trial.
   const reelLine = document.createElement("div"), trialText = document.createElement("span");
   const autoBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: auto });
@@ -624,9 +628,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           subjects = { left: subjects.left, right: { get position() { return at.copyFrom(target.centre).addInPlaceFromFloats(BESIDE, 0, 0); }, get rotation() { return own.rotation; }, rest: own.rest } };
         }
         rig.reset(); applyView();
-        choiceLabel.hidden = person === null;
+        controlField.hidden = given !== null;
+        showControl();
         for (const row of rows) {
-          row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === person ? " (you)" : ""}`;
           const config = recipe.minds?.[row.side] ?? defaultMind(recipe[row.side]);
           row.condition.bind(specs[row.side]);
           row.inspector = mindInspector(config, specs[row.side], () => bout === current ? current.news?.sides[row.side].inspected ?? null : null);
@@ -696,6 +700,28 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const walkKeys: Readonly<Record<string, keyof typeof keys>> = {
     w: "up", arrowup: "up", s: "down", arrowdown: "down", a: "left", arrowleft: "left", d: "right", arrowright: "right",
   };
+  const releaseInput = () => {
+    keys.up = keys.down = keys.left = keys.right = false;
+    walking = false; attacking = false; pointer = null; press = null;
+    leadSent = "";
+  };
+  youPicker.addEventListener("change", () => {
+    youPicker.blur();
+    if (!bout || trial) return;
+    const next = youPicker.value === "left" || youPicker.value === "right" ? youPicker.value : null;
+    if (next === bout.person) return;
+    releaseInput();
+    you = next; bout.person = next;
+    bout.link.input({ kind: "control", side: next });
+    showControl();
+    for (const row of rows) {
+      row.choices.reset();
+      renameControl[row.side]?.();
+    }
+    context.replace(youSearch(location.search, you) + location.hash);
+    setPaused(paused);
+    readout();
+  });
   /** Whether `event` was a walking key, now held or let go. */
   const walkKey = (event: KeyboardEvent, held: boolean): boolean => {
     const key = walkKeys[event.key.toLowerCase()];
@@ -715,9 +741,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   window.addEventListener("keyup", (event) => { if (event.key === "Shift") walking = false; walkKey(event, false); }, { signal: context.signal });
   // Losing focus pauses the bout, and lets go of every key and button: their releases are not heard.
   window.addEventListener("blur", () => {
-    keys.up = keys.down = keys.left = keys.right = false;
-    walking = false;
-    attacking = false;
+    releaseInput();
     if (bout && !bout.news?.verdict) setPaused(true);
   }, { signal: context.signal });
   // The left button is a level, read from every pointer event, since a release is not guaranteed.

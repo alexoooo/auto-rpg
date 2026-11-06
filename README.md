@@ -10,7 +10,7 @@ each controlled by an AI; there are no animations, only physics.
 
 | Screen | What it is |
 | --- | --- |
-| **Arena** | two fighters in a bout; watch, or take a side |
+| **Arena** | two fighters in a bout; watch, or switch control between them |
 | **Dungeon** | lead a party through a crypt |
 | **Lab** | one body put through its skills |
 | **Ratings** | how well each AI and skill does |

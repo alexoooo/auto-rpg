@@ -70,6 +70,8 @@ export interface LeadInput {
 
 /** What a page tells a duel's stage as it runs: each is applied before the next step. */
 export type DuelInput =
+  /** Hand live control to a side, or return both fighters to their minds. */
+  | { readonly kind: "control"; readonly side: Side | null }
   /** The person's lead, read before every step until the next; null for none. */
   | { readonly kind: "lead"; readonly lead: LeadInput | null }
   /** A click: the person's side goes where `ray` meets the floor, unless it meets a body part first. */
@@ -170,7 +172,9 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   const trace = scope.own(start.traced ? trialTrace(duel) : null), besideTrace = scope.own(start.traced && other ? trialTrace(other.duel) : null);
   duel.play(start.tape);
   if (other && beside) other.duel.play(beside.tape);
-  const led: TeamOfOne | null = scope.own(start.person ? teamOfOne(duel, start.person, { kind: "party", picks: false }, context.commanders) : null);
+  const leadSide = (side: Side | null): TeamOfOne | null => side ? teamOfOne(duel, side, { kind: "party", picks: false }, context.commanders) : null;
+  let led = leadSide(start.person);
+  scope.own({ dispose: () => led?.dispose() });
   const readings = Object.fromEntries(SIDES.map((side) => [side, fighterReading(duel.duelists[side], () => duel.blows, phaseLabels(duel.duelists[side].mind))])) as Record<Side, ReturnType<typeof fighterReading>>;
   const time = () => duel.state.start + (duel.verdict?.time ?? duel.clock);
   let feedStopped = false;
@@ -186,12 +190,12 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   const { length } = frameLayout(roster);
   const looks = Object.fromEntries(SIDES.map((side) => [side, { menu: false, mind: false }])) as Record<Side, { menu: boolean; mind: boolean }>;
   const watch = choiceWatch();
-  let lead: DuelInput & { kind: "lead" } | null = null, hold = start.hold, choosing = false, taken = 0;
+  const state = { person: start.person, lead: null as LeadInput | null, hold: start.hold, choosing: false, taken: 0 };
 
   /** The person's lead as the team reads it, from their input and the world as it stands. */
   const leading = () => {
-    if (!led || !start.person) return;
-    const input = lead?.lead ?? null, own = duel.duelists[start.person];
+    if (!led || !state.person) return;
+    const input = state.lead, own = duel.duelists[state.person];
     if (!input) { led.lead = null; return; }
     const point = input.ray ? aimPoint(input.ray.origin, input.ray.direction, own.body.physical.centre.y) : null;
     const strike = input.attacking && input.ray ? rayTarget(own.senses(), input.ray.origin, input.ray.direction, input.ray.length) : null;
@@ -199,8 +203,8 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   };
   /** Whether the person's side has a new choice to hold for. */
   const chose = (): boolean => {
-    if (!hold || !led || !start.person || duel.verdict) return false;
-    const own = duel.duelists[start.person], report = own.minded.report, menu = report?.menu;
+    if (!state.hold || !led || !state.person || duel.verdict) return false;
+    const own = duel.duelists[state.person], report = own.minded.report, menu = report?.menu;
     return !!menu && watch.changed(menu, report!.ended ?? [], own.body.down, duel.clock);
   };
   const sideNews = (side: Side): SideNews => {
@@ -223,28 +227,36 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
       if (!mainDone()) {
         leading();
         world.step();
-        choosing = chose();
+        state.choosing = chose();
       }
       if (other && !besideDone()) other.world.step();
-      taken += 1;
+      state.taken += 1;
     },
-    frame: () => packFrame(bodies, length, taken / world.hz, taken),
+    frame: () => packFrame(bodies, length, state.taken / world.hz, state.taken),
     news() {
       const air = airs.map(({ side, air }) => { const speed = air(airAt); return { side, speed, at: [airAt.x, airAt.y, airAt.z] as Vec3 }; });
-      const news: DuelNews = { clock: duel.clock, start: duel.state.start, verdict: duel.verdict, done: mainDone() && besideDone(), choosing,
+      const news: DuelNews = { clock: duel.clock, start: duel.state.start, verdict: duel.verdict, done: mainDone() && besideDone(), choosing: state.choosing,
         sides: { left: sideNews("left"), right: sideNews("right") }, cues: cues.splice(0), air,
         trace: trace?.take() ?? null, besideTrace: besideTrace?.take() ?? null };
-      const held = choosing;
-      choosing = false;
+      const held = state.choosing;
+      state.choosing = false;
       return { ...duel.verdict ? { verdict: duel.verdict } : {}, ...held ? { held } : {}, duel: news };
     },
     over: () => mainDone() && besideDone(),
     input(input) {
       switch (input.kind) {
-        case "lead": lead = input; return;
+        case "control":
+          if (input.side === state.person) return;
+          led?.dispose(); led = null;
+          if (state.person) duel.order(state.person, null);
+          state.person = input.side;
+          state.lead = null; state.choosing = false; watch.reset();
+          led = leadSide(state.person);
+          return;
+        case "lead": state.lead = input.lead; return;
         case "go": {
-          if (!led || !start.person) return;
-          const own = duel.duelists[start.person], { origin, direction, length: reach } = input.ray;
+          if (!led || !state.person) return;
+          const own = duel.duelists[state.person], { origin, direction, length: reach } = input.ray;
           const floor = aimPoint(origin, direction, 0);
           if (floor && !rayTarget(own.senses(), origin, direction, reach)) led.hear({ kind: "go", destination: { x: floor[0], z: floor[2] } });
           return;
@@ -255,7 +267,7 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
           watch.picked(input.among);
           return;
         case "look": looks[input.side] = { menu: input.menu, mind: input.mind }; return;
-        case "hold": hold = input.hold; watch.reset(); return;
+        case "hold": state.hold = input.hold; watch.reset(); return;
         default: { const never: never = input; throw new Error(`unknown input ${JSON.stringify(never)}`); }
       }
     },

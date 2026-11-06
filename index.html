@@ -61,7 +61,16 @@
     <template id="arena-screen">
       <canvas id="stage" tabindex="0" aria-label="Arena game"></canvas>
       <!-- Each side's name and bar, and the bout's clock; filled by src/app/browser/arena/main.ts. -->
-      <div id="hud"></div>
+      <div id="hud">
+        <label class="field arena-control">
+          <span class="field-name">Control</span>
+          <select id="you">
+            <option value="">Spectator</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+        </label>
+      </div>
       <details id="arena-view" hidden aria-label="View controls">
         <summary>View</summary>
         <div id="arena-view-controls"></div>
@@ -77,15 +86,6 @@
         <!-- Filled by src/app/browser/arena/main.ts from the core's models, so an option that is offered is
              one the core has. Its children are laid straight into this grid. -->
         <div id="matchup"></div>
-        <!-- The side the person fights; nobody, and both sides fight for themselves. -->
-        <label class="field you">
-          <span class="field-name">Play as</span>
-          <select id="you">
-            <option value="">Spectator</option>
-            <option value="left">Left</option>
-            <option value="right">Right</option>
-          </select>
-        </label>
         <button id="begin" data-initial-focus class="action" type="button" disabled>Fight</button>
         <footer class="duel-footer">
           <button id="help-open" class="link" type="button">How to play</button>
@@ -125,6 +125,7 @@
         <div class="panel">
           <h1>Controls</h1>
           <dl class="keys">
+            <dt>Control</dt><dd>Watch or lead either fighter; switch during the fight or while paused</dd>
             <dt>W A S D, or the arrows</dt><dd>Move relative to camera</dd>
             <dt>Shift, with a move</dt><dd>Walk, not run</dd>
             <dt>Pointer</dt><dd>Face cursor</dd>
