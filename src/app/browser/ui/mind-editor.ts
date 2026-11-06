@@ -1,6 +1,8 @@
+import { optionApplies } from "../../../minds/option/parts.ts";
+import { describeMind } from "../../../minds/description.ts";
 import { editorRow as row, editorPicker as picker, editorButton as button, partFieldInput as fieldInput } from "./editor-inputs.ts";
 import { techniqueEditor } from "./mind-ground.ts";
-import { isKind, kindsFor, partOf, unusedParts, type EntryRule } from "../../catalog.ts";
+import { GAME, isKind, kindsFor, partOf, partLookup, treeFaults, type EntryRule } from "../../catalog.ts";
 import type { MindConfig } from "../../../minds/config.ts";
 import { partOffered, slotsOf, type Part, type PartConfig, type Slot } from "../../../parts/parts.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
@@ -20,7 +22,7 @@ interface MindEditor {
 }
 
 interface EditorOptions {
-  /** The body the mind is for: a part that does not fit it is offered disabled, with the reason. */
+  /** The body the mind is for: Options use the skills this body can build; other incompatible parts show their refusal. */
   readonly spec: BodySpec;
   /** What the screen's scenario asks of a mind beyond fitting the body (`EntryRule`): a mind that does not meet it has that fault. Nothing unless given. */
   readonly entry?: readonly EntryRule[];
@@ -38,14 +40,15 @@ const named = (part: Part): string => part.stage === "experimental" ? `${part.la
 /**
  * **A mind's editor** for a body of `spec`: each part's settings, its research `tuning` read-only,
  * and each slot's part chosen from its role (`kindsFor`), omitting parts the screen cannot supply
- * and disabling those that do not fit the body; a list slot's parts added, moved up and removed. Every change
+ * and Options whose skills the body cannot build; other incompatible parts are disabled. List slots
+ * support adding, reordering and removing parts. Every change
  * draws the tree again.
  */
 export function mindEditor(config: MindConfig, { spec: body, entry = [], onChange, readOnly = false, onFault }: EditorOptions): MindEditor {
-  const element = document.createElement("div"), tree = document.createElement("div"), fault = document.createElement("p"), unused = document.createElement("p");
-  element.className = "mind-editor"; fault.className = "settings-fault"; unused.className = "settings-note";
-  element.append(tree, unused, fault);
-  let current = config, spec = body;
+  const element = document.createElement("div"), tree = document.createElement("div"), fault = document.createElement("p");
+  element.className = "mind-editor"; fault.className = "settings-fault";
+  element.append(tree, fault);
+  let current = config, spec = body, legs: PartConfig | null = null;
   const expanded = new Set<string>();
   const faultsOf = (config: MindConfig): readonly string[] => mindFaults(config, spec, { entry });
   const change = (next: PartConfig) => { draw(next as MindConfig); onChange?.(current); };
@@ -53,11 +56,19 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
   const same = (a: PartConfig | null | undefined, b: PartConfig | undefined): boolean =>
     a != null && b !== undefined && recordingKey(a) === recordingKey(b);
   const defaultFallback = (slot: Slot): boolean => slot.fallback !== undefined && same(slot.fallback, partOf(slot.fallback).defaults);
-  /** Parts the screen supplies, with incompatible bodies explained by disabled choices. */
-  const choices = (slot: Slot, child?: PartConfig | null) => [
+  /** Options with no admitted skills stay in the configuration while their body or equipment changes. */
+  const usable = (slot: Slot, config: PartConfig, siblings: readonly PartConfig[]): boolean => {
+    // Invalid configurations remain editable so their faults can be corrected.
+    if (slot.role !== "option" || !isKind(config.kind) || treeFaults(config).length > 0) return true;
+    return optionApplies(config, { spec, parts: partLookup, options: siblings, legs });
+  };
+
+  /** Parts the screen supplies; Option choices use the same skill admission as their selected rows. */
+  const choices = (slot: Slot, child?: PartConfig | null, siblings: readonly PartConfig[] = []) => [
     ...(slot.optional && !slot.many ? [{ value: "", text: slot.fallback ? `Default: ${partOf(slot.fallback).label}` : "None", disabled: false }] : []),
     ...kindsFor(slot.role, spec, current)
       .filter(({ kind, part }) => partOffered(part) || child?.kind === kind)
+      .filter(({ kind, part, reason }) => slot.role !== "option" || kind === child?.kind || reason === null && usable(slot, part.defaults, siblings))
       .filter(({ kind }) => !defaultFallback(slot) || kind !== slot.fallback!.kind || child?.kind === kind && !same(child, slot.fallback))
       .map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
   ];
@@ -132,19 +143,21 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
     const heading = document.createElement("span");
     heading.className = "mind-slot-name"; heading.textContent = slot.label;
     holder.append(heading);
-    list.forEach((child, i) => {
+    const shown = list.map((child, i) => ({ child, i })).filter(({ child }) => usable(slot, child, list));
+    shown.forEach(({ child, i }, position) => {
+      const previous = shown[position - 1]?.i;
       const item = document.createElement("div"), line = document.createElement("div");
       item.className = "mind-item"; line.className = "mind-item-line";
       const replace = (next: PartConfig) => set(list.map((other, j) => j === i ? next : other));
       const childPath = [...path, slot.key, i], detail = settings(child, drawPart(child, replace, childPath), childPath, isKind(child.kind) ? partOf(child).label : slot.label);
-      line.append(detail.toggle, picker(choices(slot, child), child.kind, (kind) => replace(defaultsOf(kind)), readOnly),
-        button("↑", `Move ${slot.label.toLowerCase()} ${i + 1} up`, () => set(list.map((other, j) => j === i - 1 ? child : j === i ? list[i - 1]! : other)), readOnly || i === 0),
-        button("✕", `Remove ${slot.label.toLowerCase()} ${i + 1}`, () => set(list.filter((_, j) => j !== i)), readOnly));
+      line.append(detail.toggle, picker(choices(slot, child, list), child.kind, (kind) => replace(defaultsOf(kind)), readOnly),
+        button("↑", `Move ${slot.label.toLowerCase()} ${position + 1} up`, () => set(list.map((other, j) => j === previous ? child : j === i ? list[previous!]! : other)), readOnly || previous === undefined),
+        button("✕", `Remove ${slot.label.toLowerCase()} ${position + 1}`, () => set(list.filter((_, j) => j !== i)), readOnly));
       item.append(line, detail.panel);
       holder.append(item);
     });
     if (!readOnly) {
-      const add = picker([{ value: "", text: "Add…" }, ...choices(slot)], "", (kind) => { if (kind) set([...list, defaultsOf(kind)]); }, readOnly);
+      const add = picker([{ value: "", text: "Add…" }, ...choices(slot, null, list)], "", (kind) => { if (kind) set([...list, defaultsOf(kind)]); }, readOnly);
       add.setAttribute("aria-label", `Add to ${slot.label.toLowerCase()}`);
       holder.append(add);
     }
@@ -153,12 +166,9 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
 
   const draw = (config: MindConfig) => {
     current = config;
-    tree.replaceChildren(drawPart(config, change));
-    // The skills it holds that this body cannot use: left out on it, not faults (`unusedParts`).
-    const left = unusedParts(spec, config);
-    unused.hidden = left.length === 0;
-    unused.textContent = left.length ? `Not used on this body: ${left.join("; ")}` : "";
     const faults = faultsOf(config);
+    legs = faults.length ? null : describeMind(GAME, spec, config)?.components.find(part => part.role === "locomotion")?.config ?? null;
+    tree.replaceChildren(drawPart(config, change));
     fault.hidden = faults.length === 0;
     fault.textContent = faults.length ? `${faults.join("; ")}${onFault ? `: ${onFault}` : ""}` : "";
   };

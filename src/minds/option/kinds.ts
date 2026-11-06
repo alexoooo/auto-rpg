@@ -1,7 +1,7 @@
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import type { Region } from "../../skills/framework/action.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-import type { OptionPart } from "./parts.ts";
+import { optionApplies, type OptionBody, type OptionPart } from "./parts.ts";
 import { choice, json } from "../../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
 import { GAIT_CHOICES } from "../../skills/locomotion/move-rule-part.ts";
@@ -229,6 +229,7 @@ export const WALK_OPTION: ProfileOptionPart<WalkConfig> = deepFreeze({
   role: "option", model: PROFILE_MODEL, label: "Walk to a site", stage: "game", fields: [choice<WalkConfig, "gait">("gait", "Gait", GAIT_CHOICES)],
   slots: [slotOne("navigation", "Navigation", "navigation", true)], defaults: { kind: "walk", gait: "braced" },
   keys: { kind: true, gait: true, navigation: true }, fits: anyBody, faults: () => [],
+  applicable: (config: WalkConfig, { parts, legs }) => legs === null || gaitsOf(parts, legs).some(gait => gait.name === config.gait),
   skills: (config: WalkConfig) => config.navigation ? { navigation: config.navigation } : {},
   make: (config: WalkConfig, given: ProfileOptionContext) => gaitsOf(given.parts, given.legs).filter((gait) => gait.name === config.gait).map((gait) => walkBy(gait, given.sites, given.walk)),
 });
@@ -249,13 +250,15 @@ export const HOLD_AT_OPTION: ProfileOptionPart<PlaceConfig> = deepFreeze({
 });
 
 /** **The cover** of the head by the hand on the side a blow closes from (`covers`). */
-export const COVER_OPTION = kind("covers", "Cover", (given) => covers(given.spec));
+export const COVER_OPTION = deepFreeze({ ...kind("covers", "Cover", (given) => covers(given.spec)),
+  applicable: (_config: { readonly kind: "covers" }, { spec }: OptionBody) => covers(spec).length > 0 });
 
 /** **Hold the position** (`hold`), a rest option. */
 export const HOLD_OPTION = kind("hold-position", "Hold the position", (given) => [hold(given.walk)]);
 
 /** **The hands at their guard** (`guard`), a rest option over the body's hands, none for a body without. */
-export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at guard", (given) => guardOf(given.spec)), phases: { guard: "Guarding" } });
+export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at guard", (given) => guardOf(given.spec)), phases: { guard: "Guarding" },
+  applicable: (_config: { readonly kind: "hands-at-guard" }, { spec }: OptionBody) => guardOf(spec).length > 0 });
 
 /**
  * The options `configs` name, each kind's as `of` finds it, made from `given`, in their order; then
@@ -263,7 +266,8 @@ export const GUARD_OPTION = deepFreeze({ ...kind("hands-at-guard", "Hands at gua
  */
 export function optionsOf(of: (config: PartConfig) => ProfileOptionPart, configs: readonly PartConfig[], given: Omit<ProfileOptionContext, "sites" | "options">): readonly Option[] {
   const all: Site[] = [], names: string[] = [], made: Option[] = [];
-  for (const config of configs) made.push(...of(config).make(config, { ...given, options: configs, sites: { all, names } }));
+  const body = { ...given, options: configs, sites: { all, names } };
+  for (const config of configs) if (optionApplies(config, body)) made.push(...of(config).make(config, body));
   for (const option of made) for (const site of option.sites ?? []) {
     if (names.includes(site.name)) throw new Error(`two sites are named ${site.name}`);
     all.push(site); names.push(site.name);

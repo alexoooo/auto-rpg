@@ -35,7 +35,7 @@ export interface Slot {
   readonly fallback?: PartConfig;
   /**
    * A skill (`slotSkill`): a part in it that a body cannot use (`Part.fits`) is left out on that
-   * body (`Catalog.unusedParts`), and what holds it with it, not a refusal of the part holding it.
+   * body, and what holds it with it, not a refusal of the part holding it.
    */
   readonly skills?: boolean;
 }

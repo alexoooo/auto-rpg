@@ -18,6 +18,15 @@ export interface ChooserPart<C extends PartConfig = PartConfig, O = unknown, M =
   make(config: C, options: readonly O[], seed: number, parts: PartLookup, phase?: number): M;
 }
 
+/** Static capabilities used when deciding whether a configured Option builds any behavior. */
+export interface OptionBody {
+  readonly spec: BodySpec;
+  readonly parts: PartLookup;
+  readonly options: readonly PartConfig[];
+  /** The selected locomotion part, or null when the controller does not publish it. */
+  readonly legs: PartConfig | null;
+}
+
 /**
  * **A kind of option**: a part of role `option` that owns its config's keys and faults, and makes
  * the options of its kind a mind decides among from what that mind gives it (`G`). What an option
@@ -28,10 +37,19 @@ export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = 
   readonly role: "option";
   /** Constructor input protocol supplied by the selected prediction model. */
   readonly model: string;
+  /** Whether this Option applies to the body and its selected continuous services. */
+  applicable?(config: C, body: OptionBody): boolean;
   skills?(config: C, spec: BodySpec, parts: PartLookup, options: readonly PartConfig[]): NamedSkills | null;
   readonly keys: KeysOf<C>;
   /** The options a config of it makes, from what the mind gives (`given`), in their rank order. */
   make(config: C, given: G): readonly O[];
+}
+
+/** Construction and editors use the same static Option admission, independent of a fight's state. */
+export function optionApplies(config: PartConfig, body: OptionBody): boolean {
+  const { spec, parts, options } = body, part = parts.of("option", config);
+  return part.fits(spec, config, parts) === null && part.skills?.(config, spec, parts, options) !== null
+    && (part.applicable?.(config, body) ?? true);
 }
 
 /**

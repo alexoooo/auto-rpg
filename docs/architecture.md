@@ -216,7 +216,7 @@ arbiter releases every action when another mind takes the body.
   the body's declared bearing chains independently of optional effector actuators.
 - **Parts.** Each kind is a line of its role's list (`EXECUTORS`, `GUARDS` and the like), its
   module owning its config's keys, defaults, faults, fit and maker. A body builds only the skills
-  it fits (`Slot.skills`), naming the rest (`unusedParts`). What lies under every skill (the motor,
+  it fits (`Slot.skills`). What lies under every skill (the motor,
   the legs, the guard) is the one game part of its role that fits the body (`PartLookup.fitting`,
   `filledOf`); two fitting is a fault of the build, and an experiment passes another in
   (`OptionMindConfig.tuning`).
@@ -407,8 +407,10 @@ The profile model supplies these components:
   (`skill`), its limbs by role (`LimbRole`: either hand, a free hand, the holding hand, either foot,
   the jaw), its regions, its aim and its low support; a way up or a mode of the ground its
   technique; a walk its gait and its navigation. A body builds the skills its Options name that it
-  fits (`skillsOf`), an Option whose skill it does not fit is not on offer, and no config names a
-  body's limb (`limbsOf`).
+  fits (`skillsOf`). Construction and editing share static applicability (`optionApplies`):
+  admitted skills, the selected locomotion's gaits and each Option's declared capability check.
+  The editor retains inactive entries in the configuration when the body or equipment changes.
+  A config names a limb's role (`limbsOf`).
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
   `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-cut`,
   `strike-sword-thrust`, `strike-stomp`, `strike-jaw-bite`), a strike (`strike`) of the action it asks of its

@@ -303,6 +303,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       if (fromLink && !listed.includes(previous) && Object.hasOwn(MINDS, previous)) listed.push(previous);
       fromLink = false;
       control.replaceChildren(...listed.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
+      controller.hidden = listed.length < 2;
       const fallback = defaultControl(model, holds);
       const preferred = listed.includes(fallback) ? fallback : listed[0]!;
       control.value = listed.includes(previous) ? previous : preferred;
