@@ -81,6 +81,12 @@ cannot expose this startup failure.
 
 ## Evaluation integrity
 
+[evaluation/travel.test.mjs](evaluation/travel.test.mjs) replays contact inputs on a real body's read geometry without playing a gait.
+
+| Case | Concrete justification |
+| --- | --- |
+| `travel reads attached toe support for entry, stepping and quiet standing` | The travel reader misses physical toe-only support, losing entry, first-leg coverage and quiet standing. Replay the observed contact topology through the whole reading and exclude detached toes; a gait drill cannot isolate reader arithmetic from controller behaviour. |
+
 [evaluation/swap.test.mjs](evaluation/swap.test.mjs) constructs schedules and resolves subjects without playing them.
 The calibration fixture supplies an independently scoped entrant. These checks protect the
 measurement system itself; a result computed on the wrong cases cannot validate its own scope.

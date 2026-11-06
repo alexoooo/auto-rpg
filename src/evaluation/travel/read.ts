@@ -5,6 +5,7 @@ import { Vector3, Quaternion } from "../../core/math/vector.ts";
 import { massCentreToRef, massOf } from "../../core/bodies/read-motion.ts";
 import { rootSegment } from "../../core/bodies/read-body.ts";
 import { uprightness } from "../../control/ground.ts";
+import { footStatesOf, groundContact } from "../../control/support.ts";
 import { atan2, sin, cos } from "../../core/math/real.ts";
 import { TRAVEL, travelScript, travelTurns, type TravelCondition } from "./protocol.ts";
 
@@ -22,10 +23,12 @@ export function readTravel({ world, body }: BuiltLone, c: TravelCondition): Read
   const parts = [...body.built.segments.values()], mass = massOf(parts), root = rootSegment(body.built), upright = uprightness(body.built);
   const centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), turn = new Quaternion(), inverse = Quaternion.Inverse(root.rest);
   const samples: Sample[] = [], absent = { left: 0, right: 0 };
+  const feet = footStatesOf(body.built);
   let steps = 0, next = 0, direction = { x: sin(p.initial), z: cos(p.initial) }, projected = 0;
   let fellAt: number | null = null, firstLeg: TravelReading["firstLeg"] = null;
-  const contacts = (side: "left" | "right") => body.built.physics.contactsOf(body.built.segments.get(`foot.${side}`)!.body)
-    .some(contact => contact.other === null && contact.normal[1] < -.5 && contact.impulse > 0);
+  const contacts = (side: "left" | "right") => feet.find(foot => foot.side === side)!.contactParts.some(part =>
+    part.chain.every(joint => joint.attached())
+    && body.built.physics.contactsOf(body.built.segments.get(part.segment.spec.name)!.body).some(contact => groundContact(contact, .5)));
   return {
     afterStep() {
       const before = steps++;
