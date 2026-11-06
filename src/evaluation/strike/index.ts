@@ -23,7 +23,7 @@ import { type GameContext } from "../../game/arena/context.ts";
 
 /** Where a trial was thrown: the still rung's offset and gap (and its target, and how it moves, where it names them), or a fight's foe and moment. */
 const whereOf = (condition: StrikeCondition) => "foe" in condition ? `${condition.foe}, moment ${condition.moment}`
-  : `${condition.target ? `${condition.target}, ` : ""}${condition.direction ? `moving ${condition.direction} at ${condition.speed} m/s, ` : ""}${condition.approach ? `moving ${condition.approach.way} degrees off the line at ${condition.approach.speed} m/s for ${condition.approach.seconds} s, ` : ""}across ${condition.across} m, gap ${condition.gap} m${condition.start ? `, ${condition.start}` : ""}`;
+  : `${condition.target ? `${condition.target}, ` : ""}${condition.entry?.crossing ? `crossing ${condition.entry.crossing} at the request, ` : ""}${condition.direction ? `moving ${condition.direction} at ${condition.speed} m/s, ` : ""}${condition.approach ? `moving ${condition.approach.way} degrees off the line at ${condition.approach.speed} m/s for ${condition.approach.seconds} s, ` : ""}across ${condition.across} m, gap ${condition.gap} m${condition.start ? `, ${condition.start}` : ""}`;
 
 /** The strike drilled when none is named: Option Mind's straight punch. */
 const DRILLED = ["option/straight-punch"];

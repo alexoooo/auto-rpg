@@ -20,6 +20,8 @@ import type { BuiltBout } from "../bout.ts";
 export const BONK_ENTRY = deepFreeze({ reach: .48554877761411536, band: .15, aside: .15, pace: 1.021, precision: .00001 });
 /** A controlled half-metre entry walk, requested at the confirmation suite's pace. */
 export const BONK_APPROACH = deepFreeze({ pace: .5, distance: .5 });
+/** Initial sideways centre-of-mass speed of the unassisted target at its central crossing. */
+export const BONK_CROSSING = deepFreeze({ speed: .3 });
 
 /** Trusted standing fixture: normalized entry, an unobstructed miss, or an early precommit withdrawal. */
 export type BonkFixtureConfig = {
@@ -28,6 +30,7 @@ export type BonkFixtureConfig = {
   readonly mode: "contact" | "miss" | "cancel";
   readonly cancellation?: "last-preparation";
   readonly entryMotion?: "approach";
+  readonly crossing?: "left" | "right";
   readonly settled: number; readonly patience: number;
 };
 
@@ -39,7 +42,9 @@ export const validBonkFixture = (value: unknown): value is BonkFixtureConfig => 
     && fixture.u! >= 0 && fixture.u! <= 1 && Math.abs(fixture.v!) <= 1 && fixture.settled! >= 0 && fixture.patience! > 0
     && (fixture.mode === "contact" || fixture.mode === "miss" || fixture.mode === "cancel")
     && (fixture.cancellation === undefined || fixture.mode === "cancel" && fixture.cancellation === "last-preparation")
-    && (fixture.entryMotion === undefined || fixture.mode === "contact" && fixture.entryMotion === "approach");
+    && (fixture.entryMotion === undefined || fixture.mode === "contact" && fixture.entryMotion === "approach")
+    && (fixture.crossing === undefined || fixture.mode === "contact" && fixture.entryMotion === undefined
+      && fixture.u === .5 && fixture.v === 0 && (fixture.crossing === "left" || fixture.crossing === "right"));
 };
 
 type Window = { readonly at: Vec3; readonly heading: number; readonly along: readonly [number, number]; readonly across: readonly [number, number] };
@@ -56,6 +61,16 @@ export const validBonkApproach = (approach: ApproachReading | undefined, request
     && approach.settled > approach.stopOrdered && approach.forward >= BONK_APPROACH.distance && approach.paceSeen && !approach.fell
     && requestedAt !== null && requestedAt >= approach.settled && admittedAt !== null && admittedAt > approach.stopOrdered
     && approach.admissionSpeed !== null && approach.admissionSpeed <= SETTLED;
+type CrossingReading = { readonly at: number; readonly standing: boolean; readonly velocity: readonly [number, number];
+  readonly normalized: readonly [number, number]; readonly depth: number; readonly from: Vec3;
+  readonly travel: number; readonly peakSpeed: number; readonly samples: number };
+/** Whether the target crosses central entry at the strike request, at the declared physical speed. */
+export const validBonkCrossing = (crossing: CrossingReading | undefined, requestedAt: number | null, direction: "left" | "right"): boolean =>
+  crossing !== undefined && crossing.at === requestedAt && crossing.standing && crossing.samples > 0
+    && Math.abs(crossing.velocity[0]) <= BONK_ENTRY.precision
+    && Math.abs(crossing.velocity[1] - (direction === "left" ? -1 : 1) * BONK_CROSSING.speed) <= BONK_ENTRY.precision
+    && Math.abs(crossing.normalized[0] - .5) * crossing.depth <= BONK_ENTRY.precision
+    && Math.abs(crossing.normalized[1]) * BONK_ENTRY.aside <= BONK_ENTRY.precision;
 export type BonkFixtureReading = {
   readonly kind: "bonk"; readonly requested: BonkFixtureConfig; readonly entryRule: typeof BONK_ENTRY;
   readonly requestedAt: number | null; readonly admittedAt: number | null; readonly committedAt: number | null;
@@ -65,6 +80,7 @@ export type BonkFixtureReading = {
   readonly cancelledAt: number | null; readonly precommit: boolean | null;
   readonly boundary?: { readonly preparationStep: number | null; readonly commitmentStep: number | null; readonly reached: boolean };
   readonly approach?: ApproachReading & { readonly reached: boolean };
+  readonly crossing?: CrossingReading & { readonly reached: boolean };
   readonly faults: readonly string[];
 };
 
@@ -128,11 +144,14 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
     id: null as number | null, expired: false, faults: [] as string[],
     probing: false, preparationStep: null as number | null, commitmentStep: null as number | null,
     boundary: null as BonkBoundary | null,
+    crossing: null as CrossingReading | null,
     approach: { began: null as number | null, from: null as readonly [number, number] | null, stopOrdered: null as number | null, settled: null as number | null,
       forward: 0, peakSpeed: 0, paceSeen: false, fell: false, admissionSpeed: null as number | null, arrival: windowArrival() } };
   const velocity = new Vector3(), spin = new Vector3();
   const ownSegments = [...left.built.segments.values()], ownMass = ownSegments.reduce((sum, segment) => sum + segment.rigid.mass, 0);
   const centre = new Vector3(), centreWork = new Vector3(), centreVelocity = new Vector3();
+  const foeSegments = [...right.built.segments.values()], foeMass = foeSegments.reduce((sum, segment) => sum + segment.rigid.mass, 0);
+  const foeCentre = new Vector3(), foeCentreWork = new Vector3(), foeVelocity = new Vector3();
   const groundSpeed = () => {
     massCentreToRef(ownSegments, ownMass, centre, centreWork, centreVelocity);
     return Math.sqrt(centreVelocity.x * centreVelocity.x + centreVelocity.z * centreVelocity.z);
@@ -177,6 +196,13 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
     }
   });
   const observed = world.afterPhysics(() => {
+    if (state.crossing) {
+      massCentreToRef(foeSegments, foeMass, foeCentre, foeCentreWork, foeVelocity);
+      const speed = foeVelocity.x * az - foeVelocity.z * ax;
+      state.crossing = { ...state.crossing, samples: state.crossing.samples + 1,
+        travel: (foeCentre.x - state.crossing.from[0]) * az - (foeCentre.z - state.crossing.from[2]) * ax,
+        peakSpeed: Math.max(state.crossing.peakSpeed, Math.abs(speed)) };
+    }
     if (state.missAt !== null) {
       const other = new Set([...right.built.segments.values()].map(segment => segment.body.id));
       for (const segment of left.built.segments.values()) for (const contact of world.physics.contactsOf(segment.body, body => body !== null && other.has(body.id))) state.missImpulses += contact.impulse;
@@ -215,7 +241,8 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
         if (approach.stopOrdered !== null && approach.settled === null && settledAt(approach.arrival, speed, world.time)) approach.settled = world.time;
       }
       const approached = config.entryMotion !== "approach" || state.approach.settled !== null;
-      if (state.admittedAt === null && !state.expired && world.time >= config.settled && approached) {
+      if (state.admittedAt === null && !state.expired && world.time >= config.settled && approached
+        && (config.crossing === undefined || state.requestedAt === null)) {
         const window = currentWindow(), centre = read().centre;
         const ax = sin(window.heading), az = cos(window.heading), acrossX = az, acrossZ = -ax;
         const along = window.along[0] + config.u * (window.along[1] - window.along[0]);
@@ -229,10 +256,29 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
         }
         const placed = currentWindow();
         state.placed = { at: world.time, window: placed, normalized: normalized(placed), shift: [dx, dz] };
-        if (config.entryMotion === "approach") {
+        if (config.entryMotion === "approach" || config.crossing !== undefined) {
           const ready = groundSpeed() <= SETTLED && skills.menu().some(entry => entry.skill === config.skill && entry.limb === `hand.${config.hand}`
             && entry.foe === right.id && entry.region?.kind === "mark" && entry.region.mark === "high" && entry.readiness.kind === "ready");
-          if (ready) { state.requestedAt ??= world.time; duel.order("left", strike); }
+          if (ready) {
+            state.requestedAt ??= world.time;
+            if (config.crossing !== undefined) {
+              // A placed initial velocity adds one uniform translation, preserving internal motion and spin.
+              massCentreToRef(foeSegments, foeMass, foeCentre, foeCentreWork, foeVelocity);
+              const sign = config.crossing === "left" ? -1 : 1, vx = sign * az * BONK_CROSSING.speed, vz = -sign * ax * BONK_CROSSING.speed;
+              const dx = vx - foeVelocity.x, dz = vz - foeVelocity.z;
+              for (const segment of foeSegments) {
+                const p = segment.pose.position, q = segment.pose.rotation;
+                segment.body.linearVelocityToRef(velocity); segment.body.angularVelocityToRef(spin);
+                world.physics.placeBody(segment.body, { position: [p.x, p.y, p.z], rotation: [q.x, q.y, q.z, q.w],
+                  velocity: [velocity.x + dx, velocity.y, velocity.z + dz], spin: [spin.x, spin.y, spin.z] });
+              }
+              massCentreToRef(foeSegments, foeMass, foeCentre, foeCentreWork, foeVelocity);
+              state.crossing = { at: world.time, standing: !foeRead().down, velocity: [foeVelocity.x * ax + foeVelocity.z * az, foeVelocity.x * az - foeVelocity.z * ax],
+                normalized: normalized(placed), depth: placed.along[1] - placed.along[0], from: [foeCentre.x, foeCentre.y, foeCentre.z], travel: 0, peakSpeed: 0, samples: 0 };
+              duel.order("right", { ...stand, face: { x: -ax, z: -az }, move: directMovement(sign * az, -sign * ax), pace: BONK_CROSSING.speed, walk: true });
+            }
+            duel.order("left", strike);
+          }
           else duel.order("left", stand);
         } else if (state.requestedAt === null) { state.requestedAt = world.time; duel.order("left", strike); }
       }
@@ -249,7 +295,7 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
       if (state.requestedAt === null) faults.push("strike was not requested");
       if (state.admittedAt === null) faults.push("strike was not admitted");
       if (state.admission?.standing !== true) faults.push("entry was not standing");
-      if (state.admission && (Math.abs(state.admission.normalized[0] - config.u) * (state.admission.window.along[1] - state.admission.window.along[0]) > BONK_ENTRY.precision
+      if (config.crossing === undefined && state.admission && (Math.abs(state.admission.normalized[0] - config.u) * (state.admission.window.along[1] - state.admission.window.along[0]) > BONK_ENTRY.precision
         || Math.abs(state.admission.normalized[1] - config.v) * BONK_ENTRY.aside > BONK_ENTRY.precision)) faults.push("normalized entry was not reached");
       if (config.mode === "miss" && (state.missAt === null || state.missImpulses > 0)) faults.push("unobstructed miss was not reached");
       if (config.mode === "cancel" && (state.cancelledAt === null || state.precommit !== true || state.committedAt !== null)) faults.push("precommit cancellation was not reached");
@@ -262,9 +308,12 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
         fell: state.approach.fell, admissionSpeed: state.approach.admissionSpeed } : null;
       const reachedApproach = approach === null ? null : { ...approach, reached: validBonkApproach(approach, state.requestedAt, state.admittedAt) };
       if (reachedApproach && !reachedApproach.reached) faults.push("controlled approach and stop were not reached");
+      const crossing = config.crossing === undefined ? null : state.crossing && { ...state.crossing,
+        reached: validBonkCrossing(state.crossing, state.requestedAt, config.crossing) };
+      if (config.crossing !== undefined && !crossing?.reached) faults.push("moving target did not cross central entry at the strike request");
       return { kind: "bonk", requested: config, entryRule: BONK_ENTRY, requestedAt: state.requestedAt, admittedAt: state.admittedAt, committedAt: state.committedAt,
         placed: state.placed, admission: state.admission, missAt: state.missAt, missImpulses: state.missImpulses, cancelledAt: state.cancelledAt, precommit: state.precommit,
-        ...boundary ? { boundary } : {}, ...reachedApproach ? { approach: reachedApproach } : {}, faults };
+        ...boundary ? { boundary } : {}, ...reachedApproach ? { approach: reachedApproach } : {}, ...crossing ? { crossing } : {}, faults };
     },
     dispose() { control.dispose(); observed.dispose(); },
   };

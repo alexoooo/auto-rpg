@@ -14,7 +14,7 @@ import type { ActionStatus } from "../../skills/framework/action.ts";
 import type { BuiltBout } from "../bout.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { uprightness } from "../../control/ground.ts";
-import { validBonkApproach, validBonkBoundary, type BonkFixtureReading } from "./bonk-fixture.ts";
+import { validBonkApproach, validBonkBoundary, validBonkCrossing, type BonkFixtureReading } from "./bonk-fixture.ts";
 import { describeMind } from "../../minds/description.ts";
 import { senseDelayOf } from "../../game/arena/duel.ts";
 
@@ -40,6 +40,7 @@ export type BonkReading = {
   readonly coverage: { readonly scope: "case"; readonly course: boolean; readonly nativeSteps: boolean; readonly clearance: boolean;
     readonly unreferencedSteps: number;
     readonly approach?: boolean;
+    readonly crossing?: boolean;
     readonly entryWindow: boolean; readonly fixtures: boolean; readonly repetition: boolean | null; readonly cancellationBoundary: boolean | null };
   readonly course: BonkCourse | null;
   readonly shape: ReturnType<BonkModel["shape"]> | null;
@@ -350,7 +351,8 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
         fixtures: fixtureReading !== undefined && fixtureReading.faults.length === 0,
         repetition: null, cancellationBoundary: fixtureReading?.requested.cancellation === "last-preparation"
           ? validBonkBoundary(fixtureReading.boundary) && fixtureReading.boundary.reached : null,
-        ...fixtureReading?.requested.entryMotion === "approach" ? { approach: validBonkApproach(fixtureReading.approach, fixtureReading.requestedAt, fixtureReading.admittedAt) } : {} };
+        ...fixtureReading?.requested.entryMotion === "approach" ? { approach: validBonkApproach(fixtureReading.approach, fixtureReading.requestedAt, fixtureReading.admittedAt) } : {},
+        ...fixtureReading?.requested.crossing ? { crossing: validBonkCrossing(fixtureReading.crossing, fixtureReading.requestedAt, fixtureReading.requested.crossing) } : {} };
       const gates = {
         preparation: cancelled ? null : state.entry !== null && state.committed !== null && elapsed(state.committed, state.entry.time) <= BONK_LIMITS.prepare && state.preparedHold >= BONK_LIMITS.chamberHold
           && state.chamberAbove !== null && state.chamberAbove >= BONK_LIMITS.chamberAbove,
@@ -367,7 +369,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
         recovery: state.end !== null && state.recovered !== null && elapsed(state.recovered, state.end.at) <= BONK_LIMITS.return
           && state.ownerEnded !== null && state.settledAtRelease === true && ownership.handovers.every(one => one.settled),
         safety: !down && gripped && !assisted && least !== null && least.clearance.least !== null && least.clearance.least >= 0 && after >= BONK_LIMITS.after,
-        coverage: coverage.course && coverage.nativeSteps && coverage.clearance && coverage.entryWindow && coverage.fixtures && coverage.approach !== false,
+        coverage: coverage.course && coverage.nativeSteps && coverage.clearance && coverage.entryWindow && coverage.fixtures && coverage.approach !== false && coverage.crossing !== false,
       };
       const failures = [...Object.entries(gates).filter(([, passed]) => passed === false).map(([gate]) => gate),
         ...state.courseFault ? [state.courseFault] : [], ...fixtureReading?.faults ?? []];

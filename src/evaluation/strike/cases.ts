@@ -37,7 +37,7 @@ import { type GameContext, mindFaults as contextMindFaults } from "../../game/ar
 import { SIDES } from "../../core/bodies/bilateral.ts";
 import { validBonkTechnique, type BonkTechnique } from "../../skills/strikes/bonk-course.ts";
 import type { StrikeConfig } from "../../minds/option/kinds.ts";
-import { BONK_APPROACH, BONK_ENTRY, type BonkFixtureConfig } from "./bonk-fixture.ts";
+import { BONK_APPROACH, BONK_CROSSING, BONK_ENTRY, type BonkFixtureConfig } from "./bonk-fixture.ts";
 
 /**
  * A subject's value: a mind given whole, the skill it drills (its executor's kind, as an order
@@ -135,6 +135,13 @@ const approachConditions = (conditions: readonly StillCondition[]): readonly Sti
 /** A fixture grid keeps each hand's normalized coordinates independent of its mirrored world placement. */
 const bonkConditions = (entries: readonly Pick<BonkFixtureConfig, "u" | "v" | "heading">[], mode: BonkFixtureConfig["mode"], cancellation?: BonkFixtureConfig["cancellation"]): readonly StillCondition[] =>
   deepFreeze(SIDES.flatMap(hand => entries.map(entry => ({ model: "workshop-fighter", mark: "high", hand, gap: 1.2, across: 0, entry: { ...entry, mode, ...cancellation ? { cancellation } : {} } }))));
+
+const BONK_MOVING = deepFreeze({ ...BONK_MISS, mode: "contact", crossing: BONK_CROSSING });
+const BONK_MOVING_FAST = deepFreeze({ ...BONK_MOVING, timing: { hz: 480, delay: 4 } });
+const BONK_MOVING_SCREEN = deepFreeze({ ...BONK_SCREEN, crossing: BONK_CROSSING });
+const BONK_MOVING_SCREEN_FAST = deepFreeze({ ...BONK_MOVING_SCREEN, timing: { hz: 480, delay: 4 } });
+const crossingConditions = (conditions: readonly StillCondition[]): readonly StillCondition[] => deepFreeze(conditions.flatMap(condition =>
+  (["left", "right"] as const).map(crossing => ({ ...condition, entry: { ...condition.entry!, crossing } }))));
 
 /**
  * **Starts drawn at random**, the `sampled` rung: the still rung's trials on every striker's body,
@@ -260,7 +267,7 @@ const FIGHT = deepFreeze({
 
 /** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
 export type StillCondition = { readonly model: BodyModel; readonly mark: Mark } & Limb & {
-  readonly entry?: Pick<BonkFixtureConfig, "u" | "v" | "heading" | "mode" | "cancellation" | "entryMotion">;
+  readonly entry?: Pick<BonkFixtureConfig, "u" | "v" | "heading" | "mode" | "cancellation" | "entryMotion" | "crossing">;
   /** The target's body, where its rung names one: a Warrior's where it does not. */
   readonly target?: BodyModel;
   /** Which way and how fast the target moves on its rail, m/s, where its rung moves it. */
@@ -325,7 +332,7 @@ const onOtherBodies = <P extends { readonly models: readonly BodyModel[] }>(rung
 export function createStrikeCases(context: GameContext) {
   const { treeObeys, controllers: CONTROLLERS, minds: MINDS } = context.catalog;
   const mindFaults = contextMindFaults.bind(undefined, context);
-  const { opponentOf } = createDrillOpponents(context);
+  const { opponentOf, MOVES } = createDrillOpponents(context);
 
   /** Why `value` is no subject, or what keeps its mind from `model` holding what it names (`mindFaults`). */
   function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
@@ -383,7 +390,7 @@ export function createStrikeCases(context: GameContext) {
           start: entry ? { left: { at: [-gap / 2 * sin(heading), -gap / 2 * cos(heading)], heading },
             right: { at: [gap / 2 * sin(heading) + side * cos(heading), gap / 2 * cos(heading) - side * sin(heading)], heading: heading + Math.PI } }
             : { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: carried ? [...carried.from] : [gap / 2, side], heading: -Math.PI / 2 } },
-          ...protocol.fixture ? { minds: leading.minds, senseDelay: 0 } : leading,
+          ...protocol.fixture ? { minds: { ...leading.minds, ...entry?.crossing ? { right: MOVES } : {} }, senseDelay: 0 } : leading,
           ...(carried ? { rail: carried.rail } : {}),
           // Facing -x, its back is toward +x: 90 degrees from +z.
           ...(protocol.laid ? { shove: { side: "right", segment: protocol.laid.segment, degrees: 90, at: 0,
@@ -438,6 +445,10 @@ export function createStrikeCases(context: GameContext) {
     "bonk-approach-480": stillCases(BONK_APPROACH_FAST, approachConditions(bonkConditions(BONK_CENTRAL_ENTRIES, "contact"))),
     "bonk-approach-screen": stillCases(BONK_APPROACH_SCREEN, approachConditions([BONK_SCREEN_CONDITIONS[0]!])),
     "bonk-approach-screen-480": stillCases(BONK_APPROACH_SCREEN_FAST, approachConditions([BONK_SCREEN_CONDITIONS[0]!])),
+    "bonk-moving": stillCases(BONK_MOVING, crossingConditions(bonkConditions(BONK_CENTRAL_ENTRIES, "contact"))),
+    "bonk-moving-480": stillCases(BONK_MOVING_FAST, crossingConditions(bonkConditions(BONK_CENTRAL_ENTRIES, "contact"))),
+    "bonk-moving-screen": stillCases(BONK_MOVING_SCREEN, crossingConditions([BONK_SCREEN_CONDITIONS[0]!])),
+    "bonk-moving-screen-480": stillCases(BONK_MOVING_SCREEN_FAST, crossingConditions([BONK_SCREEN_CONDITIONS[0]!])),
     moving: stillCases(MOVING), walk: stillCases(WALK),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),

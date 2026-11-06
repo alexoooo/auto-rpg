@@ -158,3 +158,15 @@ stop and settling times, and physical speed at admission. A missed walk, fall, u
 or admission before a settled stop fails fixture coverage.
 After placement, the request stays issued only while the published menu is ready and physical
 speed remains within the movement settling limit.
+
+The `bonk-moving` protocols start a standing target crossing central entry sideways to the left
+or right at the strike request, with both hands and the reserved headings represented. Their
+`bonk-moving-screen` counterparts isolate the right hand at heading zero. Both pairs have
+`-480` variants. The fixture gives every target segment the same change of horizontal velocity
+to set its centre of mass to 0.3 m/s sideways, preserving internal motion and spin. Placement
+ends at the request. The target then follows a sideways walking order under the normal movement
+controller, with zero balance assistance; its subsequent speed is measured rather than imposed.
+The reading records the crossing's physical velocity, normalized entry, standing condition and
+request time, plus subsequent signed travel and peak sideways speed. A missing or incorrect
+crossing fails fixture coverage. Admission may follow the request as the target moves; its
+position is recorded independently.
