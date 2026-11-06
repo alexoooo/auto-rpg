@@ -167,11 +167,13 @@ const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "cen
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
  * they were set for, and quickened by its haste (`quickness`), as the run's envelope is.
  */
-export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE, may = true): Locomotion {
+export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE,
+  { may = true, braking = givenRun }: { readonly may?: boolean; readonly braking?: RunCycleSettings } = {}): Locomotion {
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
   if (!validRunCycle(givenRun)) throw new Error("a run cycle needs every setting finite, its times and the cycle's positive and its shares of strength within (0, 1]");
+  if (!validRunCycle(braking)) throw new Error("a braking cycle needs the run cycle's complete valid settings");
   const k = legOf(body.built.spec) / given.leg, quick = quickness(hasteOver(body.built.spec), given.hasted);
-  const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick);
+  const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick, scaledGait(braking, k, quick));
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
   const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, body.envelope, { segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built) });

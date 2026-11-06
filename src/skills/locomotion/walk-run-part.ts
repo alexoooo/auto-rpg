@@ -16,6 +16,8 @@ import { recordingKey } from "../../core/world/recording.ts";
 export interface WalkRunRecord {
   readonly walk: WalkRunSettings;
   readonly run: RunCycleSettings;
+  /** The cycle used while the requested pace is below the cycle's pace or the body's speed. */
+  readonly braking?: RunCycleSettings;
 }
 
 declare module "../../core/data/store.ts" {
@@ -27,17 +29,20 @@ declare module "../../core/data/store.ts" {
 
 /**
  * **The walk and run's config**: whether it may run (`Locomotion.runs`; unless false, it does), and
- * an experiment's research `tuning` of the walk's and the run's settings, which a link does not carry.
+ * an experiment's research `tuning` of the walk, run and braking settings, which a link does not carry.
  */
 interface WalkRunConfig {
   readonly kind: "walk-run";
   readonly runs?: boolean;
-  readonly tuning?: { readonly walk?: Partial<WalkRunSettings>; readonly run?: Partial<RunCycleSettings> };
+  readonly tuning?: { readonly walk?: Partial<WalkRunSettings>; readonly run?: Partial<RunCycleSettings>; readonly braking?: Partial<RunCycleSettings> };
 }
 
 /** The settings `config`'s research tuning sets over `base`. */
-const tunedOver = (base: WalkRunRecord, config: WalkRunConfig): WalkRunRecord =>
-  ({ walk: { ...base.walk, ...config.tuning?.walk }, run: runCycleSettings(config.tuning?.run, base.run) });
+const tunedOver = (base: WalkRunRecord, config: WalkRunConfig): WalkRunRecord & { readonly braking: RunCycleSettings } => {
+  const run = runCycleSettings(config.tuning?.run, base.run);
+  return { walk: { ...base.walk, ...config.tuning?.walk }, run,
+    braking: runCycleSettings(config.tuning?.braking, base.braking ?? run) };
+};
 
 /** The defaults every body takes scaled to its leg (`scaledGait`) where it has no record of its own. */
 const DEFAULTS: WalkRunRecord = deepFreeze({ walk: WALK_RUN, run: WALK_RUN_CYCLE });
@@ -70,12 +75,13 @@ export function walkRunRefusal(spec: BodySpec): string | null {
 export const WALK_RUN_PART: GaitPart<WalkRunConfig> = deepFreeze({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk and run", stage: "game", fields: [], slots: [], defaults: { kind: "walk-run" },
   keys: { kind: true, tuning: true, runs: true },
-  tuning: ["walk", "run"], fits: walkRunRefusal,
+  tuning: ["walk", "run", "braking"], fits: walkRunRefusal,
   faults: (config) => {
     if (config.tuning !== undefined && (!config.tuning || typeof config.tuning !== "object" || Array.isArray(config.tuning))) return ["invalid walk and run tuning"];
     if (config.tuning && Object.values(config.tuning).some(value => !value || typeof value !== "object" || Array.isArray(value))) return ["invalid walk and run tuning"];
-    const { walk, run } = tunedOver(DEFAULTS, config);
+    const { walk, run, braking } = tunedOver(DEFAULTS, config);
     return [
+      ...validRunCycle(braking) ? [] : ["a braking cycle needs the run cycle's complete valid settings"],
       ...validWalkRun(walk) ? [] : ["a walk and run's walk gives only the walk's settings, each finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1"],
       ...validRunCycle(run) ? [] : ["a walk and run's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],
     ];
@@ -83,12 +89,12 @@ export const WALK_RUN_PART: GaitPart<WalkRunConfig> = deepFreeze({
   reads: () => ["walk-run"],
   runs: (config) => config.runs ?? true,
   make: (body, config) => {
-    const { walk, run } = tunedOver(dataOf("walk-run")[bodyKey(body.built.spec)]?.settings ?? DEFAULTS, config);
+    const { walk, run, braking } = tunedOver(dataOf("walk-run")[bodyKey(body.built.spec)]?.settings ?? DEFAULTS, config);
     let settings = motion.get(body);
     if (!settings) motion.set(body, settings = new Map());
-    const key = recordingKey({ walk, run });
+    const key = recordingKey({ walk, run, braking });
     let shared = settings.get(key);
-    if (!shared) settings.set(key, shared = walkRun(body, walk, run, config.runs ?? true));
+    if (!shared) settings.set(key, shared = walkRun(body, walk, run, { may: config.runs ?? true, braking }));
     const controller = shared, may = config.runs ?? true;
     const goal: Locomotion["goal"] = (view, asked, dt, context) => { controller.runs?.(may); return controller.goal(view, asked, dt, context); };
     const resume: Locomotion["resume"] = view => { controller.runs?.(may); controller.resume(view); };

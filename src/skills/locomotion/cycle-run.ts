@@ -176,13 +176,15 @@ interface RunCycleMemory {
  * quickened past `gainsFrom`, and shortened under the slowest one's pace (`short`). The cycles' speeds and times go to the body's leg by Froude (`k`, the
  * body's leg over the clip's); the settings come scaled to it.
  *
+ * A braking calibration supplies the cycle while the requested pace is below its current pace or
+ * the body's forward speed; omitted, the running calibration supplies both.
  * The phase runs on at the cycle's rate. A sole landing near its own phase's end sets it to 0, and
  * one not yet down holds it a while. While a leg's sole bears, its hip turns the pelvis upright,
  * leaning `lean`, less as the body goes faster than its pace (`leanGain`), and into a turn (`bank`), toward the heading, as SIMBICON's stance hip does (Yin, Loken and van de Panne 2007); the swinging thigh's reference is set
  * in the world, the clip's lean taken off, with the pace's feedback late in the swing; across the
  * heading the swinging sole is placed by Raibert's rule.
  */
-export function runCycle(body: Body, settings: RunCycleSettings, leg: number, quick = 1): {
+export function runCycle(body: Body, settings: RunCycleSettings, leg: number, quick = 1, braking: RunCycleSettings = settings): {
   readonly state: RunCycleMemory;
   /** Begins the run from the body as it is, as the sole `landed` lands. */
   begin(view: BodyView, heading: number, landed: Side): void;
@@ -191,7 +193,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
   /** One step toward `asked` m/s along `heading`: the legs' pushes and the arms' posture; and the sole that landed, if one did. */
   drive(view: BodyView, dt: number, heading: number, asked: number): { readonly posture: Pose; readonly pushes: MusclePush[]; readonly landed: Side | null };
 } {
-  const p = settings, muscles = body.muscles, dynamics = muscles.dynamics, spec = body.built.spec;
+  const muscles = body.muscles, dynamics = muscles.dynamics, spec = body.built.spec;
   if (CYCLES.length < 2) throw new Error("a run cycle needs two clips' cycles to blend between");
   const scale = (c: Cycle): number => Math.sqrt(leg / c.leg);
   // Each clip's speed and time taken to the body's leg, and quickened as its gait is.
@@ -201,7 +203,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
   const series = { hip: new Float64Array(terms), knee: new Float64Array(terms), ankle: new Float64Array(terms) };
   /** The cycle at `pace`: the blended series, its time, s, when its sole leaves and its lean. */
   const blended = { period: 0, leaves: 0, lean: 0 };
-  const blend = (pace: number): void => {
+  const blend = (pace: number, p: RunCycleSettings): void => {
     // The two clips whose paces bracket the pace, the slowest two under the slowest and the fastest two past the fastest.
     let i = 0;
     while (i + 2 < CYCLES.length && pace > speeds[i + 1]!) i++;
@@ -256,7 +258,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
   const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, touching: { left: true, right: true }, root: new Quaternion(), heading: 0, lean: 0, bank: 0 };
   const scratch = { up: new Vector3(), spin: new Vector3(), target: new Quaternion(), pitch: new Quaternion(), roll: new Quaternion(), error: new Vector3(), relative: new Vector3(),
     speeds: [0, 0, 0] as [number, number, number] };
-  const runner = armSwing(spec, p.arms, true), feet = { left: footOn(spec, "left"), right: footOn(spec, "right") };
+  const runner = armSwing(spec, settings.arms, true), brakeRunner = armSwing(spec, braking.arms, true), feet = { left: footOn(spec, "left"), right: footOn(spec, "right") };
   /** Whether the ground bore the foot on `side` in the last step (`StanceEnd.touching`). */
   const touching = (view: BodyView, side: Side): boolean => view.stance.ends[feet[side]]!.touching;
   const own = (side: Side): number => { const x = side === "left" ? memory.phase : memory.phase - 0.5; return x - Math.floor(x); };
@@ -285,14 +287,15 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       memory.touching.right = touching(view, "right");
       memory.root.copyFrom(view.root.rotation);
       memory.heading = heading;
-      memory.lean = p.lean;
+      memory.lean = settings.lean;
       memory.bank = 0;
     },
     drive(view, dt, heading, asked) {
       const s = view.stance, c = s.centre, v = s.velocity;
       const fx = sin(heading), fz = cos(heading), rx = cos(heading), rz = -sin(heading), along = v.x * fx + v.z * fz;
+      const p = asked < memory.pace || asked < along ? braking : settings;
       memory.pace += Math.max(-p.brake * dt, Math.min(p.accel * dt, Math.min(asked, along + p.ahead) - memory.pace));
-      blend(memory.pace);
+      blend(memory.pace, p);
       // The phase: on at the cycle's rate, set to a landing near its own, held a while for one late.
       let next = memory.phase + dt / blended.period, landed: Side | null = null;
       for (const side of SIDES) {
@@ -365,7 +368,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
         drive(st.names.hip[2], st.hip[2], 0, p.swing);
       }
       // The arms swing at the sides, neither drawn in nor out (`RUN_ARMS`), whatever the guard holds.
-      const swung = runner(view, heading, { step: null, swung: 0, off: false });
+      const swung = (p === braking ? brakeRunner : runner)(view, heading, { step: null, swung: 0, off: false });
       const posture: Pose = { "shoulder.left flexion": swung["shoulder.left flexion"]!, "shoulder.right flexion": swung["shoulder.right flexion"]!,
         "shoulder.left abduction": RUN_ARMS.abduction, "shoulder.right abduction": RUN_ARMS.abduction, "elbow.left flexion": p.elbow, "elbow.right flexion": p.elbow };
       return { posture, pushes, landed };
