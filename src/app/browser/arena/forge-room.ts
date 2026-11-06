@@ -24,8 +24,8 @@ const FORGE_BANDS = Object.freeze({ centres: [.12, 1.35, 1.65], height: .09 });
 const FORGE_FIRE = Object.freeze({
   /** A flame burns on every post of this stride round the ring, and a light with it on the posts named. */
   every: 1, lit: [1, 5],
-  /** A flame's volume, m, and how far above its post's centre it stands. */
-  width: 1.05, height: 1.6, depth: 1.05, lift: 1.35,
+  /** A flame's volume, m. */
+  width: 1.05, height: 1.6, depth: 1.05,
   /** A light's colour and its range, m. */
   colour: [1, .42, .12], range: 16,
   /** The flicker: about `mean`, by `swing` either way, at `rate` rad/s, a radian apart from one light to the next. */
@@ -111,7 +111,7 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): ForgeFire {
     bowl.position.set(post.position.x, 1.55, post.position.z);
     bowl.material = forge.materials.brazierBronze;
     bowl.metadata = { roomPlacement: { role: "brazier", solid: true, collider: post.name } };
-    const flame = fire.create(`forge.torch.${i}`, post.position.add(new Vector3(0, FORGE_FIRE.lift, 0)), FORGE_FIRE);
+    const flame = fire.create(`forge.torch.${i}`, post.position.add(new Vector3(0, (height + FORGE_FIRE.height) / 2, 0)), FORGE_FIRE);
     if (lit.includes(i)) {
       const light = new PointLight(`forge.torchlight.${i}`, flame.position, scene);
       light.diffuse = new Color3(...FORGE_FIRE.colour); light.intensity = FORGE_FIRE.mean; light.range = FORGE_FIRE.range;
