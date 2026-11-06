@@ -113,7 +113,15 @@ export async function residualEnvironment(configuration = {}) {
           contactPoint.set(...contact.point);
           motionAtToRef(foot, contactPoint, contactVelocity, contactSpin);
           return { point: [...contact.point], normal: [...contact.normal], impulse: contact.impulse,
-            velocity: [contactVelocity.x, contactVelocity.y, contactVelocity.z] };
+            velocity: [contactVelocity.x, contactVelocity.y, contactVelocity.z],
+            pairs: contact.pairs.map(pair => {
+              const owner = foot.rigid.owners[pair.mine];
+              contactPoint.set(...pair.point);
+              motionAtToRef(foot, contactPoint, contactVelocity, contactSpin);
+              return { mine: pair.mine, region: owner?.kind === 'region' ? owner.region.name : owner?.kind,
+                point: [...pair.point], normal: [...pair.normal], impulse: pair.impulse,
+                velocity: [contactVelocity.x, contactVelocity.y, contactVelocity.z] };
+            }) };
         })];
       })), footMotion: Object.fromEntries(['left', 'right'].map(side => {
         const foot = body.built.segments.get(ends[side]);
@@ -201,7 +209,14 @@ export async function residualEnvironment(configuration = {}) {
     });
     stand.step(stand.seconds(1)); control.lineX = body.view.stance.centre.x;
     massCentreToRef(physicalParts, mass, centre, work, velocity); control.physicalLineX = centre.x;
-    control.asked = [o.pace, 0]; stand.step(stand.seconds(start));
+    control.asked = [o.pace, 0];
+    const warmSteps = stand.seconds(start);
+    if (referencePolicy) {
+      for (let warmed = 0; warmed < warmSteps; warmed += 4) {
+        control.referenceAction = referencePolicy(control.referenceObservation);
+        stand.step(Math.min(4, warmSteps - warmed));
+      }
+    } else stand.step(warmSteps);
     if ((o.fallRule === 'physical' ? host.down : body.view.down) || (!fromRest && !skill.state.walkRun.running)) throw Error(`residual fixture did not enter its run at ${start}s`);
     if (fromRest && Math.hypot(body.view.stance.velocity.x, body.view.stance.velocity.z) > .15)
       throw Error('residual from-rest fixture is still moving');

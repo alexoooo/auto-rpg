@@ -26,7 +26,10 @@ it reads by.
 
 Steering training can retain a calibrated reference actor with configuration's `referencePolicy`
 and `referenceScale`. Its joint corrections stay fixed while the steering actor learns the cycle's
-other controls. Both actors decide at the environment's action interval.
+other controls. Both actors decide at the environment's action interval. The reference actor also
+drives warm-up to moving starts, preserving the calibrated trajectory before training takes over.
+Contact traces retain each loaded shape pair, its region and rigid contact-point velocity so a
+toe contact can be distinguished from the foot's main box.
 
 The residual search's `--stop-at` and `--running-policy` freeze the movement before a stop and
 train a separate braking correction. Set `--seconds` four seconds beyond the stop order. Its
