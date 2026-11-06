@@ -3,7 +3,7 @@ import { sin, cos } from "../../core/math/real.ts";
 import { physicalReading, centreReading } from "../../control/observation.ts";
 import { shapeGeometry, poseGeometry } from "../../core/bodies/spec/clearance.ts";
 import { isRefused } from "../../core/refusal.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze, loadState, saveState } from "../../core/world/state.ts";
 import { bodyClearance } from "../../skills/locomotion/navigation/sensed-bounds.ts";
 import { CROWDED } from "../../skills/strikes/strike-window.ts";
 import { skillOf } from "../../skills/framework/menu.ts";
@@ -21,6 +21,7 @@ export type BonkFixtureConfig = {
   readonly kind: "bonk"; readonly hand: "left" | "right"; readonly skill: string;
   readonly u: number; readonly v: number; readonly heading: number;
   readonly mode: "contact" | "miss" | "cancel";
+  readonly cancellation?: "last-preparation";
   readonly settled: number; readonly patience: number;
 };
 
@@ -30,7 +31,8 @@ export const validBonkFixture = (value: unknown): value is BonkFixtureConfig => 
   return fixture.kind === "bonk" && (fixture.hand === "left" || fixture.hand === "right") && typeof fixture.skill === "string" && fixture.skill.length > 0
     && [fixture.u, fixture.v, fixture.heading, fixture.settled, fixture.patience].every(Number.isFinite)
     && fixture.u! >= 0 && fixture.u! <= 1 && Math.abs(fixture.v!) <= 1 && fixture.settled! >= 0 && fixture.patience! > 0
-    && (fixture.mode === "contact" || fixture.mode === "miss" || fixture.mode === "cancel");
+    && (fixture.mode === "contact" || fixture.mode === "miss" || fixture.mode === "cancel")
+    && (fixture.cancellation === undefined || fixture.mode === "cancel" && fixture.cancellation === "last-preparation");
 };
 
 type Window = { readonly at: Vec3; readonly heading: number; readonly along: readonly [number, number]; readonly across: readonly [number, number] };
@@ -41,6 +43,7 @@ export type BonkFixtureReading = {
   readonly admission: { readonly window: Window; readonly normalized: readonly [number, number]; readonly standing: boolean } | null;
   readonly missAt: number | null; readonly missImpulses: number;
   readonly cancelledAt: number | null; readonly precommit: boolean | null;
+  readonly boundary?: { readonly preparationStep: number | null; readonly commitmentStep: number | null; readonly reached: boolean };
   readonly faults: readonly string[];
 };
 
@@ -100,7 +103,9 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
   const state = { requestedAt: null as number | null, admittedAt: null as number | null, admittedStep: null as number | null, committedAt: null as number | null,
     placed: null as BonkFixtureReading["placed"], admission: null as BonkFixtureReading["admission"],
     missAt: null as number | null, missImpulses: 0, cancelledAt: null as number | null, precommit: null as boolean | null,
-    id: null as number | null, expired: false, faults: [] as string[] };
+    id: null as number | null, expired: false, faults: [] as string[],
+    probing: false, preparationStep: null as number | null, commitmentStep: null as number | null,
+    boundary: null as { preparationStep: number | null; commitmentStep: number | null } | null };
   const velocity = new Vector3(), spin = new Vector3();
   const currentWindow = (): Window => {
     const heading = skills.report.heading, ax = sin(heading), az = cos(heading), acrossX = az, acrossZ = -ax;
@@ -128,8 +133,9 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
       const window = currentWindow();
       state.admission = { window, normalized: normalized(window), standing: !read().down && !foeRead().down };
     }
+    if (action?.phase === "prepare") state.preparationStep = world.steps;
     if (action?.phase === "commit" && state.committedAt === null) {
-      state.committedAt = world.time;
+      state.committedAt = world.time; state.commitmentStep = world.steps;
       if (config.mode === "miss") {
         state.missAt = world.time;
         for (const segment of left.built.segments.values()) world.physics.setCollisionGroups(segment.body, { membership: 1, filter: 0xffff ^ 2 });
@@ -146,6 +152,18 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
   return {
     config,
     state,
+    /** Probe public lifecycle phases, then restore the whole bout before a reader observes it. */
+    prepareBoundary() {
+      if (config.cancellation !== "last-preparation") return;
+      const bout = duel.save(), saved = saveState(state);
+      state.probing = true;
+      while (state.committedAt === null && !state.expired && world.time <= config.settled + config.patience + 1
+        && (state.admittedAt === null || active()?.phase === "prepare")) world.step();
+      const boundary = { preparationStep: state.preparationStep, commitmentStep: state.commitmentStep };
+      duel.load(bout); loadState(state, saved); state.boundary = boundary;
+      if (boundary.preparationStep === null || boundary.commitmentStep === null || boundary.preparationStep !== boundary.commitmentStep - 1)
+        state.faults.push("last preparation boundary was not established");
+    },
     beforeSense() {
       if (state.id !== null && !active()) duel.order("left", stand);
       if (state.admittedAt === null && !state.expired && world.time > config.settled + config.patience) {
@@ -167,7 +185,9 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
         state.placed = { at: world.time, window: placed, normalized: normalized(placed), shift: [dx, dz] };
         if (state.requestedAt === null) { state.requestedAt = world.time; duel.order("left", strike); }
       }
-      if (config.mode === "cancel" && state.admittedStep !== null && state.cancelledAt === null && world.steps - state.admittedStep >= Math.round(.05 * world.hz)) {
+      const withdraw = config.cancellation === "last-preparation" ? state.boundary?.preparationStep === world.steps
+        : state.admittedStep !== null && world.steps - state.admittedStep >= Math.round(.05 * world.hz);
+      if (config.mode === "cancel" && !state.probing && state.admittedStep !== null && state.cancelledAt === null && withdraw) {
         state.cancelledAt = world.time; state.precommit = active()?.phase === "prepare";
         duel.order("left", stand);
       }
@@ -182,8 +202,13 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
         || Math.abs(state.admission.normalized[1] - config.v) * BONK_ENTRY.aside > BONK_ENTRY.precision)) faults.push("normalized entry was not reached");
       if (config.mode === "miss" && (state.missAt === null || state.missImpulses > 0)) faults.push("unobstructed miss was not reached");
       if (config.mode === "cancel" && (state.cancelledAt === null || state.precommit !== true || state.committedAt !== null)) faults.push("precommit cancellation was not reached");
+      const boundary = config.cancellation === "last-preparation" ? { preparationStep: state.boundary?.preparationStep ?? null,
+        commitmentStep: state.boundary?.commitmentStep ?? null, reached: state.cancelledAt !== null && state.boundary?.preparationStep !== null
+          && Math.round(state.cancelledAt * world.hz) === state.boundary?.preparationStep && state.precommit === true && state.committedAt === null } : null;
+      if (boundary && !boundary.reached) faults.push("last preparation cancellation was not reached");
       return { kind: "bonk", requested: config, entryRule: BONK_ENTRY, requestedAt: state.requestedAt, admittedAt: state.admittedAt, committedAt: state.committedAt,
-        placed: state.placed, admission: state.admission, missAt: state.missAt, missImpulses: state.missImpulses, cancelledAt: state.cancelledAt, precommit: state.precommit, faults };
+        placed: state.placed, admission: state.admission, missAt: state.missAt, missImpulses: state.missImpulses, cancelledAt: state.cancelledAt, precommit: state.precommit,
+        ...boundary ? { boundary } : {}, faults };
     },
     dispose() { control.dispose(); observed.dispose(); },
   };

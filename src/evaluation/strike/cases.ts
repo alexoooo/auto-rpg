@@ -119,10 +119,16 @@ const BONK_MISS = deepFreeze({ ...BONK_SCREEN, hands: [...SIDES] as Hand[], entr
 const BONK_MISS_FAST = deepFreeze({ ...BONK_MISS, timing: { hz: 480, delay: 4 } });
 const BONK_CANCEL = deepFreeze({ ...BONK_MISS, mode: "cancel" });
 const BONK_CANCEL_FAST = deepFreeze({ ...BONK_CANCEL, timing: { hz: 480, delay: 4 } });
+const BONK_CANCEL_BOUNDARY = deepFreeze({ ...BONK_CANCEL, cancellation: "last-preparation" as const });
+const BONK_CANCEL_BOUNDARY_FAST = deepFreeze({ ...BONK_CANCEL_BOUNDARY, timing: { hz: 480, delay: 4 } });
+const BONK_BOUNDARY_SCREEN = deepFreeze({ ...BONK_SCREEN, cancellation: "last-preparation" as const });
+const BONK_BOUNDARY_SCREEN_FAST = deepFreeze({ ...BONK_BOUNDARY_SCREEN, timing: { hz: 480, delay: 4 } });
+const BONK_BOUNDARY_SCREEN_CONDITIONS: readonly StillCondition[] = deepFreeze([{ ...BONK_SCREEN_CONDITIONS[2]!,
+  entry: { ...BONK_SCREEN_CONDITIONS[2]!.entry!, cancellation: "last-preparation" } }]);
 
 /** A fixture grid keeps each hand's normalized coordinates independent of its mirrored world placement. */
-const bonkConditions = (entries: readonly Pick<BonkFixtureConfig, "u" | "v" | "heading">[], mode: BonkFixtureConfig["mode"]): readonly StillCondition[] =>
-  deepFreeze(SIDES.flatMap(hand => entries.map(entry => ({ model: "workshop-fighter", mark: "high", hand, gap: 1.2, across: 0, entry: { ...entry, mode } }))));
+const bonkConditions = (entries: readonly Pick<BonkFixtureConfig, "u" | "v" | "heading">[], mode: BonkFixtureConfig["mode"], cancellation?: BonkFixtureConfig["cancellation"]): readonly StillCondition[] =>
+  deepFreeze(SIDES.flatMap(hand => entries.map(entry => ({ model: "workshop-fighter", mark: "high", hand, gap: 1.2, across: 0, entry: { ...entry, mode, ...cancellation ? { cancellation } : {} } }))));
 
 /**
  * **Starts drawn at random**, the `sampled` rung: the still rung's trials on every striker's body,
@@ -248,7 +254,7 @@ const FIGHT = deepFreeze({
 
 /** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
 export type StillCondition = { readonly model: BodyModel; readonly mark: Mark } & Limb & {
-  readonly entry?: Pick<BonkFixtureConfig, "u" | "v" | "heading" | "mode">;
+  readonly entry?: Pick<BonkFixtureConfig, "u" | "v" | "heading" | "mode" | "cancellation">;
   /** The target's body, where its rung names one: a Warrior's where it does not. */
   readonly target?: BodyModel;
   /** Which way and how fast the target moves on its rail, m/s, where its rung moves it. */
@@ -418,6 +424,10 @@ export function createStrikeCases(context: GameContext) {
     "bonk-miss-480": stillCases(BONK_MISS_FAST, bonkConditions(BONK_CENTRAL_ENTRIES, "miss")),
     "bonk-cancel": stillCases(BONK_CANCEL, bonkConditions(BONK_CENTRAL_ENTRIES, "cancel")),
     "bonk-cancel-480": stillCases(BONK_CANCEL_FAST, bonkConditions(BONK_CENTRAL_ENTRIES, "cancel")),
+    "bonk-cancel-boundary": stillCases(BONK_CANCEL_BOUNDARY, bonkConditions(BONK_CENTRAL_ENTRIES, "cancel", "last-preparation")),
+    "bonk-cancel-boundary-480": stillCases(BONK_CANCEL_BOUNDARY_FAST, bonkConditions(BONK_CENTRAL_ENTRIES, "cancel", "last-preparation")),
+    "bonk-boundary-screen": stillCases(BONK_BOUNDARY_SCREEN, BONK_BOUNDARY_SCREEN_CONDITIONS),
+    "bonk-boundary-screen-480": stillCases(BONK_BOUNDARY_SCREEN_FAST, BONK_BOUNDARY_SCREEN_CONDITIONS),
     moving: stillCases(MOVING), walk: stillCases(WALK),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),

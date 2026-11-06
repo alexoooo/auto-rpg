@@ -136,3 +136,11 @@ The `bonk-miss` and `bonk-cancel` protocols use central entry under each reserve
 with both hands represented. Cancellation withdraws 0.05 s after admission. Their `-480`
 variants preserve the physical command delay. These confirmation protocols keep miss and
 early-cancellation evidence separate from contact and development ranking.
+
+The `bonk-cancel-boundary` protocols withdraw on the last preparation step before commitment
+under each reserved heading. The fixture probes public lifecycle phases, restores the bout
+and its own state, then withdraws on the preparation step immediately preceding the probed
+commitment step. A probe that does not reach adjacent preparation and commitment steps reports
+a fixture fault. The reading requires precommit withdrawal at that native step without a launch.
+The `bonk-boundary-screen` protocols isolate this fixture at the central development entry with
+the right hand. Both protocol pairs have `-480` variants.

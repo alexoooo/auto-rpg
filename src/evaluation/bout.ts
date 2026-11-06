@@ -51,7 +51,7 @@ export function createBout(context: GameContext) {
       let fixture: BonkFixture | undefined;
       const placement = fixtureConfig ? world.sense(() => fixture?.beforeSense()) : null;
       const duel = new Duel(world, recipe, context, { solids, ...hooks });
-      try { if (fixtureConfig) fixture = bonkFixture({ world, duel }, fixtureConfig); }
+      try { if (fixtureConfig) { fixture = bonkFixture({ world, duel }, fixtureConfig); fixture.prepareBoundary(); } }
       catch (error) { duel.dispose(); throw error; }
       return { catalog: context.catalog, world, duel, colliders, ...fixture ? { fixture } : {}, dispose() { placement?.dispose(); fixture?.dispose(); duel.dispose(); world.dispose(); } };
     } catch (error) { world.dispose(); throw error; }
