@@ -33,12 +33,16 @@ export const RESIDUAL_LAYOUT = Object.freeze({
 const ACTIVATION_LAYOUT = Object.freeze({ ...RESIDUAL_LAYOUT,
   outputs: Object.freeze(ROLES.flatMap(role => JOINTS.map(joint => `${role} ${joint} activation`))),
 });
+const REFERENCE_LAYOUT = Object.freeze({ ...RESIDUAL_LAYOUT,
+  outputs: Object.freeze(ROLES.flatMap(role => JOINTS.map(joint => `${role} ${joint} reference`))),
+});
 /** The observation and action names for the selected bounded muscle correction. */
 export function residualLayout(kind = 'velocity') {
   switch (kind) {
     case 'velocity': return RESIDUAL_LAYOUT;
     case 'activation': return ACTIVATION_LAYOUT;
-    default: throw Error('a travel residual controls velocity or activation');
+    case 'reference': return REFERENCE_LAYOUT;
+    default: throw Error('a travel residual controls velocity, activation or reference');
   }
 }
 const tanh = value => {
@@ -143,7 +147,7 @@ export async function residualEnvironment(configuration = {}) {
     physicalRoot = rootSegment(stand.built); rootInverse = Quaternion.Inverse(physicalRoot.rest);
     channels = Object.fromEntries(['left', 'right'].map(side => [side, names[side].map(name => body.muscles.channel(name))]));
     skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve }, runCycleSettings(cycle, WALK_RUN_CYCLE), { stride });
-    control = { asked: null, action: new Array(12).fill(0), lineX: 0 };
+    control = { asked: null, action: new Array(12).fill(0), reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
     observation = []; goal = null;
     body.drive((view, dt) => {
       const d = skill.goal(o.fallRule === 'physical' ? runView : view, { walk: control.asked, face: 0 }, dt);
@@ -154,7 +158,15 @@ export async function residualEnvironment(configuration = {}) {
           let i = names[side].indexOf(push.channel);
           if (i < 0) { const other = names[opposite].indexOf(push.channel); i = other < 0 ? -1 : other + 6; }
           if (i < 0) return push;
-          return applyResidual(push, view.time >= 1 + o.actionAt ? control.action[i] : 0);
+          const action = view.time >= 1 + o.actionAt ? control.action[i] : 0;
+          if (o.residual !== 'reference') return applyResidual(push, action);
+          const physical = i < 6 ? side : opposite, channel = i % 6;
+          const before = control.reference[physical][channel];
+          // Smooth physical-channel offsets across role changes; track their rate as well as their displacement.
+          const offset = before + Math.min(1, 30 * dt) * (action * o.scale - before);
+          control.reference[physical][channel] = offset;
+          const speed = push.speed + offset / cycle.settle + (offset - before) / dt;
+          return { ...push, speed, sense: speed >= 0 ? 1 : -1 };
         });
         return { posture: { ...guard, ...d.posture }, pushes, stance: null };
       }
