@@ -20,7 +20,8 @@ const CRYPT_GRADE = Object.freeze({ contrast: 1.18, exposure: 1.28, vignetteWeig
 export function postPipeline(scene: Scene, camera: Camera, options: { grade?: "default" | "crypt" } = {}): DefaultRenderingPipeline {
   const grade = options.grade === "crypt" ? CRYPT_GRADE : GRADE;
   const post = new DefaultRenderingPipeline("post", true, scene, [camera]);
-  post.samples = 1;
+  // Sample geometry edges before post-processing; canvas MSAA does not cover these render targets.
+  post.samples = Math.min(4, scene.getEngine().getCaps().maxMSAASamples);
   post.fxaaEnabled = true;
   post.imageProcessing.toneMappingEnabled = true;
   post.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;

@@ -78,7 +78,8 @@ export function paveForge(scene: Scene, material: PBRMaterial, bronze: PBRMateri
   const sigil = new Mesh("forge.compass", scene), carved = new VertexData();
   carved.positions = rays; carved.indices = faces; carved.normals = rays.map((_, i) => i % 3 === 1 ? 1 : 0);
   carved.applyToMesh(sigil); sigil.material = bronze; sigil.isPickable = false;
-  const skirt = MeshBuilder.CreateCylinder("forge.foundation", { diameter: 27, height: 2.4, tessellation: 96 }, scene);
+  // room.floor covers the foundation; a top cap would compete with it in the paving's gaps.
+  const skirt = MeshBuilder.CreateCylinder("forge.foundation", { diameter: 27, height: 2.4, tessellation: 96, cap: Mesh.CAP_START }, scene);
   skirt.position.y = -1.21; skirt.material = material;
   const floor = scene.getMeshByName("room.floor");
   if (floor) {
