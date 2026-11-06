@@ -7,9 +7,9 @@ one sub-step, which Havok never reaches; at that setting it holds 23 standing hu
 step against Havok's 9 at its passing setting, and loads in 1.1 MiB brotli.
 
 The live adapters are MuJoCo and Rapier (`research/physics-bakeoff/engines.mjs`, and the
-`physics-bench.html` page, `src/app/browser/physics-bench/`). Havok's adapter is not in the repository; its
+`/physics-bench/` page, `src/app/browser/physics-bench/`). Havok's adapter is not in the repository; its
 rows in `results/` are the record of the comparison. Harnesses: **Node**, one process, one thread;
-**Chrome**, `physics-bench.html` on the page's main thread. Times are medians of repeated runs. How
+**Chrome**, `/physics-bench/` on the page's main thread. Times are medians of repeated runs. How
 to run them is in [the research readme](../README.md#the-physics-bake-off).
 
 ## Setup

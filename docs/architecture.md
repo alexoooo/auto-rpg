@@ -621,9 +621,11 @@ any page.
 
 ## The screens
 
-`index.html` is one document (`src/app/browser/app.ts`, `src/game/route.ts`): the menu and each screen by
-`?play=`. The shell mounts one screen at a time, disposes the last explicitly and keeps setup
-choices for the tab. Every page is in `vite.config.ts`'s `rollupOptions.input`.
+`src/app/browser/` is Vite's browser root. Its `index.html` holds the app shell; `app.ts` mounts each
+screen's HTML from beside its UI code, selected by `?play=` (`src/game/route.ts`). The shell disposes
+the last screen explicitly and keeps setup choices for the tab. The Character Workshop and Physics
+Bench have their own `index.html` beside their modules. Every entry document is in `vite.config.ts`'s
+`rollupOptions.input`.
 
 | Screen | Where | What it is |
 |---|---|---|

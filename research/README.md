@@ -127,7 +127,7 @@ Scripts not listed above, by what they study; each is read by the record named.
 `physics-bakeoff/` compares engines under one controller on the same cases: a standing foot and a
 forearm chain for fidelity, a whole human observed with no bar, and many humans spaced or piled
 for speed. The live adapters are MuJoCo and Rapier (`physics-bakeoff/engines.mjs`); the
-`physics-bench.html` page runs the same cases in a browser (`src/app/browser/physics-bench/`).
+`/physics-bench/` page runs the same cases in a browser (`src/app/browser/physics-bench/`).
 [`REPORT.md`](physics-bakeoff/REPORT.md) holds the results and the choice of Rapier; `results/`
 the raw runs.
 

@@ -6,7 +6,7 @@ if(!pw)throw Error('Run with npm exec --yes --package=playwright -- node ...');
 const browser=await pw.chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1440,height:1050}});const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
 const output='.tmp/character-lab/acceptance';await mkdir(output,{recursive:true});
 try{
- await page.goto(process.argv[2]??'http://127.0.0.1:5183/character-lab.html');await page.waitForFunction(()=>window.__characterLab?.ready,{timeout:60000});await page.waitForTimeout(1500);
+ await page.goto(process.argv[2]??'http://127.0.0.1:5183/character-lab/');await page.waitForFunction(()=>window.__characterLab?.ready,{timeout:60000});await page.waitForTimeout(1500);
  const result=await page.evaluate(()=>{const l=window.__characterLab;const baseline=[l.scene.meshes.length,l.scene.materials.length,l.scene.skeletons.length];let configurations=0,samples=0;
  for(const id of ['fighter','rogue']){document.querySelector(`[data-character=${id}]`).click();for(const boots of [false,true])for(const armour of [false,true])for(const weapon of ['empty','sword','shield','sword-shield','bow']){
  document.querySelector(`[data-boots=${boots}]`).click();document.querySelector(`[data-armour=${armour}]`).click();const p=document.querySelector('#weapon');p.value=weapon;p.dispatchEvent(new Event('change'));

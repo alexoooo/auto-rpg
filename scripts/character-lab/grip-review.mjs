@@ -17,7 +17,7 @@ const errors = []; page.on('pageerror', error => errors.push(error.message));
 page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
 const review = resolve('.tmp/character-lab'); await mkdir(review, { recursive: true });
 try {
- await page.goto(process.argv[2] ?? 'http://127.0.0.1:5182/character-lab.html');
+ await page.goto(process.argv[2] ?? 'http://127.0.0.1:5182/character-lab/');
  await page.waitForFunction(()=>window.__characterLab?.ready);
  for(const id of ['fighter','rogue']) for(const weapon of ['sword','shield','bow']) {
  await page.locator(`[data-character=${id}]`).click(); await page.selectOption('#weapon',weapon);

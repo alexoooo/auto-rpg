@@ -6,7 +6,7 @@ const browser=await pw.chromium.launch({channel:'msedge',headless:true});
 const page=await browser.newPage({viewport:{width:1400,height:1000}});
 const out='.tmp/character-lab/repair';await mkdir(out,{recursive:true});
 try{
- await page.goto(process.argv[2]??'http://127.0.0.1:5183/character-lab.html');await page.waitForFunction(()=>window.__characterLab?.ready);await page.waitForTimeout(1200);
+ await page.goto(process.argv[2]??'http://127.0.0.1:5183/character-lab/');await page.waitForFunction(()=>window.__characterLab?.ready);await page.waitForTimeout(1200);
  for(const id of [process.argv[3]??'fighter']){
   await page.locator(`[data-character=${id}]`).click();await page.locator(`[data-armour=${process.argv[4]==='armour'}]`).click();
   for(const weapon of ['sword','shield','bow']){

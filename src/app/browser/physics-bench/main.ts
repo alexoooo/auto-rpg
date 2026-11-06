@@ -1,5 +1,5 @@
 /**
- * **The physics bake-off's browser page** (`physics-bench.html`): the same engines, cases and
+ * **The physics bake-off's browser page** (`/physics-bench/`): the same engines, cases and
  * scaling runs as `research/physics-bakeoff/` in Node, here on the page's main thread, one engine
  * loaded at a time on demand. Nothing is drawn; the page is a timer.
  *
@@ -12,6 +12,7 @@
  * it; the mean is exact over the run.
  */
 import mujocoWasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
+import { publicAssetUrl } from "../asset-url.ts";
 import mujocoMtWasmUrl from "@mujoco/mujoco/mt/mujoco.wasm?url";
 import mujocoMtWorkerUrl from "@mujoco/mujoco/mt?worker&url";
 import { forearmChain, scaling, standingFoot, standingHuman, type Factory, type Layout, type ScalingResult } from "./cases.ts";
@@ -169,7 +170,7 @@ async function isolate(): Promise<boolean> {
   if (globalThis.crossOriginIsolated || !MT) return true;
   if (!("serviceWorker" in navigator)) return false;
   // Scoped to this page; the game's pages install the same worker over the site (`src/app/browser/isolate.ts`).
-  await navigator.serviceWorker.register(new URL("coi-sw.js", document.baseURI), { scope: new URL("physics-bench.html", document.baseURI).pathname });
+  await navigator.serviceWorker.register(new URL(publicAssetUrl("coi-sw.js"), document.baseURI), { scope: new URL(".", document.baseURI).pathname });
   let tried = false;
   try { tried = sessionStorage.getItem("coi-reloaded") === "1"; sessionStorage.setItem("coi-reloaded", "1"); } catch { /* storage blocked */ }
   if (tried) return false;

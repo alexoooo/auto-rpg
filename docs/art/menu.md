@@ -1,8 +1,8 @@
 # The menu painting
 
 `public/assets/menu/cathedral.jpg` is the background of every `.directory-screen` (its
-`::before`, `src/app/browser/menu.css`): the title screen (`#title-screen`) and the Tools screen (`#tools`,
-`index.html`); and, under dark overlays, of the shared loading screen (`src/app/browser/app.css`) and the Dungeon setup
+`::before`, `src/app/browser/menu.css`): the title screen (`src/app/browser/menu.html`) and the Tools screen
+(`src/app/browser/tools.html`); and, under dark overlays, of the shared loading screen (`src/app/browser/app.css`) and the Dungeon setup
 (`src/app/browser/dungeon/style.css`). The title and the menu's buttons are HTML over it; the left of the
 painting is kept dark to hold them.
 

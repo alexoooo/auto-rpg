@@ -25,6 +25,8 @@ const identity = (): Plugin => ({ name: "recording-build-identity", enforce: "pr
 const ISOLATED = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" };
 
 export default defineConfig({
+  root: "src/app/browser",
+  publicDir: "../../../public",
   plugins: [identity()],
   // strictPort: when 5180 is taken, usually by a forgotten dev server, fail rather than move to
   // 5181 and leave the old server's stale build on the address you are reading.
@@ -37,7 +39,7 @@ export default defineConfig({
     watch: { ignored: ["**/research/runs/**", "**/.tools/**", "**/.tmp/**", "**/.cache/art/**"] },
     // Transform the browser entry graphs at server startup, before navigation
     // has to discover and wait on each level of their imports.
-    warmup: { clientFiles: ["./src/app/browser/app.ts", "./src/app/browser/arena/main.ts", "./src/app/browser/dungeon/main.ts", "./src/app/browser/lab/main.ts"] },
+    warmup: { clientFiles: ["./app.ts", "./arena/main.ts", "./dungeon/main.ts", "./lab/main.ts"] },
   },
   preview: { headers: ISOLATED },
   // MuJoCo ships its .wasm beside its ESM bundle; Vite must not try to inline it.
@@ -47,11 +49,16 @@ export default defineConfig({
   // (`src/app/browser/worker/world.worker.ts`) loads its engine and minds' data as chunks, which it cannot either.
   worker: { format: "es", plugins: () => [identity()] },
   build: {
+    outDir: "../../../dist",
+    emptyOutDir: true,
     target: "es2022",
     chunkSizeWarningLimit: 4096,
     // Every page is named here: Vite's default is `index.html` alone, so another page works in dev,
     // where every request is served from source, and is absent from `dist`.
-    // `physics-bench.html` is the physics bake-off (`research/physics-bakeoff/REPORT.md`).
-    rollupOptions: { input: { index: "index.html", characterLab: "character-lab.html", physicsBench: "physics-bench.html" } },
+    rollupOptions: { input: {
+      index: "src/app/browser/index.html",
+      characterLab: "src/app/browser/character-lab/index.html",
+      physicsBench: "src/app/browser/physics-bench/index.html",
+    } },
   },
 });

@@ -18,10 +18,12 @@ const modules = {
   ratings: () => import("./ratings/main.ts"),
 };
 
-function mount(templateId: string, root: HTMLElement): void {
-  const template = document.getElementById(templateId);
-  if (!(template instanceof HTMLTemplateElement)) throw new Error(`missing template #${templateId}`);
-  root.replaceChildren(template.content.cloneNode(true));
+async function mount(source: Promise<{ default: string }>, context: ScreenContext): Promise<void> {
+  const { default: html } = await source;
+  context.signal.throwIfAborted();
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  context.root.replaceChildren(template.content);
 }
 
 async function open(route: Route, context: ScreenContext): Promise<void> {
@@ -33,7 +35,7 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
   }
   switch (route) {
     case "menu": {
-      document.title = "Auto-RPG"; mount("menu-screen", root);
+      document.title = "Auto-RPG"; await mount(import("./menu.html?raw"), context);
       for (const to of ["dungeon", "arena", "ratings", "lab"] as const) {
         const button = need(`menu-${to}`, root);
         button.addEventListener("click", () => context.navigate(state.drafts.get(to) ?? playHref(to, context.address.search), { setup: true }));
@@ -45,27 +47,27 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
       return;
     }
     case "tools": {
-      document.title = "Tools · Auto-RPG"; mount("tools-screen", root);
+      document.title = "Tools · Auto-RPG"; await mount(import("./tools.html?raw"), context);
       return;
     }
     case "arena": {
       document.title = "Arena · Auto-RPG";
       await import("./arena/style.css"); check();
       await import("./arena/forge-ui.css"); check();
-      mount("arena-screen", root);
+      await mount(import("./arena/screen.html?raw"), context);
       const { bootArena } = await modules.arena(); check();
       return bootArena(context);
     }
     case "crowd": {
       document.title = "Crowd fight · Auto-RPG";
       await import("./arena/crowd.css"); check();
-      mount("crowd-screen", root);
+      await mount(import("./arena/crowd.html?raw"), context);
       const { bootCrowd } = await import("./arena/crowd.ts"); check();
       return bootCrowd(context);
     }
     case "dungeon": {
       document.title = "The Depths · Auto-RPG";
-      await import("./dungeon/style.css"); check(); mount("dungeon-screen", root);
+      await import("./dungeon/style.css"); check(); await mount(import("./dungeon/screen.html?raw"), context);
       const { bootDungeon } = await modules.dungeon(); check();
       return bootDungeon(context);
     }
@@ -75,17 +77,17 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
       const { labAddress } = await import("./setup.ts"); check();
       const address = labAddress(context.address.search);
       if (address.scenario === null) {
-        mount("lab-select-screen", root);
+        await mount(import("./lab/select.html?raw"), context);
         const { showScenarios } = await modules.lab(); check();
         return showScenarios(address, context);
       }
-      mount("lab-screen", root);
+      await mount(import("./lab/screen.html?raw"), context);
       const { bootLab } = await import("./lab/main.ts"); check();
       return bootLab({ ...address, scenario: address.scenario }, context);
     }
     case "ratings": {
       document.title = "Ratings · Auto-RPG";
-      await import("./ratings/style.css"); check(); mount("ratings-screen", root);
+      await import("./ratings/style.css"); check(); await mount(import("./ratings/screen.html?raw"), context);
       const { bootRatings } = await modules.ratings(); check();
       return bootRatings(context);
     }

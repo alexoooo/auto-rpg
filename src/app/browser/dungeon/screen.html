@@ -1,0 +1,86 @@
+<div id="dungeon-play" hidden>
+<canvas id="dungeon" aria-label="Dungeon game" tabindex="0"></canvas>
+<header class="topbar">
+  <a href="./" class="brand">AUTO-RPG <span>/ THE DEPTHS</span></a>
+  <small id="seed-label"></small>
+  <div class="topbar-end"><button id="pause-button" type="button">Pause <kbd>Esc</kbd></button></div>
+</header>
+<section id="target-panel" hidden aria-label="Selected enemy"><span id="target-name"></span><progress id="target-hp" max="1" value="1"></progress></section>
+<details id="mind-panel"><summary>Mind <small id="mind-who"></small></summary><div id="mind-view"></div></details>
+<div id="notice" role="status" hidden></div>
+<footer class="bottom-bar">
+  <section class="hero-panel"><span class="eyebrow">HERO</span><strong id="hero-name">Warrior</strong>
+    <div class="health"><progress id="hero-hp" max="1" value="1"></progress><span id="hp-label">100% life</span></div>
+  </section>
+  <section class="control-panel"><span class="eyebrow">CONTROLS</span>
+    <div class="switches"><label><input id="keyboard" type="checkbox" /> Keyboard movement</label><label><input id="facing" type="checkbox" /> Mouse facing</label></div>
+  </section>
+  <section class="party-panel" aria-label="Your party"><span class="eyebrow">PARTY <kbd>1</kbd>–<kbd>4</kbd> · <kbd>0</kbd> all · <kbd>F</kbd> regroup</span>
+    <ol id="party-list"></ol>
+  </section>
+  <button id="help-button" type="button" aria-expanded="false">Controls <kbd>?</kbd></button>
+</footer>
+<section id="pause-panel" class="dialog compact" hidden aria-labelledby="pause-title">
+  <span class="eyebrow">THE DEPTHS</span><h2 id="pause-title">Paused</h2><p id="run-time" hidden></p>
+  <button id="resume" class="primary">Resume</button><button id="retry">Retry same seed</button><button id="new-run">New dungeon</button>
+  <a href="./">Main menu</a>
+</section>
+<section id="help" class="dialog help" hidden>
+  <h2>Controls</h2>
+  <dl class="keys">
+    <dt>Click floor</dt><dd>Go there, fighting on the way; several take places about it</dd>
+    <dt>Click enemy</dt><dd>Attack it</dd>
+    <dt>Drag floor</dt><dd>Walk the drawn route past every foe</dd>
+    <dt>Right-click floor</dt><dd>Face there</dd>
+    <dt>Right-click ally</dt><dd>Follow it</dd>
+    <dt>Q / E</dt><dd>Turn left / right</dd>
+    <dt>H</dt><dd>Hold where they stand</dd>
+    <dt>X</dt><dd>Stop</dd>
+    <dt>1–4 / click ally</dt><dd>Select member; Shift adds</dd>
+    <dt>0</dt><dd>Select all</dd>
+    <dt>F</dt><dd>Regroup selected companions</dd>
+    <dt>Keyboard movement</dt><dd>WASD / arrows, relative to camera: the one selected, or the hero</dd>
+    <dt>Caps Lock</dt><dd>Walk, not run, while it is on</dd>
+    <dt>Mouse facing</dt><dd>Face cursor; auto-explore without keyboard movement</dd>
+    <dt>Combat</dt><dd>Automatic attacks and counters</dd>
+    <dt>Wheel</dt><dd>Zoom</dd>
+    <dt>Space / Esc</dt><dd>Pause / resume</dd>
+    <dt>?</dt><dd>Controls</dd>
+  </dl>
+  <button id="close-help">Close</button>
+</section>
+<div id="dungeon-sound"></div>
+</div>
+<main id="start-panel" aria-labelledby="start-title">
+  <header class="setup-heading"><a href="./">← Main menu</a><h1 id="start-title">Choose character</h1></header>
+  <fieldset class="hero-lineup" aria-label="Character">
+    <div id="hero-choices"></div>
+    <canvas id="hero-preview" aria-hidden="true"></canvas>
+  </fieldset>
+  <div class="setup-controls">
+    <fieldset id="dungeon-scene" class="setup-choice level-choice"><legend>Level</legend>
+      <label><input type="radio" name="level" value="generated" checked /><span>Generated depths</span></label>
+      <label><input type="radio" name="level" value="reference" /><span>The Rootbound Crypt</span></label>
+      <label><input type="radio" name="level" value="random-crypt" /><span>Random Crypt</span></label>
+    </fieldset>
+    <div class="setup-bottom">
+      <fieldset id="companions" class="setup-choice"><legend>Companions</legend>
+        <label><input type="radio" name="companions" value="0" checked /><span>None</span></label>
+        <label><input type="radio" name="companions" value="1" /><span>1</span></label>
+        <label><input type="radio" name="companions" value="2" /><span>2</span></label>
+        <label><input type="radio" name="companions" value="3" /><span>3</span></label>
+      </fieldset>
+      <details id="setup-advanced" class="ui-drawer"><summary>Advanced settings</summary>
+      <details id="party-minds"><summary>Minds</summary><div id="party-mind-list"></div></details>
+      <details id="setup-options"><summary>Options</summary><div class="setup-options-fields">
+        <label class="field">Seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
+        <label class="field">Party <select id="party-commander"></select></label>
+        <label class="field">Enemies <select id="enemy-commander"></select></label>
+        <label class="field" hidden>Quality <select id="dungeon-quality"><option value="high">High</option><option value="reduced">Reduced</option></select></label>
+      </div></details>
+      </details>
+      <button id="start" data-initial-focus type="button" disabled>Loading…</button>
+    </div>
+    <p id="setup-error" role="alert" hidden></p>
+  </div>
+</main>

@@ -111,7 +111,7 @@ leaves it as it was.
 
 With a server on the script's port, and Playwright fetched for the run (it is not a dependency);
 every script launches Microsoft Edge (`channel: 'msedge'`). Without a URL, a script opens
-`http://127.0.0.1:5183/character-lab.html` (`browser-check.mjs`, `visual-review.mjs`,
+`http://127.0.0.1:5183/character-lab/` (`browser-check.mjs`, `visual-review.mjs`,
 `realistic-grips.mjs`) or port 5182 (`anatomy-review.mjs`, `grip-review.mjs`): after
 `npm run build`, serve that port with
 `npm run preview -- --port <port> --strictPort --host 127.0.0.1`, and stop the preview by its PID

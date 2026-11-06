@@ -1,0 +1,84 @@
+<canvas id="stage" tabindex="0" aria-label="Arena game"></canvas>
+<!-- Each side's name and bar, and the bout's clock; filled by src/app/browser/arena/main.ts. -->
+<div id="hud">
+  <label class="field arena-control">
+    <span class="field-name">Control</span>
+    <select id="you">
+      <option value="">Spectator</option>
+      <option value="left">Left</option>
+      <option value="right">Right</option>
+    </select>
+  </label>
+</div>
+<details id="arena-view" hidden aria-label="View controls">
+  <summary>View</summary>
+  <div id="arena-view-controls"></div>
+</details>
+<!-- Setup covers the arena because no bout exists yet. Pause does not: its compact sibling
+     below leaves the frozen arena visible. -->
+<!-- One grid over the arena: a title across the top, a contender panel at each edge, an
+     open centre, Fight under it and a footer. -->
+<div id="curtain">
+  <header class="duel-title">
+    <h1>Arena</h1>
+  </header>
+  <!-- Filled by src/app/browser/arena/main.ts from the core's models, so an option that is offered is
+       one the core has. Its children are laid straight into this grid. -->
+  <div id="matchup"></div>
+  <button id="begin" data-initial-focus class="action" type="button" disabled>Fight</button>
+  <footer class="duel-footer">
+    <button id="help-open" class="link" type="button">How to play</button>
+    <a href="?play=ratings&amp;evaluation=tournament">Ratings</a>
+    <!-- Where a case opened from the Ratings returns (src/app/browser/arena/case-link.ts). -->
+    <a id="case-back" hidden>&larr; Back to the case's ratings</a>
+    <p class="note" id="boot-note">Loading&hellip;</p>
+    <a href="./">&larr; Main menu</a>
+  </footer>
+</div>
+<aside id="pause-menu" class="gone" aria-label="Game paused">
+  <div class="pause-copy">
+    <strong>PAUSED</strong>
+    <span>Space / Esc</span>
+  </div>
+  <div class="pause-actions">
+    <button id="resume" class="action" type="button">Resume</button>
+    <button id="restart" class="action quiet" type="button">Replay</button>
+    <button id="random-replay" class="action quiet" type="button">Random replay</button>
+    <button id="leave" class="action quiet" type="button">Setup</button>
+    <button id="to-menu" class="action quiet" type="button">Main menu</button>
+  </div>
+  <span class="pause-help"><b>?</b> controls</span>
+</aside>
+<!-- The end of a bout: the verdict, then the same fight again or the right side redrawn. -->
+<aside id="bout-end" class="gone" aria-label="Bout over">
+  <div class="bout-result" role="status" aria-live="polite" aria-atomic="true">
+    <strong id="bout-verdict"></strong>
+    <span id="bout-ending"></span>
+  </div>
+  <button id="bout-end-replay" class="action" type="button">Replay</button>
+  <button id="bout-end-random" class="action" type="button">Random replay</button>
+  <button id="bout-end-leave" class="action quiet" type="button">Setup</button>
+  <button id="bout-end-back" class="action quiet" type="button" hidden>Ratings</button>
+</aside>
+<div id="help" class="gone">
+  <div class="panel">
+    <h1>Controls</h1>
+    <dl class="keys">
+      <dt>Control</dt><dd>Watch or lead either fighter; switch during the fight or while paused</dd>
+      <dt>W A S D, or the arrows</dt><dd>Move relative to camera</dd>
+      <dt>Shift, with a move</dt><dd>Walk, not run</dd>
+      <dt>Pointer</dt><dd>Face cursor</dd>
+      <dt>Left button</dt><dd>Attack the part under the pointer; hold to repeat</dd>
+      <dt>Click the floor</dt><dd>Go there</dd>
+      <dt>Choices</dt><dd>What each side could do now; with Pause on choice, the bout pauses at a new one and a pick orders it</dd>
+      <dt>Middle or right drag</dt><dd>orbit the Free camera</dd>
+      <dt>Wheel</dt><dd>zoom</dd>
+      <dt>View panel</dt><dd>World or Tactical, camera mode, projection and fighter focus; works while paused</dd>
+      <dt>Pause / Resume</dt><dd>Space / Esc</dd>
+      <dt>R</dt><dd>Replay</dd>
+      <dt>Random replay</dt><dd>Randomize opponent</dd>
+      <dt>?</dt><dd>Controls</dd>
+    </dl>
+    <button id="help-close" class="action" type="button">Close</button>
+  </div>
+</div>
