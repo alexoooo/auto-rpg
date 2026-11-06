@@ -36,6 +36,9 @@ import { footOn } from "../../../../src/control/support.ts";
  * - `--corridor <m>` scales straight-trial credit down by its greatest centre-of-mass distance
  *   from the requested line, including stopping. This is a training proxy; confirmation reads
  *   the corridor as a hard gate. Turning trials require their own path protocol.
+ * - `--survive` trains only the fraction of a straight trial completed upright, with the entry
+ *   deadline and corridor penalty retained. This supplies a gradient when every long trial falls;
+ *   replay without it to judge speed. Its score cannot establish a movement gate.
  * - Otherwise it searches, and writes each generation to `<out>.jsonl` and the best to `<out>-best.json`.
  *
  * The settings it moves are `DIMS`, or those of them `--dims` names, the rest the start's over the defaults (`WALK_RUN_CYCLE`),
@@ -114,7 +117,7 @@ function loadoutOf(held) {
  * One trial: `model` asked `speed` m/s forward for `seconds` under the run `run`, its face turned at
  * `turn` rad/s if given (`TURN`), or asked to stop if `stop` (`STOP`), in the gusts of `wind` if given, holding `held` (`empty` or `club`); its credit, and its 2 s windows' speeds.
  */
-async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: stopSeconds = STOP.at, stopWithin = STOP.within, stopUnder = STOP.under, stopHold = 0, wind = null, held = "empty", balance = null, haste, hasted, narrow = null, fallen = 1, slowestFrom = null, entryWithin = null, corridor = null, trace = false, running = null, stride, turnAt = TURN.at, turnAngle = TURN.angle, run: { at, swerve = WALK_RUN.swerve, ...run } }) {
+async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: stopSeconds = STOP.at, stopWithin = STOP.within, stopUnder = STOP.under, stopHold = 0, wind = null, held = "empty", balance = null, haste, hasted, narrow = null, fallen = 1, slowestFrom = null, entryWithin = null, corridor = null, survive = false, trace = false, running = null, stride, turnAt = TURN.at, turnAngle = TURN.angle, run: { at, swerve = WALK_RUN.swerve, ...run } }) {
   const own = modelSpec(model, undefined, { haste }), spec = modelHolding(model, loadoutOf(held), haste === undefined ? undefined : { haste }), guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
   const assist = balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
@@ -195,8 +198,9 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
     const narrowed = narrow === null || gait.width === null ? 1 : Math.min(1, narrow * legOf(own) / gait.width);
     const entered = entryWithin === null || (enteredAt !== null && enteredAt <= entryWithin);
     const onLine = corridor === null ? 1 : Math.min(1, corridor / Math.max(corridor, crossTrack));
-    const credit = (entered ? 1 : 0) * (Math.min(made, speed + OVER) - Math.max(0, made - speed - OVER)) * (turned ? 1 : 0.5) * stood * soon * (stopped ? 1 : 0.5) * narrowed * onLine * (fell === null ? 1 : fallen);
-    return { model, speed, turn, stop, stopAt: stop ? stopSeconds : null, wind: wind?.seed ?? null, held, haste: haste ?? null, credit, made: +made.toFixed(3), crossTrack: turn === 0 ? crossTrack : null, fell, enteredAt, turned, under, metres: metres === null ? null : +metres.toFixed(2), windows, ...gait, ...(trace ? { hz: stand.world.hz, delay: stand.world.delay, samples } : {}) };
+    const credit = survive ? (entered ? 1 : 0) * onLine * (fell === null ? 1 : Math.max(0, fell - 1 / stand.world.hz) / seconds)
+      : (entered ? 1 : 0) * (Math.min(made, speed + OVER) - Math.max(0, made - speed - OVER)) * (turned ? 1 : 0.5) * stood * soon * (stopped ? 1 : 0.5) * narrowed * onLine * (fell === null ? 1 : fallen);
+    return { model, speed, turn, stop, stopAt: stop ? stopSeconds : null, wind: wind?.seed ?? null, held, haste: haste ?? null, objective: survive ? "survival" : "motion", credit, made: +made.toFixed(3), crossTrack: turn === 0 ? crossTrack : null, fell, enteredAt, turned, under, metres: metres === null ? null : +metres.toFixed(2), windows, ...gait, ...(trace ? { hz: stand.world.hz, delay: stand.world.delay, samples } : {}) };
   } finally { blowing?.dispose(); host.dispose(); stand.dispose(); }
 }
 
@@ -210,11 +214,14 @@ if (!isMainThread) {
   });
 } else {
   const { values: o } = parseArgs({ options: {
-    corridor: { type: "string" }, stride: { type: "string" }, running: { type: "string" }, "braking-only": { type: "boolean" }, trace: { type: "string" }, out: { type: "string" }, "entry-within": { type: "string" }, models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, speeds: { type: "string", default: "3,3.5,4" }, turns: { type: "string" }, stops: { type: "string" }, "stop-at": { type: "string" },
+    survive: { type: "boolean" }, corridor: { type: "string" }, stride: { type: "string" }, running: { type: "string" }, "braking-only": { type: "boolean" }, trace: { type: "string" }, out: { type: "string" }, "entry-within": { type: "string" }, models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, speeds: { type: "string", default: "3,3.5,4" }, turns: { type: "string" }, stops: { type: "string" }, "stop-at": { type: "string" },
     seconds: { type: "string", default: "25" }, generations: { type: "string", default: "60" }, lambda: { type: "string", default: "28" },
     sigma: { type: "string", default: "0.1" }, workers: { type: "string", default: "28" }, start: { type: "string" }, dims: { type: "string" }, score: { type: "boolean" }, windows: { type: "boolean" }, winds: { type: "string" }, holds: { type: "string", default: "empty" }, "turn-speed": { type: "string" }, "stop-within": { type: "string" }, "stop-under": { type: "string" }, "stop-hold": { type: "string" }, balance: { type: "string" }, haste: { type: "string" }, hasted: { type: "string" }, narrow: { type: "string" }, fallen: { type: "string" }, slowest: { type: "string" }, "turn-at": { type: "string" }, "turn-angle": { type: "string" },
   } });
   if (o.trace && !o.score) throw new Error("--trace is read with --score, not a search");
+  if (o.survive && (o.turns || o.stops)) throw new Error("--survive trains straight travel without a stop");
+  if (o.survive && (!(Number(o["entry-within"]) > 0) || !Number.isFinite(Number(o["entry-within"]))))
+    throw new Error("--survive needs a finite positive --entry-within deadline");
   if (o.corridor !== undefined && (!(Number(o.corridor) > 0) || !Number.isFinite(Number(o.corridor)) || o.turns))
     throw new Error("--corridor needs a finite positive distance and straight trials");
   const BASE = WALK_RUN_CYCLE, D = DIMS;
@@ -237,6 +244,7 @@ if (!isMainThread) {
     ...(o.trace ? {trace: true} : {}),
     ...(o["entry-within"] === undefined ? {} : { entryWithin: Number(o["entry-within"]) }),
     ...(o.corridor === undefined ? {} : { corridor: Number(o.corridor) }),
+    ...(o.survive ? { survive: true } : {}),
     ...(o.hasted === undefined ? {} : { hasted: Number(o.hasted) }), ...(o.narrow === undefined ? {} : { narrow: Number(o.narrow) }), ...(o.fallen === undefined ? {} : { fallen: Number(o.fallen) }), ...(o.slowest === undefined ? {} : { slowestFrom: Number(o.slowest) }) }))).flatMap((cell) => o.haste === undefined ? [cell] : o.haste.split(",").map((haste) => ({ ...cell, haste: Number(haste) })));
   const toUnit = (p) => KEYS.map((k) => ((p[k] ?? D[k][0]) - D[k][0]) / (D[k][1] - D[k][0]));
   const fromUnit = (u) => ({ ...start, ...Object.fromEntries(KEYS.map((k, i) => [k, +(D[k][0] + Math.min(1, Math.max(0, u[i])) * (D[k][1] - D[k][0])).toFixed(4)])) });
@@ -250,6 +258,7 @@ if (!isMainThread) {
     const fallen = trials.filter((t) => t.fell !== null);
     console.log(`fallen ${fallen.length} of ${trials.length}${o.models.split(",").map((m) => `; ${m} ${fallen.filter((t) => t.model === m).length}`).join("")}`);
     console.log("run entry, s", trials.map(t => t.enteredAt));
+    console.log("objective", o.survive ? "survival training only" : "motion");
     console.log("score", trials.reduce((s, t) => s + t.credit, 0) / trials.length);
   } else {
     if (!o.out) throw new Error("--out names the search's files");
@@ -268,6 +277,7 @@ if (!isMainThread) {
         console.log(JSON.stringify(line));
         appendFileSync(o.out + ".jsonl", JSON.stringify({ ...line, run: fromUnit(best.u) }) + "\n");
         writeFileSync(o.out + "-best.json", JSON.stringify(fromUnit(best.u), null, 1) + "\n");
+        if (o.survive && best.score >= 1 && best.r.trials.every(t => t.fell === null)) return false;
       } })); }
     finally { await pool.terminate(); }
     console.log("best", best.score);
