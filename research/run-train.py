@@ -8,6 +8,7 @@ ended, of those that have it. The latest policy is policy.json, and every `--kee
 stays as policy-<steps>.json with its model-<steps>.zip and normalize-<steps>.pkl for resuming:
 the training return does not choose a policy (a run's return can go
 on rising as its battery falls), its battery does.
+The configuration's `seed` seeds the learner as well as the Node environments.
 
 `--start` begins from a trained network (an exported `Network`, or a record whose one entry holds
 a `network`, assets/skills/strikes/<blow>/<blow>.json), its inputs and outputs matched to this run's by name
@@ -285,11 +286,11 @@ try:
     else:
         if squashed:
             model = SAC('MlpPolicy', envs, device=options.device, buffer_size=options.buffer, batch_size=options.batch or 512, learning_rate=options.lr, gamma=gamma, tau=0.005,
-                        learning_starts=0 if options.start else 10_000, train_freq=1, gradient_steps=options.gradient_steps, ent_coef='auto_0.1', verbose=0,
+                        learning_starts=0 if options.start else 10_000, train_freq=1, gradient_steps=options.gradient_steps, ent_coef='auto_0.1', verbose=0, seed=configuration.get('seed', 1),
                         policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
         else:
             model = PPO('MlpPolicy', envs, device=options.device, n_steps=options.rollout, batch_size=options.batch or 4096, n_epochs=5, learning_rate=options.lr, gamma=gamma, gae_lambda=gae_lambda,
-                        clip_range=0.2, ent_coef=0.0, target_kl=0.03, verbose=0,
+                        clip_range=0.2, ent_coef=0.0, target_kl=0.03, verbose=0, seed=configuration.get('seed', 1),
                         policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
         if options.start:
             if not options.start_layout: raise SystemExit('a start names its layout (--start-layout)')
