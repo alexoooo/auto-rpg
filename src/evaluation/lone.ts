@@ -44,6 +44,8 @@ export interface LoneCue {
 export interface LoneCase {
   /** An open square floor's side, m, in place of the Arena, for travel beyond its walls. */
   readonly floorSize?: number;
+  /** Initial facing, radians about up; the body and its recording use the same heading. */
+  readonly heading?: number;
   readonly model: BodyModel;
   readonly character?: AttributeOverrides;
   readonly loadout?: Loadout;
@@ -71,6 +73,7 @@ export function createLone(context: GameContext) {
    * shove before that step.
    */
   async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<BuiltLone | Refused> {
+    if (lone.heading !== undefined && !Number.isFinite(lone.heading)) return { refused: "a lone body's heading must be finite" };
     if (lone.floorSize !== undefined && (!Number.isFinite(lone.floorSize) || lone.floorSize <= 0)) return { refused: "an open floor needs a finite positive side" };
     const spec = modelHoldingChecked(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character);
     if (isRefused(spec)) return spec;
@@ -83,7 +86,7 @@ export function createLone(context: GameContext) {
       const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
       const state = { orders: null as Orders | null, next: 0, steps: 0 };
       const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec, rules: rulebook("arena"),
-        mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: scope.own(createSenses(world)), out: () => false, orders: () => state.orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
+        mind: lone.mind, catalog: GAME, at: [0, 0, 0], ...(lone.heading !== undefined ? { heading: lone.heading } : {}), senses: scope.own(createSenses(world)), out: () => false, orders: () => state.orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
         ...(lone.seed !== undefined ? { seed: lone.seed } : {}) });
       scope.own(body.body); scope.own(body.built);
       const wind = lone.gusts ? startWind(body.built, world, labGusts(lone.model), lone.seed ?? 1) : null;

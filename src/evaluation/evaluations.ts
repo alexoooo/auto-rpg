@@ -5,6 +5,7 @@ import { createCrowdIndex } from "./crowd/index.ts";
 import { createCoverIndex } from "./cover/index.ts";
 import { createCryptClearIndex } from "./crypt-clear/index.ts";
 import { createLocomotionIndex } from "./locomotion/index.ts";
+import { createTravelIndex } from "./travel/index.ts";
 import { createMatchIndex } from "./match/index.ts";
 import { createRiseIndex } from "./rise/index.ts";
 import { createRisingTargetIndex } from "./rising-target/index.ts";
@@ -21,6 +22,7 @@ export function createEvaluations(context: GameContext) {
   const { COVER } = createCoverIndex(context);
   const { CRYPT_CLEAR } = createCryptClearIndex(context);
   const { LOCOMOTION } = createLocomotionIndex(context);
+  const { TRAVEL_DRILL } = createTravelIndex(context);
   const { MATCH } = createMatchIndex(context);
   const { RISE } = createRiseIndex(context);
   const { RISING_TARGET } = createRisingTargetIndex(context);
@@ -43,6 +45,7 @@ export function createEvaluations(context: GameContext) {
     cover: COVER as unknown as Evaluation,
     stand: STAND as unknown as Evaluation,
     locomotion: LOCOMOTION as unknown as Evaluation,
+    travel: TRAVEL_DRILL as unknown as Evaluation,
     rise: RISE as unknown as Evaluation,
   });
 

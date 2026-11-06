@@ -9,6 +9,8 @@ import type { Json } from "../evaluation.ts";
 import { STOPPING_PACE, TURNING_PACE } from "../locomotion/cases.ts";
 import { STAND_WITHIN, targetGates } from "../rising.ts";
 import { BAR } from "../strike/read.ts";
+import { travelLegCoverage } from "../travel/read.ts";
+import type { TravelReading } from "../travel/read.ts";
 import type { Cell, HitFigure, MetJudge, Reading, ScoreReading } from "./cells.ts";
 
 /** A row as the table reads it: its condition and its reading. */
@@ -73,6 +75,12 @@ export function verdictOf(judge: MetJudge, rows: readonly TableRow[], required: 
   if (missing.length || faults.length) return { state: rows.length === 0 ? "unread" : "short", figures: `${required.length - missing.length} of ${required.length} cases, ${missing.length} missing, ${faults.length} faulted` };
   if (required.length === 0 || rows.length === 0) return { state: "unread", figures: "no rows" };
   switch (judge) {
+    case "travel": {
+      const readings = rows.map(row => row.reading as unknown as TravelReading), legs = travelLegCoverage(rows);
+      const passed = readings.filter(row => row.met === true && row.short.length === 0).length;
+      return { state: passed === readings.length && legs === 0 ? "met" : "short",
+        figures: `${passed}/${readings.length} travel cases met; ${readings.filter(row => !row.entryMade).length} entries unreached; ${legs} groups lack both first legs` };
+    }
     case "target": {
       const falls = rows.map((row) => {
         const fall = row.reading as unknown as Fall;
