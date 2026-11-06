@@ -14,7 +14,7 @@ import type { ActionStatus } from "../../skills/framework/action.ts";
 import type { BuiltBout } from "../bout.ts";
 import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
 import { uprightness } from "../../control/ground.ts";
-import type { BonkFixtureReading } from "./bonk-fixture.ts";
+import { validBonkBoundary, type BonkFixtureReading } from "./bonk-fixture.ts";
 import { describeMind } from "../../minds/description.ts";
 import { senseDelayOf } from "../../game/arena/duel.ts";
 
@@ -347,7 +347,8 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
         clearance: state.samples.length > 0 && state.samples.every(one => one.clearance.pairs > 0),
         entryWindow: Boolean(fixtureReading?.admission?.standing && fixtureReading.placed && !fixtureReading.faults.includes("normalized entry was not reached")),
         fixtures: fixtureReading !== undefined && fixtureReading.faults.length === 0,
-        repetition: null, cancellationBoundary: fixtureReading?.requested.cancellation === "last-preparation" ? fixtureReading.boundary?.reached === true : null };
+        repetition: null, cancellationBoundary: fixtureReading?.requested.cancellation === "last-preparation"
+          ? validBonkBoundary(fixtureReading.boundary) && fixtureReading.boundary.reached : null };
       const gates = {
         preparation: cancelled ? null : state.entry !== null && state.committed !== null && elapsed(state.committed, state.entry.time) <= BONK_LIMITS.prepare && state.preparedHold >= BONK_LIMITS.chamberHold
           && state.chamberAbove !== null && state.chamberAbove >= BONK_LIMITS.chamberAbove,

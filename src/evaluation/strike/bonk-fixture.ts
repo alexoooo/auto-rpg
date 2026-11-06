@@ -36,6 +36,11 @@ export const validBonkFixture = (value: unknown): value is BonkFixtureConfig => 
 };
 
 type Window = { readonly at: Vec3; readonly heading: number; readonly along: readonly [number, number]; readonly across: readonly [number, number] };
+type BonkBoundary = { readonly preparationStep: number | null; readonly commitmentStep: number | null };
+/** Whether a counterfactual reaches commitment on the native step after its last preparation. */
+export const validBonkBoundary = (boundary: BonkBoundary | null | undefined): boundary is { readonly preparationStep: number; readonly commitmentStep: number } =>
+  boundary != null && Number.isSafeInteger(boundary.preparationStep) && Number.isSafeInteger(boundary.commitmentStep)
+    && boundary.preparationStep! >= 0 && boundary.preparationStep === boundary.commitmentStep! - 1;
 export type BonkFixtureReading = {
   readonly kind: "bonk"; readonly requested: BonkFixtureConfig; readonly entryRule: typeof BONK_ENTRY;
   readonly requestedAt: number | null; readonly admittedAt: number | null; readonly committedAt: number | null;
@@ -105,7 +110,7 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
     missAt: null as number | null, missImpulses: 0, cancelledAt: null as number | null, precommit: null as boolean | null,
     id: null as number | null, expired: false, faults: [] as string[],
     probing: false, preparationStep: null as number | null, commitmentStep: null as number | null,
-    boundary: null as { preparationStep: number | null; commitmentStep: number | null } | null };
+    boundary: null as BonkBoundary | null };
   const velocity = new Vector3(), spin = new Vector3();
   const currentWindow = (): Window => {
     const heading = skills.report.heading, ax = sin(heading), az = cos(heading), acrossX = az, acrossZ = -ax;
@@ -161,8 +166,7 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
         && (state.admittedAt === null || active()?.phase === "prepare")) world.step();
       const boundary = { preparationStep: state.preparationStep, commitmentStep: state.commitmentStep };
       duel.load(bout); loadState(state, saved); state.boundary = boundary;
-      if (boundary.preparationStep === null || boundary.commitmentStep === null || boundary.preparationStep !== boundary.commitmentStep - 1)
-        state.faults.push("last preparation boundary was not established");
+      if (!validBonkBoundary(boundary)) state.faults.push("last preparation boundary was not established");
     },
     beforeSense() {
       if (state.id !== null && !active()) duel.order("left", stand);
@@ -185,7 +189,7 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
         state.placed = { at: world.time, window: placed, normalized: normalized(placed), shift: [dx, dz] };
         if (state.requestedAt === null) { state.requestedAt = world.time; duel.order("left", strike); }
       }
-      const withdraw = config.cancellation === "last-preparation" ? state.boundary?.preparationStep === world.steps
+      const withdraw = config.cancellation === "last-preparation" ? validBonkBoundary(state.boundary) && state.boundary.preparationStep === world.steps
         : state.admittedStep !== null && world.steps - state.admittedStep >= Math.round(.05 * world.hz);
       if (config.mode === "cancel" && !state.probing && state.admittedStep !== null && state.cancelledAt === null && withdraw) {
         state.cancelledAt = world.time; state.precommit = active()?.phase === "prepare";
@@ -203,8 +207,8 @@ export function bonkFixture({ world, duel }: Pick<BuiltBout, "world" | "duel">, 
       if (config.mode === "miss" && (state.missAt === null || state.missImpulses > 0)) faults.push("unobstructed miss was not reached");
       if (config.mode === "cancel" && (state.cancelledAt === null || state.precommit !== true || state.committedAt !== null)) faults.push("precommit cancellation was not reached");
       const boundary = config.cancellation === "last-preparation" ? { preparationStep: state.boundary?.preparationStep ?? null,
-        commitmentStep: state.boundary?.commitmentStep ?? null, reached: state.cancelledAt !== null && state.boundary?.preparationStep !== null
-          && Math.round(state.cancelledAt * world.hz) === state.boundary?.preparationStep && state.precommit === true && state.committedAt === null } : null;
+        commitmentStep: state.boundary?.commitmentStep ?? null, reached: state.cancelledAt !== null && validBonkBoundary(state.boundary)
+          && Math.round(state.cancelledAt * world.hz) === state.boundary.preparationStep && state.precommit === true && state.committedAt === null } : null;
       if (boundary && !boundary.reached) faults.push("last preparation cancellation was not reached");
       return { kind: "bonk", requested: config, entryRule: BONK_ENTRY, requestedAt: state.requestedAt, admittedAt: state.admittedAt, committedAt: state.committedAt,
         placed: state.placed, admission: state.admission, missAt: state.missAt, missImpulses: state.missImpulses, cancelledAt: state.cancelledAt, precommit: state.precommit,
