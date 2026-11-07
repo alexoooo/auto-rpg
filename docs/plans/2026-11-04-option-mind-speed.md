@@ -70,66 +70,9 @@ decision is made or how its value is estimated.
 Each lands green on its own: `npm run check`, `npm test`, `npm run build` where browser code
 changes, and the cost reading before and after.
 
-### The report copied once it changes
-
-`saidOf` snapshots every mind's report with each answer, comparing records and arrays by value
-and copying only changed branches. The copy stays a snapshot no later live write changes. A speed
-rewrite: no fingerprint case moves. Check: the cost reading; the worker tests replay to the bit.
-
-### Exact profile queries
-
-Each nearest-trial query (`src/skills/framework/profile.ts`) keeps the distances its
-selection computed in sample scratch and reuses them when aggregating the selected trials.
-Only the interval visited by that query is valid; trials admitted beyond it by the tie tolerance
-have their distances computed during aggregation. Query work holds clamped start coordinates and
-neighbour bounds in frames reused by call depth through aggregation; fixed input tuples are read
-by index, and distance insertion uses a shared helper. The distance arithmetic and trial order hold.
-Check: complete profile readings, interleaved and nested queries, the fingerprint, allocation
-samples and paired search and step timings.
-
-### Exact pressure queries
-
-Each tree decision reads its pressure through a private cache of exact range and velocity starts
-(`cachedPressure`, `src/minds/option/percepts.ts`). Fixed arrays hold at most 256 rates in four-way
-hash buckets; a bucket evicts its least recently used start. Duration is applied after each
-lookup. The pressure is read lazily, and the live situation and saved chooser state retain their
-own predictions. Check: exact query results, eviction, decision isolation, the fingerprint and
-paired search and step timings.
-
-### Exact predicted situations
-
-Each search shares the read-only sight, report and prediction overlays that end the actions and
-incoming blow (`placing`, `src/minds/option/option.ts`). Search-local weak maps find the overlay
-for each input sight or prediction, and map an overlay to itself so descendants reuse it.
-Each situation keeps its own geometry, posture and grace, with the same arithmetic and inherited
-readings. Check: complete placements, lazy getters, independent inputs and searches, the
-fingerprint and paired search and step timings.
-
-### Exact model and offer storage
-
-Each search assigns a slot to each distinct Option identity and target index (`space`,
-`src/minds/option/chooser.ts`). A situation owns one indexed model-result row: `undefined` means
-unasked, `null` a refusal. Frozen Option/target descriptors (`Pair`) are shared across situations;
-each situation keeps its own offered membership and order (`pairsAt`), including repeated Option
-identities. First-use and model-call order and root entry checks hold. Recursive queries and tree
-branches keep independent result rows and offer lists. The path record and run stacks are reused.
-Each line carries its descriptor so repeated model queries read the slot directly.
-Check: complete offer records for tree and valued choosers, repeated and refused models,
-multiple targets, duplicate Option identities, root entry gating, nested and sibling states;
-the complete fingerprint, allocation samples and paired mean and tail timings.
-
-### Exact completed-search lifetime
-
-After every run and backup finishes, `treeSearch` copies each root edge's descriptor, final price
-and model terms into result records. `pricedLines` builds the lookup in a separate scope that
-captures these records, so it releases the root node, descendants and search workspace. It keeps
-the first match for duplicate Option/target entries and returns a fresh line record on each
-lookup. `searching` keeps the completed lookups for the current decision time.
-
-Check: identical root offers and model terms, repeated lookups, decision isolation, cache release
-between decisions, the complete fingerprint and a reachability reading. Read live retention
-separately from allocated bytes and GC pauses. Deliberate tree reuse across decisions has its own
-state and drift contract below.
+The search's storage built so far (report snapshots, profile and pressure queries, predicted
+situations, model and offer slots, release of a completed search) is in the
+[architecture](../architecture.md#minds); the steps below start from it.
 
 ### Exact temporary search work
 

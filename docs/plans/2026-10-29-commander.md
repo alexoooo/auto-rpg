@@ -25,29 +25,16 @@ at the exit, and its chooser is configured. The four kinds stay, as opponents an
 with no foes keeps half the life); the name.
 
 **What must not move**: every fingerprint case (a run plays as it does; only an evaluation reads
-the score); Option Mind's fingerprint through step 2; the Commander contract's boundary
+the score); the Commander contract's boundary
 (`tests/core-boundary.test.mjs`, `COMMAND_BARRED`).
 
 ## The design
 
 ### The score: life at the exit, less time
 
-A run's score is the hero's life at its end less the price of the time it took and the time it
-would still take to reach the exit, in shares of full life:
-
-`score = life - price * (elapsed + left / pace)`
-
-- `life`: the pool's bar (`Pool.bar`) at the run's end, 0 for a run lost (`dead`).
-- `left`: the route from where the hero ends to the exit (`findPath`, at the hero's radius), 0 at
-  the exit; `pace`: the hero's gait's forward pace (`MemberView.gait`). A run lost far from the
-  exit reads lower than one lost near it, so lost runs are not all one number.
-- `price`: the share of full life a second, from the level: a walk of its route from the start to
-  the exit with no foes, at the hero's pace, costs half the life (`price = 0.5 / (route / pace)`).
-- **A run stops** at the exit, at the hero's death, or once `life - price * elapsed` reaches 0: no
-  run can then score above a lost one. No cap is needed past that.
-
-The score is read by the evaluation from the run as it is; the run, the game's Crypt and every
-Mind and Commander are unchanged by it.
+`crypt-clear`'s `alone` protocol scores a run as the hero's life at its end less the price of the
+time taken and of the route left (`scoreOf`, `src/evaluation/crypt-clear/cases.ts`); the price is
+set so a walk of the level's route with no foes costs half the life. The game is unchanged by it.
 
 ### The Option Commander
 
@@ -103,78 +90,11 @@ Each lands green on its own: `npm run check`, `npm test`; a browser look where i
 see. A run is priced on the pool from its first trials before it runs. A step that touches both
 the toolkit and Option Mind lands as two commits, the toolkit's first (`node scripts/entrant-check.mjs`).
 
-### 1. The score
+The score, the shared set selection (`selectSet`) and what the team reads (the exit, routes, foes'
+life, members' prospects) are built; the [architecture](../architecture.md#command) describes
+them.
 
-`crypt-clear`'s protocol (`CRYPT_CLEAR`, `src/evaluation/crypt-clear/cases.ts`) becomes a new
-protocol: the hero alone (no companions), its reading the score (`ClearReading.score`) beside the
-life at the end, the share cleared and the time; a case stops by the score's rule (above) as well as
-by the exit and death, and its route's length and the hero's pace are read once at its start. The
-table gains the score's column (`src/evaluation/crypt-clear/index.ts`). Nothing in `src/game/dungeon/`
-or the core changes.
-
-Check: the gate; the fingerprint unchanged; `npm run evaluate -- crypt-clear` with `clearer` and
-Option Mind as the hero (8 runs: seeds 10 and 25, two trials, the `mob` and `independent` enemies),
-a figure for every run, lost ones below won ones.
-
-Built: the protocol `alone` (`ALONE`, `scoreOf`, `src/evaluation/crypt-clear/cases.ts`).
-
-### 2. The chooser shared: set selection in the toolkit
-
-Option Mind's set selection (`chooser`, `src/minds/option/chooser.ts`) reads of its
-options their claims, rest mark, targets and aim, entry (`onOffer`), status, begin and end; of the
-situation its time and its cue (`Cue`; Option Mind's, the cues of the percepts its last decision read); and it prices the other targets'
-situations (`others`) and names the target chosen (`Chosen.at`). What an option is worth, the look
-past a walk among it (`lookingPast`), is its appraisal's, which stays Option Mind's. Lift the
-selection:
-
-- **The toolkit's commit** (`src/minds/choice.ts`, beside the readout's types,
-  `src/minds/engagement.ts`): `Choice<S, T>`, an option's shape without its step, model, exit
-  (`at`), engagement or decision; `selectSet<S, T>(choices, appraise, deciding, cue, chance)` with
-  `others` and the target chosen; `overlaps`, `NOTHING`, `WHOLE` with it. The terms an appraisal
-  reports are its user's type (`T`): a body's (`OfferTerms`) for a mind, a team's for a Commander.
-  It reaches no body, skill or mind module.
-- **Option Mind's commit**: `Option` extends `Choice<Situation, OfferTerms>`; its chooser is
-  `selectSet` with its cue and an appraisal from `VALUED_CHOOSER` or `TREE_CHOOSER`.
-- Chance: the valued chooser draws only between offers within its `margin`, none by default, and
-  a Commander passes no chance and needs no seed for selection.
-
-Built: `selectSet` over `Choice<S>` (`src/minds/choice.ts`), priced as `Priced<T>`, the
-readout's `Offer` a body's; one toolkit commit, Option Mind's framework being the toolkit's.
-
-Check: the gate, the fingerprint and an exact replay of one bout of Option Mind with `valued`.
-
-### 3. What the team reads: the exit, routes, foes' life and prospects
-
-- `TeamLevel.exit(): Point | null`, the exit once the team has seen its cell; `TeamLevel.route(from,
-  to, radius): number | null`, the length of a route a body of `radius` walks, doors opened on the
-  way: the run answers by `findPath`, kept for the look it was asked at (A* is dear a decision); the
-  Arena's team by the straight distance.
-- `SensedBody.life`: a foe's share of its full life, as its pool's bar (the Arena's `Duel.life`).
-- **The toolkit's commit**: `MindReport.prospects: readonly Prospect[] | null`
-  (`src/minds/report.ts`), each `{ foe, dealt, taken }`: the share of the foe's full life the
-  body expects to deal it a second, and of its own it expects to take, at reach;
-  `MemberView.prospects` carries it, null where the Mind publishes none. The architecture's Command
-  table gains it, `TeamLevel.exit` and `route`, and `SensedBody.life`.
-- **Option Mind's commit**: Option Mind writes its prospects into its `state` as its chooser prices
-  a foe, read at reach (`Pressure.peak` and its own strikes' best rate within reach, not at the
-  range now, which reads nothing out of reach): the focus each decision, and each of `others` as the
-  chooser reads them. It reads nothing its valuation does not already, and a forked bout carries
-  them. A foe it has not priced has none.
-- Where a member has no prospect of a foe, the Option Commander prices the fight by hand
-  (`BY_HAND`, its seconds and the life it costs, sourced as the owner's decision), until step 1's
-  rows hold enough fights to measure it.
-
-Check: the gate; in a Node stand, Option Mind's prospects against a standing Warrior agree with its
-own pressing and pressure at reach that decision (a printout, no test); a forked bout's prospects
-equal the original's.
-
-Built: `TeamLevel.exit` and `route` (`routeLength`, `src/game/dungeon/map.ts`; kept a step),
-`SensedBody.life`, `Prospect` and `MindReport.prospects` (`src/minds/report.ts`, a decider's
-`Decider.prospects`), `MemberView.prospects`; Option Mind keeps them each time its chooser decides
-afresh (`Chosen.fresh`), its dealt its strikes' best rate within reach (`Option.rate`: the
-measured peak at the focus's phase, else the prior). `BY_HAND` waits for step 4.
-
-### 4. The Option Commander
+### 1. The Option Commander
 
 `src/minds/command/option.ts`, kind `option`, a line in `COMMANDERS`, sides `party`: its options
 (above), its place's value (`TeamValue`, its first implementation the terms above), its time price
@@ -184,11 +104,14 @@ in `state`. Its options' orders go through `throughDoors`; its report names the 
 runs (`MemberReport.task`). It hears no command yet; a person's commands come later as an option of
 their own. The generator's means (the route from start to exit in `findPath` metres, encounters a
 metre, over seeds 1 to 30) are read once by a script and cited where the value reads them.
+Where a member has no prospect of a foe, it prices the fight by hand (`BY_HAND`, its seconds and
+the life it costs, sourced as the owner's decision), until `crypt-clear`'s rows hold enough fights
+to measure it.
 
 Check: the gate and a team-of-one Arena bout sending its member at the foe, replayed from its
 orders.
 
-### 5. Read against the clearer
+### 2. Read against the clearer
 
 `npm run evaluate -- crypt-clear` at one commit, the Option Commander and `clearer` each over
 Option Mind as the hero, paired by run (`npm run compare`), so the mind and the code are the same

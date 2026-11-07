@@ -25,16 +25,15 @@ Where the project is going and what is open. What is built is in the
 
 | Plan | What it builds |
 | --- | --- |
-| [Option Mind control and evidence](plans/2026-11-03-option-mind-general.md) | walking, stopping and strike-entry contracts checked at their owners; supported bodies read against current paired baselines before training |
-| [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
-| [Options trained body by body](plans/2026-11-03-options-training.md) | after Option Mind general: stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
-| [Warrior travel](plans/warrior-travel.md) | retrain the toed Warrior for 4 m/s forward travel, safe movement in every direction, steering, corners, reversals and stops in every loadout |
-| [Warrior bonk](plans/warrior-bonk.md) | a controlled descending club strike at the head, with physical motion, contact, recovery and repetition gates and watched confirmation |
-| [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
-| [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |
+| [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: temporary search work, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
+| [Options trained body by body](plans/2026-11-03-options-training.md) | stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
+| [Warrior travel](plans/2026-11-05-warrior-travel.md) | retrain the toed Warrior for 4 m/s forward travel, safe movement in every direction, steering, corners, reversals and stops in every loadout |
+| [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | a controlled descending club strike at the head, with physical motion, contact, recovery and repetition gates and watched confirmation |
+| [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
+| [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
 
-Now: the Warrior's [travel capabilities](plans/warrior-travel.md) and
-[bonk](plans/warrior-bonk.md), with recovery performance preserved; the remaining Option control
+Now: the Warrior's [travel capabilities](plans/2026-11-05-warrior-travel.md) and
+[bonk](plans/2026-11-05-warrior-bonk.md), with recovery performance preserved; the remaining Option control
 contracts and body-by-body training, the rat's open
 steps, fights the owner watches, the Strike and Footwork rungs, and the Commander in the Crypt
 with Option Mind as its hero.
@@ -82,13 +81,16 @@ with Option Mind as its hero.
 
 ### Body and motor control
 
+- Walking contracts to check at their owners: a planned step lands before the next shift moves
+  weight onto that foot; a walk asked to stand at a place holds the centre of mass there; a
+  strike's entry admits the quiet supported body that walk supplies.
 - The braced walk falls under shoves at a third of its orders; the Skeleton's shoved walk with
   the club falls most.
 - Yaw at speed: the pelvis swings either side of the heading past 1 m/s; a turning walk past
   0.7 m/s and the run's turns need it held.
 - Braking: the walk's pace ramp, and the stance envelope measured again at it.
 - The stance asked to stand a lying body diverges; no mind asks it.
-- The Warrior's [travel gates](plans/warrior-travel.md); the club throws the Rogue's run.
+- The Warrior's [travel gates](plans/2026-11-05-warrior-travel.md); the club throws the Rogue's run.
 - Stand-up on the [owner's target](reference/rising.md#the-owners-target), every body in every
   loadout; the Rogue's arms on hands and knees; the Skeleton holding the club.
 - Strikes on every body: the punch, then sword, club and buckler; the stomp on the Warrior and
@@ -113,6 +115,9 @@ with Option Mind as its hero.
 ### The AI
 
 - Option Mind's footwork: places around the foe chosen by its reach and striking arc.
+- An approach to a downed target, to check: it stops within its tolerance and keeps its chosen
+  side as the target moves (the Skeleton's stopping path, the Rogue's side through the stomping
+  approach).
 - A cover of the predicted blow that keeps the head; a dodge and a counter, each with its drill.
 - Footwork's rungs 0 to 4; Cover's rung 2 waits on a counter.
 - Warrior recovery after two rapid Lab shoves is slow.

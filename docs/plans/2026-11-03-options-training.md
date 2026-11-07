@@ -5,10 +5,10 @@
 Each skill as good as it can be made quickly, with two hard requirements: every character stands
 up reliably in under 10 s, and the Warrior and the Rogue run reliably.
 
-It follows [Option Mind general](2026-11-03-option-mind-general.md), which fixes the known bugs,
-makes every act an Option, tells bodies apart in data, puts the rules of developing an Option in
-[`AGENTS.md`](../../AGENTS.md) and makes the table judge each cell against its baseline. The work
-here follows those rules.
+The work follows the rules of developing an Option in [`AGENTS.md`](../../AGENTS.md), and the
+table judges each cell against its baseline. A control defect a cell exposes (the roadmap's open
+walking, stopping and approach contracts among them) is fixed at its own layer before that cell's
+training goes on.
 
 Its scope: the toed Warrior, Rogue and Skeleton with every loadout (empty hands, the club, the
 sword, the club and buckler, the sword and buckler); the walk, stand-up, the punch and the club,
@@ -20,7 +20,7 @@ starts: [the table](../reference/the-table.md). How well the quadrupeds move is
 
 - **Stand-up, hard**: the owner's target ([rising](../reference/rising.md#the-owners-target)) on
   every body in every loadout, unassisted, held again on fresh falls.
-- **Warrior travel, hard**: [Warrior travel](warrior-travel.md) owns its forward, directional,
+- **Warrior travel, hard**: [Warrior travel](2026-11-05-warrior-travel.md) owns its forward, directional,
   turning and stopping gates and retraining on the toed body.
 - **The Rogue's run, hard**, in every loadout, calm air and the lab's gusts,
   seeds 1 to 4, none fallen: 3 m/s forward held 10 s, a turn at 1 rad/s at 2 m/s, a stop from
@@ -52,7 +52,7 @@ looks in the Lab's Stand-up mode.
 
 ### 2. The run
 
-The Warrior follows [Warrior travel](warrior-travel.md); its recovery remains serviceable while
+The Warrior follows [Warrior travel](2026-11-05-warrior-travel.md); its recovery remains serviceable while
 travel is developed. The Rogue runs on toes to its requirement in every loadout, then priced by its own
 profile, measured from its starts as every Option's is, so that Option Mind chooses it where it
 pays. Where the toes or the body are the limit, the limit is read and the body's numbers are set
