@@ -32,7 +32,7 @@ node research/crypt-step.mjs --seeds 10,25 --seconds 60 --runs 3 --minds 4
 node research/rest-probe.mjs --bodies 4                    # limp bodies put to sleep
 node research/mind-make.mjs                                # making a Crypt mind
 node research/mind-split.mjs --threads 1,3,4,5 --cap 60    # what splitting the minds off could give
-node research/minds-apart.mjs                              # minds on worker threads, the same to the bit
+node research/minds-apart.mjs --entrants --threads 1,2 --fork 10   # minds on worker threads and forks, the same to the bit
 ```
 
 ## Allocation readings

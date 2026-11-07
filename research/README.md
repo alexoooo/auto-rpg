@@ -159,7 +159,7 @@ time on a quiet machine; bytes and counts are the same on any.
 | `crypt-step.mjs` | a crypt run's step by seed; with `--listen`, what hearing costs; `--minds` with its minds on worker threads | |
 | `step-garbage.mjs` | what a step allocates as bodies are added (`allocatedIn`, `tests/harness/garbage.mjs`); `--sites` by file and function | [step cost](../docs/reference/step-cost.md) |
 | `step-time.mjs` | one bout's steps split into the solver and the rest; `--profile` by file and function; `--minds` with its minds on worker threads | [step cost](../docs/reference/step-cost.md) |
-| `minds-apart.mjs` | the crowd fight, the reference bouts and the Crypt the same to the bit with their minds on 1 to 4 worker threads as on their bodies | [step cost](../docs/reference/step-cost.md) |
+| `minds-apart.mjs` | the crowd fight, the reference bouts, the Crypt and every entrant the same to the bit with their minds on 1 to 4 worker threads as on their bodies, and each duel the same from a fork | [step cost](../docs/reference/step-cost.md) |
 | `reach-bed.mjs` | the reach solves a bout asked (`tests/fixtures/reach-solves.json`), solved again: caps, passes, time | [step cost](../docs/reference/step-cost.md) |
 | `crypt-plan.mjs` | a crypt run's own planning time by seed; `--profile` | [step cost](../docs/reference/step-cost.md) |
 | `rest-probe.mjs` | limp bodies put to sleep through Rapier: the step's time, and what wakes them | [step cost](../docs/reference/step-cost.md) |
