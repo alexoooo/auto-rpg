@@ -243,7 +243,8 @@ arbiter releases every action when another mind takes the body.
   (`src/skills/locomotion/learned-run.ts`). They read mirrored gait observations at their recorded
   decision cadence, refresh on a changed pace order and smooth reference offsets on physical
   channels. Their observations, actions, offsets and cadence live in the gait's saved state.
-  A record can supply its travel envelope independently of the braced limits. In research braking
+  A record can supply its travel envelope independently of the braced limits, with eight
+  directional operating speeds interpolated between adjacent headings. In research braking
   mode, saved `learner` outputs replace the braking actor at the same decision cadence; moving
   orders retain the velocity actor. `research/skills/locomotion/option-travel-environment.mjs`
   trains this seam through Option Mind. The lone-body world saves physics, perception, orders,
