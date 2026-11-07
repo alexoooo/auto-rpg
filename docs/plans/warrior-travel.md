@@ -80,74 +80,67 @@ headings between the eight training directions to check the envelope's interpola
 
 ## Work
 
-1. Establish the current empty-handed baseline and identify whether forward speed is limited by
-   gait entry, toe contact, push-off, flight, landing or braking. Check the command-to-motion path
-   before searching settings so a capped order or failed handover is not trained around. Use the
-   current [Locomotion cases](../../src/evaluation/locomotion/cases.ts),
-   [readings](../../src/evaluation/locomotion/read.ts) and
-   [table judge](../../src/evaluation/table/judge.ts) as the starting implementation; add explicit
-   travel protocols and readings for the contracts above. Keep older protocol evidence distinct.
-2. Retrain the forward gait on the toed Warrior using the curriculum below until acceleration,
-   sustained speed and stopping meet their gates. Repair demonstrated controller or contact defects at their owning layer.
-   A body change follows a measured anatomical limit and is sourced for the requested result.
-   Establish a toe replacement on a mechanical fixture before whole-body integration: its passive
-   torque law, ground clearance, support reactions and convergence across physics rates, with the
-   heel raised, the foot rocking and the foot near vertical. Derive the physical toe's mass and
-   inertia from its geometry and the foot's mass distribution; keep solver conditioning in
-   `SOLVER`. Read reaction moments from actual force application points rather than contact
-   centroids. Pair the resulting body's recovery and travel readings before retaining the change.
-3. Establish facing-held directional speeds, then steering, corners and reversals. Retain paired
-   evidence for each change and keep the forward and stopping gates met while adding manoeuvres.
-4. Extend to every rated loadout: empty hands, club, sword, club and buckler, sword and buckler.
-   Each loadout retains the 4 m/s forward floor and gets its own safe directional and turning
-   envelope. A loadout short of a gate remains explicit; the equipped goal is not reduced.
-5. Confirm on fresh starting headings, both initial stepping legs, and calm air and the Lab's
-   gusts, seeds 1 to 4. Reserve intermediate directional headings for confirmation. Train on
+Training follows [the training recipe](../recipes/training.md); this section is the part
+particular to travel. The seeds are in `research/runs/warrior-travel/` (its README names each):
+the last paired screens' settings, the reached warm-ups, and the velocity, braking, heading-entry
+and heading-stop actors. Each acts on the current learner's schedule one decision earlier than it
+was trained to, so each is a seed to retrain, not a reading. Screen a record with
+`research/skills/locomotion/warrior-travel.mjs --settings <record>`, then the `travel`
+evaluation's minimum protocol.
+
+1. **Restore the forward run.** Retrain the velocity actor through the `option-entry`
+   environment on the current learner until the forward case meets the forward gate (4 m/s
+   within 4 s, held 10 s, upright). This is the seed for step 2.
+2. **One travel actor.** Build one environment in which one actor steers the walk-run record in
+   every phase: from rest and from reached runs, holding and changing pace, toward headings and
+   with facing held, turning and stopping. An episode is a script of orders through the
+   configured Option Mind. The actor replaces the velocity, low-speed and braking actors;
+   `learnedRun` keeps it beside the frozen reference actor. Delete the per-phase machinery
+   (`slowVelocity`, `steered`, `trainingActor`, the braking-only `option-travel` kind) once the
+   one actor replaces it.
+3. **Forward and stop in the game.** Train the curriculum's first three stages until the
+   forward run and stop gates are met, empty hands, calm air. Install the record in the
+   Warrior's walk-run record so the game's Option Mind runs it, and send the owner a drill link
+   with what was seen. This is the first milestone the owner watches.
+4. **Directions and manoeuvres.** Add headings, facing-held directions, continuous steering,
+   corners and reversals as curriculum stages of the same actor, keeping the forward and stop
+   episodes in the mix. Declare the directional speeds as
+   [Safe directional speeds](#safe-directional-speeds) says.
+5. **Loadouts.** Train the same actor with every rated loadout in its episodes: empty hands,
+   club, sword, club and buckler, sword and buckler. Each keeps the 4 m/s forward floor and gets
+   its own published envelope. A loadout short of a gate gets more episodes, never its own actor.
+6. **Confirm** on fresh starting headings, both initial stepping legs, calm air and the Lab's
+   gusts, seeds 1 to 4, with the intermediate headings reserved for confirmation. Train on
    separate cases; do not select easier confirmation cases after seeing a failure.
-6. Refresh the movement profiles and the evaluation table. Verify the configured Option Mind
-   obeys travel, facing and stop orders with the published envelopes, and retains the braced
+7. **Refresh** the movement profiles and the evaluation table. Verify the configured Option Mind
+   obeys travel, facing and stop orders within the published envelopes and keeps the braced
    fighting walk. Watch the failures first in the Locomotion reel, then the Lab and Arena.
 
-Develop on one body, one loadout and calm air before widening. Each run answers one named
-question, with its consequence stated before play. Price searches from their first trials and
-follow the run-review, saved-row reuse and paired comparison rules in
-[AGENTS.md](../../AGENTS.md#doing-the-work). Fix downstream defects exposed by a correction in the
-same change. Read shared changes on every affected body and retain recovery and fighting-walk
-comparisons; existing shortfalls remain named rather than being treated as passes.
+A body change follows a measured anatomical limit and is read with recovery before it is kept
+(see the Goal). Fix a controller or contact defect at its own layer, then retrain the actor on
+it before reading the change. Read shared changes on every affected body, keep recovery and
+fighting-walk comparisons, and name existing shortfalls rather than treating them as passes.
 
 ## Training curriculum
 
-Recover the retained learned runner's configuration, reward, observation layout, action timing,
-normalisation and checkpoints before choosing a new learner. Replay its seed on the current
-body, then use its moving-start and speed-range curriculum as the starting training recipe.
-Keep body, engine and controller differences explicit; a historical speed is not a current
-capability reading. Compare a changed learning method against this recipe before replacing it.
+Each stage resumes from the previous stage's chosen checkpoint and keeps the earlier stages'
+episodes in the mix.
 
-1. **Sustained running.** Train from physically reached moving states at several gait phases,
-   on both stepping legs. Sample warm-up speeds from 1 to 4.5 m/s where reachable, episode
-   starts from 2 to 9 s, and requested speeds from 1.4 to 6.5 m/s. Unreached warm-up states are
-   reported and excluded, never manufactured by setting velocity. Widen the reachable states
-   as the gait improves. Use pace-relative shortfall credit to provide a training gradient,
-   and judge saved checkpoints by physical speed, falls and corridor error on retained cases.
-2. **Entry and speed changes.** Extend requested speeds down to 0.9 m/s to exercise the
-   walk-to-run handover, add from-rest episodes, and train acceleration and changes of pace.
-   Retain moving-start episodes so entry work preserves sustained running. Polish a promising
-   checkpoint at a lower learning rate rather than assuming the final checkpoint is best.
-3. **Braking and manoeuvres.** Add stops, directional orders and turns from reached speeds,
-   retaining straight running and entry cases. Widen to loadouts and gusts as the work above
-   specifies; keep fresh confirmation cases separate from training and checkpoint selection.
+1. **Sustained running.** Physically reached moving states at several gait phases, on both
+   stepping legs: warm-up speeds 1 to 4.5 m/s where reachable, episode starts 2 to 9 s,
+   requested speeds 1.4 to 6.5 m/s. Unreached warm-ups are reported and excluded.
+2. **Entry and pace changes.** Requested speeds down to 0.9 m/s for the walk-to-run handover,
+   episodes from rest, and pace changes within an episode.
+3. **Stops.** Stop orders from reached speeds and after pace changes.
+4. **Directions and turns.** Heading orders from rest, facing-held directions, rotating
+   directions, corners and reversals from reached runs.
+5. **Loadouts and gusts**, as step 5 of the work says.
 
 These are development stages, not acceptance gates. A moving-start run does not prove entry
 from rest; a higher requested speed does not satisfy a lower order that the configured Mind
 must obey. Confirmation uses the actual orders, complete speed windows and deadlines in the
 movement contract, including the stop and recovery guards. Training rewards and tolerances
 never change those requirements.
-
-Price each training block from its measured throughput and state its cumulative decision count,
-initial checkpoint and stopping budget. Compare checkpoint trends in survival and sustained
-speed separately. A short plateau does not establish an anatomical ceiling; longer work follows
-the run-review rule above. Retain full models, normalisation, configurations
-and replay rows so the next block can reproduce and resume the selected checkpoint exactly.
 
 ## Completion
 

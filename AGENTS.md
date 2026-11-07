@@ -36,10 +36,14 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   fingerprint. Look in a browser, briefly, when the change is something to see.
 - **A run answers a decision**: name the question and what each answer would change first. Play
   only what the decision reads; screen small (one body, one loadout, calm air) and widen where it
-  is close. Price a run from its first trials. Duration alone does not require approval. After
+  is close. Price a run from its first trials (a training run from its first chunk's rate, never
+  its first returns). Duration alone does not require approval. After
   each hour, report progress using retained paired readings; continue a productive direction,
   and change direction before spending more time when the hour shows no gain. Keep what is
   played as rows and reuse them.
+- **Training follows [the training recipe](docs/recipes/training.md)**: one actor a skill, a run
+  of millions of decisions, checkpoints chosen on the evaluation's cases, a retrain after any
+  change under the actor. Work of a kind that has a recipe in `docs/recipes/` follows it.
 - **An iteration is one question**: one implementation changed, read paired against the one
   before (`npm run compare`, `--previous`, `npm run match`), kept or dropped with the reason in the
   commit message. A live alternative stays only while an open question uses it.
@@ -75,6 +79,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 | `docs/analysis/` | the study behind a decision still open; deleted once decided |
 | `docs/diagrams/` | pages showing the current design, or a target a plan in flight names |
 | `docs/reference/` | only what code needs and a comment cannot hold |
+| `docs/recipes/` | how a kind of work is done: its steps in order, budgets and traps |
 | `docs/art/`, asset and vendor READMEs | where each asset comes from and how to rebuild it |
 
 - **Every sentence is true of the code now, something a reader acts on, and said once.** Plain
@@ -88,6 +93,9 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   record is not cited, `path@commit` included.
 - **Comments say what the code is**, and why where not obvious. Name the construct, not a line
   number. A comment about a code path is a hypothesis until the path has run.
+- **What worked is kept**: before a plan is deleted, the steps, settings and budgets that met
+  its goal go into the recipe for that kind of work. A recipe step that misled a run is
+  corrected in the same change.
 - **A wrong document is corrected or deleted**, not annotated; a change updates the documents it
   makes wrong. Status lives in the roadmap; code never cites a plan or an analysis.
 - Links and anchors resolve; `src/` comments carry no dates, hashes, plan citations or "the owner":
