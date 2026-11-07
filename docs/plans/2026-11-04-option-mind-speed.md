@@ -47,6 +47,9 @@ decision is made or how its value is estimated.
   --cases 0,10,20,30,40,50 --workers 1 --time` reads whole-step percentiles. Where the time goes:
   `node --cpu-prof` over a few match bouts, or `research/step-time.mjs --profile`.
   `research/step-time.mjs` also reports means and tails for its bout harness.
+  Include the Warrior's recorded Crypt encounter with three reptiles: retain its setup and input
+  tape, and replay the same steps through combat on each variant. Read Node inline cost separately
+  from browser worker throughput; a two-fighter improvement alone does not establish this case.
 - **Allocations and lifetime**: sample allocated heap bytes, including collected objects, by
   stack in a separate playing. Count constructors, positive and negative cache hits, occupancy,
   repeated query keys and last-reader lifetime separately. Constructor counts do not establish
@@ -102,16 +105,13 @@ fingerprint and paired search and step timings.
 
 ### Exact model and offer storage
 
-Replace `space`'s per-situation Option maps and target arrays (`modelAt`,
-`src/minds/option/chooser.ts`) with an indexed result row for each situation. Identify a slot by
-Option identity and target index; preserve first-use and model-call order, root entry checks,
-and the distinction between an unknown result and a known refusal (`null`). A negative result
-need not have a container of its own. Do not remove model calls or negative knowledge merely
-because a particular reading finds no negative-cache hits.
-
-Share immutable Option/target descriptors across situations (`Pair`); retain independent offered
-membership and order for every situation (`pairsAt`). Recursive queries and tree branches must
-not overwrite one another's lists. Keep the existing reuse of the path record and run stacks.
+Each search assigns a slot to each distinct Option identity and target index (`space`,
+`src/minds/option/chooser.ts`). A situation owns one indexed model-result row: `undefined` means
+unasked, `null` a refusal. Frozen Option/target descriptors (`Pair`) are shared across situations;
+each situation keeps its own offered membership and order (`pairsAt`), including repeated Option
+identities. First-use and model-call order and root entry checks hold. Recursive queries and tree
+branches keep independent result rows and offer lists. The path record and run stacks are reused.
+Each line carries its descriptor so repeated model queries read the slot directly.
 Check: complete offer records for tree and valued choosers, repeated and refused models,
 multiple targets, duplicate Option identities, root entry gating, nested and sibling states;
 the complete fingerprint, allocation samples and paired mean and tail timings.
@@ -194,8 +194,9 @@ cases; the stand-up falls.
 
 ## Done when
 
-- A bout with an Option Mind on each side steps in 8.33 ms or less at the 99th percentile, at 100
-  runs a decision or more, on the cost reading.
+- A bout with an Option Mind on each side and the recorded Warrior-versus-three-reptiles Crypt
+  encounter each step in 8.33 ms or less at the 99th percentile, at 100 runs a decision or more,
+  on the cost reading.
 - Exact storage changes account for hot-path ownership and last use; kept changes have paired
   mean and tail readings, allocation evidence and unchanged complete fingerprints.
 - Each step that changes the mind holds the match against the tree before it and does not set the

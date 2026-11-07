@@ -94,8 +94,8 @@ const HORIZON = 20;
 const depthFaults = (depths: readonly number[]) => (config: { readonly depth: number }): readonly string[] =>
   depths.includes(config.depth) ? [] : [`depth: ${depths.join(" or ")}`];
 
-/** An Option on offer at a state, at the target at `target` of its targets (0 for one with none). */
-interface Pair { readonly option: Option; readonly target: number }
+/** An Option and target (0 where it has none), with its slot in each situation's model row. */
+interface Pair { readonly option: Option; readonly target: number; readonly slot: number }
 
 /** **A line's price at a decision**: its worth, life, and the model of the Option it begins with there. */
 interface Line { readonly worth: number; readonly terms: Terms }
@@ -132,15 +132,24 @@ function space(root: Situation, options: readonly Option[], objective: Objective
   const place = placing();
   const sites = new Set<string>();
   for (const option of options) if (option.sites) for (const site of option.sites) sites.add(site.name);
-  const models = new Map<Situation, Map<Option, (Terms | null)[]>>(), offered = new Map<Situation, readonly Pair[]>(), children = new Map<Situation, Map<string, Situation>>();
-  /** The model of `option` at `target` from `at`, asked once (an open one priced as an instant). */
-  const modelAt = (option: Option, target: number, at: Situation): Terms | null => {
-    let byOption = models.get(at);
-    if (!byOption) models.set(at, byOption = new Map());
-    let byTarget = byOption.get(option);
-    if (!byTarget) byOption.set(option, byTarget = []);
-    let terms = byTarget[target];
-    if (terms === undefined) byTarget[target] = terms = option.model(at, { target, ...option.open ? {} : { until: horizon } });
+  // Descriptors belong to the search; each situation owns its result row and offered list.
+  // Repeated Option identities share slots but keep their occurrences in the offered list.
+  const offsets = new Map<Option, number>(), descriptors: Pair[] = [];
+  for (const option of options) if (!offsets.has(option)) {
+    offsets.set(option, descriptors.length);
+    for (let target = 0; target < Math.max(1, option.targets?.length ?? 0); target++)
+      descriptors.push(Object.freeze({ option, target, slot: descriptors.length }));
+  }
+  const models = new Map<Situation, (Terms | null | undefined)[]>(), offered = new Map<Situation, readonly Pair[]>(), children = new Map<Situation, Map<string, Situation>>();
+  /** The search's descriptor for `option` at `target`. */
+  const pairAt = (option: Option, target: number): Pair => descriptors[offsets.get(option)! + target]!;
+  /** The model of `pair` from `at`, asked once (an open one priced as an instant). */
+  const modelAt = (pair: Pair, at: Situation): Terms | null => {
+    let row = models.get(at);
+    if (!row) models.set(at, row = new Array<Terms | null | undefined>(descriptors.length));
+    const { option, target, slot } = pair;
+    let terms = row[slot];
+    if (terms === undefined) row[slot] = terms = option.model(at, { target, ...option.open ? {} : { until: horizon } });
     return terms;
   };
   /** The Options on offer at `at`, at each of their targets. */
@@ -150,7 +159,11 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     const found: Pair[] = [];
     for (const option of options) {
       if (at === root && !option.targets && !onOffer(option, at)) continue;
-      for (let target = 0; target < Math.max(1, option.targets?.length ?? 0); target++) if (modelAt(option, target, at)) found.push({ option, target });
+      const offset = offsets.get(option)!;
+      for (let target = 0; target < Math.max(1, option.targets?.length ?? 0); target++) {
+        const pair = descriptors[offset + target]!;
+        if (modelAt(pair, at)) found.push(pair);
+      }
     }
     offered.set(at, pairs = found);
     return pairs;
@@ -172,15 +185,15 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     if (!Number.isFinite(worth)) throw new Error(`a path is worth ${worth}`);
     return worth;
   };
-  /** The model a line runs `option` by from `at`, `seconds` s into the horizon: an open one's to the horizon. */
-  const termsOf = (option: Option, target: number, at: Situation, seconds: number): Terms =>
-    (option.open ? option.model(at, { target, until: Math.max(0, horizon - seconds) }) : modelAt(option, target, at))!;
+  /** The model a line runs `pair` by from `at`, `seconds` s into the horizon: an open one's to the horizon. */
+  const termsOf = (pair: Pair, at: Situation, seconds: number): Terms =>
+    (pair.option.open ? pair.option.model(at, { target: pair.target, until: Math.max(0, horizon - seconds) }) : modelAt(pair, at))!;
   /**
-   * **A step of a line** (`Step`): `option` at `target` run from `at`, `seconds` s into the horizon,
+   * **A step of a line** (`Step`): `pair` run from `at`, `seconds` s into the horizon,
    * after a path that brought `dealt`, `taken` and `orders`.
    */
-  const stepOf = (option: Option, target: number, at: Situation, dealt: number, taken: number, orders: number, seconds: number): Step => {
-    const terms = termsOf(option, target, at, seconds), share = terms.duration > 0 ? Math.max(0, Math.min(1, (horizon - seconds) / terms.duration)) : 1;
+  const stepOf = (pair: Pair, at: Situation, dealt: number, taken: number, orders: number, seconds: number): Step => {
+    const option = pair.option, terms = termsOf(pair, at, seconds), share = terms.duration > 0 ? Math.max(0, Math.min(1, (horizon - seconds) / terms.duration)) : 1;
     let chances = 0;
     for (const outcome of terms.outcomes) chances += outcome.chance;
     if (Math.abs(chances - 1) > 1e-9) throw new Error(`${option.name}'s outcomes' chances sum to ${chances}`);
@@ -195,13 +208,13 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     return worth;
   };
   /**
-   * The worth of the line through `option` at `target` from `at`, `seconds` s into the horizon,
+   * The worth of the line through `pair` from `at`, `seconds` s into the horizon,
    * after what the path brought before it; then, where it ends, the best line `left` - 1 Options
    * deep (`best`) where `left` is more than 1, else the leaf (`leaf`: whole where `left` is 1,
    * arrived where 0).
    */
-  const line = (option: Option, target: number, at: Situation, left: number, dealt: number, taken: number, orders: number, seconds: number): number => {
-    const step = stepOf(option, target, at, dealt, taken, orders, seconds), terms = step.terms;
+  const line = (pair: Pair, at: Situation, left: number, dealt: number, taken: number, orders: number, seconds: number): number => {
+    const step = stepOf(pair, at, dealt, taken, orders, seconds), terms = step.terms;
     if (step.cut) return cutWorth(at, step);
     let worth = 0;
     for (const outcome of terms.outcomes) {
@@ -214,7 +227,7 @@ function space(root: Situation, options: readonly Option[], objective: Objective
   /** The best line from `at` of any Option on offer there, `left` deep; the path as it is where none is. */
   const best = (at: Situation, left: number, dealt: number, taken: number, orders: number, seconds: number): number => {
     let top = -Infinity;
-    for (const { option, target } of pairsAt(at)) top = Math.max(top, line(option, target, at, left, dealt, taken, orders, seconds));
+    for (const pair of pairsAt(at)) top = Math.max(top, line(pair, at, left, dealt, taken, orders, seconds));
     return top > -Infinity ? top : price(dealt, taken, orders, seconds, at);
   };
   /**
@@ -226,16 +239,17 @@ function space(root: Situation, options: readonly Option[], objective: Objective
    */
   const leaf = (at: Situation, reach: Reach, dealt: number, taken: number, orders: number, seconds: number): number => {
     let top = -Infinity;
-    for (const { option, target } of pairsAt(at)) {
-      if (option.open) top = Math.max(top, line(option, target, at, 1, dealt, taken, orders, seconds));
+    for (const pair of pairsAt(at)) {
+      const { option, target } = pair;
+      if (option.open) top = Math.max(top, line(pair, at, 1, dealt, taken, orders, seconds));
       else if (reach === "held") continue;
-      else if (option.targets && sites.has(option.targets[target]!)) { if (reach === "whole") top = Math.max(top, line(option, target, at, 0, dealt, taken, orders, seconds)); }
-      else top = Math.max(top, again(option, target, at, dealt, taken, orders, seconds));
+      else if (option.targets && sites.has(option.targets[target]!)) { if (reach === "whole") top = Math.max(top, line(pair, at, 0, dealt, taken, orders, seconds)); }
+      else top = Math.max(top, again(pair, at, dealt, taken, orders, seconds));
     }
     return top > -Infinity ? top : price(dealt, taken, orders, seconds, at);
   };
   /**
-   * **`option` at `target` run again and again from `at` to the horizon**, where a try of it leaves
+   * **`pair` run again and again from `at` to the horizon**, where a try of it leaves
    * the body where it began (`stays`, its staying outcome, by the chance it stays): the life each try
    * deals and takes, the tries as many as fit in the time left, and the orders it carries out once
    * (`Terms.orders`: an order carried out is carried out, and a try that leaves the state as it found
@@ -243,8 +257,8 @@ function space(root: Situation, options: readonly Option[], objective: Objective
    * as many tries as it is expected to, then held where it went (`leaf`, an open Option). -Infinity
    * where no outcome stays, or a try takes no time.
    */
-  const again = (option: Option, target: number, at: Situation, dealt: number, taken: number, orders: number, seconds: number): number => {
-    const terms = modelAt(option, target, at)!, duration = terms.duration;
+  const again = (pair: Pair, at: Situation, dealt: number, taken: number, orders: number, seconds: number): number => {
+    const terms = modelAt(pair, at)!, duration = terms.duration;
     if (!(duration > 0) || seconds >= horizon) return -Infinity;
     let stay = 0, there: Situation | null = null;
     for (const outcome of terms.outcomes) {
@@ -266,7 +280,7 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     }
     return worth;
   };
-  return { modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
+  return { pairAt, modelAt, pairsAt, child, price, termsOf, stepOf, cutWorth, line, leaf };
 }
 
 /** **A step of a line** (`space`'s `stepOf`): its Option's model, and the path once it has run, what it brings counted by the share of its time within the horizon (`after`, s); an open Option, or one the horizon cuts, ends the path (`cut`). */
@@ -282,8 +296,10 @@ function search(root: Situation, options: readonly Option[], objective: Objectiv
     let byTarget = lines.get(option);
     if (!byTarget) lines.set(option, byTarget = []);
     let priced = byTarget[target];
-    if (priced === undefined)
-      byTarget[target] = priced = at.modelAt(option, target, root) ? { worth: at.line(option, target, root, depth, 0, 0, 0, 0), terms: at.termsOf(option, target, root, 0) } : null;
+    if (priced === undefined) {
+      const pair = at.pairAt(option, target);
+      byTarget[target] = priced = at.modelAt(pair, root) ? { worth: at.line(pair, root, depth, 0, 0, 0, 0), terms: at.termsOf(pair, root, 0) } : null;
+    }
     return priced;
   };
 }
@@ -330,7 +346,7 @@ function treeSearch(root: Situation, options: readonly Option[], objective: Obje
   };
   const top = nodeAt(root, 0, 0, 0, 0);
   const edgesOf = (node: TreeNode): TreeEdge[] => node.edges ??= at.pairsAt(node.at).map((pair) => ({ pair, runs: 0, worth: 0, ends: [],
-    step: at.stepOf(pair.option, pair.target, node.at, node.dealt, node.taken, node.orders, node.seconds) }));
+    step: at.stepOf(pair, node.at, node.dealt, node.taken, node.orders, node.seconds) }));
   /** The edge a run takes from `node`. */
   const pick = (node: TreeNode, edges: readonly TreeEdge[]): TreeEdge => {
     let low = Infinity, high = -Infinity;
