@@ -2,134 +2,106 @@
 
 ## Goal
 
-Give every learned controller one observation/action contract shared by native inference and
-external training. Each training transition records an action the controller consumes, with the
-reward and elapsed simulation time attributable to that action. Controllers retain their own
-decision cadence; physics and motor control continue at the world's rate.
+Every learned controller decides through one handoff that native inference and training share.
+The learner owns the schedule; a skill publishes what it reads and applies the action it is
+given. One research adapter steps the world between decisions for every training environment,
+so each training transition is the action the controller applied, over the steps it applied it.
 
 This work supplies the learning contract needed by [Warrior travel](warrior-travel.md).
 Implementing it does not resume that plan's paused training or change its capability gates.
 
-## Problem and scope
+## Problem
 
-The [learner seam](../../src/core/math/learning/learner.ts) exposes inputs, outputs and a decision
-counter without an explicit distinction between requesting an action and consuming it.
-The [run controller](../../src/skills/locomotion/learned-run.ts) publishes inputs and reads
-external outputs at the same decision boundary. The
-[punch controller](../../src/skills/strikes/straight-punch.ts) publishes inputs before native
-inference uses them on a subsequent control step.
+Each learner schedules its own decisions, and each environment is aligned by hand to the one it
+drives:
 
-The [case environment](../../research/case-learning-environment.mjs) advances to the next
-decision counter change. Run environments also implement their own stepping loops. A loop that
-returns after every physics step can submit actions faster than the run consumes them, assigning
-transitions to discarded proposals. Counting decisions alone also leaves observation/action
-ordering ambiguous.
+- The [run](../../src/skills/locomotion/learned-run.ts) decides every `decisionSteps` control
+  steps and applies a native action on the step it reads. Under the
+  [case environment](../../research/case-learning-environment.mjs), a trainer's action lands on
+  the following step only because `inference.velocityAction` shares its array with
+  `learner.outputs`. In the `slow-velocity` blend, the blended array is built at the boundary from
+  the outputs held before the trainer answers, so each action is applied a decision late and
+  credited with its predecessor's reward.
+- The [punch](../../src/skills/strikes/straight-punch.ts) decides every `PUNCH_DECIDE` seconds of
+  its drive and applies an answer from the step after it reads. The
+  [bare mind](../../src/entrants/bare/mind.ts) decides every `every` control steps and applies
+  from the step after it reads.
+- The [residual environment](../../research/skills/locomotion/residual-environment.mjs) applies a
+  steering action for four physics steps at any rate, while
+  [`learnedRunSteering`](../../research/skills/locomotion/learned-run-steering.mjs) replays it
+  every `round(1 / (30 dt))` steps; the two agree only at 120 Hz.
+- The [Option entry](../../research/skills/locomotion/option-entry-environment.mjs) and
+  [Option travel](../../research/skills/locomotion/option-travel-environment.mjs) environments
+  are aligned by asserting `decisionSteps === 4`, replacing `learner.outputs`, and locating the
+  first decision with a look-ahead snapshot.
 
-Fix the common seam and adapters, then migrate every learner producer and consumer found by an
-inventory of the code and supported research entry points. Include experimental environments
-that remain eligible for training; retire or refuse incompatible ones. Option selection and
-motor control have their own clocks and remain outside this protocol.
+## The handoff
 
-## Shared contract
+The [learner seam](../../src/core/math/learning/learner.ts) gains a decision interval in seconds
+and an `answered` counter beside `decisions`. Two helpers beside it are the whole protocol:
 
-Use a small, explicit request/response handoff in the learner's plain state. A request has an
-identity and its observation; a response names that request and carries its action. Track which
-response is consumed. Keep the state copyable through the existing world snapshot machinery.
-Use existing storage where possible and reuse arrays in the control path.
+1. **Ask**, called on each control step while the learner runs. On the first step of a run and
+   every interval after it, rounded to whole control steps and at least one, it fills `inputs`
+   through the skill's reader and increments `decisions`.
+2. **Act**, called on each control step after the first request of a run. It returns the outputs
+   of the last answered request and throws if the request asked before this step is unanswered.
 
-1. At its own decision boundary, the controller publishes the observation and a new request.
-2. A policy answers that request exactly once. Native inference answers synchronously; the
-   external adapter answers while the world is stopped between steps.
-3. Both paths consume the response on the next control step, before calculating that step's
-   motor commands. The controller holds the accepted action until its next response is consumed.
-4. The next request closes the transition and supplies the next observation. The adapter stops
-   there, before advancing physics under a new response.
+A policy answers by writing `outputs` in place and setting `answered` to `decisions`. A native
+policy answers inside Ask; the adapter answers while the world is stopped between steps. Both are
+applied from the next control step until the next answer, so a decision's action covers exactly
+its interval and native play matches training. An answer to an already answered request is a
+defect and throws.
 
-This gives native and external policies the same one-control-step handoff. Migrate controllers
-to this ordering explicitly; read any resulting behavior change rather than claiming parity
-with their existing ordering. A request must be observable between world steps, including when
-the controller requests an action on every step.
+The schedule restarts when `running` turns true or the skill starts a new act (a punch's drive,
+a run's new pace); the counters only increase, so an answer from before a restart cannot match a
+new request. The state is plain data, so world saves and forks keep a pending request.
 
-Reject responses to the wrong request and duplicate responses as returned protocol failures.
-A missing response at its consumption point is a protocol failure, rather than an implicit zero
-action or silent reuse of a response for another observation. An inactive controller may retain
-its last accepted action only for the lifecycle that owns it; cancellation clears pending work.
+Existing intervals convert at the rate their policies trained at: the run's four steps at 120 Hz
+are 1/30 s, matching `learnedRunSteering`. The run's native actions move one control step later;
+the punch and bare mind keep their order.
 
-## One environment adapter
+## One adapter
 
-Put request publication, response acceptance and consumption helpers beside the learner seam.
-Put world advancement and transition collection in one research adapter, starting from the case
-environment's loop. Skill environments supply reset recipes, observations, reward readers and
-termination readers. They do not choose how many physics steps constitute an action.
+The case environment's loop becomes the one adapter. An environment supplies its reset recipe,
+a per-step reward and a termination reader; it never chooses how many steps an action covers.
 
-Reset advances to the first request and returns its observation without inventing a training
-action for warm-up. A submitted action must answer that request. Advance through its consumption
-and collect each resulting physics interval exactly once until the next request or episode end.
-Record the consumed request identity, elapsed time and physical step count with the transition.
-Integrate reward rates by simulation time and count event rewards once; preserve each reader's
-declared units rather than applying a blanket cadence multiplier.
+- **Reset** steps until the first request and returns its inputs. No action is invented for
+  the steps before it.
+- **Step** answers the pending request with the action, then steps the world until the next
+  request or the episode ends, summing each step's reward (a rate times the step's seconds, an
+  event once). It returns the inputs of the request it stopped at, or the final reading where the
+  episode ended, with the step count and seconds in its info.
 
-Termination or truncation may close a partial interval. Return the final observation and the
-correct termination flags for bootstrapping, without waiting for another request. If the episode
-ends before the pending response is consumed, report that outcome explicitly and omit it from
-action training. Bound advancement and report an inactive or stalled learner instead of spinning.
-Warm-up, cancellation and time without an active learner are not fabricated action transitions.
+The residual environment's steering becomes a learner on the run's cycle, and
+`learnedRunSteering` keeps only its features and `steeringFrom`. The Option environments drop
+their fixed four-step loops and look-ahead snapshot. An environment no open question trains is
+deleted rather than migrated.
 
-World forks and restored snapshots preserve pending requests and accepted actions. An environment
-reset starts a fresh protocol lifecycle; responses from another lifecycle cannot be accepted.
+## Training
 
-## Training configuration and saved policies
+[`run-train.py`](../../research/run-train.py) keeps `--gamma` per decision. The layout file each
+environment reads names its interval beside its inputs and outputs; a checkpoint keeps the layout
+it trained on, and loading it into a different layout is refused. Training reports count
+decisions, steps and seconds separately.
 
-Declare observation layout, action layout, protocol version, decision schedule and reward units
-in the environment/checkpoint metadata. Count training timesteps as consumed actions and report
-physics steps and simulated seconds separately.
+## Verification
 
-Express discount and rollout horizons against the declared decision interval. For supported
-fixed schedules, derive trainer settings from that interval. If a controller has variable
-intervals, use elapsed-time discounting through a trainer that supports it, or return an explicit
-unsupported configuration. A fixed per-transition discount must not silently stand in for an
-arbitrary physical duration. Handle terminal partial intervals consistently with bootstrapping.
-
-Loading weights for inference is separate from resuming optimizer state. Validate resume
-compatibility before training. Weights from a different protocol may seed a fresh run with
-explicit metadata; incompatible counters, normalization, discount settings and optimizer state
-are not silently resumed. Preserve useful candidate policies for paired evaluation.
-
-## Implementation and verification
-
-First inventory learner owners, inference paths, environments and checkpoint loaders. Trace
-request, response, consumption and physics-step order for the run and punch to establish the
-affected paths. Keep the shared protocol small enough that skill code only requests and consumes
-actions; it does not implement a second scheduler.
-
-Implement the handoff and common adapter, migrate supported callers, and remove their duplicate
-action-stepping loops. Update the architecture and training instructions to describe the shared
-contract. Register concrete regression coverage in the test inventory.
-
-Reproduce the discarded-action defect with distinct successive actions on the affected run
-environment. Verify that each returned action transition names exactly one consumed response,
-with the corresponding observation and reward interval. Cover the observed publication/consumption
-ordering difference through the punch path as well. Exercise reset, restored phase and terminal
-partial intervals through those same paths, keeping retained tests focused and short.
-
-Read native and external execution with the same deterministic policy and seed on run and punch,
-including the supported 120 Hz and 480 Hz configurations. Compare consumed actions and physical
-outputs at matching steps. Also trace distinct sampled actions: mean-policy parity alone cannot
-establish that training assigns rewards to the actions actually consumed.
-
-Run the required code checks and any build checks required by the changed modules. Read affected
-capabilities against their paired baselines before keeping controller behavior changes. Use a
-short training smoke run only to confirm transition counts, metadata and resume refusal; this
-plan does not require a locomotion improvement or a long training campaign.
+- A test that fails on the current code: distinct successive actions through the run's
+  `slow-velocity` blend under the adapter, each applied for exactly the steps of its own
+  interval. Register it in the [test inventory](../../tests/README.md).
+- Run, punch and bare mind with the same deterministic policy, native and through the adapter,
+  at 120 Hz and 480 Hz: the same applied actions and poses at matching steps.
+- The run's one-step change is read against its baselines before it is kept.
+- A short training smoke run shows decision, step and second counts and a refused mismatched
+  checkpoint; no locomotion gain is required.
+- The architecture and training instructions describe the handoff; the
+  [roadmap](../roadmap.md) line goes when this lands.
 
 ## Completion
 
-- All supported learned controllers and training environments use the shared handoff.
-- Every emitted action transition corresponds to one consumed response; stale, discarded and
-  unconsumed proposals cannot enter the training batch as ordinary actions.
-- Native and external execution agree on observation, consumption and reward interval timing,
-  while each controller retains its declared cadence.
-- Lifecycle and checkpoint compatibility failures are explicit, and training figures distinguish
-  actions from physics steps and simulated time.
-- Required checks pass, affected behavior changes have paired readings, and Warrior travel
+- Every learned controller asks and acts through the seam's two helpers; none keeps a scheduler.
+- Every training environment steps through the one adapter.
+- Native and adapter play agree step for step; each transition is one applied action over its
+  interval.
+- Required checks pass, the run's behaviour change has paired readings, and Warrior travel
   remains paused until resumed separately.
