@@ -34,33 +34,36 @@ or a lower one, so inside a layer anything may import anything. Four places brea
 - **Each chunk lands as its own commits**, with the checks AGENTS.md names for its change. A chunk
   that changes code also runs:
   - `node scripts/fingerprint.mjs` before and after, with every line unchanged;
-  - `node scripts/entrant-check.mjs`, which names it a toolkit change that moves no fingerprint case.
-- **Each chunk ends by trying to refute itself**: a search for every old name and path across `src/`,
-  `tests/`, `research/`, `scripts/`, `docs/` and `AGENTS.md` finds none.
+  - `node scripts/entrant-check.mjs`, which names it a toolkit change that moves no fingerprint case;
+  - `node research/minds-apart.mjs --entrants --threads 1,2 --fork 10`, every case the same on
+    worker threads and from its fork as in the world's thread.
+- **Each chunk ends by trying to refute itself**: `git grep` for every old name and path finds none
+  in the tracked files. Ignored folders, such as `research/runs/`, hold old copies of the code and
+  are not searched.
 
-## 1. The fingerprint plays minds apart
+## 1. One call plays every mind apart and every fork
 
-The game runs the Arena's, the crowd's and the Crypt's minds on Mind workers, and forks a bout by
-saving its state and loading it into a fresh one. The fingerprint plays every mind in the world's
-thread, so a move can break those paths and leave every line the same. Ways that happens:
+The fingerprint plays every mind in the world's thread. A move can break the other two paths a bout
+takes and leave every fingerprint line the same:
 
-- a registration the worker's entry no longer loads;
-- a state object that no longer copies whole;
-- a module-level value that drifts between the two threads.
+- minds on Mind workers, as the Arena, the crowd and the Crypt run them;
+- a bout saved and loaded into a fresh one, as the evaluations fork it.
 
-- `arena` in `scripts/fingerprint.mjs` gains the bout's `minds` place: in-thread, or `mindWorkers`
-  (`src/app/node/minds.ts`) on one or on two threads.
-- These bouts are played each way:
-  - the Option Warrior against the Rogue, with swords and bare-handed;
-  - the seeded Bare network;
-  - each registered entrant.
-- Each of those bouts is also played as a fork: saved halfway to its in-thread verdict (`save` in
-  `src/evaluation/bout.ts`), loaded into a freshly built bout, and played on.
-- Each such case prints the same pose, state, physics, blows and verdict as its in-thread case. The
-  fingerprint fails, naming the case, when one differs.
+Examples are a registration the worker's entry no longer loads, a state object that no longer
+copies whole, and a module-level value that differs between threads.
 
-Check: `npm run check`, `npm test`; the fingerprint before and after this change prints the same
-lines for every case it already had.
+`research/minds-apart.mjs` reads both paths. It plays each case in the world's thread, then with
+its minds on worker threads, and forks a duel with `--fork`. A case passes when it matches the
+in-thread run: the physics hashed every second, the blows and the ending. Today the whole panel
+needs three calls, because `--entrants` replaces the cases and `--fork` refuses the crowd and the
+Crypt, which do not save. The change:
+
+- `--entrants` adds every registered entrant to the cases instead of replacing them;
+- `--fork` forks each case that saves and lists the others as played unforked;
+- the script's header, `research/README.md` and `docs/reference/step-cost.md` say so.
+
+Check: `npm run check`, `npm test`; `node research/minds-apart.mjs --entrants --threads 1,2 --fork 10`
+passes.
 
 ## 2. Documents that are wrong now
 
@@ -91,7 +94,7 @@ Check: as for code. The fingerprint is not needed: no `src/` module changes.
 ## 4. Delete what nothing uses
 
 - `hostedMind` (`src/minds/minds.ts`) and the sentence citing it in `src/minds/host.ts`.
-- Exports with no importer in `src/`, `tests/`, `research/`, `scripts/`, the pages or
+- Exports with no importer in the tracked `src/`, `tests/`, `research/`, `scripts/`, the pages or
   `vite.config.ts`: about 320. They are found by a TypeScript walk over every import and re-export
   (`export *`, HTML `<script>` and JSDoc `import()` included).
   - An export used only in its own file loses the `export` keyword.
@@ -150,14 +153,15 @@ The work lands as two commits.
 
   `PUBLISHED` names the framework file that holds `Navigator`, in place of `navigator.ts`.
 - `menuOf` takes the spot finder as an argument, the same way it takes `readiness`. The arbiter
-  receives the finder from assembly, which passes `windowSpot`.
+  receives the finder from assembly, which passes `windowSpot`. `Spot`, which `MenuEntry` holds,
+  and the finder's type move into `framework/`; `windowSpot` stays in `intent/action-window.ts`.
 
 **Everything else into its rank**, with the skills ranks added to the gate:
 
 - `intent/orders.ts`, `ordered.ts` and `cover-hand.ts` move to `src/minds/`: no skill imports them.
 - `intent/conditions.ts` and `intent/travel.ts` move to `locomotion/`, their only skills users.
 - The hand and reach geometry moves to a new folder, `src/skills/reach/`:
-  - `handConfiguration` and `aimOf` from `strikes/held-strike.ts`;
+  - `handConfiguration`, `handConfigurationRefusal` and `aimOf` from `strikes/held-strike.ts`;
   - `strikes/arm-reach.ts`;
   - `strikes/attack-path.ts`.
 
