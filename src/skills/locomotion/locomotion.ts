@@ -282,7 +282,7 @@ interface StanceWalk extends Locomotion {
    * other, each once for this footing; one within `PLACING.near` of its place stays.
    */
   readonly placed: boolean;
-  /** What this walk was measured to hold with the body (`StanceEnvelope`); null where the body has none. */
+  /** The selected gait's current limits (`StanceEnvelope`); null where the body has none. */
   readonly envelope: StanceEnvelope | null;
 }
 
@@ -344,7 +344,8 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
     && Number.isFinite(startup.limit) && startup.limit > 0);
 }
 
-export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { gait, turnLimit, turnStartup, carriage = CARRIAGES.square, idleFooting, segments }: WalkOptions): StanceWalk {
+export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (() => StanceEnvelope | null), { gait, turnLimit, turnStartup, carriage = CARRIAGES.square, idleFooting, segments }: WalkOptions): StanceWalk {
+  const envelopeNow = (): StanceEnvelope | null => typeof limits === "function" ? limits() : limits;
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
   if (!validCarriage(carriage)) throw new Error("locomotion carriage needs a positive width or none, and a finite stagger and lowering");
@@ -417,7 +418,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     return { ...base, swing: placing.step };
   };
   return {
-    state, envelope, supports: names, stopping: STANCE_STOPPING, lag: STANCE_LAG,
+    state, get envelope() { return envelopeNow(); }, supports: names, stopping: STANCE_STOPPING, lag: STANCE_LAG,
     get lower() { return state.carriage.lower; },
     get heading() { return state.heading; },
     get pace() { return state.pace; },
@@ -557,6 +558,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
 
   /** The stance goal walking at `asked` toward `face`, or standing (`StanceWalk`). */
   function walking(view: BodyView, asked: readonly [number, number] | null, face: number, dt: number, height?: number): StanceGoal | null {
+    const envelope = envelopeNow();
     let walk = asked;
     born(view);
     state.placing = null;

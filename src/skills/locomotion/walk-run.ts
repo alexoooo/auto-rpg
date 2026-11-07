@@ -191,7 +191,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
   const travelStride = stride && scaledStride(stride, k, quick);
-  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, body.envelope, { segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built),
+  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, () => memory.may ? runEnvelope : body.envelope, { segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built),
     gait: () => memory.travel ? travelStride : undefined });
   /** Whether the ground bore the foot on `side` in the last step (`StanceEnd.touching`). */
   const ends = { left: footOn(body.built.spec, "left"), right: footOn(body.built.spec, "right") };

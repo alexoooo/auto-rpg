@@ -246,6 +246,8 @@ arbiter releases every action when another mind takes the body.
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
   shares gait instances only for identical complete configurations. Walk/run permission views
   share motion through their concrete implementation when their physical settings agree.
+  Walking steps read the selected gait's envelope, so travel and braced permission views apply
+  their own speed and turning limits inside the stance controller as well as in order planning.
   Idle foot placement limits its planned weight shift through `SwingGoal.shiftSpeed`, holds the
   capture point through the stationary swing and approaches the new support centre gradually
   after landing. The foot lifts with both the body centre and capture point inside the reserved
