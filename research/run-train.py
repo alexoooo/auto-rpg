@@ -23,6 +23,8 @@ far (`progress`), which an environment's curriculum reads.
 
 `--gamma` sets discount per environment decision and `--gae-lambda` PPO's advantage horizon.
 A resume keeps the saved horizons; explicit values must match the checkpoint.
+`--freeze-normalization` holds observation and reward statistics after initialization, including
+through resumed training, so transfer to a new episode distribution does not shift the actor's inputs.
 
 SAC's updates run on the GPU (`--device cuda`) from .tools/ai-lab-cuda-venv, ai-lab-venv's packages
 with CUDA's torch: `python -m venv .tools/ai-lab-cuda-venv`, then its pip installs
@@ -67,6 +69,7 @@ parser.add_argument('--gradient-steps', type=int, default=8, help='SAC: gradient
 parser.add_argument('--buffer', type=int, default=1_000_000, help='SAC: decisions the replay buffer holds')
 parser.add_argument('--device', default='cpu')
 parser.add_argument('--profile', action='store_true', help='report environment wait, learner and checkpoint wall time per chunk')
+parser.add_argument('--freeze-normalization', action='store_true', help='keep observation and reward statistics fixed after initialization when transferring a trained actor')
 options = parser.parse_args()
 if options.gamma is not None and not 0 < options.gamma < 1:
     parser.error('--gamma is between zero and one')
@@ -316,6 +319,7 @@ try:
             # The critic has learnt; the policy, held meanwhile, is written again through the normalisation as it now reads.
             write_start(model, envs, layers, first=False); layers = None
         if layers is not None and 'normalization' in layers: envs.training = not held
+        if options.freeze_normalization: envs.training = False
         hold_policy(model, held)
         monitored.venv.progress(model.num_timesteps)
         chunk_started = time.perf_counter()
