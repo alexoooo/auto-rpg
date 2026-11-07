@@ -3,6 +3,7 @@
  * complete controller state. Training starts immediately before the first braking decision, with
  * the stop command's delivery delay retained in its reading. `ordinary` replays the full actor
  * from the stop order with no learner; `brakingPolicy` selects that actor.
+ * `speedCost` adds dense horizontal-speed cost while the narrow quiet-speed credit remains.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -33,9 +34,10 @@ const tanh = value => {
 
 export async function optionTravelEnvironment(configuration) {
   const o = { model: 'workshop-fighter', starts: [15, 15.25, 15.5, 15.75], seconds: 4,
-    speedWidth: .3, fallPenalty: 5, seed: 1, ...configuration };
+    speedWidth: .3, speedCost: 0, fallPenalty: 5, seed: 1, ...configuration };
   if (!o.settings || !Array.isArray(o.starts) || !o.starts.length || !o.starts.every(t => Number.isFinite(t) && t >= 5))
     throw Error('Option travel training names a record and physically played start times');
+  if (!Number.isFinite(o.speedCost) || o.speedCost < 0) throw Error('Option travel speed cost is finite and nonnegative');
   const settings = JSON.parse(readFileSync(o.settings, 'utf8'));
   if (o.brakingPolicy) settings.learned = { ...settings.learned, braking: JSON.parse(readFileSync(o.brakingPolicy, 'utf8')) };
   if (!settings.learned || !settings.envelope || settings.learned.decisionSteps !== 4)
@@ -65,6 +67,14 @@ export async function optionTravelEnvironment(configuration) {
     const physical = () => {
       massCentreToRef(parts, mass, centre, work, velocity);
       return { time: world.time, centre: [centre.x, centre.y, centre.z], velocity: [velocity.x, velocity.y, velocity.z], down: body.body.down,
+        ...(o.controlTrace ? { control: { running: state.motion.walkRun.running, pace: state.motion.run.pace,
+          command: state.inference.command, phase: state.motion.run.phase, idlePlacement: !!state.motion.legs.idle.target,
+          feet: feet.map(foot => {
+            const end = body.body.state.mind.host.motor.stance.reading.ends[foot.spec.name];
+            return { name: foot.spec.name, middleHeight: end.middle.y,
+              grounded: body.built.physics.contactsOf(foot.body).some(c => c.other === null && c.impulse > 0 && c.normal[1] < -.5),
+              askedForce: [end.asked.force.x, end.asked.force.y, end.asked.force.z] };
+          }) } } : {}),
         ...(o.trace ? { standing: !body.body.down && feet.some(foot => body.built.physics.contactsOf(foot.body)
           .some(contact => contact.other === null && contact.impulse > 0 && contact.normal[1] < -.5)) } : {}),
         ...(o.trace ? { segments: parts.map(p => ({ name: p.name, position: [p.pose.position.x, p.pose.position.y, p.pose.position.z],
@@ -121,7 +131,7 @@ export async function optionTravelEnvironment(configuration) {
       const speed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2);
       const effort = state.inference.velocityAction.reduce((n, v) => n + v * v, 0) / 12;
       const reward = exp(-((speed / o.speedWidth) ** 2)) + .15 * state.inference.observation[9]
-        - .1 * velocity.x ** 2 - .05 * centre.x ** 2 - .005 * effort - (down || episode.maxOff > 1 ? o.fallPenalty : 0);
+        - .1 * velocity.x ** 2 - .05 * centre.x ** 2 - .005 * effort - o.speedCost * speed - (down || episode.maxOff > 1 ? o.fallPenalty : 0);
       return { observation: state.inference.observation.slice(), reward, ...(o.trace ? { samples } : {}),
         terminated: down || episode.maxOff > 1, truncated: episode.ticks >= o.seconds * world.hz,
         info: { along: episode.along / episode.ticks, command: 4, down, corridor: episode.maxOff,
@@ -130,6 +140,8 @@ export async function optionTravelEnvironment(configuration) {
     await reset();
     return { observationSize: 49, actionSize: 12, layout: RESIDUAL_LAYOUT, reset, step,
       samples: () => episode.samples, entries, reading: physical, observation: () => state.inference.observation.slice(),
-      dispose: () => built.dispose(), harness: { name: 'Node lone world Option Mind', engine: o.engine ?? DEFAULT_ENGINE, hz: world.hz, balance: 0, steered: !o.ordinary } };
+      dispose: () => built.dispose(), harness: { name: 'Node lone world Option Mind', engine: o.engine ?? DEFAULT_ENGINE, hz: world.hz, balance: 0,
+        model: o.model, loadout: o.loadout ?? { left: 'empty', right: 'empty' }, seed: o.seed, gusts: !!o.gusts,
+        protocol: o.ordinary ? 'network-stop' : 'whole-stop-learner', speedCost: o.speedCost, fallPenalty: o.fallPenalty, steered: !o.ordinary } };
   } catch (error) { built.dispose(); throw error; }
 }
