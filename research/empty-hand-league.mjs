@@ -80,7 +80,7 @@ if (!isMainThread) {
 } else if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2), arg = (name, fallback) => { const i = argv.indexOf(`--${name}`); return i < 0 ? fallback : argv[i + 1]; };
   const list = (text) => text ? text.split(",").filter(Boolean) : [];
-  const epoch = arg("epoch", "e1"), cap = Number(arg("cap", 120)), store = resolve(arg("store", "research/runs/empty-hand/bouts.jsonl"));
+  const epoch = arg("epoch", "e1"), cap = Number(arg("cap", 120)), store = resolve(arg("store", ".tmp/empty-hand/bouts.jsonl"));
   const gaps = list(arg("gaps", "3,3.2,3.4,3.6,3.8,4,4.2,4.4,4.6,4.8,5")).map(Number);
   const lanes = Number(arg("lanes", Math.max(1, availableParallelism() - 4)));
   const known = Object.fromEntries(Object.entries(MINDS).map(([name, preset]) => [name, preset.config]));

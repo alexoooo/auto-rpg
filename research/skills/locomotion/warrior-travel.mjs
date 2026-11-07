@@ -4,7 +4,7 @@
  * orders, body, mind, code identity and per-step centre-of-mass motion; this development screen
  * screens one movement case. A screen is not independent confirmation of its envelope.
  *
- * node research/skills/locomotion/warrior-travel.mjs --out research/runs/warrior-travel/forward.json
+ * node research/skills/locomotion/warrior-travel.mjs --out .tmp/warrior-travel/forward.json
  *   [--mode forward|heading|facing|circle|corner|reverse] [--way 90] [--sense -1|1]
  *   [--pace 1] [--held club|sword|buckler+club|buckler+sword] [--seed 1] [--gusts]
  *   [--settings walk-run-record-settings.json]

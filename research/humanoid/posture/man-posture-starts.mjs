@@ -4,7 +4,7 @@
  * barefoot witnesses (`research/humanoid/posture/man-postures.mjs`) of the rows the installed starts came from, as
  * placements (`research/humanoid/posture/data/man-postures.json`).
  *
- *   node research/humanoid/posture/man-posture-starts.mjs [--sweep research/runs/postures/envelopes.json]   (rewrites the record's starts)
+ *   node research/humanoid/posture/man-posture-starts.mjs [--sweep .tmp/postures/envelopes.json]   (rewrites the record's starts)
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -43,7 +43,7 @@ function placementOf(body, posture) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { rows } = JSON.parse(readFileSync(RECORD, "utf8"));
   const at = process.argv.indexOf("--sweep");
-  const sweep = JSON.parse(readFileSync(at < 0 ? new URL("../../runs/postures/envelopes.json", import.meta.url) : process.argv[at + 1], "utf8"));
+  const sweep = JSON.parse(readFileSync(at < 0 ? new URL("../../../.tmp/postures/envelopes.json", import.meta.url) : process.argv[at + 1], "utf8"));
   const body = await staticBody(undefined, undefined, "barefoot");
   const starts = [];
   for (const { id, row } of rows) {

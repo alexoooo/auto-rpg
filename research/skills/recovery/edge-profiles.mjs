@@ -17,7 +17,7 @@ import { workerJobs } from "../../worker-jobs.mjs";
  *
  *   node research/skills/recovery/edge-profiles.mjs [--model <model>] [--offsets 5.625,16.875] [--workers N] [--write]
  *     [--rows <trials.jsonl>]
- * Raw falls and their trials are cached in research/runs/edge-profiles, or --rows, on the same build.
+ * Raw falls and their trials are cached in .tmp/edge-profiles, or --rows, on the same build.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -43,7 +43,7 @@ if (isMainThread) {
   const count = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   // Each fall's trials kept by its place among the falls, so the profiles do not depend on which worker ends first.
   const cacheId = createHash("sha256").update(JSON.stringify([BUILD_IDENTITY, values.model ?? null, offsets])).digest("hex").slice(0, 20);
-  const rowsFile = values.rows ?? `research/runs/edge-profiles/${cacheId}.jsonl`, cached = new Map();
+  const rowsFile = values.rows ?? `.tmp/edge-profiles/${cacheId}.jsonl`, cached = new Map();
   if (existsSync(rowsFile)) for (const line of readFileSync(rowsFile, "utf8").trim().split("\n").filter(Boolean)) {
     const row = JSON.parse(line);
     if (row.build === BUILD_IDENTITY) cached.set(JSON.stringify(row.job), row.result);

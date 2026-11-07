@@ -25,7 +25,7 @@ if (!isMainThread) {
     : combatPairs({ candidate: policy(value('--candidate', 'option')), opponent: policy(value('--opponent', 'bare')), count,
       split: value('--split', 'development'), capSeconds: Number(value('--cap', 60)) });
   if (!Array.isArray(jobs) || !jobs.length || jobs.some(j => !j.config)) throw new Error('combat run requires physical jobs');
-  const fingerprint = combatFingerprint(), output = value('--output', 'research/runs/arena-combat.json');
+  const fingerprint = combatFingerprint(), output = value('--output', '.tmp/arena-combat.json');
   const previous = args.includes('--resume') && existsSync(output) ? JSON.parse(readFileSync(output,'utf8')) : null;
   const record = combatCheckpoint(jobs,fingerprint,previous), completed = new Set(record.rows.map(r=>r.id));
   const remaining = jobs.filter(j=>!completed.has(j.id));

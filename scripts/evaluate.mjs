@@ -16,8 +16,8 @@ import "../tests/harness/preload-data.mjs";
  * JSON; `--mind` names a file to put first. `--against` plays each subject against a panel (the
  * evaluation's own, `default`, or the ids given, one per flag) and not the panel among itself; an evaluation
  * whose schedule is a panel is played no other way. Rows are kept as they come in
- * `research/runs/evaluations/<evaluation>/` (every file there is read, so machines merge by copying)
- * and found again by key, with every record's under `assets/evaluations/<evaluation>/`. `--previous`
+ * `.tmp/evaluations/<evaluation>/` (every file there is read, so machines merge by copying), a
+ * cache `npm run clean` deletes once a day untouched, and found again by key, with every record's under `assets/evaluations/<evaluation>/`. `--previous`
  * names the first subject's parent: the newest recorded version of that id, else that subject here;
  * against a panel it is the baseline of the panel report, and in a battery the subject's figures are
  * read against it, condition by condition. `--ablate` makes the first subject the `--previous` mind
@@ -312,7 +312,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   const headToHead = paired.units;
   const slots = slotsOf(units, counterpart, schedule.panel ?? []), order = playOrder(slots, headToHead, [...units, ...headToHead]);
   const defined = new Map([...units, ...headToHead].map((unit, k) => [unit[0].key, k]));
-  const working = join(ROOT, "research/runs/evaluations", id);
+  const working = join(ROOT, ".tmp/evaluations", id);
   const rows = rowsFrom([
     ...records.map(({ name, lines }) => ({ name, rows: lines })),
     ...filesIn(working).map(({ name, text }) => ({ name, rows: text.split("\n").filter(Boolean).map((line) => JSON.parse(line)) })),

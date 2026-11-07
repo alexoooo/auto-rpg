@@ -36,6 +36,6 @@ for(const hz of rates)for(const mode of ['free','braced','grounded'])for(const h
 return {harness:{kind:'Node Warrior impulse-response stand',engine:DEFAULT_ENGINE,revision:rows[0].revision,balance:0},windowSeconds:1/120,rows};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
- const record=await auditPunchMass();writeFileSync(process.argv[2]??'research/runs/punch-mass-audit.json',JSON.stringify(record,null,2)+'\n');
+ const record=await auditPunchMass();writeFileSync(process.argv[2]??'.tmp/punch-mass-audit.json',JSON.stringify(record,null,2)+'\n');
  console.log(JSON.stringify(record.rows.map(r=>({mode:r.mode,hand:r.hand,hz:r.hz,impulse:r.impulse,model:r.model,measured:r.measuredWindowMass}))));
 }

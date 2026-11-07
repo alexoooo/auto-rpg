@@ -26,7 +26,7 @@ import { footOn } from "../../../../src/control/support.ts";
  * held so that a body flung for a step by the solver scores nothing. The cap is the search's; a
  * witness is verified within the target's allowance.
  *
- *   node research/skills/recovery/witness/rise-witness.mjs --move push-off --out research/runs/rise-witness/push-off
+ *   node research/skills/recovery/witness/rise-witness.mjs --move push-off --out .tmp/rise-witness/push-off
  *     [--model workshop-fighter] [--held empty] [--generations 100] [--workers 16] [--sigma .15] [--cap 8]
  *   node research/skills/recovery/witness/rise-witness.mjs --replay <best.json> [--seeds 4] [--hold 2] [--steady <json>]
  *

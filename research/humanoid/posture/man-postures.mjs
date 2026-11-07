@@ -6,8 +6,8 @@
  * nothing so, from `--seeds` random postures; a row an envelope still holds nothing of, from every
  * other envelope's witness of it, its toes at rest (statics are one-sided: a witness is one whichever
  * search found it); every row's answer read again on the cone's friction.
- * The tables go to the console; the records to `research/runs/postures/envelopes.json`, and each
- * answer drawn, `research/runs/postures/<row>, <envelope>.svg`.
+ * The tables go to the console; the records to `.tmp/postures/envelopes.json`, and each
+ * answer drawn, `.tmp/postures/<row>, <envelope>.svg`.
  *
  *   node research/humanoid/posture/man-postures.mjs [--workers 30] [--envelopes boot,barefoot,toe] [--rows 'stand;fours']
  *     [--seeds 8] [--evals 1500]
@@ -25,7 +25,7 @@ const evals = Number(option("evals", 1500));
 const only = option("rows", null)?.split(";").map((name) => name.trim());
 const envelopes = option("envelopes", ENVELOPES.join(",")).split(",");
 for (const envelope of envelopes) if (!ENVELOPES.includes(envelope)) throw new Error(`no envelope ${envelope}`);
-const OUT = new URL("../../runs/postures/", import.meta.url);
+const OUT = new URL("../../../.tmp/postures/", import.meta.url);
 // Every envelope's step solved a variable a row (`project`'s `solve`), the cheaper with hulls: one
 // harness for all three, whose boot rounds apart from `core-posture.mjs`'s.
 const run = (jobs) => runJobs(jobs, { lanes, out: OUT, defaults: { evals, solve: "variables" } });

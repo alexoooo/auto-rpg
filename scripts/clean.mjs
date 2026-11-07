@@ -9,7 +9,8 @@
  * - lists the strays it leaves, for a person to move into `.tmp/`, keep in `.gitignore`, or delete.
  *
  * A deletion never follows a link: a worktree's `node_modules` junction goes, and the folder it
- * points at stays. A piece of work's age is the newest change to it or to what it directly holds.
+ * points at stays. A piece of work's age is the newest change to it or to anything under it, so a
+ * cache a run still appends to is not old.
  *
  *   npm run clean -- [--all] [--dry-run]
  */
@@ -44,13 +45,12 @@ function garbageIn(folder, found = []) {
   return found;
 }
 
-/** The newest change to `path` or to what it directly holds, ms since the epoch. */
+/** The newest change to `path` or to anything under it, ms since the epoch: links, Git's folders and dependencies not entered. */
 function touched(path) {
-  const own = lstatSync(path);
+  let own;
+  try { own = lstatSync(path); } catch { return 0; }
   if (!own.isDirectory() || own.isSymbolicLink()) return own.mtimeMs;
-  return readdirSync(path).reduce((newest, name) => {
-    try { return Math.max(newest, lstatSync(join(path, name)).mtimeMs); } catch { return newest; }
-  }, own.mtimeMs);
+  return readdirSync(path).reduce((newest, name) => UNWALKED.has(name) ? newest : Math.max(newest, touched(join(path, name))), own.mtimeMs);
 }
 
 /** The pieces of `.tmp/` work: its entries, the worktrees folder's entries in its place. */

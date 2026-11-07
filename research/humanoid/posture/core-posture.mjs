@@ -8,8 +8,8 @@
  * rows not held as built and the rows held leaning on that stop, from the built answer and from
  * random postures. Every row's answer is read again on the cone's friction. Where two held rows
  * stand on one ground, the postures between their answers are read too (`path`). Each answer is drawn
- * from the side and the front, `research/runs/postures/<row>, <variant>.svg`, and every record is
- * written to `research/runs/postures/records.json`. Each held answer is then put on the engine and
+ * from the side and the front, `.tmp/postures/<row>, <variant>.svg`, and every record is
+ * written to `.tmp/postures/records.json`. Each held answer is then put on the engine and
  * held by its motors (`least`), and handed to the game's stance (`handed`).
  *
  *   node research/humanoid/posture/core-posture.mjs [--workers 30] [--rows 'stand;half kneel, knee light'] [--variants built,knee]
@@ -28,7 +28,7 @@ const evals = Number(option("evals", 1500));
 // Row names hold commas, so `--rows` takes them apart at semicolons.
 const only = option("rows", null)?.split(";").map((name) => name.trim());
 const variants = option("variants", Object.keys(VARIANTS).join(",")).split(",");
-const OUT = new URL("../../runs/postures/", import.meta.url);
+const OUT = new URL("../../../.tmp/postures/", import.meta.url);
 const run = (jobs) => runJobs(jobs, { lanes, out: OUT, defaults: { evals } });
 
 /** Each row, once a height for a row that scans them. */

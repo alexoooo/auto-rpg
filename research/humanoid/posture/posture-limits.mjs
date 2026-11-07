@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 import { Worker } from "node:worker_threads";
 
 const { values } = parseArgs({ options: { workers: { type: "string", default: "3" },
-  out: { type: "string", default: "research/runs/posture-limits" } }, strict: true });
+  out: { type: "string", default: ".tmp/posture-limits" } }, strict: true });
 const workers = Number(values.workers);
 if (!Number.isSafeInteger(workers) || workers < 1) throw new Error("workers must be positive");
 // The witness inputs: three rows on each limit model, each searched once and then held 5 s by its motors.

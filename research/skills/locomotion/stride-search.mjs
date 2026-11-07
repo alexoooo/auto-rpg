@@ -4,7 +4,7 @@
  * Three-second mean speed and final quiet speed are training proxies; confirmation must read
  * rolling speed, entry time, the corridor and the complete settling interval separately.
  *
- * node research/skills/locomotion/stride-search.mjs --out research/runs/warrior-travel/stride-search
+ * node research/skills/locomotion/stride-search.mjs --out .tmp/warrior-travel/stride-search
  *   [--model workshop-fighter] [--ways 45,90,180] [--pace 1.2] [--start stride.json]
  *   [--generations 8] [--lambda 16] [--workers 8] [--sigma .08] [--score] [--resume]
  */

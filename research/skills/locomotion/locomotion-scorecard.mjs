@@ -13,7 +13,7 @@
  * per body and turn, the falls at each pace. Its runs go to `<out>-lines.jsonl` and
  * `<out>-turns.jsonl`, for `research/skills/locomotion/locomotion-pair.mjs` to read against another reading's.
  *
- *   node research/skills/locomotion/locomotion-scorecard.mjs --out research/runs/locomotion-scorecard/base [--quick] [any locomotion-run.mjs argument]
+ *   node research/skills/locomotion/locomotion-scorecard.mjs --out .tmp/locomotion-scorecard/base [--quick] [any locomotion-run.mjs argument]
  *
  * `--quick` reads 4 seeds in place of 10. Everything else is passed to `locomotion-run.mjs` as it
  * is: `--legs`, `--stance`, `--physique`, `--sole`, `--models`, a probe's flags, `--workers`.

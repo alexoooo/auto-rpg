@@ -5,7 +5,7 @@
  *
  *   node research/oracle.mjs [--left workshop-fighter] [--right workshop-rogue] [--all] [--gap 4]
  *     [--side left|right|both] [--every 0.5] [--horizon 2] [--seconds 120] [--blind 0] [--nudge 0.5]
- *     [--balance left,right] [--replay] [--workers 14] [--out research/runs/oracle]
+ *     [--balance left,right] [--replay] [--workers 14] [--out .tmp/oracle]
  *
  * An instrument, not a mind: it holds the true world, which no mind may. Its forks play the
  * opponent's exact future, so it is clairvoyant; `--blind n` plays each response n times, each fork

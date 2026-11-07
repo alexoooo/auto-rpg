@@ -433,6 +433,6 @@ for (const s of results) {
 const passive = (name) => results.filter((s) => s.config === name);
 const meets = (name) => passive(name).every((s) => Object.values(s.accept).every(Boolean));
 if (!options.conditioning) console.log(`\nAcceptance at 120 Hz: ${meets("120 Hz") ? "met" : "not met"}; at 480 Hz: ${meets("480 Hz") ? "met" : "not met"}.`);
-const out = new URL("./runs/", import.meta.url);
+const out = new URL("../.tmp/man-toe-solver/", import.meta.url);
 mkdirSync(out, { recursive: true });
 writeFileSync(new URL(options.conditioning ? `man-toe-conditioning-${stiffness}${options.planted ? "-planted" : ""}${options["legacy-limits"] ? "-legacy-limits" : ""}${friction === undefined ? "" : `-friction${friction}`}${iterations === 1 ? "" : `-iterations${iterations}`}${layerDepth === .0005 ? "" : `-depth${layerDepth}`}${options["native-contact"] ? "-native-contact" : ""}${massScale === 1 ? "" : `-mass${massScale}`}${options.articulated ? "-articulated" : ""}${options.ccd ? "-ccd" : ""}.json` : "man-toe-solver.json", out), JSON.stringify(results, null, 1));

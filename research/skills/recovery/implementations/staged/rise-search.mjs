@@ -4,7 +4,7 @@ import { isRefused } from "../../../../../src/core/refusal.ts";
  * Each candidate's ground profiles are calibrated before its normal chooser is scored.
  * Node core world, Rapier, 120 Hz, no assists. Fresh falls are reserved for confirmation.
  *
- * node research/skills/recovery/implementations/staged/rise-search.mjs --model workshop-fighter --loadout empty,club --generations 8 --lambda 8 --workers 8 --out research/runs/rise-search/best.json
+ * node research/skills/recovery/implementations/staged/rise-search.mjs --model workshop-fighter --loadout empty,club --generations 8 --lambda 8 --workers 8 --out .tmp/rise-search/best.json
  * --resume <checkpoint.json> continues a calibrated search; --offsets trains on other directions.
  * Calibration uses the profile writer's offsets; the fresh protocol is excluded from both.
  * Played calibration and scoring rows are kept beside --out as .trials.jsonl on the same build.
