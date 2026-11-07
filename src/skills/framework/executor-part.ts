@@ -5,7 +5,7 @@ import type { Executor, TargetRef, TargetResolver } from "./action.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { ActionConfig } from "../config.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
-import type { Aimed } from "../intent/action-aim.ts";
+import type { Aimed } from "./action-aim.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
 
 /** **What an executor's maker is handed** beside its config and its actions. */

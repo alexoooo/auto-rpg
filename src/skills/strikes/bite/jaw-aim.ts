@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
 import type { BodyView } from "../../../control/body.ts";
 import { pointAtToRef, type Frame } from "../../../control/kinematics.ts";
 import { nearestSurface } from "../../intent/targets.ts";
-import { regionSegments, sensedActionTarget, type Aimed } from "../../intent/action-aim.ts";
+import { regionSegments, sensedActionTarget, type Aimed } from "../../framework/action-aim.ts";
 import { hypot } from "../../../core/math/real.ts";
 import { turnAboutToRef } from "../../../core/math/turn.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";

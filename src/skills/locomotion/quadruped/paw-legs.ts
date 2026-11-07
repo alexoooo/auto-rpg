@@ -1,3 +1,4 @@
+import type { LegsDrive, Locomotion } from "../../framework/locomotion-part.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import { supportHeight } from "../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
@@ -11,7 +12,6 @@ import { slotOne, type PartConfig } from "../../../parts/parts.ts";
 import { motionAtToRef } from "../../../core/bodies/read-motion.ts";
 import type { LocomotionPart } from "../../framework/locomotion-part.ts";
 import type { LegsAsked } from "../../framework/skill.ts";
-import type { LegsDrive, Locomotion } from "../locomotion.ts";
 import { derive } from "../../../core/quantity.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { soleGoal } from "../../../control/quadruped/motion.ts";

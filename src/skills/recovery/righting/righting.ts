@@ -1,3 +1,4 @@
+import type { MindKit } from "../../framework/mind-kit.ts";
 import { MOTOR_SUPPORT } from "../../../control/motor-part.ts";
 import { bilateralBindings } from "../bilateral.ts";
 import type { BodyControl } from "../../../core/bodies/body-control.ts";
@@ -14,7 +15,6 @@ import type { EffectorGoal } from "../../../control/motor.ts";
 import type { SupportGoal } from "../../../control/supported-motor.ts";
 import { dataOf } from "../../../core/data/store.ts";
 import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
-import type { MindKit } from "../../kit.ts";
 import type { OwnBody } from "../../../core/bodies/own-body.ts";
 import { channelName } from "../../../core/bodies/muscle/driver.ts";
 import { fitsAll, fitsWhen, type KeysOf } from "../../../parts/parts.ts";

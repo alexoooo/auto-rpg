@@ -2,7 +2,7 @@ import type { Vec3 } from "../../../core/quantity.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { clearStep } from "./clear-step.ts";
 import { routeWalker } from "./navigation.ts";
-import type { NavigatorPart } from "./navigator.ts";
+import type { NavigatorPart } from "../../framework/navigation.ts";
 import { anyBody } from "../../../parts/parts.ts";
 
 /** **Local clearance**: the config of the walker that goes to a place only where the way there is clear. */
@@ -16,7 +16,7 @@ export const LOCAL_NAVIGATION: NavigatorPart<LocalNavigationConfig> = deepFreeze
     clearStep([here.x, height, here.z] as Vec3, [aim.x, height, aim.z] as Vec3, radius, solids) ? [{ ...aim }] : []),
 });
 
-declare module "./navigator.ts" {
+declare module "../../framework/navigation.ts" {
   interface NavigationConfigs {
     readonly "local-navigation": LocalNavigationConfig;
   }

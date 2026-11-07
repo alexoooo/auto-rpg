@@ -1,8 +1,6 @@
+import type { GaitLimits } from "../framework/locomotion-part.ts";
 import { paceToward, turnAt } from "../../control/stance-envelope.ts";
-import type { Locomotion } from "../locomotion/locomotion.ts";
 
-/** What the speed rule reads of the gait the body goes by: what it holds, how long it goes on once asked to slow, and how fast it stops. */
-export type GaitLimits = Pick<Locomotion, "envelope" | "stopping" | "lag">;
 
 /**
  * A corner of a route ahead: how far along the route it is, m; the tangent of half the angle the

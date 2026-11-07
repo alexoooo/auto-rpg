@@ -1,8 +1,8 @@
 import { surfaceAimRefusal } from "../arm-reach.ts";
-import { aimOn } from "../../intent/aim-on.ts";
+import { aimOn } from "../../framework/aim-on.ts";
 import type { BodyView } from "../../../control/body.ts";
 import { deepFreeze } from "../../../core/state.ts";
-import { type Aimed } from "../../intent/action-aim.ts";
+import { type Aimed } from "../../framework/action-aim.ts";
 import type { AimPart } from "../../framework/aim-part.ts";
 import type { PartField } from "../../../parts/fields.ts";
 import { openingNow, openingSelector, validOpeningTuning, type OpeningTuning } from "../../perception/openings.ts";

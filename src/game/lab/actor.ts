@@ -10,9 +10,9 @@ import { createMind, type MindMade, type MindWiring } from "../../minds/minds.ts
 import { clockSenses } from "../../core/world/senses.ts";
 import type { Script, Sight } from "../../minds/decider.ts";
 import type { World } from "../../core/world/world.ts";
-import type { Intent } from "../../skills/intent/intent.ts";
+import type { Intent } from "../../skills/framework/intent.ts";
 import type { Orders } from "../../skills/intent/orders.ts";
-import { directMovement } from "../../skills/intent/movement.ts";
+import { directMovement } from "../../skills/framework/movement.ts";
 import { cos, hypot, sin } from "../../core/math/real.ts";
 
 /** A mode's instrument: it reads what the mind sees, before the mind decides, and changes nothing. */

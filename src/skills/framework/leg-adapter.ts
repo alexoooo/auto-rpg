@@ -1,7 +1,7 @@
+import type { Locomotion } from "./locomotion-part.ts";
 import type { Body } from "../../control/body.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
-import type { Locomotion } from "../locomotion/locomotion.ts";
 
 /** A registered capability that extends the goals a body's legs can carry out. */
 export interface LegAdapterPart<C extends PartConfig = PartConfig> extends Part<C> {

@@ -1,4 +1,4 @@
-import { aimOn } from "../../intent/aim-on.ts";
+import { aimOn } from "../../framework/aim-on.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import type { AimPart } from "../../framework/aim-part.ts";

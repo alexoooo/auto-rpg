@@ -21,7 +21,7 @@ import { commandedBody } from "../../../../src/app/commanded-body.ts";
 import { contactGive, contactMass } from "../../../../src/core/bodies/build/contact-mass.ts";
 import { centreOfToRef } from "../../../../src/core/bodies/read-motion.ts";
 import { DEFAULT_ENGINE } from "../../../../src/core/physics/engines.ts";
-import { NO_COVER } from "../../../../src/skills/intent/intent.ts";
+import { NO_COVER } from "../../../../src/skills/framework/intent.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { holdsOf, seriesStiffness } from "../../../../src/combat/blows.ts";
 import { impactEnergy } from "../../../../src/combat/impact.ts";

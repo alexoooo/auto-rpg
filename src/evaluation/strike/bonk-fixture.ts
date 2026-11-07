@@ -7,7 +7,7 @@ import { deepFreeze, loadState, saveState } from "../../core/state.ts";
 import { bodyClearance } from "../../skills/locomotion/navigation/sensed-bounds.ts";
 import { CROWDED } from "../../skills/strikes/strike-window.ts";
 import { skillOf } from "../../skills/framework/menu.ts";
-import { directMovement } from "../../skills/intent/movement.ts";
+import { directMovement } from "../../skills/framework/movement.ts";
 import { SETTLED, settledAt, windowArrival } from "../../skills/intent/action-window.ts";
 import { massCentreToRef } from "../../core/bodies/read-motion.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";

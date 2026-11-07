@@ -1,8 +1,8 @@
 import type { BodyView } from "../../control/body.ts";
-import type { Ended } from "../framework/action.ts";
+import type { Ended } from "./action.ts";
 
 import { regionSegments, sensedActionTarget, type Aimed } from "./action-aim.ts";
-import type { Aim } from "../framework/aim-part.ts";
+import type { Aim } from "./aim-part.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 
 /**

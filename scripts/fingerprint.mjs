@@ -45,7 +45,7 @@ import { SERVO_SECONDS, commandsBody } from "../src/control/body.ts";
 import { commandedBody } from "../src/app/commanded-body.ts";
 import { humanSpec } from "../src/core/bodies/human/spec.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
-import { standIntent } from "../src/skills/intent/intent.ts";
+import { standIntent } from "../src/skills/framework/intent.ts";
 import { driveBy } from "../src/minds/decider.ts";
 import { standingSkills } from "../src/app/standing-skills.ts";
 import { partOf, MINDS, GAME } from "../src/app/catalog.ts";

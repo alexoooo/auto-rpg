@@ -3,7 +3,7 @@
  * subject, by where it met the subject (its head, its guard, the rest of it), the hit points each
  * took, and whether the subject went down.
  */
-import { regionSegments } from "../../skills/intent/action-aim.ts";
+import { regionSegments } from "../../skills/framework/action-aim.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs.ts";
 import type { Duel } from "../../game/arena/duel.ts";

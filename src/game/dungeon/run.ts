@@ -29,7 +29,7 @@ import { dungeonSolids } from "./solids.ts";
 import { CAMERA_PITCH } from "./bearing.ts";
 import { companionSpawn } from "./party-placement.ts";
 import { generateEncounterLevel } from "./encounters.ts";
-import type { NavigationReport } from "../../skills/locomotion/navigation/navigator.ts";
+import type { NavigationReport } from "../../skills/framework/navigation.ts";
 import type { Skills } from "../../skills/framework/skills.ts";
 import type { Orders } from "../../skills/intent/orders.ts";
 import { STAND_ORDERS } from "../../skills/intent/orders.ts";

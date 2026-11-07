@@ -1,9 +1,10 @@
+import type { Locomotion } from "../framework/locomotion-part.ts";
+import type { GaitName } from "../framework/skill.ts";
 import { choice } from "../../parts/fields.ts";
 import type { LocomotionPart } from "../framework/locomotion-part.ts";
 import { slotList, type PartConfig } from "../../parts/parts.ts";
 import { deepFreeze } from "../../core/state.ts";
-import { gaitNamed, STOCK_GAITS, type Gait, type GaitName } from "./gaits.ts";
-import type { Locomotion } from "./locomotion.ts";
+import { gaitNamed, STOCK_GAITS, type Gait } from "./gaits.ts";
 import { move, type MoveGait } from "./move.ts";
 import { GAIT_CHOICES } from "./move-rule-part.ts";
 import type { MoveRuleConfig } from "./move-rule-part.ts";

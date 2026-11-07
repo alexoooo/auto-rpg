@@ -1,8 +1,7 @@
 import type { BodyView } from "../../control/body.ts";
-import { windowSpot, type Spot } from "../intent/action-window.ts";
-import type { MovementRequest } from "../intent/movement.ts";
+import type { MovementRequest, GroundPoint } from "./movement.ts";
 import { deepFreeze } from "../../core/state.ts";
-import type { ActionAround, Readiness, Region, TargetRef } from "./action.ts";
+import type { ActionAround, Readiness, Region, TargetRef, Window } from "./action.ts";
 import type { ActionBinding, ExecutorBinding } from "./action-instances.ts";
 
 /**
@@ -24,8 +23,8 @@ export const skillOf = (kit: readonly KitEntry[], action: string): string | null
  * **A choice a body has now**: a skill it has (`KitEntry.kind`, what an order names) with one of its
  * limbs, at a foe's region (both null for a skill on the body itself), and whether it could start from where the body stands
  * (`Readiness`: ready; out of position, with the window; waiting; refused, with the reason); where
- * it names a window, where the body would stand in its middle (`spot`, `windowSpot`: beside a body
- * lying, with the way round it, chosen afresh at each read on the side the walk under way goes to), which a leader can walk it to. Out of position where no place
+ * it names a window, where the body would stand to act (`spot`, `SpotFinder`, chosen afresh at each
+ * read on the side the walk under way goes to), which a leader can walk it to. Out of position where no place
  * beside the body lying clears the feet, it is refused (`NO_PLACE`).
  */
 export interface MenuEntry {
@@ -37,7 +36,7 @@ export interface MenuEntry {
   readonly spot?: Spot;
 }
 
-/** The refusal of a choice out of position whose window is over a body lying, with no place beside that body clearing the feet (`windowSpot`). */
+/** The refusal of a choice out of position whose window is over a body lying, with no place beside that body clearing the feet (`SpotFinder`). */
 const NO_PLACE: Readiness = deepFreeze({ kind: "blocked", reason: "no place beside the body lying clears the feet" });
 
 /** The target of an action on the body itself: none; its executor reads the body. */
@@ -57,12 +56,13 @@ export function kitOf(executors: readonly ExecutorBinding[], actions: readonly A
  * **The menu**: for each action of `kit`, each of its limbs, each foe `view` senses (in the fight,
  * of another side) and each region it aims at, or once for an action on the body itself, its skill
  * with that limb and target (once: of two actions by one skill, the first's), its readiness as
- * `readiness` reads it from `around`, and its spot, the place beside a body lying
- * chosen afresh (`windowSpot`, none held) on the side of it `going`, the walk under way, goes to: a
- * reader that wants a place to stay its choice holds it, and its walk there keeps the side.
+ * `readiness` reads it from `around`, and its spot as `spot` finds it (none held) on the side `going`,
+ * the walk under way, goes to: a reader that wants a place to stay its choice holds it, and its walk
+ * there keeps the side.
  */
 export function menuOf(kit: readonly KitEntry[], view: BodyView, around: ActionAround,
-  readiness: (view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround) => Readiness, going: MovementRequest | null): readonly MenuEntry[] {
+  readiness: (view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround) => Readiness, spot: SpotFinder,
+  going: MovementRequest | null): readonly MenuEntry[] {
   const foes = view.senses.others.filter((other) => !other.out && other.side !== view.senses.side), entries: MenuEntry[] = [];
   const listed = (skill: string, limb: string, foe: string | null, region: Region | null): boolean =>
     entries.some((entry) => entry.skill === skill && entry.limb === limb && entry.foe === foe && JSON.stringify(entry.region) === JSON.stringify(region));
@@ -74,10 +74,35 @@ export function menuOf(kit: readonly KitEntry[], view: BodyView, around: ActionA
     for (const foe of foes) for (const region of regions) {
       if (listed(skill, limb, foe.id, region)) continue;
       const ready = readiness(view, action, limb, { kind: "body", body: foe.id, region }, around);
-      const spot = ready.kind === "position" || ready.kind === "ready" && ready.window ? windowSpot(view, ready.window!, around.heading, null, undefined, going) : null;
-      if (ready.kind === "position" && !spot) { entries.push({ skill, limb, foe: foe.id, region, readiness: NO_PLACE }); continue; }
-      entries.push({ skill, limb, foe: foe.id, region, readiness: ready, ...(spot ? { spot } : {}) });
+      const place = ready.kind === "position" || ready.kind === "ready" && ready.window ? spot(view, ready.window!, around.heading, going) : null;
+      if (ready.kind === "position" && !place) { entries.push({ skill, limb, foe: foe.id, region, readiness: NO_PLACE }); continue; }
+      entries.push({ skill, limb, foe: foe.id, region, readiness: ready, ...(place ? { spot: place } : {}) });
     }
   }
   return entries;
 }
+
+/**
+ * **A spot**: where a walk ends on the ground (`x`, `z`) and the way the body faces there (`face`,
+ * rad); where the walk goes round a body, the way there (`route`, its last point the spot) and that
+ * body (`by`, `MovementRequest`'s). The body stands there within `near` m of it (`ARRIVED` unless
+ * given), facing within `facing` rad of its way where that is given. Where the spot moves with a
+ * body, its `velocity` on the ground, m/s.
+ */
+export interface Spot {
+  readonly x: number;
+  readonly z: number;
+  readonly face: number;
+  readonly route?: readonly GroundPoint[];
+  readonly by?: string;
+  readonly near?: number;
+  readonly facing?: number;
+  readonly velocity?: GroundPoint;
+}
+
+/**
+ * **Where a body stands to act on `window`**, facing `heading` now: its middle, or beside a body
+ * lying, with the way round it, on the side `going`, the walk under way, goes to; null where no
+ * place beside that body clears the feet. The composition supplies it.
+ */
+export type SpotFinder = (view: BodyView, window: Window, heading: number, going: MovementRequest | null) => Spot | null;

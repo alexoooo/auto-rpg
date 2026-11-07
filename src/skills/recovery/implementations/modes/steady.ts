@@ -1,3 +1,4 @@
+import type { MindKit } from "../../../framework/mind-kit.ts";
 import { supportHeight } from "../../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../../../locomotion/stance-feet.ts";
@@ -8,7 +9,6 @@ import { atan2, cos, sin } from "../../../../core/math/real.ts";
 import { SERVO_SECONDS, type BodyView } from "../../../../control/body.ts";
 import { locomotion, STANCE_LOWER, stanceOf } from "../../../locomotion/locomotion.ts";
 import { deepFreeze } from "../../../../core/state.ts";
-import type { MindKit } from "../../../kit.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { quietOnFeet } from "../../../../control/ground-reading.ts";
 import { poseDrive } from "../../technique.ts";

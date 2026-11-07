@@ -13,7 +13,7 @@ const PUBLISHED = new Set([
   "src/core/bodies/index.ts", "src/core/math/index.ts", "src/core/state.ts",
   "src/core/data/store.ts", "src/parts/index.ts", "src/parts/lookup.ts",
   "src/minds/index.ts", "src/minds/option/index.ts", "src/skills/config.ts",
-  "src/skills/locomotion/navigation/navigator.ts", "src/skills/locomotion/move-rule-part.ts",
+  "src/skills/framework/navigation.ts", "src/skills/locomotion/move-rule-part.ts",
 ]);
 
 /**

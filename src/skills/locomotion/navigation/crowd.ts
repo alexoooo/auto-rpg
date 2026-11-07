@@ -1,10 +1,10 @@
+import type { GaitLimits } from "../../framework/locomotion-part.ts";
 import { cos, hypot, sin } from "../../../core/math/real.ts";
 import { paceToward } from "../../../control/stance-envelope.ts";
 import { bodyClearance, sensedBounds } from "./sensed-bounds.ts";
-import type { GroundPoint } from "../../intent/movement.ts";
+import type { GroundPoint } from "../../framework/movement.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
 import type { Senses } from "../../../core/bodies/senses.ts";
-import type { GaitLimits } from "../../intent/travel.ts";
 
 /**
  * How a body keeps clear of its own side's standing bodies and every fallen one (`crowdWalk`,

@@ -1,3 +1,4 @@
+import { windowSpotFinder } from "./intent/action-window.ts";
 import type { Aim } from "./framework/aim-part.ts";
 import { SERVO_SECONDS, type Body, type LayerOptions } from "../control/body.ts";
 import { skillSet } from "./framework/arbiter.ts";
@@ -9,7 +10,7 @@ import type { SkillKit } from "./config.ts";
 import { aimsState, configuredAims, configuredExecutors } from "./action-config.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import { navigatorOf } from "./locomotion/navigation/navigator.ts";
+import { navigatorOf } from "./framework/navigation.ts";
 import { legsOf, motorOf } from "./kit.ts";
 
 /** A kit's command layers (`commandLayers`): all action instances share its effectors' touch (`LayerOptions.feedback`) and body-local ledger; its motor `motor`, as `parts` finds it. */
@@ -34,7 +35,7 @@ export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: S
   const navigation = navigatorOf(parts, made.built.spec, config.navigation);
   const configured = aims ?? configuredAims(parts, made.built.spec, config.actions);
   return skillSet(made, {
-    legs, navigation, clearance: navigation, guard,
+    legs, navigation, clearance: navigation, guard, spot: windowSpotFinder,
     support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
     aims: aimsState(configured),
     executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger, configured), ...more.executors],

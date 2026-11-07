@@ -1,11 +1,10 @@
-import type { Clearance } from "./clear-step.ts";
-import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import type { heldClearance } from "./held-clearance.ts";
-import type { MovementRequest, GroundPoint } from "../../intent/movement.ts";
-import type { PartLookup } from "../../../parts/lookup.ts";
-import type { KeysOf, Part, PartConfig } from "../../../parts/parts.ts";
-import type { Senses } from "../../../core/bodies/senses.ts";
-import type { GaitLimits } from "../../intent/travel.ts";
+import type { GaitLimits } from "./locomotion-part.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import type { MovementRequest, GroundPoint } from "./movement.ts";
+import type { PartLookup } from "../../parts/lookup.ts";
+import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
+import type { Senses } from "../../core/bodies/senses.ts";
+import type { BodyView } from "../../control/body.ts";
 
 /** **A navigation's config**, by registered kind. */
 export interface NavigationConfigs {}
@@ -23,11 +22,24 @@ export interface NavigationReport {
   readonly route: readonly GroundPoint[];
 }
 
-/** What a navigator sees of its body and the world each step: the stance, what it senses, what it carries and its heading. */
+type Point = { readonly x: number; readonly y: number; readonly z: number };
+type Turn = Point & { readonly w: number };
+
+/**
+ * What a navigator sees of its body and the world each step: the time, the stance, what it senses,
+ * where its parts are and how its hands are shaped (what it carries is kept clear with them), and
+ * its heading.
+ */
 export interface NavigationSight {
-  readonly view: Parameters<ReturnType<typeof heldClearance>>[0] & {
-    readonly time: number; readonly stance: { readonly centre: { readonly x: number; readonly y: number; readonly z: number }; readonly velocity: { readonly x: number; readonly z: number }; readonly support?: { readonly y: number } };
-    readonly senses: Pick<Senses, "solids" | "others" | "side"> };
+  readonly view: {
+    readonly time: number;
+    readonly stance: { readonly centre: Point; readonly velocity: { readonly x: number; readonly z: number }; readonly support?: { readonly y: number } };
+    readonly senses: Pick<Senses, "solids" | "others" | "side">;
+    readonly segments?: Readonly<Record<string, { readonly position: Point; readonly rotation: Turn }>>;
+    readonly configurations?: Readonly<Record<string, { readonly applied: string }>>;
+    readonly root?: { readonly position: Point; readonly rotation: Turn };
+    readonly effectors?: Readonly<Record<string, { readonly points: Readonly<Record<string, Point>>; readonly rotation: Turn }>>;
+  };
   readonly report: { readonly heading: number };
 }
 
@@ -42,6 +54,18 @@ export interface NavigationStep {
   readonly face: number | null;
   readonly destination?: number;
   readonly rest?: readonly [number, number];
+}
+
+/**
+ * **Keeping clear of the solids sensed**, as a planner asks it of its body's navigator
+ * (`Navigator`): a walk kept clear over the next stretch, and the way out of a solid's clearance
+ * the body stands in. Replacing the navigator replaces both for every planner.
+ */
+export interface Clearance {
+  /** `move` (forward, right, m/s) for a body heading `heading`, or the nearest to it that keeps clear of the solids sensed; null to stand. */
+  keepClear(view: BodyView, heading: number, move: readonly [number, number] | null): readonly [number, number] | null;
+  /** The ground direction out of a solid's clearance the body stands in, or null where it stands in none. */
+  exit(view: BodyView): readonly [number, number] | null;
 }
 
 /**
@@ -78,7 +102,7 @@ export function navigatorOf(parts: PartLookup, spec: BodySpec, config: PartConfi
   return parts.of("navigation", config).make(spec, config);
 }
 
-declare module "../../../parts/lookup.ts" {
+declare module "../../parts/lookup.ts" {
   interface RoleParts {
     readonly navigation: NavigatorPart;
   }

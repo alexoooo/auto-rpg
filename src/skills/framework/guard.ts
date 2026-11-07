@@ -3,7 +3,7 @@ import type { EffectorGoal, PointTask } from "../../control/motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { BodySpec, ConfigurationName } from "../../core/bodies/spec/body.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";
-import type { Intent } from "../intent/intent.ts";
+import type { Intent } from "./intent.ts";
 import type { Skill } from "./skill.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 

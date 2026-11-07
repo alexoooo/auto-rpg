@@ -1,7 +1,7 @@
 import { Vector3 } from "../../core/math/vector.ts";
 import type { EngineName } from "../../core/physics/engines.ts";
 import type { PlayerLead } from "../../game/player-input.ts";
-import type { GroundPoint } from "../../skills/intent/movement.ts";
+import type { GroundPoint } from "../../skills/framework/movement.ts";
 import type { Command, StrikeChoice } from "../../minds/command/commands.ts";
 import type { MenuEntry } from "../../skills/framework/menu.ts";
 import { physicalReading } from "../../control/observation.ts";

@@ -12,7 +12,7 @@ import { faceAligner } from "./face-aligner.ts";
 import type { StrikingFace } from "./straight-punch.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";
-import { sensedActionTarget } from "../intent/action-aim.ts";
+import { sensedActionTarget } from "../framework/action-aim.ts";
 import { timedPushes, validPush, type TimedPush } from "./timed-push.ts";
 import { otherSide, type Side, SIDES } from "../../core/bodies/bilateral.ts";
 

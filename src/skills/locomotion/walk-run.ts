@@ -1,3 +1,4 @@
+import type { LegsDrive, Locomotion } from "../framework/locomotion-part.ts";
 import { walkRunEnvelope } from "./walk-run/envelope.ts";
 import { footOn, standingFooting } from "../../control/support.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
@@ -7,7 +8,7 @@ import { hasteOver } from "../../core/bodies/human/attributes.ts";
 
 import { atan2, cos, sin } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
-import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
+import { locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
 import { runCycle, validRunCycle, type RunCycleSettings, type RunTrim, type RunSteering } from "./cycle-run.ts";
 import { legOf, quickness, scaledGait, scaledStride } from "./gait-scale.ts";

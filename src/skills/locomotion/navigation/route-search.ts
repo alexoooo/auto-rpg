@@ -1,6 +1,6 @@
 import { cos, hypot, sin } from "../../../core/math/real.ts";
 import { blocks, occupies, SWEEP, footprints, NO_SOLIDS } from "./clear-step.ts";
-import type { GroundPoint } from "../../intent/movement.ts";
+import type { GroundPoint } from "../../framework/movement.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
 
 /** How far outside a solid's clearance margin a route's corner is set, m: a route preference, not anatomy. */

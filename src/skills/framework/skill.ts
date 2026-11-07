@@ -1,7 +1,6 @@
 import type { BodyView } from "../../control/body.ts";
 import type { StanceGoal, SwingGoal } from "../../control/stance.ts";
 import type { BearingEnd } from "../../core/bodies/spec/body.ts";
-import type { GaitName } from "../locomotion/gaits.ts";
 import type { SupportReport } from "./support.ts";
 
 /**
@@ -108,3 +107,6 @@ export interface Around {
   /** How the support skill is going, or null with none. */
   readonly support: SupportReport | null;
 }
+
+/** A gait's name (`Gait.name`). */
+export type GaitName = string;

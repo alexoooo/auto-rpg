@@ -1,4 +1,4 @@
-import type { Estimate } from "../skills/intent/estimate.ts";
+import type { Estimate } from "../skills/framework/estimate.ts";
 import type { Readiness, TargetRef } from "../skills/framework/action.ts";
 import type { Priced } from "./choice.ts";
 

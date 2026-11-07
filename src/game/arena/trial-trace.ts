@@ -6,7 +6,7 @@
  * way, and each contact between the two. Nothing here decides anything.
  */
 import { Vector3 } from "../../core/math/vector.ts";
-import { regionSegments } from "../../skills/intent/action-aim.ts";
+import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { centreOfToRef } from "../../core/bodies/read-motion.ts";
 import type { Region } from "../../skills/framework/action.ts";
 import type { Vec3 } from "../../core/quantity.ts";

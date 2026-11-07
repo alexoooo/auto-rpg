@@ -1,7 +1,7 @@
-import { kitOf, menuOf } from "./menu.ts";
-import type { GaitName } from "../locomotion/gaits.ts";
-import type { Clearance } from "../locomotion/navigation/clear-step.ts";
-import type { Intent } from "../intent/intent.ts";
+import type { Clearance } from "./navigation.ts";
+import type { Locomotion } from "./locomotion-part.ts";
+import { kitOf, menuOf, type SpotFinder } from "./menu.ts";
+import type { Intent } from "./intent.ts";
 import type { Body, BodyCommand, BodyView } from "../../control/body.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import type { EffectorGoal, FreedomPath, MusclePush, PointTask } from "../../control/motor.ts";
@@ -12,12 +12,11 @@ import { LEG_RESOURCE, type ActionAround, type ActionClaim } from "./action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "./action-instances.ts";
 import { actionResources } from "./action-resources.ts";
 import type { GuardSkill } from "./guard.ts";
-import type { Locomotion } from "../locomotion/locomotion.ts";
 import type { SupportSkill } from "./support.ts";
-import type { NavigationSight, Navigator } from "../locomotion/navigation/navigator.ts";
-import { ALL_MET, type LegsAsked, type LegsGoal } from "./skill.ts";
+import type { NavigationSight, Navigator } from "./navigation.ts";
+import { ALL_MET, type LegsAsked, type LegsGoal, type GaitName } from "./skill.ts";
 import type { StanceEnvelope } from "../../control/stance-envelope.ts";
-import { directMovement } from "../intent/movement.ts";
+import { directMovement } from "./movement.ts";
 import { cos, hypot, sin } from "../../core/math/real.ts";
 import { chainTo } from "../../control/kinematics.ts";
 import { channelName } from "../../core/bodies/muscle/driver.ts";
@@ -37,6 +36,8 @@ interface SkillParts {
   readonly navigation: Navigator | null;
   /** The supplied clearance policy; a navigator may supply its own. */
   readonly clearance: Clearance;
+  /** Where the body stands to act on a window, for the menu's spots. */
+  readonly spot: SpotFinder;
   readonly support?: SupportSkill | null;
 }
 
@@ -105,7 +106,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const kit = kitOf(executors, actions);
   return {
     state, report, context: around, resume, instance: instances.instance, readiness: instances.readiness, needs: instances.needs,
-    kit, menu: () => menuOf(kit, body.view, around, instances.readiness, navigation?.report.request ?? null),
+    kit, menu: () => menuOf(kit, body.view, around, instances.readiness, services.spot, navigation?.report.request ?? null),
     clearance: services.clearance,
     get envelope() { return legs.envelope ?? null; },
     gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; }, get lag() { return legs.lag; } },

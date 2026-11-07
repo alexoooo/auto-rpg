@@ -1,23 +1,13 @@
+import type { Clearance } from "../../framework/navigation.ts";
 import { cos, hypot, sin } from "../../../core/math/real.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
 import type { BodyView } from "../../../control/body.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
-import type { Intent } from "../../intent/intent.ts";
-import { directMovement } from "../../intent/movement.ts";
+import type { Intent } from "../../framework/intent.ts";
+import { directMovement } from "../../framework/movement.ts";
 
-/**
- * **Keeping clear of the solids sensed**, as a planner asks it of its body's navigator
- * (`Navigator`): a walk kept clear over the next stretch, and the way out of a solid's clearance
- * the body stands in. Replacing the navigator replaces both for every planner.
- */
-export interface Clearance {
-  /** `move` (forward, right, m/s) for a body heading `heading`, or the nearest to it that keeps clear of the solids sensed; null to stand. */
-  keepClear(view: BodyView, heading: number, move: readonly [number, number] | null): readonly [number, number] | null;
-  /** The ground direction out of a solid's clearance the body stands in, or null where it stands in none. */
-  exit(view: BodyView): readonly [number, number] | null;
-}
 
 /** How far a body keeps its centre beyond its sensed clearance (`bodyClearance`), and how far ahead a walk is kept clear, m: the stock navigators'. */
 const KEEP_CLEAR = Object.freeze({ margin: .08, ahead: .5 });

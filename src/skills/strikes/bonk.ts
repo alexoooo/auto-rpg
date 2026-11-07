@@ -10,7 +10,7 @@ import { type Vec3 } from "../../core/quantity.ts";
 import { type Body, type BodyView } from "../../control/body.ts";
 import { supportHeight } from "../../control/support-reference.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";
-import { sensedActionTarget } from "../intent/action-aim.ts";
+import { sensedActionTarget } from "../framework/action-aim.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, segmentResource, type ActionEnding, type ActionRequest, type Executor, type LifecycleUpdate, type TargetResolver } from "../framework/action.ts";
 import { handConfiguration } from "./held-strike.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";

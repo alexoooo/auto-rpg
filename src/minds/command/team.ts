@@ -1,7 +1,7 @@
-import type { GroundPoint } from "../../skills/intent/movement.ts";
-import type { NavigationReport } from "../../skills/locomotion/navigation/navigator.ts";
+import type { GaitLimits } from "../../skills/framework/locomotion-part.ts";
+import type { GroundPoint } from "../../skills/framework/movement.ts";
+import type { NavigationReport } from "../../skills/framework/navigation.ts";
 import type { Orders } from "../../skills/intent/orders.ts";
-import type { GaitLimits } from "../../skills/intent/travel.ts";
 import type { ActionStatus, Ended } from "../../skills/framework/action.ts";
 import type { KitEntry, MenuEntry } from "../../skills/framework/menu.ts";
 import type { Prospect } from "../report.ts";

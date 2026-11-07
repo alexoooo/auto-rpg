@@ -1,8 +1,8 @@
+import type { GaitName } from "../framework/skill.ts";
 import type { Region, TargetRef } from "../framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { regionSegments } from "./action-aim.ts";
-import type { GaitName } from "../locomotion/gaits.ts";
-import { isMovement, type MovementRequest, type GroundPoint } from "./movement.ts";
+import { regionSegments } from "../framework/action-aim.ts";
+import { isMovement, type MovementRequest, type GroundPoint } from "../framework/movement.ts";
 
 /** A direction on the ground, world. */
 export type Heading = GroundPoint;

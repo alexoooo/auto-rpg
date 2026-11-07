@@ -9,7 +9,7 @@ import { onOffer, selectSet, type Appraise, type Chance, type Cue, type Deciding
 import { placed, placing, type Option, type Situation } from "./option.ts";
 import { FEW_TERMS_PART, type Objective, type Path } from "./objective.ts";
 import { cachedPressure, threatened, type Pressure } from "./percepts.ts";
-import { ARRIVED } from "../../skills/intent/movement.ts";
+import { ARRIVED } from "../../skills/framework/movement.ts";
 import { exp, log } from "../../core/math/real.ts";
 import { randomStream } from "../../core/math/random.ts";
 import { DECIDING, OBEDIENCE, STEADY, type Leaves, type Obedience, type ObedienceLevel, type Terms } from "./value.ts";

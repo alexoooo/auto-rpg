@@ -14,7 +14,7 @@ const {SERVO_SECONDS}=await module('src/control/body.ts');
 const {commandedBody}=await module('src/app/commanded-body.ts');
 const {driveBy}=await module('src/minds/decider.ts');
 const {standingSkills}=await module(existsSync(resolve(base,'src/app/standing-skills.ts'))?'src/app/standing-skills.ts':'src/skills/framework/skills.ts');
-const {standIntent}=await module('src/skills/intent/intent.ts');
+const {standIntent}=await module('src/skills/framework/intent.ts');
 const output={};
 for(const model of ['workshop-fighter','workshop-rogue','crypt-skeleton']){
  const s=await coreStand(modelSpec(model),{engine:'rapier-coordinate'}),b=commandedBody(s.built,s.world,{servoSeconds:SERVO_SECONDS});

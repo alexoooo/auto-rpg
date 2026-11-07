@@ -1,5 +1,5 @@
 import { atan2, hypot } from "../../core/math/real.ts";
-import type { Intent } from "./intent.ts";
+import type { Intent } from "../framework/intent.ts";
 import type { Orders } from "./orders.ts";
 
 /** A facing under 8 cm names no direction: its aim point is over the body itself. */

@@ -1,7 +1,7 @@
 import { deepFreeze } from "../../core/state.ts";
 import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import { cos, sin } from "../../core/math/real.ts";
-import { directMovement, placeMovement, type GroundPoint, type MovementRequest } from "../../skills/intent/movement.ts";
+import { directMovement, placeMovement, type GroundPoint, type MovementRequest } from "../../skills/framework/movement.ts";
 import { STAND_ORDERS, type Orders } from "../../skills/intent/orders.ts";
 import { travelSpeed } from "../../skills/intent/travel.ts";
 import type { Command, DrawnRoute, StrikeChoice, TeamOrder } from "./commands.ts";

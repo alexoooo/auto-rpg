@@ -1,7 +1,7 @@
 import { atan2, hypot } from "../../core/math/real.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import { nearSurface } from "../perception/openings.ts";
-import { regionSegments } from "./action-aim.ts";
+import { regionSegments } from "../framework/action-aim.ts";
 import type { Region } from "../framework/action.ts";
 import type { BodySense, Senses } from "../../core/bodies/senses.ts";
 

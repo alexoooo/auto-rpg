@@ -9,7 +9,7 @@ import {contactMass} from "../../../../src/core/bodies/build/contact-mass.ts";
 import {motionAtToRef,pointOfToRef} from "../../../../src/core/bodies/read-motion.ts";
 import {rigidPoints} from "../../../../src/core/bodies/build/rigid.ts";
 import {standingSkills} from "../../../../src/app/standing-skills.ts";
-import {standIntent} from "../../../../src/skills/intent/intent.ts";
+import {standIntent} from "../../../../src/skills/framework/intent.ts";
 import {DEFAULT_ENGINE} from "../../../../src/core/physics/engines.ts";
 async function pulse(mode,hand,impulse,hz){
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,gravity:mode==='grounded',ground:mode==='grounded'});

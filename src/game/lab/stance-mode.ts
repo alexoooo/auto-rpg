@@ -3,7 +3,7 @@ import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { HostedBody } from "../../minds/hosted-body.ts";
 import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
 import type { StancePhase } from "../../control/stance.ts";
-import { NO_COVER, type Intent } from "../../skills/intent/intent.ts";
+import { NO_COVER, type Intent } from "../../skills/framework/intent.ts";
 import type { Script } from "../../minds/decider.ts";
 import { STANCE_LOWER } from "../../skills/locomotion/locomotion.ts";
 import type { Actor } from "./actor.ts";

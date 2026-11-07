@@ -1,7 +1,7 @@
 import { deepFreeze } from "../../core/state.ts";
 import { kindOnly, type CommanderEntry } from "./kind.ts";
 import { atan2, cos, sin } from "../../core/math/real.ts";
-import { placeMovement, type GroundPoint, type MovementRequest } from "../../skills/intent/movement.ts";
+import { placeMovement, type GroundPoint, type MovementRequest } from "../../skills/framework/movement.ts";
 import { STAND_ORDERS, type Orders } from "../../skills/intent/orders.ts";
 import { ARRIVAL, approach, direction, distance, lyingSince, onBearing, throughDoors, worthFighting, type Opening } from "./goals.ts";
 /** The mob sees foes within14m and remembers a lost foe for7s. */

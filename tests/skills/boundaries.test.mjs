@@ -231,7 +231,7 @@ test("explicit filled parts obey the same body applicability as automatic select
 
 import { labActor } from "../../src/app/node/game.ts";
 import { shoveBody } from "../../src/game/lab/stance-mode.ts";
-import { standIntent } from "../../src/skills/intent/intent.ts";
+import { standIntent } from "../../src/skills/framework/intent.ts";
 import { rulebook } from "../../src/combat/rulebook.ts";
 import { saveStand, loadStand } from "../harness/core-stand.mjs";
 

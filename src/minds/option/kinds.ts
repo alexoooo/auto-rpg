@@ -1,3 +1,4 @@
+import type { GaitName } from "../../skills/framework/skill.ts";
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import type { Region } from "../../skills/framework/action.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
@@ -5,7 +6,6 @@ import { optionApplies, type OptionBody, type OptionPart } from "./parts.ts";
 import { choice, json } from "../../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
 import { GAIT_CHOICES } from "../../skills/locomotion/move-rule-part.ts";
-import type { GaitName } from "../../skills/locomotion/gaits.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { recordingKey } from "../../core/world/recording.ts";

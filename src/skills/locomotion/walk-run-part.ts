@@ -1,3 +1,4 @@
+import type { Locomotion } from "../framework/locomotion-part.ts";
 import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import { STANCE_GAIT, validGaitTuning, type GaitTuning } from "../../control/stance-tuning.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
@@ -10,7 +11,6 @@ import { deepFreeze } from "../../core/state.ts";
 import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings } from "./walk-run.ts";
 import type { Body } from "../../control/body.ts";
-import type { Locomotion } from "./locomotion.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { learnedRun, learnedRunFaults, type LearnedRunSettings } from "./learned-run.ts";
 import { validStanceEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";

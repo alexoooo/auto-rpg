@@ -7,7 +7,7 @@ import { copyFreedoms, effectorFreedoms } from "../../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, solveReach, specChainTo } from "../../control/kinematics.ts";
 import type { EffectorGoal } from "../../control/motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
-import type { Cover } from "../intent/intent.ts";
+import type { Cover } from "../framework/intent.ts";
 import type { BodySpec, ItemSpec } from "../../core/bodies/spec/body.ts";
 import { standingFooting, standingHeight } from "../../control/support.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";

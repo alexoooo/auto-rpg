@@ -1,10 +1,11 @@
+import type { Spot, SpotFinder } from "../framework/menu.ts";
 import type { BodyView } from "../../control/body.ts";
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
 import type { Window } from "../framework/action.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import { groundRoute } from "../perception/downed/route.ts";
-import { ARRIVED, placeMovement, stands, SWAY, type GroundPoint, type MovementRequest } from "./movement.ts";
+import { ARRIVED, placeMovement, stands, SWAY, type GroundPoint, type MovementRequest } from "../framework/movement.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import { lyingAxis } from "./targets.ts";
 import { stepObstacle } from "../locomotion/navigation/sensed-bounds.ts";
@@ -110,23 +111,6 @@ export function straightSpot(window: Window, from: GroundPoint): { readonly x: n
   return { x: window.at[0] - along * sin(face) - across * cos(face), z: window.at[2] - along * cos(face) + across * sin(face), face };
 }
 
-/**
- * **A spot**: where a walk ends on the ground (`x`, `z`) and the way the body faces there (`face`,
- * rad); where the walk goes round a body, the way there (`route`, its last point the spot) and that
- * body (`by`, `MovementRequest`'s). The body stands there (`atSpot`) within `near` m of it
- * (`ARRIVED` unless given), facing within `facing` rad of its way where that is given, and a walk to
- * it (`approachSpot`) arrives there. Where the spot moves with a body, its `velocity` on the ground, m/s.
- */
-export interface Spot {
-  readonly x: number;
-  readonly z: number;
-  readonly face: number;
-  readonly route?: readonly GroundPoint[];
-  readonly by?: string;
-  readonly near?: number;
-  readonly facing?: number;
-  readonly velocity?: GroundPoint;
-}
 
 /** **Whether a body at (`x`, `z`) facing `heading` stands at `spot`** (`Spot`): within its `near`, facing within its `facing` where it names one. */
 export function atSpot(spot: Spot, x: number, z: number, heading: number): boolean {
@@ -318,3 +302,6 @@ export function approachSpot(view: BodyView, spot: Spot, ceiling: number, headin
     : placeMovement({ x: spot.x, z: spot.z }, near);
   return { move: null, face: spot.face, movement, pace: approachPace(ceiling, distance, drift) };
 }
+
+/** **`windowSpot` as the menu asks it** (`SpotFinder`): no side held, beside a body lying on the side `going` goes to. */
+export const windowSpotFinder: SpotFinder = (view, window, heading, going) => windowSpot(view, window, heading, null, undefined, going);

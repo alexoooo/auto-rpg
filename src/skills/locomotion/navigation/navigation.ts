@@ -1,3 +1,4 @@
+import type { GaitLimits } from "../../framework/locomotion-part.ts";
 import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
@@ -5,11 +6,11 @@ import { bodyClearance } from "./sensed-bounds.ts";
 import { heldClearance } from "./held-clearance.ts";
 import { clearanceExit, clearMove, clearStep, stockClearance, footprinter, footprints, NO_SOLIDS } from "./clear-step.ts";
 import { crowdWalk, fallenSolids, type FallenMemory } from "./crowd.ts";
-import { copyMovement, sameMovement, stands, type MovementRequest, type GroundPoint } from "../../intent/movement.ts";
-import type { NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "./navigator.ts";
+import { copyMovement, sameMovement, stands, type MovementRequest, type GroundPoint } from "../../framework/movement.ts";
+import type { NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "../../framework/navigation.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
 import { createRouter } from "./route-search.ts";
-import { travelSpeed, type Corner, type GaitLimits } from "../../intent/travel.ts";
+import { travelSpeed, type Corner } from "../../intent/travel.ts";
 
 /**
  * Route clearance includes gait sway; progress windows are navigation preferences, not anatomy. A

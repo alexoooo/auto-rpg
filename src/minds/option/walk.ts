@@ -1,10 +1,10 @@
+import type { GaitName } from "../../skills/framework/skill.ts";
 import { atan2 } from "../../core/math/real.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { paceToward } from "../../control/stance-envelope.ts";
-import type { GaitName } from "../../skills/locomotion/gaits.ts";
 import { keepOut } from "../../skills/locomotion/navigation/clear-step.ts";
 import type { Situation } from "./option.ts";
-import type { Intent } from "../../skills/intent/intent.ts";
+import type { Intent } from "../../skills/framework/intent.ts";
 
 /** What an option asks of the legs: a movement goal under a ceiling, and a facing. */
 type Walk = Pick<Intent, "move" | "face" | "movement" | "pace" | "travelFacing">;

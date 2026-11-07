@@ -1,3 +1,4 @@
+import type { Spot } from "../../skills/framework/menu.ts";
 import { impactEnergy } from "../../combat/impact.ts";
 import { lifeFactor } from "../../combat/pool.ts";
 import { sideDamage, type Rulebook } from "../../combat/rulebook.ts";
@@ -11,7 +12,6 @@ import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Situation } from "./option.ts";
-import type { Spot } from "../../skills/intent/action-window.ts";
 import type { Position } from "../../control/ground-reading.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
 import type { Deciding } from "../choice.ts";

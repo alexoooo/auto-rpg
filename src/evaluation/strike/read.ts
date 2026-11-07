@@ -7,7 +7,7 @@ import { pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { jointAngles } from "../../core/bodies/build/joint-state.ts";
-import { regionSegments } from "../../skills/intent/action-aim.ts";
+import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { drillTask, type DrillPhase } from "../../minds/command/drill.ts";
 import { sensedPhase } from "../../skills/perception/threat.ts";
 import { centreReading } from "../../control/observation.ts";

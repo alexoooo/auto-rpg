@@ -1,4 +1,4 @@
-import type { GroundPoint } from "../../../skills/intent/movement.ts";
+import type { GroundPoint } from "../../../skills/framework/movement.ts";
 import type { PlayerLead } from "../../../game/player-input.ts";
 
 /** Clicks and held pointers give the same order; keys steer relative to the camera. */

@@ -10,7 +10,7 @@ import { defaultStrikeLimbs } from "./default-strike-limbs.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import { dot, sub } from "../../core/bodies/spec/vec.ts";
-import type { Cover } from "../intent/intent.ts";
+import type { Cover } from "../framework/intent.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import { lieBy, type Position } from "../../control/ground-reading.ts";
 

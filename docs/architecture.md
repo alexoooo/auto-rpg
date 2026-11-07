@@ -62,7 +62,7 @@ The public APIs for entrant authors are:
 | `src/minds/index.ts` | Mind construction, controllers and entrant manifests |
 | `src/minds/option/index.ts` | Option/chooser contracts and reusable components |
 | `src/skills/config.ts` | component-owned configuration maps |
-| `src/skills/locomotion/navigation/navigator.ts`, `src/skills/locomotion/move-rule-part.ts` | navigation and movement-rule extension contracts |
+| `src/skills/framework/navigation.ts`, `src/skills/locomotion/move-rule-part.ts` | navigation and movement-rule extension contracts |
 
 Role owners augment `RoleParts`; skill implementations augment their configuration maps.
 `DataKey` is `keyof DataOf`. An implementation registers its owned loaders beside its components;
@@ -212,7 +212,7 @@ driven points, a stance goal) into muscle commands.
 ## Skills
 
 A skill set (`skillSet`, `src/skills/framework/arbiter.ts`) turns an `Intent`
-(`src/skills/intent/intent.ts`) into a `BodyCommand` each step: locomotion, guard and low support
+(`src/skills/framework/intent.ts`) into a `BodyCommand` each step: locomotion, guard and low support
 beneath, executors running discrete actions over them. Every skill answers `Skill.resume`; the
 arbiter releases every action when another mind takes the body.
 

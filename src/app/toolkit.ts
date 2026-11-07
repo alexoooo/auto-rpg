@@ -15,7 +15,7 @@ import { CHOOSERS } from "./registration/option-choosers.ts";
 import { OPTION_KINDS } from "./registration/option-kinds.ts";
 import { OBJECTIVES } from "./registration/option-objectives.ts";
 import { PREDICTIONS } from "./registration/option-predictions.ts";
-import type { NavigationConfig } from "../skills/locomotion/navigation/navigator.ts";
+import type { NavigationConfig } from "../skills/framework/navigation.ts";
 import { SUPPORTS } from "./registration/supports.ts";
 import { catalogOf, type Catalog, type CatalogLists } from "../minds/catalog.ts";
 import type { ConfigOf, Part } from "../parts/parts.ts";

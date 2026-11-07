@@ -1,6 +1,7 @@
+import type { GaitName } from "../framework/skill.ts";
 import { choice, type PartField } from "../../parts/fields.ts";
 import { anyBody, type KeysOf, type Part, type PartConfig } from "../../parts/parts.ts";
-import { STOCK_GAITS, type GaitName } from "./gaits.ts";
+import { STOCK_GAITS } from "./gaits.ts";
 import type { MoveRule } from "./move.ts";
 
 /** The stock gaits (`STOCK_GAITS`) as a choice offers them; a gait a config adds is named in its config. */

@@ -1,10 +1,10 @@
+import type { MindKit } from "../framework/mind-kit.ts";
 import { segmentResource, poseResource, LEG_RESOURCE, TRUNK_RESOURCE, ASSIST_RESOURCE } from "../framework/action.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import { heldBody, heldCommand, heldPushes } from "./held-body.ts";
 import type { Clock } from "../../core/world/clock.ts";
 import type { ActionClaim, ActionEnding, ActionRequest, Executor, LifecycleUpdate, Phase, Readiness, Resource } from "../framework/action.ts";
 import type { ActionBinding, ExecutorBinding } from "../framework/action-instances.ts";
-import type { MindKit } from "../kit.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { TechniqueEnd, TechniqueRun } from "./technique.ts";
 

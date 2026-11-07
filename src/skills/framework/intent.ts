@@ -1,6 +1,6 @@
-import { hasResource, segmentResource, LEG_RESOURCE, BODY_RESOURCE } from "../framework/action.ts";
-import type { ActionRequest, Resource } from "../framework/action.ts";
-import type { GaitName } from "../locomotion/gaits.ts";
+import type { GaitName } from "./skill.ts";
+import { hasResource, segmentResource, LEG_RESOURCE, BODY_RESOURCE } from "./action.ts";
+import type { ActionRequest, Resource } from "./action.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import type { MovementRequest } from "./movement.ts";
 

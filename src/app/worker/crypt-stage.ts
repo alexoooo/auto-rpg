@@ -4,7 +4,7 @@ import { isRefused, type Refused } from "../../core/refusal.ts";
 import type { Command } from "../../minds/command/commands.ts";
 import type { CommanderConfig } from "../../minds/command/kind.ts";
 import { loadEngine, type EngineName } from "../../core/physics/engines.ts";
-import type { GroundPoint } from "../../skills/intent/movement.ts";
+import type { GroundPoint } from "../../skills/framework/movement.ts";
 import { armedWith } from "../../core/bodies/items/held.ts";
 import type { MindConfig } from "../../minds/config.ts";
 import { type BodyModel } from "../../core/bodies/models.ts";

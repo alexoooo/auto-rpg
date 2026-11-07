@@ -10,7 +10,7 @@ import { effectorFeedback } from "../../../control/effector-feedback.ts";
 import { unintendedContact } from "../contact-response.ts";
 import { scalarPathToRef } from "../../../control/point-path.ts";
 import { nearestSurface } from "../../intent/targets.ts";
-import { sensedActionTarget } from "../../intent/action-aim.ts";
+import { sensedActionTarget } from "../../framework/action-aim.ts";
 import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
 import { motionAtToRef, pointOfToRef, turnOfToRef } from "../../../core/bodies/read-motion.ts";
 import type { BodyRef, ReadSegment } from "../../../core/bodies/read-body.ts";

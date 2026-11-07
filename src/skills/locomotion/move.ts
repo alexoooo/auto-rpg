@@ -1,10 +1,9 @@
+import type { LegsDrive, Locomotion } from "../framework/locomotion-part.ts";
 import type { BodyView } from "../../control/body.ts";
 import { hypot } from "../../core/math/real.ts";
 import { nearestFoe } from "../intent/targets.ts";
 import { conditionMatches, type ConditionReading } from "../intent/conditions.ts";
-import type { GaitName } from "./gaits.ts";
-import type { LegsDrive, Locomotion } from "./locomotion.ts";
-import { ALL_MET, FIELD_BIT, fieldsOf, maskOf, type LegsGoal } from "../framework/skill.ts";
+import { ALL_MET, FIELD_BIT, fieldsOf, maskOf, type LegsGoal, type GaitName } from "../framework/skill.ts";
 
 /**
  * How far past a rule's distance the body goes before the rule lets go of the gait it chose, m: no

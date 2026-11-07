@@ -1,5 +1,5 @@
 import { isRefused } from "../../core/refusal.ts";
-import { regionSegments } from "../../skills/intent/action-aim.ts";
+import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { describeMind } from "../../minds/description.ts";
 import type { GameContext } from "../arena/context.ts";
 import type { ActionConfig } from "../../skills/config.ts";

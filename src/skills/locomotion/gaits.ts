@@ -1,3 +1,4 @@
+import type { GaitName } from "../framework/skill.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import { deepFreeze } from "../../core/state.ts";
 
@@ -14,8 +15,6 @@ export interface Gait {
   readonly legs: PartConfig;
 }
 
-/** A gait's name (`Gait.name`). */
-export type GaitName = string;
 
 /**
  * **The stock gaits**, by name: the game's controller and its searched settings, none of them a
