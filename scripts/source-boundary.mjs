@@ -16,14 +16,23 @@ const PUBLISHED = new Set([
   "src/skills/locomotion/navigation/navigator.ts", "src/skills/locomotion/move-rule-part.ts",
 ]);
 
-/** Responsibility order; game and evaluation are peers, composed by the application. */
-const LAYERS = Object.freeze([
-  ["src/core/"], ["src/parts/"], ["src/combat/"], ["src/control/"],
-  ["src/skills/"], ["src/minds/"], ["src/game/", "src/evaluation/"], ["src/entrants/"], ["src/app/"],
+/**
+ * Responsibility order, lowest first: each rank names its folders and files by path prefix. A
+ * module ranks where the longest prefix it starts with stands, so a folder inside a layer can rank
+ * above the files at that layer's root. A module imports its own rank or a lower one.
+ */
+const RANKS = Object.freeze([
+  ["src/core/"], ["src/parts/"], ["src/combat/"], ["src/control/"], ["src/skills/"], ["src/minds/"],
+  ["src/game/"], ["src/evaluation/"], ["src/entrants/"], ["src/app/"],
 ]);
 
-function layerOf(file) {
-  return LAYERS.findIndex((folders) => folders.some((folder) => file.startsWith(folder)));
+/** The rank of `file`: where its longest matching prefix stands, or -1 where none matches. */
+function rankOf(file) {
+  let rank = -1, longest = 0;
+  RANKS.forEach((prefixes, at) => {
+    for (const prefix of prefixes) if (prefix.length > longest && file.startsWith(prefix)) { rank = at; longest = prefix.length; }
+  });
+  return rank;
 }
 
 /** Every import, including dynamic imports and re-exports, resolved relative to its owner. */
@@ -68,7 +77,7 @@ export function sourceCrossings(files) {
   const layers = new Set(), runtimes = new Set(), ownership = new Set(), unplaced = new Set();
   for (const [file, source] of files) {
     const from = file;
-    if (layerOf(from) < 0) { unplaced.add(file); continue; }
+    if (rankOf(from) < 0) { unplaced.add(file); continue; }
     const own = entrant(from), fromRuntime = runtime(from);
     for (const name of runtimeNames(file, source)) {
       if (fromRuntime === "neutral" || fromRuntime === "browser" && name.startsWith("Node") || fromRuntime === "node" && name.startsWith("browser")) runtimes.add(`${from}: ${name}`);
@@ -76,8 +85,8 @@ export function sourceCrossings(files) {
     for (const target of imports(file, source)) {
       const to = target;
       if (to.startsWith("src/")) {
-        if (layerOf(to) < 0) { unplaced.add(target); continue; }
-        if (layerOf(to) > layerOf(from)) layers.add(`${from} -> ${to}`);
+        if (rankOf(to) < 0) { unplaced.add(target); continue; }
+        if (rankOf(to) > rankOf(from)) layers.add(`${from} -> ${to}`);
         const other = entrant(to);
         if (other !== null && other !== own && !(from.startsWith("src/app/") && to === `src/entrants/${other}/index.ts`)) ownership.add(`${from} -> ${to}`);
         if (own !== null && other !== own && !PUBLISHED.has(to)) ownership.add(`${from} -> ${to}`);

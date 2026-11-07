@@ -15,8 +15,10 @@ The pages draw what the physics did.
 
 ## The layers
 
-A module imports its own layer or one below. Game and evaluation are peers; application code
-composes their concrete implementations.
+A module imports its own layer or one below. Evaluation builds on game; application code
+composes their concrete implementations. The gate ranks modules by path prefix, the longest a module
+starts with deciding (`RANKS`, `scripts/source-boundary.mjs`), so folders inside a layer can be
+ranked too, general below specific.
 
 | Layer | Where | Owns |
 | --- | --- | --- |
@@ -26,7 +28,8 @@ composes their concrete implementations.
 | Control | `src/control/` | motion and support goals turned into muscle commands |
 | Skills | `src/skills/framework/`, `intent/`, `perception/`, `locomotion/`, `guard/`, `strikes/`, `recovery/` | capability contracts, implementations and owned records |
 | Minds | `src/minds/`, `src/minds/option/` | Mind execution, catalogs, decision frameworks and reusable Options |
-| Game and evaluation | `src/game/`, `src/evaluation/` | gameplay, world builders, cases and readings receiving an immutable context |
+| Game | `src/game/` | gameplay and world builders receiving an immutable context |
+| Evaluation | `src/evaluation/` | cases and readings of the game's worlds |
 | Entrants | `src/entrants/<name>/` | a public manifest and private fighter assembly, components, presets and data |
 | Application | `src/app/` | the concrete catalogs, registrations, composition and runtime adapters |
 
