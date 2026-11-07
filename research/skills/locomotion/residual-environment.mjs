@@ -13,6 +13,8 @@
  * `warmStarts` samples verified pairs of warm-up pace and elapsed time instead of their product.
  * `cacheWarmStarts` restores reached native stand snapshots on fresh bodies between episodes;
  * explicit warm-up pairs are played once before the environment becomes ready.
+ * `warmPolicy` plays a frozen residual during moving-start setup; `stopOnReset` issues a stop
+ * after that reached state is restored, leaving the episode budget entirely for braking.
  * `paceRelativeShare` widens shortfall credit with the movement controller's commanded pace.
  */
 import '../../../tests/harness/preload-data.mjs';
@@ -78,6 +80,9 @@ export async function residualEnvironment(configuration = {}) {
   if (o.cacheWarmStarts && o.speeds && !o.warm && !o.warmStarts && o.fromRestShare < 1)
     throw Error('cached moving starts need a finite set of warm-up speeds');
   const warmCache = new Map();
+  if (o.stopOnReset && (!o.warmPolicy || o.fromRestShare !== 0))
+    throw Error('braking resets require a frozen warm policy and moving starts only');
+  const warmPolicy = o.warmPolicy ? recoveryNetwork(JSON.parse(readFileSync(o.warmPolicy, 'utf8'))) : null;
   if (o.speeds && (!Array.isArray(o.speeds) || o.speeds.length !== 2
     || !o.speeds.every(Number.isFinite) || o.speeds[0] < 0 || o.speeds[1] < o.speeds[0]))
     throw Error('training speeds are an ordered nonnegative range');
@@ -296,8 +301,9 @@ export async function residualEnvironment(configuration = {}) {
       massCentreToRef(physicalParts, mass, centre, work, velocity); control.physicalLineX = centre.x;
       control.asked = [warmPace, 0];
       const warmSteps = stand.seconds(start);
-      if (referencePolicy || frozenSteering) {
+      if (referencePolicy || frozenSteering || warmPolicy) {
         for (let warmed = 0; warmed < warmSteps; warmed += 4) {
+          if (warmPolicy) control.action = warmPolicy(observation);
           if (referencePolicy) control.referenceAction = referencePolicy(control.referenceObservation);
           if (frozenSteering) control.frozenSteerAction = frozenSteering(control.steeringObservation);
           stand.step(Math.min(4, warmSteps - warmed));
@@ -319,6 +325,7 @@ export async function residualEnvironment(configuration = {}) {
     if (o.warm || o.warmStarts || o.speeds) observe(body.view, cached ? control.observedSpin : undefined);
     episode = { steps: 0, ticks: 0, along: 0, maxOff: 0, everRan: skill.state.walkRun.running, fromRest,
       warmStart: { pace: warmPace, start } };
+    if (o.stopOnReset) { control.asked = null; control.stopOrder = true; }
     return observation.slice();
   };
   const step = (action, { squashed = false } = {}) => {
