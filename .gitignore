@@ -4,8 +4,9 @@
 # Build output and installed dependencies.
 node_modules/
 dist/
-.vite/
-# Reproducible art outputs and pinned local encoder toolchains.
+
+# The art pipeline's pinned encoders, downloads and builds, and the assets it generates
+# (docs/art/assets.md).
 .cache/art/
 public/assets/generated/
 
@@ -13,24 +14,18 @@ public/assets/generated/
 # .tmp/worktrees/<name>/. `npm run clean` deletes what is a day old.
 .tmp/
 
-# Toolchains, by name: downloaded or built by the scripts and documents that name them, and
-# reproducible from those rather than from the repository.
+# Toolchains, each by name and made as its user says; anything else in .tools/ is a stray.
+# Blender, for the art pipeline (scripts/art/tools.mjs).
 .tools/blender-*/
+# MakeHuman's Blender plugin, for the realistic characters (docs/art/characters.md).
 .tools/mpfb/
-.tools/ai-lab-venv/
-# The trainer's off-policy updates on the GPU: ai-lab-venv's packages with CUDA's torch (research/run-train.py).
-.tools/ai-lab-cuda-venv/
-.tools/rapier-build/
-.tools/rapier-rebuild-a/
-.tools/rapier-rebuild-b/
-.tools/effort-v6-reference/
-.tools/get-up-reference/
-# Python environments for the published and local stand-up research adapters.
-.tools/get-up-cuda-venv/
-.tools/get-up-python38/
-.tools/get-up-venv/
-# Downloaded authoring references and the Rapier checkout with local engine work.
+# Blender Studio's Human Base Meshes, the skeleton's source (docs/art/skeleton.md).
 .tools/human-base-meshes/
+# Python for training, on the CPU and with CUDA's torch (research/run-train.py).
+.tools/ai-lab-venv/
+.tools/ai-lab-cuda-venv/
+# The Rapier build's checkout (vendor/rapier/build.sh), and a hand-patched checkout of it.
+.tools/rapier-build/
 .tools/rapier-source/
 
 # Editor and agent state that belongs to one machine.
@@ -40,13 +35,12 @@ public/assets/generated/
 
 # Python bytecode from the asset extractors and research scripts. `npm run clean` deletes it.
 __pycache__/
-*.py[cod]
 
 # MSYS crash artifacts. They appear at whatever directory a shell died in; ignored so that none is
 # committed, and garbage wherever they lie: `npm run clean` deletes them.
 *.stackdump
 
-# Resumable research runs: rows kept and reused.
+# Research runs: what a later run reads, each folder's README.md naming it (AGENTS.md).
 /research/runs/
 
 # The stand-up research's recorded frames and run logs, kept beside its code (research/stand-controller/).
