@@ -32,6 +32,7 @@ Where the project is going and what is open. What is built is in the
 | [Warrior bonk](plans/warrior-bonk.md) | a controlled descending club strike at the head, with physical motion, contact, recovery and repetition gates and watched confirmation |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit |
 | [The rat](plans/2026-11-01-rat.md) | the rat and the reptile at 1.0 m/s or more, righting, then the Crypt |
+| [Layer cleanup](plans/2026-11-07-layer-cleanup.md) | unused exports gone; skills contracts in the framework; minds in folders; an order inside core and skills checked by the gate |
 
 Now: the Warrior's [travel capabilities](plans/warrior-travel.md) and
 [bonk](plans/warrior-bonk.md), with recovery performance preserved; the remaining Option control
