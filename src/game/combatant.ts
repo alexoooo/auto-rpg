@@ -11,7 +11,7 @@ import type { Fighter } from "../combat/blows.ts";
 import { createPool, type Pool } from "../combat/pool.ts";
 import { balanceCeiling, balancePercent, type Rulebook } from "../combat/rulebook.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import type { World } from "../core/world/world.ts";
 import { cos, sin } from "../core/math/real.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "../core/world/recording.ts";

@@ -1,6 +1,6 @@
 import bind from "../../../../assets/skeleton/bind.json" with { type: "json" };
 import bones from "../../../../assets/skeleton/bones.json" with { type: "json" };
-import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, midpoint, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
 import type { FittedSegment, HandFigure, HumanFigure, LimbFigure } from "./figure.ts";

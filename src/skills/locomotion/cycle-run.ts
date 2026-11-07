@@ -5,7 +5,7 @@ import type { MusclePush } from "../../control/motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 
 import { atan2, cos, sin } from "../../core/math/real.ts";
-import { STANDARD_GRAVITY } from "../../core/bodies/spec/constants.ts";
+import { STANDARD_GRAVITY } from "../../core/constants.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../core/math/turn.ts";
 import { armSwing } from "./arm-swing.ts";
 import { footOn } from "../../control/support.ts";

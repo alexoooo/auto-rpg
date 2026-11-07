@@ -1,7 +1,7 @@
 import { segmentResource } from "../../skills/framework/action.ts";
 import type { TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { legsReadiness } from "../../skills/locomotion/locomotion.ts";
 import { shieldHands } from "../../skills/intent/cover-hand.ts";
 import type { Cover } from "../../skills/intent/intent.ts";

@@ -9,7 +9,7 @@ import { driveMuscles, type MuscleDriver } from "../core/bodies/muscle/driver.ts
 import type { Vector3 } from "../core/math/vector.ts";
 import type { World } from "../core/world/world.ts";
 import { clockSenses } from "../core/world/senses.ts";
-import { heldSteps } from "../core/world/command-delay.ts";
+import { heldSteps } from "../core/bodies/command-delay.ts";
 import type { Senses } from "../core/bodies/senses.ts";
 import type { MindConstruction } from "./mind.ts";
 import { answer, think } from "./execution.ts";
@@ -25,7 +25,7 @@ interface Embodied<M extends MindConstruction = MindConstruction> {
   /** The body as its fight holds it: its muscles, its assist and its senses, the world's own whatever its mind reads. */
   readonly held: HeldReading;
   readonly mind: M;
-  /** The body's memory under this mind (`src/core/world/state.ts`): its muscles', its assist's, the mind's own, what its mind has asked and not yet answered (`Mirror.command`) and what its senses last showed it (`Mirror.seen`). */
+  /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, the mind's own, what its mind has asked and not yet answered (`Mirror.command`) and what its senses last showed it (`Mirror.seen`). */
   readonly state: object;
   /** Stop driving: the mind lets go (`MindConstruction.dispose`), its observers stop, and the motors are released. */
   dispose(): void;

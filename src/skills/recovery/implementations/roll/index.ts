@@ -1,6 +1,6 @@
 import type { BodyView } from "../../../../control/body.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
-import { deepFreeze } from "../../../../core/world/state.ts";
+import { deepFreeze } from "../../../../core/state.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
 import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../technique.ts";
 import { mirrorPosture, technique } from "../../bilateral.ts";

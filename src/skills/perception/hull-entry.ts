@@ -1,4 +1,4 @@
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 
 /**
  * First entry of a finite ray into outward convex planes; an internal start has no exposed entry.

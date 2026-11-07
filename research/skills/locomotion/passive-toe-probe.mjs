@@ -4,7 +4,7 @@ import {parseArgs} from 'node:util';
 import {isDeepStrictEqual} from 'node:util';
 import {modelSpec} from '../../../src/core/bodies/models.ts';
 import {bodyKey} from '../../../src/core/bodies/spec/body.ts';
-import {derive} from '../../../src/core/bodies/spec/quantity.ts';
+import {derive} from '../../../src/core/quantity.ts';
 import {Vector3} from '../../../src/core/math/vector.ts';
 import {driveMuscles} from '../../../src/core/bodies/muscle/driver.ts';
 import {jointAngles} from '../../../src/core/bodies/build/joint-state.ts';

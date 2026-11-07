@@ -1,5 +1,5 @@
 import { segmentFrame, type BodySpec, type HeldSpec, type ItemSpec, type SegmentSpec, segmentOf } from "../spec/body.ts";
-import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, dot, scale, sub } from "../spec/vec.ts";
 import type { Side } from "../bilateral.ts";
 

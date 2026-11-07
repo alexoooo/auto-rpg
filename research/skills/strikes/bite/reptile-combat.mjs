@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 import { buildBout } from "../../../../src/app/node/evaluation.ts";
 import { lifeTaken } from "../../../../src/combat/blows.ts";
 import { BOUT_ENGINE } from "../../../bout.mjs";
-import { sourced } from "../../../../src/core/bodies/spec/quantity.ts";
+import { sourced } from "../../../../src/core/quantity.ts";
 import { rulebook } from "../../../../src/combat/rulebook.ts";
 import { mouthOf } from "../../../../src/skills/strikes/bite/jaw.ts";
 

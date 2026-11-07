@@ -1,5 +1,5 @@
 import { PROFILE_MODEL } from "./profile-contract.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { PartField } from "../../parts/fields.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { ChooserPart } from "./parts.ts";

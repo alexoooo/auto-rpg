@@ -8,7 +8,7 @@ import { aimOf } from "../strikes/held-strike.ts";
 import { bellyOf, frameOf, segmentOf, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { defaultStrikeLimbs } from "./default-strike-limbs.ts";
 import { effectorAim } from "../../control/effectors.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { dot, sub } from "../../core/bodies/spec/vec.ts";
 import type { Cover } from "../intent/intent.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";

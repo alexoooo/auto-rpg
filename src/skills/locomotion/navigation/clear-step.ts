@@ -1,5 +1,5 @@
 import { cos, hypot, sin } from "../../../core/math/real.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
 import type { BodyView } from "../../../control/body.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";

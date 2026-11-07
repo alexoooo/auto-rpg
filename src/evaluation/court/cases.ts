@@ -13,7 +13,7 @@ import type { MindConfig } from "../../minds/config.ts";
 import { presetFitsModel } from "../../minds/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
 
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { PHYSICS_HZ } from "../../core/world/world.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 

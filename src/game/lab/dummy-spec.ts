@@ -3,7 +3,7 @@ import { SEGMENT_DENSITY, type DensitySegment } from "../../core/bodies/human/ta
 import type { BodySpec, WoundSpec } from "../../core/bodies/spec/body.ts";
 import { woundGroups } from "../../combat/pool.ts";
 import { ballMoment, ballRadius } from "../../core/bodies/spec/geometry.ts";
-import { derive, si, type Vec3 } from "../../core/bodies/spec/quantity.ts";
+import { derive, si, type Vec3 } from "../../core/quantity.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
 
 const densityOf = (part: string) => {

@@ -16,7 +16,7 @@ import { slotList, slotOne, slotsOf, partRequirements, type Part, type PartConfi
 import { driveBy } from "../decider.ts";
 import { commandedMind } from "../sub-mind.ts";
 import type { Skills } from "../../skills/framework/skills.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { skillsOf } from "./skills.ts";
 import { optionDecider, type DeciderMaking } from "./decider.ts";

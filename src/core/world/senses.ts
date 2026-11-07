@@ -30,7 +30,7 @@ export interface SensesHub {
   add(sensed: Sensed): () => Senses;
   /** Stop carrying a body before its physics is disposed. */
   remove(id: string): void;
-  /** Its memory (`src/core/world/state.ts`): each body's frames and which of them is shown, by the body's id. */
+  /** Its memory (`src/core/state.ts`): each body's frames and which of them is shown, by the body's id. */
   readonly state: object;
   /**
    * Show every body again from its frames. What the others are shown of a body is written each

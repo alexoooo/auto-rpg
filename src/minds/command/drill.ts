@@ -4,7 +4,7 @@ import { ARRIVED, directMovement, placeMovement, SWAY } from "../../skills/inten
 import { isRegion, type Orders } from "../../skills/intent/orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../../skills/framework/action.ts";
 import { skillOf, type KitEntry, type MenuEntry } from "../../skills/framework/menu.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { hold, letGo, stillHeld, unheld } from "../../control/held.ts";
 import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamView } from "./team.ts";

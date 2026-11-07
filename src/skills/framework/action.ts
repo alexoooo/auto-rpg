@@ -3,7 +3,7 @@ import type { BodyControl } from "../../core/bodies/body-control.ts";
 import type { MusclePush, EffectorGoal, FreedomPath, PointTask } from "../../control/motor.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { ConfigurationName } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { Around, LegsGoal, Skill } from "./skill.ts";
 
 /** A sensed body's region, or a particular segment of that body. */

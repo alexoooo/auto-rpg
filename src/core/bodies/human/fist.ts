@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "../../math/vector.ts";
 import type { WorkshopModel } from "./rig.ts";
-import { deepFreeze } from "../../world/state.ts";
+import { deepFreeze } from "../../state.ts";
 
 /**
  * **The fist, built from the hand's own geometry.** Each finger bone's

@@ -11,7 +11,7 @@ import { GUARD } from "../../src/skills/guard/guard.ts";
 import { createWorld } from "../../src/core/world/world.ts";
 import { buildBody } from "../../src/core/bodies/build/build-body.ts";
 import { embody } from "../../src/minds/embodiment.ts";
-import { loadState, saveState } from "../../src/core/world/state.ts";
+import { loadState, saveState } from "../../src/core/state.ts";
 import { freshEngine, coreStand } from "../harness/core-stand.mjs";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
 import { commandedMind } from "../../src/minds/sub-mind.ts";

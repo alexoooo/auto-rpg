@@ -1,5 +1,5 @@
 import type { EndLimb, ProppedLimb } from "../../../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../../../core/world/state.ts";
+import { deepFreeze } from "../../../../core/state.ts";
 import { SIDES } from "../../../../core/bodies/bilateral.ts";
 
 /** Channels that the staged solve leaves to each bearing task, rather than its posture. */

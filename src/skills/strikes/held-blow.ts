@@ -9,8 +9,8 @@ import { heldBy, type Held } from "../../core/bodies/items/held.ts";
 import { fitsAll, fitsWhen, strikesWithOneOf } from "../../parts/parts.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import type { Vec3 } from "../../core/quantity.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../framework/records.ts";
 import { faceFault, STRAIGHT_PUNCH_KEYS, straightPunchExecutor, straightPunchFits, timedChannelFault, validStraightPunch, validStraightPunchPart,

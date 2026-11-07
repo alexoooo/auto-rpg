@@ -7,7 +7,7 @@ import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../..
 import { GAIT_CHOICES } from "../../skills/locomotion/move-rule-part.ts";
 import type { GaitName } from "../../skills/locomotion/gaits.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { covers } from "./cover.ts";
 import { LIMB_ROLES, limbsOf, type LimbRole } from "./limbs.ts";

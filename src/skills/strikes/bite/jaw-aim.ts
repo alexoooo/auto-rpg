@@ -8,8 +8,8 @@ import { turnAboutToRef } from "../../../core/math/turn.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
 import { surfaceContains, surfaceEntry } from "../../perception/openings.ts";
 import type { Aim, AimPart } from "../../framework/aim-part.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
-import { deepFreeze } from "../../../core/world/state.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
+import { deepFreeze } from "../../../core/state.ts";
 import { headFrameToRef, jawOf, mouthToRef } from "./jaw.ts";
 import { biteSettings, fitsBite } from "./index.ts";
 

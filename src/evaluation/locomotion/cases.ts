@@ -28,7 +28,7 @@ import { cos, sin } from "../../core/math/real.ts";
 import { modelSpec, type BodyModel } from "../../core/bodies/models.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { Cases, Json, Subject } from "../evaluation.ts";
 import type { BuiltLone, LoneCue } from "../lone.ts";
 import { readLocomotion, type LocomotionReading } from "./read.ts";

@@ -5,7 +5,7 @@ import { jointAngles } from "../../core/bodies/build/joint-state.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { Phase } from "../../skills/framework/action.ts";
 
 /** Guard proximity, stillness, facing and continuous hold used by the swing motion observation. */

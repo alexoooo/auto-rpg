@@ -120,8 +120,10 @@ Check: as for code. The fingerprint is not needed: no `src/` module changes.
   - `core/bodies/sources.ts` becomes `core/sources.ts`.
 
   Every importer is edited. AGENTS.md and `docs/architecture.md` cite the new paths.
-- **Gravity and contact friction move into physics.** `core/bodies/spec/constants.ts` becomes
-  `core/physics/constants.ts`.
+- **Gravity and contact friction move to core's root**, as `core/constants.ts`: numbers that
+  belong to no body and no engine, which minds may read and `physics/` is barred to.
+- **`core/world/index.ts` goes.** It only re-exported the state rule; `PUBLISHED` names
+  `core/state.ts` itself.
 - **`core/world/command-delay.ts` moves to `core/bodies/`.** Only bodies and the mind's embodiment
   use it.
 - **Bodies stop importing the world.** The world-shaped contract a body needs to run in a step moves

@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import { channelName, type MuscleReading } from "../core/bodies/muscle/driver.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import { distance } from "../core/bodies/spec/vec.ts";
 import { bodyEffectors, type Freedom } from "./effectors.ts";
 import { pointPathTargetToRef } from "./point-path.ts";

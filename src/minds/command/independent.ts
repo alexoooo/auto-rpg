@@ -1,4 +1,4 @@
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { kindOnly, type CommanderEntry } from "./kind.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "../../skills/intent/movement.ts";
 import { STAND_ORDERS, type Orders } from "../../skills/intent/orders.ts";

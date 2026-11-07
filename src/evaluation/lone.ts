@@ -23,7 +23,7 @@ import { createWorld, type World } from "../core/world/world.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { labGusts, startWind } from "../game/lab/wind.ts";
 import { type GameContext } from "../game/arena/context.ts";
-import { saveState, loadState, type Saved } from "../core/world/state.ts";
+import { saveState, loadState, type Saved } from "../core/state.ts";
 
 /**
  * A cue of a lone body's script, `at` s into the case: the orders it is given from then on (none

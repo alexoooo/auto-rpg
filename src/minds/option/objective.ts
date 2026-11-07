@@ -1,6 +1,6 @@
 import { hypot, tanh } from "../../core/math/real.ts";
 import { anyBody, type KeysOf } from "../../parts/parts.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { Situation } from "./option.ts";
 import type { ObjectivePart } from "./parts.ts";
 import { FIRST, type Obedience } from "./value.ts";

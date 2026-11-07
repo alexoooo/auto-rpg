@@ -18,11 +18,13 @@ The pages draw what the physics did.
 A module imports its own layer or one below. Evaluation builds on game; application code
 composes their concrete implementations. The gate ranks modules by path prefix, the longest a module
 starts with deciding (`RANKS`, `scripts/source-boundary.mjs`), so folders inside a layer can be
-ranked too, general below specific.
+ranked too, general below specific. Core ranks its root files (state, quantities, sources, physical
+constants, refusals), `math/` and `data/` below `physics/`, then `bodies/`, then `world/`: a body
+steps in a `StepHost` (`src/core/bodies/step-host.ts`), which the world extends.
 
 | Layer | Where | Owns |
 | --- | --- | --- |
-| Core | `src/core/math/`, `physics/`, `bodies/`, `world/`, `data/` | arithmetic, physics, body descriptions and muscles, clock, state and data store |
+| Core | `src/core/`, `math/`, `data/`, `physics/`, `bodies/`, `world/` | arithmetic, physics, body descriptions and muscles, clock, state and data store |
 | Parts | `src/parts/` | component contracts, scoped configurations and role lookup |
 | Combat | `src/combat/` | blows, wounds, life and rulebooks |
 | Control | `src/control/` | motion and support goals turned into muscle commands |
@@ -54,7 +56,7 @@ The public APIs for entrant authors are:
 | --- | --- |
 | `src/core/bodies/index.ts` | body facts, readings, control and kinematic helpers |
 | `src/core/math/index.ts` | exact arithmetic, vectors, randomness and numeric learners |
-| `src/core/world/index.ts` | plain memory and freezing |
+| `src/core/state.ts` | plain memory and freezing |
 | `src/core/data/store.ts` | `DataOf` augmentation, typed keys, loaders and reads |
 | `src/parts/index.ts`, `src/parts/lookup.ts` | parts, fields, slots and role augmentation |
 | `src/minds/index.ts` | Mind construction, controllers and entrant manifests |
@@ -100,8 +102,8 @@ effector segment (`BodyView.pointMotion`).
   lives in `src/evaluation/loadouts.ts`. An item's frame is y along the
   grip or blade, x across, z out. Families share code, never values.
 
-**Every number in a spec is a `Quantity`** (`src/core/bodies/spec/quantity.ts`): a value, a unit and its
-origin. A leaf is `sourced` from an entry of `SOURCES` (`src/core/bodies/sources.ts`): a citation, an
+**Every number in a spec is a `Quantity`** (`src/core/quantity.ts`): a value, a unit and its
+origin. A leaf is `sourced` from an entry of `SOURCES` (`src/core/sources.ts`): a citation, an
 asset file or one line on what it is tuned for. Anything else is `derive`d by a named rule whose
 code writes no factor. Tuning is immutable: an experiment passes an override in.
 
@@ -522,7 +524,7 @@ hooks (`World.beforeStep`: carry the answer into each body's `driveMuscles` and 
 one solver step and the clock; the post-physics observations
 (`World.afterPhysics`); the after-step hooks (`World.afterStep`: blows, readings). A page advances
 by real time (`World.advance`); `scene.render()` never steps. Local bouts serialize their registered
-state roots through `saveState` and restore them through `loadState` (`src/core/world/state.ts`).
+state roots through `saveState` and restore them through `loadState` (`src/core/state.ts`).
 Durable simulation values must be reachable from those roots to survive a fresh load; runtime
 links and derived caches must be rebuilt from the restored values. `DungeonRun.state` includes
 its map, commands, exploration, actors and world state; its facade retains runtime handles, and
@@ -539,7 +541,7 @@ the height of their observed colliders.
 ### The command delay
 
 What a mind sends is applied `World.delay` steps later (`COMMAND_DELAY`, one step in the game): its
-muscles' command, assist ask and segment configurations, each through a ring (`src/core/world/command-delay.ts`) that
+muscles' command, assist ask and segment configurations, each through a ring (`src/core/bodies/command-delay.ts`) that
 is state, so a bout forks with commands in flight. A body's time starts at its first decision
 carried out (`BodyView.born`).
 

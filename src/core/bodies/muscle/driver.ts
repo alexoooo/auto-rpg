@@ -5,10 +5,10 @@ import type { EngineJoint } from "../../physics/engine.ts";
 import { isMuscleDof, type MuscleSpec } from "../spec/body.ts";
 import { jointTracker, type JointTracker } from "../build/joint-state.ts";
 import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
-import type { Hook, World } from "../../world/world.ts";
+import type { Hook, StepHost } from "../step-host.ts";
 import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from "./force-velocity.ts";
 import { attachment, type BuiltDof, type JointKinematics, type ReadBody, type ReadJoint, type ReadSegment } from "../read-body.ts";
-import { delayLine } from "../../world/command-delay.ts";
+import { delayLine } from "../command-delay.ts";
 
 /**
  * **The muscle actuator**: each freedom's muscles as a velocity motor on its joint's axis
@@ -26,7 +26,7 @@ import { delayLine } from "../../world/command-delay.ts";
  * The muscle shortens when the joint turns the way it pulls: the force-velocity relation reads the
  * speed in that direction (`forceVelocityFactor`). A speed past the reach makes the motor push at
  * its ceiling until the joint gets there; a speed of zero is a hold; a speed toward a pose is a
- * servo. The driver reads its step from the world (`src/core/world/world.ts`).
+ * servo. The driver reads its step from the world it steps in (`StepHost`).
  *
  * **Under directional actuation each side has its own ceiling.** A finite-speed command permits the solver to pull or brake
  * within those bounds as the load requires. Both sides share the commanded activation, but keep
@@ -34,7 +34,7 @@ import { delayLine } from "../../world/command-delay.ts";
  * `ceiling` reports the bound in that torque's sense (the requested sense when no torque was given).
  * An infinite-speed command is a torque source in that sense: it gives the opposite side no
  * activation. Its finite speed limit still prevents a light limb outrunning the muscle's curve.
- * `World.actuation` also names the symmetric reference law: it uses the requested side's ceiling
+ * `StepHost.actuation` also names the symmetric reference law: it uses the requested side's ceiling
  * in both directions, including when the opposite side supplies the braking. That law is a
  * comparison control, not a guarantee of each side's anatomical bound.
  *
@@ -114,7 +114,7 @@ export interface MuscleDriver {
   readonly channels: readonly MuscleChannel[];
   /**
    * The command, by channel: activation 0-1, and the speed asked for (rad/s, the freedom's sense).
-   * What is written here on a step is applied the world's delay later (`World.delay`): what the
+   * What is written here on a step is applied the world's delay later (`StepHost.delay`): what the
    * motors are given this step is the command sent that many steps ago.
    */
   readonly activation: Float64Array;
@@ -147,7 +147,7 @@ export interface MuscleDriver {
   readonly bounds: { readonly negative: Float64Array; readonly positive: Float64Array };
   /** Mean torque delivered over the last world step, N m, positive in the channel's positive sense. */
   readonly pulled: Float64Array;
-  /** Its memory (`src/core/world/state.ts`): its level, command, the commands sent and not yet applied, ceilings, delivered torque, and each joint as last read. */
+  /** Its memory (`src/core/state.ts`): its level, command, the commands sent and not yet applied, ceilings, delivered torque, and each joint as last read. */
   readonly state: object;
   /** Its level (`BodyLevel`), `full` as made. */
   readonly level: BodyLevel;
@@ -205,7 +205,7 @@ const peakOf = (channel: MuscleChannel, side: MuscleSide): number => channel.joi
  * What a driver is made with beside its body and world, how it reads for its mind: without the
  * body's dynamics (`dynamics: false`, where its mind reads them from a mirror); and as the step is
  * prepared rather than just before its control (`prepared`, where its mind reads the body before the
- * step's controls run, `World.prepare`). The steps a command waits (`delay`): the world's unless
+ * step's controls run, `StepHost.prepare`). The steps a command waits (`delay`): the world's unless
  * given.
  */
 interface DrivingOptions { readonly dynamics?: false; readonly prepared?: true; readonly delay?: number }
@@ -218,7 +218,7 @@ export type MuscleController = (driver: MuscleDriver, dt: number) => void;
  * body is at `full`, its joints read just before (`DrivingOptions`). `idle` is called as it leaves
  * `full`, before its motors are zeroed.
  */
-export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void,
+export function driveMuscles(built: BuiltBody, world: StepHost, control?: MuscleController, idle?: () => void,
   { dynamics: reading = undefined, prepared = undefined, delay = world.delay }: DrivingOptions = {}): MuscleDriver {
   // Its mind reads the body through its view (`readView`): the channels' joints and the dynamics' segments are the view's.
   const read = readView(built);

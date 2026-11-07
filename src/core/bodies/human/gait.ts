@@ -1,4 +1,4 @@
-import { si, sourced, type Quantity } from "../spec/quantity.ts";
+import { si, sourced, type Quantity } from "../../quantity.ts";
 
 /**
  * **How fast a person walks**, each way a fighter's walk is measured (`research/skills/locomotion/locomotion-run.mjs`):

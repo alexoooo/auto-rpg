@@ -1,4 +1,4 @@
-import { sourced, type Quantity } from "../../spec/quantity.ts";
+import { sourced, type Quantity } from "../../../quantity.ts";
 
 /**
  * **Segment densities**, Dempster's cadaver measurements as Winter tabulates them (Table 4.1). They

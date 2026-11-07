@@ -1,4 +1,4 @@
-import { deepFreeze } from "../../../core/world/state.ts";
+import { deepFreeze } from "../../../core/state.ts";
 import { routeWalker } from "./navigation.ts";
 import type { NavigatorPart } from "./navigator.ts";
 import { anyBody } from "../../../parts/parts.ts";

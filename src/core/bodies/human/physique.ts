@@ -1,5 +1,5 @@
 import type { Refused } from "../../refusal.ts";
-import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, dot, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extent, Extents, TrunkSegment } from "./envelope.ts";
 import type { HandFigure, HumanFigure } from "./figure.ts";

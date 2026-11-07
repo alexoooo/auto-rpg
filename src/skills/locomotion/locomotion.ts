@@ -12,7 +12,7 @@ import type { BearingEnd } from "../../core/bodies/spec/body.ts";
 import { STANCE_GAIT, type GaitTuning } from "../../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { onStanceFeet, type SidedAsk, type StanceFeet } from "./stance-feet.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, setIn, type LegsAsked, type LegsField, type LegsUnmet, type Skill } from "../framework/skill.ts";
 import type { GaitName } from "./gaits.ts";
@@ -200,7 +200,7 @@ export interface Locomotion extends Skill {
    * speed rule counts before a place and a corner (`travelSpeed`).
    */
   readonly lag: number;
-  /** Its memory (`src/core/world/state.ts`). */
+  /** Its memory (`src/core/state.ts`). */
   readonly state: object;
   /** The walk's speed asked, m/s (0 standing); absent, legs that do not say. */
   readonly pace?: number;

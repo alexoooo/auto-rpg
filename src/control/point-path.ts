@@ -1,4 +1,4 @@
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 
 /** A quintic Hermite coordinate and its two derivatives, in the coordinate's own units. */
 export function scalarPathToRef(start: number, rate: number, finish: number, time: number, seconds: number,

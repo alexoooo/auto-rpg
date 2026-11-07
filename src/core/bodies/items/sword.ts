@@ -1,5 +1,5 @@
 import type { ItemSpec } from "../spec/body.ts";
-import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 
 const q = <T extends number | Vec3>(value: T, unit: Quantity["unit"], where: string) => sourced(value, unit, "owner-arena-items", where);
 const point = (value: Vec3) => q(value, "m", "short sword: item-frame collider and named-point coordinates");

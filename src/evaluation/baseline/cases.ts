@@ -22,7 +22,7 @@ import type { MindConfig } from "../../minds/config.ts";
 import { presetFitsModel } from "../../minds/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
 
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { readBout } from "../contest.ts";
 import type { BuiltCase, Cases, Json, Reader, Subject } from "../evaluation.ts";
 import { sideAttributes } from "../evaluation.ts";

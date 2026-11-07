@@ -1,5 +1,5 @@
 import { readGlb, type DecodeMeshopt } from "../art/glb.ts";
-import { deepFreeze } from "../../world/state.ts";
+import { deepFreeze } from "../../state.ts";
 import { SIDES } from "../bilateral.ts";
 
 /**

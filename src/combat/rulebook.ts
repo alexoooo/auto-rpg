@@ -1,7 +1,7 @@
 import type { AssistCeiling } from "../core/bodies/assist.ts";
 import { CONTACT_STIFFNESS } from "../core/bodies/human/tables/contact-stiffness.ts";
-import { derive, si, sourced, type Quantity } from "../core/bodies/spec/quantity.ts";
-import { deepFreeze } from "../core/world/state.ts";
+import { derive, si, sourced, type Quantity } from "../core/quantity.ts";
+import { deepFreeze } from "../core/state.ts";
 
 /**
  * **The fight rules, in one immutable object per mode**: what wounds, what severs, what kills and

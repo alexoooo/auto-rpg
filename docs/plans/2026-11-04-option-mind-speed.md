@@ -19,7 +19,7 @@ decision is made or how its value is estimated.
   steps; the tree's runs, exploration, backup and leaf patterns stay as they are unless a step
   says otherwise.
 - **Determinism and forks hold**: a fixed amount of work a step, never a time budget; what a step
-  keeps is in the chooser's state (`src/core/world/state.ts`), so a bout forked mid-decision plays on to
+  keeps is in the chooser's state (`src/core/state.ts`), so a bout forked mid-decision plays on to
   the bit. Read continuation on the affected chooser path with pending work; the command-queue
   check in `tests/minds/contract.test.mjs` does not establish search-state completeness.
 - **A speed rewrite** does the same operations in the same order and moves no fingerprint case

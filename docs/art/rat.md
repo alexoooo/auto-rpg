@@ -62,7 +62,7 @@ in the script, kept in `.cache/art/downloads/street_rat/`), and writes `rat.glb`
 | tail | two capsules, root to the taper's end and on to the tip |
 
 What the art does not give is the authored quadruped's (`assets/quadruped/authored-body.json`,
-`rat-anatomy` in `src/core/bodies/sources.ts`): masses, torques, joint ranges, the teeth and the paw
+`rat-anatomy` in `src/core/sources.ts`): masses, torques, joint ranges, the teeth and the paw
 footprint. The rat's own are the hips' second and third axes (±1.6 rad), the bends (±1.2 rad), the
 legs' muscles, the neck's torque (scaled by the head and jaw's lever) and the head's and tail's
 weights: [the rat](../reference/reptile.md#the-rat).

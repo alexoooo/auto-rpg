@@ -13,7 +13,7 @@ import { physicalReading } from "../../control/observation.ts";
 import { constructionScope } from "../../core/construction.ts";
 import { attachment } from "../../core/bodies/read-body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { GameContext } from "../../game/arena/context.ts";
 import { debrisCues, type SoundCue, type SoundPoint } from "../../game/audio/cues.ts";
 import { hearRun } from "../../game/dungeon/hearing.ts";

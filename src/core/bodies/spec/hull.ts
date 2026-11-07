@@ -1,5 +1,5 @@
 import { isRefused, type Refused } from "../../refusal.ts";
-import type { Vec3 } from "./quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import { cross, dot, length, scale, sub } from "./vec.ts";
 
 /**

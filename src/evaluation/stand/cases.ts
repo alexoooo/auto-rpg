@@ -16,7 +16,7 @@
  * back, and 60 to each side, at the middle trunk.
  */
 import type { BodyModel } from "../../core/bodies/models.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { Shove } from "../../game/arena/shove.ts";
 import { sideAttributes, type Cases, type Json } from "../evaluation.ts";
 import type { Hand, Mark } from "../strike/read.ts";

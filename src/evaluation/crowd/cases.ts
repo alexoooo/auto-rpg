@@ -24,7 +24,7 @@ import type { MindConfig } from "../../minds/config.ts";
 import { presetFitsModel } from "../../minds/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
 import { modelInfo } from "../../game/model-loadouts.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { generateLevel } from "../../game/dungeon/level.ts";
 import { findPath, walkable, type DungeonMap, type DungeonObstacle, type Point } from "../../game/dungeon/map.ts";
 import { LEVELS } from "../../game/dungeon/run.ts";

@@ -22,7 +22,7 @@ import { turnOfToRef } from "../../../core/bodies/read-motion.ts";
 import type { TechniqueEnd, TechniquePart, TechniqueRun } from "../technique.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import { pawsOf, segmentOf, type BodySpec, type DofSpec } from "../../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../../core/world/state.ts";
+import { deepFreeze } from "../../../core/state.ts";
 import { fitsPaws } from "../../../control/quadruped/fit.ts";
 import { pawEndpoints, pawReader } from "../../../control/quadruped/paws.ts";
 import { REPTILE_MOTOR } from "../../../control/quadruped/tuning.ts";

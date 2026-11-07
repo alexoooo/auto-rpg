@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import { attachment, type ReadBody, type ReadSegment } from "./read-body.ts";
-import type { Vec3 } from "./spec/quantity.ts";
+import type { Vec3 } from "../quantity.ts";
 
 const scratch = { a: new Quaternion(), b: new Quaternion() };
 

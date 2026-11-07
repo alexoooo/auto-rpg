@@ -1,4 +1,4 @@
-import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, type Quantity, type Vec3 } from "../../quantity.ts";
 import { lerp, midpoint } from "../spec/vec.ts";
 import { skinTop, WORKSHOP_SEX } from "./model.ts";
 import { rigPoint, type WorkshopModel } from "./rig.ts";

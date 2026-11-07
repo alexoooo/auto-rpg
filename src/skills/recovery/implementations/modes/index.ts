@@ -1,4 +1,4 @@
-import { deepFreeze } from "../../../../core/world/state.ts";
+import { deepFreeze } from "../../../../core/state.ts";
 import { brace, steadying } from "./steady.ts";
 import { poseDrive, type TechniqueRun } from "../../technique.ts";
 import { technique } from "../../bilateral.ts";

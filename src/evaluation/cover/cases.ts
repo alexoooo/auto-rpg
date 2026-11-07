@@ -11,7 +11,7 @@ import { presetFitsModel } from "../../minds/controller.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { modelHolding } from "../../core/bodies/models.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readCover, type CoverReading } from "./read.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";

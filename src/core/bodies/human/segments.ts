@@ -4,7 +4,7 @@ import type { SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { segmentFrame } from "../spec/body.ts";
 import { square } from "../../math/real.ts";
 import { capsuleError, capsuleRadius, massShare } from "../spec/geometry.ts";
-import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, si, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, distance, dot, lerp, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
 import type { FittedSegment, HandFigure, HumanFigure } from "./figure.ts";

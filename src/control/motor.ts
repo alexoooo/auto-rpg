@@ -3,7 +3,7 @@ import { effectorTracker, type EffectorGoal } from "./effector-tracker.ts";
 import { bodyEffectors, type EffectorModel } from "./effectors.ts";
 import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import { channelName, type MuscleReading } from "../core/bodies/muscle/driver.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import type { AssistReading } from "../core/bodies/assist.ts";
 import type { Limb, Row } from "./bearing.ts";
 import { servoAsk, servoSolve, type ServoWork } from "./servo.ts";
@@ -93,7 +93,7 @@ export interface MotorControl {
   readonly root: ReadSegment;
   /** What of its last step's command it did not carry out (`MotorUnmet`), in its state. */
   readonly unmet: MotorUnmet;
-  /** Its memory (`src/core/world/state.ts`). */
+  /** Its memory (`src/core/state.ts`). */
   readonly state: object;
 }
 

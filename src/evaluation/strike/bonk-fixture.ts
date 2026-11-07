@@ -3,7 +3,7 @@ import { sin, cos } from "../../core/math/real.ts";
 import { physicalReading, centreReading } from "../../control/observation.ts";
 import { shapeGeometry, poseGeometry } from "../../core/bodies/spec/clearance.ts";
 import { isRefused } from "../../core/refusal.ts";
-import { deepFreeze, loadState, saveState } from "../../core/world/state.ts";
+import { deepFreeze, loadState, saveState } from "../../core/state.ts";
 import { bodyClearance } from "../../skills/locomotion/navigation/sensed-bounds.ts";
 import { CROWDED } from "../../skills/strikes/strike-window.ts";
 import { skillOf } from "../../skills/framework/menu.ts";
@@ -12,7 +12,7 @@ import { SETTLED, settledAt, windowArrival } from "../../skills/intent/action-wi
 import { massCentreToRef } from "../../core/bodies/read-motion.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import type { SegmentSpec, ShapeSpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { Orders } from "../../skills/intent/orders.ts";
 import type { BuiltBout } from "../bout.ts";
 

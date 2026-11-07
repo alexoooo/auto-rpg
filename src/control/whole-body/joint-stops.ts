@@ -1,7 +1,7 @@
 import type { MotionConstraint } from "../../core/bodies/build/constrained-mass.ts";
 import { jointCoordinateMotion } from "../../core/bodies/build/joint-coordinate.ts";
 import { jointAngles } from "../../core/bodies/build/joint-state.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";
 
 /**

@@ -19,7 +19,7 @@ export type Status = "committed" | "yields" | "exit" | "over";
  */
 export interface Choice<S> {
   readonly name: string;
-  /** Its memory (`src/core/world/state.ts`), plain data. */
+  /** Its memory (`src/core/state.ts`), plain data. */
   readonly state: object;
   /** The resources it takes from the set while it runs (`Resource`; `WHOLE`, all of them): what no other choice chosen beside it may hold. */
   readonly claims: readonly Resource[];

@@ -9,7 +9,7 @@ import { Vector3 } from "../../core/math/vector.ts";
 import { regionSegments } from "../../skills/intent/action-aim.ts";
 import { centreOfToRef } from "../../core/bodies/read-motion.ts";
 import type { Region } from "../../skills/framework/action.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { Duel } from "./duel.ts";
 
 /** The middle of a body, where the striker has not yet aimed at a region of it. */

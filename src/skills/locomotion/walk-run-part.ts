@@ -6,7 +6,7 @@ import type { GaitPart } from "../framework/locomotion-part.ts";
 import type { SkillRecords } from "../framework/records.ts";
 import { fitsSoles } from "../../control/stance-balance.ts";
 import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings } from "./walk-run.ts";
 import type { Body } from "../../control/body.ts";

@@ -1,5 +1,5 @@
-import type { SourceKey } from "../sources.ts";
-import { derive, sourced, type Quantity } from "../spec/quantity.ts";
+import type { SourceKey } from "../../sources.ts";
+import { derive, sourced, type Quantity } from "../../quantity.ts";
 import type { Sex } from "./tables/de-leva-1996.ts";
 import type { WorkshopModel } from "./rig.ts";
 import skinBounds from "../../../../assets/humanoid/skin-bounds.json" with { type: "json" };

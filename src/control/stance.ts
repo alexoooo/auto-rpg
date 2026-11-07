@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "../core/math/vector.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import { anglesOf, rotationOfToRef } from "../core/bodies/build/joint-state.ts";
 import { channelName, type MuscleCommand, type MuscleReading } from "../core/bodies/muscle/driver.ts";
 import type { AssistReading } from "../core/bodies/assist.ts";
@@ -234,7 +234,7 @@ export interface StanceControl {
   readonly owned: Uint8Array;
   /** What the last reading and command found and asked. */
   readonly reading: StanceReading;
-  /** Its memory, whole (`StanceState`, `src/core/world/state.ts`). */
+  /** Its memory, whole (`StanceState`, `src/core/state.ts`). */
   readonly state: object;
 }
 

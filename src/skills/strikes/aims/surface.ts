@@ -1,7 +1,7 @@
 import { surfaceAimRefusal } from "../arm-reach.ts";
 import { aimOn } from "../../intent/aim-on.ts";
 import type { BodyView } from "../../../control/body.ts";
-import { deepFreeze } from "../../../core/world/state.ts";
+import { deepFreeze } from "../../../core/state.ts";
 import { type Aimed } from "../../intent/action-aim.ts";
 import type { AimPart } from "../../framework/aim-part.ts";
 import type { PartField } from "../../../parts/fields.ts";

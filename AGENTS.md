@@ -96,7 +96,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   gate checks exact arithmetic (`EXACT_MATH`), engine access and what a Mind may read and do.
 - **Simulation code uses the core's vectors** and plain poses; drawing code uses Babylon's, and a
   page poses a puppet from the simulated poses. A module that does both is split.
-- **A spec's number is a `Quantity`** read from a `SOURCES` entry (`src/core/bodies/sources.ts`: a paper,
+- **A spec's number is a `Quantity`** read from a `SOURCES` entry (`src/core/sources.ts`: a paper,
   an asset, or tuned with what it is set for) or derived by a named rule that writes no factor.
   A spec never spreads another family's.
 - **Tuning is immutable**: an experiment passes an override in; nothing mutates a global.
@@ -126,7 +126,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **A module that owns a rule exports its predicate.** A published field needs a reader; an
   export needs an importer.
 - **What changes step to step is plain data in one `state` object** per module
-  (`src/core/world/state.ts`), so a bout forks by copying its state; a constant a state points at is
+  (`src/core/state.ts`), so a bout forks by copying its state; a constant a state points at is
   frozen.
 - **The step's dear functions work in arrays made once**; a speed rewrite does the same
   operations in the same order, moves no fingerprint, and reads its time before and after

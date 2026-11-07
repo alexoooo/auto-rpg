@@ -1,4 +1,4 @@
-import { sourced } from "../spec/quantity.ts";
+import { sourced } from "../../quantity.ts";
 import type { HumanFigure } from "./figure.ts";
 
 /**

@@ -1,7 +1,7 @@
 import { heldBy } from "../../core/bodies/items/held.ts";
-import type { SourceKey } from "../../core/bodies/sources.ts";
+import type { SourceKey } from "../../core/sources.ts";
 import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
-import { derive, sourced, type Quantity } from "../../core/bodies/spec/quantity.ts";
+import { derive, sourced, type Quantity } from "../../core/quantity.ts";
 import type { StanceEnvelope } from "../../control/stance-envelope.ts";
 
 /**

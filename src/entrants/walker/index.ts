@@ -4,7 +4,7 @@ import type { PartConfig } from "../../parts/index.ts";
 import type { OptionMindConfig } from "../../minds/option/index.ts";
 import { GUARD_OPTION, HOLD_OPTION, type WalkConfig } from "../../minds/option/index.ts";
 import { BRACE_OPTION, BRACE_TUMBLING_OPTION, STEADY_OPTION, FLATTEN_OPTION, LAND_OPTION } from "../../minds/option/index.ts";
-import { deepFreeze } from "../../core/world/index.ts";
+import { deepFreeze } from "../../core/state.ts";
 
 /** The gaits this fighter may walk by, in preference order. */
 const WALKS: readonly WalkConfig[] = deepFreeze(["braced", "run", "trot", "crawl"].map((gait) => ({ kind: "walk", gait })));

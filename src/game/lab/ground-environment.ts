@@ -1,4 +1,4 @@
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { SolidSense } from "../../core/bodies/object-senses.ts";
 import { cryptFurnishing, type KitPlacement } from "../environment/furniture.ts";
 

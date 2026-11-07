@@ -1,6 +1,6 @@
 import { isRefused, type Refused } from "../../refusal.ts";
 import type { BearingEndSpec, BodySpec } from "../spec/body.ts";
-import { sourced } from "../spec/quantity.ts";
+import { sourced } from "../../quantity.ts";
 import { hastedFigure, humanAttributes } from "./attributes.ts";
 import type { HumanFigure } from "./figure.ts";
 import { humanJoints } from "./joints.ts";

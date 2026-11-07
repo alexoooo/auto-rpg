@@ -1,6 +1,6 @@
 import type { StanceTuning } from "./stance-tuning.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
-import { deepFreeze } from "../core/world/state.ts";
+import { deepFreeze } from "../core/state.ts";
 import type { BalancePart } from "./balance-part.ts";
 import { stanceControl } from "./stance.ts";
 import { soleRefusal, standingHeight } from "./support.ts";

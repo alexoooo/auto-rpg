@@ -1,5 +1,5 @@
 import type { PartConfig } from "../../parts/index.ts";
-import { deepFreeze } from "../../core/world/index.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { ORDERS_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, type WalkConfig } from "../../minds/option/index.ts";
 import { BRACE_OPTION, BRACE_TUMBLING_OPTION, STEADY_OPTION, FLATTEN_OPTION, LAND_OPTION } from "../../minds/option/index.ts";
 

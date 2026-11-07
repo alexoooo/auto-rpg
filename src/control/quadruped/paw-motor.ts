@@ -14,7 +14,7 @@ import { angularMomentumToRef, partsOn, turnOfToRef } from "../../core/bodies/re
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { AssistReading } from "../../core/bodies/assist.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { fitsPaws } from "./fit.ts";
 import { pawEndpoints, pawReader } from "./paws.ts";
 import { REPTILE_MOTOR, REPTILE_TRAVEL } from "./tuning.ts";

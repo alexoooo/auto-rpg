@@ -2,7 +2,7 @@ import { isRefused } from "../../refusal.ts";
 import { geometricClearance, poseGeometry, shapeGeometry } from "../spec/clearance.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
 import type { HeldSpec, ShapeSpec } from "../spec/body.ts";
-import type { Vec3 } from "../spec/quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 
 type Geometry = Exclude<ReturnType<typeof shapeGeometry>, { readonly refused: string }>;
 type Bounds = { readonly low: Vec3; readonly high: Vec3 };

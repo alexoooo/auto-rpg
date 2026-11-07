@@ -1,6 +1,6 @@
 import { Vector3 } from "../../math/vector.ts";
 import type { SegmentBody } from "../../physics/engine.ts";
-import type { Vec3 } from "../spec/quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import type { coupledDynamics } from "./coupled-dynamics.ts";
 import { constrainedMass, type MotionConstraint } from "./constrained-mass.ts";
 import { cross, dot } from "../spec/vec.ts";

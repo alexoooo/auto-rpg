@@ -6,7 +6,7 @@ import { createSenses } from "../../core/world/senses.ts";
 import { landed, blocked, cleanMiss } from "../../skills/framework/action-instances.ts";
 import { randomStream } from "../../core/math/random.ts";
 import { rulebook } from "../../combat/rulebook.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { isBody } from "../../core/bodies/read-body.ts";
 import type { Actor } from "./actor.ts";
 import { dummySpec, hangDummy, type Dummy } from "./targets.ts";

@@ -1,6 +1,6 @@
 /**
  * **Everything a spec's numbers rest on.** A `Quantity` taken from a source names one of these
- * (`src/core/bodies/spec/quantity.ts`).
+ * (`src/core/quantity.ts`).
  *
  * - `literature`: a published measurement, cited so it can be found.
  * - `asset`: a file in this repository, and `what` is taken from it.

@@ -1,7 +1,7 @@
 import type { BodyView } from "../../control/body.ts";
 import { windowSpot, type Spot } from "../intent/action-window.ts";
 import type { MovementRequest } from "../intent/movement.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { ActionAround, Readiness, Region, TargetRef } from "./action.ts";
 import type { ActionBinding, ExecutorBinding } from "./action-instances.ts";
 

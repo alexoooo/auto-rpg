@@ -71,7 +71,7 @@ function reachAnew(other: Senses["others"][number]): number {
 /**
  * Where a walker keeps each fallen body lying (`fallenSolids`), by id: its
  * footprint's least and most x and z, m, and where its centre of mass was when the footprint was
- * taken afresh. Its state (`src/core/world/state.ts`).
+ * taken afresh. Its state (`src/core/state.ts`).
  */
 export type FallenMemory = Map<string, { x0: number; x1: number; y0: number; y1: number; z0: number; z1: number; x: number; z: number }>;
 

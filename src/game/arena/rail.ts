@@ -7,13 +7,14 @@
  * and a blow moves it only until the rail takes it back. The body is sensed, struck and read as any
  * body is: the striker's mind and the drill's reader see a body that moves, nothing else.
  */
+import type { Hook } from "../../core/bodies/step-host.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { centreOfToRef } from "../../core/bodies/read-motion.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import { spinBetweenToRef } from "../../core/math/turn.ts";
 
-import type { Hook, World } from "../../core/world/world.ts";
+import type { World } from "../../core/world/world.ts";
 import type { ArenaSeat as Side } from "./seat.ts";
 
 /**

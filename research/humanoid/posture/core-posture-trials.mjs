@@ -26,12 +26,12 @@ import { jointAngles, ratesToRef } from "../../../src/core/bodies/build/joint-st
 import { lowsOf } from "../../../src/control/ground.ts";
 import { chainTo, pointAtToRef, rotationAtToRef } from "../../../src/control/kinematics.ts";
 import { pointOfToRef } from "../../../src/core/bodies/read-motion.ts";
-import { CONTACT_FRICTION } from "../../../src/core/bodies/spec/constants.ts";
+import { CONTACT_FRICTION } from "../../../src/core/constants.ts";
 import { FIT_SCALE } from "../../../src/core/bodies/human/model.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { driveMuscles } from "../../../src/core/bodies/muscle/driver.ts";
 import { STANCE_LOWER } from "../../../src/skills/locomotion/locomotion.ts";
-import { derive, sourced } from "../../../src/core/bodies/spec/quantity.ts";
+import { derive, sourced } from "../../../src/core/quantity.ts";
 import { add, cross, dot, normalize, scale, sub } from "../../../src/core/bodies/spec/vec.ts";
 import { createWorld, PHYSICS_HZ } from "../../../src/core/world/world.ts";
 import { freshEngine } from "../../../tests/harness/core-stand.mjs";

@@ -1,7 +1,7 @@
 import type { BodyControl } from "../core/bodies/body-control.ts";
 import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import type { OwnBody } from "../core/bodies/own-body.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import { frameOf } from "../core/bodies/spec/body.ts";
 import type { ReadBody } from "../core/bodies/read-body.ts";
 import type { EffectorGoal } from "./effector-tracker.ts";

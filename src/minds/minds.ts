@@ -27,7 +27,7 @@ export interface MindWiring extends HostGrants {
 
 /** **A mind as its controller makes it** (`Controller.create`): what every kind gives the fight that made it, but the body, which the fight holds from its host (`bodyHost`). */
 export interface MindMade {
-  /** The mind's memory above its body's (`src/core/world/state.ts`), saved and loaded with it. */
+  /** The mind's memory above its body's (`src/core/state.ts`), saved and loaded with it. */
   readonly state: object;
   /**
    * Its skills, where it runs the game's (`Skills`): their report is what a screen or a test reads

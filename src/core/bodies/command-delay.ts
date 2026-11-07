@@ -10,7 +10,7 @@ interface DelayLine {
   readonly delay: number;
   /** Its slots, `delay` + 1. */
   readonly size: number;
-  /** Its memory (`src/core/world/state.ts`): the commands sent since the body was last its mind's. */
+  /** Its memory (`src/core/state.ts`): the commands sent since the body was last its mind's. */
   readonly state: { sent: number };
   /** The slot this step's command is written in. */
   written(): number;

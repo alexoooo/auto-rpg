@@ -8,7 +8,7 @@ import type { Rulebook } from "../../combat/rulebook.ts";
 import type { LegsUnmet } from "../../skills/framework/skill.ts";
 import type { BearingEnd, BodySpec } from "../../core/bodies/spec/body.ts";
 import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { Cover } from "../../skills/intent/intent.ts";
 import { ordersAsked, type Orders } from "../../skills/intent/orders.ts";
 import { measuredAt, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading } from "../../skills/framework/profile.ts";

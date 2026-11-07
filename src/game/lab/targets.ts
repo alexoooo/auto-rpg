@@ -4,7 +4,7 @@ import type { Fighter } from "../../combat/blows.ts";
 import { createPool } from "../../combat/pool.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
 import type { BodySpec, ShapeSpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { World } from "../../core/world/world.ts";
 export { dummySpec } from "./dummy-spec.ts";
 

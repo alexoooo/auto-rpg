@@ -1,4 +1,4 @@
-import { derive, type Quantity } from "../core/bodies/spec/quantity.ts";
+import { derive, type Quantity } from "../core/quantity.ts";
 import { atan2 } from "../core/math/real.ts";
 
 /**

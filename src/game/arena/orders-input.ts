@@ -1,4 +1,4 @@
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { Senses } from "../../core/bodies/senses.ts";
 import { surfaceEntry } from "../../skills/perception/openings.ts";
 

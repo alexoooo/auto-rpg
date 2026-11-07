@@ -58,7 +58,7 @@ import { cameraControls } from "../ui/camera-controls.ts";
 import { cameraSubject } from "../render/orbit-camera.ts";
 import { playerControls } from "../ui/player-controls.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
 import { fighterHud } from "./fighter-hud.ts";
 import { choicePanel } from "../ui/choices.ts";

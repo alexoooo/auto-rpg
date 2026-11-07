@@ -10,7 +10,7 @@ const NODE_PACKAGES = new Set(builtinModules.map(name => name.replace(/^node:/, 
 
 /** Public library entry points available to independently registered entrant packages. */
 const PUBLISHED = new Set([
-  "src/core/bodies/index.ts", "src/core/math/index.ts", "src/core/world/index.ts",
+  "src/core/bodies/index.ts", "src/core/math/index.ts", "src/core/state.ts",
   "src/core/data/store.ts", "src/parts/index.ts", "src/parts/lookup.ts",
   "src/minds/index.ts", "src/minds/option/index.ts", "src/skills/config.ts",
   "src/skills/locomotion/navigation/navigator.ts", "src/skills/locomotion/move-rule-part.ts",
@@ -22,7 +22,8 @@ const PUBLISHED = new Set([
  * above the files at that layer's root. A module imports its own rank or a lower one.
  */
 const RANKS = Object.freeze([
-  ["src/core/"], ["src/parts/"], ["src/combat/"], ["src/control/"], ["src/skills/"], ["src/minds/"],
+  ["src/core/", "src/core/math/", "src/core/data/"], ["src/core/physics/"], ["src/core/bodies/"], ["src/core/world/"],
+  ["src/parts/"], ["src/combat/"], ["src/control/"], ["src/skills/"], ["src/minds/"],
   ["src/game/"], ["src/evaluation/"], ["src/entrants/"], ["src/app/"],
 ]);
 

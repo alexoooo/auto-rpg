@@ -1,5 +1,5 @@
 import { cbrt } from "../../math/real.ts";
-import type { Vec3 } from "./quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 
 /**
  * Geometry a spec's rules need and cannot write in one line.

@@ -3,7 +3,7 @@ import { checkConfiguration } from "./build/configurations.ts";
 import type { ConfigurationName } from "./spec/body.ts";
 import { rootSegment } from "./read-body.ts";
 import { createAssist, type AssistCeiling } from "./assist.ts";
-import { delayLine, heldSteps } from "../world/command-delay.ts";
+import { delayLine, heldSteps } from "./command-delay.ts";
 
 /** The physical assist and configuration requests waiting for their command's world step. */
 export function commandPipeline(built: BuiltBody, delay: number, ceiling: AssistCeiling) {

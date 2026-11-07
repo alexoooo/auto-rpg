@@ -1,9 +1,9 @@
 import reptileData from "../../../../assets/reptile/body.json" with { type: "json" };
 import type { BodySpec, JointSpec, LimbSpec, SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { cuboidMoments, cylinderMoments, massShare } from "../spec/geometry.ts";
-import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
-import type { SourceKey } from "../sources.ts";
-import { deepFreeze } from "../../world/state.ts";
+import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
+import type { SourceKey } from "../../sources.ts";
+import { deepFreeze } from "../../state.ts";
 
 const vector = (v: readonly number[]): Vec3 => [v[0]!, v[1]!, v[2]!];
 

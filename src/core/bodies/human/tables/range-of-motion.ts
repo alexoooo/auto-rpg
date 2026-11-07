@@ -1,5 +1,5 @@
-import type { SourceKey } from "../../sources.ts";
-import { sourced, type Quantity } from "../../spec/quantity.ts";
+import type { SourceKey } from "../../../sources.ts";
+import { sourced, type Quantity } from "../../../quantity.ts";
 import type { Sex } from "./de-leva-1996.ts";
 import type { Side } from "../../bilateral.ts";
 

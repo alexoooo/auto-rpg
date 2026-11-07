@@ -1,5 +1,5 @@
 import { configurationShapeAt, type BodySpec, type SegmentSpec, type ShapeSpec } from "../core/bodies/spec/body.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 
 const samePoint = (a: Vec3, b: Vec3): boolean => a.every((value, i) => value === b[i]);
 

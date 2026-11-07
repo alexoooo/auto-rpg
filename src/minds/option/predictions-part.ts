@@ -4,7 +4,7 @@ import { dataOf } from "../../core/data/store.ts";
 import type { PredictionsPart } from "./parts.ts";
 import { anyBody } from "../../parts/parts.ts";
 import { validProfiles, type Profile } from "../../skills/framework/profile.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 
 /** An experiment may supply the ground profiles measured for the skill settings it runs. */
 interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[] }

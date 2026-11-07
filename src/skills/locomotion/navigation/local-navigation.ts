@@ -1,5 +1,5 @@
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
-import { deepFreeze } from "../../../core/world/state.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
+import { deepFreeze } from "../../../core/state.ts";
 import { clearStep } from "./clear-step.ts";
 import { routeWalker } from "./navigation.ts";
 import type { NavigatorPart } from "./navigator.ts";

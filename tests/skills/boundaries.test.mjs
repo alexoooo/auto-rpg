@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { modelSpec } from "../../src/core/bodies/models.ts";
 import { Vector3, Quaternion } from "../../src/core/math/vector.ts";
 import { frameOf } from "../../src/core/bodies/spec/body.ts";
-import { derive } from "../../src/core/bodies/spec/quantity.ts";
+import { derive } from "../../src/core/quantity.ts";
 import { validRunCycle, RUN_CYCLE } from "../../src/skills/locomotion/cycle-run.ts";
 import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run-part.ts";
 import { validStepUp } from "../../src/skills/recovery/implementations/staged/records.ts";
@@ -88,7 +88,7 @@ import { guardSkill } from "../../src/skills/guard/guard.ts";
 import { riseLimbs } from "../../src/skills/recovery/implementations/staged/limbs.ts";
 import { RISE } from "../../src/skills/recovery/implementations/staged/stages.ts";
 import { heldBody, heldCommand } from "../../src/skills/recovery/held-body.ts";
-import { saveState, loadState } from "../../src/core/world/state.ts";
+import { saveState, loadState } from "../../src/core/state.ts";
 
 test("takeover clears a paced ward and staged toe support restores into a fresh player", async () => {
   const loadout = LOADOUTS.find(one => one.left === "buckler" && one.right === "empty");

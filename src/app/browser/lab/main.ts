@@ -1,3 +1,4 @@
+import type { Hook } from "../../../core/bodies/step-host.ts";
 import { sceneProfile } from "../render/scene-profile.ts";
 import { warmScene } from "../render/ready.ts";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
@@ -19,7 +20,7 @@ import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../../../combat/rulebook.ts";
 import { crippleLimb, cutOff } from "../../../combat/pool.ts";
 import { HUMAN_HASTE } from "../../../core/bodies/human/attributes.ts";
-import { createWorld, type Hook, type World } from "../../../core/world/world.ts";
+import { createWorld, type World } from "../../../core/world/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labActor } from "../game.ts";
 import { constructionScope } from "../../../core/construction.ts";

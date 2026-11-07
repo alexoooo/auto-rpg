@@ -1,4 +1,4 @@
-import type { Vec3 } from "./quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import { atan2, hypot } from "../../math/real.ts";
 
 /**

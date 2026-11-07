@@ -3,7 +3,7 @@ import { uprightness } from "./ground.ts";
 import { footStatesOf, soleMiddleToRef, withinSupport, type FootState } from "./support.ts";
 import { centreOfToRef, massCentreToRef, partsOn, turnOfToRef } from "../core/bodies/read-motion.ts";
 import { bellyOf, type BearingEndSpec } from "../core/bodies/spec/body.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import { attachment, rootSegment, type ReadBody, type ReadSegment } from "../core/bodies/read-body.ts";
 import type { Side } from "../core/bodies/bilateral.ts";
 

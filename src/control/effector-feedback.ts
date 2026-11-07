@@ -2,7 +2,7 @@ import type { ContactIdentity, ContactTarget } from "../core/bodies/contact-iden
 import { Vector3 } from "../core/math/vector.ts";
 import { rigidPoints } from "../core/bodies/build/rigid.ts";
 import { effectorAim } from "./effectors.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import { motionAtToRef, pointOfToRef } from "../core/bodies/read-motion.ts";
 import type { BodyRef, ReadBody } from "../core/bodies/read-body.ts";
 

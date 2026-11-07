@@ -1,7 +1,7 @@
 import meta from "../../../assets/skills/strikes/bonk/bonk.meta.json" with { type: "json" };
 import { dataOf } from "../../core/data/store.ts";
 import { heldBy } from "../../core/bodies/items/held.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { fitsAll, strikesWithOneOf } from "../../parts/parts.ts";
 import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import { MOTOR_PATHS } from "../../control/motor-part.ts";

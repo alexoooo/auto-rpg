@@ -3,7 +3,7 @@ import type { BeatsConfig } from "../minds/command/beats.ts";
 import type { CommanderConfig } from "../minds/command/kind.ts";
 import type { OptionMindConfig } from "../minds/option/mind.ts";
 import { ORDERS_OPTION, COVER_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../minds/option/kinds.ts";
-import { deepFreeze } from "../core/world/state.ts";
+import { deepFreeze } from "../core/state.ts";
 import { type GameContext } from "../game/arena/context.ts";
 
 /** On a rhythm: a strike ordered for 2 s, then a stand for 1 s. */

@@ -27,7 +27,7 @@ import { withWaysUp } from "../minds/option/rise.ts";
 import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/bodies/models.ts";
 import { guardPosture } from "../skills/guard/guard.ts";
 
-import { deepFreeze } from "../core/world/state.ts";
+import { deepFreeze } from "../core/state.ts";
 import { createWorld, type World } from "../core/world/world.ts";
 import type { Actor } from "../game/lab/actor.ts";
 import { GROUND_LEVELS, type GroundLevel } from "../game/lab/ground-environment.ts";

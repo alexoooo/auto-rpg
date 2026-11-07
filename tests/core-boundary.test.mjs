@@ -326,6 +326,7 @@ test("source imports follow responsibility, runtime and package ownership", () =
     ["src/skills/private.ts", `import { thinker } from "../minds/private.ts";`],
     ["src/game/alone.ts", `import { draw } from "../app/browser/draw.ts";`],
     ["src/game/reads.ts", `import { read } from "../evaluation/read.ts";`],
+    ["src/core/physics/hosted.ts", `import type { Body } from "../bodies/body.ts";`],
     ["src/entrants/one/mind.ts", `import { other } from "../two/mind.ts";`],
     ["src/core/bodies/alone.ts", `export const seen = document.hidden;`],
     ["src/app/browser/alone.ts", `import fs from "node:fs";`],
@@ -334,7 +335,7 @@ test("source imports follow responsibility, runtime and package ownership", () =
     ["src/unknown/alone.ts", ""],
   ]);
   assert.deepEqual(probe.unplaced, ["src/unknown/alone.ts"]);
-  assert.deepEqual(probe.layers, ["src/game/alone.ts -> src/app/browser/draw.ts", "src/game/reads.ts -> src/evaluation/read.ts", "src/skills/private.ts -> src/minds/private.ts"]);
+  assert.deepEqual(probe.layers, ["src/core/physics/hosted.ts -> src/core/bodies/body.ts", "src/game/alone.ts -> src/app/browser/draw.ts", "src/game/reads.ts -> src/evaluation/read.ts", "src/skills/private.ts -> src/minds/private.ts"]);
   assert.deepEqual(probe.runtimes, ["src/app/browser/alone.ts -> node:fs", "src/core/bodies/alone.ts: browser name document", "src/game/alone.ts -> src/app/browser/draw.ts", "src/skills/alone.ts -> fs"]);
   assert.ok(probe.ownership.includes("src/entrants/one/mind.ts -> src/entrants/two/mind.ts"));
   assert.ok(probe.ownership.includes("src/entrants/one/private.ts -> src/minds/mind.ts"));

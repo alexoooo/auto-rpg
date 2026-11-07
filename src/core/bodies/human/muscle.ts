@@ -1,4 +1,4 @@
-import { derive, sourced, type Quantity } from "../spec/quantity.ts";
+import { derive, sourced, type Quantity } from "../../quantity.ts";
 import type { HumanFigure } from "./figure.ts";
 import { abeBodyMass, abeRegionalMuscle, type MuscleRegion } from "./tables/abe-2003.ts";
 import { measuredTorque, subjectMass, type Exertion } from "./tables/joint-torques.ts";

@@ -1,5 +1,5 @@
 import type { Quaternion, Vector3 } from "../math/vector.ts";
-import type { Vec3 } from "../bodies/spec/quantity.ts";
+import type { Vec3 } from "../quantity.ts";
 
 /**
  * **What the core asks of a physics engine**, and nothing of any engine's own types. The core builds

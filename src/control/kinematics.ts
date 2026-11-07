@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import { jointKinematics } from "../core/bodies/build/joint-kinematics.ts";
 import { halfTansToRef, motionAxesOfHalfTansToRef, rotationOfHalfTansToRef, rotationOfToRef, turningOfHalfTansToRef } from "../core/bodies/build/joint-state.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import type { Pose } from "../core/bodies/spec/pose.ts";
 import { linearWork, solve3To, solveLinearTo, type LinearWork } from "../core/math/flat.ts";
 import { hypot, normIn } from "../core/math/real.ts";

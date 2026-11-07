@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "../../math/vector.ts";
-import type { Vec3 } from "../spec/quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import type { ReadSegmentBody } from "../read-body.ts";
 
 /** A scalar velocity constraint, summed over bodies: linear . v(point) + angular . spin = 0. */

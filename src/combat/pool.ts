@@ -1,10 +1,10 @@
 import type { BodySpec, LimbSpec, ShapeSpec } from "../core/bodies/spec/body.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
-import { derive, type Quantity, type Vec3 } from "../core/bodies/spec/quantity.ts";
+import { derive, type Quantity, type Vec3 } from "../core/quantity.ts";
 import type { Mechanism, Rulebook } from "./rulebook.ts";
 
 /**
- * **A body's life and its limbs** (`owner-life` in `src/core/bodies/sources.ts`).
+ * **A body's life and its limbs** (`owner-life` in `src/core/sources.ts`).
  *
  * - **Life** is the body's hit points (`WoundSpec.hp`). A blow takes from it its damage times the
  *   factor of the struck part's group (`Rulebook.life`): vital, trunk or limb (`woundGroups`).
@@ -157,7 +157,7 @@ export interface Pool {
   wound(blow: Blow): Wound;
   /** End the body's fight with its life spent, as a scripted death does. */
   slay(): void;
-  /** Its memory (`src/core/world/state.ts`). */
+  /** Its memory (`src/core/state.ts`). */
   readonly state: object;
 }
 

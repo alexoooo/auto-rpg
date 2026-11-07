@@ -1,5 +1,5 @@
 import type { ForceVelocitySpec } from "../spec/body.ts";
-import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
+import { derive, si, sourced, type Quantity } from "../../quantity.ts";
 import type { HumanFigure } from "./figure.ts";
 import type { Sex } from "./tables/de-leva-1996.ts";
 import {

@@ -1,4 +1,4 @@
-import { derive, sourced, type Quantity } from "../../spec/quantity.ts";
+import { derive, sourced, type Quantity } from "../../../quantity.ts";
 import type { DeLevaSegment } from "./de-leva-1996.ts";
 
 /**

@@ -1,3 +1,4 @@
+import type { Hook } from "../../core/bodies/step-host.ts";
 import { constructionScope } from "../../core/construction.ts";
 import { solidSenses, type SolidSense } from "../../core/bodies/object-senses.ts";
 import type { ContactTarget } from "../../core/bodies/contact-identity.ts";
@@ -14,9 +15,9 @@ import { seedOf } from "../../core/math/random.ts";
 import { phaseOf } from "../../minds/host.ts";
 import { reactionSteps, rulebook, type Rulebook } from "../../combat/rulebook.ts";
 import { type BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
-import type { Hook, World } from "../../core/world/world.ts";
+import type { World } from "../../core/world/world.ts";
 import { sensedBounds } from "../../skills/locomotion/navigation/sensed-bounds.ts";
 import { arenaSolids } from "./solids.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";

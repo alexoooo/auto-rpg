@@ -12,7 +12,7 @@ import type { CommanderConfig } from "../../minds/command/kind.ts";
 import { commanderFaults, commanderOf } from "../../minds/command/commander.ts";
 import { paceToward } from "../../control/stance-envelope.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { generateEncounterLevel } from "../../game/dungeon/encounters.ts";
 import { distance, routeLength, walkable } from "../../game/dungeon/map.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptLayout } from "../crypt.ts";

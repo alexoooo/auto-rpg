@@ -47,7 +47,7 @@ export interface NavigationStep {
 /**
  * **A navigator**: what turns a movement request into a walk. It owns the geometry and its memory
  * of progress; whoever asks keeps facing and its priorities. Its `state` is plain data
- * (`src/core/world/state.ts`); its `report` reads it.
+ * (`src/core/state.ts`); its `report` reads it.
  */
 export interface Navigator extends Clearance {
   readonly state: object;

@@ -1,7 +1,7 @@
 import type { TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { tumbling, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import { isWayUp, type TechniquePart } from "../../skills/recovery/technique.ts";
 import { edgeExpected } from "../../skills/recovery/data/profiles.ts";

@@ -1,10 +1,11 @@
+import type { Hook } from "../../../core/bodies/step-host.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { segmentShapes } from "../../../core/bodies/build/segment-shapes.ts";
 import type { ToesState } from "../../../core/bodies/build/toes.ts";
 import { attachment, type ReadBody } from "../../../core/bodies/read-body.ts";
-import type { Hook, World } from "../../../core/world/world.ts";
+import type { World } from "../../../core/world/world.ts";
 import type { BodySpec, ConfigurationName } from "../../../core/bodies/spec/body.ts";
 import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
 

@@ -2,7 +2,7 @@ import type { BodyView } from "../../control/body.ts";
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
 import type { Window } from "../framework/action.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { groundRoute } from "../perception/downed/route.ts";
 import { ARRIVED, placeMovement, stands, SWAY, type GroundPoint, type MovementRequest } from "./movement.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";

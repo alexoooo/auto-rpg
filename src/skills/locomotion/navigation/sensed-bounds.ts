@@ -2,7 +2,7 @@ import type { BodyView, StepReading } from "../../../control/body.ts";
 import { Vector3 } from "../../../core/math/vector.ts";
 import { rigidOf } from "../../../core/bodies/build/rigid.ts";
 import { frameOf, configurationShapeAt, type ConfigurationName, type BodySpec, type SegmentSpec, type ShapeSpec } from "../../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 import { add, dot, scale, sub } from "../../../core/bodies/spec/vec.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
 import { segmentDistanceSquared } from "../../perception/openings.ts";

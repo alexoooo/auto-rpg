@@ -1,7 +1,7 @@
 import fighterRig from "../../../../assets/humanoid/workshop-fighter.json" with { type: "json" };
 import rogueRig from "../../../../assets/humanoid/workshop-rogue.json" with { type: "json" };
-import type { SourceKey } from "../sources.ts";
-import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import type { SourceKey } from "../../sources.ts";
+import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 
 /**
  * **The two workshop models' rigs**, as the core reads them: bone ends from

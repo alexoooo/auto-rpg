@@ -10,7 +10,7 @@ import type { Pose } from "../../core/bodies/spec/pose.ts";
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
 import { channelName } from "../../core/bodies/muscle/driver.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetResolver } from "../framework/action.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";

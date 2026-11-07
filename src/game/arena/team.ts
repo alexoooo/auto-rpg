@@ -1,3 +1,4 @@
+import type { Hook } from "../../core/bodies/step-host.ts";
 import type { CommanderConfig } from "../../minds/command/kind.ts";
 import { createCommander, type CommanderRegistry } from "../../minds/command/commander.ts";
 import { releaseCombatApproach } from "../../minds/command/delivery.ts";
@@ -6,7 +7,6 @@ import type { Command } from "../../minds/command/commands.ts";
 import type { Commander, MemberView, TeamLevel, TeamView } from "../../minds/command/team.ts";
 import { hypot } from "../../core/math/real.ts";
 
-import type { Hook } from "../../core/world/world.ts";
 import { cryptModel } from "../dungeon/actors.ts";
 import type { Duel } from "./duel.ts";
 import { type ArenaSeat as Side, otherSeat as otherSide } from "./seat.ts";

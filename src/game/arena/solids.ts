@@ -1,7 +1,7 @@
 import type { FixedCollider, PhysicsWorld } from "../../core/physics/engine.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import type { SolidSense } from "../../core/bodies/object-senses.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { levelDefinition, type ArenaLevel } from "./levels.ts";
 
 /**

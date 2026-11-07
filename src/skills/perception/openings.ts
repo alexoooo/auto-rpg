@@ -8,7 +8,7 @@ import type { BlowFamily } from "../strikes/attack-path.ts";
 import { aimOf } from "../strikes/held-strike.ts";
 import { placedReach, shoulderFromHead } from "../strikes/arm-reach.ts";
 import { frameOf, configurationShapeAt, type ConfigurationName, type BodySpec, type SegmentSpec, segmentOf } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { add, dot, length, scale, sub } from "../../core/bodies/spec/vec.ts";
 import { hypot } from "../../core/math/real.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";

@@ -1,6 +1,6 @@
 import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { heldClearance } from "./held-clearance.ts";
 import { clearanceExit, clearMove, clearStep, stockClearance, footprinter, footprints, NO_SOLIDS } from "./clear-step.ts";

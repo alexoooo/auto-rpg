@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
 import { turnAboutToRef } from "../../../../core/math/turn.ts";
-import type { Vec3 } from "../../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../../core/quantity.ts";
 import type { PoseStage } from "./stages.ts";
 
 /** A constant-spin forecast through the pose's minimum time or its first quarter-turn, before a backward roll can wrap onto its front. */

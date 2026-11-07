@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "../math/vector.ts";
+import { Quaternion, Vector3 } from "./math/vector.ts";
 
 /**
  * **State**: what a step writes and a later step reads, as plain data that saves and loads whole.

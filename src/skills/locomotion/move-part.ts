@@ -1,7 +1,7 @@
 import { choice } from "../../parts/fields.ts";
 import type { LocomotionPart } from "../framework/locomotion-part.ts";
 import { slotList, type PartConfig } from "../../parts/parts.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { gaitNamed, STOCK_GAITS, type Gait, type GaitName } from "./gaits.ts";
 import type { Locomotion } from "./locomotion.ts";
 import { move, type MoveGait } from "./move.ts";

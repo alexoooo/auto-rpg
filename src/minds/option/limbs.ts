@@ -1,7 +1,7 @@
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { SIDES as BODY_SIDES, type Side } from "../../core/bodies/bilateral.ts";
 
 /**

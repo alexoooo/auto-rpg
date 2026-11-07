@@ -6,7 +6,7 @@ import { jointKinematics } from "../src/core/bodies/build/joint-kinematics.ts";
 import { buildBody } from "../src/core/bodies/build/build-body.ts";
 import { createWorld } from "../src/core/world/world.ts";
 import { createSenses } from "../src/core/world/senses.ts";
-import { saveState, loadState } from "../src/core/world/state.ts";
+import { saveState, loadState } from "../src/core/state.ts";
 import { Vector3, Quaternion } from "../src/core/math/vector.ts";
 import { freshEngine, coreStand } from "./harness/core-stand.mjs";
 import { embody } from "../src/minds/embodiment.ts";

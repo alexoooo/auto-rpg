@@ -1,7 +1,7 @@
 import type { ItemSpec } from "../spec/body.ts";
 import { square } from "../../math/real.ts";
 import { cylinderMoments } from "../spec/geometry.ts";
-import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
+import { derive, si, sourced, type Quantity } from "../../quantity.ts";
 import { midpoint } from "../spec/vec.ts";
 
 /**

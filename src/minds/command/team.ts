@@ -15,7 +15,7 @@ import type { Command } from "./commands.ts";
  *
  * Its host asks it once a step, after the senses and before every Mind (`decide`), and hands it a
  * leader's command the moment it is given (`hear`). What it remembers is plain data in `state`
- * (`src/core/world/state.ts`), so a fight forks by copying it. The host delivers its orders, releasing
+ * (`src/core/state.ts`), so a fight forks by copying it. The host delivers its orders, releasing
  * reached combat approaches to the Mind; a tape of delivered orders plays the fight again with
  * no Commander.
  */

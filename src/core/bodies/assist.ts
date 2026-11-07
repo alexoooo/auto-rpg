@@ -2,7 +2,7 @@ import { Vector3 } from "../math/vector.ts";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import { centreOfToRef } from "./read-motion.ts";
 import { norm } from "../math/real.ts";
-import { delayLine } from "../world/command-delay.ts";
+import { delayLine } from "./command-delay.ts";
 
 /**
  * The most an assist gives a body: a force, in the body's own weights, and a moment, in its

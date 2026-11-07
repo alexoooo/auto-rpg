@@ -3,7 +3,7 @@ import type { BodyView } from "../../control/body.ts";
 import type { ContactTarget } from "../../core/bodies/contact-identity.ts";
 import type { ActionAround, ActionEnding, ActionRequest, ActionStatus, ContactKind, Ended, Executor, LifecycleUpdate, Observation, Phase, Readiness, Region, Resource, TargetRef } from "./action.ts";
 import type { ResourceMap } from "./action-resources.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 
 /** Inspection retains a short history; exact contact totals have no observation limit. */
 const OBSERVATIONS = 16;

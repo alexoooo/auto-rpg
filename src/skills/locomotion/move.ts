@@ -23,7 +23,7 @@ type Reading = ConditionReading;
 export interface MoveRule {
   readonly gait: number;
   matches(reading: Reading, holding: boolean): boolean;
-  /** Its memory, if it keeps any (`src/core/world/state.ts`), held in Move's. */
+  /** Its memory, if it keeps any (`src/core/state.ts`), held in Move's. */
   readonly state?: object;
 }
 

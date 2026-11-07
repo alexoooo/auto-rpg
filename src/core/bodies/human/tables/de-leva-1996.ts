@@ -1,4 +1,4 @@
-import { sourced, type Quantity } from "../../spec/quantity.ts";
+import { sourced, type Quantity } from "../../../quantity.ts";
 
 /**
  * **de Leva 1996, Table 4**: segment lengths, masses, centres of mass and radii of gyration for

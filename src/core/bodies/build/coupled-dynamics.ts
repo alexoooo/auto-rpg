@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "../../math/vector.ts";
-import type { Vec3 } from "../spec/quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import { constraintBasis, type MotionConstraint } from "./constrained-mass.ts";
 import { bodyDynamics } from "./dynamics.ts";
 import { jointAngles } from "./joint-state.ts";

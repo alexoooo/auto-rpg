@@ -4,7 +4,7 @@
  * limb, and no body; a recipe names the channels, segments and joints of the bodies it is for.
  */
 import type { BearingEndSpec, BodySpec, JointSpec } from "../../../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../../../core/world/state.ts";
+import { deepFreeze } from "../../../../core/state.ts";
 import { segmentOf } from "../../../../core/bodies/spec/body.ts";
 import type { Lie } from "../../../../control/ground-reading.ts";
 import { takesOf, type BearingPolicy } from "./bearing-policy.ts";

@@ -1,4 +1,4 @@
-import { deepFreeze } from "../../../core/world/state.ts";
+import { deepFreeze } from "../../../core/state.ts";
 import type { AttributeName } from "../../../core/bodies/character-attributes.ts";
 
 /** An attribute as the editor shows it: its label, unit, increment and help. */

@@ -17,7 +17,7 @@ export interface Decider<S = Sight, I = Intent, D = unknown> {
   readonly name: string;
   decide(sight: S, dt: number): I;
   /**
-   * Its memory, if it has any (`src/core/world/state.ts`), saved and loaded with its mind's
+   * Its memory, if it has any (`src/core/state.ts`), saved and loaded with its mind's
    * (`Driven.state`). A decider that keeps what it remembers anywhere else does not fork.
    */
   readonly state?: object;

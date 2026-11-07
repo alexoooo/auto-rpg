@@ -1,4 +1,4 @@
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { dot } from "../../core/bodies/spec/vec.ts";
 
 interface Sample { readonly time: number; readonly position: Vec3; readonly velocity: Vec3 }

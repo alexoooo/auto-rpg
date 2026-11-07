@@ -1,5 +1,5 @@
 import type { PartConfig } from "../../parts/parts.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 
 /**
  * **A gait**: what a body gets about by, as Move walks by it (`MoveConfig.gaits`): its name, which

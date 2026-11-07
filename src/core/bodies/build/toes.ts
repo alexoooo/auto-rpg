@@ -2,8 +2,8 @@ import { Quaternion, Vector3 } from "../../math/vector.ts";
 import type { ColliderShape, SegmentBody } from "../../physics/engine.ts";
 import { atan2, cos, sin } from "../../math/real.ts";
 import type { ContactRegionSpec, SegmentFrame, SegmentSpec } from "../spec/body.ts";
-import { derive, type Vec3 } from "../spec/quantity.ts";
-import type { World } from "../../world/world.ts";
+import { derive, type Vec3 } from "../../quantity.ts";
+import type { StepHost } from "../step-host.ts";
 import { colliderOf, local } from "./collider.ts";
 import { toesShape, type Rigid } from "./rigid.ts";
 
@@ -90,7 +90,7 @@ interface Toed {
 }
 
 /** The toes of the feet among `segments`, each bent to lie along the ground before every world step. */
-export function createToes(segments: readonly Toed[], world: World): { readonly state: Readonly<Record<string, ToesState>>; dispose(): void } {
+export function createToes(segments: readonly Toed[], world: StepHost): { readonly state: Readonly<Record<string, ToesState>>; dispose(): void } {
   const feet = segments.filter((segment) => segment.toes && segment.bent);
   const hook = feet.length === 0 ? null : world.prepare(() => {
     for (const foot of feet) {

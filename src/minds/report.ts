@@ -4,7 +4,7 @@ import type { KitEntry, MenuEntry } from "../skills/framework/menu.ts";
 import type { NavigationReport } from "../skills/locomotion/navigation/navigator.ts";
 import type { GaitLimits } from "../skills/intent/travel.ts";
 import type { Engagement } from "./engagement.ts";
-import { loadState, saveState } from "../core/world/state.ts";
+import { loadState, saveState } from "../core/state.ts";
 
 /**
  * **What a body expects of a fight with one foe**, at reach: the share of the foe's full life it

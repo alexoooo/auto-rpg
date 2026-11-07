@@ -18,7 +18,7 @@ import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } 
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Window } from "../../framework/action.ts";
 import type { ExecutorPart, ExecutorMaking } from "../../framework/executor-part.ts";
 import type { LegsGoal } from "../../framework/skill.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 import { gapePoints, jawOf, mouthOf, mouthToRef, fitsJaw } from "./jaw.ts";
 import { pawReader } from "../../../control/quadruped/paws.ts";
 import meta from "../../../../assets/skills/strikes/bite/bite.meta.json" with { type: "json" };
@@ -26,7 +26,7 @@ import { dataOf } from "../../../core/data/store.ts";
 import { fitsAll, type PartConfig } from "../../../parts/parts.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../../core/world/state.ts";
+import { deepFreeze } from "../../../core/state.ts";
 
 /** Backward travel asked while the bite withdraws, m/s. */
 const WITHDRAW_SPEED = 1.15;

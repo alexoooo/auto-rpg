@@ -1,6 +1,6 @@
 import type { ColliderShape } from "../../physics/engine.ts";
 import type { SegmentFrame, ShapeSpec } from "../spec/body.ts";
-import type { Vec3 } from "../spec/quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import { dot, sub } from "../spec/vec.ts";
 
 /** `point`, body frame, in `frame`'s coordinates. */

@@ -1,12 +1,12 @@
 import { Vector3, Quaternion } from "../../core/math/vector.ts";
 import { acos } from "../../core/math/real.ts";
 import { isRefused } from "../../core/refusal.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { rootSegment } from "../../core/bodies/read-body.ts";
 import { pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { type Pose } from "../../core/bodies/spec/pose.ts";
-import { type Vec3 } from "../../core/bodies/spec/quantity.ts";
+import { type Vec3 } from "../../core/quantity.ts";
 import { type Body, type BodyView } from "../../control/body.ts";
 import { supportHeight } from "../../control/support-reference.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";

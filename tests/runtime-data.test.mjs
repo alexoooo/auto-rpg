@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { deepFreeze, loadState, saveState } from "../src/core/world/state.ts";
+import { deepFreeze, loadState, saveState } from "../src/core/state.ts";
 import { Vector3 } from "../src/core/math/vector.ts";
 import { encodeExact, decodeExact } from "../src/app/apart/codec.ts";
 import { openWorld } from "../src/app/browser/worker/client.ts";
 import { readView } from "../src/core/bodies/build/read-view.ts";
 import { rulebook } from "../src/combat/rulebook.ts";
-import { sourced } from "../src/core/bodies/spec/quantity.ts";
+import { sourced } from "../src/core/quantity.ts";
 import { Worker } from "node:worker_threads";
 import { replyBox } from "../src/app/apart/box.ts";
 import { waitPast } from "../src/app/apart/wire.ts";

@@ -1,7 +1,7 @@
 import type { Estimate } from "./estimate.ts";
 import type { BodyView } from "../../control/body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { Region, TargetRef } from "../framework/action.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 

@@ -8,7 +8,7 @@
 import type { PhysicalBody } from "../../minds/physical-body.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import type { Pool } from "../../combat/pool.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { END_RULES } from "./ends.ts";
 import type { DuelRecipe } from "./duel.ts";
 

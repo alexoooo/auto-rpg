@@ -1,5 +1,5 @@
 import type { ItemSpec } from "../spec/body.ts";
-import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import { cylinderMoments } from "../spec/geometry.ts";
 
 const RADIUS = sourced(.16, "m", "owner-arena-items", "buckler: disc radius"), THICKNESS = sourced(.012, "m", "owner-arena-items", "buckler: disc thickness");

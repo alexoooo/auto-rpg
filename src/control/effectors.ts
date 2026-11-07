@@ -1,8 +1,8 @@
 import { rigidPoints } from "../core/bodies/build/rigid.ts";
 import { chainTo } from "./kinematics.ts";
-import { deepFreeze } from "../core/world/state.ts";
+import { deepFreeze } from "../core/state.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import { channelName } from "../core/bodies/muscle/driver.ts";
 import type { JointKinematics, ReadBody } from "../core/bodies/read-body.ts";
 

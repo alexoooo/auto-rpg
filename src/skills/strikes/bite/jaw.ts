@@ -4,7 +4,7 @@ import { chainTo, pointAtToRef, specChainTo, type Frame } from "../../../control
 import { lowsOf } from "../../../control/ground.ts";
 import type { JointKinematics, ReadBody, ReadJoint, ReadSegment } from "../../../core/bodies/read-body.ts";
 import { pawsOf, segmentOf, type BodySpec, type SegmentSpec } from "../../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 
 /** **A tooth**: its contact region's name and its tip, the point of its hull furthest along the way it pierces, body frame, reference pose. */
 interface Tooth { readonly name: string; readonly tip: Vec3 }

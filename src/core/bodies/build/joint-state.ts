@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "../../math/vector.ts";
-import type { Vec3 } from "../spec/quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import { tan, atan2 } from "../../math/real.ts";
 import type { JointKinematics, ReadJoint, ReadSegment } from "../read-body.ts";
 

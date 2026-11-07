@@ -9,7 +9,7 @@ import { STANCE_GAIT } from "../../control/stance-tuning.ts";
 import { supportReadiness, plantedSupport } from "./stomp/support-readiness.ts";
 import { hypot, sin, cos } from "../../core/math/real.ts";
 import { turnAboutToRef } from "../../core/math/turn.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { STRIKE_EVENT } from "./strike-cycle.ts";
 import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
 import type { BearingEnd } from "../../core/bodies/spec/body.ts";

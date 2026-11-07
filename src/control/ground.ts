@@ -5,7 +5,7 @@
  */
 import { Vector3, Quaternion } from "../core/math/vector.ts";
 import type { DownSpec, ConfigurationName, SegmentFrame, ShapeSpec } from "../core/bodies/spec/body.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import { partsOn, turnOfToRef } from "../core/bodies/read-motion.ts";
 import type { ReadBody, ReadSegment } from "../core/bodies/read-body.ts";
 

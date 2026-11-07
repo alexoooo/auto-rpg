@@ -13,7 +13,7 @@ import { STAND_ORDERS } from "../../skills/intent/orders.ts";
 import type { Orders } from "../../skills/intent/orders.ts";
 import { directMovement } from "../../skills/intent/movement.ts";
 import { rulebook } from "../../combat/rulebook.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { mulberry32 } from "../../core/math/rng.ts";
 import type { Actor } from "./actor.ts";
 import type { LabAddress } from "./scenarios.ts";

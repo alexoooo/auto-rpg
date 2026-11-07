@@ -7,7 +7,7 @@ import { turnOfToRef } from "../../../../core/bodies/read-motion.ts";
 import { atan2, cos, sin } from "../../../../core/math/real.ts";
 import { SERVO_SECONDS, type BodyView } from "../../../../control/body.ts";
 import { locomotion, STANCE_LOWER, stanceOf } from "../../../locomotion/locomotion.ts";
-import { deepFreeze } from "../../../../core/world/state.ts";
+import { deepFreeze } from "../../../../core/state.ts";
 import type { MindKit } from "../../../kit.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { quietOnFeet } from "../../../../control/ground-reading.ts";

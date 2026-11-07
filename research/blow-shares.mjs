@@ -18,7 +18,7 @@ import { HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
 import { lifeFactor, woundGroups } from "../src/combat/pool.ts";
 import { rulebook } from "../src/combat/rulebook.ts";
 import { energyShares } from "../src/combat/share.ts";
-import { si } from "../src/core/bodies/spec/quantity.ts";
+import { si } from "../src/core/quantity.ts";
 
 /** The sources a quantity's provenance names, each once. */
 function sourcesOf(quantity, into = new Set()) {

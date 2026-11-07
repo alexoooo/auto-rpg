@@ -7,8 +7,8 @@ import type { Senses } from "../core/bodies/senses.ts";
 import type { SolidSense } from "../core/bodies/object-senses.ts";
 import type { ObjectSense } from "../core/bodies/object-senses.ts";
 import type { EquipmentObservation } from "../core/bodies/equipment.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
-import { deepFreeze } from "../core/world/state.ts";
+import type { Vec3 } from "../core/quantity.ts";
+import { deepFreeze } from "../core/state.ts";
 import type { Clock } from "../core/world/clock.ts";
 import { attachment, type ReadBody } from "../core/bodies/read-body.ts";
 

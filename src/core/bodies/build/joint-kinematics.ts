@@ -1,6 +1,6 @@
 import type { JointKinematics } from "../read-body.ts";
 import type { DofSpec, JointSpec } from "../spec/body.ts";
-import type { Vec3 } from "../spec/quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import { cross, dot, normalize, orthogonalTo } from "../spec/vec.ts";
 
 /**

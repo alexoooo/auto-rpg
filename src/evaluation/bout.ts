@@ -10,7 +10,7 @@ import type { MindPlace } from "../minds/apart.ts";
 import { type GameContext } from "../game/arena/context.ts";
 import type { Catalog } from "../minds/catalog.ts";
 import { bonkFixture, validBonkFixture, type BonkFixture, type BonkFixtureConfig } from "./strike/bonk-fixture.ts";
-import { loadState, saveState } from "../core/world/state.ts";
+import { loadState, saveState } from "../core/state.ts";
 import { recordingKey } from "../core/world/recording.ts";
 
 /** How a bout's world is built beside its recipe. */

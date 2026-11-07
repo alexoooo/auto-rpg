@@ -1,4 +1,4 @@
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { kindOnly, type CommanderEntry } from "./kind.ts";
 import { direction, distance } from "./goals.ts";
 import type { Orders } from "../../skills/intent/orders.ts";
