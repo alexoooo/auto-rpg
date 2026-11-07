@@ -5,6 +5,7 @@
  * `paces` samples reached entry prefixes at several commanded speeds, paired with each heading.
  * `overspeedCost` penalizes excess speed above the reward target when training slower orders.
  * `rewardReserve` adds the same speed reserve to each sampled pace unless `rewardPace` is explicit.
+ * `trainingActor: "slow-velocity"` learns the low-speed branch while the faster actor stays frozen.
  * Snapshots restore the complete world, perception and controller state between episodes.
  */
 import '../../../tests/harness/preload-data.mjs';
@@ -50,8 +51,11 @@ export async function optionEntryEnvironment(configuration) {
   if (!settings.learned || !settings.envelope || settings.learned.decisionSteps !== 4)
     throw Error('Option entry needs learned corrections, an explicit envelope and four-step decisions');
   const { steered: _, ...networks } = settings.learned;
-  const actor = recoveryNetwork(networks.velocity);
-  const tuning = { ...settings, learned: { ...networks, ...(o.ordinary ? {} : { steered: 'velocity' }) } };
+  const trainingActor = o.trainingActor ?? 'velocity';
+  if (trainingActor !== 'velocity' && trainingActor !== 'slow-velocity') throw Error('Option entry trains velocity or slow-velocity');
+  if (trainingActor === 'slow-velocity' && !networks.slowVelocity) throw Error('Option entry low-speed training needs its actor');
+  const actor = recoveryNetwork(trainingActor === 'slow-velocity' ? networks.slowVelocity.network : networks.velocity);
+  const tuning = { ...settings, learned: { ...networks, ...(o.ordinary ? {} : { steered: trainingActor }) } };
   const base = defaultMind(o.model);
   const mind = { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...MOVE,
     gaits: STOCK_GAITS.map(gait => ({ ...gait, legs: { ...gait.legs, tuning } })) } } } };
@@ -150,6 +154,6 @@ export async function optionEntryEnvironment(configuration) {
         hz: world.hz, balance: 0, model: o.model, seed: o.seed, gusts: !!o.gusts,
         loadout: o.loadout ?? { left: 'empty', right: 'empty' }, protocol: 'heading-entry',
         pace: paces.length === 1 ? paces[0] : null, paces: paces.slice(), rewardPace: o.rewardPace ?? (paces.length === 1 ? paces[0] + o.rewardReserve : null),
-        overspeedCost: o.overspeedCost, rewardReserve: o.rewardReserve, steered: !o.ordinary } };
+        overspeedCost: o.overspeedCost, rewardReserve: o.rewardReserve, trainingActor, steered: !o.ordinary } };
   } catch (error) { built.dispose(); throw error; }
 }

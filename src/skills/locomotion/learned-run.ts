@@ -20,8 +20,10 @@ export interface LearnedRunSettings {
   readonly decisionSteps: number;
   readonly entry: "landing" | "first-lift";
   readonly trim: RunTrim;
+  /** Low-speed actor: full authority through fullPace, fading to the velocity actor at untilPace, m/s. */
+  readonly slowVelocity?: { readonly fullPace: number; readonly untilPace: number; readonly network: Network };
   /** Research decisions supplied through saved learner outputs for the selected actor. */
-  readonly steered?: "braking" | "velocity";
+  readonly steered?: "braking" | "velocity" | "slow-velocity";
 }
 
 /** Admission for the mirrored 49-input, twelve-channel travel actors and their physical scales. */
@@ -36,7 +38,18 @@ export function learnedRunFaults(value: unknown): readonly string[] {
   if (!Number.isSafeInteger(settings.decisionSteps) || settings.decisionSteps < 1) faults.push("learned run decisionSteps must be a positive whole number");
   if (settings.entry !== "landing" && settings.entry !== "first-lift") faults.push("learned run entry must be landing or first-lift");
   if (!["continuous", "at-pace", "after-pace"].includes(settings.trim)) faults.push("invalid learned run trim");
-  if (settings.steered !== undefined && settings.steered !== "braking" && settings.steered !== "velocity") faults.push("learned run steered mode is braking or velocity");
+  const slow = settings.slowVelocity;
+  if (slow !== undefined) {
+    if (!slow || typeof slow !== "object" || Array.isArray(slow)) faults.push("invalid learned run low-speed actor");
+    else {
+      const read = networkFaults(slow.network);
+      if (read.faults.length || read.inputs !== 49 || slow.network?.actions !== 12) faults.push("learned run low-speed actor needs a 49-input, twelve-action network");
+      if (![slow.fullPace, slow.untilPace].every(x => Number.isFinite(x) && x > 0) || slow.fullPace >= slow.untilPace)
+        faults.push("learned run low-speed band needs positive increasing paces");
+    }
+  }
+  if (settings.steered !== undefined && settings.steered !== "braking" && settings.steered !== "velocity" && settings.steered !== "slow-velocity") faults.push("learned run steered mode is braking, velocity or slow-velocity");
+  if (settings.steered === "slow-velocity" && slow === undefined) faults.push("learned run low-speed steering needs a low-speed actor");
   return faults;
 }
 
@@ -48,6 +61,7 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
   const faults = learnedRunFaults(settings);
   if (faults.length) throw new Error(faults.join("; "));
   const velocity = recoveryNetwork(settings.velocity), braking = recoveryNetwork(settings.braking), reference = recoveryNetwork(settings.reference);
+  const slowVelocity = settings.slowVelocity ? recoveryNetwork(settings.slowVelocity.network) : null;
   const leg = legOf(body.built.spec), root = rootSegment(body.built);
   const ends = Object.fromEntries(SIDES.map(side => [side, footOn(body.built.spec, side)])) as Record<typeof SIDES[number], string>;
   const names = Object.fromEntries(SIDES.map(side => [side, JOINTS.map(name => {
@@ -66,7 +80,18 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
   const goal: Locomotion["goal"] = (view, asked, dt, context) => {
     const forwardOrder = asked.walk?.[0] ?? 0, sideOrder = asked.walk?.[1] ?? 0;
     const command = Math.sqrt(forwardOrder * forwardOrder + sideOrder * sideOrder), moving = command > 0;
-    if (learner) learner.running = settings.steered === "velocity" ? moving : !moving && (learner.running || inference.moving);
+    const band = settings.slowVelocity, rounding = 8 * Number.EPSILON * Math.max(1, command, band?.untilPace ?? 0);
+    const slowShare = !moving || !band || command >= band.untilPace - rounding ? 0
+      : command <= band.fullPace + rounding ? 1 : (band.untilPace - command) / (band.untilPace - band.fullPace);
+    if (learner) {
+      switch (settings.steered) {
+        case "velocity": learner.running = moving; break;
+        case "slow-velocity": learner.running = moving && slowShare > 0; break;
+        case "braking": learner.running = !moving && (learner.running || inference.moving); break;
+        case undefined: learner.running = false; break;
+        default: { const never: never = settings.steered; throw new Error(`unknown learned run steering ${never}`); }
+      }
+    }
     if (moving && !inference.moving) Object.assign(inference.origin, inference.previousCentre);
     else if (moving && asked.face !== inference.face) Object.assign(inference.origin, { x: view.stance.centre.x, z: view.stance.centre.z });
     // Rotating the same pace between facing frames must not restart the inference clock.
@@ -76,8 +101,15 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
       if (learner?.running) {
         learner.inputs.splice(0, learner.inputs.length, ...inference.observation);
         learner.decisions++;
-        inference.velocityAction = learner.outputs;
-      } else inference.velocityAction = (moving ? velocity : braking)(inference.observation);
+      }
+      if (learner?.running && settings.steered !== "slow-velocity") inference.velocityAction = learner.outputs;
+      else if (!moving) inference.velocityAction = braking(inference.observation);
+      else if (slowShare === 0) inference.velocityAction = velocity(inference.observation);
+      else {
+        const slow = learner?.running && settings.steered === "slow-velocity" ? learner.outputs : slowVelocity!(inference.observation);
+        if (slowShare === 1) inference.velocityAction = slow;
+        else inference.velocityAction = velocity(inference.observation).map((fast, i) => fast + slowShare * (slow[i]! - fast));
+      }
       inference.referenceAction = reference(inference.observation);
     }
     inference.steps++;
