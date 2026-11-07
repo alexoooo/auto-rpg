@@ -118,11 +118,11 @@ the complete fingerprint, allocation samples and paired mean and tail timings.
 
 ### Exact completed-search lifetime
 
-For decisions that build a fresh tree, retain only final root prices and terms in the returned
-lookup (`treeSearch`, `searching`). Build that lookup in a scope that captures its result data
-without retaining the root node, descendants or search workspace. Preserve the first match for
-duplicate Option/target entries, and keep published appraisal records independent of mutable
-work. Release the tree only after every run and backup finishes.
+After every run and backup finishes, `treeSearch` copies each root edge's descriptor, final price
+and model terms into result records. `pricedLines` builds the lookup in a separate scope that
+captures these records, so it releases the root node, descendants and search workspace. It keeps
+the first match for duplicate Option/target entries and returns a fresh line record on each
+lookup. `searching` keeps the completed lookups for the current decision time.
 
 Check: identical root offers and model terms, repeated lookups, decision isolation, cache release
 between decisions, the complete fingerprint and a reachability reading. Read live retention

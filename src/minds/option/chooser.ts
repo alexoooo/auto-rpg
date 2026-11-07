@@ -289,6 +289,14 @@ interface Step { readonly terms: Terms; readonly dealt: number; readonly taken: 
 /** What a search prices at a decision: each Option at each target its line from the state decided at (`Line`), null where it is not on offer. */
 type Lines = (option: Option, target: number) => Line | null;
 
+/** A completed tree's lookup captures only root prices, without its nodes or search workspace. */
+function pricedLines(prices: readonly (Line & { readonly pair: Pair })[]): Lines {
+  return (option, target) => {
+    const priced = prices.find((one) => one.pair.option === option && one.pair.target === target);
+    return priced ? { worth: priced.worth, terms: priced.terms } : null;
+  };
+}
+
 /** **The valued chooser's search at `root`**: each Option's line from there at each of its targets, `depth` Options deep (`space`'s `line`). */
 function search(root: Situation, options: readonly Option[], objective: Objective, obedience: Obedience, depth: number, horizon: number): Lines {
   const at = space(root, options, objective, obedience, horizon), lines = new Map<Option, (Line | null)[]>();
@@ -406,10 +414,7 @@ function treeSearch(root: Situation, options: readonly Option[], objective: Obje
     for (const visited of nodes) visited.runs++;
   };
   for (let k = 0; k < Math.max(runs, edgesOf(top).length); k++) run();
-  return (option, target) => {
-    const edge = top.edges!.find((one) => one.pair.option === option && one.pair.target === target);
-    return edge ? { worth: edge.worth, terms: edge.step.terms } : null;
-  };
+  return pricedLines(top.edges!.map((edge) => ({ pair: edge.pair, worth: edge.worth, terms: edge.step.terms })));
 }
 
 /**
