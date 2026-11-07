@@ -43,7 +43,7 @@ import { crouchSteady, traceRow } from "./climb.mjs";
 import "../../../../tests/harness/preload-data.mjs";
 import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import poses from "../../../../assets/research/posture-holds.json" with { type: "json" };
-import { commandedBody } from "../../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../../src/app/stock-body.ts";
 import { pendingControl } from "../../../minds/pending-control.mjs";
 import { buildBody } from "../../../../src/core/bodies/build/build-body.ts";
 import { loadEngine } from "../../../../src/core/physics/engines.ts";
@@ -271,7 +271,7 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
   const built = buildBody(spec, world, placed);
   const reader = groundReading(built, world.dt);
   const control = { active: true, time: 0, phase: -1, steady: false, ready: 0, from: null };
-  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view) => {
+  const body = stockBody(built, world, { servoSeconds: .1 }, [(own, view) => {
     const drive = poseDrive(own.muscles), bearing = bearer(own, view), steadying = crouchSteady(own, view, steady);
     const pending = pendingControl(own.muscles.channels.length);
     control.steadying = steadying.control;

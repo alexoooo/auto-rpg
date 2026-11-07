@@ -8,7 +8,7 @@ import { rulebook } from "../../../../src/combat/rulebook.ts";
 import "../../../../tests/harness/preload-data.mjs";
 import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import { coreStand } from "../../../../tests/harness/core-stand.mjs";
-import { createMind } from "../../../../src/minds/seat/minds.ts";
+import { createMind } from "../../../../src/minds/seat/create-mind.ts";
 import { GAME, defaultMind } from "../../../../src/app/catalog.ts";
 import { reptileSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
 import { STAND_ORDERS } from "../../../../src/minds/orders.ts";

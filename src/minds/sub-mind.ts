@@ -1,8 +1,8 @@
-import type { HostMind } from "./command-layers.ts";
+import type { LayersMind } from "./motor-layers.ts";
 import { constructionScope } from "../core/construction.ts";
 import type { Body, BodyView, LayerOptions } from "../control/body.ts";
 import type { Clock } from "../core/world/clock.ts";
-import { commandLayers } from "./command-layers.ts";
+import { commandLayers } from "./motor-layers.ts";
 import type { Mind, MindConstruction } from "./mind.ts";
 import type { OwnBody } from "../core/bodies/own-body.ts";
 import type { Senses } from "../core/bodies/senses.ts";
@@ -21,7 +21,7 @@ export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock, afterPhy
 const HOST = -1, NOBODY = -2;
 
 /** A host and ranked sub-minds, with ownership in the saved state. */
-function hosting(host: HostMind & { readonly name: string; dispose(): void }, subs: readonly MindConstruction<SubMind>[]): MindConstruction {
+function hosting(host: LayersMind & { readonly name: string; dispose(): void }, subs: readonly MindConstruction<SubMind>[]): MindConstruction {
   const state = { has: HOST, host: host.state, subs: subs.map(sub => sub.mind.state) };
   const giveUp = (reason: "takeover" | "idle"): void => {
     if (state.has >= 0) subs[state.has]!.mind.end();

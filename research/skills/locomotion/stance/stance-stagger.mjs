@@ -13,7 +13,7 @@ import { footOn } from "../../../../src/control/support.ts";
  *     [--seconds 0.3] [--hz 120,480,1920]
  */
 import { parseArgs } from "node:util";
-import { commandedBody } from "../../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../../src/app/stock-body.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { coreStand } from "../../../../tests/harness/core-stand.mjs";
 import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
@@ -34,7 +34,7 @@ const BEFORE = 1.5, WATCHED = 3.5;
 console.log(`A step of the right foot to ${(100 * across).toFixed(0)} cm right of the left and ${(100 * back).toFixed(0)} cm behind it, over ${seconds} s; Node core stand, Rapier`);
 for (const model of values.models.split(",")) for (const hz of values.hz.split(",").map(Number)) {
   const stand = await coreStand(modelSpec(model), { ground: true, hz });
-  const body = commandedBody(stand.built, stand.world, { servoSeconds: 0.1 });
+  const body = stockBody(stand.built, stand.world, { servoSeconds: 0.1 });
   const foot = stand.built.segments.get("foot.left").pose.position;
   let goal = null, lifted = false, from = null, to = null, landed = null, slid = 0, slidStepping = 0, speed = 0;
   body.drive((view) => {

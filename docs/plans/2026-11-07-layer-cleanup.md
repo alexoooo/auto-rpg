@@ -93,7 +93,7 @@ Check: as for code. The fingerprint is not needed: no `src/` module changes.
 
 ## 4. Delete what nothing uses
 
-- `hostedMind` (`src/minds/seat/minds.ts`) and the sentence citing it in `src/minds/seat/host.ts`.
+- `hostedMind` (`src/minds/seat/create-mind.ts`) and the sentence citing it in `src/minds/seat/host.ts`.
 - Exports with no importer in the tracked `src/`, `tests/`, `research/`, `scripts/`, the pages or
   `vite.config.ts`: about 320. They are found by a TypeScript walk over every import and re-export
   (`export *`, HTML `<script>` and JSDoc `import()` included).

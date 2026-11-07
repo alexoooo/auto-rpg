@@ -29,7 +29,7 @@ type HostedConstruction = MindConstruction & Partial<Pick<CommandedMind, "body">
  * and where the mind drives it through the command layers (`CommandedMind.body`) it shows their view and
  * drive as a `HostedBody` does.
  */
-function hostBody<M extends HostedConstruction>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
+function takeBody<M extends HostedConstruction>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
   const { held, mind, state, dispose } = embody(built, world, make, given);
   const body = physicalBody(built, held, world, () => mind.has(), state, dispose), driver = mind.body;
   return { mind, body: driver ? Object.assign(body, { view: driver.view, envelope: driver.envelope, drive: driver.drive, afterPhysics: driver.afterPhysics, driver }) : body };
@@ -38,7 +38,7 @@ function hostBody<M extends HostedConstruction>(built: BuiltBody, world: World, 
 /** A body under explicitly configured command layers and ranked sub-minds. */
 export function commandedBody(built: BuiltBody, world: World, options: BodyOptions, subs: readonly SubMindMaker[] = []): HostedBody {
   const { senses, assist, contactIdentity, log, ...layers } = options;
-  return hostBody(built, world, { senses, assist, contactIdentity, log }, own => commandedMind(own, layers, clockOf(world), subs)).body as HostedBody;
+  return takeBody(built, world, { senses, assist, contactIdentity, log }, own => commandedMind(own, layers, clockOf(world), subs)).body as HostedBody;
 }
 
 /**
@@ -54,7 +54,7 @@ export function bodyHost(built: BuiltBody, world: World, grants: HostGrants, par
     spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, phase: grants.phase ?? 0, rules: grants.rules,
     take<M extends MindConstruction>(make: (own: OwnBody) => M): M {
       if (body) throw new Error("a mind takes its body once");
-      const taken = hostBody(built, world, given, make);
+      const taken = takeBody(built, world, given, make);
       body = taken.body;
       return taken.mind;
     },

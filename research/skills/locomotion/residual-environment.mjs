@@ -24,7 +24,7 @@
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
 import { coreStand, saveStand, loadStand } from '../../../tests/harness/core-stand.mjs';
-import { commandedBody } from '../../../src/app/commanded-body.ts';
+import { stockBody } from '../../../src/app/stock-body.ts';
 import { modelSpec } from '../../../src/core/bodies/models.ts';
 import { Quaternion, Vector3 } from '../../../src/core/math/vector.ts';
 import { massCentreToRef, massOf, motionAtToRef } from '../../../src/core/bodies/read-motion.ts';
@@ -235,7 +235,7 @@ export async function residualEnvironment(configuration = {}) {
     if (!Number.isFinite(startAt) || startAt < 0) throw Error('a residual episode needs a finite running start time');
     stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard, engine: o.engine });
     if (o.toeConditioning) await conditionToeStand(stand, o.toeConditioning);
-    host = commandedBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
+    host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
       assist: balanceCeiling(0, balancePercent(rulebook('arena'))) });
     body = host.driver; root = rootSegment(body.built);
     const physical = uprightness(body.built);

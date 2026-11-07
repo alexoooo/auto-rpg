@@ -3,7 +3,7 @@ import { isRefused, type Refused } from "../../core/refusal.ts";
 import type { PhysicsEngine } from "../../core/physics/engine.ts";
 import { enlist, type Combatant } from "../combatant.ts";
 import { buildBody } from "../../core/bodies/build/build-body.ts";
-import { builtAngles, createMind, warmApart } from "../../minds/seat/minds.ts";
+import { builtAngles, createMind, warmApart } from "../../minds/seat/create-mind.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { armedWith } from "../../core/bodies/items/held.ts";
 import { resolveCharacterChecked, type BodyModel, type ResolvedCharacter } from "../../core/bodies/models.ts";

@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { coreStand } from "../../harness/core-stand.mjs";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
-import { commandedBody } from "../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../src/app/stock-body.ts";
 import { recoveryNetwork } from "../../../src/core/math/learning/recovery-network.ts";
 import { decisionSteps } from "../../../src/core/math/learning/learner.ts";
 import { guardPosture } from "../../../src/skills/guard/guard.ts";
@@ -22,7 +22,7 @@ test("a steered low-speed answer acts over exactly its own decision interval, bl
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
   let host;
   try {
-    host = commandedBody(stand.built, stand.world, { servoSeconds: .1, measuring: true });
+    host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true });
     const body = host.driver, pace = 1;
     const settings = { velocity: network(1), braking: network(2), reference: network(3), velocityScale: .01, referenceScale: 0,
       interval: 1 / 30, entry: "landing", trim: "continuous", steered: "slow-velocity",

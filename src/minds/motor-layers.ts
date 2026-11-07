@@ -20,7 +20,7 @@ import type { Mind } from "./mind.ts";
  * carries the due decision into motor commands. `observe` samples completed physics before any
  * holder acts. Releasing clears pending work and motor goals; resuming tells the driver.
  */
-interface CommandLayers extends HostMind {
+interface CommandLayers extends LayersMind {
   readonly name: string;
   dispose(): void;
   /** The view as the last step left it, or as built before the first. */
@@ -93,7 +93,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     /** The height the last command held the body low at with no stance (`BodyCommand.held`), m, or null. */
     held: null as number | null,
     ground: ground.state,
-    /** Whether the layers are released (`HostMind.release`): another has the body, and the ground is read whatever the stance. */
+    /** Whether the layers are released (`LayersMind.release`): another has the body, and the ground is read whatever the stance. */
     released: false,
     groundActive: false,
     resumed: false,
@@ -301,7 +301,7 @@ function pointMotionOf(built: ReadBody, segment: string, point: string): { motio
 }
 
 /** The host reads its body before deciding who controls it. */
-export interface HostMind extends Mind {
+export interface LayersMind extends Mind {
   look(senses: Senses): void;
   observe(control: BodyControl): void;
   feel(): void;

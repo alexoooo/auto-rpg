@@ -13,7 +13,7 @@ import { performance } from "node:perf_hooks";
 import { parseArgs } from "node:util";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 import { GAME, defaultMind } from "../src/app/catalog.ts";
-import { createMind } from "../src/minds/seat/minds.ts";
+import { createMind } from "../src/minds/seat/create-mind.ts";
 import { STAND_ORDERS } from "../src/minds/orders.ts";
 import { modelHolding } from "../src/core/bodies/models.ts";
 import { buildBody } from "../src/core/bodies/build/build-body.ts";

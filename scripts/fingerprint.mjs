@@ -42,7 +42,7 @@ import { SIDES } from "../src/game/arena/duel.ts";
 import { CHARACTERS, WEAPONS, clipFor } from "../src/game/appearance/characters.ts";
 import { controlCharacter, controlsFor, defaultControl, readControls, readMinds } from "../src/app/node/setup.ts";
 import { SERVO_SECONDS, commandsBody } from "../src/control/body.ts";
-import { commandedBody } from "../src/app/commanded-body.ts";
+import { stockBody } from "../src/app/stock-body.ts";
 import { humanSpec } from "../src/core/bodies/human/spec.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
 import { standIntent } from "../src/skills/framework/intent.ts";
@@ -50,7 +50,7 @@ import { driveBy } from "../src/minds/decider.ts";
 import { standingSkills } from "../src/app/standing-skills.ts";
 import { partOf, MINDS, GAME } from "../src/app/catalog.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
-import { createMind } from "../src/minds/seat/minds.ts";
+import { createMind } from "../src/minds/seat/create-mind.ts";
 import { generateCryptDungeon } from "../src/game/dungeon/crypt-dungeon.ts";
 import { CryptWeathering } from "../src/app/browser/dungeon/crypt-weathering.ts";
 import { generateLevel } from "../src/game/dungeon/level.ts";
@@ -167,7 +167,7 @@ async function arena(recipe, { watch } = {}) {
  */
 async function stand(model) {
   const stand = await coreStand(modelSpec(model));
-  const body = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { rules: rulebook("arena"), name: "stand", orders: () => null }).body : commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const body = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS.option.config, { rules: rulebook("arena"), name: "stand", orders: () => null }).body : stockBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
     if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills);
     const trace = traceOf([stand.built]);

@@ -17,7 +17,7 @@
  */
 import { Vector3 } from "../../../../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../../../../src/control/body.ts";
-import { commandedBody } from "../../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../../src/app/stock-body.ts";
 import { contactGive, contactMass } from "../../../../src/core/bodies/build/contact-mass.ts";
 import { centreOfToRef } from "../../../../src/core/bodies/read-motion.ts";
 import { DEFAULT_ENGINE } from "../../../../src/core/physics/engines.ts";
@@ -41,7 +41,7 @@ const SETTLE = 1;
  */
 export async function referenceHead({ model = "workshop-fighter", physique, part = "head", hz = 120 } = {}) {
   const spec = modelSpec(model, physique), s = await coreStand(spec, { engine: DEFAULT_ENGINE, hz, posture: guardPosture(spec) });
-  const body = commandedBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = standingSkills(body);
+  const body = stockBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = standingSkills(body);
   body.drive((view, dt) => skills.command(view, { move: null, face: 0, guard: NO_COVER, actions: [] }, dt));
   try {
     for (let i = 0; i < Math.round(SETTLE * hz); i++) s.world.step();

@@ -19,7 +19,7 @@ import { footOn } from "../../../src/control/support.ts";
 import { Quaternion, Vector3 } from "../../../src/core/math/vector.ts";
 import { addArenaSolids } from "../../../src/game/arena/solids.ts";
 import { SERVO_SECONDS } from "../../../src/control/body.ts";
-import { commandedBody } from "../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../src/app/stock-body.ts";
 import { buildBody } from "../../../src/core/bodies/build/build-body.ts";
 import { bodyDynamics } from "../../../src/core/bodies/build/dynamics.ts";
 import { jointAngles, ratesToRef } from "../../../src/core/bodies/build/joint-state.ts";
@@ -1475,7 +1475,7 @@ export async function least({ row, posture, variant = "built", drive = "side", s
 }
 
 /**
- * **The handover**: the body as the game makes it (`commandedBody`) put in `posture` while it is
+ * **The handover**: the body as the game makes it (`stockBody`) put in `posture` while it is
  * `held`, then at `full` and asked what a standing body is asked: the stance on both feet, its
  * centre of mass `STANCE_LOWER` under the height it stands at as built, facing as built, the rest
  * at the reference pose. Stood: up `UP_SECONDS` running within `HANDED_SECONDS` (`risenAt`), which a
@@ -1488,7 +1488,7 @@ export async function handed({ row, posture, seconds = HANDED_SECONDS, lift = LI
   const height = standingHeight(body) - STANCE_LOWER;
   const stance = Object.freeze({ feet: SIDES.map(side => footOn(body.built.spec, side)), centre: null, height, heading: 0 });
   const command = Object.freeze({ posture: Object.freeze({}), pushes: Object.freeze([]), stance });
-  const stand = await placed(posture, { lift, solver, make: (built, world) => commandedBody(built, world, { servoSeconds: SERVO_SECONDS }) });
+  const stand = await placed(posture, { lift, solver, make: (built, world) => stockBody(built, world, { servoSeconds: SERVO_SECONDS }) });
   try {
     stand.driving.drive(() => command);
     const downs = [];

@@ -48,7 +48,7 @@ import { isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { cmaSearch, workerPool } from "../../../cma.mjs";
-import { commandedBody } from "../../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../../src/app/stock-body.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { modelHolding } from "../../../../src/core/bodies/models.ts";
 import { LOADOUTS } from "../../../../src/core/bodies/items/held.ts";
@@ -121,7 +121,7 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
   const own = modelSpec(model, undefined, { haste }), spec = modelHolding(model, loadoutOf(held), haste === undefined ? undefined : { haste }), guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
   const assist = balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
-  const host = commandedBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
+  const host = stockBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
   const body = host.driver;
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   if (isRefused(blowing)) { host.dispose(); stand.dispose(); throw new Error(blowing.refused); }

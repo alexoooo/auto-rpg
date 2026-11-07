@@ -177,10 +177,10 @@ ceiling; zero holds.
 Motor control (`src/control/`) turns a `BodyCommand` (a posture, effector goals, timed pushes,
 driven points, a stance goal) into muscle commands.
 
-- **The command layers** (`commandLayers`) are what a mind builds on its own body: a `HostMind`
+- **The command layers** (`commandLayers`) are what a mind builds on its own body: a `LayersMind`
   over its motor, read each step through a `BodyView` (`src/control/body.ts`); they are independent of
   skills and deciders. Their options supply the motor and its calibration. The application's
-  standalone body builder (`src/app/commanded-body.ts`) supplies the stock whole-body motor when
+  standalone body builder (`src/app/stock-body.ts`) supplies the stock whole-body motor when
   a study names none.
   A selected motor declares its support reference; `BodyView.standing` is null when it supplies
   none. Skills declare the support reference, stance or support goals they consume as open
@@ -366,12 +366,12 @@ research settings belong to `LayerOptions` in `src/control/body.ts`.
 - **The report** (`MindReport`, `report.ts`) says what a mind is engaged in, weighing and doing,
   read without moving its state. Screens and Commanders read the report, never a mind's kind or
   state. Each answer snapshots its prospects, heading, navigation, actions and endings (`saidOf`,
-  `minds.ts`), reusing unchanged branches by value; subsequent live writes leave retained
+  `create-mind.ts`), reusing unchanged branches by value; subsequent live writes leave retained
   snapshots unchanged. The snapshot, including kit and gait values, belongs to the saved Mind
   state. The profile provider saves its completed-decision engagement details; the menu reads
   current skills.
 
-**A mind is its config.** A `MindConfig` is plain data tagged by kind; `createMind` (`minds.ts`)
+**A mind is its config.** A `MindConfig` is plain data tagged by kind; `createMind` (`create-mind.ts`)
 makes it by the kind's `Controller` found in a `Catalog` (`src/minds/catalog/catalog.ts`). A mind is a
 tree of parts (`Part`, `parts.ts`), each with a role, a stage, fields, slots and defaults, saying
 why a body cannot carry it out (`fits`) and what is wrong with its config (`faults`). Roles are an

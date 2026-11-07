@@ -83,7 +83,7 @@ test("a held rigid carrier can be observed without an effector actuator", async 
     assert.ok(Number.isFinite(radius) && radius > 0);
   } finally { stand.dispose(); }
 });
-import { commandedBody } from "../../src/app/commanded-body.ts";
+import { stockBody } from "../../src/app/stock-body.ts";
 import { guardSkill } from "../../src/skills/guard/guard.ts";
 import { riseLimbs } from "../../src/skills/recovery/implementations/staged/limbs.ts";
 import { RISE } from "../../src/skills/recovery/implementations/staged/stages.ts";
@@ -94,7 +94,7 @@ test("takeover clears a paced ward and staged toe support restores into a fresh 
   const loadout = LOADOUTS.find(one => one.left === "buckler" && one.right === "empty");
   assert.ok(loadout, "the existing covering buckler fixture is present");
   const stand = await coreStand(withLoadout(stock, loadout), { gravity: false });
-  const host = commandedBody(stand.built, stand.world, { servoSeconds: .1 });
+  const host = stockBody(stand.built, stand.world, { servoSeconds: .1 });
   try {
     const guard = guardSkill(stand.built.spec, undefined, { wardSpeeds: { "hand.left": 1 } });
     guard.command(host.view, { "hand.left": { guarded: [0, 1, 0], threat: [0, 1, 2] } });
@@ -143,7 +143,7 @@ for (const [name, makeSteady] of [["witness crouch", crouchSteady], ["steady mod
 test(`${name} initializes its own stance when it is the first holder`, async () => {
   const stand = await coreStand(stock);
   let steady, ticks = 0;
-  const body = commandedBody(stand.built, stand.world, { servoSeconds: .1 }, [(own, view) => {
+  const body = stockBody(stand.built, stand.world, { servoSeconds: .1 }, [(own, view) => {
     steady = makeSteady(own, view);
     const pending = pendingControl(own.muscles.channels.length);
     return { name: "first recovery", has: () => "first recovery", dispose() {}, mind: {
@@ -168,7 +168,7 @@ import { PAW_MOTOR } from "../../src/control/quadruped/paw-motor.ts";
 
 test("replacement paw gaits normalize both travel axes and supply their own braking", async () => {
   const stand = await coreStand(modelSpec("reptile"));
-  const body = commandedBody(stand.built, stand.world, { servoSeconds: .1, motor: PAW_MOTOR.make() });
+  const body = stockBody(stand.built, stand.world, { servoSeconds: .1, motor: PAW_MOTOR.make() });
   const seen = {};
   const gait = (name, speed, stopping) => ({
     state: { phase: "settle", steps: 0, placed: 0, sequence: 0, standing: true },
@@ -200,7 +200,7 @@ test("idle stance reads physical foot yaw without an effector actuator or matchi
   const spec = { ...stock, ends: stock.ends.map(end => end.kind === "foot" ? { ...end, name: end.name === "foot.left" ? "anchor.port" : "anchor.starboard" } : end),
     effectors: stock.effectors.filter(effector => !effector.segment.startsWith("foot.")) };
   const stand = await coreStand(spec, { posture: { "hip.left internal rotation": .4 } });
-  const body = commandedBody(stand.built, stand.world, { servoSeconds: .1 });
+  const body = stockBody(stand.built, stand.world, { servoSeconds: .1 });
   try {
     const legs = locomotion(stanceFeetOf(spec), null, { segments: stanceSegmentsOf(spec), idleFooting: standingFooting(stand.built) });
     const ends = Object.fromEntries(Object.entries(body.view.stance.ends).map(([name, end]) => [name, { ...end, touching: true }]));
@@ -269,7 +269,7 @@ import { arenaSolids } from "../../src/game/arena/solids.ts";
 
 test("a low quadruped clears its supporting arena floor while retaining real parapet avoidance", async () => {
   const spec = modelSpec("reptile"), stand = await coreStand(spec);
-  const body = commandedBody(stand.built, stand.world, { servoSeconds: .1, motor: PAW_MOTOR.make() });
+  const body = stockBody(stand.built, stand.world, { servoSeconds: .1, motor: PAW_MOTOR.make() });
   try {
     const solids = arenaSolids(), ground = solids.find(one => one.name === "ground"), wall = solids.find(one => one.name === "room.wall.0.collider");
     assert.ok(ground && wall && wall.kind === "box", "the existing arena floor and vertical parapet fixture are present");
@@ -317,7 +317,7 @@ test("Option skills assemble with physical feet alone and an effector named assi
     rename(stock),
   ];
   for (const spec of variants) {
-    const stand = await coreStand(spec), actor = commandedBody(stand.built, stand.world, { servoSeconds: .1 });
+    const stand = await coreStand(spec), actor = stockBody(stand.built, stand.world, { servoSeconds: .1 });
     let skills;
     try {
       skills = kitSkills(actor.driver, stand.world.clock, partLookup, { legs: partLookup.fitting("locomotion", spec), guard: partLookup.fitting("guard", spec), navigation: partLookup.game("navigation")[0],
@@ -352,7 +352,7 @@ test("admission resolves guard, staged channels and timed strike and gait settin
 });
 
 test("default skill assembly roots the one configured memoryful aim", async () => {
-  const stand = await coreStand(stock), body = commandedBody(stand.built, stand.world, { servoSeconds: .1 });
+  const stand = await coreStand(stock), body = stockBody(stand.built, stand.world, { servoSeconds: .1 });
   let made = 0, aim;
   const memory = { calls: 0 };
   const custom = {
@@ -394,7 +394,7 @@ test("Move does not erase a gait's complete runs setting when sharing instances"
 
 test("idle foot placement survives its own weight-shift tracking error and yields to a catch", async () => {
   const stand = await coreStand(stock, {posture:{"hip.left abduction":.35,"hip.right abduction":.35}});
-  const body = commandedBody(stand.built, stand.world, {servoSeconds:.1});
+  const body = stockBody(stand.built, stand.world, {servoSeconds:.1});
   try {
     const legs = locomotion(stanceFeetOf(stock), null, {segments:stanceSegmentsOf(stock), idleFooting:standingFooting(stand.built)});
     const ends = Object.fromEntries(Object.entries(body.view.stance.ends).map(([name,end]) => [name,{...end,touching:true}]));

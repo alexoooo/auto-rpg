@@ -98,7 +98,7 @@ interface MirrorDriven {
 
 /**
  * **`built` driven by a mind that reads it from a mirror elsewhere** (`embodyApart`,
- * `src/minds/seat/minds.ts`): the muscles read the joints as the step is prepared, the mind's numbers
+ * `src/minds/seat/create-mind.ts`): the muscles read the joints as the step is prepared, the mind's numbers
  * are written in `allocate`'s memory, and as the step's controls run, once the mind has `answered`,
  * its command is carried out as `embody` carries out a mind's, the same rings, assist and sheets;
  * `idle` is called as the body leaves `full`. Written once, with the senses as nothing yet read.

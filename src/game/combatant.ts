@@ -3,7 +3,7 @@ import type { MindWiring } from "../minds/catalog/controller.ts";
 import { buildBody } from "../core/bodies/build/build-body.ts";
 import type { AssistCeiling } from "../core/bodies/assist.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
-import { builtAngles, createMind, type Minded } from "../minds/seat/minds.ts";
+import { builtAngles, createMind, type Minded } from "../minds/seat/create-mind.ts";
 import { solidSenses, type SolidSense } from "../core/bodies/object-senses.ts";
 import type { Senses } from "../core/bodies/senses.ts";
 import type { SensesHub } from "../core/world/senses.ts";
