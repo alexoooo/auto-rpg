@@ -73,6 +73,7 @@ const description = (unit: Evidence) => ({ subject: unit.subject.id, opponent: u
 
 /** Remove known participant inputs from a recipe; their versions are compared separately. */
 function physicalContext(unit: Evidence, line: RecordLine): string {
+  if (line.world === null) return recordingKey(null);
   const inputs = new Set([unit.subject.value, unit.opponent?.value].flatMap(value => {
     if (value === null || typeof value !== "object" || Array.isArray(value)) return [];
     const mind = (value as { readonly mind?: Json }).mind;
@@ -106,6 +107,7 @@ function contextOf(baseline: Kept, candidate: Kept, units: readonly Evidence[]):
   if (recordingKey(baseline.header.play) !== recordingKey(candidate.header.play)) reasons.push("physical protocol differs");
   if (recordingKey(baseline.header.pool) !== recordingKey(candidate.header.pool)) reasons.push("protocol or shared environment identity differs");
   if (baseline.header.imported || candidate.header.imported) reasons.push("imported evidence has incomplete provenance");
+  if (units.some(unit => [...unit.sides.values()].some(line => line.world === null))) reasons.push("a physical recipe is not recorded");
   const unknown = (subject: RecordedSubject) => subject.value === null
     || subject.parts.some(part => /^(mind|commander):/.test(part.id)) && !subject.version.code;
   if (units.some(unit => unknown(unit.subject) || unit.opponent !== null && unknown(unit.opponent)))

@@ -6,7 +6,7 @@
 import { recordingIdentity, recordingKey, requireRecordingIdentity, type RecordingIdentity } from "../core/world/recording.ts";
 import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
 import type { Refused } from "../core/refusal.ts";
-import type { Json, Subject } from "./evaluation.ts";
+import type { CaseWorld, Json, Subject } from "./evaluation.ts";
 import type { Row } from "./play.ts";
 import type { Case } from "./run.ts";
 import { sha256Text } from "./sha256.ts";
@@ -79,8 +79,11 @@ export interface RecordHeader {
   readonly imported?: Json;
 }
 
-/** A case as a record keeps it: enough to open it again without its definition. */
-export type RecordLine = Omit<Case, "seconds"> & Omit<Row, "key">;
+/** A retained case, with its replayable world when the recipe is recorded. */
+export type RecordLine = Omit<Case, "seconds" | "world"> & Omit<Row, "key"> & {
+  /** Imported evidence can retain readings without a replayable world. */
+  readonly world: CaseWorld | null;
+};
 
 /**
  * **A record's harness** (`RecordHeader.harness`): Node's core world on `engine`, its native rate,
