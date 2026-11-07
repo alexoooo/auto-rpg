@@ -36,6 +36,8 @@ decision is made or how its value is estimated.
   rather than an automatic rejection of a mean-time and allocation gain. Investigate a repeatable
   tail slowdown; do not claim a GC-pause improvement from fewer allocated bytes alone. The final
   step-time target still holds.
+  An inconclusive workload does not disqualify a confirmed gain in another. Confirm a promising
+  gain with an independent paired repeat before deciding whether its storage cost is worthwhile.
 
 ## The readings
 
@@ -142,6 +144,10 @@ order. Reuse demonstrated caches; make their representation and lifetime earn th
   loops where their iteration contract holds.
 - Share static immutable model asks where their fields are identical. A model may retain its
   readonly input, so a mutable argument cannot be overwritten for the next call.
+- Revisit open-model result caching by exact situation, Option identity, target and requested
+  remaining duration. Check whether the duel's promising gain repeats independently, and check
+  the Crypt for a repeatable slowdown. Treat an inconclusive Crypt reading separately from a
+  demonstrated loss. Preserve readonly inputs and the model's percept-read contract.
 - Keep child predictions distinct by parent situation. Replace serialized child keys only with
   the same field-presence and numeric equivalence, including the existing signed-zero behaviour;
   measure whether lookup savings outweigh new indexing storage.
