@@ -2,6 +2,8 @@
 
 How a skill steered by a learned network (the run, the rise, the punch, the thrust) is trained:
 `research/run-train.py` (PPO) against an environment served by `research/run-learning-server.mjs`.
+A new skill reaches this recipe through [the skill recipe](skill.md), with a graded score and a
+native controller that already succeeds on some cases.
 Follow the steps in order. A step skipped is the usual reason a run teaches nothing.
 
 ## The shape: one skill, one actor

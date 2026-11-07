@@ -45,6 +45,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   plateau, any other work after an hour of tries. A training run whose screened checkpoints
   still improve is progress. After four hours without a kept gain toward the goal, whatever the
   directions tried, stop: put the best reading and what was tried in the plan, and report.
+- **A skill is developed by [the skill recipe](docs/recipes/skill.md)**: a graded score, a
+  feasible bar, a native controller that succeeds on some cases, then training.
 - **Training follows [the training recipe](docs/recipes/training.md)**: one actor a skill, a run
   of millions of decisions, checkpoints chosen on the evaluation's cases, a retrain after any
   change under the actor. Work of a kind that has a recipe in `docs/recipes/` follows it.
