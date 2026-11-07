@@ -10,12 +10,15 @@
  *   anywhere else is a stray.
  * - A crash dump (`*.stackdump`, left by a Git Bash that died) is ignored so that none is
  *   committed, and is garbage wherever it lies.
+ * - A folder of `research/runs/` keeps only what a later run reads (a selected model with its
+ *   normalisation and configuration, rows a comparison reuses), within `RUN_BUDGET`; a run writes
+ *   its output to `.tmp/<task>/` and moves there only what it keeps.
  *
  * `strays()` names every path these rules do not allow: `tests/workspace.test.mjs` fails on them and
  * `npm run clean` lists them.
  */
 import { execFileSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,6 +30,9 @@ export const TMP = ".tmp", WORKTREES = ".tmp/worktrees";
 
 /** The `.gitignore` patterns whose paths are garbage, not kept: `npm run clean` deletes them. */
 export const GARBAGE = Object.freeze(["*.stackdump"]);
+
+/** Where kept research runs go, and what each of its folders may hold. */
+export const RUNS = "research/runs", RUN_BUDGET = Object.freeze({ files: 1000, bytes: 1 << 30 });
 
 /** What only Claude Code's own ignore rules may keep. */
 const AGENT_STATE = ".claude/";
@@ -88,5 +94,30 @@ export function strays(root = ROOT) {
     if (rules(root, holds).some((rule) => rule !== null && unkept(rule) === null)) judge(holds);
     else found.push({ path, why: unkept(null) });
   }
+  found.push(...overgrown(root));
   return found.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+/** Each folder of `research/runs/` holding more than `RUN_BUDGET`, with what it holds. */
+function overgrown(root) {
+  const runs = join(root, RUNS);
+  if (!existsSync(runs)) return [];
+  return readdirSync(runs, { withFileTypes: true }).filter((entry) => entry.isDirectory()).flatMap((entry) => {
+    const sum = tally(join(runs, entry.name));
+    if (sum.files <= RUN_BUDGET.files && sum.bytes <= RUN_BUDGET.bytes) return [];
+    const why = `${sum.files} files, ${(sum.bytes / 2 ** 20).toFixed(0)} MB, over the research run budget `
+      + `(${RUN_BUDGET.files} files, ${RUN_BUDGET.bytes / 2 ** 20} MB): keep only what a later run reads`;
+    return [{ path: `${RUNS}/${entry.name}/`, why }];
+  });
+}
+
+/** The files under `folder` and their bytes, links not followed. */
+function tally(folder, sum = { files: 0, bytes: 0 }) {
+  for (const entry of readdirSync(folder, { withFileTypes: true })) {
+    const path = join(folder, entry.name);
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory()) tally(path, sum);
+    else { sum.files++; sum.bytes += lstatSync(path).size; }
+  }
+  return sum;
 }

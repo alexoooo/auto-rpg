@@ -25,8 +25,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 - **The owner sets goals; how to reach them is the agent's.** A modelling choice (a muscle's
   curve, a joint's range, a solver setting, a bar's test) is decided toward the goal, never put to
-  the owner. Stop only when the goal is met or no change is left to try; ask only a choice whose
-  effect in play the owner can judge.
+  the owner. Stop only when the goal is met, no change is left to try, or the four-hour ceiling
+  below is reached; ask only a choice whose effect in play the owner can judge.
 - **Checks by change**: code, `npm run check` and `npm test`; browser code, assets, dependencies
   or build config, also `npm run build`; a refactor claiming no behaviour change, the fingerprint;
   prose-only documents, `node --test tests/documents.test.mjs` (the links), `git diff --check`
@@ -36,10 +36,20 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   fingerprint. Look in a browser, briefly, when the change is something to see.
 - **A run answers a decision**: name the question and what each answer would change first. Play
   only what the decision reads; screen small (one body, one loadout, calm air) and widen where it
-  is close. Price a run from its first trials. Duration alone does not require approval. After
-  each hour, report progress using retained paired readings; continue a productive direction,
-  and change direction before spending more time when the hour shows no gain. Keep what is
-  played as rows and reuse them.
+  is close. Price a run from its first trials (a training run from its first chunk's rate, never
+  its first returns). Keep what is played as rows and reuse them.
+- **Keep going without asking.** No run, training block or search waits for the owner's
+  approval, however long it takes. A progress report, each hour with paired readings, is a
+  message and never a pause; the owner interrupts when they want something else.
+- **Do not spin.** A direction without a kept gain is changed: a training run at the recipe's
+  plateau, any other work after an hour of tries. A training run whose screened checkpoints
+  still improve is progress. After four hours without a kept gain toward the goal, whatever the
+  directions tried, stop: put the best reading and what was tried in the plan, and report.
+- **A skill is developed by [the skill recipe](docs/recipes/skill.md)**: a graded score, a
+  feasible bar, a native controller that succeeds on some cases, then training.
+- **Training follows [the training recipe](docs/recipes/training.md)**: one actor a skill, a run
+  of millions of decisions, checkpoints chosen on the evaluation's cases, a retrain after any
+  change under the actor. Work of a kind that has a recipe in `docs/recipes/` follows it.
 - **An iteration is one question**: one implementation changed, read paired against the one
   before (`npm run compare`, `--previous`, `npm run match`), kept or dropped with the reason in the
   commit message. A live alternative stays only while an open question uses it.
@@ -57,6 +67,11 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   `npx` leaves `vite` running).
 - **Temporary files** in `.tmp/<task>/`, worktrees in `.tmp/worktrees/<name>/`; deleted when the
   task lands. Something kept outside Git gets its own `.gitignore` line. `tests/workspace.test.mjs`.
+- **A run's output goes to `.tmp/<task>/`**: checkpoints, traces, screens, rejected candidates.
+  `research/runs/<task>/` keeps only what a later run reads (a selected model with its
+  normalisation and configuration, rows a comparison reuses) and a README naming each file. A
+  dropped experiment keeps nothing; its reading goes in the commit message. A folder there over
+  1,000 files or 1 GB fails `tests/workspace.test.mjs`.
 
 ## Writing
 
@@ -70,6 +85,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 | `docs/analysis/` | the study behind a decision still open; deleted once decided |
 | `docs/diagrams/` | pages showing the current design, or a target a plan in flight names |
 | `docs/reference/` | only what code needs and a comment cannot hold |
+| `docs/recipes/` | how a kind of work is done: its steps in order, budgets and traps |
 | `docs/art/`, asset and vendor READMEs | where each asset comes from and how to rebuild it |
 
 - **Every sentence is true of the code now, something a reader acts on, and said once.** Plain
@@ -83,6 +99,9 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   record is not cited, `path@commit` included.
 - **Comments say what the code is**, and why where not obvious. Name the construct, not a line
   number. A comment about a code path is a hypothesis until the path has run.
+- **What worked is kept**: before a plan is deleted, the steps, settings and budgets that met
+  its goal go into the recipe for that kind of work. A recipe step that misled a run is
+  corrected in the same change.
 - **A wrong document is corrected or deleted**, not annotated; a change updates the documents it
   makes wrong. Status lives in the roadmap; code never cites a plan or an analysis.
 - Links and anchors resolve; `src/` comments carry no dates, hashes, plan citations or "the owner":

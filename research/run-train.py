@@ -12,6 +12,12 @@ on another layout is refused. The latest policy is policy.json, and every `--kee
 stays as policy-<decisions>.json with its model-<decisions>.zip and normalize-<decisions>.pkl for resuming:
 the training return does not choose a policy (a run's return can go
 on rising as its battery falls), its battery does.
+
+`--resume` alone continues the output's model.zip and normalize.pkl, and starts fresh where there is
+none. `--resume <dir>/model-<n>.zip` continues that checkpoint, with its normalize-<n>.pkl and its
+folder's layout.json, into another output: its own folder's later checkpoints would be overwritten,
+so that resume is refused. Decisions count on from the checkpoint's, and `--steps` more are trained.
+A checkpoint resume starts SAC's replay buffer empty.
 The configuration's `seed` seeds the learner as well as the Node environments.
 
 `--start` begins from a trained network (an exported `Network`, or a record whose one entry holds
@@ -36,7 +42,7 @@ with CUDA's torch: `python -m venv .tools/ai-lab-cuda-venv`, then its pip instal
 `torch==2.9.1 --index-url https://download.pytorch.org/whl/cu126` and
 `stable_baselines3==2.7.1 gymnasium==1.2.3 numpy==2.2.6`.
 
-  .tools/ai-lab-venv/Scripts/python.exe research/run-train.py --config <configuration.json> --output <dir> [--algo ppo|sac] [--steps N] [--keep N] [--resume] [--keywords stood,seconds] [--start <network.json> --start-layout <layout.json>]
+  .tools/ai-lab-venv/Scripts/python.exe research/run-train.py --config <configuration.json> --output <dir> [--algo ppo|sac] [--steps N] [--keep N] [--resume [<model-n.zip>]] [--keywords stood,seconds] [--start <network.json> --start-layout <layout.json>]
 """
 import argparse
 import json
@@ -59,7 +65,7 @@ parser.add_argument('--steps', type=int, default=20_000_000, help='decisions to 
 parser.add_argument('--keep', type=int, default=1_000_000, help='decisions between the policies kept')
 parser.add_argument('--hidden', type=int, default=256)
 parser.add_argument('--rollout', type=int, default=256, help="PPO: decisions each environment gathers per update; both: a chunk is 8 of these")
-parser.add_argument('--resume', action='store_true')
+parser.add_argument('--resume', nargs='?', const='', default=None, help="continue the output's model.zip, or a checkpoint (model-<n>.zip) into another output")
 parser.add_argument('--threads', type=int, default=4)
 parser.add_argument('--log-std', type=float, default=-1.0, help='the spread a policy starts with, before the tanh')
 parser.add_argument('--lr', type=float, help='learning rate; new runs default to 0.0003, resumes retain the saved rate unless supplied')
@@ -88,6 +94,14 @@ if options.gae_lambda is not None and options.algo != 'ppo':
 gamma = 0.99 if options.gamma is None else options.gamma
 gae_lambda = 0.95 if options.gae_lambda is None else options.gae_lambda
 output = Path(options.output); output.mkdir(parents=True, exist_ok=True)
+resumed = None
+if options.resume == '':
+    if (output / 'model.zip').exists(): resumed = output / 'model.zip'
+elif options.resume is not None:
+    resumed = Path(options.resume)
+    if not resumed.exists(): parser.error(f'--resume {resumed} does not exist')
+    if resumed.parent.resolve() == output.resolve():
+        parser.error("--resume of a checkpoint writes to another --output, or its folder's later checkpoints are overwritten")
 torch.set_num_threads(options.threads)
 configuration = json.loads(Path(options.config).read_text(encoding='utf-8'))
 squashed = options.algo == 'sac'
@@ -288,10 +302,11 @@ server_envs = RunEnvs(options.config)
 try:
     layout = server_envs.layout
     layout_file = output / 'layout.json'
-    if options.resume and (output / 'model.zip').exists():
-        if not layout_file.exists() or json.loads(layout_file.read_text(encoding='utf-8')) != layout:
-            raise SystemExit(f'{output} trained on another layout than the environment names; it does not resume')
-    else: layout_file.write_text(json.dumps(layout), encoding='utf-8')
+    if resumed is not None:
+        resumed_layout = resumed.parent / 'layout.json'
+        if not resumed_layout.exists() or json.loads(resumed_layout.read_text(encoding='utf-8')) != layout:
+            raise SystemExit(f'{resumed} trained on another layout than the environment names; it does not resume')
+    layout_file.write_text(json.dumps(layout), encoding='utf-8')
     monitored = VecMonitor(server_envs, info_keywords=keywords)
     envs = VecNormalize(monitored, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=gamma)
     saved = output / 'model.zip'
@@ -300,15 +315,15 @@ try:
     started = time.monotonic()
     critic_until = 0
     layers = None
-    if options.resume and saved.exists():
-        envs = VecNormalize.load(str(output / 'normalize.pkl'), monitored)
-        model = Algorithm.load(str(saved), env=envs, device=options.device,
+    if resumed is not None:
+        envs = VecNormalize.load(str(resumed.with_name(resumed.stem.replace('model', 'normalize', 1) + '.pkl')), monitored)
+        model = Algorithm.load(str(resumed), env=envs, device=options.device,
                                **({'learning_rate': options.lr} if options.lr is not None else {}))
         if options.gamma is not None and options.gamma != model.gamma:
             raise SystemExit('--gamma differs from the resumed model')
         if options.gae_lambda is not None and options.gae_lambda != model.gae_lambda:
             raise SystemExit('--gae-lambda differs from the resumed model')
-        if squashed and (output / 'replay.pkl').exists(): model.load_replay_buffer(str(output / 'replay.pkl'))
+        if squashed and resumed == saved and (output / 'replay.pkl').exists(): model.load_replay_buffer(str(output / 'replay.pkl'))
     else:
         if squashed:
             model = SAC('MlpPolicy', envs, device=options.device, buffer_size=options.buffer, batch_size=options.batch or 512, learning_rate=options.lr if options.lr is not None else 3e-4, gamma=gamma, tau=0.005,

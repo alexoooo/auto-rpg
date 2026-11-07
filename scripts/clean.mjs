@@ -71,7 +71,7 @@ if (!dry) execFileSync("git", ["worktree", "prune"], { cwd: ROOT });
 
 const left = strays();
 if (left.length) {
-  console.log(`\n${left.length} strays left; move each into ${TMP}/, keep it in .gitignore, or delete it:`);
+  console.log(`\n${left.length} strays left; move each into ${TMP}/, keep it in .gitignore, delete it, or prune a research run to its budget:`);
   for (const { path, why } of left) console.log(`  ${path} (${why})`);
   process.exitCode = 1;
 } else console.log("no strays");

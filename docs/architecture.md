@@ -435,6 +435,13 @@ The profile model supplies these components:
   less than its leaf. It goes deep where few options are on offer. Option Mind decides by the
   tree unless its config names another. `research/lying.mjs` reads a mind's time down in the
   match's bouts and the cost of its steps.
+- **The search's storage** keeps its arithmetic and call order. A search gives each Option and
+  target a slot (`space`, `Pair`); each situation owns one row of model results (`undefined`
+  unasked, `null` a refusal) and its own offers (`pairsAt`). Predicted situations share read-only
+  overlays of sight, report and prediction (`placing`). A tree decision reads pressure through an
+  exact cache of range and velocity starts (`cachedPressure`). A profile query reuses the
+  distances its nearest search computed, in frames by call depth. Once a search's runs finish, its
+  root edges are copied into result records (`pricedLines`), releasing the tree.
 - **Where to walk**: an Option names its sites (`Option.sites`, `Site`), the spots it would begin
   from if not where the body stands: a strike whose readiness gives a window to be brought to
   (`Readiness`'s `position`) names a spot in it on each side of a body lying (`windowSpot`, `Side`),
@@ -516,6 +523,13 @@ reads the members' pooled view (`TeamView`) and the level as its host answers it
 keeps its memory in `state`, and gives each member orders (`TeamDecision`). A person's `Command`
 (`commands.ts`) reaches it at once. Its host asks it once a step, after the senses and before every
 mind.
+
+The level answers the exit once the team has seen its cell (`TeamLevel.exit`) and a route's
+length for a body's radius, doors opened (`TeamLevel.route`). A sensed foe carries its share of
+life (`SensedBody.life`); a member carries its Mind's prospects (`MemberView.prospects`,
+`Prospect`: the share of a foe's life it expects to deal and to take a second, at reach), which
+Option Mind writes each time its chooser decides afresh. `crypt-clear`'s `alone` protocol scores a
+run by the life left at the exit less a price on time (`scoreOf`).
 
 `COMMANDERS` registers the kinds (`createCommander`); `party` leads a person's side, in the Arena
 through `teamOfOne`. `tests/core-boundary.test.mjs` keeps `src/minds/command/` from the engine,
