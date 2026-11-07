@@ -146,6 +146,13 @@ interface WalkRunMemory {
   unmet: { fields: readonly LegsField[]; centre: number; height: number };
 }
 
+/** The gait's complete motion state, including the cycle's current phase and requested pace. */
+export interface WalkRunState {
+  readonly legs: object;
+  readonly walkRun: WalkRunMemory;
+  readonly run: ReturnType<typeof runCycle>["state"];
+}
+
 /** The fields of a legs goal the run does not carry out: it holds no carriage, gait by name or stance of the stance's. */
 const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "centre", "pose", "swing", "halt"]);
 
@@ -173,7 +180,7 @@ const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "cen
  */
 export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE,
   { may = true, braking = givenRun, stride, entry = "landing", trim, steer }: { readonly may?: boolean; readonly braking?: RunCycleSettings; readonly stride?: GaitTuning;
-    readonly entry?: "landing" | "first-lift"; readonly trim?: RunTrim; readonly steer?: RunSteering } = {}): Locomotion {
+    readonly entry?: "landing" | "first-lift"; readonly trim?: RunTrim; readonly steer?: RunSteering } = {}): Locomotion & { readonly state: WalkRunState } {
   if (entry !== "landing" && entry !== "first-lift") throw new Error("run entry is landing or first-lift");
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
   if (!validRunCycle(givenRun)) throw new Error("a run cycle needs every setting finite, its times and the cycle's positive and its shares of strength within (0, 1]");

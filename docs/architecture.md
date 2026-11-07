@@ -239,6 +239,10 @@ arbiter releases every action when another mind takes the body.
   (`assets/skills/locomotion/cycle-run/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis,
   its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`) where it has one, else the defaults
   scaled to its leg (`scaledGait`); each is a gait part (role `gait`).
+  A walk/run record can supply learned velocity, braking and reference actors
+  (`src/skills/locomotion/learned-run.ts`). They read mirrored gait observations at their recorded
+  decision cadence, refresh on a changed pace order and smooth reference offsets on physical
+  channels. Their observations, actions, offsets and cadence live in the gait's saved state.
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
   shares gait instances only for identical complete configurations. Walk/run permission views
   share motion through their concrete implementation when their physical settings agree.
