@@ -141,9 +141,7 @@ order. Reuse demonstrated caches; make their representation and lifetime earn th
   outcome slots. Replace synchronous backup, edge-building and lookup callbacks with indexed
   loops where their iteration contract holds.
 - Share static immutable model asks where their fields are identical. A model may retain its
-  readonly input, so a mutable argument cannot be overwritten for the next call. Read repeated
-  open-model queries by the exact situation, Option, target and horizon duration before choosing
-  any cache; price its own storage and preserve the model's input and percept-read contract.
+  readonly input, so a mutable argument cannot be overwritten for the next call.
 - Keep child predictions distinct by parent situation. Replace serialized child keys only with
   the same field-presence and numeric equivalence, including the existing signed-zero behaviour;
   measure whether lookup savings outweigh new indexing storage.
