@@ -4,10 +4,10 @@ import { chainTo, pointAtToRef, specChainTo, type Frame } from "../../../control
 import { lowsOf } from "../../../control/ground.ts";
 import type { JointKinematics, ReadBody, ReadJoint, ReadSegment } from "../../../core/bodies/read-body.ts";
 import { pawsOf, segmentOf, type BodySpec, type SegmentSpec } from "../../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 
 /** **A tooth**: its contact region's name and its tip, the point of its hull furthest along the way it pierces, body frame, reference pose. */
-export interface Tooth { readonly name: string; readonly tip: Vec3 }
+interface Tooth { readonly name: string; readonly tip: Vec3 }
 
 /** The teeth of `jaw`: each of its contact regions that pierces (`mechanism` "point") with a hull, and its tip (`Tooth`). */
 function teethOf(jaw: SegmentSpec): readonly Tooth[] {
@@ -26,7 +26,7 @@ function teethOf(jaw: SegmentSpec): readonly Tooth[] {
  * `mouth` point, the head's mouth and the jaw's teeth (`Tooth`), and how its first tooth pierces
  * (`piercing`: the way, in the jaw's frame, and the least alignment with a surface's inward normal).
  */
-export interface Jaw {
+interface Jaw {
   readonly jaw: SegmentSpec;
   readonly hinge: JointKinematics;
   readonly head: SegmentSpec;

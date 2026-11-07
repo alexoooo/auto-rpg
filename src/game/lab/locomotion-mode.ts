@@ -1,7 +1,7 @@
 import { isRefused, type Refused } from "../../core/refusal.ts";
-import type { HostedBody } from "../../minds/hosted-body.ts";
-import { carried, paceRound, turnAt, type StanceEnvelope } from "../../control/stance-envelope.ts";
-import { NO_COVER, type Intent } from "../../skills/intent/intent.ts";
+import type { HostedBody } from "../../minds/seat/hosted-body.ts";
+import { carried, paceRound, turnAt, type StanceEnvelope } from "../../control/stance/stance-envelope.ts";
+import { NO_COVER, type Intent } from "../../skills/framework/intent.ts";
 import { wrap } from "../../core/math/turn.ts";
 import type { Script } from "../../minds/decider.ts";
 import type { Actor } from "./actor.ts";
@@ -28,7 +28,7 @@ import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
  * with it: forward, on a course walked facing along it, and the fastest of its ways on one walked
  * facing one way, `fastestOf`), or the pace the lab asks (`LocomotionOptions.top`), which may be
  * past it: a locomotion skill takes a walk asked past what the body holds that way at the most it
- * holds (`paceToward`). Either
+ * holds (`heldPace`). Either
  * way it is no faster than the body's turn carries it round each bend (`turnAt` and `paceRound`;
  * past the envelope's fastest walk, at the turn it held there), and a corner is taken at
  * `CORNER_PACE`.
@@ -151,7 +151,7 @@ function paceRoundTo(envelope: StanceEnvelope | null, radius: number, top: numbe
 /**
  * The fastest walk `envelope` holds, m/s: forward, for a walker facing the way it goes (`facing`
  * none), and the fastest of its ways for one facing one way, whose locomotion skill takes each way at
- * the most it holds (`paceToward`). With no envelope, none.
+ * the most it holds (`heldPace`). With no envelope, none.
  */
 function fastestOf(envelope: StanceEnvelope | null, facing: number | undefined): number {
   if (!envelope) return 0;

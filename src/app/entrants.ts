@@ -1,4 +1,4 @@
-import type { Entrant } from "../minds/entrant.ts";
+import type { Entrant } from "../minds/catalog/entrant.ts";
 import { OPTION } from "../entrants/option/index.ts";
 import { WALKER } from "../entrants/walker/index.ts";
 import { BARE } from "../entrants/bare/index.ts";

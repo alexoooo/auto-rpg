@@ -7,7 +7,7 @@ import { cos, hypot, sin } from "../../core/math/real.ts";
 const FOG = Object.freeze({ unexplored: 0, remembered: 128, visible: 255 });
 
 /**
- * How the fog shader reads the mask, which `fogSample` repeats on the CPU for the tests. A fragment reads from a
+ * How the fog shader reads the mask. A fragment reads from a
  * point pulled `pull` metres back along its normal, into the solid it belongs to: a wall face, on a cell's edge,
  * 0.3 m into its wall cell; a door's broad face, 0.175 m off its cell's centre, to within 0.025 of it; a floor or
  * a top where it lies. Whether it is drawn at all is the mask of the cell that point is in, unfiltered, so no
@@ -61,22 +61,6 @@ export function fogMask(map: DungeonMap, visible: ReadonlySet<number>, explored:
  * (`buildDungeonWorld`). */
 export function doorCells(door: DungeonMap["doors"][number]): Point[] {
   return [-1, 0, 1].map(i => door.axis === "x" ? { x: door.point.x, z: door.point.z + i } : { x: door.point.x + i, z: door.point.z });
-}
-
-/** The fog shader's decision for a fragment at world `x`, `z` facing `nx`, `nz` (`FOG_SAMPLE`): whether it is
- * drawn, and how lit it is, 0 the remembered tint and 1 full light. */
-export function fogSample(map: DungeonMap, mask: Uint8Array, x: number, z: number, nx = 0, nz = 0): { drawn: boolean; lit: number; edge: number } {
-  const at = { x: x - FOG_SAMPLE.pull * nx, z: z - FOG_SAMPLE.pull * nz };
-  const clampCell = (v: number) => Math.min(map.size - 1, Math.max(0, v));
-  const byte = (cx: number, cz: number) => mask[clampCell(cz) * map.size + clampCell(cx)] / 255;
-  const drawn = byte(Math.floor(at.x + 0.5), Math.floor(at.z + 0.5)) >= FOG_SAMPLE.drawnFrom;
-  const x0 = Math.floor(at.x), z0 = Math.floor(at.z), fx = at.x - x0, fz = at.z - z0;
-  const m = (byte(x0, z0) * (1 - fx) + byte(x0 + 1, z0) * fx) * (1 - fz) + (byte(x0, z0 + 1) * (1 - fx) + byte(x0 + 1, z0 + 1) * fx) * fz;
-  const t = Math.min(1, Math.max(0, (m - 0.5) / 0.5));
-  const known=(cx:number,cz:number)=>byte(cx,cz)>=FOG_SAMPLE.drawnFrom?1:0;
-  const coverage=(known(x0,z0)*(1-fx)+known(x0+1,z0)*fx)*(1-fz)+(known(x0,z0+1)*(1-fx)+known(x0+1,z0+1)*fx)*fz;
-  const edgeT=Math.min(1,Math.max(0,(coverage-.5)/.4));
-  return { drawn, lit: t * t * (3 - 2 * t), edge:edgeT*edgeT*(3-2*edgeT) };
 }
 
 /** How tall a wall stands, m, its collider and its drawn skin alike. */

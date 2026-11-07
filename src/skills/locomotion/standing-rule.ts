@@ -1,6 +1,6 @@
-import { CONDITIONS } from "../intent/conditions.ts";
-import { deepFreeze } from "../../core/world/state.ts";
-import type { GaitName } from "./gaits.ts";
+import type { GaitName } from "../framework/skill.ts";
+import { CONDITIONS } from "./conditions.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { standingRule } from "./move.ts";
 import { moveRulePart, withGait } from "./move-rule-part.ts";
 

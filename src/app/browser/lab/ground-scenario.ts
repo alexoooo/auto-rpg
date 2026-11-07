@@ -1,3 +1,4 @@
+import { describeMind } from "../../../minds/catalog/catalog.ts";
 import { isRefused, type Refused } from "../../../core/refusal.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
@@ -8,13 +9,12 @@ import { GROUND_RISES, type GroundRise, type LabAddress } from "../../../game/la
 import { labAddress } from "../setup.ts";
 import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "../../../game/lab/ground-mode.ts";
 import { groundPlacement, groundPostures } from "../../../game/lab/ground-starts.ts";
-import { TECHNIQUES } from "../../recovery-techniques.ts";
-import { isWayUp, type TechniqueName, type TechniquePart } from "../../../skills/recovery/technique.ts";
+import { TECHNIQUES } from "../../registration/techniques.ts";
+import { isWayUp, type TechniqueConfig, type TechniqueName, type TechniquePart } from "../../../skills/recovery/technique.ts";
+import { deepFreeze } from "../../../core/state.ts";
 import { partLookup } from "../../catalog.ts";
-import { STAND_UP } from "../../recovery-selections.ts";
-import { describeMind } from "../../../minds/description.ts";
 import { GAME } from "../../catalog.ts";
-import type { MindConfig } from "../../../minds/config.ts";
+import type { MindConfig } from "../../../minds/catalog/config.ts";
 import type { PartConfig } from "../../../parts/parts.ts";
 import { recordHistory } from "./history.ts";
 import { createPlayer } from "../../../game/lab/player.ts";
@@ -31,6 +31,11 @@ import { sceneModel } from "../render/asset-cache.ts";
 import { loadArtAssets } from "../render/art-assets.ts";
 import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
+
+/** The Lab's stock stand-up route, in the order offered to the mind. */
+const STAND_UP: readonly TechniqueConfig[] = deepFreeze([
+  { kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" },
+]);
 
 /** What each way of getting up is called in the menu. */
 const RISES: Readonly<Record<GroundRise, string>> = { mind: "As its mind says", "stand-up": "Stand up, as the game" };

@@ -1,7 +1,7 @@
 import type { FixedCollider, PhysicsWorld } from "../../core/physics/engine.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import type { SolidSense } from "../../core/bodies/object-senses.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { levelDefinition, type ArenaLevel } from "./levels.ts";
 
 /**
@@ -32,7 +32,7 @@ export const ROOM = Object.freeze({
 export const ARENA_POSTS = Object.freeze({ count: 8, ring: 12.3, height: 1.7, diameter: 1.1, sides: 8 });
 
 /** One section of the circular parapet: its index round the ring, its centre, world, m, and its turn about up, rad. */
-export interface ArenaWall {
+interface ArenaWall {
   readonly index: number;
   readonly collider: string;
   readonly centre: Vec3;

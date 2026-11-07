@@ -1,5 +1,5 @@
-import type { Vec3 } from "./spec/quantity.ts";
-import { deepFreeze } from "../world/state.ts";
+import type { Vec3 } from "../quantity.ts";
+import { deepFreeze } from "../state.ts";
 
 /** Fixed physical geometry, detached from collider handles and decorative meshes. */
 export type SolidSense =

@@ -1,7 +1,7 @@
 import type { BodyControl } from "../core/bodies/body-control.ts";
 import { Quaternion, Vector3 } from "../core/math/vector.ts";
 import type { OwnBody } from "../core/bodies/own-body.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import { frameOf } from "../core/bodies/spec/body.ts";
 import type { ReadBody } from "../core/bodies/read-body.ts";
 import type { EffectorGoal } from "./effector-tracker.ts";
@@ -45,7 +45,7 @@ export interface SupportGoal {
 }
 
 /** Response settings are controller inputs, separate from anatomical strength. */
-export interface Response { readonly centre: number; readonly endpoint: number; readonly turn: number; readonly posture: number; readonly lever: number; readonly damping: number; readonly rootMotion: number; readonly supportNormal: number; readonly contactMargin: number }
+interface Response { readonly centre: number; readonly endpoint: number; readonly turn: number; readonly posture: number; readonly lever: number; readonly damping: number; readonly rootMotion: number; readonly supportNormal: number; readonly contactMargin: number }
 
 /**
  * **An end as it bears**: its point and its motion, world; where the ground bears it (the

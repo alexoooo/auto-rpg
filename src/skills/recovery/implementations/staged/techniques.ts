@@ -1,10 +1,10 @@
+import type { MindKit } from "../../../framework/mind-kit.ts";
 import { SUPPORT_REFERENCE } from "../../../../control/support-reference.ts";
 import { MOTOR_STANCE } from "../../../../control/motor-part.ts";
 import type { BodyView } from "../../../../control/body.ts";
 import type { Clock } from "../../../../core/world/clock.ts";
 import { carrying } from "../../../../control/motor.ts";
 import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
-import type { MindKit } from "../../../kit.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { stagedRise } from "./staged.ts";
 import { SIT_BACK, derivedRecipe, stageFaults, type Recipe } from "./stages.ts";

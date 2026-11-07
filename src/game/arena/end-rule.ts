@@ -5,10 +5,10 @@
  * recipe's over its defaults; the clock's rule, the lives at the cap, is the bout's own
  * (`Verdict.ending` `time`).
  */
-import type { PhysicalBody } from "../../minds/physical-body.ts";
+import type { PhysicalBody } from "../../minds/seat/physical-body.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import type { Pool } from "../../combat/pool.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { END_RULES } from "./ends.ts";
 import type { DuelRecipe } from "./duel.ts";
 
@@ -16,7 +16,7 @@ import type { DuelRecipe } from "./duel.ts";
 export interface EndRuleConfig { readonly kind: string }
 
 /** A side as an end rule reads it: its pool, its life (`Duel.life`), its body, and how long it has been down without a break, s (0 where the bout keeps no such count). */
-export interface EndContestant {
+interface EndContestant {
   readonly pool: Pool;
   readonly life: number;
   readonly body: PhysicalBody;

@@ -1,14 +1,14 @@
 import { Vector3 } from "../../core/math/vector.ts";
 import type { EngineName } from "../../core/physics/engines.ts";
 import type { PlayerLead } from "../../game/player-input.ts";
-import type { GroundPoint } from "../../skills/intent/movement.ts";
+import type { GroundPoint } from "../../skills/framework/movement.ts";
 import type { Command, StrikeChoice } from "../../minds/command/commands.ts";
 import type { MenuEntry } from "../../skills/framework/menu.ts";
 import { physicalReading } from "../../control/observation.ts";
 import { constructionScope } from "../../core/construction.ts";
 import { attachment } from "../../core/bodies/read-body.ts";
 
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { GameContext } from "../../game/arena/context.ts";
 import { SIDES, type Duel, type DuelRecipe, type OrdersEntry, type Verdict } from "../../game/arena/duel.ts";
 import { arenaPlayback } from "../../game/arena/playback.ts";

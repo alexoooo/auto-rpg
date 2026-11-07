@@ -1,5 +1,5 @@
 /**
- * A gait's envelope (`src/control/stance-envelope.ts`): on each core body as a fight plays it
+ * A gait's envelope (`src/control/stance/stance-envelope.ts`): on each core body as a fight plays it
  * with each thing its right hand holds (`HOLDS`: in the guard, under its character's balance), at
  * the game's rate, the fastest speed it walks each way (forward, right, back, left) at which every
  * trial held, and walking forward at each speed up to that, the fastest rate its heading turns half

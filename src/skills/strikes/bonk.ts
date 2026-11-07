@@ -1,18 +1,18 @@
 import { Vector3, Quaternion } from "../../core/math/vector.ts";
 import { acos } from "../../core/math/real.ts";
 import { isRefused } from "../../core/refusal.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { rootSegment } from "../../core/bodies/read-body.ts";
 import { pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { type Pose } from "../../core/bodies/spec/pose.ts";
-import { type Vec3 } from "../../core/bodies/spec/quantity.ts";
+import { type Vec3 } from "../../core/quantity.ts";
 import { type Body, type BodyView } from "../../control/body.ts";
 import { supportHeight } from "../../control/support-reference.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";
-import { sensedActionTarget } from "../intent/action-aim.ts";
+import { sensedActionTarget } from "../framework/action-aim.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, segmentResource, type ActionEnding, type ActionRequest, type Executor, type LifecycleUpdate, type TargetResolver } from "../framework/action.ts";
-import { handConfiguration } from "./held-strike.ts";
+import { handConfiguration } from "../reach/hand.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { BONK_LIMITS, bonkModel, validBonkTechnique, type BonkCourse, type BonkFrame, type BonkPath, type BonkPose, type BonkReturn, type BonkTechnique, type BonkTurn } from "./bonk-course.ts";
 

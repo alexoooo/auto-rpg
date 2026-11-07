@@ -13,7 +13,7 @@ import type { AttributeOverrides } from "../core/bodies/character-attributes.ts"
 import type { CommanderConfig } from "../minds/command/kind.ts";
 import type { Command } from "../minds/command/commands.ts";
 import { loadEngine, type EngineName } from "../core/physics/engines.ts";
-import type { MindConfig } from "../minds/config.ts";
+import type { MindConfig } from "../minds/catalog/config.ts";
 import type { BodyModel } from "../core/bodies/models.ts";
 import type { World } from "../core/world/world.ts";
 import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../game/dungeon/map.ts";

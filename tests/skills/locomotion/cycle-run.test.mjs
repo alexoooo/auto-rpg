@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { coreStand } from "../../harness/core-stand.mjs";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
-import { commandedBody } from "../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../src/app/stock-body.ts";
 import { Vector3 } from "../../../src/core/math/vector.ts";
 import { guardPosture } from "../../../src/skills/guard/guard.ts";
 import { runCycle } from "../../../src/skills/locomotion/cycle-run.ts";
@@ -15,7 +15,7 @@ test("run cadence scales clip feedforward with the reference phase", async () =>
   const stand = await coreStand(spec, { gravity: false, ground: false, posture: guardPosture(spec), engine: "rapier-coordinate" });
   let host;
   try {
-    host = commandedBody(stand.built, stand.world, { servoSeconds: .1, measuring: true });
+    host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true });
     stand.step();
     const body = host.driver, channel = body.muscles.channel("knee.right flexion"), angle = body.muscles.angle(channel), dt = 1 / stand.world.hz;
     const stance = { ...body.view.stance, velocity: new Vector3(0, 0, 4),

@@ -1,6 +1,6 @@
 import meta from "../../../../../assets/skills/strikes/straight-punch/straight-punch.meta.json" with { type: "json" };
 import type { Network } from "../../../../core/math/learning/recovery-network.ts";
-import { deepFreeze } from "../../../../core/world/state.ts";
+import { deepFreeze } from "../../../../core/state.ts";
 import type { SkillRecord } from "../../../framework/records.ts";
 import type { StraightPunch } from "../../straight-punch.ts";
 
@@ -17,7 +17,7 @@ export interface PunchRecord extends SkillRecord<StraightPunch> {
 }
 
 /** Every body's straight punch record, by `bodyKey`. */
-export type PunchRecords = Readonly<Record<string, PunchRecord>>;
+type PunchRecords = Readonly<Record<string, PunchRecord>>;
 
 declare module "../../../../core/data/store.ts" {
   interface DataOf {

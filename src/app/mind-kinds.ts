@@ -1,4 +1,4 @@
-import type { Controller } from "../minds/controller.ts";
+import type { Controller } from "../minds/catalog/controller.ts";
 import { OPTION_MIND } from "./option-controller.ts";
 
 /**

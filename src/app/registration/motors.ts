@@ -1,4 +1,4 @@
-import { WHOLE_BODY_MOTOR } from "../stance-balance.ts";
+import { WHOLE_BODY_MOTOR } from "./stock-motor.ts";
 
 /**
  * **Every kind of motor control, by its kind** (`MotorPart`), in the order a picker offers them:

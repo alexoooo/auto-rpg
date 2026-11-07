@@ -1,4 +1,4 @@
-import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, type Quantity, type Vec3 } from "../../quantity.ts";
 import { normalize, sub } from "../spec/vec.ts";
 import { workshopEnvelope, type Extents } from "./envelope.ts";
 import type { HumanFigure, LimbFigure } from "./figure.ts";

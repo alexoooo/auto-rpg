@@ -1,8 +1,8 @@
-import type { EstimateUnit } from "../intent/estimate.ts";
+import type { EstimateUnit } from "./estimate.ts";
 import type { BodyView } from "../../control/body.ts";
 import type { Ended, TargetRef } from "./action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Aimed } from "../intent/action-aim.ts";
+import type { Aimed } from "./action-aim.ts";
 import type { Part, PartConfig } from "../../parts/parts.ts";
 
 /**

@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { coreStand } from "../../../../harness/core-stand.mjs";
 import { modelSpec } from "../../../../../src/core/bodies/models.ts";
-import { commandedBody } from "../../../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../../../src/app/stock-body.ts";
 import { riseLimbs } from "../../../../../src/skills/recovery/implementations/staged/limbs.ts";
 import { takesOf } from "../../../../../src/skills/recovery/implementations/staged/bearing-policy.ts";
 import { servoAsk } from "../../../../../src/control/servo.ts";
@@ -15,7 +15,7 @@ test("bearing posture accelerations use the joint turning map, including damping
     "hip.left flexion": 1, "hip.left abduction": .4, "hip.left internal rotation": .4,
   } });
   let own;
-  const host = commandedBody(stand.built, stand.world, {}, [(body) => {
+  const host = stockBody(stand.built, stand.world, {}, [(body) => {
     own = body;
     return { name: "bearing coordinates", has: () => "bearing coordinates", dispose() {}, mind: {
       state: {}, wants: () => false, begin() {}, end() {}, think() {}, act() {}, interrupt() {},

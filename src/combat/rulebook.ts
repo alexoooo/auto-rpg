@@ -1,7 +1,7 @@
 import type { AssistCeiling } from "../core/bodies/assist.ts";
 import { CONTACT_STIFFNESS } from "../core/bodies/human/tables/contact-stiffness.ts";
-import { derive, si, sourced, type Quantity } from "../core/bodies/spec/quantity.ts";
-import { deepFreeze } from "../core/world/state.ts";
+import { derive, si, sourced, type Quantity } from "../core/quantity.ts";
+import { deepFreeze } from "../core/state.ts";
 
 /**
  * **The fight rules, in one immutable object per mode**: what wounds, what severs, what kills and
@@ -23,11 +23,11 @@ type Mode = "arena" | "dungeon";
 export type Mechanism = "blunt" | "edge" | "axe" | "point";
 
 /** The mechanisms priced by the joule (`Rulebook.worth`): all but the point. */
-export type Priced = Exclude<Mechanism, "point">;
+type Priced = Exclude<Mechanism, "point">;
 const PRICED: readonly Priced[] = Object.freeze(["blunt", "edge", "axe"]);
 
 /** The groups a body's segments are in (`WoundSpec`): vital, a limb, or the trunk. */
-export type PartGroup = "vital" | "trunk" | "limb";
+type PartGroup = "vital" | "trunk" | "limb";
 
 export interface Rulebook {
   readonly mode: Mode;
@@ -43,8 +43,7 @@ export interface Rulebook {
   readonly through: Quantity<number>;
   /**
    * **The damage unit**: the energy of a blunt blow worth one hit point, joules. It is a round
-   * number (`owner-damage-unit`); the Warrior's strongest one-handed blow with the
-   * wooden club is a measurement beside it (`CLUB_BEST`), worth 1.38.
+   * number (`owner-damage-unit`).
    */
   readonly unit: Quantity<number>;
   /**
@@ -90,7 +89,7 @@ export interface Rulebook {
 }
 
 /** A layer over the parts: its name and the energy that breaches it, J, for each mechanism it stops. */
-export interface Layer {
+interface Layer {
   readonly name: string;
   readonly breach: Readonly<Partial<Record<Mechanism, Quantity<number>>>>;
 }
@@ -106,9 +105,6 @@ const MECHANISM_PRICE: Readonly<Record<Priced, Quantity<number>>> = Object.freez
   edge: sourced(197.96, "J", "owner-weapon-ratios", "an edge 197.96 (cutJoulesPerDamage)"),
   axe: sourced(147.45, "J", "owner-weapon-ratios", "an axe's edge 147.45 (chopJoulesPerDamage)"),
 });
-
-/** The Warrior's strongest one-handed blow with the wooden club, J: a blow to price things against. */
-export const CLUB_BEST = sourced(138.23, "J", "core-club-unit", "the best blow at 1920 Hz, mean of 8 throws: 138.23 J");
 
 /** A knuckle's load with an even chance of injury, N. */
 const KNUCKLE_INJURY = sourced(3.0, "kN", "carpanen-2019", "abstract, the metacarpophalangeal joints' axial force at 50 % risk");

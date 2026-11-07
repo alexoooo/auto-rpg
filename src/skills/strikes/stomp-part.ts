@@ -7,7 +7,7 @@ import { dataOf } from "../../core/data/store.ts";
 import { fitsAll } from "../../parts/parts.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../framework/records.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { stompExecutor, STOMP_PATH, validStompTuning, type StompTuning } from "./stomp.ts";
 
 declare module "../../core/data/store.ts" {
@@ -31,7 +31,7 @@ const validStompPart = (tuning: Partial<StompTuning>): boolean =>
   !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => key in STOMP_PATH && Number.isFinite(value) && value! >= 0);
 
 /** The bilateral stance geometry and observed strike points used by this stomp. */
-export function stompRefusal(spec: BodySpec): string | null {
+function stompRefusal(spec: BodySpec): string | null {
   const soles = soleRefusal(spec);
   if (soles) return soles;
   for (const side of SIDES) {

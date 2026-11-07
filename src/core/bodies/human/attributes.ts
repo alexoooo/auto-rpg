@@ -1,5 +1,5 @@
 import type { AttributeSpec, BodySpec } from "../spec/body.ts";
-import { sourced, type Quantity } from "../spec/quantity.ts";
+import { sourced, type Quantity } from "../../quantity.ts";
 import type { HumanFigure } from "./figure.ts";
 import type { WorkshopModel } from "./rig.ts";
 import { attributeError } from "../character-attributes.ts";

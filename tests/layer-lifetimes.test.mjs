@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { replyBox } from "../src/app/apart/box.ts";
+import { modelSpec } from "../src/core/bodies/models.ts";
 import { mindThreads } from "../src/app/apart/host.ts";
 import { runLanes } from "../src/evaluation/lanes.ts";
 import { standingFoot, forearmChain, scaling, standingHuman } from "../src/app/browser/physics-bench/cases.ts";
@@ -141,16 +142,16 @@ test("mind threads resend values changed inside a stable gait object", async () 
   const gait = { envelope: null, get stopping() { return stopping; }, lag: 0 };
   globalThis.__lifetimeSeatHost = { handle() {}, says: () => ({ has: "fixture", report: { gait, kit: null } }) };
   const hook = registerHooks({ resolve(specifier, context, next) {
-    if (context.parentURL?.endsWith("/src/app/apart/thread.ts?lifetime-regression") && specifier === "../../minds/apart.ts") {
+    if (context.parentURL?.endsWith("/src/app/apart/thread.ts?lifetime-regression") && specifier === "../../minds/seat/apart.ts") {
       return { shortCircuit: true, url: "data:text/javascript," + encodeURIComponent(
-        "export const seatHost=()=>globalThis.__lifetimeSeatHost,deriveSpec=()=>{};") };
+        "export const seatHost=()=>globalThis.__lifetimeSeatHost;") };
     }
     return next(specifier, context);
   } });
   try {
     const { mindThread } = await import("../src/app/apart/thread.ts?lifetime-regression");
     const sent = [], thread = mindThread(length => new Float64Array(length), { say(reply) { sent.push(reply); }, answered() {} });
-    const made = thread.handle({ seq: 1, specs: [[0, {}]], asks: [{ seat: 0, ask: { kind: "make", recipe: { statics: { spec: 0 } } }, inbound: new Float64Array(), outbound: new Float64Array() }] });
+    const made = thread.handle({ seq: 1, specs: [[0, modelSpec("workshop-fighter")]], asks: [{ seat: 0, ask: { kind: "make", recipe: { statics: { spec: 0 } } }, inbound: new Float64Array(), outbound: new Float64Array() }] });
     assert.deepEqual(made.said[0].gait, { envelope: null, stopping: 1, lag: 0 });
     stopping = 9;
     thread.handle({ seq: 2, asks: [{ seat: 0, ask: { kind: "step" } }] });

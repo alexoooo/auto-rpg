@@ -3,7 +3,7 @@ import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { CreateCylinderVertexData } from "@babylonjs/core/Meshes/Builders/cylinderBuilder.js";
 import { CreateSphereVertexData } from "@babylonjs/core/Meshes/Builders/sphereBuilder.js";
 import type { DrawnSegment } from "./drawn-body.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 
 export type Finish = "frame" | "plate" | "edge" | "light" | "glass";
 interface FinishSpec { readonly colour: string; readonly metallic: number; readonly roughness: number; readonly emission?: number; readonly unlit?: boolean }

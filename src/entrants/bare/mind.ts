@@ -1,7 +1,7 @@
 /** A bare mind reads its body and senses into its network, and carries saved pulls in its fast phase. */
 import { networkFaults, recoveryNetwork, type Network } from "../../core/math/index.ts";
 import type { BodySpec } from "../../core/bodies/index.ts";
-import { deepFreeze } from "../../core/world/index.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { controller, NO_POSTURE, type Controller, type MindPreset } from "../../minds/index.ts";
 import type { MindWiring } from "../../minds/index.ts";
 import type { MindConstruction } from "../../minds/index.ts";

@@ -3,9 +3,9 @@ import { constructionScope } from "../../construction.ts";
 import type { ColliderShape, EngineJoint, PhysicsWorld, Pose, SegmentBody } from "../../physics/engine.ts";
 import type { ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 import { jointKinematics } from "./joint-kinematics.ts";
-import type { World } from "../../world/world.ts";
+import type { StepHost } from "../step-host.ts";
 import { frameOf, type BodySpec, type ConfigurationName, type JointSpec, type SegmentFrame, type SegmentSpec } from "../spec/body.ts";
-import type { Vec3 } from "../spec/quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import { dot } from "../spec/vec.ts";
 import { hasProducts, principalOf, type Rigid } from "./rigid.ts";
 import { segmentShapes } from "./segment-shapes.ts";
@@ -86,7 +86,7 @@ const v3 = (v: Vec3): Vector3 => new Vector3(v[0], v[1], v[2]);
 const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
   [dot(direction, frame.x), dot(direction, frame.y), dot(direction, frame.z)];
 
-function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World, start?: InitialPose): BuiltSegment {
+function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: StepHost, start?: InitialPose): BuiltSegment {
   const { frame, rigid, initial, poses, bent, rigidAt } = segmentShapes(body, spec);
   const pose: Pose = { name: `${body.model}.${spec.name}`, position: v3(frame.origin).addInPlace(v3(placement.position)),
     rotation: Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z)) };
@@ -125,7 +125,7 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
 /** The rotation taking a frame's own x, y and z onto `x`, `y` and `z`, given in that frame. */
 const frameRotation = (x: Vec3, y: Vec3, z: Vec3): Quaternion => Quaternion.RotationQuaternionFromAxis(v3(x), v3(y), v3(z));
 
-function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, world: World, strength: Float64Array): BuiltJoint {
+function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, world: StepHost, strength: Float64Array): BuiltJoint {
   const { dofs, axes } = jointKinematics(spec), { x, y, z } = axes;
   const centre = spec.centre.value;
   const inFrame = (frame: SegmentFrame) => frameRotation(localDirection(frame, x), localDirection(frame, y), localDirection(frame, z));
@@ -189,7 +189,7 @@ function initialPoses(spec: BodySpec, placement: Placement): ReadonlyMap<string,
 }
 
 /** Build `spec` at its declared initial pose, with coincident joint anchors before physics starts. */
-export function buildBody(spec: BodySpec, world: World, placement: Placement): BuiltBody {
+export function buildBody(spec: BodySpec, world: StepHost, placement: Placement): BuiltBody {
   const poses = initialPoses(spec, placement);
   const lifetime = constructionScope();
   try {

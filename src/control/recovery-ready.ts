@@ -1,6 +1,6 @@
 import { Vector3 } from "../core/math/vector.ts";
 import type { BodyObservation } from "./observation.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import { withinSupport } from "./support.ts";
 
 /** Physical handover gate, independent of a recovery policy's stage names or requested poses. */

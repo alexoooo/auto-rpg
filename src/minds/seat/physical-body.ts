@@ -1,0 +1,48 @@
+import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
+import type { Assist } from "../../core/bodies/assist.ts";
+import type { Senses } from "../../core/bodies/senses.ts";
+import type { BodyLevel, MuscleDriver } from "../../core/bodies/muscle/driver.ts";
+import { observeBody, physicalReading, type BodyObservation } from "../../control/observation.ts";
+import type { World } from "../../core/world/world.ts";
+
+/** The trusted body-side readings, independent of the mind's construction view. */
+export interface HeldReading {
+  readonly muscles: MuscleDriver;
+  readonly assist: Assist;
+  readonly senses: () => Senses;
+}
+
+/** Game-facing lifecycle shared by every controller. Physics handles stay on the trusted side. */
+export interface PhysicalBody {
+  readonly built: BuiltBody;
+  readonly muscles: MuscleDriver;
+  readonly assist: Assist;
+  readonly physical: ReturnType<ReturnType<typeof physicalReading>>;
+  /**
+   * Whether the body is down, by the fight's one rule for every body: its spec's (`DownSpec`) read
+   * from the body alone at the step's first look (`physicalReading`), whatever its mind asks of it.
+   */
+  readonly down: boolean;
+  readonly has: string;
+  readonly level: BodyLevel;
+  readonly state: object;
+  observe(): BodyObservation;
+  setLevel(level: BodyLevel): void;
+  /** Releases control; the builder owns physical-body disposal. */
+  dispose(): void;
+}
+
+/** Adapt an embodied mind, observed on its own senses, without constructing any stance, skill or motion controller. */
+export function physicalBody(built: BuiltBody, own: HeldReading, world: World, has: () => string, state: object, dispose: () => void): PhysicalBody {
+  const read = physicalReading(built), physical = read();
+  const hook = world.beforeStep(() => { if (own.muscles.level === "full") read(); });
+  return {
+    built, muscles: own.muscles, assist: own.assist, state: { ...state, physical }, physical,
+    get down() { return physical.down; },
+    get has() { return own.muscles.level === "full" ? has() : "nobody"; },
+    get level() { return own.muscles.level; },
+    setLevel: (level) => own.muscles.setLevel(level),
+    observe: observeBody(built, own.muscles, world, own.senses, { level: () => own.muscles.level }),
+    dispose() { hook.dispose(); dispose(); },
+  };
+}

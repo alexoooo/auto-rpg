@@ -6,17 +6,20 @@ import { isRefused } from "../src/core/refusal.ts";
  * and at the end, with the blows and how the fight ended. A row is a playing; a case whose playings
  * differ prints the first second they part at, and the script exits 1.
  *
- *   node research/minds-apart.mjs [--cases crowd,sword,hands,crypt-10,crypt-25,bare | --entrants] [--threads 1,2,3,4] [--seconds 60] [--fork 1]
+ *   node research/minds-apart.mjs [--cases crowd,sword,hands,crypt-10,crypt-25,bare] [--entrants] [--threads 1,2,3,4] [--seconds 60] [--fork 1]
  *
- * With `--fork`, each in-process duel is saved at that many seconds and loaded into a fresh bout
- * of the same recipe. Its physics hashes each second, blows and ending must match the original.
- * Crowd and Crypt saves are unsupported, as are saves with worker-hosted minds.
- * `--entrants` selects one compatible recipe for every registered entrant, bare hands first, including
- * hidden presets, in place of `--cases`; the same panel is in the fingerprint.
+ * With `--fork`, each duel is saved, its minds on their bodies, at that many seconds and loaded
+ * into a fresh bout of the same recipe. Its physics hashes each second, blows and ending must match
+ * the original. The crowd and the Crypt do not save, and minds on worker threads keep their memory
+ * there, so those are played unforked, and the run names them.
+ * `--entrants` adds one compatible recipe for every registered entrant, bare hands first, including
+ * hidden presets, to `--cases`; the same panel is in the fingerprint. The whole panel is one call:
+ *
+ *   node research/minds-apart.mjs --entrants --threads 1,2 --fork 10
  *
  * The cases: the crowd fight (`crowdFight`, seed 0) to its verdict; the reference bouts, Option
  * Mind Warriors at seed 0, sword against club and bare hands, to their verdict or `--seconds`; the
- * Crypt at seeds 10 and 25, the hero exploring alone, `--seconds` of it or to its end. The bouts
+ * Crypt at seeds 10 and 25, the hero alone under the level-clearer, `--seconds` of it or to its end. The bouts
  * run on `BOUT_ENGINE`, the Crypt on `rapier`.
  */
 import { createHash } from "node:crypto";
@@ -57,8 +60,7 @@ const CASES = {
     return { world, ended: () => fight.verdict !== null, blows: () => fight.blows.length, end: () => fight.verdict, save: () => fight.save(), load: (saved) => fight.load(saved), dispose };
   }])),
   ...Object.fromEntries([10, 25].map((seed) => [`crypt-${seed}`, async (minds) => {
-    const run = admitted(createDungeonRun({ seed, engine: await freshEngine("rapier"), ...minds }));
-    run.commands.setMode({ keyboard: false, facing: true });
+    const run = admitted(createDungeonRun({ seed, engine: await freshEngine("rapier"), party: { kind: "clearer" }, ...minds }));
     let steps = 0;
     return {
       world: run.world, step: () => { run.step(); steps += 1; }, ended: () => run.status !== "playing" || steps >= seconds * run.world.hz,
@@ -68,14 +70,14 @@ const CASES = {
 };
 
 /** One playing of `name`, its minds on their bodies (`threads` 0) or apart on that many threads: a hash of the world each second, and its last. */
-async function played(name, threads, from = null) {
+async function played(name, threads, from = null, forks = false) {
   const place = threads > 0 ? mindWorkers(threads) : null;
   const fight = await CASES[name](place ? { minds: place } : {});
   const step = fight.step ?? (() => fight.world.step()), hz = fight.world.hz, seconds = [];
   const hashed = () => createHash("sha256").update(fight.world.physics.save()).update(`${fight.blows()}`).digest("hex").slice(0, 16);
   const began = performance.now();
   let steps = from?.steps ?? 0, saved = null;
-  const forkAt = forkSeconds === null ? null : Math.round(forkSeconds * hz);
+  const forkAt = forkSeconds === null || !forks ? null : Math.round(forkSeconds * hz);
   try {
     if (from) fight.load(from.state);
     const first = hashed();
@@ -90,10 +92,14 @@ async function played(name, threads, from = null) {
 }
 
 let parted = false;
-for (const name of values.entrants ? entrants.map((entry) => entry.name) : values.cases.split(",")) {
-  if (!CASES[name]) throw new Error(`no case ${name}: ${Object.keys(CASES).join(", ")}`);
-  if (forkSeconds !== null && !forkable.has(name)) throw new Error(`--fork supports ${[...forkable].join(", ")}, not ${name}`);
-  const here = await played(name, 0);
+const names = [...values.cases.split(",").filter(Boolean), ...values.entrants ? entrants.map((entry) => entry.name) : []];
+for (const name of names) if (!CASES[name]) throw new Error(`no case ${name}: ${Object.keys(CASES).join(", ")}`);
+if (forkSeconds !== null) {
+  const unforked = names.filter((name) => !forkable.has(name));
+  if (unforked.length) console.log(`played unforked, as they do not save: ${unforked.join(", ")}`);
+}
+for (const name of names) {
+  const here = await played(name, 0, null, forkable.has(name));
   console.log(`${name}, on one thread: ${here.steps} steps, ${here.blows} blows, ended ${here.end}, ${(here.ms / 1000).toFixed(1)} s, last ${here.last}`);
   if (here.saved) {
     const fork = await played(name, 0, here.saved), suffix = here.seconds.slice(Math.floor(here.saved.steps / here.saved.hz));

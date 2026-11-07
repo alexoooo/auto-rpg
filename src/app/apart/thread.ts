@@ -1,9 +1,11 @@
 import { recordingKey } from "../../core/world/recording.ts";
-import { deriveSpec, seatHost, type ReportNow, type SeatAsk } from "../../minds/apart.ts";
-import type { MirrorChannel } from "../../minds/mirror.ts";
+import { seatHost, type ReportNow, type SeatAsk } from "../../minds/seat/apart.ts";
+import type { MirrorChannel } from "../../minds/seat/mirror.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { MIND_CATALOGS } from "./catalogs.ts";
 import type { AskCrossing, Batch, Reply, Said, SpecNumber, ToldCrossing } from "./wire.ts";
+import { deriveSensed } from "../../skills/perception/openings.ts";
+import { specDigest } from "../../skills/framework/profile.ts";
 
 /**
  * **A minds' thread, whatever carries its batches** (`mindThreads`, `src/app/apart/host.ts`): a host of
@@ -94,4 +96,15 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
       }
     },
   };
+}
+
+/**
+ * **Derive what a mind derives of a body's spec alone**, where a spec arrives in a thread: its
+ * shapes as sensing reads them (`deriveSensed`) and its digest, which names the profiles measured on
+ * it (`specDigest`). Each is cached by the spec's own objects, so no step of a mind that first
+ * senses a body of it pays for it.
+ */
+export function deriveSpec(spec: BodySpec): void {
+  deriveSensed(spec);
+  specDigest(spec);
 }

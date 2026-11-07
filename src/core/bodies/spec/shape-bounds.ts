@@ -1,5 +1,5 @@
 import { frameOf, type SegmentSpec, type ShapeSpec } from "./body.ts";
-import type { Vec3 } from "./quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import { add, dot, scale, sub } from "./vec.ts";
 
 /** Collision bounds in the body's reference frame, or the segment's own frame. */

@@ -1,11 +1,12 @@
+import type { GaitName } from "../framework/skill.ts";
 import type { PartConfig } from "../../parts/parts.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 
 /**
  * **A gait**: what a body gets about by, as Move walks by it (`MoveConfig.gaits`): its name, which
  * a legs goal and Move's rules name it by (`LegsGoal.gait`), its label, and its legs (a gait part's
  * config, `GaitPart`), measured on each body by its envelope
- * (`src/control/stance-envelope.ts`) and its profile (the Gait drill). Two gaits whose legs
+ * (`src/control/stance/stance-envelope.ts`) and its profile (the Gait drill). Two gaits whose legs
  * differ only in whether they may run share one walk, so Move changes between them at once.
  */
 export interface Gait {
@@ -14,8 +15,6 @@ export interface Gait {
   readonly legs: PartConfig;
 }
 
-/** A gait's name (`Gait.name`). */
-export type GaitName = string;
 
 /**
  * **The stock gaits**, by name: the game's controller and its searched settings, none of them a
@@ -27,10 +26,7 @@ const DEFAULT_GAITS = {
   "braced": { label: "Braced", legs: { kind: "walk-run", runs: false } },
   "run": { label: "Run", legs: { kind: "walk-run" } },
 };
-export const GAITS = deepFreeze(DEFAULT_GAITS satisfies Readonly<Record<string, { readonly label: string; readonly legs: PartConfig }>>);
-
-/** Every stock gait's name, in `GAITS`' order. */
-export const GAIT_NAMES: readonly GaitName[] = Object.freeze(Object.keys(GAITS));
+const GAITS = deepFreeze(DEFAULT_GAITS satisfies Readonly<Record<string, { readonly label: string; readonly legs: PartConfig }>>);
 
 /** **The stock gaits** (`GAITS`) as gaits: what Move walks by where its config names none. */
 export const STOCK_GAITS: readonly Gait[] = deepFreeze(Object.entries(GAITS).map(([name, gait]) => ({ name, label: gait.label, legs: gait.legs })));

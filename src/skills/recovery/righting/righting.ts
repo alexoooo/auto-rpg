@@ -1,3 +1,4 @@
+import type { MindKit } from "../../framework/mind-kit.ts";
 import { MOTOR_SUPPORT } from "../../../control/motor-part.ts";
 import { bilateralBindings } from "../bilateral.ts";
 import type { BodyControl } from "../../../core/bodies/body-control.ts";
@@ -14,7 +15,6 @@ import type { EffectorGoal } from "../../../control/motor.ts";
 import type { SupportGoal } from "../../../control/supported-motor.ts";
 import { dataOf } from "../../../core/data/store.ts";
 import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
-import type { MindKit } from "../../kit.ts";
 import type { OwnBody } from "../../../core/bodies/own-body.ts";
 import { channelName } from "../../../core/bodies/muscle/driver.ts";
 import { fitsAll, fitsWhen, type KeysOf } from "../../../parts/parts.ts";
@@ -22,10 +22,10 @@ import { turnOfToRef } from "../../../core/bodies/read-motion.ts";
 import type { TechniqueEnd, TechniquePart, TechniqueRun } from "../technique.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import { pawsOf, segmentOf, type BodySpec, type DofSpec } from "../../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../../core/world/state.ts";
+import { deepFreeze } from "../../../core/state.ts";
 import { fitsPaws } from "../../../control/quadruped/fit.ts";
 import { pawEndpoints, pawReader } from "../../../control/quadruped/paws.ts";
-import { REPTILE_MOTOR } from "../../../control/quadruped/tuning.ts";
+import { PAW_SUPPORT } from "../../../control/quadruped/tuning.ts";
 import { REPTILE_RECOVERY as T } from "./tuning.ts";
 import { type Side, SIDES } from "../../../core/bodies/bilateral.ts";
 
@@ -244,10 +244,10 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
       motor.read();
       let ground = 0, contacts = 0;
       for (const part of parts) for (const contact of own.built.physics.contactsOf(part.body))
-        if (groundContact(contact, REPTILE_MOTOR.supportNormal)) { ground += contact.point[1]; contacts++; }
+        if (groundContact(contact, PAW_SUPPORT.supportNormal)) { ground += contact.point[1]; contacts++; }
       if (contacts) state.ground = ground / contacts;
       supports.forEach((chain, i) => { state.loaded[i] = chain.some((part) => own.built.physics.contactsOf(part.body)
-        .some((contact) => groundContact(contact, REPTILE_MOTOR.supportNormal))); });
+        .some((contact) => groundContact(contact, PAW_SUPPORT.supportNormal))); });
       readTurn();
       if (state.phase === "roll" && (g.position === "front" || g.position === "crouch")) { state.phase = "place"; state.time = 0; state.elapsed = 0; }
       else if (state.phase === "place" && ROLLED.includes(g.position)) { state.phase = "roll"; state.paw = 0; state.placed.fill(false); nextRoute("start"); }
@@ -294,13 +294,13 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindK
           return undefined;
         }
         return state.phase === "roll" ? 0 : own.muscles.angle(i);
-      }, state.phase === "roll" ? REPTILE_MOTOR.posture : T.recoveryServo, dt,
-      { seconds: (i) => channels[i]!.leg === moving ? T.placementServo : state.phase === "roll" ? REPTILE_MOTOR.posture : T.recoveryServo, rate: () => 0, acceleration: () => 0 });
+      }, state.phase === "roll" ? PAW_SUPPORT.posture : T.recoveryServo, dt,
+      { seconds: (i) => channels[i]!.leg === moving ? T.placementServo : state.phase === "roll" ? PAW_SUPPORT.posture : T.recoveryServo, rate: () => 0, acceleration: () => 0 });
       if (moving >= 0) {
         const s = sign[moving]!, near = (joint: number, axis: number, target: number) =>
           Math.abs(own.muscles.angle(own.muscles.channel(channelName(legs[moving]![joint]!, axis))) - target) < T.placementError;
         if (state.route === "sweep" && state.time >= T.foldWait && near(HIP, 0, -s * state.direction[moving]! * T.sweepYaw)) nextRoute("fold");
-        else if (state.route === "fold" && state.time >= T.foldWait && !feet[moving]!.contact && feet[moving]!.low - state.ground > REPTILE_MOTOR.contactMargin) nextRoute("unwind");
+        else if (state.route === "fold" && state.time >= T.foldWait && !feet[moving]!.contact && feet[moving]!.low - state.ground > PAW_SUPPORT.contactMargin) nextRoute("unwind");
         else if (state.route === "unwind" && near(HIP, 2, -s * T.foldHip)) nextRoute("unfold");
         else if (state.route === "unfold" && near(KNEE, 0, s * T.plantedKnee) && near(HIP, 1, 0)) nextRoute("press");
         if (state.route === "press" && state.time >= T.pressWait && feet[moving]!.contact) {

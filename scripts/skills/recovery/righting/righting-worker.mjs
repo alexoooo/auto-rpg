@@ -8,12 +8,12 @@ import { rulebook } from "../../../../src/combat/rulebook.ts";
 import "../../../../tests/harness/preload-data.mjs";
 import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import { coreStand } from "../../../../tests/harness/core-stand.mjs";
-import { createMind } from "../../../../src/minds/minds.ts";
+import { createMind } from "../../../../src/minds/seat/create-mind.ts";
 import { GAME, defaultMind } from "../../../../src/app/catalog.ts";
 import { reptileSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
-import { STAND_ORDERS } from "../../../../src/skills/intent/orders.ts";
+import { STAND_ORDERS } from "../../../../src/minds/orders.ts";
 import { buildBout } from "../../../../src/app/node/evaluation.ts";
-import { loadState } from "../../../../src/core/world/state.ts";
+import { loadState } from "../../../../src/core/state.ts";
 import { deserialize } from "node:v8";
 import { readFileSync } from "node:fs";
 

@@ -1,6 +1,6 @@
 import { Vector3 } from "../../../../core/math/vector.ts";
 import type { ShapeSpec } from "../../../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../../core/quantity.ts";
 import type { ReadBody, ReadSegment } from "../../../../core/bodies/read-body.ts";
 
 /** Conservative anatomical projections: a hand or forearm must clear every trunk footprint. */

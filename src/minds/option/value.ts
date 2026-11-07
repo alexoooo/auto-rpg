@@ -1,3 +1,4 @@
+import type { Spot } from "../../skills/framework/menu.ts";
 import { impactEnergy } from "../../combat/impact.ts";
 import { lifeFactor } from "../../combat/pool.ts";
 import { sideDamage, type Rulebook } from "../../combat/rulebook.ts";
@@ -5,13 +6,12 @@ import { energyShares } from "../../combat/share.ts";
 import { landed } from "../../skills/framework/action-instances.ts";
 import type { Ended } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { distance } from "../../core/bodies/spec/vec.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { effectorAim } from "../../control/effectors.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { Situation } from "./option.ts";
-import type { Spot } from "../../skills/intent/action-window.ts";
 import type { Position } from "../../control/ground-reading.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
 import type { Deciding } from "../choice.ts";
@@ -49,7 +49,7 @@ export const AS_IS: Leaves = Object.freeze({});
 export const UNMOVED: readonly Outcome[] = Object.freeze([Object.freeze({ leaves: AS_IS, chance: 1 })]);
 
 /** Where a fall leaves the body where nothing measured where it comes to rest: on its back. */
-export const FALLEN: Position = "back";
+const FALLEN: Position = "back";
 
 /** No motion over the ground. */
 export const STILL: Ground = Object.freeze({ x: 0, z: 0 });

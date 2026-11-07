@@ -25,7 +25,7 @@ interface GaitAim {
   readonly bank: number;
 }
 
-/** The pelvis's turn as the last step found it, for its spin, and whether there was one: a gait's memory holds it (`src/core/world/state.ts`). */
+/** The pelvis's turn as the last step found it, for its spin, and whether there was one: a gait's memory holds it (`src/core/state.ts`). */
 export interface GaitAssistMemory {
   root: Quaternion;
   read: boolean;

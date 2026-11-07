@@ -4,16 +4,16 @@ import {Vector3} from '../../../../src/core/math/vector.ts';
 import {coreStand} from '../../../../tests/harness/core-stand.mjs';
 import {modelSpec} from "../../../../src/core/bodies/models.ts";
 import {SERVO_SECONDS} from "../../../../src/control/body.ts";
-import {commandedBody} from "../../../../src/app/commanded-body.ts";
+import {stockBody} from "../../../../src/app/stock-body.ts";
 import {contactMass} from "../../../../src/core/bodies/build/contact-mass.ts";
 import {motionAtToRef,pointOfToRef} from "../../../../src/core/bodies/read-motion.ts";
 import {rigidPoints} from "../../../../src/core/bodies/build/rigid.ts";
 import {standingSkills} from "../../../../src/app/standing-skills.ts";
-import {standIntent} from "../../../../src/skills/intent/intent.ts";
+import {standIntent} from "../../../../src/skills/framework/intent.ts";
 import {DEFAULT_ENGINE} from "../../../../src/core/physics/engines.ts";
 async function pulse(mode,hand,impulse,hz){
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,gravity:mode==='grounded',ground:mode==='grounded'});
- const body=commandedBody(s.built,s.world,{servoSeconds:SERVO_SECONDS}),skills=standingSkills(body);
+ const body=stockBody(s.built,s.world,{servoSeconds:SERVO_SECONDS}),skills=standingSkills(body);
  body.drive((view,dt)=>mode==='grounded'?{...skills.command(view,standIntent(),dt),configurations:{'hand.left':'fist','hand.right':'fist'}}:
   {posture:{},pushes:[],stance:null,configurations:{'hand.left':'fist','hand.right':'fist'}});
  try{s.step(mode==='grounded'?2*hz:2);if(mode==='free')body.setLevel('limp');

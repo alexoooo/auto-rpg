@@ -1,6 +1,6 @@
-import type { SourceKey } from "../../sources.ts";
-import { STANDARD_GRAVITY } from "../../spec/constants.ts";
-import { derive, sourced, type Quantity } from "../../spec/quantity.ts";
+import type { SourceKey } from "../../../sources.ts";
+import { STANDARD_GRAVITY } from "../../../constants.ts";
+import { derive, sourced, type Quantity } from "../../../quantity.ts";
 import type { Sex } from "./de-leva-1996.ts";
 
 /**

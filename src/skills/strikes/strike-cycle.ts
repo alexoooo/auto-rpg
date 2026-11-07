@@ -1,5 +1,5 @@
 import { hypot } from "../../core/math/real.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 
 export interface StrikeCycleState {
   phase: "chamber" | "swing" | "return" | null;

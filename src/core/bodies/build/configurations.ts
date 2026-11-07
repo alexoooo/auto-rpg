@@ -1,8 +1,8 @@
 import type { BuiltSegment } from "./build-body.ts";
 import type { BodySpec, ConfigurationName, SegmentSpec } from "../spec/body.ts";
-import { deepFreeze } from "../../world/state.ts";
+import { deepFreeze } from "../../state.ts";
 import type { ColliderShape } from "../../physics/engine.ts";
-import type { World } from "../../world/world.ts";
+import type { StepHost } from "../step-host.ts";
 
 /** A segment's requested collision configuration. */
 export interface ConfigurationRequest { readonly segment: string; readonly configuration: ConfigurationName }
@@ -30,7 +30,7 @@ export function configurationFaults(segment: SegmentSpec): string[] {
 }
 
 /** The segment's configuration names in their transport order, fixed by its immutable spec. */
-export function configurationNames(segment: SegmentSpec): readonly ConfigurationName[] {
+function configurationNames(segment: SegmentSpec): readonly ConfigurationName[] {
   let names = NAMES.get(segment);
   if (!names) NAMES.set(segment, names = Object.freeze(Object.keys(segment.configurations?.shapes ?? {})));
   return names;
@@ -70,12 +70,12 @@ export function checkConfiguration(model: Configurations["model"], segment: stri
 }
 
 /** Contact load or an overlapping target collider prevents a configuration change this step. */
-function configurationBlocked(world: World, part: BuiltSegment, collider: ColliderShape): boolean {
+function configurationBlocked(world: StepHost, part: BuiltSegment, collider: ColliderShape): boolean {
   return world.physics.contactsOf(part.body).some(contact => contact.impulse > 0) || !part.body.canChangeShape(0, collider);
 }
 
 /** Apply each declared segment configuration while retaining collider identity and mass properties. */
-export function createConfigurations(spec: BodySpec, segments: ReadonlyMap<string, BuiltSegment>, world: World): Configurations {
+export function createConfigurations(spec: BodySpec, segments: ReadonlyMap<string, BuiltSegment>, world: StepHost): Configurations {
   const parts = [...segments.values()].filter(part => part.configuration && part.poses).map(part => {
     return { part, poses: part.poses!, holding: part.spec.configurations?.holding, held: !!spec.held?.some(item => item.segment === part.spec.name) };
   });

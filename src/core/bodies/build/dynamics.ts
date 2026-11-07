@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "../../math/vector.ts";
-import type { Vec3 } from "../spec/quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import { motionAxesToRef } from "./joint-state.ts";
 import { hasProducts } from "./rigid.ts";
 import { type ReadBody, type ReadSegment, rootSegment } from "../read-body.ts";

@@ -49,6 +49,6 @@ export interface SkillKit {
   readonly guard: PartConfig;
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
-  /** Its low support (`SupportPart`), or none. */
+  /** Its low support (`LowSupportPart`), or none. */
   readonly support: PartConfig | null;
 }

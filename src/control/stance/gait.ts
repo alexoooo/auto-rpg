@@ -4,10 +4,10 @@
  * body's capture point; and which of them a stance takes, and when (`ownStep`), at the pace its
  * walk has reached (`paceToward`).
  */
+import type { SwingGoal } from "./goal.ts";
 import type { Vector3 } from "../../core/math/vector.ts";
-import type { SwingGoal } from "../stance.ts";
 import { gravityOf, type Stance } from "./state.ts";
-import type { GaitTuning, RecoveryTuning } from "../stance-tuning.ts";
+import type { GaitTuning, RecoveryTuning } from "./stance-tuning.ts";
 import { DOWN, bearingOf, clearAcross, clearAlong, heldBy, landingHeading, legLength, pivotWithin, soleHeight, withinSupport, type FootState } from "../support.ts";
 import { swingSeconds, swingWaySeconds, withinReach, reachableSole, landingLean } from "../swing-leg.ts";
 import { sin, cos, cosh, exp, hypot, sinh } from "../../core/math/real.ts";

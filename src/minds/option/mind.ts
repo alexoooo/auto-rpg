@@ -1,22 +1,21 @@
+import type { BodyHost } from "../mind.ts";
 import { motorRequirementRefusal } from "../../control/motor-part.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { ComponentDescription } from "../description.ts";
+import type { ComponentDescription } from "../catalog/description.ts";
 import type { Body } from "../../control/body.ts";
-import { aimsState, configuredAims } from "../../skills/action-config.ts";
+import { aimsState, configuredAims } from "../../skills/assembly/action-config.ts";
 import type { SkillKit } from "../../skills/config.ts";
-import { controller } from "../controller.ts";
+import { controller, type MindWiring } from "../catalog/controller.ts";
 import { everyOf } from "../decider.ts";
-import { kitBody, kitSkills } from "../../skills/assembly.ts";
+import { kitBody, kitSkills } from "../../skills/assembly/assembly.ts";
 import { groundSkills } from "../../skills/recovery/skills.ts";
-import type { BodyHost } from "../host.ts";
-import { FILLED, filledOf, filledRefusal, kitOf, motorOf, type Filled } from "../../skills/kit.ts";
+import { FILLED, filledOf, filledRefusal, mindKitOf, motorOf, type Filled } from "../../skills/assembly/kit.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-import type { MindWiring } from "../minds.ts";
 import { slotList, slotOne, slotsOf, partRequirements, type Part, type PartConfig, type Slot, type Role } from "../../parts/parts.ts";
 import { driveBy } from "../decider.ts";
 import { commandedMind } from "../sub-mind.ts";
 import type { Skills } from "../../skills/framework/skills.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { skillsOf } from "./skills.ts";
 import { optionDecider, type DeciderMaking } from "./decider.ts";
@@ -83,7 +82,7 @@ function createOptionMind(host: BodyHost, config: Configured, wiring: MindWiring
   const legs = filledOf(parts, spec, "legs", given), kit: SkillKit = { legs, navigation: named.navigation ?? config.navigation, guard: filledOf(parts, spec, "guard", given),
     executors: named.executors, actions: named.actions, support: named.support };
   const { body } = host.take((own) => commandedMind(own, { ...kitBody(filledOf(parts, spec, "motor", given), parts), ...wiring.experiment }, host.clock));
-  const ground = groundSkills(body, host.clock, kitOf(parts, spec, given), named.techniques);
+  const ground = groundSkills(body, host.clock, mindKitOf(parts, spec, given), named.techniques);
   let skills: Skills | undefined;
   const aims = configuredAims(parts, spec, kit.actions);
   const make = (made: Body) => kitSkills(made, host.clock, parts, kit, () => skills?.report.ledger ?? [], ground, aims);
@@ -138,8 +137,8 @@ export function optionMind(assembly: OptionAssembly) {
     describe: (spec, config, parts) => {
       const resolved = configured(config), named = skillsOf(parts, spec, resolved.options);
       const components: ComponentDescription[] = [];
-      const sourceOf = (target: PartConfig, wanted: Role): import("../description.ts").ConfigPath | null => {
-        const visit = (value: PartConfig, role: Role, path: readonly (string | number)[]): import("../description.ts").ConfigPath | null => {
+      const sourceOf = (target: PartConfig, wanted: Role): import("../catalog/description.ts").ConfigPath | null => {
+        const visit = (value: PartConfig, role: Role, path: readonly (string | number)[]): import("../catalog/description.ts").ConfigPath | null => {
           if (role === wanted && recordingKey(value) === recordingKey(target)) return path;
           for (const slot of slotsOf(parts.of(role, value), value)) {
             const raw = (value as unknown as Record<string, unknown>)[slot.key];
@@ -159,7 +158,7 @@ export function optionMind(assembly: OptionAssembly) {
         };
         return visit(config, "mind", []);
       };
-      const component = (owner: string, role: Role, selected: PartConfig, fallback: import("../description.ts").ConfigPath | null = null): void => {
+      const component = (owner: string, role: Role, selected: PartConfig, fallback: import("../catalog/description.ts").ConfigPath | null = null): void => {
         if (!components.some(component => component.owner === owner)) components.push({ owner, role, config: selected, path: sourceOf(selected, role) ?? fallback });
       };
       const actions = resolved.options.flatMap((option, i) => {

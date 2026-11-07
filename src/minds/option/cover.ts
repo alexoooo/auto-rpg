@@ -1,12 +1,12 @@
 import { hasResource, segmentResource } from "../../skills/framework/action.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { coveringHand } from "../../skills/intent/cover-hand.ts";
+import { coveringHand } from "./cover-hand.ts";
 import type { Resource } from "../../skills/framework/action.ts";
 import { blocked, READY, type Situation, type Option } from "./option.ts";
 import { NOTHING } from "../choice.ts";
 import { holding } from "./rest.ts";
-import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
+import { type Side, pairedSegment, sidesWith } from "../../core/bodies/bilateral.ts";
 
 /** The longest cover holds a hand up against one run of blows, s. */
 const LONGEST = 1;
@@ -41,8 +41,8 @@ export function covers(spec: BodySpec): readonly Option[] {
     return state.hand = coveringHand(spec, dx * cos(h) - dz * sin(h) >= 0 ? "right" : "left");
   };
   const OFF = blocked("no blow for a hand to cover"), HELD = blocked("an action holds the covering hand");
-  const claims: Readonly<Record<Side, readonly Resource[]>> = { left: Object.freeze([segmentResource("hand.left")]), right: Object.freeze([segmentResource("hand.right")]) };
-  const sides = SIDES.filter((side) => spec.segments.some((segment) => segment.name === `hand.${side}`));
+  const claims: Readonly<Record<Side, readonly Resource[]>> = { left: Object.freeze([segmentResource(pairedSegment("hand", "left"))]), right: Object.freeze([segmentResource(pairedSegment("hand", "right"))]) };
+  const sides = sidesWith(spec, "hand");
   const option: Option = {
     name: "cover", state,
     /** The hand on the blow's side, as the entry last read it. */
@@ -50,12 +50,12 @@ export function covers(spec: BodySpec): readonly Option[] {
     entry: (now) => {
       const side = handAt(now);
       if (side === null || !sides.includes(side)) return OFF;
-      return now.sight.report.actions.some((action) => hasResource(action.holds, segmentResource(`hand.${side}`))) ? HELD : READY;
+      return now.sight.report.actions.some((action) => hasResource(action.holds, segmentResource(pairedSegment("hand", side)))) ? HELD : READY;
     },
     open: true, status: () => "yields", begin() {}, end() {},
     model: (at, ask) => at.incoming ? holding(at, ask, (1 - STOPS) * at.predictions.danger) : null,
     step: (now) => {
-      const hand = `hand.${handAt(now)}`;
+      const hand = pairedSegment("hand", handAt(now)!);
       return { asked: { move: null, face: now.sight.report.heading, actions: [], guard: { [hand]: now.incoming! } }, holds: NOTHING };
     },
   };

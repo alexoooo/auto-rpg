@@ -1,11 +1,11 @@
+import { describeMind } from "../../minds/catalog/catalog.ts";
 import { isRefused } from "../../core/refusal.ts";
-import { regionSegments } from "../../skills/intent/action-aim.ts";
-import { describeMind } from "../../minds/description.ts";
+import { regionSegments } from "../../skills/framework/action-aim.ts";
 import type { GameContext } from "../arena/context.ts";
 import type { ActionConfig } from "../../skills/config.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { dummyPart, dummyParts, dummySpec } from "./dummy-spec.ts";
-import type { MindConfig } from "../../minds/config.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 
 /** What `mind`'s Options ask of its strikes on a body of `spec` (`skillsOf`), where its config names Options; null where it names none. */
 export function strikeActions(context: GameContext, spec: BodySpec, mind: MindConfig): readonly ActionConfig[] | null {

@@ -1,4 +1,4 @@
-import { deepFreeze } from "../world/state.ts";
+import { deepFreeze } from "../state.ts";
 
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
 export type DataKey = keyof DataOf;

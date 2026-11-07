@@ -3,7 +3,7 @@ import type { OptionMindConfig } from "../../minds/option/index.ts";
 import { BASE_OPTIONS as OPTIONS } from "./options.ts";
 import { BITE_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../minds/option/index.ts";
 import type { PartConfig } from "../../parts/index.ts";
-import { deepFreeze } from "../../core/world/index.ts";
+import { deepFreeze } from "../../core/state.ts";
 
 /** Its low support, under every blow of its hands: the support fold. */
 const SUPPORT: PartConfig = deepFreeze({ kind: "support-fold" });

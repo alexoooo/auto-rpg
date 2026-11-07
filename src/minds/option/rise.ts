@@ -1,19 +1,18 @@
 import type { TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { tumbling, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import { isWayUp, type TechniquePart } from "../../skills/recovery/technique.ts";
 import { edgeExpected } from "../../skills/recovery/data/profiles.ts";
 import { anyBody, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
 import { WHOLE, type Status } from "../choice.ts";
-import { downTerms } from "./down.ts";
 import { brace } from "./rest.ts";
 import { asking, blocked, READY, type Option, type Situation, type Step } from "./option.ts";
 import { around } from "./strike.ts";
 import { onFeet, STEADY_TRY } from "./rise-memory.ts";
 import { recorded, type Prior, type Tried } from "./record.ts";
-import { STILL, UNMOVED, type Outcome } from "./value.ts";
+import { STILL, UNMOVED, type Outcome, type Terms } from "./value.ts";
 import type { NamedSkills } from "./skills.ts";
 import { isProfileOption, type ProfileOptionPart } from "./kinds.ts";
 import { PROFILE_MODEL, type ProfileOptionContext } from "./profile-contract.ts";
@@ -43,8 +42,15 @@ const BRACED = 1;
 /** A ground action's target: none; the body acts on itself. */
 const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
 
+/**
+ * **The terms of `seconds` s down where `at` lies**, ending as `outcomes` say: each second costing
+ * what a second down in its posture costs (`Predictions.downRate`), and the blow coming.
+ */
+const downTerms = (at: Situation, seconds: number, outcomes: readonly Outcome[]): Terms => ({ duration: seconds, dealt: 0, orders: 0, outcomes,
+  taken: at.predictions.danger + at.predictions.downRate(at.posture) * seconds });
+
 /** What a way up is expected to do from where it is begun: run `seconds` s, and in `done` of its tries reach where it goes; the rest come to rest where `ends` say, by share (where it began, short of them). */
-export interface Way {
+interface Way {
   readonly seconds: number;
   readonly done: number;
   readonly ends: readonly { readonly at: string; readonly share: number }[];
@@ -176,7 +182,7 @@ function wayUp(given: ProfileOptionContext, config: GroundConfig<string>, part: 
 }
 
 /** **A kind of ground option's config**: its kind, and the technique it runs (`skill`, a `TechniquePart`): a way up, or a mode of the ground. */
-export interface GroundConfig<K extends string> { readonly kind: K; readonly skill: PartConfig }
+interface GroundConfig<K extends string> { readonly kind: K; readonly skill: PartConfig }
 
 /** Whether the technique `config` names fits a body of `spec`. */
 const fitting = (config: GroundConfig<string>, spec: BodySpec, parts: PartLookup): boolean => parts.of("technique", config.skill).fits(spec, config.skill, parts) === null;

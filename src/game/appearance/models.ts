@@ -1,5 +1,5 @@
 import type { BodyModel } from "../../core/bodies/models.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 
 /**
  * How each model is shown: its name on the screens, whether it wears the human clothing

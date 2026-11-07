@@ -21,7 +21,7 @@ import type { MuscleCommand, MuscleReading } from "../core/bodies/muscle/driver.
 import type { AssistReading } from "../core/bodies/assist.ts";
 import { groundWrenchWork, patchPlace, shareGroundWrench, type GroundWrenchWork, type Patch, type ShareEffort } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
-import { LEG_DAMPING } from "./stance-tuning.ts";
+import { LEG_DAMPING } from "./stance/stance-tuning.ts";
 import { GROUND_FRICTION } from "./support.ts";
 import type { ReadSegment } from "../core/bodies/read-body.ts";
 

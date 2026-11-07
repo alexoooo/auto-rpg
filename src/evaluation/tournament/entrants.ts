@@ -4,12 +4,12 @@
  */
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { heldItem, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
-import type { MindConfig } from "../../minds/config.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 import { BODY_MODELS, modelSpec, type BodyModel } from "../../core/bodies/models.ts";
 import { mindSubject, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { TOURNAMENT, type Entrant } from "./cases.ts";
-import { FIGHT_ENTRY } from "../../minds/catalog.ts";
+import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
 /** `value` as plain JSON: what a part's version digests. */

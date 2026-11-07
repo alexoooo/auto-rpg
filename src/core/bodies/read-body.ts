@@ -2,7 +2,7 @@ import type { Quaternion, Vector3 } from "../math/vector.ts";
 import type { ColliderShape, Contact, ContactManifold, MassProperties } from "../physics/engine.ts";
 import type { Rigid } from "./build/rigid.ts";
 import type { BodySpec, DofSpec, ConfigurationName, JointSpec, SegmentFrame, SegmentSpec, ShapeSpec } from "./spec/body.ts";
-import type { Vec3 } from "./spec/quantity.ts";
+import type { Vec3 } from "../quantity.ts";
 
 /**
  * **A built body as its mind reads it**: the spec it was built from, each segment's pose and

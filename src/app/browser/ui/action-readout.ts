@@ -8,7 +8,7 @@ import type { MindReport } from "../../../minds/report.ts";
  * life (its terms, its worth, how much it moves the position and what letting it go costs, where it
  * costs anything) as per cent of a body's full life.
  */
-export function engagementLines(engagement: Engagement): string[] {
+function engagementLines(engagement: Engagement): string[] {
   const lines = [`Focus: ${engagement.focus ?? "none"}${engagement.lost ? " (lost)" : ""} · ${engagement.phase}`];
   for (const { label, value } of engagement.details ?? []) lines.push(`${label}: ${value}`);
   for (const offer of engagement.offers ?? []) {

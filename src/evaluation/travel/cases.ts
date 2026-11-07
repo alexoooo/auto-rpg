@@ -1,10 +1,10 @@
 import type { Cases, Json } from "../evaluation.ts";
 import type { BuiltLone } from "../lone.ts";
-import type { MindConfig } from "../../minds/config.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { GameContext } from "../../game/arena/context.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { DEFAULT_ENGINE } from "../../core/physics/engines.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { createLocomotionCases } from "../locomotion/cases.ts";
 import { TRAVEL, travelScript, type TravelCondition, type TravelMode } from "./protocol.ts";
 import { readTravel, type TravelReading } from "./read.ts";

@@ -9,14 +9,14 @@ import { heldBy, type Held } from "../../core/bodies/items/held.ts";
 import { fitsAll, fitsWhen, strikesWithOneOf } from "../../parts/parts.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import type { Vec3 } from "../../core/quantity.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecord } from "../framework/records.ts";
 import { faceFault, STRAIGHT_PUNCH_KEYS, straightPunchExecutor, straightPunchFits, timedChannelFault, validStraightPunch, validStraightPunchPart,
   type StraightPunch, type StrikingFace } from "./straight-punch.ts";
 import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
-import { handConfigurationRefusal } from "./held-strike.ts";
+import { handConfigurationRefusal } from "../reach/hand.ts";
 
 /**
  * **The held blows driven straight**, by kind: what each is thrown with (`item`, by `HELD`'s name),
@@ -27,7 +27,7 @@ import { handConfigurationRefusal } from "./held-strike.ts";
 export const HELD_BLOWS = deepFreeze({
   "sword-thrust": { label: "Sword thrust", item: "sword" as Held, mechanism: "point" as Mechanism, bodies: thrustMeta.bodies, layout: checkedLayout(thrustLayout as PunchLayout) },
 });
-export type HeldBlowKind = keyof typeof HELD_BLOWS;
+type HeldBlowKind = keyof typeof HELD_BLOWS;
 
 /**
  * **A held blow's record for one body** (`dataOf(<kind>)`, `assets/skills/strikes/<kind>/<kind>.json`, by

@@ -2,7 +2,7 @@ import {stanceFeetOf,stanceSegmentsOf} from "../../../../src/skills/locomotion/s
 import {coreStand} from '../../../../tests/harness/core-stand.mjs';
 import {modelSpec} from "../../../../src/core/bodies/models.ts";
 import {SERVO_SECONDS} from "../../../../src/control/body.ts";
-import {commandedBody} from "../../../../src/app/commanded-body.ts";
+import {stockBody} from "../../../../src/app/stock-body.ts";
 import {DEFAULT_ENGINE} from "../../../../src/core/physics/engines.ts";
 import {locomotion,STANCE_LOWER,stanceOf} from "../../../../src/skills/locomotion/locomotion.ts";
 import {GUARD} from "../../../../src/skills/guard/guard.ts";
@@ -14,7 +14,7 @@ export async function combatTurn({speed,rate,sense,after,turnLimit,turnStartup,m
   throw new Error('turn trial needs positive speed/rate, a sense and nonnegative walking delay');
  const spec=modelSpec(model),legs=locomotion(stanceFeetOf(spec),null,{segments:stanceSegmentsOf(spec),turnLimit,turnStartup}),assist=balanceCeiling(balance,balancePercent(rulebook('arena')));
  const stand=await coreStand(spec,{engine,hz});
- const body=commandedBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,measuring:true,assist});
+ const body=stockBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,measuring:true,assist});
  let heading=0,turned=0,reference=null,minimum=Infinity,firstDown=null,maximumTurn=0,askedHeading=0;
  body.drive((view,dt)=>{
   if(view.time>=1+after&&turned<Math.PI){const d=Math.min(rate*dt,Math.PI-turned);turned+=d;heading+=sense*d;}

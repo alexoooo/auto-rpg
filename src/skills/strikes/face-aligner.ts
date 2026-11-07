@@ -7,7 +7,7 @@ import { solve3To } from "../../core/math/flat.ts";
 import { channelName } from "../../core/bodies/muscle/driver.ts";
 import type { JointKinematics } from "../../core/bodies/read-body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { StrikingFace } from "./straight-punch.ts";
 import type { Side } from "../../core/bodies/bilateral.ts";
 

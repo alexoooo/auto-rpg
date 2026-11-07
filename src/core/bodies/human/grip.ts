@@ -1,5 +1,5 @@
 import { segmentFrame, type BodySpec, type HeldSpec, type ItemSpec, type SegmentSpec, segmentOf } from "../spec/body.ts";
-import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, dot, scale, sub } from "../spec/vec.ts";
 import type { Side } from "../bilateral.ts";
 
@@ -16,7 +16,7 @@ import type { Side } from "../bilateral.ts";
  * The palm's side is the hand frame's -z: the rig holds the hands thumb up with the palms toward
  * the body, and z = x cross y points away from it on both hands.
  */
-export function handHolding(spec: BodySpec, side: Side, item: ItemSpec): HeldSpec {
+function handHolding(spec: BodySpec, side: Side, item: ItemSpec): HeldSpec {
   const hand = holdingHand(spec, side);
   if (!hand || !item.grip) throw new Error(`${spec.model}'s ${side} hand cannot hold ${item.name}`);
   const name = hand.name, knuckles = hand.points.knuckles, little = hand.points.little;

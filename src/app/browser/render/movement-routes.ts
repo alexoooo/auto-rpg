@@ -5,7 +5,7 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js"
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { GroundPoint } from "../../../skills/intent/movement.ts";
+import type { GroundPoint } from "../../../skills/framework/movement.ts";
 
 /** Flat chalk strokes share floor-anchored grain as their paths change. */
 export function movementRoutes(scene: Scene) {

@@ -3,7 +3,7 @@ import { frameOf, type BodySpec, type SegmentSpec, type ShapeSpec, type SegmentF
 import { Quaternion, Vector3 } from "../../math/vector.ts";
 import { convexHullChecked } from "./hull.ts";
 import { add, cross, dot, length, scale, sub } from "./vec.ts";
-import type { Vec3 } from "./quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 
 type Capsule = { kind: "capsule"; from: Vec3; to: Vec3; radius: number };
 type Box = { kind: "box"; centre: Vec3; axes: Vec3[]; half: Vec3 };

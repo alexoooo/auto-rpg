@@ -3,7 +3,7 @@ import '../../../tests/harness/preload-data.mjs';
 import { parseArgs } from 'node:util';
 import { writeFileSync } from 'node:fs';
 import { coreStand } from '../../../tests/harness/core-stand.mjs';
-import { commandedBody } from '../../../src/app/commanded-body.ts';
+import { stockBody } from '../../../src/app/stock-body.ts';
 import { modelSpec } from '../../../src/core/bodies/models.ts';
 import { standingFooting } from '../../../src/control/support.ts';
 import { uprightness } from '../../../src/control/ground.ts';
@@ -21,7 +21,7 @@ const rows = [];
 for (const model of ['workshop-fighter', 'workshop-rogue', 'crypt-skeleton']) {
   const spec = modelSpec(model), guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, posture: { ...guard, 'hip.left abduction': .35, 'hip.right abduction': .35 }, engine: DEFAULT_ENGINE });
-  const host = commandedBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
+  const host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
     assist: balanceCeiling(0, balancePercent(rulebook('arena'))) });
   try {
     const body = host.driver, parts = [...stand.built.segments.values()], mass = massOf(parts), physical = uprightness(stand.built);

@@ -8,11 +8,11 @@ import type { Limb, LimbTask, Row } from "../../../../control/bearing.ts";
 import { UNHELD, type BearingPoint } from "../../../../control/contact-wrench.ts";
 import { lowsOf } from "../../../../control/ground.ts";
 import { chainTo } from "../../../../control/kinematics.ts";
-import { SOLE_MARGIN } from "../../../../control/stance-tuning.ts";
+import { SOLE_MARGIN } from "../../../../control/stance/stance-tuning.ts";
 import { DOWN, type FootState, bearingSole, footStatesOf, readSupport, rolledEdge, rolledRows } from "../../../../control/support.ts";
 import { motionAtToRef, pointOfToRef } from "../../../../core/bodies/read-motion.ts";
 import { hypot } from "../../../../core/math/real.ts";
-import type { Vec3 } from "../../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../../core/quantity.ts";
 import { configurationShapeAt, type ConfigurationName, type ShapeSpec } from "../../../../core/bodies/spec/body.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { limbChannels, type Recipe } from "./stages.ts";
@@ -32,7 +32,7 @@ const TAKES_SECONDS = 0.1;
 const POINT_ROWS: readonly Row[] = [0, 1, 2].map((axis): Row => [[3 + axis, 1]]);
 
 /** A body's bearing ends, made limbs. */
-export interface RiseLimbs {
+interface RiseLimbs {
   /** Bearing modes that affect later reads and constraints. */
   readonly state: object;
   /** The limbs as the solve takes them, in the spec's order. */

@@ -4,13 +4,13 @@ import { Vector3, type Quaternion } from "../../core/math/vector.ts";
 import type { BodyView } from "../../control/body.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { hypot } from "../../core/math/real.ts";
-import { aimOf } from "../strikes/held-strike.ts";
+import { aimOf } from "../reach/hand.ts";
 import { bellyOf, frameOf, segmentOf, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { defaultStrikeLimbs } from "./default-strike-limbs.ts";
 import { effectorAim } from "../../control/effectors.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { dot, sub } from "../../core/bodies/spec/vec.ts";
-import type { Cover } from "../intent/intent.ts";
+import type { Cover } from "../framework/intent.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import { lieBy, type Position } from "../../control/ground-reading.ts";
 
@@ -18,7 +18,7 @@ import { lieBy, type Position } from "../../control/ground-reading.ts";
  * **What counts as a threat**: a foe's striking point within `within` m of the head and closing
  * on it at over `closing` m/s.
  */
-export const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
+const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
 
 /**
  * **What a ward covers** (`threatOf` with `hold`, `nearest` and `armed`): the foe's striking point

@@ -1,17 +1,18 @@
+import type { LegsDrive, Locomotion } from "../framework/locomotion-part.ts";
 import { walkRunEnvelope } from "./walk-run/envelope.ts";
 import { footOn, standingFooting } from "../../control/support.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { Body, BodyView } from "../../control/body.ts";
-import { paceToward, quickened, validStanceEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";
+import { heldPace, quickened, validStanceEnvelope, type StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 import { hasteOver } from "../../core/bodies/human/attributes.ts";
 
 import { atan2, cos, sin } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
-import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
+import { locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
 import { runCycle, validRunCycle, type RunCycleSettings, type RunTrim, type RunSteering } from "./cycle-run.ts";
 import { legOf, quickness, scaledGait, scaledStride } from "./gait-scale.ts";
-import { validGaitTuning, type GaitTuning } from "../../control/stance-tuning.ts";
+import { validGaitTuning, type GaitTuning } from "../../control/stance/stance-tuning.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "./stance-feet.ts";
 import { ALL_MET, fieldsOf, maskOf, setIn, type LegsField } from "../framework/skill.ts";
 import { otherSide, type Side } from "../../core/bodies/bilateral.ts";
@@ -110,7 +111,7 @@ const RUN_ROUND = Math.PI / 2;
 
 /**
  * The least share of its trials a pace must have held that way for the run to take it asked
- * (`paceToward`): a mind may ask a pace it risks falling at, and the most it gets is one the body
+ * (`heldPace`): a mind may ask a pace it risks falling at, and the most it gets is one the body
  * held in a fifth of its tries.
  */
 const REACH = 0.2;
@@ -305,7 +306,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past
       // `RUN_ROUND`, and, asked to stand or a way it does not run, along the heading as it is.
       const speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0, envelope = envelopeNow();
-      const holds = asked && envelope ? paceToward(envelope, asked[0], asked[1], REACH) : Infinity, held = speed > holds ? holds / speed : 1;
+      const holds = asked && envelope ? heldPace(envelope, asked[0], asked[1], REACH) : Infinity, held = speed > holds ? holds / speed : 1;
       const requested = asked ? inputHeading + atan2(asked[1], asked[0]) : memory.heading;
       const on = asked !== null && Math.abs(wrap(requested - face)) <= RUN_WAY && Math.abs(wrap(requested - memory.heading)) <= RUN_ROUND;
       const toward = on ? requested : memory.heading;

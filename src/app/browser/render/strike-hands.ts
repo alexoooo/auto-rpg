@@ -1,5 +1,5 @@
 import { HAND_CONFIGURATION } from "../../../core/bodies/human/hand-configurations.ts";
-import type { Minded } from "../../../minds/minds.ts";
+import type { Minded } from "../../../minds/seat/create-mind.ts";
 import type { ConfigurationName } from "../../../core/bodies/spec/body.ts";
 import type { Side } from "../../../core/bodies/bilateral.ts";
 

@@ -14,13 +14,13 @@ import type { TravelReading } from "../travel/read.ts";
 import type { Cell, HitFigure, MetJudge, Reading, ScoreReading } from "./cells.ts";
 
 /** A row as the table reads it: its condition and its reading. */
-export interface TableRow { readonly key?: string; readonly condition: Json; readonly reading: Json; readonly fault?: { readonly message: string } | null }
+interface TableRow { readonly key?: string; readonly condition: Json; readonly reading: Json; readonly fault?: { readonly message: string } | null }
 
 /** What one met-or-short reading of a cell came to: met, short of its bar, or no rows; its figures in words. */
-export interface Verdict { readonly state: "met" | "short" | "unread"; readonly figures: string }
+interface Verdict { readonly state: "met" | "short" | "unread"; readonly figures: string }
 
 /** What one scored reading of a cell came to: its score, in `unit` (every score is better higher), and the figures beside it in words. */
-export interface Score { readonly value: number | null; readonly unit: string; readonly figures: string }
+interface Score { readonly value: number | null; readonly unit: string; readonly figures: string }
 
 /**
  * The run's bar: a held run's slowest second at least `HELD_PACE`, m/s; a turning run's slowest second at least `PACED` of the pace asked, and its
@@ -131,7 +131,7 @@ export function personOf(figure: HitFigure): string {
 }
 
 /**
- * **`rows` scored as `reading` reads them** (`ScoreJudge`), null where there are none: a strike
+ * **`rows` scored as `reading` reads them**, null where there are none: a strike
  * rung's, the median over the trials begun of the hit's figure (`HitFigure`), a trial whose limb
  * met the mark (landed or weak) at its hit's, any other at 0, with the trials refused and fallen
  * beside; a walk's, the share of its trials not fallen, its forward pace beside; the Cover
@@ -175,7 +175,7 @@ export function scoreOf(reading: ScoreReading, rows: readonly TableRow[]): Score
  * record's file, the subject's id in it and its version. Written once, when the cell's work
  * begins (`npm run evaluate -- table --baseline`), and never overwritten.
  */
-export interface Baseline {
+interface Baseline {
   readonly body: string;
   readonly loadout: string;
   readonly protocol: string;

@@ -1,6 +1,6 @@
 import { lowsOf } from "../../control/ground.ts";
 import { modelSpec, type BodyModel } from "../../core/bodies/models.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { frameOf } from "../../core/bodies/spec/body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { shapeBounds } from "../../core/bodies/spec/shape-bounds.ts";

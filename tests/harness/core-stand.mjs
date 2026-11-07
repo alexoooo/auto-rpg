@@ -13,7 +13,7 @@ import { PHYSICS_HZ } from "../../src/core/world/world.ts";
 import { createWorld } from "../../src/core/world/world.ts";
 import { buildBody } from "../../src/core/bodies/build/build-body.ts";
 import { poseAngles } from "../../src/control/kinematics.ts";
-import { loadState, saveState } from "../../src/core/world/state.ts";
+import { loadState, saveState } from "../../src/core/state.ts";
 
 /** Published reference batteries use parent-axis Rapier; gameplay gates request their engine explicitly. */
 export const CORE_ENGINE = process.env.CORE_ENGINE || "rapier";

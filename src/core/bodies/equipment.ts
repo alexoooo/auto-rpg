@@ -1,10 +1,10 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { ColliderShape, Pose, SegmentBody } from "../physics/engine.ts";
 import type { ItemShape, ItemSpec } from "./spec/body.ts";
-import type { Vec3 } from "./spec/quantity.ts";
-import { deepFreeze } from "../world/state.ts";
+import type { Vec3 } from "../quantity.ts";
+import { deepFreeze } from "../state.ts";
 import { attachmentRows } from "./build/constrained-mass.ts";
-import type { World } from "../world/world.ts";
+import type { StepHost } from "./step-host.ts";
 
 /** A detached reading of an independently simulated item's pose and grips. */
 export type EquipmentObservation = ReturnType<ReturnType<typeof createEquipment>["observe"]>;
@@ -55,7 +55,7 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
  * Capture checks the desired frames, then joins the actual pose without alignment correction.
  * Grip attachments live in the engine snapshot, including releases and reattachments.
  */
-export function createEquipment(world: World, definition: EquipmentDefinition) {
+export function createEquipment(world: StepHost, definition: EquipmentDefinition) {
   const { id, item } = definition, start = frame(definition.pose);
   const distance = definition.capture.distance, rotationError = definition.capture.rotationError;
   if (!id || !(distance >= 0) || !Number.isFinite(distance) || !(rotationError >= 0 && rotationError <= 1)) {

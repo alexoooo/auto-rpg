@@ -1,8 +1,8 @@
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { kindOnly, type CommanderEntry } from "./kind.ts";
 import { atan2, cos, sin } from "../../core/math/real.ts";
-import { placeMovement, type GroundPoint, type MovementRequest } from "../../skills/intent/movement.ts";
-import { STAND_ORDERS, type Orders } from "../../skills/intent/orders.ts";
+import { placeMovement, type GroundPoint, type MovementRequest } from "../../skills/framework/movement.ts";
+import { STAND_ORDERS, type Orders } from "../orders.ts";
 import { ARRIVAL, approach, direction, distance, lyingSince, onBearing, throughDoors, worthFighting, type Opening } from "./goals.ts";
 /** The mob sees foes within14m and remembers a lost foe for7s. */
 const SIGHT_METRES = 14, ALERT_SECONDS = 7;
@@ -41,7 +41,7 @@ interface Memory {
  * command. Each look (`TeamView.look`) it shares its foes out again; with no foe in the fight,
  * what it last saw stands.
  */
-export function mobCommander(host: TeamHost): Commander {
+function mobCommander(host: TeamHost): Commander {
   // When each foe lying down went down, by id (`lyingSince`).
   const state = { members: {} as Record<string, Memory>, down: {} as Record<string, number> };
   const memory = (id: string): Memory => state.members[id] ??=

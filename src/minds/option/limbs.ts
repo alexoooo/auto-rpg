@@ -1,8 +1,8 @@
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../core/world/state.ts";
-import { SIDES as BODY_SIDES, type Side } from "../../core/bodies/bilateral.ts";
+import { deepFreeze } from "../../core/state.ts";
+import { SIDES as BODY_SIDES, isPaired, pairedSegment, type PairedLimb, type Side } from "../../core/bodies/bilateral.ts";
 
 /**
  * **The limbs an Option strikes with, by role**: either hand, a hand that holds nothing, the hand
@@ -23,13 +23,13 @@ const holds = (spec: BodySpec, segment: string): boolean => spec.held?.some((hel
 
 /** The endpoints of `spec` of `role`, the right first; the executor decides which may strike. */
 function ofRole(spec: BodySpec, role: LimbRole): readonly string[] {
-  const endpoints = (spec.effectors ?? []).map((effector) => effector.segment), sided = (limb: string) => SIDES.map((side) => `${limb}.${side}`).filter((name) => endpoints.includes(name));
+  const endpoints = (spec.effectors ?? []).map((effector) => effector.segment), sided = (limb: PairedLimb) => SIDES.map((side) => pairedSegment(limb, side)).filter((name) => endpoints.includes(name));
   switch (role) {
     case "either-hand": return sided("hand");
     case "free-hand": return sided("hand").filter((hand) => !holds(spec, hand));
     case "holding-hand": return sided("hand").filter((hand) => holds(spec, hand));
     case "either-foot": return sided("foot");
-    case "jaw": return endpoints.filter((name) => !name.startsWith("hand.") && !name.startsWith("foot."));
+    case "jaw": return endpoints.filter((name) => !isPaired(name));
     default: { const never: never = role; throw new Error(`no limb role ${String(never)}`); }
   }
 }

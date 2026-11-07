@@ -1,5 +1,5 @@
 import { slotOne, type PartConfig } from "../parts/parts.ts";
-import { deepFreeze } from "../core/world/state.ts";
+import { deepFreeze } from "../core/state.ts";
 import { motorControl } from "./motor.ts";
 import type { MotorMaker, MotorPart } from "./motor-part.ts";
 import { MOTOR_PATHS, MOTOR_STANCE } from "./motor-part.ts";

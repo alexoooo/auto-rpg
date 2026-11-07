@@ -1,8 +1,8 @@
 import type { SolidSense } from "../../core/bodies/object-senses.ts";
 import { cos, sin } from "../../core/math/real.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { cryptFurnishing } from "../environment/furniture.ts";
 import type { ArenaSeat as Side } from "./seat.ts";
 

@@ -88,7 +88,7 @@ const DOOR_LEAF = Object.freeze({
 });
 /** An iron sconce under each torch's flame, set into the wall face: no piece stands more than `proud` off it
  * (art carries no collision, so a fitting stays close to the wall that does). Its sizes are set by eye. */
-export const SCONCE = Object.freeze({ proud: 0.08, plate: Object.freeze([0.20, 0.44, 0.02] as const), plateY: 1.82, cupY: 1.84 });
+const SCONCE = Object.freeze({ proud: 0.08, plate: Object.freeze([0.20, 0.44, 0.02] as const), plateY: 1.82, cupY: 1.84 });
 
 /** Pieces built about the origin, merged into one mesh and placed: a fitting's parts share one draw. */
 function fitting(name: string, pieces: Mesh[], x: number, z: number, turn: number): Mesh {

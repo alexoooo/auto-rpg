@@ -1,3 +1,4 @@
+import type { GaitName } from "../../../skills/framework/skill.ts";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -7,7 +8,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { massOf } from "../../../core/bodies/read-motion.ts";
 import { GOING, MOVE } from "../../../skills/locomotion/move-part.ts";
 import { withLegs, type OptionMindConfig } from "../../../minds/option/mind.ts";
-import { STOCK_GAITS, type GaitName } from "../../../skills/locomotion/gaits.ts";
+import { STOCK_GAITS } from "../../../skills/locomotion/gaits.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "../../../game/lab/player.ts";

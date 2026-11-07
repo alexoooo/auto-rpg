@@ -1,5 +1,5 @@
 import type { Refused } from "../../refusal.ts";
-import { deepFreeze } from "../../world/state.ts";
+import { deepFreeze } from "../../state.ts";
 import { armed, canHold } from "../human/grip.ts";
 import type { BodySpec, ItemSpec } from "../spec/body.ts";
 import { woodenClub } from "./club.ts";

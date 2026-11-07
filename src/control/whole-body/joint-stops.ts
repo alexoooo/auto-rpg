@@ -1,20 +1,8 @@
 import type { MotionConstraint } from "../../core/bodies/build/constrained-mass.ts";
 import { jointCoordinateMotion } from "../../core/bodies/build/joint-coordinate.ts";
 import { jointAngles } from "../../core/bodies/build/joint-state.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";
-
-export interface JointStopSettings {
-  /** Angular proximity for admitting an existing stop; this does not predict distant impacts. */
-  readonly margin: number;
-  /** Maximum pulling reaction accepted as roundoff, N m in the angle's coordinate. */
-  readonly forceTolerance: number;
-  /** Acceleration-row acceptance tolerance, rad/s2. */
-  readonly accelerationTolerance: number;
-  readonly iterations: number;
-  readonly absoluteTolerance: number;
-  readonly relativeTolerance: number;
-}
 
 /**
  * Inward motion rows near anatomical bounds. A backward-Euler coordinate step asks for

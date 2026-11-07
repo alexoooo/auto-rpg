@@ -1,4 +1,4 @@
-import type { Quantity, Vec3 } from "./quantity.ts";
+import type { Quantity, Vec3 } from "../../quantity.ts";
 import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
 
 /** An end a body bears its weight on, by its name among its spec's ends (`BodySpec.ends`): a human's `foot.left`, `hand.right`, `shin.left`. */
@@ -50,7 +50,7 @@ export interface FootLimb {
  * (`supportedMotor`, `src/control/supported-motor.ts`), on its box's sole where `sole`. A paw
  * carries the body.
  */
-export interface PawLimb {
+interface PawLimb {
   readonly kind: "paw";
   readonly name: string;
   readonly segment: string;

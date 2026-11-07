@@ -1,11 +1,11 @@
 import { Session } from "node:inspector/promises";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
-import { commandedBody } from "../../src/app/commanded-body.ts";
+import { stockBody } from "../../src/app/stock-body.ts";
 import { buildBody } from "../../src/core/bodies/build/build-body.ts";
 import { armed } from "../../src/core/bodies/human/grip.ts";
 import { modelSpec } from "../../src/core/bodies/models.ts";
 import { woodenClub } from "../../src/core/bodies/items/club.ts";
-import { standIntent } from "../../src/skills/intent/intent.ts";
+import { standIntent } from "../../src/skills/framework/intent.ts";
 import { driveBy } from "../../src/minds/decider.ts";
 import { standingSkills } from "../../src/app/standing-skills.ts";
 import { createWorld } from "../../src/core/world/world.ts";
@@ -24,7 +24,7 @@ export async function standBodies(count, model = "crypt-skeleton") {
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const side = Math.ceil(Math.sqrt(count));
   const bodies = Array.from({ length: count }, (_, i) => {
-    const body = commandedBody(buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] }), world, { servoSeconds: SERVO_SECONDS });
+    const body = stockBody(buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] }), world, { servoSeconds: SERVO_SECONDS });
     driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills);
     return body;
   });
@@ -52,7 +52,7 @@ export async function downBody() {
   world.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);
   const spec = modelSpec("workshop-fighter"), half = Math.sqrt(.5);
   const built = buildBody(spec, world, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
-  const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS }, [lying]);
+  const body = stockBody(built, world, { servoSeconds: SERVO_SECONDS }, [lying]);
   return { world, body, dispose() { body.dispose(); built.dispose(); world.dispose(); } };
 }
 

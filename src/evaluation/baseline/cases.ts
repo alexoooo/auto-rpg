@@ -17,12 +17,11 @@
 import { CAP_SECONDS, SIDES } from "../../game/arena/duel.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
-import { describeMind } from "../../minds/description.ts";
-import type { MindConfig } from "../../minds/config.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
 
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { readBout } from "../contest.ts";
 import type { BuiltCase, Cases, Json, Reader, Subject } from "../evaluation.ts";
 import { sideAttributes } from "../evaluation.ts";
@@ -31,7 +30,7 @@ import type { LocomotionReading } from "../locomotion/read.ts";
 import type { StrikeReading } from "../strike/read.ts";
 import type { BuiltBout } from "../bout.ts";
 
-import { FIGHT_ENTRY } from "../../minds/catalog.ts";
+import { FIGHT_ENTRY, describeMind } from "../../minds/catalog/catalog.ts";
 import { createLocomotionCases, type LocomotionCondition } from "../locomotion/cases.ts";
 import { createRisingTargetCases, type TargetCondition } from "../rising-target/cases.ts";
 import { createStrikeCases, type StillCondition, type StrikeSubject } from "../strike/cases.ts";
@@ -39,7 +38,7 @@ import { type GameContext, mindFaults as contextMindFaults } from "../../game/ar
 import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 /** The body every competence is read on. */
-export const BODY: BodyModel = "workshop-fighter";
+const BODY: BodyModel = "workshop-fighter";
 
 /** The minds a subject fights, by preset: Option Mind's, so a configuration is read against the game's. */
 export const OPPONENTS = deepFreeze(["option"]);

@@ -1,3 +1,4 @@
+import type { GaitName } from "../../skills/framework/skill.ts";
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import type { Region } from "../../skills/framework/action.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
@@ -5,9 +6,8 @@ import { optionApplies, type OptionBody, type OptionPart } from "./parts.ts";
 import { choice, json } from "../../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
 import { GAIT_CHOICES } from "../../skills/locomotion/move-rule-part.ts";
-import type { GaitName } from "../../skills/locomotion/gaits.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { covers } from "./cover.ts";
 import { LIMB_ROLES, limbsOf, type LimbRole } from "./limbs.ts";
@@ -41,7 +41,7 @@ export const ORDERS_OPTION = deepFreeze({ ...kind("orders", "Follow orders", (gi
 /**
  * **A strike's config**: the executor it strikes by (`skill`, of its kind's skill), the limbs it
  * strikes with by role (`LimbRole`), where its executor aims the regions it strikes, in order, and
- * its aim (`AimPart`), and the low support it strikes from where it names one (`SupportPart`).
+ * its aim (`AimPart`), and the low support it strikes from where it names one (`LowSupportPart`).
  */
 export interface StrikeConfig<K extends string = string> {
   readonly kind: `strike-${K}`;
@@ -59,7 +59,7 @@ export type StrikeKindPart<K extends string = string> = ProfileOptionPart<Strike
 const ENTRIES = new WeakMap<PartConfig, ExecutorEntry>();
 
 /** **The executor `skill` as its body's skills hold it**, named by its kind, made once a config. */
-export function executorEntry(skill: PartConfig): ExecutorEntry {
+function executorEntry(skill: PartConfig): ExecutorEntry {
   let entry = ENTRIES.get(skill);
   if (!entry) ENTRIES.set(skill, entry = Object.freeze({ ...skill, name: skill.kind }));
   return entry;
@@ -82,7 +82,7 @@ const USES: readonly ((config: StrikeConfig) => string)[] = Object.freeze([
  * `USES` that differs between the two). Two strikes alike in skill and use are a fault of their
  * mind (`optionMindFaults`), so every strike of a mind has a name of its own.
  */
-export function strikeName(config: StrikeConfig, strikes: readonly StrikeConfig[]): string {
+function strikeName(config: StrikeConfig, strikes: readonly StrikeConfig[]): string {
   const told = new Set<number>();
   for (const other of strikes) {
     if (other === config || other.skill.kind !== config.skill.kind) continue;
@@ -105,7 +105,7 @@ const ACTIONS = new WeakMap<StrikeConfig, WeakMap<BodySpec, Map<string, ActionCo
  * strikes with (`strikeLimbs`), at its regions by its aim; null where the executor does not fit the
  * body or it has no such limb.
  */
-export function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeConfig, name: string): ActionConfig | null {
+function strikeAction(parts: PartLookup, spec: BodySpec, config: StrikeConfig, name: string): ActionConfig | null {
   let bySpec = ACTIONS.get(config);
   if (!bySpec) ACTIONS.set(config, bySpec = new WeakMap());
   let byName = bySpec.get(spec);
@@ -158,7 +158,7 @@ function aimingFaults(config: StrikeConfig, parts: PartLookup): readonly string[
  * and the limb), each priced by its profile among the strikes' where one is measured as the body
  * reads it (`strikeMeasure`); none where the body does not fit its skill or has no limb of its role.
  */
-export function strikeKind<K extends string>(skill: K, label: string, limbs: LimbRole): StrikeKindPart<K> {
+function strikeKind<K extends string>(skill: K, label: string, limbs: LimbRole): StrikeKindPart<K> {
   const of = (config: StrikeConfig<K>, given: ProfileOptionContext): readonly Option[] => {
     const action = strikeAction(given.parts, given.spec, config, strikeName(config, strikesIn(given.parts, given.options)));
     if (!action) return [];
@@ -235,7 +235,7 @@ export const WALK_OPTION: ProfileOptionPart<WalkConfig> = deepFreeze({
 });
 
 /** **A place on the ground** to hold at: where it is, m, and how near its centre the body holds there. */
-export interface PlaceConfig { readonly kind: "hold-at-place"; readonly x: number; readonly z: number; readonly within: number }
+interface PlaceConfig { readonly kind: "hold-at-place"; readonly x: number; readonly z: number; readonly within: number }
 
 /** What is wrong with a place's config: a coordinate not finite, or a reach not above nothing. */
 const placeFaults = (config: PlaceConfig): readonly string[] => [

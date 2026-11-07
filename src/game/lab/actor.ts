@@ -1,18 +1,19 @@
+import type { MindMade, MindWiring } from "../../minds/catalog/controller.ts";
 import type { Refused } from "../../core/refusal.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
-import type { HostedBody } from "../../minds/hosted-body.ts";
+import type { HostedBody } from "../../minds/seat/hosted-body.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import type { AssistCeiling } from "../../core/bodies/assist.ts";
 import type { Experiment } from "../../control/body.ts";
 import type { GameContext } from "../arena/context.ts";
-import type { MindConfig } from "../../minds/config.ts";
-import { createMind, type MindMade, type MindWiring } from "../../minds/minds.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
+import { createMind } from "../../minds/seat/create-mind.ts";
 import { clockSenses } from "../../core/world/senses.ts";
 import type { Script, Sight } from "../../minds/decider.ts";
 import type { World } from "../../core/world/world.ts";
-import type { Intent } from "../../skills/intent/intent.ts";
-import type { Orders } from "../../skills/intent/orders.ts";
-import { directMovement } from "../../skills/intent/movement.ts";
+import type { Intent } from "../../skills/framework/intent.ts";
+import type { Orders } from "../../minds/orders.ts";
+import { directMovement } from "../../skills/framework/movement.ts";
 import { cos, hypot, sin } from "../../core/math/real.ts";
 
 /** A mode's instrument: it reads what the mind sees, before the mind decides, and changes nothing. */

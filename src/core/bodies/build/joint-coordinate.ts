@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "../../math/vector.ts";
 import type { ReadJoint } from "../read-body.ts";
 import type { MotionConstraint } from "./constrained-mass.ts";
 import { jointAngles, relativeRotationToRef } from "./joint-state.ts";
-import type { Vec3 } from "../spec/quantity.ts";
+import type { Vec3 } from "../../quantity.ts";
 import { cross } from "../spec/vec.ts";
 
 const ZERO: Vec3 = [0, 0, 0];

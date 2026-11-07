@@ -4,7 +4,7 @@ import type { SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { segmentFrame } from "../spec/body.ts";
 import { square } from "../../math/real.ts";
 import { capsuleError, capsuleRadius, massShare } from "../spec/geometry.ts";
-import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, si, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, distance, dot, lerp, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
 import type { FittedSegment, HandFigure, HumanFigure } from "./figure.ts";
@@ -98,25 +98,6 @@ interface Plan {
 
 /** A segment's name: the row's, and the side for a limb. */
 export const segmentName = (row: DeLevaSegment, side?: Side): string => side ? `${row}.${side}` : row;
-
-/**
- * **The segment tree**: each segment's parent, the segment it is jointed to on the way to the
- * lower trunk, which is the root. The arms hang from the upper trunk, as de Leva's rows meet at
- * SJC; the legs from the lower trunk, at HJC.
- */
-export const HUMAN_PARENTS: ReadonlyMap<string, string> = new Map([
-  ["head", "upperTrunk"],
-  ["upperTrunk", "middleTrunk"],
-  ["middleTrunk", "lowerTrunk"],
-  ...SIDES.flatMap((side): [string, string][] => [
-    [segmentName("upperArm", side), "upperTrunk"],
-    [segmentName("forearm", side), segmentName("upperArm", side)],
-    [segmentName("hand", side), segmentName("forearm", side)],
-    [segmentName("thigh", side), "lowerTrunk"],
-    [segmentName("shank", side), segmentName("thigh", side)],
-    [segmentName("foot", side), segmentName("shank", side)],
-  ]),
-]);
 
 /** The figure's points at x1: at its scale, or as they are when it has none. */
 const atScale = (figure: HumanFigure) => (point: Quantity<Vec3>): Quantity<Vec3> =>

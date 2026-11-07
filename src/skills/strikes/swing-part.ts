@@ -1,4 +1,4 @@
-import { handConfigurationRefusal } from "./held-strike.ts";
+import { handConfigurationRefusal } from "../reach/hand.ts";
 import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import clubMeta from "../../../assets/skills/strikes/club-blow/club-blow.meta.json" with { type: "json" };
 import cutMeta from "../../../assets/skills/strikes/cut/cut.meta.json" with { type: "json" };
@@ -7,7 +7,7 @@ import { heldBy, type Held } from "../../core/bodies/items/held.ts";
 import { fitsAll, strikesWithOneOf } from "../../parts/parts.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../framework/records.ts";
 import { faceOf } from "./held-blow.ts";
@@ -24,7 +24,7 @@ export const SWINGS = deepFreeze({
   "cut": { label: "Cut", item: "sword" as Held, mechanism: "edge" as Mechanism, bodies: cutMeta.bodies },
   "club-blow": { label: "Club blow", item: "club" as Held, mechanism: "blunt" as Mechanism, bodies: clubMeta.bodies },
 });
-export type SwingKind = keyof typeof SWINGS;
+type SwingKind = keyof typeof SWINGS;
 
 declare module "../../core/data/store.ts" {
   interface DataOf {

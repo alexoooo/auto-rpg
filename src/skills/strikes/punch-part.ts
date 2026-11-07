@@ -4,7 +4,7 @@ import { dataOf } from "../../core/data/store.ts";
 import { strikesWithOneOf, fitsAll, fitsWhen } from "../../parts/parts.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { STRAIGHT_PUNCH_KEYS, timedChannelFault, straightPunchExecutor, straightPunchFits, validStraightPunch, validStraightPunchPart, type StraightPunch } from "./straight-punch.ts";
-import { handConfigurationRefusal, holdsNothing } from "./held-strike.ts";
+import { handConfigurationRefusal, holdsNothing } from "../reach/hand.ts";
 import { PUNCH_BODIES } from "./straight-punch/data/records.ts";
 import { recordFault } from "../framework/records.ts";
 import { bodyKey } from "../../core/bodies/spec/body.ts";

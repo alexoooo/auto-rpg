@@ -16,7 +16,7 @@
  * back, and 60 to each side, at the middle trunk.
  */
 import type { BodyModel } from "../../core/bodies/models.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { Shove } from "../../game/arena/shove.ts";
 import { sideAttributes, type Cases, type Json } from "../evaluation.ts";
 import type { Hand, Mark } from "../strike/read.ts";
@@ -27,7 +27,7 @@ import { type GameContext } from "../../game/arena/context.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
 
 /** Where on the trunk a shove meets the body: its lower, middle or upper trunk's centre of mass. */
-export type Height = "low" | "middle" | "high";
+type Height = "low" | "middle" | "high";
 
 /** The segment each height names. */
 const SEGMENT: Readonly<Record<Height, string>> = deepFreeze({ low: "lowerTrunk", middle: "middleTrunk", high: "upperTrunk" });

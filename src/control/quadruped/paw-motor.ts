@@ -1,3 +1,4 @@
+import type { StanceEnd, StanceReading } from "../stance/goal.ts";
 import { standingHeight } from "../support.ts";
 import type { BodyControl } from "../../core/bodies/body-control.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
@@ -6,7 +7,6 @@ import { MOTOR_PATHS, MOTOR_SUPPORT } from "../motor-part.ts";
 import { UNREACHABLE, type Carrying, type FreedomPath, type MotorUnmet, type MusclePush } from "../motor.ts";
 import { effectorTracker } from "../effector-tracker.ts";
 import { servoAsk, servoSolve } from "../servo.ts";
-import type { StanceEnd, StanceReading } from "../stance.ts";
 import { supportedMotor, type SupportGoal } from "../supported-motor.ts";
 import { atan2 } from "../../core/math/real.ts";
 import type { MuscleReading } from "../../core/bodies/muscle/driver.ts";
@@ -14,10 +14,10 @@ import { angularMomentumToRef, partsOn, turnOfToRef } from "../../core/bodies/re
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { AssistReading } from "../../core/bodies/assist.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { fitsPaws } from "./fit.ts";
 import { pawEndpoints, pawReader } from "./paws.ts";
-import { REPTILE_MOTOR, REPTILE_TRAVEL } from "./tuning.ts";
+import { PAW_SUPPORT, PAW_TRAVEL } from "./tuning.ts";
 
 /** **The paw motor**'s config. */
 interface PawMotorConfig { readonly kind: "paw-motor" }
@@ -31,8 +31,8 @@ const NO_PUSHES: readonly MusclePush[] = Object.freeze([]), NO_PATHS: Readonly<R
 /**
  * **The paw motor** over a body's paws (`pawEndpoints`): its effectors' places followed by an
  * effector tracker (`effectorTracker`), and a support goal (`SupportGoal`) carried out by the
- * floating-base support solve (`supportedMotor`), holding at `REPTILE_MOTOR`'s response and
- * travelling at `REPTILE_TRAVEL`'s, each paw that does not bear as asked carried along its swing.
+ * floating-base support solve (`supportedMotor`), holding at `PAW_SUPPORT`'s response and
+ * travelling at `PAW_TRAVEL`'s, each paw that does not bear as asked carried along its swing.
  * A support of another count (`SupportGoal.sequence`) lets the paws' swings go and begins the solve's
  * motion afresh. A freedom carried along a path (`FreedomPath`) goes by it, at its own response
  * where it names one. With no support it servoes the posture, the paths and the effectors' places,
@@ -42,7 +42,7 @@ const NO_PUSHES: readonly MusclePush[] = Object.freeze([]), NO_PATHS: Readonly<R
  */
 function pawMotor(built: ReadBody, muscles: MuscleReading, posture: Pose = {}, assist: AssistReading | null = null): Carrying<"effectors" | "support" | "paths"> {
   const endpoints = pawEndpoints(built), reader = pawReader(built), names = endpoints.map((end) => end.segment);
-  const supported = supportedMotor({ built, muscles, assist }, endpoints, REPTILE_MOTOR, reader);
+  const supported = supportedMotor({ built, muscles, assist }, endpoints, PAW_SUPPORT, reader);
   const root = supported.root, tracker = effectorTracker(built, root, { seedActual: true });
   const channels = muscles.channels, freedoms = channels.length;
   const unmet: MotorUnmet = { pushes: new Uint8Array(freedoms), points: 0 };
@@ -91,7 +91,7 @@ function pawMotor(built: ReadBody, muscles: MuscleReading, posture: Pose = {}, a
       // A support's solve drives every freedom: a push asked beside it is not carried out.
       for (const push of pushes) unmet.pushes[muscles.channel(push.channel)] = 1;
       supported.control({ centre: goal.centre, velocity: goal.velocity, rotation: goal.rotation, endpoints: goal.ends, posture: state.pose }, command, dt,
-        (i) => along(i) ?? tracked(i), goal.hold ? REPTILE_MOTOR : REPTILE_TRAVEL,
+        (i) => along(i) ?? tracked(i), goal.hold ? PAW_SUPPORT : PAW_TRAVEL,
         (i) => path(i)?.seconds ?? tracker.response(channels[i]!.name), (i) => tracker.firm(i));
       return;
     }
@@ -102,8 +102,8 @@ function pawMotor(built: ReadBody, muscles: MuscleReading, posture: Pose = {}, a
       command.muscles.velocity[i] = push.speed ?? push.sense * UNREACHABLE;
       command.muscles.activation[i] = push.level;
       return undefined;
-    }, REPTILE_MOTOR.posture, dt, {
-      seconds: (i) => path(i)?.seconds ?? tracker.response(channels[i]!.name) ?? REPTILE_MOTOR.posture,
+    }, PAW_SUPPORT.posture, dt, {
+      seconds: (i) => path(i)?.seconds ?? tracker.response(channels[i]!.name) ?? PAW_SUPPORT.posture,
       rate: (i) => along(i)?.[1] ?? tracked(i)?.[1] ?? 0,
       acceleration: (i) => along(i)?.[2] ?? tracked(i)?.[2] ?? 0,
     });

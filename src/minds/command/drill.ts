@@ -1,10 +1,10 @@
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
-import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArrival, windowHolds, type Spot } from "../../skills/intent/action-window.ts";
-import { ARRIVED, directMovement, placeMovement, SWAY } from "../../skills/intent/movement.ts";
-import { isRegion, type Orders } from "../../skills/intent/orders.ts";
+import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArrival, windowHolds } from "../../skills/intent/action-window.ts";
+import { ARRIVED, directMovement, placeMovement, SWAY } from "../../skills/framework/movement.ts";
+import { isRegion, type Orders } from "../orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../../skills/framework/action.ts";
-import { skillOf, type KitEntry, type MenuEntry } from "../../skills/framework/menu.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { skillOf, type KitEntry, type MenuEntry, type Spot } from "../../skills/framework/menu.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { hold, letGo, stillHeld, unheld } from "../../control/held.ts";
 import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamView } from "./team.ts";

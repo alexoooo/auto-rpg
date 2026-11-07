@@ -25,7 +25,7 @@ takes no share of a blow, and the part it strikes takes the whole.
 
 ## Gaps
 
-`contact-stiffness-gaps` (`src/core/bodies/sources.ts`): where no study read gives a part's stiffness
+`contact-stiffness-gaps` (`src/core/sources.ts`): where no study read gives a part's stiffness
 under a blunt load, it takes a neighbour's whole. A lent row is a `derive` of the row it borrows
 and of the gap's `1`, so its provenance names the paper and the gap both.
 

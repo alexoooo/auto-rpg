@@ -9,8 +9,8 @@ import type { EffectorGoal, FreedomPath } from "../../../control/motor.ts";
 import { effectorFeedback } from "../../../control/effector-feedback.ts";
 import { unintendedContact } from "../contact-response.ts";
 import { scalarPathToRef } from "../../../control/point-path.ts";
-import { nearestSurface } from "../../intent/targets.ts";
-import { sensedActionTarget } from "../../intent/action-aim.ts";
+import { nearestSurface } from "../../perception/targets.ts";
+import { sensedActionTarget } from "../../framework/action-aim.ts";
 import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
 import { motionAtToRef, pointOfToRef, turnOfToRef } from "../../../core/bodies/read-motion.ts";
 import type { BodyRef, ReadSegment } from "../../../core/bodies/read-body.ts";
@@ -18,7 +18,7 @@ import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } 
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Window } from "../../framework/action.ts";
 import type { ExecutorPart, ExecutorMaking } from "../../framework/executor-part.ts";
 import type { LegsGoal } from "../../framework/skill.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 import { gapePoints, jawOf, mouthOf, mouthToRef, fitsJaw } from "./jaw.ts";
 import { pawReader } from "../../../control/quadruped/paws.ts";
 import meta from "../../../../assets/skills/strikes/bite/bite.meta.json" with { type: "json" };
@@ -26,18 +26,18 @@ import { dataOf } from "../../../core/data/store.ts";
 import { fitsAll, type PartConfig } from "../../../parts/parts.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../../core/world/state.ts";
+import { deepFreeze } from "../../../core/state.ts";
 
 /** Backward travel asked while the bite withdraws, m/s. */
 const WITHDRAW_SPEED = 1.15;
 
 /** The bite's settings, by name: `docs/reference/reptile.md#controller-settings`. */
-export const BITE_SETTINGS = Object.freeze(["prepare", "snap", "release", "open", "jawError", "jawClosed", "biteTimeout", "biteEntry", "bitePrepareNear",
+const BITE_SETTINGS = Object.freeze(["prepare", "snap", "release", "open", "jawError", "jawClosed", "biteTimeout", "biteEntry", "bitePrepareNear",
   "biteElevation", "biteNear", "biteSlow", "biteHold", "biteReturnLimit", "contactAt", "closeRate", "biteResponse", "biteAlign", "biteShift",
   "contactSeconds", "biteSamples", "biteLead", "neckRetract"] as const);
 
 /** **The bite's settings** (`BITE_SETTINGS`): the jaw's path, its reach and the strike cycle's limits, a body's record (`dataOf("bite")`). */
-export type BiteTuning = { readonly [K in (typeof BITE_SETTINGS)[number]]: number };
+type BiteTuning = { readonly [K in (typeof BITE_SETTINGS)[number]]: number };
 
 declare module "../../../core/data/store.ts" {
   interface DataOf {
@@ -106,7 +106,7 @@ interface Live {
  * down or the stroke lost its support; lost where the target is no longer aimed at before the
  * stroke; cancelled where its request is withdrawn before it.
  */
-export function biteExecutor(body: Body, actions: readonly string[], T: BiteTuning, aim: ExecutorMaking["aim"]): Executor {
+function biteExecutor(body: Body, actions: readonly string[], T: BiteTuning, aim: ExecutorMaking["aim"]): Executor {
   if (!wholeBite(T)) throw new Error("invalid bite settings");
   const built = body.built, muscles = body.muscles, jaw = jawOf(built.spec), { lower, hinge, head, neck, teeth } = mouthOf(built);
   const effector = jaw.head.name, footprint = Object.freeze([segmentResource(effector), LEG_RESOURCE, TRUNK_RESOURCE]);

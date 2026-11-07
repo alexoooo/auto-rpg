@@ -4,14 +4,14 @@ import {parseArgs} from 'node:util';
 import {isDeepStrictEqual} from 'node:util';
 import {modelSpec} from '../../../src/core/bodies/models.ts';
 import {bodyKey} from '../../../src/core/bodies/spec/body.ts';
-import {derive} from '../../../src/core/bodies/spec/quantity.ts';
+import {derive} from '../../../src/core/quantity.ts';
 import {Vector3} from '../../../src/core/math/vector.ts';
 import {driveMuscles} from '../../../src/core/bodies/muscle/driver.ts';
 import {jointAngles} from '../../../src/core/bodies/build/joint-state.ts';
 import {coreStand,saveStand,loadStand} from '../../../tests/harness/core-stand.mjs';
 import {passiveToeBody} from './passive-toe-body.mjs';
 import {guardPosture} from '../../../src/skills/guard/guard.ts';
-import {commandedBody} from '../../../src/app/commanded-body.ts';
+import {stockBody} from '../../../src/app/stock-body.ts';
 import {uprightness} from '../../../src/control/ground.ts';
 import {walkRun} from '../../../src/skills/locomotion/walk-run.ts';
 import {rapierModule} from '../../../src/core/physics/rapier.ts';
@@ -65,7 +65,7 @@ for(const body of [original,spec]) {
    const step=raw.step.bind(raw);
    raw.step=(events,hooks)=>step(events,{...hooks,contactLayer:(a,b)=>handles.has(a)||handles.has(b)?layer:null});
   }
-  const host=commandedBody(s.built,s.world,{servoSeconds:.1,measuring:true});
+  const host=stockBody(s.built,s.world,{servoSeconds:.1,measuring:true});
   const skill=walkRun(host.driver);
   const physical=uprightness(s.built),runView=Object.create(host.view,{down:{get:()=>physical.fallen()}});
   let goal=null;

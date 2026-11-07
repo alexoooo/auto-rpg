@@ -1,5 +1,5 @@
 import { atan2, cos, sin } from "../../core/math/real.ts";
-import type { GroundPoint } from "../../skills/intent/movement.ts";
+import type { GroundPoint } from "../../skills/framework/movement.ts";
 import { distance } from "./goals.ts";
 import type { SensedBody } from "./team.ts";
 

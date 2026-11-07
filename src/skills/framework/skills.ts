@@ -1,15 +1,15 @@
+import type { Clearance } from "./navigation.ts";
+import type { GaitLimits } from "./locomotion-part.ts";
+import type { GaitName } from "./skill.ts";
 import type { KitEntry, MenuEntry } from "./menu.ts";
-import type { Clearance } from "../locomotion/navigation/clear-step.ts";
 import type { BodyCommand, BodyView } from "../../control/body.ts";
-import type { StanceEnvelope } from "../../control/stance-envelope.ts";
-import type { GaitName } from "../locomotion/gaits.ts";
-import type { Intent } from "../intent/intent.ts";
+import type { StanceEnvelope } from "../../control/stance/stance-envelope.ts";
+import type { Intent } from "./intent.ts";
 import { type ActionAround, type ActionStatus, type Ended, type Readiness, type Resource, type TargetRef } from "./action.ts";
 import type { Holders, DefaultOwners } from "./arbiter.ts";
 import type { LegsUnmet, Skill } from "./skill.ts";
-import type { SupportReport } from "./support.ts";
-import type { NavigationReport } from "../locomotion/navigation/navigator.ts";
-import type { GaitLimits } from "../intent/travel.ts";
+import type { LowSupportReport } from "./low-support.ts";
+import type { NavigationReport } from "./navigation.ts";
 
 /** The body's sole action runtime composes discrete commitments with continuous services. */
 export interface Skills extends Skill {
@@ -49,7 +49,7 @@ export interface SkillReport {
   readonly ledger: readonly Ended[];
   /** The hands its guard put a cover before a threat with at its last step, by segment (`Intent.guard`). */
   readonly covering: readonly string[];
-  readonly support?: SupportReport;
+  readonly support?: LowSupportReport;
   readonly holders: Holders;
   /** The service writing a default-owned concrete control, attributed while commands are composed. */
   readonly defaultOwners: Readonly<DefaultOwners>;

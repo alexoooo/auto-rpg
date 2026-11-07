@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { cmaSearch, workerPool } from '../../cma.mjs';
-import { STANCE_GAIT } from '../../../src/control/stance-tuning.ts';
+import { STANCE_GAIT } from '../../../src/control/stance/stance-tuning.ts';
 import { DEFAULT_ENGINE } from '../../../src/core/physics/engines.ts';
 import { modelSpec } from '../../../src/core/bodies/models.ts';
 import { recordingKey } from '../../../src/core/world/recording.ts';

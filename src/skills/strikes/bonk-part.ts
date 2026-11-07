@@ -1,13 +1,13 @@
 import meta from "../../../assets/skills/strikes/bonk/bonk.meta.json" with { type: "json" };
 import { dataOf } from "../../core/data/store.ts";
 import { heldBy } from "../../core/bodies/items/held.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { fitsAll, strikesWithOneOf } from "../../parts/parts.ts";
 import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import { MOTOR_PATHS } from "../../control/motor-part.ts";
 import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
 import { recordFault, tunedSettings, type SkillRecords } from "../framework/records.ts";
-import { handConfigurationRefusal } from "./held-strike.ts";
+import { handConfigurationRefusal } from "../reach/hand.ts";
 import { BONK_KEYS, bonkExecutor, validBonk, validBonkPart, type BonkSettings } from "./bonk.ts";
 import type { BonkTechnique } from "./bonk-course.ts";
 

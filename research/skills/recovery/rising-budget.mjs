@@ -52,10 +52,10 @@ async function targetFall(job) {
 /** The stance alone from the placed squat, to verified standing and 2 s held. */
 async function squatStance({ model, held, seed }) {
   await import("../../../tests/harness/preload-data.mjs");
-  const [{ default: poses }, { commandedBody }, { buildBody }, { loadEngine }, { humanSpec, humanoidSpec }, { armedWith },
+  const [{ default: poses }, { stockBody }, { buildBody }, { loadEngine }, { humanSpec, humanoidSpec }, { armedWith },
     { guardPosture }, { createWorld }, { groundPlacement }, { recoveryMeasurement }, { observeBody }, { clockSenses }, { STAND_CHECK }] = await Promise.all([
     import("../../../assets/research/posture-holds.json", { with: { type: "json" } }),
-    import("../../../src/app/commanded-body.ts"), import("../../../src/core/bodies/build/build-body.ts"), import("../../../src/core/physics/engines.ts"), import("../../../src/core/bodies/human/spec.ts"),
+    import("../../../src/app/stock-body.ts"), import("../../../src/core/bodies/build/build-body.ts"), import("../../../src/core/physics/engines.ts"), import("../../../src/core/bodies/human/spec.ts"),
     import("../../../src/core/bodies/items/held.ts"), import("../../../src/skills/guard/guard.ts"), import("../../../src/core/world/world.ts"), import("../../../src/game/lab/ground-starts.ts"),
     import("../../../src/game/lab/recovery-measurement.ts"), import("../../../src/control/observation.ts"), import("../../../src/core/world/senses.ts"), import("../../../src/game/lab/ground-mode.ts")]);
   const spec = armedWith(humanoidSpec(model), "right", held), reference = humanSpec("workshop-fighter");
@@ -68,7 +68,7 @@ async function squatStance({ model, held, seed }) {
   try {
   const world = lifetime.own(createWorld(await loadEngine("rapier")));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
-  const built = lifetime.own(buildBody(spec, world, placement)), body = lifetime.own(commandedBody(built, world, { servoSeconds: .1 }));
+  const built = lifetime.own(buildBody(spec, world, placement)), body = lifetime.own(stockBody(built, world, { servoSeconds: .1 }));
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: [footOn(spec, "left"), footOn(spec, "right")], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   let height = null, climbed = null, quiet = 0, verified = null, fell = false;

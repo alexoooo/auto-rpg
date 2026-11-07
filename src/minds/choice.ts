@@ -19,7 +19,7 @@ export type Status = "committed" | "yields" | "exit" | "over";
  */
 export interface Choice<S> {
   readonly name: string;
-  /** Its memory (`src/core/world/state.ts`), plain data. */
+  /** Its memory (`src/core/state.ts`), plain data. */
   readonly state: object;
   /** The resources it takes from the set while it runs (`Resource`; `WHOLE`, all of them): what no other choice chosen beside it may hold. */
   readonly claims: readonly Resource[];
@@ -70,7 +70,7 @@ export interface Priced<T> {
 export interface Deciding { readonly rethink: number; readonly phase?: number; readonly keep?: number }
 
 /** **When `deciding` next decides with no event**, deciding at `now` s: the first time on its phase at least half a period on (`Deciding`). */
-export function nextDecision(deciding: Deciding, now: number): number {
+function nextDecision(deciding: Deciding, now: number): number {
   const phase = deciding.phase ?? 0, periods = now / deciding.rethink - phase;
   return deciding.rethink * (Math.floor(periods + 1 / 2) + 1 + phase);
 }
@@ -148,7 +148,7 @@ export const NOTHING: readonly Resource[] = Object.freeze([]);
 export const WHOLE: readonly Resource[] = Object.freeze([BODY_RESOURCE]);
 
 /** Whether two claims share a resource, the whole sharing every one. */
-export const overlaps = (a: readonly Resource[], b: readonly Resource[]): boolean =>
+const overlaps = (a: readonly Resource[], b: readonly Resource[]): boolean =>
   hasResource(a, BODY_RESOURCE) && b.length > 0 || hasResource(b, BODY_RESOURCE) && a.length > 0 || a.some((resource) => hasResource(b, resource));
 
 /** Whether `choice` is on offer now: its entry admits. */

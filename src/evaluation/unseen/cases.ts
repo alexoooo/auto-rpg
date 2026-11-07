@@ -3,15 +3,15 @@
  * Option Mind with sword and buckler on the same character, on each side.
  */
 import { LOADOUTS, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
-import type { MindConfig } from "../../minds/config.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 import { BODY_MODELS, modelHolds, type BodyModel } from "../../core/bodies/models.ts";
 
 import { readBout, type BoutReading } from "../contest.ts";
 import { sideAttributes, type Cases, type Json, type Reader } from "../evaluation.ts";
 import { TOURNAMENT } from "../tournament/cases.ts";
 
-import { FIGHT_ENTRY } from "../../minds/catalog.ts";
+import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 

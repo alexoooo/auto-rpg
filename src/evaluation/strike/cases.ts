@@ -20,15 +20,15 @@
  * target (a foe fighting is never settled in a window), and the foe fights on. Up to that step the bout is
  * the subject's own bout against that foe: the Commander orders nothing.
  */
-import type { MindConfig } from "../../minds/config.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { Approach, DrillCommanderConfig } from "../../minds/command/drill.ts";
 import { randomStream } from "../../core/math/random.ts";
 import { sin, cos } from "../../core/math/real.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
 import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { sideAttributes, type BoutTiming, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
 import type { Rail } from "../../game/arena/rail.ts";
@@ -243,10 +243,10 @@ const MOVING = deepFreeze({ ...OPPONENT, opponent: "bare", directions: ["toward"
   height: .02, beyond: 1.5, near: .6 });
 
 /** Which way a moving target goes: toward the striker, away from it, or across its front. */
-export type Direction = "toward" | "away" | "across";
+type Direction = "toward" | "away" | "across";
 
 /** How a walk-rung trial asks: once settled in its window's middle, or the first step it is ready, still walking. */
-export type Start = "settled" | "walking";
+type Start = "settled" | "walking";
 
 /**
  * A fight's moments: the strikers' bodies; the foe, Option Mind fighting with empty hands on the

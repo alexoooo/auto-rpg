@@ -1,6 +1,6 @@
 import { isRefused, type Refused } from "../../refusal.ts";
 import type { BearingEndSpec, BodySpec } from "../spec/body.ts";
-import { sourced } from "../spec/quantity.ts";
+import { sourced } from "../../quantity.ts";
 import { hastedFigure, humanAttributes } from "./attributes.ts";
 import type { HumanFigure } from "./figure.ts";
 import { humanJoints } from "./joints.ts";
@@ -13,7 +13,7 @@ import { jointSpeed } from "./speed.ts";
 import { toedFigure } from "./toes.ts";
 import { workshopFigure } from "./workshop.ts";
 import { humanWounds } from "./wounds.ts";
-import { SIDES } from "../bilateral.ts";
+import { SIDES, pairedSegment } from "../bilateral.ts";
 
 /**
  * **A workshop human, whole**: its segments, the joints and muscle between them, its wounds and its
@@ -55,8 +55,8 @@ function figureSpec(figure: HumanFigure): BodySpec | Refused {
   return {
     model: figure.model, mass: figure.mass, stature: figure.stature, segments,
     effectors: SIDES.flatMap(side => [
-      { segment: `hand.${side}`, base: "upperTrunk", point: "knuckles" },
-      { segment: `foot.${side}`, base: "lowerTrunk", point: "strike" },
+      { segment: pairedSegment("hand", side), base: "upperTrunk", point: "knuckles" },
+      { segment: pairedSegment("foot", side), base: "lowerTrunk", point: "strike" },
     ]),
     joints: humanJoints(figure, segments, (exertion) => peakTorque(figure, exertion), (exertion) => jointSpeed(figure, exertion)),
     wounds: humanWounds(figure),

@@ -1,6 +1,6 @@
-import { catalogName, type MindPlace, type ReportNow, type Seat, type SeatAsk, type SeatSays } from "../../minds/apart.ts";
+import { catalogName, type MindPlace, type ReportNow, type Seat, type SeatAsk, type SeatSays } from "../../minds/seat/apart.ts";
 import type { MenuEntry } from "../../skills/framework/menu.ts";
-import type { MirrorChannel, MirrorStatics } from "../../minds/mirror.ts";
+import type { MirrorChannel, MirrorStatics } from "../../minds/seat/mirror.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { MIND_CATALOGS } from "./catalogs.ts";
 import { SHARED_NUMBERS, type AskCrossing, type Batch, type Carried, type Reply, type SpecNumber, type ToldCrossing } from "./wire.ts";
@@ -50,7 +50,7 @@ interface Held {
 }
 
 /**
- * **Minds apart on `links`** (`MindPlace`, `src/minds/apart.ts`): each link a host of seats
+ * **Minds apart on `links`** (`MindPlace`, `src/minds/seat/apart.ts`): each link a host of seats
  * (`mindThread`, `src/app/apart/thread.ts`), the seats dealt to them in turn as they are made; which
  * bodies share a thread changes nothing of a bout. The channels' numbers are memory the threads
  * share. Every ask goes at once, so a thread moves each body as the world writes it; as the world

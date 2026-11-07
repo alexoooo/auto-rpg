@@ -2,7 +2,7 @@ import stepUpMeta from "../../../../../assets/skills/recovery/staged/step-up.met
 import sitBackMeta from "../../../../../assets/skills/recovery/staged/sit-back.meta.json" with { type: "json" };
 import { dataOf } from "../../../../core/data/store.ts";
 import type { SkillRecords } from "../../../framework/records.ts";
-import { deepFreeze } from "../../../../core/world/state.ts";
+import { deepFreeze } from "../../../../core/state.ts";
 import { bodyKey, type BodySpec } from "../../../../core/bodies/spec/body.ts";
 import { heldBy, loadoutKey } from "../../../../core/bodies/items/held.ts";
 import type { stagedRise } from "./staged.ts";

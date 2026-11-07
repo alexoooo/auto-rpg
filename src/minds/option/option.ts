@@ -1,7 +1,8 @@
+import type { Spot } from "../../skills/framework/menu.ts";
 import { hasResource, LEG_RESOURCE } from "../../skills/framework/action.ts";
 import type { Readiness, Resource } from "../../skills/framework/action.ts";
-import { SETTLED, type Spot } from "../../skills/intent/action-window.ts";
-import { intentOfSet, type Intent, type SelectedAsk } from "../../skills/intent/intent.ts";
+import { SETTLED } from "../../skills/intent/action-window.ts";
+import { intentOfSet, type Intent, type SelectedAsk } from "../../skills/framework/intent.ts";
 import type { Sight } from "../decider.ts";
 import type { Choice } from "../choice.ts";
 import { bearingAround, graceAt, inReach, type Cues, type ModelledStrike, type Percepts, type Predictions } from "./percepts.ts";

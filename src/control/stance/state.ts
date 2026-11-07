@@ -2,14 +2,14 @@
  * The stance's records: what it is made with (`Stance`), what it remembers from one step to the
  * next (`StanceState`), and the values its functions work in (`StanceScratch`).
  */
+import type { StanceEnd, StanceGoal, StanceReading, SwingGoal } from "./goal.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { AssistReading } from "../../core/bodies/assist.ts";
 import type { Limb, LimbTask } from "../bearing.ts";
 import type { WholeBodyAsk } from "../solve.ts";
-import type { StanceEnd, StanceGoal, StanceReading, SwingGoal } from "../stance.ts";
 import { makeSwingShiftWork, type SwingShift, type SwingShiftWork } from "../swing-leg.ts";
 import type { SwingBow } from "../swing-path.ts";
-import { resolveStance, SUPPORT_INSET, type GaitTuning, type ResolvedStance, type StanceTuning } from "../stance-tuning.ts";
+import { resolveStance, SUPPORT_INSET, type GaitTuning, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, restWidth, soleRefusal, type FootMemory, type FootState } from "../support.ts";
 import { massOf, partsOn, type Parts } from "../../core/bodies/read-motion.ts";
 import type { BearingEnd } from "../../core/bodies/spec/body.ts";

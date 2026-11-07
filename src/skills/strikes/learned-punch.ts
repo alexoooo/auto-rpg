@@ -7,7 +7,7 @@ import { intoFrameToRef } from "../../control/kinematics.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import type { MusclePush } from "../../control/motor.ts";
 
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 
 import { footOn } from "../../control/support.ts";
 import { type Side, otherSide } from "../../core/bodies/bilateral.ts";

@@ -1,18 +1,18 @@
 import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../framework/action.ts";
 import { supportHeight } from "../../control/support-reference.ts";
-import { handConfiguration } from "./held-strike.ts";
+import { handConfiguration } from "../reach/hand.ts";
 import type { Body } from "../../control/body.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import { atan2 } from "../../core/math/real.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import { type BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
-import { placedHeightFits } from "./arm-reach.ts";
+import { placedHeightFits } from "../reach/arm-reach.ts";
 import { faceAligner } from "./face-aligner.ts";
 import type { StrikingFace } from "./straight-punch.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";
-import { sensedActionTarget } from "../intent/action-aim.ts";
+import { sensedActionTarget } from "../framework/action-aim.ts";
 import { timedPushes, validPush, type TimedPush } from "./timed-push.ts";
 import { otherSide, type Side, SIDES } from "../../core/bodies/bilateral.ts";
 

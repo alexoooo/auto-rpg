@@ -1,6 +1,6 @@
 import { commandsBody } from "../../control/body.ts";
 import type { Combatant } from "../combatant.ts";
-import type { PhysicalBody } from "../../minds/physical-body.ts";
+import type { PhysicalBody } from "../../minds/seat/physical-body.ts";
 import { woundedIn, type Fighter, type LandedBlow } from "../../combat/blows.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ActionStatus, Ended } from "../../skills/framework/action.ts";

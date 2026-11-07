@@ -1,7 +1,7 @@
 import RAPIER from "@dimforge/rapier3d-simd-compat";
 import { Quaternion, Vector3 } from "../math/vector.ts";
-import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../bodies/spec/constants.ts";
-import { sourced, type Vec3 } from "../bodies/spec/quantity.ts";
+import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../constants.ts";
+import { sourced, type Vec3 } from "../quantity.ts";
 import { collisionGroupsAdmit, validCollisionGroups, type ColliderShape, type Contact, type ContactMaterial, type ContactManifold, type ContactPair, type ContactSink, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type Pose, type SegmentBody } from "./engine.ts";
 import { sin, cos, hypot } from "../math/real.ts";

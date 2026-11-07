@@ -1,5 +1,5 @@
 import { MessageChannel, receiveMessageOnPort, Worker, type MessagePort } from "node:worker_threads";
-import type { MindPlace } from "../../minds/apart.ts";
+import type { MindPlace } from "../../minds/seat/apart.ts";
 import { mindThreads, type ThreadLink } from "../apart/host.ts";
 import { ANSWERED, COUNTERS, DONE, POSTED, waitPast, type Reply } from "../apart/wire.ts";
 

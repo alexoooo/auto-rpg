@@ -1,10 +1,10 @@
+import type { MindKit } from "../framework/mind-kit.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import type { MuscleReading, MuscleCommand } from "../../core/bodies/muscle/driver.ts";
 import type { BodyControl } from "../../core/bodies/body-control.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Clock } from "../../core/world/clock.ts";
 import type { OwnBody } from "../../core/bodies/own-body.ts";
-import type { MindKit } from "../kit.ts";
 import type { Senses } from "../../core/bodies/senses.ts";
 import type { GroundReading, Position } from "../../control/ground-reading.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";

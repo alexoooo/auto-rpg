@@ -6,12 +6,12 @@
  * stage's own axis as a bout's spawns are, so the Arena's camera sees them side on. Nothing ends a
  * trial but its seconds. A trial is a bout world, so the Arena plays it as it was scored.
  */
-import type { MindConfig } from "../../minds/config.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { modelHolding } from "../../core/bodies/models.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readCover, type CoverReading } from "./read.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";

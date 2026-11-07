@@ -1,6 +1,6 @@
 import type { Refused } from "../../refusal.ts";
 import { isRefused } from "../../refusal.ts";
-import type { Quantity } from "./quantity.ts";
+import type { Quantity } from "../../quantity.ts";
 
 type Value = Quantity["value"];
 

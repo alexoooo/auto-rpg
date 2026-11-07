@@ -1,9 +1,9 @@
+import { describeMind } from "../../../minds/catalog/catalog.ts";
 import type { Inspected } from "../../worker/inspection.ts";
 import { GAME, partOf } from "../../catalog.ts";
-import { describeMind } from "../../../minds/description.ts";
 import { commandsBody } from "../../../control/body.ts";
-import type { MindConfig } from "../../../minds/config.ts";
-import type { Staging } from "../../../minds/config-link.ts";
+import type { MindConfig } from "../../../minds/catalog/config.ts";
+import type { Staging } from "../../../minds/catalog/config-link.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { mindEditor } from "./mind-editor.ts";
 import { actionReadout } from "./action-readout.ts";

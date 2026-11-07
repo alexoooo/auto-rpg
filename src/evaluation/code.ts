@@ -3,7 +3,7 @@
  * their trees hold and the mind data they read, each of which adds its own code to the environment
  * in the case's `code` (`caseCoder`, `scripts/build-identity.mjs`).
  */
-import type { MindConfig } from "../minds/config.ts";
+import type { MindConfig } from "../minds/catalog/config.ts";
 import type { CaseWorld, Subject, WorldKind } from "./evaluation.ts";
 import { createWorlds } from "./world-builders.ts";
 import { type GameContext } from "../game/arena/context.ts";

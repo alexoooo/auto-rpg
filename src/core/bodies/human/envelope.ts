@@ -1,7 +1,7 @@
 import fighterHull from "../../../../assets/humanoid/workshop-fighter-trunk-hull.json" with { type: "json" };
 import rogueHull from "../../../../assets/humanoid/workshop-rogue-trunk-hull.json" with { type: "json" };
-import type { SourceKey } from "../sources.ts";
-import { sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import type { SourceKey } from "../../sources.ts";
+import { sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import type { WorkshopModel } from "./rig.ts";
 import type { Side } from "../bilateral.ts";
 

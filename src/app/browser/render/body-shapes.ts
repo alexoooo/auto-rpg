@@ -8,7 +8,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
 import type { SegmentFrame, ShapeSpec } from "../../../core/bodies/spec/body.ts";
 import { convexHull } from "../../../core/bodies/spec/hull.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 import { dot, length, normalize, sub } from "../../../core/bodies/spec/vec.ts";
 import { acos } from "../../../core/math/real.ts";
 

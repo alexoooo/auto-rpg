@@ -1,5 +1,5 @@
 import type { Quaternion, Vector3 } from "../math/vector.ts";
-import type { Vec3 } from "../bodies/spec/quantity.ts";
+import type { Vec3 } from "../quantity.ts";
 
 /**
  * **What the core asks of a physics engine**, and nothing of any engine's own types. The core builds
@@ -50,10 +50,10 @@ export interface PhysicsOptions {
 }
 
 /** Trusted world placement: origin pose and centre-of-mass velocities, independent of muscle control. */
-export type BodyPlacement = { readonly position: Vec3; readonly rotation: readonly [number, number, number, number]; readonly velocity: Vec3; readonly spin: Vec3 };
+type BodyPlacement = { readonly position: Vec3; readonly rotation: readonly [number, number, number, number]; readonly velocity: Vec3; readonly spin: Vec3 };
 
 /** A collider pair responds only when each membership intersects the other's filter. Fixed geometry uses all bits. */
-export type CollisionGroups = { readonly membership: number; readonly filter: number };
+type CollisionGroups = { readonly membership: number; readonly filter: number };
 
 /** Group masks are unsigned sixteen-bit integers. */
 export const validCollisionGroups = (groups: CollisionGroups): boolean =>

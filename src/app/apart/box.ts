@@ -5,7 +5,7 @@
  * text is its length (4 bytes) and its UTF-8 bytes, written round the ring. A writer with no room
  * waits for the reader.
  */
-export interface ReplyBox {
+interface ReplyBox {
   /** The memory both threads share: the counters, then the ring. */
   readonly buffer: SharedArrayBuffer;
   /** Write `text` after every text written before it. */

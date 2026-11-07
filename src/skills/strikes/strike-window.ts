@@ -20,7 +20,7 @@ export const quietToStrike = (view: BodyView): boolean =>
   view.stance.phase === "stand" || view.stance.phase === "shift" && hypot(view.stance.velocity.x, view.stance.velocity.z) < SHIFTING_PACE;
 
 /** Where a strike is thrown from (`strikeWindow`): its stand-off and how far past it, to either side and how fast it may be, and whether the stance must be quiet. */
-export interface StrikeStand {
+interface StrikeStand {
   /** How far across the ground the head stands from the target, facing it, m. */
   readonly standOff: number;
   /** How much further it may stand, m, and how far to either side of the line it faces. */

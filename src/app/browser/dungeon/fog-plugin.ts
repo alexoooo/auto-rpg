@@ -57,7 +57,7 @@ const f = (v: number) => v.toFixed(3);
 // declarations are used only where there are no uniform buffers. A sampler is not in the buffer, so it is
 // declared. The discards come first in `main`, before any lighting is paid for, and before the prepass writes, so
 // an unexplored or cut-away pixel leaves no trace in the ambient occlusion either.
-// The mask is read as `FOG_SAMPLE` says, and `fogSample` in `fog.ts` is the same rule on the CPU: change both.
+// The mask is read as `FOG_SAMPLE` in `fog.ts` says.
 // The cut-away is `cutAway` in `fog.ts`, with `fogBand.xy` the camera pitch's cosine and sine, and `fogToward` the
 // unit step on the ground toward the camera.
 // `texelFetch` and a one-channel texture need WebGL2, as SSAO2 does.

@@ -25,14 +25,14 @@ import { balanceCeiling, balancePercent, rulebook } from "../src/combat/rulebook
 import { parseArgs } from "node:util";
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../src/control/body.ts";
-import { commandedBody } from "../src/app/commanded-body.ts";
+import { stockBody } from "../src/app/stock-body.ts";
 import { buildBody } from "../src/core/bodies/build/build-body.ts";
 import { armed } from "../src/core/bodies/human/grip.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { woodenClub } from "../src/core/bodies/items/club.ts";
 import { centreOfToRef } from "../src/core/bodies/read-motion.ts";
-import { standIntent } from "../src/skills/intent/intent.ts";
-import { createMind } from "../src/minds/minds.ts";
+import { standIntent } from "../src/skills/framework/intent.ts";
+import { createMind } from "../src/minds/seat/create-mind.ts";
 import { driveBy } from "../src/minds/decider.ts";
 import { standingSkills } from "../src/app/standing-skills.ts";
 import { createWorld } from "../src/core/world/world.ts";
@@ -114,7 +114,7 @@ world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
 const count = Number(values.bodies), side = Math.ceil(Math.sqrt(count));
 const bodies = Array.from({ length: count }, (_, i) => {
   const built = buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] });
-  const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS });
+  const body = stockBody(built, world, { servoSeconds: SERVO_SECONDS });
   driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills);
   return { built, body };
 });

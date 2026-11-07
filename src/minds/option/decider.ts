@@ -2,7 +2,7 @@ import type { PartConfig } from "../../parts/parts.ts";
 import type { Sight, Decider } from "../decider.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-import type { Orders } from "../../skills/intent/orders.ts";
+import type { Orders } from "../orders.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
 
 /** What Option Mind's decider is made for: the body, the fight's rules, a person's orders and the parts the tree names. */
@@ -16,7 +16,7 @@ export interface DeciderMaking {
 }
 
 /** What Option Mind decides with: its chooser, its options (each a part of role `option`, in rank order), and the legs its body goes by. */
-export interface Deciding {
+interface Deciding {
   readonly chooser: PartConfig;
   /** The provider that owns the selected options' decision protocol. */
   readonly predictions: PartConfig;

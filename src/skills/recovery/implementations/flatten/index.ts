@@ -1,5 +1,5 @@
 import type { BodyView } from "../../../../control/body.ts";
-import { deepFreeze } from "../../../../core/world/state.ts";
+import { deepFreeze } from "../../../../core/state.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import type { GroundReading, Position } from "../../../../control/ground-reading.ts";
 import { armClearance } from "./clearance.ts";
@@ -17,7 +17,7 @@ const FLAT = deepFreeze({ "shoulder.left abduction": 1.3, "shoulder.right abduct
   "knee.left flexion": .2, "knee.right flexion": .2 });
 
 /** Repositioning proves anatomical arm clearance independently of filtered self-contacts. */
-export function flatten(own: OwnBody, _view: BodyView): TechniqueRun {
+function flatten(own: OwnBody, _view: BodyView): TechniqueRun {
   const drive = poseDrive(own.muscles), clear = armClearance(own.built), clock = phaseClock();
   const trunk = own.spec.segments.flatMap((s, i) => s.name.endsWith("Trunk") ? [i] : []);
   const state = { ended: null as TechniqueEnd | null, clock: clock.state };

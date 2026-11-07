@@ -10,7 +10,7 @@ import { commandsBody } from "../src/control/body.ts";
 import { DEFAULT_ENGINE, loadEngine } from "../src/core/physics/engines.ts";
 import { MINDS } from "../src/app/catalog.ts";
 import { motionAtToRef, pointOfToRef } from "../src/core/bodies/read-motion.ts";
-import { STAND_ORDERS } from "../src/skills/intent/orders.ts";
+import { STAND_ORDERS } from "../src/minds/orders.ts";
 
 /** Frozen measurement protocol: m/s, s; sustained pressure alone never counts as a driven blow. */
 export const COMBAT_PROTOCOL = Object.freeze({ version: 1, drivenClosing: 1, relativeHandSpeed: .5, relativeFootSpeed: .5,

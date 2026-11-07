@@ -4,16 +4,16 @@ import { isRefused, type Refused } from "../../core/refusal.ts";
 import type { Command } from "../../minds/command/commands.ts";
 import type { CommanderConfig } from "../../minds/command/kind.ts";
 import { loadEngine, type EngineName } from "../../core/physics/engines.ts";
-import type { GroundPoint } from "../../skills/intent/movement.ts";
+import type { GroundPoint } from "../../skills/framework/movement.ts";
 import { armedWith } from "../../core/bodies/items/held.ts";
-import type { MindConfig } from "../../minds/config.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 import { type BodyModel } from "../../core/bodies/models.ts";
 import { modelInfo } from "../../game/model-loadouts.ts";
 import { physicalReading } from "../../control/observation.ts";
 import { constructionScope } from "../../core/construction.ts";
 import { attachment } from "../../core/bodies/read-body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { GameContext } from "../../game/arena/context.ts";
 import { debrisCues, type SoundCue, type SoundPoint } from "../../game/audio/cues.ts";
 import { hearRun } from "../../game/dungeon/hearing.ts";
@@ -119,7 +119,7 @@ export const cryptSpec = (character: { readonly spec: BodySpec }, model: BodyMod
  * person's lead applied; `cues` is given what a blow takes
  * off where the party sees.
  */
-export async function buildCryptRun(context: GameContext, start: CryptStart, { cues = [], minds: makeMinds }: StageRuntime & { readonly cues?: SoundCue[] } = {}) {
+async function buildCryptRun(context: GameContext, start: CryptStart, { cues = [], minds: makeMinds }: StageRuntime & { readonly cues?: SoundCue[] } = {}) {
   const { defaultMind } = context, { treeData, loadData } = context.catalog;
   const layout = start.layout ? structuredClone(start.layout) : runMap(start);
   if (isRefused(layout)) return layout;

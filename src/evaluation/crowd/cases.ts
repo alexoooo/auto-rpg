@@ -20,23 +20,23 @@ import { isRefused, type Refused } from "../../core/refusal.ts";
 import type { Command } from "../../minds/command/commands.ts";
 import { hypot } from "../../core/math/real.ts";
 import { randomStream } from "../../core/math/random.ts";
-import type { MindConfig } from "../../minds/config.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
 import { modelInfo } from "../../game/model-loadouts.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { generateLevel } from "../../game/dungeon/level.ts";
 import { findPath, walkable, type DungeonMap, type DungeonObstacle, type Point } from "../../game/dungeon/map.ts";
 import { LEVELS } from "../../game/dungeon/run.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptCase, type CryptLayout, type CryptLeg, type CryptReading } from "../crypt.ts";
 import type { Cases, Json, Reader, Subject } from "../evaluation.ts";
-import { FIGHT_ENTRY } from "../../minds/catalog.ts";
+import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
 
 /** The situations, in their order. */
 const SITUATIONS = ["reversal", "lone", "following", "crossing", "passage", "fallen"] as const;
 
-export type Situation = (typeof SITUATIONS)[number];
+type Situation = (typeof SITUATIONS)[number];
 
 /**
  * The protocol: the members' body; the seeds each situation is played on; the room's floor, m;

@@ -1,5 +1,7 @@
+import type { Spot } from "../../skills/framework/menu.ts";
+import type { GaitName } from "../../skills/framework/skill.ts";
 import { cos, hypot, sin } from "../../core/math/real.ts";
-import { approachSpot, atSpot, type Spot } from "../../skills/intent/action-window.ts";
+import { approachSpot, atSpot } from "../../skills/intent/action-window.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import { PROFILE_RANGE_SPAN, startVelocity } from "../../skills/framework/profile.ts";
@@ -8,11 +10,10 @@ import { blocked, LEGS, READY, standing, still, type Option, type Sites, type Si
 import type { Status } from "../choice.ts";
 import { bearingAround, dealtAt, edgeOf, graceAt } from "./percepts.ts";
 import { CLINCH, clinched, STILL, upOrDown, type Terms } from "./value.ts";
-import type { GaitName } from "../../skills/locomotion/gaits.ts";
 import type { Walker } from "./walk.ts";
 
 /** A gait as Option Mind's legs go by it: its name, its label and its legs' config. */
-export interface GaitOf {
+interface GaitOf {
   readonly name: GaitName;
   readonly label: string;
   readonly legs: PartConfig;

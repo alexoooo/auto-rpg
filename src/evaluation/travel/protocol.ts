@@ -1,6 +1,6 @@
 import { sin, cos } from "../../core/math/real.ts";
 import type { Loadout } from "../../core/bodies/items/held.ts";
-import type { Orders } from "../../skills/intent/orders.ts";
+import type { Orders } from "../../minds/orders.ts";
 import type { LoneCue } from "../lone.ts";
 
 /** Minimum travel capability targets, independent of a controller's advertised envelope. */

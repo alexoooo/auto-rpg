@@ -8,14 +8,14 @@ import { Vector3 } from "../../../src/core/math/vector.ts";
 import { SIDES } from "../../../src/game/arena/duel.ts";
 import { addArenaSolids } from "../../../src/game/arena/solids.ts";
 import { SERVO_SECONDS } from "../../../src/control/body.ts";
-import { commandedBody } from "../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../src/app/stock-body.ts";
 import { buildBody } from "../../../src/core/bodies/build/build-body.ts";
 import { centreOfToRef } from "../../../src/core/bodies/read-motion.ts";
 import { armed } from "../../../src/core/bodies/human/grip.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { woodenClub } from "../../../src/core/bodies/items/club.ts";
-import { builtAngles, createMind } from "../../../src/minds/minds.ts";
-import { STAND_ORDERS } from "../../../src/skills/intent/orders.ts";
+import { builtAngles, createMind } from "../../../src/minds/seat/create-mind.ts";
+import { STAND_ORDERS } from "../../../src/minds/orders.ts";
 import { lieOf } from "../../../src/control/ground-reading.ts";
 import { RISE } from "../../../src/skills/recovery/implementations/staged/stages.ts";
 import { createWorld } from "../../../src/core/world/world.ts";
@@ -151,7 +151,7 @@ export async function toppled(shove, subs) {
         for (let i = 0; i < command.velocity.length; i++) command.velocity[i] = Math.max(-3, Math.min(3, -own.muscles.angle(i) / 0.2));
       },
     } }; };
-    return commandedBody(made, into, { servoSeconds: SERVO_SECONDS }, [stiff, ...subs]);
+    return stockBody(made, into, { servoSeconds: SERVO_SECONDS }, [stiff, ...subs]);
   });
   while (fall.world.steps < until(fall.world)) fall.world.step();
   return fall;

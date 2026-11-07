@@ -1,4 +1,4 @@
-import type { Estimate } from "../skills/intent/estimate.ts";
+import type { Estimate } from "../skills/framework/estimate.ts";
 import type { Readiness, TargetRef } from "../skills/framework/action.ts";
 import type { Priced } from "./choice.ts";
 
@@ -16,7 +16,7 @@ export interface OfferTerms {
 }
 
 /** **An option's worth at a decision** (`Engagement.offers`), weighed from a body's terms (`Priced`, `OfferTerms`). */
-export type Offer = Priced<OfferTerms>;
+type Offer = Priced<OfferTerms>;
 
 /**
  * **A candidate action a decider weighed** (`Engagement.candidates`): its key, the action, the limb

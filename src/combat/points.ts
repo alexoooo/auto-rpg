@@ -1,4 +1,4 @@
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 
 /** A directed surface acts only into its declared forward cone; side and reverse contacts are blunt. */
 export function pointsInto(direction: Vec3, normal: Vec3, alignment: number): boolean {

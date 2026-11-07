@@ -1,21 +1,21 @@
+import { describeMind } from "../../minds/catalog/catalog.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import { acos } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { isRefused } from "../../core/refusal.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { jointAngles, jointTracker } from "../../core/bodies/build/joint-state.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { selfClearance, type SelfClearance } from "../../core/bodies/build/clearance.ts";
 import { attachment, rootSegment } from "../../core/bodies/read-body.ts";
 import { motionAtToRef, pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
 import { bonkModel, BONK_LIMITS, type BonkCourse, type BonkFrame, type BonkModel, type BonkPhase, type BonkPose, type BonkReturn, type BonkTechnique, type BonkTurn } from "../../skills/strikes/bonk-course.ts";
-import { handConfiguration } from "../../skills/strikes/held-strike.ts";
+import { handConfiguration } from "../../skills/reach/hand.ts";
 import type { ActionStatus } from "../../skills/framework/action.ts";
 import type { BuiltBout } from "../bout.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import { uprightness } from "../../control/ground.ts";
 import { validBonkApproach, validBonkBoundary, validBonkCrossing, type BonkFixtureReading } from "./bonk-fixture.ts";
-import { describeMind } from "../../minds/description.ts";
 import { senseDelayOf } from "../../game/arena/duel.ts";
 
 type StrokeEnd = { readonly at: number; readonly reason: "endpoint" | "impact withdrawal" | "stroke deadline" | "preparation deadline" | "cancelled" };

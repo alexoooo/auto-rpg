@@ -1,7 +1,7 @@
 import { hypot } from "../../core/math/real.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Orders } from "../../skills/intent/orders.ts";
+import type { Orders } from "../orders.ts";
 import type { Profile } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
@@ -20,7 +20,7 @@ import { riseMemory } from "./rise-memory.ts";
  * through `ordersOf`, its Options' record of their tries (`record`; absent, none), whose ending a try its rise memory
  * reads (`riseMemory`), and the lookup its percept and prediction parts are found by (`parts`).
  */
-export interface Reading {
+interface Reading {
   readonly spec: BodySpec;
   readonly hz: number;
   /** The rate its mind decides at, Hz (`OptionMindConfig.rate`); the world's unless given. */

@@ -1,4 +1,4 @@
-import type { Catalog } from "../../minds/catalog.ts";
+import type { Catalog } from "../../minds/catalog/catalog.ts";
 import { TOOLKIT_CATALOG } from "../toolkit.ts";
 import { GAME } from "../catalog.ts";
 

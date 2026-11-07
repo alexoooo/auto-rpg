@@ -1,5 +1,6 @@
-import type { PhysicsEngine, PhysicsWorld } from "../physics/engine.ts";
-import { sourced, type Quantity } from "../bodies/spec/quantity.ts";
+import type { PhysicsEngine } from "../physics/engine.ts";
+import type { Hook, StepHook, StepHost } from "../bodies/step-host.ts";
+import { sourced, type Quantity } from "../quantity.ts";
 
 /** The fixed step's rate: physics and control run at 120 Hz. */
 export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-rate", "physics and control at 120 Hz");
@@ -15,7 +16,7 @@ export const COMMAND_DELAY: Quantity<number> = sourced(1, "1", "owner-command-de
 
 /**
  * **Where a world's minds run apart from it**, as the world steps it: the place itself is the minds'
- * (`MindPlace`, `src/minds/apart.ts`); the world only sends, once its preparing hooks have
+ * (`MindPlace`, `src/minds/seat/apart.ts`); the world only sends, once its preparing hooks have
  * run, what they asked of the minds there, so the minds step together.
  */
 export interface MindsApart {
@@ -37,19 +38,11 @@ export interface MindsApart {
  * A hook added while its own list runs waits for the next step, but an after-step hook added by a
  * step hook runs in the same step. A hook removed stops at once.
  */
-export interface World {
-  /** The physics: bodies, joints, ground and gravity. */
-  readonly physics: PhysicsWorld;
+export interface World extends StepHost {
   /** Steps a second. */
   readonly hz: number;
-  /** The step, s. */
-  readonly dt: number;
-  /** The actuator law shared by every body: symmetric reference bounds or each side's own muscle bounds. */
-  readonly actuation: "symmetric" | "directional";
-  /** The steps a body's command waits before it is applied (`COMMAND_DELAY`): a whole number, 1 or more. */
-  readonly delay: number;
   /**
-   * Where the minds a fight makes run (`MindPlace`, `src/minds/apart.ts`): apart from the
+   * Where the minds a fight makes run (`MindPlace`, `src/minds/seat/apart.ts`): apart from the
    * world, each on a mirror of its body, or, null, in the world's own thread on its mirror. A bout is
    * the same either way, step for step.
    */
@@ -58,7 +51,7 @@ export interface World {
   readonly steps: number;
   /** Seconds since the world was made: `steps / hz`. */
   readonly time: number;
-  /** Its memory (`src/core/world/state.ts`): the steps taken, the time `advance` owes. The physics saves its own (`PhysicsWorld.save`). */
+  /** Its memory (`src/core/state.ts`): the steps taken, the time `advance` owes. The physics saves its own (`PhysicsWorld.save`). */
   readonly state: object;
   /**
    * Run `hook` first in every step, before every `beforeStep` hook, after the sensing hooks added
@@ -66,18 +59,8 @@ export interface World {
    * same moment.
    */
   sense(hook: StepHook): Hook;
-  /**
-   * Run `hook` after every sensing hook and before every step hook, after the preparing hooks added
-   * before it: what makes a body ready to be read (its hands' and its toes' shapes) and hands a mind
-   * kept apart what it reads (`World.minds`).
-   */
-  prepare(hook: StepHook): Hook;
-  /** Run `hook` before every solver step, after the hooks added before it. */
-  beforeStep(hook: StepHook): Hook;
   /** Observe each completed solver interval after the clock advances, before any after-step event can change a body. */
   afterPhysics(hook: StepHook): Hook;
-  /** Run `hook` after all post-physics observations, after the hooks added before it. */
-  afterStep(hook: StepHook): Hook;
   /** Run `hook` each time the world is put back where a save left it (`loaded`), after the hooks added before it. */
   onLoad(hook: StepHook): Hook;
   /**
@@ -93,13 +76,6 @@ export interface World {
    * the time it could not take is dropped. Returns the steps taken.
    */
   advance(seconds: number, most?: number): number;
-  dispose(): void;
-}
-
-/** Called with the step, s. */
-type StepHook = (dt: number) => void;
-
-export interface Hook {
   dispose(): void;
 }
 

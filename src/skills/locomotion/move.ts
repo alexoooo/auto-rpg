@@ -1,16 +1,15 @@
+import type { LegsDrive, Locomotion } from "../framework/locomotion-part.ts";
 import type { BodyView } from "../../control/body.ts";
 import { hypot } from "../../core/math/real.ts";
-import { nearestFoe } from "../intent/targets.ts";
-import { conditionMatches, type ConditionReading } from "../intent/conditions.ts";
-import type { GaitName } from "./gaits.ts";
-import type { LegsDrive, Locomotion } from "./locomotion.ts";
-import { ALL_MET, FIELD_BIT, fieldsOf, maskOf, type LegsGoal } from "../framework/skill.ts";
+import { nearestFoe } from "../perception/targets.ts";
+import { conditionMatches, type ConditionReading } from "./conditions.ts";
+import { ALL_MET, FIELD_BIT, fieldsOf, maskOf, type LegsGoal, type GaitName } from "../framework/skill.ts";
 
 /**
  * How far past a rule's distance the body goes before the rule lets go of the gait it chose, m: no
  * switching back and forth at the edge.
  */
-export const LEAVING = 0.5;
+const LEAVING = 0.5;
 
 /** What a rule of Move reads: its distances, m (Infinity where there is nothing to measure to), and whether the body is asked to walk. */
 type Reading = ConditionReading;
@@ -23,7 +22,7 @@ type Reading = ConditionReading;
 export interface MoveRule {
   readonly gait: number;
   matches(reading: Reading, holding: boolean): boolean;
-  /** Its memory, if it keeps any (`src/core/world/state.ts`), held in Move's. */
+  /** Its memory, if it keeps any (`src/core/state.ts`), held in Move's. */
   readonly state?: object;
 }
 

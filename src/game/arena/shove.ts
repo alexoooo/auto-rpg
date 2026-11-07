@@ -6,11 +6,12 @@
  * throws it. Given in the step's sensing phase,
  * before every mind, from what the last step left; when it came is the bout's (`Duel.shoved`).
  */
+import type { Hook } from "../../core/bodies/step-host.ts";
 import { Vector3 } from "../../core/math/vector.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { cos, sin } from "../../core/math/real.ts";
 
-import type { Hook, World } from "../../core/world/world.ts";
+import type { World } from "../../core/world/world.ts";
 import type { ArenaSeat as Side } from "./seat.ts";
 
 /**

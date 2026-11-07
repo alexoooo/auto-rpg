@@ -1,4 +1,4 @@
-import { sourced, type Quantity } from "../../spec/quantity.ts";
+import { sourced, type Quantity } from "../../../quantity.ts";
 import type { Sex } from "./de-leva-1996.ts";
 
 /**

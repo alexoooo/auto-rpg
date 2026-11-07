@@ -1,5 +1,5 @@
 import { frameOf, segmentFrame, type BodySpec, type ContactRegionSpec, type HeldSpec, type ItemShape, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
-import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, cross, dot, scale, sub } from "../spec/vec.ts";
 import { toesRegion } from "./toes.ts";
 

@@ -1,9 +1,9 @@
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import { cos, sin } from "../../core/math/real.ts";
-import { directMovement, placeMovement, type GroundPoint, type MovementRequest } from "../../skills/intent/movement.ts";
-import { STAND_ORDERS, type Orders } from "../../skills/intent/orders.ts";
-import { travelSpeed } from "../../skills/intent/travel.ts";
+import { directMovement, placeMovement, type GroundPoint, type MovementRequest } from "../../skills/framework/movement.ts";
+import { STAND_ORDERS, type Orders } from "../orders.ts";
+import { travelSpeed } from "../../skills/locomotion/travel.ts";
 import type { Command, DrawnRoute, StrikeChoice, TeamOrder } from "./commands.ts";
 import { ARRIVAL, approach, arrived, direction, distance, lyingSince, reportOf, roomy, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamHost, TeamView } from "./team.ts";
@@ -89,7 +89,7 @@ interface PartyConfig {
  * reset. With the pointer steering a member's facing, that member takes on what it points at
  * first (`AIM_COSINE`, `SET_UPON`).
  */
-export function partyCommander(host: TeamHost, config: PartyConfig): Commander {
+function partyCommander(host: TeamHost, config: PartyConfig): Commander {
   const { level } = host, picks = config.picks ?? true;
   // Whom the person's commands go to (`selected`), by id: null, everybody, until the person selects.
   // When each foe lying down went down, by id (`lyingSince`).

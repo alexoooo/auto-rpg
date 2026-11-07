@@ -41,13 +41,13 @@ export interface Measured {
 }
 
 /** **The steps a body's command waited** where `measured` was measured: its `delay`, else none. */
-export const delayOf = (measured: Measured): number => measured.delay ?? 0;
+const delayOf = (measured: Measured): number => measured.delay ?? 0;
 
 /** **The rate the mind's driver ran at** where `measured` was measured, Hz: its `rate`, else the world's. */
-export const rateOf = (measured: Measured): number => measured.rate ?? measured.hz;
+const rateOf = (measured: Measured): number => measured.rate ?? measured.hz;
 
 /** The body a profile was measured against: its body (`bodyKey`) and its spec's digest (`specDigest`). */
-export interface Target {
+interface Target {
   readonly body: string;
   readonly spec: string;
 }
@@ -74,7 +74,7 @@ export const STANDING: Postures = Object.freeze({ own: "standing", target: "stan
  * (`placeInWindow`: the target's offset from the window's middle, ahead and to the right, m),
  * absent where it begins from none or its drill did not record it, read as at the middle.
  */
-export interface Start {
+interface Start {
   readonly range: number;
   readonly phase: string;
   readonly postures?: Postures;
@@ -114,7 +114,7 @@ export function startVelocity(to: { readonly x: number; readonly z: number }, re
  * start), the seconds until the hand was back at its guard, and the hit points its body lost
  * meanwhile: such a trial prices letting go alone.
  */
-export interface Trial {
+interface Trial {
   readonly start: Start;
   readonly done: boolean;
   readonly dealt: number;
@@ -486,7 +486,7 @@ const DIGESTS = new WeakMap<object, string>();
  * flags, an object's by its keys in order, leaving out functions, what is undefined and each
  * `provenance` (where a number came from, not what it is).
  */
-export function digestOf(value: unknown): string {
+function digestOf(value: unknown): string {
   const known = typeof value === "object" && value !== null ? DIGESTS.get(value) : undefined;
   if (known !== undefined) return known;
   let a = 2166136261, b = 3735928559;
@@ -603,7 +603,7 @@ export function staleness(profile: Profile, now: Measured): string | null {
 }
 
 /** A profile looked up for a skill (`profileFor`), and why it is stale where it is. */
-export interface Found {
+interface Found {
   readonly profile: Profile;
   readonly stale: string | null;
 }

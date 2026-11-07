@@ -25,9 +25,8 @@ const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2
 const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "workshop-fighter");
 
 async function played(seed) {
-  const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), companions }));
+  const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), companions, party: { kind: "clearer" } }));
   // The hero explores by itself in this mode, and fights what it meets.
-  run.commands.setMode({ keyboard: false, facing: true });
   const plan = run.plan.bind(run);
   let planned = 0;
   run.plan = () => { const t = performance.now(); plan(); planned = performance.now() - t; };
@@ -49,8 +48,7 @@ const READ = ["plan src/game/dungeon/run.ts", "reveal src/game/dungeon/map.ts", 
 
 /** One run under the CPU profiler: its steps, and microseconds a step in all of it and in each of `READ`, with everything each calls. */
 async function profiled(seed) {
-  const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), companions }));
-  run.commands.setMode({ keyboard: false, facing: true });
+  const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), companions, party: { kind: "clearer" } }));
   const session = new Session();
   session.connect();
   await session.post("Profiler.enable");
@@ -84,7 +82,7 @@ const stats = (v) => {
   const s = [...v].sort((a, b) => a - b);
   return `${(v.reduce((a, b) => a + b, 0) / v.length).toFixed(2)} / ${s[Math.floor(0.99 * s.length)].toFixed(2)} / ${s.at(-1).toFixed(2)}`;
 };
-console.log(`Node, a crypt run with no visuals, ${CORE_ENGINE}, 120 Hz; the hero exploring, ${companions.length} with it; to the run's end or ${seconds} s\n`);
+console.log(`Node, a crypt run with no visuals, ${CORE_ENGINE}, 120 Hz; the level-clearer playing the hero and ${companions.length} with it; to the run's end or ${seconds} s\n`);
 if (values.profile) {
   console.log("Under the CPU profiler at 100 us: microseconds a step in the mean, each function with everything it calls\n");
   console.log(`| Seed | The run | Steps | A step | ${READ.map((name) => `\`${name.split(" ")[0]}\``).join(" | ")} |`);

@@ -15,7 +15,7 @@ import { footOn } from "../../../../../src/control/support.ts";
 import "../../../../../tests/harness/preload-data.mjs";
 import { parseArgs } from "node:util";
 import { Quaternion, Vector3 } from "../../../../../src/core/math/vector.ts";
-import { commandedBody } from "../../../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../../../src/app/stock-body.ts";
 import { buildBody } from "../../../../../src/core/bodies/build/build-body.ts";
 import { loadEngine } from "../../../../../src/core/physics/engines.ts";
 import { humanoidSpec } from "../../../../../src/core/bodies/human/spec.ts";
@@ -25,10 +25,10 @@ import { recoveryMeasurement } from "../../../../../src/game/lab/recovery-measur
 import { turnOfToRef } from "../../../../../src/core/bodies/read-motion.ts";
 import { observeBody } from "../../../../../src/control/observation.ts";
 import { clockSenses } from "../../../../../src/core/world/senses.ts";
-import { kitOf } from "../../../../../src/skills/kit.ts";
+import { mindKitOf } from "../../../../../src/skills/assembly/kit.ts";
 import { partLookup } from "../../../../../src/app/catalog.ts";
 import { groundReading } from "../../../../../src/control/ground-reading.ts";
-import { TECHNIQUES } from "../../../../../src/app/recovery-techniques.ts";
+import { TECHNIQUES } from "../../../../../src/app/registration/techniques.ts";
 import { STAND_CHECK } from "../../../../../src/game/lab/ground-mode.ts";
 import { placement } from "../../witness/rise-witness.mjs";
 import { SIDES } from "../../../../../src/core/bodies/bilateral.ts";
@@ -44,9 +44,9 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   const trial = { end: null, at: null, heading: 0, stage: [] };
-  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock, afterPhysics) => {
+  const body = stockBody(built, world, { servoSeconds: .1 }, [(own, view, clock, afterPhysics) => {
     const part = TECHNIQUES[technique];
-    const run = part.make(own, view, clock, kitOf(partLookup, own.spec), part.defaults, afterPhysics);
+    const run = part.make(own, view, clock, mindKitOf(partLookup, own.spec), part.defaults, afterPhysics);
     const reader = groundReading(own.built, own.dt), state = { trial, run: run.state, reader: reader.state, begun: false };
     return { name: technique, has: () => technique, dispose() {}, mind: { state, wants: () => trial.end === null, begin() {}, end() {}, interrupt() {},
       // The technique runs in the motor part, on the body as it is, as the game's ground actions do.

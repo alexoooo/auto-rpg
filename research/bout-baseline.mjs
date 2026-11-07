@@ -25,7 +25,7 @@ import { parseArgs } from "node:util";
 import { HELD } from "../src/core/bodies/items/held.ts";
 import { lifeTaken } from "../src/combat/blows.ts";
 import { HUMANOID_MODELS } from "../src/core/bodies/models.ts";
-import { sourced } from "../src/core/bodies/spec/quantity.ts";
+import { sourced } from "../src/core/quantity.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 

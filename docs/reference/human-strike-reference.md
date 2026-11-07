@@ -3,7 +3,7 @@
 What the literature measured of human strikes, segments, joint torques and ranges, and what the
 core human is built from: sections 1 to 6 are the literature (the strike bars, `BAR` in
 `src/evaluation/strike/read.ts`; torques; segments), section 8 the workshop models'
-stature and volume (`src/core/bodies/sources.ts`), section 9 the core human's joint ranges and strengths
+stature and volume (`src/core/sources.ts`), section 9 the core human's joint ranges and strengths
 (`src/core/bodies/human/muscle.ts`, `tables/`).
 
 All units are SI. Angular velocities were converted at 1 deg/s = 0.01745 rad/s; the original deg/s value is given in brackets. "Typical" means an untrained or recreational adult male where such data exist; otherwise the lowest-skill group studied, which is named. Values are mean ± SD unless marked otherwise. **Derived** marks a number computed here from the cited inputs, not reported by the source.

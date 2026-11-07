@@ -1,6 +1,6 @@
+import type { SensedObstacle } from "../obstacle.ts";
 import { hypot } from "../../../core/math/real.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
-import type { SensedObstacle } from "../../locomotion/navigation/sensed-bounds.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 
 /** How far outside the envelope's expanded corners the visibility graph's nodes stand, m. */
 const ROUTE_MARGIN = .02;

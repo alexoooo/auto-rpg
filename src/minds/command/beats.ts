@@ -1,5 +1,5 @@
-import { deepFreeze } from "../../core/world/state.ts";
-import { STAND_ORDERS, type Orders } from "../../skills/intent/orders.ts";
+import { deepFreeze } from "../../core/state.ts";
+import { STAND_ORDERS, type Orders } from "../orders.ts";
 import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import type { Commander, MemberReport, SensedBody, TeamDecision, TeamView } from "./team.ts";
 
@@ -8,14 +8,14 @@ import type { Commander, MemberReport, SensedBody, TeamDecision, TeamView } from
  * range of the foe from `near` to `far` m (`range`), or attacking the foe (`strike`). The foe is
  * the first body its team senses that is still in the fight.
  */
-export type BeatMove =
+type BeatMove =
   | { readonly kind: "own" }
   | { readonly kind: "stand" }
   | { readonly kind: "range"; readonly near: number; readonly far: number }
   | { readonly kind: "strike" };
 
 /** One beat of a script: its move, for `seconds`. */
-export interface Beat { readonly seconds: number; readonly move: BeatMove }
+interface Beat { readonly seconds: number; readonly move: BeatMove }
 
 /**
  * **A beats Commander's config**: each beat's move given every member as orders for the beat's

@@ -1,7 +1,7 @@
 import { PROFILE_MODEL } from "./profile-contract.ts";
 import type { Refused } from "../../core/refusal.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-import type { MindConfig } from "../config.ts";
+import type { MindConfig } from "../catalog/config.ts";
 import type { OptionMindConfig } from "./mind.ts";
 import { strikesIn } from "./kinds.ts";
 

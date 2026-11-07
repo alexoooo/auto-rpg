@@ -4,7 +4,7 @@ import type { Fighter } from "../../combat/blows.ts";
 import { createPool } from "../../combat/pool.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
 import type { BodySpec, ShapeSpec } from "../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../core/quantity.ts";
 import type { World } from "../../core/world/world.ts";
 export { dummySpec } from "./dummy-spec.ts";
 
@@ -15,7 +15,7 @@ export { dummySpec } from "./dummy-spec.ts";
  */
 
 /** A dummy's one segment's name and its ball, from its spec. */
-export function ballOf(spec: BodySpec): { readonly part: string; readonly ball: Extract<ShapeSpec, { readonly kind: "sphere" }> } {
+function ballOf(spec: BodySpec): { readonly part: string; readonly ball: Extract<ShapeSpec, { readonly kind: "sphere" }> } {
   const segment = spec.segments[0];
   if (spec.segments.length !== 1 || segment?.shape.kind !== "sphere") throw new Error(`${spec.model} is no dummy`);
   return { part: segment.name, ball: segment.shape };

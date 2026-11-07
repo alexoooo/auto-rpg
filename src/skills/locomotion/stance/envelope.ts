@@ -1,6 +1,6 @@
 import measured from "../../../../assets/skills/locomotion/stance/stance-envelope.json" with { type: "json" };
 import { bodyKey, type BodySpec } from "../../../core/bodies/spec/body.ts";
-import type { StanceEnvelope } from "../../../control/stance-envelope.ts";
+import type { StanceEnvelope } from "../../../control/stance/stance-envelope.ts";
 import { envelopeIn } from "../envelope-table.ts";
 
 /**

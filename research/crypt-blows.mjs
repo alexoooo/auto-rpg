@@ -35,13 +35,12 @@ async function played(seed) {
   const landed = [];
   let run = null;
   run = admitted(createDungeonRun({
-    seed, engine: await freshEngine(), companions,
+    seed, engine: await freshEngine(), companions, party: { kind: "clearer" },
     onBlow: (blow) => {
       const alive = blow.sides.map((side) => run.actors.find((actor) => actor.id === side.fighter)?.alive ?? false);
       landed.push({ kind: kindOf(blow), energy: blow.energy, hp: hpOf(blow), out: alive.includes(false), living: blow.sides.reduce((sum, side, k) => sum + (alive[k] ? lifeTaken(side) : 0), 0) });
     },
   }));
-  run.commands.setMode({ keyboard: false, facing: true });
   const hz = run.world.hz;
   let steps = 0;
   for (let s = 0; s < seconds && run.status === "playing"; s++) { run.step(hz); steps += hz; }
@@ -50,7 +49,7 @@ async function played(seed) {
   return row;
 }
 
-console.log(`Node, a crypt run with no visuals, ${CORE_ENGINE}, 120 Hz; the hero exploring, ${companions.length} with it; to the run's end or ${seconds} s\n`);
+console.log(`Node, a crypt run with no visuals, ${CORE_ENGINE}, 120 Hz; the level-clearer playing the hero and ${companions.length} with it; to the run's end or ${seconds} s\n`);
 console.log("| Seed | The run | Seconds | Bodies built | Blows | HP taken | Blows with a side out of the fight | HP they took |");
 console.log("|---|---|---|---|---|---|---|---|");
 const all = [];

@@ -3,7 +3,7 @@ import type { BuiltBody, BuiltSegment } from "../core/bodies/build/build-body.ts
 import { blowChange, contactGive, contactMass, type ContactMass, type Hold } from "../core/bodies/build/contact-mass.ts";
 import type { ContactPair, SegmentBody } from "../core/physics/engine.ts";
 import { impactEnergy } from "./impact.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import type { World } from "../core/world/world.ts";
 
 /**
@@ -51,7 +51,7 @@ export interface Touch<B> {
 }
 
 export interface TouchWatch<B> {
-  /** Its memory (`src/core/world/state.ts`). */
+  /** Its memory (`src/core/state.ts`). */
   readonly state: object;
   /**
    * The masses `touch` meets on each side, kg (`Infinity` for something fixed), and its energy, J.

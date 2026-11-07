@@ -10,7 +10,7 @@ import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../../../../src/control/body.ts";
 import { carrying } from "../../../../src/control/motor.ts";
 import { locomotion, stanceOf } from "../../../../src/skills/locomotion/locomotion.ts";
-import { kitOf } from "../../../../src/skills/kit.ts";
+import { mindKitOf } from "../../../../src/skills/assembly/kit.ts";
 import { partLookup } from "../../../../src/app/catalog.ts";
 import { standReady } from "../../../../src/control/ground-reading.ts";
 import { footStatesOf, readSupport, withinSupport } from "../../../../src/control/support.ts";
@@ -37,7 +37,7 @@ export function quintic(x0, v0, x1, T, t) {
 export function crouchSteady(own, view, variant = {}) {
   const control = { on: true, t0: null, from: null, mid: null, depth: null, height: null, c0: null, climbed: false, ready: 0, handBack: null,
     lead: 0, steps: 0, asked: null, at: 0, short: 0, path: null, planned: null };
-  const kit = kitOf(partLookup, own.spec), legs = locomotion(stanceFeetOf(own.spec), null, { segments: stanceSegmentsOf(own.spec) });
+  const kit = mindKitOf(partLookup, own.spec), legs = locomotion(stanceFeetOf(own.spec), null, { segments: stanceSegmentsOf(own.spec) });
   const motor = carrying(kit.motor.make(own.built, own.muscles, variant.servo ?? SERVO_SECONDS, kit.posture, variant.tuning, own.assist), ["stance"], "the crouch steady");
   const channels = own.muscles.channels;
   const blend = k => Object.fromEntries(channels.map((c, i) => [c.name, control.from[i] + ((kit.posture[c.name] ?? 0) - control.from[i]) * k]));

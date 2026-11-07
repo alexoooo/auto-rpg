@@ -6,8 +6,8 @@ Where the project is going and what is open. What is built is in the
 ## Where the project is going
 
 - **A testbed for AI-controlled bodies, built into a game**: muscle-driven bodies fight in an
-  Arena and a generated Crypt. Every layer advances (framework, motor control, skills, minds,
-  command), each depending only on those below it ([the layers](architecture.md#the-layers)).
+  Arena and a generated Crypt. Every layer advances, each depending only on those below it
+  ([the layers](architecture.md#the-layers)).
 - **Skills** in one shape, proved on drills the owner accepts, chosen by a mind's Options from their
   entry conditions and profiles ([Skills](architecture.md#skills)).
 - **The fight is a black box**: at most two minutes, life draining from the first minute; nothing
@@ -25,12 +25,13 @@ Where the project is going and what is open. What is built is in the
 
 | Plan | What it builds |
 | --- | --- |
-| [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: temporary search work, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
+| [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
 | [Options trained body by body](plans/2026-11-03-options-training.md) | stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
 | [Warrior travel](plans/2026-11-05-warrior-travel.md) | retrain the toed Warrior for 4 m/s forward travel, safe movement in every direction, steering, corners, reversals and stops in every loadout |
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | a controlled descending club strike at the head, with physical motion, contact, recovery and repetition gates and watched confirmation |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
+| [Layer cleanup](plans/2026-11-07-layer-cleanup.md) | one call reads every mind on workers and every fork; unused exports gone; contracts below their implementations; an order inside core, skills and minds checked by the gate |
 
 Now: the Warrior's [travel capabilities](plans/2026-11-05-warrior-travel.md) and
 [bonk](plans/2026-11-05-warrior-bonk.md), with recovery performance preserved; the remaining Option control

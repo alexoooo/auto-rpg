@@ -1,5 +1,5 @@
 import type { BodySpec, SegmentSpec, ShapeSpec } from "../spec/body.ts";
-import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import { add, dot, normalize, scale, sub } from "../spec/vec.ts";
 import { cuboidMoments, cylinderMoments } from "../spec/geometry.ts";
 import type { Physique } from "../human/physique.ts";

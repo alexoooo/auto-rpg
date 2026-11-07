@@ -1,6 +1,6 @@
 import type { BodyCommand } from "../../control/body.ts";
 import type { EffectorModel } from "../../control/effectors.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import { hasResource, LEG_RESOURCE, segmentResource, poseResource, ASSIST_RESOURCE, TRUNK_RESOURCE, type ActionClaim, type Resource } from "./action.ts";
 import type { BearingEnd } from "../../core/bodies/spec/body.ts";
 

@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
 import { rigidOf, rigidPoints } from "../../../core/bodies/build/rigid.ts";
 import { frameOf, configurationShapeAt, type BodySpec, type SegmentSpec, type ShapeSpec, segmentOf } from "../../../core/bodies/spec/body.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 import { add, scale, sub } from "../../../core/bodies/spec/vec.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 

@@ -10,7 +10,7 @@ import type { BuiltLone } from "../lone.ts";
 import { sha256Text } from "../sha256.ts";
 import { Vector3 } from "../../core/math/vector.ts";
 import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
-import type { Orders } from "../../skills/intent/orders.ts";
+import type { Orders } from "../../minds/orders.ts";
 import type { LocomotionReading } from "./read.ts";
 import { createLocomotionCases, scriptOf, type LocomotionCondition } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
@@ -31,7 +31,7 @@ export const LOCOMOTION_FIGURES: readonly Figure<LocomotionReading>[] = [
 ];
 
 /** What `condition` was, in a few words. */
-export const trialText = (condition: LocomotionCondition): string => {
+const trialText = (condition: LocomotionCondition): string => {
   switch (condition.kind) {
     case "walk": return `walk ${condition.way}° at ${condition.pace} m/s`;
     case "run": return "run";

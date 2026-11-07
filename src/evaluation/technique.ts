@@ -4,12 +4,12 @@ import { supportHeight } from "../control/support-reference.ts";
 import type { BodyControl } from "../core/bodies/body-control.ts";
 import { Vector3 } from "../core/math/vector.ts";
 import { addArenaSolids } from "../game/arena/solids.ts";
-import { commandedBody } from "../minds/host.ts";
+import { commandedBody } from "../minds/seat/host.ts";
 import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { loadEngine } from "../core/physics/engines.ts";
 import { withLoadout, type Held } from "../core/bodies/items/held.ts";
 import { humanoidSpec } from "../core/bodies/human/spec.ts";
-import { kitOf } from "../skills/kit.ts";
+import { mindKitOf } from "../skills/assembly/kit.ts";
 import { poseDrive, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/technique.ts";
 import type { GroundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
@@ -49,7 +49,7 @@ export const TECHNIQUE_LIMITS = Object.freeze({ admit: 2, run: 16, stood: 2, res
  * How far a seed moves a placed start's joints, a share of each joint's range: a posture the route
  * passes through is narrow, and the Lab's draw (`groundPlacement`) moves a kneeling body out of it.
  */
-export const TECHNIQUE_SPREAD = .02;
+const TECHNIQUE_SPREAD = .02;
 
 /** How a technique of the chain came to its end: one of its own (`TechniqueEnd`), never admitted, or stood and fallen again. */
 type LinkEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted" | "not entered" | "fell";
@@ -82,7 +82,7 @@ export interface BuiltTechnique {
 }
 
 /** The body a case plays: the model, holding what it names in each hand (`withLoadout`). */
-export const techniqueSpec = (one: Pick<TechniqueCase, "model" | "held" | "left">): BodySpec =>
+const techniqueSpec = (one: Pick<TechniqueCase, "model" | "held" | "left">): BodySpec =>
   withLoadout(humanoidSpec(one.model), { left: one.left ?? "empty", right: one.held });
 
 /** Where a case's body is built, or why its start is refused, a sentence. */
@@ -134,8 +134,8 @@ export function createTechnique(context: GameContext) {
       command: { activation: new Float64Array(spec.joints.reduce((n,j)=>n+j.dofs.length,0)), velocity: new Float64Array(spec.joints.reduce((n,j)=>n+j.dofs.length,0)) },
       runs: [] as object[], links: [] as LinkReading[], entry: null as LinkReading["entry"], last: "between" };
     let runs: TechniqueRun[] = [];
-    const body = commandedBody(built, world, { servoSeconds: .1, motor: kitOf(partLookup, spec).motor }, [(own, view, clock, afterPhysics) => {
-      const kit = kitOf(partLookup, own.spec), drive = poseDrive(own.muscles);
+    const body = commandedBody(built, world, { servoSeconds: .1, motor: mindKitOf(partLookup, spec).motor }, [(own, view, clock, afterPhysics) => {
+      const kit = mindKitOf(partLookup, own.spec), drive = poseDrive(own.muscles);
       runs = one.chain.map((name) => { const part: TechniquePart = TECHNIQUES[name]; return part.make(own, view, clock, kit, part.defaults, afterPhysics); });
       state.runs = runs.map(run => run.state);
       const command = state.command;

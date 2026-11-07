@@ -4,9 +4,9 @@ import { heldFrame } from "../core/bodies/build/rigid.ts";
 import { pointsInto } from "./points.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import type { ContactPair } from "../core/physics/engine.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import type { BodySpec, ContactRegionSpec } from "../core/bodies/spec/body.ts";
-import { deepFreeze } from "../core/world/state.ts";
+import { deepFreeze } from "../core/state.ts";
 import { watchTouches, type Part, type Touch, type TouchWatch } from "./touches.ts";
 import type { World } from "../core/world/world.ts";
 import type { Hold } from "../core/bodies/build/contact-mass.ts";
@@ -107,7 +107,7 @@ export interface BlowWatch {
    * it lands, so one a listener was handed is a record no load writes into.
    */
   readonly blows: readonly LandedBlow[];
-  /** Its memory (`src/core/world/state.ts`). */
+  /** Its memory (`src/core/state.ts`). */
   readonly state: object;
   dispose(): void;
 }

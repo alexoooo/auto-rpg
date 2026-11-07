@@ -47,9 +47,8 @@ const seconds = Number(values.seconds), companions = Array.from({ length: Number
 /** A run of `seed`, heard or not, and the wall time its steps have taken: all of them, and its slowest second's. */
 async function begun(seed, heard) {
   const place = values.minds ? mindWorkers(Number(values.minds)) : null;
-  const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), companions, ...(mind ? { mind: () => mind } : {}), ...(place ? { minds: place } : {}) }));
+  const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), companions, party: { kind: "clearer" }, ...(mind ? { mind: () => mind } : {}), ...(place ? { minds: place } : {}) }));
   // The hero explores by itself in this mode, and fights what it meets.
-  run.commands.setMode({ keyboard: false, facing: true });
   const hearing = heard ? hearRun(run, () => {}) : null;
   const airing = hearing ? run.world.afterStep(() => hearing.airs(() => {})) : null;
   return { run, total: 0, worst: 0, dispose() { airing?.dispose(); hearing?.dispose(); run.dispose(); place?.dispose(); } };
@@ -87,7 +86,7 @@ async function played(seed) {
   return row;
 }
 
-console.log(`Node, a crypt run with no visuals, ${CORE_ENGINE}, 120 Hz; the hero exploring, ${companions.length} with it; to the run's end or ${seconds} s\n`);
+console.log(`Node, a crypt run with no visuals, ${CORE_ENGINE}, 120 Hz; the level-clearer playing the hero and ${companions.length} with it; to the run's end or ${seconds} s\n`);
 const listened = values.listen ? " Heard: a step, ms | In its slowest second, ms | Hearing, % of the unheard step |" : "";
 console.log(`| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | Of them held | A step, ms | In its slowest second, ms | Of real time, % |${listened} The dearest step past 2 s, ms | The worst lag, ms | At step, built over | Bodies built, collections in it |`);
 console.log(`|---|---|---|---|---|---|---|---|---|---|---|---|${values.listen ? "---|---|---|" : ""}---|---|---|---|`);

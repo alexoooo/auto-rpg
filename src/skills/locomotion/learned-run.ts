@@ -1,3 +1,4 @@
+import type { Locomotion } from "../framework/locomotion-part.ts";
 import type { Body } from "../../control/body.ts";
 import { footOn } from "../../control/support.ts";
 import { rootSegment } from "../../core/bodies/read-body.ts";
@@ -6,7 +7,6 @@ import { sin, cos } from "../../core/math/real.ts";
 import { recoveryNetwork, networkFaults, type Network } from "../../core/math/learning/recovery-network.ts";
 import { legOf } from "./gait-scale.ts";
 import type { RunTrim } from "./cycle-run.ts";
-import type { Locomotion } from "./locomotion.ts";
 import type { WalkRunState } from "./walk-run.ts";
 import { act, ask, learnerOf, restart, start, stop } from "../../core/math/learning/learner.ts";
 

@@ -1,9 +1,10 @@
+import type { Locomotion } from "../framework/locomotion-part.ts";
+import type { GaitName } from "../framework/skill.ts";
 import { choice } from "../../parts/fields.ts";
 import type { LocomotionPart } from "../framework/locomotion-part.ts";
 import { slotList, type PartConfig } from "../../parts/parts.ts";
-import { deepFreeze } from "../../core/world/state.ts";
-import { gaitNamed, STOCK_GAITS, type Gait, type GaitName } from "./gaits.ts";
-import type { Locomotion } from "./locomotion.ts";
+import { deepFreeze } from "../../core/state.ts";
+import { gaitNamed, STOCK_GAITS, type Gait } from "./gaits.ts";
 import { move, type MoveGait } from "./move.ts";
 import { GAIT_CHOICES } from "./move-rule-part.ts";
 import type { MoveRuleConfig } from "./move-rule-part.ts";
@@ -18,7 +19,7 @@ export const GOING: MoveConfig = deepFreeze({ kind: "move", rules: [], otherwise
 /**
  * Move with rules that choose its gait where its legs goal names none: the fighting step (braced)
  * while it stands or a standing foe is within 5 m; otherwise the walk and run free to run, which
- * runs once the speed the rule asks (`travelSpeed`, `src/skills/intent/travel.ts`) is past its run's.
+ * runs once the speed the rule asks (`travelSpeed`, `src/skills/locomotion/travel.ts`) is past its run's.
  * The run slows at its `brake` (0.47 m/s²): from the pace it runs from (1.3 m/s) it stops in about
  * 1.8 m, and closing on a foe that closes too, in twice that, so it is walking by the time a fight's
  * reach is near; nearer, two fighters run into each other. Near a standing body of its own side it
@@ -45,7 +46,7 @@ export interface MoveConfig {
 }
 
 /** **The gaits Move walks by** (`MoveConfig.gaits`): its own, else the stock ones (`STOCK_GAITS`). */
-export const gaitsOfMove = (config: MoveConfig): readonly Gait[] => config.gaits ?? STOCK_GAITS;
+const gaitsOfMove = (config: MoveConfig): readonly Gait[] => config.gaits ?? STOCK_GAITS;
 
 /** The gaits `config` walks by, each once, in the order its rules and then `otherwise` name them, then every other of its gaits, which a legs goal may name; a name none of them has left out. */
 const gaitsOf = (config: MoveConfig): readonly Gait[] => {

@@ -7,13 +7,14 @@
  * and a blow moves it only until the rail takes it back. The body is sensed, struck and read as any
  * body is: the striker's mind and the drill's reader see a body that moves, nothing else.
  */
+import type { Hook } from "../../core/bodies/step-host.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import { centreOfToRef } from "../../core/bodies/read-motion.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import { spinBetweenToRef } from "../../core/math/turn.ts";
 
-import type { Hook, World } from "../../core/world/world.ts";
+import type { World } from "../../core/world/world.ts";
 import type { ArenaSeat as Side } from "./seat.ts";
 
 /**
@@ -21,7 +22,7 @@ import type { ArenaSeat as Side } from "./seat.ts";
  * holding there; `back-and-forth`, to `along` and back, over and over; `circle`, round the point
  * `centre`, turning about +y the positive way where `way` is 1 and the other where it is -1.
  */
-export type RailPath =
+type RailPath =
   | { readonly kind: "line"; readonly along: readonly [number, number] }
   | { readonly kind: "back-and-forth"; readonly along: readonly [number, number] }
   | { readonly kind: "circle"; readonly centre: readonly [number, number]; readonly way: 1 | -1 };
@@ -62,7 +63,7 @@ export function railFaults(rail: Rail): string[] {
 }
 
 /** Where `path` has carried a body `distance` m along it, from where it began (x, z, m), into `out`. */
-export function railPlace(path: RailPath, distance: number, out: [number, number]): [number, number] {
+function railPlace(path: RailPath, distance: number, out: [number, number]): [number, number] {
   switch (path.kind) {
     case "line": case "back-and-forth": {
       const [x, z] = path.along, length = Math.sqrt(x * x + z * z);

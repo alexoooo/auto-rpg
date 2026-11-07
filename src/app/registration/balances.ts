@@ -1,4 +1,4 @@
-import { STANCE_BALANCE } from "../stance-balance.ts";
+import { STANCE_BALANCE } from "./stock-motor.ts";
 
 /**
  * **Every kind of balance, by its kind** (`BalancePart`), in the order a picker offers them: what a

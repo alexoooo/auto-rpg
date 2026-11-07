@@ -5,7 +5,7 @@ import { footOn } from "../../../../src/control/support.ts";
  * the batteries `research/skills/locomotion/stance/core-stance-sweep.mjs` sweeps a stance tuning over. Each returns plain numbers.
  */
 import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
-import { commandedBody } from "../../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../../src/app/stock-body.ts";
 import { armed } from "../../../../src/core/bodies/human/grip.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { woodenClub } from "../../../../src/core/bodies/items/club.ts";
@@ -39,7 +39,7 @@ async function body(model, stance, hz, held = null, actuation, physique, { balan
   const spec = held === "club" ? armed(modelSpec(model, physique), "right", woodenClub()) : modelSpec(model, physique);
   const stand = await coreStand(spec, { ground: true, groundSize: GROUND, hz, actuation, ...(held === null ? {} : { posture: guardPosture(spec) }) });
   const assist = held === null && balance === null ? undefined : balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
-  const built = commandedBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: !envelope, assist });
+  const built = stockBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: !envelope, assist });
   return { stand, body: built, guard: guardPosture(spec), feet: SIDES.map(side => stand.built.segments.get(spec.ends.find(end => end.name === footOn(spec, side)).segment)) };
 }
 
@@ -285,7 +285,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
  * Given `onto` (`{ side }`), the turn is a walk onto a way, as a fight asks one: from the turn's
  * start the walk is asked along the heading it ends on, a quarter round, and the heading turns a
  * quarter round onto it; the walk off the heading goes no faster than the ellipse through `speed`
- * along it and `side` m/s across it (`paceToward`'s, the side way's fastest walk).
+ * along it and `side` m/s across it (`heldPace`'s, the side way's fastest walk).
  */
 export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null, balance = null, onto = null, stride }) {
   if (!Number.isFinite(rate) || rate <= 0) throw new Error("a turn rate must be finite and positive");

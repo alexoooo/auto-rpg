@@ -1,7 +1,7 @@
-import type { GroundPoint } from "../../skills/intent/movement.ts";
-import type { NavigationReport } from "../../skills/locomotion/navigation/navigator.ts";
-import type { Orders } from "../../skills/intent/orders.ts";
-import type { GaitLimits } from "../../skills/intent/travel.ts";
+import type { GaitLimits } from "../../skills/framework/locomotion-part.ts";
+import type { GroundPoint } from "../../skills/framework/movement.ts";
+import type { NavigationReport } from "../../skills/framework/navigation.ts";
+import type { Orders } from "../orders.ts";
 import type { ActionStatus, Ended } from "../../skills/framework/action.ts";
 import type { KitEntry, MenuEntry } from "../../skills/framework/menu.ts";
 import type { Prospect } from "../report.ts";
@@ -15,7 +15,7 @@ import type { Command } from "./commands.ts";
  *
  * Its host asks it once a step, after the senses and before every Mind (`decide`), and hands it a
  * leader's command the moment it is given (`hear`). What it remembers is plain data in `state`
- * (`src/core/world/state.ts`), so a fight forks by copying it. The host delivers its orders, releasing
+ * (`src/core/state.ts`), so a fight forks by copying it. The host delivers its orders, releasing
  * reached combat approaches to the Mind; a tape of delivered orders plays the fight again with
  * no Commander.
  */

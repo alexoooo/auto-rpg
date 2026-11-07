@@ -5,7 +5,7 @@ import { uprightness } from "../../control/ground.ts";
 import { footStatesOf, readSupport, withinSupport } from "../../control/support.ts";
 import { STANCE_LOWER } from "./locomotion.ts";
 import type { LegsGoal } from "../framework/skill.ts";
-import type { SupportSkill } from "../framework/support.ts";
+import type { LowSupportSkill } from "../framework/low-support.ts";
 
 /**
  * The fold and its gates: `lower`, m, the deepest the centre of mass goes under its standing
@@ -26,7 +26,7 @@ const foldCarries = (goal: LegsGoal): boolean =>
   goal.feet === undefined && goal.footing === undefined && goal.swing === undefined && goal.pose === undefined;
 
 /** A planted-foot fold behind the neutral requested lowering, using the common body and muscle limits. */
-export function supportFold(body: Body): SupportSkill {
+export function supportFold(body: Body): LowSupportSkill {
   const feet = footStatesOf(body.built), names = feet.map((foot) => foot.name), upright = uprightness(body.built), middle = new Vector3();
   const others = new Set([...body.built.segments.values()].filter(p => !/^(head|.*Trunk)$/.test(p.spec.name)));
   const clamp = (name: string, goal: number) => {

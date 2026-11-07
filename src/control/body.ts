@@ -1,3 +1,4 @@
+import type { StanceGoal, StanceReading } from "./stance/goal.ts";
 import type { BodyControl } from "../core/bodies/body-control.ts";
 import type { ContactIdentity } from "../core/bodies/contact-identity.ts";
 import type { Quaternion, Vector3 } from "../core/math/vector.ts";
@@ -6,9 +7,8 @@ import type { Frame } from "./kinematics.ts";
 import type { EffectorGoal, FreedomPath, MotorUnmet, MusclePush, PointTask } from "./motor.ts";
 import type { SupportGoal } from "./supported-motor.ts";
 import type { Pose } from "../core/bodies/spec/pose.ts";
-import type { StanceGoal, StanceReading } from "./stance.ts";
-import type { StanceTuning } from "./stance-tuning.ts";
-import type { StanceEnvelope } from "./stance-envelope.ts";
+import type { StanceTuning } from "./stance/stance-tuning.ts";
+import type { StanceEnvelope } from "./stance/stance-envelope.ts";
 
 import type { Senses } from "../core/bodies/senses.ts";
 import type { BodyLevel, MuscleReading } from "../core/bodies/muscle/driver.ts";
@@ -21,7 +21,7 @@ import type { ReadBody } from "../core/bodies/read-body.ts";
 
 /**
  * **A body, commanded and seen**: the body its drivers have under the command layers
- * (`commandLayers`, `src/minds/command-layers.ts`), any mind's to build on its own body.
+ * (`commandLayers`, `src/minds/motor-layers.ts`), any mind's to build on its own body.
  * Its muscles are under motor control, commanded by goals and read through a view: whoever drives
  * it at this level -- a decider's skills, the lab's routine, a test -- sees the view and hands back
  * a command. A mind may drive muscles itself instead (`Mind`, `src/minds/mind.ts`).
@@ -76,7 +76,7 @@ export function commandsBody(body: { readonly has: string; readonly level: BodyL
  * (`Skills.state`).
  * A function driver is stateless; a driver that remembers between steps supplies `SplitDriver.state`.
  */
-export type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | SplitDriver<unknown>;
+type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | SplitDriver<unknown>;
 
 /**
  * **A driver in two parts**: what it decides on the view as sensed (`decide`), and the command it
@@ -168,7 +168,7 @@ export interface BodyView {
    * `intoFrameToRef`.
    */
   readonly root: Frame;
-  /** The head's centre of mass, world, the segment another body aims high at (`BodySpec.marks`): where a strike's reach is measured from (`placedReach`, `src/skills/strikes/arm-reach.ts`). */
+  /** The head's centre of mass, world, the segment another body aims high at (`BodySpec.marks`): where a strike's reach is measured from (`placedReach`, `src/skills/reach/arm-reach.ts`). */
   readonly head: Vector3;
   /** The centre of mass, the stance's support, and what the stance last asked (`StanceReading`). */
   readonly stance: StanceReading;

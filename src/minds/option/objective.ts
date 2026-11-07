@@ -1,6 +1,6 @@
 import { hypot, tanh } from "../../core/math/real.ts";
 import { anyBody, type KeysOf } from "../../parts/parts.ts";
-import { deepFreeze } from "../../core/world/state.ts";
+import { deepFreeze } from "../../core/state.ts";
 import type { Situation } from "./option.ts";
 import type { ObjectivePart } from "./parts.ts";
 import { FIRST, type Obedience } from "./value.ts";
@@ -52,7 +52,7 @@ function fewTermsWorth(path: Path, now: Situation, obedience: Obedience): number
 }
 
 /** **The few terms** (`FEW_TERMS`): combat's objective, the lives a path trades, its orders and the lead at the verdict. */
-export const FEW_TERMS: Objective = deepFreeze({ name: "few terms", worth: fewTermsWorth });
+const FEW_TERMS: Objective = deepFreeze({ name: "few terms", worth: fewTermsWorth });
 
 /** **The few terms** (`FEW_TERMS`) as a part of role `objective`: what a chooser that values options prices them by. */
 export const FEW_TERMS_PART: ObjectivePart<{ readonly kind: "few-terms" }, Objective> = deepFreeze({
@@ -68,7 +68,7 @@ export const FEW_TERMS_PART: ObjectivePart<{ readonly kind: "few-terms" }, Objec
 const REACH = deepFreeze({ down: 10, second: .1 });
 
 /** **A place on the ground to reach**: where it is, m. */
-export interface ReachConfig { readonly kind: "reach-place"; readonly x: number; readonly z: number }
+interface ReachConfig { readonly kind: "reach-place"; readonly x: number; readonly z: number }
 
 /**
  * **Reaching a place** (`ReachConfig`), with no foe to fight: a path worth how near the place it

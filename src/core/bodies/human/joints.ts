@@ -1,5 +1,5 @@
 import { segmentFrame, type DofSpec, type ForceVelocitySpec, type JointSpec, type SegmentSpec } from "../spec/body.ts";
-import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, si, sourced, type Quantity, type Vec3 } from "../../quantity.ts";
 import { angleAbout, cross, dot, normalize, orthogonalTo, scale, sub } from "../spec/vec.ts";
 import type { HumanFigure } from "./figure.ts";
 
@@ -10,7 +10,7 @@ import { acos } from "../../math/real.ts";
 import { type Side, SIDES } from "../bilateral.ts";
 
 /**
- * **The human joints**: fifteen, one wherever `HUMAN_PARENTS` joins two segments, each at the point
+ * **The human joints**: fifteen, one wherever a segment hangs from its parent, each at the point
  * the two share, with its freedoms, their ranges and the muscle on each.
  *
  * **Freedoms.** Each is named for the anatomical motion its positive angle makes, flexion first,

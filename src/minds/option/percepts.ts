@@ -1,22 +1,23 @@
+import type { StancePhase } from "../../control/stance/goal.ts";
+import type { StanceReading } from "../../control/stance/goal.ts";
+import type { Spot } from "../../skills/framework/menu.ts";
 import type { KeysOf, Part } from "../../parts/parts.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
-import { turnAt } from "../../control/stance-envelope.ts";
+import { turnAt } from "../../control/stance/stance-envelope.ts";
 import { stanceEnvelopeOf } from "../../skills/locomotion/stance/envelope.ts";
-import type { StancePhase, StanceReading } from "../../control/stance.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
 import type { LegsUnmet } from "../../skills/framework/skill.ts";
 import type { BearingEnd, BodySpec } from "../../core/bodies/spec/body.ts";
 import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs.ts";
-import { deepFreeze } from "../../core/world/state.ts";
-import type { Cover } from "../../skills/intent/intent.ts";
-import { ordersAsked, type Orders } from "../../skills/intent/orders.ts";
+import { deepFreeze } from "../../core/state.ts";
+import type { Cover } from "../../skills/framework/intent.ts";
+import { ordersAsked, type Orders } from "../orders.ts";
 import { measuredAt, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../skills/perception/threat.ts";
 import type { GroundReading, Position } from "../../control/ground-reading.ts";
-import type { Spot } from "../../skills/intent/action-window.ts";
 import type { RiseMemory } from "./rise-memory.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
@@ -275,7 +276,7 @@ function pressingOf(seen: Seen): Pressure {
  * strikes, each what its profile expects there a second (`ProfileReading.rate`) short of its reach
  * (`edgeOf`: the reach is where the body is out of it).
  */
-export function pressureAt(pressure: Pressure, range: number, velocity: readonly [number, number], seconds: number): number {
+function pressureAt(pressure: Pressure, range: number, velocity: readonly [number, number], seconds: number): number {
   return (pressure.rateAt ? pressure.rateAt(range, velocity) : pressureRateAt(pressure, range, velocity)) * seconds;
 }
 
@@ -389,7 +390,7 @@ export function reachMemory() {
 }
 
 /** **A body's reach memory** (`reachMemory`). */
-export type ReachMemory = ReturnType<typeof reachMemory>;
+type ReachMemory = ReturnType<typeof reachMemory>;
 
 /**
  * **The seconds before the focus's pressure reaches the body at `now`**: what a state an Option
@@ -473,7 +474,7 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
  * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, another posture,
  * orders asking for something else (`ordersAsked`), another focus, a threat or a blow coming.
  */
-export const PERCEPTS = Object.freeze({
+const PERCEPTS = Object.freeze({
   down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
   posture: { read: ({ sight }) => sight.view.ground?.position ?? (sight.view.down ? "between" : "standing"), cue: (posture) => posture } as Percept<Position>,
   rising: { read: (seen) => seen.risen.state.rising } as Percept<boolean>,
@@ -518,7 +519,7 @@ export interface Prediction<V> {
  * posture costs (`downRateAtOf`); how fast the focus turns to face (`turnOf`), rad/s, Infinity with none; and the
  * focus's life a blow of a limb at a segment of its takes by the rules (`blowLife`), 0 with no focus.
  */
-export const PREDICTIONS = Object.freeze({
+const PREDICTIONS = Object.freeze({
   danger: { read: (seen) => lifeOf(seen, seen.blow) } as Prediction<number>,
   pressure: { read: pressureOf } as Prediction<Pressure>,
   pressing: { read: pressingOf } as Prediction<Pressure>,

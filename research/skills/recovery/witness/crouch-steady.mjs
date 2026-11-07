@@ -46,7 +46,7 @@ import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import "../../../../tests/harness/preload-data.mjs";
 import poses from "../../../../assets/research/posture-holds.json" with { type: "json" };
-import { commandedBody } from "../../../../src/app/commanded-body.ts";
+import { stockBody } from "../../../../src/app/stock-body.ts";
 import { pendingControl } from "../../../minds/pending-control.mjs";
 import { buildBody } from "../../../../src/core/bodies/build/build-body.ts";
 import { loadEngine } from "../../../../src/core/physics/engines.ts";
@@ -89,7 +89,7 @@ export async function steady({ model = "workshop-fighter", held = "empty", seed,
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   let control = null;
-  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view) => {
+  const body = stockBody(built, world, { servoSeconds: .1 }, [(own, view) => {
     const steadying = crouchSteady(own, view, variant);
     const pending = pendingControl(own.muscles.channels.length);
     control = steadying.control;

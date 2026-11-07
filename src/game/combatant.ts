@@ -1,21 +1,23 @@
+import { replayedBody } from "../minds/seat/replay.ts";
+import type { MindWiring } from "../minds/catalog/controller.ts";
 import { buildBody } from "../core/bodies/build/build-body.ts";
 import type { AssistCeiling } from "../core/bodies/assist.ts";
-import type { MindConfig } from "../minds/config.ts";
-import { builtAngles, createMind, type Minded, type MindWiring } from "../minds/minds.ts";
+import type { MindConfig } from "../minds/catalog/config.ts";
+import { builtAngles, createMind, type Minded } from "../minds/seat/create-mind.ts";
 import { solidSenses, type SolidSense } from "../core/bodies/object-senses.ts";
 import type { Senses } from "../core/bodies/senses.ts";
 import type { SensesHub } from "../core/world/senses.ts";
-import { replayedBody, sheetLog, type SheetLog } from "../minds/sheets.ts";
-import type { PhysicalBody } from "../minds/physical-body.ts";
+import { sheetLog, type SheetLog } from "../minds/seat/sheets.ts";
+import type { PhysicalBody } from "../minds/seat/physical-body.ts";
 import type { Fighter } from "../combat/blows.ts";
 import { createPool, type Pool } from "../combat/pool.ts";
 import { balanceCeiling, balancePercent, type Rulebook } from "../combat/rulebook.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
-import type { Vec3 } from "../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../core/quantity.ts";
 import type { World } from "../core/world/world.ts";
 import { cos, sin } from "../core/math/real.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "../core/world/recording.ts";
-import type { Catalog } from "../minds/catalog.ts";
+import type { Catalog } from "../minds/catalog/catalog.ts";
 
 /** **What a fight enlists a body with**: who it is, its body, where it stands, and what drives it. */
 interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdentity" | "seed" | "phase"> {

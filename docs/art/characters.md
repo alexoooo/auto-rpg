@@ -25,7 +25,7 @@ authored fit. World views and the character workshop use that same exported geom
 | `assets/humanoid/workshop-*-trunk-hull.json` | `node scripts/humanoid/workshop-envelope.mjs --write`, from the lossless cached GLBs (`losslessModelPath`, `scripts/art/paths.mjs`) | the core's envelope (`src/core/bodies/human/envelope.ts`) |
 | `assets/humanoid/workshop-*-hands.json` | `node scripts/humanoid/hand-envelope.mjs --write` | the core's hands (`src/core/bodies/human/hands.ts`) |
 
-The rig JSON, skin bounds, trunk hulls and hands are `SOURCES` entries (`src/core/bodies/sources.ts`).
+The rig JSON, skin bounds, trunk hulls and hands are `SOURCES` entries (`src/core/sources.ts`).
 The core reads this exact metadata; compressed web assets never supply anatomical measurements.
 
 ## Building the workshop models

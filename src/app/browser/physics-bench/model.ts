@@ -1,6 +1,6 @@
 import { humanSpec } from "../../../core/bodies/human/spec.ts";
 import { frameOf, type SegmentSpec } from "../../../core/bodies/spec/body.ts";
-import { STANDARD_GRAVITY } from "../../../core/bodies/spec/constants.ts";
+import { STANDARD_GRAVITY } from "../../../core/constants.ts";
 import {
   add, dot, qFromBasis, qMatrix, qRotate, scale, sub, symmetricEigen, type Q4, type V3,
 } from "./math.ts";

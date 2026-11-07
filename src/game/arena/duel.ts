@@ -1,3 +1,4 @@
+import type { Hook } from "../../core/bodies/step-host.ts";
 import { constructionScope } from "../../core/construction.ts";
 import type { CommanderConfig } from "../../minds/command/kind.ts";
 import type { MemberReport } from "../../minds/command/team.ts";
@@ -7,25 +8,25 @@ import type { ContactTarget } from "../../core/bodies/contact-identity.ts";
 import type { AssistCeiling } from "../../core/bodies/assist.ts";
 import { modelHolding, resolveCharacter, type BodyModel } from "../../core/bodies/models.ts";
 import { modelLoadout } from "../model-loadouts.ts";
-import { FIGHT_ENTRY, type EntryRule } from "../../minds/catalog.ts";
+import { FIGHT_ENTRY, type EntryRule } from "../../minds/catalog/catalog.ts";
 import type { GameContext } from "./context.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { EMPTY_LOADOUT, withLoadout, type Loadout } from "../../core/bodies/items/held.ts";
 import { combatantRecordingIdentity, enlist, type Combatant } from "../combatant.ts";
-import type { SheetLog } from "../../minds/sheets.ts";
-import type { MindConfig } from "../../minds/config.ts";
-import { isOrders, sameOrders, type Orders } from "../../skills/intent/orders.ts";
+import type { SheetLog } from "../../minds/seat/sheets.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
+import { isOrders, sameOrders, type Orders } from "../../minds/orders.ts";
 import { createSenses, type SensesHub } from "../../core/world/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../../combat/blows.ts";
 import type { Pool } from "../../combat/pool.ts";
 import { seedOf } from "../../core/math/random.ts";
-import { phaseOf } from "../../minds/host.ts";
+import { phaseOf } from "../../minds/seat/host.ts";
 import { reactionSteps, rulebook, type Rulebook, type RulebookOverride } from "../../combat/rulebook.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { derive, type Vec3 } from "../../core/bodies/spec/quantity.ts";
+import { derive, type Vec3 } from "../../core/quantity.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
-import { loadState, saveState, type Saved } from "../../core/world/state.ts";
-import type { Hook, World } from "../../core/world/world.ts";
+import { loadState, saveState, type Saved } from "../../core/state.ts";
+import type { World } from "../../core/world/world.ts";
 import { sensedBounds } from "../../skills/locomotion/navigation/sensed-bounds.ts";
 import { arenaSolids } from "./solids.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
@@ -68,7 +69,7 @@ import { type ArenaSeat as Side, otherSeat as otherSide, ARENA_SEATS as SIDES } 
  * its bodies and hooks, and takes them away again on `dispose`, so a replay is a new bout in the same world.
  *
  * Everything of a bout that a step changes is the physics' and one state (`Duel.state`,
- * `src/core/world/state.ts`): `Duel.save` gives both, and `Duel.load` puts a bout of the same recipe
+ * `src/core/state.ts`): `Duel.save` gives both, and `Duel.load` puts a bout of the same recipe
  * there, in this world or another, to go on as the saved bout went on.
  */
 

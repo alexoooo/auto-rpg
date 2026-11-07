@@ -1,15 +1,15 @@
 import { isRefused } from "../../core/refusal.ts";
 import { BODY_MODELS, modelHolding, modelHoldingChecked, modelHolds, type BodyModel } from "../../core/bodies/models.ts";
 import { modelLoadout } from "../model-loadouts.ts";
-import { FIGHT_ENTRY } from "../../minds/catalog.ts";
+import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import type { GameContext } from "./context.ts";
-import type { MindConfig } from "../../minds/config.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { SIDES, type DuelRecipe } from "./duel.ts";
 import { EMPTY_LOADOUT, HELD, type Loadout } from "../../core/bodies/items/held.ts";
 import { appearanceFor, type Appearance } from "../appearance/appearance.ts";
 
-import { mindLinks, type LinkedMind } from "../../minds/config-link.ts";
+import { mindLinks, type LinkedMind } from "../../minds/catalog/config-link.ts";
 import { legacyAttributes, readAttributes } from "../attribute-link.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { gapFits, LEVELS, type ArenaLevel } from "./levels.ts";

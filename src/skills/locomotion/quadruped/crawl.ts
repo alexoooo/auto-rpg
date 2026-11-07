@@ -6,9 +6,9 @@ import type { SupportedCommand } from "../../../control/supported-motor.ts";
 import type { ReadBody, ReadSegment } from "../../../core/bodies/read-body.ts";
 import { withinSupport } from "../../../control/support.ts";
 import { atan2, cos, sin } from "../../../core/math/real.ts";
-import type { Vec3 } from "../../../core/bodies/spec/quantity.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 import { REPTILE_CRAWL } from "./tuning.ts";
-import { deepFreeze } from "../../../core/world/state.ts";
+import { deepFreeze } from "../../../core/state.ts";
 import { fitsPaws } from "../../../control/quadruped/fit.ts";
 import { type PawGaitPart } from "./parts.ts";
 import type { PawReading, PawView } from "../../../control/quadruped/paws.ts";
@@ -32,7 +32,7 @@ function overPaws(built: ReadBody, paws: readonly string[]): readonly [number, n
  * One paw moves after the centre enters the other three paws' support triangle: a gait of the body
  * `built`, its trunk `root`, on its paws `names` as `paws` reads them.
  */
-export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_CRAWL) {
+function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_CRAWL) {
   if (!validCrawl(T)) throw new Error("invalid crawl settings");
   const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
   const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
@@ -158,7 +158,7 @@ export function crawl(built: ReadBody, root: ReadSegment, paws: PawReading, name
 }
 
 /** The crawl's complete settings keep travel and every consumed time divisor positive. */
-export function validCrawl(settings: typeof REPTILE_CRAWL): boolean {
+function validCrawl(settings: typeof REPTILE_CRAWL): boolean {
   return !!settings && typeof settings === "object" && !Array.isArray(settings)
     && Object.keys(REPTILE_CRAWL).every(key => Object.hasOwn(settings, key))
     && Object.entries(settings).every(([key, value]) => Object.hasOwn(REPTILE_CRAWL, key) && Number.isFinite(value) && value >= 0)
