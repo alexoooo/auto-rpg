@@ -172,6 +172,7 @@ or exact saved-state compatibility.
 | `command layers deliver changed tracking, bracing and moving-frame goals` | Command equality dropped consumed response, firm, unbend, origin and drift fields before the real motor received them. |
 | `pacing detects changed orders from a provider reusing its object` | Aliased remembered orders hid a provider's pace change and delayed the next decision. |
 | `walk pricing refuses zero pace and bounds tiny-pace pressure sampling` | Valid zero pace hung the pressure loop; tiny positive pace made its work unbounded. |
+| `walking preserves requested world velocity while facing turns` | Updating the facing before converting the moving-frame velocity rotated a fixed world order. Compare the complete stance command during the observed simultaneous walk and turn; movement drills hide the small per-step rotation. |
 | `fallen footprints retain observed elevation through navigation memory` | A fixed world height made an elevated fallen body disappear from navigation at its supporting level. |
 | `a changed destination retains a planned route while locomotion is unavailable` | Reproduce a dragged destination clearing the navigation report during an unavailable movement step. Check the updated route around a wall and suppressed movement together; skill drills do not check paths reported between movement steps. |
 

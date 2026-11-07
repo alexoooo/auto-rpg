@@ -1,3 +1,4 @@
+import { DEFAULT_ENGINE } from "../../../src/core/physics/engines.ts";
 import { isRefused } from "../../../src/core/refusal.ts";
 /** Ground-profile trials and aggregation shared by calibration and recovery search. */
 /** The Options a trial waits through before the next choice: what the body does while it cannot yet choose. */
@@ -14,7 +15,8 @@ export async function edgeTrial(job, given) {
   const { MINDS, partLookup, controllerOf } = await import("../../../src/app/catalog.ts");
   const { TECHNIQUES } = await import("../../../src/app/recovery-techniques.ts");
   const { tumbling } = await import("../../../src/control/ground-reading.ts");
-  const { groundStart, measuredOn, techniqueDigest } = await import("../../../src/skills/framework/profile.ts");
+  const { measuredOn, techniqueDigest } = await import("../../../src/skills/framework/profile.ts");
+  const { groundStart } = await import("../../../src/skills/recovery/data/profiles.ts");
   // Its priors alone (`PRIOR_PREDICTIONS`), so what it measures does not depend on what it measured before.
   const template = given ?? MINDS.option.config;
   const mind = { ...template, predictions: { kind: "prior" }, chooser: { ...template.chooser, margin: MARGIN } };
@@ -24,10 +26,11 @@ export async function edgeTrial(job, given) {
     if (!option.skill || option.kind === "brace-down" || option.kind === "steadying" || option.kind === "landing") continue;
     skills.set(option.kind === "brace-tumbling" ? "brace while tumbling" : option.skill.kind, option.skill);
   }
-  const built = await buildFall({ ...job, mind }, "rapier");
+  const built = await buildFall({ ...job, mind }, DEFAULT_ENGINE);
   if (isRefused(built)) throw new Error(built.refused);
   const spec = built.combatant.body.built.spec, hz = built.world.hz, delay = built.world.delay;
   const trials = [], open = [], waiting = [];
+  const record = built.combatant.minded.state.mind.decider.model.record;
   let phase = null, tried = new Map();
   /** Where `trial`'s Option takes the body: a way up's edge from where it began, flatten's lie. */
   const toOf = (trial) => trial.name === "flatten" ? trial.lie
@@ -45,7 +48,7 @@ export async function edgeTrial(job, given) {
       built.afterStep();
       const c = built.combatant, t = built.world.time, g = c.body.view.ground, now = c.minded.report?.engagement?.phase ?? null;
       // A try noted in the mind's record: its Option's start, done or not.
-      for (const entry of c.minded.state.decider.record.tried) {
+      for (const entry of record.tried) {
         const key = `${entry.name} ${entry.from}`, was = tried.get(key) ?? { tries: 0, done: 0 };
         if (entry.tries > was.tries) {
           const trial = open.findLast((one) => one.name === entry.name);

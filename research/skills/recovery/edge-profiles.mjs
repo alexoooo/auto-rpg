@@ -1,3 +1,4 @@
+import { DEFAULT_ENGINE } from "../../../src/core/physics/engines.ts";
 import { workerJobs } from "../../worker-jobs.mjs";
 /**
  * **The ground Options' profiles** (`assets/skills/recovery/edge-profiles.json`, in the profiles' one type,
@@ -12,7 +13,7 @@ import { workerJobs } from "../../worker-jobs.mjs";
  * for one to standing; flatten's lie; a brace's, where a way up is begun next); else it ended down
  * where the body lies then (`Trial.end`).
  * Each profile names what it was measured on: the body as the fall builds it, the technique's
- * config, the world's rate and the command's delay. Node, core world, Rapier, 120 Hz.
+ * config, the world's rate and the command's delay. Node, core world, the gameplay engine, 120 Hz.
  *
  *   node research/skills/recovery/edge-profiles.mjs [--model <model>] [--offsets 5.625,16.875] [--workers N] [--write]
  *     [--rows <trials.jsonl>]
@@ -63,7 +64,7 @@ if (isMainThread) {
     } });
   const all = byFall.flatMap(result => result.trials);
   const sorted = edgeProfiles(all);
-  console.log(`edge profiles: ${all.length} trials in ${sorted.length} profiles, offsets ${offsets.join(", ")}; Node, core world, Rapier, 120 Hz; ${((Date.now() - started) / 1000).toFixed(0)} s; ${reused}/${jobs.length} falls reused; rows ${rowsFile}`);
+  console.log(`edge profiles: ${all.length} trials in ${sorted.length} profiles, offsets ${offsets.join(", ")}; Node, core world, ${DEFAULT_ENGINE}, 120 Hz; ${((Date.now() - started) / 1000).toFixed(0)} s; ${reused}/${jobs.length} falls reused; rows ${rowsFile}`);
   for (const p of sorted) {
     const byFrom = new Map();
     for (const t of p.trials) { const f = byFrom.get(t.start.postures.own) ?? { n: 0, done: 0, seconds: 0 }; f.n++; f.done += t.done ? 1 : 0; f.seconds += t.seconds; byFrom.set(t.start.postures.own, f); }
@@ -72,7 +73,7 @@ if (isMainThread) {
   const { modelSpec } = await import("../../../src/core/bodies/models.ts"), { bodyKey } = await import("../../../src/core/bodies/spec/body.ts");
   const body = values.model ? bodyKey(modelSpec(values.model)) : null;
   const refreshed = sorted.map((p) => ({ measured: p.measured, target: null, trials: p.trials }));
-  const out = { source: { script: "research/skills/recovery/edge-profiles.mjs", falls: "rising-target", offsets },
+  const out = { source: { script: "research/skills/recovery/edge-profiles.mjs", engine: DEFAULT_ENGINE, falls: "rising-target", offsets },
     profiles: [...(retained?.profiles.filter((p) => p.measured.body !== body) ?? []), ...refreshed] };
   // A trial a line: the file stays readable at a few thousand trials.
   const text = `{\n  "source": ${JSON.stringify(out.source)},\n  "profiles": [\n${out.profiles.map((p) =>

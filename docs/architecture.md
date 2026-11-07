@@ -173,8 +173,10 @@ driven points, a stance goal) into muscle commands.
   A selected motor declares its support reference; `BodyView.standing` is null when it supplies
   none. Skills declare the support reference, stance or support goals they consume as open
   `Requirement`s; admission checks them against the configured motor before construction.
-  The application supplies the stock balance and its calibrated envelope (`src/app/stance-balance.ts`);
-  neutral envelope interpolation stays in control, and locomotion owns its measured asset readers.
+  The application supplies the stock balance and its calibrated envelope (`src/app/stance-balance.ts`).
+  Its immutable per-body stance settings live in [the calibration record](../src/app/data/stance-calibration.json);
+  staged recovery profile identities include the selected calibration. Neutral envelope interpolation
+  stays in control, and locomotion owns its measured asset readers.
 - **The motor** is a part of role `motor` (`MOTORS`); the game's is the whole-body solve
   (`motorControl`, `solve.ts`): the bearing solve and the servo in one weighted least-squares
   problem, a torque past strength pinned and solved again. A body on paws has the paw support

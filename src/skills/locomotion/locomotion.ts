@@ -107,9 +107,10 @@ interface StanceLegs {
    * The stance goal for this control step: facing `heading` (rad about up, 0 facing +z, growing to
    * the right), walking at `walk` (m/s, forward along the heading and to its right) or, null,
    * standing, the centre of mass `height` over the soles. Null before the body's first step, when
-   * its reference height is read.
+   * its reference height is read. The walk uses `walkHeading` when supplied; `heading` remains
+   * the stance's turning target.
    */
-  goal(view: BodyView, heading: number, walk: readonly [forward: number, right: number] | null, height?: number): StanceGoal | null;
+  goal(view: BodyView, heading: number, walk: readonly [forward: number, right: number] | null, height?: number, walkHeading?: number): StanceGoal | null;
 }
 
 interface LegsMemory {
@@ -123,7 +124,7 @@ interface LegsMemory {
 
 function stanceLegs(state: LegsMemory, feet: readonly BearingEnd[]): StanceLegs {
   return {
-    goal(view, heading, walk, asked) {
+    goal(view, heading, walk, asked, walkHeading = heading) {
       // The reference height is the body's (`BodyView.standing`), taken at the first view after a step.
       if (state.reference === null) {
         if (view.time <= view.born) return null;
@@ -138,7 +139,7 @@ function stanceLegs(state: LegsMemory, feet: readonly BearingEnd[]): StanceLegs 
       }
       // Forward is (sin h, cos h) across the ground; the right, (cos h, -sin h).
       const across = walk
-        ? [walk[0] * sin(heading) + walk[1] * cos(heading), walk[0] * cos(heading) - walk[1] * sin(heading)] as const
+        ? [walk[0] * sin(walkHeading) + walk[1] * cos(walkHeading), walk[0] * cos(walkHeading) - walk[1] * sin(walkHeading)] as const
         : null;
       return { feet, centre: null, height, heading, walk: across };
     },
@@ -561,6 +562,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
     const envelope = envelopeNow();
     let walk = asked;
     born(view);
+    const walkHeading = state.heading;
     state.placing = null;
     state.placed = false;
     if (!walk) { state.pace = 0; state.going = Math.max(0, state.going - STANCE_STOPPING * dt); if (turnStartup) state.walkTime = 0; }
@@ -580,6 +582,6 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
       state.going = Math.max(state.pace, state.going - STANCE_STOPPING * dt);
       if (turnStartup) state.walkTime = speed > 0 ? Math.min(turnStartup.seconds, state.walkTime! + dt) : 0;
     } else state.pace = hypot(walk[0], walk[1]);
-    return legs.goal(view, state.heading, walk, height);
+    return legs.goal(view, state.heading, walk, height, walkHeading);
   }
 }

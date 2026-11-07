@@ -268,6 +268,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     get unmet() { return memory.running ? memory.unmet : legs.unmet; },
     resume(view) { if (memory.running) walkOn(view); else legs.resume(view); },
     goal(view, goal, dt, context): LegsDrive {
+      const inputHeading = memory.running ? memory.heading : legs.heading;
       const s = view.stance, v = s.velocity, asked = goal.walk, face = goal.face;
       if (goal.footing) {
         if (memory.running) walkOn(view);
@@ -285,9 +286,9 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         let landed: Side | null = null;
         if (s.phase === "swing") memory.swinging = s.own ? feet[s.own.foot]! : null;
         else if (memory.swinging !== null && touching(view, memory.swinging)) { landed = memory.swinging; memory.swinging = null; }
-        // Heading for the run, the walk turns to face the way asked and walks it forward, as the run will.
+        // Entering the run, the walk keeps its requested world direction while turning to face it.
         memory.facing = memory.capped > 0 ? memory.facing + wrap(s.facing - memory.facing) * Math.min(1, dt / RUN_SWITCH.sway) : s.facing;
-        const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face, facing = Math.abs(wrap(way - memory.facing)) <= RUN_SWITCH.facing;
+        const way = memory.capped > 0 ? inputHeading + atan2(asked![1], asked![0]) : face, facing = Math.abs(wrap(way - memory.facing)) <= RUN_SWITCH.facing;
         memory.faced = memory.capped > 0 && facing ? memory.faced + dt : 0;
         if (landed && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.swayed && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) memory.bearing = landed;
         if (entry === "first-lift" && memory.bearing === null && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled
@@ -299,13 +300,15 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         if (memory.bearing !== null && !touching(view, memory.bearing)) { memory.swinging = memory.bearing; memory.bearing = null; }
         if (memory.capped === 0) memory.bearing = null;
         if (memory.bearing !== null && !touching(view, otherSide(memory.bearing))) { runFrom(view, memory.bearing, way); memory.bearing = null; }
-        else return legs.goal(view, { ...goal, walk: walkable(memory.capped > 0 ? [speed, 0] : asked), face: way }, dt, context);
+        else return legs.goal(view, { ...goal, walk: walkable(asked), face: way }, dt, context);
       }
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past
       // `RUN_ROUND`, and, asked to stand or a way it does not run, along the heading as it is.
       const speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0, envelope = envelopeNow();
       const holds = asked && envelope ? paceToward(envelope, asked[0], asked[1], REACH) : Infinity, held = speed > holds ? holds / speed : 1;
-      const toward = runsWay(asked) ? face + atan2(asked![1], asked![0]) : memory.heading, on = runsWay(asked) && Math.abs(wrap(toward - memory.heading)) <= RUN_ROUND;
+      const requested = asked ? inputHeading + atan2(asked[1], asked[0]) : memory.heading;
+      const on = asked !== null && Math.abs(wrap(requested - face)) <= RUN_WAY && Math.abs(wrap(requested - memory.heading)) <= RUN_ROUND;
+      const toward = on ? requested : memory.heading;
       // Told it may not run, it brakes to the walk's pace.
       memory.pace = on ? Math.min(speed * held, memory.may ? Infinity : settings.run - RUN_SWITCH.below) : 0;
       if (on) turnToward(view, toward, dt);
