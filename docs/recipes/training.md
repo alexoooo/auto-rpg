@@ -65,8 +65,9 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 
 ## Choosing a checkpoint
 
-1. Play every kept checkpoint (one per 1 M) on the bar's cases from step 1 of the first section.
-   Training return does not choose: it can keep rising while the cases get worse.
+1. Play every kept checkpoint (one per 1 M) on the bar's development cases from step 1 of the
+   first section. Training return does not choose: it can keep rising while the cases get worse.
+   Reserved or confirmation cases never rank checkpoints: they are played once, on the chosen one.
 2. Take the best by the gate reading: falls first, then each gate's figure. The last checkpoint
    is often not the best.
 3. **Polish**: resume the best into a new output for 2 to 5 M decisions and screen again:
