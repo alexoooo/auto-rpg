@@ -110,7 +110,7 @@ headings between the eight training directions to check the envelope's interpola
 
 Develop on one body, one loadout and calm air before widening. Each run answers one named
 question, with its consequence stated before play. Price searches from their first trials and
-follow the time limits, saved-row reuse and paired comparison rules in
+follow the run-review, saved-row reuse and paired comparison rules in
 [AGENTS.md](../../AGENTS.md#doing-the-work). Fix downstream defects exposed by a correction in the
 same change. Read shared changes on every affected body and retain recovery and fighting-walk
 comparisons; existing shortfalls remain named rather than being treated as passes.
@@ -145,8 +145,8 @@ never change those requirements.
 
 Price each training block from its measured throughput and state its cumulative decision count,
 initial checkpoint and stopping budget. Compare checkpoint trends in survival and sustained
-speed separately. A short plateau does not establish an anatomical ceiling; an extended run
-requires the approval specified in AGENTS.md. Retain full models, normalisation, configurations
+speed separately. A short plateau does not establish an anatomical ceiling; longer work follows
+the run-review rule above. Retain full models, normalisation, configurations
 and replay rows so the next block can reproduce and resume the selected checkpoint exactly.
 
 ## Completion

@@ -182,7 +182,7 @@ and reconfirm on additional frozen starts before claiming generalization.
    cells with their baselines. Report every remaining shortfall by its owning layer.
 
 Each run answers one named decision and follows [AGENTS.md](../../AGENTS.md#doing-the-work)'s
-pricing and time limits. Store development work under `.tmp/warrior-bonk/`, retain useful plays
+pricing and run-review rules. Store development work under `.tmp/warrior-bonk/`, retain useful plays
 as evaluation rows and remove temporary work when it lands. Commit coherent changes on main;
 the record writer requires the case's source to be committed and unchanged. Label a committed
 development candidate as short until confirmation passes. Keep the protocol and its baseline

@@ -36,8 +36,10 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   fingerprint. Look in a browser, briefly, when the change is something to see.
 - **A run answers a decision**: name the question and what each answer would change first. Play
   only what the decision reads; screen small (one body, one loadout, calm air) and widen where it
-  is close. Price a run from its first trials: past about 10 minutes it is cut or the owner asked;
-  over an hour needs the owner's go-ahead. Keep what is played as rows and reuse them.
+  is close. Price a run from its first trials. Duration alone does not require approval. After
+  each hour, report progress using retained paired readings; continue a productive direction,
+  and change direction before spending more time when the hour shows no gain. Keep what is
+  played as rows and reuse them.
 - **An iteration is one question**: one implementation changed, read paired against the one
   before (`npm run compare`, `--previous`, `npm run match`), kept or dropped with the reason in the
   commit message. A live alternative stays only while an open question uses it.
@@ -214,8 +216,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **Stand-up and the run are met or short** on their definitions; no push ends with either set
   back. **Every other cell is read against its baseline** (its first reading when its work begins,
   kept with `npm run evaluate -- table --baseline`) and raised by paired readings against the
-  version before: a gain is kept, a loss is not. A cell's work gets one search or training run,
-  priced from its first trials and under an hour, and the fixes of the bugs it exposes; where an
+  version before: a gain is kept, a loss is not. A cell's work gets a search or training run,
+  following the run-review rule above, and the fixes of the bugs it exposes; where an
   iteration brings no gain, its best is kept and its ceiling named from a reading (the body, the
   controller or the drill).
 - **The person's figures are a scale** (`BAR`, `src/evaluation/strike/read.ts`), reported beside
