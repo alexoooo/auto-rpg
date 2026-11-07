@@ -1,6 +1,7 @@
 /** Moving corrections through the configured Option Mind, from a physically settled rest.
  * Heading episodes retain the ordinary command delay, walking entry and muscle limits.
  * `ordinary` reads the record's velocity actor; otherwise the learner supplies its decisions.
+ * `rewardPace` sets the training target without changing the movement order or its gate.
  * Snapshots restore the complete world, perception and controller state between episodes.
  */
 import '../../../tests/harness/preload-data.mjs';
@@ -34,6 +35,8 @@ export async function optionEntryEnvironment(configuration) {
   if (!o.settings || !Array.isArray(o.headings) || !o.headings.length || !o.headings.every(Number.isFinite)
     || !Number.isFinite(o.pace) || o.pace <= 0 || !Number.isFinite(o.seconds) || o.seconds <= 0)
     throw Error('Option entry needs a record, finite headings and positive pace and duration');
+  const rewardPace = o.rewardPace ?? o.pace;
+  if (!Number.isFinite(rewardPace) || rewardPace <= 0) throw Error('Option entry reward pace is finite and positive');
   const settings = JSON.parse(readFileSync(o.settings, 'utf8'));
   if (!settings.learned || !settings.envelope || settings.learned.decisionSteps !== 4)
     throw Error('Option entry needs learned corrections, an explicit envelope and four-step decisions');
@@ -121,7 +124,7 @@ export async function optionEntryEnvironment(configuration) {
       }
       const d = episode.direction, cross = velocity.x * d.z - velocity.z * d.x;
       const effort = state.inference.velocityAction.reduce((n, v) => n + v * v, 0) / 12;
-      const reward = 1 - Math.max(0, o.pace - along) / o.pace + .15 * state.inference.observation[9]
+      const reward = 1 - Math.max(0, rewardPace - along) / rewardPace + .15 * state.inference.observation[9]
         - .1 * cross ** 2 - .05 * episode.maxOff ** 2 - .005 * effort - (down || episode.maxOff > 1 ? o.fallPenalty : 0);
       return { observation: state.inference.observation.slice(), reward, ...(o.trace ? { samples } : {}),
         terminated: down || episode.maxOff > 1, truncated: episode.ticks >= Math.round(o.seconds * world.hz),
@@ -133,6 +136,6 @@ export async function optionEntryEnvironment(configuration) {
       samples: () => episode.samples, observation: () => state.inference.observation.slice(), entries,
       dispose: () => built.dispose(), harness: { name: 'Node lone world Option Mind', engine: o.engine ?? DEFAULT_ENGINE,
         hz: world.hz, balance: 0, model: o.model, seed: o.seed, gusts: !!o.gusts,
-        loadout: o.loadout ?? { left: 'empty', right: 'empty' }, protocol: 'heading-entry', steered: !o.ordinary } };
+        loadout: o.loadout ?? { left: 'empty', right: 'empty' }, protocol: 'heading-entry', pace: o.pace, rewardPace, steered: !o.ordinary } };
   } catch (error) { built.dispose(); throw error; }
 }
