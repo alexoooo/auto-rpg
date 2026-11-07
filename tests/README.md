@@ -157,11 +157,11 @@ ordinary capability drills use impulse joints and rigid contacts, so cannot expo
 | --- | --- |
 | `run cadence scales clip feedforward with the reference phase` | Cadence advances the reference faster or slower while its feed-forward velocity can retain the unscaled rate. Two servo times separate that velocity from pose feedback on a real body, then compare it with the reference's finite difference. A locomotion drill can hide the missing factor through pose feedback. |
 
-[skills/locomotion/learned-run.test.mjs](skills/locomotion/learned-run.test.mjs) checks the learned run's steered low-speed blend through the research adapter.
+[skills/locomotion/learned-run.test.mjs](skills/locomotion/learned-run.test.mjs) checks travel answer timing through the research adapter.
 
 | Case | Concrete justification |
 | --- | --- |
-| `a steered low-speed answer acts over exactly its own decision interval, blended with the decision's velocity actor` | Reproduce the blend built at a decision from the outputs held before the trainer answered, so every action acted a decision late and took its predecessor's reward. Eight distinct answers through the adapter on a real body, each checked on every step of its transition against its own blend. Training runs and drills read returns, which the lag only lowers. |
+| `a travel answer acts over exactly its own decision interval` | Reproduce learned corrections taking the outputs held before the trainer answers, so each action acts a decision late and takes its predecessor's reward. Eight distinct answers through the adapter on a real body are checked on every step of their own transition. Training runs and drills read returns, which the lag only lowers. |
 
 [layer-contracts.test.mjs](layer-contracts.test.mjs) reproduces the physical, command and observation
 failures below. Skill drills cannot establish admission before allocation, complete command delivery

@@ -28,13 +28,11 @@ import { learningWorker } from './learning-worker.mjs';
  * settings fill in. `cases`: any learnable part of a mind played in an evaluation's cases
  * (`case-learning-environment.mjs`); `travel`: residual control around the retained running gait
  * (`skills/locomotion/residual-environment.mjs`), for pretraining and development screens;
- * `option-travel`: braking through the configured Option Mind from saved reached running states.
- * `option-entry`: moving through the configured Option Mind from physically settled rest.
+ * `travel-orders`: one travel actor through scripted Option Mind orders and physically reached starts.
  */
 const KINDS = {
   travel: async () => (await import('./skills/locomotion/residual-environment.mjs')).residualEnvironment,
-  'option-travel': async () => (await import('./skills/locomotion/option-travel-environment.mjs')).optionTravelEnvironment,
-  'option-entry': async () => (await import('./skills/locomotion/option-entry-environment.mjs')).optionEntryEnvironment,
+  'travel-orders': async () => (await import('./skills/locomotion/travel-environment.mjs')).travelEnvironment,
   cases: async () => {
     const { caseEnvironment } = await import('./case-learning-environment.mjs');
     const { profileLearningMind } = await import('../src/minds/option/index.ts');

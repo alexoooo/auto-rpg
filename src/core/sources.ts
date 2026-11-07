@@ -454,6 +454,10 @@ const SOURCES = Object.freeze({
       + "src/control/stance/stance-envelope.ts; written by research/skills/locomotion/stance/core-stance-envelope.mjs --write, whose "
       + "harness it names.",
   },
+  "travel-training-ceiling": {
+    kind: "tuned",
+    for: "Opens the experimental travel command envelope to the curriculum's requested paces; operating limits are established by travel confirmation.",
+  },
   "walk-run-envelope": {
     kind: "asset", file: "assets/skills/locomotion/walk-run/walk-run-envelope.json",
     what: "How fast the walk and run (src/skills/locomotion/walk-run.ts) free to run walked each way with each body as a fight "

@@ -253,21 +253,19 @@ arbiter releases every action when another mind takes the body.
   (`assets/skills/locomotion/cycle-run/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis,
   its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`) where it has one, else the defaults
   scaled to its leg (`scaledGait`); each is a gait part (role `gait`).
-  A walk/run record can supply learned velocity, braking and reference actors
-  (`src/skills/locomotion/learned-run.ts`). They read mirrored gait observations every recorded
-  `interval` seconds, restart that schedule on a changed pace order and smooth reference offsets
-  on physical channels; a decision acts from the next control step. Their observations, actions,
-  offsets and learner live in the gait's saved state.
-  An optional low-speed actor blends over a recorded pace band; moving at or above its upper
-  pace uses only the velocity actor, so low-speed training leaves that actor's corrections intact.
+  A walk/run record can supply one travel actor beside a frozen reference
+  (`src/skills/locomotion/learned-run.ts`). The actor reads mirrored gait observations, requested
+  velocity and facing every recorded `interval` seconds. It corrects running joint velocities
+  and native stance height and heading within its record's bounds. A changed pace restarts
+  its decision schedule; an answer acts from the next control step. Travel control continues
+  through stopping; braced movement retains its native stance. Observations, actions, reference
+  offsets and the learner live in the gait's saved state.
   A record can supply its travel envelope independently of the braced limits, with eight
-  directional operating speeds interpolated between adjacent headings. In research `steered`
-  mode, the learner's answers replace the named actor (`velocity`, `slow-velocity` or
-  `braking`); a low-speed answer blends with the velocity actor's decision over the band as that
-  decision found it. `research/skills/locomotion/option-travel-environment.mjs` trains the braking
-  actor through Option Mind. `research/skills/locomotion/option-entry-environment.mjs` trains the
-  velocity or low-speed actor across commanded paces from settled rest, the record's actor
-  answering the command-delivery prefix before the first trained decision. The lone-body world saves physics, perception, orders,
+  directional operating speeds interpolated between adjacent headings. The game's network and
+  the trainer answer the same learner. `research/skills/locomotion/travel-environment.mjs` trains
+  scripted orders through Option Mind from quiet rest and reached moving starts. The weighted
+  scripts in `research/skills/locomotion/travel-curriculum.mjs` retain earlier episodes as entry,
+  pace changes and stops are added. The lone-body world saves physics, perception, orders,
   wind and controller state so its reached running starts can be restored.
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
   shares gait instances only for identical complete configurations. Walk/run permission views
