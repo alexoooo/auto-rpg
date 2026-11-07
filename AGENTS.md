@@ -25,8 +25,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 - **The owner sets goals; how to reach them is the agent's.** A modelling choice (a muscle's
   curve, a joint's range, a solver setting, a bar's test) is decided toward the goal, never put to
-  the owner. Stop only when the goal is met or no change is left to try; ask only a choice whose
-  effect in play the owner can judge.
+  the owner. Stop only when the goal is met, no change is left to try, or the four-hour ceiling
+  below is reached; ask only a choice whose effect in play the owner can judge.
 - **Checks by change**: code, `npm run check` and `npm test`; browser code, assets, dependencies
   or build config, also `npm run build`; a refactor claiming no behaviour change, the fingerprint;
   prose-only documents, `node --test tests/documents.test.mjs` (the links), `git diff --check`
@@ -37,10 +37,14 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **A run answers a decision**: name the question and what each answer would change first. Play
   only what the decision reads; screen small (one body, one loadout, calm air) and widen where it
   is close. Price a run from its first trials (a training run from its first chunk's rate, never
-  its first returns). Duration alone does not require approval. After
-  each hour, report progress using retained paired readings; continue a productive direction,
-  and change direction before spending more time when the hour shows no gain. Keep what is
-  played as rows and reuse them.
+  its first returns). Keep what is played as rows and reuse them.
+- **Keep going without asking.** No run, training block or search waits for the owner's
+  approval, however long it takes. A progress report, each hour with paired readings, is a
+  message and never a pause; the owner interrupts when they want something else.
+- **Do not spin.** A direction without a kept gain is changed: a training run at the recipe's
+  plateau, any other work after an hour of tries. A training run whose screened checkpoints
+  still improve is progress. After four hours without a kept gain toward the goal, whatever the
+  directions tried, stop: put the best reading and what was tried in the plan, and report.
 - **Training follows [the training recipe](docs/recipes/training.md)**: one actor a skill, a run
   of millions of decisions, checkpoints chosen on the evaluation's cases, a retrain after any
   change under the actor. Work of a kind that has a recipe in `docs/recipes/` follows it.

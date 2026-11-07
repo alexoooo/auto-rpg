@@ -27,8 +27,9 @@ starts: [the table](../reference/the-table.md). How well the quadrupeds move is
   3 m/s within 1.5 s; read as the slowest second of the hold at 3 m/s, of the turn at 1.8 m/s with
   the way travelled at most 0.35 rad behind the way asked, and a stop asked at 2.7 m/s or more and
   under 0.15 m/s within 1.5 s. 3 m/s is a floor (the owner's decision); faster is better.
-- **Every other cell, best effort**: read against its baseline, one search or training run under an
-  hour, kept where it gains, its ceiling named where it stops.
+- **Every other cell, best effort**: read against its baseline, one search or training run, kept
+  where it gains, its ceiling named where it stops by the plateau and four-hour rules of
+  [AGENTS.md](../../AGENTS.md#doing-the-work).
 - **Guards**: no push of work ends with stand-up or the run set back, and no Option makes its body
   fall; one leg serves stand-up and the run, so every leg change is read on that body's stand-up
   and gait.
