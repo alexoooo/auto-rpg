@@ -23,6 +23,7 @@ far (`progress`), which an environment's curriculum reads.
 
 `--gamma` sets discount per environment decision and `--gae-lambda` PPO's advantage horizon.
 A resume keeps the saved horizons; explicit values must match the checkpoint.
+`--lr` overrides the saved learning rate on resume; omitted, it keeps the saved rate.
 `--freeze-normalization` holds observation and reward statistics after initialization, including
 through resumed training, so transfer to a new episode distribution does not shift the actor's inputs.
 
@@ -35,6 +36,7 @@ with CUDA's torch: `python -m venv .tools/ai-lab-cuda-venv`, then its pip instal
 """
 import argparse
 import json
+import math
 import subprocess
 import time
 from pathlib import Path
@@ -56,7 +58,7 @@ parser.add_argument('--rollout', type=int, default=256, help="PPO: decisions eac
 parser.add_argument('--resume', action='store_true')
 parser.add_argument('--threads', type=int, default=4)
 parser.add_argument('--log-std', type=float, default=-1.0, help='the spread a policy starts with, before the tanh')
-parser.add_argument('--lr', type=float, default=3e-4)
+parser.add_argument('--lr', type=float, help='learning rate; new runs default to 0.0003, resumes retain the saved rate unless supplied')
 parser.add_argument('--gamma', type=float, help='discount per environment decision; a resumed model retains its saved value')
 parser.add_argument('--gae-lambda', type=float, help='PPO advantage horizon; a resumed model retains its saved value')
 parser.add_argument('--keywords', default='along,command,down', help='the episode infos train.log averages')
@@ -71,6 +73,8 @@ parser.add_argument('--device', default='cpu')
 parser.add_argument('--profile', action='store_true', help='report environment wait, learner and checkpoint wall time per chunk')
 parser.add_argument('--freeze-normalization', action='store_true', help='keep observation and reward statistics fixed after initialization when transferring a trained actor')
 options = parser.parse_args()
+if options.lr is not None and (not math.isfinite(options.lr) or options.lr <= 0):
+    parser.error('--lr is finite and positive')
 if options.gamma is not None and not 0 < options.gamma < 1:
     parser.error('--gamma is between zero and one')
 if options.gae_lambda is not None and not 0 < options.gae_lambda <= 1:
@@ -285,7 +289,8 @@ try:
     layers = None
     if options.resume and saved.exists():
         envs = VecNormalize.load(str(output / 'normalize.pkl'), monitored)
-        model = Algorithm.load(str(saved), env=envs, device=options.device)
+        model = Algorithm.load(str(saved), env=envs, device=options.device,
+                               **({'learning_rate': options.lr} if options.lr is not None else {}))
         if options.gamma is not None and options.gamma != model.gamma:
             raise SystemExit('--gamma differs from the resumed model')
         if options.gae_lambda is not None and options.gae_lambda != model.gae_lambda:
@@ -293,11 +298,11 @@ try:
         if squashed and (output / 'replay.pkl').exists(): model.load_replay_buffer(str(output / 'replay.pkl'))
     else:
         if squashed:
-            model = SAC('MlpPolicy', envs, device=options.device, buffer_size=options.buffer, batch_size=options.batch or 512, learning_rate=options.lr, gamma=gamma, tau=0.005,
+            model = SAC('MlpPolicy', envs, device=options.device, buffer_size=options.buffer, batch_size=options.batch or 512, learning_rate=options.lr if options.lr is not None else 3e-4, gamma=gamma, tau=0.005,
                         learning_starts=0 if options.start else 10_000, train_freq=1, gradient_steps=options.gradient_steps, ent_coef='auto_0.1', verbose=0, seed=configuration.get('seed', 1),
                         policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
         else:
-            model = PPO('MlpPolicy', envs, device=options.device, n_steps=options.rollout, batch_size=options.batch or 4096, n_epochs=5, learning_rate=options.lr, gamma=gamma, gae_lambda=gae_lambda,
+            model = PPO('MlpPolicy', envs, device=options.device, n_steps=options.rollout, batch_size=options.batch or 4096, n_epochs=5, learning_rate=options.lr if options.lr is not None else 3e-4, gamma=gamma, gae_lambda=gae_lambda,
                         clip_range=0.2, ent_coef=0.0, target_kl=0.03, verbose=0, seed=configuration.get('seed', 1),
                         policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
         if options.start:
