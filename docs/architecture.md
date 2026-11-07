@@ -24,7 +24,7 @@ composes their concrete implementations.
 | Parts | `src/parts/` | component contracts, scoped configurations and role lookup |
 | Combat | `src/combat/` | blows, wounds, life and rulebooks |
 | Control | `src/control/` | motion and support goals turned into muscle commands |
-| Skills | `src/skills/recovery/`, `locomotion/`, `strikes/`, `framework/` | capability contracts, implementations and owned records |
+| Skills | `src/skills/framework/`, `intent/`, `perception/`, `locomotion/`, `guard/`, `strikes/`, `recovery/` | capability contracts, implementations and owned records |
 | Minds | `src/minds/`, `src/minds/option/` | Mind execution, catalogs, decision frameworks and reusable Options |
 | Game and evaluation | `src/game/`, `src/evaluation/` | gameplay, world builders, cases and readings receiving an immutable context |
 | Entrants | `src/entrants/<name>/` | a public manifest and private fighter assembly, components, presets and data |
@@ -40,8 +40,8 @@ registered technique set. Gameplay and evaluations receive it as an argument.
 runtime paths and public entry points across source modules. Shared libraries never import entrants;
 application composition imports their public manifests. Entrants import published library APIs
 and themselves. Recovery's shared wiring never imports implementations; each implementation owns
-its algorithms, tuning, data and caches. Motor, support, gait, guard, balance, navigation and aim
-registrations, Option component lists and the Commander registry live in `src/app/registration/`.
+its algorithms, tuning, data and caches. Motor, balance, support, locomotion, gait, move-rule, navigation,
+guard, aim and executor registrations, Option component lists and the Commander registry live in `src/app/registration/`.
 Commander lookup receives that registry; reusable implementations live in `src/minds/command/`.
 
 The public APIs for entrant authors are:
@@ -483,7 +483,7 @@ model's preset, `modelRefusal` why a mind cannot play a body.
 ### Adding an entrant
 
 1. A folder `src/entrants/<name>/` whose `index.ts` exports its manifest, a line in `ENTRANTS`,
-   and its data under `assets/entrants/<name>/`. It imports the published APIs and itself only
+   and any data it owns under `assets/entrants/<name>/`. It imports the published APIs and itself only
    (`tests/core-boundary.test.mjs`); `node scripts/entrant-check.mjs` names a change as its own.
 2. Most entrants are presets: configs of the `option` kind over the toolkit's parts and their own.
 3. A part of its own, of any role, is a module and a line of its manifest's `parts`, kind

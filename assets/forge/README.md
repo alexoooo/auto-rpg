@@ -3,8 +3,8 @@
 The arena's room, the Forge, is dressed from this kit: pavement, masonry, columns, bowls, cloth and
 outcrops, all original generated work. `assets/art/environment/forge/forge-kit.glb` holds the templates
 and the PNGs beside it their seamless PBR maps. The art compiler emits compressed delivery from
-both; `src/arena/forge-assets.ts` loads the generated resources,
-`src/arena/forge-style.ts` builds the look from them, and `src/arena/forge-room.ts` fills the
+both; `src/app/browser/arena/forge-assets.ts` loads the generated resources,
+`src/app/browser/arena/forge-style.ts` builds the look from them, and `src/app/browser/arena/forge-room.ts` fills the
 arena's wall colliders with masonry and decorates its posts with flames. The art stays inside the
 colliders it dresses and adds none.
 
