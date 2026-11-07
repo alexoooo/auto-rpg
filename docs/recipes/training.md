@@ -15,8 +15,7 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
   Option Mind, as the game gives them.
 - **The actor corrects a native controller** (a gait, a stance, a schedule) and decides on the
   learner's interval (`src/core/math/learning/learner.ts`). The native controller under it stays
-  fixed while it trains. One actor removes handovers between phase-specific actors; its
-  observations, actions and native controller must still support every phase being trained.
+  fixed while it trains.
 
 ## Before the first run
 
@@ -32,8 +31,6 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 4. **Start from reached states.** Warm-ups are played on the body and cached
    (`warmStarts` and the environments' snapshots). Never set a velocity or a pose to make a start.
    A warm-up that falls or leaves its corridor is reported and excluded.
-   If restoring entry from rest stalls, use the reached-state curriculum to restore sustained
-   motion first, then add entry. Entry remains short until its own cases meet their gates.
 5. **Check the reward reads what the gate reads**: the same speed (centre of mass, along the
    requested direction), the same fall predicate, the same corridor. Credit is per second,
    progress is a share of the requested pace, and a fall costs once and ends the episode.
@@ -50,12 +47,11 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 - Output goes to `.tmp/<task>/<run>/`, never `research/runs/`.
 - Keep the defaults: PPO, 256 hidden, learning rate 3e-4, 20 M decisions (`--steps`), a kept
   checkpoint every 1 M (`--keep`). Change one only for a named reason.
-  Decision budgets are starting allocations; only screened gate readings establish a gain.
 - **Price it from the first chunk**: train.log's decisions over its minutes gives the rate, and
-  20 M at that rate is the run's time. Apply the four-hour limit below to that estimate.
-- **Allow 2 M decisions before judging learning**, subject to the four-hour limit below.
-  Screen earlier checkpoints for gains and environment defects, but do not reject a run solely
-  on early returns. A defective environment is fixed before training continues.
+  20 M at that rate is the run's time. Hours are normal; time alone never stops a run.
+- **Do not judge before 2 M decisions.** Returns dip and recover in the first million. A
+  locomotion actor learns over 5 to 40 M decisions. A block of a few hundred thousand decisions
+  shows noise, not a result.
 - Read train.log's trend over the last few million decisions: falls (`down`) and shortfall should
   fall. Read the trend, not the last line.
 - One run answers one question. A reward or curriculum change is a new run from a kept
@@ -68,10 +64,6 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 2. Take the best by the gate reading: falls first, then each gate's figure. The last checkpoint
    is often not the best.
 3. **Polish**: resume the best (`--resume`, `--lr 1e-4`) for 2 to 5 M decisions and screen again.
-   Stage the selected `model-<n>.zip` and matching `normalize-<n>.pkl` in a new run's output
-   directory as `model.zip` and `normalize.pkl`, with the source run's `layout.json` and the
-   new run's config. `--resume` reads that directory's pair; it does not select a numbered
-   checkpoint. Use the same staging procedure when a curriculum stage resumes a chosen checkpoint.
 4. Compare the chosen checkpoint with the baseline, paired on the same cases
    (`npm run compare`). Keep it only if it gains without a loss elsewhere.
 
@@ -87,11 +79,6 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 ## Plateaus and changing direction
 
 - **A plateau** is 5 M decisions (five kept checkpoints) with no screened gain.
-- **The four-hour limit takes precedence over decision budgets and the plateau.** Follow
-  [AGENTS.md](../../AGENTS.md#doing-the-work): stop after four hours without a kept gain toward
-  the goal across all directions tried, record the best reading and what was tried in the plan,
-  and report. A kept gain from screened checkpoints is progress. If the limit interrupts the
-  initial allocation or plateau window, report the incomplete window explicitly.
 - On a plateau, check the environment before anything else: parity, reached starts, a reward
   that reads what the gate reads, and episodes that contain the failing case. Most plateaus are
   an environment that never shows the actor the case it fails.
@@ -118,3 +105,36 @@ dropped run keeps nothing; its reading goes in the commit message.
   longer fits, and the reading blames the fix.
 - Infrastructure work in the middle of a training question: finish or pause the question first,
   and retrain after it (step 3 of the first section).
+
+## Review feedback
+
+These are advisory observations and suggestions for review, not changes to the instructions above.
+
+This recipe and the [Warrior travel plan](../plans/2026-11-05-warrior-travel.md) give a concrete path toward
+progress. One actor across travel phases removes specialist-actor handovers; sustained training
+budgets discourage abandoning runs on noisy returns; checkpoint selection by capability gates
+keeps training reward from deciding success. Training through the configured Option Mind and
+checking timing parity make the evidence relevant to the game.
+
+The plan's first watched milestone, forward running and stopping, gives useful work to land
+before every direction and loadout is solved. Preserving recovery without requiring its separate
+ten-second target first keeps a meaningful guard without making that target an entry requirement.
+
+Three practical concerns to consider:
+
+- **Bootstrap order:** the travel plan asks for entry from rest before the unified environment,
+  while the curriculum begins with reached moving states. Consider explicitly allowing that
+  reached-state curriculum during restoration if entry training stalls. This would not establish
+  that entry meets its gate.
+- **Budget precedence:** a five-million-decision plateau can take longer than the repository's
+  four-hour limit without a kept gain. Consider stating which rule governs that situation,
+  including when the limit arrives before the initial two-million-decision allocation finishes.
+- **Checkpoint selection:** `--resume` loads the output directory's `model.zip` and
+  `normalize.pkl`; it does not select a numbered checkpoint. Consider specifying how to stage
+  the chosen `model-<n>.zip` and matching `normalize-<n>.pkl` under those names, together with
+  `layout.json`, in the next run's output directory.
+
+Decision counts are starting budgets, not evidence that a run succeeds. One actor removes
+specialist handovers but still needs a working controller and an environment that exposes the
+failing cases. The recipe supplies enough direction to make modelling and training choices
+without asking the owner to make them; execution remains the agent's responsibility.
