@@ -7,13 +7,17 @@
  * `rewardPace` selects the training target without changing the order. Progress credit is capped
  * at the target; stopping tracks total horizontal speed. `fallPenalty` covers falls and corridor exits.
  * `controlTrace` pairs the run's phase change with the contact input of that control decision.
- * `frozenSteeringPolicy` preserves a steering teacher at policy-decision cadence while a
- * velocity residual learns individual joint corrections, optionally over a frozen reference.
+ * One learner (`Learner`) decides every 1/30 s: the trained residual's request, answered by the
+ * trainer through the learning adapter (`research/learner-adapter.mjs`); its frozen teachers decide
+ * at the same requests. `frozenSteeringPolicy` steers the run's cycle while a residual learns
+ * individual joint corrections, optionally over a frozen reference. Rewards are credit per second,
+ * scaled to the 30 decisions a second they were tuned per decision at; a fall or corridor exit
+ * costs `fallPenalty` once.
  * `speeds` samples episode orders; `warm` samples independent physically played warm-up orders.
  * `warmStarts` samples verified pairs of warm-up pace and elapsed time instead of their product.
  * `cacheWarmStarts` restores reached native stand snapshots on fresh bodies between episodes;
  * explicit warm-up pairs are played once before the environment becomes ready.
- * `warmPolicy` plays a frozen residual during moving-start setup; `stopOnReset` issues a stop
+ * `warmPolicy` answers the learner during moving-start setup; `stopOnReset` issues a stop
  * after that reached state is restored, leaving the episode budget entirely for braking.
  * `paceRelativeShare` widens shortfall credit with the movement controller's commanded pace.
  */
@@ -34,14 +38,16 @@ import { walkRun, WALK_RUN, WALK_RUN_CYCLE } from '../../../src/skills/locomotio
 import { runCycleSettings } from '../../../src/skills/locomotion/cycle-run.ts';
 import { legOf } from '../../../src/skills/locomotion/gait-scale.ts';
 import { balanceCeiling, balancePercent, rulebook } from '../../../src/combat/rulebook.ts';
-import { learnedRunSteering, learnedRunFeatures, steeringFrom, STEERING_LAYOUT } from './learned-run-steering.mjs';
+import { learnedRunFeatures, steeringFrom, STEERING_LAYOUT } from './learned-run-steering.mjs';
 import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
+import { act, ask, learnerOf, restart, start } from '../../../src/core/math/learning/learner.ts';
+import { decide } from '../../learner-adapter.mjs';
 import { passiveToeBody } from './passive-toe-body.mjs';
 import { conditionToeStand } from './toe-conditioning.mjs';
 
 const ROLES = Object.freeze(['stance', 'swing']);
 const JOINTS = Object.freeze(['hip flexion', 'hip abduction', 'hip internal rotation', 'knee flexion', 'ankle dorsiflexion', 'ankle inversion']);
-export const RESIDUAL_LAYOUT = Object.freeze({
+export const RESIDUAL_LAYOUT = Object.freeze({ interval: 1 / 30,
   inputs: Object.freeze(['command', 'playback', 'phase sin', 'phase cos', 'forward speed', 'side speed', 'vertical speed',
     'up forward', 'up side', 'up vertical', 'facing sin', 'facing cos', 'spin forward', 'spin side', 'spin up', 'height', 'cross track',
     ...ROLES.flatMap(role => [`${role} contact`, `${role} foot forward`, `${role} foot side`, `${role} foot height`,
@@ -117,11 +123,11 @@ export async function residualEnvironment(configuration = {}) {
   const running = runCycleSettings(o.cycleTuning, runCycleSettings(cycle, WALK_RUN_CYCLE));
   const braking = o.braking ? runCycleSettings(JSON.parse(readFileSync(o.braking, 'utf8')), running) : running;
   const stride = o.stride ? JSON.parse(readFileSync(o.stride, 'utf8')) : undefined;
-  const steeringPolicy = o.steeringPolicy ? JSON.parse(readFileSync(o.steeringPolicy, 'utf8')) : null;
+  if (o.steeringPolicy !== undefined) throw Error('a frozen steering actor is `frozenSteeringPolicy`, with `hasted` where it ran hasted');
   const frozenSteeringData = o.frozenSteeringPolicy ? JSON.parse(readFileSync(o.frozenSteeringPolicy, 'utf8')) : null;
-  if (frozenSteeringData && (o.residual !== 'velocity' || steeringPolicy || frozenSteeringData.actions !== 12
+  if (frozenSteeringData && (o.residual === 'steering' || frozenSteeringData.actions !== 12
     || frozenSteeringData.layers?.[0]?.weights?.[0]?.length !== STEERING_LAYOUT.inputs.length))
-    throw Error('a frozen steering teacher needs the steering layout and a velocity residual without steeringPolicy');
+    throw Error('a frozen steering teacher needs the steering layout beside a joint residual');
   const frozenSteering = frozenSteeringData ? recoveryNetwork(frozenSteeringData) : null;
   const referencePolicy = o.referencePolicy ? recoveryNetwork(JSON.parse(readFileSync(o.referencePolicy, 'utf8'))) : null;
   if (referencePolicy && (!(o.residual === 'steering' || frozenSteering) || !(o.referenceScale >= 0) || !Number.isFinite(o.referenceScale)))
@@ -137,7 +143,8 @@ export async function residualEnvironment(configuration = {}) {
   const up = new Vector3(), forward = new Vector3(), spin = new Vector3();
   const centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), physicalTurn = new Quaternion();
   const contactPoint = new Vector3(), contactVelocity = new Vector3(), contactSpin = new Vector3();
-  let stand = null, host = null, body, skill, root, channels, control, observation, goal;
+  let stand = null, host = null, body, skill, root, channels, control, observation, goal, learner, native = null;
+  const still = Object.freeze(new Array(12).fill(0)), warmAnswer = warmPolicy ?? (() => still);
   let physicalParts, physicalRoot, mass, rootInverse, runView, steeringFeatures;
   let randomState = o.seed >>> 0;
   const random = () => ((randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0) / 4294967296);
@@ -189,7 +196,7 @@ export async function residualEnvironment(configuration = {}) {
         rotation: { ...part.pose.rotation }, ...(part.toes ? { bend: part.toes.bend } : {}) })) } : {}) };
   };
   const dispose = () => { host?.dispose(); stand?.dispose(); host = null; stand = null; };
-  const observe = (view, observedSpin) => {
+  const observe = view => {
     const command = control.stopOrder ? 0 : o.warm || o.warmStarts ? control.asked?.[0] ?? o.pace : o.pace;
     const s = view.stance, phase = skill.state.run.phase, h = skill.state.walkRun.heading;
     const fx = sin(h), fz = cos(h), rx = fz, rz = -fx;
@@ -197,9 +204,7 @@ export async function residualEnvironment(configuration = {}) {
     up.set(0, 1, 0).applyRotationQuaternionToRef(view.root.rotation, up);
     forward.set(0, 0, 1).applyRotationQuaternionToRef(view.root.rotation, forward);
     const horizontal = Math.max(1e-9, Math.sqrt(forward.x * forward.x + forward.z * forward.z));
-    if (observedSpin) spin.copyFrom(observedSpin);
-    else root.body.angularVelocityToRef(spin);
-    control.observedSpin.copyFrom(spin);
+    root.body.angularVelocityToRef(spin);
     observation.length = 0;
     observation.push(command, skill.state.run.pace, sin(4 * Math.PI * phase), cos(4 * Math.PI * phase),
       s.velocity.x * fx + s.velocity.z * fz, mirror * (s.velocity.x * rx + s.velocity.z * rz), s.velocity.y,
@@ -226,8 +231,8 @@ export async function residualEnvironment(configuration = {}) {
     const fromRest = given?.fromRest ?? (given?.start === undefined && o.fromRestShare > 0 && random() < o.fromRestShare);
     const warmStart = !fromRest && given?.start === undefined && o.warmStarts
       ? o.warmStarts[Math.floor(random() * o.warmStarts.length)] : null;
-    const start = fromRest ? 0 : given?.start ?? warmStart?.start ?? o.starts[Math.floor(random() * o.starts.length)];
-    if (!Number.isFinite(start) || start < 0) throw Error('a residual episode needs a finite running start time');
+    const startAt = fromRest ? 0 : given?.start ?? warmStart?.start ?? o.starts[Math.floor(random() * o.starts.length)];
+    if (!Number.isFinite(startAt) || startAt < 0) throw Error('a residual episode needs a finite running start time');
     stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard, engine: o.engine });
     if (o.toeConditioning) await conditionToeStand(stand, o.toeConditioning);
     host = commandedBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
@@ -240,16 +245,23 @@ export async function residualEnvironment(configuration = {}) {
     channels = Object.fromEntries(['left', 'right'].map(side => [side, names[side].map(name => body.muscles.channel(name))]));
     steeringFeatures = learnedRunFeatures(body);
     skill = walkRun(body, { ...WALK_RUN, run: at, swerve: swerve ?? WALK_RUN.swerve,
-      ...(o.hasted !== undefined ? { hasted: o.hasted } : steeringPolicy ? { hasted: steeringPolicy.hasted } : {}) }, running,
+      ...(o.hasted !== undefined ? { hasted: o.hasted } : {}) }, running,
       { stride, braking, entry: o.entry, trim: o.trim, steer: o.residual === 'steering'
-        ? () => steeringFrom(control.action) : frozenSteering ? () => steeringFrom(control.frozenSteerAction)
-          : steeringPolicy ? learnedRunSteering(body, steeringPolicy) : undefined });
+        ? () => steeringFrom(control.action) : frozenSteering ? () => steeringFrom(control.frozenSteerAction) : undefined });
     control = { asked: null, stopOrder: false, action: new Array(12).fill(0), referenceAction: new Array(12).fill(0), referenceObservation: [],
-      observedSpin: new Vector3(),
       frozenSteerAction: new Array(12).fill(0), steeringObservation: [],
       reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
-    observation = []; goal = null;
-    body.drive((view, dt) => {
+    observation = []; goal = null; learner = learnerOf(layout.inputs.length, layout.interval, false); native = null;
+    /** The learner's request from this step's observation; the frozen teachers decide with it. */
+    const request = () => {
+      for (let i = 0; i < observation.length; i++) learner.inputs[i] = observation[i];
+      if (referencePolicy) control.referenceAction = referencePolicy(control.referenceObservation);
+      if (frozenSteering) control.frozenSteerAction = frozenSteering(control.steeringObservation);
+    };
+    /** One control step: the answer in force acts, then the step's observation may ask for the next. */
+    const commandsOf = (view, dt) => {
+      const answer = act(learner, native);
+      for (let i = 0; i < 12; i++) control.action[i] = answer[i] ?? 0;
       if (o.controlTrace) control.lastDecision = {
         time: view.time - o.settle, runningBefore: skill.state.walkRun.running, phaseBefore: skill.state.run.phase,
         previousTouch: { ...skill.state.run.touching },
@@ -276,7 +288,7 @@ export async function residualEnvironment(configuration = {}) {
           const offset = before + Math.min(1, 30 * dt) * (action * (referencePolicy ? o.referenceScale : o.scale) - before);
           control.reference[physical][channel] = offset;
           let speed = push.speed + offset / running.settle + (offset - before) / dt;
-          if (frozenSteering && view.time >= o.settle + o.actionAt && control.action[i] !== 0)
+          if (referencePolicy && o.residual === 'velocity' && view.time >= o.settle + o.actionAt && control.action[i] !== 0)
             speed += control.action[i] * o.scale;
           return { ...push, speed, sense: speed >= 0 ? 1 : -1 };
         });
@@ -284,15 +296,21 @@ export async function residualEnvironment(configuration = {}) {
       }
       goal = d.goal ?? goal;
       return { posture: guard, pushes: [], stance: view.time > 0 ? goal : null };
+    };
+    body.drive((view, dt) => {
+      const commands = commandsOf(view, dt);
+      if (ask(learner, dt) && learner.running) request();
+      return commands;
     });
     const setup = [];
     const warmPace = fromRest ? o.pace : given?.warmPace ?? warmStart?.pace
       ?? (o.warm ? o.warm[Math.floor(random() * o.warm.length)] : o.pace);
-    const cacheKey = fromRest ? 'rest' : `${warmPace}/${start}`;
+    const cacheKey = fromRest ? 'rest' : `${warmPace}/${startAt}`;
     const cached = o.cacheWarmStarts ? warmCache.get(cacheKey) : null;
+    native = warmAnswer;
     if (cached) {
       const local = { goal: null };
-      loadStand(stand.world, { host: host.state, skill: skill.state, control, observation, local }, cached);
+      loadStand(stand.world, { host: host.state, skill: skill.state, control, observation, learner, local }, cached);
       goal = local.goal;
     } else {
       if (o.trace) for (let i = 0; i < stand.seconds(o.settle); i++) { stand.step(); setup.push(reading()); }
@@ -300,68 +318,61 @@ export async function residualEnvironment(configuration = {}) {
       control.lineX = body.view.stance.centre.x;
       massCentreToRef(physicalParts, mass, centre, work, velocity); control.physicalLineX = centre.x;
       control.asked = [warmPace, 0];
-      const warmSteps = stand.seconds(start);
-      if (referencePolicy || frozenSteering || warmPolicy) {
-        for (let warmed = 0; warmed < warmSteps; warmed += 4) {
-          if (warmPolicy) control.action = warmPolicy(observation);
-          if (referencePolicy) control.referenceAction = referencePolicy(control.referenceObservation);
-          if (frozenSteering) control.frozenSteerAction = frozenSteering(control.steeringObservation);
-          stand.step(Math.min(4, warmSteps - warmed));
-        }
-      } else stand.step(warmSteps);
+      start(learner);
+      stand.step(stand.seconds(startAt));
     }
     massCentreToRef(physicalParts, mass, centre, work, velocity);
     const rejectSetup = message => { const error = new Error(message, { cause: { setup } }); dispose(); throw error; };
-    if (o.fallRule === 'physical' ? host.down : body.view.down) rejectSetup(`residual fixture is down at ${start}s`);
-    if (!fromRest && !skill.state.walkRun.running) rejectSetup(`residual fixture did not enter its run at ${start}s`);
+    if (o.fallRule === 'physical' ? host.down : body.view.down) rejectSetup(`residual fixture is down at ${startAt}s`);
+    if (!fromRest && !skill.state.walkRun.running) rejectSetup(`residual fixture did not enter its run at ${startAt}s`);
     if (!fromRest && Math.abs(centre.x - control.physicalLineX) > 1)
-      rejectSetup(`residual fixture left its corridor at ${start}s`);
+      rejectSetup(`residual fixture left its corridor at ${startAt}s`);
     if (fromRest && Math.hypot(body.view.stance.velocity.x, body.view.stance.velocity.z) > .15)
       rejectSetup(`residual from-rest fixture is still moving: stance ${Math.hypot(body.view.stance.velocity.x, body.view.stance.velocity.z)} m/s, physical ${Math.hypot(velocity.x, velocity.z)} m/s after ${o.settle}s`);
     if (o.cacheWarmStarts && !cached) warmCache.set(cacheKey,
-      saveStand(stand.world, { host: host.state, skill: skill.state, control, observation, local: { goal } }));
+      saveStand(stand.world, { host: host.state, skill: skill.state, control, observation, learner, local: { goal } }));
+    // The episode's first request reads its own order: one step on it, which answers a warm-up request and asks.
     control.asked = [o.pace, 0];
-    // Loading refreshes the read-body proxy; retain the observation frame sampled before the saved step's physics.
-    if (o.warm || o.warmStarts || o.speeds) observe(body.view, cached ? control.observedSpin : undefined);
+    restart(learner);
+    stand.step(1);
+    native = null;
     episode = { steps: 0, ticks: 0, along: 0, maxOff: 0, everRan: skill.state.walkRun.running, fromRest,
-      warmStart: { pace: warmPace, start } };
+      warmStart: { pace: warmPace, start: startAt } };
     if (o.stopOnReset) { control.asked = null; control.stopOrder = true; }
-    return observation.slice();
+    return learner.inputs.slice();
   };
   const step = (action, { squashed = false } = {}) => {
     if (!Array.isArray(action) || action.length !== 12 || !action.every(Number.isFinite)) throw Error('residual control needs twelve finite actions');
     if (squashed && action.some(x => Math.abs(x) > 1)) throw Error('squashed residual actions exceed one');
-    for (let i = 0; i < 12; i++) control.action[i] = squashed ? action[i] : tanh(action[i]);
-    if (referencePolicy) control.referenceAction = referencePolicy(control.referenceObservation);
-    if (frozenSteering) control.frozenSteerAction = frozenSteering(control.steeringObservation);
-    const samples = o.trace ? [] : null;
-    let down = false, off = 0, along = 0;
-    for (let k = 0; k < 4; k++) {
+    const samples = o.trace ? [] : null, dt = stand.world.dt, ticks = Math.round(o.seconds * stand.world.hz);
+    let down = false, off = 0;
+    const played = decide(learner, squashed ? action : action.map(tanh), () => {
       stand.step(1);
       episode.everRan ||= skill.state.walkRun.running;
       episode.ticks++;
       samples?.push(reading());
       massCentreToRef(physicalParts, mass, centre, work, velocity);
-      along = velocity.z; off = Math.abs(centre.x - control.physicalLineX);
+      const along = velocity.z; off = Math.abs(centre.x - control.physicalLineX);
       episode.along += along; episode.maxOff = Math.max(episode.maxOff, off);
       down ||= o.fallRule === 'physical' ? host.down : body.view.down;
-      if (down || off > 1 || (episode.everRan && !skill.state.walkRun.running && !control.stopOrder)) break;
-    }
+      const failed = down || off > 1, stopped = episode.everRan && !skill.state.walkRun.running && !control.stopOrder;
+      const effort = control.action.reduce((sum, x) => sum + x * x, 0) / 12;
+      const currentRewardPace = o.rewardPace ?? o.pace;
+      const target = control.stopOrder ? 0 : o.paceRelativeShare ? skill.pace : currentRewardPace;
+      const trackedSpeed = control.stopOrder ? Math.sqrt(velocity.x ** 2 + velocity.z ** 2) : along;
+      const width = o.paceRelativeShare && trackedSpeed < target ? Math.max(.1, o.paceRelativeShare * target) : o.speedWidth;
+      const speedCredit = o.speedReward === 'progress' && !control.stopOrder ? Math.min(1, along / currentRewardPace)
+        : exp(-(((trackedSpeed - target) / width) ** 2));
+      const rate = speedCredit + .15 * up.y - .1 * velocity.x ** 2 - .05 * off ** 2 - .005 * effort;
+      return { reward: rate * 30 * dt - (failed ? o.fallPenalty : 0),
+        ended: failed || stopped ? 'terminated' : episode.ticks >= ticks ? 'truncated' : null };
+    }, dt);
     episode.steps++;
-    const effort = control.action.reduce((sum, x) => sum + x * x, 0) / 12;
-    const currentRewardPace = o.rewardPace ?? o.pace;
-    const target = control.stopOrder ? 0 : o.paceRelativeShare ? skill.pace : currentRewardPace;
-    const trackedSpeed = control.stopOrder ? Math.sqrt(velocity.x ** 2 + velocity.z ** 2) : along;
-    const width = o.paceRelativeShare && trackedSpeed < target ? Math.max(.1, o.paceRelativeShare * target) : o.speedWidth;
-    const speedCredit = o.speedReward === 'progress' && !control.stopOrder ? Math.min(1, along / currentRewardPace)
-      : exp(-(((trackedSpeed - target) / width) ** 2));
-    const reward = speedCredit + .15 * up.y - .1 * velocity.x ** 2 - .05 * off ** 2
-      - .005 * effort - (down || off > 1 ? o.fallPenalty : 0);
-    return { observation: observation.slice(), reward, ...(samples ? { samples } : {}), terminated: down || off > 1 || (episode.everRan && !skill.state.walkRun.running && !control.stopOrder),
-      truncated: episode.steps >= o.seconds * 30,
+    return { observation: observation.slice(), reward: played.reward, ...(samples ? { samples } : {}),
+      terminated: played.ended === 'terminated', truncated: played.ended === 'truncated',
       info: { along: episode.along / episode.ticks, command: o.pace, down, corridor: episode.maxOff,
         ...(o.warmStarts ? { warmStart: episode.warmStart } : {}),
-        seconds: episode.ticks / stand.world.hz, fromRest: episode.fromRest } };
+        seconds: episode.ticks / stand.world.hz, fromRest: episode.fromRest, worldSteps: played.steps, worldSeconds: played.seconds } };
   };
   if (o.cacheWarmStarts && o.warmStarts) {
     const pace = o.pace;

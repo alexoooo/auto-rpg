@@ -1,6 +1,8 @@
 /**
  * A learning environment's copies on worker threads, `each` to a thread, served to a trainer over
- * stdin and stdout as JSON lines (`research/run-train.py`): `{"op":"reset"}` answers every
+ * stdin and stdout as JSON lines (`research/run-train.py`). Ready, it names each environment's sizes
+ * and layout (`{ inputs, outputs, interval }`, its learner's decision interval in seconds, which
+ * every environment must name). `{"op":"reset"}` answers every
  * environment's observation; `{"op":"step","actions":[[...],...]}` steps each with its action and
  * answers the observations, rewards, ends and infos, an ended environment reset at once and its
  * last observation in its info (`terminal`). `{"op":"progress","decisions":N}` tells each environment
@@ -46,7 +48,7 @@ if (!isMainThread) {
   const make = await KINDS[workerData[0].kind]();
   const envs = [];
   for (const { kind: _, ...configuration } of workerData) envs.push(await make(configuration));
-  parentPort.postMessage({ ready: true, observationSize: envs[0].observationSize, actionSize: envs[0].actionSize });
+  parentPort.postMessage({ ready: true, observationSize: envs[0].observationSize, actionSize: envs[0].actionSize, layout: envs[0].layout });
   /** The idle work: each environment's next slice in turn, until none has any; `working` while a round is under way, `busy` while a message is. */
   let working = false, busy = false, turn = 0, failed = false;
   const work = async () => {
@@ -98,7 +100,8 @@ if (!isMainThread) {
   const ready = await Promise.all(workers.map((w) => w.ask(null)));
   const startupFailure = ready.find(answer => answer.error);
   if (startupFailure) throw new Error(startupFailure.error);
-  send({ ready: ready.map(({ observationSize, actionSize }) => ({ observationSize, actionSize })), workers: count * each });
+  if (!ready.every(({ layout }) => layout?.interval > 0 && Number.isFinite(layout.interval))) throw new Error("a learning environment's layout names its decision interval");
+  send({ ready: ready.map(({ observationSize, actionSize, layout }) => ({ observationSize, actionSize, layout })), workers: count * each });
   const all = async (messages) => {
     const answers = await Promise.all(workers.map((w, i) => w.ask(messages(i))));
     const failed = answers.find((a) => a.error);

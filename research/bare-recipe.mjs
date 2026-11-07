@@ -10,6 +10,6 @@ export function seededBareRecipe(model = "workshop-fighter") {
     weights: Array.from({ length: channels }, () => Array.from({ length: inputs }, () => (random.next() * 2 - 1) * 0.01)),
     bias: Array.from({ length: channels }, () => (random.next() * 2 - 1) * 0.4),
   }] };
-  const mind = deepFreeze({ kind: "bare:mind", network, every: 2 });
+  const mind = deepFreeze({ kind: "bare:mind", network, interval: 1 / 60 });
   return { left: model, right: model, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } }, minds: { left: mind, right: mind } };
 }

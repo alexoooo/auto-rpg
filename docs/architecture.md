@@ -242,18 +242,20 @@ arbiter releases every action when another mind takes the body.
   its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`) where it has one, else the defaults
   scaled to its leg (`scaledGait`); each is a gait part (role `gait`).
   A walk/run record can supply learned velocity, braking and reference actors
-  (`src/skills/locomotion/learned-run.ts`). They read mirrored gait observations at their recorded
-  decision cadence, refresh on a changed pace order and smooth reference offsets on physical
-  channels. Their observations, actions, offsets and cadence live in the gait's saved state.
+  (`src/skills/locomotion/learned-run.ts`). They read mirrored gait observations every recorded
+  `interval` seconds, restart that schedule on a changed pace order and smooth reference offsets
+  on physical channels; a decision acts from the next control step. Their observations, actions,
+  offsets and learner live in the gait's saved state.
   An optional low-speed actor blends over a recorded pace band; moving at or above its upper
   pace uses only the velocity actor, so low-speed training leaves that actor's corrections intact.
   A record can supply its travel envelope independently of the braced limits, with eight
-  directional operating speeds interpolated between adjacent headings. In research braking
-  mode, saved `learner` outputs replace the braking actor at the same decision cadence; moving
-  orders retain their configured moving actors. `research/skills/locomotion/option-travel-environment.mjs`
-  trains this seam through Option Mind. `research/skills/locomotion/option-entry-environment.mjs`
-  trains the velocity or low-speed actor across commanded paces from settled rest, retaining the
-  command-delivery prefix before the first trained decision. The lone-body world saves physics, perception, orders,
+  directional operating speeds interpolated between adjacent headings. In research `steered`
+  mode, the learner's answers replace the named actor (`velocity`, `slow-velocity` or
+  `braking`); a low-speed answer blends with the velocity actor's decision over the band as that
+  decision found it. `research/skills/locomotion/option-travel-environment.mjs` trains the braking
+  actor through Option Mind. `research/skills/locomotion/option-entry-environment.mjs` trains the
+  velocity or low-speed actor across commanded paces from settled rest, the record's actor
+  answering the command-delivery prefix before the first trained decision. The lone-body world saves physics, perception, orders,
   wind and controller state so its reached running starts can be restored.
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
   shares gait instances only for identical complete configurations. Walk/run permission views
@@ -266,9 +268,17 @@ arbiter releases every action when another mind takes the body.
   support region. The placement remains active through the final centering motion.
   A body on paws has `paw-move` (`src/skills/locomotion/quadruped/paw-legs.ts`): the trot and the crawl, the support goal
   each step for its motor.
+- **Learned decisions** (`Learner`, `src/core/math/learning/learner.ts`): a learned controller
+  calls `act` before its step's commands, taking the answer in force, and `ask` after them; `ask`
+  is true every decision interval (seconds, rounded to whole control steps, at least one), when
+  the controller reads itself into `inputs`. A native policy answers the pending request in
+  `act`; a trainer answers between world steps (`answer`). Either way an answer acts from the
+  control step after its request until the next answer, so native play and training step alike.
+  The learned run, the punch and the bare entrant decide this way; every training environment
+  steps from one request to the next through `research/learner-adapter.mjs`.
 - **The straight punch** (`straight-punch.ts`) drives the arm flat out at a contact pose solved
-  each step, on a timed schedule (`TimedPush`). Steered, a network (`learned-punch.ts`) adds to the
-  trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
+  each step, on a timed schedule (`TimedPush`). Steered, a network (`learned-punch.ts`), deciding every
+  interval its layout names, adds to the trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
   (`PunchRecord`), trained by `research/run-train.py` and exported by `research/skills/strikes/straight-punch/punch-export.mjs`.
 - **Held blows** strike with what the hand holds (`StrikingFace`), naming the mechanism they meet
   with (`ExecutorPart.meets`). The thrust is the punch's drive with the blade's point; a swing winds

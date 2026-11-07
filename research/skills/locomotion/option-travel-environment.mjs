@@ -1,9 +1,11 @@
 /** Braking from physically reached Option Mind runs, with the configured travel record.
  * A prefix is played once per environment. Snapshots keep physics, perception, orders and the
- * complete controller state. Training starts immediately before the first braking decision, with
- * the stop command's delivery delay retained in its reading. `ordinary` replays the full actor
- * from the stop order with no learner; `brakingPolicy` selects that actor.
- * `speedCost` adds dense horizontal-speed cost while the narrow quiet-speed credit remains.
+ * complete controller state. An episode starts at the braking learner's first request, with the
+ * stop command's delivery delay retained in its reading, and steps through the learning adapter
+ * (`research/learner-adapter.mjs`); `brakingPolicy` replaces the record's braking actor.
+ * Rewards are credit per second, scaled to the 30 decisions a second they were tuned per decision
+ * at; a fall or corridor exit costs `fallPenalty` once. `speedCost` adds dense horizontal-speed
+ * cost while the narrow quiet-speed credit remains.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -13,7 +15,8 @@ import { DEFAULT_ENGINE } from '../../../src/core/physics/engines.ts';
 import { massCentreToRef, massOf } from '../../../src/core/bodies/read-motion.ts';
 import { Vector3 } from '../../../src/core/math/vector.ts';
 import { exp } from '../../../src/core/math/real.ts';
-import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
+import { pending } from '../../../src/core/math/learning/learner.ts';
+import { decide } from '../../learner-adapter.mjs';
 import { MOVE } from '../../../src/skills/locomotion/move-part.ts';
 import { STOCK_GAITS } from '../../../src/skills/locomotion/gaits.ts';
 import { RESIDUAL_LAYOUT } from './residual-environment.mjs';
@@ -40,11 +43,9 @@ export async function optionTravelEnvironment(configuration) {
   if (!Number.isFinite(o.speedCost) || o.speedCost < 0) throw Error('Option travel speed cost is finite and nonnegative');
   const settings = JSON.parse(readFileSync(o.settings, 'utf8'));
   if (o.brakingPolicy) settings.learned = { ...settings.learned, braking: JSON.parse(readFileSync(o.brakingPolicy, 'utf8')) };
-  if (!settings.learned || !settings.envelope || settings.learned.decisionSteps !== 4)
-    throw Error('Option travel training requires learned corrections, an explicit envelope and four-step decisions');
-  const actor = recoveryNetwork(settings.learned.braking);
+  if (!settings.learned || !settings.envelope) throw Error('Option travel training requires learned corrections and an explicit envelope');
   const { steered: _, ...networks } = settings.learned;
-  const tuning = { ...settings, learned: { ...networks, ...(o.ordinary ? {} : { steered: 'braking' }) } };
+  const tuning = { ...settings, learned: { ...networks, steered: 'braking' } };
   const base = defaultMind(o.model);
   const mind = { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...MOVE,
     gaits: STOCK_GAITS.map(gait => ({ ...gait, legs: { ...gait.legs, tuning } })) } } } };
@@ -58,7 +59,7 @@ export async function optionTravelEnvironment(configuration) {
   try {
     const states = learnedState(built.body.minded.state);
     if (states.length !== 1) throw Error('Option travel training needs one shared learned run state');
-    const state = states[0], { world, body } = built;
+    const state = states[0], learner = state.learner, { world, body } = built;
     const parts = [...body.built.segments.values()], mass = massOf(parts);
     const feet = ['left', 'right'].map(side => body.built.segments.get(footOn(body.built.spec, side)));
     const centre = new Vector3(), velocity = new Vector3(), work = new Vector3();
@@ -81,29 +82,21 @@ export async function optionTravelEnvironment(configuration) {
         ...(o.trace ? { segments: parts.map(p => ({ name: p.name, position: [p.pose.position.x, p.pose.position.y, p.pose.position.z],
           rotation: [p.pose.rotation.x, p.pose.rotation.y, p.pose.rotation.z, p.pose.rotation.w] })) } : {}) };
     };
-    const seedStep = () => { state.learner.outputs = actor(state.inference.observation); world.step(); return physical(); };
     for (const start of [...new Set(o.starts)].sort((a, b) => a - b)) {
       while (world.time < start - world.dt / 2) { world.step(); history.push(physical()); }
       const window = history.slice(-world.hz), entry = window.reduce((n, s) => n + s.velocity[2], 0) / world.hz;
       if (window.length !== world.hz || entry < 4 || body.body.down || !state.motion.walkRun.running || Math.abs(centre.x) > 1)
         throw Error(`Option travel fixture unreached at ${start}s: rolling speed ${entry}, down ${body.body.down}, corridor ${Math.abs(centre.x)}`);
-      const warm = LONE_WORLD.save(built);
-      let snapshot = warm;
-      const prelude = [];
-      if (!o.ordinary) {
-        built.state.script.orders = { move: null, face: forward };
-        // Locate the first braking decision by looking one step ahead, then keep the state before
-        // that step. No seeded braking action belongs to a training episode.
-        while (!state.learner.running) {
-          snapshot = LONE_WORLD.save(built);
-          const sample = seedStep();
-          if (!state.learner.running) prelude.push(sample);
-          if (prelude.length > 16) throw Error('Option travel stop did not reach its braking learner');
-        }
-        LONE_WORLD.load(built, warm);
+      const warm = LONE_WORLD.save(built), prelude = [];
+      built.state.script.orders = { move: null, face: forward };
+      // The stop order's delivery, up to the braking learner's first request, is the episode's prelude.
+      while (!pending(learner)) {
+        world.step(); prelude.push(physical());
+        if (prelude.length > 16) throw Error('Option travel stop did not reach its braking learner');
       }
-      snapshots.set(start, { snapshot, prelude });
+      snapshots.set(start, { snapshot: LONE_WORLD.save(built), prelude });
       entries.push({ start, entry });
+      LONE_WORLD.load(built, warm);
     }
     const reset = async given => {
       word = (Math.imul(word, 1664525) + 1013904223) >>> 0;
@@ -115,34 +108,35 @@ export async function optionTravelEnvironment(configuration) {
       episode = { start, ticks: cached.prelude.length,
         maxOff: cached.prelude.reduce((n, s) => Math.max(n, Math.abs(s.centre[0])), 0),
         along: cached.prelude.reduce((n, s) => n + s.velocity[2], 0), samples: o.trace ? cached.prelude.slice() : null };
-      return state.inference.observation.slice();
+      return learner.inputs.slice();
     };
     const step = (action, { squashed = false } = {}) => {
       if (!Array.isArray(action) || action.length !== 12 || !action.every(Number.isFinite)) throw Error('Option travel needs twelve finite actions');
       if (squashed && action.some(x => Math.abs(x) > 1)) throw Error('Option travel squashed action exceeds one');
-      if (!o.ordinary) state.learner.outputs = squashed ? action.slice() : action.map(tanh);
-      const samples = o.trace ? [] : null;
+      const samples = o.trace ? [] : null, limit = Math.round(o.seconds * world.hz);
       let down = false;
-      for (let i = 0; i < 4 && episode.ticks < o.seconds * world.hz; i++) {
+      const played = decide(learner, squashed ? action.slice() : action.map(tanh), () => {
         world.step(); const sample = physical(); samples?.push(sample); episode.samples?.push(sample); episode.ticks++;
         episode.along += velocity.z; episode.maxOff = Math.max(episode.maxOff, Math.abs(centre.x));
         down ||= sample.down;
-        if (down || episode.maxOff > 1) break;
-      }
-      const speed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2);
-      const effort = state.inference.velocityAction.reduce((n, v) => n + v * v, 0) / 12;
-      const reward = exp(-((speed / o.speedWidth) ** 2)) + .15 * state.inference.observation[9]
-        - .1 * velocity.x ** 2 - .05 * centre.x ** 2 - .005 * effort - o.speedCost * speed - (down || episode.maxOff > 1 ? o.fallPenalty : 0);
-      return { observation: state.inference.observation.slice(), reward, ...(o.trace ? { samples } : {}),
-        terminated: down || episode.maxOff > 1, truncated: episode.ticks >= o.seconds * world.hz,
+        const failed = down || episode.maxOff > 1, speed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2);
+        const effort = state.inference.velocityAction.reduce((n, v) => n + v * v, 0) / 12;
+        const rate = exp(-((speed / o.speedWidth) ** 2)) + .15 * state.inference.observation[9]
+          - .1 * velocity.x ** 2 - .05 * centre.x ** 2 - .005 * effort - o.speedCost * speed;
+        return { reward: rate * 30 * world.dt - (failed ? o.fallPenalty : 0),
+          ended: failed ? 'terminated' : episode.ticks >= limit ? 'truncated' : null };
+      }, world.dt);
+      return { observation: state.inference.observation.slice(), reward: played.reward, ...(o.trace ? { samples } : {}),
+        terminated: played.ended === 'terminated' || played.ended === 'done', truncated: played.ended === 'truncated',
         info: { along: episode.along / episode.ticks, command: 4, down, corridor: episode.maxOff,
-          seconds: episode.ticks / world.hz, warmStart: { start: episode.start }, entry: entries.find(e => e.start === episode.start).entry } };
+          seconds: episode.ticks / world.hz, warmStart: { start: episode.start }, entry: entries.find(e => e.start === episode.start).entry,
+          worldSteps: played.steps, worldSeconds: played.seconds } };
     };
     await reset();
-    return { observationSize: 49, actionSize: 12, layout: RESIDUAL_LAYOUT, reset, step,
+    return { observationSize: 49, actionSize: 12, layout: { ...RESIDUAL_LAYOUT, interval: learner.interval }, reset, step,
       samples: () => episode.samples, entries, reading: physical, observation: () => state.inference.observation.slice(),
       dispose: () => built.dispose(), harness: { name: 'Node lone world Option Mind', engine: o.engine ?? DEFAULT_ENGINE, hz: world.hz, balance: 0,
         model: o.model, loadout: o.loadout ?? { left: 'empty', right: 'empty' }, seed: o.seed, gusts: !!o.gusts,
-        protocol: o.ordinary ? 'network-stop' : 'whole-stop-learner', speedCost: o.speedCost, fallPenalty: o.fallPenalty, steered: !o.ordinary } };
+        protocol: 'whole-stop-learner', speedCost: o.speedCost, fallPenalty: o.fallPenalty } };
   } catch (error) { built.dispose(); throw error; }
 }
