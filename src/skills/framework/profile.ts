@@ -229,6 +229,9 @@ export interface ProfileReading {
  */
 const NEAREST = Object.freeze({ trials: 10, range: .1, speed: .25, place: .1 });
 
+/** The span of range over which a reading takes its trials as alike, m (`NEAREST.range`). */
+export const PROFILE_RANGE_SPAN = NEAREST.range;
+
 /** How near two distances are taken as one: the nearest trials' ties. */
 const TIE = 1e-9;
 

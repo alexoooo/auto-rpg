@@ -2,7 +2,7 @@ import { cos, hypot, sin } from "../../core/math/real.ts";
 import { approachSpot, atSpot, type Spot } from "../../skills/intent/action-window.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-import { startVelocity } from "../../skills/framework/profile.ts";
+import { PROFILE_RANGE_SPAN, startVelocity } from "../../skills/framework/profile.ts";
 import { legsReadiness } from "../../skills/locomotion/locomotion.ts";
 import { blocked, LEGS, READY, standing, still, type Option, type Sites, type Situation } from "./option.ts";
 import type { Status } from "../choice.ts";
@@ -21,22 +21,26 @@ export interface GaitOf {
 /** **The gaits `legs` go by** (`LocomotionPart.gaits`); none for legs that go by no gait by name. */
 export const gaitsOf = (parts: PartLookup, legs: PartConfig): readonly GaitOf[] => parts.of("locomotion", legs).gaits?.(legs) ?? [];
 
-/** The time step a walk's way is read at, s: within the focus's reach, its pressure is read at the range of each step's middle (`walkTerms`). */
-const WALK_READ = .05;
+/**
+ * How far apart a walk's way is read within the focus's reach, m: half the span over which a
+ * profile takes its trials as alike (`PROFILE_RANGE_SPAN`), so each span is read about twice.
+ */
+const WALK_SPACING = PROFILE_RANGE_SPAN / 2;
 
 /**
  * **A walk's model** from `at`: from where the body stands there to `spot` (by its route where it
  * has one) by `gait`, each leg of the way at what the gait holds walking that way facing the
  * focus (`Walker.pace`; forward where it holds nothing that way); through the blow coming, and the
- * focus's pressure at each range the way passes within its reach, the body moving at the walk's
- * velocity against the focus's (`dealtAt`, read every
- * `WALK_READ` s), past its grace (`graceAt`: spent as the way goes within its reach, restored as it
- * goes out of it, never past the focus's latency); leaving the body still at the spot with that grace, the focus turned toward it as far as it turns in that time
- * (`Predictions.turns`), and, in a clinch (`CLINCH`), down in its chance of going down behind. A
- * gait's falls are its own profile's to measure; none is, so a walk is taken to stay up. With no
- * focus, the way at the gait's pace.
+ * focus's pressure along the part of each leg within its reach, the body moving at the walk's
+ * velocity against the focus's (`dealtAt`, read at the middle of each `WALK_SPACING` of that part,
+ * so the reads follow the way's length within reach and not its time), past its grace (`graceAt`:
+ * spent as the way goes within its reach, restored as it goes out of it, never past the focus's
+ * latency); leaving the body still at the spot with that grace, the focus turned toward it as far
+ * as it turns in that time (`Predictions.turns`), and, in a clinch (`CLINCH`), down in its chance
+ * of going down behind. A gait's falls are its own profile's to measure; none is, so a walk is
+ * taken to stay up. With no focus, the way at the gait's pace.
  */
-export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker, horizon = WALK_READ): Terms | null {
+export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker): Terms | null {
   const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = at.predictions.pressure;
   const reach = focus ? edgeOf(at, pressure) + offset : 0, points = spot.route ?? [spot];
   let duration = 0, taken = 0, grace = graceAt(at), x = from.x, z = from.z;
@@ -50,15 +54,22 @@ export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker,
       if (!Number.isFinite(seconds) || !Number.isFinite(duration + seconds)) return null;
       duration += seconds;
       if (focus) {
-        const pieces = Math.max(1, Math.ceil(Math.min(seconds, horizon) / WALK_READ)), dt = seconds / pieces;
-        const moving = { x: dx / length * pace - focus.velocity.x, z: dz / length * pace - focus.velocity.z };
-        for (let i = 0; i < pieces; i++) {
-          const along = (i + .5) / pieces, tx = focus.centre.x - (x + along * dx), tz = focus.centre.z - (z + along * dz), apart = hypot(tx, tz);
-          if (apart >= reach) { grace = Math.min(pressure.latency, grace + dt); continue; }
-          const spent = Math.min(grace, dt);
-          grace -= spent;
-          taken += dealtAt(pressure, at, apart - offset, dt - spent, startVelocity({ x: tx, z: tz }, moving));
+        // The leg within the focus's reach: from `enter` to `leave` m along it, where it crosses the circle of the reach about the focus.
+        const ux = dx / length, uz = dz / length, fx = focus.centre.x, fz = focus.centre.z, ox = x - fx, oz = z - fz;
+        const b = ox * ux + oz * uz, square = b * b - (ox * ox + oz * oz - reach * reach), half = square > 0 ? Math.sqrt(square) : 0;
+        const enter = square > 0 ? Math.min(length, Math.max(0, -b - half)) : length, leave = square > 0 ? Math.min(length, Math.max(0, -b + half)) : length;
+        grace = Math.min(pressure.latency, grace + enter / pace);
+        if (leave > enter) {
+          const within = leave - enter, pieces = Math.max(1, Math.ceil(within / WALK_SPACING)), dt = within / pace / pieces;
+          const moving = { x: ux * pace - focus.velocity.x, z: uz * pace - focus.velocity.z };
+          for (let i = 0; i < pieces; i++) {
+            const along = enter + (i + .5) / pieces * within, tx = fx - (x + along * ux), tz = fz - (z + along * uz);
+            const spent = Math.min(grace, dt);
+            grace -= spent;
+            taken += dealtAt(pressure, at, hypot(tx, tz) - offset, dt - spent, startVelocity({ x: tx, z: tz }, moving));
+          }
         }
+        grace = Math.min(pressure.latency, grace + (length - leave) / pace);
       }
     }
     x = point.x; z = point.z;
@@ -106,7 +117,7 @@ export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker)
     end() {},
     model(at, ask) {
       const spot = standing(at) ? away(at, ask?.target ?? 0) : null;
-      return spot ? walkTerms(at, spot, gait, walk, ask?.until) : null;
+      return spot ? walkTerms(at, spot, gait, walk) : null;
     },
     step: (now) => {
       const spot = away(now, state.at), heading = now.sight.report.heading;

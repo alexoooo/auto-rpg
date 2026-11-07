@@ -158,12 +158,12 @@ test("walk pricing refuses zero pace and bounds tiny-pace pressure sampling", ()
     focus: { centre: new Vector3(1, 0, 0), velocity: new Vector3(), segments: new Map(), spec },
     orders: { pace: 0, face: null }, predictions: { pressure, danger: 0, turns: 0 }, sight: { envelope: null, envelopeOf: () => null, report: { heading: 0 }, view: { stance: { centre: new Vector3() } } } };
   const spot = { x: 0, z: 1, face: 0 }, walk = walker(spec);
-  assert.equal(walkTerms(at, spot, gait, walk, 1), null);
+  assert.equal(walkTerms(at, spot, gait, walk), null);
   at.orders.pace = 1e-12;
   Object.defineProperty(at.focus, "centre", { get() { samples++; return new Vector3(1, 0, 0); } });
-  const terms = walkTerms(at, spot, gait, walk, 1);
+  const terms = walkTerms(at, spot, gait, walk);
   assert.ok(terms && Number.isFinite(terms.duration));
-  assert.ok(samples < 100, `one-second horizon sampled the focus ${samples} times`);
+  assert.ok(samples < 100, `a walk at a tiny pace sampled the focus ${samples} times`);
 });
 
 test("fallen footprints retain observed elevation through navigation memory", () => {
