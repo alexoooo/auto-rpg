@@ -4,7 +4,7 @@ import { ORDERS_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, type WalkConfig
 import { BRACE_OPTION, BRACE_TUMBLING_OPTION, STEADY_OPTION, FLATTEN_OPTION, LAND_OPTION } from "../minds/option/index.ts";
 
 /** The gaits available when a configuration omits its options, in preference order. */
-const WALKS: readonly WalkConfig[] = deepFreeze(["braced", "run", "trot", "crawl"].map((gait) => ({ kind: "walk", gait })));
+const WALKS: readonly WalkConfig[] = deepFreeze(["braced", "run", "trot"].map((gait) => ({ kind: "walk", gait })));
 
 /** Recovery choices supplied by the application's default framework configuration. */
 const RISE_OPTIONS: readonly PartConfig[] = deepFreeze([

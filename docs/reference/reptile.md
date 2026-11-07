@@ -217,7 +217,7 @@ What the settings serve:
   cleared the floor counts a step, and one not down within placementLimit returns to its anchors.
   **A settled stance** holds the centre of mass where the reference pose carries it over the
   paws' mean (`overPaws`), wherever the legs meet the trunk.
-- **The gait** (`pawLegs`) is the one asked: a walk's (the trot or the crawl, each a walk Option),
+- **The gait** (`pawLegs`) is the one asked: a walk's (the trot, a walk Option),
   the crawl while a bite runs; none asked, it trots to walk and keeps its gait to stand. A resumed
   body crawls each paw into place and holds quiet four-sole support for resumeHold before
   trotting.

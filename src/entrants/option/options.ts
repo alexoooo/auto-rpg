@@ -4,7 +4,7 @@ import { ORDERS_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, type WalkConfig
 import { BRACE_OPTION, BRACE_TUMBLING_OPTION, STEADY_OPTION, FLATTEN_OPTION, LAND_OPTION } from "../../minds/option/index.ts";
 
 /** The gaits this fighter may walk by, in preference order. */
-const WALKS: readonly WalkConfig[] = deepFreeze(["braced", "run", "trot", "crawl"].map((gait) => ({ kind: "walk", gait })));
+const WALKS: readonly WalkConfig[] = deepFreeze(["braced", "run", "trot"].map((gait) => ({ kind: "walk", gait })));
 
 /** Recovery choices, in preference order, for every body this fighter fits. */
 const RISE_OPTIONS: readonly PartConfig[] = deepFreeze([
