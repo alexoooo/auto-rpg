@@ -58,6 +58,8 @@ export async function optionEntryEnvironment(configuration) {
       massCentreToRef(parts, mass, centre, work, velocity);
       return { time: world.time, centre: [centre.x, centre.y, centre.z], velocity: [velocity.x, velocity.y, velocity.z],
         down: upright.fallen(), ...(o.controlTrace ? { control: { steps: state.inference.steps, command: state.inference.command,
+          face: state.inference.face, origin: { ...state.inference.origin }, crossTrack: state.inference.observation[16],
+          heading: state.motion.walkRun.heading,
           action: state.inference.velocityAction.slice() } } : {}), ...(o.trace ? { segments: parts.map(p => ({ name: p.name,
           position: [p.pose.position.x, p.pose.position.y, p.pose.position.z],
           rotation: [p.pose.rotation.x, p.pose.rotation.y, p.pose.rotation.z, p.pose.rotation.w] })) } : {}) };
