@@ -1,9 +1,11 @@
+import { bodyKey } from "../core/bodies/spec/body.ts";
+import { stanceCalibration } from "./stance-calibration.ts";
 import { stanceBalance } from "../control/stance-balance.ts";
 import { wholeBodyMotor, wholeBodyMotorPart } from "../control/whole-body-motor.ts";
 import { stanceEnvelope } from "../skills/locomotion/stance/envelope.ts";
 
 /** The stock stance uses its measured locomotion envelope. */
-export const STANCE_BALANCE = stanceBalance(stanceEnvelope);
+export const STANCE_BALANCE = stanceBalance(stanceEnvelope, spec => stanceCalibration(bodyKey(spec)) ?? {});
 export const WHOLE_BODY_MOTOR = wholeBodyMotorPart(STANCE_BALANCE.defaults);
 
 /** Stock standing probes select the same calibrated balance as game composition. */

@@ -406,6 +406,6 @@ test("idle foot placement survives its own weight-shift tracking error and yield
     assert.deepEqual(next.swing, first.swing, "tracking lag must retain the pending lift and its target");
     const catchView = {...shifting, stance:{...shifting.stance, own:{...first.swing,shift:false}}};
     legs.goal(catchView, {walk:null,face:0}, .01);
-    assert.deepEqual({idle:legs.state.idle, placing:legs.state.placing}, {idle:{seconds:0,target:null},placing:null}, "a stance-owned catch releases idle placement");
+    assert.deepEqual({idle:legs.state.idle, placing:legs.state.placing}, {idle:{seconds:0,target:null,centre:null},placing:null}, "a stance-owned catch releases idle placement and its centering target");
   } finally {body.dispose();stand.dispose();}
 });

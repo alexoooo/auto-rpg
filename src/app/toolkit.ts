@@ -1,3 +1,4 @@
+import { stanceCalibration } from "./stance-calibration.ts";
 import { BALANCES } from "./registration/balances.ts";
 import { MOTORS } from "./registration/motors.ts";
 import { AIMS } from "./registration/aims.ts";
@@ -29,6 +30,15 @@ import { RIGHTING_DATA } from "../skills/recovery/righting/data/registration.ts"
 import { BITE_DATA } from "../skills/strikes/bite/data/registration.ts";
 import { LEG_ADAPTERS } from "./recovery-leg-adapters.ts";
 
+/** Staged profiles depend on the stock motor calibration as well as their skill record. */
+const calibratedStagedData = Object.fromEntries(Object.entries(STAGED_DATA).map(([key, load]) => [key, Object.assign(() => load(), {
+  identity(data: unknown, body: string) {
+    const record = load.identity ? load.identity(data, body) : data;
+    const calibration = stanceCalibration(body);
+    return calibration === undefined ? record : { record, calibration };
+  },
+})]));
+
 /** Every part's config below a mind, by kind. */
 type AnyPart = AimConfig | ConfigOf<typeof LEG_ADAPTERS> | ConfigOf<typeof REPTILE_PARTS> | TechniqueConfig | ConfigOf<typeof MOTORS> | MoveRuleConfig | LocomotionConfig | GaitConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
 
@@ -56,7 +66,7 @@ function merged<L extends readonly Readonly<Record<string, Part>>[]>(...lists: L
 export function toolkitLists(): CatalogLists {
   const below: Covered = merged(TECHNIQUES, LEG_ADAPTERS, MOVE_RULES, LOCOMOTIONS, GAIT_PARTS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
     REPTILE_PARTS, CHOOSERS, OPTION_KINDS, OBJECTIVES, PREDICTIONS);
-  return { minds: MIND_KINDS, parts: [below], entrants: [], data: [STRIKE_DATA, WALK_RUN_DATA, STAGED_DATA, RECOVERY_DATA, RIGHTING_DATA, BITE_DATA] };
+  return { minds: MIND_KINDS, parts: [below], entrants: [], data: [STRIKE_DATA, WALK_RUN_DATA, calibratedStagedData, RECOVERY_DATA, RIGHTING_DATA, BITE_DATA] };
 }
 
 /** **The toolkit's catalog**: what the core's own tasks make a mind from; the game's is composed above the core (`src/app/catalog.ts`). */

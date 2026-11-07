@@ -21,6 +21,7 @@ import { clearStep } from "../src/skills/locomotion/navigation/clear-step.ts";
 import { fallenSolids } from "../src/skills/locomotion/navigation/crowd.ts";
 import { walkTerms } from "../src/minds/option/places.ts";
 import { walker } from "../src/minds/option/walk.ts";
+import { locomotion } from "../src/skills/locomotion/locomotion.ts";
 
 test("physics refuses different gravity and rate before changing the destination", async () => {
   const engine = await freshEngine("rapier");
@@ -197,4 +198,20 @@ test("a changed destination retains a planned route while locomotion is unavaila
     assert.ok(clearStep(from, to, bodyClearance(modelSpec("workshop-fighter")), solids), "published legs must clear the wall");
     from = to;
   }
+});
+
+
+test("walking preserves requested world velocity while facing turns", () => {
+  const legs = locomotion({ "foot.left": "left", "foot.right": "right" }, null, {
+    turnLimit: 1, segments: { left: "foot.left", right: "foot.right" },
+  });
+  const dt = 1 / 120;
+  const view = { time: 1, born: 0, standing: 1, root: { rotation: Quaternion.Identity() },
+    stance: { phase: "stand", centre: new Vector3(0, 1, 0), support: new Vector3(),
+      place: new Vector3(), plan: new Vector3(0, 1, 0), velocity: new Vector3() } };
+  legs.resume(view);
+  const result = legs.goal(view, { walk: [1, 0], face: Math.PI / 2, height: 1 }, dt, { idleSettle: false });
+  assert.ok(legs.heading > 0, "fixture must turn its facing during a moving step");
+  assert.deepEqual(result, { kind: "stance", goal: { feet: ["foot.left", "foot.right"], centre: null,
+    height: 1, heading: dt, walk: [0, 1] } });
 });

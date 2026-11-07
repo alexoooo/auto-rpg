@@ -1,3 +1,4 @@
+import type { StanceTuning } from "./stance-tuning.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import { deepFreeze } from "../core/world/state.ts";
 import type { BalancePart } from "./balance-part.ts";
@@ -14,10 +15,10 @@ export function fitsSoles(spec: BodySpec): string | null {
 }
 
 /** **The stance** as a balance: the game's. */
-export const stanceBalance = (envelope: (spec: BodySpec) => StanceEnvelope | null): BalancePart<StanceBalanceConfig> => deepFreeze({
+export const stanceBalance = (envelope: (spec: BodySpec) => StanceEnvelope | null, calibration?: (spec: BodySpec) => StanceTuning): BalancePart<StanceBalanceConfig> => deepFreeze({
   role: "balance", label: "Stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance" }, keys: { kind: true },
   reference: { fits: fitsSoles, read: standingHeight },
   fits: fitsSoles, faults: () => [],
-  make: () => stanceControl,
+  make: () => (built, tuning, assist) => stanceControl(built, { ...calibration?.(built.spec), ...tuning }, assist),
   envelope: (spec, _config, experiment) => !experiment.measuring && Object.keys(experiment.stance ?? {}).length === 0 ? envelope(spec) : null,
 });

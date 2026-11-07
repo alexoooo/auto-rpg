@@ -173,8 +173,10 @@ driven points, a stance goal) into muscle commands.
   A selected motor declares its support reference; `BodyView.standing` is null when it supplies
   none. Skills declare the support reference, stance or support goals they consume as open
   `Requirement`s; admission checks them against the configured motor before construction.
-  The application supplies the stock balance and its calibrated envelope (`src/app/stance-balance.ts`);
-  neutral envelope interpolation stays in control, and locomotion owns its measured asset readers.
+  The application supplies the stock balance and its calibrated envelope (`src/app/stance-balance.ts`).
+  Its immutable per-body stance settings live in [the calibration record](../src/app/data/stance-calibration.json);
+  staged recovery profile identities include the selected calibration. Neutral envelope interpolation
+  stays in control, and locomotion owns its measured asset readers.
 - **The motor** is a part of role `motor` (`MOTORS`); the game's is the whole-body solve
   (`motorControl`, `solve.ts`): the bearing solve and the servo in one weighted least-squares
   problem, a torque past strength pinned and solved again. A body on paws has the paw support
@@ -239,11 +241,29 @@ arbiter releases every action when another mind takes the body.
   (`assets/skills/locomotion/cycle-run/run-cycle.json`) that drives the legs, asking the assist only to right the pelvis,
   its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`) where it has one, else the defaults
   scaled to its leg (`scaledGait`); each is a gait part (role `gait`).
+  A walk/run record can supply learned velocity, braking and reference actors
+  (`src/skills/locomotion/learned-run.ts`). They read mirrored gait observations at their recorded
+  decision cadence, refresh on a changed pace order and smooth reference offsets on physical
+  channels. Their observations, actions, offsets and cadence live in the gait's saved state.
+  An optional low-speed actor blends over a recorded pace band; moving at or above its upper
+  pace uses only the velocity actor, so low-speed training leaves that actor's corrections intact.
+  A record can supply its travel envelope independently of the braced limits, with eight
+  directional operating speeds interpolated between adjacent headings. In research braking
+  mode, saved `learner` outputs replace the braking actor at the same decision cadence; moving
+  orders retain their configured moving actors. `research/skills/locomotion/option-travel-environment.mjs`
+  trains this seam through Option Mind. `research/skills/locomotion/option-entry-environment.mjs`
+  trains the velocity or low-speed actor across commanded paces from settled rest, retaining the
+  command-delivery prefix before the first trained decision. The lone-body world saves physics, perception, orders,
+  wind and controller state so its reached running starts can be restored.
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
   shares gait instances only for identical complete configurations. Walk/run permission views
   share motion through their concrete implementation when their physical settings agree.
-  Idle foot placement limits the horizontal speed of its planned weight shift through
-  `SwingGoal.shiftSpeed`, keeping neutral-stance adjustment from demanding a brisk body sway.
+  Walking steps read the selected gait's envelope, so travel and braced permission views apply
+  their own speed and turning limits inside the stance controller as well as in order planning.
+  Idle foot placement limits its planned weight shift through `SwingGoal.shiftSpeed`, holds the
+  capture point through the stationary swing and approaches the new support centre gradually
+  after landing. The foot lifts with both the body centre and capture point inside the reserved
+  support region. The placement remains active through the final centering motion.
   A body on paws has `paw-move` (`src/skills/locomotion/quadruped/paw-legs.ts`): the trot and the crawl, the support goal
   each step for its motor.
 - **The straight punch** (`straight-punch.ts`) drives the arm flat out at a contact pose solved

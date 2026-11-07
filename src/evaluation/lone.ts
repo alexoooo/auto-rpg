@@ -23,6 +23,7 @@ import { createWorld, type World } from "../core/world/world.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { labGusts, startWind } from "../game/lab/wind.ts";
 import { type GameContext } from "../game/arena/context.ts";
+import { saveState, loadState, type Saved } from "../core/world/state.ts";
 
 /**
  * A cue of a lone body's script, `at` s into the case: the orders it is given from then on (none
@@ -61,6 +62,8 @@ export interface BuiltLone {
   readonly world: World;
   readonly state: object;
   readonly body: Combatant;
+  /** Refresh perception and body views after the world's physics and state are restored. */
+  loaded(): void;
   dispose(): void;
 }
 
@@ -85,8 +88,9 @@ export function createLone(context: GameContext) {
       else world.physics.addFixedBox([0, -0.5, 0], [lone.floorSize, 1, lone.floorSize]);
       const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
       const state = { orders: null as Orders | null, next: 0, steps: 0 };
+      const senses = scope.own(createSenses(world));
       const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec, rules: rulebook("arena"),
-        mind: lone.mind, catalog: GAME, at: [0, 0, 0], ...(lone.heading !== undefined ? { heading: lone.heading } : {}), senses: scope.own(createSenses(world)), out: () => false, orders: () => state.orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
+        mind: lone.mind, catalog: GAME, at: [0, 0, 0], ...(lone.heading !== undefined ? { heading: lone.heading } : {}), senses, out: () => false, orders: () => state.orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
         ...(lone.seed !== undefined ? { seed: lone.seed } : {}) });
       scope.own(body.body); scope.own(body.built);
       const wind = lone.gusts ? startWind(body.built, world, labGusts(lone.model), lone.seed ?? 1) : null;
@@ -108,7 +112,8 @@ export function createLone(context: GameContext) {
         state.steps++;
       });
       complete = true;
-      return { world, body, state, dispose: scope.dispose };
+      return { world, body, state: { world: world.state, script: state, body: body.body.state, mind: body.minded.state, senses: senses.state, wind: wind?.state ?? null },
+        loaded() { senses.show(); world.loaded(); }, dispose: scope.dispose };
     } finally { if (!complete) scope.dispose(); }
   }
 
@@ -119,6 +124,13 @@ export function createLone(context: GameContext) {
     clock: (built) => built.world.time,
     minds: (world) => [world.lone.mind],
     hosted: (built) => [built.body.minded],
+    save: built => ({ physics: built.world.physics.save(), state: saveState(built.state) }),
+    load: (built, saved) => {
+      const snapshot = saved as { readonly physics: ReturnType<World["physics"]["save"]>; readonly state: Saved };
+      built.world.physics.load(snapshot.physics);
+      loadState(built.state, snapshot.state);
+      built.loaded();
+    },
   };
 
   return { LONE_WORLD };
