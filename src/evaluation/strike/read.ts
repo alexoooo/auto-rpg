@@ -19,7 +19,7 @@ import { skillOf } from "../../skills/framework/menu.ts";
 import { faceOf } from "../../skills/strikes/held-blow.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
 import type { BuiltBout } from "../bout.ts";
-import type { HostedBody } from "../../minds/hosted-body.ts";
+import type { HostedBody } from "../../minds/seat/hosted-body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { modelSpec } from "../../core/bodies/models.ts";
 import { startVelocity } from "../../skills/framework/profile.ts";

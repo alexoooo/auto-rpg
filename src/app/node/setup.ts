@@ -1,10 +1,10 @@
 import { CONTEXT } from "./context.ts";
 import { createMatchup } from "../../game/arena/matchup.ts";
 import { createLabScenarios } from "../../game/lab/scenarios.ts";
-import { mindLinks } from "../../minds/config-link.ts";
+import { mindLinks } from "../../minds/catalog/config-link.ts";
 export * from "../../game/arena/matchup.ts";
 export * from "../../game/lab/scenarios.ts";
-export type { LinkedMind, Staging } from "../../minds/config-link.ts";
+export type { LinkedMind, Staging } from "../../minds/catalog/config-link.ts";
 
 /** Node setup and configuration links. */
 export const { mindFaults, parseMind, writeMind, readMind, mindText } = mindLinks(CONTEXT.catalog);

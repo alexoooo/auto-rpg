@@ -1,6 +1,6 @@
 import type { Controller, MindPreset } from "./controller.ts";
-import type { Part } from "../parts/parts.ts";
-import type { DataLoaders } from "../core/data/store.ts";
+import type { Part } from "../../parts/parts.ts";
+import type { DataLoaders } from "../../core/data/store.ts";
 
 /**
  * **An entrant**: one AI, as a folder above the core (`src/entrants/<name>/index.ts`) and a line in

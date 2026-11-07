@@ -6,7 +6,7 @@ import type { CommanderConfig } from "../../minds/command/kind.ts";
 import { loadEngine, type EngineName } from "../../core/physics/engines.ts";
 import type { GroundPoint } from "../../skills/framework/movement.ts";
 import { armedWith } from "../../core/bodies/items/held.ts";
-import type { MindConfig } from "../../minds/config.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 import { type BodyModel } from "../../core/bodies/models.ts";
 import { modelInfo } from "../../game/model-loadouts.ts";
 import { physicalReading } from "../../control/observation.ts";

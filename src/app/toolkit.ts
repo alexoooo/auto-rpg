@@ -17,7 +17,7 @@ import { OBJECTIVES } from "./registration/option-objectives.ts";
 import { PREDICTIONS } from "./registration/option-predictions.ts";
 import type { NavigationConfig } from "../skills/framework/navigation.ts";
 import { SUPPORTS } from "./registration/supports.ts";
-import { catalogOf, type Catalog, type CatalogLists } from "../minds/catalog.ts";
+import { catalogOf, type Catalog, type CatalogLists } from "../minds/catalog/catalog.ts";
 import type { ConfigOf, Part } from "../parts/parts.ts";
 import { REPTILE_PARTS } from "./registration/quadruped-parts.ts";
 import type { MoveRuleConfig } from "../skills/locomotion/move-part.ts";

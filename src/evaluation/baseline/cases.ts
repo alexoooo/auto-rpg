@@ -17,9 +17,8 @@
 import { CAP_SECONDS, SIDES } from "../../game/arena/duel.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
-import { describeMind } from "../../minds/description.ts";
-import type { MindConfig } from "../../minds/config.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
 
 import { deepFreeze } from "../../core/state.ts";
@@ -31,7 +30,7 @@ import type { LocomotionReading } from "../locomotion/read.ts";
 import type { StrikeReading } from "../strike/read.ts";
 import type { BuiltBout } from "../bout.ts";
 
-import { FIGHT_ENTRY } from "../../minds/catalog.ts";
+import { FIGHT_ENTRY, describeMind } from "../../minds/catalog/catalog.ts";
 import { createLocomotionCases, type LocomotionCondition } from "../locomotion/cases.ts";
 import { createRisingTargetCases, type TargetCondition } from "../rising-target/cases.ts";
 import { createStrikeCases, type StillCondition, type StrikeSubject } from "../strike/cases.ts";

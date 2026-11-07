@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { applicationContext } from "../src/app/context.ts";
 import { createMatchup } from "../src/game/arena/matchup.ts";
-import { mindLinks } from "../src/minds/config-link.ts";
+import { mindLinks } from "../src/minds/catalog/config-link.ts";
 import { modelSpec } from "../src/core/bodies/models.ts";
 import { dataOf } from "../src/core/data/store.ts";
 

@@ -2,7 +2,7 @@ import { constructionScope } from "../../core/construction.ts";
 import { isRefused } from "../../core/refusal.ts";
 import type { BuiltBody, BuiltSegment } from "../../core/bodies/build/build-body.ts";
 import { commandsBody } from "../../control/body.ts";
-import { type HostedBody } from "../../minds/hosted-body.ts";
+import { type HostedBody } from "../../minds/seat/hosted-body.ts";
 import type { World } from "../../core/world/world.ts";
 import type { Vector3 } from "../../core/math/vector.ts";
 import { recoveryMeasurement } from "./recovery-measurement.ts";

@@ -15,8 +15,8 @@ import type { BuiltLone, LoneCase } from "./lone.ts";
 import type { BuiltTechnique, TechniqueCase } from "./technique.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
-import type { MindConfig } from "../minds/config.ts";
-import type { Minded } from "../minds/minds.ts";
+import type { MindConfig } from "../minds/catalog/config.ts";
+import type { Minded } from "../minds/seat/minds.ts";
 import type { BonkFixtureConfig } from "./strike/bonk-fixture.ts";
 import type { ArenaSeat as Side } from "../game/arena/seat.ts";
 

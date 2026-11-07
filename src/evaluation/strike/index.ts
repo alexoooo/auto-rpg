@@ -1,3 +1,4 @@
+import { describeMind } from "../../minds/catalog/catalog.ts";
 import { isRefused } from "../../core/refusal.ts";
 /**
  * **The Strike drill**: does a strike skill, thrown once, land on
@@ -10,7 +11,6 @@ import { isRefused } from "../../core/refusal.ts";
  * other parts are the mind's.
  */
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
-import { describeMind } from "../../minds/description.ts";
 import { BODY_MODELS, modelHoldingChecked } from "../../core/bodies/models.ts";
 import { HELD, loadoutFaults, loadoutKey, type Held, type Loadout } from "../../core/bodies/items/held.ts";
 import { recordingKey } from "../../core/world/recording.ts";

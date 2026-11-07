@@ -1,6 +1,6 @@
 import { buildBout } from "../../src/app/node/evaluation.ts";
 import { recipeOf } from "../../src/app/node/setup.ts";
-import { reportNow } from "../../src/minds/apart.ts";
+import { reportNow } from "../../src/minds/seat/apart.ts";
 /** Command delivery, suspension and restoration, independent of skill capability. */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -10,7 +10,7 @@ import { poseAngles } from "../../src/control/kinematics.ts";
 import { GUARD } from "../../src/skills/guard/guard.ts";
 import { createWorld } from "../../src/core/world/world.ts";
 import { buildBody } from "../../src/core/bodies/build/build-body.ts";
-import { embody } from "../../src/minds/embodiment.ts";
+import { embody } from "../../src/minds/seat/embodiment.ts";
 import { loadState, saveState } from "../../src/core/state.ts";
 import { freshEngine, coreStand } from "../harness/core-stand.mjs";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
@@ -170,7 +170,7 @@ test("a fresh bout load restores the whole published Mind report before another 
 
 test("a fallback recovery Option does not count its own transition as an ordinary ascent", async () => {
   const { GAME } = await import("../../src/app/catalog.ts");
-  const { catalogOf } = await import("../../src/minds/catalog.ts");
+  const { catalogOf } = await import("../../src/minds/catalog/catalog.ts");
   const { toolkitLists } = await import("../../src/app/toolkit.ts");
   const { REPOSITION_OPTION, WAY_UP_OPTION, waysUpIn, withWaysUp } = await import("../../src/minds/option/rise.ts");
   const { walker } = await import("../../src/minds/option/walk.ts");

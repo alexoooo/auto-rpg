@@ -1,4 +1,4 @@
-import type { MindConfig } from "../minds/config.ts";
+import type { MindConfig } from "../minds/catalog/config.ts";
 import type { BeatsConfig } from "../minds/command/beats.ts";
 import type { CommanderConfig } from "../minds/command/kind.ts";
 import type { OptionMindConfig } from "../minds/option/mind.ts";

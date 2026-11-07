@@ -1,7 +1,7 @@
 import { Vector3 } from "../../../core/math/vector.ts";
 import { airOf, hearTouches } from "../../../game/audio/body-sounds.ts";
 import { impactCue, substanceOf, voiceOf, type SoundCue, type SoundPoint } from "../../../game/audio/cues.ts";
-import type { HostedBody } from "../../../minds/hosted-body.ts";
+import type { HostedBody } from "../../../minds/seat/hosted-body.ts";
 import type { BuiltBody, BuiltSegment } from "../../../core/bodies/build/build-body.ts";
 import { contactMass } from "../../../core/bodies/build/contact-mass.ts";
 import type { World } from "../../../core/world/world.ts";

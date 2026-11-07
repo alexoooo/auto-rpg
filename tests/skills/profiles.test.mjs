@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { allParts, MINDS, partLookup, treeLookup } from "../../src/app/catalog.ts";
-import { presetFitsModel } from "../../src/minds/controller.ts";
+import { presetFitsModel } from "../../src/minds/catalog/controller.ts";
 import { BODY_MODELS, modelHolds, resolveCharacter } from "../../src/core/bodies/models.ts";
 import { LOADOUTS, loadoutFaults, withLoadout } from "../../src/core/bodies/items/held.ts";
 import { limbAction } from "../../src/minds/option/kinds.ts";

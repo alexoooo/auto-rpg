@@ -1,4 +1,4 @@
-import type { MindPlace } from "../../../minds/apart.ts";
+import type { MindPlace } from "../../../minds/seat/apart.ts";
 import { replyBox } from "../../apart/box.ts";
 import { decodeExact } from "../../apart/codec.ts";
 import { mindThreads, type ThreadLink } from "../../apart/host.ts";

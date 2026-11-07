@@ -1,18 +1,18 @@
-import { constructionScope } from "../core/construction.ts";
-import type { OwnBody } from "../core/bodies/own-body.ts";
-import type { BuiltBody } from "../core/bodies/build/build-body.ts";
-import type { ConfigurationRequest } from "../core/bodies/build/configurations.ts";
-import type { ContactIdentity } from "../core/bodies/contact-identity.ts";
-import { commandPipeline } from "../core/bodies/command-pipeline.ts";
-import { NO_ASSIST, type AssistCeiling } from "../core/bodies/assist.ts";
-import { driveMuscles, type MuscleDriver } from "../core/bodies/muscle/driver.ts";
-import type { Vector3 } from "../core/math/vector.ts";
-import type { World } from "../core/world/world.ts";
-import { clockSenses } from "../core/world/senses.ts";
-import { heldSteps } from "../core/bodies/command-delay.ts";
-import type { Senses } from "../core/bodies/senses.ts";
-import type { MindConstruction } from "./mind.ts";
-import { answer, think } from "./execution.ts";
+import { constructionScope } from "../../core/construction.ts";
+import type { OwnBody } from "../../core/bodies/own-body.ts";
+import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
+import type { ConfigurationRequest } from "../../core/bodies/build/configurations.ts";
+import type { ContactIdentity } from "../../core/bodies/contact-identity.ts";
+import { commandPipeline } from "../../core/bodies/command-pipeline.ts";
+import { NO_ASSIST, type AssistCeiling } from "../../core/bodies/assist.ts";
+import { driveMuscles, type MuscleDriver } from "../../core/bodies/muscle/driver.ts";
+import type { Vector3 } from "../../core/math/vector.ts";
+import type { World } from "../../core/world/world.ts";
+import { clockSenses } from "../../core/world/senses.ts";
+import { heldSteps } from "../../core/bodies/command-delay.ts";
+import type { Senses } from "../../core/bodies/senses.ts";
+import type { MindConstruction } from "../mind.ts";
+import { answer, think } from "../execution.ts";
 import { mirrorBody, mirrorStatics, mirrorWriter, type MirrorStatics, type MirrorWriter } from "./mirror.ts";
 import type { HeldReading } from "./physical-body.ts";
 import type { SheetLog } from "./sheets.ts";
@@ -98,7 +98,7 @@ interface MirrorDriven {
 
 /**
  * **`built` driven by a mind that reads it from a mirror elsewhere** (`embodyApart`,
- * `src/minds/minds.ts`): the muscles read the joints as the step is prepared, the mind's numbers
+ * `src/minds/seat/minds.ts`): the muscles read the joints as the step is prepared, the mind's numbers
  * are written in `allocate`'s memory, and as the step's controls run, once the mind has `answered`,
  * its command is carried out as `embody` carries out a mind's, the same rings, assist and sheets;
  * `idle` is called as the body leaves `full`. Written once, with the senses as nothing yet read.

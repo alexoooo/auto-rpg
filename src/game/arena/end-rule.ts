@@ -5,7 +5,7 @@
  * recipe's over its defaults; the clock's rule, the lives at the cap, is the bout's own
  * (`Verdict.ending` `time`).
  */
-import type { PhysicalBody } from "../../minds/physical-body.ts";
+import type { PhysicalBody } from "../../minds/seat/physical-body.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import type { Pool } from "../../combat/pool.ts";
 import { deepFreeze } from "../../core/state.ts";

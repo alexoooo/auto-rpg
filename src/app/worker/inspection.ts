@@ -1,4 +1,4 @@
-import type { PhysicalBody } from "../../minds/physical-body.ts";
+import type { PhysicalBody } from "../../minds/seat/physical-body.ts";
 import type { SkillReport } from "../../skills/framework/skills.ts";
 import type { MindReport } from "../../minds/report.ts";
 

@@ -3,7 +3,7 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { SoundCue } from "../../../game/audio/cues.ts";
 import type { Command } from "../../../minds/command/commands.ts";
-import type { MindConfig } from "../../../minds/config.ts";
+import type { MindConfig } from "../../../minds/catalog/config.ts";
 import type { BodyModel, ResolvedCharacter } from "../../../core/bodies/models.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { puppetBody, type Puppet } from "../render/puppet.ts";

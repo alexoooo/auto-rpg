@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { modelSpec } from "../../src/core/bodies/models.ts";
-import { embody } from "../../src/minds/embodiment.ts";
+import { embody } from "../../src/minds/seat/embodiment.ts";
 import { commandedMind } from "../../src/minds/sub-mind.ts";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
 import { stockMotor } from "../../src/app/stance-balance.ts";

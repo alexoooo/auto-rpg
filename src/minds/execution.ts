@@ -1,5 +1,5 @@
-import type { Mind } from "./mind.ts";
 import type { Mirror } from "./mirror.ts";
+import type { Mind } from "./mind.ts";
 
 /** Refresh the body, carry the chosen action out and send its command. */
 export function answer(mind: Mind, mirror: Mirror): void {

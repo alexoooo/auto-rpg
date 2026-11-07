@@ -8,8 +8,8 @@ import { isRefused } from "../../core/refusal.ts";
  * loadout, is refused.
  */
 import type { Loadout } from "../../core/bodies/items/held.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
-import type { MindConfig } from "../../minds/config.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 import { modelHolding, type HumanoidModel } from "../../core/bodies/models.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, type BuiltFall, type FallReading } from "../fall.ts";
 import type { Cases, Json } from "../evaluation.ts";

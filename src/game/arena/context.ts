@@ -1,9 +1,9 @@
 import type { CommanderRegistry } from "../../minds/command/commander.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import type { Loadout } from "../../core/bodies/items/held.ts";
-import type { MindConfig } from "../../minds/config.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
-import type { Catalog, EntryRule } from "../../minds/catalog.ts";
+import type { Catalog, EntryRule } from "../../minds/catalog/catalog.ts";
 import type { TechniquePart } from "../../skills/recovery/technique.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 

@@ -1,41 +1,12 @@
-import type { BuiltBody } from "../core/bodies/build/build-body.ts";
-import type { ConfigurationRequest } from "../core/bodies/build/configurations.ts";
-import type { AssistCeiling } from "../core/bodies/assist.ts";
+import type { Sheet, SheetLog } from "./sheets.ts";
+import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
+import type { World } from "../../core/world/world.ts";
+import { requireRecordingIdentity, type RecordingIdentity } from "../../core/world/recording.ts";
+import type { Senses } from "../../core/bodies/senses.ts";
+import type { AssistCeiling } from "../../core/bodies/assist.ts";
 import { physicalBody, type PhysicalBody } from "./physical-body.ts";
-import type { World } from "../core/world/world.ts";
+import { clockSenses } from "../../core/world/senses.ts";
 import { embody } from "./embodiment.ts";
-import { requireRecordingIdentity, type RecordingIdentity } from "../core/world/recording.ts";
-import { clockSenses } from "../core/world/senses.ts";
-import { type Senses } from "../core/bodies/senses.ts";
-
-/**
- * **A body's order sheet as its mind left it at a step**: its muscles' command (`MuscleDriver.activation`,
- * `.velocity`), its assist's ask about the root's centre of mass, world, N and N m, and the segment
- * configurations it asked.
- */
-interface Sheet {
-  readonly step: number;
-  readonly activation: Float64Array;
-  readonly velocity: Float64Array;
-  readonly force: readonly [number, number, number];
-  readonly moment: readonly [number, number, number];
-  readonly configurations: readonly ConfigurationRequest[];
-}
-
-/**
- * **The order sheets a body's mind has written**, one a step it stepped, taken at the seam
- * (`embody`): with the bout's recipe, the whole of what its mind did to the world. A load that
- * goes back drops the sheets after it as the steps are taken again.
- */
-export interface SheetLog {
-  readonly identity: RecordingIdentity;
-  readonly sheets: Sheet[];
-}
-
-/** An empty log, to record a body's sheets into. */
-export function sheetLog(identity: RecordingIdentity): SheetLog {
-  return { identity, sheets: [] };
-}
 
 /** The index of the sheet of `step` in `sheets`, by their steps; -1 if there is none. */
 function sheetAt(sheets: readonly Sheet[], step: number): number {

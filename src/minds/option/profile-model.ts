@@ -1,6 +1,6 @@
 import { chooserOf } from "./chooser.ts";
 import { stepSet } from "./option.ts";
-import type { Sight } from "../index.ts";
+import type { Sight } from "../decider.ts";
 import type { Prospect } from "../report.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../../skills/framework/skill.ts";

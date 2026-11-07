@@ -50,7 +50,7 @@ import { driveBy } from "../src/minds/decider.ts";
 import { standingSkills } from "../src/app/standing-skills.ts";
 import { partOf, MINDS, GAME } from "../src/app/catalog.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/bodies/models.ts";
-import { createMind } from "../src/minds/minds.ts";
+import { createMind } from "../src/minds/seat/minds.ts";
 import { generateCryptDungeon } from "../src/game/dungeon/crypt-dungeon.ts";
 import { CryptWeathering } from "../src/app/browser/dungeon/crypt-weathering.ts";
 import { generateLevel } from "../src/game/dungeon/level.ts";

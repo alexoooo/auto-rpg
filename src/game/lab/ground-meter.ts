@@ -1,5 +1,5 @@
 import { commandsBody } from "../../control/body.ts";
-import { type HostedBody } from "../../minds/hosted-body.ts";
+import { type HostedBody } from "../../minds/seat/hosted-body.ts";
 import type { World } from "../../core/world/world.ts";
 
 interface Trail { readonly at: number; readonly position: string; readonly controller: string }

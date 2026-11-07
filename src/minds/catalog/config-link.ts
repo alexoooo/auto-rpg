@@ -1,6 +1,6 @@
 import type { Catalog, EntryRule } from "./catalog.ts";
 import type { MindConfig } from "./config.ts";
-import type { BodySpec } from "../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 
 /** A mind a link carries, as a panel shows it: its config and what is wrong with it (`mindFaults`). */
 export interface LinkedMind {

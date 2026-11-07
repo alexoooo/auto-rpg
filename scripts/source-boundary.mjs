@@ -25,7 +25,8 @@ const RANKS = Object.freeze([
   ["src/core/", "src/core/math/", "src/core/data/"], ["src/core/physics/"], ["src/core/bodies/"], ["src/core/world/"],
   ["src/parts/"], ["src/combat/"], ["src/control/"],
   ["src/skills/", "src/skills/framework/"], ["src/skills/reach/"], ["src/skills/perception/"], ["src/skills/locomotion/"], ["src/skills/intent/"],
-  ["src/skills/guard/"], ["src/skills/strikes/"], ["src/skills/recovery/"], ["src/skills/assembly/"], ["src/minds/"],
+  ["src/skills/guard/"], ["src/skills/strikes/"], ["src/skills/recovery/"], ["src/skills/assembly/"],
+  ["src/minds/"], ["src/minds/catalog/"], ["src/minds/seat/"], ["src/minds/option/", "src/minds/command/"], ["src/minds/index.ts"],
   ["src/game/"], ["src/evaluation/"], ["src/entrants/"], ["src/app/"],
 ]);
 

@@ -43,7 +43,7 @@ import { locomotionScenario } from "./locomotion-scenario.ts";
 import { reachScenario } from "./reach-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import type { MindConfig } from "../../../minds/config.ts";
+import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { treeData, loadData } from "../../catalog.ts";
 import type { DataKey } from "../../../core/data/store.ts";
 import { labStaging, SCENARIOS, type LabAddress, type ScenarioId } from "../../../game/lab/scenarios.ts";

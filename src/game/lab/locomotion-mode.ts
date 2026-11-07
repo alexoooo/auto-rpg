@@ -1,5 +1,5 @@
 import { isRefused, type Refused } from "../../core/refusal.ts";
-import type { HostedBody } from "../../minds/hosted-body.ts";
+import type { HostedBody } from "../../minds/seat/hosted-body.ts";
 import { carried, paceRound, turnAt, type StanceEnvelope } from "../../control/stance-envelope.ts";
 import { NO_COVER, type Intent } from "../../skills/framework/intent.ts";
 import { wrap } from "../../core/math/turn.ts";

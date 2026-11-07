@@ -6,7 +6,7 @@ import { SIDES, type Verdict } from "../../game/arena/duel.ts";
 import type { TeamRecipe } from "../../game/arena/team-bout.ts";
 
 import { createBout } from "../../evaluation/bout.ts";
-import type { MindPlace } from "../../minds/apart.ts";
+import type { MindPlace } from "../../minds/seat/apart.ts";
 import type { DuelNews } from "./duel-stage.ts";
 import type { CryptNews } from "./crypt-stage.ts";
 import type { TapeEntry } from "./protocol.ts";

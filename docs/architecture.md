@@ -23,7 +23,10 @@ constants, refusals), `math/` and `data/` below `physics/`, then `bodies/`, then
 steps in a `StepHost` (`src/core/bodies/step-host.ts`), which the world extends. Skills rank
 `framework/` and the root's `config.ts` lowest, then `reach/` (hand and arm geometry), `perception/`,
 `locomotion/`, `intent/` (where to stand to act), `guard/`, `strikes/`, `recovery/`, and
-`assembly/`, which composes a body's skill set.
+`assembly/`, which composes a body's skill set. Minds rank their root (the mind contract, its runtime
+and the decision library) lowest, then `catalog/` (configs, controllers, catalogs, entrants), `seat/`
+(where a mind takes its body: the host, embodiment, mirror, order sheets, minds apart), `option/` and
+`command/`, and the published barrel `src/minds/index.ts` last.
 
 | Layer | Where | Owns |
 | --- | --- | --- |
@@ -32,7 +35,7 @@ steps in a `StepHost` (`src/core/bodies/step-host.ts`), which the world extends.
 | Combat | `src/combat/` | blows, wounds, life and rulebooks |
 | Control | `src/control/` | motion and support goals turned into muscle commands |
 | Skills | `src/skills/framework/`, `reach/`, `perception/`, `locomotion/`, `intent/`, `guard/`, `strikes/`, `recovery/`, `assembly/` | capability contracts, implementations and owned records |
-| Minds | `src/minds/`, `src/minds/option/` | Mind execution, catalogs, decision frameworks and reusable Options |
+| Minds | `src/minds/`, `catalog/`, `seat/`, `option/`, `command/` | Mind execution, catalogs, decision frameworks and reusable Options |
 | Game | `src/game/` | gameplay and world builders receiving an immutable context |
 | Evaluation | `src/evaluation/` | cases and readings of the game's worlds |
 | Entrants | `src/entrants/<name>/` | a public manifest and private fighter assembly, components, presets and data |
@@ -346,7 +349,7 @@ before the answer; the answer clears the pairs. The body-side rings carry comman
 phases, and `src/core/bodies/command-pipeline.ts` owns delayed physical actuation. Command-layer
 research settings belong to `LayerOptions` in `src/control/body.ts`.
 
-- **The host** (`BodyHost`, `host.ts`) is all a mind's maker gets: the spec, the clock, the parts
+- **The host** (`BodyHost`, `mind.ts`) is all a mind's maker gets: the spec, the clock, the parts
   its config may name (`PartLookup`), the seed (its only chance, through `randomStream`), its phase,
   the rules, and one way to take the body (`take`). Its grants (`HostGrants`) are fixed.
 - **Senses** (`Senses`, `senses.ts`): the clock, its side and life, and every other body
@@ -369,7 +372,7 @@ research settings belong to `LayerOptions` in `src/control/body.ts`.
   current skills.
 
 **A mind is its config.** A `MindConfig` is plain data tagged by kind; `createMind` (`minds.ts`)
-makes it by the kind's `Controller` found in a `Catalog` (`src/minds/catalog.ts`). A mind is a
+makes it by the kind's `Controller` found in a `Catalog` (`src/minds/catalog/catalog.ts`). A mind is a
 tree of parts (`Part`, `parts.ts`), each with a role, a stage, fields, slots and defaults, saying
 why a body cannot carry it out (`fits`) and what is wrong with its config (`faults`). Roles are an
 open list (`RoleParts`), augmented beside each role's contract. `treeFaults` names each fault by
@@ -484,7 +487,7 @@ paws alike: what lies under the skills is the part of its role that fits the bod
 builds the Options whose skills it fits. The parts of a body on paws are `REPTILE_PARTS`
 (`src/app/registration/quadruped-parts.ts`). A new family of bodies is parts that fit it.
 
-**Entrants.** An `Entrant` (`src/minds/entrant.ts`) is one AI: its kinds of mind, parts and
+**Entrants.** An `Entrant` (`src/minds/catalog/entrant.ts`) is one AI: its kinds of mind, parts and
 presets, each kind scoped `<name>:`, listed in `ENTRANTS` (`src/app/entrants.ts`). `GAME`
 (`src/app/catalog.ts`) is the game's catalog, `MINDS` what a person picks, `defaultMind` each
 model's preset, `modelRefusal` why a mind cannot play a body.
@@ -516,7 +519,7 @@ mind.
 
 `COMMANDERS` registers the kinds (`createCommander`); `party` leads a person's side, in the Arena
 through `teamOfOne`. `tests/core-boundary.test.mjs` keeps `src/minds/command/` from the engine,
-world, bodies, enlistment, a mind's host and the senses hub, globals and chance.
+world, bodies, enlistment, a mind's seat (`src/minds/seat/`) and the senses hub, globals and chance.
 
 ## One world step
 
@@ -680,7 +683,7 @@ Bench have their own `index.html` beside their modules. Every entry document is 
 | Ratings | `src/app/browser/ratings/` | each evaluation's records; a drill's trials open in the Arena as a reel |
 
 - **Links are recipes.** An Arena address is its bout's recipe (`recipeOf`); an edited mind travels
-  whole without `tuning` (`src/minds/config-link.ts`); a reel (`#reel=`) plays recorded cases from their
+  whole without `tuning` (`src/minds/catalog/config-link.ts`); a reel (`#reel=`) plays recorded cases from their
   recipes and tapes.
 - **Cosmetics never carry authority.** The arena's solids are colliders (`arenaSolids`), the same
   on the page and the stand; the visible room is checked against them (`validateRoomPlacements`).

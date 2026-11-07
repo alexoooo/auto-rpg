@@ -1,10 +1,11 @@
-import { loadData, type DataKey, type DataLoaders } from "../core/data/store.ts";
+import { loadData, type DataKey, type DataLoaders } from "../../core/data/store.ts";
 import type { MindConfig } from "./config.ts";
 import type { Controller, MindPreset } from "./controller.ts";
-import type { BodySpec } from "../core/bodies/spec/body.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { scopeOf, type Entrant } from "./entrant.ts";
-import type { PartLookup, RoleParts } from "../parts/lookup.ts";
-import { slotsOf, type Part, type PartConfig, type Role } from "../parts/parts.ts";
+import type { PartLookup, RoleParts } from "../../parts/lookup.ts";
+import { slotsOf, type Part, type PartConfig, type Role } from "../../parts/parts.ts";
+import type { MindDescription } from "./description.ts";
 
 /**
  * **What a catalog is made of** (`catalogOf`): the toolkit's kinds of mind and each role's list of
@@ -457,4 +458,9 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     },
     replacedAt,
   });
+}
+
+/** Unsupported introspection stays explicit; callers never reconstruct private controller fields. */
+export function describeMind(catalog: Catalog, spec: BodySpec, config: MindConfig): MindDescription | null {
+  return catalog.controllerOf(config).describe?.(spec, config, catalog.treeLookup(config)) ?? null;
 }

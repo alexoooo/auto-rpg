@@ -93,7 +93,7 @@ Check: as for code. The fingerprint is not needed: no `src/` module changes.
 
 ## 4. Delete what nothing uses
 
-- `hostedMind` (`src/minds/minds.ts`) and the sentence citing it in `src/minds/host.ts`.
+- `hostedMind` (`src/minds/seat/minds.ts`) and the sentence citing it in `src/minds/seat/host.ts`.
 - Exports with no importer in the tracked `src/`, `tests/`, `research/`, `scripts/`, the pages or
   `vite.config.ts`: about 320. They are found by a TypeScript walk over every import and re-export
   (`export *`, HTML `<script>` and JSDoc `import()` included).
@@ -195,18 +195,18 @@ This chunk also lands as two commits: the moves first, then the renames.
 - `src/minds/catalog/`: `config.ts`, `controller.ts`, `entrant.ts`, `catalog.ts`, `description.ts`,
   `config-link.ts`.
 - `src/minds/seat/`: `embodiment.ts`, `host.ts`, `physical-body.ts`, `hosted-body.ts`, `sheets.ts`,
-  `minds.ts`, `apart.ts` and the writer half of `mirror.ts`. In `MIND_ADAPTERS`, the minds files are
-  replaced by the folder; the core files stay listed.
+  `minds.ts`, `apart.ts` and `mirror.ts` but its `Mirror` contract (the reader uses the builder's
+  configuration model, which a mind may not). `MIND_ADAPTERS` is the folder, matched by prefix, and
+  `COMMAND_BARRED` bars it whole.
 - The root keeps:
-  - the mind contract, now including `BodyHost`;
-  - the runtime (`mind.ts`, `execution.ts`, `command-layers.ts`, `sub-mind.ts`, the reader half of
-    `mirror.ts`);
+  - the mind contract, now including `BodyHost` and `HostGrants`, which `MindWiring` extends;
+  - the runtime (`mind.ts`, `execution.ts`, `command-layers.ts`, `sub-mind.ts`, the `Mirror` contract);
   - the decision library (`choice.ts`, `engagement.ts`, `report.ts`, `decider.ts`).
 - The import loops break:
   - `MindWiring` and `MindMade` move into `controller.ts`;
   - `describeMind` moves into `catalog.ts`;
   - `HostMind` moves into `command-layers.ts`;
-  - `sheets.ts` splits into the log and the replay.
+  - `sheets.ts` splits into the log (`sheets.ts`) and the replay (`replay.ts`).
 - `deriveSpec` moves from `apart.ts` to its only caller, `src/app/apart/thread.ts`. The thread
   transport then stops reaching into skill caches.
 - `minds/option/model.ts` and `profile-model.ts` import `../decider.ts` directly, as their siblings

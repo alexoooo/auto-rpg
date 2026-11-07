@@ -249,15 +249,10 @@ test("the core and its lab reach an engine only through the seam: engine.ts's co
 });
 
 /** The folders a mind and its toolkit are written in, which meet the world through the report and the order sheet alone. */
-const MIND_FOLDERS = ["src/minds/", "src/skills/intent/", "src/skills/locomotion/navigation/", "src/skills/perception/", "src/skills/recovery/", "src/skills/",
-  "src/control/", "src/skills/quadruped/", "src/minds/option/", "src/entrants/"];
+const MIND_FOLDERS = ["src/minds/", "src/skills/", "src/control/", "src/entrants/"];
 
-/** The adapters in those folders, which make the report and carry out the order sheet, and so hold the world. */
-const MIND_ADAPTERS = new Set([
-  "src/minds/embodiment.ts", "src/minds/host.ts", "src/minds/physical-body.ts", "src/core/world/senses.ts",
-  "src/core/bodies/object-senses.ts", "src/minds/minds.ts",
-  "src/minds/sheets.ts", "src/minds/mirror.ts", "src/core/bodies/assist.ts",
-]);
+/** The adapters in those folders, files or folders, which make the report and carry out the order sheet, and so hold the world: where a mind is seated on its body. */
+const MIND_ADAPTERS = ["src/minds/seat/"];
 
 /** What a mind's source never imports: the engine, the world, the builder, the read view's maker and the hands' port. */
 const MIND_BARRED = ["src/core/physics/", "src/core/world/world.ts", "src/core/bodies/build/build-body.ts", "src/core/bodies/build/read-view.ts", "src/core/bodies/build/configurations.ts"];
@@ -265,8 +260,8 @@ const MIND_BARRED = ["src/core/physics/", "src/core/world/world.ts", "src/core/b
 /** The folder a Commander is written in, which meets its team through the view and the orders alone. */
 const COMMAND_FOLDERS = ["src/minds/command/"];
 
-/** What a Commander's source never imports: what a mind may not, and a body, a fight's enlistment, a mind's host or the senses' hub. */
-const COMMAND_BARRED = [...MIND_BARRED, "src/control/body.ts", "src/minds/physical-body.ts", "src/game/combatant.ts", "src/minds/host.ts", "src/core/world/senses.ts"];
+/** What a Commander's source never imports: what a mind may not, and a body, a fight's enlistment, a mind's seat or the senses' hub. */
+const COMMAND_BARRED = [...MIND_BARRED, "src/control/body.ts", "src/minds/seat/", "src/game/combatant.ts", "src/core/world/senses.ts"];
 
 /**
  * Each of `files` (path and source) under `folders`, beside `adapters`, that imports what `barred`
@@ -275,7 +270,7 @@ const COMMAND_BARRED = [...MIND_BARRED, "src/control/body.ts", "src/minds/physic
 function mindCrossings(files, { folders = MIND_FOLDERS, adapters = MIND_ADAPTERS, barred = MIND_BARRED } = {}) {
   const crossings = [];
   for (const [file, source] of files) {
-    if (!folders.some((folder) => file.startsWith(folder)) || adapters.has(file)) continue;
+    if (!folders.some((folder) => file.startsWith(folder)) || adapters.some((adapter) => adapter.endsWith("/") ? file.startsWith(adapter) : file === adapter)) continue;
     for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
       if (specifier.startsWith("@dimforge/rapier")) crossings.push(`${file} imports the engine package "${specifier}"`);
       if (!specifier.startsWith(".")) continue;
@@ -301,7 +296,7 @@ test("a mind and its toolkit reach no engine, world, builder, global or chance b
   assert.deepEqual(mindCrossings([
     ["src/entrants/sly/mind.ts", `import type { World } from "../../core/world/world.ts";\nimport { readView } from "../../core/bodies/build/read-view.ts";\nexport const w = globalThis;\n`],
     ["src/skills/sly.ts", `import type { SegmentBody } from "../core/physics/engine.ts";\nimport RAPIER from "@dimforge/rapier3d-simd-compat";\n`],
-    ["src/minds/host.ts", `import type { World } from "../../core/world/world.ts";\n`],
+    ["src/minds/seat/host.ts", `import type { World } from "../../core/world/world.ts";\n`],
     ["src/entrants/lucky/mind.ts", `export const pick = () => Math.random() < .5 ? Date.now() : performance.now();\n`],
   ]), [
     "src/entrants/sly/mind.ts imports src/core/world/world.ts",
@@ -389,13 +384,13 @@ test("an entrant reaches only libraries, its own folder and its own data", () =>
 });
 
 test("a Commander reaches no engine, world, body or global: only its team's view and the orders it gives", () => {
-  const command = { folders: COMMAND_FOLDERS, adapters: new Set(), barred: COMMAND_BARRED };
+  const command = { folders: COMMAND_FOLDERS, adapters: [], barred: COMMAND_BARRED };
   const files = COMMAND_FOLDERS.flatMap(filesUnder).filter((file) => file.endsWith(".ts")).map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(files.length > 0, "no Commander's source, so this test would pass on nothing");
   assert.deepEqual(mindCrossings(files, command), []);
   // The control: a Commander reaching a body, the world or the engine is found.
   assert.deepEqual(mindCrossings([
-    ["src/minds/command/sly.ts", `import type { PhysicalBody } from "../physical-body.ts";
+    ["src/minds/command/sly.ts", `import type { PhysicalBody } from "../seat/physical-body.ts";
 import type { World } from "../../core/world/world.ts";
 export const w = globalThis;
 `],
@@ -403,7 +398,7 @@ export const w = globalThis;
 import RAPIER from "@dimforge/rapier3d-simd-compat";
 `],
   ], command), [
-    "src/minds/command/sly.ts imports src/minds/physical-body.ts",
+    "src/minds/command/sly.ts imports src/minds/seat/physical-body.ts",
     "src/minds/command/sly.ts imports src/core/world/world.ts",
     "src/minds/command/sly.ts reads globalThis",
     "src/minds/command/sly-too.ts imports src/game/combatant.ts",

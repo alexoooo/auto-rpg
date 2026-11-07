@@ -5,7 +5,6 @@ import { COMMAND, type Body, type BodyCommand, type BodyView, type PointMotion, 
 import type { Clock } from "../core/world/clock.ts";
 import type { OwnBody } from "../core/bodies/own-body.ts";
 import { NOTHING_SENSED, type Senses } from "../core/bodies/senses.ts";
-import type { HostMind } from "./sub-mind.ts";
 import { centreReading } from "../control/observation.ts";
 import type { ReadBody, ReadSegment } from "../core/bodies/read-body.ts";
 import { groundReading } from "../control/ground-reading.ts";
@@ -14,6 +13,7 @@ import { effectorFeedback } from "../control/effector-feedback.ts";
 import { uprightness } from "../control/ground.ts";
 import { rootFrameToRef } from "../control/kinematics.ts";
 import { carries, carrying, sameEffectorGoal, type EffectorGoal, type FreedomPath, type PointTask } from "../control/motor.ts";
+import type { Mind } from "./mind.ts";
 
 /**
  * Motor control under a split driver. `think` queues decisions; `act` reads the current body and
@@ -298,4 +298,13 @@ function pointMotionOf(built: ReadBody, segment: string, point: string): { motio
       motion.velocity.addInPlace(Vector3.CrossToRef(angular, lever, angular));
     },
   };
+}
+
+/** The host reads its body before deciding who controls it. */
+export interface HostMind extends Mind {
+  look(senses: Senses): void;
+  observe(control: BodyControl): void;
+  feel(): void;
+  release(reason?: "takeover" | "idle"): void;
+  resume(): void;
 }

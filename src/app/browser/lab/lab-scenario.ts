@@ -8,7 +8,7 @@ import type { Puppet } from "../render/puppet.ts";
 import type { Control } from "../ui/controls.ts";
 import type { LabAddress } from "../../../game/lab/scenarios.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import type { MindConfig } from "../../../minds/config.ts";
+import type { MindConfig } from "../../../minds/catalog/config.ts";
 import type { Side } from "../../../core/bodies/bilateral.ts";
 
 /**

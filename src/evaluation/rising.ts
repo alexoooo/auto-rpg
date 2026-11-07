@@ -11,14 +11,14 @@ import { supportHeight } from "../control/support-reference.ts";
  * evaluation (`rising-target`) plays the same falls through `fall.ts`.
  */
 import { Vector3 } from "../core/math/vector.ts";
-import { commandedBody } from "../minds/host.ts";
+import { commandedBody } from "../minds/seat/host.ts";
 import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { loadEngine } from "../core/physics/engines.ts";
 import { humanoidSpec } from "../core/bodies/human/spec.ts";
 import { armedWith, loadoutKey, type Held } from "../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "./loadouts.ts";
 import type { OptionMindConfig } from "../minds/option/mind.ts";
-import type { MindConfig } from "../minds/config.ts";
+import type { MindConfig } from "../minds/catalog/config.ts";
 import { groundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
 import { kitOf } from "../skills/assembly/kit.ts";

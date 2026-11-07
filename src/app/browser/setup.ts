@@ -1,7 +1,7 @@
 import { CONTEXT } from "./context.ts";
 import { createMatchup } from "../../game/arena/matchup.ts";
 import { createLabScenarios } from "../../game/lab/scenarios.ts";
-import { mindLinks } from "../../minds/config-link.ts";
+import { mindLinks } from "../../minds/catalog/config-link.ts";
 export * from "../../game/arena/matchup.ts";
 export * from "../../game/lab/scenarios.ts";
 

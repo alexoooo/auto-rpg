@@ -1,19 +1,17 @@
-import type { Orders } from "./orders.ts";
-import type { Catalog } from "./catalog.ts";
-import type { Rulebook } from "../combat/rulebook.ts";
-import type { MenuEntry } from "../skills/framework/menu.ts";
-import type { MindConfig } from "./config.ts";
-import type { BodyHost } from "./host.ts";
-import type { Mind, MindConstruction } from "./mind.ts";
-import type { Experiment } from "../control/body.ts";
-import type { OwnBody } from "../core/bodies/own-body.ts";
-import type { MindMade, MindWiring } from "./minds.ts";
-import { mirrorBody, type Mirror, type MirrorChannel, type MirrorStatics } from "./mirror.ts";
-import { answer, think } from "./execution.ts";
-import { deriveSensed } from "../skills/perception/openings.ts";
-import { specDigest } from "../skills/framework/profile.ts";
-import type { BodySpec } from "../core/bodies/spec/body.ts";
-import type { MindReport } from "./report.ts";
+import type { Mirror } from "../mirror.ts";
+import type { MindMade, MindWiring } from "../catalog/controller.ts";
+import type { BodyHost } from "../mind.ts";
+import type { Orders } from "../orders.ts";
+import type { Catalog } from "../catalog/catalog.ts";
+import type { Rulebook } from "../../combat/rulebook.ts";
+import type { MenuEntry } from "../../skills/framework/menu.ts";
+import type { MindConfig } from "../catalog/config.ts";
+import type { Mind, MindConstruction } from "../mind.ts";
+import type { Experiment } from "../../control/body.ts";
+import type { OwnBody } from "../../core/bodies/own-body.ts";
+import { mirrorBody, type MirrorChannel, type MirrorStatics } from "./mirror.ts";
+import { answer, think } from "../execution.ts";
+import type { MindReport } from "../report.ts";
 
 /**
  * **Minds apart from the world.** A fight's mind may run where the world does not: in another
@@ -72,16 +70,6 @@ export interface SeatSays {
   readonly report: ReportNow | null;
 }
 
-/**
- * **Derive what a mind derives of a body's spec alone**, where a spec arrives in a thread: its
- * shapes as sensing reads them (`deriveSensed`) and its digest, which names the profiles measured on
- * it (`specDigest`). Each is cached by the spec's own objects, so no step of a mind that first
- * senses a body of it pays for it.
- */
-export function deriveSpec(spec: BodySpec): void {
-  deriveSensed(spec);
-  specDigest(spec);
-}
 
 /** **Where minds run, the world's side** (`World.minds`). */
 export interface MindPlace {

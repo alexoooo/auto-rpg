@@ -20,11 +20,11 @@
  * target (a foe fighting is never settled in a window), and the foe fights on. Up to that step the bout is
  * the subject's own bout against that foe: the Commander orders nothing.
  */
-import type { MindConfig } from "../../minds/config.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { Approach, DrillCommanderConfig } from "../../minds/command/drill.ts";
 import { randomStream } from "../../core/math/random.ts";
 import { sin, cos } from "../../core/math/real.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
 import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";

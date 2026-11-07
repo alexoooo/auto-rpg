@@ -1,6 +1,6 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { MindConfig } from "../../../minds/config.ts";
+import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { hypot } from "../../../core/math/real.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";

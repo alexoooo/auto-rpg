@@ -1,3 +1,4 @@
+import { describeMind } from "../../../minds/catalog/catalog.ts";
 import { isRefused, type Refused } from "../../../core/refusal.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { solidGeometry } from "../render/solid-geometry.ts";
@@ -12,9 +13,8 @@ import { TECHNIQUES } from "../../registration/techniques.ts";
 import { isWayUp, type TechniqueConfig, type TechniqueName, type TechniquePart } from "../../../skills/recovery/technique.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { partLookup } from "../../catalog.ts";
-import { describeMind } from "../../../minds/description.ts";
 import { GAME } from "../../catalog.ts";
-import type { MindConfig } from "../../../minds/config.ts";
+import type { MindConfig } from "../../../minds/catalog/config.ts";
 import type { PartConfig } from "../../../parts/parts.ts";
 import { recordHistory } from "./history.ts";
 import { createPlayer } from "../../../game/lab/player.ts";

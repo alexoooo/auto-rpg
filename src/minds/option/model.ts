@@ -3,7 +3,7 @@ import type { Rulebook } from "../../combat/rulebook.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { Orders } from "../orders.ts";
-import type { Decider, Sight } from "../index.ts";
+import type { Decider, Sight } from "../decider.ts";
 
 /** The configured inputs from which a provider builds one decision session. */
 export interface OptionEvaluationInput {

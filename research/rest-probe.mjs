@@ -32,7 +32,7 @@ import { modelSpec } from "../src/core/bodies/models.ts";
 import { woodenClub } from "../src/core/bodies/items/club.ts";
 import { centreOfToRef } from "../src/core/bodies/read-motion.ts";
 import { standIntent } from "../src/skills/framework/intent.ts";
-import { createMind } from "../src/minds/minds.ts";
+import { createMind } from "../src/minds/seat/minds.ts";
 import { driveBy } from "../src/minds/decider.ts";
 import { standingSkills } from "../src/app/standing-skills.ts";
 import { createWorld } from "../src/core/world/world.ts";

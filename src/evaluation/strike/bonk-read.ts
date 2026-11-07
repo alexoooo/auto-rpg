@@ -1,3 +1,4 @@
+import { describeMind } from "../../minds/catalog/catalog.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import { acos } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
@@ -15,7 +16,6 @@ import type { BuiltBout } from "../bout.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import { uprightness } from "../../control/ground.ts";
 import { validBonkApproach, validBonkBoundary, validBonkCrossing, type BonkFixtureReading } from "./bonk-fixture.ts";
-import { describeMind } from "../../minds/description.ts";
 import { senseDelayOf } from "../../game/arena/duel.ts";
 
 type StrokeEnd = { readonly at: number; readonly reason: "endpoint" | "impact withdrawal" | "stroke deadline" | "preparation deadline" | "cancelled" };

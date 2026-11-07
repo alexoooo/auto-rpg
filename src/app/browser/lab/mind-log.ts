@@ -1,5 +1,5 @@
 import type { Hook } from "../../../core/bodies/step-host.ts";
-import type { HostedBody } from "../../../minds/hosted-body.ts";
+import type { HostedBody } from "../../../minds/seat/hosted-body.ts";
 import type { Skills } from "../../../skills/framework/skills.ts";
 import type { World } from "../../../core/world/world.ts";
 

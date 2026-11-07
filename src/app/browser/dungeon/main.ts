@@ -23,7 +23,7 @@ import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
 import { HUMANOID_MODELS, type BodyModel } from "../../../core/bodies/models.ts";
 import { defaultMind } from "../../catalog.ts";
-import type { MindConfig } from "../../../minds/config.ts";
+import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
 import type { Clothing } from "../render/skin-view.ts";

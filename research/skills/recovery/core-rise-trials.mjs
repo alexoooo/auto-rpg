@@ -14,7 +14,7 @@ import { centreOfToRef } from "../../../src/core/bodies/read-motion.ts";
 import { armed } from "../../../src/core/bodies/human/grip.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { woodenClub } from "../../../src/core/bodies/items/club.ts";
-import { builtAngles, createMind } from "../../../src/minds/minds.ts";
+import { builtAngles, createMind } from "../../../src/minds/seat/minds.ts";
 import { STAND_ORDERS } from "../../../src/minds/orders.ts";
 import { lieOf } from "../../../src/control/ground-reading.ts";
 import { RISE } from "../../../src/skills/recovery/implementations/staged/stages.ts";

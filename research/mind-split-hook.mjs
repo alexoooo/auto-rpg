@@ -8,7 +8,7 @@ const textOf = (source) => typeof source === "string" ? source : new TextDecoder
 
 export async function load(url, context, next) {
   const out = await next(url, context);
-  if (!url.endsWith("/src/minds/embodiment.ts")) return out;
+  if (!url.endsWith("/src/minds/seat/embodiment.ts")) return out;
   let source = textOf(out.source);
   for (const call of CALLS) {
     if (!call.test(source)) throw new Error("the mirror's phases no longer match the split timer");

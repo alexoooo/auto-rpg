@@ -21,8 +21,8 @@
  * gusts (`gusts`, `labGusts`: the Warrior's, scaled by the body's mass) and the seed of its mind's chance and the gusts (`seed`). Calm
  * air, no balance unless its character has one. A change here is a new protocol.
  */
-import { presetFitsModel } from "../../minds/controller.ts";
-import type { MindConfig } from "../../minds/config.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { Orders } from "../../minds/orders.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import { modelSpec, type BodyModel } from "../../core/bodies/models.ts";

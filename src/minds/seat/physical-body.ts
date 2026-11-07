@@ -1,9 +1,9 @@
-import type { BuiltBody } from "../core/bodies/build/build-body.ts";
-import type { Assist } from "../core/bodies/assist.ts";
-import type { Senses } from "../core/bodies/senses.ts";
-import type { BodyLevel, MuscleDriver } from "../core/bodies/muscle/driver.ts";
-import { observeBody, physicalReading, type BodyObservation } from "../control/observation.ts";
-import type { World } from "../core/world/world.ts";
+import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
+import type { Assist } from "../../core/bodies/assist.ts";
+import type { Senses } from "../../core/bodies/senses.ts";
+import type { BodyLevel, MuscleDriver } from "../../core/bodies/muscle/driver.ts";
+import { observeBody, physicalReading, type BodyObservation } from "../../control/observation.ts";
+import type { World } from "../../core/world/world.ts";
 
 /** The trusted body-side readings, independent of the mind's construction view. */
 export interface HeldReading {

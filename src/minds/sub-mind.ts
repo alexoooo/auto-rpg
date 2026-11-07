@@ -1,3 +1,4 @@
+import type { HostMind } from "./command-layers.ts";
 import { constructionScope } from "../core/construction.ts";
 import type { Body, BodyView, LayerOptions } from "../control/body.ts";
 import type { Clock } from "../core/world/clock.ts";
@@ -5,7 +6,6 @@ import { commandLayers } from "./command-layers.ts";
 import type { Mind, MindConstruction } from "./mind.ts";
 import type { OwnBody } from "../core/bodies/own-body.ts";
 import type { Senses } from "../core/bodies/senses.ts";
-import type { BodyControl } from "../core/bodies/body-control.ts";
 
 /** A computation that can take a body from its host. */
 interface SubMind extends Mind {
@@ -15,14 +15,6 @@ interface SubMind extends Mind {
   end(): void;
 }
 
-/** The host reads its body before deciding who controls it. */
-export interface HostMind extends Mind {
-  look(senses: Senses): void;
-  observe(control: BodyControl): void;
-  feel(): void;
-  release(reason?: "takeover" | "idle"): void;
-  resume(): void;
-}
 
 /** A sub-mind may observe completed physics through its host's ordered listeners. */
 export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock, afterPhysics: Body["afterPhysics"]) => MindConstruction<SubMind>;

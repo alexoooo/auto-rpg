@@ -1,5 +1,5 @@
-import type { MindConfig } from "../../../minds/config.ts";
-import { offered } from "../../../minds/controller.ts";
+import type { MindConfig } from "../../../minds/catalog/config.ts";
+import { offered } from "../../../minds/catalog/controller.ts";
 import { modelHolding, type BodyModel } from "../../../core/bodies/models.ts";
 import { modelInfo } from "../../../game/model-loadouts.ts";
 import { FIGHT_ENTRY, MINDS, modelRefusal, defaultMind } from "../../catalog.ts";

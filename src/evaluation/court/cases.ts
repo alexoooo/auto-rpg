@@ -9,15 +9,15 @@
 import { LEVELS } from "../../game/arena/levels.ts";
 import type { OrdersEntry } from "../../game/arena/duel.ts";
 import { loadoutKey } from "../../core/bodies/items/held.ts";
-import type { MindConfig } from "../../minds/config.ts";
-import { presetFitsModel } from "../../minds/controller.ts";
+import type { MindConfig } from "../../minds/catalog/config.ts";
+import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
 
 import { deepFreeze } from "../../core/state.ts";
 import { PHYSICS_HZ } from "../../core/world/world.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 
-import { FIGHT_ENTRY } from "../../minds/catalog.ts";
+import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { createDrillOpponents } from "../drill-opponents.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
 import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";

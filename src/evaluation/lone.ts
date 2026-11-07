@@ -13,7 +13,7 @@ import type { AttributeOverrides } from "../core/bodies/character-attributes.ts"
 import { enlist, type Combatant } from "../game/combatant.ts";
 import { loadEngine } from "../core/physics/engines.ts";
 import { EMPTY_LOADOUT, type Loadout } from "../core/bodies/items/held.ts";
-import type { MindConfig } from "../minds/config.ts";
+import type { MindConfig } from "../minds/catalog/config.ts";
 import type { Orders } from "../minds/orders.ts";
 import { cos, sin } from "../core/math/real.ts";
 import { createSenses } from "../core/world/senses.ts";

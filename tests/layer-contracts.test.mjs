@@ -9,7 +9,7 @@ import { createSenses } from "../src/core/world/senses.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import { Vector3, Quaternion } from "../src/core/math/vector.ts";
 import { freshEngine, coreStand } from "./harness/core-stand.mjs";
-import { embody } from "../src/minds/embodiment.ts";
+import { embody } from "../src/minds/seat/embodiment.ts";
 import { commandedMind } from "../src/minds/sub-mind.ts";
 import { driveBy } from "../src/minds/decider.ts";
 import { stockMotor } from "../src/app/stance-balance.ts";

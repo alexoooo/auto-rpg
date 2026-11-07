@@ -1,9 +1,9 @@
 import { isRefused } from "../core/refusal.ts";
 import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
 import type { Loadout } from "../core/bodies/items/held.ts";
-import type { MindConfig } from "../minds/config.ts";
+import type { MindConfig } from "../minds/catalog/config.ts";
 import { modelHoldingChecked, type BodyModel } from "../core/bodies/models.ts";
-import { catalogOf, type Catalog, type EntryRule } from "../minds/catalog.ts";
+import { catalogOf, type Catalog, type EntryRule } from "../minds/catalog/catalog.ts";
 import { toolkitLists } from "./toolkit.ts";
 import { ENTRANTS } from "./entrants.ts";
 
@@ -16,7 +16,7 @@ export const GAME: Catalog = catalogOf(() => {
 export const { controllers: CONTROLLERS, minds: MINDS, loadData, controllerOf, allParts, isKind, partOf, partLookup, treeLookup, treeFaults,
   treeObeys, treeData, kindsFor, replacedAt } = GAME;
 
-export { FIGHT_ENTRY, partIn, type EntryRule, type Offered } from "../minds/catalog.ts";
+export { FIGHT_ENTRY, partIn, type EntryRule, type Offered } from "../minds/catalog/catalog.ts";
 
 /** **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): its Option Mind. */
 const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({

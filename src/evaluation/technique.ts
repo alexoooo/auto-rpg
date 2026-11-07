@@ -4,7 +4,7 @@ import { supportHeight } from "../control/support-reference.ts";
 import type { BodyControl } from "../core/bodies/body-control.ts";
 import { Vector3 } from "../core/math/vector.ts";
 import { addArenaSolids } from "../game/arena/solids.ts";
-import { commandedBody } from "../minds/host.ts";
+import { commandedBody } from "../minds/seat/host.ts";
 import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { loadEngine } from "../core/physics/engines.ts";
 import { withLoadout, type Held } from "../core/bodies/items/held.ts";

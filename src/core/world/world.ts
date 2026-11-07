@@ -16,7 +16,7 @@ export const COMMAND_DELAY: Quantity<number> = sourced(1, "1", "owner-command-de
 
 /**
  * **Where a world's minds run apart from it**, as the world steps it: the place itself is the minds'
- * (`MindPlace`, `src/minds/apart.ts`); the world only sends, once its preparing hooks have
+ * (`MindPlace`, `src/minds/seat/apart.ts`); the world only sends, once its preparing hooks have
  * run, what they asked of the minds there, so the minds step together.
  */
 export interface MindsApart {
@@ -42,7 +42,7 @@ export interface World extends StepHost {
   /** Steps a second. */
   readonly hz: number;
   /**
-   * Where the minds a fight makes run (`MindPlace`, `src/minds/apart.ts`): apart from the
+   * Where the minds a fight makes run (`MindPlace`, `src/minds/seat/apart.ts`): apart from the
    * world, each on a mirror of its body, or, null, in the world's own thread on its mirror. A bout is
    * the same either way, step for step.
    */

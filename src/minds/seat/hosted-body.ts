@@ -1,4 +1,4 @@
-import type { Body, LayerOptions } from "../control/body.ts";
+import type { Body, LayerOptions } from "../../control/body.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import type { Embodying } from "./embodiment.ts";
 /**

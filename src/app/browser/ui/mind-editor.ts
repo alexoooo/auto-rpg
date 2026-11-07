@@ -1,9 +1,9 @@
+import { describeMind } from "../../../minds/catalog/catalog.ts";
 import { optionApplies } from "../../../minds/option/parts.ts";
-import { describeMind } from "../../../minds/description.ts";
 import { editorRow as row, editorPicker as picker, editorButton as button, partFieldInput as fieldInput } from "./editor-inputs.ts";
 import { techniqueEditor } from "./mind-ground.ts";
 import { GAME, isKind, kindsFor, partOf, partLookup, treeFaults, type EntryRule } from "../../catalog.ts";
-import type { MindConfig } from "../../../minds/config.ts";
+import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { partOffered, slotsOf, type Part, type PartConfig, type Slot } from "../../../parts/parts.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { mindFaults } from "../setup.ts";
