@@ -6,13 +6,13 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 
 ## The shape: one skill, one actor
 
-- **One actor steers the skill in every phase it covers.** For travel that is starting, holding a
-  pace, changing pace, turning and stopping. A phase the actor does badly gets more of the
-  curriculum's episodes. It never gets a second actor: switching between actors makes a handover,
+- **One actor steers the skill in every phase it covers**: for travel, starting, holding a pace,
+  changing pace, turning and stopping; for a blow, its approach, the strike and settling after it.
+  A phase the actor does badly gets more of the curriculum's episodes. It never gets a second actor: switching between actors makes a handover,
   and handovers are where the falls land.
 - **One environment trains it**, with episodes that mix every phase the current stage asks for.
-  An episode is a script of orders (go, change pace, turn, stop) played through the configured
-  Option Mind, as the game gives them.
+  An episode is a script of orders (for travel: go, change pace, turn, stop) played through the
+  configured Option Mind, as the game gives them.
 - **The actor corrects a native controller** (a gait, a stance, a schedule) and decides on the
   learner's interval (`src/core/math/learning/learner.ts`). The native controller under it stays
   fixed while it trains.
@@ -47,13 +47,19 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 - Output goes to `.tmp/<task>/<run>/`, never `research/runs/`.
 - Keep the defaults: PPO, 256 hidden, learning rate 3e-4, 20 M decisions (`--steps`), a kept
   checkpoint every 1 M (`--keep`). Change one only for a named reason.
+- **Set the config's `workers` to the machine's logical processors.** The server's default of 8
+  leaves most of a large machine idle, and the rate scales with workers.
 - **Price it from the first chunk**: train.log's decisions over its minutes gives the rate, and
-  20 M at that rate is the run's time. Hours are normal; time alone never stops a run.
-- **Do not judge before 2 M decisions.** Returns dip and recover in the first million. A
-  locomotion actor learns over 5 to 40 M decisions. A block of a few hundred thousand decisions
-  shows noise, not a result.
-- Read train.log's trend over the last few million decisions: falls (`down`) and shortfall should
-  fall. Read the trend, not the last line.
+  20 M at that rate is the run's time. Hours are normal; time alone never stops a run that is
+  still gaining.
+- **A run slower than 1 M decisions in 45 minutes is sped up before its question opens**: its
+  plateau (below) would outlast [the four-hour ceiling](../../AGENTS.md#doing-the-work), so the
+  run could never be judged. `--profile` shows whether the environment or the learner is the wait.
+- **Do not judge before 2 M decisions.** Returns dip and recover in the first million. An actor
+  learns over 3 to 50 M decisions, depending on the skill. A block of a few hundred thousand
+  decisions shows noise, not a result.
+- Read train.log's trend over the last few million decisions: the `--keywords` the gate reads
+  (for travel, falls `down` and shortfall) should improve. Read the trend, not the last line.
 - One run answers one question. A reward or curriculum change is a new run from a kept
   checkpoint, compared with the run before it at the same decisions on the same cases.
 
@@ -63,22 +69,30 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
    Training return does not choose: it can keep rising while the cases get worse.
 2. Take the best by the gate reading: falls first, then each gate's figure. The last checkpoint
    is often not the best.
-3. **Polish**: resume the best (`--resume`, `--lr 1e-4`) for 2 to 5 M decisions and screen again.
+3. **Polish**: resume the best into a new output for 2 to 5 M decisions and screen again:
+   `--resume .tmp/<task>/<run>/model-<n>.zip --output .tmp/<task>/<run>-polish --lr 1e-4 --steps 3000000`.
+   A checkpoint resumes only into another folder; decisions count on from its own.
 4. Compare the chosen checkpoint with the baseline, paired on the same cases
    (`npm run compare`). Keep it only if it gains without a loss elsewhere.
 
 ## The curriculum
 
-- Stages add phases in order: sustain the skill from reached states, then entry from rest and
-  changes, then stopping, then directions and turns, then loadouts and gusts.
-- Each stage resumes from the previous stage's chosen checkpoint and **keeps the earlier stages'
-  episodes in the mix**, so what was learned holds. Half the episodes from earlier stages is a
-  sound start.
+- Stages add phases in order: the skill's core act from reached states; then entering it, from
+  rest and from the acts that lead into it; then leaving it (stopping, settling); then its
+  variations (directions, targets, turns); then loadouts and disturbances (gusts). A plan names
+  its skill's stages in that order.
+- Each stage resumes from the previous stage's chosen checkpoint
+  (`--resume <checkpoint> --output <stage folder>` with the stage's config) and **keeps the
+  earlier stages' episodes in the mix**, so what was learned holds. Half the episodes from earlier
+  stages is a sound start.
 - A stage ends when its cases meet their gates on a screened checkpoint, or when it plateaus.
 
 ## Plateaus and changing direction
 
-- **A plateau** is 5 M decisions (five kept checkpoints) with no screened gain.
+- **A kept gain** is a screened checkpoint better than the best before it, by the order in
+  [Choosing a checkpoint](#choosing-a-checkpoint). It restarts both the plateau count and the
+  four-hour ceiling's clock.
+- **A plateau** is 5 M decisions (five kept checkpoints) with no kept gain.
 - On a plateau, check the environment before anything else: parity, reached starts, a reward
   that reads what the gate reads, and episodes that contain the failing case. Most plateaus are
   an environment that never shows the actor the case it fails.
@@ -105,36 +119,3 @@ dropped run keeps nothing; its reading goes in the commit message.
   longer fits, and the reading blames the fix.
 - Infrastructure work in the middle of a training question: finish or pause the question first,
   and retrain after it (step 3 of the first section).
-
-## Review feedback
-
-These are advisory observations and suggestions for review, not changes to the instructions above.
-
-This recipe and the [Warrior travel plan](../plans/2026-11-05-warrior-travel.md) give a concrete path toward
-progress. One actor across travel phases removes specialist-actor handovers; sustained training
-budgets discourage abandoning runs on noisy returns; checkpoint selection by capability gates
-keeps training reward from deciding success. Training through the configured Option Mind and
-checking timing parity make the evidence relevant to the game.
-
-The plan's first watched milestone, forward running and stopping, gives useful work to land
-before every direction and loadout is solved. Preserving recovery without requiring its separate
-ten-second target first keeps a meaningful guard without making that target an entry requirement.
-
-Three practical concerns to consider:
-
-- **Bootstrap order:** the travel plan asks for entry from rest before the unified environment,
-  while the curriculum begins with reached moving states. Consider explicitly allowing that
-  reached-state curriculum during restoration if entry training stalls. This would not establish
-  that entry meets its gate.
-- **Budget precedence:** a five-million-decision plateau can take longer than the repository's
-  four-hour limit without a kept gain. Consider stating which rule governs that situation,
-  including when the limit arrives before the initial two-million-decision allocation finishes.
-- **Checkpoint selection:** `--resume` loads the output directory's `model.zip` and
-  `normalize.pkl`; it does not select a numbered checkpoint. Consider specifying how to stage
-  the chosen `model-<n>.zip` and matching `normalize-<n>.pkl` under those names, together with
-  `layout.json`, in the next run's output directory.
-
-Decision counts are starting budgets, not evidence that a run succeeds. One actor removes
-specialist handovers but still needs a working controller and an environment that exposes the
-failing cases. The recipe supplies enough direction to make modelling and training choices
-without asking the owner to make them; execution remains the agent's responsibility.
