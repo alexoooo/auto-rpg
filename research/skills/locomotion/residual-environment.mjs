@@ -5,7 +5,7 @@
  * Configuration's optional `braking` file overrides the running cycle's braking settings.
  * `cycleTuning` supplies immutable running-cycle overrides for joint trajectory searches.
  * `rewardPace` selects the training target without changing the order. Progress credit is capped
- * at the target; stopping uses Gaussian tracking. `fallPenalty` covers falls and corridor exits.
+ * at the target; stopping tracks total horizontal speed. `fallPenalty` covers falls and corridor exits.
  * `controlTrace` pairs the run's phase change with the contact input of that control decision.
  * `frozenSteeringPolicy` preserves a steering teacher at policy-decision cadence while a
  * velocity residual learns individual joint corrections, optionally over a frozen reference.
@@ -351,9 +351,10 @@ export async function residualEnvironment(configuration = {}) {
     const effort = control.action.reduce((sum, x) => sum + x * x, 0) / 12;
     const currentRewardPace = o.rewardPace ?? o.pace;
     const target = control.stopOrder ? 0 : o.paceRelativeShare ? skill.pace : currentRewardPace;
-    const width = o.paceRelativeShare && along < target ? Math.max(.1, o.paceRelativeShare * target) : o.speedWidth;
+    const trackedSpeed = control.stopOrder ? Math.sqrt(velocity.x ** 2 + velocity.z ** 2) : along;
+    const width = o.paceRelativeShare && trackedSpeed < target ? Math.max(.1, o.paceRelativeShare * target) : o.speedWidth;
     const speedCredit = o.speedReward === 'progress' && !control.stopOrder ? Math.min(1, along / currentRewardPace)
-      : exp(-(((along - target) / width) ** 2));
+      : exp(-(((trackedSpeed - target) / width) ** 2));
     const reward = speedCredit + .15 * up.y - .1 * velocity.x ** 2 - .05 * off ** 2
       - .005 * effort - (down || off > 1 ? o.fallPenalty : 0);
     return { observation: observation.slice(), reward, ...(samples ? { samples } : {}), terminated: down || off > 1 || (episode.everRan && !skill.state.walkRun.running && !control.stopOrder),

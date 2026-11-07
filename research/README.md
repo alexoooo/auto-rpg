@@ -49,6 +49,8 @@ prefix. Set `stopOnReset: true` with `fromRestShare: 0` to issue the stop after 
 trajectory; `cacheWarmStarts` caches those physical states. The prefix and its teachers remain
 fixed while the braking actor learns. Confirm stop entry speed separately with the complete
 running-prefix replay.
+Stopping credit tracks total horizontal centre-of-mass speed; the gate still requires a complete
+quiet standing interval, and checkpoint selection uses that physical reading.
 
 For running-only development, `--period-range low,high` trains cadence jointly with the
 trajectory coefficients; `--ahead-range low,high` also trains playback lead. Quote range arguments
