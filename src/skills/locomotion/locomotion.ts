@@ -66,6 +66,8 @@ export const validCarriage = (carriage: Carriage): boolean =>
 const CARRIAGE_STILL = 0.1;
 /** Requested horizontal plan speed during an idle placement's weight shift, m/s. */
 const IDLE_SHIFT_SPEED = 0.1;
+/** Mean stationary foot speed, m/s, keeping the leg reaction quiet while the other sole bears. */
+const IDLE_FOOT_SPEED = 0.5;
 
 /** A carriage's stride at its requested width, cached per stride and carriage. */
 const carriageSteps = new WeakMap<GaitTuning, WeakMap<Carriage, GaitTuning>>();
@@ -308,7 +310,7 @@ interface LocomotionState extends LegsMemory {
   placed: boolean;
   /** Where the carriage's feet stand, taken where the walk last stopped; null walking, or in a carriage of no width. */
   stood: Footing | null;
-  idle: { seconds: number; target: Footing | null };
+  idle: { seconds: number; target: Footing | null; centre: [number, number] | null };
   /** The centre and the height its last stance goal asked, world (x, z) and over the soles, m; null where it asked none. */
   asked: readonly [number, number] | null;
   askedHeight: number | null;
@@ -346,7 +348,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
   if (!validCarriage(carriage)) throw new Error("locomotion carriage needs a positive width or none, and a finite stagger and lowering");
-  const state: LocomotionState = { reference: null, rising: null, carriage, heading: 0, pace: 0, going: 0, placing: null, placed: false, stood: null, idle: { seconds: 0, target: null },
+  const state: LocomotionState = { reference: null, rising: null, carriage, heading: 0, pace: 0, going: 0, placing: null, placed: false, stood: null, idle: { seconds: 0, target: null, centre: null },
     asked: null, askedHeight: null, unmet: { ...ALL_MET }, ...(turnStartup ? { walkTime: 0 } : {}) };
   const names = Object.freeze(Object.keys(feet)), legs = stanceLegs(state, names);
   /** The stance's foot on each side, by name (`StanceFeet`). */
@@ -406,8 +408,11 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     const off = (foot: Side): number => placing.stepped[foot] ? 0 : error(foot);
     const foot: Side = off("left") >= off("right") ? "left" : "right";
     if (off(foot) <= near) { state.placed = true; return base; }
-    placing.step = { foot: ends[foot], to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true,
-      ...(shiftSpeed === undefined ? {} : { shiftSpeed }) };
+    // Stationary placement carries the foot gently as well as shifting the body gently.
+    const seconds = shiftSpeed === undefined ? STANCE_GAIT.seconds
+      : Math.max(STANCE_GAIT.seconds, apart([soleOf(view, foot).x, soleOf(view, foot).z], placing.footing[foot]) / IDLE_FOOT_SPEED);
+    placing.step = { foot: ends[foot], to: placing.footing[foot], seconds, lift: STANCE_GAIT.lift, shift: true,
+      ...(shiftSpeed === undefined ? {} : { shiftSpeed, capture: "hold" as const }) };
     placing.lifted = false;
     return { ...base, swing: placing.step };
   };
@@ -427,7 +432,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
       state.placing = null;
       state.placed = false;
       state.stood = null;
-      state.idle.seconds = 0; state.idle.target = null;
+      state.idle.seconds = 0; state.idle.target = null; state.idle.centre = null;
       state.asked = null;
       state.askedHeight = null;
       state.unmet.fields = ALL_MET.fields; state.unmet.centre = 0; state.unmet.height = 0;
@@ -445,7 +450,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
       const leaves = setIn(goal, FIELD_BIT.gait | (goal.walk && !goal.footing ? FIELD_BIT.heading : 0)
         | (goal.carriage !== undefined && carriage === undefined ? FIELD_BIT.carriage : 0));
       unmet.fields = fieldsOf(leaves | refused);
-      if (carriage !== undefined && carriage !== state.carriage) { state.carriage = carriage; state.stood = null; state.idle.target = null; state.idle.seconds = 0; state.placing = null; }
+      if (carriage !== undefined && carriage !== state.carriage) { state.carriage = carriage; state.stood = null; state.idle.target = null; state.idle.centre = null; state.idle.seconds = 0; state.placing = null; }
       const held = state.carriage;
       let stance: StanceGoal | null;
       const settles = idleGoal(view, goal, dt, context);
@@ -478,7 +483,24 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     const free = idleFooting && state.carriage.width === null && !view.down && context?.idleSettle !== false && goal.footing === undefined
       && goal.feet === undefined && goal.height === undefined && goal.heading === undefined && goal.centre === undefined
       && goal.pose === undefined && goal.swing === undefined && !goal.halt;
-    const reset = (): void => { if (idle.target) state.placing = null; idle.target = null; idle.seconds = 0; };
+    const reset = (): void => { if (idle.target) state.placing = null; idle.target = null; idle.centre = null; idle.seconds = 0; };
+    const boundedPlacement = (): StanceGoal | null => {
+      const result = place(view, idle.target!, undefined, Math.min(PLACING.near, idleFooting!.length / 8), 0.05, IDLE_SHIFT_SPEED);
+      if (!result) return null;
+      idle.centre ??= [s.plan.x, s.plan.z];
+      if (s.phase !== "stand") { idle.centre[0] = s.plan.x; idle.centre[1] = s.plan.z; }
+      else if (state.placed) {
+        // After landing, approach the new support centre rather than snapping the stand's goal
+        // to it. The placement remains active until this final weight shift has settled.
+        const dx = s.support.x - idle.centre[0], dz = s.support.z - idle.centre[1], distance = hypot(dx, dz);
+        const share = distance > 0 ? Math.min(dt / STANCE_GAIT.seconds, IDLE_SHIFT_SPEED * dt / distance) : 0;
+        idle.centre[0] += share * dx; idle.centre[1] += share * dz;
+      }
+      const centre = [idle.centre[0], idle.centre[1]] as const;
+      if (state.placed && still(view) && apart(centre, [s.support.x, s.support.z]) <= PLACING.near
+        && apart([s.plan.x, s.plan.z], [s.support.x, s.support.z]) <= PLACING.near) reset();
+      return { ...result, centre };
+    };
     if (!free) { reset(); return null; }
     if (idle.target && s.own) {
       // A catch owns the step until it lands; the placement's own weight shift can lag its plan.
@@ -490,9 +512,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
       reset(); return null;
     }
     if (idle.target) {
-      const result = place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05, IDLE_SHIFT_SPEED);
-      if (state.placed) reset();
-      return result;
+      return boundedPlacement();
     }
     if (state.rising || !still(view) || names.some((end) => !s.ends[end]!.touching) || s.own) { idle.seconds = 0; return null; }
     idle.seconds = Math.min(0.2, idle.seconds + dt);
@@ -516,8 +536,9 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     // A catch can turn the pelvis: settle under its current facing rather than twisting back over planted feet.
     state.heading = h;
     idle.target = target;
+    idle.centre = [s.plan.x, s.plan.z];
     state.placing = { footing: target, stepped: { left: stays === "left", right: stays === "right" }, step: null, lifted: false };
-    return place(view, target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05, IDLE_SHIFT_SPEED);
+    return boundedPlacement();
   }
 
   /** Whether the body stands still enough to take its carriage's footing: no step under way, and slower than `CARRIAGE_STILL`. */

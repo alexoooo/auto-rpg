@@ -45,6 +45,8 @@ interface StanceState {
   /** The step under way: its swing, the time since its foot left the ground, where, how and how fast the foot left it, and the turn asked of it now. */
   readonly step: {
     swing: SwingGoal | null;
+    /** The stationary swing's capture point at lift-off; null until its first swing command. */
+    capturePoint: [number, number] | null;
     lifted: boolean;
     /** Whether the pivot the plan falls about has been chosen in the step's phase under way (`planAcross`): within the horizon of the phase's end it is held. */
     pivoted: boolean;
@@ -177,7 +179,7 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
   const pace: [number, number] = [0, 0], resolved = resolveStance(tuning);
   const state: StanceState = {
     gait: resolved.gait, pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
-    step: { swing: null, lifted: false, pivoted: false, time: 0, met: false, held: 0, off: Infinity, catching: false, recovering: false, facing: null, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
+    step: { swing: null, capturePoint: null, lifted: false, pivoted: false, time: 0, met: false, held: 0, off: Infinity, catching: false, recovering: false, facing: null, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
       shift: { now: [0, 0], capture: [0, 0], centre: [0, 0] } },
     plan: { on: false, at: new Vector3(), velocity: new Vector3(), missed: new Vector3() },
     reading: { centre: new Vector3(), velocity: new Vector3(), momentum: new Vector3(), support: new Vector3(), place: new Vector3(),

@@ -86,9 +86,9 @@ export interface SwingGoal {
   /**
    * Where the capture point is brought by the time the foot lands, world (x, z), m: the pivot the
    * body falls about in the bearing sole is chosen for it. None, and the middle of the stance the
-   * step lands in.
+   * step lands in. `hold` retains the capture point at lift-off for a stationary placement.
    */
-  readonly capture?: readonly [number, number];
+  readonly capture?: readonly [number, number] | "hold";
   /**
    * A walk's double support before the lift, s (`transferStep`): both soles bear, and the foot lifts
    * when it is over, not on the capture point; the plan brings its capture point to `handover` by then.
@@ -330,7 +330,8 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     swingBowToRef(from, swing!.to, bearer!.middle, bearer!.ends.front.middle, bearer!.ends.heel.middle, clearAlong(bearer!, foot, gait.clearance), clearAcross(foot, gait.clearance), sideOf(foot, goal.heading), bow);
     swingShiftToRef(foot.leg, foot.ankle, foot.back, goal.heading, hipAt, reading.centre, swing!, bow, from, step.lifted ? step.time : 0,
       reading.place, r, u, w, s.parts().mass * gravityOf(s), progress, path, along, accel, shiftWork, step.shift);
-    const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
+    if (swing!.capture === "hold") step.capturePoint ??= [r.x + u.x / w, r.z + u.z / w];
+    const [tx, tz] = swing!.capture === "hold" ? step.capturePoint! : swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
     const { capture: [cx, cz], now: [nx, nz] } = step.shift;
     if (left >= gait.horizon || !step.pivoted) {
       const grow = exp(w * Math.max(left, PIVOT_FLOOR));
@@ -398,10 +399,18 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
   const floors: [FootState, number, SoleEnd][] = [];
   let landX = r.x, landZ = r.z;
   if (reading.phase === "swing") {
-    const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - (step.lifted ? step.time : 0), 0), ch = cosh(w * left), sh = sinh(w * left);
-    // Where the plan comes to as the foot lands, the swing leg's reaction in it (`swingShiftToRef`).
-    landX = reading.place.x + (r.x - reading.place.x) * ch + u.x / w * sh - step.shift.centre[0];
-    landZ = reading.place.z + (r.z - reading.place.z) * ch + u.z / w * sh - step.shift.centre[1];
+    const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - (step.lifted ? step.time : 0), 0);
+    if (swing!.capture === "hold" && step.capturePoint) {
+      // With a fixed capture point the centre approaches it on the stable pendulum trajectory.
+      // Extrapolating the current pressure point instead predicts a fall during a long placement.
+      const remaining = exp(-w * left);
+      landX = step.capturePoint[0] + (r.x - step.capturePoint[0]) * remaining;
+      landZ = step.capturePoint[1] + (r.z - step.capturePoint[1]) * remaining;
+    } else {
+      const ch = cosh(w * left), sh = sinh(w * left);
+      landX = reading.place.x + (r.x - reading.place.x) * ch + u.x / w * sh - step.shift.centre[0];
+      landZ = reading.place.z + (r.z - reading.place.z) * ch + u.z / w * sh - step.shift.centre[1];
+    }
   }
   for (const foot of reading.phase === "swing" ? feet : stance) {
     const [hip, knee, ankle] = foot.chain;
@@ -481,8 +490,15 @@ function shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | und
     const c = reading.centre, vel = reading.velocity, g = gravityOf(s);
     // The height's floor, 1 mm, is a numeric setting.
     const w = Math.sqrt(g / Math.max(height, 1e-3)), cx = c.x + vel.x / w, cz = c.z + vel.z / w;
-    const [hx, hz] = withinSupport([bearingOf(bearer!)], cx, cz, 0);
-    if (hx === cx && hz === cz) reading.phase = "swing";
+    // A stationary placement needs the capture reserve used by standing, rather than lifting
+    // at the outer edge and immediately asking the stance to catch its own step.
+    const [hx, hz] = swing!.capture === "hold" ? withinSupport([bearingOf(bearer!)], cx, cz) : withinSupport([bearingOf(bearer!)], cx, cz, 0);
+    if (hx === cx && hz === cz) {
+      if (swing!.capture === "hold") {
+        const [mx, mz] = withinSupport([bearingOf(bearer!)], c.x, c.z);
+        if (mx === c.x && mz === c.z) reading.phase = "swing";
+      } else reading.phase = "swing";
+    }
   }
 }
 
@@ -697,6 +713,7 @@ function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
     step.pivoted = false;
     step.held = 0;
     step.off = Infinity;
+    step.capturePoint = null;
     reading.phase = swing.shift === false ? "swing" : "shift";
   }
   return swing;
@@ -921,6 +938,7 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       step.time = 0;
       step.held = 0;
       step.off = Infinity;
+      step.capturePoint = null;
       step.catching = false;
       step.recovering = false;
       step.facing = null;
