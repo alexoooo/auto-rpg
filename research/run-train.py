@@ -5,8 +5,10 @@ a bare mind's `network`): ReLU layers with explicit clipped observation normalis
 tanh on the outputs (PPO's mean, which the environment squashes; SAC's squashed mean, tanh of its
 mean layer). Each line of train.log has the mean of each of `--keywords` over the episodes lately
 ended, of those that have it. The latest policy is policy.json, and every `--keep` steps a copy
-stays as policy-<steps>.json: the training return does not choose a policy (a run's return can go
+stays as policy-<steps>.json with its model-<steps>.zip and normalize-<steps>.pkl for resuming:
+the training return does not choose a policy (a run's return can go
 on rising as its battery falls), its battery does.
+The configuration's `seed` seeds the learner as well as the Node environments.
 
 `--start` begins from a trained network (an exported `Network`, or a record whose one entry holds
 a `network`, assets/skills/strikes/<blow>/<blow>.json), its inputs and outputs matched to this run's by name
@@ -21,6 +23,8 @@ far (`progress`), which an environment's curriculum reads.
 
 `--gamma` sets discount per environment decision and `--gae-lambda` PPO's advantage horizon.
 A resume keeps the saved horizons; explicit values must match the checkpoint.
+`--freeze-normalization` holds observation and reward statistics after initialization, including
+through resumed training, so transfer to a new episode distribution does not shift the actor's inputs.
 
 SAC's updates run on the GPU (`--device cuda`) from .tools/ai-lab-cuda-venv, ai-lab-venv's packages
 with CUDA's torch: `python -m venv .tools/ai-lab-cuda-venv`, then its pip installs
@@ -64,6 +68,8 @@ parser.add_argument('--batch', type=int, default=None, help='a gradient step\'s 
 parser.add_argument('--gradient-steps', type=int, default=8, help='SAC: gradient steps each message (of every environment\'s decision)')
 parser.add_argument('--buffer', type=int, default=1_000_000, help='SAC: decisions the replay buffer holds')
 parser.add_argument('--device', default='cpu')
+parser.add_argument('--profile', action='store_true', help='report environment wait, learner and checkpoint wall time per chunk')
+parser.add_argument('--freeze-normalization', action='store_true', help='keep observation and reward statistics fixed after initialization when transferring a trained actor')
 options = parser.parse_args()
 if options.gamma is not None and not 0 < options.gamma < 1:
     parser.error('--gamma is between zero and one')
@@ -86,6 +92,7 @@ class RunEnvs(VecEnv):
     def __init__(self, config):
         self.server_log = (output / 'server.log').open('a')
         self.server = None
+        self.environment_seconds = 0.0
         try:
             self.server = subprocess.Popen(['node', 'research/run-learning-server.mjs', config], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                            stderr=self.server_log, text=True, bufsize=1)
@@ -106,8 +113,11 @@ class RunEnvs(VecEnv):
         return answer
 
     def _call(self, message):
+        started = time.perf_counter() if options.profile and message['op'] == 'step' else None
         self.server.stdin.write(json.dumps(message) + '\n'); self.server.stdin.flush()
-        return self._receive()
+        answer = self._receive()
+        if started is not None: self.environment_seconds += time.perf_counter() - started
+        return answer
 
     def progress(self, decisions):
         self._call({'op': 'progress', 'decisions': int(decisions)})
@@ -284,11 +294,11 @@ try:
     else:
         if squashed:
             model = SAC('MlpPolicy', envs, device=options.device, buffer_size=options.buffer, batch_size=options.batch or 512, learning_rate=options.lr, gamma=gamma, tau=0.005,
-                        learning_starts=0 if options.start else 10_000, train_freq=1, gradient_steps=options.gradient_steps, ent_coef='auto_0.1', verbose=0,
+                        learning_starts=0 if options.start else 10_000, train_freq=1, gradient_steps=options.gradient_steps, ent_coef='auto_0.1', verbose=0, seed=configuration.get('seed', 1),
                         policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
         else:
             model = PPO('MlpPolicy', envs, device=options.device, n_steps=options.rollout, batch_size=options.batch or 4096, n_epochs=5, learning_rate=options.lr, gamma=gamma, gae_lambda=gae_lambda,
-                        clip_range=0.2, ent_coef=0.0, target_kl=0.03, verbose=0,
+                        clip_range=0.2, ent_coef=0.0, target_kl=0.03, verbose=0, seed=configuration.get('seed', 1),
                         policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
         if options.start:
             if not options.start_layout: raise SystemExit('a start names its layout (--start-layout)')
@@ -309,19 +319,32 @@ try:
             # The critic has learnt; the policy, held meanwhile, is written again through the normalisation as it now reads.
             write_start(model, envs, layers, first=False); layers = None
         if layers is not None and 'normalization' in layers: envs.training = not held
+        if options.freeze_normalization: envs.training = False
         hold_policy(model, held)
         monitored.venv.progress(model.num_timesteps)
+        chunk_started = time.perf_counter()
+        environment_before = server_envs.environment_seconds
         model.learn(chunk, reset_num_timesteps=False, progress_bar=False)
+        learned_at = time.perf_counter()
         done += chunk
         infos = model.ep_info_buffer
         model.save(str(saved)); envs.save(str(output / 'normalize.pkl')); export(model, envs, output / 'policy.json')
         if model.num_timesteps // options.keep > (model.num_timesteps - chunk) // options.keep:
             export(model, envs, output / f'policy-{model.num_timesteps}.json')
+            model.save(str(output / f'model-{model.num_timesteps}.zip'))
+            envs.save(str(output / f'normalize-{model.num_timesteps}.pkl'))
         spread = float(torch.exp(model.policy.log_std.detach()).mean()) if not squashed else float(torch.exp(model.log_ent_coef.detach()).item())
         line = {'steps': int(model.num_timesteps), 'minutes': round((time.monotonic() - started) / 60, 1),
                 'return': round(float(np.mean([i['r'] for i in infos])), 2) if infos else None, 'length': round(float(np.mean([i['l'] for i in infos])), 1) if infos else None,
                 **{k: (round(float(np.mean([float(i[k]) for i in infos if i.get(k) is not None])), 3) if any(i.get(k) is not None for i in infos) else None) for k in keywords},
                 ('entropy' if squashed else 'std'): round(spread, 3), **({'critic': True} if held else {})}
+        if options.profile:
+            checkpoint_at = time.perf_counter()
+            environment_seconds = server_envs.environment_seconds - environment_before
+            line['profile'] = {'environmentSeconds': round(environment_seconds, 3),
+                               'learnerSeconds': round(learned_at - chunk_started - environment_seconds, 3),
+                               'checkpointSeconds': round(checkpoint_at - learned_at, 3),
+                               'decisionsPerSecond': round(chunk / (checkpoint_at - chunk_started), 1)}
         log.write(json.dumps(line) + '\n'); log.flush(); print(json.dumps(line), flush=True)
     if squashed: model.save_replay_buffer(str(output / 'replay.pkl'))
 finally:

@@ -43,6 +43,15 @@ The candidate receives its worst case's score, and rows retain every case's entr
 Partial braking survival credits only time after the stop order. An unreached deadline has no
 speed reading.
 
+For PPO braking episodes, `warmPolicy` names a frozen residual actor that plays the moving-start
+prefix. Set `stopOnReset: true` with `fromRestShare: 0` to issue the stop after setup and use
+`seconds` for the braking interval. `warmStarts` selects pace/time pairs on that actor's reached
+trajectory; `cacheWarmStarts` caches those physical states. The prefix and its teachers remain
+fixed while the braking actor learns. Confirm stop entry speed separately with the complete
+running-prefix replay.
+Stopping credit tracks total horizontal centre-of-mass speed; the gate still requires a complete
+quiet standing interval, and checkpoint selection uses that physical reading.
+
 For running-only development, `--period-range low,high` trains cadence jointly with the
 trajectory coefficients; `--ahead-range low,high` also trains playback lead. Quote range arguments
 to preserve their decimal bounds in PowerShell. The checkpoint's best reading records the selected

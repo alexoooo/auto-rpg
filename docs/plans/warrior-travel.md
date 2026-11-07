@@ -87,8 +87,8 @@ headings between the eight training directions to check the envelope's interpola
    [readings](../../src/evaluation/locomotion/read.ts) and
    [table judge](../../src/evaluation/table/judge.ts) as the starting implementation; add explicit
    travel protocols and readings for the contracts above. Keep older protocol evidence distinct.
-2. Retrain the forward gait on the toed Warrior until acceleration, sustained speed and stopping
-   meet their gates. Repair demonstrated controller or contact defects at their owning layer.
+2. Retrain the forward gait on the toed Warrior using the curriculum below until acceleration,
+   sustained speed and stopping meet their gates. Repair demonstrated controller or contact defects at their owning layer.
    A body change follows a measured anatomical limit and is sourced for the requested result.
    Establish a toe replacement on a mechanical fixture before whole-body integration: its passive
    torque law, ground clearance, support reactions and convergence across physics rates, with the
@@ -110,10 +110,44 @@ headings between the eight training directions to check the envelope's interpola
 
 Develop on one body, one loadout and calm air before widening. Each run answers one named
 question, with its consequence stated before play. Price searches from their first trials and
-follow the time limits, saved-row reuse and paired comparison rules in
+follow the run-review, saved-row reuse and paired comparison rules in
 [AGENTS.md](../../AGENTS.md#doing-the-work). Fix downstream defects exposed by a correction in the
 same change. Read shared changes on every affected body and retain recovery and fighting-walk
 comparisons; existing shortfalls remain named rather than being treated as passes.
+
+## Training curriculum
+
+Recover the retained learned runner's configuration, reward, observation layout, action timing,
+normalisation and checkpoints before choosing a new learner. Replay its seed on the current
+body, then use its moving-start and speed-range curriculum as the starting training recipe.
+Keep body, engine and controller differences explicit; a historical speed is not a current
+capability reading. Compare a changed learning method against this recipe before replacing it.
+
+1. **Sustained running.** Train from physically reached moving states at several gait phases,
+   on both stepping legs. Sample warm-up speeds from 1 to 4.5 m/s where reachable, episode
+   starts from 2 to 9 s, and requested speeds from 1.4 to 6.5 m/s. Unreached warm-up states are
+   reported and excluded, never manufactured by setting velocity. Widen the reachable states
+   as the gait improves. Use pace-relative shortfall credit to provide a training gradient,
+   and judge saved checkpoints by physical speed, falls and corridor error on retained cases.
+2. **Entry and speed changes.** Extend requested speeds down to 0.9 m/s to exercise the
+   walk-to-run handover, add from-rest episodes, and train acceleration and changes of pace.
+   Retain moving-start episodes so entry work preserves sustained running. Polish a promising
+   checkpoint at a lower learning rate rather than assuming the final checkpoint is best.
+3. **Braking and manoeuvres.** Add stops, directional orders and turns from reached speeds,
+   retaining straight running and entry cases. Widen to loadouts and gusts as the work above
+   specifies; keep fresh confirmation cases separate from training and checkpoint selection.
+
+These are development stages, not acceptance gates. A moving-start run does not prove entry
+from rest; a higher requested speed does not satisfy a lower order that the configured Mind
+must obey. Confirmation uses the actual orders, complete speed windows and deadlines in the
+movement contract, including the stop and recovery guards. Training rewards and tolerances
+never change those requirements.
+
+Price each training block from its measured throughput and state its cumulative decision count,
+initial checkpoint and stopping budget. Compare checkpoint trends in survival and sustained
+speed separately. A short plateau does not establish an anatomical ceiling; longer work follows
+the run-review rule above. Retain full models, normalisation, configurations
+and replay rows so the next block can reproduce and resume the selected checkpoint exactly.
 
 ## Completion
 
