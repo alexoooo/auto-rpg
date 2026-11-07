@@ -16,7 +16,7 @@ import { configurationCode } from "../../core/bodies/build/configurations.ts";
  *   (`attachment`), 0 once it is cut off.
  */
 
-export const FRAME_HEAD = 4;
+const FRAME_HEAD = 4;
 export const BODY_HEAD = 6;
 export const SEGMENT_ROW = 10;
 

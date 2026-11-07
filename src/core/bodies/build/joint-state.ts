@@ -116,7 +116,7 @@ const abc: [number, number, number] = [0, 0, 0];
  * cross-product matrix of t. A locked axis has t at zero, so a joint of fewer freedoms reads the
  * leading rows and columns: of two, the diagonal w^2 (1 + t_k^2). At no angles this is the identity.
  */
-export function turningToRef(joint: JointKinematics, angles: readonly number[], out: number[][]): number[][] {
+function turningToRef(joint: JointKinematics, angles: readonly number[], out: number[][]): number[][] {
   const half = scratch.half;
   half[0] = halfTan(joint, angles, 0); half[1] = halfTan(joint, angles, 1); half[2] = halfTan(joint, angles, 2);
   return turningOfHalfTansToRef(joint, half, 0, out);

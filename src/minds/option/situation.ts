@@ -20,7 +20,7 @@ import { riseMemory } from "./rise-memory.ts";
  * through `ordersOf`, its Options' record of their tries (`record`; absent, none), whose ending a try its rise memory
  * reads (`riseMemory`), and the lookup its percept and prediction parts are found by (`parts`).
  */
-export interface Reading {
+interface Reading {
   readonly spec: BodySpec;
   readonly hz: number;
   /** The rate its mind decides at, Hz (`OptionMindConfig.rate`); the world's unless given. */

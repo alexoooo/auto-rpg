@@ -1,7 +1,7 @@
 import { choice, number, type PartField } from "../../parts/fields.ts";
 
 /** Shared conditions read detached facts of the fight. */
-export type ConditionConfig = { readonly kind: "always" | "when-standing" | "target-down" }
+type ConditionConfig = { readonly kind: "always" | "when-standing" | "target-down" }
   | { readonly kind: "when-distance"; readonly of: "foe" | "destination" | "ally"; readonly than: "under" | "over"; readonly metres: number }
   | { readonly kind: "follow-up"; readonly seconds: number };
 

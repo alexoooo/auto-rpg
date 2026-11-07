@@ -119,7 +119,7 @@ export const cryptSpec = (character: { readonly spec: BodySpec }, model: BodyMod
  * person's lead applied; `cues` is given what a blow takes
  * off where the party sees.
  */
-export async function buildCryptRun(context: GameContext, start: CryptStart, { cues = [], minds: makeMinds }: StageRuntime & { readonly cues?: SoundCue[] } = {}) {
+async function buildCryptRun(context: GameContext, start: CryptStart, { cues = [], minds: makeMinds }: StageRuntime & { readonly cues?: SoundCue[] } = {}) {
   const { defaultMind } = context, { treeData, loadData } = context.catalog;
   const layout = start.layout ? structuredClone(start.layout) : runMap(start);
   if (isRefused(layout)) return layout;

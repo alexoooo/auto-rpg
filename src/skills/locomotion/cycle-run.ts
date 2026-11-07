@@ -151,7 +151,7 @@ interface Leg {
 }
 
 /** **What the run remembers.** */
-export interface RunCycleMemory {
+interface RunCycleMemory {
   /** The left leg's phase, turns, and how long the phase has waited for a landing, s. */
   phase: number;
   waited: number;
@@ -174,7 +174,7 @@ export interface RunCycleMemory {
 }
 
 /** Feedback offsets on the swinging and bearing legs, pelvis, cadence, blend pace and effort. */
-export interface RunSteer {
+interface RunSteer {
   swingHip: number; swingOut: number; swingKnee: number; swingAnkle: number;
   stanceKnee: number; stanceAnkle: number; stanceRoll: number;
   lean: number; bank: number; cadence: number; pace: number; effort: number;

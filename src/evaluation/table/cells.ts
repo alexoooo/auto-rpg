@@ -21,7 +21,7 @@ export const TABLE_BODIES: readonly HumanoidModel[] = Object.freeze(["workshop-f
 export const TABLE_LOADOUTS: readonly Loadout[] = REPRESENTATIVE;
 
 /** The mind every cell reads: Option Mind's preset. */
-export const TABLE_MIND = "option";
+const TABLE_MIND = "option";
 
 /**
  * **How a reading is judged**: met or short (`verdictOf`): the stand-up target's gates on one body
@@ -31,8 +31,6 @@ export const TABLE_MIND = "option";
  * by the share of blows that touch the body the buckler meets first (`buckler`).
  */
 export type MetJudge = "target" | "run" | "travel";
-
-export type ScoreJudge = "landed" | "on-body" | "walk" | "buckler";
 
 /**
  * **What a strike's score reads of its hit** (`StrikeHit`): a fist's speed over its last run in
@@ -55,7 +53,7 @@ interface ReadingOf<J> {
   readonly byLoadout?: true;
 }
 
-export type MetReading = ReadingOf<MetJudge>;
+type MetReading = ReadingOf<MetJudge>;
 
 export type ScoreReading = (ReadingOf<"landed" | "on-body"> & { readonly hit: HitFigure }) | ReadingOf<"walk" | "buckler">;
 

@@ -45,7 +45,7 @@ export interface MoveConfig {
 }
 
 /** **The gaits Move walks by** (`MoveConfig.gaits`): its own, else the stock ones (`STOCK_GAITS`). */
-export const gaitsOfMove = (config: MoveConfig): readonly Gait[] => config.gaits ?? STOCK_GAITS;
+const gaitsOfMove = (config: MoveConfig): readonly Gait[] => config.gaits ?? STOCK_GAITS;
 
 /** The gaits `config` walks by, each once, in the order its rules and then `otherwise` name them, then every other of its gaits, which a legs goal may name; a name none of them has left out. */
 const gaitsOf = (config: MoveConfig): readonly Gait[] => {

@@ -27,7 +27,7 @@ import { handConfigurationRefusal } from "./held-strike.ts";
 export const HELD_BLOWS = deepFreeze({
   "sword-thrust": { label: "Sword thrust", item: "sword" as Held, mechanism: "point" as Mechanism, bodies: thrustMeta.bodies, layout: checkedLayout(thrustLayout as PunchLayout) },
 });
-export type HeldBlowKind = keyof typeof HELD_BLOWS;
+type HeldBlowKind = keyof typeof HELD_BLOWS;
 
 /**
  * **A held blow's record for one body** (`dataOf(<kind>)`, `assets/skills/strikes/<kind>/<kind>.json`, by

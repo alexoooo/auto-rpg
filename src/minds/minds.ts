@@ -8,7 +8,7 @@ import type { World } from "../core/world/world.ts";
 import type { MindConfig } from "./config.ts";
 import type { MindReport } from "./report.ts";
 import type { Catalog } from "./catalog.ts";
-import { bodyHost, type BodyHost, type HostGrants } from "./host.ts";
+import { bodyHost, type HostGrants } from "./host.ts";
 import { mirrorDriven, type Embodying } from "./embodiment.ts";
 import { isMindPlace, reportNow, type At, type MindPlace, type MindRecipe, type ReportNow, type Seat } from "./apart.ts";
 import { physicalBody, type HeldReading, type PhysicalBody } from "./physical-body.ts";
@@ -136,10 +136,10 @@ function saidReport(said: () => Omit<ReportNow, "engagement">, live: MindReport)
 
 /** What a mind apart keeps in place of its memory: a mind's memory is where it runs, so a body under one is neither saved nor forked. */
 class MemoryApart {}
-export const MIND_APART: object = Object.freeze(new MemoryApart());
+const MIND_APART: object = Object.freeze(new MemoryApart());
 
 /** **A body under a mind apart** (`embodyApart`): the body as its fight holds it, and what its mind last said of itself. */
-export interface EmbodiedApart {
+interface EmbodiedApart {
   readonly held: HeldReading;
   /** Who has the body, as its mind last said (`MindConstruction.has`). */
   has(): string;
@@ -160,7 +160,7 @@ export interface EmbodiedApart {
  * completed interval as the next step's numbers hold it. What it is given and does is the same as
  * on its body, step for step.
  */
-export function embodyApart(built: BuiltBody, world: World, place: MindPlace, catalog: Catalog, recipe: Omit<MindRecipe, "catalog" | "statics" | "dt">,
+function embodyApart(built: BuiltBody, world: World, place: MindPlace, catalog: Catalog, recipe: Omit<MindRecipe, "catalog" | "statics" | "dt">,
   orders: (senses: Senses) => Orders | null, given: Embodying = {}): EmbodiedApart {
   const at = (): At => ({ steps: world.steps, time: world.time });
   // `shown`: what it shows a person was read since its last step was asked, so the next answer says it.
@@ -210,18 +210,4 @@ export function warmApart(catalog: Catalog, built: BuiltBody, world: World, conf
     { senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity });
   try { place.warm(catalog, { config, name: wiring.name, seed: wiring.seed ?? 0, phase: wiring.phase ?? 0, rules: wiring.rules, statics, dt: world.dt }, writer.channel, at); }
   finally { muscles.dispose(); }
-}
-
-/**
- * A mind `make` makes through a host of `built` (`bodyHost`) under `wiring`'s grants, its parts
- * looked up in `catalog` (`Catalog.partLookup`), with the body it took: how a test or a study makes
- * one mind of its own.
- */
-export function hostedMind<W extends HostGrants, M extends object>(catalog: Catalog, built: BuiltBody, world: World, wiring: W, make: (host: BodyHost, wiring: W) => M): M & { readonly body: PhysicalBody } {
-  const { host, made, dispose } = bodyHost(built, world, wiring, catalog.partLookup);
-  let completed = false;
-  try {
-    const mind = make(host, wiring), body = made(); completed = true;
-    return { ...mind, body };
-  } finally { if (!completed) dispose(); }
 }

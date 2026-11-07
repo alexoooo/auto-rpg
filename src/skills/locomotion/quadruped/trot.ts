@@ -17,7 +17,7 @@ import { chainTo, reachWork, solveReach } from "../../../control/kinematics.ts";
  * Each pair stands under the centre of mass (`stanceOf`) and lands led by the travel it will bear
  * through; the trunk goes no faster than its bearing paws' reach lets it, and turns as it travels.
  */
-export function trot(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_TROT) {
+function trot(built: ReadBody, root: ReadSegment, paws: PawReading, names: readonly string[], T = REPTILE_TROT) {
   if (!validTrot(T)) throw new Error("invalid trot settings");
   const nominal = names.map(name => built.segments.get(name)!.spec.points!.sole!.value);
   const mass = built.spec.mass.value, reference = built.spec.segments.reduce((c, p) => {
@@ -241,7 +241,7 @@ const REACH_MISS = .003;
 const REACH_SEARCH = .5, REACH_STEPS = 16;
 
 /** The trot's complete settings keep travel and every consumed time divisor positive. */
-export function validTrot(settings: typeof REPTILE_TROT): boolean {
+function validTrot(settings: typeof REPTILE_TROT): boolean {
   return !!settings && typeof settings === "object" && !Array.isArray(settings)
     && Object.keys(REPTILE_TROT).every(key => Object.hasOwn(settings, key))
     && Object.entries(settings).every(([key, value]) => Object.hasOwn(REPTILE_TROT, key) && Number.isFinite(value) && value >= 0)

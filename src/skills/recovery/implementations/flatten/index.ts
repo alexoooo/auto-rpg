@@ -17,7 +17,7 @@ const FLAT = deepFreeze({ "shoulder.left abduction": 1.3, "shoulder.right abduct
   "knee.left flexion": .2, "knee.right flexion": .2 });
 
 /** Repositioning proves anatomical arm clearance independently of filtered self-contacts. */
-export function flatten(own: OwnBody, _view: BodyView): TechniqueRun {
+function flatten(own: OwnBody, _view: BodyView): TechniqueRun {
   const drive = poseDrive(own.muscles), clear = armClearance(own.built), clock = phaseClock();
   const trunk = own.spec.segments.flatMap((s, i) => s.name.endsWith("Trunk") ? [i] : []);
   const state = { ended: null as TechniqueEnd | null, clock: clock.state };

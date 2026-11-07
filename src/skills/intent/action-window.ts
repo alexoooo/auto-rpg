@@ -41,7 +41,7 @@ const LYING = Object.freeze({ footRadius: .18, column: .5, bearings: 16, back: .
 export const SETTLED = .06;
 
 /** How long a body stays that slow before it counts as settled, s: a centre of mass slows that long before the feet stop stepping. */
-export const STILL_FOR = .25;
+const STILL_FOR = .25;
 
 /** `window` widened by `by` m along and across. */
 export function widened(window: Window, by: number): Window {
@@ -52,7 +52,7 @@ export function widened(window: Window, by: number): Window {
  * **A walk into a window as it ends**: since when its body has been at most `SETTLED` fast (null
  * while it moves faster), and whether it has arrived (`arrivedIn`); plain data in its walker's state.
  */
-export interface WindowArrival { still: number | null; arrived: boolean }
+interface WindowArrival { still: number | null; arrived: boolean }
 
 /** A walk into a window that has not arrived. */
 export const windowArrival = (): WindowArrival => ({ still: null, arrived: false });
@@ -165,7 +165,7 @@ type Beside = { readonly offset: Offset; readonly route: readonly Vec3[]; readon
  * than a stride moves the sole a stomp's window is read from), the place's feet or its way stop
  * clearing that body, or `LYING.rethink` s pass.
  */
-export interface HeldBeside {
+interface HeldBeside {
   readonly held: Held;
   readonly place: number[];
   readonly route: number[][];

@@ -140,7 +140,7 @@ function capsule(segment: SegmentSpec) {
 }
 
 /** A vertical ray onto the actual sensed surface, suitable for attacks over a grounded trunk. */
-export function upperSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | null {
+function upperSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | null {
   return verticalSurface(foe, name, from, 1);
 }
 

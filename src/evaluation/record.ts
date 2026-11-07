@@ -17,7 +17,7 @@ const FORMAT = "evaluation/1";
 const digest = (value: unknown): string => sha256Text(recordingKey(value)).slice(0, 16);
 
 /** What a version is made of, apart, so a change from its parent is named by kind. */
-export interface Version {
+interface Version {
   /** Its own content: a mind's config, a body's spec, an item's. */
   readonly own: string;
   /** The protocol its cases played (`Cases.play`). */
@@ -45,7 +45,7 @@ const changesFrom = (version: Version, parent: Version): Change[] =>
   (["own", "protocol", "environment", "code"] as const).filter((kind) => (version[kind] ?? null) !== (parent[kind] ?? null));
 
 /** A version named by its id. */
-export interface Named {
+interface Named {
   readonly id: string;
   readonly version: Version;
 }

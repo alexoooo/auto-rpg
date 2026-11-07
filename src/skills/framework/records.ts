@@ -19,7 +19,7 @@ export interface SkillRecord<S> {
 export type SkillRecords<S> = Readonly<Record<string, SkillRecord<S>>>;
 
 /** A config of a skill tuned per body: an experiment's research `tuning` over its body's settings. */
-export interface Tuned<S> {
+interface Tuned<S> {
   readonly tuning?: Partial<S>;
 }
 

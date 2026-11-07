@@ -23,10 +23,10 @@ import type { Mechanism, Rulebook } from "./rulebook.ts";
  */
 
 /** How a body's fight ended by its wounds: life spent (`slain`), a vital part off (`beheaded`), a limb that ends the fight off (`maimed`). */
-export type Ending = "slain" | "beheaded" | "maimed";
+type Ending = "slain" | "beheaded" | "maimed";
 
 /** A segment's group: vital (and whether it never comes off), a limb, or the trunk. */
-export type WoundGroup =
+type WoundGroup =
   | { readonly kind: "vital"; readonly whole: boolean }
   | { readonly kind: "trunk" }
   | { readonly kind: "limb"; readonly limb: LimbSpec };
@@ -133,7 +133,7 @@ export interface Wound {
 }
 
 /** A limb as its pool holds it: its bar and full bar, HP, whether the bar is empty, and whether any of it is off. */
-export interface LimbReading {
+interface LimbReading {
   readonly bar: number;
   readonly full: number;
   readonly crippled: boolean;
@@ -195,7 +195,7 @@ function leadingAxis(matrix: readonly number[]): Vec3 | null {
  * hull's extent along the axis its points spread along least (the third of their covariance's
  * principal axes, normal to the first two); a hull of points on a line or one point has none.
  */
-export function leastWidth(shape: ShapeSpec): number {
+function leastWidth(shape: ShapeSpec): number {
   switch (shape.kind) {
     case "capsule": case "sphere": return 2 * shape.radius.value;
     case "box": return Math.min(...shape.size.value);

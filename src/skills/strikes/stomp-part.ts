@@ -31,7 +31,7 @@ const validStompPart = (tuning: Partial<StompTuning>): boolean =>
   !!tuning && typeof tuning === "object" && !Array.isArray(tuning) && Object.entries(tuning).every(([key, value]) => key in STOMP_PATH && Number.isFinite(value) && value! >= 0);
 
 /** The bilateral stance geometry and observed strike points used by this stomp. */
-export function stompRefusal(spec: BodySpec): string | null {
+function stompRefusal(spec: BodySpec): string | null {
   const soles = soleRefusal(spec);
   if (soles) return soles;
   for (const side of SIDES) {

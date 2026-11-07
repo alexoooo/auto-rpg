@@ -161,13 +161,13 @@ export function sensedBounds(foe: BodySense): readonly SolidSense[] {
  * A foot's sweep against a body's colliders: exact against round colliders, against conservative
  * bounds for polyhedral ones, admitting a sweep that separates outward.
  */
-export type FootClearance = (from: Vec3, to: Vec3, radius: number) => boolean;
+type FootClearance = (from: Vec3, to: Vec3, radius: number) => boolean;
 
 /** A body's colliders read once: their bounds, as `sensedBounds` gives them, and a foot's sweep against them. */
 export interface SensedObstacle { readonly bounds: readonly SolidSense[]; readonly clear: FootClearance }
 
 /** `foe`'s colliders where it is sensed, read once: for a caller that sweeps and bounds the same pose many times. */
-export function sensedObstacle(foe: BodySense): SensedObstacle {
+function sensedObstacle(foe: BodySense): SensedObstacle {
   const shapes = worldShapes(foe), bounds = shapes.map(boundsOf);
   return { bounds, clear: footClearanceOf(shapes, bounds) };
 }
@@ -214,13 +214,4 @@ function footClearanceOf(shapes: ReturnType<typeof worldShapes>, bounds: readonl
     const axis = sub(b, a), squared = dot(axis, axis), nearest = add(a, scale(axis, squared ? Math.max(0, Math.min(1, dot(sub(from, a), axis) / squared)) : 0));
     return before <= r * r && after > before && dot(sub(from, nearest), sub(to, from)) >= 0;
   });
-}
-
-/** A sensed head centre lower than this over the body's own support is a low opponent, m. */
-const LOW_HEAD = .8;
-
-/** A grounded opponent is observed by height over the body's own support, never its controller's state. */
-export function lowOpponent(view: BodyView, foe: BodySense): boolean {
-  const head = foe.segments.get(foe.spec.marks.high);
-  return !!head && head.centre.y - view.stance.support.y < LOW_HEAD;
 }

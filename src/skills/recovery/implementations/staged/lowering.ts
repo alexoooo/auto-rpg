@@ -33,7 +33,7 @@ const sameEnds = (asked: readonly string[], ends: readonly string[]): boolean =>
  * not say when their feet are placed (`Locomotion.placed`) do at once. Their memory is the lowering
  * under way and its command, beside `legs`' own (`legs`).
  */
-export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lowering[] = LOWERINGS): Locomotion {
+function lowering(body: Body, legs: Locomotion, lowerings: readonly Lowering[] = LOWERINGS): Locomotion {
   if (body.view.standing === null) return legs;
   const n = body.muscles.channels.length, spec = body.built.spec;
   const command = heldCommand(n);

@@ -11,7 +11,7 @@ type Source =
   | { readonly kind: "asset"; readonly file: string; readonly what: string }
   | { readonly kind: "tuned"; readonly for: string };
 
-export const SOURCES = Object.freeze({
+const SOURCES = Object.freeze({
   "synthetic-contact-fixtures": {
     kind: "tuned",
     for: "Synthetic slab and hinge geometry, mass, stiffness and muscle values for controlled contact and stop diagnostics.",
@@ -443,11 +443,6 @@ export const SOURCES = Object.freeze({
   "owner-damage-unit": {
     kind: "tuned",
     for: "One hit point is 100 J of blunt blow.",
-  },
-  "core-club-unit": {
-    kind: "tuned",
-    for: "The Warrior's strongest one-handed blow with the wooden club, searched standing and read at a "
-      + "rate where it has converged.",
   },
   "core-stance-envelope": {
     kind: "asset", file: "assets/skills/locomotion/stance/stance-envelope.json",

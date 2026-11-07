@@ -32,7 +32,7 @@ const TAKES_SECONDS = 0.1;
 const POINT_ROWS: readonly Row[] = [0, 1, 2].map((axis): Row => [[3 + axis, 1]]);
 
 /** A body's bearing ends, made limbs. */
-export interface RiseLimbs {
+interface RiseLimbs {
   /** Bearing modes that affect later reads and constraints. */
   readonly state: object;
   /** The limbs as the solve takes them, in the spec's order. */

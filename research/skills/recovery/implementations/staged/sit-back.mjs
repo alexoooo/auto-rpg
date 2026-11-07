@@ -28,7 +28,7 @@ import { clockSenses } from "../../../../../src/core/world/senses.ts";
 import { kitOf } from "../../../../../src/skills/kit.ts";
 import { partLookup } from "../../../../../src/app/catalog.ts";
 import { groundReading } from "../../../../../src/control/ground-reading.ts";
-import { TECHNIQUES } from "../../../../../src/app/recovery-techniques.ts";
+import { TECHNIQUES } from "../../../../../src/app/registration/techniques.ts";
 import { STAND_CHECK } from "../../../../../src/game/lab/ground-mode.ts";
 import { placement } from "../../witness/rise-witness.mjs";
 import { SIDES } from "../../../../../src/core/bodies/bilateral.ts";

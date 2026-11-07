@@ -27,7 +27,7 @@ import { type GameContext } from "../../game/arena/context.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
 
 /** Where on the trunk a shove meets the body: its lower, middle or upper trunk's centre of mass. */
-export type Height = "low" | "middle" | "high";
+type Height = "low" | "middle" | "high";
 
 /** The segment each height names. */
 const SEGMENT: Readonly<Record<Height, string>> = deepFreeze({ low: "lowerTrunk", middle: "middleTrunk", high: "upperTrunk" });

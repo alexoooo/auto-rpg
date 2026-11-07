@@ -27,10 +27,7 @@ const DEFAULT_GAITS = {
   "braced": { label: "Braced", legs: { kind: "walk-run", runs: false } },
   "run": { label: "Run", legs: { kind: "walk-run" } },
 };
-export const GAITS = deepFreeze(DEFAULT_GAITS satisfies Readonly<Record<string, { readonly label: string; readonly legs: PartConfig }>>);
-
-/** Every stock gait's name, in `GAITS`' order. */
-export const GAIT_NAMES: readonly GaitName[] = Object.freeze(Object.keys(GAITS));
+const GAITS = deepFreeze(DEFAULT_GAITS satisfies Readonly<Record<string, { readonly label: string; readonly legs: PartConfig }>>);
 
 /** **The stock gaits** (`GAITS`) as gaits: what Move walks by where its config names none. */
 export const STOCK_GAITS: readonly Gait[] = deepFreeze(Object.entries(GAITS).map(([name, gait]) => ({ name, label: gait.label, legs: gait.legs })));

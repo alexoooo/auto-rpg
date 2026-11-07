@@ -49,7 +49,7 @@ export const TECHNIQUE_LIMITS = Object.freeze({ admit: 2, run: 16, stood: 2, res
  * How far a seed moves a placed start's joints, a share of each joint's range: a posture the route
  * passes through is narrow, and the Lab's draw (`groundPlacement`) moves a kneeling body out of it.
  */
-export const TECHNIQUE_SPREAD = .02;
+const TECHNIQUE_SPREAD = .02;
 
 /** How a technique of the chain came to its end: one of its own (`TechniqueEnd`), never admitted, or stood and fallen again. */
 type LinkEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted" | "not entered" | "fell";
@@ -82,7 +82,7 @@ export interface BuiltTechnique {
 }
 
 /** The body a case plays: the model, holding what it names in each hand (`withLoadout`). */
-export const techniqueSpec = (one: Pick<TechniqueCase, "model" | "held" | "left">): BodySpec =>
+const techniqueSpec = (one: Pick<TechniqueCase, "model" | "held" | "left">): BodySpec =>
   withLoadout(humanoidSpec(one.model), { left: one.left ?? "empty", right: one.held });
 
 /** Where a case's body is built, or why its start is refused, a sentence. */

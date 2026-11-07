@@ -52,17 +52,6 @@ export function choice<C, K extends keyof C & string>(key: K, label: string, opt
   };
 }
 
-const YES_NO: readonly Option<"yes" | "no">[] = [["yes", "Yes"], ["no", "No"]];
-
-/** The boolean field `key` of a config, written `yes` or `no`. */
-export function toggle<C, K extends keyof C & string>(key: K, label: string): ChoiceField<C> {
-  return {
-    kind: "choice", key, label, options: YES_NO,
-    read: (config) => config[key] ? "yes" : "no",
-    write: (config, text) => text === "yes" || text === "no" ? { ...config, [key]: text === "yes" } : null,
-  };
-}
-
 /** The numeric field `key` of a config, from `least` to `most`. */
 export function number<C, K extends keyof C & string>(key: K, label: string, least: number, most: number, step: number, unit: string): NumberField<C> {
   return {
@@ -73,10 +62,4 @@ export function number<C, K extends keyof C & string>(key: K, label: string, lea
       return Number.isFinite(value) && value >= least && value <= most ? { ...config, [key]: value } : null;
     },
   };
-}
-
-/** A nonempty name retained as plain text in the config. */
-export function text<C, K extends keyof C & string>(key: K, label: string): PartField<C> {
-  return { kind: "text", key, label, read: config => String(config[key]),
-    write: (config, value) => value.trim() ? { ...config, [key]: value.trim() } : null };
 }

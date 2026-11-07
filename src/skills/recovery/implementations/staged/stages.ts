@@ -74,7 +74,7 @@ export interface Until {
  * centre of mass is slower than `slow`, m/s, and held where it is otherwise: the body is brought up
  * no faster than its feet stay down.
  */
-export interface Pace {
+interface Pace {
   readonly rate: number;
   readonly lift: number;
   readonly slow: number;

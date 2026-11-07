@@ -15,7 +15,7 @@ export { dummySpec } from "./dummy-spec.ts";
  */
 
 /** A dummy's one segment's name and its ball, from its spec. */
-export function ballOf(spec: BodySpec): { readonly part: string; readonly ball: Extract<ShapeSpec, { readonly kind: "sphere" }> } {
+function ballOf(spec: BodySpec): { readonly part: string; readonly ball: Extract<ShapeSpec, { readonly kind: "sphere" }> } {
   const segment = spec.segments[0];
   if (spec.segments.length !== 1 || segment?.shape.kind !== "sphere") throw new Error(`${spec.model} is no dummy`);
   return { part: segment.name, ball: segment.shape };

@@ -275,7 +275,7 @@ function pressingOf(seen: Seen): Pressure {
  * strikes, each what its profile expects there a second (`ProfileReading.rate`) short of its reach
  * (`edgeOf`: the reach is where the body is out of it).
  */
-export function pressureAt(pressure: Pressure, range: number, velocity: readonly [number, number], seconds: number): number {
+function pressureAt(pressure: Pressure, range: number, velocity: readonly [number, number], seconds: number): number {
   return (pressure.rateAt ? pressure.rateAt(range, velocity) : pressureRateAt(pressure, range, velocity)) * seconds;
 }
 
@@ -389,7 +389,7 @@ export function reachMemory() {
 }
 
 /** **A body's reach memory** (`reachMemory`). */
-export type ReachMemory = ReturnType<typeof reachMemory>;
+type ReachMemory = ReturnType<typeof reachMemory>;
 
 /**
  * **The seconds before the focus's pressure reaches the body at `now`**: what a state an Option
@@ -473,7 +473,7 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
  * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, another posture,
  * orders asking for something else (`ordersAsked`), another focus, a threat or a blow coming.
  */
-export const PERCEPTS = Object.freeze({
+const PERCEPTS = Object.freeze({
   down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
   posture: { read: ({ sight }) => sight.view.ground?.position ?? (sight.view.down ? "between" : "standing"), cue: (posture) => posture } as Percept<Position>,
   rising: { read: (seen) => seen.risen.state.rising } as Percept<boolean>,
@@ -518,7 +518,7 @@ export interface Prediction<V> {
  * posture costs (`downRateAtOf`); how fast the focus turns to face (`turnOf`), rad/s, Infinity with none; and the
  * focus's life a blow of a limb at a segment of its takes by the rules (`blowLife`), 0 with no focus.
  */
-export const PREDICTIONS = Object.freeze({
+const PREDICTIONS = Object.freeze({
   danger: { read: (seen) => lifeOf(seen, seen.blow) } as Prediction<number>,
   pressure: { read: pressureOf } as Prediction<Pressure>,
   pressing: { read: pressingOf } as Prediction<Pressure>,

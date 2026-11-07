@@ -41,7 +41,7 @@ interface Memory {
  * command. Each look (`TeamView.look`) it shares its foes out again; with no foe in the fight,
  * what it last saw stands.
  */
-export function mobCommander(host: TeamHost): Commander {
+function mobCommander(host: TeamHost): Commander {
   // When each foe lying down went down, by id (`lyingSince`).
   const state = { members: {} as Record<string, Memory>, down: {} as Record<string, number> };
   const memory = (id: string): Memory => state.members[id] ??=

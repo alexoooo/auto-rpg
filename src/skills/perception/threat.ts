@@ -18,7 +18,7 @@ import { lieBy, type Position } from "../../control/ground-reading.ts";
  * **What counts as a threat**: a foe's striking point within `within` m of the head and closing
  * on it at over `closing` m/s.
  */
-export const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
+const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
 
 /**
  * **What a ward covers** (`threatOf` with `hold`, `nearest` and `armed`): the foe's striking point

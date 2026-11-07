@@ -20,7 +20,7 @@ import type { DungeonActor, DungeonRun } from "./run.ts";
  * This module has no page-only imports, so the Node stand can run it. It
  * only reads: a run with it is the same run.
  */
-export interface RunHearing {
+interface RunHearing {
   /**
    * The air of each body the party sees, now: its key, its fastest point's speed, m/s, and where
    * that point is.

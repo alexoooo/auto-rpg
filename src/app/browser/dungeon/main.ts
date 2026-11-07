@@ -61,7 +61,8 @@ import type { ScreenContext } from "../ui/screen.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
 import type { Command } from "../../../minds/command/commands.ts";
 import type { CommanderConfig, CommanderEntry } from "../../../minds/command/kind.ts";
-import { commanderOf, COMMANDERS } from "../../commanders.ts";
+import { commanderOf } from "../../../minds/command/commander.ts";
+import { COMMANDERS } from "../../registration/commanders.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
 
@@ -576,7 +577,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       page.reference = usesReferenceLook(page.selectedScenario);
       page.selectedQuality = quality.value === "reduced" ? "reduced" : "high";
       page.mind = mindPanel.mind(page.attributes);
-      page.commanders = { party: commanderOf(partyCommander.value)!.defaults, enemies: commanderOf(enemyCommander.value)!.defaults };
+      page.commanders = { party: commanderOf(COMMANDERS, partyCommander.value)!.defaults, enemies: commanderOf(COMMANDERS, enemyCommander.value)!.defaults };
       // The address keeps the scenario and the party's minds, so that a reload opens the same.
       const url = new URL(location.href);
       mindPanel.write(url);

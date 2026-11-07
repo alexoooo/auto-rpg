@@ -14,7 +14,7 @@ const lostOf = (lost: string): LimbSpec["lost"] => {
 };
 
 /** **A quadruped's body file**: the reptile's layout, which every body of the family shares. */
-export type QuadrupedData = typeof reptileData;
+type QuadrupedData = typeof reptileData;
 
 /**
  * **A quadruped's segment tree** from its body file `data`, every number read from `source`

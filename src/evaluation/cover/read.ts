@@ -12,7 +12,7 @@ import type { Reader } from "../evaluation.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
 
 /** Where a touch met the subject: its head (the high mark's segments), its guard (its arms, hand to upper arm, or what a hand holds), or the rest of it. */
-export type Met = "head" | "guard" | "body";
+type Met = "head" | "guard" | "body";
 
 /** A touch of the opponent's on the subject: when, by which of the opponent's segments or items, where it met, and the hit points it took. */
 type CoverTouch = { readonly time: number; readonly by: string; readonly on: string; readonly met: Met; readonly damage: number };
@@ -44,7 +44,7 @@ export type CoverReading = {
 };
 
 /** How long after a touch a touch is the same blow's, s. */
-export const BLOW_GAP = .3;
+const BLOW_GAP = .3;
 
 /** The arm of `hand` in `spec`: the hand, its forearm and its upper arm. */
 function armOf(spec: BodySpec, hand: string): readonly string[] {

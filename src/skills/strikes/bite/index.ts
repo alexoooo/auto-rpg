@@ -32,12 +32,12 @@ import { deepFreeze } from "../../../core/world/state.ts";
 const WITHDRAW_SPEED = 1.15;
 
 /** The bite's settings, by name: `docs/reference/reptile.md#controller-settings`. */
-export const BITE_SETTINGS = Object.freeze(["prepare", "snap", "release", "open", "jawError", "jawClosed", "biteTimeout", "biteEntry", "bitePrepareNear",
+const BITE_SETTINGS = Object.freeze(["prepare", "snap", "release", "open", "jawError", "jawClosed", "biteTimeout", "biteEntry", "bitePrepareNear",
   "biteElevation", "biteNear", "biteSlow", "biteHold", "biteReturnLimit", "contactAt", "closeRate", "biteResponse", "biteAlign", "biteShift",
   "contactSeconds", "biteSamples", "biteLead", "neckRetract"] as const);
 
 /** **The bite's settings** (`BITE_SETTINGS`): the jaw's path, its reach and the strike cycle's limits, a body's record (`dataOf("bite")`). */
-export type BiteTuning = { readonly [K in (typeof BITE_SETTINGS)[number]]: number };
+type BiteTuning = { readonly [K in (typeof BITE_SETTINGS)[number]]: number };
 
 declare module "../../../core/data/store.ts" {
   interface DataOf {
@@ -106,7 +106,7 @@ interface Live {
  * down or the stroke lost its support; lost where the target is no longer aimed at before the
  * stroke; cancelled where its request is withdrawn before it.
  */
-export function biteExecutor(body: Body, actions: readonly string[], T: BiteTuning, aim: ExecutorMaking["aim"]): Executor {
+function biteExecutor(body: Body, actions: readonly string[], T: BiteTuning, aim: ExecutorMaking["aim"]): Executor {
   if (!wholeBite(T)) throw new Error("invalid bite settings");
   const built = body.built, muscles = body.muscles, jaw = jawOf(built.spec), { lower, hinge, head, neck, teeth } = mouthOf(built);
   const effector = jaw.head.name, footprint = Object.freeze([segmentResource(effector), LEG_RESOURCE, TRUNK_RESOURCE]);

@@ -60,7 +60,7 @@ export interface Sight {
  * **A mind driven by its decider over its skills** (`driveBy`): the skills, the mind's memory, its
  * skills', its decider's and what its aims hold (`MindMade.state`), and its report (`skillsReport`).
  */
-export interface Driven {
+interface Driven {
   readonly skills: Skills;
   readonly state: { readonly skills: object; readonly decider: object | null; readonly pace: object; readonly aims?: readonly object[] };
   readonly report: MindReport;
@@ -72,14 +72,14 @@ export interface Driven {
  * person's, `Orders`) are not those it last decided on (`sameOrders`), or an action of its
  * skills has ended since (`SkillReport.ledger`).
  */
-export interface Pace {
+interface Pace {
   readonly every: number;
   readonly phase: number;
   readonly orders?: (sight: Sight) => Orders | null;
 }
 
 /** A decider deciding every control step. */
-export const EVERY_STEP: Pace = Object.freeze({ every: 1, phase: 0 });
+const EVERY_STEP: Pace = Object.freeze({ every: 1, phase: 0 });
 
 /** **How many control steps apart a mind deciding at `rate` Hz decides** at `hz` (`Pace.every`): the nearest whole number, at least 1; every step where it names no rate. */
 export const everyOf = (rate: number | undefined, hz: number): number => rate === undefined ? 1 : Math.max(1, Math.round(hz / rate));

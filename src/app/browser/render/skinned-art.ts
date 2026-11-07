@@ -20,7 +20,7 @@ import type { SkinView } from "./skin-view.ts";
  * catalogue. `packed` holds occlusion, roughness and metalness in red, green and blue; without it
  * the surface is non-metallic at `roughness`.
  */
-export interface SkinnedLook {
+interface SkinnedLook {
   readonly model: string;
   readonly colour: string;
   /** An OpenGL normal map. */
@@ -36,7 +36,7 @@ export const SKINNED_LOOKS = Object.freeze({
 } satisfies Record<string, SkinnedLook>);
 
 /** A skinned creature's mesh: its vertices in the body frame at the reference pose, and up to four segments' weights on each. */
-export interface SkinnedArt {
+interface SkinnedArt {
   readonly look: SkinnedLook;
   readonly positions: Float32Array;
   readonly normals: Float32Array;
@@ -56,7 +56,7 @@ interface Asset {
 }
 
 /** A skinned creature's art from its GLB's bytes. */
-export async function parseSkinnedArt(buffer: ArrayBuffer, look: SkinnedLook, art: ArtAssets, decode?: DecodeMeshopt): Promise<SkinnedArt> {
+async function parseSkinnedArt(buffer: ArrayBuffer, look: SkinnedLook, art: ArtAssets, decode?: DecodeMeshopt): Promise<SkinnedArt> {
   const glb = await readGlb<Asset>(buffer, look.model, decode), { json } = glb;
   if (json.meshes.length !== 1 || json.meshes[0]!.primitives.length !== 1 || json.skins.length !== 1) throw new Error(`${look.model} is not one skinned primitive`);
   const { attributes, indices } = json.meshes[0]!.primitives[0]!;

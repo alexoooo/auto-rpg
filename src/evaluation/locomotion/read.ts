@@ -32,10 +32,10 @@ export type LocomotionReading = {
 };
 
 /** The span of a walk read for its pace, s, ending as the stop is asked; and how far a stopped body's root moves over the last second at most, m. */
-export const HELD = 2, STILL = .05;
+const HELD = 2, STILL = .05;
 
 /** Under what speed a run has stopped, m/s, read over how long, s; and how far apart the turning run's way is read, s. */
-export const HALTED = .15, HALT_SPAN = .25, TRAIL_SPAN = .5;
+const HALTED = .15, HALT_SPAN = .25, TRAIL_SPAN = .5;
 
 /** The reader of `condition`'s trial: the root segment's ground point every step, read when the trial has run `AFTER` s past its last cue. */
 export function readLocomotion({ world, body }: BuiltLone, condition: LocomotionCondition): Reader<LocomotionReading> {

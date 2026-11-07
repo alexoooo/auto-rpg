@@ -133,7 +133,7 @@ interface Seated {
 }
 
 /** **The host of seats where minds run**: what carries out the world's asks on each mind (`SeatAsk`) and reads what it says (`SeatSays`). */
-export interface SeatHost {
+interface SeatHost {
   /**
    * Carry out `ask` for seat `seat`, whose numbers are `channel`'s: a step at a delay as far as its
    * answer (`answer`), its decision left to come before anything else asked of the seat

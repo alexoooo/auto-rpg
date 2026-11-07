@@ -12,7 +12,7 @@ import type { GaitName } from "../../skills/locomotion/gaits.ts";
 import type { Walker } from "./walk.ts";
 
 /** A gait as Option Mind's legs go by it: its name, its label and its legs' config. */
-export interface GaitOf {
+interface GaitOf {
   readonly name: GaitName;
   readonly label: string;
   readonly legs: PartConfig;

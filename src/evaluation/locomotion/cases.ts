@@ -34,15 +34,21 @@ import type { BuiltLone, LoneCue } from "../lone.ts";
 import { readLocomotion, type LocomotionReading } from "./read.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
-/** When a trial's first order comes, how long a walk or a turn's leg lasts, a run, the standing shove's time, and how long after a stop the walked body is shoved, s. */
-export const START = 1, WALK = 4, RUN = 6, SHOVE = 2, SETTLE = 2;
+/** When a trial's first order comes, and how long a walk or a turn's leg lasts, s. */
+export const START = 1, WALK = 4;
+
+/** How long a run lasts, the standing shove's time, and how long after a stop the walked body is shoved, s. */
+const RUN = 6, SHOVE = 2, SETTLE = 2;
 
 /**
  * The run's bar: how long a run is given to come up to speed, and how long it is then held, s; the
- * pace a turning run is asked, m/s, and how fast its way turns, rad/s; the pace a run is stopped
- * from, m/s; and how often a turning way is given again, s.
+ * pace a turning run is asked, m/s, and how fast its way turns, rad/s; and the pace a run is
+ * stopped from, m/s.
  */
-export const RUN_UP = 3, HOLD = 10, TURNING_PACE = 2, TURN_RATE = 1, STOPPING_PACE = 3, TURN_CUE = .1;
+export const RUN_UP = 3, HOLD = 10, TURNING_PACE = 2, TURN_RATE = 1, STOPPING_PACE = 3;
+
+/** How often a turning way is given again, s. */
+const TURN_CUE = .1;
 
 /** How long a trial runs on after its last cue, s: what its stop or its shove is read over. */
 export const AFTER = 4;
@@ -127,7 +133,7 @@ export const TURNING = 2 * Math.PI / TURN_RATE;
  * much as the Warrior's changes his, `impulse` times its mass over his (`BodySpec.mass`). The
  * Warrior's is `impulse` itself.
  */
-export const shoveOf = (model: BodyModel, impulse: number): number =>
+const shoveOf = (model: BodyModel, impulse: number): number =>
   impulse * (modelSpec(model).mass.value / modelSpec("workshop-fighter").mass.value);
 
 /** The conditions of `protocol`, body by body, in the order the kinds are listed above. */

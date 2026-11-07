@@ -107,7 +107,10 @@ Check: as for code. The fingerprint is not needed: no `src/` module changes.
 - `src/app/browser/evaluation.ts` exports 58 names, of which pages import one. `src/app/browser/game.ts`
   re-exports five game modules that no page reads. Both export only what pages import.
 - Each shim with one caller folds into that caller: `src/app/commanders.ts`,
-  `src/app/recovery-leg-adapters.ts`, `src/app/recovery-selections.ts`, `src/minds/option/down.ts`.
+  `src/app/recovery-selections.ts`, `src/minds/option/down.ts`.
+- The role lists outside `src/app/registration/` move into it: `recovery-techniques.ts` becomes
+  `techniques.ts`, `recovery-leg-adapters.ts` becomes `leg-adapters.ts`, and `quadruped-parts.ts`
+  keeps its name. Each holds its imports and one list, as the build identity's cuts require.
 
 ## 5. Core's order
 

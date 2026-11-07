@@ -87,7 +87,7 @@ export function embody<M extends MindConstruction>(built: BuiltBody, world: Worl
 }
 
 /** **A body driven from its mirror's answers** (`mirrorDriven`): its muscles and assist, the segment configurations in flight, the numbers written for its mind and what they are first told, and its senses. */
-export interface MirrorDriven {
+interface MirrorDriven {
   readonly muscles: MuscleDriver;
   readonly help: ReturnType<typeof commandPipeline>["help"];
   readonly posed: ReturnType<typeof commandPipeline>["posed"];

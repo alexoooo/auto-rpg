@@ -10,7 +10,7 @@ import { type GameContext } from "../game/arena/context.ts";
 const RHYTHM = [{ seconds: 2, move: { kind: "strike" } }, { seconds: 1, move: { kind: "stand" } }] as const;
 
 /** **A drill's opponent**: what it is called, its mind, and the Commander that leads it on its rhythm (`BeatsConfig`), where it keeps one. */
-export interface DrillOpponent {
+interface DrillOpponent {
   readonly label: string;
   readonly mind: MindConfig;
   readonly commander?: CommanderConfig;

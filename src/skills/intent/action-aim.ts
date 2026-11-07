@@ -6,7 +6,7 @@ import type { Region, TargetRef } from "../framework/action.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 
 /** Estimates with unlike units are never ranked against one another. */
-export type AimEstimate = Estimate;
+type AimEstimate = Estimate;
 /**
  * **Where an action aims**: a world point, the way it drives at it where its aim says, how good the
  * aim is where it says, and the part of its effector that meets it where the aim chose one (`with`:

@@ -36,7 +36,7 @@ import { type GameContext, mindFaults as contextMindFaults } from "../../game/ar
 /** The situations, in their order. */
 const SITUATIONS = ["reversal", "lone", "following", "crossing", "passage", "fallen"] as const;
 
-export type Situation = (typeof SITUATIONS)[number];
+type Situation = (typeof SITUATIONS)[number];
 
 /**
  * The protocol: the members' body; the seeds each situation is played on; the room's floor, m;

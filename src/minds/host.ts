@@ -17,7 +17,7 @@ import { commandedMind, type CommandedMind, type SubMindMaker } from "./sub-mind
 /**
  * **What a fight grants a body**, read from its wiring and never from the mind it makes: its
  * senses, its assist's ceiling, how it labels a contact, the seed of its chances, the rules it is
- * played by. What a mind made apart from a fight is given too (`hostedMind`).
+ * played by.
  */
 export interface HostGrants {
   /** What it senses (`SensesHub.add`); the clock alone unless given. */
@@ -80,7 +80,7 @@ type HostedConstruction = MindConstruction & Partial<Pick<CommandedMind, "body">
  * and where the mind drives it through the command layers (`CommandedMind.body`) it shows their view and
  * drive as a `HostedBody` does.
  */
-export function hostBody<M extends HostedConstruction>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
+function hostBody<M extends HostedConstruction>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
   const { held, mind, state, dispose } = embody(built, world, make, given);
   const body = physicalBody(built, held, world, () => mind.has(), state, dispose), driver = mind.body;
   return { mind, body: driver ? Object.assign(body, { view: driver.view, envelope: driver.envelope, drive: driver.drive, afterPhysics: driver.afterPhysics, driver }) : body };

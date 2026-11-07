@@ -3,7 +3,7 @@ import type { Intent } from "./intent.ts";
 import type { Orders } from "./orders.ts";
 
 /** A facing under 8 cm names no direction: its aim point is over the body itself. */
-export const orderedFacing = (face: Orders["face"]): number | null => face && hypot(face.x, face.z) > .08 ? atan2(face.x, face.z) : null;
+const orderedFacing = (face: Orders["face"]): number | null => face && hypot(face.x, face.z) > .08 ? atan2(face.x, face.z) : null;
 
 /**
  * **Orders made an intent**: their movement, a direct walk as much as a place or a range, for the

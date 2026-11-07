@@ -52,7 +52,7 @@ export const orderAllows = (orders: Orders | null, foe: string, skill: string, l
     : orders.foe !== foe || (orders.skill === undefined || orders.skill === skill) && (orders.limb === undefined || orders.limb === limb));
 
 /** The regions to aim at at `foe`: the region `orders` name there, else `regions`, an action's own. */
-export const orderedRegions = (orders: Orders | null, foe: string, regions: readonly Region[]): readonly Region[] =>
+const orderedRegions = (orders: Orders | null, foe: string, regions: readonly Region[]): readonly Region[] =>
   orders?.foe === foe && orders.region !== undefined ? [orders.region] : regions;
 
 /** Where to strike `foe` with an action aimed at `regions`: the first of its ordered regions (`orderedRegions`) the foe's body has; null where it has none. */

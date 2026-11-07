@@ -14,7 +14,7 @@ export const GAME: Catalog = catalogOf(() => {
 });
 
 export const { controllers: CONTROLLERS, minds: MINDS, loadData, controllerOf, allParts, isKind, partOf, partLookup, treeLookup, treeFaults,
-  treeScope, treeKinds, treeObeys, phaseLabels, treeData, treeRefusal, stageRefusal, withoutTuning, kindsFor, replacedAt } = GAME;
+  treeObeys, treeData, kindsFor, replacedAt } = GAME;
 
 export { FIGHT_ENTRY, partIn, type EntryRule, type Offered } from "../minds/catalog.ts";
 
@@ -34,5 +34,5 @@ export const defaultMind = (model: BodyModel): MindConfig => MINDS[DEFAULT_MINDS
  */
 export function modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides): string | null {
   const spec = modelHoldingChecked(model, loadout, attributes);
-  return isRefused(spec) ? spec.refused : stageRefusal(spec, mind, entry);
+  return isRefused(spec) ? spec.refused : GAME.stageRefusal(spec, mind, entry);
 }

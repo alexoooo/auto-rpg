@@ -45,7 +45,7 @@ export interface SupportGoal {
 }
 
 /** Response settings are controller inputs, separate from anatomical strength. */
-export interface Response { readonly centre: number; readonly endpoint: number; readonly turn: number; readonly posture: number; readonly lever: number; readonly damping: number; readonly rootMotion: number; readonly supportNormal: number; readonly contactMargin: number }
+interface Response { readonly centre: number; readonly endpoint: number; readonly turn: number; readonly posture: number; readonly lever: number; readonly damping: number; readonly rootMotion: number; readonly supportNormal: number; readonly contactMargin: number }
 
 /**
  * **An end as it bears**: its point and its motion, world; where the ground bears it (the

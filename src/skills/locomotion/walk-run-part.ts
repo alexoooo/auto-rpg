@@ -64,7 +64,7 @@ const DEFAULTS: WalkRunRecord = deepFreeze({ walk: WALK_RUN, run: WALK_RUN_CYCLE
 const motion = new WeakMap<Body, Map<string, Locomotion>>();
 
 /** The named anatomical channels consumed by the cycle and its arm swing. */
-export function walkRunRefusal(spec: BodySpec): string | null {
+function walkRunRefusal(spec: BodySpec): string | null {
   const soles = fitsSoles(spec);
   if (soles) return soles;
   for (const side of SIDES) for (const [joint, motions] of [

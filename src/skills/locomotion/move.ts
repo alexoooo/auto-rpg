@@ -10,7 +10,7 @@ import { ALL_MET, FIELD_BIT, fieldsOf, maskOf, type LegsGoal } from "../framewor
  * How far past a rule's distance the body goes before the rule lets go of the gait it chose, m: no
  * switching back and forth at the edge.
  */
-export const LEAVING = 0.5;
+const LEAVING = 0.5;
 
 /** What a rule of Move reads: its distances, m (Infinity where there is nothing to measure to), and whether the body is asked to walk. */
 type Reading = ConditionReading;

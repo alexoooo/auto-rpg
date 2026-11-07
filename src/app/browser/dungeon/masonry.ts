@@ -84,7 +84,7 @@ function lay(length: number, head: number, tail: number, draw: (i: number) => nu
  * across cell edges rather than drawing the cell grid. A run's end is an outer corner when its end cell also has a
  * side facing on along the run; there, the faces running along z carry the arris and the others end square.
  */
-export function masonry(map: DungeonMap): Block[] {
+function masonry(map: DungeonMap): Block[] {
   const sides = wallSurface(map).filter((q): q is { cell: Point; face: SideFace } => q.face !== "top");
   const has = new Set(sides.map(q => `${q.cell.x},${q.cell.z},${q.face}`));
   const blocks: Block[] = [];

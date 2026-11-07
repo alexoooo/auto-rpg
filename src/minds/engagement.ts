@@ -16,7 +16,7 @@ export interface OfferTerms {
 }
 
 /** **An option's worth at a decision** (`Engagement.offers`), weighed from a body's terms (`Priced`, `OfferTerms`). */
-export type Offer = Priced<OfferTerms>;
+type Offer = Priced<OfferTerms>;
 
 /**
  * **A candidate action a decider weighed** (`Engagement.candidates`): its key, the action, the limb

@@ -39,7 +39,7 @@ import { type GameContext, mindFaults as contextMindFaults } from "../../game/ar
 import { type ArenaSeat as Side, otherSeat as otherSide } from "../../game/arena/seat.ts";
 
 /** The body every competence is read on. */
-export const BODY: BodyModel = "workshop-fighter";
+const BODY: BodyModel = "workshop-fighter";
 
 /** The minds a subject fights, by preset: Option Mind's, so a configuration is read against the game's. */
 export const OPPONENTS = deepFreeze(["option"]);

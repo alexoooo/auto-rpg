@@ -16,7 +16,7 @@ export interface DeciderMaking {
 }
 
 /** What Option Mind decides with: its chooser, its options (each a part of role `option`, in rank order), and the legs its body goes by. */
-export interface Deciding {
+interface Deciding {
   readonly chooser: PartConfig;
   /** The provider that owns the selected options' decision protocol. */
   readonly predictions: PartConfig;

@@ -49,7 +49,7 @@ export const AS_IS: Leaves = Object.freeze({});
 export const UNMOVED: readonly Outcome[] = Object.freeze([Object.freeze({ leaves: AS_IS, chance: 1 })]);
 
 /** Where a fall leaves the body where nothing measured where it comes to rest: on its back. */
-export const FALLEN: Position = "back";
+const FALLEN: Position = "back";
 
 /** No motion over the ground. */
 export const STILL: Ground = Object.freeze({ x: 0, z: 0 });

@@ -76,7 +76,7 @@ export function commandsBody(body: { readonly has: string; readonly level: BodyL
  * (`Skills.state`).
  * A function driver is stateless; a driver that remembers between steps supplies `SplitDriver.state`.
  */
-export type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | SplitDriver<unknown>;
+type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | SplitDriver<unknown>;
 
 /**
  * **A driver in two parts**: what it decides on the view as sensed (`decide`), and the command it

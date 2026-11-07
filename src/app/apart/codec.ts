@@ -8,7 +8,7 @@
  */
 
 /** A `Float64Array` in memory both threads share, named where it lies: its offset and length, numbers. */
-export interface Shelved { readonly offset: number; readonly length: number }
+interface Shelved { readonly offset: number; readonly length: number }
 
 /** The tags: a number by its name, `undefined`, numbers in shared memory. */
 type Tagged = { readonly $n: "NaN" | "Infinity" | "-Infinity" | "-0" } | { readonly $u: 1 } | { readonly $f: Shelved };

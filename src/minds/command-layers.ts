@@ -20,7 +20,7 @@ import { carries, carrying, sameEffectorGoal, type EffectorGoal, type FreedomPat
  * carries the due decision into motor commands. `observe` samples completed physics before any
  * holder acts. Releasing clears pending work and motor goals; resuming tells the driver.
  */
-export interface CommandLayers extends HostMind {
+interface CommandLayers extends HostMind {
   readonly name: string;
   dispose(): void;
   /** The view as the last step left it, or as built before the first. */

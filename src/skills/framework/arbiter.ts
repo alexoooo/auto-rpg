@@ -24,7 +24,7 @@ import { channelName } from "../../core/bodies/muscle/driver.ts";
 import { attachment } from "../../core/bodies/read-body.ts";
 
 /** Continuous services surround the independently owned action instances. */
-export interface SkillParts {
+interface SkillParts {
   readonly aims?: readonly object[];
   readonly executors: readonly ExecutorBinding[];
   readonly actions: readonly ActionBinding[];

@@ -50,7 +50,7 @@ export const handOf = (limb: Limb): Hand | null => "hand" in limb ? limb.hand : 
 export const effectorOf = (limb: Limb): string => "hand" in limb ? `hand.${limb.hand}` : `foot.${limb.foot}`;
 
 /** What a blow is judged by (`BAR`, `barOf`). */
-export type Bar = {
+type Bar = {
   /** A fist's speed over its last `run` m, m/s, and the effective mass it meets with, kg, by hand. */
   readonly speed: { readonly right: number; readonly left: number };
   readonly mass: { readonly right: number; readonly left: number };
@@ -142,7 +142,7 @@ const BARS = new WeakMap<BodySpec, Bar>();
  * [human strike reference](../../../docs/reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling)),
  * where the Rogue's `s` is 0.52.
  */
-export function barOf(spec: BodySpec): Bar {
+function barOf(spec: BodySpec): Bar {
   const known = BARS.get(spec);
   if (known) return known;
   const strength = strengthOf(spec) / strengthOf(BAR_BODY), mass = spec.mass.value / BAR_BODY.mass.value, speed = Math.sqrt(strength / mass);
@@ -155,7 +155,7 @@ export function barOf(spec: BodySpec): Bar {
 }
 
 /** A touch of the striker's on the target: when, by which of its segments on which of the target's, and in the rules' units. */
-export type StrikeContact = {
+type StrikeContact = {
   readonly time: number; readonly by: string; readonly on: string; readonly closing: number; readonly energy: number; readonly damage: number;
   /** What it met the target with, as the rules read the contact: the mechanism that priced the target's wound. */
   readonly mechanism: Mechanism;
@@ -286,7 +286,7 @@ const BACK = Object.freeze({ within: .05, still: .3 });
  * it waits after the action's end or its let-go for the limb back at its guard (`recover`), and how
  * long the striker may wait to be admitted `settled` s after the drill has the body.
  */
-export interface Ending {
+interface Ending {
   readonly seconds: number; readonly settle: number; readonly recover: number; readonly settled: number; readonly patience: number;
   readonly motion?: true;
   readonly bonk?: BonkTechnique;

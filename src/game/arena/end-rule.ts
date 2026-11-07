@@ -16,7 +16,7 @@ import type { DuelRecipe } from "./duel.ts";
 export interface EndRuleConfig { readonly kind: string }
 
 /** A side as an end rule reads it: its pool, its life (`Duel.life`), its body, and how long it has been down without a break, s (0 where the bout keeps no such count). */
-export interface EndContestant {
+interface EndContestant {
   readonly pool: Pool;
   readonly life: number;
   readonly body: PhysicalBody;

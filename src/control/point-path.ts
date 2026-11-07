@@ -12,29 +12,11 @@ export function scalarPathToRef(start: number, rate: number, finish: number, tim
   out[2] = u * (6 * a + u * (12 * b + u * 20 * c)) / (seconds * seconds);
 }
 
-/** Quintic Hermite interpolation: measured initial velocity, supplied terminal velocity and zero endpoint accelerations. */
-export function pointPath(start: { position: Vec3; velocity: Vec3 }, finish: Vec3, time: number, seconds: number, finishVelocity?: Vec3, curve?: Vec3) {
-  if (time >= seconds) return { target: finish, velocity: finishVelocity ?? [0, 0, 0] as Vec3, acceleration: [0, 0, 0] as Vec3 };
-  const u = time / seconds, target: number[] = [], velocity: number[] = [], acceleration: number[] = [];
-  const sample: [number, number, number] = [0, 0, 0];
-  for (let k = 0; k < 3; k++) {
-    scalarPathToRef(start.position[k]!, start.velocity[k]!, finish[k]!, time, seconds, sample, finishVelocity?.[k]);
-    target.push(sample[0]); velocity.push(sample[1]); acceleration.push(sample[2]);
-    if (curve) {
-      // The normalized degree-six bump is one at midpath and has zero value, rate and acceleration at both ends.
-      const v = 1 - u, bump = 64 * u * u * u * v * v * v;
-      target[k]! += curve[k]! * bump;
-      velocity[k]! += curve[k]! * 192 * u * u * v * v * (1 - 2 * u) / seconds;
-      acceleration[k]! += curve[k]! * 384 * u * v * (1 - 5 * u + 5 * u * u) / (seconds * seconds);
-    }
-  }
-  return { target: target as unknown as Vec3, velocity: velocity as unknown as Vec3, acceleration: acceleration as unknown as Vec3 };
-}
-
 /**
- * Where `pointPath` puts its point at `time`, into `out`: its target alone, allocating nothing,
- * for a reader that samples many paths a step; `work` is the caller's own and carries nothing
- * between calls. The same arithmetic as `pointPath`'s target.
+ * **A point's quintic Hermite path at `time`**, into `out`: from `start`'s position and velocity to
+ * `finish` over `seconds`, ending at `finishVelocity` (else at rest) with zero endpoint
+ * accelerations, plus `curve` times a bump that is one at midpath. It allocates nothing, for a
+ * reader that samples many paths a step; `work` is the caller's own and carries nothing between calls.
  */
 export function pointPathTargetToRef(start: { position: Vec3; velocity: Vec3 }, finish: Vec3, time: number, seconds: number,
   out: [number, number, number], work: [number, number, number], finishVelocity?: Vec3, curve?: Vec3): void {

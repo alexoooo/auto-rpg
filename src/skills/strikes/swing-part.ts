@@ -24,7 +24,7 @@ export const SWINGS = deepFreeze({
   "cut": { label: "Cut", item: "sword" as Held, mechanism: "edge" as Mechanism, bodies: cutMeta.bodies },
   "club-blow": { label: "Club blow", item: "club" as Held, mechanism: "blunt" as Mechanism, bodies: clubMeta.bodies },
 });
-export type SwingKind = keyof typeof SWINGS;
+type SwingKind = keyof typeof SWINGS;
 
 declare module "../../core/data/store.ts" {
   interface DataOf {

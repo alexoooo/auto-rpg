@@ -5,7 +5,7 @@
  * steps at `full`, from its start or back from another level (`reset`), apply none: nothing was
  * sent that long ago. With no delay the slot written is the one applied.
  */
-export interface DelayLine {
+interface DelayLine {
   /** The steps a command waits. */
   readonly delay: number;
   /** Its slots, `delay` + 1. */

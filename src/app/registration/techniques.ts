@@ -1,8 +1,8 @@
-import { FLATTEN } from "../skills/recovery/implementations/flatten/index.ts";
-import { BRACE_MODE, LAND_MODE, STEADY_MODE } from "../skills/recovery/implementations/modes/index.ts";
-import { ROLL_BACK } from "../skills/recovery/implementations/roll-back/index.ts";
-import { ROLL } from "../skills/recovery/implementations/roll/index.ts";
-import { STAGED_DOWN, STAGED_ROLL, SIT_BACK_EDGE, FRONT_SIT_BACK } from "../skills/recovery/implementations/staged/index.ts";
+import { FLATTEN } from "../../skills/recovery/implementations/flatten/index.ts";
+import { BRACE_MODE, LAND_MODE, STEADY_MODE } from "../../skills/recovery/implementations/modes/index.ts";
+import { ROLL_BACK } from "../../skills/recovery/implementations/roll-back/index.ts";
+import { ROLL } from "../../skills/recovery/implementations/roll/index.ts";
+import { STAGED_DOWN, STAGED_ROLL, SIT_BACK_EDGE, FRONT_SIT_BACK } from "../../skills/recovery/implementations/staged/index.ts";
 
 /**
  * **Every technique, by its kind** (`TechniquePart`), in the order a picker offers them: the ways

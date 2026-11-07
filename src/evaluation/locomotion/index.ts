@@ -31,7 +31,7 @@ export const LOCOMOTION_FIGURES: readonly Figure<LocomotionReading>[] = [
 ];
 
 /** What `condition` was, in a few words. */
-export const trialText = (condition: LocomotionCondition): string => {
+const trialText = (condition: LocomotionCondition): string => {
   switch (condition.kind) {
     case "walk": return `walk ${condition.way}° at ${condition.pace} m/s`;
     case "run": return "run";

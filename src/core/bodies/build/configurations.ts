@@ -30,7 +30,7 @@ export function configurationFaults(segment: SegmentSpec): string[] {
 }
 
 /** The segment's configuration names in their transport order, fixed by its immutable spec. */
-export function configurationNames(segment: SegmentSpec): readonly ConfigurationName[] {
+function configurationNames(segment: SegmentSpec): readonly ConfigurationName[] {
   let names = NAMES.get(segment);
   if (!names) NAMES.set(segment, names = Object.freeze(Object.keys(segment.configurations?.shapes ?? {})));
   return names;

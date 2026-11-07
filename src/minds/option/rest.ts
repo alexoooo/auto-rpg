@@ -84,7 +84,7 @@ export function holdAt(x: number, z: number, within: number, walk: Pick<Walker, 
  * face) between a foe's weapon and the body while one is near (`Situation.ward`), as a shield's
  * guard is held.
  */
-export function guard(hands: readonly string[], shields: readonly string[] = []): Option {
+function guard(hands: readonly string[], shields: readonly string[] = []): Option {
   const covers: Record<string, Cover> = {};
   return { name: "guard", claims: Object.freeze(hands.map(segmentResource)), state: {}, ...RESTING,
     entry: (now) => legsReadiness(now.sight.view), model: (at, ask) => standing(at) ? holding(at, ask) : null,

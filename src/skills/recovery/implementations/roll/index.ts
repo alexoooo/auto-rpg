@@ -1,4 +1,3 @@
-
 import type { BodyView } from "../../../../control/body.ts";
 import type { OwnBody } from "../../../../core/bodies/own-body.ts";
 import { deepFreeze } from "../../../../core/world/state.ts";
@@ -21,7 +20,7 @@ const POSES = deepFreeze<readonly { readonly name: string; readonly posture: Rea
 ]);
 
 /** A side roll ends on loaded front support, preserving its real momentum for the next technique. */
-export function rollToFront(own: OwnBody, _view: BodyView): TechniqueRun<Side> {
+function rollToFront(own: OwnBody, _view: BodyView): TechniqueRun<Side> {
   const drive = poseDrive(own.muscles), clock = phaseClock();
   const sides = { right: POSES, left: POSES.map(pose => ({ ...pose, posture: mirrorPosture(pose.posture) })) };
   const channels = { right: sides.right.map(pose => Object.keys(pose.posture).map(name => own.muscles.channel(name)).filter(i => i !== undefined)),

@@ -90,7 +90,7 @@ const priceOf = (walk: number, route: number, pace: number): number => walk * pa
  * **A run's score**, in shares of full life: `life - price * (elapsed + left / pace)`, the life at
  * the end less the price of the time taken and of the time the route left would take at the pace.
  */
-export const scoreOf = (life: number, price: number, elapsed: number, left: number, pace: number): number => life - price * (elapsed + left / pace);
+const scoreOf = (life: number, price: number, elapsed: number, left: number, pace: number): number => life - price * (elapsed + left / pace);
 
 /** Why `value` is no Commander's config (`commanderFaults`), or one that leads no party. */
 function faultsOf(context: GameContext, value: Json): readonly string[] {

@@ -67,8 +67,11 @@ export function createSoundLog(dt: number, seconds: number): SoundLog {
   };
 }
 
-/** What the lab's body is keyed by in a cue, and its air by; and a body a scenario puts beside it. */
-export const LAB_BODY = "body", LAB_OTHER = "other";
+/** What the lab's body is keyed by in a cue, and its air by. */
+export const LAB_BODY = "body";
+
+/** What a body a scenario puts beside the lab's is keyed by. */
+const LAB_OTHER = "other";
 
 /**
  * Log what `body` sounds of in `world` into `log`: its touches (`hearTouches`) and, after every

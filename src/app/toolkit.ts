@@ -5,7 +5,7 @@ import { AIMS } from "./registration/aims.ts";
 import type { AimConfig, ExecutorConfig, GaitConfig, GuardConfig, LocomotionConfig, SupportConfig } from "../skills/config.ts";
 import { EXECUTORS } from "./registration/executors.ts";
 import type { TechniqueConfig } from "../skills/recovery/technique.ts";
-import { TECHNIQUES } from "./recovery-techniques.ts";
+import { TECHNIQUES } from "./registration/techniques.ts";
 import { GUARDS } from "./registration/guards.ts";
 import { MIND_KINDS } from "./mind-kinds.ts";
 import { LOCOMOTIONS } from "./registration/locomotions.ts";
@@ -19,7 +19,7 @@ import type { NavigationConfig } from "../skills/locomotion/navigation/navigator
 import { SUPPORTS } from "./registration/supports.ts";
 import { catalogOf, type Catalog, type CatalogLists } from "../minds/catalog.ts";
 import type { ConfigOf, Part } from "../parts/parts.ts";
-import { REPTILE_PARTS } from "./quadruped-parts.ts";
+import { REPTILE_PARTS } from "./registration/quadruped-parts.ts";
 import type { MoveRuleConfig } from "../skills/locomotion/move-part.ts";
 import { MOVE_RULES } from "./registration/move-rules.ts";
 import { STRIKE_DATA } from "./data/registration.ts";
@@ -28,7 +28,7 @@ import { STAGED_DATA } from "../skills/recovery/implementations/staged/data/regi
 import { RECOVERY_DATA } from "../skills/recovery/data/registration.ts";
 import { RIGHTING_DATA } from "../skills/recovery/righting/data/registration.ts";
 import { BITE_DATA } from "../skills/strikes/bite/data/registration.ts";
-import { LEG_ADAPTERS } from "./recovery-leg-adapters.ts";
+import { LEG_ADAPTERS } from "./registration/leg-adapters.ts";
 
 /** Staged profiles depend on the stock motor calibration as well as their skill record. */
 const calibratedStagedData = Object.fromEntries(Object.entries(STAGED_DATA).map(([key, load]) => [key, Object.assign(() => load(), {

@@ -8,7 +8,7 @@ import type { Senses } from "../core/bodies/senses.ts";
 import type { BodyControl } from "../core/bodies/body-control.ts";
 
 /** A computation that can take a body from its host. */
-export interface SubMind extends Mind {
+interface SubMind extends Mind {
   wants(senses: Senses): boolean;
   begin(): void;
   holds?(): boolean;
@@ -29,7 +29,7 @@ export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock, afterPhy
 const HOST = -1, NOBODY = -2;
 
 /** A host and ranked sub-minds, with ownership in the saved state. */
-export function hosting(host: HostMind & { readonly name: string; dispose(): void }, subs: readonly MindConstruction<SubMind>[]): MindConstruction {
+function hosting(host: HostMind & { readonly name: string; dispose(): void }, subs: readonly MindConstruction<SubMind>[]): MindConstruction {
   const state = { has: HOST, host: host.state, subs: subs.map(sub => sub.mind.state) };
   const giveUp = (reason: "takeover" | "idle"): void => {
     if (state.has >= 0) subs[state.has]!.mind.end();

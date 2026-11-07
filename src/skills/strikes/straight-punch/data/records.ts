@@ -17,7 +17,7 @@ export interface PunchRecord extends SkillRecord<StraightPunch> {
 }
 
 /** Every body's straight punch record, by `bodyKey`. */
-export type PunchRecords = Readonly<Record<string, PunchRecord>>;
+type PunchRecords = Readonly<Record<string, PunchRecord>>;
 
 declare module "../../../../core/data/store.ts" {
   interface DataOf {

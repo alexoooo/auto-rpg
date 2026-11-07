@@ -50,7 +50,7 @@ export interface FootLimb {
  * (`supportedMotor`, `src/control/supported-motor.ts`), on its box's sole where `sole`. A paw
  * carries the body.
  */
-export interface PawLimb {
+interface PawLimb {
   readonly kind: "paw";
   readonly name: string;
   readonly segment: string;

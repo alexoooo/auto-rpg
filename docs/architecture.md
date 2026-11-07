@@ -43,8 +43,9 @@ registered technique set. Gameplay and evaluations receive it as an argument.
 runtime paths and public entry points across source modules. Shared libraries never import entrants;
 application composition imports their public manifests. Entrants import published library APIs
 and themselves. Recovery's shared wiring never imports implementations; each implementation owns
-its algorithms, tuning, data and caches. Motor, balance, support, locomotion, gait, move-rule, navigation,
-guard, aim and executor registrations, Option component lists and the Commander registry live in `src/app/registration/`.
+its algorithms, tuning, data and caches. Motor, balance, support, locomotion, gait, move-rule,
+navigation, guard, aim, executor, recovery technique and leg adapter registrations, the parts of a
+body on paws, Option component lists and the Commander registry live in `src/app/registration/`.
 Commander lookup receives that registry; reusable implementations live in `src/minds/command/`.
 
 The public APIs for entrant authors are:
@@ -308,7 +309,7 @@ not. A posture (`Position`) names what bears the body, read each step by the gro
 stance stands on it stands, on its trunk it lies (named by the side up), and between it is named by
 the ends that bear it. A way up names the postures it begins from and reaches (its `edges`), begun
 `moving` or `still`, handing the body on at the first cut read slow enough (`CUTS`, `HAND_OVER`);
-the Lab's ways up (`STAND_UP`, `src/app/recovery-selections.ts`) reach standing from the back and
+the Lab's ways up (`STAND_UP`, `src/app/browser/lab/ground-scenario.ts`) reach standing from the back and
 the front (`standUpFaults`). The
 Option Mind prices each way up, flatten and a brace that waits for one by their profiles from
 where each was begun (`assets/skills/recovery/edge-profiles.json`, `research/skills/recovery/edge-profiles.mjs`: its own tries
@@ -476,7 +477,7 @@ The profile model supplies these components:
 **The game's default presets use the Option Mind.** They serve the humanoids and the bodies on
 paws alike: what lies under the skills is the part of its role that fits the body, and a body
 builds the Options whose skills it fits. The parts of a body on paws are `REPTILE_PARTS`
-(`src/app/quadruped-parts.ts`). A new family of bodies is parts that fit it.
+(`src/app/registration/quadruped-parts.ts`). A new family of bodies is parts that fit it.
 
 **Entrants.** An `Entrant` (`src/minds/entrant.ts`) is one AI: its kinds of mind, parts and
 presets, each kind scoped `<name>:`, listed in `ENTRANTS` (`src/app/entrants.ts`). `GAME`

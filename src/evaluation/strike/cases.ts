@@ -243,10 +243,10 @@ const MOVING = deepFreeze({ ...OPPONENT, opponent: "bare", directions: ["toward"
   height: .02, beyond: 1.5, near: .6 });
 
 /** Which way a moving target goes: toward the striker, away from it, or across its front. */
-export type Direction = "toward" | "away" | "across";
+type Direction = "toward" | "away" | "across";
 
 /** How a walk-rung trial asks: once settled in its window's middle, or the first step it is ready, still walking. */
-export type Start = "settled" | "walking";
+type Start = "settled" | "walking";
 
 /**
  * A fight's moments: the strikers' bodies; the foe, Option Mind fighting with empty hands on the

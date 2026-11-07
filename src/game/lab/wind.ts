@@ -35,7 +35,7 @@ export interface WindSettings {
 }
 
 /** **The lab's gusts** on the Warrior: what its Stand-up mode, the falls and the drills blow when they name gusts (`labGusts`). */
-export const LAB_GUSTS: WindSettings = Object.freeze({ rate: .7, strength: 45 });
+const LAB_GUSTS: WindSettings = Object.freeze({ rate: .7, strength: 45 });
 
 /**
  * **The lab's gusts on `model`'s body**: `LAB_GUSTS` with each gust's force scaled by its mass over
@@ -90,7 +90,7 @@ function gustForce(gusts: readonly Gust[], time: number, strength: number): [num
  * The wind's next physics step of `dt` at `time` s: a gust begins with the chance `rate` times
  * `dt`, the gusts over are dropped, and the force for the step is set. Returns the force, N, world (x, z).
  */
-export function blow(state: WindState, settings: WindSettings, time: number, dt: number): readonly [number, number] {
+function blow(state: WindState, settings: WindSettings, time: number, dt: number): readonly [number, number] {
   const random = randomStream(0);
   random.state.word = state.word;
   if (random.next() < settings.rate * dt) {

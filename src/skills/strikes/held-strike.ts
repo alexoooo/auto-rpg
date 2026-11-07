@@ -19,14 +19,6 @@ export function handConfigurationRefusal(spec: BodySpec, hands: readonly string[
   return missing ? `${missing} needs a declared ${use} hand configuration` : null;
 }
 
-/** What an empty hand holds, by name (`heldIn`). */
-export const FIST = "fist";
-
-/** What `hand` of `spec` holds: the item's name, or `FIST`. */
-export function heldIn(spec: BodySpec, hand: Side): string {
-  return spec.held?.find((h) => h.segment === `hand.${hand}`)?.item.name ?? FIST;
-}
-
 /**
  * Whether `hand` of `spec` closes into its fist to strike: it has a fist pose and a point on it to
  * strike with (`strike`), and holds nothing. Every skill set closes such a hand for its blow

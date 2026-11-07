@@ -362,7 +362,7 @@ export interface Mirror {
 }
 
 /** What a mirror's mind has asked: its muscles' command, assist and segment/configuration pairs in request order. */
-export interface MirrorCommand {
+interface MirrorCommand {
   readonly activation: Float64Array;
   readonly velocity: Float64Array;
   readonly asked: { readonly force: Vector3; readonly moment: Vector3 };
@@ -370,7 +370,7 @@ export interface MirrorCommand {
 }
 
 /** What a mirror's senses show, as it last read them: the time, whether its body is out, its life, each other body by its id and its numbers, and the objects. */
-export interface MirrorSeen {
+interface MirrorSeen {
   time: number;
   out: boolean;
   life: number;
