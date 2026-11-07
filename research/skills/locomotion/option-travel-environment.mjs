@@ -1,8 +1,8 @@
 /** Braking from physically reached Option Mind runs, with the configured travel record.
  * A prefix is played once per environment. Snapshots keep physics, perception, orders and the
- * complete controller state. The first braking decision uses the seed actor; subsequent decisions
- * use the saved learner seam at the record's ordinary cadence. `ordinary` replays the full actor
- * from the stop order with no learner or fixed seed decision; `brakingPolicy` selects that actor.
+ * complete controller state. Training starts immediately before the first braking decision, with
+ * the stop command's delivery delay retained in its reading. `ordinary` replays the full actor
+ * from the stop order with no learner; `brakingPolicy` selects that actor.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -76,22 +76,34 @@ export async function optionTravelEnvironment(configuration) {
       const window = history.slice(-world.hz), entry = window.reduce((n, s) => n + s.velocity[2], 0) / world.hz;
       if (window.length !== world.hz || entry < 4 || body.body.down || !state.motion.walkRun.running || Math.abs(centre.x) > 1)
         throw Error(`Option travel fixture unreached at ${start}s: rolling speed ${entry}, down ${body.body.down}, corridor ${Math.abs(centre.x)}`);
-      snapshots.set(start, LONE_WORLD.save(built));
+      const warm = LONE_WORLD.save(built);
+      let snapshot = warm;
+      const prelude = [];
+      if (!o.ordinary) {
+        built.state.script.orders = { move: null, face: forward };
+        // Locate the first braking decision by looking one step ahead, then keep the state before
+        // that step. No seeded braking action belongs to a training episode.
+        while (!state.learner.running) {
+          snapshot = LONE_WORLD.save(built);
+          const sample = seedStep();
+          if (!state.learner.running) prelude.push(sample);
+          if (prelude.length > 16) throw Error('Option travel stop did not reach its braking learner');
+        }
+        LONE_WORLD.load(built, warm);
+      }
+      snapshots.set(start, { snapshot, prelude });
       entries.push({ start, entry });
     }
     const reset = async given => {
       word = (Math.imul(word, 1664525) + 1013904223) >>> 0;
       const start = given?.start ?? o.starts[Math.floor(word / 4294967296 * o.starts.length)];
       if (!snapshots.has(start)) throw Error('Option travel reset needs a retained reached start');
-      LONE_WORLD.load(built, snapshots.get(start));
+      const cached = snapshots.get(start);
+      LONE_WORLD.load(built, cached.snapshot);
       built.state.script.orders = { move: null, face: forward };
-      episode = { start, ticks: 0, maxOff: 0, along: 0, samples: o.trace ? [] : null };
-      // Keep the seed's first decision, then return immediately before the next ordinary decision.
-      while (!o.ordinary && (!state.learner.running || state.inference.steps % 4 !== 0)) {
-        const sample = seedStep(); episode.samples?.push(sample); episode.ticks++;
-        episode.along += velocity.z; episode.maxOff = Math.max(episode.maxOff, Math.abs(centre.x));
-        if (episode.ticks > 16) throw Error('Option travel stop did not reach its braking learner');
-      }
+      episode = { start, ticks: cached.prelude.length,
+        maxOff: cached.prelude.reduce((n, s) => Math.max(n, Math.abs(s.centre[0])), 0),
+        along: cached.prelude.reduce((n, s) => n + s.velocity[2], 0), samples: o.trace ? cached.prelude.slice() : null };
       return state.inference.observation.slice();
     };
     const step = (action, { squashed = false } = {}) => {
