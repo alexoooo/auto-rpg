@@ -3,7 +3,7 @@ import type { Body, BodyView } from "../control/body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import type { SkillReport, Skills } from "../skills/framework/skills.ts";
 import type { Intent } from "../skills/framework/intent.ts";
-import { sameOrders, type Orders } from "../skills/intent/orders.ts";
+import { sameOrders, type Orders } from "./orders.ts";
 import type { Engagement } from "./engagement.ts";
 import { skillsReport, type MindReport, type Prospect } from "./report.ts";
 

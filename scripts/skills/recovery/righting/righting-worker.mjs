@@ -11,7 +11,7 @@ import { coreStand } from "../../../../tests/harness/core-stand.mjs";
 import { createMind } from "../../../../src/minds/minds.ts";
 import { GAME, defaultMind } from "../../../../src/app/catalog.ts";
 import { reptileSpec } from "../../../../src/core/bodies/quadruped/spec.ts";
-import { STAND_ORDERS } from "../../../../src/skills/intent/orders.ts";
+import { STAND_ORDERS } from "../../../../src/minds/orders.ts";
 import { buildBout } from "../../../../src/app/node/evaluation.ts";
 import { loadState } from "../../../../src/core/state.ts";
 import { deserialize } from "node:v8";

@@ -1,12 +1,12 @@
-import type { MindKit } from "./framework/mind-kit.ts";
-import type { Locomotion } from "./framework/locomotion-part.ts";
-import type { Body } from "../control/body.ts";
-import type { MotorMaker } from "../control/motor-part.ts";
-import type { BodySpec } from "../core/bodies/spec/body.ts";
-import type { Legs } from "./framework/locomotion-part.ts";
-import type { PartLookup } from "../parts/lookup.ts";
-import type { PartConfig } from "../parts/parts.ts";
-import { adaptLegs } from "./framework/leg-adapter.ts";
+import type { MindKit } from "../framework/mind-kit.ts";
+import type { Locomotion } from "../framework/locomotion-part.ts";
+import type { Body } from "../../control/body.ts";
+import type { MotorMaker } from "../../control/motor-part.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import type { Legs } from "../framework/locomotion-part.ts";
+import type { PartLookup } from "../../parts/lookup.ts";
+import type { PartConfig } from "../../parts/parts.ts";
+import { adaptLegs } from "../framework/leg-adapter.ts";
 
 /**
  * **What lies under every skill of a body**, by the name an experiment passes it in by: what turns

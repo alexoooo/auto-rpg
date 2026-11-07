@@ -4,7 +4,7 @@ import { Vector3, type Quaternion } from "../../core/math/vector.ts";
 import type { BodyView } from "../../control/body.ts";
 import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import { hypot } from "../../core/math/real.ts";
-import { aimOf } from "../strikes/held-strike.ts";
+import { aimOf } from "../reach/hand.ts";
 import { bellyOf, frameOf, segmentOf, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { defaultStrikeLimbs } from "./default-strike-limbs.ts";
 import { effectorAim } from "../../control/effectors.ts";

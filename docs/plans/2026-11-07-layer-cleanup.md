@@ -154,7 +154,7 @@ The work lands as two commits.
   - `GaitName`;
   - `Clearance`;
   - `Navigator`, `NavigationSight` and `NavigationReport`;
-  - `MindKit`, from `src/skills/kit.ts`.
+  - `MindKit`, from `src/skills/assembly/kit.ts`.
 
   `PUBLISHED` names the framework file that holds `Navigator`, in place of `navigator.ts`.
 - `menuOf` takes the spot finder as an argument, the same way it takes `readiness`. The arbiter
@@ -163,10 +163,11 @@ The work lands as two commits.
 
 **Everything else into its rank**, with the skills ranks added to the gate:
 
-- `intent/orders.ts`, `ordered.ts` and `cover-hand.ts` move to `src/minds/`: no skill imports them.
+- `intent/orders.ts` and `ordered.ts` move to `src/minds/`, `cover-hand.ts` to `src/minds/option/`: no
+  skill imports them.
 - `intent/conditions.ts` and `intent/travel.ts` move to `locomotion/`, their only skills users.
 - The hand and reach geometry moves to a new folder, `src/skills/reach/`:
-  - `handConfiguration`, `handConfigurationRefusal` and `aimOf` from `strikes/held-strike.ts`;
+  - `strikes/held-strike.ts`, as `reach/hand.ts` (`aimOf` needs the rest of it);
   - `strikes/arm-reach.ts`;
   - `strikes/attack-path.ts`.
 
@@ -174,13 +175,13 @@ The work lands as two commits.
   from guard into strikes.
 - `segmentDistanceSquared` moves from `perception/openings.ts` to `src/core/math/`.
 - `SensedObstacle` moves from `locomotion/navigation/sensed-bounds.ts` to `perception/`.
-- `nearestFoe` moves from `intent/targets.ts` to `perception/`.
-- `locomotion/arm-swing.ts` reads the guard's posture through `GuardSkill` instead of importing the
-  human `GUARD` constant.
+- `intent/targets.ts` moves to `perception/`: all of it reads the senses.
+- `locomotion/arm-swing.ts` gives only the shoulders' flexions, all its one user reads, and stops
+  importing the human `GUARD` constant.
 - `kit.ts`, `assembly.ts` and `action-config.ts` move into `src/skills/assembly/`.
 - **Ranks:** the skills root (`config.ts`) and `framework/` < `reach/` < `perception/` <
   `locomotion/` < `intent/` < `guard/` < `strikes/` < `recovery/` < `assembly/`. `intent/` keeps
-  `action-window.ts` and `targets.ts`: where to stand to act, read from perception and navigation.
+  `action-window.ts`: where to stand to act, read from perception and navigation.
 
 Refute: the ranks applied to the commit before this chunk name the framework's imports, and on this
 chunk they name nothing.

@@ -10,7 +10,7 @@ import { copyMovement, sameMovement, stands, type MovementRequest, type GroundPo
 import type { NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "../../framework/navigation.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
 import { createRouter } from "./route-search.ts";
-import { travelSpeed, type Corner } from "../../intent/travel.ts";
+import { travelSpeed, type Corner } from "../travel.ts";
 
 /**
  * Route clearance includes gait sway; progress windows are navigation preferences, not anatomy. A

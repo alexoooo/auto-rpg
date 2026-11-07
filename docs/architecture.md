@@ -20,7 +20,10 @@ composes their concrete implementations. The gate ranks modules by path prefix, 
 starts with deciding (`RANKS`, `scripts/source-boundary.mjs`), so folders inside a layer can be
 ranked too, general below specific. Core ranks its root files (state, quantities, sources, physical
 constants, refusals), `math/` and `data/` below `physics/`, then `bodies/`, then `world/`: a body
-steps in a `StepHost` (`src/core/bodies/step-host.ts`), which the world extends.
+steps in a `StepHost` (`src/core/bodies/step-host.ts`), which the world extends. Skills rank
+`framework/` and the root's `config.ts` lowest, then `reach/` (hand and arm geometry), `perception/`,
+`locomotion/`, `intent/` (where to stand to act), `guard/`, `strikes/`, `recovery/`, and
+`assembly/`, which composes a body's skill set.
 
 | Layer | Where | Owns |
 | --- | --- | --- |
@@ -28,7 +31,7 @@ steps in a `StepHost` (`src/core/bodies/step-host.ts`), which the world extends.
 | Parts | `src/parts/` | component contracts, scoped configurations and role lookup |
 | Combat | `src/combat/` | blows, wounds, life and rulebooks |
 | Control | `src/control/` | motion and support goals turned into muscle commands |
-| Skills | `src/skills/framework/`, `intent/`, `perception/`, `locomotion/`, `guard/`, `strikes/`, `recovery/` | capability contracts, implementations and owned records |
+| Skills | `src/skills/framework/`, `reach/`, `perception/`, `locomotion/`, `intent/`, `guard/`, `strikes/`, `recovery/`, `assembly/` | capability contracts, implementations and owned records |
 | Minds | `src/minds/`, `src/minds/option/` | Mind execution, catalogs, decision frameworks and reusable Options |
 | Game | `src/game/` | gameplay and world builders receiving an immutable context |
 | Evaluation | `src/evaluation/` | cases and readings of the game's worlds |
@@ -333,7 +336,7 @@ its own body (`OwnBody`), fixed step duration and first senses; subsequent sense
 `think`. Its memory is plain saved data in `state`.
 Construction metadata (`MindConstruction`) owns its name, ownership reader and disposal;
 `CommandedMind` adds the command layers exposed to drivers. A person gives `Orders`
-(`src/skills/intent/orders.ts`), never muscle commands.
+(`src/minds/orders.ts`), never muscle commands.
 
 `OwnBody` holds fixed facts, body and actuator readings, and first senses. `BodyControl` views the
 saved mirror command directly: muscle arrays, assist vectors and ordered segment/configuration pairs. Only

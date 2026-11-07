@@ -5,7 +5,7 @@ import { fitsAll, fitsWhen } from "../../parts/parts.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { guardPosture, guardSkill, handsOf, wardSpeed, validCovering, GUARD_COVER, type Covering } from "./guard.ts";
-import { handConfigurationRefusal } from "../strikes/held-strike.ts";
+import { handConfigurationRefusal } from "../reach/hand.ts";
 import { holdUp } from "./hold.ts";
 
 

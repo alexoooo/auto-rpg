@@ -15,7 +15,7 @@ import { EMPTY_LOADOUT, withLoadout, type Loadout } from "../../core/bodies/item
 import { combatantRecordingIdentity, enlist, type Combatant } from "../combatant.ts";
 import type { SheetLog } from "../../minds/sheets.ts";
 import type { MindConfig } from "../../minds/config.ts";
-import { isOrders, sameOrders, type Orders } from "../../skills/intent/orders.ts";
+import { isOrders, sameOrders, type Orders } from "../../minds/orders.ts";
 import { createSenses, type SensesHub } from "../../core/world/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../../combat/blows.ts";
 import type { Pool } from "../../combat/pool.ts";

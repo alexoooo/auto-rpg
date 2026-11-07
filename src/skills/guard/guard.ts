@@ -1,5 +1,5 @@
 import type { GuardSkill } from "../framework/guard.ts";
-import { handConfiguration } from "../strikes/held-strike.ts";
+import { handConfiguration } from "../reach/hand.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { BodyView } from "../../control/body.ts";
 import { heldFrame, rigidPoints } from "../../core/bodies/build/rigid.ts";

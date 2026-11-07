@@ -25,7 +25,7 @@ import { recoveryMeasurement } from "../../../../../src/game/lab/recovery-measur
 import { turnOfToRef } from "../../../../../src/core/bodies/read-motion.ts";
 import { observeBody } from "../../../../../src/control/observation.ts";
 import { clockSenses } from "../../../../../src/core/world/senses.ts";
-import { kitOf } from "../../../../../src/skills/kit.ts";
+import { kitOf } from "../../../../../src/skills/assembly/kit.ts";
 import { partLookup } from "../../../../../src/app/catalog.ts";
 import { groundReading } from "../../../../../src/control/ground-reading.ts";
 import { TECHNIQUES } from "../../../../../src/app/registration/techniques.ts";

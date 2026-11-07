@@ -11,7 +11,7 @@ import type { BearingEnd, BodySpec } from "../../core/bodies/spec/body.ts";
 import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
-import { ordersAsked, type Orders } from "../../skills/intent/orders.ts";
+import { ordersAsked, type Orders } from "../orders.ts";
 import { measuredAt, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";

@@ -10,7 +10,7 @@ import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../../../../src/control/body.ts";
 import { carrying } from "../../../../src/control/motor.ts";
 import { locomotion, stanceOf } from "../../../../src/skills/locomotion/locomotion.ts";
-import { kitOf } from "../../../../src/skills/kit.ts";
+import { kitOf } from "../../../../src/skills/assembly/kit.ts";
 import { partLookup } from "../../../../src/app/catalog.ts";
 import { standReady } from "../../../../src/control/ground-reading.ts";
 import { footStatesOf, readSupport, withinSupport } from "../../../../src/control/support.ts";

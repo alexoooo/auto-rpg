@@ -11,7 +11,7 @@ import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { drillTask, type DrillPhase } from "../../minds/command/drill.ts";
 import { sensedPhase } from "../../skills/perception/threat.ts";
 import { centreReading } from "../../control/observation.ts";
-import { aimOf, holdsNothing } from "../../skills/strikes/held-strike.ts";
+import { aimOf, holdsNothing } from "../../skills/reach/hand.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import { sensedPosture } from "../../skills/perception/threat.ts";
 import { acos, cos } from "../../core/math/real.ts";

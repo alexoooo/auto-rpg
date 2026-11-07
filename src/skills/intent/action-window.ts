@@ -7,7 +7,7 @@ import type { Vec3 } from "../../core/quantity.ts";
 import { groundRoute } from "../perception/downed/route.ts";
 import { ARRIVED, placeMovement, stands, SWAY, type GroundPoint, type MovementRequest } from "../framework/movement.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
-import { lyingAxis } from "./targets.ts";
+import { lyingAxis } from "../perception/targets.ts";
 import { stepObstacle } from "../locomotion/navigation/sensed-bounds.ts";
 import { CROWD } from "../locomotion/navigation/crowd.ts";
 import { hold, letGo, stillHeld, unheld, type Drift, type Held } from "../../control/held.ts";

@@ -1,7 +1,7 @@
 import type { Resource } from "../../skills/framework/action.ts";
 import { sameResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../skills/framework/action.ts";
 import { NO_COVER } from "../../skills/framework/intent.ts";
-import { orderedIntent } from "../../skills/intent/ordered.ts";
+import { orderedIntent } from "../ordered.ts";
 import { legsReadiness } from "../../skills/locomotion/locomotion.ts";
 import { asking, blocked, READY, standing, type Option, type Situation } from "./option.ts";
 import { threatened } from "./percepts.ts";

@@ -23,7 +23,7 @@
  */
 import { presetFitsModel } from "../../minds/controller.ts";
 import type { MindConfig } from "../../minds/config.ts";
-import type { Orders } from "../../skills/intent/orders.ts";
+import type { Orders } from "../../minds/orders.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import { modelSpec, type BodyModel } from "../../core/bodies/models.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";

@@ -3,7 +3,7 @@ import { rigidPoints } from "../../core/bodies/build/rigid.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import { distance, sub } from "../../core/bodies/spec/vec.ts";
-import { aimOf } from "./held-strike.ts";
+import { aimOf } from "./hand.ts";
 import { segmentOf } from "../../core/bodies/spec/body.ts";
 import type { Side } from "../../core/bodies/bilateral.ts";
 

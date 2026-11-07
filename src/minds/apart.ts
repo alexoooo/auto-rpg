@@ -1,4 +1,4 @@
-import type { Orders } from "../skills/intent/orders.ts";
+import type { Orders } from "./orders.ts";
 import type { Catalog } from "./catalog.ts";
 import type { Rulebook } from "../combat/rulebook.ts";
 import type { MenuEntry } from "../skills/framework/menu.ts";

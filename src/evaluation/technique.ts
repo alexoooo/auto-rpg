@@ -9,7 +9,7 @@ import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { loadEngine } from "../core/physics/engines.ts";
 import { withLoadout, type Held } from "../core/bodies/items/held.ts";
 import { humanoidSpec } from "../core/bodies/human/spec.ts";
-import { kitOf } from "../skills/kit.ts";
+import { kitOf } from "../skills/assembly/kit.ts";
 import { poseDrive, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/technique.ts";
 import type { GroundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";

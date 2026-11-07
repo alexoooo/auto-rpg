@@ -1,7 +1,7 @@
 import { hasResource, segmentResource } from "../../skills/framework/action.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { coveringHand } from "../../skills/intent/cover-hand.ts";
+import { coveringHand } from "./cover-hand.ts";
 import type { Resource } from "../../skills/framework/action.ts";
 import { blocked, READY, type Situation, type Option } from "./option.ts";
 import { NOTHING } from "../choice.ts";

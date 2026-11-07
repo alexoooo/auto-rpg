@@ -15,7 +15,7 @@ import { armed } from "../../../src/core/bodies/human/grip.ts";
 import { modelSpec } from "../../../src/core/bodies/models.ts";
 import { woodenClub } from "../../../src/core/bodies/items/club.ts";
 import { builtAngles, createMind } from "../../../src/minds/minds.ts";
-import { STAND_ORDERS } from "../../../src/skills/intent/orders.ts";
+import { STAND_ORDERS } from "../../../src/minds/orders.ts";
 import { lieOf } from "../../../src/control/ground-reading.ts";
 import { RISE } from "../../../src/skills/recovery/implementations/staged/stages.ts";
 import { createWorld } from "../../../src/core/world/world.ts";

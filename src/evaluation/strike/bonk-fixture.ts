@@ -13,7 +13,7 @@ import { massCentreToRef } from "../../core/bodies/read-motion.ts";
 import type { BuiltBody } from "../../core/bodies/build/build-body.ts";
 import type { SegmentSpec, ShapeSpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/quantity.ts";
-import type { Orders } from "../../skills/intent/orders.ts";
+import type { Orders } from "../../minds/orders.ts";
 import type { BuiltBout } from "../bout.ts";
 
 /** Frozen entry geometry of the club's standing use, with native fixture placement precision. */

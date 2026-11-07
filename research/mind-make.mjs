@@ -14,7 +14,7 @@ import { parseArgs } from "node:util";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 import { GAME, defaultMind } from "../src/app/catalog.ts";
 import { createMind } from "../src/minds/minds.ts";
-import { STAND_ORDERS } from "../src/skills/intent/orders.ts";
+import { STAND_ORDERS } from "../src/minds/orders.ts";
 import { modelHolding } from "../src/core/bodies/models.ts";
 import { buildBody } from "../src/core/bodies/build/build-body.ts";
 

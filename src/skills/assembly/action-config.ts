@@ -1,13 +1,13 @@
-import type { ExecutorPart } from "./framework/executor-part.ts";
-import type { Body, BodyView } from "../control/body.ts";
-import type { Pose } from "../core/bodies/spec/pose.ts";
-import type { BodySpec } from "../core/bodies/spec/body.ts";
-import type { Clock } from "../core/world/clock.ts";
-import type { Ended, TargetRef } from "./framework/action.ts";
-import type { ExecutorBinding } from "./framework/action-instances.ts";
-import type { Aim } from "./framework/aim-part.ts";
-import type { ActionConfig, ExecutorEntry } from "./config.ts";
-import type { PartLookup } from "../parts/lookup.ts";
+import type { ExecutorPart } from "../framework/executor-part.ts";
+import type { Body, BodyView } from "../../control/body.ts";
+import type { Pose } from "../../core/bodies/spec/pose.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import type { Clock } from "../../core/world/clock.ts";
+import type { Ended, TargetRef } from "../framework/action.ts";
+import type { ExecutorBinding } from "../framework/action-instances.ts";
+import type { Aim } from "../framework/aim-part.ts";
+import type { ActionConfig, ExecutorEntry } from "../config.ts";
+import type { PartLookup } from "../../parts/lookup.ts";
 
 /** **`action`'s aim** on a body of `spec`, made by its aim's part (`AimPart.make`); null for an action that names no aim. */
 function aimOf(parts: PartLookup, spec: BodySpec, action: ActionConfig): Aim | null {

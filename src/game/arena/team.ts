@@ -2,7 +2,7 @@ import type { Hook } from "../../core/bodies/step-host.ts";
 import type { CommanderConfig } from "../../minds/command/kind.ts";
 import { createCommander, type CommanderRegistry } from "../../minds/command/commander.ts";
 import { releaseCombatApproach } from "../../minds/command/delivery.ts";
-import { sameOrders, type Orders } from "../../skills/intent/orders.ts";
+import { sameOrders, type Orders } from "../../minds/orders.ts";
 import type { Command } from "../../minds/command/commands.ts";
 import type { Commander, MemberView, TeamLevel, TeamView } from "../../minds/command/team.ts";
 import { hypot } from "../../core/math/real.ts";

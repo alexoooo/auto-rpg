@@ -9,7 +9,7 @@ import { selfClearance, type SelfClearance } from "../../core/bodies/build/clear
 import { attachment, rootSegment } from "../../core/bodies/read-body.ts";
 import { motionAtToRef, pointOfToRef, turnOfToRef } from "../../core/bodies/read-motion.ts";
 import { bonkModel, BONK_LIMITS, type BonkCourse, type BonkFrame, type BonkModel, type BonkPhase, type BonkPose, type BonkReturn, type BonkTechnique, type BonkTurn } from "../../skills/strikes/bonk-course.ts";
-import { handConfiguration } from "../../skills/strikes/held-strike.ts";
+import { handConfiguration } from "../../skills/reach/hand.ts";
 import type { ActionStatus } from "../../skills/framework/action.ts";
 import type { BuiltBout } from "../bout.ts";
 import type { Vec3 } from "../../core/quantity.ts";

@@ -12,7 +12,7 @@ import { bodyHost, type HostGrants } from "./host.ts";
 import { mirrorDriven, type Embodying } from "./embodiment.ts";
 import { isMindPlace, reportNow, type At, type MindPlace, type MindRecipe, type ReportNow, type Seat } from "./apart.ts";
 import { physicalBody, type HeldReading, type PhysicalBody } from "./physical-body.ts";
-import type { Orders } from "../skills/intent/orders.ts";
+import type { Orders } from "./orders.ts";
 import type { Senses } from "../core/bodies/senses.ts";
 import type { SheetLog } from "./sheets.ts";
 

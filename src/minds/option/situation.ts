@@ -1,7 +1,7 @@
 import { hypot } from "../../core/math/real.ts";
 import type { Rulebook } from "../../combat/rulebook.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Orders } from "../../skills/intent/orders.ts";
+import type { Orders } from "../orders.ts";
 import type { Profile } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";

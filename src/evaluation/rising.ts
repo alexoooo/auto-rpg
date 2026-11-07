@@ -21,7 +21,7 @@ import type { OptionMindConfig } from "../minds/option/mind.ts";
 import type { MindConfig } from "../minds/config.ts";
 import { groundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
-import { kitOf } from "../skills/kit.ts";
+import { kitOf } from "../skills/assembly/kit.ts";
 import { isWayUp, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/technique.ts";
 import { withWaysUp } from "../minds/option/rise.ts";
 import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/bodies/models.ts";

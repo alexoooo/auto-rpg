@@ -1,3 +1,5 @@
+import type { SensedObstacle, FootClearance } from "../../perception/obstacle.ts";
+import { segmentDistanceSquared } from "../../../core/math/segment.ts";
 import type { BodyView, StepReading } from "../../../control/body.ts";
 import { Vector3 } from "../../../core/math/vector.ts";
 import { rigidOf } from "../../../core/bodies/build/rigid.ts";
@@ -5,7 +7,6 @@ import { frameOf, configurationShapeAt, type ConfigurationName, type BodySpec, t
 import type { Vec3 } from "../../../core/quantity.ts";
 import { add, dot, scale, sub } from "../../../core/bodies/spec/vec.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
-import { segmentDistanceSquared } from "../../perception/openings.ts";
 import { blocks, SWEEP } from "./clear-step.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
 
@@ -157,14 +158,6 @@ export function sensedBounds(foe: BodySense): readonly SolidSense[] {
   return worldShapes(foe).map(boundsOf);
 }
 
-/**
- * A foot's sweep against a body's colliders: exact against round colliders, against conservative
- * bounds for polyhedral ones, admitting a sweep that separates outward.
- */
-type FootClearance = (from: Vec3, to: Vec3, radius: number) => boolean;
-
-/** A body's colliders read once: their bounds, as `sensedBounds` gives them, and a foot's sweep against them. */
-export interface SensedObstacle { readonly bounds: readonly SolidSense[]; readonly clear: FootClearance }
 
 /** `foe`'s colliders where it is sensed, read once: for a caller that sweeps and bounds the same pose many times. */
 function sensedObstacle(foe: BodySense): SensedObstacle {

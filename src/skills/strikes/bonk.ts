@@ -12,7 +12,7 @@ import { supportHeight } from "../../control/support-reference.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";
 import { sensedActionTarget } from "../framework/action-aim.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, segmentResource, type ActionEnding, type ActionRequest, type Executor, type LifecycleUpdate, type TargetResolver } from "../framework/action.ts";
-import { handConfiguration } from "./held-strike.ts";
+import { handConfiguration } from "../reach/hand.ts";
 import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { BONK_LIMITS, bonkModel, validBonkTechnique, type BonkCourse, type BonkFrame, type BonkPath, type BonkPose, type BonkReturn, type BonkTechnique, type BonkTurn } from "./bonk-course.ts";
 

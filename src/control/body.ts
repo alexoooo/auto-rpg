@@ -168,7 +168,7 @@ export interface BodyView {
    * `intoFrameToRef`.
    */
   readonly root: Frame;
-  /** The head's centre of mass, world, the segment another body aims high at (`BodySpec.marks`): where a strike's reach is measured from (`placedReach`, `src/skills/strikes/arm-reach.ts`). */
+  /** The head's centre of mass, world, the segment another body aims high at (`BodySpec.marks`): where a strike's reach is measured from (`placedReach`, `src/skills/reach/arm-reach.ts`). */
   readonly head: Vector3;
   /** The centre of mass, the stance's support, and what the stance last asked (`StanceReading`). */
   readonly stance: StanceReading;

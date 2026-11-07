@@ -1,16 +1,16 @@
-import { windowSpotFinder } from "./intent/action-window.ts";
-import type { Aim } from "./framework/aim-part.ts";
-import { SERVO_SECONDS, type Body, type LayerOptions } from "../control/body.ts";
-import { skillSet } from "./framework/arbiter.ts";
-import type { Skills } from "./framework/skills.ts";
-import type { Ended } from "./framework/action.ts";
-import type { ActionBinding, ExecutorBinding } from "./framework/action-instances.ts";
-import type { Clock } from "../core/world/clock.ts";
-import type { SkillKit } from "./config.ts";
+import { windowSpotFinder } from "../intent/action-window.ts";
+import type { Aim } from "../framework/aim-part.ts";
+import { SERVO_SECONDS, type Body, type LayerOptions } from "../../control/body.ts";
+import { skillSet } from "../framework/arbiter.ts";
+import type { Skills } from "../framework/skills.ts";
+import type { Ended } from "../framework/action.ts";
+import type { ActionBinding, ExecutorBinding } from "../framework/action-instances.ts";
+import type { Clock } from "../../core/world/clock.ts";
+import type { SkillKit } from "../config.ts";
 import { aimsState, configuredAims, configuredExecutors } from "./action-config.ts";
-import type { PartLookup } from "../parts/lookup.ts";
-import type { PartConfig } from "../parts/parts.ts";
-import { navigatorOf } from "./framework/navigation.ts";
+import type { PartLookup } from "../../parts/lookup.ts";
+import type { PartConfig } from "../../parts/parts.ts";
+import { navigatorOf } from "../framework/navigation.ts";
 import { legsOf, motorOf } from "./kit.ts";
 
 /** A kit's command layers (`commandLayers`): all action instances share its effectors' touch (`LayerOptions.feedback`) and body-local ledger; its motor `motor`, as `parts` finds it. */

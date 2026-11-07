@@ -5,17 +5,16 @@ import { swingProgressToRef } from "../../control/swing-path.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { footOn } from "../../control/support.ts";
-import { GUARD } from "../guard/guard.ts";
 import { sin, cos } from "../../core/math/real.ts";
 import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
 
 /**
- * **The arms swinging** against the legs, each from the guard (`GUARD`): the upper arm hanging,
- * turned forward by `gain` rad for every metre the other side's sole leads the centre of mass
- * along the heading, and no further than `ARM_REACH` rad either way, the elbow bent as the guard
- * bends it. An arm reaches a posture that moves at a walk's cadence about `ARM_LEAD` s late (the
- * servo's lag), so each arm is asked where the other side's sole will be then: a swinging sole
- * along its way to its landing, a bearing one where it is, from the centre of mass run on.
+ * **The arms swinging** against the legs: each shoulder's flexion from the arm hanging, turned
+ * forward by `gain` rad for every metre the other side's sole leads the centre of mass along the
+ * heading, and no further than `ARM_REACH` rad either way; the caller holds the rest of the arm.
+ * An arm reaches a posture that moves at a walk's cadence about `ARM_LEAD` s late (the servo's
+ * lag), so each arm is asked where the other side's sole will be then: a swinging sole along its
+ * way to its landing, a bearing one where it is, from the centre of mass run on.
  */
 const ARM_REACH = 0.8, ARM_LEAD = 0.15;
 
@@ -27,7 +26,7 @@ interface Swinging {
 }
 
 /**
- * An arm swing (`ARM_REACH`): `pose(view, heading, swinging)` gives the arms' posture. `centred`,
+ * An arm swing (`ARM_REACH`): `pose(view, heading, swinging)` gives the shoulders' flexions. `centred`,
  * each arm is turned by the half the other side's sole leads its own by instead, so the arms swing
  * against each other about the hanging whatever the soles' mean lead, which a run carries behind.
  */
@@ -51,9 +50,6 @@ export function armSwing(spec: BodySpec, gain: number, centred = false): (view: 
       const other = lead(otherSide(side));
       return Math.min(ARM_REACH, Math.max(-ARM_REACH, gain * (centred ? (other - lead(side)) / 2 : other)));
     };
-    return {
-      "shoulder.left flexion": flexion("left"), "shoulder.left abduction": GUARD["shoulder.left abduction"]!, "elbow.left flexion": GUARD["elbow.left flexion"]!,
-      "shoulder.right flexion": flexion("right"), "shoulder.right abduction": GUARD["shoulder.right abduction"]!, "elbow.right flexion": GUARD["elbow.right flexion"]!,
-    };
+    return { "shoulder.left flexion": flexion("left"), "shoulder.right flexion": flexion("right") };
   };
 }

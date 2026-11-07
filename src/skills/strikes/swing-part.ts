@@ -1,4 +1,4 @@
-import { handConfigurationRefusal } from "./held-strike.ts";
+import { handConfigurationRefusal } from "../reach/hand.ts";
 import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import clubMeta from "../../../assets/skills/strikes/club-blow/club-blow.meta.json" with { type: "json" };
 import cutMeta from "../../../assets/skills/strikes/cut/cut.meta.json" with { type: "json" };

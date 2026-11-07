@@ -22,7 +22,7 @@ export interface Legs {
 /**
  * **A kind of locomotion**: a part of role `locomotion` that owns its config's type, keys,
  * defaults, faults and fit, and makes a body's legs over its gaits (`GaitPart`). The legs it makes
- * state their limits to the speed rule (`travelSpeed`, `src/skills/intent/travel.ts`): what they hold
+ * state their limits to the speed rule (`travelSpeed`, `src/skills/locomotion/travel.ts`): what they hold
  * (`Locomotion.envelope`), how long they go on once asked to slow (`Locomotion.lag`) and how fast
  * they stop (`Locomotion.stopping`).
  */
@@ -81,7 +81,7 @@ export interface Locomotion extends Skill {
   readonly heading: number;
   /**
    * How fast it slows to a stop, m/sÃ‚Â²: the deceleration the movement pipeline brakes by before a
-   * place and a corner (`travelSpeed`, `src/skills/intent/travel.ts`); 0 for legs that do not walk, which the speed rule takes nowhere.
+   * place and a corner (`travelSpeed`, `src/skills/locomotion/travel.ts`); 0 for legs that do not walk, which the speed rule takes nowhere.
    */
   readonly stopping: number;
   /**

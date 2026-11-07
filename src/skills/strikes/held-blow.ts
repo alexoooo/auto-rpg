@@ -16,7 +16,7 @@ import { recordFault, tunedSettings, type SkillRecord } from "../framework/recor
 import { faceFault, STRAIGHT_PUNCH_KEYS, straightPunchExecutor, straightPunchFits, timedChannelFault, validStraightPunch, validStraightPunchPart,
   type StraightPunch, type StrikingFace } from "./straight-punch.ts";
 import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
-import { handConfigurationRefusal } from "./held-strike.ts";
+import { handConfigurationRefusal } from "../reach/hand.ts";
 
 /**
  * **The held blows driven straight**, by kind: what each is thrown with (`item`, by `HELD`'s name),

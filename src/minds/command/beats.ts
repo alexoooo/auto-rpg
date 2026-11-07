@@ -1,5 +1,5 @@
 import { deepFreeze } from "../../core/state.ts";
-import { STAND_ORDERS, type Orders } from "../../skills/intent/orders.ts";
+import { STAND_ORDERS, type Orders } from "../orders.ts";
 import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import type { Commander, MemberReport, SensedBody, TeamDecision, TeamView } from "./team.ts";
 

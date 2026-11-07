@@ -138,7 +138,7 @@ import { crouchSteady } from "../../research/skills/recovery/witness/climb.mjs";
 import { pendingControl } from "../../research/minds/pending-control.mjs";
 
 import { steadying } from "../../src/skills/recovery/implementations/modes/steady.ts";
-import { kitOf } from "../../src/skills/kit.ts";
+import { kitOf } from "../../src/skills/assembly/kit.ts";
 for (const [name, makeSteady] of [["witness crouch", crouchSteady], ["steady mode", (own, view) => steadying(own, view, kitOf(partLookup, own.spec))]]) {
 test(`${name} initializes its own stance when it is the first holder`, async () => {
   const stand = await coreStand(stock);
@@ -211,7 +211,7 @@ test("idle stance reads physical foot yaw without an effector actuator or matchi
 });
 
 import { partLookup, MINDS, GAME } from "../../src/app/catalog.ts";
-import { filledRefusal } from "../../src/skills/kit.ts";
+import { filledRefusal } from "../../src/skills/assembly/kit.ts";
 
 test("explicit filled parts obey the same body applicability as automatic selection", () => {
   const rat = modelSpec("rat");
@@ -294,7 +294,7 @@ import { TROT_PART } from "../../src/skills/locomotion/quadruped/trot.ts";
 import { CRAWL_PART } from "../../src/skills/locomotion/quadruped/crawl.ts";
 import { JAW_BITE } from "../../src/skills/strikes/bite/index.ts";
 import { ROLL_POSES } from "../../src/skills/recovery/implementations/staged/stages.ts";
-import { kitSkills } from "../../src/skills/assembly.ts";
+import { kitSkills } from "../../src/skills/assembly/assembly.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, poseResource, hasResource } from "../../src/skills/framework/action.ts";
 import { MOVE_PART } from "../../src/skills/locomotion/move-part.ts";
 

@@ -2,7 +2,7 @@ import type { Spot } from "../../skills/framework/menu.ts";
 import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../../skills/framework/action.ts";
 import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side } from "../../skills/intent/action-window.ts";
-import { orderAllows, orderedTarget } from "../../skills/intent/orders.ts";
+import { orderAllows, orderedTarget } from "../orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../../skills/framework/profile.ts";

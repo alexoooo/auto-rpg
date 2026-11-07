@@ -1,7 +1,7 @@
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
 import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArrival, windowHolds } from "../../skills/intent/action-window.ts";
 import { ARRIVED, directMovement, placeMovement, SWAY } from "../../skills/framework/movement.ts";
-import { isRegion, type Orders } from "../../skills/intent/orders.ts";
+import { isRegion, type Orders } from "../orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../../skills/framework/action.ts";
 import { skillOf, type KitEntry, type MenuEntry, type Spot } from "../../skills/framework/menu.ts";
 import { deepFreeze } from "../../core/state.ts";

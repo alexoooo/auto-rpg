@@ -14,7 +14,7 @@ import { enlist, type Combatant } from "../game/combatant.ts";
 import { loadEngine } from "../core/physics/engines.ts";
 import { EMPTY_LOADOUT, type Loadout } from "../core/bodies/items/held.ts";
 import type { MindConfig } from "../minds/config.ts";
-import type { Orders } from "../skills/intent/orders.ts";
+import type { Orders } from "../minds/orders.ts";
 import { cos, sin } from "../core/math/real.ts";
 import { createSenses } from "../core/world/senses.ts";
 import { modelHoldingChecked, type BodyModel } from "../core/bodies/models.ts";

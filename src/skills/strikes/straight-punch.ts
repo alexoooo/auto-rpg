@@ -16,7 +16,7 @@ import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
 import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";
 import { sensedActionTarget } from "../framework/action-aim.ts";
 import { stepShare, timedPushes, validPush, type TimedPush } from "./timed-push.ts";
-import { handConfiguration, closesToStrike } from "./held-strike.ts";
+import { handConfiguration, closesToStrike } from "../reach/hand.ts";
 import { keepsWalk, PUNCH_LAYOUT, punchChannels, punchFeatures, stanceAsks, steerPushes, type PunchLayout } from "./learned-punch.ts";
 import { act, ask, learnerOf, start, stop } from "../../core/math/learning/learner.ts";
 import { legOf } from "../locomotion/gait-scale.ts";

@@ -1,4 +1,4 @@
-import { surfaceAimRefusal } from "../arm-reach.ts";
+import { surfaceAimRefusal } from "../../reach/arm-reach.ts";
 import { aimOn } from "../../framework/aim-on.ts";
 import type { BodyView } from "../../../control/body.ts";
 import { deepFreeze } from "../../../core/state.ts";

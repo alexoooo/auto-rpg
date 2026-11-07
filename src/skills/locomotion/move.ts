@@ -1,8 +1,8 @@
 import type { LegsDrive, Locomotion } from "../framework/locomotion-part.ts";
 import type { BodyView } from "../../control/body.ts";
 import { hypot } from "../../core/math/real.ts";
-import { nearestFoe } from "../intent/targets.ts";
-import { conditionMatches, type ConditionReading } from "../intent/conditions.ts";
+import { nearestFoe } from "../perception/targets.ts";
+import { conditionMatches, type ConditionReading } from "./conditions.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, maskOf, type LegsGoal, type GaitName } from "../framework/skill.ts";
 
 /**

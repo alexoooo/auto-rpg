@@ -20,7 +20,7 @@ import type { HostedBody } from "../minds/hosted-body.ts";
 import { soleRefusal } from "../control/support.ts";
 import { enlist, type Combatant } from "../game/combatant.ts";
 import { createSenses } from "../core/world/senses.ts";
-import { STAND_ORDERS } from "../skills/intent/orders.ts";
+import { STAND_ORDERS } from "../minds/orders.ts";
 import type { MindReport } from "../minds/report.ts";
 import { isRefused, type Refused } from "../core/refusal.ts";
 import { constructionScope } from "../core/construction.ts";

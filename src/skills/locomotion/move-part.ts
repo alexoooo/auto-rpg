@@ -19,7 +19,7 @@ export const GOING: MoveConfig = deepFreeze({ kind: "move", rules: [], otherwise
 /**
  * Move with rules that choose its gait where its legs goal names none: the fighting step (braced)
  * while it stands or a standing foe is within 5 m; otherwise the walk and run free to run, which
- * runs once the speed the rule asks (`travelSpeed`, `src/skills/intent/travel.ts`) is past its run's.
+ * runs once the speed the rule asks (`travelSpeed`, `src/skills/locomotion/travel.ts`) is past its run's.
  * The run slows at its `brake` (0.47 m/s²): from the pace it runs from (1.3 m/s) it stops in about
  * 1.8 m, and closing on a foe that closes too, in twice that, so it is walking by the time a fight's
  * reach is near; nearer, two fighters run into each other. Near a standing body of its own side it
