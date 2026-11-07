@@ -57,6 +57,11 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   `npx` leaves `vite` running).
 - **Temporary files** in `.tmp/<task>/`, worktrees in `.tmp/worktrees/<name>/`; deleted when the
   task lands. Something kept outside Git gets its own `.gitignore` line. `tests/workspace.test.mjs`.
+- **A run's output goes to `.tmp/<task>/`**: checkpoints, traces, screens, rejected candidates.
+  `research/runs/<task>/` keeps only what a later run reads (a selected model with its
+  normalisation and configuration, rows a comparison reuses) and a README naming each file. A
+  dropped experiment keeps nothing; its reading goes in the commit message. A folder there over
+  1,000 files or 1 GB fails `tests/workspace.test.mjs`.
 
 ## Writing
 
