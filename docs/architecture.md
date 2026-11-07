@@ -243,6 +243,11 @@ arbiter releases every action when another mind takes the body.
   (`src/skills/locomotion/learned-run.ts`). They read mirrored gait observations at their recorded
   decision cadence, refresh on a changed pace order and smooth reference offsets on physical
   channels. Their observations, actions, offsets and cadence live in the gait's saved state.
+  A record can supply its travel envelope independently of the braced limits. In research braking
+  mode, saved `learner` outputs replace the braking actor at the same decision cadence; moving
+  orders retain the velocity actor. `research/skills/locomotion/option-travel-environment.mjs`
+  trains this seam through Option Mind. The lone-body world saves physics, perception, orders,
+  wind and controller state so its reached running starts can be restored.
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
   shares gait instances only for identical complete configurations. Walk/run permission views
   share motion through their concrete implementation when their physical settings agree.

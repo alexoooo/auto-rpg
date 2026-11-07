@@ -69,8 +69,8 @@ if (circle) {
 }
 script.push({ at: stop, orders: { move: null, face: o.mode === 'facing' ? { x: 0, z: 1 } : final } });
 let mind = defaultMind('workshop-fighter');
-if (o.settings) {
-  const tuning = JSON.parse(readFileSync(o.settings, 'utf8'));
+const tuning = o.settings ? JSON.parse(readFileSync(o.settings, 'utf8')) : null;
+if (tuning) {
   mind = { ...mind, tuning: { ...mind.tuning, parts: { ...mind.tuning?.parts, legs: { ...MOVE,
     gaits: STOCK_GAITS.map(gait => ({ ...gait, legs: { ...gait.legs, tuning } })) } } } };
 }
@@ -80,7 +80,7 @@ const built = await LONE_WORLD.build({ kind: 'lone', engine: DEFAULT_ENGINE, lon
 if ('refused' in built) throw Error(built.refused);
 try {
   const { world, body } = built, parts = [...body.built.segments.values()], mass = massOf(parts);
-  const walkEnvelope = stanceEnvelope(body.built.spec), runEnvelope = walkRunEnvelope(body.built.spec);
+  const walkEnvelope = stanceEnvelope(body.built.spec), runEnvelope = tuning?.envelope ?? walkRunEnvelope(body.built.spec);
   const calibration = {
     walk: Object.fromEntries(Object.entries(walkEnvelope.ways).map(([way, quantity]) => [way, quantity.value])),
     run: Object.fromEntries(Object.entries(runEnvelope.ways).map(([way, quantity]) => [way, quantity.value])),

@@ -32,6 +32,24 @@ export interface StanceEnvelope {
   } | null;
 }
 
+/** Admission for an explicitly supplied calibration: finite nonnegative limits and ordered turn speeds. */
+export function validStanceEnvelope(value: unknown): value is StanceEnvelope {
+  if (!value || typeof value !== "object") return false;
+  const envelope = value as StanceEnvelope;
+  const quantity = (q: unknown, unit: string): boolean => !!q && typeof q === "object"
+    && (q as Quantity<number>).unit === unit && Number.isFinite((q as Quantity<number>).value) && (q as Quantity<number>).value >= 0;
+  if (!envelope.ways || !["forward", "right", "back", "left"].every(way => quantity(envelope.ways[way as keyof StanceEnvelope["ways"]], "m/s"))) return false;
+  if (!Array.isArray(envelope.turns) || !envelope.turns.every((row, i) => row && quantity(row.speed, "m/s") && quantity(row.turn, "rad/s")
+    && (i === 0 || row.speed.value > envelope.turns[i - 1]!.speed.value))) return false;
+  const tried = envelope.tried;
+  return tried === null || !!tried && Array.isArray(tried.speeds) && quantity(tried.trials, "1") && tried.trials.value > 0
+    && tried.speeds.every(speed => quantity(speed, "m/s")) && !!tried.held
+    && ["forward", "right", "back", "left"].every(way => {
+      const counts = tried.held[way as keyof StanceEnvelope["ways"]];
+      return Array.isArray(counts) && counts.length === tried.speeds.length && counts.every(count => quantity(count, "1") && count.value <= tried.trials.value);
+    });
+}
+
 /**
  * The fastest pace `envelope` holds walking `forward` m/s ahead and `right` m/s to the right, m/s: on
  * the ellipse through the fastest walks of the two ways that walk lies between (`StanceEnvelope.ways`),

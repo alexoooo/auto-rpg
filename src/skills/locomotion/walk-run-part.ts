@@ -13,6 +13,7 @@ import type { Body } from "../../control/body.ts";
 import type { Locomotion } from "./locomotion.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { learnedRun, learnedRunFaults, type LearnedRunSettings } from "./learned-run.ts";
+import { validStanceEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";
 
 /** **The walk and run's settings for a body**: its physical gait and optional learned corrections. */
 export interface WalkRunRecord {
@@ -24,6 +25,8 @@ export interface WalkRunRecord {
   readonly stride?: GaitTuning;
   /** The learned joint corrections around this record's physical gait settings. */
   readonly learned?: LearnedRunSettings;
+  /** This record's travel limits; braced permission retains the body's stance envelope. */
+  readonly envelope?: StanceEnvelope;
 }
 
 declare module "../../core/data/store.ts" {
@@ -35,12 +38,12 @@ declare module "../../core/data/store.ts" {
 
 /**
  * **The walk and run's config**: whether it may run (`Locomotion.runs`; unless false, it does), and
- * an experiment's research `tuning` of the stride, walk, run, braking and learned settings, which a link does not carry.
+ * an experiment's research `tuning` of the stride, walk, run, braking, envelope and learned settings, which a link does not carry.
  */
 interface WalkRunConfig {
   readonly kind: "walk-run";
   readonly runs?: boolean;
-  readonly tuning?: { readonly walk?: Partial<WalkRunSettings>; readonly run?: Partial<RunCycleSettings>; readonly braking?: Partial<RunCycleSettings>; readonly stride?: Partial<GaitTuning>; readonly learned?: LearnedRunSettings };
+  readonly tuning?: { readonly walk?: Partial<WalkRunSettings>; readonly run?: Partial<RunCycleSettings>; readonly braking?: Partial<RunCycleSettings>; readonly stride?: Partial<GaitTuning>; readonly learned?: LearnedRunSettings; readonly envelope?: StanceEnvelope };
 }
 
 /** The settings `config`'s research tuning sets over `base`. */
@@ -48,9 +51,10 @@ const tunedOver = (base: WalkRunRecord, config: WalkRunConfig): WalkRunRecord & 
   const run = runCycleSettings(config.tuning?.run, base.run);
   const stride = config.tuning?.stride ? { ...(base.stride ?? STANCE_GAIT), ...config.tuning.stride } : base.stride;
   const learned = config.tuning?.learned ?? base.learned;
+  const envelope = config.tuning?.envelope ?? base.envelope;
   return { walk: { ...base.walk, ...config.tuning?.walk }, run,
     braking: runCycleSettings(config.tuning?.braking, base.braking ?? run), ...(stride ? { stride } : {}),
-    ...(learned ? { learned } : {}) };
+    ...(learned ? { learned } : {}), ...(envelope ? { envelope } : {}) };
 };
 
 /** The defaults every body takes scaled to its leg (`scaledGait`) where it has no record of its own. */
@@ -84,13 +88,14 @@ export function walkRunRefusal(spec: BodySpec): string | null {
 export const WALK_RUN_PART: GaitPart<WalkRunConfig> = deepFreeze({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk and run", stage: "game", fields: [], slots: [], defaults: { kind: "walk-run" },
   keys: { kind: true, tuning: true, runs: true },
-  tuning: ["walk", "run", "braking", "stride", "learned"], fits: walkRunRefusal,
+  tuning: ["walk", "run", "braking", "stride", "learned", "envelope"], fits: walkRunRefusal,
   faults: (config) => {
     if (config.tuning !== undefined && (!config.tuning || typeof config.tuning !== "object" || Array.isArray(config.tuning))) return ["invalid walk and run tuning"];
     if (config.tuning && Object.values(config.tuning).some(value => !value || typeof value !== "object" || Array.isArray(value))) return ["invalid walk and run tuning"];
-    const { walk, run, braking, stride, learned } = tunedOver(DEFAULTS, config);
+    const { walk, run, braking, stride, learned, envelope } = tunedOver(DEFAULTS, config);
     return [
       ...learned === undefined ? [] : learnedRunFaults(learned),
+      ...(envelope === undefined || validStanceEnvelope(envelope) ? [] : ["invalid travel envelope"]),
       ...(stride === undefined || validGaitTuning(stride) ? [] : ["invalid travel stride settings"]),
       ...validRunCycle(braking) ? [] : ["a braking cycle needs the run cycle's complete valid settings"],
       ...validWalkRun(walk) ? [] : ["a walk and run's walk gives only the walk's settings, each finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1"],
@@ -100,13 +105,13 @@ export const WALK_RUN_PART: GaitPart<WalkRunConfig> = deepFreeze({
   reads: () => ["walk-run"],
   runs: (config) => config.runs ?? true,
   make: (body, config) => {
-    const { walk, run, braking, stride, learned } = tunedOver(dataOf("walk-run")[bodyKey(body.built.spec)]?.settings ?? DEFAULTS, config);
+    const { walk, run, braking, stride, learned, envelope } = tunedOver(dataOf("walk-run")[bodyKey(body.built.spec)]?.settings ?? DEFAULTS, config);
     let settings = motion.get(body);
     if (!settings) motion.set(body, settings = new Map());
-    const key = recordingKey({ walk, run, braking, ...(stride ? { stride } : {}), ...(learned ? { learned } : {}) });
+    const key = recordingKey({ walk, run, braking, ...(stride ? { stride } : {}), ...(learned ? { learned } : {}), ...(envelope ? { envelope } : {}) });
     let shared = settings.get(key);
     if (!shared) {
-      const motion = walkRun(body, walk, run, { may: config.runs ?? true, braking, stride, entry: learned?.entry, trim: learned?.trim });
+      const motion = walkRun(body, walk, run, { may: config.runs ?? true, braking, stride, envelope, entry: learned?.entry, trim: learned?.trim });
       settings.set(key, shared = learned ? learnedRun(body, motion, learned, run.settle) : motion);
     }
     const controller = shared, may = config.runs ?? true;

@@ -25,10 +25,12 @@ import { learningWorker } from './learning-worker.mjs';
  * Each kind of environment's maker, by the `kind` its file names: an episode's shape, which its
  * settings fill in. `cases`: any learnable part of a mind played in an evaluation's cases
  * (`case-learning-environment.mjs`); `travel`: residual control around the retained running gait
- * (`skills/locomotion/residual-environment.mjs`), for pretraining and development screens.
+ * (`skills/locomotion/residual-environment.mjs`), for pretraining and development screens;
+ * `option-travel`: braking through the configured Option Mind from saved reached running states.
  */
 const KINDS = {
   travel: async () => (await import('./skills/locomotion/residual-environment.mjs')).residualEnvironment,
+  'option-travel': async () => (await import('./skills/locomotion/option-travel-environment.mjs')).optionTravelEnvironment,
   cases: async () => {
     const { caseEnvironment } = await import('./case-learning-environment.mjs');
     const { profileLearningMind } = await import('../src/minds/option/index.ts');

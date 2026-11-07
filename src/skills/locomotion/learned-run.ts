@@ -8,6 +8,7 @@ import { legOf } from "./gait-scale.ts";
 import type { RunTrim } from "./cycle-run.ts";
 import type { Locomotion } from "./locomotion.ts";
 import type { WalkRunState } from "./walk-run.ts";
+import { learnerOf } from "../../core/math/learning/learner.ts";
 
 /** Bounded joint corrections around a walk/run record, evaluated at its trained control cadence. */
 export interface LearnedRunSettings {
@@ -19,6 +20,8 @@ export interface LearnedRunSettings {
   readonly decisionSteps: number;
   readonly entry: "landing" | "first-lift";
   readonly trim: RunTrim;
+  /** Research braking decisions supplied through saved learner outputs; moving orders retain the velocity actor. */
+  readonly steered?: "braking";
 }
 
 /** Admission for the mirrored 49-input, twelve-channel travel actors and their physical scales. */
@@ -33,6 +36,7 @@ export function learnedRunFaults(value: unknown): readonly string[] {
   if (!Number.isSafeInteger(settings.decisionSteps) || settings.decisionSteps < 1) faults.push("learned run decisionSteps must be a positive whole number");
   if (settings.entry !== "landing" && settings.entry !== "first-lift") faults.push("learned run entry must be landing or first-lift");
   if (!["continuous", "at-pace", "after-pace"].includes(settings.trim)) faults.push("invalid learned run trim");
+  if (settings.steered !== undefined && settings.steered !== "braking") faults.push("learned run steered mode is braking");
   return faults;
 }
 
@@ -57,16 +61,22 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
     origin: { x: body.view.stance.centre.x, z: body.view.stance.centre.z },
     previousCentre: { x: body.view.stance.centre.x, z: body.view.stance.centre.z }, moving: false, face: 0, command: 0,
   };
-  const state = { motion: motion.state, inference };
+  const learner = settings.steered ? learnerOf(12, false) : null;
+  const state = { motion: motion.state, inference, ...(learner ? { learner } : {}) };
   const goal: Locomotion["goal"] = (view, asked, dt, context) => {
     const forwardOrder = asked.walk?.[0] ?? 0, sideOrder = asked.walk?.[1] ?? 0;
     const command = Math.sqrt(forwardOrder * forwardOrder + sideOrder * sideOrder), moving = command > 0;
+    if (learner) learner.running = !moving && (learner.running || inference.moving);
     if (moving && !inference.moving) Object.assign(inference.origin, inference.previousCentre);
     else if (moving && asked.face !== inference.face) Object.assign(inference.origin, { x: view.stance.centre.x, z: view.stance.centre.z });
     if (command !== inference.command) inference.steps = 0;
     inference.moving = moving; inference.face = asked.face; inference.command = command;
     if (inference.steps % settings.decisionSteps === 0) {
-      inference.velocityAction = (moving ? velocity : braking)(inference.observation);
+      if (learner?.running) {
+        learner.inputs.splice(0, learner.inputs.length, ...inference.observation);
+        learner.decisions++;
+        inference.velocityAction = learner.outputs;
+      } else inference.velocityAction = (moving ? velocity : braking)(inference.observation);
       inference.referenceAction = reference(inference.observation);
     }
     inference.steps++;
@@ -110,6 +120,7 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
   };
   const resume: Locomotion["resume"] = view => {
     motion.resume(view); inference.steps = 0; inference.moving = false; inference.command = 0;
+    if (learner) { learner.running = false; learner.inputs.length = 0; learner.outputs.fill(0); }
     inference.observation.fill(0); inference.velocityAction.fill(0); inference.referenceAction.fill(0);
     inference.offsets.left.fill(0); inference.offsets.right.fill(0);
     inference.previousCentre.x = view.stance.centre.x; inference.previousCentre.z = view.stance.centre.z;
