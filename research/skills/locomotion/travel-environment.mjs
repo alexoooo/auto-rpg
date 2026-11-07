@@ -138,7 +138,8 @@ export async function travelEnvironment(configuration) {
           episode.requested = { x: d.x / length, z: d.z / length }; episode.pace = orders.pace ?? 4;
         } else { episode.pace = 0; episode.stopScale = Math.max(1, Math.hypot(velocity.x, velocity.z)); }
         if (cue.corridor !== undefined) episode.corridorEnabled = cue.corridor;
-        built.state.script.orders = orders;
+        // Snapshot loads mutate live orders in place; the curriculum owns its separate copy.
+        built.state.script.orders = structuredClone(orders);
       }
     };
     const step = (action, { squashed = false } = {}) => {

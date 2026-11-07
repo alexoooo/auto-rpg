@@ -162,6 +162,7 @@ ordinary capability drills use impulse joints and rigid contacts, so cannot expo
 | Case | Concrete justification |
 | --- | --- |
 | `a travel answer acts over exactly its own decision interval` | Reproduce learned corrections taking the outputs held before the trainer answers, so each action acts a decision late and takes its predecessor's reward. Eight distinct answers through the adapter on a real body are checked on every step of their own transition. Training runs and drills read returns, which the lag only lowers. |
+| `restoring a moving start preserves the curriculum's stop and pace orders` | Restoring a moving snapshot writes into a cue's borrowed order object, replacing stop with go across episodes. Replay stop, go and stop from a physically reached native walk; check the complete scripts and delivered paces. A drill plays one case without this repeated training reset. |
 
 [layer-contracts.test.mjs](layer-contracts.test.mjs) reproduces the physical, command and observation
 failures below. Skill drills cannot establish admission before allocation, complete command delivery
