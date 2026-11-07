@@ -20,8 +20,8 @@ export interface LearnedRunSettings {
   readonly decisionSteps: number;
   readonly entry: "landing" | "first-lift";
   readonly trim: RunTrim;
-  /** Research braking decisions supplied through saved learner outputs; moving orders retain the velocity actor. */
-  readonly steered?: "braking";
+  /** Research decisions supplied through saved learner outputs for the selected actor. */
+  readonly steered?: "braking" | "velocity";
 }
 
 /** Admission for the mirrored 49-input, twelve-channel travel actors and their physical scales. */
@@ -36,7 +36,7 @@ export function learnedRunFaults(value: unknown): readonly string[] {
   if (!Number.isSafeInteger(settings.decisionSteps) || settings.decisionSteps < 1) faults.push("learned run decisionSteps must be a positive whole number");
   if (settings.entry !== "landing" && settings.entry !== "first-lift") faults.push("learned run entry must be landing or first-lift");
   if (!["continuous", "at-pace", "after-pace"].includes(settings.trim)) faults.push("invalid learned run trim");
-  if (settings.steered !== undefined && settings.steered !== "braking") faults.push("learned run steered mode is braking");
+  if (settings.steered !== undefined && settings.steered !== "braking" && settings.steered !== "velocity") faults.push("learned run steered mode is braking or velocity");
   return faults;
 }
 
@@ -66,10 +66,11 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
   const goal: Locomotion["goal"] = (view, asked, dt, context) => {
     const forwardOrder = asked.walk?.[0] ?? 0, sideOrder = asked.walk?.[1] ?? 0;
     const command = Math.sqrt(forwardOrder * forwardOrder + sideOrder * sideOrder), moving = command > 0;
-    if (learner) learner.running = !moving && (learner.running || inference.moving);
+    if (learner) learner.running = settings.steered === "velocity" ? moving : !moving && (learner.running || inference.moving);
     if (moving && !inference.moving) Object.assign(inference.origin, inference.previousCentre);
     else if (moving && asked.face !== inference.face) Object.assign(inference.origin, { x: view.stance.centre.x, z: view.stance.centre.z });
-    if (command !== inference.command) inference.steps = 0;
+    // Rotating the same pace between facing frames must not restart the inference clock.
+    if (Math.abs(command - inference.command) > 8 * Number.EPSILON * Math.max(1, command, inference.command)) inference.steps = 0;
     inference.moving = moving; inference.face = asked.face; inference.command = command;
     if (inference.steps % settings.decisionSteps === 0) {
       if (learner?.running) {
