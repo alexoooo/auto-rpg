@@ -7,7 +7,7 @@ import type { MindWiring } from "../../minds/index.ts";
 import type { MindConstruction } from "../../minds/index.ts";
 import type { OwnBody } from "../../core/bodies/index.ts";
 import type { Senses } from "../../core/bodies/index.ts";
-import { learnerOf, type Learner } from "../../core/math/index.ts";
+import { act, ask, learnerOf, type Learner } from "../../core/math/index.ts";
 import { Vector3 } from "../../core/math/index.ts";
 import { jointTracker } from "../../core/bodies/index.ts";
 import { rootSegment, type ReadSegment } from "../../core/bodies/index.ts";
@@ -16,12 +16,12 @@ import { massCentreToRef, partsOn } from "../../core/bodies/index.ts";
 interface BareConfig {
   readonly kind: "bare:mind";
   readonly network: Network | null;
-  readonly every: number;
+  /** Seconds between its decisions. */
+  readonly interval: number;
 }
 
 /** Pulls wait between think and act; learning survives an interruption. */
 interface BareState {
-  steps: number;
   readonly learner: Learner;
   readonly keptPulls: Float64Array;
 }
@@ -37,7 +37,7 @@ function bareLayout(spec: BodySpec): { readonly inputs: readonly string[]; reado
   };
 }
 
-const BARE: BareConfig = deepFreeze({ kind: "bare:mind", network: null, every: 2 });
+const BARE: BareConfig = deepFreeze({ kind: "bare:mind", network: null, interval: 1 / 60 });
 
 export const BARE_PRESETS: Readonly<Record<string, MindPreset<BareConfig>>> = deepFreeze({
   bare: { label: "Bare (no network)", config: BARE, offered: false },
@@ -109,16 +109,18 @@ function inputsOf(own: OwnBody, orders: MindWiring["orders"]): (into: number[], 
 
 export const BARE_MIND: Controller = controller<BareConfig>({
   role: "mind", label: "Bare", stage: "experimental", fields: [], slots: [], defaults: BARE,
-  keys: { kind: true, network: true, every: true },
+  keys: { kind: true, network: true, interval: true },
   fits: (spec, config) => fits(spec, config),
   strikes: (spec) => (spec.effectors ?? []).map((effector) => effector.segment),
-  faults: (config) => [...(Number.isSafeInteger(config.every) && config.every >= 1 ? [] : ["it decides every whole number of control steps, 1 or more"]),
+  faults: (config) => [...(config.interval > 0 && Number.isFinite(config.interval) ? [] : ["its decision interval is a finite positive number of seconds"]),
     ...(config.network ? networkFaults(config.network).faults : [])],
   builtIn: () => NO_POSTURE,
   create: (host, config, wiring) => {
-    const layout = bareLayout(host.spec), decide = config.network ? recoveryNetwork(config.network) : null;
-    const learner = { ...learnerOf(layout.outputs.length, true), inputs: new Array<number>(layout.inputs.length).fill(0) };
-    const state: BareState = { steps: 0, learner, keptPulls: new Float64Array(layout.outputs.length) };
+    // With no network it pulls nothing where no trainer answers it.
+    const layout = bareLayout(host.spec), still: readonly number[] = new Array<number>(layout.outputs.length).fill(0);
+    const decide = config.network ? recoveryNetwork(config.network) : () => still;
+    const learner = learnerOf(layout.inputs.length, config.interval, true);
+    const state: BareState = { learner, keptPulls: new Float64Array(layout.outputs.length) };
     host.take((own) => {
       if (own.muscles.channels.map((channel) => channel.name).join("\n") !== channelsOf(host.spec).join("\n")) throw new Error("the bare layout's channels are not the body's");
       const read = inputsOf(own, wiring.orders);
@@ -133,14 +135,9 @@ export const BARE_MIND: Controller = controller<BareConfig>({
           }
         },
         think(senses) {
-          const { learner, keptPulls } = state;
-          keptPulls.set(learner.outputs);
-          if (state.steps % config.every === 0) {
-            read(learner.inputs, senses);
-            learner.decisions++;
-            if (decide) { const pulls = decide(learner.inputs); for (let i = 0; i < pulls.length; i++) learner.outputs[i] = pulls[i]!; }
-          }
-          state.steps++;
+          const { learner, keptPulls } = state, pulls = act(learner, decide);
+          if (pulls.length) keptPulls.set(pulls);
+          if (ask(learner, own.dt)) read(learner.inputs, senses);
         },
         interrupt() { state.keptPulls.fill(0); },
       } } satisfies MindConstruction;

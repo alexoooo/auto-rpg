@@ -7,8 +7,8 @@ import { workerJobs } from "../../../worker-jobs.mjs";
  * them (`case-learning-environment.mjs`, `drawCondition`), on a seed of their own, and its listed
  * places' conditions (a fight's moments), each of the half training holds out (`heldOut`), each played whole as
  * the Strike drill plays a trial (its world and its reader to the end, so a fall counts) at each of
- * `--rates`, the policy setting the punch's outputs at each of its decisions (`recoveryNetwork`, as
- * the core evaluates a learned network). With `--policy none`, the schedule alone. Prints a line a
+ * `--rates`, the policy answering each of the punch's requests (`recoveryNetwork`, as the core
+ * evaluates a learned network). With `--policy none`, the schedule alone: each request answered with no steer. Prints a line a
  * trial, then the landed share by rate and body, and by the target's distance.
  *
  *   node research/skills/strikes/straight-punch/punch-policy-check.mjs --config <environment.json> --policy <policy.json|none> [--trials 60] [--seed 1001] [--rates 120,480] [--workers 14]
@@ -26,12 +26,13 @@ import { parseArgs } from 'node:util';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import '../../../../tests/harness/preload-data.mjs';
 import { recoveryNetwork } from "../../../../src/core/math/learning/recovery-network.ts";
+import { answer, pending } from "../../../../src/core/math/learning/learner.ts";
 import { STRIKE } from "../../../../src/app/node/evaluation.ts";
 import { barScore } from '../../../../src/evaluation/strike/score.ts';
 import { BOUT_WORLD } from "../../../../src/app/node/evaluation.ts";
 import { drawCondition, generator, heldOut, learnerIn, subjectFor } from '../../../case-learning-environment.mjs';
 
-/** One trial of `condition` on `protocol` at `hz`, steered by `act` (null: none): its reading's outcome and hit. */
+/** One trial of `condition` on `protocol` at `hz`, steered by `act` (null: no steer): its reading's outcome and hit. */
 async function trial(o, act, protocol, condition, hz) {
   const cases = STRIKE.protocols[protocol], value = subjectFor(o, condition, (preset, request) => profileLearningMind(GAME.partLookup, preset, request)), world = cases.world([value], condition, undefined, [o.character ?? {}]);
   if (isRefused(world)) throw new Error(world.refused);
@@ -40,15 +41,10 @@ async function trial(o, act, protocol, condition, hz) {
   try {
     const reader = cases.read(built, condition), { learner } = learnerIn(BOUT_WORLD, built, value);
     BOUT_WORLD.start(built, world);
-    let decided = learner.decisions;
     while (!reader.ended) {
       if (built.duel.clock > cases.seconds + 1) throw new Error('the trial ran past its seconds');
       built.world.step(); reader.afterStep();
-      if (act && learner.running && learner.decisions !== decided) {
-        decided = learner.decisions;
-        const outputs = act(learner.inputs);
-        learner.outputs.length = 0; learner.outputs.push(...outputs);
-      }
+      if (pending(learner)) answer(learner, act ? act(learner.inputs) : []);
     }
     const r = reader.reading(), h = r.hit;
     return { outcome: r.outcome, began: r.began, score: barScore(r, condition.hand), hit: h && (typeof h.hard === 'boolean' ? { energy: h.energy, held: h.held, faced: h.faced, speed: h.speed }

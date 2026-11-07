@@ -128,5 +128,6 @@
     "knee.right flexion pull",
     "ankle.right dorsiflexion pull",
     "ankle.right inversion pull"
-  ]
+  ],
+  "interval": 0.016666666666666666
 }

@@ -10,9 +10,8 @@ import { isRefused } from "../src/core/refusal.ts";
  *   never written out, so that it learns the part the game plays; `part`, the path of the learnable
  *   part in each (`mind.options.1.skill`; none for the config itself), which must name an object;
  *   `character`.
- * - `layout`, a file of the part's input and output names (`{ inputs, outputs }`), which the
- *   learner's own must match in number (its outputs where it holds any before the trainer writes
- *   them).
+ * - `layout`, a file of the part's input and output names and its decision interval, s
+ *   (`{ inputs, outputs, interval }`), which the learner's inputs and interval must match.
  * - `places`, each a protocol of the evaluation and either `draw`, a condition drawn field by field
  *   in its order (a list: one picked; `{ "between": [lo, hi] }`: drawn evenly; else the value), or
  *   `where`, one of the protocol's conditions whose fields equal its, picked; `rates`, the control
@@ -25,10 +24,10 @@ import { isRefused } from "../src/core/refusal.ts";
  *
  * The learner is found in the world's hosted minds (`WorldKind.hosted`) of the subject's kind (its
  * own, or its `mind`'s: a drill's subject that names its skill beside its mind), one in all. An
- * episode starts at its first decision while it runs (`running`, `decisions`) and plays one
- * decision a step: the trainer's outputs (through tanh) written, the world stepped until
- * the learner decides again; it ends with its case's reader, with the learner no longer running
- * (a punch's drive), with a fall where `down` weighs one, or is cut at the protocol's longest.
+ * episode starts at its learner's first request and plays one request a step through the learning
+ * adapter (`learner-adapter.mjs`): the trainer's outputs (through tanh) answer it, and the world
+ * steps until the learner asks again; it ends with its case's reader, with the learner no longer
+ * running (a punch's drive), with a fall where `down` weighs one, or is cut at the protocol's longest.
  *
  * Where the world kind can save (`WorldKind.save`) and `pool` is given, it keeps `pool` starts,
  * each a trial at a fresh draw played to its first decision and saved. An episode loads one of
@@ -55,6 +54,7 @@ import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
 import { MINDS } from "../src/app/catalog.ts";
 import { EVALUATIONS } from "../src/app/node/evaluation.ts";
 import { WORLD_BUILDERS } from "../src/app/node/evaluation.ts";
+import { decide, untilAsked } from './learner-adapter.mjs';
 
 /** Whether `condition` is held out of training: half of the conditions, by a digest of its fields in sorted order (FNV-1a). */
 export function heldOut(condition) {
@@ -195,14 +195,16 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
       return { built, kind, cases, condition, hz, reader, learner, body };
     } catch (error) { built.dispose(); throw error; }
   };
-  /** Whether `p`'s learner has made its first decision and still runs. */
-  const started = (p) => p.learner.running && p.learner.decisions > 0;
   /** The protocol's longest, s. */
   const longest = (p) => o.seconds ?? p.cases.seconds;
-  /** `p` played on by up to `steps` world steps: `more`, its first decision reached (`started`), or its trial `ended` before it. */
+  /** `p` played on by up to `steps` world steps: `more`, its learner's first request reached (`started`), or its trial `ended` before it. */
   const advance = (p, steps) => {
-    for (let k = 0; k < steps && !p.reader.ended && !started(p) && p.kind.clock(p.built) < longest(p); k++) { p.built.world.step(); p.reader.afterStep(); }
-    return started(p) ? 'started' : p.reader.ended || p.kind.clock(p.built) >= longest(p) ? 'ended' : 'more';
+    if (p.reader.ended || p.kind.clock(p.built) >= longest(p)) return 'ended';
+    const reached = untilAsked(p.learner, () => {
+      p.built.world.step(); p.reader.afterStep();
+      return { ended: p.reader.ended || p.kind.clock(p.built) >= longest(p) ? 'ended' : null };
+    }, steps);
+    return reached === 'asked' ? 'started' : reached;
   };
   /** A start: `p` at its first decision, and its save where it is pooled. */
   const startOf = (p) => {
@@ -234,8 +236,8 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
   }
   const first = pooled ? pool[0] : await fresh();
   if (!pooled) lifetime.own(first.built);
-  if (first.learner.inputs.length !== layout.inputs.length || ![0, layout.outputs.length].includes(first.learner.outputs.length))
-    throw new Error(`the learner reads ${first.learner.inputs.length} inputs for ${first.learner.outputs.length} outputs; its layout ${o.layout} names ${layout.inputs.length} for ${layout.outputs.length}`);
+  if (first.learner.inputs.length !== layout.inputs.length || first.learner.interval !== layout.interval)
+    throw new Error(`the learner reads ${first.learner.inputs.length} inputs every ${first.learner.interval} s; its layout ${o.layout} names ${layout.inputs.length} every ${layout.interval} s`);
   const observationSize = layout.inputs.length, actionSize = layout.outputs.length;
 
   let ep = null, owed = 0, pending = null, unplayed = pooled ? null : first;
@@ -278,21 +280,18 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
   };
   const step = (action) => {
     if (!Array.isArray(action) || action.length !== actionSize || !action.every(Number.isFinite)) throw new Error('invalid learner action');
-    const { built, kind, reader, learner } = ep, outputs = action.map(Math.tanh);
-    learner.outputs.length = 0; learner.outputs.push(...outputs);
+    const { built, kind, reader, learner } = ep, outputs = action.map(Math.tanh), dt = 1 / built.world.hz;
     ep.decisions++;
-    const decided = learner.decisions, dt = 1 / built.world.hz, sensed = percepts.map(() => 0);
-    let ended = null;
-    do {
+    const played = decide(learner, outputs, () => {
       built.world.step(); reader.afterStep();
-      for (let k = 0; k < percepts.length; k++) sensed[k] += evaluation.percepts[percepts[k][0]](built, ep.condition) * dt;
-      ended = reader.ended ? 'read' : !learner.running ? 'done' : r.down !== undefined && ep.body.down ? 'down' : kind.clock(built) >= longest(ep) ? 'cut' : null;
-    } while (ended === null && learner.decisions === decided);
-    let reward = -(r.effort ?? 0) * outputs.reduce((sum, a) => sum + a * a, 0) / outputs.length;
-    for (let k = 0; k < percepts.length; k++) reward += percepts[k][1] * sensed[k];
-    const observation = learner.inputs.slice();
-    if (ended === null) return { observation, reward, terminated: false, truncated: false, info: {} };
-    const info = { decisions: ep.decisions, seconds: kind.clock(built), down: ended === 'down' ? 1 : 0, ...(ep.hz === undefined ? {} : { hz: ep.hz }) };
+      let reward = 0;
+      for (let k = 0; k < percepts.length; k++) reward += percepts[k][1] * evaluation.percepts[percepts[k][0]](built, ep.condition) * dt;
+      return { reward, ended: reader.ended ? 'read' : r.down !== undefined && ep.body.down ? 'down' : kind.clock(built) >= longest(ep) ? 'cut' : null };
+    }, dt), ended = played.ended;
+    let reward = played.reward - (r.effort ?? 0) * outputs.reduce((sum, a) => sum + a * a, 0) / outputs.length;
+    const observation = learner.inputs.slice(), interval = { worldSteps: played.steps, worldSeconds: played.seconds };
+    if (ended === null) return { observation, reward, terminated: false, truncated: false, info: interval };
+    const info = { ...interval, decisions: ep.decisions, seconds: kind.clock(built), down: ended === 'down' ? 1 : 0, ...(ep.hz === undefined ? {} : { hz: ep.hz }) };
     if (ended === 'down') reward += r.down;
     if (ended === 'read' || ended === 'done') {
       const reading = reader.reading();
@@ -309,6 +308,6 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
   const dispose = () => { for (const s of pool) s.built.dispose(); pending?.built.dispose(); if (!pooled) { ep?.built.dispose(); if (unplayed && unplayed !== ep?.start) unplayed.built.dispose(); } };
   /** The trainer's decisions in all so far, which set the curriculum's share. */
   const progress = (made) => { decisions = made; };
-  return { reset, step, idle, progress, observationSize, actionSize, dispose, inside: () => ep };
+  return { reset, step, idle, progress, observationSize, actionSize, layout, dispose, inside: () => ep };
   } catch (error) { lifetime.dispose(); throw error; }
 }

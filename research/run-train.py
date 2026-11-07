@@ -3,16 +3,20 @@ worker threads (research/run-learning-server.mjs and the selected environment fi
 reads a network (src/core/math/learning/recovery-network.ts, Network: a straight punch record's `network`,
 a bare mind's `network`): ReLU layers with explicit clipped observation normalisation,
 tanh on the outputs (PPO's mean, which the environment squashes; SAC's squashed mean, tanh of its
-mean layer). Each line of train.log has the mean of each of `--keywords` over the episodes lately
-ended, of those that have it. The latest policy is policy.json, and every `--keep` steps a copy
-stays as policy-<steps>.json with its model-<steps>.zip and normalize-<steps>.pkl for resuming:
+mean layer). A step of training is one decision of the environment's learner: its request answered
+and the world stepped to its next (research/learner-adapter.mjs). Each line of train.log has the
+decisions so far, the chunk's decisions, world steps and simulated seconds, and the mean of each of
+`--keywords` over the episodes lately ended, of those that have it. The run's layout, its inputs,
+outputs and decision interval as the environment names them, is layout.json; a resume or a `--start`
+on another layout is refused. The latest policy is policy.json, and every `--keep` decisions a copy
+stays as policy-<decisions>.json with its model-<decisions>.zip and normalize-<decisions>.pkl for resuming:
 the training return does not choose a policy (a run's return can go
 on rising as its battery falls), its battery does.
 The configuration's `seed` seeds the learner as well as the Node environments.
 
 `--start` begins from a trained network (an exported `Network`, or a record whose one entry holds
 a `network`, assets/skills/strikes/<blow>/<blow>.json), its inputs and outputs matched to this run's by name
-through `--start-layout` and the environment's `layout`: a weight of an input the source does not
+through `--start-layout`, which names the same decision interval, and the environment's layout: a weight of an input the source does not
 read starts at zero and an output it lacks starts at zero, so the run starts steering as the source
 did. Before learning, the source steers `--stats` messages. A network with declared normalisation
 restores its matched statistics and holds them during `--critic-first` decisions, which train the
@@ -51,8 +55,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--config', required=True)
 parser.add_argument('--output', required=True)
 parser.add_argument('--algo', choices=('ppo', 'sac'), default='ppo')
-parser.add_argument('--steps', type=int, default=20_000_000)
-parser.add_argument('--keep', type=int, default=1_000_000, help='steps between the policies kept')
+parser.add_argument('--steps', type=int, default=20_000_000, help='decisions to train')
+parser.add_argument('--keep', type=int, default=1_000_000, help='decisions between the policies kept')
 parser.add_argument('--hidden', type=int, default=256)
 parser.add_argument('--rollout', type=int, default=256, help="PPO: decisions each environment gathers per update; both: a chunk is 8 of these")
 parser.add_argument('--resume', action='store_true')
@@ -63,7 +67,7 @@ parser.add_argument('--gamma', type=float, help='discount per environment decisi
 parser.add_argument('--gae-lambda', type=float, help='PPO advantage horizon; a resumed model retains its saved value')
 parser.add_argument('--keywords', default='along,command,down', help='the episode infos train.log averages')
 parser.add_argument('--start', help='a trained network to begin from')
-parser.add_argument('--start-layout', help="the start's layout, its inputs' and outputs' names")
+parser.add_argument('--start-layout', help="the start's layout: its inputs' and outputs' names and its decision interval")
 parser.add_argument('--critic-first', type=int, default=None, help='decisions the critic trains alone after a start (one chunk unless given)')
 parser.add_argument('--stats', type=int, default=64, help="messages the start steers to read the observations' normalisation")
 parser.add_argument('--batch', type=int, default=None, help='a gradient step\'s batch (PPO 4096, SAC 512)')
@@ -86,7 +90,6 @@ gae_lambda = 0.95 if options.gae_lambda is None else options.gae_lambda
 output = Path(options.output); output.mkdir(parents=True, exist_ok=True)
 torch.set_num_threads(options.threads)
 configuration = json.loads(Path(options.config).read_text(encoding='utf-8'))
-layout_path = {**json.loads(Path(configuration['environment']).read_text(encoding='utf-8')), **configuration}['layout']
 squashed = options.algo == 'sac'
 
 
@@ -97,11 +100,14 @@ class RunEnvs(VecEnv):
         self.server_log = (output / 'server.log').open('a')
         self.server = None
         self.environment_seconds = 0.0
+        self.world_steps = 0
+        self.world_seconds = 0.0
         try:
             self.server = subprocess.Popen(['node', 'research/run-learning-server.mjs', config], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                            stderr=self.server_log, text=True, bufsize=1)
             ready = self._receive()
             n = ready['workers']; obs, act = ready['ready'][0]['observationSize'], ready['ready'][0]['actionSize']
+            self.layout = ready['ready'][0]['layout']
             bound = 1.0 if squashed else 3.0
             super().__init__(n, spaces.Box(-np.inf, np.inf, (obs,), np.float32), spaces.Box(-bound, bound, (act,), np.float32))
             self.actions = None
@@ -137,6 +143,7 @@ class RunEnvs(VecEnv):
         a = self._call({'op': 'step', 'actions': self.actions.tolist()})
         infos = []
         for info in a['infos']:
+            self.world_steps += info['worldSteps']; self.world_seconds += info['worldSeconds']
             if 'terminal' in info: info['terminal_observation'] = np.asarray(info.pop('terminal'), np.float32)
             info['TimeLimit.truncated'] = info.get('truncated', False)
             infos.append(info)
@@ -279,6 +286,12 @@ def hold_policy(model, held):
 keywords = tuple(options.keywords.split(','))
 server_envs = RunEnvs(options.config)
 try:
+    layout = server_envs.layout
+    layout_file = output / 'layout.json'
+    if options.resume and (output / 'model.zip').exists():
+        if not layout_file.exists() or json.loads(layout_file.read_text(encoding='utf-8')) != layout:
+            raise SystemExit(f'{output} trained on another layout than the environment names; it does not resume')
+    else: layout_file.write_text(json.dumps(layout), encoding='utf-8')
     monitored = VecMonitor(server_envs, info_keywords=keywords)
     envs = VecNormalize(monitored, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=gamma)
     saved = output / 'model.zip'
@@ -307,8 +320,10 @@ try:
                         policy_kwargs={'net_arch': net, 'activation_fn': torch.nn.ReLU, 'log_std_init': options.log_std})
         if options.start:
             if not options.start_layout: raise SystemExit('a start names its layout (--start-layout)')
-            layout = json.loads(Path(layout_path).read_text(encoding='utf-8'))
-            layers = matched(source_network(options.start), json.loads(Path(options.start_layout).read_text(encoding='utf-8')), layout)
+            start_layout = json.loads(Path(options.start_layout).read_text(encoding='utf-8'))
+            if start_layout.get('interval') != layout['interval']:
+                raise SystemExit(f"the start decides every {start_layout.get('interval')} s; this run's learner every {layout['interval']} s")
+            layers = matched(source_network(options.start), start_layout, layout)
             model.num_timesteps = read_stats(envs, layers)
             write_start(model, envs, layers, first=True)
             export(model, envs, output / f'policy-{model.num_timesteps}.json')
@@ -329,6 +344,7 @@ try:
         monitored.venv.progress(model.num_timesteps)
         chunk_started = time.perf_counter()
         environment_before = server_envs.environment_seconds
+        world_before, seconds_before = server_envs.world_steps, server_envs.world_seconds
         model.learn(chunk, reset_num_timesteps=False, progress_bar=False)
         learned_at = time.perf_counter()
         done += chunk
@@ -339,7 +355,9 @@ try:
             model.save(str(output / f'model-{model.num_timesteps}.zip'))
             envs.save(str(output / f'normalize-{model.num_timesteps}.pkl'))
         spread = float(torch.exp(model.policy.log_std.detach()).mean()) if not squashed else float(torch.exp(model.log_ent_coef.detach()).item())
-        line = {'steps': int(model.num_timesteps), 'minutes': round((time.monotonic() - started) / 60, 1),
+        line = {'decisions': int(model.num_timesteps), 'chunk': {'decisions': chunk, 'worldSteps': server_envs.world_steps - world_before,
+                                                                 'worldSeconds': round(server_envs.world_seconds - seconds_before, 3)},
+                'minutes': round((time.monotonic() - started) / 60, 1),
                 'return': round(float(np.mean([i['r'] for i in infos])), 2) if infos else None, 'length': round(float(np.mean([i['l'] for i in infos])), 1) if infos else None,
                 **{k: (round(float(np.mean([float(i[k]) for i in infos if i.get(k) is not None])), 3) if any(i.get(k) is not None for i in infos) else None) for k in keywords},
                 ('entropy' if squashed else 'std'): round(spread, 3), **({'critic': True} if held else {})}

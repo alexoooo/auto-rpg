@@ -66,6 +66,7 @@
     "stance shifting",
     "stance swinging"
   ],
+  "interval": 0.016666666666666666,
   "leg": 0.8815024260685317,
   "outputs": [
     {

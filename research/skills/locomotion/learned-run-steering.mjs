@@ -1,5 +1,4 @@
-/** Replay a learned cycle controller through the current body's published readings. */
-import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
+/** A learned cycle controller's layout, its readings of the current body and its bounded offsets. */
 import { hasteOver } from '../../../src/core/bodies/human/attributes.ts';
 import { sin, cos } from '../../../src/core/math/real.ts';
 import { wrap } from '../../../src/core/math/turn.ts';
@@ -9,7 +8,7 @@ const ranges = Object.freeze({ swingHip: .3, swingOut: .15, swingKnee: .4, swing
   stanceKnee: .3, stanceAnkle: .3, stanceRoll: .15, lean: .2, bank: .1, cadence: .3, pace: 1.5, effort: .5 });
 const joints = ['hip.%s flexion', 'hip.%s abduction', 'hip.%s internal rotation', 'knee.%s flexion', 'ankle.%s dorsiflexion', 'ankle.%s inversion'];
 
-export const STEERING_LAYOUT = Object.freeze({ inputs: Object.freeze(['phase sin', 'phase cos', 'command', 'playback',
+export const STEERING_LAYOUT = Object.freeze({ interval: 1 / 30, inputs: Object.freeze(['phase sin', 'phase cos', 'command', 'playback',
   'forward speed', 'mirrored side speed', 'vertical speed', 'height', 'centre from bearing forward', 'centre from bearing side',
   'swing from centre forward', 'swing from centre side', 'swing over bearing', 'up forward', 'mirrored up side', 'facing error',
   'momentum right', 'momentum up', 'momentum forward', 'bearing contact', 'swing contact', 'haste', 'turning',
@@ -21,15 +20,7 @@ export function steeringFrom(actions) {
   return Object.fromEntries(Object.entries(ranges).map(([key, range], i) => [key, Math.max(-1, Math.min(1, actions[i])) * range]));
 }
 
-/** The actor's 47 inputs and twelve offsets retain its training's mirrored bearing-leg convention. */
-export function learnedRunSteering(body, policy) {
-  if (policy.actions !== 12 || policy.layers[0]?.weights[0]?.length !== 47) throw Error('a learned cycle policy reads 47 features and writes twelve offsets');
-  const act = recoveryNetwork(policy), read = learnedRunFeatures(body), decisionSteps = Math.max(1, Math.round(1 / (30 * body.dt)));
-  return (view, heading, asked, turning, run) => run.steps % decisionSteps !== 0 ? run.steer
-    : steeringFrom(act(read(view, heading, asked, turning, run)));
-}
-
-/** Read the raw observations used in both learned-cycle inference and training. */
+/** The 47 raw observations of a learned cycle actor, in its training's mirrored bearing-leg convention. */
 export function learnedRunFeatures(body) {
   const features = [];
   const ends = Object.fromEntries(['left', 'right'].map(side => [side, footOn(body.built.spec, side)]));
