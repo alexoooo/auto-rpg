@@ -69,6 +69,7 @@ export async function optionTravelEnvironment(configuration) {
       return { time: world.time, centre: [centre.x, centre.y, centre.z], velocity: [velocity.x, velocity.y, velocity.z], down: body.body.down,
         ...(o.controlTrace ? { control: { running: state.motion.walkRun.running, pace: state.motion.run.pace,
           command: state.inference.command, phase: state.motion.run.phase, idlePlacement: !!state.motion.legs.idle.target,
+          velocityAction: state.inference.velocityAction.slice(), referenceAction: state.inference.referenceAction.slice(),
           feet: feet.map(foot => {
             const end = body.body.state.mind.host.motor.stance.reading.ends[foot.spec.name];
             return { name: foot.spec.name, middleHeight: end.middle.y,
