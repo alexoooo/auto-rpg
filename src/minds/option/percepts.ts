@@ -10,7 +10,7 @@ import type { BearingEnd, BodySpec } from "../../core/bodies/spec/body.ts";
 import { defaultStrikeLimbs } from "../../skills/perception/default-strike-limbs.ts";
 import { deepFreeze } from "../../core/world/state.ts";
 import type { Cover } from "../../skills/intent/intent.ts";
-import type { Orders } from "../../skills/intent/orders.ts";
+import { ordersAsked, type Orders } from "../../skills/intent/orders.ts";
 import { measuredAt, profileReading, profilesOn, readProfile, sameReaction, STANDING, startVelocity, type Measured, type Postures, type Profile, type ProfileReading } from "../../skills/framework/profile.ts";
 import type { BodySense } from "../../core/bodies/senses.ts";
 import type { Sight } from "../decider.ts";
@@ -471,7 +471,7 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
  * the motor's (`BodyView.unmet`). The focus's phase (`FoePhase`), its posture (`sensedPosture`;
  * standing with no focus), and the time to contact of the
  * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, another posture,
- * other orders, another focus, a threat or a blow coming.
+ * orders asking for something else (`ordersAsked`), another focus, a threat or a blow coming.
  */
 export const PERCEPTS = Object.freeze({
   down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
@@ -482,7 +482,7 @@ export const PERCEPTS = Object.freeze({
   steadied: { read: (seen) => seen.risen.state.steadied } as Percept<number>,
   where: { read: ({ sight }) => ({ x: sight.view.stance.centre.x, z: sight.view.stance.centre.z, face: sight.report.heading }) } as Percept<Spot>,
   reached: { read: (seen) => seen.reach } as Percept<ReachMemory>,
-  orders: { read: (seen) => seen.orders, cue: (orders) => orders } as Percept<Orders | null>,
+  orders: { read: (seen) => seen.orders, cue: ordersAsked } as Percept<Orders | null>,
   focus: { read: (seen) => seen.focus, cue: (focus) => focus?.id ?? null } as Percept<BodySense | null>,
   apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity } as Percept<number>,
   incoming: { read: (seen) => seen.blow?.cover ?? null, cue: (incoming) => incoming !== null } as Percept<Cover | null>,

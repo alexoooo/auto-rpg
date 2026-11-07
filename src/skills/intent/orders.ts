@@ -87,5 +87,32 @@ export function isOrders(value: unknown): value is Orders {
     && Object.keys(value).every(key => ["move", "pace", "walk", "gait", "lower", "face", "foe", "region", "skill", "limb", "firm"].includes(key));
 }
 
+/** The kind of movement `move` asks for, and the bodies it names; not where its points or direction lie, nor its distances. */
+function movementAsked(move: MovementRequest | null | undefined): string {
+  if (move === undefined) return "free";
+  if (move === null) return "stop";
+  switch (move.kind) {
+    case "direct": return "direct";
+    case "place": return `place ${move.by ?? ""}`;
+    case "range": return `range ${move.focus} ${move.side ?? 0}`;
+    default: { const never: never = move; return never; }
+  }
+}
+
+/**
+ * **What `orders` ask for**, as text that changes only when they ask for something different:
+ * the kind of movement and the bodies it names, whether there is a facing, a pace or a height,
+ * the walk, the gait, the foe, region, skill and limb, and firmness. It leaves out where a route's
+ * points, a direction or a facing point, and the numbers of a pace, a height or a range. A Commander
+ * recomputes those every step, and a mind carrying the orders out reads them as it goes.
+ */
+export function ordersAsked(orders: Orders | null): string | null {
+  if (orders === null) return null;
+  const { region } = orders;
+  return [movementAsked(orders.move), (orders.face ?? null) === null ? "" : "face", orders.pace === undefined ? "" : "pace",
+    orders.lower === undefined ? "" : "lower", orders.walk ? "walk" : "", orders.gait ?? "", orders.foe ?? "",
+    region === undefined ? "" : region.kind === "mark" ? `mark ${region.mark}` : `segment ${region.segment}`, orders.skill ?? "", orders.limb ?? "", orders.firm ? "firm" : ""].join("|");
+}
+
 /** Whether two orders, or two absences of them, say the same thing. */
 export const sameOrders = (a: Orders | null, b: Orders | null): boolean => JSON.stringify(a) === JSON.stringify(b);
