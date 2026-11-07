@@ -19,7 +19,7 @@ import { isRefused } from "../src/core/refusal.ts";
  *
  * The cases: the crowd fight (`crowdFight`, seed 0) to its verdict; the reference bouts, Option
  * Mind Warriors at seed 0, sword against club and bare hands, to their verdict or `--seconds`; the
- * Crypt at seeds 10 and 25, the hero exploring alone, `--seconds` of it or to its end. The bouts
+ * Crypt at seeds 10 and 25, the hero alone under the level-clearer, `--seconds` of it or to its end. The bouts
  * run on `BOUT_ENGINE`, the Crypt on `rapier`.
  */
 import { createHash } from "node:crypto";
@@ -60,8 +60,7 @@ const CASES = {
     return { world, ended: () => fight.verdict !== null, blows: () => fight.blows.length, end: () => fight.verdict, save: () => fight.save(), load: (saved) => fight.load(saved), dispose };
   }])),
   ...Object.fromEntries([10, 25].map((seed) => [`crypt-${seed}`, async (minds) => {
-    const run = admitted(createDungeonRun({ seed, engine: await freshEngine("rapier"), ...minds }));
-    run.commands.setMode({ keyboard: false, facing: true });
+    const run = admitted(createDungeonRun({ seed, engine: await freshEngine("rapier"), party: { kind: "clearer" }, ...minds }));
     let steps = 0;
     return {
       world: run.world, step: () => { run.step(); steps += 1; }, ended: () => run.status !== "playing" || steps >= seconds * run.world.hz,
