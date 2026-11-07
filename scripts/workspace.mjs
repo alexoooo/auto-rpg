@@ -11,14 +11,15 @@
  * - A crash dump (`*.stackdump`, left by a Git Bash that died) is ignored so that none is
  *   committed, and is garbage wherever it lies.
  * - A folder of `research/runs/` keeps only what a later run reads (a selected model with its
- *   normalisation and configuration, rows a comparison reuses), within `RUN_BUDGET`; a run writes
- *   its output to `.tmp/<task>/` and moves there only what it keeps.
+ *   normalisation and configuration, rows a comparison reuses), within `RUN_BUDGET`, beside a
+ *   `README.md` naming each entry it holds; nothing lies loose in `research/runs/`. A run writes its
+ *   output to `.tmp/<task>/` and moves there only what it keeps.
  *
  * `strays()` names every path these rules do not allow: `tests/workspace.test.mjs` fails on them and
  * `npm run clean` lists them.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readdirSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -94,20 +95,30 @@ export function strays(root = ROOT) {
     if (rules(root, holds).some((rule) => rule !== null && unkept(rule) === null)) judge(holds);
     else found.push({ path, why: unkept(null) });
   }
-  found.push(...overgrown(root));
+  found.push(...unkeptRuns(root));
   return found.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-/** Each folder of `research/runs/` holding more than `RUN_BUDGET`, with what it holds. */
-function overgrown(root) {
+/**
+ * What `research/runs/` holds against its rules, each with why: a file loose in it; a folder with
+ * no `README.md`, or an entry of a folder its `README.md` does not name; a folder over `RUN_BUDGET`.
+ */
+function unkeptRuns(root) {
   const runs = join(root, RUNS);
   if (!existsSync(runs)) return [];
-  return readdirSync(runs, { withFileTypes: true }).filter((entry) => entry.isDirectory()).flatMap((entry) => {
-    const sum = tally(join(runs, entry.name));
-    if (sum.files <= RUN_BUDGET.files && sum.bytes <= RUN_BUDGET.bytes) return [];
-    const why = `${sum.files} files, ${(sum.bytes / 2 ** 20).toFixed(0)} MB, over the research run budget `
-      + `(${RUN_BUDGET.files} files, ${RUN_BUDGET.bytes / 2 ** 20} MB): keep only what a later run reads`;
-    return [{ path: `${RUNS}/${entry.name}/`, why }];
+  return readdirSync(runs, { withFileTypes: true }).flatMap((entry) => {
+    const path = `${RUNS}/${entry.name}`, folder = join(runs, entry.name);
+    if (!entry.isDirectory()) return [{ path, why: `loose in ${RUNS}/: a run's kept files go in its folder, named by its README.md` }];
+    const found = [], readme = join(folder, "README.md");
+    if (!existsSync(readme)) found.push({ path: `${path}/`, why: "no README.md naming what a later run reads from it" });
+    else {
+      const named = readFileSync(readme, "utf8");
+      for (const name of readdirSync(folder)) if (name !== "README.md" && !named.includes(name)) found.push({ path: `${path}/${name}`, why: "not named by its folder's README.md" });
+    }
+    const sum = tally(folder);
+    if (sum.files > RUN_BUDGET.files || sum.bytes > RUN_BUDGET.bytes) found.push({ path: `${path}/`, why: `${sum.files} files, ${(sum.bytes / 2 ** 20).toFixed(0)} MB, over the research run budget `
+      + `(${RUN_BUDGET.files} files, ${RUN_BUDGET.bytes / 2 ** 20} MB): keep only what a later run reads` });
+    return found;
   });
 }
 

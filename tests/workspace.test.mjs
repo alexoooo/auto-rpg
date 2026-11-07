@@ -3,8 +3,9 @@
  * files, work in progress inside tracked folders, what the repository's `.gitignore` keeps, and
  * `.tmp/`. On a scratch repository holding one of each kind of path, the strays are exactly the
  * untracked file and folder at the root, what a folder of toolchains holds beside its kept
- * toolchain, the folder hidden through `.git/info/exclude` and the crash dump; on this working copy
- * there are none.
+ * toolchain, the folder hidden through `.git/info/exclude`, the crash dump, and in `research/runs/`
+ * a loose file, a folder with no README and an entry its folder's README does not name; on this
+ * working copy there are none.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -26,12 +27,15 @@ test("strays_are_the_untracked_outside_tracked_folders_the_hidden_and_the_garbag
     git("add", ".");
     git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "fixture");
     for (const kept of ["src/wip.ts", "src/new/c.ts", "node_modules/x/index.js", ".tmp/probe/run.log", ".tmp/worktrees/w/a.ts",
-      "research/runs/rows.jsonl", ".claude/worktrees/z/a.ts", ".tools/kit/bin/kit.exe", "research/gone/__pycache__/m.pyc"]) put(kept);
+      "research/runs/seed/actor.pt", ".claude/worktrees/z/a.ts", ".tools/kit/bin/kit.exe", "research/gone/__pycache__/m.pyc"]) put(kept);
     for (const stray of ["notes.txt", "scratch/a.json", ".snap/copy/a.ts", "research/bash.exe.stackdump", ".tools/probe.mjs", ".tools/old/a.log",
-      "research/old/__pycache__/m.pyc", "research/old/bash.exe.stackdump"]) put(stray);
+      "research/old/__pycache__/m.pyc", "research/old/bash.exe.stackdump", "research/runs/rows.jsonl", "research/runs/seed/trace.log",
+      "research/runs/bare/a.json"]) put(stray);
+    put("research/runs/seed/README.md", "- `actor.pt`: the actor the next run starts from\n");
     appendFileSync(join(root, ".git/info/exclude"), "\n/.snap/\n**/.claude/worktrees/\n");
     assert.deepEqual(strays(root).map(({ path }) => path),
-      [".snap/", ".tools/old/", ".tools/probe.mjs", "notes.txt", "research/bash.exe.stackdump", "research/old/bash.exe.stackdump", "scratch/"]);
+      [".snap/", ".tools/old/", ".tools/probe.mjs", "notes.txt", "research/bash.exe.stackdump", "research/old/bash.exe.stackdump",
+        "research/runs/bare/", "research/runs/rows.jsonl", "research/runs/seed/trace.log", "scratch/"]);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
