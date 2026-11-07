@@ -30,10 +30,11 @@ import "../tests/harness/preload-data.mjs";
  * report and a record each, unless `--protocol` names one.
  * `--engine` (or `CORE_ENGINE`) picks the engine unless the protocol fixes one, as the falls fix Rapier.
  * `--write` keeps the run as a record, refused unless every case has a row and the commit holds the
- * files of every case's code unchanged (`caseCoder`).
+ * files of every case's code unchanged (`caseCoder`), and deletes the records it replaces
+ * (`retireReplaced`).
  */
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, hostname } from "node:os";
 import { basename, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -43,7 +44,7 @@ import { DEFAULT_ENGINE, isEngineName } from "../src/core/physics/engines.ts";
 import { recordingKey } from "../src/core/world/recording.ts";
 import { EVALUATIONS } from "../src/app/node/evaluation.ts";
 import { CONTROLLERS, MINDS } from "../src/app/catalog.ts";
-import { poolsOf } from "../src/evaluation/history.ts";
+import { poolsOf, replacedBy } from "../src/evaluation/history.ts";
 import { harnessOf, readRecord, recordedSubject, recordEnd, recordIdentity, recordName, recordText, rowOf, indexRows, restoredSubject } from "../src/evaluation/record.ts";
 import { COMMAND_DELAY } from "../src/core/world/world.ts";
 import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf, tableOf } from "../src/evaluation/run.ts";
@@ -94,6 +95,47 @@ function writeRecord(header, lines, written) {
   mkdirSync(dir, { recursive: true });
   writeFileSync(name, text);
   console.log(`wrote ${name}`);
+  retireReplaced(header);
+}
+
+/** The JSON file `name` of evaluation `id`'s folder (`baselines.json`, `accepted.json`); [] where it has none. */
+const listOf = (id, name) => {
+  const path = join(ROOT, "assets/evaluations", id, name);
+  return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : [];
+};
+
+/** Which of `names` (record file names) a tracked file outside the records cites: a document or a test that reads it. */
+function citedOf(names) {
+  if (names.length === 0) return new Set();
+  try {
+    return new Set(git("grep", "-h", "-o", "-F", ...names.flatMap((name) => ["-e", name]), "--", ".", ":(exclude)assets/evaluations").split("\n"));
+  } catch (error) {
+    if (error.status === 1) return new Set();
+    throw error;
+  }
+}
+
+/**
+ * Delete the records `header`'s run replaces (`replacedBy`), so a folder keeps each question's
+ * newest answer. A replaced record stays where Git could not bring it back (untracked), where a
+ * baseline names it (`baselines.json`), where an acceptance names a version it holds
+ * (`accepted.json`), or where a tracked file cites it; each kept one is named with why.
+ */
+function retireReplaced(header) {
+  const id = header.evaluation, replaced = replacedBy(recordsOf(id), header);
+  if (replaced.length === 0) return;
+  const names = replaced.map((record) => basename(record.name)), cited = citedOf(names);
+  const tracked = new Set(git("ls-files", "--", ...replaced.map((record) => record.name)).split("\n").filter(Boolean).map((path) => basename(path)));
+  const baselined = new Set(listOf(id, "baselines.json").flatMap((one) => one.records ?? [one.record]));
+  const accepted = listOf(id, "accepted.json");
+  for (const record of replaced) {
+    const name = basename(record.name);
+    const why = !tracked.has(name) ? "untracked" : baselined.has(name) ? "a baseline"
+      : accepted.some((one) => one.protocol === record.header.protocol && record.header.subjects.some((subject) => subject.id === one.subject && subject.version.version === one.version)) ? "accepted"
+      : cited.has(name) ? "cited" : null;
+    if (why) console.log(`kept ${name}, replaced but ${why}`);
+    else { rmSync(record.name); console.log(`deleted ${name}, replaced`); }
+  }
 }
 
 const NOTES = join(ROOT, "assets/minds/notes.json");

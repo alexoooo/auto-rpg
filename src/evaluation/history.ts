@@ -62,6 +62,23 @@ export function poolsOf(records: readonly Kept[]): Pool[] {
   return [...pools].map(([key, pool]) => ({ key, ...pool, cases: [...pool.cases.values()] }));
 }
 
+/** The question a record answers: its protocol and engine, and which subjects it plays. */
+const questionKey = (header: RecordHeader): string => recordingKey([header.protocol, header.engine, header.subjects.map((subject) => subject.id).sort()]);
+
+/** The versions `header`'s run plays, by version name (`versionName`). */
+const versionsOfRun = (header: RecordHeader): Set<string> => new Set(header.subjects.map((subject) => versionName(subject.id, subject.version.version)));
+
+/**
+ * **The records a run replaces**: those among `records` that answer the same question
+ * (protocol, engine and subjects) with none of the subjects at the version the run plays. A record
+ * sharing a version stays. Its cases are still that version's: a shard of the same run, or a
+ * tournament's games between entrants that did not change.
+ */
+export function replacedBy(records: readonly Kept[], header: RecordHeader): Kept[] {
+  const question = questionKey(header), played = versionsOfRun(header);
+  return records.filter((record) => questionKey(record.header) === question && ![...versionsOfRun(record.header)].some((version) => played.has(version)));
+}
+
 /** A version as its id's history names it: `<id> v<n> (<date>, <commit8>)`, `n` its order of first appearance. */
 export interface NamedVersion {
   readonly name: string;
