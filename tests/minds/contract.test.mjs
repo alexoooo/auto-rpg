@@ -18,7 +18,7 @@ import { commandedMind } from "../../src/minds/sub-mind.ts";
 import { driveBy } from "../../src/minds/decider.ts";
 import { standingSkills } from "../../src/app/standing-skills.ts";
 import { standIntent } from "../../src/skills/framework/intent.ts";
-import { stockMotor } from "../../src/app/stance-balance.ts";
+import { stockMotor } from "../../src/app/registration/stock-motor.ts";
 import { isOrdersEntry } from "../../src/game/arena/duel.ts";
 import { MOVE_PART } from "../../src/skills/locomotion/move-part.ts";
 import { PAW_MOVE } from "../../src/skills/locomotion/quadruped/paw-legs.ts";

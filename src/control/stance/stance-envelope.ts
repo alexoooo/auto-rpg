@@ -1,5 +1,5 @@
-import { derive, type Quantity } from "../core/quantity.ts";
-import { atan2 } from "../core/math/real.ts";
+import { derive, type Quantity } from "../../core/quantity.ts";
+import { atan2 } from "../../core/math/real.ts";
 
 /**
  * Measured walking and turning limits supplied by a locomotion's calibration provider.
@@ -9,7 +9,7 @@ import { atan2 } from "../core/math/real.ts";
 export interface StanceEnvelope {
   /**
    * The fastest walk held each way, m/s: forward, to the right, back and to the left, the fastest
-   * speed at which every one of that way's trials held (`fastestEvery`; `paceToward` reads between
+   * speed at which every one of that way's trials held (`fastestEvery`; `heldPace` reads between
    * them). Where the asset measured no way by itself, each is its one fastest walk.
    */
   readonly ways: { readonly forward: Quantity<number>; readonly right: Quantity<number>; readonly back: Quantity<number>; readonly left: Quantity<number> };
@@ -28,7 +28,7 @@ export interface StanceEnvelope {
   /**
    * Each way's trials, where the asset measured each way by itself: at each speed of the gait
    * battery, slowest first, how many of that way's walks held of how many it walked. `ways` reads
-   * them by the rule; a caller that would go faster than that reads what it risks (`paceToward`'s
+   * them by the rule; a caller that would go faster than that reads what it risks (`heldPace`'s
    * share). Null where the asset did not keep them.
    */
   readonly tried: {
@@ -68,7 +68,7 @@ export function validStanceEnvelope(value: unknown): value is StanceEnvelope {
  * fastest speed at which at least that share of its trials held (`StanceEnvelope.tried`), where it
  * is faster than the rule's: the pace a caller asks that accepts the rest falling.
  */
-export function paceToward(envelope: StanceEnvelope, forward: number, right: number, share = 1): number {
+export function heldPace(envelope: StanceEnvelope, forward: number, right: number, share = 1): number {
   if (envelope.directions && (forward !== 0 || right !== 0)) {
     const angle = atan2(right, forward), sector = (angle < 0 ? angle + 2 * Math.PI : angle) * 4 / Math.PI;
     const cell = Math.floor(sector), fraction = sector - cell, limits = envelope.directions;

@@ -6,7 +6,7 @@ import { deepFreeze } from "../../core/state.ts";
  * **A gait**: what a body gets about by, as Move walks by it (`MoveConfig.gaits`): its name, which
  * a legs goal and Move's rules name it by (`LegsGoal.gait`), its label, and its legs (a gait part's
  * config, `GaitPart`), measured on each body by its envelope
- * (`src/control/stance-envelope.ts`) and its profile (the Gait drill). Two gaits whose legs
+ * (`src/control/stance/stance-envelope.ts`) and its profile (the Gait drill). Two gaits whose legs
  * differ only in whether they may run share one walk, so Move changes between them at once.
  */
 export interface Gait {

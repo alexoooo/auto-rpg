@@ -4,7 +4,7 @@ import { modelSpec } from "../../src/core/bodies/models.ts";
 import { embody } from "../../src/minds/seat/embodiment.ts";
 import { commandedMind } from "../../src/minds/sub-mind.ts";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
-import { stockMotor } from "../../src/app/stance-balance.ts";
+import { stockMotor } from "../../src/app/registration/stock-motor.ts";
 import { coreStand } from "../harness/core-stand.mjs";
 
 test("a stance's named bearing end excludes another controller of its segment", async () => {

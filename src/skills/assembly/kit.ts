@@ -60,7 +60,7 @@ export function legsOf(parts: PartLookup, body: Body, config: PartConfig): Locom
 
 
 /** **The kit of a body of `spec`**: its motor and its guard, each the one `given` passes in, else the one the body fits (`filledOf`), as `parts` finds it. */
-export function kitOf(parts: PartLookup, spec: BodySpec, given: Filled = {}): MindKit {
+export function mindKitOf(parts: PartLookup, spec: BodySpec, given: Filled = {}): MindKit {
   const guarding = filledOf(parts, spec, "guard", given), guard = parts.of("guard", guarding);
   return { motor: motorOf(parts, filledOf(parts, spec, "motor", given)), posture: guard.posture(spec, guarding), guard: (built) => guard.make(built, guarding), parts };
 }

@@ -451,7 +451,7 @@ const SOURCES = Object.freeze({
       + "0.2-0.7 m/s five ways and the turn battery's half-turns at 0.25-4 rad/s both ways, walking at each "
       + "speed up to the fastest walk, begun from 0 to 1.5 s after the walk sets off and under way; how many "
       + "held at each, and the fastest held by the rule of "
-      + "src/control/stance-envelope.ts; written by research/skills/locomotion/stance/core-stance-envelope.mjs --write, whose "
+      + "src/control/stance/stance-envelope.ts; written by research/skills/locomotion/stance/core-stance-envelope.mjs --write, whose "
       + "harness it names.",
   },
   "walk-run-envelope": {

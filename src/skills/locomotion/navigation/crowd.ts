@@ -1,6 +1,6 @@
 import type { GaitLimits } from "../../framework/locomotion-part.ts";
 import { cos, hypot, sin } from "../../../core/math/real.ts";
-import { paceToward } from "../../../control/stance-envelope.ts";
+import { heldPace } from "../../../control/stance/stance-envelope.ts";
 import { bodyClearance, sensedBounds } from "./sensed-bounds.ts";
 import type { GroundPoint } from "../../framework/movement.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
@@ -123,7 +123,7 @@ const NONE: readonly SolidSense[] = Object.freeze([]);
  *   velocity changes toward the walk no faster than its gait stops (`Locomotion.stopping`), so a
  *   body still going one way sweeps that way while it brakes.
  * - **Each walk is as fast** as `want`, no faster than its gait holds that way from `heading`
- *   (`paceToward` on its envelope), and no faster than it stops from before another body ahead of
+ *   (`heldPace` on its envelope), and no faster than it stops from before another body ahead of
  *   it on that way, at its gait's stopping rate, plus that body's own speed away.
  * - **Another body** goes on at its velocity now. A body already within another's room may move
  *   away from it. A body behind it, on the way it is asked, it leaves to give way: in a queue the
@@ -168,7 +168,7 @@ export function crowdWalk(view: CrowdView, radius: number, heading: number, want
   };
   /** How fast a walk the unit way (`ux`, `uz`) may go with no body near: `want`'s speed, and what its gait holds that way. */
   const free = (ux: number, uz: number): number =>
-    gait.envelope ? Math.min(speed, paceToward(gait.envelope, ux * sin(heading) + uz * cos(heading), ux * cos(heading) - uz * sin(heading))) : speed;
+    gait.envelope ? Math.min(speed, heldPace(gait.envelope, ux * sin(heading) + uz * cos(heading), ux * cos(heading) - uz * sin(heading))) : speed;
   /** How fast a walk the unit way (`ux`, `uz`) may go: as `free`, and no faster than it stops from before each body ahead. */
   const fastest = (ux: number, uz: number): number => {
     let most = free(ux, uz);

@@ -1,6 +1,6 @@
 import walkRunMeasured from "../../../../assets/skills/locomotion/walk-run/walk-run-envelope.json" with { type: "json" };
 import { type BodySpec } from "../../../core/bodies/spec/body.ts";
-import type { StanceEnvelope } from "../../../control/stance-envelope.ts";
+import type { StanceEnvelope } from "../../../control/stance/stance-envelope.ts";
 import { envelopeIn } from "../envelope-table.ts";
 
 /**

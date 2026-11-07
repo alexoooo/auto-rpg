@@ -1,5 +1,5 @@
 import type { GaitLimits } from "../framework/locomotion-part.ts";
-import { paceToward, turnAt } from "../../control/stance-envelope.ts";
+import { heldPace, turnAt } from "../../control/stance/stance-envelope.ts";
 
 
 /**
@@ -48,7 +48,7 @@ function slowFrom(gait: GaitLimits, distance: number, on: number, end = 0): numb
  * **The speed rule**: how fast the body goes, m/s, the least of
  *
  * - the gait's top speed the way it is going, `way` (forward and to the right in its heading's frame,
- *   any length), relative to where it faces (`paceToward` on its envelope; none stated, no bound);
+ *   any length), relative to where it faces (`heldPace` on its envelope; none stated, no bound);
  * - the speed it stops from in `left` m, going on at `on`, the speed it has the way it goes, for its
  *   lag (`Locomotion.lag`), then slowing at its stopping deceleration (`Locomotion.stopping`);
  * - for each corner ahead, the speed it slows from to that corner's (`cornerSpeed`) by the corner, the
@@ -57,7 +57,7 @@ function slowFrom(gait: GaitLimits, distance: number, on: number, end = 0): numb
  */
 export function travelSpeed(gait: GaitLimits, way: readonly [forward: number, right: number], left: number, corners: readonly Corner[], on: number, ceiling = Infinity): number {
   const envelope = gait.envelope;
-  let speed = Math.min(ceiling, envelope ? paceToward(envelope, way[0], way[1]) : Infinity, slowFrom(gait, left, on));
+  let speed = Math.min(ceiling, envelope ? heldPace(envelope, way[0], way[1]) : Infinity, slowFrom(gait, left, on));
   for (const corner of corners) {
     const at = cornerSpeed(gait, corner.halfTurn, corner.room);
     if (at < speed) speed = Math.min(speed, slowFrom(gait, corner.distance, on, at));

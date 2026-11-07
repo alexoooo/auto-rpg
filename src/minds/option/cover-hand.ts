@@ -1,7 +1,7 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { Side } from "../../core/bodies/bilateral.ts";
+import { pairedSegment, type Side } from "../../core/bodies/bilateral.ts";
 
-/** The hands of `spec` that hold an item with a covering face (`ItemSpec.coverNormal`), as segments (`hand.left`). */
+/** The hands of `spec` that hold an item with a covering face (`ItemSpec.coverNormal`), as segments (`pairedSegment`). */
 export const shieldHands = (spec: BodySpec): readonly string[] => (spec.held ?? []).filter(({ item }) => item.coverNormal !== undefined).map(({ segment }) => segment);
 
 /**
@@ -9,4 +9,4 @@ export const shieldHands = (spec: BodySpec): readonly string[] => (spec.held ?? 
  * covering face (`shieldHands`), whose ward is the guard's (`guard`, `src/minds/option/rest.ts`);
  * none then.
  */
-export const coveringHand = (spec: BodySpec, side: Side): Side | null => shieldHands(spec).includes(`hand.${side}`) ? null : side;
+export const coveringHand = (spec: BodySpec, side: Side): Side | null => shieldHands(spec).includes(pairedSegment("hand", side)) ? null : side;

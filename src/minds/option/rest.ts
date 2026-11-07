@@ -1,6 +1,7 @@
 import { segmentResource } from "../../skills/framework/action.ts";
 import type { TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import { pairedSegment, sidesWith } from "../../core/bodies/bilateral.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { legsReadiness } from "../../skills/locomotion/locomotion.ts";
 import { shieldHands } from "./cover-hand.ts";
@@ -96,10 +97,10 @@ function guard(hands: readonly string[], shields: readonly string[] = []): Optio
     } };
 }
 
-/** **The guard of `spec`'s hands** (`guard`): over its hands (`hand.left`, `hand.right`), those holding a covering face its shields (`shieldHands`); none for a body without. */
+/** **The guard of `spec`'s hands** (`guard`): over its hands (`sidesWith`), those holding a covering face its shields (`shieldHands`); none for a body without. */
 export const guardOf = (spec: BodySpec): readonly Option[] => {
-  const hands = (["hand.left", "hand.right"] as const).filter((hand) => spec.segments.some((segment) => segment.name === hand));
-  return hands.length ? [guard(hands, shieldHands(spec).filter((hand) => (hands as readonly string[]).includes(hand)))] : [];
+  const hands = sidesWith(spec, "hand").map((side) => pairedSegment("hand", side));
+  return hands.length ? [guard(hands, shieldHands(spec).filter((hand) => hands.includes(hand)))] : [];
 };
 
 /** A brace's target: none; the body acts on itself. */

@@ -6,7 +6,7 @@ import type { Body, BodyView } from "../../../control/body.ts";
 import type { SupportGoal } from "../../../control/supported-motor.ts";
 import { rootFrameToRef, intoFrameToRef } from "../../../control/kinematics.ts";
 import { withinSupport } from "../../../control/support.ts";
-import type { StanceEnvelope } from "../../../control/stance-envelope.ts";
+import type { StanceEnvelope } from "../../../control/stance/stance-envelope.ts";
 import { cos, hypot, sin } from "../../../core/math/real.ts";
 import { slotOne, type PartConfig } from "../../../parts/parts.ts";
 import { motionAtToRef } from "../../../core/bodies/read-motion.ts";

@@ -12,7 +12,7 @@ import { freshEngine, coreStand } from "./harness/core-stand.mjs";
 import { embody } from "../src/minds/seat/embodiment.ts";
 import { commandedMind } from "../src/minds/sub-mind.ts";
 import { driveBy } from "../src/minds/decider.ts";
-import { stockMotor } from "../src/app/stance-balance.ts";
+import { stockMotor } from "../src/app/registration/stock-motor.ts";
 import { SERVO_SECONDS } from "../src/control/body.ts";
 import { fitsPaws } from "../src/control/quadruped/fit.ts";
 import { VISIBILITY_NAVIGATION } from "../src/skills/locomotion/navigation/visibility-navigation.ts";

@@ -5,7 +5,7 @@ import type { Body, BodyView } from "../../control/body.ts";
 import { intoFrameToRef } from "../../control/kinematics.ts";
 import type { EffectorGoal } from "../../control/motor.ts";
 import { footStatesOf, readSupport, withinSupport } from "../../control/support.ts";
-import { STANCE_GAIT } from "../../control/stance-tuning.ts";
+import { STANCE_GAIT } from "../../control/stance/stance-tuning.ts";
 import { supportReadiness, plantedSupport } from "./stomp/support-readiness.ts";
 import { hypot, sin, cos } from "../../core/math/real.ts";
 import { turnAboutToRef } from "../../core/math/turn.ts";

@@ -25,7 +25,7 @@ import { workerJobs } from "../../worker-jobs.mjs";
  *   the Lab's (`LAB_MIND`), carrying out the course as orders.
  * - Each body is built as one being measured (`Experiment.measuring`): no envelope caps its walk.
  *   With `--played` it is built as the Lab plays it, its walk taken no faster than its envelope
- *   holds each way (`paceToward`).
+ *   holds each way (`heldPace`).
  * - `--stance` is an experiment's stance tuning (`StanceTuning`). Its `gait` merges into `STANCE_GAIT`.
  * - `--physique` builds the body with a physique (`Physique`: its strength and speed scale the
  *   muscles), as a probe of whether the body or the controller caps a walk.
@@ -138,7 +138,7 @@ function rockerFoot(foot, radius, facets) {
 async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, seconds, side, radius, distance, area, legs, stance, physique, probe, stop = null, played = false }) {
   const [{ modelSpec }, { labActor }, { startLocomotion }, { TRACKS, trackOf }, { commandsOf }, { LAB_MIND }, { STANCE_GAIT }, { coreStand }, { armedWith }, { withLegs }] = await Promise.all([
     import("../../../src/core/bodies/models.ts"), import("../../../src/app/node/game.ts"), import("../../../src/game/lab/locomotion-mode.ts"), import("../../../src/game/lab/track.ts"),
-    import("../../../src/game/lab/commands.ts"), import("../../../src/app/node/setup.ts"), import("../../../src/control/stance-tuning.ts"), import("../../../tests/harness/core-stand.mjs"),
+    import("../../../src/game/lab/commands.ts"), import("../../../src/app/node/setup.ts"), import("../../../src/control/stance/stance-tuning.ts"), import("../../../tests/harness/core-stand.mjs"),
     import("../../../src/core/bodies/items/held.ts"), import("../../../src/minds/option/mind.ts"),
   ]);
   const line = LINES[id];

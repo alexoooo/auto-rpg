@@ -1,8 +1,8 @@
-import { bodyKey } from "../core/bodies/spec/body.ts";
-import { stanceCalibration } from "./stance-calibration.ts";
-import { stanceBalance } from "../control/stance-balance.ts";
-import { wholeBodyMotor, wholeBodyMotorPart } from "../control/whole-body-motor.ts";
-import { stanceEnvelope } from "../skills/locomotion/stance/envelope.ts";
+import { bodyKey } from "../../core/bodies/spec/body.ts";
+import { stanceCalibration } from "../../skills/locomotion/stance/calibration.ts";
+import { stanceBalance } from "../../control/stance/stance-balance.ts";
+import { wholeBodyMotor, wholeBodyMotorPart } from "../../control/whole-body-motor.ts";
+import { stanceEnvelope } from "../../skills/locomotion/stance/envelope.ts";
 
 /** The stock stance uses its measured locomotion envelope. */
 export const STANCE_BALANCE = stanceBalance(stanceEnvelope, spec => stanceCalibration(bodyKey(spec)) ?? {});

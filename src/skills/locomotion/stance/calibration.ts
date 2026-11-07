@@ -1,6 +1,6 @@
-import records from "./data/stance-calibration.json" with { type: "json" };
-import { deepFreeze } from "../core/state.ts";
-import type { StanceTuning } from "../control/stance-tuning.ts";
+import records from "../../../../assets/skills/locomotion/stance/stance-calibration.json" with { type: "json" };
+import { deepFreeze } from "../../../core/state.ts";
+import type { StanceTuning } from "../../../control/stance/stance-tuning.ts";
 
 const calibrations: Readonly<Record<string, { readonly settings: StanceTuning }>> = deepFreeze(records);
 

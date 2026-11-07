@@ -1,3 +1,4 @@
+import type { StanceGoal, StanceReading } from "./stance/goal.ts";
 import type { BodyControl } from "../core/bodies/body-control.ts";
 import type { ContactIdentity } from "../core/bodies/contact-identity.ts";
 import type { Quaternion, Vector3 } from "../core/math/vector.ts";
@@ -6,9 +7,8 @@ import type { Frame } from "./kinematics.ts";
 import type { EffectorGoal, FreedomPath, MotorUnmet, MusclePush, PointTask } from "./motor.ts";
 import type { SupportGoal } from "./supported-motor.ts";
 import type { Pose } from "../core/bodies/spec/pose.ts";
-import type { StanceGoal, StanceReading } from "./stance.ts";
-import type { StanceTuning } from "./stance-tuning.ts";
-import type { StanceEnvelope } from "./stance-envelope.ts";
+import type { StanceTuning } from "./stance/stance-tuning.ts";
+import type { StanceEnvelope } from "./stance/stance-envelope.ts";
 
 import type { Senses } from "../core/bodies/senses.ts";
 import type { BodyLevel, MuscleReading } from "../core/bodies/muscle/driver.ts";

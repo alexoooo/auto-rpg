@@ -1,8 +1,8 @@
+import type { StancePhase } from "../../control/stance/goal.ts";
 import { isRefused, type Refused } from "../../core/refusal.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 import type { HostedBody } from "../../minds/seat/hosted-body.ts";
 import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
-import type { StancePhase } from "../../control/stance.ts";
 import { NO_COVER, type Intent } from "../../skills/framework/intent.ts";
 import type { Script } from "../../minds/decider.ts";
 import { STANCE_LOWER } from "../../skills/locomotion/locomotion.ts";
@@ -12,7 +12,7 @@ import { cos, hypot, sin } from "../../core/math/real.ts";
 
 /**
  * **The lab's stance mode**: a human on its own feet under the core stance
- * (`src/control/stance.ts`), commanded live from the page. The page's keys are its script
+ * (`src/control/stance/stance.ts`), commanded live from the page. The page's keys are its script
  * (`stanceScript`): what a person gives it is an intent, as any mind's -- a walk (a velocity across
  * the ground, in the body's own frame), a turn and a height, the hands guarding -- which the skills
  * carry out (`src/skills/framework/skills.ts`). The stance does the rest: its steps, and the steps that

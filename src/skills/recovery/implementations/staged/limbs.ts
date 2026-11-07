@@ -8,7 +8,7 @@ import type { Limb, LimbTask, Row } from "../../../../control/bearing.ts";
 import { UNHELD, type BearingPoint } from "../../../../control/contact-wrench.ts";
 import { lowsOf } from "../../../../control/ground.ts";
 import { chainTo } from "../../../../control/kinematics.ts";
-import { SOLE_MARGIN } from "../../../../control/stance-tuning.ts";
+import { SOLE_MARGIN } from "../../../../control/stance/stance-tuning.ts";
 import { DOWN, type FootState, bearingSole, footStatesOf, readSupport, rolledEdge, rolledRows } from "../../../../control/support.ts";
 import { motionAtToRef, pointOfToRef } from "../../../../core/bodies/read-motion.ts";
 import { hypot } from "../../../../core/math/real.ts";

@@ -1,9 +1,9 @@
+import type { StanceGoal } from "../../../../control/stance/goal.ts";
 import type { MindKit } from "../../../framework/mind-kit.ts";
 import { supportHeight } from "../../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "../../../locomotion/stance-feet.ts";
 import { carrying } from "../../../../control/motor.ts";
-import type { StanceGoal } from "../../../../control/stance.ts";
 import { turnOfToRef } from "../../../../core/bodies/read-motion.ts";
 import { atan2, cos, sin } from "../../../../core/math/real.ts";
 import { SERVO_SECONDS, type BodyView } from "../../../../control/body.ts";

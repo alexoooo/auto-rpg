@@ -1,6 +1,6 @@
+import type { SwingGoal } from "../../control/stance/goal.ts";
 import { Vector3 } from "../../core/math/vector.ts";
 import type { BodyView } from "../../control/body.ts";
-import type { SwingGoal } from "../../control/stance.ts";
 import { swingProgressToRef } from "../../control/swing-path.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";

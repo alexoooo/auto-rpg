@@ -1,3 +1,4 @@
+import type { StanceGoal } from "../../control/stance/goal.ts";
 import type { Clearance } from "./navigation.ts";
 import type { Locomotion } from "./locomotion-part.ts";
 import { kitOf, menuOf, type SpotFinder } from "./menu.ts";
@@ -5,17 +6,16 @@ import type { Intent } from "./intent.ts";
 import type { Body, BodyCommand, BodyView } from "../../control/body.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import type { EffectorGoal, FreedomPath, MusclePush, PointTask } from "../../control/motor.ts";
-import type { StanceGoal } from "../../control/stance.ts";
 import type { SupportGoal } from "../../control/supported-motor.ts";
 import type { ConfigurationName } from "../../core/bodies/spec/body.ts";
 import { LEG_RESOURCE, type ActionAround, type ActionClaim } from "./action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "./action-instances.ts";
 import { actionResources } from "./action-resources.ts";
 import type { GuardSkill } from "./guard.ts";
-import type { SupportSkill } from "./support.ts";
+import type { LowSupportSkill } from "./low-support.ts";
 import type { NavigationSight, Navigator } from "./navigation.ts";
 import { ALL_MET, type LegsAsked, type LegsGoal, type GaitName } from "./skill.ts";
-import type { StanceEnvelope } from "../../control/stance-envelope.ts";
+import type { StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 import { directMovement } from "./movement.ts";
 import { cos, hypot, sin } from "../../core/math/real.ts";
 import { chainTo } from "../../control/kinematics.ts";
@@ -38,7 +38,7 @@ interface SkillParts {
   readonly clearance: Clearance;
   /** Where the body stands to act on a window, for the menu's spots. */
   readonly spot: SpotFinder;
-  readonly support?: SupportSkill | null;
+  readonly support?: LowSupportSkill | null;
 }
 
 /** One owner per concrete control, with defaults named and actions identified by instance id. */

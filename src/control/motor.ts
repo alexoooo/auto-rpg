@@ -1,3 +1,4 @@
+import type { StanceGoal, StanceReading } from "./stance/goal.ts";
 import type { BodyControl } from "../core/bodies/body-control.ts";
 import { effectorTracker, type EffectorGoal } from "./effector-tracker.ts";
 import { bodyEffectors, type EffectorModel } from "./effectors.ts";
@@ -8,10 +9,10 @@ import type { AssistReading } from "../core/bodies/assist.ts";
 import type { Limb, Row } from "./bearing.ts";
 import { servoAsk, servoSolve, type ServoWork } from "./servo.ts";
 import { makeWholeBody, solveBody, type WholeBodyAsk } from "./solve.ts";
-import { type StanceControl, type StanceGoal, type StanceReading } from "./stance.ts";
+import { type StanceControl } from "./stance/stance.ts";
 import type { SupportGoal } from "./supported-motor.ts";
 import type { BalanceMaker } from "./balance-part.ts";
-import type { StanceTuning } from "./stance-tuning.ts";
+import type { StanceTuning } from "./stance/stance-tuning.ts";
 import { type ReadBody, type ReadSegment, rootSegment } from "../core/bodies/read-body.ts";
 import type { Pose } from "../core/bodies/spec/pose.ts";
 

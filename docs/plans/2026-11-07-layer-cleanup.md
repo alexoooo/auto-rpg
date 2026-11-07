@@ -233,9 +233,9 @@ This chunk also lands as two commits: the moves first, then the renames.
   `cover.ts`, `limbs.ts`). The body domain (`src/core/bodies/`) exports the predicate the skills
   share.
 - **The stance calibration moves beside the stance envelope it was measured with.**
-  `src/app/data/stance-calibration.json` and `src/app/stance-calibration.ts` go under
+  `assets/skills/locomotion/stance/stance-calibration.json` and `src/skills/locomotion/stance/calibration.ts` go under
   `src/skills/locomotion/stance/` and `assets/skills/locomotion/stance/`. The application still
-  composes it into `STANCE_BALANCE`. `src/app/stance-balance.ts` moves into `src/app/registration/`
+  composes it into `STANCE_BALANCE`. `src/app/registration/stock-motor.ts` moves into `src/app/registration/`
   as `stock-motor.ts`.
 - **Control's loose stance files move into `src/control/stance/`.** These are `stance.ts`,
   `stance-tuning.ts`, `stance-envelope.ts` and `stance-balance.ts`. `StanceGoal`, `SwingGoal`,

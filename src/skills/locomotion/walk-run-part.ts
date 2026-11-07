@@ -1,11 +1,11 @@
 import type { Locomotion } from "../framework/locomotion-part.ts";
 import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
-import { STANCE_GAIT, validGaitTuning, type GaitTuning } from "../../control/stance-tuning.ts";
+import { STANCE_GAIT, validGaitTuning, type GaitTuning } from "../../control/stance/stance-tuning.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
 import { dataOf } from "../../core/data/store.ts";
 import type { GaitPart } from "../framework/locomotion-part.ts";
 import type { SkillRecords } from "../framework/records.ts";
-import { fitsSoles } from "../../control/stance-balance.ts";
+import { fitsSoles } from "../../control/stance/stance-balance.ts";
 import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
@@ -13,7 +13,7 @@ import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings }
 import type { Body } from "../../control/body.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { learnedRun, learnedRunFaults, type LearnedRunSettings } from "./learned-run.ts";
-import { validStanceEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";
+import { validStanceEnvelope, type StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 
 /** **The walk and run's settings for a body**: its physical gait and optional learned corrections. */
 export interface WalkRunRecord {

@@ -1,11 +1,11 @@
+import type { StanceGoal } from "../../control/stance/goal.ts";
 import type { GaitName, Skill, LegsAsked, LegsUnmet } from "./skill.ts";
 import type { Body, BodyView, BodyCommand } from "../../control/body.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 import type { BearingEnd } from "../../core/bodies/spec/body.ts";
-import type { StanceEnvelope } from "../../control/stance-envelope.ts";
+import type { StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
-import type { StanceGoal } from "../../control/stance.ts";
 import type { SupportGoal } from "../../control/supported-motor.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { BodyControl } from "../../core/bodies/body-control.ts";

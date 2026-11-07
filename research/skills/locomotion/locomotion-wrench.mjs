@@ -1,4 +1,4 @@
-import { STANCE_BALANCE } from "../../../src/app/stance-balance.ts";
+import { STANCE_BALANCE } from "../../../src/app/registration/stock-motor.ts";
 import { isRefused } from "../../../src/core/refusal.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
 import { footOn } from "../../../src/control/support.ts";

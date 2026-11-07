@@ -3,16 +3,16 @@ import type { Body, BodyView } from "../../control/body.ts";
 import type { LegsAsked, LegsGoal, Skill } from "./skill.ts";
 
 /** A support service's transition and the posture it asks of each channel's owner. */
-export interface SupportReport {
+export interface LowSupportReport {
   readonly stage: string;
   readonly ready: boolean;
   readonly posture: Readonly<Record<string, number>>;
 }
 
 /** A service that carries eligible legs goals through its supported transition. */
-export interface SupportSkill extends Skill {
+export interface LowSupportSkill extends Skill {
   readonly state: object;
-  readonly report: SupportReport;
+  readonly report: LowSupportReport;
   /** Whether this service carries the goal's requested support. */
   carries(goal: LegsGoal): boolean;
   /** Whether the legs may walk while this service carries them. */
@@ -24,14 +24,14 @@ export interface SupportSkill extends Skill {
 }
 
 /** **A kind of low support**: a part of role `support` that makes the skill a body fights from low support by. */
-export interface SupportPart<C extends PartConfig = PartConfig> extends Part<C> {
+export interface LowSupportPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "support";
   readonly keys: KeysOf<C>;
-  make(body: Body, config: C): SupportSkill;
+  make(body: Body, config: C): LowSupportSkill;
 }
 
 declare module "../../parts/lookup.ts" {
   interface RoleParts {
-    readonly support: SupportPart;
+    readonly support: LowSupportPart;
   }
 }

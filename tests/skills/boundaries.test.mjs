@@ -138,8 +138,8 @@ import { crouchSteady } from "../../research/skills/recovery/witness/climb.mjs";
 import { pendingControl } from "../../research/minds/pending-control.mjs";
 
 import { steadying } from "../../src/skills/recovery/implementations/modes/steady.ts";
-import { kitOf } from "../../src/skills/assembly/kit.ts";
-for (const [name, makeSteady] of [["witness crouch", crouchSteady], ["steady mode", (own, view) => steadying(own, view, kitOf(partLookup, own.spec))]]) {
+import { mindKitOf } from "../../src/skills/assembly/kit.ts";
+for (const [name, makeSteady] of [["witness crouch", crouchSteady], ["steady mode", (own, view) => steadying(own, view, mindKitOf(partLookup, own.spec))]]) {
 test(`${name} initializes its own stance when it is the first holder`, async () => {
   const stand = await coreStand(stock);
   let steady, ticks = 0;

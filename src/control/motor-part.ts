@@ -13,10 +13,10 @@ import type { MuscleReading } from "../core/bodies/muscle/driver.ts";
 import type { AssistReading } from "../core/bodies/assist.ts";
 import type { MotorControl } from "./motor.ts";
 import type { Pose } from "../core/bodies/spec/pose.ts";
-import type { StanceTuning } from "./stance-tuning.ts";
+import type { StanceTuning } from "./stance/stance-tuning.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import type { Experiment } from "./body.ts";
-import type { StanceEnvelope } from "./stance-envelope.ts";
+import type { StanceEnvelope } from "./stance/stance-envelope.ts";
 
 /**
  * **What makes a motor control**: from the body, the muscles it drives, its servo's time constant,

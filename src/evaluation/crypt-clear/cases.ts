@@ -10,7 +10,7 @@ import { isRefused, type Refused } from "../../core/refusal.ts";
  */
 import type { CommanderConfig } from "../../minds/command/kind.ts";
 import { commanderFaults, commanderOf } from "../../minds/command/commander.ts";
-import { paceToward } from "../../control/stance-envelope.ts";
+import { heldPace } from "../../control/stance/stance-envelope.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { generateEncounterLevel } from "../../game/dungeon/encounters.ts";
@@ -124,7 +124,7 @@ export function createCryptClearCases(context: GameContext) {
         const { world, run } = built, hero = run.hero, map = run.map;
         const envelope = hero.fighter?.minded.report?.gait?.envelope;
         if (!envelope) throw new Error(`level ${seed}, trial ${trial}: the hero's mind states no gait to pace the route by`);
-        const pace = paceToward(envelope, 1, 0), route = routeLength(map, map.start, map.exit, hero.radius);
+        const pace = heldPace(envelope, 1, 0), route = routeLength(map, map.start, map.exit, hero.radius);
         if (route === null) throw new Error(`level ${seed}, trial ${trial}: no route from the start to the exit`);
         const price = priceOf(protocol.walk, route, pace);
         let spent = false;

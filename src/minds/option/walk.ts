@@ -1,7 +1,7 @@
 import type { GaitName } from "../../skills/framework/skill.ts";
 import { atan2 } from "../../core/math/real.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { paceToward } from "../../control/stance-envelope.ts";
+import { heldPace } from "../../control/stance/stance-envelope.ts";
 import { keepOut } from "../../skills/locomotion/navigation/clear-step.ts";
 import type { Situation } from "./option.ts";
 import type { Intent } from "../../skills/framework/intent.ts";
@@ -16,20 +16,20 @@ type Walk = Pick<Intent, "move" | "face" | "movement" | "pace" | "travelFacing">
 export function walker(_spec: BodySpec) {
   /**
    * The speed the rule asks going `forward` and `right` (a direction, in the frame of the way the
-   * body faces) with nothing ahead to stop for, m/s: what the gait holds that way (`paceToward`),
+   * body faces) with nothing ahead to stop for, m/s: what the gait holds that way (`heldPace`),
    * `gait` where it names one the legs have (`Sight.envelopeOf`), else the one they go by, under the
    * orders' pace; what an option prices a walk by. Forward unless given.
    */
   const pace = (now: Situation, gait?: GaitName | null, forward = 1, right = 0): number => {
     const envelope = (gait === undefined || gait === null ? null : now.sight.envelopeOf(gait)) ?? now.sight.envelope;
-    return Math.min(envelope ? paceToward(envelope, forward, right) : Infinity, now.orders?.pace ?? Infinity);
+    return Math.min(envelope ? heldPace(envelope, forward, right) : Infinity, now.orders?.pace ?? Infinity);
   };
   return {
     pace,
     /** The gait's measured forward speed, m/s, or the explicit ordered pace without an envelope: what a second of carrying out orders is priced by. */
     stride(now: Situation): number {
       const envelope = now.sight.envelope;
-      return envelope ? paceToward(envelope, 1, 0) : now.orders?.pace ?? 0;
+      return envelope ? heldPace(envelope, 1, 0) : now.orders?.pace ?? 0;
     },
     /** The heading to the focus, or the body's own with none. */
     facing(now: Situation): number {

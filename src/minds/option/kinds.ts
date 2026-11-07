@@ -41,7 +41,7 @@ export const ORDERS_OPTION = deepFreeze({ ...kind("orders", "Follow orders", (gi
 /**
  * **A strike's config**: the executor it strikes by (`skill`, of its kind's skill), the limbs it
  * strikes with by role (`LimbRole`), where its executor aims the regions it strikes, in order, and
- * its aim (`AimPart`), and the low support it strikes from where it names one (`SupportPart`).
+ * its aim (`AimPart`), and the low support it strikes from where it names one (`LowSupportPart`).
  */
 export interface StrikeConfig<K extends string = string> {
   readonly kind: `strike-${K}`;

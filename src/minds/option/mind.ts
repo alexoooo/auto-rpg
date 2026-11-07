@@ -9,7 +9,7 @@ import { controller, type MindWiring } from "../catalog/controller.ts";
 import { everyOf } from "../decider.ts";
 import { kitBody, kitSkills } from "../../skills/assembly/assembly.ts";
 import { groundSkills } from "../../skills/recovery/skills.ts";
-import { FILLED, filledOf, filledRefusal, kitOf, motorOf, type Filled } from "../../skills/assembly/kit.ts";
+import { FILLED, filledOf, filledRefusal, mindKitOf, motorOf, type Filled } from "../../skills/assembly/kit.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import { slotList, slotOne, slotsOf, partRequirements, type Part, type PartConfig, type Slot, type Role } from "../../parts/parts.ts";
 import { driveBy } from "../decider.ts";
@@ -82,7 +82,7 @@ function createOptionMind(host: BodyHost, config: Configured, wiring: MindWiring
   const legs = filledOf(parts, spec, "legs", given), kit: SkillKit = { legs, navigation: named.navigation ?? config.navigation, guard: filledOf(parts, spec, "guard", given),
     executors: named.executors, actions: named.actions, support: named.support };
   const { body } = host.take((own) => commandedMind(own, { ...kitBody(filledOf(parts, spec, "motor", given), parts), ...wiring.experiment }, host.clock));
-  const ground = groundSkills(body, host.clock, kitOf(parts, spec, given), named.techniques);
+  const ground = groundSkills(body, host.clock, mindKitOf(parts, spec, given), named.techniques);
   let skills: Skills | undefined;
   const aims = configuredAims(parts, spec, kit.actions);
   const make = (made: Body) => kitSkills(made, host.clock, parts, kit, () => skills?.report.ledger ?? [], ground, aims);

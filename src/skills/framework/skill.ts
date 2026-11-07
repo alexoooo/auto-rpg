@@ -1,7 +1,7 @@
+import type { StanceGoal, SwingGoal } from "../../control/stance/goal.ts";
 import type { BodyView } from "../../control/body.ts";
-import type { StanceGoal, SwingGoal } from "../../control/stance.ts";
 import type { BearingEnd } from "../../core/bodies/spec/body.ts";
-import type { SupportReport } from "./support.ts";
+import type { LowSupportReport } from "./low-support.ts";
 
 /**
  * **What every skill answers to**: the body was another mind's, and is back as `view` shows it.
@@ -105,7 +105,7 @@ export interface Around {
   readonly heading: number;
   readonly placed: boolean;
   /** How the support skill is going, or null with none. */
-  readonly support: SupportReport | null;
+  readonly support: LowSupportReport | null;
 }
 
 /** A gait's name (`Gait.name`). */

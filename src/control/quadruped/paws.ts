@@ -3,7 +3,7 @@ import type { BodyView } from "../body.ts";
 import { supportReader, type EndReading, type SupportEndpoint } from "../supported-motor.ts";
 import type { ReadBody } from "../../core/bodies/read-body.ts";
 import { pawsOf } from "../../core/bodies/spec/body.ts";
-import { REPTILE_MOTOR } from "./tuning.ts";
+import { PAW_SUPPORT } from "./tuning.ts";
 
 /** **What bears a body on its paws**: its centre of mass and velocity, and each paw as it bears (`EndReading`), in its spec's order (`pawsOf`). */
 export interface PawReading {
@@ -20,12 +20,12 @@ const READERS = new WeakMap<ReadBody, ReturnType<typeof supportReader>>();
 
 /**
  * **The reader of what bears `built` on its paws** (`supportReader` over `pawEndpoints`, a contact
- * read as `REPTILE_MOTOR` reads it), one a body: its paw motor reads it each step as the body is
+ * read as `PAW_SUPPORT` reads it), one a body: its paw motor reads it each step as the body is
  * felt (`MotorControl.read`), and its gaits, its bite and its righting read what it found.
  */
 export function pawReader(built: ReadBody): ReturnType<typeof supportReader> {
   let reader = READERS.get(built);
-  if (!reader) READERS.set(built, reader = supportReader(built, pawEndpoints(built), REPTILE_MOTOR));
+  if (!reader) READERS.set(built, reader = supportReader(built, pawEndpoints(built), PAW_SUPPORT));
   return reader;
 }
 

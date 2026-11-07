@@ -1,12 +1,12 @@
+import type { StanceGoal, SwingGoal } from "../../control/stance/goal.ts";
 import type { LegsDrive, Locomotion, LocomotionContext } from "../framework/locomotion-part.ts";
 import { supportHeight } from "../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 
 import type { BodyView } from "../../control/body.ts";
-import { fastestTurning, paceToward, turnAt, type StanceEnvelope } from "../../control/stance-envelope.ts";
-import type { StanceGoal, SwingGoal } from "../../control/stance.ts";
+import { fastestTurning, heldPace, turnAt, type StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 import type { BearingEnd } from "../../core/bodies/spec/body.ts";
-import { STANCE_GAIT, type GaitTuning } from "../../control/stance-tuning.ts";
+import { STANCE_GAIT, type GaitTuning } from "../../control/stance/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../../core/math/real.ts";
 import { wrap } from "../../core/math/turn.ts";
 import { deepFreeze } from "../../core/state.ts";
@@ -184,7 +184,7 @@ export const stanceOf = (drive: LegsDrive): StanceGoal | null => drive.kind === 
  * holds with the body (`StanceEnvelope`, `Body.envelope`).
  *
  * - **The walk** is the intent's velocity (forward along the heading and to its right, m/s), its
- *   speed capped at the envelope's fastest walk that way (`paceToward`). None stands.
+ *   speed capped at the envelope's fastest walk that way (`heldPace`). None stands.
  * - **The heading** turns toward the intent's facing only while the body walks, as the stance
  *   turns (each step lands its foot facing the heading; standing, a pelvis turned a quarter over
  *   planted feet falls), no faster than the envelope turns at the pace under way (`turnAt`): the
@@ -494,7 +494,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
         state.heading += Math.max(-rate, Math.min(rate, turn));
       } else state.heading += turn;
       const speed = hypot(walk[0], walk[1]);
-      let most = envelope ? paceToward(envelope, walk[0], walk[1]) : Infinity;
+      let most = envelope ? heldPace(envelope, walk[0], walk[1]) : Infinity;
       // A heading still to turn at a pace the envelope turns none at is walked at the fastest pace it turns at.
       if (envelope && wrap(face - state.heading) !== 0 && turnAt(envelope, Math.min(speed, most)) === 0) most = Math.min(most, fastestTurning(envelope));
       if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];

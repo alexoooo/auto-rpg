@@ -285,7 +285,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
  * Given `onto` (`{ side }`), the turn is a walk onto a way, as a fight asks one: from the turn's
  * start the walk is asked along the heading it ends on, a quarter round, and the heading turns a
  * quarter round onto it; the walk off the heading goes no faster than the ellipse through `speed`
- * along it and `side` m/s across it (`paceToward`'s, the side way's fastest walk).
+ * along it and `side` m/s across it (`heldPace`'s, the side way's fastest walk).
  */
 export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null, balance = null, onto = null, stride }) {
   if (!Number.isFinite(rate) || rate <= 0) throw new Error("a turn rate must be finite and positive");

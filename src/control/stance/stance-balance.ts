@@ -1,9 +1,9 @@
 import type { StanceTuning } from "./stance-tuning.ts";
-import type { BodySpec } from "../core/bodies/spec/body.ts";
-import { deepFreeze } from "../core/state.ts";
-import type { BalancePart } from "./balance-part.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
+import { deepFreeze } from "../../core/state.ts";
+import type { BalancePart } from "../balance-part.ts";
 import { stanceControl } from "./stance.ts";
-import { soleRefusal, standingHeight } from "./support.ts";
+import { soleRefusal, standingHeight } from "../support.ts";
 import type { StanceEnvelope } from "./stance-envelope.ts";
 
 /** **The stance** (`stanceControl`): the centre of mass carried over two feet, stepping to catch it. */

@@ -2,7 +2,7 @@ import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import { standingFooting } from "../../control/support.ts";
 import type { GaitPart } from "../framework/locomotion-part.ts";
 import { stanceFeetOf, stanceSegmentsOf } from "./stance-feet.ts";
-import { fitsSoles } from "../../control/stance-balance.ts";
+import { fitsSoles } from "../../control/stance/stance-balance.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { locomotion, validCarriage, validTurnLimit, validTurnStartup, type Carriage, type TurnStartup } from "./locomotion.ts";
 

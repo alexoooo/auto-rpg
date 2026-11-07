@@ -10,7 +10,7 @@ import { chainTo, specChainTo } from "./kinematics.ts";
 import { swingLegOf, type SwingLeg } from "./swing-leg.ts";
 import type { Vec3 } from "../core/quantity.ts";
 import { turnOfToRef, partsOn, type Parts } from "../core/bodies/read-motion.ts";
-import { SUPPORT_INSET } from "./stance-tuning.ts";
+import { SUPPORT_INSET } from "./stance/stance-tuning.ts";
 import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../core/constants.ts";
 import { acos, asin, atan2, cos, hypot } from "../core/math/real.ts";
 import { wrap } from "../core/math/turn.ts";

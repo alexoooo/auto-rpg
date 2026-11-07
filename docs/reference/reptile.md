@@ -157,7 +157,7 @@ the body (`scripts/skills/recovery/righting/righting-forks.mjs`); the back's fro
 
 ## Controller settings
 
-Controller choices live with their capabilities: `REPTILE_MOTOR` and `REPTILE_TRAVEL` in
+Controller choices live with their capabilities: `PAW_SUPPORT` and `PAW_TRAVEL` in
 `src/control/quadruped/tuning.ts`; `REPTILE_TROT` and `REPTILE_CRAWL` in
 `src/skills/locomotion/quadruped/tuning.ts`; `REPTILE_RECOVERY` in
 `src/skills/recovery/righting/tuning.ts`; each body's bite settings in

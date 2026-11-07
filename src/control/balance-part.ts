@@ -1,11 +1,11 @@
 import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import type { ReadBody } from "../core/bodies/read-body.ts";
 import type { AssistReading } from "../core/bodies/assist.ts";
-import type { StanceControl } from "./stance.ts";
-import type { StanceTuning } from "./stance-tuning.ts";
+import type { StanceControl } from "./stance/stance.ts";
+import type { StanceTuning } from "./stance/stance-tuning.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import type { Experiment } from "./body.ts";
-import type { StanceEnvelope } from "./stance-envelope.ts";
+import type { StanceEnvelope } from "./stance/stance-envelope.ts";
 
 /**
  * **What makes a balance**: from the body, an experiment's stance tuning and its assist, the

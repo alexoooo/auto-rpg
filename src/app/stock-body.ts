@@ -1,7 +1,7 @@
 import type { BodyOptions, HostedBody } from "../minds/seat/hosted-body.ts";
 import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import type { World } from "../core/world/world.ts";
-import { stockMotor } from "./stance-balance.ts";
+import { stockMotor } from "./registration/stock-motor.ts";
 import type { SubMindMaker } from "../minds/sub-mind.ts";
 import type { MotorMaker } from "../control/motor-part.ts";
 import { commandedBody } from "../minds/seat/host.ts";

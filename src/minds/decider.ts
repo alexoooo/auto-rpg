@@ -1,6 +1,6 @@
 import type { Clearance } from "../skills/framework/navigation.ts";
 import type { Body, BodyView } from "../control/body.ts";
-import type { StanceEnvelope } from "../control/stance-envelope.ts";
+import type { StanceEnvelope } from "../control/stance/stance-envelope.ts";
 import type { SkillReport, Skills } from "../skills/framework/skills.ts";
 import type { Intent } from "../skills/framework/intent.ts";
 import { sameOrders, type Orders } from "./orders.ts";

@@ -1,4 +1,4 @@
-import { stanceCalibration } from "./stance-calibration.ts";
+import { stanceCalibration } from "../skills/locomotion/stance/calibration.ts";
 import { BALANCES } from "./registration/balances.ts";
 import { MOTORS } from "./registration/motors.ts";
 import { AIMS } from "./registration/aims.ts";

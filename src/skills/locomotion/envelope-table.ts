@@ -2,7 +2,7 @@ import { heldBy } from "../../core/bodies/items/held.ts";
 import type { SourceKey } from "../../core/sources.ts";
 import { bodyKey, type BodySpec } from "../../core/bodies/spec/body.ts";
 import { derive, sourced, type Quantity } from "../../core/quantity.ts";
-import type { StanceEnvelope } from "../../control/stance-envelope.ts";
+import type { StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 
 /**
  * **The rule**: the fastest speed of a battery at which every one of its `trials` held, whatever a

@@ -1,6 +1,6 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { RunCycleSettings } from "./cycle-run.ts";
-import type { GaitTuning } from "../../control/stance-tuning.ts";
+import type { GaitTuning } from "../../control/stance/stance-tuning.ts";
 import type { WalkRunSettings } from "./walk-run.ts";
 
 /**
