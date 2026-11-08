@@ -35,14 +35,19 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
    meaning, the decision timing or the controller under the actor makes every trained actor a
    seed to retrain, never a reading. Budget 2 to 5 M decisions to bring it back, started with
    `--start`, `--start-layout` and `--critic-first`, then compare it with the baseline from step 2.
-4. **Start from reached states.** Warm-ups are played on the body and cached
+4. **Start the spread at one the seed survives.** `--start` begins exploring at `--log-std`
+   (default −1, a spread of 0.37), whatever the seed's own. Play the seed with that noise on each
+   phase: where it falls in more than a few episodes, lower the spread until it does not (−1.4,
+   a spread of 0.25, for the travel seed). Falls caused by the noise teach the same avoidance as
+   a phase that nearly always fails.
+5. **Start from reached states.** Warm-ups are played on the body and cached
    (`warmStarts` and the environments' snapshots). Never set a velocity or a pose to make a start.
    A warm-up that falls or leaves its corridor is reported and excluded. Copy each delivered
    order into mutable world state so snapshot restores cannot rewrite the curriculum's scripts.
-5. **Check the reward reads what the gate reads**: the same speed (centre of mass, along the
+6. **Check the reward reads what the gate reads**: the same speed (centre of mass, along the
    requested direction), the same fall predicate, the same corridor. Credit is per second,
    progress is a share of the requested pace, and a fall costs once and ends the episode.
-6. **Check parity once per new environment.** The seed played through the environment reproduces
+7. **Check parity once per new environment.** The seed played through the environment reproduces
    the ordinary game's trajectory step for step (`research/learner-adapter.mjs` is the one loop).
    If it does not, fix the environment before training.
 

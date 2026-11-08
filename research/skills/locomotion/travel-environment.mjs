@@ -28,6 +28,8 @@ export async function travelEnvironment(configuration) {
     starts: [2, 3, 4, 5, 5.25, 5.5, 5.75, 7, 7.25, 7.5, 7.75, 9],
     restTimes: [1],
     reserve: .3, overspeedCost: .1, uprightCredit: .15, sideCost: .1, corridorCost: .05, effortCost: .005,
+    // From `reach` s after a pace order, each m/s its last second's mean falls short of the pace costs `lateCost` a second.
+    lateCost: 0, reach: 4,
     ...configuration };
   if (!o.settings || !Array.isArray(o.scripts) || !o.scripts.length) throw Error('Travel training needs a record and order scripts');
   const validProgram = p => p && typeof p === 'object' && typeof p.start === 'string' && p.start.length > 0 && Array.isArray(p.cues) && p.cues.length > 0
@@ -39,7 +41,7 @@ export async function travelEnvironment(configuration) {
     throw Error(`Travel ${name} must contain positive finite values`);
   if (!Number.isFinite(o.heading) || o.headings !== undefined && (!Array.isArray(o.headings) || !o.headings.length || !o.headings.every(Number.isFinite)))
     throw Error('Travel headings must be finite angles');
-  for (const name of ['reserve', 'overspeedCost', 'uprightCredit', 'sideCost', 'corridorCost', 'effortCost'])
+  for (const name of ['reserve', 'overspeedCost', 'uprightCredit', 'sideCost', 'corridorCost', 'effortCost', 'lateCost', 'reach'])
     if (!Number.isFinite(o[name]) || o[name] < 0) throw Error(`Travel ${name} must be finite and nonnegative`);
   if (o.loadouts !== undefined && (!Array.isArray(o.loadouts) || !o.loadouts.length)) throw Error('Travel loadouts must be a nonempty list');
   const heading = o.headings ? o.headings[(o.seed >>> 0) % o.headings.length] : o.heading;
@@ -134,7 +136,8 @@ export async function travelEnvironment(configuration) {
       const start = pick(candidates); LONE_WORLD.load(built, start.snapshot); physical();
       episode = { program, start, began: world.time, next: 0, ticks: 0, requested: forward, pace: start.pace ?? 0,
         origin: { x: centre.x, z: centre.z }, corridorEnabled: program.corridor !== false, maxOff: 0,
-        along: 0, shortfall: 0, quiet: 0, quietMax: 0, stopScale: Math.max(1, Math.hypot(velocity.x, velocity.z)), samples: [] };
+        along: 0, shortfall: 0, quiet: 0, quietMax: 0, stopScale: Math.max(1, Math.hypot(velocity.x, velocity.z)), samples: [],
+        ordered: 0, alongs: [], window: 0, late: 0 };
       deliver();
       return learner.inputs.slice();
     };
@@ -146,6 +149,7 @@ export async function travelEnvironment(configuration) {
           if (!(length > 0)) throw Error('Travel direction must be nonzero');
           if (episode.requested.x !== d.x / length || episode.requested.z !== d.z / length || cue.line === 'start')
             Object.assign(episode.origin, { x: centre.x, z: centre.z });
+          if (episode.pace !== (orders.pace ?? 4)) episode.ordered = episode.ticks;
           episode.requested = { x: d.x / length, z: d.z / length }; episode.pace = orders.pace ?? 4;
         } else { episode.pace = 0; episode.stopScale = Math.max(1, Math.hypot(velocity.x, velocity.z)); }
         if (cue.corridor !== undefined) episode.corridorEnabled = cue.corridor;
@@ -166,11 +170,15 @@ export async function travelEnvironment(configuration) {
         if (episode.corridorEnabled) episode.maxOff = Math.max(episode.maxOff, off);
         down ||= sample.down;
         const speed = Math.hypot(velocity.x, velocity.z), target = episode.pace + o.reserve;
+        episode.alongs.push(along); episode.window += along - (episode.alongs.length > world.hz ? episode.alongs[episode.alongs.length - 1 - world.hz] : 0);
+        const late = episode.pace > 0 && episode.ticks - episode.ordered >= o.reach * world.hz
+          ? Math.max(0, episode.pace - episode.window / world.hz) : 0;
+        episode.late += late;
         const progress = episode.pace > 0 ? Math.max(0, Math.min(1, along / target))
           : .5 * Math.max(0, 1 - speed / episode.stopScale) + .5 * exp(-((speed / .3) ** 2));
         const rate = Math.max(0, progress + o.uprightCredit * Math.max(0, Math.min(1, state.inference.observation[9]))
           - o.sideCost * cross ** 2 - o.corridorCost * off ** 2 - o.effortCost * effort
-          - (episode.pace > 0 ? o.overspeedCost * Math.max(0, along - target) ** 2 : 0));
+          - (episode.pace > 0 ? o.overspeedCost * Math.max(0, along - target) ** 2 : 0)) - o.lateCost * late;
         const failed = down || episode.maxOff > 1;
         episode.along += along; episode.shortfall += episode.pace > 0 ? Math.max(0, episode.pace - along) / episode.pace : speed / episode.stopScale;
         episode.quiet = episode.pace === 0 && speed < .15 && sample.standing ? episode.quiet + 1 : 0;
@@ -181,7 +189,7 @@ export async function travelEnvironment(configuration) {
       return { observation: state.inference.observation.slice(), reward: played.reward, ...(o.trace ? { samples } : {}),
         terminated: played.ended === 'terminated' || played.ended === 'done', truncated: played.ended === 'truncated',
         info: { along: episode.along / episode.ticks, command: episode.pace, down, corridor: episode.maxOff,
-          shortfall: episode.shortfall / episode.ticks, quiet: episode.quietMax / world.hz, seconds: episode.ticks / world.hz,
+          shortfall: episode.shortfall / episode.ticks, late: episode.late / world.hz, quiet: episode.quietMax / world.hz, seconds: episode.ticks / world.hz,
           worldSteps: played.steps, worldSeconds: played.seconds } };
     };
     await reset();
