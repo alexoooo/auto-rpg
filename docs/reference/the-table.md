@@ -21,9 +21,11 @@ beside its best version's; a strike's with the person's figure (`BAR`), a scale 
 nothing. A scored cell is above, at or below its baseline, or has none.
 
 `npm run evaluate -- table` reads saved evidence and links each reading's Ratings page. It derives
-the required case keys from each current protocol and merges compatible partial records. Stand-up
-and run cells are met only when every required case is present and passes; missing and faulted
-cases remain explicit. Faulted scores are unavailable, and Cover identifies trials in which its
+the required case keys from each current protocol and merges compatible partial records. A
+reading recorded at an earlier version stands as of its record, its commit and date shown and
+marked not the version now: its rows answer the protocol's cases by condition, so a change
+elsewhere in the mind asks for no replay. Stand-up and run cells are met only when every required
+case is present and passes; missing and faulted cases remain explicit. Faulted scores are unavailable, and Cover identifies trials in which its
 opponent attempted no attack.
 
 `npm run evaluate -- table --play --workers 22` plays missing current cases and writes their rows.

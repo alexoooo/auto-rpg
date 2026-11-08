@@ -9,6 +9,8 @@
  *
  * A reading now is found in the newest record of its drill and protocol that holds its subject, by
  * id or by the same config; its best, in whichever such record scores it highest on the cell.
+ * A reading recorded at an earlier version is judged on its own rows, matched to the protocol's
+ * cases by condition, and shown with its record's commit and date.
  * `--play` plays each reading whose subject has no record at its version now (`npm run evaluate --
  * <drill> <subject> --protocol <p> --write`), which plays only the cases no kept row has, so a cell
  * a change did not touch costs nothing. `--baseline` keeps each scored reading now as its cell's
@@ -101,7 +103,13 @@ function evidenceOf(readings, records) {
       rows: [...indexRows(group.map(({ record, held }) => ({ name: record.name, rows: rowsOf(record, held) }))).values()].map(({ row }) => row) }));
     const selected = found && versions.find(one => one.held.version.version === found.held.version.version
       && recordingKey(one.record.header.pool) === recordingKey(found.record.header.pool));
-    const rows = selected?.rows ?? [], keys = new Set(rows.map(row => row.key));
+    const rows = selected?.rows ?? [];
+    // A reading at an earlier version stands as of its record: its rows answer the protocol's cases by condition, since their keys name the code they were played on.
+    if (found && found.held.version.version !== now) {
+      const byCondition = new Map(rows.map(row => [recordingKey(row.condition), row.key]));
+      required = required.map(one => ({ ...one, key: byCondition.get(recordingKey(one.condition)) ?? one.key }));
+    }
+    const keys = new Set(rows.map(row => row.key));
     evidence.set(key, { reading, now, fault, versions, rows, required,
       read: found && { file: found.record.name, files: selected.files, commit: found.record.header.commit.slice(0, 8), date: found.record.header.date, id: found.held.id, version: found.held.version.version,
         current: found.held.version.version === now, complete: required.length > 0 && required.every(one => keys.has(one.key)) } });
