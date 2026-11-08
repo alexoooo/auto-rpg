@@ -26,6 +26,7 @@ const tanh = value => { const t = exp(-2 * Math.abs(value)); return (value < 0 ?
 export async function travelEnvironment(configuration) {
   const o = { model: 'workshop-fighter', seed: 1, heading: 0, warmPaces: [1, 2, 3, 4, 4.5],
     starts: [2, 3, 4, 5, 5.25, 5.5, 5.75, 7, 7.25, 7.5, 7.75, 9],
+    restTimes: [1],
     reserve: .3, overspeedCost: .1, uprightCredit: .15, sideCost: .1, corridorCost: .05, effortCost: .005,
     ...configuration };
   if (!o.settings || !Array.isArray(o.scripts) || !o.scripts.length) throw Error('Travel training needs a record and order scripts');
@@ -34,11 +35,21 @@ export async function travelEnvironment(configuration) {
     && p.cues.every((c, i) => c && Number.isFinite(c.at) && c.at >= 0 && c.at < p.seconds && (i === 0 || c.at >= p.cues[i - 1].at)
       && isOrders(c.orders) && (c.orders.move === null || c.orders.move.kind === 'direct' && Number.isFinite(c.orders.pace) && c.orders.pace > 0));
   if (!o.scripts.every(validProgram)) throw Error('Travel scripts need ordered direct-movement/stop cues and positive durations and weights');
-  for (const name of ['warmPaces', 'starts']) if (!Array.isArray(o[name]) || !o[name].length || !o[name].every(x => Number.isFinite(x) && x > 0))
+  for (const name of ['warmPaces', 'starts', 'restTimes']) if (!Array.isArray(o[name]) || !o[name].length || !o[name].every(x => Number.isFinite(x) && x > 0))
     throw Error(`Travel ${name} must contain positive finite values`);
+  if (!Number.isFinite(o.heading) || o.headings !== undefined && (!Array.isArray(o.headings) || !o.headings.length || !o.headings.every(Number.isFinite)))
+    throw Error('Travel headings must be finite angles');
   for (const name of ['reserve', 'overspeedCost', 'uprightCredit', 'sideCost', 'corridorCost', 'effortCost'])
     if (!Number.isFinite(o[name]) || o[name] < 0) throw Error(`Travel ${name} must be finite and nonnegative`);
   if (o.loadouts !== undefined && (!Array.isArray(o.loadouts) || !o.loadouts.length)) throw Error('Travel loadouts must be a nonempty list');
+  const heading = o.headings ? o.headings[(o.seed >>> 0) % o.headings.length] : o.heading;
+  const rotation = heading - o.heading, cr = cos(rotation), sr = sin(rotation);
+  const turn = v => ({ x: v.x * cr + v.z * sr, z: v.z * cr - v.x * sr });
+  // A heading variation rotates the body and its complete order programs together.
+  const scripts = rotation === 0 ? o.scripts : o.scripts.map(p => ({ ...p, cues: p.cues.map(c => ({ ...c, orders: {
+    ...c.orders, move: c.orders.move === null ? null : { ...c.orders.move, direction: turn(c.orders.move.direction) },
+    face: c.orders.face === null ? null : turn(c.orders.face),
+  } })) }));
   const tuning = JSON.parse(readFileSync(o.settings, 'utf8'));
   if (!tuning.learned?.travel || !tuning.envelope) throw Error('Travel training needs its single actor and an explicit development envelope');
   const loadout = o.loadouts ? o.loadouts[(o.seed >>> 0) % o.loadouts.length] : o.loadout ?? { left: 'empty', right: 'empty' };
@@ -46,7 +57,7 @@ export async function travelEnvironment(configuration) {
   const mind = { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...MOVE,
     gaits: STOCK_GAITS.map(gait => ({ ...gait, legs: { ...gait.legs, tuning } })) } } } };
   const built = await LONE_WORLD.build({ kind: 'lone', engine: o.engine ?? DEFAULT_ENGINE, lone: {
-    model: o.model, mind, floorSize: 400, balance: 0, heading: o.heading, seed: o.seed, loadout,
+    model: o.model, mind, floorSize: 400, balance: 0, heading, seed: o.seed, loadout,
     script: [], ...(o.gusts ? { gusts: true } : {}),
   } });
   if ('refused' in built) throw Error(built.refused);
@@ -57,7 +68,7 @@ export async function travelEnvironment(configuration) {
     const state = states[0], learner = state.learner, { world, body } = built;
     const parts = [...body.built.segments.values()], mass = massOf(parts), upright = uprightness(body.built), feet = footStatesOf(body.built);
     const centre = new Vector3(), velocity = new Vector3(), work = new Vector3();
-    const forward = { x: sin(o.heading), z: cos(o.heading) };
+    const forward = { x: sin(heading), z: cos(heading) };
     const go = pace => ({ move: { kind: 'direct', direction: forward }, gait: 'run', pace, face: null });
     const physical = () => {
       massCentreToRef(parts, mass, centre, work, velocity);
@@ -70,17 +81,23 @@ export async function travelEnvironment(configuration) {
         ...(o.trace ? { segments: parts.map(p => ({ name: p.spec.name, position: [p.pose.position.x, p.pose.position.y, p.pose.position.z],
           rotation: [p.pose.rotation.x, p.pose.rotation.y, p.pose.rotation.z, p.pose.rotation.w] })) } : {}) };
     };
-    while (world.time < 1 - world.dt / 2 || !pending(learner)) {
-      world.step();
-      if (world.time > 2) throw Error('Travel fixture did not reach a quiet learner request');
+    const rests = [], times = [...new Set(o.restTimes)].sort((a, b) => a - b);
+    for (const requested of times) {
+      while (world.time < requested - world.dt / 2 || !pending(learner)) {
+        world.step();
+        if (world.time > requested + 1) throw Error('Travel fixture did not reach a quiet learner request');
+      }
+      const sample = physical();
+      if (sample.down || !sample.standing || Math.hypot(velocity.x, velocity.z) >= .15)
+        throw Error(`Travel fixture did not reach quiet rest at ${requested} s`);
+      rests.push({ id: times.length === 1 ? 'rest' : `rest/${requested}`, kind: 'rest', requested,
+        snapshot: LONE_WORLD.save(built), time: world.time, centre: sample.centre });
     }
-    const initial = physical();
-    if (initial.down || !initial.standing || Math.hypot(velocity.x, velocity.z) >= .15) throw Error('Travel fixture did not reach quiet rest');
-    const rest = { id: 'rest', snapshot: LONE_WORLD.save(built), time: world.time }, starts = [rest], rejected = [], entries = [];
-    const movingStarts = o.scripts.some(p => p.start !== 'rest');
+    const rest = rests[0], starts = [...rests], rejected = [], entries = [];
+    const movingStarts = scripts.some(p => p.start !== 'rest' && !p.start.startsWith('rest/'));
     if (movingStarts) for (const pace of o.warmPaces) {
       LONE_WORLD.load(built, rest.snapshot); built.state.script.orders = go(pace);
-      const history = [], origin = initial.centre;
+      const history = [], origin = rest.centre;
       let fell = false, maxOff = 0;
       for (const requested of [...new Set(o.starts)].sort((a, b) => a - b)) {
         while (!fell && maxOff <= 1 && (world.time < requested - world.dt / 2 || !pending(learner))) {
@@ -96,23 +113,23 @@ export async function travelEnvironment(configuration) {
         const support = feet.filter(foot => foot.contactParts.some(part => part.chain.every(joint => joint.attached())
           && body.built.physics.contactsOf(part.segment.body).some(c => groundContact(c, .5)))).map(foot => foot.side);
         const entry = { id: `${pace}/${requested}`, pace, requested, time: world.time, speed, phase: state.motion.run.phase, support };
-        starts.push({ ...entry, snapshot: LONE_WORLD.save(built) }); entries.push(entry);
+        starts.push({ ...entry, kind: 'moving', snapshot: LONE_WORLD.save(built) }); entries.push(entry);
       }
     }
-    if (movingStarts && starts.length === 1) throw Error(`Travel fixtures reached no moving starts: ${JSON.stringify(rejected)}`);
+    if (movingStarts && !entries.length) throw Error(`Travel fixtures reached no moving starts: ${JSON.stringify(rejected)}`);
     let word = o.seed >>> 0, episode;
     const random = () => { word = (Math.imul(word, 1664525) + 1013904223) >>> 0; return word / 4294967296; };
     const pick = values => values[Math.floor(random() * values.length)];
-    const totalWeight = o.scripts.reduce((sum, p) => sum + (p.weight ?? 1), 0);
+    const totalWeight = scripts.reduce((sum, p) => sum + (p.weight ?? 1), 0);
     const pickProgram = () => {
       let draw = random() * totalWeight;
-      for (const p of o.scripts) if ((draw -= p.weight ?? 1) < 0) return p;
-      return o.scripts.at(-1);
+      for (const p of scripts) if ((draw -= p.weight ?? 1) < 0) return p;
+      return scripts.at(-1);
     };
     const reset = async given => {
       const program = given?.program ?? pickProgram();
       if (!validProgram(program)) throw Error('A travel episode names ordered movement/stop cues and a positive duration');
-      const candidates = program.start === 'rest' ? [rest] : program.start === 'moving' ? starts.slice(1) : starts.filter(s => s.id === program.start);
+      const candidates = program.start === 'rest' ? rests : program.start === 'moving' ? starts.filter(s => s.kind === 'moving') : starts.filter(s => s.id === program.start);
       if (!candidates.length) throw Error(`Travel episode start is unreached: ${program.start}`);
       const start = pick(candidates); LONE_WORLD.load(built, start.snapshot); physical();
       episode = { program, start, began: world.time, next: 0, ticks: 0, requested: forward, pace: start.pace ?? 0,
@@ -170,10 +187,11 @@ export async function travelEnvironment(configuration) {
     await reset();
     return { observationSize: TRAVEL_LAYOUT.inputs.length, actionSize: TRAVEL_LAYOUT.outputs.length,
       layout: { ...TRAVEL_LAYOUT, interval: learner.interval }, reset, step, entries, rejected,
+      rests: rests.map(({ snapshot, ...recipe }) => recipe),
       samples: () => episode.samples, observation: () => state.inference.observation.slice(), reading: physical,
       program: () => ({ program: episode.program, start: { id: episode.start.id, time: episode.start.time }, began: episode.began, delivered: episode.next,
-        warmup: episode.start.id === 'rest' ? null : { at: rest.time, orders: go(episode.start.pace) } }),
+        warmup: episode.start.kind === 'rest' ? null : { at: rest.time, orders: go(episode.start.pace) } }),
       dispose: () => built.dispose(), harness: { name: 'Node lone world Option Mind', engine: o.engine ?? DEFAULT_ENGINE,
-        hz: world.hz, balance: 0, model: o.model, loadout, seed: o.seed, heading: o.heading, gusts: !!o.gusts } };
+        hz: world.hz, balance: 0, model: o.model, loadout, seed: o.seed, heading, gusts: !!o.gusts } };
   } catch (error) { built.dispose(); throw error; }
 }

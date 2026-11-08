@@ -89,6 +89,14 @@ layout and retrain after changing the actor's observations, actions or native co
 `research/skills/locomotion/warrior-travel.mjs --settings <record>`, then the `travel`
 evaluation's minimum protocol.
 
+Choose checkpoints on `research/skills/locomotion/travel-screen.mjs`'s development cases:
+twelve from-rest entries varied in heading, settle time and resting posture, and eight moving
+holds at varied gait phases. The entries exercise both first legs. Read through the stop order
+for entry and hold selection; report stopping separately until the stop stage trains it. The
+cases and restored actor's baseline are in `research/runs/warrior-travel/development/`.
+The restored entry actor is the stop stage's seed. Training uses separate headings, settle times and
+moving phases; development cases never become exact training starts.
+
 1. **Restore the forward run.** Retrain the entry seed through the `travel-orders`
    environment on the current learner until the forward case meets the forward gate (4 m/s
    within 4 s, held 10 s, upright). This is the seed for step 2.
@@ -129,10 +137,12 @@ episodes in the mix.
 
 1. **Sustained running.** Physically reached moving states at several gait phases, on both
    stepping legs: warm-up speeds 1 to 4.5 m/s where reachable, episode starts 2 to 9 s,
-   requested speeds 1.4 to 6.5 m/s. Unreached warm-ups are reported and excluded.
+   requested speeds 1.4 to 6.5 m/s. Keep the seed's from-rest forward entry in the mix from
+   this stage. Unreached warm-ups are reported and excluded.
 2. **Entry and pace changes.** Requested speeds down to 0.9 m/s for the walk-to-run handover,
    episodes from rest, and pace changes within an episode.
-3. **Stops.** Stop orders from reached speeds and after pace changes.
+3. **Stops.** Stop orders from reached speeds and after holds, with entry and moving episodes
+   retained. Begin with reached 4 m/s starts for the forward-and-stop milestone.
 4. **Directions and turns.** Heading orders from rest, facing-held directions, rotating
    directions, corners and reversals from reached runs.
 5. **Loadouts and gusts**, as step 5 of the work says.
