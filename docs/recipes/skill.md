@@ -77,3 +77,8 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 - **Tightening a bar mid-work**, before anything reaches the bar it had.
 - **A form test that forbids the mechanism its figure needs.**
 - **Waiting for approval** to run a search or a training block.
+- **Reading a record change on stale profiles**: a technique's digest covers its body's whole
+  record (`techniqueDigest`), every loadout included, so a change to one loadout's settings
+  leaves every loadout of that body without its profiles. Refresh the body's
+  (`node research/skills/recovery/edge-profiles.mjs --model <body> --write`) before reading the
+  change.
