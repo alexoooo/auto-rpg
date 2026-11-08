@@ -21,13 +21,6 @@ import { TRAVEL_LAYOUT } from '../../../src/skills/locomotion/learned-run.ts';
 import { isOrders } from '../../../src/minds/orders.ts';
 import { decide } from '../../learner-adapter.mjs';
 
-function learnedStates(value, seen = new Set(), found = []) {
-  if (!value || typeof value !== 'object' || seen.has(value)) return found;
-  seen.add(value);
-  if (value.inference && value.motion && value.learner) found.push(value);
-  else for (const child of Object.values(value)) learnedStates(child, seen, found);
-  return found;
-}
 const tanh = value => { const t = exp(-2 * Math.abs(value)); return (value < 0 ? -1 : 1) * (1 - t) / (1 + t); };
 
 export async function travelEnvironment(configuration) {
@@ -58,7 +51,8 @@ export async function travelEnvironment(configuration) {
   } });
   if ('refused' in built) throw Error(built.refused);
   try {
-    const states = learnedStates(built.body.minded.state);
+    // The report's mind uses recovery-wrapped Move; its gaits share one walk/run state.
+    const states = [...new Set(built.body.minded.state.mind.skills.legs.legs.gaits)];
     if (states.length !== 1) throw Error('Travel training requires one shared physical travel learner');
     const state = states[0], learner = state.learner, { world, body } = built;
     const parts = [...body.built.segments.values()], mass = massOf(parts), upright = uprightness(body.built), feet = footStatesOf(body.built);
