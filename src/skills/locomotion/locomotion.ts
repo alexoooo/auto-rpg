@@ -59,16 +59,14 @@ export const validCarriage = (carriage: Carriage): boolean =>
 
 /** Idle placement's quiet horizontal speed before beginning a step, m/s. */
 const CARRIAGE_STILL = 0.1;
-/** Requested horizontal plan speed during an idle placement's weight shift, m/s. */
+/** How fast an idle placement's goal centre moves over its new support once its step has landed, m/s. */
 const IDLE_SHIFT_SPEED = 0.1;
 /**
  * How long a body stands still on both feet before it moves them to its neutral footing, s. Set so
- * that a body settling after a rise or a catch step can come to rest first, rather than being set
- * moving again by a shuffle it does not need yet.
+ * that a body settling after a rise or a catch step comes to rest first; the placement's step,
+ * a walking step, then sets it moving again.
  */
-const IDLE_SETTLE = 0.6;
-/** Mean stationary foot speed, m/s, keeping the leg reaction quiet while the other sole bears. */
-const IDLE_FOOT_SPEED = 0.5;
+const IDLE_SETTLE = 1;
 
 /** A carriage's stride at its requested width, cached per stride and carriage. */
 const carriageSteps = new WeakMap<GaitTuning, WeakMap<Carriage, GaitTuning>>();
@@ -306,7 +304,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
   };
   /** Until its first step the stance faces as the body was built. */
   const born = (view: BodyView): void => { if (view.time <= view.born) state.heading = facing(view); };
-  const place = (view: BodyView, footing: Footing, height?: number, near: number = PLACING.near, alignment?: number, shiftSpeed?: number): StanceGoal | null => {
+  const place = (view: BodyView, footing: Footing, height?: number, near: number = PLACING.near, alignment?: number): StanceGoal | null => {
     born(view);
     state.pace = 0;
     state.going = 0;
@@ -336,11 +334,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
     const off = (foot: Side): number => placing.stepped[foot] ? 0 : error(foot);
     const foot: Side = off("left") >= off("right") ? "left" : "right";
     if (off(foot) <= near) { state.placed = true; return base; }
-    // Stationary placement carries the foot gently as well as shifting the body gently.
-    const seconds = shiftSpeed === undefined ? STANCE_GAIT.seconds
-      : Math.max(STANCE_GAIT.seconds, apart([soleOf(view, foot).x, soleOf(view, foot).z], placing.footing[foot]) / IDLE_FOOT_SPEED);
-    placing.step = { foot: ends[foot], to: placing.footing[foot], seconds, lift: STANCE_GAIT.lift, shift: true,
-      ...(shiftSpeed === undefined ? {} : { shiftSpeed, capture: "hold" as const }) };
+    placing.step = { foot: ends[foot], to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true };
     placing.lifted = false;
     return { ...base, swing: placing.step };
   };
@@ -413,7 +407,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
       && goal.pose === undefined && goal.swing === undefined && !goal.halt;
     const reset = (): void => { if (idle.target) state.placing = null; idle.target = null; idle.centre = null; idle.seconds = 0; };
     const boundedPlacement = (): StanceGoal | null => {
-      const result = place(view, idle.target!, undefined, Math.min(PLACING.near, idleFooting!.length / 8), 0.05, IDLE_SHIFT_SPEED);
+      const result = place(view, idle.target!, undefined, Math.min(PLACING.near, idleFooting!.length / 8), 0.05);
       if (!result) return null;
       idle.centre ??= [s.plan.x, s.plan.z];
       if (s.phase !== "stand") { idle.centre[0] = s.plan.x; idle.centre[1] = s.plan.z; }
@@ -436,7 +430,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
       reset(); return null;
     }
     if (goal.walk !== null) {
-      if (idle.target && s.phase === "swing" && state.placing?.step) return place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05, IDLE_SHIFT_SPEED);
+      if (idle.target && s.phase === "swing" && state.placing?.step) return place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
       reset(); return null;
     }
     if (idle.target) {

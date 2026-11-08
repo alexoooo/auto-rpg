@@ -205,7 +205,7 @@ test("idle stance reads physical foot yaw without an effector actuator or matchi
     const legs = locomotion(stanceFeetOf(spec), null, { segments: stanceSegmentsOf(spec), idleFooting: standingFooting(stand.built) });
     const ends = Object.fromEntries(Object.entries(body.view.stance.ends).map(([name, end]) => [name, { ...end, touching: true }]));
     const view = { ...body.view, time: 1, born: 0, stance: { ...body.view.stance, velocity: new Vector3(), ends, own: null } };
-    const result = legs.goal(view, { walk: null, face: 0 }, .65, { idleSettle: true });
+    const result = legs.goal(view, { walk: null, face: 0 }, 1.05, { idleSettle: true });
     assert.equal(result.goal.swing?.foot, "anchor.port", "the yawed physical support is reset by its declared end identifier");
   } finally { body.dispose(); stand.dispose(); }
 });
@@ -399,7 +399,7 @@ test("idle foot placement survives its own weight-shift tracking error and yield
     const legs = locomotion(stanceFeetOf(stock), null, {segments:stanceSegmentsOf(stock), idleFooting:standingFooting(stand.built)});
     const ends = Object.fromEntries(Object.entries(body.view.stance.ends).map(([name,end]) => [name,{...end,touching:true}]));
     const view = {...body.view, time:1, born:0, down:false, stance:{...body.view.stance, phase:"stand", velocity:new Vector3(), planVelocity:new Vector3(), own:null, ends}};
-    const first = legs.goal(view, {walk:null,face:0}, .65).goal;
+    const first = legs.goal(view, {walk:null,face:0}, 1.05).goal;
     assert.ok(first?.swing, "the wide placed pose must request a neutral-footing step");
     const shifting = {...view, time:1.1, stance:{...view.stance, phase:"shift", planVelocity:new Vector3(.11,0,0)}};
     const next = legs.goal(shifting, {walk:null,face:0}, .01).goal;

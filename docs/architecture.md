@@ -272,10 +272,9 @@ arbiter releases every action when another mind takes the body.
   share motion through their concrete implementation when their physical settings agree.
   Walking steps read the selected gait's envelope, so travel and braced permission views apply
   their own speed and turning limits inside the stance controller as well as in order planning.
-  Idle foot placement limits its planned weight shift through `SwingGoal.shiftSpeed`, holds the
-  capture point through the stationary swing and approaches the new support centre gradually
-  after landing. The foot lifts with both the body centre and capture point inside the reserved
-  support region. The placement remains active through the final centering motion.
+  Idle foot placement waits until the body has stood still `IDLE_SETTLE`, steps as a walk
+  does, and approaches the new support centre gradually after landing. The placement remains
+  active through the final centering motion.
   A body on paws has `paw-move` (`src/skills/locomotion/quadruped/paw-legs.ts`): the trot and the crawl, the support goal
   each step for its motor.
 - **Learned decisions** (`Learner`, `src/core/math/learning/learner.ts`): a learned controller

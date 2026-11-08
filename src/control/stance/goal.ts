@@ -65,14 +65,12 @@ export interface SwingGoal {
    * once.
    */
   readonly shift?: boolean;
-  /** Horizontal plan speed limit during the weight shift, m/s. */
-  readonly shiftSpeed?: number;
   /**
    * Where the capture point is brought by the time the foot lands, world (x, z), m: the pivot the
    * body falls about in the bearing sole is chosen for it. None, and the middle of the stance the
-   * step lands in. `hold` retains the capture point at lift-off for a stationary placement.
+   * step lands in.
    */
-  readonly capture?: readonly [number, number] | "hold";
+  readonly capture?: readonly [number, number];
   /**
    * A walk's double support before the lift, s (`transferStep`): both soles bear, and the foot lifts
    * when it is over, not on the capture point; the plan brings its capture point to `handover` by then.
