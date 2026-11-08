@@ -93,6 +93,9 @@ with Option Mind as its hero.
 - The Warrior's [travel gates](plans/2026-11-05-warrior-travel.md); the club throws the Rogue's run.
 - Stand-up on the [owner's target](reference/rising.md#the-owners-target), every body in every
   loadout; the Rogue's arms on hands and knees; the Skeleton holding the club.
+- The Warrior's stand-up: on hands and knees with the club and buckler the hands bear almost
+  nothing and the trunk sinks back; the sit-back hands over to the stance still on its knees and
+  lurches into a split stance; its sword falls rise a second past 10 s.
 - Strikes on every body: the punch, then sword, club and buckler; the stomp on the Warrior and
   the Rogue.
 - The Rogue's stomp holding a club or a sword never chambers: each try runs about 10 s
