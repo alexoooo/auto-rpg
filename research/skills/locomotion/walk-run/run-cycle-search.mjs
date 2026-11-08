@@ -56,7 +56,7 @@ import { balanceCeiling, balancePercent, rulebook } from "../../../../src/combat
 import { legOf } from "../../../../src/skills/locomotion/gait-scale.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../../../../src/skills/locomotion/walk-run.ts";
 import { runCycleSettings } from "../../../../src/skills/locomotion/cycle-run.ts";
-import { coreStand } from "../../../../tests/harness/core-stand.mjs";
+import { CORE_ENGINE, coreStand } from "../../../../tests/harness/core-stand.mjs";
 import { TURNED } from "../../../../src/evaluation/locomotion/acceptance.ts";
 import { startWind } from "../../../../src/game/lab/wind.ts";
 import { guardPosture } from "../../../../src/skills/guard/guard.ts";
@@ -254,7 +254,7 @@ if (!isMainThread) {
     try { trials = (await Promise.all(cells.map((cell) => pool.evaluate({ cells: [cell], run: start })))).flatMap((r) => { if (r.error) throw new Error(r.error); return r.trials; }); }
     finally { await pool.terminate(); }
     for (const t of trials) console.log(`${t.model}${t.held === "empty" ? "" : ` holding ${t.held}`}${t.haste === null ? "" : ` at haste ${t.haste}`}${t.wind === null ? "" : ` in gusts ${t.wind}`} asked ${t.speed}${t.turn ? ` turning ${t.turn}${t.turned ? "" : " (not turned)"}` : ""}${t.stop ? ` then to stop at ${t.stopAt} s (under after ${t.under} s, ${t.metres} m)` : ""}: made ${t.made} m/s${t.crossTrack === null ? "" : `, cross-track ${t.crossTrack.toFixed(3)} m`}, fell ${t.fell}${t.width === null ? "" : `; width ${t.width} m, cadence ${t.cadence}/s, step ${t.step} m`}${o.windows ? `; windows ${t.windows.join(" ")}` : ""}`);
-    if (o.trace) writeFileSync(o.trace, JSON.stringify({ engine: process.env.CORE_ENGINE ?? "rapier", cells, run: start, trials }) + "\n");
+    if (o.trace) writeFileSync(o.trace, JSON.stringify({ engine: CORE_ENGINE, cells, run: start, trials }) + "\n");
     const fallen = trials.filter((t) => t.fell !== null);
     console.log(`fallen ${fallen.length} of ${trials.length}${o.models.split(",").map((m) => `; ${m} ${fallen.filter((t) => t.model === m).length}`).join("")}`);
     console.log("run entry, s", trials.map(t => t.enteredAt));

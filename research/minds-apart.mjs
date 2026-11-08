@@ -60,7 +60,7 @@ const CASES = {
     return { world, ended: () => fight.verdict !== null, blows: () => fight.blows.length, end: () => fight.verdict, save: () => fight.save(), load: (saved) => fight.load(saved), dispose };
   }])),
   ...Object.fromEntries([10, 25].map((seed) => [`crypt-${seed}`, async (minds) => {
-    const run = admitted(createDungeonRun({ seed, engine: await freshEngine("rapier"), party: { kind: "clearer" }, ...minds }));
+    const run = admitted(createDungeonRun({ seed, engine: await freshEngine(), party: { kind: "clearer" }, ...minds }));
     let steps = 0;
     return {
       world: run.world, step: () => { run.step(); steps += 1; }, ended: () => run.status !== "playing" || steps >= seconds * run.world.hz,

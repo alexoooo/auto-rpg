@@ -100,6 +100,7 @@ measurement system itself; a result computed on the wrong cases cannot validate 
 | `mind batteries admit only a named calibration's bodies and preserve that scope through CLI ablations` | Check court/crowd admission, including refusal when a named calibration fits no protocol case. These schedule paths differ from tournament subject expansion. |
 | `a match admits complete pairs within named calibrations and preserves the scope of ablations` | Apply calibration scope to both bodies of each complete match unit, without changing recipes, keys or pairing. Checking only one participant admits an invalid comparison. |
 | `every evaluation's default panel names entrants it has` | Detect a stale panel identifier that throws during subject resolution before a requested evaluation can play. |
+| `every evaluation protocol and the Node stand play on the game's engine` | The falls, the Rise drill and the baseline's stand-up were pinned to parent-axis `rapier` while the game runs `DEFAULT_ENGINE`, so stand-up was tuned and graded on physics play never uses. Read every registered protocol's engine and the stand's default; a drill plays on whatever engine its protocol names and cannot detect the mismatch. |
 
 ## Repository integrity
 
@@ -219,6 +220,6 @@ completed bouts do not exercise:
 
 | Case | Concrete justification |
 | --- | --- |
-| [evaluation/rising-target.test.mjs](evaluation/rising-target.test.mjs) | The saved Warrior club-and-buckler fresh fixture contains an unproduced fall counted against recovery by the gate and median; verify exclusion and explicit coverage without admitting an empty or incomplete suite. The same observed shove must produce a fall with escalating retries. Drills do not establish fixture coverage or report arithmetic. |
+| [evaluation/rising-target.test.mjs](evaluation/rising-target.test.mjs) | The saved Warrior club-and-buckler fresh fixture contains an unproduced fall counted against recovery by the gate and median; verify exclusion and explicit coverage without admitting an empty or incomplete suite. The same observed shove, held once, must produce a fall with escalating retries. Drills do not establish fixture coverage or report arithmetic. |
 
 | [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `idle foot placement survives its own weight-shift tracking error and yields to a catch` | A wide placed Warrior cancels its own weight shift when tracking lags, repeating planted-foot attempts. Preserve the lift request through that observed lag and release it for a real catch; a recovery drill does not isolate cancellation ownership. |

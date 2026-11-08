@@ -112,6 +112,14 @@ test("every evaluation's default panel names entrants it has", () => {
     assert.doesNotThrow(() => evaluation.subjects([id]), `${evaluation.id}'s panel names ${id}`);
 });
 
+test("every evaluation protocol and the Node stand play on the game's engine", async () => {
+  const { DEFAULT_ENGINE } = await import("../../src/core/physics/engines.ts");
+  const protocols = Object.values(EVALUATIONS).flatMap((evaluation) => Object.entries(evaluation.protocols).map(([protocol, cases]) => ({ at: `${evaluation.id}/${protocol}`, engine: cases.engine })));
+  assert.ok(protocols.some(({ at }) => at === "rising-target/standard"), "the falls are among the protocols read");
+  assert.deepEqual(protocols.filter(({ engine }) => engine !== undefined && engine !== DEFAULT_ENGINE), []);
+  if (process.env.CORE_ENGINE === undefined) assert.equal((await import("../harness/core-stand.mjs")).CORE_ENGINE, DEFAULT_ENGINE);
+});
+
 
 test("custom subjects retain execution scope through normalization, recording and reconstruction", async () => {
   const { recordedSubject, restoredSubject } = await import("../../src/evaluation/record.ts");
@@ -143,7 +151,7 @@ test("record admission and every keyed evidence reader refuse incomplete or conf
   const { readRecord, recordIdentity, recordedSubject, recordText, indexRows } = await import("../../src/evaluation/record.ts");
   const { poolsOf } = await import("../../src/evaluation/history.ts");
   const { findCase } = await import("../../src/app/browser/ratings/analysis.ts");
-  const play = {}, engine = "rapier", harness = "Node fixture, rapier, 120 Hz";
+  const play = {}, engine = "rapier-coordinate", harness = "Node fixture, rapier-coordinate, 120 Hz";
   const subject = recordedSubject(mindSubject("fixture", "Fixture", { kind: "bare" }), play, "fixture", null);
   const header = { identity: recordIdentity(`sha256:${"a".repeat(64)}`, engine, harness, play), evaluation: "fixture", protocol: "fixture", play,
     engine, harness, commit: "fixture", date: "fixture", schedule: "all", pool: { protocol: "fixture", environment: "fixture" }, subjects: [subject] };

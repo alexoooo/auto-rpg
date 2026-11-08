@@ -66,7 +66,7 @@ async function squatStance({ model, held, seed }) {
   if ("refused" in placement) return { reading: "squat", model, held, seed, refused: placement.refused };
   const lifetime = constructionScope();
   try {
-  const world = lifetime.own(createWorld(await loadEngine("rapier")));
+  const world = lifetime.own(createWorld(await loadEngine()));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = lifetime.own(buildBody(spec, world, placement)), body = lifetime.own(stockBody(built, world, { servoSeconds: .1 }));
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: [footOn(spec, "left"), footOn(spec, "right")], centre: null, height: view.standing - .03, heading: 0 } }));

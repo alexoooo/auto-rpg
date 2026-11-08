@@ -90,7 +90,7 @@ test("a body's command is applied the world's delay after it is sent, none befor
 });
 
 test("a fresh physics fork resets exactly the forces pending at its save", async () => {
-  const engine = await freshEngine("rapier");
+  const engine = await freshEngine();
   const make = () => {
     const world = engine.createPhysics({ hz: 120, gravity: false });
     const bodies = [0, 3, 6].map((x, i) => world.addBody(

@@ -162,6 +162,9 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 - **Rapier is vendored** (`vendor/rapier`); never the npm SIMD package. Its wasm loads once a realm,
   only through `rapierModule`: two `init`s make two instances whose worlds cross.
+- **One engine**: training, tuning, evaluation and tests run the game's `DEFAULT_ENGINE`; a
+  script names another only to compare engines. A setting tuned on one engine is not read on
+  another.
 - **Motor impulse** is applied to the joint's parent; `jointMotorImpulse` reads the last substep,
   `jointMotorStepImpulse` sums the step. Neither measures work.
 - **Side-effect imports are load-bearing** (shadows, depth renderer, post-process, HDR, shaders,

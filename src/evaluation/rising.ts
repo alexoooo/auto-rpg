@@ -13,7 +13,7 @@ import { supportHeight } from "../control/support-reference.ts";
 import { Vector3 } from "../core/math/vector.ts";
 import { commandedBody } from "../minds/seat/host.ts";
 import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
-import { loadEngine } from "../core/physics/engines.ts";
+import { DEFAULT_ENGINE, loadEngine } from "../core/physics/engines.ts";
 import { humanoidSpec } from "../core/bodies/human/spec.ts";
 import { armedWith, loadoutKey, type Held } from "../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "./loadouts.ts";
@@ -190,7 +190,7 @@ export function createRising(context: GameContext) {
     const start = fallStart(fall);
     if (isRefused(start)) return rejected(start.refused);
     if ("refused" in start.placement) return { ...job, balance, status: "rejected start", stood: false, handback: null, verified: null, error: start.placement.refused, trail: [], attempts: [], phases: {}, assist: null };
-    const built = await buildStandFall(fall, "rapier", { start });
+    const built = await buildStandFall(fall, DEFAULT_ENGINE, { start });
     if (isRefused(built)) return rejected(built.refused);
     try {
       while (!built.ended) {
@@ -233,7 +233,7 @@ export function createRising(context: GameContext) {
     const placement = fixture;
     const lifetime = constructionScope();
     try {
-    const world = lifetime.own(createWorld(await loadEngine("rapier")));
+    const world = lifetime.own(createWorld(await loadEngine(DEFAULT_ENGINE)));
     world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
     const built = lifetime.own(buildBody(spec, world, placement)), reader = groundReading(built, world.dt);
     let run!: TechniqueRun, predecessor: TechniqueRun | null = null;

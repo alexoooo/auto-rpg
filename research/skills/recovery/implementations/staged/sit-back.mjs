@@ -40,7 +40,7 @@ const WITHIN = 6, CAP = 12;
 export async function sitBackTrial({ model = "workshop-fighter", held = "empty", seed = 1, technique = "sit-back", delay = undefined }) {
   const spec = armedWith(humanoidSpec(model), "right", held), placed = placement("push-off-bear", spec, seed);
   if ("refused" in placed) return { seed, refused: placed.refused };
-  const world = createWorld(await loadEngine("rapier"), delay === undefined ? {} : { delay });
+  const world = createWorld(await loadEngine(), delay === undefined ? {} : { delay });
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   const trial = { end: null, at: null, heading: 0, stage: [] };

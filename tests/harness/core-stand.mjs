@@ -1,6 +1,6 @@
 /**
  * **The core's Node stand**: one body built from a spec, on a ground, in a world of its own on the
- * engine `CORE_ENGINE` names (Rapier unless named: `CORE_ENGINE=<name> npm test`).
+ * engine `CORE_ENGINE` names (the game's, `DEFAULT_ENGINE`, unless named: `CORE_ENGINE=<name> npm test`).
  *
  * The core's world (`createWorld`, `src/core/world/world.ts`) steps the engine, as the page does. The body is built through `buildBody`
  * and nothing else, so what the stand reads is what the spec states. Bodies never sleep: the
@@ -8,15 +8,15 @@
  */
 import "./preload-data.mjs";
 import { Vector3, Quaternion } from "../../src/core/math/vector.ts";
-import { isEngineName, loadEngine } from "../../src/core/physics/engines.ts";
+import { DEFAULT_ENGINE, isEngineName, loadEngine } from "../../src/core/physics/engines.ts";
 import { PHYSICS_HZ } from "../../src/core/world/world.ts";
 import { createWorld } from "../../src/core/world/world.ts";
 import { buildBody } from "../../src/core/bodies/build/build-body.ts";
 import { poseAngles } from "../../src/control/kinematics.ts";
 import { loadState, saveState } from "../../src/core/state.ts";
 
-/** Published reference batteries use parent-axis Rapier; gameplay gates request their engine explicitly. */
-export const CORE_ENGINE = process.env.CORE_ENGINE || "rapier";
+/** The stand runs the game's engine; `CORE_ENGINE` names another only to compare engines. */
+export const CORE_ENGINE = process.env.CORE_ENGINE || DEFAULT_ENGINE;
 if (!isEngineName(CORE_ENGINE)) throw new Error(`CORE_ENGINE names no engine: ${CORE_ENGINE}`);
 /** The stand's engine, loaded. Each stand is a world of its own; worlds in one realm do not share state. */
 export const freshEngine = (name = CORE_ENGINE) => loadEngine(name);

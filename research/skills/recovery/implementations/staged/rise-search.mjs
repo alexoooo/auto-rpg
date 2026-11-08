@@ -18,6 +18,7 @@ import { dirname } from 'node:path';
 import { cmaSearch, workerPool } from '../../../../cma.mjs';
 import { risingJobs, targetGates } from '../../../../../src/evaluation/rising.ts';
 import { buildFall } from "../../../../../src/app/node/evaluation.ts";
+import { DEFAULT_ENGINE } from "../../../../../src/core/physics/engines.ts";
 import { stepUpTuning } from "../../../../../src/skills/recovery/implementations/staged/records.ts";
 import { modelHolding } from "../../../../../src/core/bodies/models.ts";
 import { MINDS } from "../../../../../src/app/catalog.ts";
@@ -42,7 +43,7 @@ const staged = new Set(['staged-roll','staged-down','sit-back','front-sit-back']
 const mindOf = tuning => ({...MINDS.option.config, options:MINDS.option.config.options.map(o => staged.has(o.skill?.kind) ? {...o,skill:{...o.skill,tuning}} : o)});
 
 async function trial(job,mind) {
-  const b = await buildFall({...job,cap:16,mind},'rapier');
+  const b = await buildFall({...job,cap:16,mind},DEFAULT_ENGINE);
   if (isRefused(b)) throw new Error(b.refused);
   try {
     while (!b.ended) {b.world.step(); b.afterStep();}

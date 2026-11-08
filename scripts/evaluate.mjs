@@ -28,7 +28,7 @@ import "../tests/harness/preload-data.mjs";
  * their saved records with `npm run compare`, without rebuilding them here.
  * An evaluation that plays every protocol (`Evaluation.every`: the baseline) plays each in turn, a
  * report and a record each, unless `--protocol` names one.
- * `--engine` (or `CORE_ENGINE`) picks the engine unless the protocol fixes one, as the falls fix Rapier.
+ * `--engine` (or `CORE_ENGINE`) picks the engine unless the protocol fixes one; the game's, `DEFAULT_ENGINE`, where neither does.
  * `--write` keeps the run as a record, refused unless every case has a row and the commit holds the
  * files of every case's code unchanged (`caseCoder`), and deletes the records it replaces
  * (`retireReplaced`).

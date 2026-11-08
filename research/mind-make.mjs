@@ -24,7 +24,7 @@ const makes = Number(values.makes), WARM = 3;
 const BODIES = [["workshop-fighter", { left: "empty", right: "club" }], ["crypt-skeleton", { left: "empty", right: "empty" }]];
 
 for (const [model, loadout] of BODIES) {
-  const spec = modelHolding(model, loadout), config = defaultMind(model), stand = await coreStand(spec, { engine: "rapier" });
+  const spec = modelHolding(model, loadout), config = defaultMind(model), stand = await coreStand(spec);
   try {
     const times = [];
     for (let i = 0; i < makes; i++) {

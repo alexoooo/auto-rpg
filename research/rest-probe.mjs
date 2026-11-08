@@ -41,7 +41,7 @@ import { rootSegment } from "../src/core/bodies/read-body.ts";
 import { GAME, defaultMind } from "../src/app/catalog.ts";
 
 const { values } = parseArgs({ options: { bodies: { type: "string", default: "8" } } });
-if (CORE_ENGINE !== "rapier") throw new Error("the probe reads Rapier's own rigid bodies");
+if (!CORE_ENGINE.startsWith("rapier")) throw new Error("the probe reads Rapier's own rigid bodies");
 
 /** A segment slower than this counts as still, m/s: a numeric setting. */
 const STILL = 0.05;

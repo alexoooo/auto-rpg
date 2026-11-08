@@ -86,7 +86,7 @@ export function createRiseCases(context: GameContext) {
   /** The drill's rungs. A case whose start no seed's draw places clear is refused before it plays. */
   const RISE_CASES: Readonly<Record<"placed" | "moving", Cases<RiseCondition, TechniqueReading & Json, BuiltTechnique>>> = Object.freeze({
     placed: {
-      arity: 1, play: play("placed"), engine: "rapier", seconds,
+      arity: 1, play: play("placed"), seconds,
       conditions: ARMS.flatMap((arms) => MODELS.flatMap((model) => POSTURES.flatMap((posture) => SEEDS.map((seed): PlacedCondition => ({ model, ...arms, posture, seed }))))),
       faults(value, condition) {
         const edge = edgeOf(value);
@@ -99,7 +99,7 @@ export function createRiseCases(context: GameContext) {
       read: (built) => readTechnique(built),
     },
     moving: {
-      arity: 1, play: play("moving"), engine: "rapier", seconds,
+      arity: 1, play: play("moving"), seconds,
       conditions: ARMS.flatMap((arms) => MODELS.flatMap((model) => SEEDS.map((seed): MovingCondition => ({ model, ...arms, seed })))),
       faults(value, condition) {
         const edge = edgeOf(value);

@@ -141,10 +141,10 @@ export function readFall(built: BuiltFall): Reader<FallReading> {
   return { afterStep: () => built.afterStep(), get ended() { return built.ended; }, reading: () => built.reading() };
 }
 
-/** A suite of falls as a protocol: each fall a condition, played on Rapier on the fall bed (`buildFall`), the riser's mind the subject. */
+/** A suite of falls as a protocol: each fall a condition, played on the fall bed (`buildFall`), the riser's mind the subject. */
 export function fallCases<C extends Json & Omit<FallCase, "mind">>(play: Json, conditions: readonly C[]): Cases<C, FallReading, BuiltFall> {
   return {
-    arity: 1, play, conditions, engine: "rapier", seconds: FALL_CAP + FALL_AFTER,
+    arity: 1, play, conditions, seconds: FALL_CAP + FALL_AFTER,
     faults: (value, condition) => typeof value !== "object" || value === null || Array.isArray(value) ? ["a riser is a mind's config"]
       : bedFaults(condition),
     world: ([mind], condition, engine) => ({ kind: "fall", engine, fall: { ...(condition as Omit<FallCase, "mind">), mind: mind as unknown as MindConfig } }),

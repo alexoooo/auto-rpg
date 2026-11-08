@@ -24,7 +24,7 @@ import { walker } from "../src/minds/option/walk.ts";
 import { locomotion } from "../src/skills/locomotion/locomotion.ts";
 
 test("physics refuses different gravity and rate before changing the destination", async () => {
-  const engine = await freshEngine("rapier");
+  const engine = await freshEngine();
   const make = (hz, gravity) => {
     const world = engine.createPhysics({ hz, gravity });
     world.addBody({ name: "box", position: new Vector3(0, 2, 0), rotation: Quaternion.Identity() },

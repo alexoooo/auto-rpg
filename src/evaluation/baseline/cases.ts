@@ -115,7 +115,7 @@ export function createBaselineCases(context: GameContext) {
   const standUpCases = (): Cases<Json, BaselineReading, BuiltCase> => {
     const inner = RISING_TARGET_CASES.standard!;
     return {
-      arity: 1, play: { "stand-up": inner.play, riser: "the whole mind" }, seconds: inner.seconds, engine: inner.engine!,
+      arity: 1, play: { "stand-up": inner.play, riser: "the whole mind" }, seconds: inner.seconds,
       conditions: inner.conditions.filter((one) => one.model === BODY) as unknown as Json[],
       faults: (value, condition, subject) => inner.faults!(value, condition as TargetCondition, subject),
       world: (values, condition, engine, characters) => inner.world(values, condition as TargetCondition, engine, characters),

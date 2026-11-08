@@ -85,7 +85,7 @@ export function acceptedSeeds(spec, count) {
 export async function steady({ model = "workshop-fighter", held = "empty", seed, variant = {}, trace = false }) {
   const spec = bodySpec(model, held), placed = placement(spec, seed);
   if ("refused" in placed) return { seed, refused: placed.refused };
-  const world = createWorld(await loadEngine("rapier"));
+  const world = createWorld(await loadEngine());
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   let control = null;

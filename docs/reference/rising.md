@@ -15,8 +15,8 @@ npm run evaluate -- rising-target [riser ...]
   is given again with doubled impulse the same way 1.5 s later, at most three (`SHOVED`,
   `src/game/lab/ground-mode.ts`). A fall not made is reported as not exercised and excluded from
   recovery statistics.
-- **The conditions**: Node stand, core world, Rapier, 120 Hz, calm air, Balance 0 and Grit 0, a
-  30 s cap. A riser is a mind by its preset's or kind's name (`option`, the table's), on its own
+- **The conditions**: Node stand, core world, the game's engine (`DEFAULT_ENGINE`), 120 Hz, calm
+  air, Balance 0 and Grit 0, a 30 s cap. A riser is a mind by its preset's or kind's name (`option`, the table's), on its own
   character, refused on a body it cannot rise as holding the fall's loadout; or the game's Stand
   up (`game`, where none is named), `stand-up` with every technique, or a technique's name.
 - **The fresh falls** (`--protocol fresh`): the same bodies and loadouts shoved 11.25 degrees past

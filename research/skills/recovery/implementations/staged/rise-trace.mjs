@@ -28,6 +28,7 @@ const CAP = 30;
 async function traceFall(job) {
   await import("../../../../../tests/harness/preload-data.mjs");
   const { buildFall } = await import("../../../../../src/app/node/evaluation.ts");
+  const { DEFAULT_ENGINE } = await import("../../../../../src/core/physics/engines.ts");
   const { stepUpRecipe, stepUpTuning } = await import("../../../../../src/skills/recovery/implementations/staged/records.ts");
   const { SIT_BACK } = await import("../../../../../src/skills/recovery/implementations/staged/stages.ts");
   const { humanoidSpec } = await import("../../../../../src/core/bodies/human/spec.ts");
@@ -47,7 +48,7 @@ async function traceFall(job) {
     if (rising && rise) return rise.phase;
     return run.phase ?? fallback;
   };
-  const built = await buildFall(job.fall, "rapier");
+  const built = await buildFall(job.fall, DEFAULT_ENGINE);
   if (isRefused(built)) throw new Error(built.refused);
   const actions = new Map(), order = [], idles = [];
   /** The standing legs' memory (`locomotion`'s state, under the skills' legs): its idle settling's target. */

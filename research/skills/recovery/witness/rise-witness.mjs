@@ -266,7 +266,7 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
   const spec = bodySpec(model, held), placed = placement(move, spec, seed);
   if ("refused" in placed) return { score: 0, refused: placed.refused };
   const plan = phases(move, spec, u), handover = plan.reduce((s, p) => s + p.duration, 0);
-  const world = createWorld(await loadEngine("rapier"));
+  const world = createWorld(await loadEngine());
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   const reader = groundReading(built, world.dt);
