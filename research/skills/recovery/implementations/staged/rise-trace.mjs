@@ -58,13 +58,13 @@ async function traceFall(job) {
     if (o.idle && "seconds" in o.idle && "placing" in o) { legs = o; return; }
     for (const key of Object.keys(o)) findLegs(o[key], depth + 1);
   };
-  findLegs(built.combatant.minded.state.skills?.legs, 0);
+  findLegs(built.combatant.minded.state.mind?.skills?.legs, 0);
   let idleTarget = null;
   try {
     while (!built.ended) {
       built.world.step();
       built.afterStep();
-      const mind = built.combatant.minded.state, time = built.world.time;
+      const mind = built.combatant.minded.state.mind, time = built.world.time;
       const live = mind?.skills?.actions?.live ?? [];
       // Each idle settling begun: how far each sole stands from its target, m.
       const target = legs?.idle?.target ?? null;
