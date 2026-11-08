@@ -39,6 +39,9 @@ export function createDrillOpponents(context: GameContext) {
   /** Who is struck: Option Mind standing where it is (`STANDING_OPTIONS`), its hands at guard, throwing nothing and taking no orders. */
   const STANDS: MindConfig = deepFreeze({ ...OPTION, options: STANDING_OPTIONS });
 
+  /** Who is struck with its head open: `STANDS` with its arms lowered at its sides (the `lowered` guard), covering nothing. */
+  const OPEN: MindConfig = deepFreeze({ ...STANDS, tuning: { ...OPTION.tuning, parts: { ...OPTION.tuning?.parts, guard: { kind: "lowered" } } } });
+
   /** A body that goes where it is ordered, its hands held at guard, and throws nothing. */
   const MOVES: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...STANDING_OPTIONS] });
 
@@ -61,6 +64,7 @@ export function createDrillOpponents(context: GameContext) {
   /** **Each drill opponent**, by the id a drill names it by: a mind that plays its part, led on its rhythm where it has one. None is on a menu. */
   const DRILL_OPPONENTS: Readonly<Record<string, DrillOpponent>> = deepFreeze({
     "drill-stand": { label: "Drill: stand", mind: STANDS },
+    "drill-open": { label: "Drill: stand, arms lowered", mind: OPEN },
     "drill-step": { label: "Drill: step in and out", mind: MOVES,
       commander: beats([{ seconds: 1.2, move: { kind: "range", near: .8, far: 1 } }, { seconds: 1.2, move: { kind: "range", near: 1.6, far: 1.8 } }]) },
     "drill-guard": { label: "Drill: guard", mind: GUARDS },

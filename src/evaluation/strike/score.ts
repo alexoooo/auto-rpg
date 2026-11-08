@@ -1,7 +1,31 @@
 /**
  * **The bar's score of a Strike drill trial**, as the punch's searches and its trainer score it.
  */
-import type { Hand, StrikeReading } from "./read.ts";
+import type { Hand, Overhead, StrikeReading } from "./read.ts";
+
+/** `value` held within 0 and 1. */
+const unit = (value: number): number => Math.max(0, Math.min(1, value));
+
+/**
+ * A bonk's score (`Overhead`, `Bar.overhead`), its elbow `bend` from straight, rad: landed, 9 and
+ * up to 3 more as its energy goes from the bar to 1.5 times it, its descent from the bar's to
+ * straight down and its elbow from the bar's bend to straight; else up to 8 by how near it came to
+ * each test, none past it, its energy counted twice: the club hand from 0.3 m under the crown to
+ * the bar's height over it, the swell's rise to the bar's, the sweep from 45 degrees outside the
+ * bar's to within it, the reversal from 20 degrees past the bar's to within it, the descent to the
+ * bar's, the swell first on the head, the elbow from twice the bar's bend to within it, and the hand
+ * back at its guard; less 0.5 where its action did not end.
+ */
+function overheadScore(reading: StrikeReading, o: Overhead, bend: number): number {
+  const bar = reading.bar.overhead, rad = Math.PI / 180, room = (value: number, limit: number, best: number) => unit((value - limit) / (best - limit));
+  if (reading.outcome === "landed")
+    return 9 + room(o.share, 1, 1.5) + room(o.descent, bar.descent * rad, 90 * rad) + room(-bend, -reading.bar.bend * rad, 0);
+  const near = unit(1 + (o.hand - bar.hand) / .3) + unit(o.rise / bar.rise)
+    + 1 - unit(Math.max(bar.sweep[0] * rad - o.sweep, o.sweep - bar.sweep[1] * rad) / (45 * rad)) + 1 - unit((o.reversal - bar.reversal * rad) / (20 * rad))
+    + unit(o.descent / (bar.descent * rad)) + (o.swell ? 1 : 0) + 1 - unit((bend - reading.bar.bend * rad) / (reading.bar.bend * rad))
+    + 2 * Math.min(1, o.share) + (o.back ? 1 : 0);
+  return 8 * near / 10 - (reading.ended === null ? .5 : 0);
+}
 
 /**
  * A trial's score, `hand` the hand it struck with, null a foot: a landed
@@ -15,7 +39,8 @@ import type { Hand, StrikeReading } from "./read.ts";
  * the speed goes from the bar to 1.5 times it; else up to 8 by its share of the bar. A held item's blow,
  * which the bar tests by its energy, a point's by its closing speed, an edge's by its far end's speed, and its face (`Bar.held`,
  * `StrikeHit.held`, `StrikeHit.faced`), scores a landed action as 8 plus its share of the
- * bar, capped at 2; else up to 8, half by its share of the bar and half for meeting with its face. The bar is the reading's, its striker's
+ * bar, capped at 2; else up to 8, half by its share of the bar and half for meeting with its face. A bonk's scores
+ * by its own tests (`overheadScore`). The bar is the reading's, its striker's
  * (`StrikeReading.bar`).
  */
 export function barScore(reading: StrikeReading, hand: Hand | null, heavier = 1): number {
@@ -27,6 +52,7 @@ export function barScore(reading: StrikeReading, hand: Hand | null, heavier = 1)
     const share = hit.foot ? hit.foot.speed / hit.foot.bar : 0;
     return reading.outcome === "landed" ? 9 + Math.min(1, Math.max(0, (share - 1) / .5)) : 8 * Math.min(1, share) - (reading.ended === null ? 0.5 : 0);
   }
+  if (hit.overhead) return overheadScore(reading, hit.overhead, hit.bend!);
   if (hit.held) {
     const share = hit.held.value / hit.held.bar;
     return reading.outcome === "landed" ? 9 + Math.min(1, share - 1) : 4 * (Math.min(1, share) + (hit.faced === false ? 0 : 1)) - (reading.ended === null ? 0.5 : 0);

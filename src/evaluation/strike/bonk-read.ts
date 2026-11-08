@@ -17,6 +17,7 @@ import type { Vec3 } from "../../core/quantity.ts";
 import { uprightness } from "../../control/ground.ts";
 import { validBonkApproach, validBonkBoundary, validBonkCrossing, type BonkFixtureReading } from "./bonk-fixture.ts";
 import { senseDelayOf } from "../../game/arena/duel.ts";
+import { swellShapes } from "./swell.ts";
 
 type StrokeEnd = { readonly at: number; readonly reason: "endpoint" | "impact withdrawal" | "stroke deadline" | "preparation deadline" | "cancelled" };
 type AssistRead = { force: number; moment: number; ceilingForce: number; ceilingMoment: number };
@@ -105,12 +106,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
   const clearance = selfClearance(body), attached = attachment(body), grip = handConfiguration(body.spec, effector, "grip");
   const upright = uprightness(body);
   const otherSegments = new Map([...foe.built.segments].map(([name, one]) => [one.body.id, name]));
-  const swellShapes = new Set(limb.rigid.owners.flatMap((owner, index) => {
-    if (owner.kind !== "held") return [];
-    const own = limb.rigid.owners.slice(0, index).filter(one => one.kind === "held" && one.held === owner.held).length;
-    const shape = owner.held.item.shapes[own], from = owner.held.item.points.swellFrom?.value, to = owner.held.item.points.swellTo?.value;
-    return shape?.kind === "capsule" && from && to && shape.from.value.every((v, k) => v === from[k]) && shape.to.value.every((v, k) => v === to[k]) ? [index] : [];
-  }));
+  const swells = swellShapes(limb.rigid);
   const p = new Vector3(), q = new Quaternion(), inverse = new Quaternion(), relative = new Vector3(), velocity = new Vector3(), spin = new Vector3();
   const state = { previous: null as Physical | null, entry: null as Physical | null, course: null as BonkCourse | null,
     courseFault: null as string | null, samples: [] as Sample[], committed: null as number | null, end: null as StrokeEnd | null,
@@ -218,7 +214,7 @@ export function readBonk(built: Pick<BuiltBout, "world" | "duel" | "catalog" | "
       }
       if (action?.phase === "commit") state.effectiveness.committed ??= was?.time ?? now.time;
       let intended: BonkReading["contact"] = null;
-      for (const contact of now.contact) if (swellShapes.has(contact.shape) && contact.on === foe.built.spec.marks.high) {
+      for (const contact of now.contact) if (swells.has(contact.shape) && contact.on === foe.built.spec.marks.high) {
         const blow = duel.blows.find(blow => blow.kind === "impact" && blow.time === now.time
           && blow.sides.some(side => side.fighter === left.id && side.segment === effector && side.item !== null)
           && blow.sides.some(side => side.fighter === foe.id && side.segment === contact.on && (side.mechanism ?? "blunt") === "blunt"));

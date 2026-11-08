@@ -76,6 +76,28 @@ export const REST_GUARD: GuardPart<RestGuardConfig> = {
   posture: () => NO_POSTURE, make: () => AT_REST,
 };
 
+/** **Arms lowered**: the arms hang at the sides and cover nothing, a drill's open target. */
+interface LoweredGuardConfig { readonly kind: "lowered" }
+
+/**
+ * The arms hanging: each upper arm by the trunk, the elbow a little bent, so the head and the chest
+ * are open to a blow from any side.
+ */
+const LOWERED: Pose = Object.freeze({
+  "shoulder.right flexion": 0, "shoulder.right abduction": -0.5, "elbow.right flexion": -0.6,
+  "shoulder.left flexion": 0, "shoulder.left abduction": -0.5, "elbow.left flexion": -0.6,
+});
+
+/** The guard with arms lowered: the posture alone, no hold and no cover. */
+const LOWERED_SKILL: GuardSkill = Object.freeze({ effectors: Object.freeze([]), posture: LOWERED, hold: null, command: () => Object.freeze({}), resume: () => undefined });
+
+export const LOWERED_GUARD: GuardPart<LoweredGuardConfig> = {
+  role: "guard", label: "Arms lowered", stage: "experimental", fields: [], slots: [], defaults: { kind: "lowered" }, keys: { kind: true },
+  fits: fitsWhen((spec: BodySpec) => Object.keys(LOWERED).every((channel) => spec.joints.some((joint) => joint.dofs.some((dof) => `${joint.name} ${dof.positive}` === channel))),
+    "has no two arms to lower"), faults: () => [],
+  posture: () => LOWERED, make: () => LOWERED_SKILL,
+};
+
 export const SHIELD_GUARD: GuardPart<ShieldGuardConfig> = {
   role: "guard", label: "Guard faces and lines", stage: "game", fields: [], slots: [], defaults: { kind: "shield-guard" }, keys: { kind: true, tuning: true },
   tuning: ["covering", "hold"], fits: fitsAll(guardFit, coversWithHands, soleRefusal, fitsWhen(wardsWithFace, "holds no item with a face to ward with")), faults: guardFaults,
@@ -89,5 +111,6 @@ declare module "../config.ts" {
     readonly "cover-guard": CoverGuardConfig;
     readonly "shield-guard": ShieldGuardConfig;
     readonly "rest": RestGuardConfig;
+    readonly "lowered": LoweredGuardConfig;
   }
 }

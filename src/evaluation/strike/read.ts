@@ -14,7 +14,7 @@ import { centreReading } from "../../control/observation.ts";
 import { aimOf, holdsNothing } from "../../skills/reach/hand.ts";
 import { effectorAim } from "../../control/effectors.ts";
 import { sensedPosture } from "../../skills/perception/threat.ts";
-import { acos, cos } from "../../core/math/real.ts";
+import { acos, asin, cos } from "../../core/math/real.ts";
 import { skillOf } from "../../skills/framework/menu.ts";
 import { faceOf } from "../../skills/strikes/held-blow.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
@@ -29,6 +29,7 @@ import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 import { swingMotion, type SwingMotion } from "./motion.ts";
 import { readBonk, type BonkReading } from "./bonk-read.ts";
 import type { BonkTechnique } from "../../skills/strikes/bonk-course.ts";
+import { swellShapes } from "./swell.ts";
 
 export type Mark = "high" | "middle" | "legs";
 
@@ -59,6 +60,13 @@ type Bar = {
   readonly held: { readonly energy: number; readonly point: number; readonly edge: number };
   /** A foot's blow, a stomp's: the foot's speed into the contact over its last `run` m, m/s. */
   readonly foot: number;
+  /**
+   * A bonk's, a club's blow at the head (`Overhead`): its `energy`, J; how high the club hand
+   * rises over the crown in the chamber (`hand`), and the swell over the point it strikes
+   * (`rise`), m; the shaft's sweep from the chamber to contact, its least and most, and its largest
+   * reversal, degrees; and how far below horizontal the swell's path comes in, degrees.
+   */
+  readonly overhead: { readonly energy: number; readonly hand: number; readonly rise: number; readonly sweep: readonly [number, number]; readonly reversal: number; readonly descent: number };
 };
 
 /**
@@ -91,6 +99,14 @@ type Bar = {
  * the club blunt, the sword's cut with its edge, its thrust with its point). Its time is reported, not
  * tested: the fist's `within` is engineering.
  *
+ * A club's blow at the head, a bonk, is judged by `overhead` instead (`Overhead`): its energy at
+ * least the crutch blow's mean, a full blow rather than less one SD (Frantz, Sprenger & Jackowski
+ * 2026, 75.5 J; the same [section 2](../../../docs/reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling));
+ * and its form: in the chamber the club hand over the crown and the swell 0.25 m over the point it
+ * strikes; one stroke sweeping 45 to 150 degrees with no reversal past 10; coming in at least 45
+ * degrees below horizontal; the elbow within `bend` of straight. The form's numbers are set so the
+ * blow is an overhead one rather than a swing.
+ *
  * A foot's blow, a stomp, is judged by `foot` alone: its foot's speed into the contact, the stamps
  * on a dummy in a simulated ruck less one SD (Oudshoorn et al. 2018, 4.3 m/s, 2.1 to 6.3 over 12
  * people, the SD derived from the range; [human strike reference](../../../docs/reference/human-strike-reference.md#3b-stomp)).
@@ -101,6 +117,7 @@ export const BAR: Bar = Object.freeze({
   run: .1, cone: 20, within: .5, along: 45, bend: 30, lean: 30,
   held: Object.freeze({ energy: 64.8, point: 4.6, edge: 18.5 }),
   foot: 3,
+  overhead: Object.freeze({ energy: 75.5, hand: 0, rise: .25, sweep: Object.freeze([45, 150] as const), reversal: 10, descent: 45 }),
 });
 
 /** m M / (m + M), and m where M is `Infinity`: the mass a contact's energy goes with (`impactEnergy`). */
@@ -149,7 +166,8 @@ function barOf(spec: BodySpec): Bar {
   const bar: Bar = strength === 1 && mass === 1 ? BAR : Object.freeze({ ...BAR,
     speed: Object.freeze({ right: BAR.speed.right * speed, left: BAR.speed.left * speed }),
     mass: Object.freeze({ right: BAR.mass.right * mass, left: BAR.mass.left * mass }),
-    held: Object.freeze({ energy: BAR.held.energy * strength, point: BAR.held.point * speed, edge: BAR.held.edge * speed }), foot: BAR.foot * speed });
+    held: Object.freeze({ energy: BAR.held.energy * strength, point: BAR.held.point * speed, edge: BAR.held.edge * speed }), foot: BAR.foot * speed,
+    overhead: Object.freeze({ ...BAR.overhead, energy: BAR.overhead.energy * strength }) });
   BARS.set(spec, bar);
   return bar;
 }
@@ -163,6 +181,26 @@ type StrikeContact = {
   readonly kg: number;
   /** The effective mass the contact met on the target's side, kg. */
   readonly struck: number;
+};
+
+/** A bonk's tests (`Bar.overhead`), as the drill names one it fell short of. */
+export type OverheadTest = "chamber" | "one stroke" | "descent" | "swell on the head" | "arm straight" | "full strength" | "back to guard";
+
+/**
+ * **A bonk's reading**: a club's blow at the head against `Bar.overhead`. The chamber is the
+ * swell's highest place between the action's start and the contact. It reads the club hand's
+ * greatest height over the striker's crown up to the chamber (`hand`) and the swell's height there
+ * over its place at contact (`rise`), m; the angle the shaft turned from the chamber to contact
+ * (`sweep`), and the most it turned back from the farthest it had come (`reversal`), rad; how far
+ * below horizontal the swell's last `run` m came in (`descent`), rad; whether the limb's first
+ * touch on the target was the swell's collider on the mark (`swell`); the contact's energy over
+ * the bar's (`share`); and whether the hand came back to its guard (`back`). `short` names each
+ * test it did not meet.
+ */
+export type Overhead = {
+  readonly hand: number; readonly rise: number; readonly sweep: number; readonly reversal: number; readonly descent: number;
+  readonly swell: boolean; readonly share: number; readonly back: boolean;
+  readonly short: readonly OverheadTest[];
 };
 
 /**
@@ -190,6 +228,8 @@ type StrikeHit = StrikeContact & {
   readonly hard: boolean | null;
   /** Whether a held item's blow met the target with what its action strikes with (`ExecutorPart.meets`); null for a limb that holds nothing. */
   readonly faced: boolean | null;
+  /** A bonk's reading, a club's blow at the head (`Overhead`); null for any other blow. */
+  readonly overhead: Overhead | null;
 };
 
 /**
@@ -345,6 +385,18 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
     if (!shoulderJoint || !upperArm || !elbowJoint || !elbow) throw new Error(`the striker's ${effector} has no shoulder or elbow to read a punch's form by`);
     return { shoulderJoint, upperArm, elbow, straight: elbowJoint.dofs[0]!.min.value };
   })();
+  /**
+   * A bonk's watch: whether the action is a bonk (a blunt held blow at the high mark), decided where
+   * it begins; the striker's head and its crown, body frame; the swell's colliders and its shaft's
+   * ends; each step of the action (`CLUB` numbers a step): its time, the club hand's height, the
+   * crown's, the swell's place and the shaft's direction; and the limb's first touch on the target.
+   */
+  let bonked = false;
+  const headOf = left.built.segments.get("head"), crown = spec.segments.find((one) => one.name === "head")?.distal.value;
+  const swells = armed ? swellShapes(limb.rigid) : new Set<number>(), shaftEnds = [points.get("swellFrom")?.value, points.get("swellTo")?.value] as const;
+  const club: number[] = [], CLUB = 9, grip = new Vector3(), top = new Vector3(), shaftFrom = new Vector3(), shaftTo = new Vector3();
+  const foeSegments = new Map([...duel.duelists.right.built.segments].map(([name, one]) => [one.body.id, name]));
+  let touch: { readonly time: number; readonly swell: boolean; readonly on: string } | null = null;
   const angles: number[] = [];
   const shoulder = new Vector3(), turn = new Quaternion(), up = new Vector3(), chestAt = new Vector3(), ORIGIN = [0, 0, 0] as const;
   /** The strike point against the chest, turned with it, where its action began; and as the last step left it. */
@@ -441,6 +493,30 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
     }
     return null;
   };
+  /**
+   * The bonk's reading (`Overhead`) of a contact at `time` giving up `energy` J against `bar` J, the
+   * swell's last `run` m `travel`, the elbow `bent` from straight, rad.
+   */
+  const overheadOf = (time: number, energy: number, against: number, travel: { readonly direction: readonly number[] } | null, bent: number): Overhead => {
+    let end = club.length - CLUB, chamber = 0, hand = -Infinity, farthest = 0, reversal = 0;
+    while (end > 0 && club[end]! > time) end -= CLUB;
+    for (let k = 0; k <= end; k += CLUB) if (club[k + 4]! > club[chamber + 4]!) chamber = k;
+    for (let k = 0; k <= chamber; k += CLUB) hand = Math.max(hand, club[k + 1]! - club[k + 2]!);
+    const turned = (k: number) => acos(Math.max(-1, Math.min(1, club[chamber + 6]! * club[k + 6]! + club[chamber + 7]! * club[k + 7]! + club[chamber + 8]! * club[k + 8]!)));
+    for (let k = chamber; k <= end; k += CLUB) { const now = turned(k); farthest = Math.max(farthest, now); reversal = Math.max(reversal, farthest - now); }
+    const rise = club[chamber + 4]! - club[end + 4]!, sweep = turned(end), descent = travel ? asin(Math.max(-1, Math.min(1, -travel.direction[1]!))) : 0;
+    const swell = touch !== null && touch.swell && marked.has(touch.on), share = energy / against, back = watching !== null && again !== null;
+    const o = bar.overhead, rad = Math.PI / 180;
+    const short: OverheadTest[] = [
+      ...hand >= o.hand && rise >= o.rise ? [] : ["chamber" as const],
+      ...sweep >= o.sweep[0] * rad && sweep <= o.sweep[1] * rad && reversal <= o.reversal * rad ? [] : ["one stroke" as const],
+      ...descent >= o.descent * rad ? [] : ["descent" as const],
+      ...swell ? [] : ["swell on the head" as const],
+      ...bent <= bend ? [] : ["arm straight" as const],
+      ...share >= 1 ? [] : ["full strength" as const],
+      ...back ? [] : ["back to guard" as const]];
+    return { hand, rise, sweep, reversal, descent, swell, share, back, short };
+  };
   return {
     afterStep() {
       const drill = drillTask(duel.commanded("left")?.task ?? "lost");
@@ -463,6 +539,7 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
         meets = (registered ? catalog.partLookup.of("executor", { kind: kind! }).meets : undefined) ?? "blunt";
         const face = armed && hand !== null ? faceOf(spec, hand, meets) : null;
         if (face) aim = points.get(face.point)!.value;
+        bonked = armed && mark === "high" && meets === "blunt" && swells.size > 0 && headOf !== undefined && crown !== undefined && shaftEnds.every((one) => one !== undefined);
         againstChest(rest);
       }
       if (action && action.id === id) {
@@ -502,6 +579,19 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
         } else {
           path.push(world.time, point.x, point.y, point.z, 0, 0, 0, 0, 0, farAt.x, farAt.y, farAt.z);
         }
+        if (bonked) {
+          pointOfToRef(limb, limb.frame.origin, grip); pointOfToRef(headOf!, crown!, top);
+          pointOfToRef(limb, shaftEnds[0]!, shaftFrom); pointOfToRef(limb, shaftEnds[1]!, shaftTo);
+          const sx = shaftTo.x - shaftFrom.x, sy = shaftTo.y - shaftFrom.y, sz = shaftTo.z - shaftFrom.z, s = Math.sqrt(sx * sx + sy * sy + sz * sz) || 1;
+          club.push(world.time, grip.y, top.y, point.x, point.y, point.z, sx / s, sy / s, sz / s);
+          if (touch === null) for (const one of world.physics.contactsOf(limb.body)) {
+            const on = one.other ? foeSegments.get(one.other.id) : undefined;
+            if (on !== undefined && one.pairs.some((pair) => pair.impulse > 0)) {
+              touch = { time: world.time, swell: one.pairs.some((pair) => pair.impulse > 0 && swells.has(pair.mine)), on };
+              break;
+            }
+          }
+        }
       }
       down ||= left.body.down;
     },
@@ -535,7 +625,7 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
         if (hand === null) {
           const foot = { speed: travel?.speed ?? 0, bar: bar.foot };
           return { ...contact, speed: travel?.speed ?? null, straight, along: null, bend: null, lean: null, foot, held: null,
-            fast: foot.speed >= foot.bar, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: null, faced: null };
+            fast: foot.speed >= foot.bar, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: null, faced: null, overhead: null };
         }
         const ax = path[at + 1]! - path[at + 4]!, ay = path[at + 2]! - path[at + 5]!, az = path[at + 3]! - path[at + 6]!, arm = Math.sqrt(ax * ax + ay * ay + az * az) || 1;
         const along = travel && (travel.direction[0] * ax + travel.direction[1] * ay + travel.direction[2] * az) / arm;
@@ -543,20 +633,20 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
         if (armed) {
           const judged = meets === "point" ? { value: contact.closing, bar: bar.held.point }
             : meets === "edge" ? { value: approach(contact.time, 9)?.speed ?? 0, bar: bar.held.edge }
-            : { value: contact.energy, bar: bar.held.energy * pairShare(contact.kg, contact.struck, target) };
+            : { value: contact.energy, bar: (bonked ? bar.overhead.energy : bar.held.energy) * pairShare(contact.kg, contact.struck, target) };
           return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning, foot: null, held: judged,
             fast: null, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: judged.value >= judged.bar,
-            faced: contact.mechanism === meets };
+            faced: contact.mechanism === meets, overhead: bonked ? overheadOf(contact.time, contact.energy, judged.bar, travel, bent) : null };
         }
         return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning, foot: null, held: null,
           fast: travel !== null && travel.speed >= bar.speed[hand], heavy: contact.kg >= bar.mass[hand], square: straight !== null && straight >= coneCosine,
           soon: times.began !== null && contact.time - times.began <= bar.within,
-          lined: along !== null && along >= alongCosine, extended: bent <= bend, upright: leaning <= lean, hard: null, faced: null };
+          lined: along !== null && along >= alongCosine, extended: bent <= bend, upright: leaning <= lean, hard: null, faced: null, overhead: null };
       });
       const fastest = hits.reduce<StrikeHit | null>((best, one) => best === null || (one.speed ?? 0) > (best.speed ?? 0) ? one : best, null);
       const hit = hand === null ? fastest : hits.find(hit => hit.faced !== false) ?? fastest;
       const ledger = id === null ? undefined : skills.report.ledger.find((record) => record.id === id);
-      const outcome: StrikeOutcome = handed === null ? "unreached" : lay === false ? "unlaid" : down ? "fell" : hit ? hit.faced !== false && times.ended !== null ? "landed" : "weak"
+      const outcome: StrikeOutcome = handed === null ? "unreached" : lay === false ? "unlaid" : down ? "fell" : hit ? hit.faced !== false && times.ended !== null && (hit.overhead === null || hit.overhead.short.length === 0) ? "landed" : "weak"
         : byLimb.length ? byLimb.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
       const foe = foeBegan ?? atHand;

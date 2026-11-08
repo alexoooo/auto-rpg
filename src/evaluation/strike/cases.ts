@@ -1,7 +1,7 @@
 /**
  * **The Strike drill's cases**: one strike skill thrown once, at a still body (`still`, and from
  * starts drawn at random, moving or still, `sampled`), at one lying (`stomping`, and from starts
- * drawn at random, `stomping-sampled`), at one
+ * drawn at random, `stomping-sampled`), at one standing with its arms lowered (`bonk`), at one
  * carried past on a rail (`moving`), at one walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
  * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`). The striker is the
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
@@ -184,6 +184,13 @@ const OPPONENT = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyMode
 const STANDING = "drill-stand";
 
 const STEPPING = deepFreeze({ ...OPPONENT, opponent: "drill-step" });
+
+/**
+ * The bonk, a club's overhead blow at the head (`Bar.overhead`): the still rung's places on the
+ * Warrior with the right hand at the high mark, at a target standing with its arms lowered
+ * (`drill-open`), so its head is open and a failed trial is the striker's.
+ */
+const BONK = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], marks: ["high"] as Mark[], hands: ["right"] as Hand[], opponent: "drill-open" });
 
 const GUARDING = deepFreeze({ ...OPPONENT, opponent: "drill-guard" });
 
@@ -449,7 +456,7 @@ export function createStrikeCases(context: GameContext) {
     "bonk-moving-480": stillCases(BONK_MOVING_FAST, crossingConditions(bonkConditions(BONK_CENTRAL_ENTRIES, "contact"))),
     "bonk-moving-screen": stillCases(BONK_MOVING_SCREEN, crossingConditions([BONK_SCREEN_CONDITIONS[0]!])),
     "bonk-moving-screen-480": stillCases(BONK_MOVING_SCREEN_FAST, crossingConditions([BONK_SCREEN_CONDITIONS[0]!])),
-    moving: stillCases(MOVING), walk: stillCases(WALK),
+    moving: stillCases(MOVING), walk: stillCases(WALK), bonk: stillCases(BONK),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
     "stomping-sampled": stillCases(STOMPING_SAMPLED, sampledConditions(STOMPING_SAMPLED)),
