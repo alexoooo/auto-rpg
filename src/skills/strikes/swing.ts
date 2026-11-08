@@ -3,9 +3,10 @@ import { supportHeight } from "../../control/support-reference.ts";
 import { handConfiguration } from "../reach/hand.ts";
 import type { Body } from "../../control/body.ts";
 import type { MusclePush } from "../../control/motor.ts";
-import { atan2 } from "../../core/math/real.ts";
+import { atan2, cos, sin } from "../../core/math/real.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
-import { type BodySpec } from "../../core/bodies/spec/body.ts";
+import { type BearingEnd, type BodySpec } from "../../core/bodies/spec/body.ts";
+import { footOn } from "../../control/support.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
 import { placedHeightFits } from "../reach/arm-reach.ts";
 import { faceAligner } from "./face-aligner.ts";
@@ -22,9 +23,12 @@ import { otherSide, type Side, SIDES } from "../../core/bodies/bilateral.ts";
  * nearer), no more than `aside` m to either side of the line it faces, the target within the arm's
  * height band for its face (`placedHeightFits`), and with `poised` its stance already quiet. From
  * the admission the striking hand's trunk and arm channels `wound` names stand at its angles, rad
- * (the windup); once the stance is quiet and has stood wound `settle` s, each such channel at its
- * angle or still (`WOUND_WITHIN`), `timed` pushes each channel it names flat out over its own window
- * of the swing (`TimedPush`), the rest held wound.
+ * (the windup); with `footing`, the striking hand's, each foot first steps to its place, m behind
+ * the target along the way the head faced it at the admission and to that way's right, and the
+ * stance faces that way through the swing; once the feet are placed, the stance is quiet and has
+ * stood wound `settle` s, each such channel at its angle or still (`WOUND_WITHIN`), `timed` pushes
+ * each channel it names flat out over its own window of the swing (`TimedPush`), the rest held
+ * wound.
  * The swing ends `follow` s after the hand begins to touch something, or `longest` s after it
  * began; the arm comes back to the guard over `recover` s. With `halts`, it stops a walk at once.
  */
@@ -38,10 +42,14 @@ export interface Swing {
   readonly settle: number;
   readonly wound: { readonly left: Readonly<Record<string, number>>; readonly right: Readonly<Record<string, number>> };
   readonly timed: { readonly left: readonly TimedPush[]; readonly right: readonly TimedPush[] };
+  readonly footing?: { readonly left: SwingFooting; readonly right: SwingFooting };
   readonly follow: number;
   readonly longest: number;
   readonly recover: number;
 }
+
+/** Where each foot stands for a swing: m behind the target along the way the body faces it, and to that way's right. */
+export type SwingFooting = Readonly<Record<Side, readonly [behind: number, right: number]>>;
 
 const HANDS: readonly Side[] = SIDES;
 
@@ -49,9 +57,9 @@ const HANDS: readonly Side[] = SIDES;
 const REQUIRED = ["pace", "reach", "band", "aside", "settle", "follow", "longest", "recover"] as const;
 
 /** Every setting a swing may name (`Swing`). */
-export const SWING_KEYS: readonly (keyof Swing)[] = Object.freeze([...REQUIRED, "poised", "halts", "wound", "timed"]);
+export const SWING_KEYS: readonly (keyof Swing)[] = Object.freeze([...REQUIRED, "poised", "halts", "wound", "timed", "footing"]);
 
-/** Whether `settings`, some of a swing's, are each valid: its numbers finite and not negative, its pace, reach, band, aside and length positive, its windup's angles finite and its pushes valid. */
+/** Whether `settings`, some of a swing's, are each valid: its numbers finite and not negative, its pace, reach, band, aside and length positive, its windup's angles finite, its pushes valid and its footing's places finite. */
 export function validSwingPart(settings: Partial<Swing>): boolean {
   if (!settings || typeof settings !== "object" || Array.isArray(settings)) return false;
   const flag = (value: unknown) => value === undefined || typeof value === "boolean";
@@ -60,7 +68,11 @@ export function validSwingPart(settings: Partial<Swing>): boolean {
     && flag(settings.poised) && flag(settings.halts)
     && (settings.wound === undefined || HANDS.every((hand) => typeof settings.wound![hand] === "object" && settings.wound![hand] !== null
       && Object.values(settings.wound![hand]).every(Number.isFinite)))
-    && (settings.timed === undefined || HANDS.every((hand) => Array.isArray(settings.timed![hand]) && settings.timed![hand].every(validPush)));
+    && (settings.timed === undefined || HANDS.every((hand) => Array.isArray(settings.timed![hand]) && settings.timed![hand].every(validPush)))
+    && (settings.footing === undefined || HANDS.every((hand) => SIDES.every((foot) => {
+      const place = settings.footing![hand]?.[foot];
+      return Array.isArray(place) && place.length === 2 && place.every(Number.isFinite);
+    })));
 }
 
 /** Whether `settings` are a swing's: each it names valid (`validSwingPart`), and every one it must name named, its windup and its pushes too. */
@@ -94,7 +106,9 @@ const ALIGN_SPEED = 1;
  * (`strikeWindow`), it winds the trunk and the striking arm up to its record's angles and, each
  * there or still (`WOUND_WITHIN`), stands quiet there `settle` s; then its schedule pushes each
  * channel it names flat out over its window (`timedPushes`), the arc's speed coming from the windup's range, the face meeting the target
- * where the arc passes it. After the swing it brings the arm back to the guard. An attack given up
+ * where the arc passes it. With a footing, it steps the feet to it and turns the stance to the
+ * target before it settles, so the arc starts from the same stance wherever the walk left it.
+ * After the swing it brings the arm back to the guard. An attack given up
  * before the swing is dropped; a swing begun is thrown to its end. It has the hand, the trunk and
  * the legs from its windup to its return, and the hand grips throughout. With `align`, through the
  * swing, once the face moves faster than `ALIGN_SPEED`, the wrist turns it onto its path, either
@@ -112,10 +126,14 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
     throw new Error(`a swing has no effector ${effector}`);
   };
   const state = {
-    live: null as null | { request: ActionRequest; hand: Side; phase: "prepare" | "commit" | "release"; stage: "admitting" | "settle" | "swing" | "return";
+    live: null as null | { request: ActionRequest; hand: Side; phase: "prepare" | "commit" | "release"; stage: "admitting" | "set" | "settle" | "swing" | "return";
       time: number; step: number; quiet: number; lower: number; withdrawn: boolean; ending: ActionEnding;
       /** Where it aims, world; the way it faces; when its hand began to touch something and whether it touched last step. */
       target: [number, number, number]; face: number; touched: number | null; touching: boolean;
+      /** Where each foot is placed, world (x, z), m, by its end, from the footing and the target and facing at the admission; null with none. */
+      footing: Record<BearingEnd, [number, number]> | null;
+      /** The way the stance faces with a footing, rad: the head's to the target at the admission. */
+      heading: number;
       /** Each wound channel's angle last step, rad, by name: how fast it still turns toward its windup. */
       last: Record<string, number>;
       /** The face's place last step, whether it has been read, and its velocity over that step, root frame (`faceAligner`). */
@@ -153,10 +171,17 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       if (state.live) throw new Error("a swing already owns an instance");
       const hand = sideOf(request.effector), at = resolve(view, request.target, request.action, request.effector);
       if (!at) throw new Error("a swing's target has no aim");
+      const face = atan2(at[0] - view.head.x, at[2] - view.head.z), places = settings.footing?.[hand];
+      // Behind is against the facing (sin, cos) over the ground; right is (cos, -sin).
+      const placed = (foot: Side): [number, number] => {
+        const [behind, right] = places![foot], ahead = sin(face), along = cos(face);
+        return [at[0] - behind * ahead + right * along, at[2] - behind * along - right * ahead];
+      };
       state.live = { request: { ...request }, hand, phase: "prepare", stage: "admitting", time: 0, step: 0, quiet: 0, lower: around.lower, withdrawn: false,
-        ending: { kind: "completed" }, target: [at[0], at[1], at[2]], face: atan2(at[0] - view.head.x, at[2] - view.head.z), touched: null, touching: false, last: {}, was: [0, 0, 0], read: false, path: [0, 0, 0] };
+        ending: { kind: "completed" }, target: [at[0], at[1], at[2]], face, touched: null, touching: false,
+        footing: places ? { [footOn(spec, "left")]: placed("left"), [footOn(spec, "right")]: placed("right") } : null, heading: face, last: {}, was: [0, 0, 0], read: false, path: [0, 0, 0] };
     },
-    update(view, continued, _around, dt) {
+    update(view, continued, around, dt) {
       const live = state.live;
       if (!live) return [];
       if (view.down) { state.live = null; return [{ id: live.request.id, ending: { kind: "interrupted", reason: "body is down" } }]; }
@@ -178,14 +203,16 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
         live.was[0] = x; live.was[1] = y; live.was[2] = z; live.read = true;
       }
       if (live.phase === "prepare") {
-        live.stage = "settle";
+        // The feet are placed before the stance settles; the legs say so a step after they were asked.
+        const set = live.footing === null || live.stage !== "admitting" && (live.stage === "settle" || around.placed === true);
+        live.stage = set ? "settle" : "set";
         let reached = true;
         for (const [channel, angle] of Object.entries(settings.wound[live.hand])) {
           const now = view.angles[channel] ?? 0, was = live.last[channel];
           if (Math.abs(now - angle) > WOUND_WITHIN && (was === undefined || Math.abs(now - was) > WOUND_STILL * dt)) reached = false;
           live.last[channel] = now;
         }
-        live.quiet = quietToStrike(view) && reached ? live.quiet + dt : 0;
+        live.quiet = set && quietToStrike(view) && reached ? live.quiet + dt : 0;
         if (live.time >= SWING_PREPARE_LIMIT) release({ kind: "stalled", reason: "settling deadline" });
         else if (live.quiet >= settings.settle) {
           live.phase = "commit"; live.stage = "swing"; live.time = 0; live.touched = null;
@@ -215,7 +242,8 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       }
       const configuration = handConfiguration(body.built.spec, `hand.${live.hand}`, "grip");
       return { posture, pushes, ...(configuration ? { configurations: { [`hand.${live.hand}`]: configuration } } : {}),
-        legs: { walk: null, face: live.face, ...(settings.halts ? { halt: true } : {}), height: supportHeight(view) - live.lower } };
+        legs: { walk: null, face: live.face, ...(settings.halts ? { halt: true } : {}), height: supportHeight(view) - live.lower,
+          ...(live.phase !== "release" && live.footing ? { footing: live.footing, heading: live.heading } : {}) } };
     },
   };
 }

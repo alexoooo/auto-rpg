@@ -4,9 +4,10 @@
  * game's loadouts hold them. Each of the swung channels (`swingChannels`: the trunk's turn and bends,
  * the striking arm and its wrist) has a windup angle, a fraction of its range (`Swing.wound`), and a
  * push: a level, a start and a length into the swing (`Swing.timed`); then where it stands to swing
- * (`reach`, the head from the target across the ground) and how long the wound stance stands quiet
- * (`settle`). Its window is the record's (`AROUND`: `BAND` deep, `ASIDE` to either side), so the
- * drill walks the body into it from wherever it starts, as a game does. A candidate is played as
+ * (`reach`, the head from the target across the ground), how long the wound stance stands quiet
+ * (`settle`), and with `--footing` where each foot steps before it winds (`Swing.footing`). Its
+ * window is the record's (`AROUND`: `BAND` deep, `ASIDE` to either side), so the drill walks the
+ * body into it from wherever it starts, as a game does. A candidate is played as
  * the drill plays a trial (`drillTrial`, `STRIKE_CASES.still`) on one cell: a body, a hand, a mark,
  * an offset across, at each of the cell's starting gaps and `--rates` (the worst rate counts at
  * each gap and `--targets` body, their mean overall), scored by its striker's bar (`barScore`); with `--near`, a
@@ -20,11 +21,12 @@
  * such blow; any other trial as the bar scores it.
  *
  *   node research/skills/strikes/swing/swing-drill.mjs --blow <kind> --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0[,0.2]] [--gaps 1,1.4] [--targets workshop-fighter,crypt-skeleton]
- *     [--protocol still] [--other buckler] [--feasible] [--rates 120,480] [--near] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json>] [--sigma 0.15]
+ *     [--protocol still] [--other buckler] [--feasible] [--footing <behind,right,behind,right>] [--rates 120,480] [--near] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json>] [--sigma 0.15]
  *   node research/skills/strikes/swing/swing-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1.2,1.5] [--across 0,0.2] [--marks middle,high] [--models ...] [--targets ...]
  *   node research/skills/strikes/swing/swing-drill.mjs --settings <file.json>   the found swing's settings, whole, for `skill-records.mjs`
  *
- * `--from` seeds the search from a search's file, by channel name.
+ * `--from` seeds the search from a search's file, by channel name. `--footing` searches the footing
+ * too, the left foot's place then the right's, m; it starts there where `--from`'s search has none.
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
  */
@@ -54,6 +56,9 @@ const FROM = [0, 0.3], LENGTH = [0, 0.4], REACH = [0.4, 1.3], SETTLE = [0, 0.4];
 /** How far inside each end of its range a windup angle stands, a share of the range: a channel held at its stop never counts as wound. */
 const WITHIN = 0.05;
 
+/** Where a foot is searched, m: behind the target, and to the right of the way the body faces it. */
+const BEHIND = [0.4, 1.3], RIGHT = [-0.5, 0.5];
+
 /** A push weaker than this leaves the schedule. */
 const QUIET = 0.05;
 
@@ -77,7 +82,7 @@ function rangesOf(model, channels) {
   });
 }
 
-/** The windup, schedule, stand-off and settle `x` holds over `channels` on `model`. */
+/** The windup, schedule, stand-off, settle and footing (where it has one) `x` holds over `channels` on `model`. */
 export function decode(x, model, channels) {
   const ranges = rangesOf(model, channels), wound = {}, timed = [];
   channels.forEach((channel, i) => {
@@ -85,20 +90,26 @@ export function decode(x, model, channels) {
     wound[channel] = low + (WITHIN + (1 - 2 * WITHIN) * Math.min(1, Math.max(0, fraction))) * (high - low);
     if (Math.abs(level) > QUIET && length > 0) timed.push({ channel, level: Math.max(-1, Math.min(1, level)), from: Math.max(0, from), length });
   });
-  const [reach, settle] = x.slice(4 * channels.length);
-  return { wound, timed, reach, settle: Math.max(0, settle) };
+  const [reach, settle, ...feet] = x.slice(4 * channels.length);
+  return { wound, timed, reach, settle: Math.max(0, settle), ...(feet.length === 4 ? { footing: { left: [feet[0], feet[1]], right: [feet[2], feet[3]] } } : {}) };
 }
 
-/** The swing's settings, whole, that `decoded` holds for `hand`. */
-export function settingsOf({ wound, timed, reach, settle }, hand) {
+/** `footing` for the other hand: the feet swapped, each to the other side. */
+const mirrored = (footing) => ({ left: [footing.right[0], -footing.right[1]], right: [footing.left[0], -footing.left[1]] });
+
+/** The swing's settings, whole, that `decoded` holds for `hand`, its footing mirrored for the other. */
+export function settingsOf({ wound, timed, reach, settle, footing }, hand) {
   return { ...AROUND, reach, settle, wound: { left: hand === "left" ? wound : {}, right: hand === "right" ? wound : {} },
+    ...(footing ? { footing: hand === "left" ? { left: footing, right: mirrored(footing) } : { left: mirrored(footing), right: footing } } : {}),
     timed: { left: hand === "left" ? timed : [], right: hand === "right" ? timed : [] } };
 }
 
 /**
  * Option Mind throwing its swung blow of `blow` alone, so set, `hand` holding its item and the other
  * `held`, at `mark`. A blow its preset has no Option for (the bonk) is thrown by its own Option's
- * defaults (`strike-<blow>`), in the place of the preset's Option of a blow with the same item.
+ * defaults (`strike-<blow>`), in the place of the preset's Option of a blow with the same item;
+ * such a blow has no profile, and the Mind's own walks (`walk`) are left out: priced by its prior
+ * alone, it is worth so little that a walk outbids it as it winds, and the swing is let go.
  */
 export function swinger(decoded, hand, blow, mark, held = "buckler") {
   const preset = MINDS.option.config, other = hand === "left" ? "right" : "left", tuning = settingsOf(decoded, hand);
@@ -107,7 +118,7 @@ export function swinger(decoded, hand, blow, mark, held = "buckler") {
   const options = preset.options.map((option) => !option.kind.startsWith("strike-") ? option
     : option.skill.kind === blow ? { ...option, skill: { ...option.skill, tuning }, regions: [{ kind: "mark", mark }] }
     : own && SWINGS[option.skill.kind]?.item === SWINGS[blow].item ? { ...own, skill: { ...own.skill, tuning }, regions: [{ kind: "mark", mark }] } : option);
-  return { mind: { ...preset, options }, skill: blow,
+  return { mind: { ...preset, options: own ? options.filter((option) => option.kind !== "walk") : options }, skill: blow,
     held: { [hand]: SWINGS[blow].item, [other]: held } };
 }
 
@@ -157,7 +168,7 @@ if (!isMainThread && workerData?.swing) {
     across: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
     sigma: { type: "string" }, lambda: { type: "string" }, near: { type: "boolean" }, verify: { type: "string" }, settings: { type: "string" },
     rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, targets: { type: "string" },
-    protocol: { type: "string" }, other: { type: "string" }, feasible: { type: "boolean" } } });
+    protocol: { type: "string" }, other: { type: "string" }, feasible: { type: "boolean" }, footing: { type: "string" } } });
   const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
   if (values.settings) {
     const found = JSON.parse(readFileSync(values.settings, "utf8"));
@@ -183,14 +194,17 @@ if (!isMainThread && workerData?.swing) {
   if (!Object.hasOwn(SWINGS, cell.blow ?? "")) throw new Error(`--blow names a swing: one of ${Object.keys(SWINGS).join(", ")}`);
   const ranges = rangesOf(cell.model, swingChannels(cell.hand)), lo = [], hi = [];
   for (const _ of ranges) { lo.push(0, -1, FROM[0], LENGTH[0]); hi.push(1, 1, FROM[1], LENGTH[1]); }
-  for (const [low, high] of [REACH, SETTLE]) { lo.push(low); hi.push(high); }
+  for (const [low, high] of [REACH, SETTLE, ...(values.footing ? [BEHIND, RIGHT, BEHIND, RIGHT] : [])]) { lo.push(low); hi.push(high); }
   const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, v)));
   let start;
   if (values.from) {
     // By channel name, so a search over other channels seeds this one: a channel it lacks starts unpushed at mid-range.
     const found = JSON.parse(readFileSync(values.from, "utf8")), was = found.channels, x = [];
     swingChannels(cell.hand).forEach((channel) => { const k = was.indexOf(channel); x.push(...(k < 0 ? [0.5, 0, 0, 0] : found.best.x.slice(4 * k, 4 * k + 4))); });
-    x.push(...found.best.x.slice(4 * was.length));
+    x.push(...found.best.x.slice(4 * was.length, 4 * was.length + 2));
+    // A footing its seed lacks starts where `--footing` puts it: behind,right,behind,right, the left foot's then the right's.
+    x.push(...found.best.x.slice(4 * was.length + 2, 4 * was.length + 6));
+    if (x.length < lo.length) x.push(...values.footing.split(",").map(Number));
     start = lo.map((l, i) => (x[i] - l) / (hi[i] - l));
   }
   const nw = Number(values.workers ?? Math.max(1, availableParallelism() - 4)), generations = Number(values.generations ?? 60);
