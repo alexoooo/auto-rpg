@@ -61,6 +61,12 @@ export const validCarriage = (carriage: Carriage): boolean =>
 const CARRIAGE_STILL = 0.1;
 /** Requested horizontal plan speed during an idle placement's weight shift, m/s. */
 const IDLE_SHIFT_SPEED = 0.1;
+/**
+ * How long a body stands still on both feet before it moves them to its neutral footing, s. Set so
+ * that a body settling after a rise or a catch step can come to rest first, rather than being set
+ * moving again by a shuffle it does not need yet.
+ */
+const IDLE_SETTLE = 0.6;
 /** Mean stationary foot speed, m/s, keeping the leg reaction quiet while the other sole bears. */
 const IDLE_FOOT_SPEED = 0.5;
 
@@ -395,7 +401,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
   };
 
   /**
-   * Idle settling: after 0.2 s still on both feet, the reference spacing turned to the pelvis's
+   * Idle settling: after `IDLE_SETTLE` still on both feet, the reference spacing turned to the pelvis's
    * facing about the sole that stays (the one nearer the centre of mass of those turned within
    * 0.2 rad, else the soles' midpoint); off by a quarter sole length or 0.2 rad, the feet step
    * there, each step aimed within 0.05 rad.
@@ -437,8 +443,8 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
       return boundedPlacement();
     }
     if (state.rising || !still(view) || names.some((end) => !s.ends[end]!.touching) || s.own) { idle.seconds = 0; return null; }
-    idle.seconds = Math.min(0.2, idle.seconds + dt);
-    if (idle.seconds + dt / 2 < 0.2) return null;
+    idle.seconds = Math.min(IDLE_SETTLE, idle.seconds + dt);
+    if (idle.seconds + dt / 2 < IDLE_SETTLE) return null;
     // The footing is read about a planted sole, which sway never moves: the foot nearer the centre
     // of mass, turned within the tolerance, stays, and the other steps to the reference spacing
     // from it. Where neither is turned within it, about the soles' midpoint, and both step.
