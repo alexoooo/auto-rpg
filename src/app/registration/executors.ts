@@ -1,8 +1,7 @@
 import { STOMP_PART } from "../../skills/strikes/stomp-part.ts";
 import { PUNCH_PART } from "../../skills/strikes/punch-part.ts";
 import { SWORD_THRUST_PART } from "../../skills/strikes/held-blow.ts";
-import { CLUB_BLOW_PART, CUT_PART } from "../../skills/strikes/swing-part.ts";
-import { BONK_PART } from "../../skills/strikes/bonk-part.ts";
+import { BONK_PART, CLUB_BLOW_PART, CUT_PART } from "../../skills/strikes/swing-part.ts";
 
 /**
  * **Every executor, by its kind** (`ExecutorPart`), in the order a picker offers them: what a

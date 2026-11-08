@@ -460,7 +460,7 @@ The profile model supplies these components:
   The editor retains inactive entries in the configuration when the body or equipment changes.
   A config names a limb's role (`limbsOf`).
 - **The strikes**: each blow is its own kind of option naming its skill (`StrikeKindPart`,
-  `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-cut`,
+  `strike-<skill>`: `strike-straight-punch`, `strike-club-blow`, `strike-bonk`, `strike-cut`,
   `strike-sword-thrust`, `strike-stomp`, `strike-jaw-bite`), a strike (`strike`) of the action it asks of its
   executor on its body (`strikeAction`), one Option a limb (`limbAction`): a punch on empty hands
   is two Options, each priced by its limb's profile. An action is named as its skill; where a mind
@@ -615,10 +615,10 @@ orientation and stillness through a continuous return hold after ownership ends.
 unobstructed wrist chatter separately from contact and leaves course, clearance and physical
 stroke-end coverage explicitly incomplete.
 
-The `bonk-reference` protocol binds a head target and reads the physical stroke against a
-declared rigid-arm course. The [course and reader contract](reference/bonk.md) covers chamber,
-tracking, contact collider, geometric self-clearance, guard hold and resource handover; each
-case keeps its coverage beside its gates.
+The `bonk` protocol reads a club's blow at the head against its own tests (`Bar.overhead`,
+`Overhead` in `src/evaluation/strike/read.ts`): the chamber over the head, one descending stroke,
+the swell's collider first on the head, the arm straight, its energy, and the return to guard. Its
+target stands with its arms lowered (`drill-open`).
 
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)

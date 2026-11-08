@@ -17,7 +17,6 @@ import type { BuiltBody } from "../core/bodies/build/build-body.ts";
 import type { AttributeOverrides } from "../core/bodies/character-attributes.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
 import type { Minded } from "../minds/seat/create-mind.ts";
-import type { BonkFixtureConfig } from "./strike/bonk-fixture.ts";
 import type { ArenaSeat as Side } from "../game/arena/seat.ts";
 
 /** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
@@ -80,7 +79,7 @@ export const validBoutTiming = (value: unknown): value is BoutTiming => {
  * `worlds.ts`). A bout, a lone body and a Crypt run are bit-equal between JavaScript engines; a
  * fall and techniques in turn are not (`fall.ts`, `technique.ts`).
  */
-export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[]; readonly timing?: BoutTiming; readonly fixture?: BonkFixtureConfig }
+export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[]; readonly timing?: BoutTiming }
   | { readonly kind: "fall"; readonly engine: EngineName; readonly fall: FallCase }
   | { readonly kind: "crypt"; readonly engine: EngineName; readonly crypt: CryptCase }
   | { readonly kind: "lone"; readonly engine: EngineName; readonly lone: LoneCase }

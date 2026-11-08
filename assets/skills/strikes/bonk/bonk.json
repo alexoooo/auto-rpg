@@ -1,15 +1,102 @@
 {
   "workshop-fighter+toes": {
-    "made": "Declared descending arc and continuous tracker starting record; short until the bonk confirmation gates pass",
+    "made": "The strongest well-formed bonk searched on the Strike drill's bonk rung (research/skills/strikes/swing/swing-drill.mjs --blow bonk --protocol bonk --other empty --feasible --near: windup, schedule and stand-off, walked in from 1.2 m at 120 Hz)",
     "settings": {
-      "reach": 0.48554877761411536,
+      "pace": 1.021,
       "band": 0.15,
       "aside": 0.15,
-      "pace": 1.021,
-      "response": 0.12,
-      "techniques": {
-        "left": { "posture": {}, "windup": 1.3089969389957472, "follow": 0.3490658503988659, "prepareSeconds": 0.6, "strokeSeconds": 0.4, "returnSeconds": 0.7 },
-        "right": { "posture": {}, "windup": 1.3089969389957472, "follow": 0.3490658503988659, "prepareSeconds": 0.6, "strokeSeconds": 0.4, "returnSeconds": 0.7 }
+      "follow": 0.02,
+      "longest": 0.5,
+      "recover": 0.376,
+      "reach": 0.7424035118340224,
+      "settle": 0.0707696137824135,
+      "wound": {
+        "left": {},
+        "right": {
+          "thoracic rotation right": 0.10444628791971128,
+          "lumbar rotation right": 0.054122739787701976,
+          "thoracic flexion": -0.01124445865570986,
+          "lumbar flexion": -0.11062366755302572,
+          "thoracic lateral flexion right": 0.0023921156582757397,
+          "shoulder.right flexion": 1.8668893834952283,
+          "shoulder.right abduction": -0.10267902015588992,
+          "shoulder.right internal rotation": -0.8029310681852687,
+          "elbow.right flexion": 0.9449517052238732,
+          "wrist.right flexion": -0.7547635205967189,
+          "wrist.right radial deviation": -0.10847717830054582,
+          "wrist.right pronation": -0.39741826029856697
+        }
+      },
+      "timed": {
+        "left": [],
+        "right": [
+          {
+            "channel": "thoracic rotation right",
+            "level": -0.4594759281456243,
+            "from": 0.06269617262253147,
+            "length": 0.06988510499328404
+          },
+          {
+            "channel": "lumbar rotation right",
+            "level": -0.5709561434154247,
+            "from": 0.08665476901793047,
+            "length": 0.02554352533535122
+          },
+          {
+            "channel": "thoracic flexion",
+            "level": 1,
+            "from": 0.1417244189897565,
+            "length": 0.3429187486634369
+          },
+          {
+            "channel": "lumbar flexion",
+            "level": 0.8754189848066036,
+            "from": 0.06470735640594165,
+            "length": 0.07643986112770473
+          },
+          {
+            "channel": "thoracic lateral flexion right",
+            "level": 0.8553319008457936,
+            "from": 0.07237361701857106,
+            "length": 0.055511413198989216
+          },
+          {
+            "channel": "shoulder.right flexion",
+            "level": 0.1731862568823166,
+            "from": 0.025060831669334045,
+            "length": 0.3603938452323492
+          },
+          {
+            "channel": "shoulder.right abduction",
+            "level": -0.28559513083534327,
+            "from": 0.08430528571224756,
+            "length": 0.05079622363816038
+          },
+          {
+            "channel": "shoulder.right internal rotation",
+            "level": -0.5050342176838932,
+            "from": 0,
+            "length": 0.06504639857458018
+          },
+          {
+            "channel": "elbow.right flexion",
+            "level": -0.7729489955459019,
+            "from": 0.07854923302459318,
+            "length": 0.3605077969592683
+          },
+          {
+            "channel": "wrist.right radial deviation",
+            "level": -0.9354378939199725,
+            "from": 0.03956756316215884,
+            "length": 0.1029004324058313
+          },
+          {
+            "channel": "wrist.right pronation",
+            "level": -0.25462426706645,
+            "from": 0.08121922377233888,
+            "length": 0.13801869768396532
+          }
+        ]
       }
     }
   }

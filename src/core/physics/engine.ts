@@ -49,20 +49,6 @@ export interface PhysicsOptions {
   readonly gravity: boolean;
 }
 
-/** Trusted world placement: origin pose and centre-of-mass velocities, independent of muscle control. */
-type BodyPlacement = { readonly position: Vec3; readonly rotation: readonly [number, number, number, number]; readonly velocity: Vec3; readonly spin: Vec3 };
-
-/** A collider pair responds only when each membership intersects the other's filter. Fixed geometry uses all bits. */
-type CollisionGroups = { readonly membership: number; readonly filter: number };
-
-/** Group masks are unsigned sixteen-bit integers. */
-export const validCollisionGroups = (groups: CollisionGroups): boolean =>
-  [groups.membership, groups.filter].every(value => Number.isInteger(value) && value >= 0 && value <= 0xffff);
-
-/** Both colliders admit the other side's membership. */
-export const collisionGroupsAdmit = (first: CollisionGroups, second: CollisionGroups): boolean =>
-  (first.membership & second.filter) !== 0 && (second.membership & first.filter) !== 0;
-
 /** Mass properties as the spec gives them: kg, the centre in the body's frame, principal moments (kg m2) and their axes. */
 export interface MassProperties {
   readonly mass: number;
@@ -273,10 +259,6 @@ export interface PhysicsWorld {
    */
   addBody(pose: Pose, shapes: readonly ColliderShape[], mass: MassProperties,
     options?: { readonly ccd?: boolean; readonly materials?: readonly ContactMaterial[] }): SegmentBody;
-  /** Place a trusted fixture body, update its readable pose immediately, and preserve joints, geometry and mass. */
-  placeBody(body: SegmentBody, placement: BodyPlacement): void;
-  /** Set contact and continuous-sweep groups without changing sensed geometry. Saved with the physics. */
-  setCollisionGroups(body: SegmentBody, groups: CollisionGroups): void;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): EngineJoint;
   /** Register a detached grip slot. Slots persist across release and snapshot restoration. */
   addGrip(parent: SegmentBody, child: SegmentBody, frames: Omit<JointFrames, "limits">): EngineGrip;

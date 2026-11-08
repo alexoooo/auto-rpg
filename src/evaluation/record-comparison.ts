@@ -88,14 +88,11 @@ function physicalContext(unit: Evidence, line: RecordLine): string {
       return kept === undefined ? [] : [[name, kept]];
     }));
   };
-  const strike = strikeInput(unit.subject), world = line.world;
-  // A trusted bonk fixture binds the selected left participant's skill, like its mind config.
-  const boundFixture = strike && line.subjects[0] === unit.subject.id && world.kind === "bout" && world.fixture?.kind === "bonk" && world.fixture.skill === strike.skill
-    ? { ...world, fixture: Object.fromEntries(Object.entries(world.fixture).filter(([key]) => key !== "skill")) } : world;
+  const world = line.world;
   // A protocol may bind a participant's aim before construction; its recorded seat still owns that mind.
   const seats = new Set(line.subjects.flatMap((id, seat) => id === unit.subject.id || id === unit.opponent?.id ? [seat === 0 ? "left" : "right"] : []));
-  const physical = world.kind === "bout" && world.recipe.minds ? { ...boundFixture, recipe: { ...world.recipe,
-    minds: Object.fromEntries(Object.entries(world.recipe.minds).filter(([side]) => !seats.has(side))) } } : boundFixture;
+  const physical = world.kind === "bout" && world.recipe.minds ? { ...world, recipe: { ...world.recipe,
+    minds: Object.fromEntries(Object.entries(world.recipe.minds).filter(([side]) => !seats.has(side))) } } : world;
   return recordingKey(withoutInputs(physical as unknown as Json));
 }
 

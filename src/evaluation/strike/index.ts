@@ -23,7 +23,7 @@ import { type GameContext } from "../../game/arena/context.ts";
 
 /** Where a trial was thrown: the still rung's offset and gap (and its target, and how it moves, where it names them), or a fight's foe and moment. */
 const whereOf = (condition: StrikeCondition) => "foe" in condition ? `${condition.foe}, moment ${condition.moment}`
-  : `${condition.target ? `${condition.target}, ` : ""}${condition.entry?.crossing ? `crossing ${condition.entry.crossing} at the request, ` : ""}${condition.direction ? `moving ${condition.direction} at ${condition.speed} m/s, ` : ""}${condition.approach ? `moving ${condition.approach.way} degrees off the line at ${condition.approach.speed} m/s for ${condition.approach.seconds} s, ` : ""}across ${condition.across} m, gap ${condition.gap} m${condition.start ? `, ${condition.start}` : ""}`;
+  : `${condition.target ? `${condition.target}, ` : ""}${condition.direction ? `moving ${condition.direction} at ${condition.speed} m/s, ` : ""}${condition.approach ? `moving ${condition.approach.way} degrees off the line at ${condition.approach.speed} m/s for ${condition.approach.seconds} s, ` : ""}across ${condition.across} m, gap ${condition.gap} m${condition.start ? `, ${condition.start}` : ""}`;
 
 /** The strike drilled when none is named: Option Mind's straight punch. */
 const DRILLED = ["option/straight-punch"];
@@ -81,8 +81,6 @@ function whyFailed(reading: StrikeReading): string | undefined {
 
 /** Contact outcomes and diagnostic failures; an observation with incomplete motion coverage cannot pass. */
 const strikeOutcome = (reading: StrikeReading) => {
-  if (reading.bonk) return { label: reading.bonk.passed ? ({ contact: "bonk", miss: "unobstructed miss", cancel: "cancelled" }[reading.bonk.fixture?.requested.mode ?? "contact"])
-    : reading.bonk.failures[0] ?? "unverified", passed: reading.bonk.passed, why: reading.bonk.failures.join("; ") };
   if (reading.motion?.chatter) return { label: "uncontrolled", passed: false, why: "unobstructed stroke: a wrist channel reverses beyond the monotonic-phase allowance" };
   if (reading.motion && reading.began !== null) return { label: "unverified", passed: false, why: "course, clearance and physical stroke-end gates are not covered" };
   const why = whyFailed(reading);
@@ -161,17 +159,6 @@ export function createStrikeIndex(context: GameContext) {
       { name: "taken", unit: "hit points the striker lost in its contacts with the target, the mean", kind: "mean", better: "lower", of: (r) => r.taken ?? null },
       { name: "unobstructed wrist chatter", unit: "share of observed swings", kind: "rate", better: "lower", of: (r) => r.motion?.chatter ?? null },
       { name: "settled at ownership release", unit: "share of observed releases", kind: "rate", better: "higher", of: (r) => r.motion?.guard.settledAtRelease ?? null },
-      { name: "bonk preparation", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.preparation ?? null },
-      { name: "bonk stroke", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.stroke ?? null },
-      { name: "bonk control", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.control ?? null },
-      { name: "bonk intended contact", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.contact ?? null },
-      { name: "bonk cancellation", unit: "share of requested precommit cancellations", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.cancellation ?? null },
-      { name: "bonk recovery", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.recovery ?? null },
-      { name: "bonk safety", unit: "share of observed bonks", kind: "rate", better: "higher", of: (r) => r.bonk?.gates.safety ?? null },
-      { name: "bonk intended-hit share", unit: "share of requested contact attacks", kind: "rate", better: "higher", of: (r) => r.bonk
-        && (r.bonk.fixture === undefined || r.bonk.fixture.requested.mode === "contact") ? (r.bonk.effectiveness === undefined ? r.bonk.contact : r.bonk.effectiveness.contact) !== null : null },
-      { name: "bonk energy", unit: "J over all requested contact attacks, misses zero, the median", kind: "median", better: "higher", of: (r) => r.bonk
-        && (r.bonk.fixture === undefined || r.bonk.fixture.requested.mode === "contact") ? (r.bonk.effectiveness === undefined ? r.bonk.contact : r.bonk.effectiveness.contact)?.energy ?? 0 : null },
     ],
     /** Each subject's trials as a table, in the conditions' order. */
     summary({ subjects, cases }) {
@@ -191,17 +178,6 @@ export function createStrikeIndex(context: GameContext) {
             "|---|---|---|---|---|---|---|",
             ...row.motion!.intervals.map(interval => `| ${interval.label} | ${f(interval.from)} | ${f(interval.to)} | ${f(interval.clubTravel * 180 / Math.PI)} | ${f(interval.chestTravel * 180 / Math.PI)} | ${f(Math.max(...interval.wrist.map(channel => channel.leastReversal)) * 180 / Math.PI)} | ${interval.contactSteps} |`),
             "", `Settled at ownership release: ${row.motion!.guard.settledAtRelease ?? "unreached"}; verified guard hold at ${f(row.motion!.guard.recovered)} s.`, "",
-          ]),
-          ...rows.filter(row => row.subject === subject.id && row.bonk).flatMap(row => [
-            `${row.mark}: bonk gates: ${row.bonk!.failures.join("; ") || "met"}.`,
-            `Chamber hold: ${f(row.bonk!.chamberHold)} / ${row.bonk!.limits.chamberHold} s; admission to commitment: ${f(row.bonk!.admitted !== null && row.bonk!.committed !== null ? row.bonk!.committed - row.bonk!.admitted : null)} / ${row.bonk!.limits.prepare} s.`,
-            `Physical stroke end: ${row.bonk!.physicalEnd?.reason ?? "unreached"} at ${f(row.bonk!.physicalEnd?.at)} s; guard hold at ${f(row.bonk!.recovered)} s.`,
-            ...row.bonk!.fixture ? [`Fixture: ${row.bonk!.fixture.requested.mode}; entry ${row.bonk!.fixture.admission?.normalized.map(value => f(value, 6)).join(", ") ?? "unreached"}; request ${f(row.bonk!.fixture.requestedAt)} s; admission ${f(row.bonk!.fixture.admittedAt)} s; withdrawal ${f(row.bonk!.fixture.cancelledAt)} s; post-switch impulse ${f(row.bonk!.fixture.missImpulses)} N s; ${row.bonk!.fixture.faults.join("; ") || "reached"}.`] : [],
-            `Geometric self-separation: ${f(row.bonk!.safety.least, 6)} / 0 m at ${f(row.bonk!.safety.at)} s, ${row.bonk!.safety.pair?.join(" against ") ?? "unreached"}.`, "",
-            "| Physical phase | From, s | To, s | Hand error, m | Swell error, m | Club error / 15 deg | Chest error / 15 deg | Wrist reversal / 15 deg | Club excess / 15 deg | Collision-exempt steps |",
-            "|---|---|---|---|---|---|---|---|---|---|",
-            ...row.bonk!.phases.map(phase => `| ${phase.phase} | ${f(phase.from)} | ${f(phase.to)} | ${f(phase.handError)} | ${f(phase.swellError)} | ${f(phase.clubError * 180 / Math.PI)} | ${f(phase.chestError * 180 / Math.PI)} | ${f(Math.max(...phase.outsideWristReversals) * 180 / Math.PI)} | ${f(Math.max(0, phase.outsideClubTravel - phase.declaredClubTravel) * 180 / Math.PI)} | ${phase.exemptSteps} |`),
-            "", `Stroke hand and swell limits: ${row.bonk!.limits.handError} and ${row.bonk!.limits.swellError} m; backward limit ${row.bonk!.limits.backward} m. Raw collision motion and each limit are in the case reading.`, "",
           ]),
         ]),
         json: rows.map(({ subject, model, mark, limb, where, outcome }) => ({ subject, model, mark, limb, where, outcome })) as unknown as Json,

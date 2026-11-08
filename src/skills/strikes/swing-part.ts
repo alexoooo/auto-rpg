@@ -2,6 +2,7 @@ import { handConfigurationRefusal } from "../reach/hand.ts";
 import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
 import clubMeta from "../../../assets/skills/strikes/club-blow/club-blow.meta.json" with { type: "json" };
 import cutMeta from "../../../assets/skills/strikes/cut/cut.meta.json" with { type: "json" };
+import bonkMeta from "../../../assets/skills/strikes/bonk/bonk.meta.json" with { type: "json" };
 import { dataOf } from "../../core/data/store.ts";
 import { heldBy, type Held } from "../../core/bodies/items/held.ts";
 import { fitsAll, strikesWithOneOf } from "../../parts/parts.ts";
@@ -18,11 +19,14 @@ import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 /**
  * **The swung blows**, by kind: what each is swung with (`item`, by `HELD`'s name), what it meets
  * the target with as the rules read the contact (`mechanism`: the sword's cut its edge, the club
- * its head, blunt), and the bodies with a record of it.
+ * its head, blunt), the bodies with a record of it, and whether a game offers it (`stage`). The
+ * bonk is the club's blow overhead at the head, the arm straight as it lands; the club blow, its
+ * swing at the trunk.
  */
 export const SWINGS = deepFreeze({
-  "cut": { label: "Cut", item: "sword" as Held, mechanism: "edge" as Mechanism, bodies: cutMeta.bodies },
-  "club-blow": { label: "Club blow", item: "club" as Held, mechanism: "blunt" as Mechanism, bodies: clubMeta.bodies },
+  "cut": { label: "Cut", item: "sword" as Held, mechanism: "edge" as Mechanism, bodies: cutMeta.bodies, stage: "game" as const },
+  "club-blow": { label: "Club blow", item: "club" as Held, mechanism: "blunt" as Mechanism, bodies: clubMeta.bodies, stage: "game" as const },
+  "bonk": { label: "Bonk", item: "club" as Held, mechanism: "blunt" as Mechanism, bodies: bonkMeta.bodies, stage: "experimental" as const },
 });
 type SwingKind = keyof typeof SWINGS;
 
@@ -32,6 +36,8 @@ declare module "../../core/data/store.ts" {
     "cut": SkillRecords<Swing>;
     /** Every body's club blow record. */
     "club-blow": SkillRecords<Swing>;
+    /** Every body's bonk record. */
+    "bonk": SkillRecords<Swing>;
   }
 }
 
@@ -57,7 +63,7 @@ interface Config<K extends SwingKind = SwingKind> {
 function swingPart<K extends SwingKind>(kind: K): ExecutorPart<Config<K>> {
   const swing = SWINGS[kind];
   return {
-    role: "executor", requires: [SUPPORT_REFERENCE], label: swing.label, stage: "game", defaults: { kind } as Config<K>,
+    role: "executor", requires: [SUPPORT_REFERENCE], label: swing.label, stage: swing.stage, defaults: { kind } as Config<K>,
     keys: { kind: true, tuning: true }, tuning: SWING_KEYS,
     fields: [], slots: [],
     fits: fitsAll((spec) => handConfigurationRefusal(spec, (spec.held ?? []).map(held => held.segment), "grip"), strikesWithOneOf("hand.left", "hand.right"), recordFault(swing.label.toLowerCase(), deepFreeze(swing.bodies), validSwing),
@@ -76,10 +82,12 @@ function swingPart<K extends SwingKind>(kind: K): ExecutorPart<Config<K>> {
 
 export const CUT_PART = swingPart("cut");
 export const CLUB_BLOW_PART = swingPart("club-blow");
+export const BONK_PART = swingPart("bonk");
 
 declare module "../config.ts" {
   interface ExecutorConfigs {
     readonly "club-blow": Config<"club-blow">;
     readonly "cut": Config<"cut">;
+    readonly "bonk": Config<"bonk">;
   }
 }

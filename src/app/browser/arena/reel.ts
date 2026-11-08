@@ -15,7 +15,6 @@ import { conditionText, findCase } from "../ratings/analysis.ts";
 import { recordsOf } from "../ratings/records.ts";
 import type { LinkedReel } from "./case-link.ts";
 import { isOrdersEntry } from "../../../game/arena/duel.ts";
-import { validBonkFixture } from "../../../evaluation/strike/bonk-fixture.ts";
 
 /** A bout case's world: the one kind the Arena opens, bit-equal between JavaScript engines. */
 type BoutWorld = Extract<CaseWorld, { readonly kind: "bout" }>;
@@ -44,7 +43,6 @@ function refusal(world: CaseWorld | null): string | null {
   if (world?.kind !== "bout") return "the Arena opens recorded bout cases only";
   if (!isEngineName(world.engine)) return `its engine ${String(world.engine)} is not one this build has`;
   if (world.timing !== undefined && !validBoutTiming(world.timing)) return "its timing is invalid";
-  if (world.fixture !== undefined && !validBonkFixture(world.fixture)) return "its trusted fixture is invalid";
   if (!BODY_MODELS.includes(world.recipe.left) || !BODY_MODELS.includes(world.recipe.right)) return "its recipe names a character this build does not have";
   if (!world.tape.every((entry, k, tape) => isOrdersEntry(entry) && (k === 0 || entry.step >= tape[k - 1]!.step))) return "its tape has invalid or unordered orders";
   return null;

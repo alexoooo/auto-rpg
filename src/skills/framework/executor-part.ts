@@ -21,10 +21,6 @@ export interface ExecutorMaking {
 /** Where `effector` aims at `target` for `action` this step (`Aimed`), or null. */
 type ActionAimer = (view: BodyView, target: TargetRef, action: string, effector: string) => Aimed | null;
 
-/** Declared immutable motion inputs, supplied by the executor kind rather than fitted to execution. */
-export interface MotionReferences {}
-type MotionReference = MotionReferences[keyof MotionReferences];
-
 /** The point `aim` aims at, or null: what an executor that drives at a point reads of it. */
 export const aimedPoint = (aim: ActionAimer): TargetResolver => (view, target, action, effector) => aim(view, target, action, effector)?.at ?? null;
 
@@ -45,8 +41,6 @@ export interface ExecutorPart<C extends PartConfig = PartConfig> extends Part<C>
   strikesWith?(spec: BodySpec, config: C, effector: string): boolean;
   /** How many blows an action of it throws; one unless it says. */
   blows?(config: C): number;
-  /** The configured technique an independent physical reader constructs its course from. */
-  reference?(spec: BodySpec, config: C, effector: string): MotionReference | null;
   make(making: ExecutorMaking, config: C, actions: readonly ActionConfig[]): Executor;
 }
 

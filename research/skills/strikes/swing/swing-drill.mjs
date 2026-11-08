@@ -13,8 +13,14 @@
  * trial with nothing on the mark by how near the face came to its aim. A touch before the swing
  * commits (its windup's) counts as no hit.
  *
- *   node research/skills/strikes/swing/swing-drill.mjs --blow <kind> --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gaps 1,1.4] [--targets workshop-fighter,crypt-skeleton]
- *     [--rates 120,480] [--near] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json>] [--sigma 0.15]
+ * With `--protocol <rung>`, the trials are that rung's instead (`bonk`: at a target with its arms
+ * lowered); with `--other <item>`, the other hand holds that (the buckler where none). With
+ * `--feasible`, a bonk that meets its form (`Overhead`: every test but full strength and back to
+ * guard) scores 9 and its energy's share of the bar, uncapped, so the search climbs the strongest
+ * such blow; any other trial as the bar scores it.
+ *
+ *   node research/skills/strikes/swing/swing-drill.mjs --blow <kind> --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0[,0.2]] [--gaps 1,1.4] [--targets workshop-fighter,crypt-skeleton]
+ *     [--protocol still] [--other buckler] [--feasible] [--rates 120,480] [--near] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json>] [--sigma 0.15]
  *   node research/skills/strikes/swing/swing-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1.2,1.5] [--across 0,0.2] [--marks middle,high] [--models ...] [--targets ...]
  *   node research/skills/strikes/swing/swing-drill.mjs --settings <file.json>   the found swing's settings, whole, for `skill-records.mjs`
  *
@@ -29,7 +35,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../../../../tests/harness/preload-data.mjs";
-import { MINDS } from "../../../../src/app/catalog.ts";
+import { MINDS, partLookup } from "../../../../src/app/catalog.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { barScore as scoreOf } from "../../../../src/evaluation/strike/score.ts";
 import { SWINGS } from "../../../../src/skills/strikes/swing-part.ts";
@@ -89,12 +95,20 @@ export function settingsOf({ wound, timed, reach, settle }, hand) {
     timed: { left: hand === "left" ? timed : [], right: hand === "right" ? timed : [] } };
 }
 
-/** Option Mind throwing its swung blow of `blow` alone, so set, `hand` holding its item and the other the buckler, at `mark`. */
-export function swinger(decoded, hand, blow, mark) {
+/**
+ * Option Mind throwing its swung blow of `blow` alone, so set, `hand` holding its item and the other
+ * `held`, at `mark`. A blow its preset has no Option for (the bonk) is thrown by its own Option's
+ * defaults (`strike-<blow>`), in the place of the preset's Option of a blow with the same item.
+ */
+export function swinger(decoded, hand, blow, mark, held = "buckler") {
   const preset = MINDS.option.config, other = hand === "left" ? "right" : "left", tuning = settingsOf(decoded, hand);
-  const options = preset.options.map((option) => option.kind.startsWith("strike-") && option.skill.kind === blow ? { ...option, skill: { ...option.skill, tuning }, regions: [{ kind: "mark", mark }] } : option);
+  const owned = preset.options.some((option) => option.kind.startsWith("strike-") && option.skill.kind === blow);
+  const own = owned ? null : partLookup.of("option", { kind: `strike-${blow}` }).defaults;
+  const options = preset.options.map((option) => !option.kind.startsWith("strike-") ? option
+    : option.skill.kind === blow ? { ...option, skill: { ...option.skill, tuning }, regions: [{ kind: "mark", mark }] }
+    : own && SWINGS[option.skill.kind]?.item === SWINGS[blow].item ? { ...own, skill: { ...own.skill, tuning }, regions: [{ kind: "mark", mark }] } : option);
   return { mind: { ...preset, options }, skill: blow,
-    held: { [hand]: SWINGS[blow].item, [other]: "buckler" } };
+    held: { [hand]: SWINGS[blow].item, [other]: held } };
 }
 
 /** With `--near`, how much a trial with nothing on the mark gains for its face's coming within `NEAR` m of its aim: up to `NEARING`, still below any hit's. */
@@ -102,23 +116,29 @@ const NEAR = 0.3, NEARING = 0.5;
 
 /** One trial of `decoded` on `cell` from `gap` at `hz`, at a `target` body (the drill's Warrior where none): its score and what it read. */
 async function once(decoded, cell, gap, hz, target) {
-  const reading = await drillTrial(swinger(decoded, cell.hand, cell.blow, cell.mark), { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap,
-    ...(target ? { target } : {}) }, hz);
+  const reading = await drillTrial(swinger(decoded, cell.hand, cell.blow, cell.mark, cell.other), { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap,
+    ...(target ? { target } : {}) }, hz, cell.protocol);
   // A touch before the swing commits is its windup's, not its blow: it scores as a swing that never came.
   if (reading.hit && (reading.committed === null || reading.hit.time < reading.committed)) { reading.hit = null; reading.outcome = "early"; }
-  const score = scoreOf(reading, cell.hand) + (cell.near && !reading.hit && !reading.down && reading.outcome !== "early" ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
+  const form = reading.hit?.overhead, formed = cell.feasible && reading.outcome !== "fell" && form && form.short.every((test) => test === "full strength" || test === "back to guard");
+  const score = (formed ? 9 + form.share : scoreOf(reading, cell.hand)) + (cell.near && !reading.hit && !reading.down && reading.outcome !== "early" ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
   return { score, reading };
 }
 
-/** `x` played on `cell` from each of its gaps at each of its targets and rates: the mean over gaps and targets of each one's worst rate, how many landed at every rate, and the worst trial. */
+/**
+ * `x` played on `cell` from each of its gaps and offsets across (`acrosses`, its `across` alone where
+ * it names none) at each of its targets and rates: the mean over places and targets of each one's
+ * worst rate, how many landed at every rate, and the worst trial.
+ */
 async function trial(x, cell) {
   const decoded = decode(x, cell.model, swingChannels(cell.hand)), each = [];
-  for (const gap of cell.gaps) for (const target of cell.targets ?? [null]) {
+  for (const across of cell.acrosses ?? [cell.across]) for (const gap of cell.gaps) for (const target of cell.targets ?? [null]) {
     let worst = null;
     for (const hz of cell.rates) {
-      const { score, reading } = await once(decoded, cell, gap, hz, target);
-      if (worst === null || score < worst.score) worst = { score, hz, gap, target, outcome: reading.outcome, nearest: reading.nearest,
+      const { score, reading } = await once(decoded, { ...cell, across }, gap, hz, target);
+      if (worst === null || score < worst.score) worst = { score, hz, gap, across, target, outcome: reading.outcome, nearest: reading.nearest,
         hit: reading.hit && { held: reading.hit.held, energy: reading.hit.energy, mechanism: reading.hit.mechanism, faced: reading.hit.faced, on: reading.hit.on,
+          ...(reading.hit.overhead ? { short: reading.hit.overhead.short, bend: reading.hit.bend } : {}),
           time: reading.committed === null ? null : reading.hit.time - reading.committed } };
     }
     each.push(worst);
@@ -136,7 +156,8 @@ if (!isMainThread && workerData?.swing) {
   const { values } = parseArgs({ options: { out: { type: "string" }, blow: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" },
     across: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
     sigma: { type: "string" }, lambda: { type: "string" }, near: { type: "boolean" }, verify: { type: "string" }, settings: { type: "string" },
-    rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, targets: { type: "string" } } });
+    rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, targets: { type: "string" },
+    protocol: { type: "string" }, other: { type: "string" }, feasible: { type: "boolean" } } });
   const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
   if (values.settings) {
     const found = JSON.parse(readFileSync(values.settings, "utf8"));
@@ -150,12 +171,15 @@ if (!isMainThread && workerData?.swing) {
         const { score, reading } = await once(decoded, { ...cell, model, mark, across, near: false }, gap, hz, target), h = reading.hit;
         console.log(JSON.stringify({ hz, model, target, mark, across, gap, outcome: reading.outcome, score: +score.toFixed(3),
           hit: h && { on: h.on, held: h.held && { value: +h.held.value.toFixed(2), bar: h.held.bar }, energy: +h.energy.toFixed(1), mechanism: h.mechanism, faced: h.faced,
+            ...(h.overhead ? { short: h.overhead.short, share: +h.overhead.share.toFixed(2), bend: +(h.bend * 180 / Math.PI).toFixed(0) } : {}),
             after: reading.committed === null ? null : +(h.time - reading.committed).toFixed(3) } }));
       }
     process.exit(0);
   }
-  const cell = { blow: values.blow, model: values.model ?? "workshop-fighter", hand: values.hand ?? "right", mark: values.mark ?? "middle", across: Number(values.across ?? 0),
-    gaps: list(values.gaps, [1.2], Number), near: !!values.near, rates: list(values.rates, [120], Number), ...(values.targets ? { targets: list(values.targets, []) } : {}) };
+  const cell = { blow: values.blow, model: values.model ?? "workshop-fighter", hand: values.hand ?? "right", mark: values.mark ?? "middle", across: Number(values.across?.split(",")[0] ?? 0),
+    ...(values.across?.includes(",") ? { acrosses: list(values.across, [], Number) } : {}),
+    gaps: list(values.gaps, [1.2], Number), near: !!values.near, rates: list(values.rates, [120], Number), ...(values.targets ? { targets: list(values.targets, []) } : {}),
+    protocol: values.protocol ?? "still", other: values.other ?? "buckler", feasible: !!values.feasible };
   if (!Object.hasOwn(SWINGS, cell.blow ?? "")) throw new Error(`--blow names a swing: one of ${Object.keys(SWINGS).join(", ")}`);
   const ranges = rangesOf(cell.model, swingChannels(cell.hand)), lo = [], hi = [];
   for (const _ of ranges) { lo.push(0, -1, FROM[0], LENGTH[0]); hi.push(1, 1, FROM[1], LENGTH[1]); }

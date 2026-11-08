@@ -2,7 +2,7 @@ import RAPIER from "@dimforge/rapier3d-simd-compat";
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../constants.ts";
 import { sourced, type Vec3 } from "../quantity.ts";
-import { collisionGroupsAdmit, validCollisionGroups, type ColliderShape, type Contact, type ContactMaterial, type ContactManifold, type ContactPair, type ContactSink, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
+import { type ColliderShape, type Contact, type ContactMaterial, type ContactManifold, type ContactPair, type ContactSink, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type Pose, type SegmentBody } from "./engine.ts";
 import { sin, cos, hypot } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";
@@ -587,26 +587,6 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
 
   const physics: RapierPhysics = {
     engine: profileName(coordinateAngularLimits, pointContactFriction), revision, rapier: R, get raw() { setMotors(); return raw; }, gravity: g,
-    placeBody(segment, placement) {
-      const body = own(segment), { position, rotation, velocity, spin } = placement;
-      if (![...position, ...rotation, ...velocity, ...spin].every(Number.isFinite) || rotation.every(value => value === 0)) throw new Error("a body placement needs a finite pose and velocities");
-      const turn = new Quaternion(...rotation).normalize();
-      body.rigid.setTranslation(xyz(position), true);
-      body.rigid.setRotation(xyzw(turn), true);
-      body.rigid.setLinvel(xyz(velocity), true);
-      body.rigid.setAngvel(xyz(spin), true);
-      raw.propagateModifiedBodyPositionsToColliders();
-      const at = body.rigid.translation(), q = body.rigid.rotation();
-      body.pose.position.set(at.x, at.y, at.z); body.pose.rotation.set(q.x, q.y, q.z, q.w);
-      moment += 1; contactsFresh = false;
-    },
-    setCollisionGroups(segment, groups) {
-      const body = own(segment);
-      if (!validCollisionGroups(groups)) throw new Error("collision groups need sixteen-bit masks");
-      const encoded = ((groups.membership << 16) | groups.filter) >>> 0;
-      for (const handle of colliderHandles.get(body)!) raw.getCollider(handle).setCollisionGroups(encoded);
-      contactsFresh = false;
-    },
     save() {
       setMotors();
       // Rapier's snapshot follows the header, body poses and pending-force resets, and each link's handle and release exclusion, grips then
@@ -769,14 +749,11 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           turn.multiplyToRef(rotation, rotation);
           const reach = boundOf(desc.shape);
           let clear = true;
-          const ownMask = raw.getCollider(handle).collisionGroups(), mine = { membership: ownMask >>> 16, filter: ownMask & 0xffff }, theirGroups = { membership: 0, filter: 0 };
           // The new shape as the engine tests it, made at the first test and let go after the last: made, a hull is its whole hull.
           let tested = null as { shape: ReturnType<RAPIER.Shape["intoRaw"]>; at: ReturnType<typeof RAPIER.VectorOps.intoRaw>; turn: ReturnType<typeof RAPIER.RotationOps.intoRaw> } | null;
           try {
             raw.colliders.forEach(other => {
-              const mask = other.collisionGroups(); theirGroups.membership = mask >>> 16; theirGroups.filter = mask & 0xffff;
               if (!clear || bodyOf(other.handle) === body || other.isSensor()
-                || !collisionGroupsAdmit(mine, theirGroups)
                 || hooks.filterContactPair(handle, other.handle, rigid.handle, other.parent()?.handle ?? 0) === null) return;
               // Shapes whose bounding spheres stand apart cannot meet, so only those near are tested.
               const theirs = boundOf(other.shape);

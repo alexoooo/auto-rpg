@@ -28,7 +28,7 @@ graded terms: nearness when short, margin when met.
 | Descent | The swell's path at contact descends at least 45 degrees below horizontal. |
 | Swell on the head | The first contact on the target is the swell's collider on the head. |
 | Arm straight | The striking elbow is within 30 degrees of straight at contact, as the drill reads a fist's (`Bar.bend`). |
-| Full strength | The contact's energy is at least 90% of the strongest blow step 2 finds that meets every other test, and at least 75.5 J, the mean of an untrained adult's one-handed blow with a crutch (Frantz, Sprenger & Jackowski 2026; the held-blow bar, `Bar.held.energy`, 64.8 J, is that less one SD). On another body both scale by `pairShare`. |
+| Full strength | The contact's energy is at least 86.3 J (`Bar.overhead.energy`): 90% of the strongest blow step 2 found that meets every other test (95.9 J), and at least 75.5 J, the mean of an untrained adult's one-handed blow with a crutch (Frantz, Sprenger & Jackowski 2026; the held-blow bar, `Bar.held.energy`, 64.8 J, is that less one SD). On another body both scale by `pairShare`. |
 | Back to guard | The hand and club return to guard and settle, as the drill's existing return reading measures. |
 | Upright | No fall through the trial and its settle. |
 
@@ -39,19 +39,15 @@ step 2 sets it; a candidate short of them goes back to development, the tests st
 
 ## Where it starts
 
-- **The bonk executor** (`src/skills/strikes/bonk.ts`, `bonk-course.ts`, `bonk-part.ts`; the
-  [course reference](../reference/bonk.md)) tracks a rigid-arm course with the elbow and wrist
-  fixed, on the path servo. Its strongest swell-on-head contact is under 5 J, and by estimate its
-  course carries the swell at about 6 m/s, near 20 J. It is a seed only if step 3 finds it
-  succeeds on some cases; otherwise it is deleted with its reference.
-- **The bonk reader** (`src/evaluation/strike/bonk-read.ts`, `bonk-fixture.ts`, the
-  `bonk-reference` protocol) judges about thirty pass/fail limits and ranks nothing. Its geometry
-  (the swell's collider, contact identity, clearance) is reused by step 1's reader; its gate
-  structure and fixtures for later cases are deleted unless step 5 uses them.
-- **The club swing** (`src/skills/strikes/swing.ts`, searched by
-  `research/skills/strikes/swing/swing-drill.mjs`) is a windup posture with timed pushes. It
-  struck the trunk at 54.6 J while flailing, so the body can reach the bar; its form is the
-  problem.
+- **The reader** reads a club's blunt blow at the high mark as a bonk against the tests above
+  (`Bar.overhead`, `Overhead`, `src/evaluation/strike/read.ts`), graded by `overheadScore`
+  (`score.ts`); the `bonk` protocol plays the still rung's places on the Warrior's right hand at
+  the arms-lowered target (`drill-open`).
+- **The bonk** is a swing (`swingExecutor`, `SWINGS.bonk` in `src/skills/strikes/swing-part.ts`): a
+  chamber posture and timed pushes, its record `assets/skills/strikes/bonk/bonk.json`, thrown by
+  its own experimental Option (`strike-bonk`, aimed at the head's centre). It is searched by
+  `research/skills/strikes/swing/swing-drill.mjs --blow bonk --protocol bonk --other empty`;
+  `--feasible` ranks a blow that meets the form by its energy alone.
 - **The straight punch** (`src/skills/strikes/straight-punch.ts`, `learned-punch.ts`) is the
   worked example of every step below: a graded bar, a searched push schedule, a learned actor
   correcting it.

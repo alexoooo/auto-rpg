@@ -27,8 +27,6 @@ import { placeInWindow } from "../../skills/intent/action-window.ts";
 import type { Reader } from "../evaluation.ts";
 import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 import { swingMotion, type SwingMotion } from "./motion.ts";
-import { readBonk, type BonkReading } from "./bonk-read.ts";
-import type { BonkTechnique } from "../../skills/strikes/bonk-course.ts";
 import { swellShapes } from "./swell.ts";
 
 export type Mark = "high" | "middle" | "legs";
@@ -99,9 +97,11 @@ type Bar = {
  * the club blunt, the sword's cut with its edge, its thrust with its point). Its time is reported, not
  * tested: the fist's `within` is engineering.
  *
- * A club's blow at the head, a bonk, is judged by `overhead` instead (`Overhead`): its energy at
- * least the crutch blow's mean, a full blow rather than less one SD (Frantz, Sprenger & Jackowski
- * 2026, 75.5 J; the same [section 2](../../../docs/reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling));
+ * A club's blow at the head, a bonk, is judged by `overhead` instead (`Overhead`): its energy, a
+ * full-strength blow's, 86.3 J, set at 90% of the strongest bonk meeting the form below that a
+ * search of the Warrior found (95.9 J), above the crutch blow's mean, a full blow rather than less
+ * one SD (Frantz, Sprenger & Jackowski 2026, 75.5 J; the same
+ * [section 2](../../../docs/reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling));
  * and its form: in the chamber the club hand over the crown and the swell 0.25 m over the point it
  * strikes; one stroke sweeping 45 to 150 degrees with no reversal past 10; coming in at least 45
  * degrees below horizontal; the elbow within `bend` of straight. The form's numbers are set so the
@@ -117,7 +117,7 @@ export const BAR: Bar = Object.freeze({
   run: .1, cone: 20, within: .5, along: 45, bend: 30, lean: 30,
   held: Object.freeze({ energy: 64.8, point: 4.6, edge: 18.5 }),
   foot: 3,
-  overhead: Object.freeze({ energy: 75.5, hand: 0, rise: .25, sweep: Object.freeze([45, 150] as const), reversal: 10, descent: 45 }),
+  overhead: Object.freeze({ energy: 86.3, hand: 0, rise: .25, sweep: Object.freeze([45, 150] as const), reversal: 10, descent: 45 }),
 });
 
 /** m M / (m + M), and m where M is `Infinity`: the mass a contact's energy goes with (`impactEnergy`). */
@@ -248,7 +248,6 @@ type StrikeOutcome = "landed" | "weak" | "guarded" | "elsewhere" | "missed" | "a
 /** What a trial came to. */
 export type StrikeReading = {
   readonly motion?: SwingMotion;
-  readonly bonk?: BonkReading;
   readonly outcome: StrikeOutcome;
   /** The drill's last phase before its action, and the reason its readiness last gave. */
   readonly phase: DrillPhase;
@@ -329,7 +328,6 @@ const BACK = Object.freeze({ within: .05, still: .3 });
 interface Ending {
   readonly seconds: number; readonly settle: number; readonly recover: number; readonly settled: number; readonly patience: number;
   readonly motion?: true;
-  readonly bonk?: BonkTechnique;
   /** How the rung lays its target down (a shove at a segment, m/s of its mass): it lies once its middle trunk's centre is under `LIES` of its height as built. */
   readonly laid?: { readonly segment: string; readonly speed: number };
 }
@@ -344,7 +342,7 @@ const LIES = 1 / 3;
  * fighting (`DrillPhase`) are the fight's, not the drill's. With no `bar`, a hand's blow is judged
  * by its body's (`barOf`).
  */
-export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "world" | "duel" | "catalog" | "fixture">, limbAsked: { readonly mark: Mark } & Limb,
+export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "duel" | "catalog">, limbAsked: { readonly mark: Mark } & Limb,
   ending: Ending, given?: Bar): Reader<StrikeReading> {
   const left = duel.duelists.left, skills = left.minded.skills;
   if (!skills) throw new Error("the striker runs no skills");
@@ -355,9 +353,8 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
   const limb = left.built.segments.get(effector);
   if (!limb) throw new Error(`the striker has no ${effector}`);
   const motion = ending.motion ? swingMotion(left.built, effector) : null;
-  /** The skill requested by trusted composition or its drill Commander. */
-  const drilled = fixture?.config.skill ?? (duel.recipe.commanders?.left as { readonly skill?: string } | undefined)?.skill;
-  const bonk = ending.bonk ? readBonk({ world, duel, catalog, fixture }, effector, drilled, ending.bonk, ending.seconds) : null;
+  /** The skill its drill Commander asks. */
+  const drilled = (duel.recipe.commanders?.left as { readonly skill?: string } | undefined)?.skill;
   const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = given ?? barOf(spec);
   /** Whether the asked hand holds an item, its blow judged by the held item's bar (`Bar.held`) and its strike point the item's. */
   const armed = hand !== null && !holdsNothing(spec, effector);
@@ -548,7 +545,6 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
       }
       if (id !== null && times.ended === null && !skills.report.actions.some((one) => one.id === id)) times.ended = world.time;
       motion?.take(world.time, action && action.id === id ? action.phase : null);
-      bonk?.afterStep(action && action.id === id ? action : null);
       const aimed = action && action.id === id ? action.aim : null;
       const tip = !aimed ? null : hand === null || armed ? pointOfToRef(limb, aim, point) : view?.pointMotion[effector]?.knuckles?.position ?? null;
       if (aimed && tip) {
@@ -596,7 +592,6 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
       down ||= left.body.down;
     },
     get ended() {
-      if (bonk) return bonk.ended;
       const watched = letAt ?? watching;
       return world.time >= ending.seconds || times.ended !== null && world.time >= times.ended + ending.settle
         && (again !== null || watched !== null && world.time >= watched + ending.recover)
@@ -653,7 +648,7 @@ export function readStrike({ world, duel, catalog, fixture }: Pick<BuiltBout, "w
       return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, inWindow: foe?.window ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, contacts: touches.map(({ contact }) => contact), taken,
         ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }),
         recovers: watching !== null && again !== null ? again - watching : null, nearest, exit, down, seconds: world.time,
-        ...(motion ? { motion: motion.reading() } : {}), ...(bonk ? { bonk: bonk.reading() } : {}) };
+        ...(motion ? { motion: motion.reading() } : {}) };
     },
   };
 }

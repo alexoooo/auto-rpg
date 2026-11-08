@@ -148,12 +148,12 @@ function spreadOf(text, offsets, targets) {
 }
 
 /**
- * One drill trial of `subject` on `condition` at `hz`: its reading, and the nearest its fist came to
+ * One drill trial of `subject` on `condition` at `hz`, on the drill's `protocol` rung: its reading, and the nearest its fist came to
  * the punch's target through the drive, m; a held blow's, the reader's nearest of its face to its aim;
  * and when its action first committed (`committed`, s on the bout's clock; null where it never did).
  */
-export async function drillTrial(subject, condition, hz) {
-  const cases = STRIKE_CASES.still, world = cases.world([subject], condition, undefined, [{}]);
+export async function drillTrial(subject, condition, hz, protocol = "still") {
+  const cases = STRIKE_CASES[protocol], world = cases.world([subject], condition, undefined, [{}]);
   if (isRefused(world)) throw new Error(world.refused);
   const built = await buildBout(world.recipe, { hz });
   if (isRefused(built)) throw new Error(built.refused);
