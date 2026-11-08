@@ -22,7 +22,10 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 ## Before the first run
 
 1. **Name the bar.** Write down the evaluation cases and gates that decide the question, the
-   ones the plan names. Training reward never decides it.
+   ones the plan names. Training reward never decides it. The development cases that choose
+   checkpoints hold several cases per phase (8 or more), varied in what the skill must handle:
+   starting pose, first leg, heading, place. One case flips with noise between checkpoints, and
+   a case that is a training episode's exact start shows the actor's memory, not its skill.
 2. **Find the seed.** Look in `research/runs/<task>/README.md` for a kept actor that already does
    part of the skill. Play it once on the current code through the evaluation's cases. Its
    reading is the baseline the run is compared with.
@@ -71,8 +74,9 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 1. Play every kept checkpoint (one per 1 M) on the bar's development cases from step 1 of the
    first section. Training return does not choose: it can keep rising while the cases get worse.
    Reserved or confirmation cases never rank checkpoints: they are played once, on the chosen one.
-2. Take the best by the gate reading: falls first, then each gate's figure. The last checkpoint
-   is often not the best.
+2. Take the best by the gate reading of the phases trained so far: falls first, then each gate's
+   figure. A phase no stage has trained yet (a stop before the stop stage) is read and reported,
+   but ranks nothing: its outcome is chance. The last checkpoint is often not the best.
 3. **Polish**: resume the best into a new output for 2 to 5 M decisions and screen again:
    `--resume .tmp/<task>/<run>/model-<n>.zip --output .tmp/<task>/<run>-polish --lr 1e-4 --steps 3000000`.
    A checkpoint resumes only into another folder; decisions count on from its own.
@@ -85,6 +89,8 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
   rest and from the acts that lead into it; then leaving it (stopping, settling); then its
   variations (directions, targets, turns); then loadouts and disturbances (gusts). A plan names
   its skill's stages in that order.
+- **A phase the seed already does is in the mix from the first stage.** A stage without it
+  trains it away, and the next stage spends millions of decisions winning it back.
 - Each stage resumes from the previous stage's chosen checkpoint
   (`--resume <checkpoint> --output <stage folder>` with the stage's config) and **keeps the
   earlier stages' episodes in the mix**, so what was learned holds. Half the episodes from earlier
