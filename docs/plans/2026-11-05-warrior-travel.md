@@ -83,7 +83,8 @@ headings between the eight training directions to check the envelope's interpola
 Training follows [the training recipe](../recipes/training.md); this section is the part
 particular to travel. The seeds are in `research/runs/warrior-travel/` (its README names each):
 native settings, reached warm-up recipes, the restored entry actor and its named transfer layout,
-and recovery, walking and minimum-protocol comparison records. Transfer the entry policy by its
+single-actor seeds with replayable primary rows in `sustained/` and `entry/`, and recovery,
+walking and minimum-protocol comparison records. Transfer the entry policy by its
 layout and retrain after changing the actor's observations, actions or native controller. Screen a record with
 `research/skills/locomotion/warrior-travel.mjs --settings <record>`, then the `travel`
 evaluation's minimum protocol.
