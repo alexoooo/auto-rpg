@@ -141,8 +141,11 @@ episodes in the mix.
    this stage. Unreached warm-ups are reported and excluded.
 2. **Entry and pace changes.** Requested speeds down to 0.9 m/s for the walk-to-run handover,
    episodes from rest, and pace changes within an episode.
-3. **Stops.** Stop orders from reached speeds and after holds, with entry and moving episodes
-   retained. Begin with reached 4 m/s starts for the forward-and-stop milestone.
+3. **Slowing and stops.** From reached runs, pace orders a little below the run's speed first,
+   then larger drops, then stop orders from reached speeds and after holds, each size added
+   once the smaller succeeds on development cases. Entry and moving episodes stay in the mix.
+   The restored seed falls on nearly every order to slow from a reached run, so this stage
+   opens on the smallest drop it survives, or on native braking work if it survives none.
 4. **Directions and turns.** Heading orders from rest, facing-held directions, rotating
    directions, corners and reversals from reached runs.
 5. **Loadouts and gusts**, as step 5 of the work says.
