@@ -120,6 +120,8 @@ dropped run keeps nothing; its reading goes in the commit message.
 
 ## Traps
 
+- A zero-residual probe after a learned warm-up: check it can continue moving before using
+  its fall to diagnose braking. Removing the actor can itself cause the fall.
 - Short blocks judged and rejected one after another: each looks like failure, and none runs
   long enough to learn.
 - A new actor for each phase (velocity, low-speed, braking, turning): the failures move to the

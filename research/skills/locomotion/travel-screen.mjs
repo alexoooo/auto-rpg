@@ -138,8 +138,8 @@ async function holdCase(basePath, policy, c) {
   for (let i = 0; i < stopped.length; i++) {
     const sample = stopped[i];
     if (Math.hypot(sample.velocity[0], sample.velocity[2]) < TRAVEL.still && sample.standing) {
-      quietFrom ??= i / hz; quiet++;
-      if (quiet >= TRAVEL.quiet * hz && quietFrom <= TRAVEL.stop) stoppedAt ??= quietFrom;
+      quietFrom ??= (i + 1) / hz; quiet++;
+      if (quiet > TRAVEL.quiet * hz && quietFrom <= TRAVEL.stop) stoppedAt ??= quietFrom;
     } else { quiet = 0; quietFrom = null; }
   }
   return { case: c, fixtureReached: true, entry,
@@ -151,10 +151,10 @@ async function holdCase(basePath, policy, c) {
 }
 
 async function screenCandidate(manifest, candidate) {
-  const tuning = read(manifest.settings);
+  const settings = candidate.settings ?? manifest.settings, tuning = read(settings);
   if (candidate.policy) tuning.learned.travel = read(candidate.policy);
   const policy = recoveryNetwork(tuning.learned.travel), rows = [];
-  for (const c of manifest.cases) rows.push(c.phase === 'entry' ? await entryCase(tuning, c) : await holdCase(manifest.settings, policy, c));
+  for (const c of manifest.cases) rows.push(c.phase === 'entry' ? await entryCase(tuning, c) : await holdCase(settings, policy, c));
   const entries = rows.filter(row => row.case.phase === 'entry'), holds = rows.filter(row => row.case.phase === 'hold');
   const summary = { id: candidate.id, cases: rows.length, fixtures: rows.filter(row => row.fixtureReached).length,
     falls: rows.filter(row => row.beforeStop.fall).length, entries: entries.filter(row => row.beforeStop.entry).length,
@@ -164,7 +164,7 @@ async function screenCandidate(manifest, candidate) {
     firstLeg: { left: entries.filter(row => row.beforeStop.firstLeg === 'left').length, right: entries.filter(row => row.beforeStop.firstLeg === 'right').length },
     stopFalls: rows.filter(row => row.stop.fall).length, stops: rows.filter(row => row.stop.met).length,
     totalFalls: rows.filter(row => row.beforeStop.fall || row.stop.fall).length };
-  return { candidate, summary, settings: tuning, fixtureSettings: read(manifest.settings), cases: manifest.cases,
+  return { candidate, summary, settings: tuning, fixtureSettings: read(settings), cases: manifest.cases,
     code: manifest.code, stopTrained: manifest.stopTrained === true,
     harness: { name: 'Node lone world Option Mind', engine: DEFAULT_ENGINE, hz: 120, balance: 0 }, rows };
 }
