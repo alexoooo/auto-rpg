@@ -153,6 +153,26 @@ must obey. Confirmation uses the actual orders, complete speed windows and deadl
 movement contract, including the stop and recovery guards. Training rewards and tolerances
 never change those requirements.
 
+## Development reading
+
+The Node Option Mind development screen runs at 120 Hz, unassisted, empty-handed and in calm
+air. The retained restored seed meets all twelve from-rest entry-and-hold cases and all eight
+moving holds, with a mean slowest held speed of 4.731 m/s. Its stop reading is zero of twenty,
+with nineteen falls during stopping.
+
+The best stop-trained screen by falls, entry rate and held speed has zero falls, two of twelve
+entries, eight moving holds and zero stops, with a mean slowest held speed of 4.136 m/s. The
+focused forward-and-stop curriculum reaches seven of twenty stops and five complete moving
+hold-and-stop cases, but has eight falls and misses every from-rest entry. Neither replaces
+the retained seed: forward entry and stopping together remain short.
+
+Stop development compares adaptive and fixed observation normalization, native braking
+calibration, and a curriculum limited to 4 m/s entry, holds and stops. A normalization-only
+probe loses entry ability with the actor's weights fixed. With fixed normalization, the actor
+receives the stop command and keeps correcting its joints, but can settle into a roughly
+3 m/s run. The next training question must preserve the seed's from-rest entry while adding
+stops; partial stopping gains do not justify installing a record that loses entry.
+
 ## Completion
 
 Every Warrior loadout meets every travel gate on the confirmation conditions, with complete
