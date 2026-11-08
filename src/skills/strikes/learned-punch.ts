@@ -90,12 +90,12 @@ export const PUNCH_ACTIONS = PUNCH_LAYOUT.outputs.length;
 
 /**
  * `hand`'s punch as `layout` lays it out for a body whose leg is `leg` m (`legOf`): the left
- * hand's is the right's with the sides swapped and a turn of the trunk reversed, so one steer
+ * hand's is the right's with the sides swapped and a turn or a side bend of the trunk reversed, so one steer
  * serves both.
  */
 export function punchChannels(hand: Side, leg: number, layout: PunchLayout = PUNCH_LAYOUT): PunchChannels {
   const swap = (name: string) => hand === "right" ? name : name.replace(/\.(left|right) /, (_, side: string) => `.${side === "left" ? "right" : "left"} `);
-  const sense = (name: string) => hand === "left" && / rotation right$/.test(name) && !name.includes(".") ? -1 : 1;
+  const sense = (name: string) => hand === "left" && / (rotation|lateral flexion) right$/.test(name) && !name.includes(".") ? -1 : 1;
   const channelOf = (name: string) => /^(angle|speed) /.test(name) ? name.slice(6) : null;
   const inputs = layout.inputs, outputs = layout.outputs, scale = leg / layout.leg;
   return {

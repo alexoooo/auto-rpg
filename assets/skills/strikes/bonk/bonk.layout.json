@@ -1,0 +1,103 @@
+{
+  "inputs": [
+    "drive age",
+    "target from shoulder across",
+    "target from shoulder up",
+    "target from shoulder ahead",
+    "fist from target across",
+    "fist from target up",
+    "fist from target ahead",
+    "fist velocity across",
+    "fist velocity up",
+    "fist velocity ahead",
+    "centre velocity across",
+    "centre velocity up",
+    "centre velocity ahead",
+    "touching",
+    "arm length",
+    "standing height",
+    "target velocity across",
+    "target velocity up",
+    "target velocity ahead",
+    "near foot bearing",
+    "far foot bearing",
+    "stance shifting",
+    "stance swinging",
+    "angle thoracic rotation right",
+    "angle lumbar rotation right",
+    "angle thoracic flexion",
+    "angle lumbar flexion",
+    "angle thoracic lateral flexion right",
+    "angle shoulder.right flexion",
+    "angle shoulder.right abduction",
+    "angle shoulder.right internal rotation",
+    "angle elbow.right flexion",
+    "angle wrist.right flexion",
+    "angle wrist.right radial deviation",
+    "angle wrist.right pronation",
+    "speed thoracic rotation right",
+    "speed lumbar rotation right",
+    "speed thoracic flexion",
+    "speed lumbar flexion",
+    "speed thoracic lateral flexion right",
+    "speed shoulder.right flexion",
+    "speed shoulder.right abduction",
+    "speed shoulder.right internal rotation",
+    "speed elbow.right flexion",
+    "speed wrist.right flexion",
+    "speed wrist.right radial deviation",
+    "speed wrist.right pronation"
+  ],
+  "interval": 0.016666666666666666,
+  "leg": 0.8815024260685317,
+  "outputs": [
+    {
+      "term": "pushes",
+      "channel": "thoracic rotation right"
+    },
+    {
+      "term": "pushes",
+      "channel": "lumbar rotation right"
+    },
+    {
+      "term": "pushes",
+      "channel": "thoracic flexion"
+    },
+    {
+      "term": "pushes",
+      "channel": "lumbar flexion"
+    },
+    {
+      "term": "pushes",
+      "channel": "thoracic lateral flexion right"
+    },
+    {
+      "term": "pushes",
+      "channel": "shoulder.right flexion"
+    },
+    {
+      "term": "pushes",
+      "channel": "shoulder.right abduction"
+    },
+    {
+      "term": "pushes",
+      "channel": "shoulder.right internal rotation"
+    },
+    {
+      "term": "pushes",
+      "channel": "elbow.right flexion"
+    },
+    {
+      "term": "pushes",
+      "channel": "wrist.right flexion"
+    },
+    {
+      "term": "pushes",
+      "channel": "wrist.right radial deviation"
+    },
+    {
+      "term": "pushes",
+      "channel": "wrist.right pronation"
+    }
+  ]
+}

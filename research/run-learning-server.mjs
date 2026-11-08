@@ -26,7 +26,7 @@ import { learningWorker } from './learning-worker.mjs';
 /**
  * Each kind of environment's maker, by the `kind` its file names: an episode's shape, which its
  * settings fill in. `cases`: any learnable part of a mind played in an evaluation's cases
- * (`case-learning-environment.mjs`); `travel`: residual control around the retained running gait
+ * (`case-learning-environment.mjs`), a strike the preset has no Option for given its own (`owning`); `travel`: residual control around the retained running gait
  * (`skills/locomotion/residual-environment.mjs`), for pretraining and development screens;
  * `travel-orders`: one travel actor through scripted Option Mind orders and physically reached starts.
  */
@@ -37,9 +37,20 @@ const KINDS = {
     const { caseEnvironment } = await import('./case-learning-environment.mjs');
     const { profileLearningMind } = await import('../src/minds/option/index.ts');
     const { GAME } = await import('../src/app/catalog.ts');
-    return configuration => caseEnvironment(configuration, { configureMind: (preset, request) => profileLearningMind(GAME.partLookup, preset, request) });
+    return configuration => caseEnvironment(configuration, { configureMind: (preset, request) => profileLearningMind(GAME.partLookup, owning(GAME, preset, request.skill), request) });
   },
 };
+
+/**
+ * `preset` with `skill`'s own Option (`strike-<skill>`, its defaults) where it has no strike by it
+ * (an experimental strike: the bonk), the preset's walks left out: with no profile its prior prices
+ * the strike near nothing, and a walk outbids it as it winds and lets it go. Else `preset`.
+ */
+function owning(game, preset, skill) {
+  const options = preset.options ?? [], kind = `strike-${skill}`;
+  if (preset.kind !== 'option' || !game.isKind(kind) || options.some((option) => option.skill?.kind === skill)) return preset;
+  return { ...preset, options: [...options.filter((option) => option.kind !== 'walk'), game.partLookup.of('option', { kind }).defaults] };
+}
 
 if (!isMainThread) {
   console.log = (...args) => process.stderr.write(args.join(' ') + '\n');

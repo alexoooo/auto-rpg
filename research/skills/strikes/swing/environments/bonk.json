@@ -1,0 +1,69 @@
+{
+  "kind": "cases",
+  "evaluation": "strike",
+  "part": "mind.options.16.skill",
+  "layout": "assets/skills/strikes/bonk/bonk.layout.json",
+  "subjects": [
+    {
+      "where": {
+        "model": "workshop-fighter",
+        "hand": "right"
+      },
+      "value": {
+        "mind": {
+          "preset": "option",
+          "skill": "bonk",
+          "steered": true
+        },
+        "skill": "bonk",
+        "held": {
+          "right": "club",
+          "left": "empty"
+        }
+      }
+    }
+  ],
+  "places": [
+    {
+      "protocol": "bonk",
+      "draw": {
+        "model": "workshop-fighter",
+        "mark": [
+          "high"
+        ],
+        "hand": [
+          "right"
+        ],
+        "across": {
+          "between": [
+            -0.1,
+            0.25
+          ]
+        },
+        "gap": {
+          "between": [
+            0.95,
+            1.5
+          ]
+        }
+      }
+    }
+  ],
+  "rates": [
+    120,
+    480,
+    480
+  ],
+  "pool": 4,
+  "refresh": 16,
+  "split": "train",
+  "reward": {
+    "effort": 0.02,
+    "unmet": -1,
+    "end": {
+      "score": 1,
+      "short": -4,
+      "met": 0
+    }
+  }
+}
