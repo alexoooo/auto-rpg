@@ -21,7 +21,7 @@ import { readTravel } from '../../../src/evaluation/travel/read.ts';
 import { TRAVEL, travelScript } from '../../../src/evaluation/travel/protocol.ts';
 import { traceOf } from '../../../src/evaluation/trace.ts';
 import { travelEnvironment } from './travel-environment.mjs';
-import { SLOW_AFTER, SLOW_FOR } from './travel-curriculum.mjs';
+import { slowingCues, slowingSeconds } from './travel-curriculum.mjs';
 import { workerJobs } from '../../worker-jobs.mjs';
 import { BUILD_IDENTITY } from '../../../scripts/build-identity.mjs';
 
@@ -36,7 +36,7 @@ const mean = values => values.length ? values.reduce((sum, value) => sum + value
 const SLOW_BAND = { below: .3, above: .6 };
 const MOVING = { headings: [.43, 3.73], at: [5.075, 5.325, 5.575, 5.825] };
 
-/** Development headings and rest recipes differ from training's original quiet start; `slow` adds slowing orders from the moving starts. */
+/** Development headings and rest recipes differ from training's original quiet start; `slow` adds slowing orders or sequences (0 a stop) from the moving starts. */
 export function developmentCases(slow = []) {
   const rests = [
     { settle: 1.4, yaw: -.12, lower: 0 },
@@ -50,9 +50,10 @@ export function developmentCases(slow = []) {
     ...MOVING.headings.flatMap((heading, h) => MOVING.at.map((at, p) => ({
       id: `moving-${h}-${p}`, phase: 'hold', heading, at, seed: 1301 + h,
     }))),
-    ...slow.flatMap(pace => MOVING.headings.flatMap((heading, h) => MOVING.at.map((at, p) => ({
-      id: `slow-${pace}-${h}-${p}`, phase: 'slow', pace, heading, at, seed: 1301 + h,
-    })))),
+    ...slow.flatMap(item => MOVING.headings.flatMap((heading, h) => MOVING.at.map((at, p) => {
+      const orders = Array.isArray(item) ? item : [item], key = orders.join('>');
+      return { id: `slow-${key}-${h}-${p}`, phase: 'slow', key, orders, pace: orders.at(-1), heading, at, seed: 1301 + h };
+    }))),
   ];
 }
 
@@ -130,7 +131,8 @@ async function playMoving(basePath, policy, c, program) {
 }
 
 async function slowCase(basePath, policy, c) {
-  const program = { seconds: SLOW_AFTER + SLOW_FOR, cues: [{ at: 0, orders: go(c.heading) }, { at: SLOW_AFTER, orders: go(c.heading, c.pace) }] };
+  const item = c.orders ?? c.pace, cues = slowingCues(item, pace => go(c.heading, pace), stop(c.heading));
+  const program = { seconds: slowingSeconds(item), cues };
   const { entry, rejected, initial, samples, hz } = await playMoving(basePath, policy, c, program);
   if (!entry) return { case: c, fixtureReached: false, rejected, beforeStop: { met: false, fall: false, held: null }, stop: { entered: false, met: false } };
   const forward = direction(c.heading), along = samples.map(s => s.velocity[0] * forward.x + s.velocity[2] * forward.z);
@@ -140,8 +142,22 @@ async function slowCase(basePath, policy, c) {
   const last = along.slice(-2 * hz), final = complete ? mean(last) : null;
   let slowest = Infinity;
   for (let i = 0; complete && i + hz <= last.length; i++) slowest = Math.min(slowest, mean(last.slice(i, i + hz)));
-  const met = complete && !fall && corridor <= TRAVEL.corridor && final <= c.pace + SLOW_BAND.above && slowest >= c.pace - SLOW_BAND.below;
-  return { case: c, fixtureReached: true, entry, beforeStop: { met, complete, fall, final, slowest: complete ? slowest : null, corridor, held: null },
+  if (c.pace > 0) {
+    const met = complete && !fall && corridor <= TRAVEL.corridor && final <= c.pace + SLOW_BAND.above && slowest >= c.pace - SLOW_BAND.below;
+    return { case: c, fixtureReached: true, entry, beforeStop: { met, complete, fall, final, slowest: complete ? slowest : null, corridor, held: null },
+      stop: { entered: false, met: false, fall: false }, digest: digest(samples), played: samples.length / hz };
+  }
+  // A sequence ending in a stop is read by the stop gate: quiet from within TRAVEL.stop s of the order, for TRAVEL.quiet s.
+  const ordered = Math.round(cues.at(-1).at * hz);
+  let quiet = 0, quietFrom = null, stoppedAt = null;
+  for (let i = ordered; i < samples.length; i++) {
+    if (Math.hypot(samples[i].velocity[0], samples[i].velocity[2]) < TRAVEL.still && samples[i].standing) {
+      quietFrom ??= (i + 1 - ordered) / hz; quiet++;
+      if (quiet > TRAVEL.quiet * hz && quietFrom <= TRAVEL.stop) { stoppedAt = quietFrom; break; }
+    } else { quiet = 0; quietFrom = null; }
+  }
+  const met = complete && !fall && corridor <= TRAVEL.corridor && stoppedAt !== null;
+  return { case: c, fixtureReached: true, entry, beforeStop: { met, complete, fall, final, stoppedAt, corridor, held: null },
     stop: { entered: false, met: false, fall: false }, digest: digest(samples), played: samples.length / hz };
 }
 

@@ -28,8 +28,9 @@ export async function travelEnvironment(configuration) {
     starts: [2, 3, 4, 5, 5.25, 5.5, 5.75, 7, 7.25, 7.5, 7.75, 9],
     restTimes: [1],
     reserve: .3, overspeedCost: .1, uprightCredit: .15, sideCost: .1, corridorCost: .05, effortCost: .005,
-    // From `reach` s after a pace order, each m/s its last second's mean falls short of the pace costs `lateCost` a second.
-    lateCost: 0, reach: 4,
+    // From `reach` s after a pace order, each m/s its last second's mean falls short of the pace costs `lateCost` a second;
+    // from `stopReach` s after a stop order, each m/s of speed over `still` does.
+    lateCost: 0, reach: 4, stopReach: Infinity, still: .15,
     ...configuration };
   if (!o.settings || !Array.isArray(o.scripts) || !o.scripts.length) throw Error('Travel training needs a record and order scripts');
   const validProgram = p => p && typeof p === 'object' && typeof p.start === 'string' && p.start.length > 0 && Array.isArray(p.cues) && p.cues.length > 0
@@ -41,8 +42,9 @@ export async function travelEnvironment(configuration) {
     throw Error(`Travel ${name} must contain positive finite values`);
   if (!Number.isFinite(o.heading) || o.headings !== undefined && (!Array.isArray(o.headings) || !o.headings.length || !o.headings.every(Number.isFinite)))
     throw Error('Travel headings must be finite angles');
-  for (const name of ['reserve', 'overspeedCost', 'uprightCredit', 'sideCost', 'corridorCost', 'effortCost', 'lateCost', 'reach'])
+  for (const name of ['reserve', 'overspeedCost', 'uprightCredit', 'sideCost', 'corridorCost', 'effortCost', 'lateCost', 'reach', 'still'])
     if (!Number.isFinite(o[name]) || o[name] < 0) throw Error(`Travel ${name} must be finite and nonnegative`);
+  if (!(o.stopReach >= 0)) throw Error('Travel stopReach must be nonnegative');
   if (o.loadouts !== undefined && (!Array.isArray(o.loadouts) || !o.loadouts.length)) throw Error('Travel loadouts must be a nonempty list');
   const heading = o.headings ? o.headings[(o.seed >>> 0) % o.headings.length] : o.heading;
   // A rest can face away from the order (`yaws`, rad) and stand lowered (`lowers`, m), facing the order as it settles.
@@ -157,7 +159,7 @@ export async function travelEnvironment(configuration) {
             Object.assign(episode.origin, { x: centre.x, z: centre.z });
           if (episode.pace !== (orders.pace ?? 4)) episode.ordered = episode.ticks;
           episode.requested = { x: d.x / length, z: d.z / length }; episode.pace = orders.pace ?? 4;
-        } else { episode.pace = 0; episode.stopScale = Math.max(1, Math.hypot(velocity.x, velocity.z)); }
+        } else { if (episode.pace !== 0) episode.ordered = episode.ticks; episode.pace = 0; episode.stopScale = Math.max(1, Math.hypot(velocity.x, velocity.z)); }
         if (cue.corridor !== undefined) episode.corridorEnabled = cue.corridor;
         // Snapshot loads mutate live orders in place; the curriculum owns its separate copy.
         built.state.script.orders = structuredClone(orders);
@@ -177,8 +179,9 @@ export async function travelEnvironment(configuration) {
         down ||= sample.down;
         const speed = Math.hypot(velocity.x, velocity.z), target = episode.pace + o.reserve;
         episode.alongs.push(along); episode.window += along - (episode.alongs.length > world.hz ? episode.alongs[episode.alongs.length - 1 - world.hz] : 0);
-        const late = episode.pace > 0 && episode.ticks - episode.ordered >= o.reach * world.hz
-          ? Math.max(0, episode.pace - episode.window / world.hz) : 0;
+        const since = (episode.ticks - episode.ordered) / world.hz;
+        const late = episode.pace > 0 ? (since >= o.reach ? Math.max(0, episode.pace - episode.window / world.hz) : 0)
+          : since >= o.stopReach ? Math.max(0, speed - o.still) : 0;
         episode.late += late;
         const progress = episode.pace > 0 ? Math.max(0, Math.min(1, along / target))
           : .5 * Math.max(0, 1 - speed / episode.stopScale) + .5 * exp(-((speed / .3) ** 2));

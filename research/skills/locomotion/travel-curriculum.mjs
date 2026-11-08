@@ -4,12 +4,24 @@ import { TRAVEL } from '../../../src/evaluation/travel/protocol.ts';
 
 /** Seconds a slowing episode holds the forward run before its slower order. */
 export const SLOW_AFTER = 2;
-/** Seconds a slowing episode lasts after its order: a pace's reach and hold, or a stop and its quiet. */
+/** Seconds a slowing episode lasts after its last order: a pace's reach and hold, or a stop and its quiet. */
 export const SLOW_FOR = 6;
+/** Seconds between the orders of a slowing sequence. */
+export const SLOW_STEP = 3;
+
+/** The cues after a held forward run: one order, or a sequence `SLOW_STEP` s apart; 0 is a stop. */
+export function slowingCues(item, go, stop) {
+  const orders = Array.isArray(item) ? item : [item];
+  return [{ at: 0, orders: go(TRAVEL.forward) }, ...orders.map((pace, i) => ({ at: SLOW_AFTER + i * SLOW_STEP, orders: pace > 0 ? go(pace) : stop }))];
+}
+
+/** Seconds a slowing episode lasts. */
+export const slowingSeconds = item => SLOW_AFTER + ((Array.isArray(item) ? item.length : 1) - 1) * SLOW_STEP + SLOW_FOR;
 
 /**
- * Stage 3's `slow` lists the orders after a held forward run, smallest drop first, 0 for a stop.
- * Its newest order takes half the slowing episodes; the seed's entry and hold stay in the mix.
+ * Stage 3's `slow` lists the orders after a held forward run, smallest drop first, 0 for a stop;
+ * an item may be a sequence (slow, then stop).
+ * Its newest order takes half the slowing episodes (45%); the seed's from-rest entry (40%) and hold (15%) stay in the mix.
  */
 export function travelCurriculum(stage, { seconds = 12, heading = 0, variations = [], slow = [] } = {}) {
   if (!Number.isInteger(stage) || stage < 1 || stage > 5) throw Error('Travel curriculum stage is 1 to 5');
@@ -30,14 +42,14 @@ export function travelCurriculum(stage, { seconds = 12, heading = 0, variations 
         cues: [{ at: 0, orders: go(pace) }, { at: seconds / 2, orders: go(changed) }] }))));
       break;
     case 3: {
-      if (!slow.length || !slow.every(pace => Number.isFinite(pace) && pace >= 0 && pace < TRAVEL.forward))
+      const valid = pace => Number.isFinite(pace) && pace >= 0 && pace < TRAVEL.forward;
+      if (!slow.length || !slow.every(item => Array.isArray(item) ? item.length > 0 && item.every(valid) : valid(item)))
         throw Error('The slowing stage names its orders below the forward pace, 0 for a stop');
-      const share = slow.length === 1 ? [.5] : slow.map((_, i) => i === slow.length - 1 ? .25 : .25 / (slow.length - 1));
+      const share = slow.length === 1 ? [.45] : slow.map((_, i) => i === slow.length - 1 ? .225 : .225 / (slow.length - 1));
       return [
-        { start: 'rest', seconds: TRAVEL.entry + TRAVEL.hold, weight: .3, cues: [{ at: 0, orders: go(TRAVEL.forward) }] },
-        { start: 'moving', seconds: TRAVEL.hold, weight: .2, cues: [{ at: 0, orders: go(TRAVEL.forward) }] },
-        ...slow.map((pace, i) => ({ start: 'moving', seconds: SLOW_AFTER + SLOW_FOR, weight: share[i],
-          cues: [{ at: 0, orders: go(TRAVEL.forward) }, { at: SLOW_AFTER, orders: pace > 0 ? go(pace) : stop }] })),
+        { start: 'rest', seconds: TRAVEL.entry + TRAVEL.hold, weight: .4, cues: [{ at: 0, orders: go(TRAVEL.forward) }] },
+        { start: 'moving', seconds: TRAVEL.hold, weight: .15, cues: [{ at: 0, orders: go(TRAVEL.forward) }] },
+        ...slow.map((item, i) => ({ start: 'moving', seconds: slowingSeconds(item), weight: share[i], cues: slowingCues(item, go, stop) })),
       ];
     }
     case 4: case 5:
