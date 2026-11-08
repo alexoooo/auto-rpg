@@ -32,7 +32,8 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
    `--start`, `--start-layout` and `--critic-first`, then compare it with the baseline from step 2.
 4. **Start from reached states.** Warm-ups are played on the body and cached
    (`warmStarts` and the environments' snapshots). Never set a velocity or a pose to make a start.
-   A warm-up that falls or leaves its corridor is reported and excluded.
+   A warm-up that falls or leaves its corridor is reported and excluded. Copy each delivered
+   order into mutable world state so snapshot restores cannot rewrite the curriculum's scripts.
 5. **Check the reward reads what the gate reads**: the same speed (centre of mass, along the
    requested direction), the same fall predicate, the same corridor. Credit is per second,
    progress is a share of the requested pace, and a fall costs once and ends the episode.

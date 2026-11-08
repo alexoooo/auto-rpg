@@ -135,6 +135,7 @@ it compares the complete sparse array alongside real `undefined` entries and esc
 | --- | --- |
 | [tooling.test.mjs](tooling.test.mjs): `one entrant cannot remove another through the shared registry line` | Reproduce a single entrant deleting a rival from the shared array while the ownership classifier still calls the change its own. A match does not check source ownership. |
 | [tooling.test.mjs](tooling.test.mjs): `historical import refuses a complete count played at undeclared gaps` | Reproduce imported rows at gap 99 passing count checks for a protocol declaring gap 1. An imported rating cannot validate its own scenario coverage. |
+| [tooling.test.mjs](tooling.test.mjs): `paired comparison reads imported null worlds and qualifies missing recipes` | Reproduce the Warrior travel import admitted by the record reader but crashing when paired comparison reads its null world. Assert the complete comparison and its missing-recipe qualification through record serialization and admission; drills construct worlds and cannot exercise imported evidence. |
 | [tooling.test.mjs](tooling.test.mjs): `build source identity canonicalizes included authoring text but preserves binary bytes` | Reproduce identical Python, PowerShell and Markdown inputs receiving different build identities after checkout line-ending conversion; keep binary distinctions intact. |
 | [tooling.test.mjs](tooling.test.mjs): `idle learning-worker errors survive until the next protocol request` | Reproduce a background environment failure discarded while no request waits; the next trainer request must receive that failure. Skill outcomes do not establish worker error delivery. |
 | [tooling.test.mjs](tooling.test.mjs): `a reported research job failure closes every worker before rejecting` | Reproduce a rejected posture job leaving its worker message listener alive and preventing child exit. The check asserts every owned worker is terminated before failure reaches the caller. |
@@ -157,11 +158,12 @@ ordinary capability drills use impulse joints and rigid contacts, so cannot expo
 | --- | --- |
 | `run cadence scales clip feedforward with the reference phase` | Cadence advances the reference faster or slower while its feed-forward velocity can retain the unscaled rate. Two servo times separate that velocity from pose feedback on a real body, then compare it with the reference's finite difference. A locomotion drill can hide the missing factor through pose feedback. |
 
-[skills/locomotion/learned-run.test.mjs](skills/locomotion/learned-run.test.mjs) checks the learned run's steered low-speed blend through the research adapter.
+[skills/locomotion/learned-run.test.mjs](skills/locomotion/learned-run.test.mjs) checks travel answer timing through the research adapter.
 
 | Case | Concrete justification |
 | --- | --- |
-| `a steered low-speed answer acts over exactly its own decision interval, blended with the decision's velocity actor` | Reproduce the blend built at a decision from the outputs held before the trainer answered, so every action acted a decision late and took its predecessor's reward. Eight distinct answers through the adapter on a real body, each checked on every step of its transition against its own blend. Training runs and drills read returns, which the lag only lowers. |
+| `a travel answer acts over exactly its own decision interval` | Reproduce learned corrections taking the outputs held before the trainer answers, so each action acts a decision late and takes its predecessor's reward. Eight distinct answers through the adapter on a real body are checked on every step of their own transition. Training runs and drills read returns, which the lag only lowers. |
+| `restoring a moving start preserves the curriculum's stop and pace orders` | Restoring a moving snapshot writes into a cue's borrowed order object, replacing stop with go across episodes. Replay stop, go and stop from a physically reached native walk; check the complete scripts and delivered paces. A drill plays one case without this repeated training reset. |
 
 [layer-contracts.test.mjs](layer-contracts.test.mjs) reproduces the physical, command and observation
 failures below. Skill drills cannot establish admission before allocation, complete command delivery

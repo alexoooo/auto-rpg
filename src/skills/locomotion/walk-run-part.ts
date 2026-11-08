@@ -23,7 +23,7 @@ export interface WalkRunRecord {
   readonly braking?: RunCycleSettings;
   /** The travel stride; braced movement retains the motor's ordinary stance gait. */
   readonly stride?: GaitTuning;
-  /** The learned joint corrections around this record's physical gait settings. */
+  /** The learned corrections around this record's physical gait settings. */
   readonly learned?: LearnedRunSettings;
   /** This record's travel limits; braced permission retains the body's stance envelope. */
   readonly envelope?: StanceEnvelope;

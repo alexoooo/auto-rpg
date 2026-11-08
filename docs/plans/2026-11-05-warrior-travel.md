@@ -82,13 +82,14 @@ headings between the eight training directions to check the envelope's interpola
 
 Training follows [the training recipe](../recipes/training.md); this section is the part
 particular to travel. The seeds are in `research/runs/warrior-travel/` (its README names each):
-the last paired screens' settings, the reached warm-ups, and the velocity, braking, heading-entry
-and heading-stop actors. Each acts on the current learner's schedule one decision earlier than it
-was trained to, so each is a seed to retrain, not a reading. Screen a record with
+native settings, reached warm-up recipes, the restored entry actor and its named transfer layout,
+single-actor seeds with replayable primary rows in `sustained/` and `entry/`, and recovery,
+walking and minimum-protocol comparison records. Transfer the entry policy by its
+layout and retrain after changing the actor's observations, actions or native controller. Screen a record with
 `research/skills/locomotion/warrior-travel.mjs --settings <record>`, then the `travel`
 evaluation's minimum protocol.
 
-1. **Restore the forward run.** Retrain the velocity actor through the `option-entry`
+1. **Restore the forward run.** Retrain the entry seed through the `travel-orders`
    environment on the current learner until the forward case meets the forward gate (4 m/s
    within 4 s, held 10 s, upright). This is the seed for step 2.
 2. **One travel actor.** Build one environment in which one actor steers the walk-run record in
