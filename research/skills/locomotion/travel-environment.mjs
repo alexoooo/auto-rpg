@@ -45,6 +45,11 @@ export async function travelEnvironment(configuration) {
     if (!Number.isFinite(o[name]) || o[name] < 0) throw Error(`Travel ${name} must be finite and nonnegative`);
   if (o.loadouts !== undefined && (!Array.isArray(o.loadouts) || !o.loadouts.length)) throw Error('Travel loadouts must be a nonempty list');
   const heading = o.headings ? o.headings[(o.seed >>> 0) % o.headings.length] : o.heading;
+  // A rest can face away from the order (`yaws`, rad) and stand lowered (`lowers`, m), facing the order as it settles.
+  for (const name of ['yaws', 'lowers']) if (o[name] !== undefined && (!Array.isArray(o[name]) || !o[name].length || !o[name].every(Number.isFinite)))
+    throw Error(`Travel ${name} must be finite values`);
+  const yaw = o.yaws ? o.yaws[(o.seed >>> 0) % o.yaws.length] : 0;
+  const lower = o.lowers ? o.lowers[Math.floor((o.seed >>> 0) / 5) % o.lowers.length] : 0;
   const rotation = heading - o.heading, cr = cos(rotation), sr = sin(rotation);
   const turn = v => ({ x: v.x * cr + v.z * sr, z: v.z * cr - v.x * sr });
   // A heading variation rotates the body and its complete order programs together.
@@ -59,8 +64,9 @@ export async function travelEnvironment(configuration) {
   const mind = { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...MOVE,
     gaits: STOCK_GAITS.map(gait => ({ ...gait, legs: { ...gait.legs, tuning } })) } } } };
   const built = await LONE_WORLD.build({ kind: 'lone', engine: o.engine ?? DEFAULT_ENGINE, lone: {
-    model: o.model, mind, floorSize: 400, balance: 0, heading, seed: o.seed, loadout,
-    script: [], ...(o.gusts ? { gusts: true } : {}),
+    model: o.model, mind, floorSize: 400, balance: 0, heading: heading + yaw, seed: o.seed, loadout,
+    script: yaw === 0 && lower === 0 ? [] : [{ at: 0, orders: { move: null, face: { x: sin(heading), z: cos(heading) }, ...(lower > 0 ? { lower } : {}) } }],
+    ...(o.gusts ? { gusts: true } : {}),
   } });
   if ('refused' in built) throw Error(built.refused);
   try {
