@@ -198,7 +198,7 @@ export const CLUB_BLOW_OPTION = strikeKind("club-blow", "Club blow", "holding-ha
 
 const BONK_KIND = strikeKind("bonk", "Bonk", "holding-hand");
 /** A descending held-club use aimed at the head with the centre aim. */
-export const BONK_OPTION = deepFreeze({ ...BONK_KIND, stage: "experimental" as const,
+export const BONK_OPTION = deepFreeze({ ...BONK_KIND,
   defaults: { ...BONK_KIND.defaults, regions: [{ kind: "mark" as const, mark: "high" as const }] } });
 
 /** **The sword's cut** (`cut`), with the hand that holds the sword. */

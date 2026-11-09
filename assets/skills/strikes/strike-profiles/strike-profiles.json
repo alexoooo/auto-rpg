@@ -1,6 +1,6 @@
 {
   "source": {
-    "script": "research/strike-profiles.mjs",
+    "script": "research/skills/strikes/strike-profiles.mjs",
     "records": [
       "assets/evaluations/baseline/2026-11-03-63af1d4c-e439d4f1.jsonl",
       "assets/evaluations/strike/2026-11-03T104717-90bdd549-cd2a4372.jsonl",
@@ -17,7 +17,8 @@
       "assets/evaluations/strike/2026-11-04T050455-00dfdd16-a70636b7.jsonl",
       "assets/evaluations/strike/2026-11-04T050506-00dfdd16-5bb26835.jsonl",
       "assets/evaluations/strike/2026-11-04T050516-00dfdd16-bf2857b4.jsonl",
-      "assets/evaluations/strike/2026-11-04T050611-00dfdd16-82bbf6d7.jsonl"
+      "assets/evaluations/strike/2026-11-04T050611-00dfdd16-82bbf6d7.jsonl",
+      "assets/evaluations/strike/2026-11-09T124735-7ed3c982-8a9ce197.jsonl"
     ]
   },
   "profiles": [
@@ -3916,6 +3917,279 @@
           "down": false,
           "exit": {
             "range": 0.7335
+          }
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "72a88eea618ef2bc",
+        "skill": "03a4dc75fafba1ef",
+        "hz": 120,
+        "reaction": 0.15,
+        "rate": 60,
+        "delay": 1
+      },
+      "target": {
+        "body": "workshop-fighter+toes",
+        "spec": "e853e5fbd782db31"
+      },
+      "limbs": [
+        "hand.right"
+      ],
+      "trials": [
+        {
+          "start": {
+            "range": 0.7399,
+            "phase": "clear",
+            "velocity": [
+              -0.1345,
+              0.1398
+            ],
+            "window": [
+              -0.0982,
+              -0.0021
+            ]
+          },
+          "done": true,
+          "dealt": 1.746,
+          "taken": 0,
+          "seconds": 2,
+          "recovers": 0.625,
+          "down": false,
+          "exit": {
+            "range": 0.9704
+          }
+        },
+        {
+          "start": {
+            "range": 0.7459,
+            "phase": "clear",
+            "velocity": [
+              -0.1665,
+              0.149
+            ],
+            "window": [
+              -0.0973,
+              -0.0124
+            ]
+          },
+          "done": false,
+          "dealt": 0.5893,
+          "taken": 0,
+          "seconds": 2.0417,
+          "recovers": 0.6833,
+          "down": false,
+          "exit": {
+            "range": 0.9735
+          }
+        },
+        {
+          "start": {
+            "range": 0.8185,
+            "phase": "clear",
+            "velocity": [
+              0.1436,
+              0.0018
+            ],
+            "window": [
+              -0.0368,
+              0.0112
+            ]
+          },
+          "done": true,
+          "dealt": 2.04,
+          "taken": 0,
+          "seconds": 1.9833,
+          "recovers": 0.55,
+          "down": false,
+          "exit": {
+            "range": 0.9212
+          }
+        },
+        {
+          "start": {
+            "range": 0.9185,
+            "phase": "clear",
+            "velocity": [
+              0.1436,
+              0.0017
+            ],
+            "window": [
+              0.0643,
+              0.011
+            ]
+          },
+          "done": true,
+          "dealt": 2.2451,
+          "taken": 0,
+          "seconds": 1.9667,
+          "recovers": 0.5333,
+          "down": false,
+          "exit": {
+            "range": 0.9219
+          }
+        },
+        {
+          "start": {
+            "range": 0.9239,
+            "phase": "clear",
+            "velocity": [
+              0.1142,
+              0.111
+            ],
+            "window": [
+              0.0981,
+              -0.0032
+            ]
+          },
+          "done": true,
+          "dealt": 2.1469,
+          "taken": 0,
+          "seconds": 1.9583,
+          "recovers": 0.4333,
+          "down": false,
+          "exit": {
+            "range": 0.9792
+          }
+        },
+        {
+          "start": {
+            "range": 0.927,
+            "phase": "clear",
+            "velocity": [
+              0.1588,
+              -0.1166
+            ],
+            "window": [
+              0.0977,
+              0.0031
+            ]
+          },
+          "done": true,
+          "dealt": 2.1577,
+          "taken": 0,
+          "seconds": 2.0167,
+          "recovers": 0.4833,
+          "down": false,
+          "exit": {
+            "range": 0.9827
+          }
+        },
+        {
+          "start": {
+            "range": 0.9307,
+            "phase": "clear",
+            "velocity": [
+              0.1036,
+              -0.1668
+            ],
+            "window": [
+              0.0828,
+              0.1413
+            ]
+          },
+          "done": true,
+          "dealt": 2.0559,
+          "taken": 0,
+          "seconds": 1.975,
+          "recovers": 0.525,
+          "down": false,
+          "exit": {
+            "range": 0.9903
+          }
+        },
+        {
+          "start": {
+            "range": 0.9339,
+            "phase": "clear",
+            "velocity": [
+              0.1852,
+              0.1251
+            ],
+            "window": [
+              0.0975,
+              -0.0101
+            ]
+          },
+          "done": true,
+          "dealt": 2.1973,
+          "taken": 0,
+          "seconds": 1.9667,
+          "recovers": 0.4333,
+          "down": false,
+          "exit": {
+            "range": 0.9557
+          }
+        },
+        {
+          "start": {
+            "range": 0.9342,
+            "phase": "clear",
+            "velocity": [
+              0.153,
+              -0.1099
+            ],
+            "window": [
+              0.0969,
+              0.0035
+            ]
+          },
+          "done": false,
+          "dealt": 1.3683,
+          "taken": 0,
+          "seconds": 1.9667,
+          "recovers": 0.6917,
+          "down": false,
+          "exit": {
+            "range": 0.9588
+          }
+        },
+        {
+          "start": {
+            "range": 0.9363,
+            "phase": "clear",
+            "velocity": [
+              0.2254,
+              -0.0616
+            ],
+            "window": [
+              0.0971,
+              0.0158
+            ]
+          },
+          "done": false,
+          "dealt": 1.2919,
+          "taken": 0,
+          "seconds": 2.0167,
+          "recovers": 0.5583,
+          "down": false,
+          "exit": {
+            "range": 0.9616
+          }
+        },
+        {
+          "start": {
+            "range": 0.9392,
+            "phase": "clear",
+            "velocity": [
+              0.2404,
+              0.0478
+            ],
+            "window": [
+              0.0979,
+              -0.0272
+            ]
+          },
+          "done": true,
+          "dealt": 2.0553,
+          "taken": 0,
+          "seconds": 1.9667,
+          "recovers": 0.45,
+          "down": false,
+          "exit": {
+            "range": 0.9765
           }
         }
       ]

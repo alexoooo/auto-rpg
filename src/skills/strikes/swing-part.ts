@@ -31,7 +31,7 @@ import { type Side, SIDES } from "../../core/bodies/bilateral.ts";
 export const SWINGS = deepFreeze({
   "cut": { label: "Cut", item: "sword" as Held, mechanism: "edge" as Mechanism, bodies: cutMeta.bodies, stage: "game" as const },
   "club-blow": { label: "Club blow", item: "club" as Held, mechanism: "blunt" as Mechanism, bodies: clubMeta.bodies, stage: "game" as const },
-  "bonk": { label: "Bonk", item: "club" as Held, mechanism: "blunt" as Mechanism, bodies: bonkMeta.bodies, stage: "experimental" as const,
+  "bonk": { label: "Bonk", item: "club" as Held, mechanism: "blunt" as Mechanism, bodies: bonkMeta.bodies, stage: "game" as const,
     layout: checkedLayout(bonkLayout as PunchLayout) },
 });
 type SwingKind = keyof typeof SWINGS;
