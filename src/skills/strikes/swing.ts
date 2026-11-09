@@ -9,7 +9,7 @@ import type { Vec3 } from "../../core/quantity.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef } from "../../control/kinematics.ts";
 import { channelName } from "../../core/bodies/muscle/driver.ts";
-import { act, ask, learnerOf, start, stop } from "../../core/math/learning/learner.ts";
+import { act, ask, learnerOf, restart, start, stop } from "../../core/math/learning/learner.ts";
 import { legOf } from "../locomotion/gait-scale.ts";
 import { punchChannels, punchFeatures, steerPushes, type PunchLayout } from "./learned-punch.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
@@ -127,10 +127,11 @@ const ALIGN_SPEED = 1;
  * the legs from its windup to its return, and the hand grips throughout. With `align`, through the
  * swing, once the face moves faster than `ALIGN_SPEED`, the wrist turns it onto its path, either
  * way leading (`faceAligner`), its scheduled pushes dropped. With a `layout` (`PunchLayout`), a
- * `steered` swing reads itself every decision interval of its layout through the swing
- * (`punchFeatures`: the target from the striking shoulder, the face from the target, the arm's
- * straight length from the shoulder to the face) and adds the steer, `policy`'s or its trainer's,
- * to its pushes (`steerPushes`).
+ * `steered` swing's learner runs from its start to its release: it reads itself once as it begins
+ * (one decision over the windup, which no steer moves), then every decision interval of its layout
+ * through the swing (`punchFeatures`: the target from the striking shoulder, the face from the
+ * target, the arm's straight length from the shoulder to the face), and adds the steer,
+ * `policy`'s or its trainer's, to its pushes (`steerPushes`).
  */
 export function swingExecutor(body: Body, guard: Pose, actions: readonly string[], settings: Swing, resolve: TargetResolver,
   faces: Partial<Record<Side, StrikingFace>>, { align = false, layout, policy }: { readonly align?: boolean; readonly layout?: PunchLayout;
@@ -158,7 +159,9 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       /** The face's place last step, whether it has been read, and its velocity over that step, root frame (`faceAligner`). */
       was: [number, number, number]; read: boolean; path: [number, number, number];
       /** Where the target is sensed, world, and how fast it moved over the last step, m/s, each axis within `AIM_SPEED`: what a steer reads. */
-      sensed: [number, number, number]; aimed: [number, number, number] },
+      sensed: [number, number, number]; aimed: [number, number, number];
+      /** Whether a steered swing has read itself before its swing (its one decision over the windup). */
+      opened: boolean },
     /** With a layout, its learner (`Learner`), running through a steered swing alone; null without. */
     learner: layout ? learnerOf(layout.inputs.length, layout.interval, false) : null,
   };
@@ -204,7 +207,8 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       state.live = { request: { ...request }, hand, phase: "prepare", stage: "admitting", time: 0, step: 0, quiet: 0, lower: around.lower, withdrawn: false,
         ending: { kind: "completed" }, target: [at[0], at[1], at[2]], face, touched: null, touching: false,
         footing: places ? { [footOn(spec, "left")]: placed("left"), [footOn(spec, "right")]: placed("right") } : null, heading: face, last: {}, was: [0, 0, 0], read: false, path: [0, 0, 0],
-        sensed: [at[0], at[1], at[2]], aimed: [0, 0, 0] };
+        sensed: [at[0], at[1], at[2]], aimed: [0, 0, 0], opened: false };
+      if (settings.steered && state.learner) start(state.learner);
     },
     update(view, continued, around, dt) {
       const live = state.live;
@@ -246,7 +250,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
         else if (live.quiet >= settings.settle) {
           live.phase = "commit"; live.stage = "swing"; live.time = 0; live.touched = null;
           live.touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;
-          if (settings.steered && state.learner) start(state.learner);
+          if (state.learner?.running) restart(state.learner);
         }
       } else if (live.phase === "commit") {
         const touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;
@@ -271,10 +275,13 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
         if (x * x + y * y + z * z >= ALIGN_SPEED * ALIGN_SPEED) aligner.ask(view, live.path, posture, pushes);
       }
       const learner = state.learner;
-      if (steering && learner && settings.steered && live.phase === "commit") {
+      if (steering && learner?.running && live.phase !== "release") {
         const steer = act(learner, policy);
-        if (ask(learner, live.step)) steering.read(view, live.hand, live.time, live.sensed, live.aimed, (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0, learner.inputs);
-        steerPushes(pushes, steering.channels[live.hand], steer);
+        if ((live.phase === "commit" || !live.opened) && ask(learner, live.step)) {
+          live.opened = true;
+          steering.read(view, live.hand, live.time, live.sensed, live.aimed, (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0, learner.inputs);
+        }
+        if (live.phase === "commit") steerPushes(pushes, steering.channels[live.hand], steer);
       }
       const configuration = handConfiguration(body.built.spec, `hand.${live.hand}`, "grip");
       return { posture, pushes, ...(configuration ? { configurations: { [`hand.${live.hand}`]: configuration } } : {}),
