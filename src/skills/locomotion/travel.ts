@@ -90,8 +90,9 @@ const PIECE = .25;
  * How long each leg of the way from `from` through `way` takes, s, the body going at the speed
  * rule's speed for `gait` all along it (`travelSpeed`: what it holds the way each leg goes, `frame`
  * giving that way, forward and to the right, of a leg's ground direction; stopping at the way's end
- * and slowing for its corners), from `on` m/s, under `ceiling`: the speed asked at the middle of
- * each piece of `PIECE` m. Infinity for a leg the gait does not go.
+ * and slowing for its corners), from `on` m/s, under `ceiling`: each piece of `PIECE` m crossed at
+ * the mean of the speed it is entered at and the speed asked at its middle. Infinity for a leg the
+ * gait does not go.
  */
 export function legSeconds(gait: GaitLimits, from: GroundPoint, way: readonly GroundPoint[], frame: (x: number, z: number) => readonly [number, number],
   on: number, ceiling = Infinity): number[] {
@@ -106,8 +107,11 @@ export function legSeconds(gait: GaitLimits, from: GroundPoint, way: readonly Gr
     let time = 0;
     for (let i = 0; i < pieces; i++) {
       const middle = gone + (i + .5) * step, ahead = corners.filter((corner) => corner.distance > middle).map((corner) => ({ ...corner, distance: corner.distance - middle }));
+      // A piece is crossed at the mean of the speed it is entered at and the speed asked at its middle:
+      // near the end the speed asked comes to 0, and the body brakes across the piece from what it had.
+      const entered = speed;
       speed = travelSpeed(gait, facing, total - middle, ahead, speed, ceiling);
-      time += speed > 0 ? step / speed : Infinity;
+      time += entered + speed > 0 ? 2 * step / (entered + speed) : Infinity;
     }
     seconds.push(length > 0 ? time : 0);
     gone += length; at = point;
