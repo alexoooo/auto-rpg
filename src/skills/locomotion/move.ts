@@ -1,6 +1,6 @@
 import type { LegsDrive, Locomotion } from "../framework/locomotion-part.ts";
 import type { BodyView } from "../../control/body.ts";
-import { hypot } from "../../core/math/real.ts";
+import { cos, hypot, sin } from "../../core/math/real.ts";
 import { heldPace, type StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 import { nearestFoe } from "../perception/targets.ts";
 import { conditionMatches, type ConditionReading } from "./conditions.ts";
@@ -59,6 +59,13 @@ function within(walk: readonly [number, number] | null, envelope: StanceEnvelope
   return speed > most ? [walk[0] * most / speed, walk[1] * most / speed] : walk;
 }
 
+/** Whether `envelope` holds the body's ground speed, read in the frame of `heading`: true where it states no limits. */
+function holds(envelope: StanceEnvelope | null | undefined, view: BodyView, heading: number): boolean {
+  if (!envelope) return true;
+  const v = view.stance.velocity, forward = v.x * sin(heading) + v.z * cos(heading), right = v.x * cos(heading) - v.z * sin(heading);
+  return hypot(forward, right) <= heldPace(envelope, forward, right);
+}
+
 /** The distance from `view`'s body's centre of mass to the nearest standing body of its own side, across the ground, m; Infinity with none. */
 function allyDistance(view: BodyView): number {
   const centre = view.stance.centre, side = view.senses.side;
@@ -75,7 +82,8 @@ const STILL: Reading = Object.freeze({ walking: false, foe: Infinity, destinatio
  * **Move**: a locomotion skill (`Locomotion`) that walks by one of `gaits`: the one a legs goal
  * names (`LegsGoal.gait`) where it has it, else the first whose rule of `rules` matches
  * (`MoveRule`), or `otherwise`. The gait changes only between steps (the stance standing or
- * shifting its weight, and taking no step of its own), and the one it changes to takes the body up
+ * shifting its weight, and taking no step of its own) with the body going no faster than the one
+ * it changes to holds (`holds` its envelope), and the one it changes to takes the body up
  * as it is, moving, by the heading the one before walked by (`Locomotion.resume`); the first is
  * not resumed, since none has driven the body. While another gait is wanted, a gait that drives
  * the legs itself (`LegsDrive`) is asked to stand, and gives them back to the stance at its next
@@ -100,8 +108,8 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     if (!memory.chosen) { memory.chosen = true; memory.gait = wants; return true; }
     if (wants === memory.gait) return true;
     if (gaits[wants]!.legs.state === now().state) { memory.gait = wants; return true; }
-    if (memory.driven || s.own || (s.phase !== "stand" && s.phase !== "shift")) return false;
     const heading = now().heading;
+    if (memory.driven || s.own || (s.phase !== "stand" && s.phase !== "shift") || !holds(gaits[wants]!.legs.envelope, view, heading)) return false;
     memory.gait = wants;
     now().resume(view, heading);
     return true;
