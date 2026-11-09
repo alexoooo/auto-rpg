@@ -179,7 +179,12 @@ run gives way to the walk only at a landing under the walk's top pace, after whi
 walk takes 0.5 to 0.9 s to come under 0.15 m/s. Handing over at up to 1.4 m/s saves about 0.3 s;
 the walk handed a body above 2 m/s falls. Training stops after slowing to 3 m/s as the newest
 order raises those to six of eight at best, at the cost of the 1 m/s order and the stops from
-2 m/s. The next question is a braking cycle without flight below the slowest clip.
+2 m/s. Holding the braking stance's knee and ankle at mid-stance under the slowest clip, so the
+stance stays planted until the other foot lands, removes most flight but leaves direct stops at
+2 to 3 s after retraining, with more falls between checkpoints. The stance walk's acceleration
+does not shorten its part. The remaining limit is the run's lack of a cycle between the walk and
+2.75 m/s: a slower captured cycle (a jog near 1.5 to 2 m/s) is the next question; it changes the
+run of every body that uses the cycles and is read on each of them.
 
 ## Completion
 
