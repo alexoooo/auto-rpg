@@ -163,18 +163,23 @@ air. The retained restored seed meets all twelve from-rest entry-and-hold cases 
 moving holds, with a mean slowest held speed of 4.731 m/s. Its stop reading is zero of twenty,
 with nineteen falls during stopping.
 
-The best stop-trained screen by falls, entry rate and held speed has zero falls, two of twelve
-entries, eight moving holds and zero stops, with a mean slowest held speed of 4.136 m/s. The
-focused forward-and-stop curriculum reaches seven of twenty stops and five complete moving
-hold-and-stop cases, but has eight falls and misses every from-rest entry. Neither replaces
-the retained seed: forward entry and stopping together remain short.
+The slowing stage's actor (`research/runs/warrior-travel/slowing/`) keeps the forward run and
+adds slowing: zero falls, twelve of twelve entries, eight moving holds, a mean slowest held speed
+of 4.52 m/s, and every slowing order from 3.5 to 1.5 m/s met. The 1 m/s order runs at 1.4 to
+1.7 m/s. Stops after slowing meet on eight of eight cases from 1 m/s (1.0 to 1.6 s) and seven of
+eight from 2 m/s; from 3 m/s three of eight; a direct stop from the forward run meets none, taking
+2.4 to 3 s to come under 0.15 m/s. The stop gate is short.
 
-Stop development compares adaptive and fixed observation normalization, native braking
-calibration, and a curriculum limited to 4 m/s entry, holds and stops. A normalization-only
-probe loses entry ability with the actor's weights fixed. With fixed normalization, the actor
-receives the stop command and keeps correcting its joints, but can settle into a roughly
-3 m/s run. The next training question must preserve the seed's from-rest entry while adding
-stops; partial stopping gains do not justify installing a record that loses entry.
+Its native record raises the braking reference's rate to 5 m/s²; at 3.2 m/s² the same curriculum
+met stops after slowing to 3 m/s on one of eight. Without the actor the native run falls, so a
+native change is read only after retraining. A stop from the forward run loses its time in three
+places: the run's slowest cycle is the 2.75 m/s clip, and below it the run holds near 2.5 m/s for
+about a second; each braking stance is followed by a flight phase that does not brake; and the
+run gives way to the walk only at a landing under the walk's top pace, after which the stance
+walk takes 0.5 to 0.9 s to come under 0.15 m/s. Handing over at up to 1.4 m/s saves about 0.3 s;
+the walk handed a body above 2 m/s falls. Training stops after slowing to 3 m/s as the newest
+order raises those to six of eight at best, at the cost of the 1 m/s order and the stops from
+2 m/s. The next question is a braking cycle without flight below the slowest clip.
 
 ## Completion
 
