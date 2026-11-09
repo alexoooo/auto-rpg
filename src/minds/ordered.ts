@@ -2,8 +2,8 @@ import { atan2, hypot } from "../core/math/real.ts";
 import type { Intent } from "../skills/framework/intent.ts";
 import type { Orders } from "./orders.ts";
 
-/** A facing under 8 cm names no direction: its aim point is over the body itself. */
-const orderedFacing = (face: Orders["face"]): number | null => face && hypot(face.x, face.z) > .08 ? atan2(face.x, face.z) : null;
+/** The way ordered to face, rad, or null where none is: a facing under 8 cm names no direction, its aim point being over the body itself. */
+export const orderedFacing = (face: Orders["face"]): number | null => face && hypot(face.x, face.z) > .08 ? atan2(face.x, face.z) : null;
 
 /**
  * **Orders made an intent**: their movement, a direct walk as much as a place or a range, for the
