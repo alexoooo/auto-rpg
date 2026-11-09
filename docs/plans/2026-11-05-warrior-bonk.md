@@ -131,6 +131,28 @@ Steps 1 to 3 are done; step 4 has no trained actor yet.
 - **Exploration**: at the trainer's default spread (`--log-std -1`) 7.5% of episodes land, at
   −2.5 37%, at −3 about half: the steer adds to an open-loop swing's pushes, so its run starts
   at −3 or lower.
+- **On the drill page** the native bonk is recorded on the `bonk` rung as subject
+  `option-bonk@empty,club` (`?play=ratings&evaluation=strike&subject=option-bonk@empty,club`):
+  8 of the rung's 16 fixed places land at 87 to 112 J, 3 are weak (64 and 68 J at gap 1.1 to
+  1.3 m, and 12 J with the arm bent at gap 0.6 m), 5 at gap 0.9 m or nearer are never admitted,
+  none falls. Option Mind's
+  preset has no bonk Option yet, so `option/bonk` does not resolve; the subject is a file holding
+  the preset with the bonk's Option added (`owning` in `research/case-learning-environment.mjs`),
+  `{ mind, skill: "bonk", held: { left: "empty", right: "club" } }`, given to
+  `npm run evaluate -- strike <file> --protocol bonk --write`.
+
+To pick it up:
+
+- **Screen the swing or a policy** on held-out places, every rung's condition with `--all`:
+  `node research/skills/strikes/straight-punch/punch-policy-check.mjs --config research/skills/strikes/swing/environments/bonk.json --policy none --rates 120,480`
+  (`--policy <run>/policy-<n>.json` for a checkpoint; `--config` a run's configuration to screen
+  on its places).
+- **Train** from a configuration naming the environment and its curriculum: `environment`
+  `research/skills/strikes/swing/environments/bonk.json`, `workers` 20, `each` 4, `rates` `[120]`,
+  and `places` the environment's `bonk` draw, `walk` where `{ mark: "high", hand: "right", start:
+  "walking" }` and `moving` where `{ mark: "high", hand: "right" }`; run
+  `research/run-train.py --config <it> --output .tmp/warrior-bonk/<run> --keywords released,short,down --log-std -3 --profile`.
+  The trainer's default keywords are travel's and fail on this environment.
 
 A shared change (the swing executor, the strike reader, a muscle's speed) is read on every skill
 and body it touches, as [AGENTS.md](../../AGENTS.md#developing-skills-and-options) says: the club's
