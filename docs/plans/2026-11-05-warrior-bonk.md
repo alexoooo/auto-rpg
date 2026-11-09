@@ -141,6 +141,14 @@ Steps 1 to 3 are done; step 4 has no trained actor yet.
   `{ mind, skill: "bonk", held: { left: "empty", right: "club" } }`, given to
   `npm run evaluate -- strike <file> --protocol bonk --write`.
 
+- **In the Arena** Option Mind offers the bonk (`src/entrants/option/mind.ts`), priced by its
+  profile from that record (`research/skills/strikes/strike-profiles.mjs`). In a minute's Warrior
+  bout, both holding `empty,club` (Node, `Duel` on a flat floor, seeds 2 to 4), each side
+  finishes 3 to 5 bonks beside its club blows and punches, and lets 7 to 17 go before they
+  commit. The side on the left falls once a bout while it walks to the bonk's window
+  ("braced to bonk hand.right's window"), the range opening from 1.0 to 1.7 m in 0.2 s before
+  it goes down; without the bonk neither side falls. That fall is the defect to fix first.
+
 To pick it up:
 
 - **Screen the swing or a policy** on held-out places, every rung's condition with `--all`:
