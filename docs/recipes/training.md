@@ -21,8 +21,11 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 
 ## Before the first run
 
-1. **Name the bar.** Write down the evaluation cases and gates that decide the question, the
-   ones the plan names. Training reward never decides it. The development cases that choose
+1. **Name the bar from the game.** Write down the evaluation cases and gates that decide the
+   question, the ones the plan names, taken from the orders the game gives the skill as it gives
+   them: for travel, places through the navigator at the paces it asks, corners, an order changed
+   on the way, a start from a stand. A case the game never produces is not on the bar, and
+   training reward never decides it. The development cases that choose
    checkpoints hold several cases per phase (8 or more), varied in what the skill must handle:
    starting pose, first leg, heading, place. One case flips with noise between checkpoints, and
    a case that is a training episode's exact start shows the actor's memory, not its skill.
@@ -81,14 +84,18 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 1. Play every kept checkpoint (one per 1 M) on the bar's development cases from step 1 of the
    first section. Training return does not choose: it can keep rising while the cases get worse.
    Reserved or confirmation cases never rank checkpoints: they are played once, on the chosen one.
-2. Take the best by the gate reading of the phases trained so far: falls first, then each gate's
-   figure. A phase no stage has trained yet (a stop before the stop stage) is read and reported,
+2. Take the best by the gate reading of every phase trained so far, the earlier stages' included:
+   falls first, then cases met, then each gate's figure. A phase no stage has trained yet (a stop before the stop stage) is read and reported,
    but ranks nothing: its outcome is chance. The last checkpoint is often not the best.
 3. **Polish**: resume the best into a new output for 2 to 5 M decisions and screen again:
    `--resume .tmp/<task>/<run>/model-<n>.zip --output .tmp/<task>/<run>-polish --lr 1e-4 --steps 3000000`.
    A checkpoint resumes only into another folder; decisions count on from its own.
 4. Compare the chosen checkpoint with the baseline, paired on the same cases
    (`npm run compare`). Keep it only if it gains without a loss elsewhere.
+5. **Install it in the game at once** and play it there, in the screens that use the skill. The
+   owner sees a skill only in the game, and the game finds what the cases missed. Its published
+   limits (`Locomotion.envelope`, `stopping`) are what it holds on the bar's cases, never the
+   paces its training asked.
 
 ## The curriculum
 
@@ -135,6 +142,10 @@ dropped run keeps nothing; its reading goes in the commit message.
 
 ## Traps
 
+- A bar of the training's own orders: an actor meets every gate it was trained on and falls on
+  the first order the game gives it, because no stage and no case gave that order.
+- A stage that starts from another seed than the previous stage's chosen checkpoint, or whose mix
+  leaves out an earlier stage: each stage undoes the last.
 - A zero-residual probe after a learned warm-up: check it can continue moving before using
   its fall to diagnose braking. Removing the actor can itself cause the fall.
 - A phase that nearly always fails, its failure costing more than the phase earns: the actor
