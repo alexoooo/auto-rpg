@@ -27,7 +27,7 @@ import { isRefused } from "../src/core/refusal.ts";
  * episode starts at its learner's first request and plays one request a step through the learning
  * adapter (`learner-adapter.mjs`): the trainer's outputs (through tanh) answer it, and the world
  * steps until the learner asks again; it ends with its case's reader, with the learner no longer
- * running (a punch's drive), with a fall where `down` weighs one, or is cut at the protocol's longest.
+ * running (a punch's drive), its trial then played on to its reader's end, with a fall where `down` weighs one, or is cut at the protocol's longest.
  *
  * Where the world kind can save (`WorldKind.save`) and `pool` is given, it keeps `pool` starts,
  * each a trial at a fresh draw played to its first decision and saved. An episode loads one of
@@ -282,14 +282,22 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
     if (!Array.isArray(action) || action.length !== actionSize || !action.every(Number.isFinite)) throw new Error('invalid learner action');
     const { built, kind, reader, learner } = ep, outputs = action.map(Math.tanh), dt = 1 / built.world.hz;
     ep.decisions++;
-    const played = decide(learner, outputs, () => {
+    const once = () => {
       built.world.step(); reader.afterStep();
       let reward = 0;
       for (let k = 0; k < percepts.length; k++) reward += percepts[k][1] * evaluation.percepts[percepts[k][0]](built, ep.condition) * dt;
       return { reward, ended: reader.ended ? 'read' : r.down !== undefined && ep.body.down ? 'down' : kind.clock(built) >= longest(ep) ? 'cut' : null };
-    }, dt), ended = played.ended;
+    };
+    const played = decide(learner, outputs, once, dt);
+    let ended = played.ended, steps = played.steps;
     let reward = played.reward - (r.effort ?? 0) * outputs.reduce((sum, a) => sum + a * a, 0) / outputs.length;
-    const observation = learner.inputs.slice(), interval = { worldSteps: played.steps, worldSeconds: played.seconds };
+    // Once the learner has stopped, the trial plays on to its reader's end, so the reading is the whole trial's.
+    if (ended === 'done') {
+      let rest = null;
+      while (rest === null) { const one = once(); reward += one.reward; steps++; rest = one.ended; }
+      ended = rest === 'read' ? 'done' : rest;
+    }
+    const observation = learner.inputs.slice(), interval = { worldSteps: steps, worldSeconds: steps * dt };
     if (ended === null) return { observation, reward, terminated: false, truncated: false, info: interval };
     const info = { ...interval, decisions: ep.decisions, seconds: kind.clock(built), down: ended === 'down' ? 1 : 0, ...(ep.hz === undefined ? {} : { hz: ep.hz }) };
     if (ended === 'down') reward += r.down;
