@@ -69,10 +69,8 @@ function lowering(body: Body, legs: Locomotion, lowerings: readonly Lowering[] =
     get placed() { return legs.placed; },
     get gait() { return legs.gait; },
     get unmet() { return state.phase === "failed" ? FEET_UNMET : state.phase === "legs" ? legs.unmet : ALL_MET; },
-    ...(legs.envelopeOf ? { envelopeOf: (gait) => legs.envelopeOf!(gait) } : {}),
-    ...(legs.envelopeRunning ? { envelopeRunning: (may) => legs.envelopeRunning!(may) } : {}),
+    ...(legs.limitsOf ? { limitsOf: (gait) => legs.limitsOf!(gait) } : {}),
     ...(legs.arms ? { arms: (view) => state.phase === "legs" ? legs.arms!(view) : null } : {}),
-    ...(legs.runs ? { runs: (may) => legs.runs!(may) } : {}),
     resume(view) {
       state.phase = "legs";
       state.lowering = -1;

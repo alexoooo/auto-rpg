@@ -1,6 +1,6 @@
 import type { Spot } from "../../skills/framework/menu.ts";
 import type { GaitName } from "../../skills/framework/skill.ts";
-import { cos, hypot, sin } from "../../core/math/real.ts";
+import { hypot } from "../../core/math/real.ts";
 import { approachSpot, atSpot } from "../../skills/intent/action-window.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
@@ -30,28 +30,26 @@ const WALK_SPACING = PROFILE_RANGE_SPAN / 2;
 
 /**
  * **A walk's model** from `at`: from where the body stands there to `spot` (by its route where it
- * has one) by `gait`, each leg of the way at what the gait holds walking that way facing the
- * focus (`Walker.pace`; forward where it holds nothing that way); through the blow coming, and the
- * focus's pressure along the part of each leg within its reach, the body moving at the walk's
- * velocity against the focus's (`dealtAt`, read at the middle of each `WALK_SPACING` of that part,
- * so the reads follow the way's length within reach and not its time), past its grace (`graceAt`:
- * spent as the way goes within its reach, restored as it goes out of it, never past the focus's
- * latency); leaving the body still at the spot with that grace, the focus turned toward it as far
- * as it turns in that time (`Predictions.turns`), and, in a clinch (`CLINCH`), down in its chance
- * of going down behind. A gait's falls are its own profile's to measure; none is, so a walk is
- * taken to stay up. With no focus, the way at the gait's pace.
+ * has one) by `gait`, each leg of the way as long as the legs take on it (`Walker.seconds`: the
+ * speed rule all along the way, facing the focus, or the way each leg goes with none); through the
+ * blow coming, and the focus's pressure along the part of each leg within its reach, the body
+ * moving at the walk's velocity against the focus's (`dealtAt`, read at the middle of each
+ * `WALK_SPACING` of that part, so the reads follow the way's length within reach and not its time),
+ * past its grace (`graceAt`: spent as the way goes within its reach, restored as it goes out of it,
+ * never past the focus's latency); leaving the body still at the spot with that grace, the focus
+ * turned toward it as far as it turns in that time (`Predictions.turns`), and, in a clinch
+ * (`CLINCH`), down in its chance of going down behind. A gait's falls are its own profile's to
+ * measure; none is, so a walk is taken to stay up.
  */
 export function walkTerms(at: Situation, spot: Spot, gait: GaitOf, walk: Walker): Terms | null {
   const focus = at.focus, from = at.where, offset = at.apart - at.range, pressure = at.predictions.pressure;
   const reach = focus ? edgeOf(at, pressure) + offset : 0, points = spot.route ?? [spot];
+  const legs = walk.seconds(at, gait.name, points, focus ? walk.facing(at) : null);
   let duration = 0, taken = 0, grace = graceAt(at), x = from.x, z = from.z;
-  for (const point of points) {
+  for (const [k, point] of points.entries()) {
     const dx = point.x - x, dz = point.z - z, length = hypot(dx, dz);
     if (length > 0) {
-      const face = walk.facing(at), forward = (dx * sin(face) + dz * cos(face)) / length, right = (dx * cos(face) - dz * sin(face)) / length;
-      const way = walk.pace(at, gait.name, forward, right), pace = way > 0 ? way : walk.pace(at, gait.name);
-      if (!(pace > 0)) return null;
-      const seconds = length / pace;
+      const seconds = legs[k]!, pace = length / seconds;
       if (!Number.isFinite(seconds) || !Number.isFinite(duration + seconds)) return null;
       duration += seconds;
       if (focus) {

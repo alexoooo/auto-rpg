@@ -203,7 +203,8 @@ export const stanceOf = (drive: LegsDrive): StanceGoal | null => drive.kind === 
  * optional limit.
  *
  * Resumed (`Skill.resume`), it stands facing the way the pelvis faces (read from its left-to-right
- * axis, which says it however far forward the pelvis is pitched), with no footing asked, and
+ * axis, which says it however far forward the pelvis is pitched), or the heading it is handed
+ * (`Locomotion.resume`), with no footing asked, and
  * asks the height the centre of mass is at, rising to the stance's over `RISING_SECONDS`, its
  * feet where they are. The reference height stays: it is the body's.
  */
@@ -346,8 +347,8 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
     get reference() { return state.reference; },
     get placed() { return state.placed; },
     get unmet() { return state.unmet; },
-    resume(view) {
-      state.heading = facing(view);
+    resume(view, heading = facing(view)) {
+      state.heading = heading;
       state.pace = 0;
       state.going = 0;
       if (turnStartup) state.walkTime = 0;

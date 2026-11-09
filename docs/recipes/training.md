@@ -22,22 +22,32 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 ## Before the first run
 
 1. **Name the bar.** Write down the evaluation cases and gates that decide the question, the
-   ones the plan names. Training reward never decides it.
+   ones the plan names. Training reward never decides it. The development cases that choose
+   checkpoints hold several cases per phase (8 or more), varied in what the skill must handle:
+   starting pose, first leg, heading, place. One case flips with noise between checkpoints, and
+   a case that is a training episode's exact start shows the actor's memory, not its skill.
 2. **Find the seed.** Look in `research/runs/<task>/README.md` for a kept actor that already does
-   part of the skill. Play it once on the current code through the evaluation's cases. Its
-   reading is the baseline the run is compared with.
+   part of the skill. Play it once on the current code through the evaluation's cases, and
+   through a few cases of every phase the stages will train (for travel: holds, slowing down,
+   stops, turns). Its reading is the baseline the run is compared with, and it says, phase by
+   phase, what the seed already does and what it cannot yet start.
 3. **Know what invalidates a seed.** A change to the body, the observation layout, the actions'
    meaning, the decision timing or the controller under the actor makes every trained actor a
    seed to retrain, never a reading. Budget 2 to 5 M decisions to bring it back, started with
    `--start`, `--start-layout` and `--critic-first`, then compare it with the baseline from step 2.
-4. **Start from reached states.** Warm-ups are played on the body and cached
+4. **Start the spread at one the seed survives.** `--start` begins exploring at `--log-std`
+   (default −1, a spread of 0.37), whatever the seed's own. Play the seed with that noise on each
+   phase: where it falls in more than a few episodes, lower the spread until it does not (−1.4,
+   a spread of 0.25, for the travel seed). Falls caused by the noise teach the same avoidance as
+   a phase that nearly always fails.
+5. **Start from reached states.** Warm-ups are played on the body and cached
    (`warmStarts` and the environments' snapshots). Never set a velocity or a pose to make a start.
    A warm-up that falls or leaves its corridor is reported and excluded. Copy each delivered
    order into mutable world state so snapshot restores cannot rewrite the curriculum's scripts.
-5. **Check the reward reads what the gate reads**: the same speed (centre of mass, along the
+6. **Check the reward reads what the gate reads**: the same speed (centre of mass, along the
    requested direction), the same fall predicate, the same corridor. Credit is per second,
    progress is a share of the requested pace, and a fall costs once and ends the episode.
-6. **Check parity once per new environment.** The seed played through the environment reproduces
+7. **Check parity once per new environment.** The seed played through the environment reproduces
    the ordinary game's trajectory step for step (`research/learner-adapter.mjs` is the one loop).
    If it does not, fix the environment before training.
 
@@ -71,8 +81,9 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 1. Play every kept checkpoint (one per 1 M) on the bar's development cases from step 1 of the
    first section. Training return does not choose: it can keep rising while the cases get worse.
    Reserved or confirmation cases never rank checkpoints: they are played once, on the chosen one.
-2. Take the best by the gate reading: falls first, then each gate's figure. The last checkpoint
-   is often not the best.
+2. Take the best by the gate reading of the phases trained so far: falls first, then each gate's
+   figure. A phase no stage has trained yet (a stop before the stop stage) is read and reported,
+   but ranks nothing: its outcome is chance. The last checkpoint is often not the best.
 3. **Polish**: resume the best into a new output for 2 to 5 M decisions and screen again:
    `--resume .tmp/<task>/<run>/model-<n>.zip --output .tmp/<task>/<run>-polish --lr 1e-4 --steps 3000000`.
    A checkpoint resumes only into another folder; decisions count on from its own.
@@ -85,6 +96,15 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
   rest and from the acts that lead into it; then leaving it (stopping, settling); then its
   variations (directions, targets, turns); then loadouts and disturbances (gusts). A plan names
   its skill's stages in that order.
+- **A phase the seed already does is in the mix from the first stage.** A stage without it
+  trains it away, and the next stage spends millions of decisions winning it back.
+- **A stage opens only when some of its cases already succeed**, played by the checkpoint it
+  starts from. A phase that nearly always fails teaches the actor to avoid it, not to do it.
+  When none succeed, open an easier stage first, or develop the native controller under it by
+  [the skill recipe](skill.md#3-a-native-controller-that-succeeds-on-some-cases).
+- **Within a phase, the smallest change comes first**: a small slow-down before a stop, a
+  gentle turn before a reversal. The next size is added once the smaller one succeeds on the
+  development cases.
 - Each stage resumes from the previous stage's chosen checkpoint
   (`--resume <checkpoint> --output <stage folder>` with the stage's config) and **keeps the
   earlier stages' episodes in the mix**, so what was learned holds. Half the episodes from earlier
@@ -101,7 +121,8 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
   that reads what the gate reads, and episodes that contain the failing case. Most plateaus are
   an environment that never shows the actor the case it fails.
 - Then change one thing (the curriculum's mix, a reward term, the observation) and run it as a
-  new question.
+  new question. A phase that still succeeds on almost none of its cases is not a training
+  question: go back to the curriculum's opening rule.
 - Native-controller tuning under a trained actor is judged only after the actor is retrained on
   it. Without that retraining the reading measures the actor outside the states it learned on.
 
@@ -114,6 +135,11 @@ dropped run keeps nothing; its reading goes in the commit message.
 
 ## Traps
 
+- A zero-residual probe after a learned warm-up: check it can continue moving before using
+  its fall to diagnose braking. Removing the actor can itself cause the fall.
+- A phase that nearly always fails, its failure costing more than the phase earns: the actor
+  learns to avoid it (it runs on after a stop order) and gives up speed elsewhere to fall less.
+  Returns rise while the skill gets worse.
 - Short blocks judged and rejected one after another: each looks like failure, and none runs
   long enough to learn.
 - A new actor for each phase (velocity, low-speed, braking, turning): the failures move to the

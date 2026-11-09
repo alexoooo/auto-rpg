@@ -12,6 +12,7 @@ import { woodenClub } from "../../../../src/core/bodies/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../../../../src/combat/rulebook.ts";
 import { GUARD, guardPosture } from "../../../../src/skills/guard/guard.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../../../../src/skills/locomotion/walk-run.ts";
+import { STANCE_WALK_PART } from "../../../../src/skills/locomotion/stance-walk-part.ts";
 import "../../../../tests/harness/preload-data.mjs";
 import { startWind } from "../../../../src/game/lab/wind.ts";
 import { coreStand } from "../../../../tests/harness/core-stand.mjs";
@@ -178,13 +179,13 @@ function shoveTrunk(stand, impulse, way) {
 /**
  * The locomotion skill `legs` names, driving `b`: null for the stance's own walk, which a trial asks
  * of the stance's goal itself; `"walk-run"` for the walk and run (`src/skills/locomotion/walk-run.ts`),
- * free to run; `"braced"` for it told it may not run.
+ * free to run; `"braced"` for the braced gait's walk in the stance (`STANCE_WALK_PART`).
  */
 function skillOf(legs, b, stride) {
   switch (legs) {
     case null: case undefined: return null;
     case "walk-run": return walkRun(b.driver, WALK_RUN, WALK_RUN_CYCLE, { stride });
-    case "braced": return walkRun(b.driver, WALK_RUN, WALK_RUN_CYCLE, { may: false });
+    case "braced": return STANCE_WALK_PART.make(b.driver, { kind: "stance-walk" });
     default: throw new Error(`no locomotion skill named ${legs}`);
   }
 }

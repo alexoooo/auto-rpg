@@ -143,7 +143,7 @@ test("pacing detects changed orders from a provider reusing its object", () => {
   let driver, decisions = 0;
   const view = { time: 0, resumed: false }, orders = { face: null, pace: 1 };
   const body = { view, drive(value) { driver = value; } };
-  const skills = { state: {}, report: { ledger: [] }, envelopeOf() {}, instance() {}, readiness() {}, needs() {}, command() {}, release() {} };
+  const skills = { state: {}, report: { ledger: [] }, limitsOf() {}, instance() {}, readiness() {}, needs() {}, command() {}, release() {} };
   driveBy(body, { name: "counted", decide() { decisions++; return {}; } }, () => skills, { every: 10, phase: 0, orders: () => orders });
   driver.decide(view, 1 / 120);
   view.time = 1 / 120; orders.pace = 0;
@@ -157,7 +157,7 @@ test("walk pricing refuses zero pace and bounds tiny-pace pressure sampling", ()
   const pressure = { model: [], phase: "clear", struck: null, peak: 0, latency: 0 };
   const at = { where: { x: 0, z: 0, face: 0 }, apart: 1, range: 1, grace: 0,
     focus: { centre: new Vector3(1, 0, 0), velocity: new Vector3(), segments: new Map(), spec },
-    orders: { pace: 0, face: null }, predictions: { pressure, danger: 0, turns: 0 }, sight: { envelope: null, envelopeOf: () => null, report: { heading: 0 }, view: { stance: { centre: new Vector3() } } } };
+    orders: { pace: 0, face: null }, predictions: { pressure, danger: 0, turns: 0 }, sight: { envelope: null, limitsOf: () => null, report: { heading: 0 }, view: { stance: { centre: new Vector3() } } } };
   const spot = { x: 0, z: 1, face: 0 }, walk = walker(spec);
   assert.equal(walkTerms(at, spot, gait, walk), null);
   at.orders.pace = 1e-12;

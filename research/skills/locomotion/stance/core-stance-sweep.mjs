@@ -23,7 +23,7 @@
  * - shove: 10 to 60 N s (`--top`) by 5, sixteen ways; the shoves held, and the impulse held each way
  *   (the largest below the first that fell): mean and least. With `--walked 0.3` each shove comes 3 s
  *   after a 3 s walk forward at that pace stops; `apart` is the soles' mean distance across, mm.
- * - orders: the braced walk (the walk and run that may not run) given random orders (`orders`), the
+ * - orders: the braced walk (the stance's walk, `STANCE_WALK_PART`) given random orders (`orders`), the
  *   club in hand and the body's own envelope, 30 s at each pace and seed of `--orders paces:first-last`,
  *   and with `--shoves 10,20` shoved at a third of its orders by each impulse, N s, level, a random
  *   way at the middle trunk; the trials that fell by pace and impulse, and the catch steps a trial.

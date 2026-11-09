@@ -113,9 +113,10 @@ export function fastestTurning(envelope: StanceEnvelope): number {
  * The fastest pace at which `envelope`'s turns carry the body round a bend of `radius` m, m/s: over
  * its table, the most of each speed or what its turn carries round the bend, whichever is less
  * (walking no faster than a speed, the body turns as fast as it turned there: `turnAt`). A straight
- * (`radius` Infinity) asks no turn, so even a speed that held none carries the body along it.
+ * (`radius` Infinity) asks no turn, so its table does not limit the pace along it.
  */
 export function paceRound(envelope: StanceEnvelope, radius: number): number {
+  if (radius === Infinity) return Infinity;
   return Math.max(0, ...envelope.turns.map((t) => Math.min(t.speed.value, carried(t.turn.value, radius))));
 }
 

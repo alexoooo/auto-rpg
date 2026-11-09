@@ -263,15 +263,21 @@ arbiter releases every action when another mind takes the body.
   A record can supply its travel envelope independently of the braced limits, with eight
   directional operating speeds interpolated between adjacent headings. The game's network and
   the trainer answer the same learner. `research/skills/locomotion/travel-environment.mjs` trains
-  scripted orders through Option Mind from quiet rest and reached moving starts. The weighted
-  scripts in `research/skills/locomotion/travel-curriculum.mjs` retain earlier episodes as entry,
-  pace changes and stops are added. The lone-body world saves physics, perception, orders,
+  scripted orders through Option Mind from quiet rest and reached moving starts. Training can
+  vary the settled rest time and rotate the body and its order scripts together. The weighted
+  scripts in `research/skills/locomotion/travel-curriculum.mjs` retain the seed's forward entry
+  alongside moving holds as pace changes and stops are added. Checkpoint selection uses
+  `research/skills/locomotion/travel-screen.mjs`: several physical starts per phase, with stops
+  ranked only when trained. The lone-body world saves physics, perception, orders,
   wind and controller state so its reached running starts can be restored.
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
-  shares gait instances only for identical complete configurations. Walk/run permission views
-  share motion through their concrete implementation when their physical settings agree.
-  Walking steps read the selected gait's envelope, so travel and braced permission views apply
-  their own speed and turning limits inside the stance controller as well as in order planning.
+  shares gait instances only for identical complete configurations. Each stock gait is its own
+  controller with its own settings: braced is the stance walk, the run the walk and run by its
+  body's record. While another gait is wanted, Move asks the current one for the walk no faster
+  than the wanted gait's envelope holds, and changes gait between steps once the legs are back
+  with the stance and the body's speed fits the wanted gait's envelope. The new gait takes the
+  body up as it moves. Walking steps read their gait's envelope inside the stance controller as
+  well as in order planning.
   Idle foot placement waits until the body has stood still `IDLE_SETTLE`, steps as a walk
   does, and approaches the new support centre gradually after landing. The placement remains
   active through the final centering motion.

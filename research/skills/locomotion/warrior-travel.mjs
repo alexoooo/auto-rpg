@@ -72,7 +72,7 @@ let mind = defaultMind('workshop-fighter');
 const tuning = o.settings ? JSON.parse(readFileSync(o.settings, 'utf8')) : null;
 if (tuning) {
   mind = { ...mind, tuning: { ...mind.tuning, parts: { ...mind.tuning?.parts, legs: { ...MOVE,
-    gaits: STOCK_GAITS.map(gait => ({ ...gait, legs: { ...gait.legs, tuning } })) } } } };
+    gaits: STOCK_GAITS.map(gait => gait.legs.kind === 'walk-run' ? { ...gait, legs: { ...gait.legs, tuning } } : gait) } } } };
 }
 const lone = { model: 'workshop-fighter', mind, balance: 0,
   floorSize: 400, loadout: loadouts[o.held], seed, ...(o.gusts ? { gusts: true } : {}), script };

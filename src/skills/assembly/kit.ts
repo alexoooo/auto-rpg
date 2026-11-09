@@ -47,7 +47,7 @@ export function motorOf(parts: PartLookup, config: PartConfig): MotorMaker {
 
 /** Gaits' legs of any kind `parts` finds, as Move makes its gaits (`GaitPart.make`). */
 function legsFrom(parts: PartLookup): Legs {
-  return { make: (body, config) => parts.of("gait", config).make(body, config), runs: (config) => parts.of("gait", config).runs?.(config), parts };
+  return { make: (body, config) => parts.of("gait", config).make(body, config), parts };
 }
 
 /**

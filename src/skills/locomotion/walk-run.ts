@@ -69,7 +69,7 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
 }
 
 /**
- * How fast the walk and run states it stops while it may run, m/s² (`Locomotion.stopping`): under
+ * How fast the walk and run states it stops where it runs, m/s² (`Locomotion.stopping`): under
  * its run's `brake`, since the run goes faster than the pace asked and slows from it late. Set so
  * that a run to a place stops close past it with how long it goes on before it slows counted in, so
  * it states no lag of its own (`Locomotion.lag`); a higher rate overshoots.
@@ -89,7 +89,7 @@ const RUN_STOPPING = 0.2;
  * over from that foot once its sole bears alone, the other's off the ground: a sole that has only
  * touched down still leaves the body on the other, and a run that swings that other leg drops it.
  * Once it has landed `landings` times, it gives way to the walk once the pace asked has come down `below`
- * under it, or it is told it may not run, and the body's ground speed, across its heading as well
+ * under it, and the body's ground speed, across its heading as well
  * as along it, has slowed to the run's pace, its landings braking it until then: a walk handed a
  * body going faster than it walks cannot catch it, nor one still going sideways off a run that drifted. A run
  * that gives way at its first landing hands the walk a body just come down from the run's first
@@ -118,10 +118,7 @@ const REACH = 0.2;
 
 /** **What the walk and run remembers**, besides the stance's legs' own (`locomotion`) and the run's (`runCycle`). */
 interface WalkRunMemory {
-  /** Whether the selected gait permits travel, independently of its flight envelope. */
-  travel: boolean;
-  /** Whether it may run (`Locomotion.runs`, and a run that goes faster forward than the walk), and whether it runs. */
-  may: boolean;
+  /** Whether it runs. */
   running: boolean;
   /** The foot the stance's walk swung at its last step until that sole is on the ground, its landing; null once it is. */
   swinging: Side | null;
@@ -162,25 +159,25 @@ const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "cen
  * (`locomotion`: capture-point steps it plans itself) and runs by a run that tracks a person's
  * cycle (`runCycle`), driving the legs itself (`LegsDrive`).
  *
- * Asked past `run` a way near enough the face asked (`RUN_WAY`, and told it may run, `Locomotion.runs`),
- * the walk turns the body to face that way and goes it at what its legs and its envelope hold, and once
+ * Asked past `run` a way near enough the face asked (`RUN_WAY`), the walk turns the body to face that way and goes it at what its legs and its envelope hold, and once
  * the body faces it and has come up to that pace or the run's, or the walk asked has stood past it
  * `RUN_SWITCH.top` s, the run takes over as the stance's next step lands, from that foot, at the pace
  * the body goes; running, it goes the way asked, turning only by its heading, and a run landing gives
  * the legs back to the stance's walk once the pace asked has come down under the run's, or the way
- * asked has gone round past `RUN_WAY`, or it is told it may not run, and the body has slowed to it (`RUN_SWITCH`).
+ * asked has gone round past `RUN_WAY`, and the body has slowed to it (`RUN_SWITCH`).
  * The stance takes the body up as it is, moving (`Locomotion.resume`). Asked to stand while
  * running, the run brakes and the walk stops the body.
  *
- * Its envelope is the stance's walk's (`Body.envelope`), and its own while it may run (`walkRunEnvelope`); it
- * states it stops at its walk's rate, and while it may run at `RUN_STOPPING`. Its
+ * Its envelope is its run's (`walkRunEnvelope`, or `envelope`), and it states it stops at
+ * `RUN_STOPPING`; a run whose envelope holds it no faster forward than the stance's walk's
+ * (`Body.envelope`) is not run, and it walks by that envelope at the walk's rate. Its
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
  * they were set for, and quickened by its haste (`quickness`), as the run's envelope is.
  * The optional first-lift entry takes the first clear swinging foot after facing settles,
  * beginning the cycle on the opposite planted sole; landing entry waits for a walking landing.
  */
 export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE,
-  { may = true, braking = givenRun, stride, envelope, entry = "landing", trim, steer }: { readonly may?: boolean; readonly braking?: RunCycleSettings; readonly stride?: GaitTuning; readonly envelope?: StanceEnvelope;
+  { braking = givenRun, stride, envelope, entry = "landing", trim, steer }: { readonly braking?: RunCycleSettings; readonly stride?: GaitTuning; readonly envelope?: StanceEnvelope;
     readonly entry?: "landing" | "first-lift"; readonly trim?: RunTrim; readonly steer?: RunSteering } = {}): Locomotion & { readonly state: WalkRunState } {
   if (entry !== "landing" && entry !== "first-lift") throw new Error("run entry is landing or first-lift");
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
@@ -193,27 +190,29 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = envelope ? quickened(envelope, quick) : body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
   const travelStride = stride && scaledStride(stride, k, quick);
-  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, () => memory.may ? runEnvelope : body.envelope, { segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built),
-    gait: () => memory.travel ? travelStride : undefined });
+  // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
+  const may = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
+  const held = may ? runEnvelope : body.envelope;
+  const feet = stanceFeetOf(body.built.spec), legs = locomotion(feet, held, { segments: stanceSegmentsOf(body.built.spec), idleFooting: standingFooting(body.built),
+    gait: () => travelStride });
   /** Whether the ground bore the foot on `side` in the last step (`StanceEnd.touching`). */
   const ends = { left: footOn(body.built.spec, "left"), right: footOn(body.built.spec, "right") };
   const touching = (view: BodyView, side: Side): boolean => view.stance.ends[ends[side]]!.touching;
-  // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
-  const pays = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
-  const memory: WalkRunMemory = { travel: may, may: may && pays, running: false, swinging: null, bearing: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
+  const memory: WalkRunMemory = { running: false, swinging: null, bearing: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
     assisted: { root: new Quaternion(), read: false, request: { force: new Vector3(), moment: new Vector3() } }, unmet: { ...ALL_MET } };
   const state = { legs: legs.state, walkRun: memory, run: cycle.state };
 
-  /** The run gives the legs back to the stance's walk, which takes the body up as it is. */
-  const walkOn = (view: BodyView): void => {
+  /** The stance's walk takes the legs, and the body up as it is, from the run or from another skill (`Locomotion.resume`). */
+  const walkOn = (view: BodyView, heading?: number): void => {
     steady.rest(memory.assisted);
     memory.running = false;
     memory.swinging = null;
     memory.bearing = null;
     memory.capped = 0;
     memory.faced = 0;
+    memory.facing = view.stance.facing;
     memory.pace = 0;
-    legs.resume(view);
+    legs.resume(view, heading);
   };
   /** The run begins from the body as it is, the sole `landed` bearing alone, the heading the walk's, asked the way `toward`. */
   const runFrom = (view: BodyView, landed: Side, toward: number): void => {
@@ -243,31 +242,27 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     else memory.heading += step;
   };
   /**
-   * The walk the stance is asked, told it may run: forward no faster than the run's pace, its way kept. A stance walk asked past
+   * The walk the stance is asked, where it runs: forward no faster than the run's pace, its way kept. A stance walk asked past
    * what it holds sets its steps for a pace it does not make, and comes up to less than it would at its own.
    */
   const walkable = (asked: readonly [number, number] | null): readonly [number, number] | null =>
-    memory.may && asked && asked[0] > settings.run ? [settings.run, asked[1] * settings.run / asked[0]] : asked;
+    may && asked && asked[0] > settings.run ? [settings.run, asked[1] * settings.run / asked[0]] : asked;
   /** Whether the way `asked` is one it runs (`RUN_WAY`). */
   const runsWay = (asked: readonly [number, number] | null): boolean => asked !== null && Math.abs(atan2(asked[1], asked[0])) <= RUN_WAY;
-  /** The envelope it walks by now: the run's while it may run. */
-  const envelopeNow = (): StanceEnvelope | null => memory.may ? runEnvelope : body.envelope;
 
   return {
     state,
     supports: legs.supports,
     get lower() { return legs.lower; },
-    get envelope() { return envelopeNow(); },
-    get stopping() { return memory.may ? RUN_STOPPING : legs.stopping; },
-    get lag() { return memory.may ? 0 : legs.lag; },
-    runs(may) { memory.travel = may; memory.may = may && pays; },
-    envelopeRunning: (may) => may && pays ? runEnvelope : body.envelope,
+    envelope: held,
+    get stopping() { return may ? RUN_STOPPING : legs.stopping; },
+    get lag() { return may ? 0 : legs.lag; },
     get heading() { return memory.running ? memory.heading : legs.heading; },
     get pace() { return memory.running ? memory.pace : legs.pace; },
     get reference() { return legs.reference; },
     get placed() { return !memory.running && legs.placed; },
     get unmet() { return memory.running ? memory.unmet : legs.unmet; },
-    resume(view) { if (memory.running) walkOn(view); else legs.resume(view); },
+    resume: walkOn,
     goal(view, goal, dt, context): LegsDrive {
       const inputHeading = memory.running ? memory.heading : legs.heading;
       const s = view.stance, v = s.velocity, asked = goal.walk, face = goal.face;
@@ -281,7 +276,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       }
       if (!memory.running) {
         const h = legs.heading, along = v.x * sin(h) + v.z * cos(h), speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0;
-        memory.capped = memory.may && runsWay(asked) && speed > settings.run + RUN_SWITCH.past ? memory.capped + dt : 0;
+        memory.capped = may && runsWay(asked) && speed > settings.run + RUN_SWITCH.past ? memory.capped + dt : 0;
         // A step of the stance's walk ends as its foot lands: the run takes over from that foot. A step
         // whose landing was given up in the air has not landed until its sole is on the ground.
         let landed: Side | null = null;
@@ -305,13 +300,12 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       }
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past
       // `RUN_ROUND`, and, asked to stand or a way it does not run, along the heading as it is.
-      const speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0, envelope = envelopeNow();
-      const holds = asked && envelope ? heldPace(envelope, asked[0], asked[1], REACH) : Infinity, held = speed > holds ? holds / speed : 1;
+      const speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0;
+      const holds = asked && held ? heldPace(held, asked[0], asked[1], REACH) : Infinity, share = speed > holds ? holds / speed : 1;
       const requested = asked ? inputHeading + atan2(asked[1], asked[0]) : memory.heading;
       const on = asked !== null && Math.abs(wrap(requested - face)) <= RUN_WAY && Math.abs(wrap(requested - memory.heading)) <= RUN_ROUND;
       const toward = on ? requested : memory.heading;
-      // Told it may not run, it brakes to the walk's pace.
-      memory.pace = on ? Math.min(speed * held, memory.may ? Infinity : settings.run - RUN_SWITCH.below) : 0;
+      memory.pace = on ? speed * share : 0;
       if (on) turnToward(view, toward, dt);
       else memory.spin = 0;
       const h = memory.heading;

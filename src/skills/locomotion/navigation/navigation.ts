@@ -10,7 +10,7 @@ import { copyMovement, sameMovement, stands, type MovementRequest, type GroundPo
 import type { NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "../../framework/navigation.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
 import { createRouter } from "./route-search.ts";
-import { travelSpeed, type Corner } from "../travel.ts";
+import { cornersOf, travelSpeed, WAYPOINT, type Corner } from "../travel.ts";
 
 /**
  * Route clearance includes gait sway; progress windows are navigation preferences, not anatomy. A
@@ -23,7 +23,7 @@ import { travelSpeed, type Corner } from "../travel.ts";
  * come no nearer for `stalled` s, its route kept from where it was, stands that step and searches
  * afresh from where it is at the next.
  */
-const NAV = Object.freeze({ margin: .08, waypoint: .18, hold: 2,
+const NAV = Object.freeze({ margin: .08, hold: 2,
   stalled: 3, progress: .06, moved: .3, quiet: .25, rangeSamples: 16, rangeResponse: 1, sideCost: .1 });
 const apart = (a: GroundPoint, b: GroundPoint): number => hypot(a.x - b.x, a.z - b.z);
 const atHeight = (at: GroundPoint, height: number): Vec3 => [at.x, height, at.z];
@@ -183,7 +183,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
      * still fits; straight from here, as a search would find it; or by the kept route's last leg
      * from the corner before it. Where that leg is not clear, a route that ends within `NAV.moved`
      * of `aim` keeps its end and still leads there. Its other legs stand while the geometry does;
-     * the body turns onto the next `NAV.waypoint` m before a corner, so a sweep from here along it
+     * the body turns onto the next `WAYPOINT` m before a corner, so a sweep from here along it
      * may graze the corner by design.
      */
     const reaches = (aim: GroundPoint): boolean => {
@@ -202,8 +202,8 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     let goal: GroundPoint, near: number;
     switch (request.kind) {
       case "place": {
-        // The points before its last are corners of its way, passed within `NAV.waypoint` as a route's are.
-        while (state.waypoint < request.points.length - 1 && apart(here, request.points[state.waypoint]!) <= Math.max(request.near, NAV.waypoint)) { state.waypoint++; state.route = []; state.stood = false; }
+        // The points before its last are corners of its way, passed within `WAYPOINT` as a route's are.
+        while (state.waypoint < request.points.length - 1 && apart(here, request.points[state.waypoint]!) <= Math.max(request.near, WAYPOINT)) { state.waypoint++; state.route = []; state.stood = false; }
         goal = request.points[state.waypoint]!; near = request.near;
         break;
       }
@@ -278,8 +278,8 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     const distance = apart(here, goal), speed = hypot(view.stance.velocity.x, view.stance.velocity.z);
     state.stood = stands(distance, near, state.stood);
     if (state.stood) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance, rest: [aim.x, aim.z] }; }
-    // A corner is passed within `NAV.waypoint` of it, or once the leg past it is clear from here.
-    while (state.route.length > 1 && (apart(here, state.route[0]!) <= NAV.waypoint
+    // A corner is passed within `WAYPOINT` of it, or once the leg past it is clear from here.
+    while (state.route.length > 1 && (apart(here, state.route[0]!) <= WAYPOINT
       || clearStep(atHeight(here, centre.y), atHeight(state.route[1]!, centre.y), radius, solids))) state.route.shift();
     if (!state.route.length) return unreachable(goal);
     // The way on: the route to the goal, then a place's points after it.
@@ -298,16 +298,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       state.held = false; state.route = []; state.solids = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time;
       update("stalled", remaining, goal); return { move: null, face: null };
     }
-    // Each corner of the way ahead: how far along it, and the tangent of half its turn.
-    const corners: Corner[] = [];
-    let to = apart(here, way[0]!);
-    for (let k = 0; k + 1 < way.length; k++) {
-      const from = k === 0 ? here : way[k - 1]!, at = way[k]!, after = way[k + 1]!;
-      const ax = at.x - from.x, az = at.z - from.z, bx = after.x - at.x, bz = after.z - at.z, la = hypot(ax, az), lb = hypot(bx, bz);
-      const sum = la * lb + ax * bx + az * bz;
-      corners.push({ distance: to, halfTurn: la === 0 || lb === 0 ? 0 : sum > 0 ? Math.abs(ax * bz - az * bx) / sum : Infinity, room: NAV.waypoint });
-      to += lb;
-    }
+    const corners = cornersOf(here, way);
     update("moving", remaining, goal);
     const walk = steered(next.x - here.x, next.z - here.z, going(next.x - here.x, next.z - here.z, remaining - near, corners));
     return { move: walk.move, face: walk.face ?? atan2(next.x - here.x, next.z - here.z), destination: remaining };

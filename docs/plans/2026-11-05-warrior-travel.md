@@ -89,6 +89,14 @@ layout and retrain after changing the actor's observations, actions or native co
 `research/skills/locomotion/warrior-travel.mjs --settings <record>`, then the `travel`
 evaluation's minimum protocol.
 
+Choose checkpoints on `research/skills/locomotion/travel-screen.mjs`'s development cases:
+twelve from-rest entries varied in heading, settle time and resting posture, and eight moving
+holds at varied gait phases. The entries exercise both first legs. Read through the stop order
+for entry and hold selection; report stopping separately until the stop stage trains it. The
+cases and restored actor's baseline are in `research/runs/warrior-travel/development/`.
+The restored entry actor is the stop stage's seed. Training uses separate headings, settle times and
+moving phases; development cases never become exact training starts.
+
 1. **Restore the forward run.** Retrain the entry seed through the `travel-orders`
    environment on the current learner until the forward case meets the forward gate (4 m/s
    within 4 s, held 10 s, upright). This is the seed for step 2.
@@ -129,10 +137,15 @@ episodes in the mix.
 
 1. **Sustained running.** Physically reached moving states at several gait phases, on both
    stepping legs: warm-up speeds 1 to 4.5 m/s where reachable, episode starts 2 to 9 s,
-   requested speeds 1.4 to 6.5 m/s. Unreached warm-ups are reported and excluded.
+   requested speeds 1.4 to 6.5 m/s. Keep the seed's from-rest forward entry in the mix from
+   this stage. Unreached warm-ups are reported and excluded.
 2. **Entry and pace changes.** Requested speeds down to 0.9 m/s for the walk-to-run handover,
    episodes from rest, and pace changes within an episode.
-3. **Stops.** Stop orders from reached speeds and after pace changes.
+3. **Slowing and stops.** From reached runs, pace orders a little below the run's speed first,
+   then larger drops, then stop orders from reached speeds and after holds, each size added
+   once the smaller succeeds on development cases. Entry and moving episodes stay in the mix.
+   The restored seed falls on nearly every order to slow from a reached run, so this stage
+   opens on the smallest drop it survives, or on native braking work if it survives none.
 4. **Directions and turns.** Heading orders from rest, facing-held directions, rotating
    directions, corners and reversals from reached runs.
 5. **Loadouts and gusts**, as step 5 of the work says.
@@ -142,6 +155,46 @@ from rest; a higher requested speed does not satisfy a lower order that the conf
 must obey. Confirmation uses the actual orders, complete speed windows and deadlines in the
 movement contract, including the stop and recovery guards. Training rewards and tolerances
 never change those requirements.
+
+## Development reading
+
+The Node Option Mind development screen runs at 120 Hz, unassisted, empty-handed and in calm
+air. The retained restored seed meets all twelve from-rest entry-and-hold cases and all eight
+moving holds, with a mean slowest held speed of 4.731 m/s. Its stop reading is zero of twenty,
+with nineteen falls during stopping.
+
+The slowing stage's actor (`research/runs/warrior-travel/slowing/`) keeps the forward run and
+adds slowing: zero falls, twelve of twelve entries, eight moving holds, a mean slowest held speed
+of 4.52 m/s, and every slowing order from 3.5 to 1.5 m/s met. The 1 m/s order runs at 1.4 to
+1.7 m/s. Stops after slowing meet on eight of eight cases from 1 m/s (1.0 to 1.6 s) and seven of
+eight from 2 m/s; from 3 m/s three of eight; a direct stop from the forward run meets none, taking
+2.4 to 3 s to come under 0.15 m/s. The stop gate is short. The Warrior's walk-run record
+(`assets/skills/locomotion/walk-run/walk-run.json`) holds this actor and its native record, so
+the game's Run gait uses them; the Braced gait is the stance's own walk and reads neither.
+
+From rest, the record's run enters only on the forward case's 4 m/s order. Asked 1.5 or 2.8 m/s,
+or sent to a place 5 to 20 m ahead at the speed rule's asks, it falls within 2 s. Its envelope's
+6.5 m/s forward is the curriculum's ceiling (`travel-training-ceiling`), so the game prices and
+asks the Run by limits it does not hold: an Option Mind with one follow-orders option per gait,
+each priced by the time its gait takes, chooses the Run and falls in the Crypt (34 falls over 16
+seeds of 60 s, against none by the Braced gait). Entry from rest at the speed rule's asks, stops
+at a place, and corners are what the Run needs before the game chooses gaits by value.
+
+Its native record raises the braking reference's rate to 5 m/s²; at 3.2 m/s² the same curriculum
+met stops after slowing to 3 m/s on one of eight. Without the actor the native run falls, so a
+native change is read only after retraining. A stop from the forward run loses its time in three
+places: the run's slowest cycle is the 2.75 m/s clip, and below it the run holds near 2.5 m/s for
+about a second; each braking stance is followed by a flight phase that does not brake; and the
+run gives way to the walk only at a landing under the walk's top pace, after which the stance
+walk takes 0.5 to 0.9 s to come under 0.15 m/s. Handing over at up to 1.4 m/s saves about 0.3 s;
+the walk handed a body above 2 m/s falls. Training stops after slowing to 3 m/s as the newest
+order raises those to six of eight at best, at the cost of the 1 m/s order and the stops from
+2 m/s. Holding the braking stance's knee and ankle at mid-stance under the slowest clip, so the
+stance stays planted until the other foot lands, removes most flight but leaves direct stops at
+2 to 3 s after retraining, with more falls between checkpoints. The stance walk's acceleration
+does not shorten its part. The remaining limit is the run's lack of a cycle between the walk and
+2.75 m/s: a slower captured cycle (a jog near 1.5 to 2 m/s) is the next question; it changes the
+run of every body that uses the cycles and is read on each of them.
 
 ## Completion
 
