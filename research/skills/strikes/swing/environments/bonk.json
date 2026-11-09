@@ -57,13 +57,13 @@
   "pool": 4,
   "refresh": 16,
   "split": "train",
+  "onward": false,
   "reward": {
     "effort": 0.02,
     "unmet": -1,
     "end": {
-      "score": 1,
-      "short": -4,
-      "met": 0
+      "released": 1,
+      "short": -4
     }
   }
 }

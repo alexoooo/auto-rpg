@@ -17,7 +17,7 @@ import { recordingKey } from "../../core/world/recording.ts";
 import { mindSubject, type Evaluation, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import type { StrikeReading } from "./read.ts";
-import { barScore } from "./score.ts";
+import { barScore, releasedScore } from "./score.ts";
 import { createStrikeCases, limbOf, type StrikeCondition } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
@@ -128,12 +128,14 @@ export function createStrikeIndex(context: GameContext) {
     subjects: (choice) => strikeSubjects(choice, DRILLED),
     outcome: strikeOutcome,
     /**
-     * A learning environment's terms: the human-reference comparison score, whether the completed
+     * A learning environment's terms: the human-reference comparison score, a bonk's as its swing
+     * lets go (`releasedScore`), whether the completed
      * action landed physically, and, where
      * the limb met nothing on the mark, how far short of its aim it stayed at its nearest, m, to 0.5.
      */
     terms: {
       score: (reading, condition) => barScore(reading, "hand" in condition ? condition.hand : null),
+      released: (reading) => releasedScore(reading),
       met: (reading) => reading.outcome === "landed" ? 1 : 0,
       short: (reading) => reading.hit ? 0 : Math.min(reading.nearest ?? Infinity, .5),
     },

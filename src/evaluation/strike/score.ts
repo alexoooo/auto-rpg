@@ -14,17 +14,31 @@ const unit = (value: number): number => Math.max(0, Math.min(1, value));
  * the bar's height over it, the swell's rise to the bar's, the sweep from 45 degrees outside the
  * bar's to within it, the reversal from 20 degrees past the bar's to within it, the descent to the
  * bar's, the swell first on the head, the elbow from twice the bar's bend to within it, and the hand
- * back at its guard; less 0.5 where its action did not end.
+ * back at its guard; less 0.5 where its action did not end. `released`, read as the swing lets go:
+ * the hand's return and the action's end are still to come, and count as met.
  */
-function overheadScore(reading: StrikeReading, o: Overhead, bend: number): number {
+function overheadScore(reading: StrikeReading, o: Overhead, bend: number, released = false): number {
   const bar = reading.bar.overhead, rad = Math.PI / 180, room = (value: number, limit: number, best: number) => unit((value - limit) / (best - limit));
-  if (reading.outcome === "landed")
+  const formed = reading.hit?.faced !== false && o.short.every((test) => test === "back to guard");
+  if (reading.outcome === "landed" || released && reading.outcome === "weak" && formed)
     return 9 + room(o.share, 1, 1.5) + room(o.descent, bar.descent * rad, 90 * rad) + room(-bend, -reading.bar.bend * rad, 0);
   const near = unit(1 + (o.hand - bar.hand) / .3) + unit(o.rise / bar.rise)
     + 1 - unit(Math.max(bar.sweep[0] * rad - o.sweep, o.sweep - bar.sweep[1] * rad) / (45 * rad)) + 1 - unit((o.reversal - bar.reversal * rad) / (20 * rad))
     + unit(o.descent / (bar.descent * rad)) + (o.swell ? 1 : 0) + 1 - unit((bend - reading.bar.bend * rad) / (reading.bar.bend * rad))
-    + 2 * Math.min(1, o.share) + (o.back ? 1 : 0);
-  return 8 * near / 10 - (reading.ended === null ? .5 : 0);
+    + 2 * Math.min(1, o.share) + (o.back || released ? 1 : 0);
+  return 8 * near / 10 - (reading.ended === null && !released ? .5 : 0);
+}
+
+/**
+ * **A bonk's score as its swing lets go** (`overheadScore`): what a steer that stops at the
+ * release is trained on, the hand's return and the action's end counted as met; a fall till then
+ * -3, nothing on the mark -1, as `barScore`. The trial played to its end is read by `barScore`.
+ */
+export function releasedScore(reading: StrikeReading): number {
+  if (reading.down) return -3;
+  const hit = reading.hit;
+  if (!hit) return reading.outcome === "elsewhere" || reading.outcome === "guarded" ? -0.5 : -1;
+  return hit.overhead ? overheadScore(reading, hit.overhead, hit.bend!, true) : -1;
 }
 
 /**

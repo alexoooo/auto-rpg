@@ -27,7 +27,7 @@ import { isRefused } from "../src/core/refusal.ts";
  * episode starts at its learner's first request and plays one request a step through the learning
  * adapter (`learner-adapter.mjs`): the trainer's outputs (through tanh) answer it, and the world
  * steps until the learner asks again; it ends with its case's reader, with the learner no longer
- * running (a punch's drive), its trial then played on to its reader's end, with a fall where `down` weighs one, or is cut at the protocol's longest.
+ * running (a punch's drive), its trial then played on to its reader's end (with `onward` false, read there), with a fall where `down` weighs one, or is cut at the protocol's longest.
  *
  * Where the world kind can save (`WorldKind.save`) and `pool` is given, it keeps `pool` starts,
  * each a trial at a fresh draw played to its first decision and saved. An episode loads one of
@@ -303,7 +303,7 @@ export async function caseEnvironment(configuration = {}, { configureMind } = {}
     let ended = played.ended, steps = played.steps;
     let reward = played.reward - (r.effort ?? 0) * outputs.reduce((sum, a) => sum + a * a, 0) / outputs.length;
     // Once the learner has stopped, the trial plays on to its reader's end, so the reading is the whole trial's.
-    if (ended === 'done') {
+    if (ended === 'done' && o.onward !== false) {
       let rest = null;
       while (rest === null) { const one = once(); reward += one.reward; steps++; rest = one.ended; }
       ended = rest === 'read' ? 'done' : rest;
