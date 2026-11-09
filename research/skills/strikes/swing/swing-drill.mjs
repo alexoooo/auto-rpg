@@ -22,7 +22,7 @@
  *
  *   node research/skills/strikes/swing/swing-drill.mjs --blow <kind> --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0[,0.2]] [--gaps 1,1.4] [--targets workshop-fighter,crypt-skeleton]
  *     [--protocol still] [--other buckler] [--feasible] [--footing <behind,right,behind,right>] [--rates 120,480] [--near] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json>] [--sigma 0.15]
- *   node research/skills/strikes/swing/swing-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1.2,1.5] [--across 0,0.2] [--marks middle,high] [--models ...] [--targets ...]
+ *   node research/skills/strikes/swing/swing-drill.mjs --verify <file.json> [--rates 120,480] [--hands left,right] [--others empty,buckler] [--gaps 0.9,1.2,1.5] [--across 0,0.2] [--marks middle,high] [--models ...] [--targets ...]
  *   node research/skills/strikes/swing/swing-drill.mjs --settings <file.json>   the found swing's settings, whole, for `skill-records.mjs`
  *
  * `--from` seeds the search from a search's file, by channel name. `--footing` searches the footing
@@ -97,29 +97,42 @@ export function decode(x, model, channels) {
 /** `footing` for the other hand: the feet swapped, each to the other side. */
 const mirrored = (footing) => ({ left: [footing.right[0], -footing.right[1]], right: [footing.left[0], -footing.left[1]] });
 
-/** The swing's settings, whole, that `decoded` holds for `hand`, its footing mirrored for the other. */
+/**
+ * `channel` of one hand's swing as the other hand swings it, and the sign its angles and pushes take
+ * there: the trunk's turn and side bend (named to the right) turn the other way; the arm's channels,
+ * mirrored by side in the body, are the other arm's of the same name.
+ */
+function otherHand(channel, hand, other) {
+  if (/ (rotation|lateral flexion) right$/.test(channel) && !/^(shoulder|elbow|wrist)\./.test(channel)) return [channel, -1];
+  return [channel.replace(new RegExp(`^(shoulder|elbow|wrist)\\.${hand} `), `$1.${other} `), 1];
+}
+
+/** The swing's settings, whole, that `decoded` holds for `hand`, the other hand's its mirror image (`otherHand`), footing included. */
 export function settingsOf({ wound, timed, reach, settle, footing }, hand) {
-  return { ...AROUND, reach, settle, wound: { left: hand === "left" ? wound : {}, right: hand === "right" ? wound : {} },
-    ...(footing ? { footing: hand === "left" ? { left: footing, right: mirrored(footing) } : { left: mirrored(footing), right: footing } } : {}),
-    timed: { left: hand === "left" ? timed : [], right: hand === "right" ? timed : [] } };
+  const other = hand === "left" ? "right" : "left";
+  const mirroredWound = Object.fromEntries(Object.entries(wound).map(([channel, angle]) => { const [name, sign] = otherHand(channel, hand, other); return [name, sign * angle]; }));
+  const mirroredTimed = timed.map((push) => { const [name, sign] = otherHand(push.channel, hand, other); return { ...push, channel: name, level: sign * push.level }; });
+  return { ...AROUND, reach, settle, wound: { [hand]: wound, [other]: mirroredWound },
+    ...(footing ? { footing: { [hand]: footing, [other]: mirrored(footing) } } : {}),
+    timed: { [hand]: timed, [other]: mirroredTimed } };
 }
 
 /**
- * Option Mind throwing its swung blow of `blow` alone, so set, `hand` holding its item and the other
- * `held`, at `mark`. A blow its preset has no Option for (the bonk) is thrown by its own Option's
+ * Option Mind throwing its swung blow of `blow` alone, so set for `hand`, `striking` holding its item
+ * (`hand` where none; the other hand swings its mirror image, `settingsOf`) and the other `held`, at `mark`. A blow its preset has no Option for (the bonk) is thrown by its own Option's
  * defaults (`strike-<blow>`), in the place of the preset's Option of a blow with the same item;
  * such a blow has no profile, and the Mind's own walks (`walk`) are left out: priced by its prior
  * alone, it is worth so little that a walk outbids it as it winds, and the swing is let go.
  */
-export function swinger(decoded, hand, blow, mark, held = "buckler") {
-  const preset = MINDS.option.config, other = hand === "left" ? "right" : "left", tuning = settingsOf(decoded, hand);
+export function swinger(decoded, hand, blow, mark, held = "buckler", striking = hand) {
+  const preset = MINDS.option.config, other = striking === "left" ? "right" : "left", tuning = settingsOf(decoded, hand);
   const owned = preset.options.some((option) => option.kind.startsWith("strike-") && option.skill.kind === blow);
   const own = owned ? null : partLookup.of("option", { kind: `strike-${blow}` }).defaults;
   const options = preset.options.map((option) => !option.kind.startsWith("strike-") ? option
     : option.skill.kind === blow ? { ...option, skill: { ...option.skill, tuning }, regions: [{ kind: "mark", mark }] }
     : own && SWINGS[option.skill.kind]?.item === SWINGS[blow].item ? { ...own, skill: { ...own.skill, tuning }, regions: [{ kind: "mark", mark }] } : option);
   return { mind: { ...preset, options: own ? options.filter((option) => option.kind !== "walk") : options }, skill: blow,
-    held: { [hand]: SWINGS[blow].item, [other]: held } };
+    held: { [striking]: SWINGS[blow].item, [other]: held } };
 }
 
 /** With `--near`, how much a trial with nothing on the mark gains for its face's coming within `NEAR` m of its aim: up to `NEARING`, still below any hit's. */
@@ -127,7 +140,7 @@ const NEAR = 0.3, NEARING = 0.5;
 
 /** One trial of `decoded` on `cell` from `gap` at `hz`, at a `target` body (the drill's Warrior where none): its score and what it read. */
 async function once(decoded, cell, gap, hz, target) {
-  const reading = await drillTrial(swinger(decoded, cell.hand, cell.blow, cell.mark, cell.other), { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap,
+  const reading = await drillTrial(swinger(decoded, cell.hand, cell.blow, cell.mark, cell.other, cell.striking), { model: cell.model, mark: cell.mark, hand: cell.striking ?? cell.hand, across: cell.across, gap,
     ...(target ? { target } : {}) }, hz, cell.protocol);
   // A touch before the swing commits is its windup's, not its blow: it scores as a swing that never came.
   if (reading.hit && (reading.committed === null || reading.hit.time < reading.committed)) { reading.hit = null; reading.outcome = "early"; }
@@ -167,7 +180,7 @@ if (!isMainThread && workerData?.swing) {
   const { values } = parseArgs({ options: { out: { type: "string" }, blow: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" },
     across: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
     sigma: { type: "string" }, lambda: { type: "string" }, near: { type: "boolean" }, verify: { type: "string" }, settings: { type: "string" },
-    rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, targets: { type: "string" },
+    rates: { type: "string" }, hands: { type: "string" }, others: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, targets: { type: "string" },
     protocol: { type: "string" }, other: { type: "string" }, feasible: { type: "boolean" }, footing: { type: "string" } } });
   const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
   if (values.settings) {
@@ -177,10 +190,11 @@ if (!isMainThread && workerData?.swing) {
   }
   if (values.verify) {
     const found = JSON.parse(readFileSync(values.verify, "utf8")), cell = found.cell, decoded = decode(found.best.x, cell.model, found.channels);
-    for (const hz of list(values.rates, [120, 480], Number)) for (const model of list(values.models, [cell.model])) for (const mark of list(values.marks, [cell.mark]))
+    for (const hz of list(values.rates, [120, 480], Number)) for (const striking of list(values.hands, [cell.hand])) for (const other of list(values.others, [cell.other]))
+      for (const model of list(values.models, [cell.model])) for (const mark of list(values.marks, [cell.mark]))
       for (const across of list(values.across, [cell.across], Number)) for (const gap of list(values.gaps, cell.gaps, Number)) for (const target of list(values.targets, cell.targets ?? [null])) {
-        const { score, reading } = await once(decoded, { ...cell, model, mark, across, near: false }, gap, hz, target), h = reading.hit;
-        console.log(JSON.stringify({ hz, model, target, mark, across, gap, outcome: reading.outcome, score: +score.toFixed(3),
+        const { score, reading } = await once(decoded, { ...cell, model, mark, across, striking, other, near: false }, gap, hz, target), h = reading.hit;
+        console.log(JSON.stringify({ hz, hand: striking, other, model, target, mark, across, gap, outcome: reading.outcome, score: +score.toFixed(3),
           hit: h && { on: h.on, held: h.held && { value: +h.held.value.toFixed(2), bar: h.held.bar }, energy: +h.energy.toFixed(1), mechanism: h.mechanism, faced: h.faced,
             ...(h.overhead ? { short: h.overhead.short, share: +h.overhead.share.toFixed(2), bend: +(h.bend * 180 / Math.PI).toFixed(0) } : {}),
             after: reading.committed === null ? null : +(h.time - reading.committed).toFixed(3) } }));

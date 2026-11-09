@@ -5,13 +5,13 @@ import { workerJobs } from "../../../worker-jobs.mjs";
 /**
  * **A steered strike's policy on held-out trials** (the straight punch's, a held blow's or a swing's: a strike its preset has no Option for gets its own, `owning`): places drawn as its training environment draws
  * them (`case-learning-environment.mjs`, `drawCondition`), on a seed of their own, and its listed
- * places' conditions (a fight's moments), each of the half training holds out (`heldOut`), each played whole as
+ * places' conditions (a fight's moments), each of the half training holds out (`heldOut`; with `--all`, every one), each played whole as
  * the Strike drill plays a trial (its world and its reader to the end, so a fall counts) at each of
  * `--rates`, the policy answering each of the punch's requests (`recoveryNetwork`, as the core
  * evaluates a learned network). With `--policy none`, the schedule alone: each request answered with no steer. Prints a line a
  * trial, then the landed share by rate and body, and by the target's distance.
  *
- *   node research/skills/strikes/straight-punch/punch-policy-check.mjs --config <environment.json> --policy <policy.json|none> [--trials 60] [--seed 1001] [--rates 120,480] [--workers 14]
+ *   node research/skills/strikes/straight-punch/punch-policy-check.mjs --config <environment.json> --policy <policy.json|none> [--trials 60] [--seed 1001] [--rates 120,480] [--workers 14] [--all]
  *
  * The body is the environment's `character` (its attributes; none, the model's own). `--config` is
  * an environment file or a training run's configuration (`environment` and its overrides, its
@@ -58,7 +58,7 @@ if (!isMainThread) {
     try { parentPort.postMessage({ id, r: await trial(workerData.o, act, protocol, condition, hz) }); } catch (error) { parentPort.postMessage({ id, error: String(error?.stack ?? error) }); }
   });
 } else {
-  const { values } = parseArgs({ options: { config: { type: 'string' }, policy: { type: 'string' }, trials: { type: 'string' }, seed: { type: 'string' }, rates: { type: 'string' }, workers: { type: 'string' } } });
+  const { values } = parseArgs({ options: { config: { type: 'string' }, policy: { type: 'string' }, trials: { type: 'string' }, seed: { type: 'string' }, rates: { type: 'string' }, workers: { type: 'string' }, all: { type: 'boolean' } } });
   const given = JSON.parse(readFileSync(values.config, 'utf8'));
   const { environment, workers: _w, each: _e, seed: _s, ...overrides } = given;
   const o = typeof environment === 'string' ? { ...JSON.parse(readFileSync(environment, 'utf8')), ...overrides } : given;
@@ -68,12 +68,12 @@ if (!isMainThread) {
   const still = o.places.filter((place) => place.draw), fights = o.places.filter((place) => !place.draw);
   for (let k = 0; still.length && k < Number(values.trials ?? 60);) {
     const place = still[Math.floor(random() * still.length)], condition = drawCondition(place.draw, random);
-    if (!heldOut(condition)) continue;
+    if (!values.all && !heldOut(condition)) continue;
     for (const hz of rates) jobs.push({ id: jobs.length, protocol: place.protocol, condition, hz });
     k++;
   }
   for (const place of fights) for (const condition of STRIKE.protocols[place.protocol].conditions)
-    if (Object.entries(place.where ?? {}).every(([key, value]) => JSON.stringify(condition[key]) === JSON.stringify(value)) && heldOut(condition))
+    if (Object.entries(place.where ?? {}).every(([key, value]) => JSON.stringify(condition[key]) === JSON.stringify(value)) && (values.all || heldOut(condition)))
       for (const hz of rates) jobs.push({ id: jobs.length, protocol: place.protocol, condition, hz });
   const results = new Array(jobs.length);
   const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
@@ -83,7 +83,7 @@ if (!isMainThread) {
   });
   for (const job of jobs) {
     const r = results[job.id], c = job.condition;
-    console.log(JSON.stringify({ began: r.began, hz: job.hz, model: c.model, hand: c.hand, ...(c.foe ? { foe: c.foe, moment: c.moment } : { gap: +c.gap.toFixed(3), across: +c.across.toFixed(3) }), outcome: r.outcome, score: +r.score.toFixed(2),
+    console.log(JSON.stringify({ began: r.began, hz: job.hz, model: c.model, hand: c.hand, ...(c.foe ? { foe: c.foe, moment: c.moment } : { gap: +c.gap.toFixed(3), across: +c.across.toFixed(3) }), protocol: job.protocol, ...Object.fromEntries(['mark', 'start', 'direction', 'speed'].filter((k) => k in c).map((k) => [k, c[k]])), outcome: r.outcome, score: +r.score.toFixed(2),
       hit: r.hit && Object.fromEntries(Object.entries(r.hit).map(([k, v]) => [k, typeof v === 'number' ? +v.toFixed(3) : v ?? null])) }));
   }
   // By rate and body: the landed share, and by how far the target stands (its gap and offset across together).
