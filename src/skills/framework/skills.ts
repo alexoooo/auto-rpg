@@ -18,8 +18,8 @@ export interface Skills extends Skill {
   /** Continuous execution facts supplied by the selected services. */
   readonly context: ActionAround;
   readonly envelope: StanceEnvelope | null;
-  /** What its legs hold going by `gait` (`Locomotion.envelopeOf`); null where they have no such gait or state none. */
-  envelopeOf(gait: GaitName): StanceEnvelope | null;
+  /** The limits its legs walk by going by `gait` (`Locomotion.limitsOf`); null where they have no such gait. */
+  limitsOf(gait: GaitName): GaitLimits | null;
   /** The limits its legs state, which the speed rule reads (`travelSpeed`): what a team reads of how fast it goes. */
   readonly gait: GaitLimits;
   /** How its planner keeps the body clear of the solids sensed: the policy supplied with its services. */

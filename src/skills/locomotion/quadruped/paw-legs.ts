@@ -1,4 +1,4 @@
-import type { LegsDrive, Locomotion } from "../../framework/locomotion-part.ts";
+import type { GaitLimits, LegsDrive, Locomotion } from "../../framework/locomotion-part.ts";
 import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
 import { supportHeight } from "../../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
@@ -70,6 +70,8 @@ function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
   const { built, view } = body, paws = pawEndpoints(built), reading = pawReader(built).state, seen = pawView(built, view);
   const root = body.muscles.dynamics.root.segment, gaits: Readonly<Record<PawGaitName, Gait>> = { trot, crawl: creep };
   const envelopes: Readonly<Record<PawGaitName, StanceEnvelope>> = { trot: envelopeOf("trot", trot.reach), crawl: envelopeOf("crawl", creep.reach) };
+  const limits: Readonly<Record<PawGaitName, GaitLimits>> = Object.freeze({ trot: Object.freeze({ envelope: envelopes.trot, stopping: trot.travel.stopping, lag: 0 }),
+    crawl: Object.freeze({ envelope: envelopes.crawl, stopping: creep.travel.stopping, lag: 0 }) });
   const state = {
     kind: "trot" as PawGaitName, reacquire: false, homeAt: 0, stable: 0, pace: 0,
     /** The support's count (`SupportGoal.sequence`): a gait changed or the footing sought afresh. */
@@ -156,7 +158,7 @@ function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
     get placed() { return !state.reacquire && gaits[state.kind].state.phase === "settle"; },
     get gait() { return state.kind; },
     get envelope() { return envelopes[state.kind]; },
-    envelopeOf: (name) => name === "trot" || name === "crawl" ? envelopes[name] : null,
+    limitsOf: (name) => name === "trot" || name === "crawl" ? limits[name] : null,
     resume() {
       resumeGaits();
       state.kind = "crawl"; state.reacquire = true; state.homeAt = creep.state.placed + paws.length; state.stable = 0;

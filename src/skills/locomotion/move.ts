@@ -91,7 +91,7 @@ const STILL: Reading = Object.freeze({ walking: false, foe: Infinity, destinatio
  * (`within` its envelope), and the gait changes between its steps, on the move. Two gaits of one
  * walk change at once. Before the body's first step, and as it is resumed, it walks by the gait it
  * would stand by with nothing near. Its envelope, which minds plan by, and its arms are the gait's
- * it walks by; it says what each of its gaits holds (`envelopeOf`).
+ * it walks by; it says the limits of each of its gaits (`limitsOf`).
  */
 export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], otherwise: number): Locomotion {
   const wanted = (reading: Reading, current: number | null, named?: GaitName): number => {
@@ -139,11 +139,7 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     get placed() { return now().placed; },
     get unmet() { return memory.unmet; },
     get gait() { return gaits[memory.gait]!.name; },
-    envelopeOf(name) {
-      const gait = gaits.find((one) => one.name === name);
-      if (!gait) return null;
-      return gait.legs.envelope ?? null;
-    },
+    limitsOf: (name) => gaits.find((one) => one.name === name)?.legs ?? null,
     resume(view) {
       memory.chosen = true;
       memory.gait = memory.wants = wanted(STILL, null);

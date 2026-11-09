@@ -110,7 +110,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     clearance: services.clearance,
     get envelope() { return legs.envelope ?? null; },
     gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; }, get lag() { return legs.lag; } },
-    envelopeOf: (gait: GaitName) => legs.envelopeOf?.(gait) ?? null,
+    limitsOf: (gait: GaitName) => legs.limitsOf?.(gait) ?? null,
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {
       instances.interrupt(view, reason); legs.resume(view); guard.resume(view); support?.resume(view);
       navigation?.resume();

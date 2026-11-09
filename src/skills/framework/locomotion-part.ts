@@ -107,8 +107,8 @@ export interface Locomotion extends Skill {
   readonly unmet?: LegsUnmet;
   /** The gait it walks by now, for legs that walk by gaits by name (`GAITS`); absent, legs that have none. */
   readonly gait?: GaitName;
-  /** What it holds going by `gait` (`envelope`'s, as that gait would hold it), for legs that walk by gaits by name; null where it has no such gait. */
-  envelopeOf?(gait: GaitName): StanceEnvelope | null;
+  /** The limits it walks by going by `gait` (`GaitLimits`), for legs that walk by gaits by name; null where it has no such gait. */
+  limitsOf?(gait: GaitName): GaitLimits | null;
   /**
    * The arms' posture as this walk swings them, for the arms no other skill holds (`skillSet`);
    * absent or null, a walk that leaves them in the guard.
