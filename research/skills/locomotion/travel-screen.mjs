@@ -55,10 +55,10 @@ export function developmentCases(slow = []) {
       return { id: `slow-${key}-${h}-${p}`, phase: 'slow', key, orders, pace: orders.at(-1), heading, at, seed: 1301 + h };
     }))),
     ...GAME.headings.flatMap((heading, h) => GAME.paces.map((pace, k) => ({
-      id: `pace-${pace}-${h}`, phase: 'pace', pace, heading, ...rests[(h + k) % rests.length], seed: 1501 + 7 * h + k,
+      id: `pace-${pace}-${h}`, phase: 'pace', pace, heading, loadout: GAME.loadout, ...rests[(h + k) % rests.length], seed: 1501 + 7 * h + k,
     }))),
     ...GAME.headings.flatMap((heading, h) => GAME.places.map((way, k) => ({
-      id: `place-${k}-${h}`, phase: 'place', way, heading, ...rests[(h + k) % rests.length], seed: 1601 + 7 * h + k,
+      id: `place-${k}-${h}`, phase: 'place', way, heading, loadout: GAME.loadout, ...rests[(h + k) % rests.length], seed: 1601 + 7 * h + k,
     }))),
   ];
 }
@@ -67,9 +67,11 @@ export function developmentCases(slow = []) {
  * The game's own orders, as the screen plays them: starts from a stand at the paces the navigator
  * asks; places (a way of points, each [metres, degrees] from the last, the first from where the
  * body faces, each leg after the first a corner, as the navigator routes rooms; `then`, a place
- * ordered `at` s on instead) from a stand.
+ * ordered `at` s on instead) from a stand; each carrying what the Warrior carries in the Dungeon and
+ * the Arena (`loadout`), a sword in the right hand.
  */
 const GAME = {
+  loadout: { left: 'empty', right: 'sword' },
   headings: [.19, 1.27, 2.61, 4.43],
   paces: [1, 2, 3],
   places: [{ points: [[5, 0]] }, { points: [[10, 30]] }, { points: [[3, -90]] }, { points: [[7, 150]] },
@@ -183,7 +185,7 @@ async function slowCase(basePath, policy, c) {
 
 /** Plays `program` from a quiet rest after the case's settle, turned and lowered as it says. */
 async function playRest(basePath, policy, c, program) {
-  const env = await travelEnvironment({ settings: basePath, heading: c.heading, seed: c.seed, restTimes: [c.settle], yaws: [c.yaw], lowers: [c.lower],
+  const env = await travelEnvironment({ settings: basePath, heading: c.heading, seed: c.seed, ...(c.loadout ? { loadout: c.loadout } : {}), restTimes: [c.settle], yaws: [c.yaw], lowers: [c.lower],
     trace: true, scripts: [{ ...program, start: 'rest' }] });
   try {
     let observation = await env.reset({ program: { ...program, start: 'rest' } }), result;

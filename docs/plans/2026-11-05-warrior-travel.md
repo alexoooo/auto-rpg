@@ -136,7 +136,9 @@ Each stage resumes from the previous stage's chosen checkpoint and keeps the ear
 episodes in the mix, half its episodes theirs (`travelCurriculum`). Checkpoints are ranked on
 every phase on the development screen (`travel-screen.mjs`), the game's orders among them: starts
 from a stand at 1 to 3 m/s, and places from a stand through the navigator, near and far, to each
-side and behind, round a corner and changed on the way. A travel run starts its spread at
+side and behind, round a corner and changed on the way, each carrying the sword the Warrior carries
+in the Dungeon and the Arena. Half the training environments carry it too: empty-handed, the
+actor drifts off its way with it. A travel run starts its spread at
 `--log-std -1.4` (0.25), the most the seed survives, takes its seed's 64-unit layers, and reads
 train.log's `down` and shortfall. Its failures are falls; leaving the 1 m corridor is unmet.
 
