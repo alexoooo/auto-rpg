@@ -172,6 +172,14 @@ eight from 2 m/s; from 3 m/s three of eight; a direct stop from the forward run 
 (`assets/skills/locomotion/walk-run/walk-run.json`) holds this actor and its native record, so
 the game's Run gait uses them; the Braced gait is the stance's own walk and reads neither.
 
+From rest, the record's run enters only on the forward case's 4 m/s order. Asked 1.5 or 2.8 m/s,
+or sent to a place 5 to 20 m ahead at the speed rule's asks, it falls within 2 s. Its envelope's
+6.5 m/s forward is the curriculum's ceiling (`travel-training-ceiling`), so the game prices and
+asks the Run by limits it does not hold: an Option Mind with one follow-orders option per gait,
+each priced by the time its gait takes, chooses the Run and falls in the Crypt (34 falls over 16
+seeds of 60 s, against none by the Braced gait). Entry from rest at the speed rule's asks, stops
+at a place, and corners are what the Run needs before the game chooses gaits by value.
+
 Its native record raises the braking reference's rate to 5 m/s²; at 3.2 m/s² the same curriculum
 met stops after slowing to 3 m/s on one of eight. Without the actor the native run falls, so a
 native change is read only after retraining. A stop from the forward run loses its time in three
