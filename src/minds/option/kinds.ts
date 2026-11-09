@@ -193,8 +193,8 @@ export const strikesIn = (parts: PartLookup, options: readonly PartConfig[]): re
 /** **The straight punch** (`straight-punch`), with either hand. */
 export const STRAIGHT_PUNCH_OPTION = strikeKind("straight-punch", "Straight punch", "either-hand");
 
-/** **The club's blow** (`club-blow`), with the hand that holds the club. */
-export const CLUB_BLOW_OPTION = strikeKind("club-blow", "Club blow", "holding-hand");
+/** **The club's blow** (`club-blow`), with the hand that holds the club: a drill opponent's, not offered in the game. */
+export const CLUB_BLOW_OPTION = deepFreeze({ ...strikeKind("club-blow", "Club blow", "holding-hand"), stage: "experimental" as const });
 
 const BONK_KIND = strikeKind("bonk", "Bonk", "holding-hand");
 /** A descending held-club use aimed at the head with the centre aim. */
