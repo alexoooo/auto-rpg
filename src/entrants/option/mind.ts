@@ -1,7 +1,7 @@
 import type { MindPreset } from "../../minds/index.ts";
 import type { OptionMindConfig } from "../../minds/option/index.ts";
 import { BASE_OPTIONS as OPTIONS } from "./options.ts";
-import { BITE_OPTION, BONK_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../minds/option/index.ts";
+import { BITE_OPTION, BONK_OPTION, CUT_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../minds/option/index.ts";
 import type { PartConfig } from "../../parts/index.ts";
 import { deepFreeze } from "../../core/state.ts";
 
@@ -16,11 +16,11 @@ const STRAIGHT_PUNCH: StrikeConfig = deepFreeze({ ...STRAIGHT_PUNCH_OPTION.defau
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } }, support: SUPPORT });
 
 /**
- * **The held blows**, each as its body's record has it (`assets/skills/strikes/<kind>/<kind>.json`): the club's
- * swing, the sword's cut and its thrust, each with the hand that holds its item, aimed at the trunk's
- * opening as the straight punch is.
+ * **The held blows**, each as its body's record has it (`assets/skills/strikes/<kind>/<kind>.json`): the
+ * sword's cut and its thrust, each with the hand that holds its item, aimed at the trunk's opening as
+ * the straight punch is.
  */
-const HELD_BLOWS: readonly StrikeConfig[] = deepFreeze([CLUB_BLOW_OPTION, CUT_OPTION, SWORD_THRUST_OPTION].map((part) =>
+const HELD_BLOWS: readonly StrikeConfig[] = deepFreeze([CUT_OPTION, SWORD_THRUST_OPTION].map((part) =>
   ({ ...part.defaults, aim: STRAIGHT_PUNCH.aim, support: SUPPORT })));
 
 /** **The bonk**: the club swung overhead at the head, with the hand that holds the club, as its Option's defaults have it. */
