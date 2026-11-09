@@ -136,7 +136,9 @@ Each stage resumes from the previous stage's chosen checkpoint and keeps the ear
 episodes in the mix, half its episodes theirs (`travelCurriculum`). Checkpoints are ranked on
 every phase on the development screen (`travel-screen.mjs`), the game's orders among them: starts
 from a stand at 1 to 3 m/s, and places from a stand through the navigator, near and far, to each
-side and behind, round a corner and changed on the way.
+side and behind, round a corner and changed on the way. A travel run starts its spread at
+`--log-std -1.4` (0.25), the most the seed survives, takes its seed's 64-unit layers, and reads
+train.log's `down` and shortfall. Its failures are falls; leaving the 1 m corridor is unmet.
 
 1. **Sustained running.** Physically reached moving states at several gait phases, on both
    stepping legs: warm-up speeds 1 to 4.5 m/s where reachable, episode starts 2 to 9 s,

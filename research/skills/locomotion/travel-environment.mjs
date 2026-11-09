@@ -1,8 +1,8 @@
 /** One travel actor over scripted game orders (a direction at a pace, a place, a stop), from quiet rest or physically reached moving states.
  * Every prefix uses the configured Option Mind. Snapshots retain physics, perception, orders,
  * native gait and learner state. Rewards read post-step COM velocity, physical falls and the
- * requested line. A failed prefix is reported and excluded; a failed episode costs more than
- * its complete positive credit. Explicit scripts use the same mechanism as the curriculum.
+ * requested line. A failed prefix is reported and excluded; a fall costs more than any
+ * episode earns, and leaving the corridor ends one. Explicit scripts use the same mechanism as the curriculum.
  */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync } from 'node:fs';
@@ -235,14 +235,17 @@ export async function travelEnvironment(configuration) {
         episode.late += late;
         const progress = episode.pace > 0 ? Math.max(0, Math.min(1, along / target))
           : .5 * Math.max(0, 1 - speed / episode.stopScale) + .5 * exp(-((speed / .3) ** 2));
+        // Every cost only takes credit away, so an upright episode never scores under zero and a fall,
+        // costing more than any episode earns, ranks under all of them; leaving the corridor ends the
+        // episode, losing the credit the rest of it would have earned.
         const rate = Math.max(0, progress + o.uprightCredit * Math.max(0, Math.min(1, state.inference.observation[9]))
           - o.sideCost * cross ** 2 - o.corridorCost * off ** 2 - o.effortCost * effort
-          - (episode.pace > 0 ? o.overspeedCost * Math.max(0, along - target) ** 2 : 0)) - o.lateCost * late;
+          - (episode.pace > 0 ? o.overspeedCost * Math.max(0, along - target) ** 2 : 0) - o.lateCost * late);
         const failed = episode.down || episode.maxOff > 1;
         episode.along += along; episode.shortfall += episode.pace > 0 ? Math.max(0, episode.pace - along) / episode.pace : speed / episode.stopScale;
         episode.quiet = episode.pace === 0 && speed < .15 && sample.standing ? episode.quiet + 1 : 0;
         episode.quietMax = Math.max(episode.quietMax, episode.quiet);
-        return { reward: rate * world.dt - (failed ? Math.max(o.fallPenalty ?? 0, (1 + o.uprightCredit) * episode.program.seconds + 1) : 0),
+        return { reward: rate * world.dt - (episode.down ? Math.max(o.fallPenalty ?? 0, (1 + o.uprightCredit) * episode.program.seconds + 1) : 0),
           ended: failed ? 'terminated' : episode.ticks >= limit ? 'truncated' : null };
     }
     await reset();
