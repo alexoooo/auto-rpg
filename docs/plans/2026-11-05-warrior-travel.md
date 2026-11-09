@@ -151,6 +151,9 @@ train.log's `down` and shortfall. Its failures are falls; leaving the 1 m corrid
    once the smaller succeeds on development cases. Entry and moving episodes stay in the mix.
    The restored seed falls on nearly every order to slow from a reached run, so this stage
    opens on the smallest drop it survives, or on native braking work if it survives none.
+   The game-orders run keeps the orders 3.5 to 1 m/s, stops after slowing to 1 and 2 m/s, and a
+   stop straight from the forward run, which a nearer place ordered while running asks: without
+   it, training on routes raised the screen's stop falls from the forward run from 1 to 5.
 4. **The game's orders.** Places from rest at 2 to 15 m round the body, routes shaped as the
    navigator plans the Dungeon's (1 to 5 legs of 2 to 16 m, corners a median 29 degrees and 56 at
    the 90th percentile), and a place changed on the way (`placeScripts`), at the paces the
