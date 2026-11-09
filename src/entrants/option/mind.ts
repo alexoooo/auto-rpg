@@ -1,7 +1,7 @@
 import type { MindPreset } from "../../minds/index.ts";
 import type { OptionMindConfig } from "../../minds/option/index.ts";
 import { BASE_OPTIONS as OPTIONS } from "./options.ts";
-import { BITE_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../minds/option/index.ts";
+import { BITE_OPTION, BONK_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../minds/option/index.ts";
 import type { PartConfig } from "../../parts/index.ts";
 import { deepFreeze } from "../../core/state.ts";
 
@@ -23,6 +23,9 @@ const STRAIGHT_PUNCH: StrikeConfig = deepFreeze({ ...STRAIGHT_PUNCH_OPTION.defau
 const HELD_BLOWS: readonly StrikeConfig[] = deepFreeze([CLUB_BLOW_OPTION, CUT_OPTION, SWORD_THRUST_OPTION].map((part) =>
   ({ ...part.defaults, aim: STRAIGHT_PUNCH.aim, support: SUPPORT })));
 
+/** **The bonk**: the club swung overhead at the head, with the hand that holds the club, as its Option's defaults have it. */
+const BONK: StrikeConfig = BONK_OPTION.defaults;
+
 /**
  * **The stomp** (`assets/skills/strikes/stomp/stomp.json`): its chamber high over the target, its height band low,
  * so it strikes down on a body lying ahead and nothing standing; with either foot at the trunk's
@@ -35,12 +38,12 @@ const BITE: StrikeConfig = deepFreeze({ ...BITE_OPTION.defaults, regions: [{ kin
 
 /**
  * Its Option configuration starts with every blow (the straight punch, the
- * held blows, the stomp and the bite) after following orders, then the standard options (`OPTIONS`). A body
+ * held blows, the bonk, the stomp and the bite) after following orders, then the standard options (`OPTIONS`). A body
  * offers those whose skill it fits, with the limbs it has (`skillsOf`). It decides at 60 Hz, every
  * other control step (`OptionMindConfig.rate`), where its strike and gait profiles are measured.
  */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "tree" },
-  options: [OPTIONS[0]!, STRAIGHT_PUNCH, ...HELD_BLOWS, STOMP, BITE, ...OPTIONS.slice(1)], rate: 60 });
+  options: [OPTIONS[0]!, STRAIGHT_PUNCH, ...HELD_BLOWS, BONK, STOMP, BITE, ...OPTIONS.slice(1)], rate: 60 });
 
 /** Its one config, on any body it fits. */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
