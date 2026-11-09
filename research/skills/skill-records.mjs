@@ -18,8 +18,7 @@ import { validSitBack, validStepUp } from "../../src/skills/recovery/implementat
 import { STOMP_PATH, validStompTuning } from "../../src/skills/strikes/stomp.ts";
 import { faceFault, validStraightPunch } from "../../src/skills/strikes/straight-punch.ts";
 import { validSwing } from "../../src/skills/strikes/swing.ts";
-import { validRunCycle } from "../../src/skills/locomotion/cycle-run.ts";
-import { validWalkRun } from "../../src/skills/locomotion/walk-run.ts";
+import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run-part.ts";
 import { wholeRecipe } from "../../src/skills/recovery/righting/righting.ts";
 import { wholeBite } from "../../src/skills/strikes/bite/index.ts";
 
@@ -33,7 +32,8 @@ export const SKILLS = Object.freeze({
   "sit-back": validSitBack,
   righting: (s) => s !== null && typeof s === "object" && wholeRecipe(s),
   bite: (s) => s !== null && typeof s === "object" && wholeBite(s),
-  "walk-run": (s) => whole(s, ["walk", "run"]) && validWalkRun(s.walk) && validRunCycle(s.run),
+  "walk-run": (s) => s !== null && typeof s === "object" && "walk" in s && "run" in s
+    && Object.keys(s).every((key) => WALK_RUN_PART.tuning.includes(key)) && WALK_RUN_PART.faults({ kind: "walk-run", tuning: s }).length === 0,
   "sword-thrust": (s) => s !== null && typeof s === "object" && validStraightPunch(s) && faceFault(s) === null,
   ...Object.fromEntries(["club-blow", "cut"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validSwing(s)])),
 });
