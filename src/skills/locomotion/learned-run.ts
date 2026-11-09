@@ -8,7 +8,7 @@ import { recoveryNetwork, networkFaults, type Network } from "../../core/math/le
 import { legOf } from "./gait-scale.ts";
 import type { RunTrim } from "./cycle-run.ts";
 import type { WalkRunState } from "./walk-run.ts";
-import { act, ask, learnerOf, restart, start } from "../../core/math/learning/learner.ts";
+import { act, ask, learnerOf, start } from "../../core/math/learning/learner.ts";
 
 const JOINTS = Object.freeze(["hip flexion", "hip abduction", "hip internal rotation", "knee flexion", "ankle dorsiflexion", "ankle inversion"]);
 const SIDES = Object.freeze(["left", "right"] as const);
@@ -96,8 +96,6 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
     else if (moving) inference.travel = true;
     if (moving && !inference.moving) Object.assign(inference.origin, inference.previousCentre);
     else if (moving && asked.face !== inference.face) Object.assign(inference.origin, { x: view.stance.centre.x, z: view.stance.centre.z });
-    // Rotating the same pace between facing frames must not restart the decision schedule.
-    if (Math.abs(command - inference.command) > 8 * Number.EPSILON * Math.max(1, command, inference.command)) restart(learner);
     inference.moving = moving; inference.face = asked.face; inference.command = command;
     const answer = act(learner, travel);
     if (answer.length) for (let i = 0; i < inference.action.length; i++) inference.action[i] = answer[i]!;
