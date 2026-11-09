@@ -35,7 +35,7 @@ export const SKILLS = Object.freeze({
   bite: (s) => s !== null && typeof s === "object" && wholeBite(s),
   "walk-run": (s) => whole(s, ["walk", "run"]) && validWalkRun(s.walk) && validRunCycle(s.run),
   "sword-thrust": (s) => s !== null && typeof s === "object" && validStraightPunch(s) && faceFault(s) === null,
-  ...Object.fromEntries(["club-blow", "cut"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validSwing(s)])),
+  ...Object.fromEntries(["club-blow", "cut", "bonk"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validSwing(s)])),
 });
 
 const pathOf = (skill) => {
