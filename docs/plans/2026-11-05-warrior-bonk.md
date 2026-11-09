@@ -94,6 +94,44 @@ strikes as it arrives (`walk`), at the paces its walk serves; faster with
    moving, the Warrior standing and walking in: at least 90% land, none falls. Watch the reel,
    failures first, at normal speed and slow motion, and send the drill link with what was seen.
 
+## Where it stands
+
+Steps 1 to 3 are done; step 4 has no trained actor yet.
+
+- **The native swing** (the record, with its footing) lands 29 of 30 held-out still places at
+  120 Hz and 29 of 30 at 480 Hz, none falling; the miss at both rates (gap 0.955, across 0.2) is
+  never admitted. Mirrored to the left hand (`swing-drill.mjs --verify --hands left`) it meets
+  every form test at gap 1.1, 102 J at across −0.1 and 72 J at 0.
+- **On the widening rungs** (right hand, `empty,club`, no steer, every condition,
+  `punch-policy-check.mjs --all`), landed:
+
+  | Rung | 120 Hz | 480 Hz |
+  | --- | --- | --- |
+  | `walk`, settled | 8/16 | 14/16 |
+  | `walk`, walking | 8/16 | 16/16 |
+  | `moving` | 4/18, one fall | 5/18 |
+  | `stepping` | 0/3 | 0/3 |
+  | `guarding` | 2/3 | 2/3 |
+
+  A walk-in at 120 Hz mostly meets the head with the shaft before the swell, at 88 to 115 J; a
+  moving target is struck where it stood at commitment. These are the steer's cases.
+- **Outside the swing**: a settled walk-in from 2.4 to 3 m is never asked, its legs stepping in
+  place for 5 s after they arrive; against `stepping` the striker is never admitted.
+- **The training environment** (`research/skills/strikes/swing/environments/bonk.json`) reads each
+  trial as the swing lets go (`releasedScore`, `onward: false`); with zero steer its pooled
+  episodes at 120 Hz land 82%, and each reads as the trial played to its end does. The
+  development baseline at 120 Hz, the held-out half: still places 29/30, `walk` walking 4/10,
+  `moving` 2/9.
+- **It trains too slowly to judge**: 100 decisions/s against the recipe's 370. The steered
+  swing's learner starts as the swing begins, so a pooled episode's first decision holds the
+  windup (the feet set, then the stance settles: 1.6 s, about 190 world steps at 120 Hz), and the
+  trainer's 80 environments, stepped together, wait on it. The next change: the environment
+  answers that first request itself, with no steer, and plays the windup in its idle time, so an
+  episode the trainer sees begins at commitment.
+- **Exploration**: at the trainer's default spread (`--log-std -1`) 7.5% of episodes land, at
+  −2.5 37%, at −3 about half: the steer adds to an open-loop swing's pushes, so its run starts
+  at −3 or lower.
+
 A shared change (the swing executor, the strike reader, a muscle's speed) is read on every skill
 and body it touches, as [AGENTS.md](../../AGENTS.md#developing-skills-and-options) says: the club's
 trunk blow, the sword cut, the punch, stand-up and travel. Work goes under `.tmp/warrior-bonk/`.

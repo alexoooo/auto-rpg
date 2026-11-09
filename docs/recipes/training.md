@@ -121,5 +121,16 @@ dropped run keeps nothing; its reading goes in the commit message.
 - A series of reward weights, each tried briefly: no run tells you anything about any of them.
 - Fixing the controller under a trained actor and reading the actor unchanged: the actor no
   longer fits, and the reading blames the fix.
+- One decision that plays many world steps (an action's windup before its first steer, a return
+  played to the reader's end): the trainer steps every environment together, so each decision
+  waits on the longest, and the run slows to a fraction of one environment's rate times the
+  workers. Measure one pooled environment's rate (decisions over its stepping and idle time) and
+  compare it with the first chunk's.
+- A pooled start whose reader begins after the action did: the reader misses what it reads at the
+  action's beginning (where the hand rests at guard), and the reward reads a different trial from
+  the gate's. Check parity on the pooled environment, not only a fresh one.
+- The default starting spread on a correction to an open-loop schedule: noise on every channel
+  each decision breaks the schedule it corrects. Measure the landed share at a few spreads with
+  random steers before the run, and start where most still land.
 - Infrastructure work in the middle of a training question: finish or pause the question first,
   and retrain after it (step 3 of the first section).
