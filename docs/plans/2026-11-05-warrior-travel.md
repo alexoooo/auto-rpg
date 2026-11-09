@@ -151,8 +151,10 @@ train.log's `down` and shortfall. Its failures are falls; leaving the 1 m corrid
    once the smaller succeeds on development cases. Entry and moving episodes stay in the mix.
    The restored seed falls on nearly every order to slow from a reached run, so this stage
    opens on the smallest drop it survives, or on native braking work if it survives none.
-4. **The game's orders.** Places from rest at 2 to 15 m round the body, ways with a corner and a
-   place changed on the way (`placeScripts`), at the paces the navigator asks: the Run's stops
+4. **The game's orders.** Places from rest at 2 to 15 m round the body, routes shaped as the
+   navigator plans the Dungeon's (1 to 5 legs of 2 to 16 m, corners a median 29 degrees and 56 at
+   the 90th percentile), and a place changed on the way (`placeScripts`), at the paces the
+   navigator asks: the Run's stops
    planned at its `Locomotion.stopping` of 0.2 m/s² ask 1.8 m/s 8 m out and 2.4 m/s 15 m out. Heading orders,
    facing-held directions, rotating directions, corners and reversals from reached runs join as
    this stage's variations.
@@ -182,14 +184,19 @@ reaches 4 of its 28 places, the 3 m ones, which it walks. Its input normalisatio
 the first stage, saturates the asked pace below 3.4 m/s.
 
 The game-orders stage starts from it (`--start`, its normalisation measured anew) on every
-earlier stage's episodes and the game's places. Its 9 M checkpoint, which the Warrior's walk-run
+earlier stage's episodes and the game's places. Its 10 M checkpoint, which the Warrior's walk-run
 record (`assets/skills/locomotion/walk-run/walk-run.json`) holds, so the game's Run gait uses it,
-falls on 1 of the 124 cases and reaches 23 of 28 places and 7 of 12 paces from a stand; it holds
-4 m/s from rest but no longer reaches it within 4 s, and meets 21 of 64 slowing orders. Asked 2
+falls on 3 of the screen's 140 cases and reaches 31 of 44 places and 8 of 12 paces from a stand; it
+holds 4 m/s from rest but no longer reaches it within 4 s, and meets 30 of 64 slowing orders. The
+places it misses leave the 1 m corridor at a route's corner, fall on routes of three and four
+corners, or miss a place changed on the way. Asked 2
 or 3 m/s from a stand it runs 3.1 and 3.7 m/s. Its stops from 3 to 3.8 m/s take 3.8 to 5.8 m, 1.0
 to 1.25 m/s², against the 0.2 m/s² the Run states (`Locomotion.stopping`), by which the navigator
 asks it 1.8 m/s 8 m from a place. In the Dungeon (hero sent to the farthest enemy, 16 seeds of
-60 s) the hero falls 3 times, each within 1.1 m of a skeleton in a fight. The Braced gait is the
+60 s) the Run itself never falls: the Option Mind runs it 4 to 15 s a seed, and the hero's falls
+are in fights, in the Braced gait. Player orders name no gait, so they walk Braced; given a gait
+of their own by value, they run 15 to 41 s a seed and the Run falls on 5 of 16, each where a
+route's corner asks it under 1 m/s and it hands over to the walk. The Braced gait is the
 stance's own walk and reads neither. The Option Mind chooses the gait by its walk Options, one
 for each gait, priced by the time each takes over its route.
 
