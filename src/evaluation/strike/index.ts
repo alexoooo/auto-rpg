@@ -6,7 +6,7 @@ import { isRefused } from "../../core/refusal.ts";
  * 0, `still`: a still target, and `sampled`, its starts drawn at random, moving or still; rung 1, `moving`: a pad carried on a rail; rungs 2 to 4, `stepping`, `guarding`, `punching`: a drill opponent;
  * rung 5, `walk`: one walked to, asked settled or still walking), its trials laid out by body, mark, hand, offset and range. The
  * subject is a mind and one of its skills (`option/straight-punch`), and what its striker holds where
- * it names a loadout (`option/club-blow@buckler,club`, its left hand first); a drill Commander
+ * it names a loadout (`option/bonk@buckler,club`, its left hand first); a drill Commander
  * (`DrillCommanderConfig`) orders the skill, so the skill, its executor's settings and the body's
  * other parts are the mind's.
  */
