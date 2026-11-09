@@ -13,6 +13,7 @@ import { balanceCeiling, balancePercent, rulebook } from "../../../../src/combat
 import { GUARD, guardPosture } from "../../../../src/skills/guard/guard.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../../../../src/skills/locomotion/walk-run.ts";
 import { STANCE_WALK_PART } from "../../../../src/skills/locomotion/stance-walk-part.ts";
+import { WALK_RUN_PART } from "../../../../src/skills/locomotion/walk-run-part.ts";
 import "../../../../tests/harness/preload-data.mjs";
 import { startWind } from "../../../../src/game/lab/wind.ts";
 import { coreStand } from "../../../../tests/harness/core-stand.mjs";
@@ -184,7 +185,8 @@ function shoveTrunk(stand, impulse, way) {
 function skillOf(legs, b, stride) {
   switch (legs) {
     case null: case undefined: return null;
-    case "walk-run": return walkRun(b.driver, WALK_RUN, WALK_RUN_CYCLE, { stride });
+    // The walk and run as the game builds it, from the body's record and its learned corrections; a stride searched, over the defaults.
+    case "walk-run": return stride === undefined ? WALK_RUN_PART.make(b.driver, { kind: "walk-run" }) : walkRun(b.driver, WALK_RUN, WALK_RUN_CYCLE, { stride });
     case "braced": return STANCE_WALK_PART.make(b.driver, { kind: "stance-walk" });
     default: throw new Error(`no locomotion skill named ${legs}`);
   }
