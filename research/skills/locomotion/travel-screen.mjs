@@ -21,7 +21,7 @@ import { readTravel } from '../../../src/evaluation/travel/read.ts';
 import { TRAVEL, travelScript } from '../../../src/evaluation/travel/protocol.ts';
 import { traceOf } from '../../../src/evaluation/trace.ts';
 import { travelEnvironment } from './travel-environment.mjs';
-import { slowingCues, slowingSeconds, PLACE_NEAR, PLACE_SPARE } from './travel-curriculum.mjs';
+import { slowingCues, slowingSeconds, wayOf, lengthOf, PLACE_NEAR, PLACE_SPARE } from './travel-curriculum.mjs';
 import { workerJobs } from '../../worker-jobs.mjs';
 import { BUILD_IDENTITY } from '../../../scripts/build-identity.mjs';
 
@@ -66,13 +66,15 @@ export function developmentCases(slow = []) {
 /**
  * The game's own orders, as the screen plays them: starts from a stand at the paces the navigator
  * asks; places (a way of points, each [metres, degrees] from the last, the first from where the
- * body faces, a second leg a corner; `then`, a place ordered `at` s on instead) from a stand.
+ * body faces, each leg after the first a corner, as the navigator routes rooms; `then`, a place
+ * ordered `at` s on instead) from a stand.
  */
 const GAME = {
   headings: [.19, 1.27, 2.61, 4.43],
   paces: [1, 2, 3],
   places: [{ points: [[5, 0]] }, { points: [[10, 30]] }, { points: [[3, -90]] }, { points: [[7, 150]] },
-    { points: [[6, 0], [4, 90]] }, { points: [[5, 20], [5, -90]] }, { points: [[9, 0]], then: { at: 2.5, points: [[6, -80]] } }],
+    { points: [[6, 0], [4, 90]] }, { points: [[5, 20], [5, -90]] }, { points: [[9, 0]], then: { at: 2.5, points: [[6, -80]] } },
+    { points: [[4, 0], [8, -30], [5, 25]] }, { points: [[2.2, 0], [14, 30]] }, { points: [[6, 0], [5, -40], [6, -30], [5, 35]] }, { points: [[11, 0], [9, 20]] }],
 };
 
 function mindOf(tuning) {
@@ -208,12 +210,6 @@ async function paceCase(basePath, policy, c) {
     stop: { entered: false, met: false, fall: false }, digest: digest(samples), played: samples.length / hz };
 }
 
-/** A way's points from (0, 0), each [metres, degrees] turned from the leg before it, the first from `heading`. */
-function wayOf(heading, legs) {
-  let way = heading, x = 0, z = 0;
-  return legs.map(([metres, degrees]) => { way += degrees * Math.PI / 180; x += metres * sin(way); z += metres * cos(way); return { x, z }; });
-}
-const lengthOf = points => points.reduce((sum, p, i) => sum + Math.hypot(p.x - (i ? points[i - 1].x : 0), p.z - (i ? points[i - 1].z : 0)), 0);
 /** How far `at` is off the way from `from` through `points`, m. */
 function offWay(at, from, points) {
   let least = Infinity;

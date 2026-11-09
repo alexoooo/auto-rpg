@@ -23,25 +23,36 @@ export const PLACE_NEAR = .3;
 /** Seconds an episode to a place lasts past the time it takes at 1 m/s: a start, a stop and its quiet. */
 export const PLACE_SPARE = 6;
 
+/** A way's points from (0, 0), each leg [metres, degrees] turned from the leg before it, the first from `heading`. */
+export function wayOf(heading, legs) {
+  let way = heading, x = 0, z = 0;
+  return legs.map(([metres, degrees]) => { way += degrees * Math.PI / 180; x += metres * sin(way); z += metres * cos(way); return { x, z }; });
+}
+/** A way's length from (0, 0) through its points, m. */
+export const lengthOf = points => points.reduce((sum, p, i) => sum + Math.hypot(p.x - (i ? points[i - 1].x : 0), p.z - (i ? points[i - 1].z : 0)), 0);
+
 /**
  * **The game's place orders** as episodes, in the frame of `heading` (each point relative to where
  * the body is when the episode begins): from rest, one place at each distance and angle round the
- * body; ways with a corner (a place order's route of two points); and a place changed on the way.
- * The navigator asks the paces its stops allow (`Locomotion.stopping`), so a place is run to at
- * the paces a room gives, never from the forward run's.
+ * body; routes as the navigator plans them through rooms (one to four corners, mostly of 20 to 55
+ * degrees, legs of 2 to 15 m) and a sharp corner; and a place changed on the way. The navigator
+ * asks the paces its stops and corners allow (`Locomotion.stopping`), so a place is run to at the
+ * paces a room gives, never from the forward run's.
  */
 export function placeScripts(heading = 0) {
-  const at = (metres, degrees) => { const a = heading + degrees * Math.PI / 180; return { x: metres * sin(a), z: metres * cos(a) }; };
-  const plus = (a, b) => ({ x: a.x + b.x, z: a.z + b.z });
   const place = points => ({ move: { kind: 'place', points, near: PLACE_NEAR }, gait: 'run', face: null });
-  const length = points => points.reduce((sum, p, i) => sum + Math.hypot(p.x - (i ? points[i - 1].x : 0), p.z - (i ? points[i - 1].z : 0)), 0);
-  const episode = (start, points, later = null) => ({ start, seconds: PLACE_SPARE + length(points) + (later ? later.at + length(later.points) : 0),
-    cues: [{ at: 0, orders: place(points) }, ...(later ? [{ at: later.at, orders: place(later.points) }] : [])] });
-  const corner = (first, turn, second) => { const p = at(first, 0); return [p, plus(p, at(second, turn))]; };
+  const episode = (legs, later = null) => {
+    const points = wayOf(heading, legs), then = later ? wayOf(heading, later.legs) : null;
+    return { start: 'rest', seconds: PLACE_SPARE + lengthOf(points) + (later ? later.at + lengthOf(then) : 0),
+      cues: [{ at: 0, orders: place(points) }, ...(later ? [{ at: later.at, orders: place(then) }] : [])] };
+  };
   return [
-    ...[2, 4, 8, 15].flatMap(metres => [0, 45, -45, 90, -90, 180].map(degrees => episode('rest', [at(metres, degrees)]))),
-    ...[[4, 90, 4], [8, -90, 4], [6, 45, 6], [8, -45, 8]].map(([a, turn, b]) => episode('rest', corner(a, turn, b))),
-    ...[90, -90].map(degrees => episode('rest', [at(8, 0)], { at: 3, points: [at(6, degrees)] })),
+    ...[2, 4, 8, 15].flatMap(metres => [0, 45, -45, 90, -90, 180].map(degrees => episode([[metres, degrees]]))),
+    ...[[[4, 0], [4, 90]], [[8, 0], [4, -90]], [[6, 0], [6, 45]], [[8, 0], [8, -45]],
+      [[3, 0], [7, 30]], [[7, 0], [7, -30]], [[2.5, 0], [12, 25]], [[4, 0], [12, -20]], [[6, 0], [5, 55]], [[6, 0], [5, -55]],
+      [[3, 0], [7, 30], [4, -30]], [[6, 10], [5, -55], [6, 30]], [[6, 0], [5, 30], [7, 30], [5, -30]],
+      [[5, 0], [5, -30], [7, -25], [5, 30], [4, 40]], [[10, 0], [10, 20], [12, -35]], [[2.5, 0], [15, -30], [12, 40]]].map(legs => episode(legs)),
+    ...[90, -90].map(degrees => episode([[8, 0]], { at: 3, legs: [[6, degrees]] })),
   ];
 }
 
