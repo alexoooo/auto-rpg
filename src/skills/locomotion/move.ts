@@ -1,6 +1,7 @@
 import type { LegsDrive, Locomotion } from "../framework/locomotion-part.ts";
 import type { BodyView } from "../../control/body.ts";
 import { hypot } from "../../core/math/real.ts";
+import { heldPace, type StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 import { nearestFoe } from "../perception/targets.ts";
 import { conditionMatches, type ConditionReading } from "./conditions.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, maskOf, type LegsGoal, type GaitName } from "../framework/skill.ts";
@@ -45,14 +46,17 @@ function foeDistance(view: BodyView): number {
   return foe === null ? Infinity : hypot(foe.centre.x - centre.x, foe.centre.z - centre.z);
 }
 
-/**
- * **A gait of Move**: its name (`GAITS`), the walk it walks by, and for a walk that runs as well
- * (`Locomotion.runs`), whether it may run. Two gaits may share one walk.
- */
+/** **A gait of Move**: its name (`GAITS`) and the walk it walks by. Two gaits may share one walk. */
 export interface MoveGait {
   readonly name: GaitName;
   readonly legs: Locomotion;
-  readonly runs?: boolean;
+}
+
+/** `walk`, no faster than `envelope` holds that way (`heldPace`); as it is where `envelope` states no limits. */
+function within(walk: readonly [number, number] | null, envelope: StanceEnvelope | null | undefined): readonly [number, number] | null {
+  if (!walk || !envelope) return walk;
+  const speed = hypot(walk[0], walk[1]), most = heldPace(envelope, walk[0], walk[1]);
+  return speed > most ? [walk[0] * most / speed, walk[1] * most / speed] : walk;
 }
 
 /** The distance from `view`'s body's centre of mass to the nearest standing body of its own side, across the ground, m; Infinity with none. */
@@ -70,46 +74,41 @@ const STILL: Reading = Object.freeze({ walking: false, foe: Infinity, destinatio
 /**
  * **Move**: a locomotion skill (`Locomotion`) that walks by one of `gaits`: the one a legs goal
  * names (`LegsGoal.gait`) where it has it, else the first whose rule of `rules` matches
- * (`MoveRule`), or `otherwise`. The gait changes only between steps (the stance
- * standing or shifting its weight, and taking no step of its own), and the one it changes to is
- * resumed from the body as it is (`Skill.resume`); the first is not, since none has driven the
- * body. A gait that drives the legs itself (`LegsDrive`) is asked to stand when another is
- * wanted, and the gait changes once it has given the legs back to the stance. Two gaits of one walk
- * change at once, the walk told whether it may run (`MoveGait.runs`). Before the body's first
- * step, and as it is resumed, it walks by the gait it would stand by with nothing near. Its
- * envelope, which minds plan by, and its arms are the gait's it walks by; it says what each of its
- * gaits holds (`envelopeOf`).
+ * (`MoveRule`), or `otherwise`. The gait changes only between steps (the stance standing or
+ * shifting its weight, and taking no step of its own), and the one it changes to takes the body up
+ * as it is, moving, by the heading the one before walked by (`Locomotion.resume`); the first is
+ * not resumed, since none has driven the body. While another gait is wanted, a gait that drives
+ * the legs itself (`LegsDrive`) is asked to stand, and gives them back to the stance at its next
+ * step, still moving; the stance's walk is then asked no faster than the gait wanted holds
+ * (`within` its envelope), and the gait changes between its steps, on the move. Two gaits of one
+ * walk change at once. Before the body's first step, and as it is resumed, it walks by the gait it
+ * would stand by with nothing near. Its envelope, which minds plan by, and its arms are the gait's
+ * it walks by; it says what each of its gaits holds (`envelopeOf`).
  */
 export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], otherwise: number): Locomotion {
   const wanted = (reading: Reading, current: number | null, named?: GaitName): number => {
     const asked = named === undefined ? -1 : gaits.findIndex((gait) => gait.name === named);
     return asked >= 0 ? asked : rules.find((rule) => rule.matches(reading, rule.gait === current))?.gait ?? otherwise;
   };
-  const memory = { chosen: false, gait: wanted(STILL, null), driven: false, unmet: { ...ALL_MET } };
+  const memory = { chosen: false, gait: wanted(STILL, null), wants: wanted(STILL, null), driven: false, unmet: { ...ALL_MET } };
   const walks = [...new Set(gaits.map((gait) => gait.legs))];
   const state = { gaits: walks.map((walk) => walk.state), choice: memory, rules: rules.map((rule) => rule.state ?? null) };
   const now = (): Locomotion => gaits[memory.gait]!.legs;
-  /** The walk now told whether its gait may run. */
-  const told = (): Locomotion => {
-    const gait = gaits[memory.gait]!;
-    if (gait.runs !== undefined) gait.legs.runs?.(gait.runs);
-    return gait.legs;
-  };
-  told();
   /** Whether the gait now is the one wanted, changing to it between steps if not: false while a gait that drives the legs has them. */
   const choose = (view: BodyView, walking: boolean, destination: number | undefined, named?: GaitName): boolean => {
-    const s = view.stance, wants = wanted({ walking, foe: foeDistance(view), destination: destination ?? Infinity, ally: allyDistance(view) }, memory.gait, named);
+    const s = view.stance, wants = memory.wants = wanted({ walking, foe: foeDistance(view), destination: destination ?? Infinity, ally: allyDistance(view) }, memory.gait, named);
     if (!memory.chosen) { memory.chosen = true; memory.gait = wants; return true; }
     if (wants === memory.gait) return true;
     if (gaits[wants]!.legs.state === now().state) { memory.gait = wants; return true; }
     if (memory.driven || s.own || (s.phase !== "stand" && s.phase !== "shift")) return false;
+    const heading = now().heading;
     memory.gait = wants;
-    told().resume(view);
+    now().resume(view, heading);
     return true;
   };
   /**
    * What of `goal` the gait walked by left undone, as `drive` it gave: its gait by name Move's to
-   * meet, a gait by name not the one walked by, and a walk not taken while the gait changes.
+   * meet, a gait by name not the one walked by, and a walk slowed while the gait changes.
    */
   const report = (goal: LegsGoal, drive: LegsDrive, chosen: boolean): LegsDrive => {
     const inner = now().unmet ?? ALL_MET, unmet = memory.unmet;
@@ -135,24 +134,24 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     envelopeOf(name) {
       const gait = gaits.find((one) => one.name === name);
       if (!gait) return null;
-      return gait.runs !== undefined && gait.legs.envelopeRunning ? gait.legs.envelopeRunning(gait.runs) : gait.legs.envelope ?? null;
+      return gait.legs.envelope ?? null;
     },
     resume(view) {
       memory.chosen = true;
-      memory.gait = wanted(STILL, null);
+      memory.gait = memory.wants = wanted(STILL, null);
       memory.driven = false;
       memory.unmet.fields = ALL_MET.fields; memory.unmet.centre = 0; memory.unmet.height = 0;
-      told().resume(view);
+      now().resume(view);
     },
     goal(view, goal, dt, context) {
       if (goal.footing) {
         choose(view, false, undefined, goal.gait);
         memory.driven = false;
-        return report(goal, told().goal(view, goal, dt, context), true);
+        return report(goal, now().goal(view, goal, dt, context), true);
       }
-      // Not yet the gait wanted, a gait that drives the legs is asked to stand, and gives them back to the stance.
+      // Not yet the gait wanted: one driving the legs stands, giving them back to the stance, whose walk goes no faster than the one wanted holds.
       const chosen = choose(view, goal.walk !== null, goal.destination, goal.gait);
-      const drive = told().goal(view, chosen || goal.walk === null ? goal : { ...goal, walk: null }, dt, context);
+      const drive = now().goal(view, chosen ? goal : { ...goal, walk: memory.driven ? null : within(goal.walk, gaits[memory.wants]!.legs.envelope) }, dt, context);
       memory.driven = drive.kind === "drive";
       return report(goal, drive, chosen);
     },

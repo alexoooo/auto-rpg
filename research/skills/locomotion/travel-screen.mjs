@@ -60,7 +60,7 @@ export function developmentCases(slow = []) {
 function mindOf(tuning) {
   const base = defaultMind('workshop-fighter');
   return { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...MOVE,
-    gaits: STOCK_GAITS.map(gait => ({ ...gait, legs: { ...gait.legs, tuning } })) } } } };
+    gaits: STOCK_GAITS.map(gait => gait.legs.kind === 'walk-run' ? { ...gait, legs: { ...gait.legs, tuning } } : gait) } } } };
 }
 
 function entryWorld(tuning, c) {

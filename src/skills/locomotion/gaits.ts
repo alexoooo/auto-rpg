@@ -6,8 +6,7 @@ import { deepFreeze } from "../../core/state.ts";
  * **A gait**: what a body gets about by, as Move walks by it (`MoveConfig.gaits`): its name, which
  * a legs goal and Move's rules name it by (`LegsGoal.gait`), its label, and its legs (a gait part's
  * config, `GaitPart`), measured on each body by its envelope
- * (`src/control/stance/stance-envelope.ts`) and its profile (the Gait drill). Two gaits whose legs
- * differ only in whether they may run share one walk, so Move changes between them at once.
+ * (`src/control/stance/stance-envelope.ts`) and its profile (the Gait drill).
  */
 export interface Gait {
   readonly name: string;
@@ -17,13 +16,13 @@ export interface Gait {
 
 
 /**
- * **The stock gaits**, by name: the game's controller and its searched settings, none of them a
- * person's to tune. Braced and the run configure the walk and run (`WalkRunConfig`) separately, braced
- * told it may not run. Their implementation shares motion for identical physical settings, so
- * Move changes permission at once while a run finishes its current landing.
+ * **The stock gaits**, by name: the game's controllers and their searched settings, none of them a
+ * person's to tune. Braced is the stance's walk (`StanceWalkConfig`), the fighting step; the run
+ * is the walk and run (`WalkRunConfig`) by its body's record. Move changes between them on the
+ * move (`move`).
  */
 const DEFAULT_GAITS = {
-  "braced": { label: "Braced", legs: { kind: "walk-run", runs: false } },
+  "braced": { label: "Braced", legs: { kind: "stance-walk" } },
   "run": { label: "Run", legs: { kind: "walk-run" } },
 };
 const GAITS = deepFreeze(DEFAULT_GAITS satisfies Readonly<Record<string, { readonly label: string; readonly legs: PartConfig }>>);

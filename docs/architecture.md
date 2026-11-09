@@ -271,10 +271,11 @@ arbiter releases every action when another mind takes the body.
   ranked only when trained. The lone-body world saves physics, perception, orders,
   wind and controller state so its reached running starts can be restored.
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
-  shares gait instances only for identical complete configurations. Walk/run permission views
-  share motion through their concrete implementation when their physical settings agree.
-  Walking steps read the selected gait's envelope, so travel and braced permission views apply
-  their own speed and turning limits inside the stance controller as well as in order planning.
+  shares gait instances only for identical complete configurations. Each stock gait is its own
+  controller with its own settings: braced is the stance walk, the run the walk and run by its
+  body's record. While another gait is wanted, Move asks the current one for the walk no faster
+  than the wanted gait's envelope holds, and changes gait between steps once the legs are back
+  with the stance, the new gait taking the body up as it moves.
   Idle foot placement limits its planned weight shift through `SwingGoal.shiftSpeed`, holds the
   capture point through the stationary swing and approaches the new support centre gradually
   after landing. The foot lifts with both the body centre and capture point inside the reserved

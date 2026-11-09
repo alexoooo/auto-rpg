@@ -170,7 +170,7 @@ of 4.52 m/s, and every slowing order from 3.5 to 1.5 m/s met. The 1 m/s order ru
 eight from 2 m/s; from 3 m/s three of eight; a direct stop from the forward run meets none, taking
 2.4 to 3 s to come under 0.15 m/s. The stop gate is short. The Warrior's walk-run record
 (`assets/skills/locomotion/walk-run/walk-run.json`) holds this actor and its native record, so
-the game's run uses them; the braced walk does not read the travel stride and is unchanged.
+the game's Run gait uses them; the Braced gait is the stance's own walk and reads neither.
 
 Its native record raises the braking reference's rate to 5 m/s²; at 3.2 m/s² the same curriculum
 met stops after slowing to 3 m/s on one of eight. Without the actor the native run falls, so a

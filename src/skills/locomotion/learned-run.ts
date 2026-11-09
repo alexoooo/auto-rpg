@@ -21,7 +21,7 @@ const STANCE_CONTROLS = Object.freeze(["height", "heading"] as const);
 
 /** Named observations and actions shared by the game, seed transfer and scripted-order training. */
 export const TRAVEL_LAYOUT = Object.freeze({
-  inputs: Object.freeze([...REFERENCE_INPUTS, "requested forward", "requested side", "requested facing sin", "requested facing cos", "running", "travel permission"]),
+  inputs: Object.freeze([...REFERENCE_INPUTS, "requested forward", "requested side", "requested facing sin", "requested facing cos", "running", "move asked"]),
   outputs: Object.freeze([...ROLES.flatMap(role => JOINTS.map(joint => `${role} ${joint} velocity`)), ...STANCE_CONTROLS.map(name => `stance ${name}`)]),
 });
 
@@ -92,8 +92,8 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
     const inputHeading = motion.heading;
     const requestedX = forwardOrder * sin(inputHeading) + sideOrder * cos(inputHeading);
     const requestedZ = forwardOrder * cos(inputHeading) - sideOrder * sin(inputHeading);
-    if (view.down || moving && !motion.state.walkRun.travel) inference.travel = false;
-    else if (moving && motion.state.walkRun.travel) inference.travel = true;
+    if (view.down) inference.travel = false;
+    else if (moving) inference.travel = true;
     if (moving && !inference.moving) Object.assign(inference.origin, inference.previousCentre);
     else if (moving && asked.face !== inference.face) Object.assign(inference.origin, { x: view.stance.centre.x, z: view.stance.centre.z });
     // Rotating the same pace between facing frames must not restart the decision schedule.
@@ -136,7 +136,7 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
       for (const channel of channels[physical]) observation.push(body.muscles.angle(channel), body.muscles.speed(channel) / 10);
     }
     observation.push(requestedX * fx + requestedZ * fz, mirror * (requestedX * rx + requestedZ * rz),
-      mirror * sin(asked.face - h), cos(asked.face - h), motion.state.walkRun.running ? 1 : 0, motion.state.walkRun.travel ? 1 : 0);
+      mirror * sin(asked.face - h), cos(asked.face - h), motion.state.walkRun.running ? 1 : 0, moving ? 1 : 0);
     inference.previousCentre.x = s.centre.x; inference.previousCentre.z = s.centre.z;
     if (ask(learner, dt)) decide();
     if (driven.kind === "drive") return { ...driven, pushes: pushes! };
@@ -147,8 +147,8 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
     return { kind: "stance", goal: { ...driven.goal, height: driven.goal.height + a[12]! * scale.height,
       heading: driven.goal.heading + mirror * a[13]! * scale.heading } };
   };
-  const resume: Locomotion["resume"] = view => {
-    motion.resume(view); start(learner); inference.moving = false; inference.command = 0; inference.travel = false;
+  const resume: Locomotion["resume"] = (view, heading) => {
+    motion.resume(view, heading); start(learner); inference.moving = false; inference.command = 0; inference.travel = false;
     inference.observation.fill(0); inference.referenceObservation.fill(0); inference.action.fill(0); inference.referenceAction.fill(0);
     inference.offsets.left.fill(0); inference.offsets.right.fill(0);
     inference.previousCentre.x = view.stance.centre.x; inference.previousCentre.z = view.stance.centre.z;

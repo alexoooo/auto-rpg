@@ -382,16 +382,6 @@ test("default skill assembly roots the one configured memoryful aim", async () =
   } finally { skills?.release(body.view, "replaced"); body.dispose(); stand.dispose(); }
 });
 
-test("Move does not erase a gait's complete runs setting when sharing instances", () => {
-  const made = [];
-  const config = { kind: "move", gaits: [{ name: "one", label: "One", legs: { kind: "independent", runs: false } }, { name: "two", label: "Two", legs: { kind: "independent", runs: true } }], rules: [], otherwise: "one" };
-  const legs = { runs: config => config.runs, parts: partLookup, make(_body, config) { made.push(config); return { state: {}, supports: [], lower: 0, heading: 0, reference: null, resume() {}, goal: () => ({ kind: "stance", goal: null }) }; } };
-  const built = MOVE_PART.make({}, config, legs);
-  assert.equal(made.length, 2);
-  assert.equal(built.state.gaits.length, 2);
-});
-
-
 test("idle foot placement survives its own weight-shift tracking error and yields to a catch", async () => {
   const stand = await coreStand(stock, {posture:{"hip.left abduction":.35,"hip.right abduction":.35}});
   const body = stockBody(stand.built, stand.world, {servoSeconds:.1});

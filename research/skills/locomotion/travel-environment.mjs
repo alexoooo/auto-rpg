@@ -19,7 +19,7 @@ import { MOVE } from '../../../src/skills/locomotion/move-part.ts';
 import { STOCK_GAITS } from '../../../src/skills/locomotion/gaits.ts';
 import { TRAVEL_LAYOUT } from '../../../src/skills/locomotion/learned-run.ts';
 import { isOrders } from '../../../src/minds/orders.ts';
-import { decide } from '../../learner-adapter.mjs';
+import { decide, untilAsked } from '../../learner-adapter.mjs';
 
 const tanh = value => { const t = exp(-2 * Math.abs(value)); return (value < 0 ? -1 : 1) * (1 - t) / (1 + t); };
 
@@ -64,7 +64,7 @@ export async function travelEnvironment(configuration) {
   const loadout = o.loadouts ? o.loadouts[(o.seed >>> 0) % o.loadouts.length] : o.loadout ?? { left: 'empty', right: 'empty' };
   const base = defaultMind(o.model);
   const mind = { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...MOVE,
-    gaits: STOCK_GAITS.map(gait => ({ ...gait, legs: { ...gait.legs, tuning } })) } } } };
+    gaits: STOCK_GAITS.map(gait => gait.legs.kind === 'walk-run' ? { ...gait, legs: { ...gait.legs, tuning } } : gait) } } } };
   const built = await LONE_WORLD.build({ kind: 'lone', engine: o.engine ?? DEFAULT_ENGINE, lone: {
     model: o.model, mind, floorSize: 400, balance: 0, heading: heading + yaw, seed: o.seed, loadout,
     script: yaw === 0 && lower === 0 ? [] : [{ at: 0, orders: { move: null, face: { x: sin(heading), z: cos(heading) }, ...(lower > 0 ? { lower } : {}) } }],
@@ -72,9 +72,9 @@ export async function travelEnvironment(configuration) {
   } });
   if ('refused' in built) throw Error(built.refused);
   try {
-    // The report's mind uses recovery-wrapped Move; its gaits share one walk/run state.
-    const states = [...new Set(built.body.minded.state.mind.skills.legs.legs.gaits)];
-    if (states.length !== 1) throw Error('Travel training requires one shared physical travel learner');
+    // The report's mind uses recovery-wrapped Move; the run is its one gait with a learner.
+    const states = built.body.minded.state.mind.skills.legs.legs.gaits.filter(gait => gait?.learner);
+    if (states.length !== 1) throw Error('Travel training requires one learned travel gait');
     const state = states[0], learner = state.learner, { world, body } = built;
     const parts = [...body.built.segments.values()], mass = massOf(parts), upright = uprightness(body.built), feet = footStatesOf(body.built);
     const centre = new Vector3(), velocity = new Vector3(), work = new Vector3();
@@ -93,10 +93,8 @@ export async function travelEnvironment(configuration) {
     };
     const rests = [], times = [...new Set(o.restTimes)].sort((a, b) => a - b);
     for (const requested of times) {
-      while (world.time < requested - world.dt / 2 || !pending(learner)) {
-        world.step();
-        if (world.time > requested + 1) throw Error('Travel fixture did not reach a quiet learner request');
-      }
+      // At rest the braced gait has the legs; the run's learner asks once an order hands them to it.
+      while (world.time < requested - world.dt / 2) world.step();
       const sample = physical();
       if (sample.down || !sample.standing || Math.hypot(velocity.x, velocity.z) >= .15)
         throw Error(`Travel fixture did not reach quiet rest at ${requested} s`);
@@ -145,8 +143,10 @@ export async function travelEnvironment(configuration) {
       episode = { program, start, began: world.time, next: 0, ticks: 0, requested: forward, pace: start.pace ?? 0,
         origin: { x: centre.x, z: centre.z }, corridorEnabled: program.corridor !== false, maxOff: 0,
         along: 0, shortfall: 0, quiet: 0, quietMax: 0, stopScale: Math.max(1, Math.hypot(velocity.x, velocity.z)), samples: [],
-        ordered: 0, alongs: [], window: 0, late: 0 };
+        ordered: 0, alongs: [], window: 0, late: 0, down: false, effort: 0, steps: null };
       deliver();
+      // A start whose gait is not yet the run plays until the run's learner first asks.
+      if (untilAsked(learner, tick) !== 'asked') throw Error(`Travel episode from ${start.id} ended before its learner asked`);
       return learner.inputs.slice();
     };
     const deliver = () => {
@@ -168,15 +168,25 @@ export async function travelEnvironment(configuration) {
     const step = (action, { squashed = false } = {}) => {
       if (!Array.isArray(action) || action.length !== TRAVEL_LAYOUT.outputs.length || !action.every(Number.isFinite)
         || squashed && action.some(x => Math.abs(x) > 1)) throw Error('Travel needs one finite bounded action per named output');
-      let down = false;
-      const samples = o.trace ? [] : null, limit = Math.round(episode.program.seconds * world.hz);
-      const applied = squashed ? action.slice() : action.map(tanh), effort = applied.reduce((n, v) => n + v * v, 0) / applied.length;
-      const played = decide(learner, applied, () => {
-        deliver(); world.step(); const sample = physical(); samples?.push(sample); if (o.trace) episode.samples.push(sample); episode.ticks++;
+      const samples = o.trace ? [] : null;
+      const applied = squashed ? action.slice() : action.map(tanh);
+      episode.down = false; episode.effort = applied.reduce((n, v) => n + v * v, 0) / applied.length; episode.steps = samples;
+      const played = decide(learner, applied, tick, world.dt);
+      const down = episode.down;
+      return { observation: state.inference.observation.slice(), reward: played.reward, ...(o.trace ? { samples } : {}),
+        terminated: played.ended === 'terminated' || played.ended === 'done', truncated: played.ended === 'truncated',
+        info: { along: episode.along / episode.ticks, command: episode.pace, down, corridor: episode.maxOff,
+          shortfall: episode.shortfall / episode.ticks, late: episode.late / world.hz, quiet: episode.quietMax / world.hz, seconds: episode.ticks / world.hz,
+          worldSteps: played.steps, worldSeconds: played.seconds } };
+    };
+    /** One world step of the episode: its cues, its reward under the action in force (`episode.effort`), and its ending. */
+    function tick() {
+        const limit = Math.round(episode.program.seconds * world.hz), effort = episode.effort;
+        deliver(); world.step(); const sample = physical(); episode.steps?.push(sample); if (o.trace) episode.samples.push(sample); episode.ticks++;
         const d = episode.requested, along = velocity.x * d.x + velocity.z * d.z, cross = velocity.x * d.z - velocity.z * d.x;
         const off = Math.abs((centre.x - episode.origin.x) * d.z - (centre.z - episode.origin.z) * d.x);
         if (episode.corridorEnabled) episode.maxOff = Math.max(episode.maxOff, off);
-        down ||= sample.down;
+        episode.down ||= sample.down;
         const speed = Math.hypot(velocity.x, velocity.z), target = episode.pace + o.reserve;
         episode.alongs.push(along); episode.window += along - (episode.alongs.length > world.hz ? episode.alongs[episode.alongs.length - 1 - world.hz] : 0);
         const since = (episode.ticks - episode.ordered) / world.hz;
@@ -188,19 +198,13 @@ export async function travelEnvironment(configuration) {
         const rate = Math.max(0, progress + o.uprightCredit * Math.max(0, Math.min(1, state.inference.observation[9]))
           - o.sideCost * cross ** 2 - o.corridorCost * off ** 2 - o.effortCost * effort
           - (episode.pace > 0 ? o.overspeedCost * Math.max(0, along - target) ** 2 : 0)) - o.lateCost * late;
-        const failed = down || episode.maxOff > 1;
+        const failed = episode.down || episode.maxOff > 1;
         episode.along += along; episode.shortfall += episode.pace > 0 ? Math.max(0, episode.pace - along) / episode.pace : speed / episode.stopScale;
         episode.quiet = episode.pace === 0 && speed < .15 && sample.standing ? episode.quiet + 1 : 0;
         episode.quietMax = Math.max(episode.quietMax, episode.quiet);
         return { reward: rate * world.dt - (failed ? Math.max(o.fallPenalty ?? 0, (1 + o.uprightCredit) * episode.program.seconds + 1) : 0),
           ended: failed ? 'terminated' : episode.ticks >= limit ? 'truncated' : null };
-      }, world.dt);
-      return { observation: state.inference.observation.slice(), reward: played.reward, ...(o.trace ? { samples } : {}),
-        terminated: played.ended === 'terminated' || played.ended === 'done', truncated: played.ended === 'truncated',
-        info: { along: episode.along / episode.ticks, command: episode.pace, down, corridor: episode.maxOff,
-          shortfall: episode.shortfall / episode.ticks, late: episode.late / world.hz, quiet: episode.quietMax / world.hz, seconds: episode.ticks / world.hz,
-          worldSteps: played.steps, worldSeconds: played.seconds } };
-    };
+    }
     await reset();
     return { observationSize: TRAVEL_LAYOUT.inputs.length, actionSize: TRAVEL_LAYOUT.outputs.length,
       layout: { ...TRAVEL_LAYOUT, interval: learner.interval }, reset, step, entries, rejected,

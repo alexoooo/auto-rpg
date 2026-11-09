@@ -13,8 +13,6 @@ import type { BodyControl } from "../../core/bodies/body-control.ts";
 /** The gaits' legs of any registered kind (`GAIT_PARTS`), as a lookup finds them (`legsOf`, `kit.ts`): how Move makes the gaits it chooses among. */
 export interface Legs {
   make(body: Body, config: PartConfig): Locomotion;
-  /** Whether legs of `config` may run (`Locomotion.runs`), undefined for legs that are not told. */
-  runs(config: PartConfig): boolean | undefined;
   /** The lookup the legs were made with, for the parts their config names (Move's rules). */
   readonly parts: PartLookup;
 }
@@ -43,8 +41,6 @@ export interface LocomotionPart<C extends PartConfig = PartConfig> extends Part<
 export interface GaitPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "gait";
   readonly keys: KeysOf<C>;
-  /** Whether legs of `config` may run (`Locomotion.runs`); absent for legs that are not told. */
-  runs?(config: C): boolean;
   /** The walk of `config` for `body`. */
   make(body: Body, config: C): Locomotion;
 }
@@ -77,6 +73,11 @@ export interface Locomotion extends Skill {
    * none of the stance's fields. Asked a `footing`, legs that place no feet stand.
    */
   goal(view: BodyView, goal: LegsAsked, dt: number, context?: LocomotionContext): LegsDrive;
+  /**
+   * The body back as `view` shows it (`Skill.resume`); with `heading`, taken over on the move from
+   * other legs that walked by that heading, rad, which it walks by in place of the pelvis's facing.
+   */
+  resume(view: BodyView, heading?: number): void;
   /** The heading the legs face, rad: the frame a walk is asked in. */
   readonly heading: number;
   /**
@@ -108,18 +109,11 @@ export interface Locomotion extends Skill {
   readonly gait?: GaitName;
   /** What it holds going by `gait` (`envelope`'s, as that gait would hold it), for legs that walk by gaits by name; null where it has no such gait. */
   envelopeOf?(gait: GaitName): StanceEnvelope | null;
-  /** For a walk that runs as well, what it holds told it `may` run or not (`runs`). */
-  envelopeRunning?(may: boolean): StanceEnvelope | null;
   /**
    * The arms' posture as this walk swings them, for the arms no other skill holds (`skillSet`);
    * absent or null, a walk that leaves them in the guard.
    */
   arms?(view: BodyView): Pose | null;
-  /**
-   * For a walk that runs as well, whether it may run from now on: told not, it walks no faster than
-   * its walk, and its envelope is its walk's. Absent, a walk that does not run.
-   */
-  runs?(may: boolean): void;
 }
 
 /**
