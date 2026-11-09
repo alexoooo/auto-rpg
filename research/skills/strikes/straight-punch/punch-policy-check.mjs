@@ -3,7 +3,7 @@ import { GAME } from "../../../../src/app/catalog.ts";
 import { profileLearningMind } from "../../../../src/minds/option/index.ts";
 import { workerJobs } from "../../../worker-jobs.mjs";
 /**
- * **A steered strike's policy on held-out trials** (the straight punch's or a held blow's): places drawn as its training environment draws
+ * **A steered strike's policy on held-out trials** (the straight punch's, a held blow's or a swing's: a strike its preset has no Option for gets its own, `owning`): places drawn as its training environment draws
  * them (`case-learning-environment.mjs`, `drawCondition`), on a seed of their own, and its listed
  * places' conditions (a fight's moments), each of the half training holds out (`heldOut`), each played whole as
  * the Strike drill plays a trial (its world and its reader to the end, so a fall counts) at each of
@@ -30,11 +30,11 @@ import { answer, pending } from "../../../../src/core/math/learning/learner.ts";
 import { STRIKE } from "../../../../src/app/node/evaluation.ts";
 import { barScore } from '../../../../src/evaluation/strike/score.ts';
 import { BOUT_WORLD } from "../../../../src/app/node/evaluation.ts";
-import { drawCondition, generator, heldOut, learnerIn, subjectFor } from '../../../case-learning-environment.mjs';
+import { drawCondition, generator, heldOut, learnerIn, owning, subjectFor } from '../../../case-learning-environment.mjs';
 
 /** One trial of `condition` on `protocol` at `hz`, steered by `act` (null: no steer): its reading's outcome and hit. */
 async function trial(o, act, protocol, condition, hz) {
-  const cases = STRIKE.protocols[protocol], value = subjectFor(o, condition, (preset, request) => profileLearningMind(GAME.partLookup, preset, request)), world = cases.world([value], condition, undefined, [o.character ?? {}]);
+  const cases = STRIKE.protocols[protocol], value = subjectFor(o, condition, (preset, request) => profileLearningMind(GAME.partLookup, owning(GAME, preset, request.skill), request)), world = cases.world([value], condition, undefined, [o.character ?? {}]);
   if (isRefused(world)) throw new Error(world.refused);
   const built = await BOUT_WORLD.build(world, { hz });
   if (isRefused(built)) throw new Error(built.refused);
@@ -47,7 +47,7 @@ async function trial(o, act, protocol, condition, hz) {
       if (pending(learner)) answer(learner, act ? act(learner.inputs) : []);
     }
     const r = reader.reading(), h = r.hit;
-    return { outcome: r.outcome, began: r.began, score: barScore(r, condition.hand), hit: h && (typeof h.hard === 'boolean' ? { energy: h.energy, held: h.held, faced: h.faced, speed: h.speed }
+    return { outcome: r.outcome, began: r.began, score: barScore(r, condition.hand), hit: h && (h.overhead ? { energy: h.energy, on: h.on, short: h.overhead.short, bend: h.bend } : typeof h.hard === 'boolean' ? { energy: h.energy, held: h.held, faced: h.faced, speed: h.speed }
       : { speed: h.speed, kg: h.kg, straight: h.straight, along: h.along, bend: h.bend, lean: h.lean }) };
   } finally { built.dispose(); }
 }

@@ -34,23 +34,12 @@ const KINDS = {
   travel: async () => (await import('./skills/locomotion/residual-environment.mjs')).residualEnvironment,
   'travel-orders': async () => (await import('./skills/locomotion/travel-environment.mjs')).travelEnvironment,
   cases: async () => {
-    const { caseEnvironment } = await import('./case-learning-environment.mjs');
+    const { caseEnvironment, owning } = await import('./case-learning-environment.mjs');
     const { profileLearningMind } = await import('../src/minds/option/index.ts');
     const { GAME } = await import('../src/app/catalog.ts');
     return configuration => caseEnvironment(configuration, { configureMind: (preset, request) => profileLearningMind(GAME.partLookup, owning(GAME, preset, request.skill), request) });
   },
 };
-
-/**
- * `preset` with `skill`'s own Option (`strike-<skill>`, its defaults) where it has no strike by it
- * (an experimental strike: the bonk), the preset's walks left out: with no profile its prior prices
- * the strike near nothing, and a walk outbids it as it winds and lets it go. Else `preset`.
- */
-function owning(game, preset, skill) {
-  const options = preset.options ?? [], kind = `strike-${skill}`;
-  if (preset.kind !== 'option' || !game.isKind(kind) || options.some((option) => option.skill?.kind === skill)) return preset;
-  return { ...preset, options: [...options.filter((option) => option.kind !== 'walk'), game.partLookup.of('option', { kind }).defaults] };
-}
 
 if (!isMainThread) {
   console.log = (...args) => process.stderr.write(args.join(' ') + '\n');
