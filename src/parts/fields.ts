@@ -52,6 +52,19 @@ export function choice<C, K extends keyof C & string>(key: K, label: string, opt
   };
 }
 
+/** The string-valued field `key` of a config that may leave it out, from `options`, or `none`, named as given, where it does. */
+export function optionalChoice<C, K extends keyof C & string>(key: K, label: string, none: string, options: readonly Option<NonNullable<C[K]> & string>[]): ChoiceField<C> {
+  return {
+    kind: "choice", key, label, options: [["", none], ...options],
+    read: (config) => config[key] === undefined ? "" : String(config[key]),
+    write: (config, text) => {
+      if (text !== "") return options.some(([value]) => value === text) ? { ...config, [key]: text } : null;
+      const { [key]: _, ...rest } = config;
+      return rest as C;
+    },
+  };
+}
+
 /** The numeric field `key` of a config, from `least` to `most`. */
 export function number<C, K extends keyof C & string>(key: K, label: string, least: number, most: number, step: number, unit: string): NumberField<C> {
   return {
