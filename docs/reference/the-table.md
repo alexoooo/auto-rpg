@@ -38,7 +38,11 @@ the version now: its rows answer the protocol's cases by condition, so a change 
 mind asks for no replay. A row read before its reader recorded what the value needs counts for
 nothing; `--play` replays it.
 
-`npm run evaluate -- table --play --workers 22` plays missing current cases and writes their rows.
-Node, core world, 120 Hz, each command 1 step late (`COMMAND_DELAY`). The report names each
+`npm run evaluate -- table --play --workers 22` plays missing current cases and writes their rows,
+one reading at a time, each to evaluate's budget (`--budget`, 10 minutes): a pass keeps every
+trial it plays and every complete unit as a record, names a reading that failed at its end and
+plays the rest, and with `--baseline` keeps a cell's baseline as soon as its reading is whole.
+Passes are repeated until none plays. Node, core world, 120 Hz, each command 1 step late
+(`COMMAND_DELAY`). The report names each
 reading's recorded harness and whether its version is current. A baseline keeps all records
 contributing its cases; incomplete current coverage cannot become a baseline.

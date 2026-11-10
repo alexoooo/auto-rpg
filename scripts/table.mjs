@@ -14,9 +14,11 @@
  * cases by condition, and shown with its record's commit and date.
  * `--play` plays each reading whose subject has no record at its version now (`npm run evaluate --
  * <drill> <subject> --protocol <p> --write`), which plays only the cases no kept row has, so a cell
- * a change did not touch costs nothing. `--baseline` keeps each reading now as its cell's baseline
- * (`assets/evaluations/<drill>/baselines.json`), where the cell has none: a baseline is never
- * overwritten.
+ * a change did not touch costs nothing. Each reading plays to evaluate's budget and keeps its
+ * complete units, so a pass always keeps what it played; one that fails is named at the end and the
+ * rest still play. `--baseline` keeps each reading now as its cell's baseline
+ * (`assets/evaluations/<drill>/baselines.json`), where the cell has none, as soon as the reading is
+ * whole: a baseline is never overwritten.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -181,11 +183,11 @@ function risesOf(cells, evidence) {
   return rises;
 }
 
-/** Keep each reading now of `cells` as its cell's baseline where it has none; name those kept already and those with no rows to keep. */
-function keepBaselines(cells, evidence) {
+/** Keep each reading now of `cells` that `reads` (every one where not given) as its cell's baseline where it has none; name those kept already and those with no rows to keep. */
+function keepBaselines(cells, evidence, reads = () => true) {
   const added = new Map();
   for (const cell of cells) {
-    for (const reading of cell.readings) {
+    for (const reading of cell.readings.filter(reads)) {
       const found = evidence.get(evidenceKey(reading)), kept = [...baselinesOf(reading.drill), ...(added.get(reading.drill) ?? [])];
       const named = `${cell.body} ${loadoutKey(cell.loadout)} ${reading.drill}/${reading.protocol} ${reading.subject}`;
       if (baselineOf(kept, cell, reading)) { console.log(`${named}: has a baseline, kept`); continue; }
@@ -208,11 +210,21 @@ export function main() {
   const readings = [...cells.flatMap((cell) => cell.readings), STAND_UP];
   let records = new Map(), evidence = evidenceOf(readings, records);
   if (values.play) {
-    for (const { reading, read, fault } of evidence.values()) {
+    const failed = [];
+    for (const { reading, read, fault } of [...evidence.values()]) {
       if (fault || read?.current && read.complete) continue;
-      console.log(`playing ${reading.drill} ${reading.protocol} ${reading.subject}`);
-      execFileSync(process.execPath, [join(ROOT, "scripts/evaluate.mjs"), reading.drill, reading.subject, "--protocol", reading.protocol, "--write", ...(values.workers ? ["--workers", values.workers] : [])], { cwd: ROOT, stdio: "inherit" });
+      const key = evidenceKey(reading);
+      console.log(`playing ${key}`);
+      try {
+        execFileSync(process.execPath, [join(ROOT, "scripts/evaluate.mjs"), reading.drill, reading.subject, "--protocol", reading.protocol, "--write", ...(values.workers ? ["--workers", values.workers] : [])], { cwd: ROOT, stdio: "inherit" });
+      } catch (error) { failed.push(`${key}: ${error instanceof Error ? error.message : String(error)}`); }
+      // What this reading kept is read again at once, so its cells' baselines are kept before the next reading plays.
+      records.delete(reading.drill);
+      evidence.set(key, evidenceOf([reading], records).get(key));
+      if (values.baseline) keepBaselines(cells, evidence, (one) => evidenceKey(one) === key);
     }
+    for (const one of failed) console.log(`failed ${one}`);
+    if (failed.length > 0) process.exitCode = 1;
     records = new Map();
     evidence = evidenceOf(readings, records);
   }
