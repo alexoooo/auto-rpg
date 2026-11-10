@@ -27,6 +27,20 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   curve, a joint's range, a solver setting, a bar's test) is decided toward the goal, never put to
   the owner. Stop only when the goal is met, no change is left to try, or the four-hour ceiling
   below is reached; ask only a choice whose effect in play the owner can judge.
+- **Choose an approach that can work.** Before a goal's work starts or changes direction, read its
+  section of [the approaches](docs/approaches.md) and `git log -i --grep=<skill>`. The plan names
+  the mechanism that does the part that fails today and the entries it was checked against; a
+  ruled-out approach is taken up again only with evidence that its cause no longer holds. A
+  mechanism that fails for a structural reason is replaced, never tuned.
+- **A failure's cause is a constraint in [the approaches](docs/approaches.md)**, written in the
+  commit that drops the attempt: what the mechanism cannot do, why, and the evidence commits. A
+  reading that ends short says whether the mechanism or its settings limit it, and never ends on
+  the next tweak of a ruled-out mechanism.
+- **What works is not deleted as cruft**: a capability goes only after a reading on the game's
+  cases shows what replaces it does as well. A change under a body (anatomy, engine, rate, timing)
+  reads every skill on it in the same change, and its commit names each loss.
+- **A structural claim is a code search**: before reporting that a path is gone or a mechanism is
+  general, search the code for the old path and report what remains.
 - **Checks by change**: code, `npm run check` and `npm test`; browser code, assets, dependencies
   or build config, also `npm run build`; a refactor claiming no behaviour change, the fingerprint;
   prose-only documents, `node --test tests/documents.test.mjs` (the links), `git diff --check`
@@ -44,7 +58,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **Do not spin.** A direction without a kept gain is changed: a training run at the recipe's
   plateau, any other work after an hour of tries. A training run whose screened checkpoints
   still improve is progress. After four hours without a kept gain toward the goal, whatever the
-  directions tried, stop: put the best reading and what was tried in the plan, and report.
+  directions tried, stop: put the best reading in the plan and each mechanism's limit in the
+  approaches, and report. A mechanism stopped at this ceiling twice is ruled out there.
 - **A skill is developed by [the skill recipe](docs/recipes/skill.md)**: a graded score, a
   feasible bar, a native controller that succeeds on some cases, then training.
 - **Training follows [the training recipe](docs/recipes/training.md)**: one actor a skill, a run
@@ -52,7 +67,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   change under the actor. Work of a kind that has a recipe in `docs/recipes/` follows it.
 - **An iteration is one question**: one implementation changed, read paired against the one
   before (`npm run compare`, `--previous`, `npm run match`), kept or dropped with the reason in the
-  commit message. A live alternative stays only while an open question uses it.
+  commit message, and in the approaches when the reason is the mechanism's. A live alternative
+  stays only while an open question uses it.
 - **A claim that a skill works is a drill link**
   (`?play=ratings&evaluation=strike&subject=<mind>/<skill>&version=<version>`), sent after
   watching its reel, failures first, and saying what was seen.
@@ -88,22 +104,25 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 | `docs/diagrams/` | pages showing the current design, or a target a plan in flight names |
 | `docs/reference/` | only what code needs and a comment cannot hold |
 | `docs/recipes/` | how a kind of work is done: its steps in order, budgets and traps |
+| `docs/approaches.md` | what each approach to a goal can and cannot do, with its evidence commits |
 | `docs/art/`, asset and vendor READMEs | where each asset comes from and how to rebuild it |
 
 - **Every sentence is true of the code now, something a reader acts on, and said once.** Plain
   technical English, the present tense. No dates, session or step numbers, commit hashes, owner
   quotes, comparisons to other games, "there is no X", or what used to be. A paper or an asset
-  path is provenance and stays. The story of a change, its before/after tables included, goes in
-  the commit message.
+  path is provenance and stays, as do the approaches' evidence commits. The story of a change,
+  its before/after tables included, goes in the commit message; what it shows a mechanism cannot
+  do goes in the approaches as well.
 - **A number cites a document only when it comes from a paper or an asset.** A value tuned for a
   result says in one line what it does, and has no record.
-- **A reference record holds what code uses**: no history, no "tried and not kept". A deleted
-  record is not cited, `path@commit` included.
+- **A reference record holds what code uses**: no history, no "tried and not kept"; what an
+  approach cannot do is an entry in the approaches. A deleted record is not cited, `path@commit`
+  included.
 - **Comments say what the code is**, and why where not obvious. Name the construct, not a line
   number. A comment about a code path is a hypothesis until the path has run.
 - **What worked is kept**: before a plan is deleted, the steps, settings and budgets that met
-  its goal go into the recipe for that kind of work. A recipe step that misled a run is
-  corrected in the same change.
+  its goal go into the recipe for that kind of work, and what could not meet it into the
+  approaches. A recipe step that misled a run is corrected in the same change.
 - **A wrong document is corrected or deleted**, not annotated; a change updates the documents it
   makes wrong. Status lives in the roadmap; code never cites a plan or an analysis.
 - Links and anchors resolve; `src/` comments carry no dates, hashes, plan citations or "the owner":

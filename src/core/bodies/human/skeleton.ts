@@ -203,7 +203,8 @@ const MOTOR_CURVATURE = sourced(1000, "1", "owner-skeleton-motor", "the motor's 
 const MOTOR_ECCENTRIC_CEILING = sourced(1, "1", "owner-skeleton-motor", "no more torque turned back than at rest");
 /**
  * The arms' motors (the shoulders' and the elbows') run this many times the unloaded speed of the
- * peak-power line, so its straight punch reaches its bar (`owner-skeleton-arms`).
+ * peak-power line, so its straight punch reaches its bar's fist speed; the blow meets too little
+ * mass to land at the bar (`owner-skeleton-arms`).
  */
 const ARM_MOTOR_SPEED = sourced(2, "1", "owner-skeleton-arms", "the arms' motors' unloaded speed over the peak-power line's");
 /** Whether `joint` is an arm's, its motor run at `ARM_MOTOR_SPEED`. */

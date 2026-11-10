@@ -136,7 +136,8 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
   plateaus are an environment that never shows the actor the case it fails.
 - Then change one thing (the curriculum's mix, a reward term, the observation) and run it as a
   new question. A phase that still succeeds on almost none of its cases is not a training
-  question: go back to the curriculum's opening rule.
+  question: go back to the curriculum's opening rule. A plateau the environment does not explain
+  is the controller's limit, written in [the approaches](../approaches.md).
 - Native-controller tuning under a trained actor is judged only after the actor is retrained on
   it. Without that retraining the reading measures the actor outside the states it learned on.
 

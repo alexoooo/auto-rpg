@@ -35,6 +35,9 @@ is the next step's input; a step skipped is how days pass without a kept gain.
 
 ## 3. A native controller that succeeds on some cases
 
+- **Name the mechanism that makes the motion** (foot placement from balance for a start or a stop,
+  timed pushes for a blow) and check it against [the approaches](../approaches.md). A controller
+  without it is not searched or trained.
 - **Start from the simplest controller that can make the motion**: a schedule of timed pushes
   (`src/skills/strikes/timed-push.ts`) over a posture, a gait, a stance. A tracker following a
   declared course runs behind it by its response time; at a blow's speed that lag is the stroke.

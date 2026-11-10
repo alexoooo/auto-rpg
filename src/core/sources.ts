@@ -241,7 +241,7 @@ const SOURCES = Object.freeze({
   "owner-skeleton-arms": {
     kind: "tuned",
     for: "The skeleton's arm motors' speed: the least factor over the peak-power line at which its "
-      + "straight punch reaches its bar.",
+      + "straight punch reaches its bar's fist speed.",
   },
   "owner-rogue-arms": {
     kind: "tuned",

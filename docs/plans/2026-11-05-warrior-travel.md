@@ -6,7 +6,7 @@ The Warrior travels at 4 m/s or faster forward, moves safely in every direction,
 moving, takes corners, reverses direction and stops without falling. Travel uses its own speed
 and turning limits; the braced walk remains available for fighting. Travel never steps by the
 braced walk (the stance's walk): the Run starts from a stand, goes slow, turns and stops by its own
-cycle, and the stance only holds the body standing between orders.
+controller, and the stance only holds the body standing between orders.
 
 Train and confirm on the game's toed Warrior, unassisted. Use existing gait implementations,
 records and training checkpoints as seeds, replayed on this body before reuse; they do not
@@ -39,22 +39,27 @@ The Run owns the body from the order to the stand at its end. Today it walks by 
 until the body has faced the way asked for 0.6 s and has come near the walk's top pace or faced
 it 2 s (`RUN_SWITCH`), and hands the body back to that walk to slow and stop; that handover goes.
 
-- **Start from a stand** as a person does: the stance moves the centre of pressure behind and
-  toward the first stepping foot, so the body begins to fall toward the way asked; that foot's
-  swing begins the cycle at pace 0 (`runCycle`'s `begin` from double support), and the pace rises
-  at the cycle's acceleration.
-- **Turn while starting**, never on the spot: a way up to 90 degrees off is taken by a step turn,
-  the first foot landing turned toward it and the heading closing over the next two or three
-  steps; a way behind by a spin turn, pivoting on the standing foot through the first step.
-- **Slow paces** by a person's captured walking cycle in the same cycle tracker below the run's
-  slowest clip, with the jog the [development reading](#development-reading) names between them:
-  short places, a slot beside a door, the navigator's slow approach. Facing held, the other
-  directions go by captured side and back steps in the tracker as well.
-- **The stop** brakes by the cycle down to both feet on the ground, and the stance takes the body
-  standing, without a step.
+The clip cycle cannot take these phases: it places no foot by balance
+([the approaches](../approaches.md#travel)). A controller that places each foot from the capture
+point takes them, hands the cycle a body at its slowest clip's pace (2.75 m/s) and takes it back
+below that pace:
 
-The travel actor is trained on the current handover, so it is retrained from the entry stage on
-the new start.
+- **Start from a stand**: the first steps placed from the capture point toward the way asked,
+  each longer than the last, the pace rising to the cycle's.
+- **Turn while starting**, never on the spot: a way up to 90 degrees off by a step turn, the first
+  foot landing turned toward it; a way behind by a spin turn on the standing foot.
+- **Slow paces**: short places, a slot beside a door, the navigator's slow approach. Facing held,
+  the other directions step the same way.
+- **The stop**: steps placed to bring the capture point between the feet, then the stance holds the
+  body standing.
+
+Two candidates have that mechanism: a capture-point stepper built to accelerate, and the travel
+actor with the swing foot's landing in its action, trained on starts from rest. The stance's foot
+placement walks to about 1.7 m/s with no push-off, short of the cycle's 2.75 m/s, so a stepper on
+it needs push-off or a handover the actor carries at a lower pace. Each candidate is played on the
+Start cases first, for minutes, and the one that starts the body without falling is built. The
+travel actor is trained on the current handover, so it is retrained from the entry stage on the
+new start.
 
 ## Gates
 
@@ -138,11 +143,11 @@ moving phases; development cases never become exact training starts.
    forward run and stop gates are met, empty hands, calm air. Install the record in the
    Warrior's walk-run record so the game's Option Mind runs it, and send the owner a drill link
    with what was seen. This is the first milestone the owner watches.
-4. **Start, slow paces and the stop within the Run.** Build the start from a stand, the step and
-   spin turns, the slow cycle and the stop to a stand into the walk and run
-   ([Start, slow paces and the stop](#start-slow-paces-and-the-stop)), drop its handover to the
-   stance's walk, and screen the native controller on the Start and Short place gates until it
-   meets some of their cases. Then retrain the actor from its entry stage on it, keeping every
+4. **Start, slow paces and the stop by foot placement.** Play each candidate of
+   [Start, slow paces and the stop](#start-slow-paces-and-the-stop) natively on the Start cases
+   first; build the one that starts the body without falling, then its turns, slow paces and stop
+   to a stand, drop the Run's handover to the stance's walk, and screen it on the Start and Short
+   place gates until it meets some of their cases. Then retrain the actor from its entry stage on it, keeping every
    earlier stage's episodes, and install it in the Warrior's walk-run record.
 5. **Directions and manoeuvres.** Add headings, facing-held directions, continuous steering,
    corners and reversals as curriculum stages of the same actor, keeping the forward and stop
@@ -254,41 +259,19 @@ order raises those to six of eight at best, at the cost of the 1 m/s order and t
 2 m/s. Holding the braking stance's knee and ankle at mid-stance under the slowest clip, so the
 stance stays planted until the other foot lands, removes most flight but leaves direct stops at
 2 to 3 s after retraining, with more falls between checkpoints. The stance walk's acceleration
-does not shorten its part. The remaining limit is the run's lack of a cycle between the walk and
-2.75 m/s: a slower captured cycle (a jog near 1.5 to 2 m/s) is the next question; it changes the
-run of every body that uses the cycles and is read on each of them.
+does not shorten its part. The remaining limit is the lack of a gait between the walk and
+2.75 m/s, which the clip cycle cannot supply ([the approaches](../approaches.md#travel)).
 
 On the Start and Short place cases (`travel-screen.mjs`'s `start` and `short` phases, Node,
 120 Hz, unassisted, the Warrior with the sword) the installed record meets none and falls on none:
 its starts move the centre of mass toward the way 0.76 to 1.09 s after the order by 4 to 39 steps
 of the stance's walk, and it stands at every short place within 0.17 to 0.23 m by 3 to 42 of them.
 
-A start that begins the cycle on the order, with no stance step, does not yet hold; what was
-tried, read with the travel actor and the reference silent:
-
-- The stance unloading the first foot before the cycle takes it (a double support toward the way,
-  or the capture point shifted part way over the other sole) brings the body to 0.05 m/s at most
-  or throws it sideways. The cycle begun at once from the stand runs.
-- With CMU clips 16_15 and 16_21 (walks at 1.09 and 1.69 m/s) below 16_35 in the cycle table, and
-  the run searched through the Option Mind, straight starts and ways up to 90 degrees off run, 7
-  to 19 m in 8 s at 1 to 3 m/s.
-- A way 90 degrees or more off leaves the pelvis behind the turning heading: the swinging foot
-  lands square to the pelvis, and nothing turns the body. The foot landing turned toward the
-  heading, with the heading kept within 0.3 rad of the pelvis's facing, turns the body about 100
-  degrees in 1 s; ways 135 and 180 degrees off still fall within 1 to 2.5 s, hopping in place at
-  pace 0. A pace floor while turning, or the foot turned past the heading, falls as well.
-- Stopping: the cycle's pace kept within `ahead` of the body's speed, the braking settings only
-  while the pace comes down, and the stance taking the body once both soles bear and the capture
-  point lies within 0.08 m of the line between them. With braking searched on stops, stops from
-  2.5 m/s or less stand within 1.5 s; from 3 m/s none stands within 2 s.
-- The navigator's short places ask about 1 m/s, at which the run falls backward within 1.5 s.
-
-The best reading, the run and braking searched with those rules, meets 2 of 8 starts (the ways 45
-degrees off) and no short place, falling on 21 of the 24 cases; searched on places as well, it
-meets none and falls on 19. The installed actor on either falls on 23 or 24. Each search fits its
-own cells and the screen does not follow: at walking paces the cycle is chaotic, a 3e-5 rad change
-of its lean turning a stop into a fall. The next question is a cycle that holds the slow paces and
-the stop on the screen's cases, read natively before the actor is retrained on it.
+A start that begins the cycle on the order, with no stance step, meets at best 2 of 8 starts (the
+ways 45 degrees off) and no short place, falling on 21 of the 24 cases, with slower clips, a foot
+landing turned toward the way, a capture-point handover at the stop and the cycle's run and
+braking searched through the Option Mind; the installed actor on it falls on 23 or 24. The cycle's
+limits are in [the approaches](../approaches.md#travel).
 
 ## Completion
 
