@@ -36,10 +36,13 @@ the required cases from each current protocol and merges compatible partial reco
 recorded at an earlier version stands as of its record, its commit and date shown and marked not
 the version now: its rows answer the protocol's cases by condition, so a change elsewhere in the
 mind asks for no replay. A row read before its reader recorded what the value needs counts for
-nothing; `--play` replays it.
+nothing; `--fresh` replays it.
 
-`npm run evaluate -- table --play --workers 22` plays missing current cases and writes their rows,
-one reading at a time, each to evaluate's budget (`--budget`, 10 minutes): a pass keeps every
+`npm run evaluate -- table --play --workers 22` plays each reading that has no whole record and
+writes its rows; a reading recorded at an earlier version is kept, so a change to the code plays
+nothing. `--fresh` plays the readings of the cells asked for (`--body`, `--skill`, `--loadout`)
+again on the code now; the stand-up reading that prices a fall is played again only where a cell
+asked for reads it. Both play one reading at a time, each to evaluate's budget (`--budget`, 10 minutes): a pass keeps every
 trial it plays and every complete unit as a record, names a reading that failed at its end and
 plays the rest, and with `--baseline` keeps a cell's baseline as soon as its reading is whole.
 Passes are repeated until none plays. Node, core world, 120 Hz, each command 1 step late

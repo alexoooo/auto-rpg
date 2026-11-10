@@ -6,15 +6,17 @@
  * the figures beside it and each drill link. A fall is priced at its body and loadout's time to
  * stand now, the stand-up cell's value, or the fall's cap where that is unread.
  *
- *   npm run evaluate -- table [--body <model>] [--skill <name>] [--loadout <left,right>] [--play] [--baseline] [--workers N] [--json <file>]
+ *   npm run evaluate -- table [--body <model>] [--skill <name>] [--loadout <left,right>] [--play] [--fresh] [--baseline] [--workers N] [--json <file>]
  *
  * A reading now is found in the newest record of its drill and protocol that holds its subject, by
  * id or by the same config; its best, in whichever such record values it best on the cell.
  * A reading recorded at an earlier version is valued on its own rows, matched to the protocol's
  * cases by condition, and shown with its record's commit and date.
- * `--play` plays each reading whose subject has no record at its version now (`npm run evaluate --
- * <drill> <subject> --protocol <p> --write`), which plays only the cases no kept row has, so a cell
- * a change did not touch costs nothing. Each reading plays to evaluate's budget and keeps its
+ * `--play` plays each reading that has no whole record (`npm run evaluate -- <drill> <subject>
+ * --protocol <p> --write`); a reading recorded at an earlier version is kept as it stands, so a
+ * change to the code plays nothing. `--fresh` plays the readings of the cells asked for again on
+ * the code now, where their record is at an earlier version; the stand-up reading that prices a
+ * fall is played again only where a cell asked for reads it. Each reading plays to evaluate's budget and keeps its
  * complete units, so a pass always keeps what it played; one that fails is named at the end and the
  * rest still play. `--baseline` keeps each reading now as its cell's baseline
  * (`assets/evaluations/<drill>/baselines.json`), where the cell has none, as soon as the reading is
@@ -200,20 +202,22 @@ function keepBaselines(cells, evidence, reads = () => true) {
   for (const [drill, entries] of added) writeFileSync(baselinesPath(drill), `${JSON.stringify([...baselinesOf(drill), ...entries], null, 2)}\n`);
 }
 
-/** Print the table for the command line's options, playing first with `--play`, keeping baselines with `--baseline`. */
+/** Print the table for the command line's options, playing first with `--play` or `--fresh`, keeping baselines with `--baseline`. */
 export function main() {
   const { values } = parseArgs({ allowPositionals: true, options: {
-    body: { type: "string" }, skill: { type: "string" }, loadout: { type: "string" }, play: { type: "boolean" }, baseline: { type: "boolean" }, workers: { type: "string" }, json: { type: "string" } } });
+    body: { type: "string" }, skill: { type: "string" }, loadout: { type: "string" }, play: { type: "boolean" }, fresh: { type: "boolean" }, baseline: { type: "boolean" }, workers: { type: "string" }, json: { type: "string" } } });
   const cells = tableCells().filter((cell) => (!values.body || cell.body === values.body) && (!values.skill || cell.skill === values.skill)
     && (!values.loadout || loadoutKey(cell.loadout) === values.loadout));
   // The stand-up reading prices every cell's falls, so it is read whatever the cells asked.
   const readings = [...cells.flatMap((cell) => cell.readings), STAND_UP];
   let records = new Map(), evidence = evidenceOf(readings, records);
-  if (values.play) {
-    const failed = [];
+  if (values.play || values.fresh) {
+    const failed = [], asked = new Set(cells.flatMap((cell) => cell.readings).map(evidenceKey));
     for (const { reading, read, fault } of [...evidence.values()]) {
-      if (fault || read?.current && read.complete) continue;
       const key = evidenceKey(reading);
+      // A whole record at an earlier version stands; only `--fresh` plays it again, and only for a cell asked for.
+      const stands = read?.complete && (read.current || !(values.fresh && asked.has(key)));
+      if (fault || stands) continue;
       console.log(`playing ${key}`);
       try {
         execFileSync(process.execPath, [join(ROOT, "scripts/evaluate.mjs"), reading.drill, reading.subject, "--protocol", reading.protocol, "--write", ...(values.workers ? ["--workers", values.workers] : [])], { cwd: ROOT, stdio: "inherit" });

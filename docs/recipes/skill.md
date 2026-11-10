@@ -69,7 +69,7 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 - Confirm on held-out cases once, on the chosen checkpoint or record.
 - Register it in Option Mind, install its record in the game and read its profiles; a drill
   Commander using it alone does not show the Mind uses it.
-- Play its table cells (`npm run evaluate -- table --body <model> --skill <name> --play`). The
+- Play its table cells (`npm run evaluate -- table --body <model> --skill <name> --fresh`). The
   claim is the cell against its baseline, checked by a fresh agent
   ([AGENTS.md](../../AGENTS.md#doing-the-work)); a good drill reading with a cell that did not
   move is a skill the game does not use.
