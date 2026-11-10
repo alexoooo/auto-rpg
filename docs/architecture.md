@@ -633,8 +633,8 @@ target stands with its arms lowered (`drill-open`).
   only changed cases replay. `--write` keeps a record under `assets/evaluations/<id>/`
   (`record.ts`), grouped into pools with numbered versions (`history.ts`), and deletes the records
   it replaces (`replacedBy`): the same protocol, engine and subjects with no subject at the version
-  it plays. It keeps any such record that is untracked, a baseline's, holds an accepted version,
-  or is cited by a tracked file. Git history keeps what it deletes.
+  it plays. It keeps any such record that is untracked, a baseline's or cited by a tracked
+  file. Git history keeps what it deletes.
   Subjects retain their body restrictions and character attributes through normalization,
   scheduling, versioning and historical reconstruction. Each code-bearing part declares its
   component configuration; identity follows those parts and the selected aim's declared data.
@@ -644,8 +644,7 @@ target stands with its arms lowered (`drill-open`).
   `rating.ts`), `unseen`. The panel report (`compare.ts`, `settle.ts`) pairs a subject with its
   baseline and stops once settled; `npm run compare` (`record-comparison.ts`) pairs saved records.
 - **Batteries and drills**: a battery plays one subject over its conditions; a drill's trials pass
-  or fail, its rungs its protocols (the strike's bar in `strike/read.ts`). Only the owner accepts a
-  rung (`accepted.json`).
+  or fail, its rungs its protocols (the strike's bar in `strike/read.ts`).
 - **The table** (`src/evaluation/table/`): Option Mind on every body by loadout by skill
   (`tableCells`), valued from compatible records merged by case: each trial's value in the game's
   terms (`trialValue`: a stand's seconds, a move's seconds lost against its orders, `orderTime`, a

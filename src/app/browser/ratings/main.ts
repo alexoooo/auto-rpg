@@ -15,7 +15,7 @@ import type { Estimate } from "../../../evaluation/stats.ts";
 import { sha256Text } from "../../../evaluation/sha256.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 import { batteryRows, casesBy, commonGround, conditionFields, conditionText, entrantParts, fieldText, findCase, historyOf, isContest, matchupGrid, standingsOf, type Standing } from "./analysis.ts";
-import { acceptedOf, recordNames, recordsOf } from "./records.ts";
+import { recordNames, recordsOf } from "./records.ts";
 
 /** The groups evaluations are listed in, as the screen names them. */
 const GROUPS: Readonly<Record<Evaluation["group"], string>> = Object.freeze({ fighters: "Fighters", skills: "Skills", decisions: "Decisions" });
@@ -266,7 +266,7 @@ function subjectView(id: string, history: ReturnType<typeof historyOf>, pools: r
       ...grouped("By condition", casesBy(pool, name, (one) => conditionText(one.line.condition))));
   }
   const besideVersion = previous === null ? null : { version: previous, label: history.find(({ version }) => version.subject.version.version === previous)?.version.label ?? previous };
-  if (drill) section.append(trialsView(evaluation, mine, beside(previous), chosen, besideVersion));
+  if (drill) section.append(trialsView(evaluation, mine, beside(previous), besideVersion));
   section.append(el("h4", { textContent: "Each case" }), el("div", { className: "scroll" }, table(contest
     ? ["Opponent", "Side", "Condition", "Outcome", "Ending", "Seconds", "Margin", ""] : ["Condition", ...figures.map((figure) => figure.name), ""],
   mine.map((one) => {
@@ -291,12 +291,8 @@ const OUTCOME_COLOURS = ["#7fb069", "#d9a441", "#c0604a", "#6c6672", "#8a6fb0", 
  * a column for each value of the last; a square plays the strip's trials in the Arena from its own.
  * Each returns here, and plays each trial beside version `previous`'s where given.
  */
-function trialsView(evaluation: Evaluation, mine: readonly PoolCase[], here: string, version: NamedVersion, previous: { readonly version: string; readonly label: string } | null): HTMLElement {
+function trialsView(evaluation: Evaluation, mine: readonly PoolCase[], here: string, previous: { readonly version: string; readonly label: string } | null): HTMLElement {
   const outcome = evaluation.outcome!, section = el("section", { className: "trials" }, el("h4", { textContent: "Trials" }));
-  const accepted = acceptedOf(evaluation.id).filter((one) => one.subject === version.subject.id && one.version === version.subject.version.version);
-  section.append(el("p", { className: accepted.length ? "accepted" : "note" }, accepted.length
-    ? `Accepted by the owner: ${accepted.map((one) => `rung ${one.protocol} on ${one.date}${one.note ? `, "${one.note}"` : ""}`).join("; ")}.`
-    : "Not accepted: only the owner accepts a rung, having watched it. The numbers are not acceptance."));
   if (previous) section.append(el("p", { className: "note" }, `Each trial plays with ${previous.label}'s same trial beside it, in step, where a record holds it.`));
   const played = mine.filter((one) => !one.line.fault), labels = new Map<string, { passed: boolean; count: number }>();
   for (const one of played) {

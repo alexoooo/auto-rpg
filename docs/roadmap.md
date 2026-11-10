@@ -8,7 +8,7 @@ Where the project is going and what is open. What is built is in the
 - **A testbed for AI-controlled bodies, built into a game**: muscle-driven bodies fight in an
   Arena and a generated Crypt. Every layer advances, each depending only on those below it
   ([the layers](architecture.md#the-layers)).
-- **Skills** in one shape, proved on drills the owner accepts, chosen by a mind's Options from their
+- **Skills** in one shape, read on drills the owner watches, chosen by a mind's Options from their
   entry conditions and profiles ([Skills](architecture.md#skills)).
 - **The fight is a black box**: at most two minutes, life draining from the first minute; nothing
   else ends or judges a bout.

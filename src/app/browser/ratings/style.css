@@ -44,4 +44,3 @@
 :where(#screen-root[data-screen="ratings"]) .strip tbody th { font-weight: 400; color: var(--dim); }
 :where(#screen-root[data-screen="ratings"]) .strip .trial { display: block; width: 16px; height: 16px; border-radius: 2px; }
 :where(#screen-root[data-screen="ratings"]) .strip .trial:hover, :where(#screen-root[data-screen="ratings"]) .strip .trial:focus-visible { outline: 2px solid #ffebc9; }
-:where(#screen-root[data-screen="ratings"]) .accepted { margin: 4px 0 8px; font-size: 12px; color: #9fd08a; }

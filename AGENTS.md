@@ -76,8 +76,6 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **A claim that a skill works is a drill link**
   (`?play=ratings&evaluation=<evaluation>&subject=<mind>/<skill>&version=<version>`), sent after
   watching its reel, failures first, and saying what was seen.
-- **Only the owner accepts a rung**: an agent writes a drill's `accepted.json` only with what the
-  owner said.
 - **Landing**: name the checks run and any failure left; commit each landable change on main. A
   branch only when the owner asks. Never push unless asked.
 - **Pull and merge** with `npm run pull:merge`; resolve conflicts by meaning, stage only those

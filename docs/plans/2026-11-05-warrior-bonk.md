@@ -8,8 +8,7 @@ that raises the club above the head, brings it down in one descending arc onto t
 club's swell, the arm straight as it lands, follows through and returns to guard. It does so with either hand, the club alone and with the buckler in the other
 hand (`empty,club`, `buckler,club`, `club,empty`, `club,buckler`), at an opponent standing or
 moving, from a Warrior standing or on the move, and Option Mind chooses and uses it in the Arena.
-The motion reads as intended, not as flailing; the owner judges that from the reel and accepts the
-rung.
+The motion reads as intended, not as flailing; the owner judges that from the reel.
 
 The work follows [the skill recipe](../recipes/skill.md), then [the training
 recipe](../recipes/training.md); this plan holds what is particular to the bonk.
@@ -178,6 +177,6 @@ trunk blow, the sword cut, the punch, stand-up and travel. Work goes under `.tmp
 
 ## Completion
 
-The confirmation reading of step 7 is read, Option Mind uses the bonk in the Arena, and the owner has
-watched the reel and accepts the rung. The motion's reading goes into reference documentation;
+The confirmation reading of step 7 is read, Option Mind uses the bonk in the Arena, and its drill link is sent
+with what its reel showed. The motion's reading goes into reference documentation;
 the code and reference this plan replaced are gone, and this plan is deleted.

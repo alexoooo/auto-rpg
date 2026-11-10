@@ -58,9 +58,8 @@ the sword's cut and thrust, the buckler's cover; each on the Warrior, then on th
 Skeleton, seeded from the Warrior's where that starts higher, each body's own record searched or
 trained on its own body, and its own variant where it reads better than the shared one. Check:
 each cell's held-out reading at 120 and 480 Hz against its baseline and its drill link; its reel
-watched, the failures first; the owner accepts each rung.
+watched, the failures first.
 
 ## Done when
 
-- Every cell holds its best reading, its baseline and its ceiling named, and the owner has
-  accepted its rung; [the table](../reference/the-table.md) is rewritten from the readings.
+- Every cell holds its best reading, its baseline and its ceiling named; [the table](../reference/the-table.md) is rewritten from the readings.

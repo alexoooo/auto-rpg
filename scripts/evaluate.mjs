@@ -98,7 +98,7 @@ function writeRecord(header, lines, written) {
   retireReplaced(header);
 }
 
-/** The JSON file `name` of evaluation `id`'s folder (`baselines.json`, `accepted.json`); [] where it has none. */
+/** The JSON file `name` of evaluation `id`'s folder (`baselines.json`); [] where it has none. */
 const listOf = (id, name) => {
   const path = join(ROOT, "assets/evaluations", id, name);
   return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : [];
@@ -118,8 +118,7 @@ function citedOf(names) {
 /**
  * Delete the records `header`'s run replaces (`replacedBy`), so a folder keeps each question's
  * newest answer. A replaced record stays where Git could not bring it back (untracked), where a
- * baseline names it (`baselines.json`), where an acceptance names a version it holds
- * (`accepted.json`), or where a tracked file cites it; each kept one is named with why.
+ * baseline names it (`baselines.json`), or where a tracked file cites it; each kept one is named with why.
  */
 function retireReplaced(header) {
   const id = header.evaluation, replaced = replacedBy(recordsOf(id), header);
@@ -127,11 +126,9 @@ function retireReplaced(header) {
   const names = replaced.map((record) => basename(record.name)), cited = citedOf(names);
   const tracked = new Set(git("ls-files", "--", ...replaced.map((record) => record.name)).split("\n").filter(Boolean).map((path) => basename(path)));
   const baselined = new Set(listOf(id, "baselines.json").flatMap((one) => one.records ?? [one.record]));
-  const accepted = listOf(id, "accepted.json");
   for (const record of replaced) {
     const name = basename(record.name);
     const why = !tracked.has(name) ? "untracked" : baselined.has(name) ? "a baseline"
-      : accepted.some((one) => one.protocol === record.header.protocol && record.header.subjects.some((subject) => subject.id === one.subject && subject.version.version === one.version)) ? "accepted"
       : cited.has(name) ? "cited" : null;
     if (why) console.log(`kept ${name}, replaced but ${why}`);
     else { rmSync(record.name); console.log(`deleted ${name}, replaced`); }

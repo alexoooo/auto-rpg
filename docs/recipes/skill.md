@@ -1,6 +1,6 @@
 # Developing a skill
 
-How a skill goes from a request to something the owner can accept: a reader scoring the skill's
+How a skill goes from a request to something the owner sees in the game: a reader scoring the skill's
 value, what the body can do, a native controller that already succeeds on some cases, then a
 learned actor over it. [The training recipe](training.md) is the last of these steps. Each step's output
 is the next step's input; a step skipped is how days pass without a kept gain.

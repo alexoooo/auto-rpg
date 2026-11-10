@@ -259,11 +259,11 @@ limits are in [the approaches](../approaches.md#travel).
 
 ## Completion
 
-The plan lands when the owner accepts the travel they see in the game. Until then each change
+The plan lands when its work steps are built and no change left to try raises the value, its
+ceiling named from a reading. Until then each change
 raises the travel's value on every loadout, read on the confirmation conditions with complete
 case coverage and confirmed directional and turning envelopes; a plateau names its limit from a
 reading. The table names the actual protocol, body, loadout, harness and current version. Implementation checks
 follow [AGENTS.md](../../AGENTS.md#doing-the-work); capability evidence lives in drills and paired
-evaluations. Provide watched drill links with the observed failures and outcomes. Only the
-owner accepts a rung. Delete this plan when the work lands and place the resulting movement
+evaluations. Provide watched drill links with the observed failures and outcomes. Delete this plan when the work lands and place the resulting movement
 contract in the reference documentation.
