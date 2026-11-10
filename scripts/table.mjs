@@ -122,7 +122,7 @@ function evidenceOf(readings, records) {
   return evidence;
 }
 
-const MARK = { unread: "not read", unbased: "no baseline", better: "better", worse: "worse", within: "within noise", unpaired: "unpaired" };
+const MARK = { unread: "not read", uncounted: "nothing counted", unbased: "no baseline", better: "better", worse: "worse", within: "within noise", unpaired: "unpaired" };
 
 /** A value in words, in `unit`. */
 const valueText = (value, unit) => value === null ? "unvalued" : `${Number(value.toFixed(3))} ${unit.unit}`;
@@ -143,9 +143,11 @@ function baselineRows(cell, reading, records, baselines) {
 
 /**
  * A cell over its readings, a fall costing `rise` s: each reading valued now, at its baseline and at
- * its best version. Its state: not read where a reading has no value now, no baseline where one has
- * none, else every reading's trials against their baseline's, paired and pooled (`compareValues`).
- * Its value now, the mean over every counted trial of its readings; and its lines.
+ * its best version. Its state: not read where a reading is not whole now, no baseline where one has
+ * none, nothing counted where every reading is whole and no trial of any counts (every blow refused
+ * or never begun, every cover unattacked), else every reading's counted trials against their
+ * baseline's, paired and pooled (`compareValues`). Its value now, the mean over every counted trial
+ * of its readings; and its lines.
  */
 function valueCell(cell, evidence, records, baselines, rise) {
   const unit = unitOf(cell.readings[0].judge), pooled = { now: new Map(), then: new Map() }, counted = [];
@@ -160,8 +162,9 @@ function valueCell(cell, evidence, records, baselines, rise) {
       const one = valueOf(reading, rowsOn(cell, reading, kept), required, rise);
       if (one.value !== null && (!best || (unit.better === "higher" ? one.value >= best.valued.value : one.value <= best.valued.value))) best = { valued: one, id: held.id, version: held.version.version };
     }
-    if (now.value === null) state ??= "unread";
-    else if (then?.value == null) state ??= "unbased";
+    if (!now.whole) state ??= "unread";
+    else if (now.trials.size === 0) { /* A whole reading with no trial counted adds nothing to the cell's value. */ }
+    else if (!then) state ??= "unbased";
     else for (const [key, value] of now.trials) {
       pooled.now.set(`${evidenceKey(reading)} ${key}`, value);
       if (then.trials.has(key)) pooled.then.set(`${evidenceKey(reading)} ${key}`, then.trials.get(key));
@@ -171,6 +174,7 @@ function valueCell(cell, evidence, records, baselines, rise) {
       `    baseline ${base ? then ? `${valueText(then.value, unit)}, now ${comparisonText(compareValues(now.trials, then.trials, unit))} (${linkOf(reading.drill, base.id, base.version)})` : `${base.record} not found` : "none"}`
         + `; best ${best ? `${valueText(best.valued.value, unit)}, now ${comparisonText(compareValues(now.trials, best.valued.trials, unit))} (${linkOf(reading.drill, best.id, best.version)})` : "none"}`].join("\n");
   });
+  if (state === null && counted.length === 0) state = "uncounted";
   const value = state === "unread" || counted.length === 0 ? null : counted.reduce((sum, one) => sum + one, 0) / counted.length;
   return { state: state ?? compareValues(pooled.now, pooled.then, unit).verdict, value, unit, lines };
 }

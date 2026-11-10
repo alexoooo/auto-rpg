@@ -21,8 +21,10 @@ game's own terms (`trialValue`), every trial its own value:
 - **The figures beside** a value decide nothing: a strike's hit against the person's (`BAR`), the
   falls stood within the owner's 10 s, the share of blows the buckler met first.
 
-A reading's value is the mean of its trials, and only over its whole protocol: every case present
-and none faulted. The Warrior's run reads the Travel confirmation protocol, the Rogue's the
+A reading counts only over its whole protocol: every case present and none faulted. A cell's
+value is the mean of every counted trial of its readings; a cell whose readings are whole with no
+trial counted (every blow refused or never begun, every cover unattacked) is marked nothing
+counted, its counts beside it. The Warrior's run reads the Travel confirmation protocol, the Rogue's the
 Locomotion run protocol, the walk the Locomotion `every` protocol on every body.
 
 A cell is compared with its baseline, its first reading when its work begins (kept by

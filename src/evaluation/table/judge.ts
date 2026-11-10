@@ -64,8 +64,12 @@ export function rowsOn(cell: Pick<Cell, "body" | "loadout">, reading: Pick<Readi
   });
 }
 
-/** **A reading's value**: each counted trial's, by its condition; their mean (null where none counts, or the protocol is not whole); and the figures beside it in words. */
-export interface Valued { readonly trials: ReadonlyMap<string, number>; readonly value: number | null; readonly figures: string }
+/**
+ * **A reading's value**: each counted trial's, by its condition; whether the protocol is whole
+ * (every case has a row, none faulted); the trials' mean (null where it is not whole or none
+ * counts); and the figures beside it in words.
+ */
+export interface Valued { readonly trials: ReadonlyMap<string, number>; readonly whole: boolean; readonly value: number | null; readonly figures: string }
 
 /**
  * **`rows` valued as `reading` reads them**, a fall's rest costing `rise` s, against the protocol's
@@ -83,7 +87,7 @@ export function valueOf(reading: Pick<Reading, "judge"> & { readonly hit?: HitFi
   }
   const whole = rows.length > 0 && missing === 0 && faulted === 0;
   const coverage = missing || faulted ? `; ${required.length - missing} of ${required.length} cases, ${faulted} faulted` : "";
-  return { trials, value: whole && trials.size > 0 ? mean([...trials.values()]) : null,
+  return { trials, whole, value: whole && trials.size > 0 ? mean([...trials.values()]) : null,
     figures: `${trials.size} of ${rows.length} trials counted, ${figuresOf(reading, rows.filter(row => row.fault == null && row.reading !== null))}${coverage}` };
 }
 
