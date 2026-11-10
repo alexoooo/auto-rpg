@@ -210,7 +210,7 @@ test("a measured Lab script follows an explicit numeric walk without a gait enve
     assert.equal(actor.mind.skills.envelope, null, "the fixture must remove its measured gait envelope");
     stand.step(stand.seconds(1));
     assert.ok(Number.isFinite(actor.state.script.orders.pace) && actor.state.script.orders.pace > 0, "the script must publish a finite numeric movement");
-    assert.equal(actor.mind.report.engagement.phase, "follow orders by braced");
+    assert.equal(actor.mind.report.engagement.phase, "follow orders");
     stand.step(stand.seconds(2));
     const reading = session.frame();
     assert.ok(reading.gait.touchdowns > 0, "the selected ordered walk must reach its first landing");

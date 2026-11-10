@@ -35,11 +35,9 @@ function kind<K extends string>(kind: K, label: string, make: (given: ProfileOpt
     fits: anyBody, faults: () => [], make: (_config: { readonly kind: K }, given: ProfileOptionContext) => make(given) });
 }
 
-/** **Following the orders** a person gives (`followOrders`): one option by each gait its body's legs go by (`gaitsOf`), one by the legs' own where they go by none. */
-export const ORDERS_OPTION = deepFreeze({ ...kind("orders", "Follow orders", (given) => {
-  const gaits = gaitsOf(given.parts, given.legs);
-  return gaits.length ? gaits.map((gait) => followOrders(gait, given.walk)) : [followOrders(null, given.walk)];
-}), obeys: true });
+/** **Following the orders** a person gives (`followOrders`), by the gaits its body's legs go by (`gaitsOf`). */
+export const ORDERS_OPTION = deepFreeze({ ...kind("orders", "Follow orders",
+  (given) => [followOrders(gaitsOf(given.parts, given.legs).map((gait) => gait.name), given.walk)]), obeys: true });
 
 /**
  * **A strike's config**: the executor it strikes by (`skill`, of its kind's skill), the limbs it

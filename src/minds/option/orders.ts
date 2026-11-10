@@ -18,46 +18,50 @@ const ordered = (now: Situation): boolean => now.orders !== null && (now.orders.
 /** Whether `now`'s orders are to stand and fight a foe: they name one and walk nowhere, so the strikes, which stand, carry them out. */
 const fights = (now: Situation): boolean => now.orders?.foe !== undefined && (now.orders.move ?? null) === null;
 
-/** A gait as an option goes by it: its name and its label. */
-interface Gait {
-  readonly name: GaitName;
-  readonly label: string;
-}
-
 /**
- * **Follow orders by `gait`**: walk or stop and face as ordered (`orderedIntent`) by that gait, or
- * by the legs' own where they go by none, and nothing else: it asks no blow, so an ordered foe is
- * struck by the strike options (`strike`, which keep to the orders' region, skill and limb,
- * `orderedTarget`, `orderAllows`). On offer while the legs can carry the body (`legsReadiness`)
- * and it has an explicit movement, stop or facing order that names no other gait. It claims the
- * legs and the trunk, holds the legs and what its walk holds, and yields: firm orders are weighed
- * first (`Orders.firm`, `FIRST`), not kept from the mind's choice of gait. Its model: carrying out
- * the orders for `AHEAD` s, a walk, a stand or a facing, is worth the metres its gait goes as
- * ordered as long (`Walker.obeying`); none where they are to stand and fight a foe (`fights`);
- * through the blow coming and the focus's reach where it stands in it; where the orders take it is
- * theirs, so it is priced as leaving the body where it is. On offer at a state where the body
- * stands (`standing`) with such orders. Named for its gait.
+ * **Follow orders**: walk or stop and face as ordered (`orderedIntent`), and nothing else: it asks
+ * no blow, so an ordered foe is struck by the strike options (`strike`, which keep to the orders'
+ * region, skill and limb, `orderedTarget`, `orderAllows`). It goes by the gait the orders name,
+ * else by the one of `gaits`, the legs' gaits, that carries them out fastest now
+ * (`Walker.obeying`, the first of equals), else, with none, by the legs' own. On offer while the
+ * legs can carry the body (`legsReadiness`) and it has an explicit movement, stop or facing order.
+ * It claims the legs and the trunk, and holds the legs and what its walk holds; it yields, but to
+ * firm orders to move or stand that name no foe (`Orders.firm`), which it keeps: a foe's are its
+ * strikes' to carry out. Its model: carrying out the orders for `AHEAD` s, a walk, a stand or a
+ * facing, is worth the metres its gait goes as ordered as long; none where they are to stand and
+ * fight a foe (`fights`); through the blow coming and the focus's reach where it stands in it;
+ * where the orders take it is theirs, so it is priced as leaving the body where it is. On offer at
+ * a state where the body stands (`standing`) with such orders.
  */
-export function followOrders(gait: Gait | null, walk: Pick<Walker, "obeying" | "kept">): Option {
-  const UNORDERED = blocked("no orders to move, stand or face"), OTHER = blocked("orders name another gait"), LEGS_HELD: readonly Resource[] = Object.freeze([LEG_RESOURCE]);
-  const claims: readonly Resource[] = Object.freeze([LEG_RESOURCE, TRUNK_RESOURCE]), named = gait?.name ?? null;
+export function followOrders(gaits: readonly GaitName[], walk: Pick<Walker, "obeying" | "kept">): Option {
+  const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly Resource[] = Object.freeze([LEG_RESOURCE]);
+  const claims: readonly Resource[] = Object.freeze([LEG_RESOURCE, TRUNK_RESOURCE]);
+  /** The gait it goes by at `now`, and how fast that carries out the orders, m/s. */
+  const by = (now: Situation): { readonly gait: GaitName | null; readonly speed: number } => {
+    const named = now.orders?.gait;
+    if (named !== undefined || gaits.length === 0) return { gait: named ?? null, speed: walk.obeying(now, named ?? null) };
+    let best: { gait: GaitName | null; speed: number } = { gait: null, speed: -Infinity };
+    for (const gait of gaits) { const speed = walk.obeying(now, gait); if (speed > best.speed) best = { gait, speed }; }
+    return best;
+  };
   return {
-    name: gait ? `follow orders by ${gait.label.toLowerCase()}` : "follow orders", claims, state: {},
+    name: "follow orders", claims, state: {},
     entry: (now) => {
       const legs = legsReadiness(now.sight.view);
       if (legs.kind !== "ready") return legs;
-      return !ordered(now) ? UNORDERED : named !== null && now.orders!.gait !== undefined && now.orders!.gait !== named ? OTHER : READY;
+      return ordered(now) ? READY : UNORDERED;
     },
-    status: () => "yields",
+    // Firm orders to move or stand keep the legs and the trunk: nothing of its own takes them over.
+    status: (now) => now.orders?.firm && now.orders.move !== undefined && now.orders.foe === undefined ? "committed" : "yields",
     begin() {},
     end() {},
-    model: (at) => standing(at) && ordered(at) ? { duration: AHEAD, dealt: 0, taken: at.predictions.danger + threatened(at, AHEAD), orders: fights(at) ? 0 : walk.obeying(at, named) * AHEAD,
+    model: (at) => standing(at) && ordered(at) ? { duration: AHEAD, dealt: 0, taken: at.predictions.danger + threatened(at, AHEAD), orders: fights(at) ? 0 : by(at).speed * AHEAD,
       outcomes: UNMOVED } : null,
     step(now) {
       const { guard: _, ...ordered } = orderedIntent(now.sight, now.orders!, NO_COVER);
       // The body an ordered way goes round (`MovementRequest`'s `by`) is not kept off as a fallen one.
-      const move = now.orders?.move, by = move?.kind === "place" ? move.by ?? null : null;
-      const kept = walk.kept(now, { ...ordered, actions: [] }, by), asked = named === null ? kept : { ...kept, gait: named };
+      const move = now.orders?.move, round = move?.kind === "place" ? move.by ?? null : null;
+      const kept = walk.kept(now, { ...ordered, actions: [] }, round), gait = by(now).gait, asked = gait === null ? kept : { ...kept, gait };
       return { asked, holds: [...LEGS_HELD, ...asking(now, asked).filter((resource) => !sameResource(resource, LEG_RESOURCE))] };
     },
   };
