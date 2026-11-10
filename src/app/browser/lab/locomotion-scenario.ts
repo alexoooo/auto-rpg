@@ -6,7 +6,7 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { massOf } from "../../../core/bodies/read-motion.ts";
-import { GOING, MOVE } from "../../../skills/locomotion/move-part.ts";
+import { GOING, type MoveConfig } from "../../../skills/locomotion/move-part.ts";
 import { withLegs, type OptionMindConfig } from "../../../minds/option/mind.ts";
 import { STOCK_GAITS } from "../../../skills/locomotion/gaits.ts";
 import { recordHistory } from "./history.ts";
@@ -65,15 +65,17 @@ const COURSES: Readonly<Record<CourseId, { readonly name: string; readonly size?
 };
 
 /**
- * What the body gets about by, in place of its mind's legs (`OptionMindConfig.tuning`): Move by
- * its rules (`MOVE`), one gait alone, or the mind's own.
+ * What the body gets about by: the mind's own legs, its gaits chosen by its options' value, or
+ * legs that have one gait alone (`OptionMindConfig.tuning`).
  */
-type Legs = "move" | GaitName | "mind";
+type Legs = GaitName | "mind";
 const LEGS: readonly Entry<Legs>[] = [
-  { value: "move", name: "Move by its rules", title: "The gait chosen by where the body is" },
-  ...STOCK_GAITS.map((gait) => ({ value: gait.name, name: gait.label })),
-  { value: "mind", name: "As its mind says", title: "The locomotion of the mind under Character" },
+  { value: "mind", name: "As its mind says", title: "The locomotion of the mind under Character, its gait chosen by value" },
+  ...STOCK_GAITS.map((gait) => ({ value: gait.name, name: gait.label, title: `Legs that go by ${gait.label.toLowerCase()} alone` })),
 ];
+
+/** Move by the stock gait `name` alone. */
+const alone = (name: GaitName): MoveConfig => ({ ...GOING, gaits: STOCK_GAITS.filter((gait) => gait.name === name), otherwise: name });
 
 /** A flat strip along `track` on the ground, for the eye; it collides with nothing. */
 function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mesh {
@@ -118,7 +120,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
     laps: { name: "Laps" }, off: { name: "Off track", unit: "cm" }, steps: { name: "Steps" },
   });
   // The pace asked: none is Max.
-  let chosen: CourseId = COURSE_IDS[0], top: number | undefined = undefined, wind = CALM, legs: Legs = "move";
+  let chosen: CourseId = COURSE_IDS[0], top: number | undefined = undefined, wind = CALM, legs: Legs = "mind";
   /** Each course's size, m, where it comes in sizes. */
   const sizes = new Map(COURSE_IDS.flatMap((id) => { const size = COURSES[id].size; return size ? [[id, size.metres] as const] : []; }));
   // The track painted, or on random commands the walk under way, by its command.
@@ -154,7 +156,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
       ],
       readout: [shown, legend([MARKS.track, MARKS.centre, MARKS.aim, MARKS.wind])],
     },
-    mind: (mind) => legs === "mind" || mind.kind !== "option" ? mind : withLegs(mind as OptionMindConfig, legs === "move" ? MOVE : { ...GOING, otherwise: legs }),
+    mind: (mind) => legs === "mind" || mind.kind !== "option" ? mind : withLegs(mind as OptionMindConfig, alone(legs)),
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ actor, puppet, changed, clock, address }) {
       const { world } = actor, { built } = actor.body;
