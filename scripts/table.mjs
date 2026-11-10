@@ -114,10 +114,11 @@ function evidenceOf(readings, records) {
       && recordingKey(one.record.header.pool) === recordingKey(found.record.header.pool));
     const rows = selected?.rows ?? [];
     // A reading at an earlier version stands as of its record: its rows answer the protocol's cases by condition, since their keys name the code they were played on.
-    const conditions = new Set(rows.map(row => recordingKey(row.condition)));
+    const conditions = new Set(rows.map(row => recordingKey(row.condition))), keys = new Set(rows.map(row => row.key));
     evidence.set(key, { reading, now, fault, versions, rows, required,
       read: found && { file: found.record.name, files: selected.files, commit: found.record.header.commit.slice(0, 8), date: found.record.header.date, id: found.held.id, version: found.held.version.version,
-        current: found.held.version.version === now, complete: required.length > 0 && required.every(one => conditions.has(recordingKey(one.condition))) } });
+        // At the version now: the subject's, and every case's own code (each row's key names it), so a change to the drill plays it again too.
+        current: found.held.version.version === now && required.length > 0 && required.every(one => keys.has(one.key)), complete: required.length > 0 && required.every(one => conditions.has(recordingKey(one.condition))) } });
   }
   return evidence;
 }

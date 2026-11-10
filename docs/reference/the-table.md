@@ -35,7 +35,8 @@ else within noise. Each reading is also shown against its best version.
 
 `npm run evaluate -- table` reads saved evidence and links each reading's Ratings page. It derives
 the required cases from each current protocol and merges compatible partial records. A reading
-recorded at an earlier version stands as of its record, its commit and date shown and marked not
+recorded at an earlier version (its subject's, or the code of a case it played: the drill and its
+opponent) stands as of its record, its commit and date shown and marked not
 the version now: its rows answer the protocol's cases by condition, so a change elsewhere in the
 mind asks for no replay. A row read before its reader recorded what the value needs counts for
 nothing; `--fresh` replays it.
