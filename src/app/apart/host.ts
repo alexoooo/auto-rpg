@@ -32,7 +32,7 @@ interface Thread {
   stepping: boolean;
 }
 
-/** One seat as the world holds it: its thread, its channel, what of the channel its thread has, the batch its last ask went in or that it waits to be sent, its last step ask's count on its thread, what its mind last said and whether it has said anything yet, the menu it last gave, and its kit, gait and engagement as it last said each. */
+/** One seat as the world holds it: its thread, its channel, what of the channel its thread has, the batch its last ask went in or that it waits to be sent, its last step ask's count on its thread, what its mind last said and whether it has said anything yet, the menu it last gave, and its kit, gaits and engagement as it last said each. */
 interface Held {
   readonly thread: Thread;
   readonly channel: MirrorChannel;
@@ -45,7 +45,7 @@ interface Held {
   heard: boolean;
   menu: readonly MenuEntry[] | null;
   kit: ReportNow["kit"];
-  gait: ReportNow["gait"];
+  gaits: ReportNow["gaits"];
   engagement: ReportNow["engagement"];
 }
 
@@ -93,9 +93,9 @@ export function mindThreads(links: readonly ThreadLink[]): MindPlace {
         if ("menu" in said) { one.menu = said.menu; continue; }
         if (said.outbound) one.channel.outbound = said.outbound;
         if (said.kit !== undefined) one.kit = said.kit;
-        if (said.gait !== undefined) one.gait = said.gait;
+        if (said.gaits !== undefined) one.gaits = said.gaits;
         if (said.report?.engagement !== undefined) one.engagement = said.report.engagement;
-        one.says = { has: said.has, report: said.report ? { ...said.report, engagement: one.engagement, kit: one.kit, gait: one.gait } : null };
+        one.says = { has: said.has, report: said.report ? { ...said.report, engagement: one.engagement, kit: one.kit, gaits: one.gaits } : null };
         one.heard = true;
       }
     }
@@ -134,7 +134,7 @@ export function mindThreads(links: readonly ThreadLink[]): MindPlace {
     seat(catalog, recipe, channel, at) {
       if (disposed) throw new Error("the minds' threads were stopped");
       const seat = next++, thread = pool[seat % pool.length]!;
-      const held: Held = { thread, channel, told: channel.told.length, sent: 0, stepped: 0, queued: true, inbound: channel.inbound, says: { has: recipe.name, report: null }, heard: false, menu: null, kit: null, gait: null, engagement: null };
+      const held: Held = { thread, channel, told: channel.told.length, sent: 0, stepped: 0, queued: true, inbound: channel.inbound, says: { has: recipe.name, report: null }, heard: false, menu: null, kit: null, gaits: null, engagement: null };
       seats.set(seat, held);
       queue(thread, [{ seat, ask: { kind: "make", recipe: { ...recipe, catalog: catalogName(MIND_CATALOGS, catalog) }, at }, told: channel.told.slice(), inbound: channel.inbound, outbound: channel.outbound }]);
       thread.asking.push(held);

@@ -104,8 +104,8 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
   const steered = (view: TeamView): MemberView => { const selected = chosen(view); return selected.length === 1 ? selected[0]! : view.members[0]!; };
   /**
    * The ceiling of a member on `order`, m/s: of those sent with it (`together`) and going there still,
-   * the slowest's top speed by the gait it goes by now (`travelSpeed`); none where it goes alone, or
-   * where none states its gait.
+   * the slowest's top speed by the fastest of its gaits (`travelSpeed`); none where it goes alone, or
+   * where none states its gaits.
    */
   const ceiling = (view: TeamView, order: TeamOrder): number | undefined => {
     const sent = order.kind === "attack-move" || order.kind === "force" ? order.together : undefined;
@@ -116,7 +116,7 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
       // One fighting on the way goes nowhere with the rest; a forced route passes every foe.
       if (!member.fighting || (its.kind !== "attack-move" && its.kind !== "force") || its.together !== sent || its.kind === "attack-move" && mind.target) continue;
       going++;
-      if (member.gait) pace = Math.min(pace, travelSpeed(member.gait, [1, 0], Infinity, [], 0));
+      if (member.gaits?.length) pace = Math.min(pace, Math.max(...member.gaits.map((gait) => travelSpeed(gait, [1, 0], Infinity, [], 0))));
     }
     return going > 1 && Number.isFinite(pace) ? pace : undefined;
   };

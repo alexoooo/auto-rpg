@@ -158,6 +158,7 @@ function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
     get placed() { return !state.reacquire && gaits[state.kind].state.phase === "settle"; },
     get gait() { return state.kind; },
     get envelope() { return envelopes[state.kind]; },
+    gaits: GAIT_NAMES,
     limitsOf: (name) => name === "trot" || name === "crawl" ? limits[name] : null,
     resume() {
       resumeGaits();

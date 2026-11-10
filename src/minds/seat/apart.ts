@@ -241,7 +241,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
 }
 
 /** What `report` says now, its menu aside (`ReportNow`), each field read once. */
-export const reportNow = (report: MindReport): ReportNow => ({ engagement: report.engagement, prospects: report.prospects, heading: report.heading, gait: report.gait,
+export const reportNow = (report: MindReport): ReportNow => ({ engagement: report.engagement, prospects: report.prospects, heading: report.heading, gaits: report.gaits,
   navigation: report.navigation, kit: report.kit, actions: report.actions, ended: report.ended });
 
 /** The name `catalogs` knows `catalog` by. */

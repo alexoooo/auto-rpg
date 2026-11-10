@@ -578,7 +578,7 @@ export class DungeonRun {
         // The menu is built at its first read and kept for the view's other readers.
         let menu: MemberView["menu"] | undefined;
         return { id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, vitality: actor.vitality, radius: actor.radius,
-          reach: actor.attackMetres, home: actor.home, get navigation() { return actor.navigation; }, get gait() { return report?.gait ?? null; },
+          reach: actor.attackMetres, home: actor.home, get navigation() { return actor.navigation; }, get gaits() { return report?.gaits ?? null; },
           get heading() { return report?.heading ?? null; }, get kit() { return report?.kit ?? null; },
           get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return menu === undefined ? menu = report?.menu ?? null : menu; },
           get prospects() { return report?.prospects ?? null; } };

@@ -30,26 +30,26 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
   };
   const asked = (ask: AskCrossing): SeatAsk => ask.kind === "make" ? { ...ask, recipe: { ...ask.recipe, statics: { ...ask.recipe.statics, spec: specOf(ask.recipe.statics.spec) } } } : ask;
   const told = (entry: ToldCrossing): MirrorChannel["told"][number] => entry.kind === "other" ? { ...entry, spec: specOf(entry.spec) } : entry;
-  // What each seat's thread last sent of its kit and its gait, which cross only when they change.
-  const sent = new Map<number, { kit: ReportNow["kit"]; gait: string; outbound: Float64Array }>();
+  // What each seat's thread last sent of its kit and its gaits, which cross only when they change.
+  const sent = new Map<number, { kit: ReportNow["kit"]; gaits: string; outbound: Float64Array }>();
   // The step asks carried out, ever: every one of a batch once it is answered, failed or not.
   let steps = 0;
   // The seats whose step is answered and whose decision waits, in the order asked.
   const deciding: number[] = [];
   const decide = (seat: number) => { deciding.splice(deciding.indexOf(seat), 1); host.decide(seat); };
-  // What `seat` says as it stands, its kit and gait where they changed since it last said them, its engagement where `shown`, and its numbers where made anew.
+  // What `seat` says as it stands, its kit and gaits where they changed since it last said them, its engagement where `shown`, and its numbers where made anew.
   const saying = (seat: number, shown: boolean): Said => {
     const says = host.says(seat), last = sent.get(seat)!, channel = channels.get(seat)!, report = says.report;
-    let kit: ReportNow["kit"] | undefined, gait: ReportNow["gait"] | undefined;
+    let kit: ReportNow["kit"] | undefined, gaits: ReportNow["gaits"] | undefined;
     if (report && report.kit !== last.kit) kit = last.kit = report.kit;
     if (report) {
-      const value = report.gait, key = recordingKey(value);
-      if (key !== last.gait) { last.gait = key; gait = JSON.parse(JSON.stringify(value)) as ReportNow["gait"]; }
+      const value = report.gaits, key = recordingKey(value);
+      if (key !== last.gaits) { last.gaits = key; gaits = JSON.parse(JSON.stringify(value)) as ReportNow["gaits"]; }
     }
     const outbound = channel.outbound !== last.outbound ? (last.outbound = channel.outbound) : undefined;
     return { seat, has: says.has,
       report: report ? { ...(shown ? { engagement: report.engagement } : {}), prospects: report.prospects, heading: report.heading, navigation: report.navigation, actions: report.actions, ended: report.ended } : null,
-      ...(kit !== undefined ? { kit } : {}), ...(gait !== undefined ? { gait } : {}), ...(outbound ? { outbound } : {}) };
+      ...(kit !== undefined ? { kit } : {}), ...(gaits !== undefined ? { gaits } : {}), ...(outbound ? { outbound } : {}) };
   };
   return {
     get steps() { return steps; },
@@ -67,7 +67,7 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
             if (ask.kind !== "make" || !inbound || !outbound) throw new Error(`seat ${seat} is asked before it is made`);
             channel = { inbound, outbound, told: [], heard: 0, allocate };
             channels.set(seat, channel);
-            sent.set(seat, { kit: null, gait: recordingKey(null), outbound });
+            sent.set(seat, { kit: null, gaits: recordingKey(null), outbound });
           }
           if (deciding.includes(seat)) decide(seat);
           if (tells) for (const entry of tells) channel.told.push(told(entry));

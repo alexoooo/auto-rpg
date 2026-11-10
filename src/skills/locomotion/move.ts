@@ -139,6 +139,7 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     get placed() { return now().placed; },
     get unmet() { return memory.unmet; },
     get gait() { return gaits[memory.gait]!.name; },
+    gaits: Object.freeze(gaits.map((one) => one.name)),
     limitsOf: (name) => gaits.find((one) => one.name === name)?.legs ?? null,
     resume(view) {
       memory.chosen = true;

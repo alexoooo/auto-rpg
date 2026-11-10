@@ -1,6 +1,6 @@
 import type { StanceGoal } from "../../control/stance/goal.ts";
 import type { Clearance } from "./navigation.ts";
-import type { Locomotion } from "./locomotion-part.ts";
+import type { GaitLimits, Locomotion } from "./locomotion-part.ts";
 import { kitOf, menuOf, type SpotFinder } from "./menu.ts";
 import type { Intent } from "./intent.ts";
 import type { Body, BodyCommand, BodyView } from "../../control/body.ts";
@@ -109,7 +109,10 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     kit, menu: () => menuOf(kit, body.view, around, instances.readiness, services.spot, navigation?.report.request ?? null),
     clearance: services.clearance,
     get envelope() { return legs.envelope ?? null; },
-    gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; }, get lag() { return legs.lag; } },
+    gaits: Object.freeze(legs.gaits && legs.limitsOf ? legs.gaits.map((name): GaitLimits => {
+      const of = () => legs.limitsOf!(name);
+      return { get envelope() { return of()?.envelope ?? null; }, get stopping() { return of()?.stopping ?? 0; }, get lag() { return of()?.lag ?? 0; } };
+    }) : [{ get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; }, get lag() { return legs.lag; } }]),
     limitsOf: (gait: GaitName) => legs.limitsOf?.(gait) ?? null,
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {
       instances.interrupt(view, reason); legs.resume(view); guard.resume(view); support?.resume(view);
