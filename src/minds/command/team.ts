@@ -115,20 +115,14 @@ export interface SensedBody {
 }
 
 /**
- * A person's live input to the team they lead. The keys and the pointer steer one member: the one
- * selected, or the leader where several are.
+ * A person's live input to the team they lead. The keys steer one member: the one selected, or
+ * the leader where several are.
  */
 interface Lead {
   /** The step on the ground the keys ask of the member they steer, where the keys steer it; null where they do not. */
   readonly keys: GroundPoint | null;
   /** Whether that member walks, not runs, where it moves. */
   readonly walk: boolean;
-  /** The ground point that member faces and picks foes about, where the pointer steers its facing; null where it does not. */
-  readonly aim: GroundPoint | null;
-  /** The sensed foe, and its segment, that member strikes now, where the person presses on one; null where they do not. */
-  readonly strike: { readonly foe: string; readonly region: string } | null;
-  /** Whether the leader explores by itself. */
-  readonly explore: boolean;
 }
 
 /**

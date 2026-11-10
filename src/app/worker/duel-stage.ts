@@ -199,7 +199,7 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
     if (!led || !state.person) return;
     const input = state.lead;
     if (!input) { led.lead = null; return; }
-    led.lead = { keys: input.keys, walk: input.walk, aim: null, strike: null, explore: false };
+    led.lead = { keys: input.keys, walk: input.walk };
   };
   /** Whether the person's side has a new choice to hold for. */
   const chose = (): boolean => {

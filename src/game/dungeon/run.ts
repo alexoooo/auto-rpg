@@ -567,9 +567,7 @@ export class DungeonRun {
 
   /** What the party senses now, with live movement as its lead. */
   private partyView(look: boolean): TeamView {
-    return this.view(this.party, this.enemies, look, {
-      ...this.lead, aim: null, strike: null, explore: false,
-    });
+    return this.view(this.party, this.enemies, look, this.lead);
   }
 
   /** What a team of `members` senses now: its built members, and every built body of `foes`. */

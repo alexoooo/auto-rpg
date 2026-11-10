@@ -5,8 +5,8 @@ import { directMovement, placeMovement, type GroundPoint, type MovementRequest }
 import { STAND_ORDERS, type Orders } from "../orders.ts";
 import { travelSpeed } from "../../skills/locomotion/travel.ts";
 import type { Command, DrawnRoute, StrikeChoice, TeamOrder } from "./commands.ts";
-import { ARRIVAL, approach, arrived, direction, distance, lyingSince, reportOf, roomy, throughDoors, worthFighting, type Opening } from "./goals.ts";
-import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamHost, TeamView } from "./team.ts";
+import { ARRIVAL, approach, arrived, direction, distance, lyingSince, reportOf, throughDoors, worthFighting, type Opening } from "./goals.ts";
+import type { Commander, MemberReport, MemberView, TeamDecision, TeamHost, TeamView } from "./team.ts";
 
 /** How far behind the leader an unposted member trails before it walks after it, m: clear of the 1.8 m the leader attacks from. */
 const TRAIL_METRES = 2.5;
@@ -16,14 +16,6 @@ const TRAIL_METRES = 2.5;
  * before another is picked, `keep`.
  */
 const PARTY_SIGHT = Object.freeze({ locked: 12, pick: 8, keep: 5 });
-/**
- * With the pointer steering its facing, the leader takes on what the pointer points at, and also
- * any foe nearer than `metres` wherever it stands, turning to it for as long as it stays within
- * `keepMetres`: the gap between the two keeps one circling at `metres` from being swapped at every look.
- */
-const SET_UPON = Object.freeze({ metres: 2.5, keepMetres: 3.5 });
-/** The cone about the pointer's direction the leader picks foes from, as the cosine of its half-angle (73 degrees). */
-const AIM_COSINE = 0.3;
 /**
  * Where several members sent to one floor point stand, m: the point, then eight bearings on each
  * of these rings about it, no two slots nearer than `apart`.
@@ -49,8 +41,6 @@ interface Memory {
   target: string | null;
   /** Where it last saw the foe its order locks. */
   lastSeen: GroundPoint | null;
-  /** The unexplored place the leader is making for; its Mind owns every route to it. */
-  goal: GroundPoint | null;
   /** Its standing order; a drawn route's is shared with every member sent along it, and grows while it is drawn. */
   order: TeamOrder;
   /** Where along a drawn route it resumes after a door. */
@@ -76,18 +66,16 @@ interface PartyConfig {
 }
 
 /**
- * **A person's party**: the leader (the team's first member) goes where its person steers or
- * explores by itself; the others follow it at `TRAIL_METRES` or hold where they were last sent.
+ * **A person's party**: the leader (the team's first member) goes where its person steers; the others follow it at `TRAIL_METRES` or hold where they were last sent.
  * Each fights the foe its order locks, struck as the order names (`StrikeChoice`), or, unless its config says not (`PartyConfig.picks`), the
  * nearest it sees; members sent to one point, or along one drawn route, take slots about its end, no
  * faster than the slowest of them goes (`travelSpeed`), so that they arrive together; a member whose
  * way is shut by a door goes to open it first. A person's command (`Command`) replaces what the
- * members selected were doing; the person's keys and pointer steer one member (`TeamView.lead`), and
+ * members selected were doing; the person's keys steer one member (`TeamView.lead`), and
  * the keys steering it drop any order but a foe's.
  *
  * It looks when its host's schedule says (`TeamView.look`) and at once after a member's plan is
- * reset. With the pointer steering a member's facing, that member takes on what it points at
- * first (`AIM_COSINE`, `SET_UPON`).
+ * reset.
  */
 function partyCommander(host: TeamHost, config: PartyConfig): Commander {
   const { level } = host, picks = config.picks ?? true;
@@ -96,11 +84,11 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
   const state = { members: {} as Record<string, Memory>, leader: null as string | null, notice: "", selected: null as string[] | null,
     down: {} as Record<string, number> };
   const memory = (id: string): Memory => state.members[id] ??=
-    { target: null, lastSeen: null, goal: null, order: IDLE, routeStart: 0, opening: null, post: null, replan: false, facing: null, end: null, headway: null };
+    { target: null, lastSeen: null, order: IDLE, routeStart: 0, opening: null, post: null, replan: false, facing: null, end: null, headway: null };
 
   /** The members the person's commands go to, in the team's order. */
   const chosen = (view: TeamView): MemberView[] => view.members.filter(member => state.selected === null || state.selected.includes(member.id));
-  /** The member the keys and the pointer steer: the one selected, or the leader where several are. */
+  /** The member the keys steer: the one selected, or the leader where several are. */
   const steered = (view: TeamView): MemberView => { const selected = chosen(view); return selected.length === 1 ? selected[0]! : view.members[0]!; };
   /**
    * The ceiling of a member on `order`, m/s: of those sent with it (`together`) and going there still,
@@ -167,23 +155,6 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
       && memory(other.id).order.kind !== "attack-move" && distance(other.at, member.at) <= CROWDED.metres);
   };
 
-  /** Whether the pointer points the member it steers at `foe`: always, unless the pointer steers its facing. */
-  const aimedAt = (view: TeamView, foe: SensedBody): boolean => {
-    const aim = view.lead?.aim, at = steered(view).at;
-    if (!aim) return true;
-    const look = direction(at, aim), toward = direction(at, foe.at);
-    return toward.x * look.x + toward.z * look.z > AIM_COSINE;
-  };
-
-  /** Which the member the pointer steers takes on first, lowest first: a foe upon it that the pointer points at, one upon it, one the pointer points at, then the rest. */
-  const aimRank = (view: TeamView, foe: SensedBody): number => {
-    if (!view.lead?.aim) return 0;
-    const aimed = steered(view);
-    const reach = foe.id === memory(aimed.id).target ? SET_UPON.keepMetres : SET_UPON.metres;
-    const upon = distance(aimed.at, foe.at) < reach;
-    return (upon ? 0 : 2) + (aimedAt(view, foe) ? 0 : 1);
-  };
-
   /** Which foe `member` fights: the one its order locks, or, where it picks, the nearest it can see that is worth fighting (`worthFighting`). */
   const choose = (view: TeamView, member: MemberView): void => {
     const mind = memory(member.id), order = mind.order, at = member.at;
@@ -198,19 +169,16 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
       mind.order = IDLE; mind.replan = true; mind.lastSeen = null;
     }
     if (!picks) { mind.target = null; return; }
-    const aimed = member.id === steered(view).id, current = mind.target;
-    const rank = (foe: SensedBody) => aimed ? aimRank(view, foe) : 0;
+    const current = mind.target;
     const candidates = view.others.filter(foe => worthFighting(foe, state.down, view.time) && level.sees(at, foe.at, PARTY_SIGHT.pick))
-      .filter(foe => !aimed || aimedAt(view, foe) || distance(at, foe.at) < (foe.id === current ? SET_UPON.keepMetres : SET_UPON.metres))
-      .sort((a, b) => rank(a) - rank(b) || distance(a.at, at) - distance(b.at, at));
+      .sort((a, b) => distance(a.at, at) - distance(b.at, at));
     const kept = current === null ? undefined : candidates.find(foe => foe.id === current);
-    const keep = kept !== undefined && distance(kept.at, at) < PARTY_SIGHT.keep && rank(kept) <= rank(candidates[0]!);
-    mind.target = keep ? current : candidates[0]?.id ?? null;
+    mind.target = kept !== undefined && distance(kept.at, at) < PARTY_SIGHT.keep ? current : candidates[0]?.id ?? null;
   };
 
   /**
    * Where `member` is going: where its person steers it, its order's place, the place it holds, its
-   * foe's band, after whom it follows, its post, after its leader, or the edge of what is explored.
+   * foe's band, after whom it follows, its post, or after its leader.
    */
   const movement = (view: TeamView, member: MemberView, mind: Memory): MovementRequest | null => {
     const lead = view.lead, order = mind.order, leader = view.members[0]!, leads = member.id === leader.id;
@@ -246,17 +214,9 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
       }
       return placeMovement(order.destination, ARRIVAL.point);
     }
-    if (!leads) {
-      if (mind.post) return placeMovement(mind.post, ARRIVAL.post);
-      return leader.fighting ? approach(leader.id, TRAIL_METRES) : null;
-    }
-    if (lead?.explore) {
-      const status = mind.goal ? reportOf(member, placeMovement(mind.goal, ARRIVAL.explored))?.status : undefined;
-      if (!mind.goal || arrived(member, mind.goal, ARRIVAL.explored) || status === "unreachable" || status === "stalled")
-        mind.goal = roomy(level, level.frontier(member.at, member.radius), member.radius);
-      return mind.goal ? placeMovement(mind.goal, ARRIVAL.explored) : null;
-    }
-    return null;
+    if (leads) return null;
+    if (mind.post) return placeMovement(mind.post, ARRIVAL.post);
+    return leader.fighting ? approach(leader.id, TRAIL_METRES) : null;
   };
 
   /** What `order` has a member doing, in a word or two: what it was told, or does untold. */
@@ -340,7 +300,7 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
       for (const member of view.members) {
         const mind = memory(member.id);
         if (!mind.replan) continue;
-        mind.replan = false; mind.goal = null; mind.target = null; mind.lastSeen = null; mind.opening = null; mind.routeStart = 0;
+        mind.replan = false; mind.target = null; mind.lastSeen = null; mind.opening = null; mind.routeStart = 0;
         replanned = true;
         if (mind.order.kind === "idle" && member.id === view.members[0]!.id) state.notice = "";
       }
@@ -370,13 +330,11 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
         const mind = memory(member.id);
         const move = throughDoors(mind, member, movement(view, member, mind), view, level);
         const target = mind.target === null ? null : view.others.find(other => other.id === mind.target) ?? null;
-        const steers = member.id === steer, aim = steers ? lead?.aim ?? null : null, strike = steers ? lead?.strike ?? null : null;
-        // A person striking faces where they point; a member fighting faces its foe.
-        const face = strike && aim ? direction(member.at, aim) : target ? direction(member.at, target.at) : aim ? direction(member.at, aim) : mind.facing;
+        // A member fighting faces its foe.
+        const face = target ? direction(member.at, target.at) : mind.facing;
         const order = mind.order, pace = target && order.kind !== "force" ? undefined : ceiling(view, order);
-        orders.set(member.id, { move, face, ...(pace === undefined ? {} : { pace }), ...(steers && lead?.walk && move ? { walk: true as const } : {}),
-          ...(strike ? { foe: strike.foe, region: { kind: "segment", segment: strike.region } } : order.kind !== "force" && target?.fighting
-            ? { foe: target.id, ...(order.kind === "lock" && order.target === target.id ? choiceOf(order) : {}) } : {}) });
+        orders.set(member.id, { move, face, ...(pace === undefined ? {} : { pace }), ...(member.id === steer && lead?.walk && move ? { walk: true as const } : {}),
+          ...(order.kind !== "force" && target?.fighting ? { foe: target.id, ...(order.kind === "lock" && order.target === target.id ? choiceOf(order) : {}) } : {}) });
         if (move?.kind === "place") {
           if (mind.opening) state.notice = "Approaching door";
           else if (reportOf(member, move)?.status === "unreachable") state.notice = "Destination unreachable";
