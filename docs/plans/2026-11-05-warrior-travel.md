@@ -2,21 +2,20 @@
 
 ## Goal
 
-The Warrior travels at 4 m/s or faster forward, moves safely in every direction, steers while
-moving, takes corners, reverses direction and stops without falling. Travel uses its own speed
+The Warrior travels as fast as it can forward, moves in every direction, steers while moving,
+takes corners, reverses direction and stops, each as quickly as it can and with as few falls. Travel uses its own speed
 and turning limits; the braced walk remains available for fighting. Travel never steps by the
 braced walk (the stance's walk): the Run starts from a stand, goes slow, turns and stops by its own
 controller, and the stance only holds the body standing between orders.
 
 Train and confirm on the game's toed Warrior, unassisted. Use existing gait implementations,
-records and training checkpoints as seeds, replayed on this body before reuse; they do not
-establish that its travel meets the gates. Establish the baseline on the current body and
-controller before changing them, and retain the current recovery readings as a guard.
+records and training checkpoints as seeds, replayed on this body before reuse; their
+readings on this body are the baseline, taken before the body or controller changes. Every body
+change is read on recovery as well.
 
-This plan owns the Warrior's movement requirement within [Options trained body by
+This plan owns the Warrior's movement within [Options trained body by
 body](2026-11-03-options-training.md). The Rogue's run remains that plan's. Warrior recovery is
-serviceable for this work: preserve its ability to get up and its recorded recovery performance;
-the ten-second stand-up target remains separate work rather than an entry requirement here.
+serviceable for this work: a change here that costs recovery reports the cost beside its gain.
 Body and controller changes serve travel and recovery together. A changed toe or other body part
 retains the recovery capability; calibrate and read both skills on the changed body before keeping it.
 
@@ -61,54 +60,42 @@ Start cases first, for minutes, and the one that starts the body without falling
 travel actor is trained on the current handover, so it is retrained from the entry stage on the
 new start.
 
-## Gates
+## Value and figures
 
-The hard forward floor is 4 m/s. The other thresholds below define useful initial targets to
-establish on the body; a short reading remains short and names its limiting layer.
+The travel's value is the time from an order to the body standing, or moving as asked, where the
+order asks, on the screen's cases of the game's orders. A fall costs its time down and its rising;
+a place missed costs the time to correct it. A change is kept when that time falls, paired
+against the version before ([AGENTS.md](../../AGENTS.md#developing-skills-and-options)). The
+figures below are read beside it on every case, in the direction named, to show where the time
+goes; none is a gate. The owner's 4 m/s forward is the reference mark beside the held speed.
 
-| Capability | Requirement |
-| --- | --- |
-| Start | From rest, toward each of eight compass headings: the centre of mass moves toward the way asked within 0.5 s of the order, and no step is the stance's walk from the order to the stand after the stop. |
-| Short place | From rest, a place 1 m and 3 m off at each of eight headings: reached and stood at within 0.4 m, by the Run alone. |
-| Forward run | From rest, reach 4 m/s within 4 s of the order, then hold at least 4 m/s for 10 s. |
-| Travel to a heading | From rest, turn toward each of eight compass headings and perform the forward run; allow up to 6 s from the order to reach 4 m/s, then hold it for 10 s. |
-| Facing held | Move along each of eight directions relative to a fixed facing. Forward meets the forward gate; each other direction reaches its declared speed within 4 s and holds it for 10 s. |
-| Continuous steering | Enter at 2 m/s, then follow a direction rotating at 1 rad/s through a full circle, left and right. Hold at least 2 m/s along the requested direction, with at most 20 degrees of travel-direction lag throughout the circle. |
-| Corner | From an established 4 m/s forward run, accept a 90-degree direction change, left and right. Brake as needed, reach 4 m/s along the new direction within 5 s of the change, then hold it for 10 s. |
-| Reversal | From an established 4 m/s forward run, accept a 180-degree direction change. Test left and right turning routes. Brake, turn and reach 4 m/s along the new direction within 7 s, then hold it for 10 s. |
-| Stop | From each declared directional speed and after each turning case, stop below 0.15 m/s within 2 s of the stop order and remain below that speed, standing, for 2 s more. |
+| Figure | Better | Case |
+| --- | --- | --- |
+| Start | sooner | From rest toward each of eight headings: the time until the centre of mass moves toward the way asked, and the stance-walk steps from the order to the stand after the stop. |
+| Short place | nearer, sooner | From rest, a place 1 m and 3 m off at each of eight headings: the distance it stands at and the time it takes. |
+| Reach | sooner | From rest, forward and toward each of eight headings: the time to the forward run's held speed. |
+| Held speed | faster | Forward, each heading, and each of eight directions with facing held: the slowest held second over 10 s. |
+| Steering | faster, less lag | At 2 m/s, a direction rotating at 1 rad/s through a full circle, left and right: the speed held along it and the travel direction's lag. |
+| Corner, reversal | sooner | From a reached run, a 90- and a 180-degree change, left and right: the time to the held speed along the new way. |
+| Stop | sooner | From each directional speed and after each turning case: the time until below 0.15 m/s and standing 2 s more. |
+| Corridor | nearer | Straight travel, and the hold after a corner or reversal: the farthest from the requested line. |
+| Falls | fewer | Every case, by phase; each priced in the value. |
 
-Every case remains upright through acceleration, travel, turning, braking and final settling.
-A fall followed by recovery fails the movement case. An unreached entry condition is reported
-explicitly and cannot pass: a corner or reversal starts from a demonstrated 4 m/s run, continuous
-steering starts from a demonstrated 2 m/s run, and a stop starts from its declared speed.
+A case whose entry is not reached (a corner from a run never reached, a stop from a speed never
+held) is reported as unreached and read when it is reached.
 
 Speed is the slowest rolling one-second average of centre-of-mass velocity projected along the
-requested direction over the entire hold. The direction used for a turning projection is the
-requested direction at that instant. A peak or sideways speed cannot satisfy the forward floor.
-Reach times require a complete one-second window at the required speed ending by the deadline.
-Read steering lag from horizontal centre-of-mass velocity against the requested direction at
-the same instant; the speed window does not delay the heading comparison.
+requested direction over the hold, the direction taken at each instant; a peak or a sideways
+speed is not a held speed. Steering lag is read from horizontal centre-of-mass velocity against
+the requested direction at the same instant. The heading-entry case's line follows its
+destination heading from the start; a corner's or reversal's new line begins where the direction
+changes, its transition free to leave the line.
 
-Straight travel stays within 1 m of its requested line from the start through the stop.
-The heading-entry case's line follows its destination heading from the starting position.
-The corner and reversal's new line begins at the position where the direction changes; their
-transition may leave that line, but the following ten-second hold and stop stay within 1 m.
-Continuous steering follows the requested direction and lag bound; it does not use a straight-line
-corridor. After the circle, hold 2 m/s along its final tangent for 2 s before stopping; corners
-and reversals use their specified ten-second holds.
+## Directional speeds
 
-## Safe directional speeds
-
-Start sideways and backward searches at 1 m/s as useful minimum targets. Establish diagonals
-explicitly: forward diagonals have a 1 m/s minimum, as do backward diagonals. Forward remains
-4 m/s. A direction below its minimum is short, even if a slower speed is safe.
-
-Find each direction's reliable range, then declare an operating speed below its observed failing
-boundary and confirm it independently. Record the tested reserve rather than assuming a fixed
-percentage is safe. Freeze the declared speeds and turning envelope before confirmation; failure
-returns them to development rather than silently lowering a gate. Confirm the intermediate
-headings between the eight training directions to check the envelope's interpolation.
+Find each direction's speed by search, publish an operating speed below where it begins to fall,
+and record the reserve tested. Read the intermediate headings between the eight training
+directions to check the envelope's interpolation.
 
 ## Work
 
@@ -130,8 +117,7 @@ The restored entry actor is the stop stage's seed. Training uses separate headin
 moving phases; development cases never become exact training starts.
 
 1. **Restore the forward run.** Retrain the entry seed through the `travel-orders`
-   environment on the current learner until the forward case meets the forward gate (4 m/s
-   within 4 s, held 10 s, upright). This is the seed for step 2.
+   environment on the current learner until the forward run's held speed plateaus. This is the seed for step 2.
 2. **One travel actor.** Build one environment in which one actor steers the walk-run record in
    every phase: from rest and from reached runs, holding and changing pace, toward headings and
    with facing held, turning and stopping. An episode is a script of orders through the
@@ -140,22 +126,22 @@ moving phases; development cases never become exact training starts.
    (`slowVelocity`, `steered`, `trainingActor`, the braking-only `option-travel` kind) once the
    one actor replaces it.
 3. **Forward and stop in the game.** Train the curriculum's first three stages until the
-   forward run and stop gates are met, empty hands, calm air. Install the record in the
+   forward run and the stop plateau, empty hands, calm air. Install the record in the
    Warrior's walk-run record so the game's Option Mind runs it, and send the owner a drill link
    with what was seen. This is the first milestone the owner watches.
 4. **Start, slow paces and the stop by foot placement.** Play each candidate of
    [Start, slow paces and the stop](#start-slow-paces-and-the-stop) natively on the Start cases
    first; build the one that starts the body without falling, then its turns, slow paces and stop
    to a stand, drop the Run's handover to the stance's walk, and screen it on the Start and Short
-   place gates until it meets some of their cases. Then retrain the actor from its entry stage on it, keeping every
+   place cases until it succeeds on some of them. Then retrain the actor from its entry stage on it, keeping every
    earlier stage's episodes, and install it in the Warrior's walk-run record.
 5. **Directions and manoeuvres.** Add headings, facing-held directions, continuous steering,
    corners and reversals as curriculum stages of the same actor, keeping the forward and stop
    episodes in the mix. Declare the directional speeds as
-   [Safe directional speeds](#safe-directional-speeds) says.
+   [Directional speeds](#directional-speeds) says.
 6. **Loadouts.** Train the same actor with every rated loadout in its episodes: empty hands,
-   club, sword, club and buckler, sword and buckler. Each keeps the 4 m/s forward floor and gets
-   its own published envelope. A loadout short of a gate gets more episodes, never its own actor.
+   club, sword, club and buckler, sword and buckler. Each gets its own published envelope. A
+   loadout that reads worse gets more episodes, never its own actor.
 7. **Confirm** on fresh starting headings, both initial stepping legs, calm air and the Lab's
    gusts, seeds 1 to 4, with the intermediate headings reserved for confirmation. Train on
    separate cases; do not select easier confirmation cases after seeing a failure.
@@ -166,7 +152,7 @@ moving phases; development cases never become exact training starts.
 A body change follows a measured anatomical limit and is read with recovery before it is kept
 (see the Goal). Fix a controller or contact defect at its own layer, then retrain the actor on
 it before reading the change. Read shared changes on every affected body, keep recovery and
-fighting-walk comparisons, and name existing shortfalls rather than treating them as passes.
+fighting-walk comparisons, and name each loss beside the gain.
 
 ## Training curriculum
 
@@ -178,7 +164,7 @@ side and behind, round a corner and changed on the way, each carrying the sword 
 in the Dungeon and the Arena. Half the training environments carry it too: empty-handed, the
 actor drifts off its way with it. A travel run starts its spread at
 `--log-std -1.4` (0.25), the most the seed survives, takes its seed's 64-unit layers, and reads
-train.log's `down` and shortfall. Its failures are falls; leaving the 1 m corridor is unmet.
+train.log's `down` and shortfall.
 
 1. **Sustained running.** Physically reached moving states at several gait phases, on both
    stepping legs: warm-up speeds 1 to 4.5 m/s where reachable, episode starts 2 to 9 s,
@@ -203,11 +189,9 @@ train.log's `down` and shortfall. Its failures are falls; leaving the 1 m corrid
    this stage's variations.
 5. **Loadouts and gusts**, as step 6 of the work says.
 
-These are development stages, not acceptance gates. A moving-start run does not prove entry
-from rest; a higher requested speed does not satisfy a lower order that the configured Mind
-must obey. Confirmation uses the actual orders, complete speed windows and deadlines in the
-movement contract, including the stop and recovery guards. Training rewards and tolerances
-never change those requirements.
+A moving-start run does not read entry from rest, and a higher requested speed does not read a
+lower order the configured Mind must obey: confirmation reads the value and figures on the
+actual orders and the cases of [Value and figures](#value-and-figures).
 
 ## Development reading
 
@@ -225,7 +209,7 @@ adds slowing: zero falls, twelve of twelve entries, eight moving holds, a mean s
 of 4.52 m/s, and every slowing order from 3.5 to 1.5 m/s met. The 1 m/s order runs at 1.4 to
 1.7 m/s. Stops after slowing meet on eight of eight cases from 1 m/s (1.0 to 1.6 s) and seven of
 eight from 2 m/s; from 3 m/s three of eight; a direct stop from the forward run meets none, taking
-2.4 to 3 s to come under 0.15 m/s. The stop gate is short. From rest it enters only on the
+2.4 to 3 s to come under 0.15 m/s. Its stops are slow. From rest it enters only on the
 forward case's 4 m/s order: on the game's orders it falls on 28 of the screen's 124 cases and
 reaches 4 of its 28 places, the 3 m ones, which it walks. Its input normalisation, frozen from
 the first stage, saturates the asked pace below 3.4 m/s.
@@ -275,9 +259,10 @@ limits are in [the approaches](../approaches.md#travel).
 
 ## Completion
 
-Every Warrior loadout meets every travel gate on the confirmation conditions, with complete
-case coverage, no falls and independently confirmed directional and turning envelopes. The table
-names the actual protocol, body, loadout, harness and current version. Implementation checks
+The plan lands when the owner accepts the travel they see in the game. Until then each change
+raises the travel's value on every loadout, read on the confirmation conditions with complete
+case coverage and confirmed directional and turning envelopes; a plateau names its limit from a
+reading. The table names the actual protocol, body, loadout, harness and current version. Implementation checks
 follow [AGENTS.md](../../AGENTS.md#doing-the-work); capability evidence lives in drills and paired
 evaluations. Provide watched drill links with the observed failures and outcomes. Only the
 owner accepts a rung. Delete this plan when the work lands and place the resulting movement

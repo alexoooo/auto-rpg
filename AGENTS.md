@@ -27,6 +27,10 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   curve, a joint's range, a solver setting, a bar's test) is decided toward the goal, never put to
   the owner. Stop only when the goal is met, no change is left to try, or the four-hour ceiling
   below is reached; ask only a choice whose effect in play the owner can judge.
+- **A rule is general.** A rule here covers every skill, body and approach; what holds for one
+  skill belongs in its plan or record. A principle the owner states is applied by finding every
+  place the old rule lives, documents and code, and changing them all; an exception needs the
+  owner's own words.
 - **Choose an approach that can work.** Before a goal's work starts or changes direction, read its
   section of [the approaches](docs/approaches.md) and `git log -i --grep=<skill>`. The plan names
   the mechanism that does the part that fails today and the entries it was checked against; a
@@ -70,7 +74,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   commit message, and in the approaches when the reason is the mechanism's. A live alternative
   stays only while an open question uses it.
 - **A claim that a skill works is a drill link**
-  (`?play=ratings&evaluation=strike&subject=<mind>/<skill>&version=<version>`), sent after
+  (`?play=ratings&evaluation=<evaluation>&subject=<mind>/<skill>&version=<version>`), sent after
   watching its reel, failures first, and saying what was seen.
 - **Only the owner accepts a rung**: an agent writes a drill's `accepted.json` only with what the
   owner said.
@@ -153,9 +157,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   tuned for the result asked for where none does, never raised for feel.
 - **Cosmetics never carry authority**: the visible room is not the collision arena
   (`validateRoomPlacements`).
-- **Recovery cannot require the support state it exists to restore.**
-- **A stand-up** is read on the [owner's target](docs/reference/rising.md#the-owners-target);
-  assisted recovery cannot satisfy it.
+- **A controller cannot require the state it exists to bring about.**
+- **A skill is read unassisted**; a reading under an assist is the assist's.
 
 ## Code
 
@@ -249,26 +252,26 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 ## Developing skills and Options
 
-- **A bug is fixed to its own layer's contract** (a step lands, a walk stops where it was asked),
-  never judged by a reading above it; what the fix breaks above is a defect there, fixed next in
+- **A bug is fixed to its own layer's contract**, never judged by a reading above it; what the fix breaks above is a defect there, fixed next in
   the same push. A table cell that drops meanwhile is named in the commit.
 - **What a change is judged on**: a record or a variant on its own body; a shared piece on every
   body. A body a shared change sets back is searched again on the new code first; a setback that
   remains is a defect in its path or the reason it gets a record or a variant of its own, never
   the reason to reject the change.
-- **Stand-up and the run are met or short** on their definitions; no push ends with either set
-  back. **Every other cell is read against its baseline** (its first reading when its work begins,
-  kept with `npm run evaluate -- table --baseline`) and raised by paired readings against the
-  version before: a gain is kept, a loss is not. A cell's work gets a search or training run,
-  following the run-review rule above, and the fixes of the bugs it exposes; where an
-  iteration brings no gain, its best is kept and its ceiling named from a reading (the body, the
-  controller or the drill).
-- **The person's figures are a scale** (`BAR`, `src/evaluation/strike/read.ts`), reported beside
-  each reading; they gate nothing.
-- **No Option makes its body fall** unless its design states it, its fall rate by outcome measured
-  into its profile; any other fall is a defect.
-- **One act an Option**: one skill used one way, its limbs, target and aim; what blows share is
-  code the Options call, never a kind of Option that makes one of each.
+- **A change is kept when it raises the skill's value.** The value is what the skill gains in
+  play, in the game's own terms (the time an order takes, the life a blow takes and costs, the life
+  a guard keeps), read on the game's cases paired against the version before, beyond the spread
+  of one version read twice. Every effect is priced in it: a fall costs its time down, its rising
+  and what is lost meanwhile. No figure is a gate and no effect vetoes a change; a change to a
+  shared piece adds its gains and losses on every skill it touches and reports each. A skill's
+  first reading when its work begins is its baseline (`npm run evaluate -- table --baseline`).
+  Where an iteration brings no gain, its best is kept and its ceiling named from a reading (the
+  body, the controller or the drill).
+- **Reference figures are a scale**: a person's or one the owner names, reported beside each
+  reading; they decide nothing.
+- **An Option's profile measures its outcomes**, falls among them, so the Mind prices its risk.
+- **One act an Option**: one skill used one way, its limbs, target and aim; what Options share is
+  code they call, never a kind of Option that makes one of each.
 - **No body is named in control code**: settings are a record per
   body (`SkillRecord`, `recordFault`); other logic for a body is a skill only that body fits.
 

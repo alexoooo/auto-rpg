@@ -40,6 +40,11 @@ Confidence: *repeated* (shown three or more times), *shown* (once or twice, plai
 
 ## Judging a skill or a mind
 
+- **A fixed pass-or-fail number set without a baseline throws away gains and gets moved to fit**:
+  travel blocks were rejected one after another at none of seven gates (`7db04797`); the stomp's
+  bar went from 6.4 to 3.0 m/s within an hour of landing none (`bcd4f589`, `1d958355`); the club's
+  bar moved five times, among them `41766c12`. A skill is read by its value against the version
+  before ([AGENTS.md](../AGENTS.md#developing-skills-and-options)). *Repeated.*
 - **A strike bar that reads speed or touch alone accepts nudges, chops and bent-arm pushes**: a
   blow's worth is the mass behind the fist (`54a592aa`, `127eb165`, `ed11435a`). Since `3d6b1a01`
   `landed` counts any completed touch with the striking face, in the drill and the training reward,

@@ -89,9 +89,8 @@ with Option Mind as its hero.
   0.7 m/s and the run's turns need it held.
 - Braking: the walk's pace ramp, and the stance envelope measured again at it.
 - The stance asked to stand a lying body diverges; no mind asks it.
-- The Warrior's [travel gates](plans/2026-11-05-warrior-travel.md); the club throws the Rogue's run.
-- Stand-up on the [owner's target](reference/rising.md#the-owners-target), every body in every
-  loadout; the Rogue's arms on hands and knees; the Skeleton holding the club.
+- The Warrior's [travel](plans/2026-11-05-warrior-travel.md): its start, slow paces and stop; the club throws the Rogue's run.
+- Stand-up time, every body in every loadout, beside the [owner's 10 s](reference/rising.md#the-owners-target); the Rogue's arms on hands and knees; the Skeleton holding the club.
 - The Warrior's stand-up: on hands and knees with the club and buckler the hands bear almost
   nothing and the trunk sinks back; the sit-back hands over to the stance still on its knees and
   lurches into a split stance; its sword falls rise a second past 10 s.

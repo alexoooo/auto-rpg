@@ -3,7 +3,7 @@
 How any skill steered by a learned network is trained: `research/run-train.py` (PPO) against an
 environment served by `research/run-learning-server.mjs`. A new skill reaches this recipe through
 [the skill recipe](skill.md), with a graded score and a native controller that already succeeds
-on some cases. What is particular to one skill (its phases, its bar, its stages, its settings)
+on some cases. What is particular to one skill (its phases, its value, its stages, its settings)
 is its plan's; this recipe holds only the steps every skill's training takes.
 Follow the steps in order. A step skipped is the usual reason a run teaches nothing.
 
@@ -21,15 +21,15 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 
 ## Before the first run
 
-1. **Name the bar from the game.** Write down, in the plan, the evaluation cases and gates that
-   decide the question, taken from the situations the game puts the skill in and the orders it
-   gives there, as it gives them. A case the game never produces is not on the bar, and training
-   reward never decides it. The development cases that choose checkpoints hold several cases per
+1. **Name the value and its cases from the game.** Write down, in the plan, the skill's value
+   ([AGENTS.md](../../AGENTS.md#developing-skills-and-options)) and the evaluation cases that read
+   it, taken from the situations the game puts the skill in and the orders it gives there, as it
+   gives them. A case the game never produces is not read, and training reward never decides it. The development cases that choose checkpoints hold several cases per
    phase (8 or more), varied in what the skill must handle: its starting state, its side, its
    direction, its target. One case flips with noise between checkpoints, and a case that is a
    training episode's exact start shows the actor's memory, not its skill.
 2. **Find the seed.** Look in `research/runs/<task>/README.md` for a kept actor that already does
-   part of the skill. Play it once on the current code through the bar's cases and a few cases of
+   part of the skill. Play it once on the current code through the plan's cases and a few cases of
    every phase the stages will train. Its reading is the baseline the run is compared with, and
    it says, phase by phase, what the seed already does and what it cannot yet start.
 3. **Know what invalidates a seed.** A change to the body, the observation layout or the
@@ -47,13 +47,9 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
    set a velocity or a pose to make a start. A warm-up that fails is reported and excluded; a
    worker that reaches none of a kind of start plays the other episodes. Copy each delivered order
    into mutable world state so snapshot restores cannot rewrite the curriculum's scripts.
-6. **Check the reward reads what the gate reads**: the same quantities, measured the same way,
-   with the same failure predicate. Credit is per second and a failure costs once and ends the
-   episode. **The return orders outcomes as the checkpoint ranking does**: every cost only takes
-   credit away (the rate is floored at zero), and a failure costs more than any episode earns, so
-   no episode is worse than one that fails; an outcome the gate counts as unmet but not failed
-   ends the episode without that cost. A cost that can outgrow the failure's makes failing the
-   cheaper way out.
+6. **Check the reward is the value the checkpoints are ranked by**: the same quantities, measured
+   the same way. A fall costs what it costs in play. An episode that ends at a fall is charged the
+   value the rest of it would have earned as well, so ending early is never the cheaper way out.
 7. **Check parity once per new environment.** The seed played through the environment reproduces
    the ordinary game's trajectory step for step (`research/learner-adapter.mjs` is the one loop).
    If it does not, fix the environment before training.
@@ -79,30 +75,30 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 - **Do not judge before 2 M decisions.** Returns dip and recover in the first million. An actor
   learns over 3 to 50 M decisions, depending on the skill. A block of a few hundred thousand
   decisions shows noise, not a result.
-- Read train.log's trend over the last few million decisions: the `--keywords` the gate reads
+- Read train.log's trend over the last few million decisions: the `--keywords` the value reads
   should improve. Read the trend, not the last line.
 - One run answers one question. A reward or curriculum change is a new run from a kept
   checkpoint, compared with the run before it at the same decisions on the same cases.
 
 ## Choosing a checkpoint
 
-1. Play every kept checkpoint (one per 1 M) on the bar's development cases from step 1 of the
+1. Play every kept checkpoint (one per 1 M) on the development cases from step 1 of the
    first section, as it lands. Training return does not choose: it can keep rising while the
    cases get worse. Reserved or confirmation cases never rank checkpoints: they are played once,
    on the chosen one.
-2. Take the best by the gate reading of every phase trained so far, the earlier stages'
-   included: failures first, then cases met, then each gate's figure. A phase no stage has
+2. Take the best by the value over every phase trained so far, the earlier stages' included.
+   A phase no stage has
    trained yet is read and reported, but ranks nothing: its outcome is chance. The last
    checkpoint is often not the best.
 3. **Install it in the game at once**, commit it, and play it there, in the screens that use the
    skill. The owner sees a skill only in the game, and the game finds what the cases missed: a
-   failure there that the cases do not have is a case the bar lacks, added before the next run.
+   failure there that the cases do not have is a case the plan lacks, added before the next run.
 4. **Polish**: resume the best into a new output for 2 to 5 M decisions and screen again:
    `--resume .tmp/<task>/<run>/model-<n>.zip --output .tmp/<task>/<run>-polish --lr 1e-4 --steps 3000000`.
    A checkpoint resumes only into another folder; decisions count on from its own.
 5. Compare the chosen checkpoint with the baseline, paired on the same cases
    (`npm run compare`). Keep it only if it gains without a loss elsewhere. The limits the skill
-   publishes, which the game plans by, are what it holds on the bar's cases, never what its
+   publishes, which the game plans by, are what it holds on the plan's cases, never what its
    training asked.
 
 ## The curriculum
@@ -123,7 +119,7 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
   (`--resume <checkpoint> --output <stage folder>` with the stage's config) and **keeps every
   earlier stage's episodes in the mix**, so what was learned holds. Half the episodes from earlier
   stages is a sound start.
-- A stage ends when its cases meet their gates on a screened checkpoint, or when it plateaus.
+- A stage ends when it plateaus.
 
 ## Plateaus and changing direction
 
@@ -132,7 +128,7 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
   four-hour ceiling's clock.
 - **A plateau** is 5 M decisions (five kept checkpoints) with no kept gain.
 - On a plateau, check the environment before anything else: parity, reached starts, a reward
-  that orders outcomes as the gate does, and episodes that contain the failing case. Most
+  that is the value the checkpoints are ranked by, and episodes that contain the failing case. Most
   plateaus are an environment that never shows the actor the case it fails.
 - Then change one thing (the curriculum's mix, a reward term, the observation) and run it as a
   new question. A phase that still succeeds on almost none of its cases is not a training
@@ -150,7 +146,7 @@ dropped run keeps nothing; its reading goes in the commit message.
 
 ## Traps
 
-- A bar of the training's own orders: an actor meets every gate it was trained on and fails on
+- Cases of the training's own orders: an actor does well on every case it was trained on and fails on
   the first situation the game gives it, because no stage and no case gave it.
 - A stage that starts from another seed than the previous stage's chosen checkpoint, or whose mix
   leaves out an earlier stage: each stage undoes the last.
@@ -172,7 +168,7 @@ dropped run keeps nothing; its reading goes in the commit message.
   compare it with the first chunk's.
 - A pooled start whose reader begins after the action did: the reader misses what it reads at the
   action's beginning (where the hand rests at guard), and the reward reads a different trial from
-  the gate's. Check parity on the pooled environment, not only a fresh one.
+  the checkpoint reading's. Check parity on the pooled environment, not only a fresh one.
 - The default starting spread on a correction to an open-loop schedule: noise on every channel
   each decision breaks the schedule it corrects. Measure the landed share at a few spreads with
   random steers before the run, and start where most still land.
