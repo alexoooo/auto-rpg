@@ -189,21 +189,21 @@ reaches 4 of its 28 places, the 3 m ones, which it walks. Its input normalisatio
 the first stage, saturates the asked pace below 3.4 m/s.
 
 The game-orders stage starts from it (`--start`, its normalisation measured anew) on every
-earlier stage's episodes and the game's places. Its 10 M checkpoint, which the Warrior's walk-run
+earlier stage's episodes and the game's places, then trains on with direct stops from the forward
+run and with the sword the Warrior carries. Its 13 M checkpoint, which the Warrior's walk-run
 record (`assets/skills/locomotion/walk-run/walk-run.json`) holds, so the game's Run gait uses it,
-falls on 3 of the screen's 140 cases and reaches 31 of 44 places and 8 of 12 paces from a stand; it
-holds 4 m/s from rest but no longer reaches it within 4 s, and meets 30 of 64 slowing orders. The
-places it misses leave the 1 m corridor at a route's corner, fall on routes of three and four
-corners, or miss a place changed on the way. Asked 2
-or 3 m/s from a stand it runs 3.1 and 3.7 m/s. Its stops from 3 to 3.8 m/s take 3.8 to 5.8 m, 1.0
-to 1.25 m/s², against the 0.2 m/s² the Run states (`Locomotion.stopping`), by which the navigator
-asks it 1.8 m/s 8 m from a place. In the Dungeon (hero sent to the farthest enemy, 16 seeds of
-60 s) the Run itself never falls: the Option Mind runs it 4 to 15 s a seed, and the hero's falls
-are in fights, in the Braced gait. Player orders name no gait, so they walk Braced; given a gait
-of their own by value, they run 15 to 41 s a seed and the Run falls on 5 of 16, each where a
-route's corner asks it under 1 m/s and it hands over to the walk. The Braced gait is the
-stance's own walk and reads neither. The Option Mind chooses the gait by its walk Options, one
-for each gait, priced by the time each takes over its route.
+falls on none of the screen's 140 cases (game cases carrying the sword) and meets 68: 22 of 44
+places, 8 of 12 paces from a stand and 38 of 64 slowing orders. Its stops from 3.4 to 4.2 m/s
+brake at 1.6 to 2.0 m/s², but it follows a falling pace slowly: with the navigator planning by
+1.5, 1.0 or 0.5 m/s² it overshoots and meets 0, 2 and 9 places, so the Run states 0.2
+(`Locomotion.stopping`). Trained 5 M on at 1.5 m/s² (the same episodes), it meets 5 to 12 places
+with 1 to 6 falls a checkpoint, in slowing to 1 or 2 m/s and in stops. In the Dungeon (hero sent
+to the farthest enemy, 16 seeds of 60 s) the Option Mind follows the order by the gait it values
+most and runs 101.7 m in all; the Run falls on 2 seeds, one into a foe at 0.7 m, one where it
+slows to about 1 m/s off its heading and hands the walk a body it cannot catch. Asked to slow
+from 2.3 to 1.3 m/s into a corner, it neither slows nor turns, drifts toward a wall, and brakes
+there in a long leap. The stance walk taking over at the body's own speed, rather than from a
+standstill, removes that fall but costs the screen 3 falls and 10 slowing orders on this actor.
 
 Its native record raises the braking reference's rate to 5 m/s²; at 3.2 m/s² the same curriculum
 met stops after slowing to 3 m/s on one of eight. Without the actor the native run falls, so a
