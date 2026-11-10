@@ -25,7 +25,7 @@ import { BODY_MODELS, modelHolding, modelHolds, resolveCharacterChecked, type Bo
 import { modelLoadout } from "../../../game/model-loadouts.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
 import { writeAttributes } from "../../../game/attribute-link.ts";
-import { HELD, heldItem, withLoadout, type Loadout } from "../../../core/bodies/items/held.ts";
+import { HELD, heldName, withLoadout, type Loadout } from "../../../core/bodies/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../../../core/bodies/human/attributes.ts";
 import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
 import type { SkinView } from "../render/skin-view.ts";
@@ -93,8 +93,7 @@ import type { ArenaSeat as Side } from "../../../game/arena/seat.ts";
  */
 
 /** What a hand may hold, by name, as the pickers show it. */
-const HELD_NAMES = Object.fromEntries(HELD.map((held) => [held, heldItem(held)?.name ?? "Empty"])) as Readonly<Record<typeof HELD[number], string>>;
-const loadoutName = (loadout: Loadout): string => `Left: ${HELD_NAMES[loadout.left]}, right: ${HELD_NAMES[loadout.right]}`;
+const loadoutName = (loadout: Loadout): string => `Left: ${heldName(loadout.left)}, right: ${heldName(loadout.right)}`;
 /** A note's level as a person reads it, for a character and loadout. */
 const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string => {
   switch (level) {
@@ -230,7 +229,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const field = document.createElement("label"), picker = document.createElement("select");
       field.className = "field"; field.textContent = `${hand === "left" ? "Left" : "Right"} hand`;
       picker.setAttribute("aria-label", `${side} fighter's ${hand} hand`);
-      for (const value of HELD) picker.append(Object.assign(document.createElement("option"), { value, textContent: HELD_NAMES[value] }));
+      for (const value of HELD) picker.append(Object.assign(document.createElement("option"), { value, textContent: heldName(value) }));
       picker.value = loadoutChoices?.[side][hand] ?? modelLoadout(matchup[side])[hand];
       field.append(picker); controller.before(field); equipment.push(field); hands[hand] = picker;
     }

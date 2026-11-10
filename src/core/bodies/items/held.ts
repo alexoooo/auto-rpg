@@ -18,8 +18,15 @@ export const EMPTY_LOADOUT: Loadout = Object.freeze({ left: "empty", right: "emp
 /** Every one-handed catalog assignment, with the left hand named first. */
 export const LOADOUTS: readonly Loadout[] = Object.freeze(HELD.flatMap((left) => HELD.map((right) => Object.freeze({ left, right }))));
 
-/** Stable identity for both hands in match conditions and notes. */
+/** Stable identity for both hands in match conditions, notes and links: `left,right` by `HELD`'s names. */
 export const loadoutKey = (loadout: Loadout): string => `${loadout.left},${loadout.right}`;
+
+/** The loadout `text` names as `loadoutKey` writes it; undefined where it does not name an item for each hand. */
+export function readLoadout(text: string): Loadout | undefined {
+  const parts = text.split(",").map((part) => part.trim());
+  if (parts.length !== 2 || parts.some((part) => !HELD.includes(part as Held))) return undefined;
+  return { left: parts[0] as Held, right: parts[1] as Held };
+}
 
 /** Refuse unknown hands, missing hands and items the current catalog does not name. */
 export function loadoutFaults(loadout: Loadout): readonly string[] {
@@ -29,6 +36,9 @@ export function loadoutFaults(loadout: Loadout): readonly string[] {
     ...SIDES.filter((hand) => !HELD.includes(loadout[hand])).map((hand) => `${hand} hand holds no item called ${String(loadout[hand])}`),
   ];
 }
+
+/** What `held` is called where a person reads it: its item's name, or Empty. */
+export const heldName = (held: Held): string => heldItem(held)?.name ?? "Empty";
 
 /** The item `held` names; null for an empty hand. */
 export function heldItem(held: Held): ItemSpec | null {

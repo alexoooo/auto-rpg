@@ -6,7 +6,7 @@ import type { GameContext } from "./context.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { SIDES, type DuelRecipe } from "./duel.ts";
-import { EMPTY_LOADOUT, HELD, type Loadout } from "../../core/bodies/items/held.ts";
+import { EMPTY_LOADOUT, readLoadout, type Loadout } from "../../core/bodies/items/held.ts";
 import { appearanceFor, type Appearance } from "../appearance/appearance.ts";
 
 import { mindLinks, type LinkedMind } from "../../minds/catalog/config-link.ts";
@@ -90,9 +90,9 @@ export function readLoadouts(search: string): Readonly<Record<Side, Loadout>> | 
   for (const side of SIDES) {
     const text = query.get(`${side}.loadout`);
     if (text === null) { loadouts[side] = modelLoadout(models[side]); continue; }
-    const parts = text.split(",").map((part) => part.trim());
-    if (parts.length !== 2 || parts.some((part) => !HELD.includes(part as typeof HELD[number]))) return undefined;
-    loadouts[side] = modelHolds(models[side]) ? { left: parts[0] as typeof HELD[number], right: parts[1] as typeof HELD[number] } : EMPTY_LOADOUT;
+    const loadout = readLoadout(text);
+    if (!loadout) return undefined;
+    loadouts[side] = modelHolds(models[side]) ? loadout : EMPTY_LOADOUT;
   }
   return loadouts;
 }

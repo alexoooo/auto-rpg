@@ -4,11 +4,11 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { SoundCue } from "../../../game/audio/cues.ts";
 import type { Command } from "../../../minds/command/commands.ts";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
-import type { BodyModel, ResolvedCharacter } from "../../../core/bodies/models.ts";
+import type { BodyModel } from "../../../core/bodies/models.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { puppetBody, type Puppet } from "../render/puppet.ts";
 import { bodyBetween, posePuppet, type Between, type WorldLink } from "../worker/client.ts";
-import { cryptSpec, type ActorNews, type CryptCard, type CryptNews } from "../../worker/crypt-stage.ts";
+import { type ActorNews, type CryptCard, type CryptNews } from "../../worker/crypt-stage.ts";
 import { BODY_HEAD } from "../../worker/frame.ts";
 import { CAMERA_PITCH } from "../../../game/dungeon/bearing.ts";
 import type { PlayerLead } from "../../../game/player-input.ts";
@@ -95,12 +95,12 @@ export class RunView {
   private readonly heard: (cue: SoundCue) => void;
 
   /**
-   * The run `link` steps, on `map` drawn with `visuals`, its bodies' specs from `characters` and
+   * The run `link` steps, on `map` drawn with `visuals`, its bodies' specs from `specs` (`PreparedDungeonCharacters.specs`) and
    * minds from `mind`, its lead `lead` as the run was started with it; `built` is given each body
    * as its puppet is made, and `heard` each cue the run hears.
    */
   constructor(scene: Scene, link: WorldLink<CryptCard>, options: {
-    readonly map: DungeonMap; readonly visuals: DungeonSurfaces; readonly characters: ReadonlyMap<string, ResolvedCharacter>;
+    readonly map: DungeonMap; readonly visuals: DungeonSurfaces; readonly specs: ReadonlyMap<string, BodySpec>;
     readonly mind: (card: CryptCard) => MindConfig; readonly lead: PlayerLead; readonly toward: Point;
     readonly built: (actor: ViewActor) => void; readonly heard: (cue: SoundCue) => void;
   }) {
@@ -113,7 +113,7 @@ export class RunView {
     this.actors = link.roster.map(({ card }, k): ViewActor => {
       const actor: ViewActor = {
         id: card.id, name: actorName(card.model), model: card.model, side: card.side,
-        spec: cryptSpec(options.characters.get(card.id)!, card.model), mind: options.mind(card), offset: link.offsets[k]!,
+        spec: options.specs.get(card.id)!, mind: options.mind(card), offset: link.offsets[k]!,
         news: { id: card.id, built: false, alive: true, limp: false, held: false, vitality: 1, feet: { x: 0, z: 0 }, target: null, task: "", forced: false, route: null },
         puppet: null, centre: new Vector3(), meshes: [],
         get alive() { return this.news.alive; }, get vitality() { return this.news.vitality; },

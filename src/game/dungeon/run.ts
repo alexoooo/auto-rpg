@@ -5,9 +5,9 @@ import { enlist, type Combatant } from "../combatant.ts";
 import { buildBody } from "../../core/bodies/build/build-body.ts";
 import { builtAngles, createMind, warmApart } from "../../minds/seat/create-mind.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { armedWith } from "../../core/bodies/items/held.ts";
+import { withLoadoutChecked, type Loadout } from "../../core/bodies/items/held.ts";
 import { resolveCharacterChecked, type BodyModel, type ResolvedCharacter } from "../../core/bodies/models.ts";
-import { modelInfo } from "../model-loadouts.ts";
+import { modelLoadout } from "../model-loadouts.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { configuredSpawn } from "./attribute-placement.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
@@ -58,12 +58,11 @@ import type { GameContext } from "../arena/context.ts";
  *
  * - **The hero** is the Warrior unless the page picks another, **the companions** whom the page names,
  *   **the enemies** the map's encounters; point-only maps supply skeletons. Model defaults
- *   provide each body's mind and equipment.
+ *   provide each body's mind, and its equipment where the run gives no loadout.
  * - **The minds** carry out the orders. Humanoids attack the target's head;
  *   a reptile receives the nearest sensed collider surface within its mouth's reach.
  * - **Wounds** are the core's blows (`watchBlows`) under the dungeon's rulebook. A fighter is out
- *   of the fight once its pool has ended, or a fall ends that model's fight (`modelInfo`'s
- *   `fallEndsFight`); no model's does, so a fallen body stays in the fight while it gets up. An eliminated body goes limp:
+ *   of the fight once its pool has ended; a fallen body stays in the fight while it gets up. An eliminated body goes limp:
  *   nothing drives its muscles again, and a step costs it only what the solver takes.
  * - **An enemy is built** once a standing party member comes within `WAKE_METRES` of where it waits,
  *   beyond its sight, and not before: every body built costs each step its control and solve.
@@ -169,6 +168,8 @@ export interface DungeonRunOptions {
   readonly prepared?: PreparedDungeonCharacters;
   /** Resolved before placement, including for enemies that wake later. */
   readonly attributes?: (participant: Participant) => AttributeOverrides | null;
+  /** What each participant holds in each hand; its model's (`modelLoadout`) where this gives none. */
+  readonly loadout?: (participant: Participant) => Loadout | null;
   /** The level's seed (`generateLevel`), unless `layout` is given. */
   readonly seed: number;
   readonly engine: PhysicsEngine;
@@ -177,7 +178,7 @@ export interface DungeonRunOptions {
   readonly companions?: readonly BodyModel[];
   /** Each spawn's model; the skeleton unless given. */
   readonly enemy?: (i: number) => BodyModel;
-  /** Each participant's mind, the party's and the enemies' alike; its model's own (`modelInfo`) where this gives none. */
+  /** Each participant's mind, the party's and the enemies' alike; its model's own (`defaultMind`) where this gives none. */
   readonly mind?: (participant: Participant) => MindConfig | null;
   /** Hears each blow as it lands. */
   readonly onBlow?: (blow: LandedBlow) => void;
@@ -196,15 +197,19 @@ export interface DungeonRunOptions {
 /** Resolve every actor and its placement before allocating a world or replacing a running scene. */
 export interface PreparedDungeonCharacters {
   readonly characters: Map<string, ResolvedCharacter>;
+  /** Each participant's body: its character's, holding its loadout. */
+  readonly specs: Map<string, BodySpec>;
   readonly homes: Map<string, Point>;
 }
 
-export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy" | "attributes">): PreparedDungeonCharacters | Refused {
-  const characters = new Map<string, ResolvedCharacter>();
+export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy" | "attributes" | "loadout">): PreparedDungeonCharacters | Refused {
+  const characters = new Map<string, ResolvedCharacter>(), specs = new Map<string, BodySpec>();
   for (const participant of runParticipants(map, options)) {
     const character = resolveCharacterChecked({ model: participant.model, attributes: options.attributes?.(participant) ?? {} });
     if (isRefused(character)) return character;
-    characters.set(participant.id, character);
+    const spec = withLoadoutChecked(character.spec, options.loadout?.(participant) ?? modelLoadout(participant.model));
+    if (isRefused(spec)) return spec;
+    characters.set(participant.id, character); specs.set(participant.id, spec);
   }
   const heroModel = heroOf(options), hero = cryptModel(heroModel, characters.get("hero")!.spec);
   const geometryChanged = (id: string) => {
@@ -227,7 +232,7 @@ export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonR
     if (!at) return { refused: `No floor beside the start for companion ${i + 1}` };
     partyTaken.push({ ...at, radius: info.radius }); homes.set(id, at);
   }
-  return { characters, homes };
+  return { characters, specs, homes };
 }
 
 /** A constructed run consumes placements that pure admission has accepted. */
@@ -284,7 +289,7 @@ export class DungeonRun {
   private seeing: { index: SightIndex; opened: number } | null = null;
   private watch: BlowWatch | null = null;
   private readonly rules = rulebook("dungeon");
-  private readonly options: DungeonRunOptions;
+  private readonly options: AdmittedDungeonRunOptions;
   private readonly senses: SensesHub;
   /** The party's Commander and the enemies', and the orders each last gave by member id: a body given none stands. */
   private readonly team: Commander;
@@ -414,9 +419,9 @@ export class DungeonRun {
       distance(actor.feet(), actor.home) < HOME_METRES;
   }
 
-  /** `actor`'s body: its character's, holding what its model holds. */
+  /** `actor`'s body: its character's, holding its loadout (`PreparedDungeonCharacters.specs`). */
   private specOf(actor: DungeonActor): BodySpec {
-    return armedWith(actor.character.spec, "right", modelInfo(actor.model).held);
+    return this.options.prepared.specs.get(actor.id)!;
   }
 
   /** `actor`'s mind: the one the run was given for it, else its model's in the Crypt. */

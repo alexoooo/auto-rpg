@@ -38,6 +38,8 @@ import { RunView, type ViewActor } from "./run-view.ts";
 import { openWorld } from "../worker/client.ts";
 import type { CryptCard } from "../../worker/crypt-stage.ts";
 import { runAttributes } from "./run-attributes.ts";
+import { runLoadouts } from "./run-loadouts.ts";
+import type { Loadout } from "../../../core/bodies/items/held.ts";
 import type { AttributeOverrides } from "../../../core/bodies/character-attributes.ts";
 import { cellKey } from "../../../game/dungeon/map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "../../../game/dungeon/bearing.ts";
@@ -147,10 +149,12 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   const attributeHolder = document.createElement("div");
   attributeHolder.id = "party-attributes"; need("party-minds").before(attributeHolder);
   const attributePanel = runAttributes(attributeHolder, location.search);
+  const loadoutPanel = runLoadouts(need("party-loadout-list"), location.search);
   const updateAttributeParty = (keepRoster = false) => {
     const hero = choice(heroChoices) as BodyModel;
     if (!keepRoster) selectedCompanions = companionModels(hero, Number(choice(companionCount)));
     attributePanel.update(hero, selectedCompanions);
+    loadoutPanel.update(hero, selectedCompanions);
   };
   updateAttributeParty(true);
   heroChoices.addEventListener("change", () => updateAttributeParty());
@@ -221,6 +225,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     /** Each participant's mind (`runMinds`). */
     mind: (participant: Participant) => MindConfig | null;
     attributes: (participant: Participant) => AttributeOverrides;
+    /** What each participant holds (`runLoadouts`); its model's where none. */
+    loadout: (participant: Participant) => Loadout | null;
     companions: BodyModel[];
     clothing: Clothing;
     selectedScenario: DungeonScenario;
@@ -288,7 +294,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       meter,
       abort, signal: abort.signal,
       party: null,
-      selectedHero: "workshop-fighter", mind: () => null, attributes: () => ({}), companions: [], clothing: { boots: true, armour: true },
+      selectedHero: "workshop-fighter", mind: () => null, attributes: () => ({}), loadout: () => null, companions: [], clothing: { boots: true, armour: true },
       selectedScenario: "generated", selectedQuality: "high", reference: false, commanders: { party: { kind: "party" }, enemies: { kind: "mob" } },
       seed: 0, cryptPlan: undefined, scene: null, run: null, camera: null, rig: null, subjects: new Map(), lighting: null, referenceLook: null,
       drawn: [], soundTorches: [], routes: null,
@@ -386,7 +392,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const seed = nextSeed >>> 0;
     const cryptPlan = page.selectedScenario === "random-crypt" ? generateCryptDungeon(seed) : undefined;
     if (cryptPlan && isRefused(cryptPlan)) return cryptPlan;
-    const fielded = { seed, layout: cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined), hero: page.selectedHero, companions: page.companions, attributes: page.attributes };
+    const fielded = { seed, layout: cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined), hero: page.selectedHero, companions: page.companions, attributes: page.attributes, loadout: page.loadout };
     const layout = runMap(fielded);
     if (isRefused(layout)) return layout;
     const prepared = prepareDungeonCharacters(layout, fielded);
@@ -435,6 +441,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const minds = Object.fromEntries(participants.flatMap((participant) => { const mind = page.mind(participant); return mind ? [[participant.id, mind]] : []; }));
     const link = await openWorld<CryptCard>({ kind: "crypt", start: { seed, layout, hero: page.selectedHero, companions: page.companions, minds,
       attributes: Object.fromEntries(participants.map((participant) => [participant.id, page.attributes(participant)])),
+      loadouts: Object.fromEntries(participants.flatMap((participant) => { const loadout = page.loadout(participant); return loadout ? [[participant.id, loadout]] : []; })),
       party: page.commanders.party, enemies: page.commanders.enemies, lead } }, page.signal);
     // The worker is the run's from here: torn down with it, or at once where the run is not made.
     let made: RunView;
@@ -442,7 +449,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       stillShown();
       made = new RunView(scene, link, {
         map: layout, visuals: { ...dungeonStone(scene, stone.floor, stone.wall, browserTextures(art)), masonry: reference ? false : stone.masonry },
-        characters: prepared.characters, mind: (card) => page.mind(card) ?? defaultMind(card.model), lead, toward, built: dress, heard: (cue) => audio.cue(cue),
+        specs: prepared.specs, mind: (card) => page.mind(card) ?? defaultMind(card.model), lead, toward, built: dress, heard: (cue) => audio.cue(cue),
       });
     } catch (error) { link.dispose(); throw error; }
     const run = page.run = made;
@@ -576,12 +583,14 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       page.selectedScenario = scenarioOf(choice(scenario));
       page.reference = usesReferenceLook(page.selectedScenario);
       page.selectedQuality = quality.value === "reduced" ? "reduced" : "high";
-      page.mind = mindPanel.mind(page.attributes);
+      page.loadout = loadoutPanel.read();
+      page.mind = mindPanel.mind(page.attributes, page.loadout);
       page.commanders = { party: commanderOf(COMMANDERS, partyCommander.value)!.defaults, enemies: commanderOf(COMMANDERS, enemyCommander.value)!.defaults };
       // The address keeps the scenario and the party's minds, so that a reload opens the same.
       const url = new URL(location.href);
       mindPanel.write(url);
       attributePanel.write(url);
+      loadoutPanel.write(url);
       writeCommanders(url);
       url.searchParams.set("hero", page.selectedHero);
       url.searchParams.set("companions", selectedCompanions.join(","));
@@ -905,6 +914,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       const url = new URL(location.href);
       mindPanel.write(url);
       try { attributePanel.write(url); } catch { /* The last valid attributes remain in the link. */ }
+      loadoutPanel.write(url);
       writeCommanders(url);
       url.searchParams.set("hero", choice(heroChoices));
       url.searchParams.set("companions", selectedCompanions.join(","));

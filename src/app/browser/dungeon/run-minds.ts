@@ -1,7 +1,8 @@
 import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { offered } from "../../../minds/catalog/controller.ts";
 import { modelHolding, type BodyModel } from "../../../core/bodies/models.ts";
-import { modelInfo } from "../../../game/model-loadouts.ts";
+import { modelLoadout } from "../../../game/model-loadouts.ts";
+import type { Loadout } from "../../../core/bodies/items/held.ts";
 import { FIGHT_ENTRY, MINDS, modelRefusal, defaultMind } from "../../catalog.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { MODEL_DISPLAY } from "../../../game/appearance/models.ts";
@@ -19,11 +20,11 @@ interface Row { readonly side: Participant["side"]; readonly model: BodyModel }
 /** The minds the start panel offers a body of `model`, by id: its model's own first, then each offered (`offered`) that fits it holding what its model holds (`MINDS`). */
 function presetsFor(model: BodyModel): Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> {
   return { [OWN]: { label: "Its own", config: defaultMind(model) },
-    ...Object.fromEntries(Object.entries(MINDS).filter(([, mind]) => offered(mind) && modelRefusal(model, mind.config, { left: "empty", right: modelInfo(model).held }, FIGHT_ENTRY) === null)) };
+    ...Object.fromEntries(Object.entries(MINDS).filter(([, mind]) => offered(mind) && modelRefusal(model, mind.config, modelLoadout(model), FIGHT_ENTRY) === null)) };
 }
 
-/** A body of `model`, holding what its model holds (`DungeonRun`): what its mind must fit. */
-const bodySpec = (model: BodyModel, attributes?: AttributeOverrides): BodySpec => modelHolding(model, { left: "empty", right: modelInfo(model).held }, attributes);
+/** A body of `model`, holding `loadout`, its model's where none is given (`DungeonRun`): what its mind must fit. */
+const bodySpec = (model: BodyModel, attributes?: AttributeOverrides, loadout?: Loadout | null): BodySpec => modelHolding(model, loadout ?? modelLoadout(model), attributes);
 
 /** The address's key for the mind of `row`: `<model>.mind` for the party's, `enemy.<model>.mind` for the enemies'. */
 const mindKey = (row: Row): string => `${row.side === "enemy" ? "enemy." : ""}${row.model}.mind`;
@@ -34,8 +35,8 @@ const mindKey = (row: Row): string => `${row.side === "enemy" ? "enemy." : ""}${
  * (`mindEditor`), as `search` carries it (`readMind`), its model's own unless it carries another.
  */
 export function runMinds(holder: HTMLElement, rows: readonly Row[], search: string): {
-  /** The mind a participant plays (`DungeonRunOptions.mind`): its row's, or its model's own where that has a fault (`mindFaults`) or it has no row. */
-  mind(attributes?: (participant: Participant) => AttributeOverrides): (participant: Participant) => MindConfig | null;
+  /** The mind a participant plays (`DungeonRunOptions.mind`): its row's, or its model's own where that has a fault (`mindFaults`) for its body as it holds its loadout, or it has no row. */
+  mind(attributes?: (participant: Participant) => AttributeOverrides, loadout?: (participant: Participant) => Loadout | null): (participant: Participant) => MindConfig | null;
   /** `url` with each row's mind (`mindText`), and none where it is its model's own. */
   write(url: URL): void;
 } {
@@ -58,14 +59,14 @@ export function runMinds(holder: HTMLElement, rows: readonly Row[], search: stri
     return section;
   }));
   return {
-    mind(attributes) {
+    mind(attributes, loadout) {
       const chosen = new Map(rows.map((row) => {
         const config = shown.get(mindKey(row))!;
         return [mindKey(row), config] as const;
       }));
       return participant => {
         const config = chosen.get(mindKey(participant));
-        return config && mindFaults(config, bodySpec(participant.model, attributes?.(participant)), { entry: FIGHT_ENTRY }).length === 0 ? config : null;
+        return config && mindFaults(config, bodySpec(participant.model, attributes?.(participant), loadout?.(participant)), { entry: FIGHT_ENTRY }).length === 0 ? config : null;
       };
     },
     write(url) {

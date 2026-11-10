@@ -5,14 +5,12 @@ import type { Command } from "../../minds/command/commands.ts";
 import type { CommanderConfig } from "../../minds/command/kind.ts";
 import { loadEngine, type EngineName } from "../../core/physics/engines.ts";
 import type { GroundPoint } from "../../skills/framework/movement.ts";
-import { armedWith } from "../../core/bodies/items/held.ts";
+import type { Loadout } from "../../core/bodies/items/held.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import { type BodyModel } from "../../core/bodies/models.ts";
-import { modelInfo } from "../../game/model-loadouts.ts";
 import { physicalReading } from "../../control/observation.ts";
 import { constructionScope } from "../../core/construction.ts";
 import { attachment } from "../../core/bodies/read-body.ts";
-import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Vec3 } from "../../core/quantity.ts";
 import type { GameContext } from "../../game/arena/context.ts";
 import { debrisCues, type SoundCue, type SoundPoint } from "../../game/audio/cues.ts";
@@ -25,7 +23,7 @@ import type { Stage, StageRuntime } from "./stage.ts";
 
 /**
  * **A Crypt run as its page starts it** (`cryptStage`), plain data: the run's options, each
- * participant's mind and attributes by its id (`Participant.id`), and the person's lead as it
+ * participant's mind, attributes and loadout by its id (`Participant.id`), and the person's lead as it
  * stands.
  */
 export interface CryptStart {
@@ -37,6 +35,8 @@ export interface CryptStart {
   readonly minds: Readonly<Record<string, MindConfig>>;
   /** Each participant's attributes over its model's, by id; none where none is given. */
   readonly attributes: Readonly<Record<string, AttributeOverrides>>;
+  /** Each participant's loadout by id; its model's (`modelLoadout`) where none is given. */
+  readonly loadouts?: Readonly<Record<string, Loadout>>;
   readonly party?: CommanderConfig;
   readonly enemies?: CommanderConfig;
   readonly lead: PlayerLead;
@@ -106,12 +106,8 @@ export interface CryptNews {
   readonly inspected?: { readonly id: string; readonly inspected: Inspected } | null;
 }
 
-/** A body of a Crypt stage as the page makes its spec (`cryptSpec`): who it is. */
+/** A body of a Crypt stage as the page draws it: who it is. */
 export type CryptCard = Participant;
-
-/** The spec a body of a run is built from: its character's, holding what its model holds (`DungeonRun`'s build). */
-export const cryptSpec = (character: { readonly spec: BodySpec }, model: BodyModel): BodySpec =>
-  armedWith(character.spec, "right", modelInfo(model).held);
 
 /**
  * `start`'s run built as its page plays it, with no look,
@@ -125,7 +121,8 @@ async function buildCryptRun(context: GameContext, start: CryptStart, { cues = [
   if (isRefused(layout)) return layout;
   const fielded = { seed: start.seed, layout,
     ...start.hero ? { hero: start.hero } : {}, ...start.companions ? { companions: start.companions } : {},
-    attributes: (participant: Participant) => start.attributes[participant.id] ?? {} };
+    attributes: (participant: Participant) => start.attributes[participant.id] ?? {},
+    loadout: (participant: Participant) => start.loadouts?.[participant.id] ?? null };
   const mind = (participant: Participant) => start.minds[participant.id] ?? null;
   const prepared = prepareDungeonCharacters(layout, fielded);
   if (isRefused(prepared)) return prepared;
@@ -186,11 +183,11 @@ export async function cryptStage(context: GameContext, start: CryptStart, runtim
   const hearing = scope.own(hearRun(run, (cue) => { cues.push(cue); }));
   const tape: CryptTapeEntry[] = [];
   const roster = run.actors.map((actor) => ({ id: actor.id,
-    segments: cryptSpec(prepared.characters.get(actor.id)!, actor.model).segments.map((segment) => segment.name),
+    segments: prepared.specs.get(actor.id)!.segments.map((segment) => segment.name),
     card: { id: actor.id, side: actor.side, model: actor.model } }));
   const { length } = frameLayout(roster);
   const bodies: FramedBody[] = run.actors.map((actor, k) => {
-    const spec = cryptSpec(prepared.characters.get(actor.id)!, actor.model);
+    const spec = prepared.specs.get(actor.id)!;
     const unbuilt = new Map(spec.segments.map((segment) => [segment.name, { ...UNBUILT, spec: segment }]));
     let reading: ReturnType<typeof physicalReading> | null = null, on: ReturnType<typeof attachment> | null = null;
     const read = () => {

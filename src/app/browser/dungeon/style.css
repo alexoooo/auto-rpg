@@ -98,6 +98,12 @@
 :where(#screen-root[data-screen="dungeon"]) .level-choice label { flex: 1; }
 :where(#screen-root[data-screen="dungeon"]) .level-choice span { width: 100%; min-height: 48px; }
 :where(#screen-root[data-screen="dungeon"]) .setup-bottom { display: flex; align-items: end; gap: 28px; margin-top: 26px; flex-wrap: wrap; }
+:where(#screen-root[data-screen="dungeon"]) .loadout-choice { margin-top: 26px; }
+:where(#screen-root[data-screen="dungeon"]) .loadout-choice legend { padding: 0; margin-bottom: 8px; color: #bca584; font-size: 12px; letter-spacing: .12em; }
+:where(#screen-root[data-screen="dungeon"]) #party-loadout-list { display: flex; flex-wrap: wrap; gap: 10px 32px; }
+:where(#screen-root[data-screen="dungeon"]) .loadout-row { display: flex; align-items: end; gap: 10px; }
+:where(#screen-root[data-screen="dungeon"]) .loadout-who { padding-bottom: 6px; color: #f3ddba; font: 15px Georgia, serif; }
+:where(#screen-root[data-screen="dungeon"]) .loadout-row .field { font-size: 12px; color: #bca584; }
 :where(#screen-root[data-screen="dungeon"]) #companions span { min-width: 46px; }
 :where(#screen-root[data-screen="dungeon"]) #setup-options { align-self: end; padding-block: 14px; font-size: 13px; color: #bca584; }
 :where(#screen-root[data-screen="dungeon"]) #setup-options summary { cursor: pointer; }
