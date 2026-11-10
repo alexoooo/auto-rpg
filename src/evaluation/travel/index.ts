@@ -11,10 +11,11 @@ export function createTravelIndex(context: GameContext) {
   const { TRAVEL_CASES } = createTravelCases(context);
   const TRAVEL_DRILL: Evaluation<TravelCondition, TravelReading, BuiltLone> = {
     id: "travel", title: "Warrior travel", group: "skills",
-    question: "Does the toed Warrior meet forward, directional, turning and stopping targets without assistance?",
+    question: "How much time does the toed Warrior lose against forward, directional, turning and stopping orders without assistance?",
     protocols: TRAVEL_CASES, defaultProtocol: "minimum", schedule: "all", analysis: {},
     subjects: choice => mindSubjects(choice, ["option"]),
     figures: [
+      { name: "time lost", unit: "s against the orders (`orderTime`), the mean", kind: "mean", better: "lower", of: r => r.lost ?? null },
       { name: "met", unit: "share meeting every case gate", kind: "rate", better: "higher", of: r => r.met },
       { name: "entry", unit: "share reaching the required entry", kind: "rate", better: "higher", of: r => r.entryMade },
       { name: "held speed", unit: "m/s, slowest rolling second", kind: "median", better: "higher", of: r => r.held },

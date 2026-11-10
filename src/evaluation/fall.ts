@@ -87,6 +87,10 @@ export type FallReading = {
   readonly assist: Json;
 };
 
+/** **A fall's time to stand**, s, the stand-up's value: from the takeover to a verified stand, a fall made and not stood at the cap (`FALL_CAP`); none for a fall not made. */
+export const timeToStand = (r: Pick<FallReading, "takeover" | "stood" | "verified">): number | null =>
+  r.takeover === null ? null : r.stood && r.verified !== null ? r.verified : FALL_CAP;
+
 /** `spec` with every muscle's peak torques scaled by `factor`: a search's raised ceilings, never the game's. */
 export function strengthSpec(spec: BodySpec, factor: number): BodySpec {
   if (factor === 1) return spec;

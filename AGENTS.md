@@ -15,7 +15,7 @@ npm run build             # type-check, then the bundle
 npm run pull:merge        # fetch, merge, validate once, commit; -- --continue after resolving conflicts
 npm run match -- <a> <b>  # two minds, each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases where no row has them; --write keeps a record
-npm run evaluate -- table [--play] [--baseline]   # every body, loadout and skill: met or short, or against its baseline
+npm run evaluate -- table [--play] [--baseline]   # every body, loadout and skill: its value against its baseline
 npm run compare -- <before.jsonl> <after.jsonl> --subject <id>  # paired saved evidence
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 node scripts/fingerprint.mjs          # what the game computes, before and after a refactor

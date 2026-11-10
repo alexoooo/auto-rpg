@@ -8,12 +8,15 @@ import { uprightness } from "../../control/ground.ts";
 import { footStatesOf, groundContact } from "../../control/support.ts";
 import { atan2, sin, cos } from "../../core/math/real.ts";
 import { TRAVEL, travelScript, travelTurns, type TravelCondition } from "./protocol.ts";
+import { orderTime } from "../order-time.ts";
 
 export type TravelReading = { readonly met: boolean; readonly short: readonly string[]; readonly firstLeg: "left" | "right" | null;
   readonly fromRest: boolean; readonly reachedAt: number | null; readonly entryMade: boolean; readonly entryHeld: number | null;
   readonly held: number | null; readonly turnedAt: number | null; readonly corridor: number | null;
   readonly lag: number | null; readonly facingError: number | null; readonly route: number | null;
-  readonly stopEntered: boolean; readonly stoppedAt: number | null; readonly fellAt: number | null; readonly seconds: number };
+  readonly stopEntered: boolean; readonly stoppedAt: number | null; readonly fellAt: number | null; readonly seconds: number;
+  /** The seconds lost against the orders, and how long the body had been down at the end (`orderTime`). */
+  readonly lost: number; readonly downFor: number | null };
 type Sample = { time: number; x: number; z: number; speed: number; projected: number; yaw: number; heading: number; standing: boolean };
 const wrap = (angle: number): number => atan2(sin(angle), cos(angle));
 
@@ -23,7 +26,7 @@ export function readTravel({ world, body }: BuiltLone, c: TravelCondition): Read
   const parts = [...body.built.segments.values()], mass = massOf(parts), root = rootSegment(body.built), upright = uprightness(body.built);
   const centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), turn = new Quaternion(), inverse = Quaternion.Inverse(root.rest);
   const samples: Sample[] = [], absent = { left: 0, right: 0 };
-  const feet = footStatesOf(body.built);
+  const feet = footStatesOf(body.built), orders = orderTime(p.cues, hz);
   let steps = 0, next = 0, direction = { x: sin(p.initial), z: cos(p.initial) }, projected = 0;
   let fellAt: number | null = null, firstLeg: TravelReading["firstLeg"] = null;
   const contacts = (side: "left" | "right") => feet.find(foot => foot.side === side)!.contactParts.some(part =>
@@ -42,6 +45,7 @@ export function readTravel({ world, body }: BuiltLone, c: TravelCondition): Read
       const yaw = atan2(2 * (turn.w * turn.y + turn.x * turn.z), 1 - 2 * (turn.x * turn.x + turn.y * turn.y));
       const down = upright.fallen();
       if (down && fellAt === null) fellAt = time;
+      orders.step(velocity, down);
       const touched = { left: contacts("left"), right: contacts("right") };
       if (time > TRAVEL.start && firstLeg === null) for (const side of ["left", "right"] as const) {
         absent[side] = touched[side] ? 0 : absent[side] + 1 / hz;
@@ -123,7 +127,7 @@ export function readTravel({ world, body }: BuiltLone, c: TravelCondition): Read
       if (stoppedAt === null) short.push("stop and settle");
       return { met: short.length === 0, short, firstLeg, fromRest, reachedAt, entryMade, entryHeld, held, turnedAt,
         corridor: circle ? null : corridor, lag: circle ? lag : null, facingError: c.mode === "facing" ? facingError : null,
-        route, stopEntered, stoppedAt, fellAt, seconds: steps / hz };
+        route, stopEntered, stoppedAt, fellAt, seconds: steps / hz, ...orders.reading() };
     },
   };
 }

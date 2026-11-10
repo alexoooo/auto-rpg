@@ -314,6 +314,19 @@ export type StrikeReading = {
 };
 
 /**
+ * **A blow's value**, hit points a second: the life its trial took from the target less the life
+ * the striker lost, over its action's cycle, from its start until the limb was back at its guard
+ * (`recovers`), or to the trial's end where it was not; a fall adds `rise` s, its body's time to
+ * stand, to the cycle. None for a trial whose action did not begin: the Option was not taken, and
+ * its refusal is the Mind's choice, not the blow's. Higher is better.
+ */
+export function strikeValue(r: Pick<StrikeReading, "began" | "ended" | "recovers" | "seconds" | "down" | "contacts" | "taken">, rise: number): number | null {
+  if (r.began === null) return null;
+  const cycle = (r.ended !== null && r.recovers !== null ? r.ended + r.recovers : r.seconds) - r.began + (r.down ? rise : 0);
+  return (r.contacts.reduce((sum, contact) => sum + contact.damage, 0) - r.taken) / cycle;
+}
+
+/**
  * **The hand back at its guard**, as the body reads it: its strike point within `within` m of where
  * it was, against the chest and turned with it, when its action began, and moving against the
  * chest at no more than `still` m/s.

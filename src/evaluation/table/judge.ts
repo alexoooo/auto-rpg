@@ -1,49 +1,51 @@
 /**
- * **How a cell is judged from its rows**: each reading's rows on the cell's body (and loadout,
- * where the drill lays its trials out by loadout), met or short on its bar (`verdictOf`) or
- * scored (`scoreOf`), in the drill's own figures; a scored reading against its baseline
- * (`baselineOf`), with the person's figure beside it (`personOf`).
+ * **How a cell is judged from its rows**: each trial's value in the game's own terms (`trialValue`),
+ * the reading's value their mean over its whole protocol (`valueOf`), and a version against another
+ * paired trial by trial, beyond the spread of the trials (`compareValues`); with the figures beside
+ * it, a strike's hit against the person's (`personOf`), and a cell's baseline (`baselineOf`).
  */
+import { recordingKey } from "../../core/world/recording.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import type { Json } from "../evaluation.ts";
-import { STOPPING_PACE, TURNING_PACE } from "../locomotion/cases.ts";
-import { STAND_WITHIN, targetGates } from "../rising.ts";
-import { BAR } from "../strike/read.ts";
-import { travelLegCoverage } from "../travel/read.ts";
-import type { TravelReading } from "../travel/read.ts";
-import type { Cell, HitFigure, MetJudge, Reading, ScoreReading } from "./cells.ts";
+import { coverValue, type CoverReading } from "../cover/read.ts";
+import { timeToStand, type FallReading } from "../fall.ts";
+import { ordersValue } from "../order-time.ts";
+import { mean, medianOf, pairBootstrap } from "../stats.ts";
+import { BAR, strikeValue, type StrikeReading } from "../strike/read.ts";
+import type { Cell, HitFigure, Judge, Reading } from "./cells.ts";
 
 /** A row as the table reads it: its condition and its reading. */
 interface TableRow { readonly key?: string; readonly condition: Json; readonly reading: Json; readonly fault?: { readonly message: string } | null }
 
-/** What one met-or-short reading of a cell came to: met, short of its bar, or no rows; its figures in words. */
-interface Verdict { readonly state: "met" | "short" | "unread"; readonly figures: string }
+/** What a value is counted in, and which way is better. */
+export interface ValueUnit { readonly unit: string; readonly better: "higher" | "lower" }
 
-/** What one scored reading of a cell came to: its score, in `unit` (every score is better higher), and the figures beside it in words. */
-interface Score { readonly value: number | null; readonly unit: string; readonly figures: string }
+/** Each judge's value: a stand's seconds, a move's seconds lost against its orders, a blow's life traded a second, a cover's life lost. */
+export function unitOf(judge: Judge): ValueUnit {
+  switch (judge) {
+    case "stand": return { unit: "s to stand", better: "lower" };
+    case "orders": return { unit: "s lost against the orders", better: "lower" };
+    case "strike": return { unit: "hp a second traded", better: "higher" };
+    case "cover": return { unit: "hp lost a trial", better: "lower" };
+    default: { const never: never = judge; throw new Error(`no judge ${String(never)}`); }
+  }
+}
+
+/** The movement a value reads: the seconds lost against the orders and how long down at the end, absent from rows read before they were. */
+type Moved = { readonly lost?: number; readonly downFor?: number | null; readonly fell: boolean };
 
 /**
- * The run's bar: a held run's slowest second at least `HELD_PACE`, m/s; a turning run's slowest second at least `PACED` of the pace asked, and its
- * way at most `TRAIL` rad behind the way asked; a stopped run at least `PACED` of its pace when
- * the stop is asked, and halted within `HALT` s.
+ * **One trial's value** as `judge` reads it, a fall's rest costing `rise` s (the body's time to
+ * stand): null where the trial does not count (a fall not made, a blow not begun, a cover never
+ * attacked) or its row predates the value.
  */
-const HELD_PACE = 3, PACED = .9, TRAIL = .35, HALT = 1.5;
-
-type Hit = { readonly speed: number | null; readonly energy: number; readonly closing: number; readonly held: { readonly value: number } | null };
-type Strike = { readonly outcome: string; readonly began: number | null; readonly down: boolean; readonly hit: Hit | null };
-type Fall = { readonly stood: boolean; readonly verified: number | null; readonly takeover: number | null };
-type Walk = { readonly kind: string; readonly fell: boolean; readonly along: number | null };
-type Run = Walk & { readonly held: number | null; readonly trail: number | null; readonly speed: number | null; readonly halt: number | null };
-type Cover = { readonly blows: number; readonly shielded: number; readonly down: boolean; readonly outcome?: string; readonly attempted?: boolean };
-
-/** Whether a run trial met its bar: its pace held, its turn followed, its stop made. */
-function ran(one: Run): boolean {
-  if (one.fell) return false;
-  switch (one.kind) {
-    case "run-held": return one.held !== null && one.held >= HELD_PACE;
-    case "run-turn": return one.held !== null && one.held >= PACED * TURNING_PACE && one.trail !== null && one.trail <= TRAIL;
-    case "run-stop": return one.speed !== null && one.speed >= PACED * STOPPING_PACE && one.halt !== null && one.halt <= HALT;
-    default: return false;
+export function trialValue(judge: Judge, reading: Json, rise: number): number | null {
+  switch (judge) {
+    case "stand": return timeToStand(reading as unknown as FallReading);
+    case "orders": { const r = reading as unknown as Moved; return r.lost === undefined ? null : ordersValue({ lost: r.lost, downFor: r.downFor ?? null }, rise); }
+    case "strike": { const r = reading as unknown as StrikeReading; return r.taken === undefined || r.recovers === undefined ? null : strikeValue(r, rise); }
+    case "cover": return coverValue(reading as unknown as CoverReading);
+    default: { const never: never = judge; throw new Error(`no judge ${String(never)}`); }
   }
 }
 
@@ -62,44 +64,56 @@ export function rowsOn(cell: Pick<Cell, "body" | "loadout">, reading: Pick<Readi
   });
 }
 
-const median = (values: readonly number[]): number | null => {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b), half = sorted.length >> 1;
-  return sorted.length % 2 ? sorted[half]! : (sorted[half - 1]! + sorted[half]!) / 2;
-};
+/** **A reading's value**: each counted trial's, by its condition; their mean (null where none counts, or the protocol is not whole); and the figures beside it in words. */
+export interface Valued { readonly trials: ReadonlyMap<string, number>; readonly value: number | null; readonly figures: string }
 
-/** `rows` judged met or short by `judge` (`MetJudge`). */
-export function verdictOf(judge: MetJudge, rows: readonly TableRow[], required: readonly { readonly key: string }[]): Verdict {
-  const present = new Map(rows.map(row => [row.key, row]));
-  const missing = required.filter(one => !present.has(one.key)), faults = rows.filter(row => row.fault != null || row.reading === null);
-  if (missing.length || faults.length) return { state: rows.length === 0 ? "unread" : "short", figures: `${required.length - missing.length} of ${required.length} cases, ${missing.length} missing, ${faults.length} faulted` };
-  if (required.length === 0 || rows.length === 0) return { state: "unread", figures: "no rows" };
-  switch (judge) {
-    case "travel": {
-      const readings = rows.map(row => row.reading as unknown as TravelReading), legs = travelLegCoverage(rows);
-      const passed = readings.filter(row => row.met === true && row.short.length === 0).length;
-      return { state: passed === readings.length && legs === 0 ? "met" : "short",
-        figures: `${passed}/${readings.length} travel cases met; ${readings.filter(row => !row.entryMade).length} entries unreached; ${legs} groups lack both first legs` };
+/**
+ * **`rows` valued as `reading` reads them**, a fall's rest costing `rise` s, against the protocol's
+ * `required` cases by condition: valued only where every case has a row and none faulted, so one
+ * trial never stands for a protocol.
+ */
+export function valueOf(reading: Pick<Reading, "judge"> & { readonly hit?: HitFigure }, rows: readonly TableRow[], required: readonly { readonly condition: Json }[], rise: number): Valued {
+  const present = new Set(rows.map(row => recordingKey(row.condition))), missing = required.filter(one => !present.has(recordingKey(one.condition))).length;
+  const faulted = rows.filter(row => row.fault != null || row.reading === null).length;
+  const trials = new Map<string, number>();
+  for (const row of rows) {
+    if (row.fault != null || row.reading === null) continue;
+    const value = trialValue(reading.judge, row.reading, rise);
+    if (value !== null) trials.set(recordingKey(row.condition), value);
+  }
+  const whole = rows.length > 0 && missing === 0 && faulted === 0;
+  const coverage = missing || faulted ? `; ${required.length - missing} of ${required.length} cases, ${faulted} faulted` : "";
+  return { trials, value: whole && trials.size > 0 ? mean([...trials.values()]) : null,
+    figures: `${trials.size} of ${rows.length} trials counted, ${figuresOf(reading, rows.filter(row => row.fault == null && row.reading !== null))}${coverage}` };
+}
+
+/** What `reading`'s rows came to beside their value, in words. */
+function figuresOf(reading: Pick<Reading, "judge"> & { readonly hit?: HitFigure }, rows: readonly TableRow[]): string {
+  const readings = rows.map(row => row.reading as Record<string, unknown>);
+  switch (reading.judge) {
+    case "stand": {
+      const made = readings.filter(one => one.takeover !== null), times = made.map(one => timeToStand(one as unknown as FallReading)!);
+      return `${made.filter(one => one.stood && one.verified !== null).length} of ${made.length} falls stood, ${readings.length - made.length} not made, `
+        + `median ${medianOf(times)?.toFixed(1) ?? "-"} s, ${times.filter(time => time <= 10).length} within the owner's 10 s`;
     }
-    case "target": {
-      const falls = rows.map((row) => {
-        const fall = row.reading as unknown as Fall;
-        return { degrees: (row.condition as { degrees?: number }).degrees ?? 0, made: fall.takeover !== null, time: fall.stood && fall.verified !== null ? fall.verified : null };
-      });
-      const { seconds, gates } = targetGates(falls), stood = falls.filter((one) => one.made && one.time !== null);
-      const failed = (Object.keys(gates) as (keyof typeof gates)[]).filter((gate) => !gates[gate]);
-      return { state: failed.length === 0 ? "met" : "short", figures: `${stood.length} of ${falls.filter(one => one.made).length} actual falls stood, ${falls.filter(one => !one.made).length} not exercised, ${stood.filter((one) => one.time! <= STAND_WITHIN).length} within ${STAND_WITHIN} s, `
-        + `median ${seconds.toFixed(1)} s${failed.length ? `; short: ${failed.join(", ")}` : ""}` };
+    case "orders": return `${readings.filter(one => one.fell).length} fell, ${readings.filter(one => one.downFor != null).length} ended down`;
+    case "strike": {
+      const strikes = readings as unknown as (StrikeReading & { readonly hit: Hit | null })[], begun = strikes.filter(one => one.began !== null);
+      const onMark = begun.filter(one => (one.outcome === "landed" || one.outcome === "weak") && one.hit !== null);
+      const hit = reading.hit === undefined ? "" : `, the hit's ${medianOf(onMark.map(one => figureOf(reading.hit!, one.hit!)))?.toFixed(2) ?? "-"} ${reading.hit === "energy" ? "J" : "m/s"} on the mark (median; the person's ${personOf(reading.hit)})`;
+      return `${begun.length} begun, ${onMark.length} on the mark, ${strikes.filter(one => one.outcome === "landed").length} landed, `
+        + `${strikes.filter(one => one.down).length} fell, ${strikes.filter(one => one.outcome === "refused").length} refused${hit}`;
     }
-    case "run": {
-      const readings = rows.map((row) => row.reading as unknown as Run), missed = readings.filter((one) => !ran(one));
-      const kinds = [...new Set(missed.map((one) => one.kind))];
-      return { state: missed.length === 0 ? "met" : "short",
-        figures: `${readings.length - missed.length} of ${readings.length} met, ${readings.filter((one) => one.fell).length} fell${kinds.length ? `; short: ${kinds.join(", ")}` : ""}` };
+    case "cover": {
+      const covers = readings as unknown as CoverReading[], blows = covers.reduce((sum, one) => sum + one.blows, 0);
+      return `${covers.reduce((sum, one) => sum + one.shielded, 0)} of ${blows} blows met by the buckler first, `
+        + `${covers.reduce((sum, one) => sum + one.headTaken, 0).toFixed(1)} hp on the head, ${covers.filter(one => one.down).length} fell, ${covers.filter(one => one.attempted !== true).length} unattacked`;
     }
-    default: { const never: never = judge; throw new Error(`no judge ${String(never)}`); }
+    default: { const never: never = reading.judge; throw new Error(`no judge ${String(never)}`); }
   }
 }
+
+type Hit = { readonly speed: number | null; readonly energy: number; readonly closing: number; readonly held: { readonly value: number } | null };
 
 /**
  * What a hit gives the figure `figure` reads (`HitFigure`): a limb's speed over its last run in;
@@ -115,10 +129,7 @@ function figureOf(figure: HitFigure, hit: Hit): number {
   }
 }
 
-/** The unit of a hit's figure. */
-const unitOf = (figure: HitFigure): string => figure === "energy" ? "J" : "m/s";
-
-/** **The person's figure** for a hit's `figure` (`BAR`, `src/evaluation/strike/read.ts`): a scale beside a score, gating nothing. */
+/** **The person's figure** for a hit's `figure` (`BAR`, `src/evaluation/strike/read.ts`): a scale beside a value, deciding nothing. */
 export function personOf(figure: HitFigure): string {
   switch (figure) {
     case "fist": return `${BAR.speed.right} m/s rear hand, ${BAR.speed.left} m/s lead`;
@@ -131,49 +142,27 @@ export function personOf(figure: HitFigure): string {
 }
 
 /**
- * **`rows` scored as `reading` reads them**, null where there are none: a strike
- * rung's, the median over the trials begun of the hit's figure (`HitFigure`), a trial whose limb
- * met the mark (landed or weak) at its hit's, any other at 0, with the trials refused and fallen
- * beside; a walk's, the share of its trials not fallen, its forward pace beside; the Cover
- * drill's, the share of the blows that touch the body the buckler meets first.
+ * **A version against another**, trial by trial on the conditions both counted: the mean
+ * difference (`now` less `then`) with its 95 % paired bootstrap interval, and the verdict: `better`
+ * or `worse` where the interval leaves zero on that side (`better` the way `unit` says), else
+ * `within` the spread of the trials; `unpaired` where no condition counted in both.
  */
-export function scoreOf(reading: ScoreReading, rows: readonly TableRow[]): Score | null {
-  if (rows.length === 0) return null;
-  const faulty = rows.filter(row => row.reading === null || row.fault != null);
-  if (faulty.length) return { value: null,
-    unit: "hit" in reading ? unitOf(reading.hit) : reading.judge === "walk" ? "share not fallen" : "share of blows met by the buckler first",
-    figures: `${faulty.length} of ${rows.length} trials faulted` };
-  switch (reading.judge) {
-    case "landed": case "on-body": {
-      const readings = rows.map((row) => row.reading as unknown as Strike), begun = readings.filter((one) => one.began !== null);
-      const onMark = begun.filter((one) => (one.outcome === "landed" || one.outcome === "weak") && one.hit !== null);
-      const value = median(begun.map((one) => onMark.includes(one) ? figureOf(reading.hit, one.hit!) : 0)) ?? 0;
-      return { value, unit: unitOf(reading.hit), figures: `${begun.length} begun, ${onMark.length} on the mark, ${readings.filter((one) => one.outcome === "landed").length} landed, `
-        + `${readings.filter((one) => one.down).length} fell, ${readings.filter((one) => one.outcome === "refused").length} refused, ${rows.length} trials` };
-    }
-    case "walk": {
-      const readings = rows.map((row) => row.reading as unknown as Walk), fell = readings.filter((one) => one.fell).length;
-      const forward = readings.filter((one) => one.kind === "walk" && one.along !== null).map((one) => one.along!);
-      return { value: (readings.length - fell) / readings.length, unit: "share not fallen",
-        figures: `${fell} of ${readings.length} fell, walk along ${median(forward)?.toFixed(2) ?? "-"} of the pace asked (median)` };
-    }
-    case "buckler": {
-      const readings = rows.map((row) => row.reading as unknown as Cover), fell = readings.filter((one) => one.down).length;
-      const blows = readings.reduce((sum, one) => sum + one.blows, 0), shielded = readings.reduce((sum, one) => sum + one.shielded, 0);
-      const unreached = readings.filter(one => one.outcome === "unreached" || one.attempted === false).length;
-      const unknown = readings.filter(one => one.outcome !== "unreached" && one.attempted === undefined).length;
-      return { value: unreached || unknown ? null : blows > 0 ? shielded / blows : 0, unit: "share of blows met by the buckler first",
-        figures: `${shielded} of ${blows} blows, ${fell} fell, ${unreached} unreached, ${rows.length} trials${unknown ? `; ${unknown} attack attempts unrecorded` : ""}` };
-    }
-    default: { const never: never = reading; throw new Error(`no judge ${String((never as Reading).judge)}`); }
-  }
+export function compareValues(now: ReadonlyMap<string, number>, then: ReadonlyMap<string, number>, unit: ValueUnit):
+  { readonly verdict: "better" | "worse" | "within" | "unpaired"; readonly pairs: number; readonly difference: number | null; readonly low: number | null; readonly high: number | null } {
+  const differences = [...now].flatMap(([key, value]) => then.has(key) ? [value - then.get(key)!] : []);
+  const estimate = pairBootstrap(differences, mean);
+  if (estimate === null) return { verdict: "unpaired", pairs: 0, difference: null, low: null, high: null };
+  // The interval turned so that a gain is positive.
+  const [low, high] = unit.better === "higher" ? [estimate.low, estimate.high] : [-estimate.high, -estimate.low];
+  const verdict = low > 0 ? "better" : high < 0 ? "worse" : "within";
+  return { verdict, pairs: differences.length, difference: estimate.value, low: estimate.low, high: estimate.high };
 }
 
 /**
  * **A cell's baseline for one reading** (`assets/evaluations/<drill>/baselines.json`, a list of
  * these): its body and loadout, the reading's protocol and subject, and where its rows are: the
- * record's file, the subject's id in it and its version. Written once, when the cell's work
- * begins (`npm run evaluate -- table --baseline`), and never overwritten.
+ * record's file, the subject's id in it and its version. Written once, when the cell's work begins
+ * (`npm run evaluate -- table --baseline`), and never overwritten.
  */
 interface Baseline {
   readonly body: string;

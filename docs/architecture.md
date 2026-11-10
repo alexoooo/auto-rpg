@@ -647,13 +647,13 @@ target stands with its arms lowered (`drill-open`).
   or fail, its rungs its protocols (the strike's bar in `strike/read.ts`). Only the owner accepts a
   rung (`accepted.json`).
 - **The table** (`src/evaluation/table/`): Option Mind on every body by loadout by skill
-  (`tableCells`), judged from compatible records merged by case key: stand-up and the run met or short
-  (`verdictOf`), every other cell its score (`scoreOf`) against its baseline
-  (`assets/evaluations/<drill>/baselines.json`, `baselineOf`) and its best version, the person's
-  figure beside a strike's (`personOf`).
-  A met verdict requires all current protocol case keys and passing readings. Partial coverage
-  leaves work to play; faults and unreached fixtures remain explicit. A baseline retains every
-  record contributing its rows. Cover records whether its opponent attempted an attack.
+  (`tableCells`), valued from compatible records merged by case: each trial's value in the game's
+  terms (`trialValue`: a stand's seconds, a move's seconds lost against its orders, `orderTime`, a
+  blow's life traded a second, a cover's life lost), a fall priced at the body's time to stand;
+  a reading's value the mean over its whole protocol (`valueOf`); a cell against its baseline
+  (`assets/evaluations/<drill>/baselines.json`, `baselineOf`) and its best version, paired by
+  condition with a bootstrap interval (`compareValues`), the person's figure beside a strike's
+  (`personOf`). A baseline retains every record contributing its rows.
 - **Falls** (`fall.ts`): one body felled on one bed (`buildFall`), its stand verified
   (`STAND_CHECK`); a stand-up is read on the [owner's
   target](reference/rising.md#the-owners-target).

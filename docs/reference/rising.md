@@ -20,16 +20,17 @@ npm run evaluate -- rising-target [riser ...]
   character, refused on a body it cannot rise as holding the fall's loadout; or the game's Stand
   up (`game`, where none is named), `stand-up` with every technique, or a technique's name.
 - **The fresh falls** (`--protocol fresh`): the same bodies and loadouts shoved 11.25 degrees past
-  each direction (`FRESH_OFFSET`), read against the same gates. Nothing is tuned on them: they
+  each direction (`FRESH_OFFSET`), read the same way. Nothing is tuned on them: they
   show whether a gain is fitted to the target's falls.
 - **The timing**: from the riser's takeover (the body first down) to a stand verified by
   `STAND_CHECK` (`standCheck`), through landing, orientation and retries. A fall not stood counts
   at the cap.
-- **The bar**, on each body and loadout's sixteen falls (`targetGates`): every direction present
-  once and every fall produced; at least 15 within `STAND_WITHIN`, 10 s; every cardinal
-  direction within 10 s; a failure-inclusive median of at most 10 s. A riser meets the target where every body and loadout
-  meets its bar, on Balance 0 and Grit 0 (`risingReport`'s gates); the table reads each body and
-  loadout's alone (`stand-up`, [the table](the-table.md)).
+- **The value**, on each body and loadout's sixteen falls: the mean time to stand over the falls
+  made, a fall not stood at the cap (`timeToStand`), lower better; the table reads each body and
+  loadout's (`stand-up`, [the table](the-table.md)), and prices every other cell's falls by it.
+  The owner's 10 s a fall (`STAND_WITHIN`) is a scale reported beside it, deciding nothing.
+  `risingReport` states whether the rows are the target's conditions: every fall once, Balance 0
+  and Grit 0.
 - **Against people**: young adults rising from the floor at a comfortable rate take 1.4 to 2.6 s
   by starting position, healthy older adults 2.4 to 5.5 s (Alexander et al. 1997), and young
   adults asked for speed stand from prone in about 2 s

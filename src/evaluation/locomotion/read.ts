@@ -1,6 +1,10 @@
 import type { Reader } from "../evaluation.ts";
 import type { BuiltLone } from "../lone.ts";
 import { atan2, cos, sin } from "../../core/math/real.ts";
+import { Vector3 } from "../../core/math/vector.ts";
+import { massCentreToRef, massOf } from "../../core/bodies/read-motion.ts";
+import { uprightness } from "../../control/ground.ts";
+import { orderTime } from "../order-time.ts";
 import { AFTER, HOLD, RUN_UP, scriptOf, START, TURN_RATE, TURNING, WALK, type LocomotionCondition } from "./cases.ts";
 
 /**
@@ -13,7 +17,8 @@ import { AFTER, HOLD, RUN_UP, scriptOf, START, TURN_RATE, TURNING, WALK, type Lo
  * how far the way it went lagged the way asked at most, rad, over a turning run past its first
  * second (`trail`); its speed over the second before the stop, m/s (`speed`), and how long from
  * the stop it took to go slower than `HALTED` over `HALT_SPAN`, s (`halt`). Null where the trial
- * does not read it.
+ * does not read it. The seconds lost against its orders, and how long it had been down at the end
+ * (`lost`, `downFor`: `orderTime`).
  */
 export type LocomotionReading = {
   readonly kind: LocomotionCondition["kind"];
@@ -29,6 +34,8 @@ export type LocomotionReading = {
   readonly stopped: boolean;
   readonly moved: number;
   readonly seconds: number;
+  readonly lost: number;
+  readonly downFor: number | null;
 };
 
 /** The span of a walk read for its pace, s, ending as the stop is asked; and how far a stopped body's root moves over the last second at most, m. */
@@ -40,7 +47,9 @@ const HALTED = .15, HALT_SPAN = .25, TRAIL_SPAN = .5;
 /** The reader of `condition`'s trial: the root segment's ground point every step, read when the trial has run `AFTER` s past its last cue. */
 export function readLocomotion({ world, body }: BuiltLone, condition: LocomotionCondition): Reader<LocomotionReading> {
   const spec = body.built.spec, rootName = spec.segments.find((segment) => !spec.joints.some((joint) => joint.child === segment.name))!.name;
-  const root = body.built.segments.get(rootName)!.pose, hz = world.hz, { last } = scriptOf(condition);
+  const root = body.built.segments.get(rootName)!.pose, hz = world.hz, { cues, last } = scriptOf(condition);
+  const parts = [...body.built.segments.values()], mass = massOf(parts), upright = uprightness(body.built), orders = orderTime(cues, hz);
+  const centre = new Vector3(), velocity = new Vector3(), work = new Vector3();
   const end = Math.round((last + AFTER) * hz), path: number[] = [];
   let fellAt: number | null = null, steps = 0;
   const at = (seconds: number) => 2 * Math.min(path.length / 2 - 1, Math.max(0, Math.round(seconds * hz) - 1));
@@ -49,6 +58,8 @@ export function readLocomotion({ world, body }: BuiltLone, condition: Locomotion
       steps++;
       path.push(root.position.x, root.position.z);
       if (fellAt === null && body.body.down) fellAt = world.time;
+      massCentreToRef(parts, mass, centre, work, velocity);
+      orders.step(velocity, upright.fallen());
     },
     get ended() { return steps >= end; },
     reading() {
@@ -89,7 +100,7 @@ export function readLocomotion({ world, body }: BuiltLone, condition: Locomotion
         for (let step = Math.round(last * hz); step <= Math.round((ended - HALT_SPAN) * hz); step++)
           if (gap(step / hz, step / hz + HALT_SPAN) / HALT_SPAN < HALTED) { halt = step / hz - last; break; }
       }
-      return { kind: condition.kind, fell: fellAt !== null, fellAt, along, across, top, held, trail, speed, halt, stopped: standing && gap(ended - 1, ended) < STILL, moved: gap(last, ended), seconds: ended };
+      return { kind: condition.kind, fell: fellAt !== null, fellAt, along, across, top, held, trail, speed, halt, stopped: standing && gap(ended - 1, ended) < STILL, moved: gap(last, ended), seconds: ended, ...orders.reading() };
     },
   };
 }

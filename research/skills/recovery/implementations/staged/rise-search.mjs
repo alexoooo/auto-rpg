@@ -1,7 +1,8 @@
 import { isRefused } from "../../../../../src/core/refusal.ts";
 /**
  * Search one body's loadout-specific recovery settings with immutable technique overrides.
- * Each candidate's ground profiles are calibrated before its normal chooser is scored.
+ * Each candidate's ground profiles are calibrated before its normal chooser is scored, by its value:
+ * the mean time to stand over the falls made, a fall not stood at the cap, lower better.
  * Node core world, Rapier, 120 Hz, no assists. Fresh falls are reserved for confirmation.
  *
  * node research/skills/recovery/implementations/staged/rise-search.mjs --model workshop-fighter --loadout empty,club --generations 8 --lambda 8 --workers 8 --out .tmp/rise-search/best.json
@@ -16,7 +17,7 @@ import { parseArgs } from 'node:util';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { cmaSearch, workerPool } from '../../../../cma.mjs';
-import { risingJobs, targetGates } from '../../../../../src/evaluation/rising.ts';
+import { risingJobs } from '../../../../../src/evaluation/rising.ts';
 import { buildFall } from "../../../../../src/app/node/evaluation.ts";
 import { DEFAULT_ENGINE } from "../../../../../src/core/physics/engines.ts";
 import { stepUpTuning } from "../../../../../src/skills/recovery/implementations/staged/records.ts";
@@ -48,8 +49,7 @@ async function trial(job,mind) {
   try {
     while (!b.ended) {b.world.step(); b.afterStep();}
     const r=b.reading(), time=r.takeover===null?null:r.stood&&r.verified!==null?r.verified:16;
-    return {loadout:job.loadout,degrees:job.degrees,reading:r,time,
-      score:time===null?0:time<10?10+(10-time)/10:(16-time)/6};
+    return {loadout:job.loadout,degrees:job.degrees,reading:r,time};
   } finally {b.dispose();}
 }
 
@@ -60,10 +60,8 @@ async function candidate({jobs,profileJobs,offsets,tuning}) {
   const profiles=edgeProfiles(calibration.flatMap(row=>row.trials)).map(({label,...profile})=>profile);
   const mind={...template,predictions:{kind:'measured',edges:profiles}}, rows=[];
   for(const job of jobs) rows.push(await trial(job,mind));
-  const gates=offsets.map((offset,index)=>({offset,...targetGates(rows.slice(index*16,(index+1)*16).map(row=>({degrees:row.degrees,time:row.time,made:row.reading.takeover!==null})),offset)}));
-  const met=gates.every(group=>Object.values(group.gates).every(Boolean));
-  // Meeting every target gate outranks a faster record that remains short.
-  return {score:rows.reduce((sum,row)=>sum+row.score,0)/rows.length+(met?20:0),met,gates,
+  const made=rows.filter(row=>row.time!==null);
+  return {score:made.length?-made.reduce((sum,row)=>sum+row.time,0)/made.length:-Infinity,
     within:rows.filter(row=>row.time!==null&&row.time<10).length,rows,profiles,calibration};
 }
 
@@ -112,7 +110,7 @@ if(!isMainThread) {
   };
   try {
     const baseline=await score(base);
-    console.log(`calibrated baseline: ${baseline.within}/${jobs.length} under 10 s, gates ${baseline.met?'met':'short'}, score ${baseline.score.toFixed(4)}; ${((Date.now()-started)/1000).toFixed(1)} s`);
+    console.log(`calibrated baseline: ${baseline.within}/${jobs.length} under 10 s, mean ${(-baseline.score).toFixed(2)} s; ${((Date.now()-started)/1000).toFixed(1)} s`);
     let kept={tuning:base,...baseline};
     if(previous) {const reading=await score(previous.best.tuning);if(reading.score>kept.score)kept={tuning:previous.best.tuning,...reading};}
     const resume=previous?.checkpoint;
@@ -121,16 +119,16 @@ if(!isMainThread) {
       base,baseline,dimensions,offsets,profileOffsets,seconds:(Date.now()-started)/1000,log,best:kept,checkpoint},null,1));
     save(previous?.log??[],resume??null);
     let generationStarted=Date.now();
-    const result=await cmaSearch({n:dimensions.length,start,sigma:Number(values.sigma),lambda,generations:kept.met?0:generations,seed:13,resume,
+    const result=await cmaSearch({n:dimensions.length,start,sigma:Number(values.sigma),lambda,generations,seed:13,resume,
       score:unit=>score(decode(base,unit)),
       onGeneration(entry,search) {
         if(search.best.score>kept.score) kept={tuning:decode(base,search.best.u),...search.best.r};
         const now=Date.now(),seconds=(now-started)/1000,generationSeconds=(now-generationStarted)/1000;
         generationStarted=now;
         save(search.log,search.checkpoint);
-        console.log(`generation ${entry.g}: kept ${kept.within}/${jobs.length}, gates ${kept.met?'met':'short'}, score ${kept.score.toFixed(4)}; ${seconds.toFixed(0)} s`);
-        if(kept.met||seconds>=480||seconds+generationSeconds>600) return false;
+        console.log(`generation ${entry.g}: kept ${kept.within}/${jobs.length} under 10 s, mean ${(-kept.score).toFixed(2)} s; ${seconds.toFixed(0)} s`);
+        if(seconds>=480||seconds+generationSeconds>600) return false;
       }});
-    console.log(`finished: kept ${kept.within}/${jobs.length}, score ${kept.score.toFixed(4)}; ${result.log.length} generations`);
+    console.log(`finished: kept ${kept.within}/${jobs.length} under 10 s, mean ${(-kept.score).toFixed(2)} s; ${result.log.length} generations`);
   } finally {await pool.terminate();}
 }

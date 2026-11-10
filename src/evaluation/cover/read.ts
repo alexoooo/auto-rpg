@@ -43,6 +43,12 @@ export type CoverReading = {
   readonly seconds: number;
 };
 
+/**
+ * **A cover's value**, hit points lost over the trial, every touch of the opponent's counted, those
+ * while down among them. None for a trial in which the opponent attempted no attack. Lower is better.
+ */
+export const coverValue = (r: Pick<CoverReading, "attempted" | "taken">): number | null => r.attempted === true ? r.taken : null;
+
 /** How long after a touch a touch is the same blow's, s. */
 const BLOW_GAP = .3;
 

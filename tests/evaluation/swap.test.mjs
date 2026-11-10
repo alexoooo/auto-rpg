@@ -171,23 +171,22 @@ test("record admission and every keyed evidence reader refuse incomplete or conf
   assert.deepEqual(findCase([first], line.key), { record: first, line });
 });
 
-test("a table cell requires every protocol case and keeps faulted coverage failed", async () => {
-  const { verdictOf, scoreOf } = await import("../../src/evaluation/table/judge.ts");
+test("a table cell is valued only on every protocol case with none faulted", async () => {
+  const { valueOf } = await import("../../src/evaluation/table/judge.ts");
   const { indexRows } = await import("../../src/evaluation/record.ts");
   const conditions = EVALUATIONS.locomotion.protocols.run.conditions.filter(condition => condition.model === "workshop-fighter"
     && condition.loadout.left === "empty" && condition.loadout.right === "empty");
   assert.ok(conditions.some(condition => condition.kind === "run-held") && conditions.some(condition => condition.kind === "run-turn")
     && conditions.some(condition => condition.kind === "run-stop"), "the fixture reaches every run kind");
-  const rows = conditions.map((condition, k) => ({ key: `case-${k}`, condition, reading: { kind: condition.kind, fell: false,
-    held: 3, trail: 0, speed: 3, halt: 0 }, digest: "trace", played: 1, fault: null }));
-  assert.equal(verdictOf("run", [rows[0]], rows).state, "short", "one successful row cannot satisfy the cell");
+  const rows = conditions.map((condition, k) => ({ key: `case-${k}`, condition, reading: { kind: condition.kind, fell: false, lost: 1, downFor: null },
+    digest: "trace", played: 1, fault: null }));
+  assert.equal(valueOf({ judge: "orders" }, [rows[0]], rows, 8).value, null, "one row cannot value the cell");
   const merged = [...indexRows([{ name: "a", rows: rows.slice(0, 1) }, { name: "b", rows: rows.slice(1) }]).values()].map(({ row }) => row);
-  assert.equal(verdictOf("run", merged, rows).state, "met", "compatible partial evidence completes the required coverage");
+  assert.equal(valueOf({ judge: "orders" }, merged, rows, 8).value, 1, "compatible partial evidence completes the required coverage");
   const faulted = [{ ...rows[0], reading: null, digest: null, played: null, fault: { kind: "error", message: "case failed" } }, ...rows.slice(1)];
-  assert.deepEqual(verdictOf("run", faulted, rows), { state: "short", figures: `${rows.length} of ${rows.length} cases, 0 missing, 1 faulted` });
-  assert.deepEqual(scoreOf({ judge: "landed", hit: "fist" }, faulted), { value: null, unit: "m/s", figures: `1 of ${rows.length} trials faulted` });
-  assert.deepEqual(scoreOf({ judge: "buckler" }, [{ condition: {}, reading: { blows: 0, shielded: 0, down: false, outcome: "unreached", attempted: false } }]),
-    { value: null, unit: "share of blows met by the buckler first", figures: "0 of 0 blows, 0 fell, 1 unreached, 1 trials" });
+  const valued = valueOf({ judge: "orders" }, faulted, rows, 8);
+  assert.deepEqual({ value: valued.value, trials: valued.trials.size, figures: valued.figures },
+    { value: null, trials: rows.length - 1, figures: `${rows.length - 1} of ${rows.length} trials counted, 0 fell, 0 ended down; ${rows.length} of ${rows.length} cases, 1 faulted` });
 });
 
 

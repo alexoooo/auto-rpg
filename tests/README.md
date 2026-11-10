@@ -205,7 +205,7 @@ completed bouts do not exercise:
 | --- | --- |
 | [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `custom subjects retain execution scope through normalization, recording and reconstruction` | Custom subject adapters lost body restrictions and attributes, while code identity skipped standalone strike and technique implementations. |
 | [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `record admission and every keyed evidence reader refuse incomplete or conflicting cases` | Incomplete rows were admitted and history, Ratings and reels selected conflicting first occurrences without agreement. |
-| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `a table cell requires every protocol case and keeps faulted coverage failed` | One passing row satisfied a full run cell; null fault readings were dereferenced. |
+| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `a table cell is valued only on every protocol case with none faulted` | One passing row satisfied a full run cell; null fault readings were dereferenced. |
 | [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `Cover requires an attempted attack before untouched can pass` | An opponent that never attacked produced a passing untouched result. |
 | [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `resource compilation separates segment names from services and uses physical bearing chains` | Valid segment names collided with logical services, and a bearing end without an effector lost its support channels. |
 | [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `Option skills assemble with physical feet alone and an effector named assist` | Stock physical feet without optional actuators and an opaque renamed hand failed before their skill assembly could stand. |
@@ -222,6 +222,6 @@ completed bouts do not exercise:
 
 | Case | Concrete justification |
 | --- | --- |
-| [evaluation/rising-target.test.mjs](evaluation/rising-target.test.mjs) | The saved Warrior club-and-buckler fresh fixture contains an unproduced fall counted against recovery by the gate and median; verify exclusion and explicit coverage without admitting an empty or incomplete suite. The same observed shove, held once, must produce a fall with escalating retries. Drills do not establish fixture coverage or report arithmetic. |
+| [evaluation/rising-target.test.mjs](evaluation/rising-target.test.mjs) | The saved Warrior club-and-buckler fresh fixture contains an unproduced fall that was counted against recovery; verify its exclusion from the counts and the mean time to stand. The same observed shove, held once, must produce a fall with escalating retries. Drills do not establish fixture coverage or report arithmetic. |
 
 | [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `idle foot placement survives its own weight-shift tracking error and yields to a catch` | A wide placed Warrior cancels its own weight shift when tracking lags, repeating planted-foot attempts. Preserve the lift request through that observed lag and release it for a real catch; a recovery drill does not isolate cancellation ownership. |

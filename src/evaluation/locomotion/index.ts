@@ -23,6 +23,7 @@ const only = <T>(kinds: readonly LocomotionReading["kind"][], of: (r: Locomotion
 
 /** The drill's figures, each of the kinds of trial it reads. */
 export const LOCOMOTION_FIGURES: readonly Figure<LocomotionReading>[] = [
+  { name: "time lost", unit: "s against the orders (`orderTime`), the mean", kind: "mean", better: "lower", of: (r) => r.lost ?? null },
   { name: "held", unit: "share of trials on its feet throughout", kind: "rate", better: "higher", of: (r) => !r.fell },
   { name: "on pace", unit: "share of walks 0.8 to 1.25 of the pace along, under a quarter across", kind: "rate", better: "higher", of: only(["walk"], onPace) },
   { name: "stopped", unit: "share of walks, runs and turns standing still at the end", kind: "rate", better: "higher", of: only(["walk", "run", "turn"], (r) => r.stopped) },

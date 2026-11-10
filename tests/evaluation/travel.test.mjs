@@ -30,11 +30,14 @@ test("travel reads attached toe support for entry, stepping and quiet standing",
     };
     const expected = { met: false, short: ["entry not reached", "held speed", "stop entry not reached"], firstLeg: "left",
       fromRest: true, reachedAt: null, entryMade: false, entryHeld: null, held: 0, turnedAt: null,
-      corridor: 0, lag: null, facingError: null, route: null, stopEntered: false, stoppedAt: 0, fellAt: null, seconds: protocol.end };
-    assert.deepEqual(read(), expected);
+      corridor: 0, lag: null, facingError: null, route: null, stopEntered: false, stoppedAt: 0, fellAt: null, seconds: protocol.end, downFor: null };
+    const still = read();
+    // A body that never moves loses the whole move it was ordered, and nothing standing still under the stop.
+    assert.ok(Math.abs(still.lost - (protocol.stop - TRAVEL.start)) < 1e-9, `lost ${still.lost} s against a ${protocol.stop - TRAVEL.start} s move`);
+    assert.deepEqual(still, { ...expected, lost: still.lost });
     // Detached toes can still contact the floor but cannot support their body's standing or prove its first step.
     stand.built.joints.get("mtp.left").joint.release();
     stand.built.joints.get("mtp.right").joint.release();
-    assert.deepEqual(read(), { ...expected, short: [...expected.short, "stop and settle"], firstLeg: null, fromRest: false, stoppedAt: null });
+    assert.deepEqual(read(), { ...expected, short: [...expected.short, "stop and settle"], firstLeg: null, fromRest: false, stoppedAt: null, lost: still.lost });
   } finally { stand.dispose(); }
 });
