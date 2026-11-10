@@ -1,0 +1,677 @@
+[
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,empty",
+    "protocol": "still",
+    "subject": "option/straight-punch",
+    "record": "2026-11-10T210601-91ab9291-2bb506ef.jsonl",
+    "id": "option/straight-punch",
+    "version": "414f1e621216fd26"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,empty",
+    "protocol": "still",
+    "subject": "option/straight-punch",
+    "record": "2026-11-10T210601-91ab9291-2bb506ef.jsonl",
+    "id": "option/straight-punch",
+    "version": "414f1e621216fd26"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,empty",
+    "protocol": "walk",
+    "subject": "option/straight-punch",
+    "record": "2026-11-10T210758-34e0ed05-a9523ca5.jsonl",
+    "id": "option/straight-punch",
+    "version": "a2867c21b306288f"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,empty",
+    "protocol": "fight",
+    "subject": "option/straight-punch",
+    "record": "2026-11-10T210839-34e0ed05-e8a4c99f.jsonl",
+    "id": "option/straight-punch",
+    "version": "970f56454339501f"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,empty",
+    "protocol": "stomping",
+    "subject": "option/stomp",
+    "record": "2026-11-10T210919-34e0ed05-a496f544.jsonl",
+    "id": "option/stomp",
+    "version": "2d4625001ad68e83"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,club",
+    "protocol": "still",
+    "subject": "option/straight-punch@empty,club",
+    "record": "2026-11-10T211121-b8f18a4c-ae37aec3.jsonl",
+    "id": "option/straight-punch@empty,club",
+    "version": "9fbe8df0a858a0a8"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,club",
+    "protocol": "still",
+    "subject": "option/straight-punch@empty,club",
+    "record": "2026-11-10T211121-b8f18a4c-ae37aec3.jsonl",
+    "id": "option/straight-punch@empty,club",
+    "version": "9fbe8df0a858a0a8"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,club",
+    "protocol": "walk",
+    "subject": "option/straight-punch@empty,club",
+    "record": "2026-11-10T211319-b7a7bad7-1825c896.jsonl",
+    "id": "option/straight-punch@empty,club",
+    "version": "2aac1d97b41584d6"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,club",
+    "protocol": "fight",
+    "subject": "option/straight-punch@empty,club",
+    "record": "2026-11-10T211402-b7a7bad7-6dc66aae.jsonl",
+    "id": "option/straight-punch@empty,club",
+    "version": "d44b35d32c918fdb"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,club",
+    "protocol": "stomping",
+    "subject": "option/stomp@empty,club",
+    "record": "2026-11-10T211442-b7a7bad7-cb58dc28.jsonl",
+    "id": "option/stomp@empty,club",
+    "version": "59886e04d282b90d"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,club",
+    "protocol": "bonk",
+    "subject": "option/bonk@empty,club",
+    "record": "2026-11-10T211517-b7a7bad7-2427d329.jsonl",
+    "id": "option/bonk@empty,club",
+    "version": "fa3b6dd41cbfbf9b"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,club",
+    "protocol": "stomping",
+    "subject": "option/stomp@buckler,club",
+    "record": "2026-11-10T211558-b7a7bad7-e00001ae.jsonl",
+    "id": "option/stomp@buckler,club",
+    "version": "f6029d1f127eaae1"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,club",
+    "protocol": "bonk",
+    "subject": "option/bonk@buckler,club",
+    "record": "2026-11-10T211634-b7a7bad7-72b3fa47.jsonl",
+    "id": "option/bonk@buckler,club",
+    "version": "9769112b98ec9129"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "still",
+    "subject": "option/straight-punch@empty,sword",
+    "record": "2026-11-10T211939-b7a7bad7-7de50e00.jsonl",
+    "id": "option/straight-punch@empty,sword",
+    "version": "abfd3f1fe8adbf1c"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "still",
+    "subject": "option/straight-punch@empty,sword",
+    "record": "2026-11-10T211939-b7a7bad7-7de50e00.jsonl",
+    "id": "option/straight-punch@empty,sword",
+    "version": "abfd3f1fe8adbf1c"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "walk",
+    "subject": "option/straight-punch@empty,sword",
+    "record": "2026-11-10T212144-b7a7bad7-515ca7b1.jsonl",
+    "id": "option/straight-punch@empty,sword",
+    "version": "f2b01c3a3b018397"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "fight",
+    "subject": "option/straight-punch@empty,sword",
+    "record": "2026-11-10T212229-b7a7bad7-873794ff.jsonl",
+    "id": "option/straight-punch@empty,sword",
+    "version": "c0af0ad842f85957"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "stomping",
+    "subject": "option/stomp@empty,sword",
+    "record": "2026-11-10T212310-b7a7bad7-456fb082.jsonl",
+    "id": "option/stomp@empty,sword",
+    "version": "b98bed7d363525a1"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "still",
+    "subject": "option/cut@empty,sword",
+    "record": "2026-11-10T212512-b7a7bad7-1ba860df.jsonl",
+    "id": "option/cut@empty,sword",
+    "version": "63c50f2dc80db075"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "still",
+    "subject": "option/cut@empty,sword",
+    "record": "2026-11-10T212512-b7a7bad7-1ba860df.jsonl",
+    "id": "option/cut@empty,sword",
+    "version": "63c50f2dc80db075"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "walk",
+    "subject": "option/cut@empty,sword",
+    "record": "2026-11-10T212711-b7a7bad7-6e0704eb.jsonl",
+    "id": "option/cut@empty,sword",
+    "version": "91d60d5fe3b835d9"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "fight",
+    "subject": "option/cut@empty,sword",
+    "record": "2026-11-10T212756-b7a7bad7-9c822220.jsonl",
+    "id": "option/cut@empty,sword",
+    "version": "1affdf4a1854a1d6"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "still",
+    "subject": "option/sword-thrust@empty,sword",
+    "record": "2026-11-10T212958-b7a7bad7-12244ebc.jsonl",
+    "id": "option/sword-thrust@empty,sword",
+    "version": "272aa51c1a42fc00"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "still",
+    "subject": "option/sword-thrust@empty,sword",
+    "record": "2026-11-10T212958-b7a7bad7-12244ebc.jsonl",
+    "id": "option/sword-thrust@empty,sword",
+    "version": "272aa51c1a42fc00"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "walk",
+    "subject": "option/sword-thrust@empty,sword",
+    "record": "2026-11-10T213156-b7a7bad7-1451bc8f.jsonl",
+    "id": "option/sword-thrust@empty,sword",
+    "version": "01023a67e3c8fec2"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "fight",
+    "subject": "option/sword-thrust@empty,sword",
+    "record": "2026-11-10T213241-b7a7bad7-ccdcdeed.jsonl",
+    "id": "option/sword-thrust@empty,sword",
+    "version": "4cc00278af34f944"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,sword",
+    "protocol": "stomping",
+    "subject": "option/stomp@buckler,sword",
+    "record": "2026-11-10T213322-b7a7bad7-83282e96.jsonl",
+    "id": "option/stomp@buckler,sword",
+    "version": "b4a48934c04f4193"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,sword",
+    "protocol": "still",
+    "subject": "option/cut@buckler,sword",
+    "record": "2026-11-10T213528-b7a7bad7-a227db67.jsonl",
+    "id": "option/cut@buckler,sword",
+    "version": "3abc7839c8f58864"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "buckler,sword",
+    "protocol": "still",
+    "subject": "option/cut@buckler,sword",
+    "record": "2026-11-10T213528-b7a7bad7-a227db67.jsonl",
+    "id": "option/cut@buckler,sword",
+    "version": "3abc7839c8f58864"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,sword",
+    "protocol": "walk",
+    "subject": "option/cut@buckler,sword",
+    "record": "2026-11-10T213729-7f209ec3-1d24f032.jsonl",
+    "id": "option/cut@buckler,sword",
+    "version": "a2358f9694fa16a9"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,sword",
+    "protocol": "fight",
+    "subject": "option/cut@buckler,sword",
+    "record": "2026-11-10T213809-7f209ec3-380c2780.jsonl",
+    "id": "option/cut@buckler,sword",
+    "version": "1bf0bfbfbfb67bb4"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,sword",
+    "protocol": "still",
+    "subject": "option/sword-thrust@buckler,sword",
+    "record": "2026-11-10T214012-7f209ec3-47694abd.jsonl",
+    "id": "option/sword-thrust@buckler,sword",
+    "version": "8bbd9aeb0a47f18f"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "buckler,sword",
+    "protocol": "still",
+    "subject": "option/sword-thrust@buckler,sword",
+    "record": "2026-11-10T214012-7f209ec3-47694abd.jsonl",
+    "id": "option/sword-thrust@buckler,sword",
+    "version": "8bbd9aeb0a47f18f"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,sword",
+    "protocol": "walk",
+    "subject": "option/sword-thrust@buckler,sword",
+    "record": "2026-11-10T214208-7f209ec3-6939ab14.jsonl",
+    "id": "option/sword-thrust@buckler,sword",
+    "version": "cd1e446df921fd81"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,sword",
+    "protocol": "fight",
+    "subject": "option/sword-thrust@buckler,sword",
+    "record": "2026-11-10T214247-7f209ec3-b9aed7d5.jsonl",
+    "id": "option/sword-thrust@buckler,sword",
+    "version": "49496646502e67a8"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,empty",
+    "protocol": "walk-bodies",
+    "subject": "option/straight-punch",
+    "record": "2026-11-10T214743-7f209ec3-62ab44f8.jsonl",
+    "id": "option/straight-punch",
+    "version": "137ce4fc737ac295"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,empty",
+    "protocol": "walk-bodies",
+    "subject": "option/straight-punch",
+    "record": "2026-11-10T214743-7f209ec3-62ab44f8.jsonl",
+    "id": "option/straight-punch",
+    "version": "137ce4fc737ac295"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,empty",
+    "protocol": "fight-bodies",
+    "subject": "option/straight-punch",
+    "record": "2026-11-10T214912-7f209ec3-973b5f80.jsonl",
+    "id": "option/straight-punch",
+    "version": "3da784b7514e7e65"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,empty",
+    "protocol": "fight-bodies",
+    "subject": "option/straight-punch",
+    "record": "2026-11-10T214912-7f209ec3-973b5f80.jsonl",
+    "id": "option/straight-punch",
+    "version": "3da784b7514e7e65"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,empty",
+    "protocol": "stomping-bodies",
+    "subject": "option/stomp",
+    "record": "2026-11-10T215013-7f209ec3-3eca32ed.jsonl",
+    "id": "option/stomp",
+    "version": "26f5df58bac5b22c"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,club",
+    "protocol": "walk-bodies",
+    "subject": "option/straight-punch@empty,club",
+    "record": "2026-11-10T215333-7f209ec3-fc8aa386.jsonl",
+    "id": "option/straight-punch@empty,club",
+    "version": "bf040d11f53c89bd"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,club",
+    "protocol": "walk-bodies",
+    "subject": "option/straight-punch@empty,club",
+    "record": "2026-11-10T215333-7f209ec3-fc8aa386.jsonl",
+    "id": "option/straight-punch@empty,club",
+    "version": "bf040d11f53c89bd"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,club",
+    "protocol": "fight-bodies",
+    "subject": "option/straight-punch@empty,club",
+    "record": "2026-11-10T215454-7f209ec3-7c771587.jsonl",
+    "id": "option/straight-punch@empty,club",
+    "version": "022210e8df718073"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,club",
+    "protocol": "fight-bodies",
+    "subject": "option/straight-punch@empty,club",
+    "record": "2026-11-10T215454-7f209ec3-7c771587.jsonl",
+    "id": "option/straight-punch@empty,club",
+    "version": "022210e8df718073"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,club",
+    "protocol": "stomping-bodies",
+    "subject": "option/stomp@empty,club",
+    "record": "2026-11-10T215555-7f209ec3-169e57db.jsonl",
+    "id": "option/stomp@empty,club",
+    "version": "d9fdd35d4da42763"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "buckler,club",
+    "protocol": "stomping-bodies",
+    "subject": "option/stomp@buckler,club",
+    "record": "2026-11-10T215653-7f209ec3-f467581c.jsonl",
+    "id": "option/stomp@buckler,club",
+    "version": "1d96c5ae358dd8b6"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "walk-bodies",
+    "subject": "option/straight-punch@empty,sword",
+    "record": "2026-11-10T220008-7f209ec3-c091ebcf.jsonl",
+    "id": "option/straight-punch@empty,sword",
+    "version": "34590c05a8169bb1"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,sword",
+    "protocol": "walk-bodies",
+    "subject": "option/straight-punch@empty,sword",
+    "record": "2026-11-10T220008-7f209ec3-c091ebcf.jsonl",
+    "id": "option/straight-punch@empty,sword",
+    "version": "34590c05a8169bb1"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "fight-bodies",
+    "subject": "option/straight-punch@empty,sword",
+    "record": "2026-11-10T220133-6f8892b8-b551f4a4.jsonl",
+    "id": "option/straight-punch@empty,sword",
+    "version": "73d73409096d8581"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,sword",
+    "protocol": "fight-bodies",
+    "subject": "option/straight-punch@empty,sword",
+    "record": "2026-11-10T220133-6f8892b8-b551f4a4.jsonl",
+    "id": "option/straight-punch@empty,sword",
+    "version": "73d73409096d8581"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "stomping-bodies",
+    "subject": "option/stomp@empty,sword",
+    "record": "2026-11-10T220233-6f8892b8-0c612eb0.jsonl",
+    "id": "option/stomp@empty,sword",
+    "version": "c923472e89dab971"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "walk-bodies",
+    "subject": "option/cut@empty,sword",
+    "record": "2026-11-10T220600-6f8892b8-6fb7253d.jsonl",
+    "id": "option/cut@empty,sword",
+    "version": "8c400a04a015980a"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,sword",
+    "protocol": "walk-bodies",
+    "subject": "option/cut@empty,sword",
+    "record": "2026-11-10T220600-6f8892b8-6fb7253d.jsonl",
+    "id": "option/cut@empty,sword",
+    "version": "8c400a04a015980a"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "fight-bodies",
+    "subject": "option/cut@empty,sword",
+    "record": "2026-11-10T220723-6f8892b8-732a83f4.jsonl",
+    "id": "option/cut@empty,sword",
+    "version": "cfa8e2a584ee98f4"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,sword",
+    "protocol": "fight-bodies",
+    "subject": "option/cut@empty,sword",
+    "record": "2026-11-10T220723-6f8892b8-732a83f4.jsonl",
+    "id": "option/cut@empty,sword",
+    "version": "cfa8e2a584ee98f4"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "walk-bodies",
+    "subject": "option/sword-thrust@empty,sword",
+    "record": "2026-11-10T221039-6f8892b8-2971518b.jsonl",
+    "id": "option/sword-thrust@empty,sword",
+    "version": "7e6f1db4435c7a7a"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,sword",
+    "protocol": "walk-bodies",
+    "subject": "option/sword-thrust@empty,sword",
+    "record": "2026-11-10T221039-6f8892b8-2971518b.jsonl",
+    "id": "option/sword-thrust@empty,sword",
+    "version": "7e6f1db4435c7a7a"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "fight-bodies",
+    "subject": "option/sword-thrust@empty,sword",
+    "record": "2026-11-10T221235-6f8892b8-f58b296d.jsonl",
+    "id": "option/sword-thrust@empty,sword",
+    "version": "d86d8f819e04ede1"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,sword",
+    "protocol": "fight-bodies",
+    "subject": "option/sword-thrust@empty,sword",
+    "record": "2026-11-10T221235-6f8892b8-f58b296d.jsonl",
+    "id": "option/sword-thrust@empty,sword",
+    "version": "d86d8f819e04ede1"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "buckler,sword",
+    "protocol": "stomping-bodies",
+    "subject": "option/stomp@buckler,sword",
+    "record": "2026-11-10T221341-6f8892b8-eedb1323.jsonl",
+    "id": "option/stomp@buckler,sword",
+    "version": "112c999d4a6a4e6a"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "buckler,sword",
+    "protocol": "walk-bodies",
+    "subject": "option/cut@buckler,sword",
+    "record": "2026-11-10T221648-6f8892b8-26072927.jsonl",
+    "id": "option/cut@buckler,sword",
+    "version": "82b6c10b09f631e5"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "buckler,sword",
+    "protocol": "walk-bodies",
+    "subject": "option/cut@buckler,sword",
+    "record": "2026-11-10T221648-6f8892b8-26072927.jsonl",
+    "id": "option/cut@buckler,sword",
+    "version": "82b6c10b09f631e5"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "buckler,sword",
+    "protocol": "fight-bodies",
+    "subject": "option/cut@buckler,sword",
+    "record": "2026-11-10T221810-6f8892b8-44f7372e.jsonl",
+    "id": "option/cut@buckler,sword",
+    "version": "1db084ab221dd350"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "buckler,sword",
+    "protocol": "fight-bodies",
+    "subject": "option/cut@buckler,sword",
+    "record": "2026-11-10T221810-6f8892b8-44f7372e.jsonl",
+    "id": "option/cut@buckler,sword",
+    "version": "1db084ab221dd350"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "buckler,sword",
+    "protocol": "walk-bodies",
+    "subject": "option/sword-thrust@buckler,sword",
+    "record": "2026-11-10T222119-6f8892b8-9c8d467e.jsonl",
+    "id": "option/sword-thrust@buckler,sword",
+    "version": "0ec800b4f888f6a6"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "buckler,sword",
+    "protocol": "walk-bodies",
+    "subject": "option/sword-thrust@buckler,sword",
+    "record": "2026-11-10T222119-6f8892b8-9c8d467e.jsonl",
+    "id": "option/sword-thrust@buckler,sword",
+    "version": "0ec800b4f888f6a6"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "buckler,sword",
+    "protocol": "fight-bodies",
+    "subject": "option/sword-thrust@buckler,sword",
+    "record": "2026-11-10T222245-6f8892b8-908d8c1f.jsonl",
+    "id": "option/sword-thrust@buckler,sword",
+    "version": "5f1c8399432d6db2"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "buckler,sword",
+    "protocol": "fight-bodies",
+    "subject": "option/sword-thrust@buckler,sword",
+    "record": "2026-11-10T222245-6f8892b8-908d8c1f.jsonl",
+    "id": "option/sword-thrust@buckler,sword",
+    "version": "5f1c8399432d6db2"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,empty",
+    "protocol": "still-bodies",
+    "subject": "option/straight-punch",
+    "record": "2026-11-10T222405-6f8892b8-83b48203.jsonl",
+    "id": "option/straight-punch",
+    "version": "c1b370fad3936e00"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,club",
+    "protocol": "still-bodies",
+    "subject": "option/straight-punch@empty,club",
+    "record": "2026-11-10T222522-6f8892b8-253c402b.jsonl",
+    "id": "option/straight-punch@empty,club",
+    "version": "089efae19f185526"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,sword",
+    "protocol": "still-bodies",
+    "subject": "option/straight-punch@empty,sword",
+    "record": "2026-11-10T222641-6f8892b8-af71e95e.jsonl",
+    "id": "option/straight-punch@empty,sword",
+    "version": "dafe5f39afcbd188"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,sword",
+    "protocol": "still-bodies",
+    "subject": "option/cut@empty,sword",
+    "record": "2026-11-10T222758-6f8892b8-c652abf2.jsonl",
+    "id": "option/cut@empty,sword",
+    "version": "e49bfba98cba970f"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,sword",
+    "protocol": "still-bodies",
+    "subject": "option/sword-thrust@empty,sword",
+    "record": "2026-11-10T222916-6f8892b8-c5635b34.jsonl",
+    "id": "option/sword-thrust@empty,sword",
+    "version": "b54d312677e7d884"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "buckler,sword",
+    "protocol": "still-bodies",
+    "subject": "option/cut@buckler,sword",
+    "record": "2026-11-10T223036-6f8892b8-b64890c6.jsonl",
+    "id": "option/cut@buckler,sword",
+    "version": "db6f716e5c5079a0"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "buckler,sword",
+    "protocol": "still-bodies",
+    "subject": "option/sword-thrust@buckler,sword",
+    "record": "2026-11-10T223156-6f8892b8-bfcd2dd6.jsonl",
+    "id": "option/sword-thrust@buckler,sword",
+    "version": "f098bdae526faa25"
+  }
+]

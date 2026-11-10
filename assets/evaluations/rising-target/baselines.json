@@ -1,0 +1,137 @@
+[
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,empty",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,club",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,club",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,sword",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,empty",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,club",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "buckler,club",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "empty,sword",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "workshop-rogue",
+    "loadout": "buckler,sword",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,empty",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,club",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "buckler,club",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "empty,sword",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  },
+  {
+    "body": "crypt-skeleton",
+    "loadout": "buckler,sword",
+    "protocol": "standard",
+    "subject": "option",
+    "record": "2026-11-10T205128-91ab9291-9465db4d.jsonl",
+    "id": "option",
+    "version": "fbfbec7f25b316f3"
+  }
+]

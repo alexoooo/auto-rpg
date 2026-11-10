@@ -1,0 +1,67 @@
+[
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,empty",
+    "protocol": "confirmation",
+    "subject": "option",
+    "record": "2026-11-10T223321-6f8892b8-ae666b25.jsonl",
+    "records": [
+      "2026-11-10T210345-91ab9291-fabd29f4.jsonl",
+      "2026-11-10T223321-6f8892b8-ae666b25.jsonl"
+    ],
+    "id": "option",
+    "version": "c410aa2b26f06d3e"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,club",
+    "protocol": "confirmation",
+    "subject": "option",
+    "record": "2026-11-10T223321-6f8892b8-ae666b25.jsonl",
+    "records": [
+      "2026-11-10T210345-91ab9291-fabd29f4.jsonl",
+      "2026-11-10T223321-6f8892b8-ae666b25.jsonl"
+    ],
+    "id": "option",
+    "version": "c410aa2b26f06d3e"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,club",
+    "protocol": "confirmation",
+    "subject": "option",
+    "record": "2026-11-10T223321-6f8892b8-ae666b25.jsonl",
+    "records": [
+      "2026-11-10T210345-91ab9291-fabd29f4.jsonl",
+      "2026-11-10T223321-6f8892b8-ae666b25.jsonl"
+    ],
+    "id": "option",
+    "version": "c410aa2b26f06d3e"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "empty,sword",
+    "protocol": "confirmation",
+    "subject": "option",
+    "record": "2026-11-10T223321-6f8892b8-ae666b25.jsonl",
+    "records": [
+      "2026-11-10T210345-91ab9291-fabd29f4.jsonl",
+      "2026-11-10T223321-6f8892b8-ae666b25.jsonl"
+    ],
+    "id": "option",
+    "version": "c410aa2b26f06d3e"
+  },
+  {
+    "body": "workshop-fighter",
+    "loadout": "buckler,sword",
+    "protocol": "confirmation",
+    "subject": "option",
+    "record": "2026-11-10T223321-6f8892b8-ae666b25.jsonl",
+    "records": [
+      "2026-11-10T210345-91ab9291-fabd29f4.jsonl",
+      "2026-11-10T223321-6f8892b8-ae666b25.jsonl"
+    ],
+    "id": "option",
+    "version": "c410aa2b26f06d3e"
+  }
+]
