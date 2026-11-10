@@ -1,7 +1,7 @@
 import type { GaitName } from "../../skills/framework/skill.ts";
 import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import { heldPace } from "../../control/stance/stance-envelope.ts";
+import { heldPace, steeredPace } from "../../control/stance/stance-envelope.ts";
 import { legSeconds } from "../../skills/locomotion/travel.ts";
 import type { GroundPoint } from "../../skills/framework/movement.ts";
 import { keepOut } from "../../skills/locomotion/navigation/clear-step.ts";
@@ -53,9 +53,13 @@ export function walker(_spec: BodySpec) {
    * speed the legs are asked all along it (`legSeconds`, the speed rule), from the speed the body
    * goes (`velocity`), facing `face` where given and else the way each leg goes, under the orders'
    * ceiling; at that ceiling where the legs have no such gait. What an option prices a walk by.
+   * Facing the way each leg goes, the body steers as it walks, so a gait is priced no faster than
+   * it can steer (`steeredPace`). A walk that cannot turn at its top speed slows itself to a speed
+   * it can turn at.
    */
   const seconds = (now: Situation, gait: GaitName, way: readonly GroundPoint[], face: number | null): number[] => {
-    const limits = now.sight.limitsOf(gait), where = now.where, v = now.velocity, most = ceiling(now);
+    const limits = now.sight.limitsOf(gait), where = now.where, v = now.velocity, envelope = limits?.envelope;
+    const most = face === null && envelope ? Math.min(ceiling(now), steeredPace(envelope, heldPace(envelope, 1, 0))) : ceiling(now);
     if (!limits) {
       let at: GroundPoint = where;
       return way.map((point) => { const length = hypot(point.x - at.x, point.z - at.z); at = point; return length > 0 ? length / most : 0; });

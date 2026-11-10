@@ -4,7 +4,7 @@ import { supportHeight } from "../../control/support-reference.ts";
 import { Quaternion, Vector3 } from "../../core/math/vector.ts";
 
 import type { BodyView } from "../../control/body.ts";
-import { fastestTurning, heldPace, turnAt, type StanceEnvelope } from "../../control/stance/stance-envelope.ts";
+import { heldPace, steeredPace, turnAt, type StanceEnvelope } from "../../control/stance/stance-envelope.ts";
 import type { BearingEnd } from "../../core/bodies/spec/body.ts";
 import { STANCE_GAIT, type GaitTuning } from "../../control/stance/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../../core/math/real.ts";
@@ -196,7 +196,7 @@ export const stanceOf = (drive: LegsDrive): StanceGoal | null => drive.kind === 
  *   (`STANCE_STOPPING`), so a body braking from a faster walk turns as that walk does. The
  *   envelope's turns were measured from the walk's setting off as well as under way, at the pace
  *   asked. A heading still to turn at a pace the envelope turns none at is walked no faster
- *   than the fastest pace it turns at (`fastestTurning`), or it would never turn.
+ *   than the fastest pace it turns at (`steeredPace`), or it would never turn.
  *
  * An optional `turnLimit` also bounds heading speed below the envelope's limit; it never raises
  * it. Without an envelope, the walk is uncapped and the heading follows the intent within that
@@ -497,7 +497,7 @@ export function locomotion(feet: StanceFeet, limits: StanceEnvelope | null | (()
       const speed = hypot(walk[0], walk[1]);
       let most = envelope ? heldPace(envelope, walk[0], walk[1]) : Infinity;
       // A heading still to turn at a pace the envelope turns none at is walked at the fastest pace it turns at.
-      if (envelope && wrap(face - state.heading) !== 0 && turnAt(envelope, Math.min(speed, most)) === 0) most = Math.min(most, fastestTurning(envelope));
+      if (envelope && wrap(face - state.heading) !== 0) most = Math.min(most, steeredPace(envelope, Math.min(speed, most)));
       if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];
       state.pace = Math.min(speed, most);
       state.going = Math.max(state.pace, state.going - STANCE_STOPPING * dt);

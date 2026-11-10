@@ -110,6 +110,16 @@ export function fastestTurning(envelope: StanceEnvelope): number {
 }
 
 /**
+ * How fast a walk by `envelope` goes at `speed` while it still has to turn toward the way it is
+ * asked to face, m/s. Where the table turns at that speed, `speed` stays as it is. Where it turns
+ * none, the walk drops to the fastest pace it turns at (`fastestTurning`); otherwise it could never
+ * turn.
+ */
+export function steeredPace(envelope: StanceEnvelope, speed: number): number {
+  return turnAt(envelope, speed) === 0 ? Math.min(speed, fastestTurning(envelope)) : speed;
+}
+
+/**
  * The fastest pace at which `envelope`'s turns carry the body round a bend of `radius` m, m/s: over
  * its table, the most of each speed or what its turn carries round the bend, whichever is less
  * (walking no faster than a speed, the body turns as fast as it turned there: `turnAt`). A straight
