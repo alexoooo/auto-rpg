@@ -34,10 +34,12 @@ plan has uncommitted work in `src/`.
 
 A case's key holds a digest of the content of every file in its code's closure (`caseCoder`,
 `scripts/build-identity.mjs`). Any edit to a file in a closure, a comment or a line break
-included, re-keys every case that reaches it, and its saved rows and baselines replay. Step 1
+included, re-keys every case that reaches it. Nothing replays for that: the table keeps a reading
+recorded at an earlier version, with its commit and date, until its cell is asked for again
+(`--fresh`, [the table](../reference/the-table.md)), and a baseline is a kept record. Step 1
 changes what the digest reads so that an edit to layout, comments or types moves no key. Changing
 the digest re-keys every case once. After it, a step re-keys only the cases whose executable code
-it edits, and each commit names the evaluations it re-keys.
+it edits.
 
 ### The step's cost
 
