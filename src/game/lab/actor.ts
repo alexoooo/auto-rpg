@@ -81,7 +81,7 @@ interface ScriptOrdersState { memory: object | null; time: number | null; orders
  * given the same.
  */
 function scriptOrders(state: ScriptOrdersState, script: Script, watch: Watch | undefined, body: HostedBody, world: World, skills: LabMind["skills"]): () => Orders {
-  const sight: Sight = { get context() { return skills.context; }, view: body.view, report: skills.report, get envelope() { return skills.envelope; }, limitsOf: skills.limitsOf,
+  const sight: Sight = { get context() { return skills.context; }, view: body.view, report: skills.report, get envelope() { return skills.envelope; }, walkEnvelope: body.envelope, limitsOf: skills.limitsOf,
     instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
   return () => {
     if (state.orders === null || state.time !== body.view.time) {

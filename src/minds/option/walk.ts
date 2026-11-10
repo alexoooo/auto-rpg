@@ -14,10 +14,10 @@ type Walk = Pick<Intent, "move" | "face" | "movement" | "pace" | "travelFacing">
 
 /**
  * The most the orders let the body go, m/s: their pace, and no faster than the body's plain walk
- * goes forward where they say to walk (`Orders.walk`, `Body.envelope`).
+ * goes forward where they say to walk (`Orders.walk`, `Sight.walkEnvelope`).
  */
 function ceiling(now: Situation): number {
-  const orders = now.orders, envelope = now.sight.envelope;
+  const orders = now.orders, envelope = now.sight.walkEnvelope;
   return Math.min(orders?.pace ?? Infinity, orders?.walk && envelope ? envelope.ways.forward.value : Infinity);
 }
 
@@ -36,7 +36,11 @@ export function walker(_spec: BodySpec) {
     const envelope = (gait === undefined || gait === null ? null : now.sight.limitsOf(gait)?.envelope) ?? now.sight.envelope;
     return Math.min(envelope ? heldPace(envelope, forward, right) : Infinity, ceiling(now));
   };
-  /** The gait's measured forward speed, m/s, or the explicit ordered pace without an envelope: what a second of carrying out orders is priced by. */
+  /**
+   * The forward speed the legs' gait now was measured to hold, m/s, or the explicit ordered pace
+   * without an envelope: what a second of orders already carried out is priced by, the same by
+   * every gait.
+   */
   const stride = (now: Situation): number => {
     const envelope = now.sight.envelope;
     return envelope ? heldPace(envelope, 1, 0) : now.orders?.pace ?? 0;
