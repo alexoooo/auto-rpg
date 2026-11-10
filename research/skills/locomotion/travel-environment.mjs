@@ -89,7 +89,9 @@ export async function travelEnvironment(configuration) {
       return { time: world.time, centre: [centre.x, centre.y, centre.z], velocity: [velocity.x, velocity.y, velocity.z],
         down: upright.fallen(), standing,
         ...(o.controlTrace ? { control: { running: state.motion.walkRun.running, travel: state.inference.travel,
-          command: state.inference.command, phase: state.motion.run.phase, action: state.inference.action.slice() } } : {}),
+          command: state.inference.command, phase: state.motion.run.phase, action: state.inference.action.slice(),
+          touching: Object.fromEntries(feet.map(foot => [foot.side, foot.contactParts.some(part => part.chain.every(joint => joint.attached())
+            && body.built.physics.contactsOf(part.segment.body).some(c => groundContact(c, .5)))])) } } : {}),
         ...(o.trace ? { segments: parts.map(p => ({ name: p.spec.name, position: [p.pose.position.x, p.pose.position.y, p.pose.position.z],
           rotation: [p.pose.rotation.x, p.pose.rotation.y, p.pose.rotation.z, p.pose.rotation.w] })) } : {}) };
     };

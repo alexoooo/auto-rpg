@@ -60,8 +60,24 @@ export function developmentCases(slow = []) {
     ...GAME.headings.flatMap((heading, h) => GAME.places.map((way, k) => ({
       id: `place-${k}-${h}`, phase: 'place', way, heading, loadout: GAME.loadout, ...rests[(h + k) % rests.length], seed: 1601 + 7 * h + k,
     }))),
+    ...START.ways.map((degrees, k) => ({
+      id: `start-${degrees}`, phase: 'start', way: degrees, heading: GAME.headings[k % GAME.headings.length], loadout: GAME.loadout,
+      ...rests[k % rests.length], seed: 1701 + k,
+    })),
+    ...START.places.flatMap(metres => START.ways.map((degrees, k) => ({
+      id: `short-${metres}-${degrees}`, phase: 'short', way: { points: [[metres, degrees]] }, heading: GAME.headings[(k + 1) % GAME.headings.length],
+      loadout: GAME.loadout, ...rests[(k + metres) % rests.length], seed: 1801 + 10 * metres + k,
+    }))),
   ];
 }
+
+/**
+ * The Run's own start and short places: from a stand, a way at each of eight headings off the
+ * body's facing, degrees; a start ordered at `pace` and stopped `stopAt` s on, and places `places`
+ * m off. The centre of mass has moved toward the way once its speed along it reaches
+ * `TRAVEL.still`, by `moving` s; a place is stood at within `near` m.
+ */
+const START = { ways: [0, 45, 90, 135, 180, -135, -90, -45], pace: 3, stopAt: 3, moving: .5, places: [1, 3], near: .4 };
 
 /**
  * The game's own orders, as the screen plays them: starts from a stand at the paces the navigator
@@ -184,9 +200,9 @@ async function slowCase(basePath, policy, c) {
 }
 
 /** Plays `program` from a quiet rest after the case's settle, turned and lowered as it says. */
-async function playRest(basePath, policy, c, program) {
+async function playRest(basePath, policy, c, program, { controlTrace = false } = {}) {
   const env = await travelEnvironment({ settings: basePath, heading: c.heading, seed: c.seed, ...(c.loadout ? { loadout: c.loadout } : {}), restTimes: [c.settle], yaws: [c.yaw], lowers: [c.lower],
-    trace: true, scripts: [{ ...program, start: 'rest' }] });
+    trace: true, controlTrace, scripts: [{ ...program, start: 'rest' }] });
   try {
     let observation = await env.reset({ program: { ...program, start: 'rest' } }), result;
     const initial = env.reading();
@@ -253,6 +269,59 @@ async function placeCase(basePath, policy, c) {
     stop: { entered: false, met: false, fall: false }, digest: digest(samples), played: samples.length / hz };
 }
 
+/** Steps the stance took up to the stand the run gives it last: a sole leaving the ground while the run does not drive the legs. */
+const stanceSteps = samples => {
+  const stand = samples.findLastIndex(s => s.control.running) + 1;
+  return samples.slice(0, stand > 0 ? stand : samples.length).reduce((n, s, i, some) => n + (i > 0 && !s.control.running
+    ? ['left', 'right'].filter(side => some[i - 1].control.touching[side] && !s.control.touching[side]).length : 0), 0);
+};
+
+/** Quiet from within `TRAVEL.stop` s of sample `from`, standing, for `TRAVEL.quiet` s: s from it, or null. */
+function stoodAt(samples, from, hz) {
+  let quiet = 0, quietFrom = null;
+  for (let i = from; i < samples.length; i++) {
+    if (Math.hypot(samples[i].velocity[0], samples[i].velocity[2]) < TRAVEL.still && samples[i].standing) {
+      quietFrom ??= (i + 1 - from) / hz; quiet++;
+      if (quiet >= TRAVEL.quiet * hz && quietFrom <= TRAVEL.stop) return quietFrom;
+    } else { quiet = 0; quietFrom = null; }
+  }
+  return null;
+}
+
+/**
+ * The Start gate: from a stand, a way `c.way` degrees off the facing at `START.pace`, stopped
+ * `START.stopAt` s on. Met when the centre of mass moves along the way within `START.moving` s,
+ * the body stands quiet after the stop, it never falls, and the stance takes no step of its own
+ * from the order to the end.
+ */
+async function startCase(basePath, policy, c) {
+  const way = c.heading + c.way * Math.PI / 180, end = START.stopAt + TRAVEL.stop + TRAVEL.quiet + 1;
+  const program = { seconds: end, corridor: false, cues: [{ at: 0, orders: go(way, START.pace) }, { at: START.stopAt, orders: stop(way) }] };
+  const { initial, samples, hz } = await playRest(basePath, policy, c, program, { controlTrace: true });
+  const forward = direction(way), along = samples.map(s => s.velocity[0] * forward.x + s.velocity[2] * forward.z);
+  const complete = samples.length === Math.round(program.seconds * hz), fall = samples.some(s => s.down);
+  const moving = along.findIndex(v => v >= TRAVEL.still), movedAt = moving < 0 ? null : (moving + 1) / hz;
+  const stoppedAt = stoodAt(samples, Math.round(START.stopAt * hz), hz), steps = stanceSteps(samples);
+  const running = samples.filter(s => s.control.running).length / hz;
+  const met = complete && !fall && movedAt !== null && movedAt <= START.moving && stoppedAt !== null && steps === 0;
+  return { case: c, fixtureReached: true, beforeStop: { met, complete, fall, movedAt, stoppedAt, stanceSteps: steps, running, held: null },
+    stop: { entered: false, met: false, fall: false }, digest: digest(samples), played: samples.length / hz };
+}
+
+/** The Short place gate: a place `START.places` m off from a stand, stood at within `START.near` m, by the Run alone. */
+async function shortCase(basePath, policy, c) {
+  const place = points => ({ move: { kind: 'place', points, near: PLACE_NEAR }, gait: 'run', face: null });
+  const points = wayOf(c.heading, c.way.points), program = { seconds: PLACE_SPARE + lengthOf(points), corridor: false, cues: [{ at: 0, orders: place(points) }] };
+  const { initial, samples, hz } = await playRest(basePath, policy, c, program, { controlTrace: true });
+  const end = { x: initial.centre[0] + points.at(-1).x, z: initial.centre[2] + points.at(-1).z }, fall = samples.some(s => s.down);
+  const quiet = samples.slice(-TRAVEL.quiet * hz), last = samples.at(-1), miss = Math.hypot(last.centre[0] - end.x, last.centre[2] - end.z);
+  const still = quiet.length === TRAVEL.quiet * hz && quiet.every(s => s.standing && Math.hypot(s.velocity[0], s.velocity[2]) < TRAVEL.still);
+  const steps = stanceSteps(samples), running = samples.filter(s => s.control.running).length / hz;
+  const met = !fall && still && miss <= START.near && steps === 0;
+  return { case: c, fixtureReached: true, beforeStop: { met, fall, miss, still, stanceSteps: steps, running, held: null },
+    stop: { entered: false, met: false, fall: false }, digest: digest(samples), played: samples.length / hz };
+}
+
 async function holdCase(basePath, policy, c) {
   const program = { seconds: 14, cues: [{ at: 0, orders: go(c.heading) }, { at: 10, orders: stop(c.heading) }] };
   const { entry, rejected, initial, samples, hz } = await playMoving(basePath, policy, c, program);
@@ -289,12 +358,20 @@ async function holdCase(basePath, policy, c) {
 }
 
 async function screenCandidate(manifest, candidate) {
-  const settings = candidate.settings ?? manifest.settings, tuning = read(settings);
+  let settings = candidate.settings ?? manifest.settings;
+  const tuning = read(settings);
   if (candidate.policy) tuning.learned.travel = read(candidate.policy);
-  const policy = recoveryNetwork(tuning.learned.travel), rows = [];
+  // A candidate without its reference plays the record's native controller alone, its frozen reference silent too.
+  if (candidate.reference === false) {
+    tuning.learned.referenceScale = 0;
+    settings = `${manifest.out}/${candidate.id}-settings.json`; writeFileSync(settings, JSON.stringify(tuning));
+  }
+  // A native candidate plays its record with the travel actor silent: the native walk and run under the frozen reference.
+  const policy = candidate.native ? () => new Array(tuning.learned.travel.actions).fill(0) : recoveryNetwork(tuning.learned.travel), rows = [];
   for (const c of manifest.cases) rows.push(c.phase === 'entry' ? await entryCase(tuning, c)
     : c.phase === 'slow' ? await slowCase(settings, policy, c) : c.phase === 'pace' ? await paceCase(settings, policy, c)
-    : c.phase === 'place' ? await placeCase(settings, policy, c) : await holdCase(settings, policy, c));
+    : c.phase === 'place' ? await placeCase(settings, policy, c) : c.phase === 'start' ? await startCase(settings, policy, c)
+    : c.phase === 'short' ? await shortCase(settings, policy, c) : await holdCase(settings, policy, c));
   const entries = rows.filter(row => row.case.phase === 'entry'), holds = rows.filter(row => row.case.phase === 'hold');
   const slows = rows.filter(row => row.case.phase === 'slow'), running = [...entries, ...holds];
   const summary = { id: candidate.id, cases: rows.length, fixtures: rows.filter(row => row.fixtureReached).length,
@@ -307,6 +384,8 @@ async function screenCandidate(manifest, candidate) {
     slowFinal: mean(slows.map(row => row.beforeStop.final ?? 0)),
     paceCases: rows.filter(row => row.case.phase === 'pace').length, paceMet: rows.filter(row => row.case.phase === 'pace' && row.beforeStop.met).length,
     placeCases: rows.filter(row => row.case.phase === 'place').length, placeMet: rows.filter(row => row.case.phase === 'place' && row.beforeStop.met).length,
+    startCases: rows.filter(row => row.case.phase === 'start').length, startMet: rows.filter(row => row.case.phase === 'start' && row.beforeStop.met).length,
+    shortCases: rows.filter(row => row.case.phase === 'short').length, shortMet: rows.filter(row => row.case.phase === 'short' && row.beforeStop.met).length,
     met: rows.filter(row => row.beforeStop.met).length,
     stopFalls: rows.filter(row => row.stop.fall).length, stops: rows.filter(row => row.stop.met).length,
     totalFalls: rows.filter(row => row.beforeStop.fall || row.stop.fall).length };
@@ -324,7 +403,8 @@ if (!isMainThread) {
   const { values: o } = parseArgs({ options: { manifest: { type: 'string' }, out: { type: 'string' }, workers: { type: 'string', default: '6' } } });
   if (!o.manifest || !o.out) throw Error('Name the candidate/case manifest and disposable output folder');
   const manifest = read(o.manifest);
-  manifest.cases ??= developmentCases(manifest.slow ?? []);
+  manifest.cases ??= developmentCases(manifest.slow ?? []).filter(c => !manifest.phases || manifest.phases.includes(c.phase));
+  manifest.out = o.out;
   manifest.code = { build: BUILD_IDENTITY, commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() };
   mkdirSync(o.out, { recursive: true }); writeFileSync(`${o.out}/manifest.json`, JSON.stringify(manifest) + '\n');
   const results = await workerJobs(manifest.candidates.map(candidate => ({ manifest, candidate })), {

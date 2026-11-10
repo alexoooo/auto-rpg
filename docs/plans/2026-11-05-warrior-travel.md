@@ -258,6 +258,38 @@ does not shorten its part. The remaining limit is the run's lack of a cycle betw
 2.75 m/s: a slower captured cycle (a jog near 1.5 to 2 m/s) is the next question; it changes the
 run of every body that uses the cycles and is read on each of them.
 
+On the Start and Short place cases (`travel-screen.mjs`'s `start` and `short` phases, Node,
+120 Hz, unassisted, the Warrior with the sword) the installed record meets none and falls on none:
+its starts move the centre of mass toward the way 0.76 to 1.09 s after the order by 4 to 39 steps
+of the stance's walk, and it stands at every short place within 0.17 to 0.23 m by 3 to 42 of them.
+
+A start that begins the cycle on the order, with no stance step, does not yet hold; what was
+tried, read with the travel actor and the reference silent:
+
+- The stance unloading the first foot before the cycle takes it (a double support toward the way,
+  or the capture point shifted part way over the other sole) brings the body to 0.05 m/s at most
+  or throws it sideways. The cycle begun at once from the stand runs.
+- With CMU clips 16_15 and 16_21 (walks at 1.09 and 1.69 m/s) below 16_35 in the cycle table, and
+  the run searched through the Option Mind, straight starts and ways up to 90 degrees off run, 7
+  to 19 m in 8 s at 1 to 3 m/s.
+- A way 90 degrees or more off leaves the pelvis behind the turning heading: the swinging foot
+  lands square to the pelvis, and nothing turns the body. The foot landing turned toward the
+  heading, with the heading kept within 0.3 rad of the pelvis's facing, turns the body about 100
+  degrees in 1 s; ways 135 and 180 degrees off still fall within 1 to 2.5 s, hopping in place at
+  pace 0. A pace floor while turning, or the foot turned past the heading, falls as well.
+- Stopping: the cycle's pace kept within `ahead` of the body's speed, the braking settings only
+  while the pace comes down, and the stance taking the body once both soles bear and the capture
+  point lies within 0.08 m of the line between them. With braking searched on stops, stops from
+  2.5 m/s or less stand within 1.5 s; from 3 m/s none stands within 2 s.
+- The navigator's short places ask about 1 m/s, at which the run falls backward within 1.5 s.
+
+The best reading, the run and braking searched with those rules, meets 2 of 8 starts (the ways 45
+degrees off) and no short place, falling on 21 of the 24 cases; searched on places as well, it
+meets none and falls on 19. The installed actor on either falls on 23 or 24. Each search fits its
+own cells and the screen does not follow: at walking paces the cycle is chaotic, a 3e-5 rad change
+of its lean turning a stop into a fall. The next question is a cycle that holds the slow paces and
+the stop on the screen's cases, read natively before the actor is retrained on it.
+
 ## Completion
 
 Every Warrior loadout meets every travel gate on the confirmation conditions, with complete
