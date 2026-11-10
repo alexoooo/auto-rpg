@@ -14,9 +14,8 @@ export interface DrawnRoute {
  * **A person's command** to the team they lead: plain data, carried out on the members selected.
  *
  * - `select`: these members, by id, are the ones the next commands go to.
- * - `go`: to a point, fighting what is met on the way (`destination`), or along a drawn route past
- *   every foe (`route`). Several sent together take slots about its end, no faster than the slowest
- *   of them goes.
+ * - `go`: to a point (`destination`), or along a drawn route (`route`), past every foe. Several
+ *   sent together take slots about its end, no faster than the slowest of them goes.
  * - `attack`: fight this sensed foe, by id, following it while it is seen; where it names a skill,
  *   a limb or a region (`StrikeChoice`), strike it so.
  * - `face`: toward a ground point (`toward`), or turned from the way it faces by `turn` radians,
@@ -39,11 +38,11 @@ export type Command =
   | { readonly kind: "follow"; readonly member: string };
 
 /**
- * **A member's standing order**: none (`idle`), go to a point and fight what is met on the way
- * (`attack-move`), fight one foe (`lock`, as its `StrikeChoice` names), walk a drawn route past every foe (`force`), stand at a
+ * **A member's standing order**: none (`idle`), go to a point past every foe (`move`), fight one
+ * foe (`lock`, as its `StrikeChoice` names), walk a drawn route past every foe (`force`), stand at a
  * point and fight only what comes to it (`hold`), or go after a member (`follow`). A go given to
  * several at once names them (`together`), one list shared by their orders.
  */
-export type TeamOrder = { readonly kind: "idle" } | { readonly kind: "attack-move"; readonly destination: GroundPoint; readonly together?: readonly string[] }
+export type TeamOrder = { readonly kind: "idle" } | { readonly kind: "move"; readonly destination: GroundPoint; readonly together?: readonly string[] }
   | { readonly kind: "lock"; readonly target: string } & StrikeChoice | { readonly kind: "force"; readonly route: DrawnRoute; readonly together?: readonly string[] }
   | { readonly kind: "hold"; readonly at: GroundPoint } | { readonly kind: "follow"; readonly member: string };
