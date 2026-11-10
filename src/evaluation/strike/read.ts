@@ -284,8 +284,10 @@ export type StrikeReading = {
   readonly hit: StrikeHit | null;
   /** The bar the striker's blow was judged by (`barOf` its body, unless the reader was given one). */
   readonly bar: Bar;
-  /** Every touch of the striker's on the target. */
-  readonly contacts: readonly StrikeContact[];
+  /** The hit points each of the target's segments lost to the striker's touches over the trial, by the segment touched. */
+  readonly dealt: Readonly<Record<string, number>>;
+  /** The target's segment the striker first touched once its action began; null where it touched none. */
+  readonly met: string | null;
   /** The hit points the striker lost in its contacts with the target over the trial, any part on any part. */
   readonly taken: number;
   /**
@@ -313,6 +315,13 @@ export type StrikeReading = {
   readonly seconds: number;
 };
 
+/** The hit points a trial took from the target, every segment's together (`StrikeReading.dealt`). */
+function dealtIn(r: Pick<StrikeReading, "dealt">): number {
+  let sum = 0;
+  for (const on in r.dealt) sum += r.dealt[on]!;
+  return sum;
+}
+
 /**
  * **A blow's value**, hit points a second: the life its trial took from the target less the life
  * the striker lost, over its action's cycle, from its start until the limb was back at its guard
@@ -320,10 +329,10 @@ export type StrikeReading = {
  * stand, to the cycle. None for a trial whose action did not begin: the Option was not taken, and
  * its refusal is the Mind's choice, not the blow's. Higher is better.
  */
-export function strikeValue(r: Pick<StrikeReading, "began" | "ended" | "recovers" | "seconds" | "down" | "contacts" | "taken">, rise: number): number | null {
+export function strikeValue(r: Pick<StrikeReading, "began" | "ended" | "recovers" | "seconds" | "down" | "dealt" | "taken">, rise: number): number | null {
   if (r.began === null) return null;
   const cycle = (r.ended !== null && r.recovers !== null ? r.ended + r.recovers : r.seconds) - r.began + (r.down ? rise : 0);
-  return (r.contacts.reduce((sum, contact) => sum + contact.damage, 0) - r.taken) / cycle;
+  return (dealtIn(r) - r.taken) / cycle;
 }
 
 /**
@@ -658,7 +667,10 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
         : byLimb.length ? byLimb.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
       const foe = foeBegan ?? atHand;
-      return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, inWindow: foe?.window ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, contacts: touches.map(({ contact }) => contact), taken,
+      const dealt: Record<string, number> = {};
+      for (const { contact } of touches) dealt[contact.on] = (dealt[contact.on] ?? 0) + contact.damage;
+      const met = touches.find(({ contact }) => contact.time >= (times.began ?? 0))?.contact.on ?? null;
+      return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, inWindow: foe?.window ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, dealt, met, taken,
         ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }),
         recovers: watching !== null && again !== null ? again - watching : null, nearest, exit, down, seconds: world.time,
         ...(motion ? { motion: motion.reading() } : {}) };

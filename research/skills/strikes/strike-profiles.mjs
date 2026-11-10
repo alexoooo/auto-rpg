@@ -17,8 +17,8 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * that does not hold the phase is refused: its rung is played again. The
  * `walk` rung is left out: it was asked of a body still walking at no start the drill sets.
  *
- * What a trial brought: whether it landed; the life the rules take from the target for every
- * contact of the striker's on it, the contact's damage (`StrikeContact.damage`) at the struck
+ * What a trial brought: whether it landed; the life the rules take from the target for the
+ * striker's touches on it, each segment's damage (`StrikeReading.dealt`) at that
  * segment's cost in life under the recipe's rules (`lifeFactor`), and the damage the striker took
  * over the trial; the seconds its action ran, from its start to its end, when its limb is free to
  * begin another (to the trial's end where it did not end); the seconds from its end until the limb
@@ -131,7 +131,7 @@ for (const path of paths) {
     }
     const rules = rulebook("arena", recipe.rules);
     let dealt = 0;
-    for (const contact of r.contacts) dealt += contact.damage * lifeFactor(rules, struck, contact.on);
+    for (const [on, damage] of Object.entries(r.dealt)) dealt += damage * lifeFactor(rules, struck, on);
     profile.trials.push({ start, done: r.outcome === "landed", dealt: round(dealt), taken: round(r.taken ?? 0), seconds: round((r.ended ?? r.seconds) - r.began),
       recovers: r.recovers === undefined || r.recovers === null ? null : round(r.recovers), down: r.down, ...(r.exit ? { exit: { range: round(r.exit.range) } } : {}) });
   }

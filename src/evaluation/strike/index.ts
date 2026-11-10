@@ -62,7 +62,7 @@ function whyFailed(reading: StrikeReading): string | undefined {
     case "landed": return undefined;
     case "fell": return "balance lost: the striker fell";
     case "guarded": return "blocked: the limb met the target's arms alone";
-    case "elsewhere": return `off the mark: the limb met the target's ${reading.contacts.find((one) => one.time >= (reading.began ?? 0))?.on ?? "body"}`;
+    case "elsewhere": return `off the mark: the limb met the target's ${reading.met ?? "body"}`;
     case "weak": return reading.hit?.faced === false ? "not met with what it strikes with"
       : reading.hit?.overhead?.short.length ? `short of the bonk's ${reading.hit.overhead.short.join(", ")}` : "the action did not end";
     case "missed": {
