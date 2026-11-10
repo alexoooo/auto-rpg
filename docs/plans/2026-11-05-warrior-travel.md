@@ -127,8 +127,8 @@ moving phases; development cases never become exact training starts.
    one actor replaces it.
 3. **Forward and stop in the game.** Train the curriculum's first three stages until the
    forward run and the stop plateau, empty hands, calm air. Install the record in the
-   Warrior's walk-run record so the game's Option Mind runs it, and send the owner a drill link
-   with what was seen. This is the first milestone the owner watches.
+   Warrior's walk-run record so the game's Option Mind runs it, and report its table cells with
+   what a fresh agent saw. This is the first milestone the owner watches.
 4. **Start, slow paces and the stop by foot placement.** Play each candidate of
    [Start, slow paces and the stop](#start-slow-paces-and-the-stop) natively on the Start cases
    first; build the one that starts the body without falling, then its turns, slow paces and stop
@@ -265,5 +265,5 @@ raises the travel's value on every loadout, read on the confirmation conditions 
 case coverage and confirmed directional and turning envelopes; a plateau names its limit from a
 reading. The table names the actual protocol, body, loadout, harness and current version. Implementation checks
 follow [AGENTS.md](../../AGENTS.md#doing-the-work); capability evidence lives in drills and paired
-evaluations. Provide watched drill links with the observed failures and outcomes. Delete this plan when the work lands and place the resulting movement
+evaluations. A claim is the run's table cells, checked by a fresh agent. Delete this plan when the work lands and place the resulting movement
 contract in the reference documentation.

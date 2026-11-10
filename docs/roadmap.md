@@ -26,7 +26,7 @@ Where the project is going and what is open. What is built is in the
 | Plan | What it builds |
 | --- | --- |
 | [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
-| [Options trained body by body](plans/2026-11-03-options-training.md) | stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
+| [Options trained body by body](plans/2026-11-03-options-training.md) | every table cell raised from its baseline: stand-up on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
 | [Warrior travel](plans/2026-11-05-warrior-travel.md) | first milestone: preserve 4 m/s from-rest entry while training stops; then the Run from a stand with no braced step, directions, manoeuvres and loadouts |
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an intentional overhead club strike at the head with either hand, with and without the buckler, returning to guard: a graded reader, a searched push schedule, then a learned actor |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
@@ -111,7 +111,7 @@ with Option Mind as its hero.
 - Not built: a part's own tolerance, the face apart from the head, armour, edges and points.
 - The fist's threshold against a head; read again before a punch is trained on the head.
 - A punch at the head goes around or over the guard, or waits for it to open.
-- A body that is down may be struck once a rise meets its bar.
+- Striking a body that is down waits on faster rises.
 
 ### The AI
 

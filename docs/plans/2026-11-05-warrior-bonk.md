@@ -88,7 +88,7 @@ strikes as it arrives (`walk`), at the paces its walk serves; faster with
    profiles, and watch Option Mind choose and land it in the Arena.
 7. **Confirm.** Held-out places at both rates, each hand and loadout, the opponent still and
    moving, the Warrior standing and walking in: the score against the baseline. Watch the reel,
-   failures first, at normal speed and slow motion, and send the drill link with what was seen.
+   failures first, at normal speed and slow motion, and report the bonk's table cells with what a fresh agent saw.
 
 ## Where it stands
 
@@ -177,6 +177,6 @@ trunk blow, the sword cut, the punch, stand-up and travel. Work goes under `.tmp
 
 ## Completion
 
-The confirmation reading of step 7 is read, Option Mind uses the bonk in the Arena, and its drill link is sent
-with what its reel showed. The motion's reading goes into reference documentation;
+The confirmation reading of step 7 is read, Option Mind uses the bonk in the Arena, and its table cells are
+reported with what a fresh agent saw. The motion's reading goes into reference documentation;
 the code and reference this plan replaced are gone, and this plan is deleted.

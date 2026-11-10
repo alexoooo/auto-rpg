@@ -66,10 +66,13 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 - Add what step 1 held back, one at a time, as episodes and cases: the other hand, loadouts,
   rates, approaches, moving targets, the guarded target, misses and cancellations. Each keeps the
   earlier cases in the mix.
-- Confirm on held-out cases once, on the chosen checkpoint or record, and send the drill link
-  after watching the reel, failures first.
-- Then register it in Option Mind and read its profiles; a drill Commander using it alone does
-  not show the Mind uses it.
+- Confirm on held-out cases once, on the chosen checkpoint or record.
+- Register it in Option Mind, install its record in the game and read its profiles; a drill
+  Commander using it alone does not show the Mind uses it.
+- Play its table cells (`npm run evaluate -- table --body <model> --skill <name> --play`). The
+  claim is the cell against its baseline, checked by a fresh agent
+  ([AGENTS.md](../../AGENTS.md#doing-the-work)); a good drill reading with a cell that did not
+  move is a skill the game does not use.
 
 ## Traps
 
@@ -80,6 +83,8 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 - **A fixed bar deciding what is kept**: a gain short of an arbitrary number is thrown away.
 - **A form term that forbids the mechanism its figure needs.**
 - **Waiting for approval** to run a search or a training block.
+- **Reporting the drill**: the search's or the screen's figure given as the skill's, with the
+  record never installed or the Mind never choosing it.
 - **Reading a record change on stale profiles**: a technique's digest covers its body's whole
   record (`techniqueDigest`), every loadout included, so a change to one loadout's settings
   leaves every loadout of that body without its profiles. Refresh the body's

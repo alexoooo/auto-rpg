@@ -16,6 +16,7 @@ npm run pull:merge        # fetch, merge, validate once, commit; -- --continue a
 npm run match -- <a> <b>  # two minds, each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases where no row has them; --write keeps a record
 npm run evaluate -- table [--play] [--baseline]   # every body, loadout and skill: its value against its baseline
+npm run evaluate -- table --body <model> --skill <name> [--loadout <left,right>] --play   # one cell or row
 npm run compare -- <before.jsonl> <after.jsonl> --subject <id>  # paired saved evidence
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 node scripts/fingerprint.mjs          # what the game computes, before and after a refactor
@@ -31,6 +32,10 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   skill belongs in its plan or record. A principle the owner states is applied by finding every
   place the old rule lives, documents and code, and changing them all; an exception needs the
   owner's own words.
+- **A run works one skill on one body**: one row of [the table](docs/reference/the-table.md),
+  its loadouts the cells. A wider goal is worked a row at a time, each brought to a kept gain or
+  a named ceiling before the next opens. A run's report is the table's lines for its rows as the
+  run began and as it ends, each cell better, worse or within noise, the worse ones first.
 - **Choose an approach that can work.** Before a goal's work starts or changes direction, read its
   section of [the approaches](docs/approaches.md) and `git log -i --grep=<skill>`. The plan names
   the mechanism that does the part that fails today and the entries it was checked against; a
@@ -73,9 +78,15 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   before (`npm run compare`, `--previous`, `npm run match`), kept or dropped with the reason in the
   commit message, and in the approaches when the reason is the mechanism's. A live alternative
   stays only while an open question uses it.
-- **A claim that a skill works is a drill link**
-  (`?play=ratings&evaluation=<evaluation>&subject=<mind>/<skill>&version=<version>`), sent after
-  watching its reel, failures first, and saying what was seen.
+- **A claim that a skill is better is its table cell**: the cell's line from
+  `npm run evaluate -- table`, read at the commit claimed (`current`), its value against its
+  baseline and its Ratings link. The table plays the game's Mind with what is installed, so a
+  skill the Mind does not use moves no cell and is reported as not in the game. A reading on a
+  drill, a search or a training screen is progress toward a claim and never the claim.
+- **A fresh agent checks a claim before it is reported**: a subagent given the claim, the cell's
+  link and the game in a browser, and no account of the work, watches the cell's reel, failures
+  first, then the skill in the screen that uses it, and says what it saw. The report carries its
+  words beside the claim; where they contradict it, the claim is withdrawn.
 - **Landing**: name the checks run and any failure left; commit each landable change on main. A
   branch only when the owner asks. Never push unless asked.
 - **Pull and merge** with `npm run pull:merge`; resolve conflicts by meaning, stage only those

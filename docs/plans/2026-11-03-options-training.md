@@ -57,8 +57,8 @@ Best effort, in order: the walk, the punch, the stomp (the Warrior and the Rogue
 the sword's cut and thrust, the buckler's cover; each on the Warrior, then on the Rogue and the
 Skeleton, seeded from the Warrior's where that starts higher, each body's own record searched or
 trained on its own body, and its own variant where it reads better than the shared one. Check:
-each cell's held-out reading at 120 and 480 Hz against its baseline and its drill link; its reel
-watched, the failures first.
+each cell's held-out reading at 120 and 480 Hz against its baseline; the claim its table
+cell, checked by a fresh agent.
 
 ## Done when
 
