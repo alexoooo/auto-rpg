@@ -20,7 +20,7 @@ starts: [the table](../reference/the-table.md). How well the quadrupeds move is
 - **Every cell's value raised**: each skill on every body in every loadout, unassisted, its value
   ([AGENTS.md](../../AGENTS.md#developing-skills-and-options)) read against its baseline, one search
   or training run at a time, kept where it gains, its ceiling named where it stops by the plateau
-  and four-hour rules of [AGENTS.md](../../AGENTS.md#doing-the-work).
+  and stopping rules of [AGENTS.md](../../AGENTS.md#doing-the-work).
 - **Reference marks**, read beside the values and deciding nothing: stand-up within the owner's
   10 s ([rising](../reference/rising.md#the-owners-target)); the run at the owner's 3 to 4 m/s
   forward, the Warrior's by [Warrior travel](2026-11-05-warrior-travel.md).

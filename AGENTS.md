@@ -26,8 +26,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 - **The owner sets goals; how to reach them is the agent's.** A modelling choice (a muscle's
   curve, a joint's range, a solver setting, a bar's test) is decided toward the goal, never put to
-  the owner. Stop only when the goal is met, no change is left to try, or the four-hour ceiling
-  below is reached; ask only a choice whose effect in play the owner can judge.
+  the owner. Stop only when the goal is met or no approach that can work is left to try; ask only a choice whose effect in play the owner can judge.
 - **A rule is general.** A rule here covers every skill, body and approach; what holds for one
   skill belongs in its plan or record. A principle the owner states is applied by finding every
   place the old rule lives, documents and code, and changing them all; an exception needs the
@@ -64,11 +63,14 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **Keep going without asking.** No run, training block or search waits for the owner's
   approval, however long it takes. A progress report, each hour with paired readings, is a
   message and never a pause; the owner interrupts when they want something else.
-- **Do not spin.** A direction without a kept gain is changed: a training run at the recipe's
-  plateau, any other work after an hour of tries. A training run whose screened checkpoints
-  still improve is progress. After four hours without a kept gain toward the goal, whatever the
-  directions tried, stop: put the best reading in the plan and each mechanism's limit in the
-  approaches, and report. A mechanism stopped at this ceiling twice is ruled out there.
+- **An approach is stopped by evidence, never by the clock.** Before an approach's work starts,
+  name its signal (the reading that moves if its mechanism does the part that fails today) and
+  the result that would show the mechanism cannot. Read the signal the cheapest way first: the
+  failing part alone, on a few cases. While the signal moves the work goes on, however long; an
+  approach's cost is priced and reported, and is never the reason to pass it over. An approach
+  stops when its signal stays flat: a search or a training run at its recipe's plateau, other
+  work after three changes of different kinds aimed at the named cause. Its best is kept, the
+  approaches say whether the mechanism or its settings limit it, and the next approach starts.
 - **A skill is developed by [the skill recipe](docs/recipes/skill.md)**: a graded score, a
   feasible bar, a native controller that succeeds on some cases, then training.
 - **Training follows [the training recipe](docs/recipes/training.md)**: one actor a skill, a run

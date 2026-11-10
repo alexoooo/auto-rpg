@@ -69,9 +69,9 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 - **Price it from the first chunk**: train.log's decisions over its minutes gives the rate, and
   20 M at that rate is the run's time. Hours are normal; time alone never stops a run that is
   still gaining.
-- **A run slower than 1 M decisions in 45 minutes is sped up before its question opens**: its
-  plateau (below) would outlast [the four-hour ceiling](../../AGENTS.md#doing-the-work), so the
-  run could never be judged. `--profile` shows whether the environment or the learner is the wait.
+- **A run slower than 1 M decisions in 45 minutes is profiled before its question opens**:
+  `--profile` shows whether the environment or the learner is the wait, and a wait that is a
+  defect is fixed first. A run that is slow for what it simulates runs at its rate.
 - **Do not judge before 2 M decisions.** Returns dip and recover in the first million. An actor
   learns over 3 to 50 M decisions, depending on the skill. A block of a few hundred thousand
   decisions shows noise, not a result.
@@ -125,8 +125,7 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 ## Plateaus and changing direction
 
 - **A kept gain** is a screened checkpoint better than the best before it, by the order in
-  [Choosing a checkpoint](#choosing-a-checkpoint). It restarts both the plateau count and the
-  four-hour ceiling's clock.
+  [Choosing a checkpoint](#choosing-a-checkpoint). It restarts the plateau count.
 - **A plateau** is 5 M decisions (five kept checkpoints) with no kept gain.
 - On a plateau, check the environment before anything else: parity, reached starts, a reward
   that is the value the checkpoints are ranked by, and episodes that contain the failing case. Most
