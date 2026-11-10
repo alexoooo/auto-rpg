@@ -4,7 +4,9 @@
 
 The Warrior travels at 4 m/s or faster forward, moves safely in every direction, steers while
 moving, takes corners, reverses direction and stops without falling. Travel uses its own speed
-and turning limits; the braced walk remains available for fighting.
+and turning limits; the braced walk remains available for fighting. Travel never steps by the
+braced walk (the stance's walk): the Run starts from a stand, goes slow, turns and stops by its own
+cycle, and the stance only holds the body standing between orders.
 
 Train and confirm on the game's toed Warrior, unassisted. Use existing gait implementations,
 records and training checkpoints as seeds, replayed on this body before reuse; they do not
@@ -31,6 +33,29 @@ The controller brakes before exceeding that envelope, then accelerates as the tu
 Changing orders while moving uses the body's current motion; it does not restart from rest.
 Keep body-specific settings in the Warrior's records and pass immutable overrides to experiments.
 
+### Start, slow paces and the stop
+
+The Run owns the body from the order to the stand at its end. Today it walks by the stance's walk
+until the body has faced the way asked for 0.6 s and has come near the walk's top pace or faced
+it 2 s (`RUN_SWITCH`), and hands the body back to that walk to slow and stop; that handover goes.
+
+- **Start from a stand** as a person does: the stance moves the centre of pressure behind and
+  toward the first stepping foot, so the body begins to fall toward the way asked; that foot's
+  swing begins the cycle at pace 0 (`runCycle`'s `begin` from double support), and the pace rises
+  at the cycle's acceleration.
+- **Turn while starting**, never on the spot: a way up to 90 degrees off is taken by a step turn,
+  the first foot landing turned toward it and the heading closing over the next two or three
+  steps; a way behind by a spin turn, pivoting on the standing foot through the first step.
+- **Slow paces** by a person's captured walking cycle in the same cycle tracker below the run's
+  slowest clip, with the jog the [development reading](#development-reading) names between them:
+  short places, a slot beside a door, the navigator's slow approach. Facing held, the other
+  directions go by captured side and back steps in the tracker as well.
+- **The stop** brakes by the cycle down to both feet on the ground, and the stance takes the body
+  standing, without a step.
+
+The travel actor is trained on the current handover, so it is retrained from the entry stage on
+the new start.
+
 ## Gates
 
 The hard forward floor is 4 m/s. The other thresholds below define useful initial targets to
@@ -38,6 +63,8 @@ establish on the body; a short reading remains short and names its limiting laye
 
 | Capability | Requirement |
 | --- | --- |
+| Start | From rest, toward each of eight compass headings: the centre of mass moves toward the way asked within 0.5 s of the order, and no step is the stance's walk from the order to the stand after the stop. |
+| Short place | From rest, a place 1 m and 3 m off at each of eight headings: reached and stood at within 0.4 m, by the Run alone. |
 | Forward run | From rest, reach 4 m/s within 4 s of the order, then hold at least 4 m/s for 10 s. |
 | Travel to a heading | From rest, turn toward each of eight compass headings and perform the forward run; allow up to 6 s from the order to reach 4 m/s, then hold it for 10 s. |
 | Facing held | Move along each of eight directions relative to a fixed facing. Forward meets the forward gate; each other direction reaches its declared speed within 4 s and holds it for 10 s. |
@@ -111,17 +138,23 @@ moving phases; development cases never become exact training starts.
    forward run and stop gates are met, empty hands, calm air. Install the record in the
    Warrior's walk-run record so the game's Option Mind runs it, and send the owner a drill link
    with what was seen. This is the first milestone the owner watches.
-4. **Directions and manoeuvres.** Add headings, facing-held directions, continuous steering,
+4. **Start, slow paces and the stop within the Run.** Build the start from a stand, the step and
+   spin turns, the slow cycle and the stop to a stand into the walk and run
+   ([Start, slow paces and the stop](#start-slow-paces-and-the-stop)), drop its handover to the
+   stance's walk, and screen the native controller on the Start and Short place gates until it
+   meets some of their cases. Then retrain the actor from its entry stage on it, keeping every
+   earlier stage's episodes, and install it in the Warrior's walk-run record.
+5. **Directions and manoeuvres.** Add headings, facing-held directions, continuous steering,
    corners and reversals as curriculum stages of the same actor, keeping the forward and stop
    episodes in the mix. Declare the directional speeds as
    [Safe directional speeds](#safe-directional-speeds) says.
-5. **Loadouts.** Train the same actor with every rated loadout in its episodes: empty hands,
+6. **Loadouts.** Train the same actor with every rated loadout in its episodes: empty hands,
    club, sword, club and buckler, sword and buckler. Each keeps the 4 m/s forward floor and gets
    its own published envelope. A loadout short of a gate gets more episodes, never its own actor.
-6. **Confirm** on fresh starting headings, both initial stepping legs, calm air and the Lab's
+7. **Confirm** on fresh starting headings, both initial stepping legs, calm air and the Lab's
    gusts, seeds 1 to 4, with the intermediate headings reserved for confirmation. Train on
    separate cases; do not select easier confirmation cases after seeing a failure.
-7. **Refresh** the movement profiles and the evaluation table. Verify the configured Option Mind
+8. **Refresh** the movement profiles and the evaluation table. Verify the configured Option Mind
    obeys travel, facing and stop orders within the published envelopes and keeps the braced
    fighting walk. Watch the failures first in the Locomotion reel, then the Lab and Arena.
 
@@ -146,8 +179,8 @@ train.log's `down` and shortfall. Its failures are falls; leaving the 1 m corrid
    stepping legs: warm-up speeds 1 to 4.5 m/s where reachable, episode starts 2 to 9 s,
    requested speeds 1.4 to 6.5 m/s. Keep the seed's from-rest forward entry in the mix from
    this stage. Unreached warm-ups are reported and excluded.
-2. **Entry and pace changes.** Requested speeds down to 0.9 m/s for the walk-to-run handover,
-   episodes from rest, and pace changes within an episode.
+2. **Entry and pace changes.** Episodes from a stand toward every heading, requested speeds down
+   to the slow cycle's, places 1 to 3 m off, and pace changes within an episode.
 3. **Slowing and stops.** From reached runs, pace orders a little below the run's speed first,
    then larger drops, then stop orders from reached speeds and after holds, each size added
    once the smaller succeeds on development cases. Entry and moving episodes stay in the mix.
@@ -163,7 +196,7 @@ train.log's `down` and shortfall. Its failures are falls; leaving the 1 m corrid
    planned at its `Locomotion.stopping` of 0.2 m/s² ask 1.8 m/s 8 m out and 2.4 m/s 15 m out. Heading orders,
    facing-held directions, rotating directions, corners and reversals from reached runs join as
    this stage's variations.
-5. **Loadouts and gusts**, as step 5 of the work says.
+5. **Loadouts and gusts**, as step 6 of the work says.
 
 These are development stages, not acceptance gates. A moving-start run does not prove entry
 from rest; a higher requested speed does not satisfy a lower order that the configured Mind
@@ -172,6 +205,10 @@ movement contract, including the stop and recovery guards. Training rewards and 
 never change those requirements.
 
 ## Development reading
+
+From a stand, a Dungeon click 9 to 12 m off has the Option Mind go by the Run at once; the Run
+turns on the spot at about 0.2 m/s for 1.5 s, walks by the stance's walk at about 1 m/s, and
+runs from 2.8 to 3.3 s after the order (Node, Warrior with the sword, seeds 1 and 6).
 
 The Node Option Mind development screen runs at 120 Hz, unassisted, empty-handed and in calm
 air. The retained restored seed meets all twelve from-rest entry-and-hold cases and all eight

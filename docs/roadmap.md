@@ -27,7 +27,7 @@ Where the project is going and what is open. What is built is in the
 | --- | --- |
 | [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
 | [Options trained body by body](plans/2026-11-03-options-training.md) | stand-up within 10 s on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
-| [Warrior travel](plans/2026-11-05-warrior-travel.md) | first milestone: preserve 4 m/s from-rest entry while training stops; then directions, manoeuvres and loadouts |
+| [Warrior travel](plans/2026-11-05-warrior-travel.md) | first milestone: preserve 4 m/s from-rest entry while training stops; then the Run from a stand with no braced step, directions, manoeuvres and loadouts |
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an intentional overhead club strike at the head with either hand, with and without the buckler, returning to guard: a graded reader, a searched push schedule, then a learned actor |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
