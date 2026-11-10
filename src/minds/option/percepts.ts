@@ -280,11 +280,20 @@ function pressureAt(pressure: Pressure, range: number, velocity: readonly [numbe
   return (pressure.rateAt ? pressure.rateAt(range, velocity) : pressureRateAt(pressure, range, velocity)) * seconds;
 }
 
+/**
+ * How near a range may come to a reach and still read as at its edge, m: the rounding of one range
+ * found by two routes (a spot placed at the edge of a reach, then measured back from where it is).
+ */
+const ROUNDING = 1e-9;
+
+/** **Whether `range` m is within `reach` m**: short of it; a range at its edge, rounding aside (`ROUNDING`), is out of it. */
+const within = (range: number, reach: number): boolean => range < reach - ROUNDING;
+
 /** The most life a second the measured strikes of `pressure` deal at this start. */
 function pressureRateAt(pressure: Pressure, range: number, velocity: readonly [number, number]): number {
   let rate = 0;
   for (const reading of pressure.model) {
-    if (range >= reading.reach(pressure.phase)) continue;
+    if (!within(range, reading.reach(pressure.phase))) continue;
     const expected = reading.rate({ range, phase: pressure.phase, velocity }, pressure.struck);
     if (expected !== null) rate = Math.max(rate, expected);
   }
@@ -360,7 +369,7 @@ export const dealtAt = (pressure: Pressure, now: Situation, apart: number, secon
   pressureAt(pressure, now.apart + apart - now.range, velocity, seconds);
 
 /** **Whether the body at `now` is within the focus's reach** (`edgeOf` its pressure). */
-export const inReach = (now: Situation): boolean => now.range < edgeOf(now, now.predictions.pressure);
+export const inReach = (now: Situation): boolean => within(now.range, edgeOf(now, now.predictions.pressure));
 
 /**
  * **What a body's reader keeps of the focus's reach**: for each foe, the seconds a blow it has not

@@ -8,7 +8,7 @@ import { shieldHands } from "./cover-hand.ts";
 import type { Cover } from "../../skills/framework/intent.ts";
 import { along, asking, blocked, LEGS, READY, standing, type Ask, type Option, type Site, type Situation } from "./option.ts";
 import { NOTHING, WHOLE, type Status } from "../choice.ts";
-import { edgeOf, threatened } from "./percepts.ts";
+import { edgeOf, inReach, threatened } from "./percepts.ts";
 import { AS_IS, clinched, UNMOVED, upOrDown, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import { atan2, hypot } from "../../core/math/real.ts";
@@ -44,8 +44,8 @@ const still = (walk: Pick<Walker, "facing" | "kept">) => (now: Situation) => ({ 
 const OUT_OF_REACH: Site = Object.freeze({
   name: "the edge of the foe's reach",
   spot(at: Situation) {
-    const focus = at.focus, edge = edgeOf(at, at.predictions.pressure);
-    return focus && at.range < edge ? { ...along(at, edge), velocity: focus.velocity } : null;
+    const focus = at.focus;
+    return focus && inReach(at) ? { ...along(at, edgeOf(at, at.predictions.pressure)), velocity: focus.velocity } : null;
   },
 });
 
