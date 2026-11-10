@@ -132,30 +132,37 @@ Steps 1 to 3 are done; step 4 has no trained actor yet.
   −2.5 37%, at −3 about half: the steer adds to an open-loop swing's pushes, so its run starts
   at −3 or lower.
 - **On the drill page** the native bonk is recorded on the `bonk` rung as subject
-  `option-bonk@empty,club` (`?play=ratings&evaluation=strike&subject=option-bonk@empty,club`):
-  8 of the rung's 16 fixed places land at 87 to 112 J, 3 are weak (64 and 68 J at gap 1.1 to
-  1.3 m, and 12 J with the arm bent at gap 0.6 m), 5 at gap 0.9 m or nearer are never admitted,
-  none falls. Option Mind's
-  preset has no bonk Option yet, so `option/bonk` does not resolve; the subject is a file holding
-  the preset with the bonk's Option added (`owning` in `research/case-learning-environment.mjs`),
-  `{ mind, skill: "bonk", held: { left: "empty", right: "club" } }`, given to
-  `npm run evaluate -- strike <file> --protocol bonk --write`.
-
+  `option-bonk@empty,club` (`?play=ratings&evaluation=strike&subject=option-bonk@empty,club`).
+  Played now, Option Mind's preset with the bonk (a file `{ mind, skill: "bonk", held: { left:
+  "empty", right: "club" } }` given to `npm run evaluate -- strike <file> --protocol bonk`), 12 of
+  the 16 fixed places land at 89 to 112 J (median 102 J), one is weak (86 J at gap 0.8 m, across
+  0.2 m), three at gap 0.7 m or nearer are never admitted, none falls; 1.9 s from the action's
+  start to contact. The drill walks its striker into the window and stands it there by firm
+  orders, so it reads the bonk only while firm orders keep the legs.
+- **Its footwork** is most of that time: the swing steps each foot to its footing (two steps,
+  each a weight shift of 0.3 to 0.8 s and a 0.3 s swing), a step landing more than 2 cm short
+  (`PLACING.near`, `src/skills/locomotion/locomotion.ts`) taken again. Against a moving foe the
+  first step often lands 3 to 24 cm short. Placing the feet within 8 cm cut the footwork's median
+  from 2.0 to 1.6 s in eight Skeleton bouts but did not land more (49 hits of 70 swings against
+  48 of 62); the swing without its footing lands 1 of the rung's 16. A footing nearer the stance
+  the walk leaves, searched with the swing, is the next question.
 - **In the Arena** Option Mind offers the bonk (`src/entrants/option/mind.ts`) as its only club
-  blow, priced by its profile from that record (`research/skills/strikes/strike-profiles.mjs`);
-  the club blow is experimental, a drill opponent's. In a minute's Warrior bout, both holding
-  `empty,club` (Node, `Duel` on a flat floor, seed 2), each side finishes 5 bonks and lets 8 to
-  17 go before they commit; the left one punches 3 times. The left side falls once a bout while
-  it walks to the bonk's window ("braced to bonk hand.right's window"), the range opening from
-  1.0 to 1.7 m in 0.2 s before it goes down; with the club blow in the bonk's place neither side
-  fell. That fall is the defect to fix first.
+  blow, priced by its profile from the drill (`research/skills/strikes/strike-profiles.mjs`); the
+  club blow is experimental, a drill opponent's. Node, `Duel` on a flat floor, 60 s bouts from
+  gaps of 1.6 to 4 m, the Warrior holding `empty,club`: against the Skeleton, 33 bonks begun, 31
+  swung, one stalled at the swing's 6 s settling deadline, its right foot never placed; and once
+  the Warrior went down in the footwork, 1.9 s into a bonk, a fall to find. Against a Warrior
+  holding `empty,club`, 37 begun, 34 swung, 3 let go before the swing, no falls; three of the
+  four bouts end with a side slain.
 
 To pick it up:
 
 - **Screen the swing or a policy** on held-out places, every rung's condition with `--all`:
   `node research/skills/strikes/straight-punch/punch-policy-check.mjs --config research/skills/strikes/swing/environments/bonk.json --policy none --rates 120,480`
   (`--policy <run>/policy-<n>.json` for a checkpoint; `--config` a run's configuration to screen
-  on its places).
+  on its places). It stops on the preset's minds now ("a case environment drives one learner;
+  the world has 3 in its option minds", `learnerIn` in `research/case-learning-environment.mjs`):
+  the environment is to find the swing's own learner among them before a screen or a run.
 - **Train** from a configuration naming the environment and its curriculum: `environment`
   `research/skills/strikes/swing/environments/bonk.json`, `workers` 20, `each` 4, `rates` `[120]`,
   and `places` the environment's `bonk` draw, `walk` where `{ mark: "high", hand: "right", start:
