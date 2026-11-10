@@ -10,12 +10,12 @@ import { copyMovement, sameMovement, stands, type MovementRequest, type GroundPo
 import type { NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "../../framework/navigation.ts";
 import type { SolidSense } from "../../../core/bodies/object-senses.ts";
 import { createRouter } from "./route-search.ts";
-import { cornersOf, travelSpeed, WAYPOINT, type Corner } from "../travel.ts";
+import { cornersOf, passedWithin, ROUTE_MARGIN, travelSpeed, WAYPOINT, type Corner } from "../travel.ts";
 
 /**
  * Route clearance includes gait sway; progress windows are navigation preferences, not anatomy. A
- * route turns onto its next leg `waypoint` m before a corner, the room its gait has to turn in there
- * (`Corner.room`), or sooner where that leg is clear from where the body stands: a body carried or
+ * route turns onto its next leg where the widest turn its margin allows begins (`passedWithin`,
+ * `Corner.room`), or sooner where that leg is clear from where the body stands: a body carried or
  * crowded off its route goes on from where it is, never back to a corner it has passed. A place's
  * points before its last are corners of its way the same: walked through, not stopped at. What it
  * carries is given the most room it took over the last `hold` s: an arm drawn in for a moment
@@ -23,7 +23,7 @@ import { cornersOf, travelSpeed, WAYPOINT, type Corner } from "../travel.ts";
  * come no nearer for `stalled` s, its route kept from where it was, stands that step and searches
  * afresh from where it is at the next.
  */
-const NAV = Object.freeze({ margin: .08, hold: 2,
+const NAV = Object.freeze({ margin: ROUTE_MARGIN, hold: 2,
   stalled: 3, progress: .06, moved: .3, quiet: .25, rangeSamples: 16, rangeResponse: 1, sideCost: .1 });
 const apart = (a: GroundPoint, b: GroundPoint): number => hypot(a.x - b.x, a.z - b.z);
 const atHeight = (at: GroundPoint, height: number): Vec3 => [at.x, height, at.z];
@@ -278,8 +278,8 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     const distance = apart(here, goal), speed = hypot(view.stance.velocity.x, view.stance.velocity.z);
     state.stood = stands(distance, near, state.stood);
     if (state.stood) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance, rest: [aim.x, aim.z] }; }
-    // A corner is passed within `WAYPOINT` of it, or once the leg past it is clear from here.
-    while (state.route.length > 1 && (apart(here, state.route[0]!) <= WAYPOINT
+    // A corner is passed where the body turns onto the next leg (`passedWithin`), or once the leg past it is clear from here.
+    while (state.route.length > 1 && (apart(here, state.route[0]!) <= passedWithin(here, state.route[0]!, state.route[1]!)
       || clearStep(atHeight(here, centre.y), atHeight(state.route[1]!, centre.y), radius, solids))) state.route.shift();
     if (!state.route.length) return unreachable(goal);
     // The way on: the route to the goal, then a place's points after it.
