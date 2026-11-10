@@ -107,6 +107,8 @@ export interface Locomotion extends Skill {
   readonly unmet?: LegsUnmet;
   /** The gait it walks by now, for legs that walk by gaits by name (`GAITS`); absent, legs that have none. */
   readonly gait?: GaitName;
+  /** The gaits it walks by, by name, for legs that walk by gaits by name; absent, legs that have none. */
+  readonly gaits?: readonly GaitName[];
   /** The limits it walks by going by `gait` (`GaitLimits`), for legs that walk by gaits by name; null where it has no such gait. */
   limitsOf?(gait: GaitName): GaitLimits | null;
   /**

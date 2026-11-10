@@ -3,8 +3,33 @@ import type { GroundPoint } from "../framework/movement.ts";
 import { heldPace, turnAt } from "../../control/stance/stance-envelope.ts";
 import { hypot } from "../../core/math/real.ts";
 
-/** How far before a corner of its way a body turns onto the next leg, m: where a route's corner counts as passed. */
+/** How near a corner of its way a body counts it passed at the least, m: about where a walk's step lands past it. */
 export const WAYPOINT = .18;
+
+/** How far a route keeps a body's centre beyond its clearance, m: as far as a turn may cut inside a route's corner. */
+export const ROUTE_MARGIN = .08;
+
+/**
+ * How far before a corner of a route a body turns onto the next leg, m, on the widest arc that
+ * cuts no more than `ROUTE_MARGIN` inside it (radius `r`, cutting `r (sec h - 1)`, starting
+ * `r tan h` before it, `h` half the turn), and no farther than the next leg is long.
+ */
+export function cornerRoom(halfTurn: number, next: number): number {
+  const room = halfTurn === Infinity ? ROUTE_MARGIN : ROUTE_MARGIN * halfTurn / (Math.sqrt(1 + halfTurn * halfTurn) - 1);
+  return Math.min(room, next);
+}
+
+/** How near a route's corner `at`, from `before` and on to `after`, a body counts it passed, m: where it turns onto the next leg (`cornerRoom`), `WAYPOINT` at the least. */
+export function passedWithin(before: GroundPoint, at: GroundPoint, after: GroundPoint): number {
+  return Math.max(WAYPOINT, cornerRoom(halfTurnOf(before, at, after), hypot(after.x - at.x, after.z - at.z)));
+}
+
+/** The tangent of half the angle a way turns at `at`, from `before` on to `after`: 0 where a leg has no length, Infinity turned right back. */
+function halfTurnOf(before: GroundPoint, at: GroundPoint, after: GroundPoint): number {
+  const ax = at.x - before.x, az = at.z - before.z, bx = after.x - at.x, bz = after.z - at.z, la = hypot(ax, az), lb = hypot(bx, bz);
+  const sum = la * lb + ax * bx + az * bz;
+  return la === 0 || lb === 0 ? 0 : sum > 0 ? Math.abs(ax * bz - az * bx) / sum : Infinity;
+}
 
 /**
  * A corner of a route ahead: how far along the route it is, m; the tangent of half the angle the
@@ -69,16 +94,14 @@ export function travelSpeed(gait: GaitLimits, way: readonly [forward: number, ri
   return speed;
 }
 
-/** Each corner of the way from `from` through `way`: how far along the way it is, and the tangent of half its turn, turned `WAYPOINT` m before it. */
+/** Each corner of the way from `from` through `way`: how far along the way it is, the tangent of half its turn, and how far before it the body turns (`cornerRoom`). */
 export function cornersOf(from: GroundPoint, way: readonly GroundPoint[]): Corner[] {
   const corners: Corner[] = [];
   let to = way.length ? hypot(way[0]!.x - from.x, way[0]!.z - from.z) : 0;
   for (let k = 0; k + 1 < way.length; k++) {
-    const before = k === 0 ? from : way[k - 1]!, at = way[k]!, after = way[k + 1]!;
-    const ax = at.x - before.x, az = at.z - before.z, bx = after.x - at.x, bz = after.z - at.z, la = hypot(ax, az), lb = hypot(bx, bz);
-    const sum = la * lb + ax * bx + az * bz;
-    corners.push({ distance: to, halfTurn: la === 0 || lb === 0 ? 0 : sum > 0 ? Math.abs(ax * bz - az * bx) / sum : Infinity, room: WAYPOINT });
-    to += lb;
+    const before = k === 0 ? from : way[k - 1]!, at = way[k]!, after = way[k + 1]!, halfTurn = halfTurnOf(before, at, after), next = hypot(after.x - at.x, after.z - at.z);
+    corners.push({ distance: to, halfTurn, room: cornerRoom(halfTurn, next) });
+    to += next;
   }
   return corners;
 }
@@ -90,8 +113,9 @@ const PIECE = .25;
  * How long each leg of the way from `from` through `way` takes, s, the body going at the speed
  * rule's speed for `gait` all along it (`travelSpeed`: what it holds the way each leg goes, `frame`
  * giving that way, forward and to the right, of a leg's ground direction; stopping at the way's end
- * and slowing for its corners), from `on` m/s, under `ceiling`: the speed asked at the middle of
- * each piece of `PIECE` m. Infinity for a leg the gait does not go.
+ * and slowing for its corners), from `on` m/s, under `ceiling`: each piece of `PIECE` m crossed at
+ * the mean of the speed it is entered at and the speed asked at its middle. Infinity for a leg the
+ * gait does not go.
  */
 export function legSeconds(gait: GaitLimits, from: GroundPoint, way: readonly GroundPoint[], frame: (x: number, z: number) => readonly [number, number],
   on: number, ceiling = Infinity): number[] {
@@ -106,8 +130,11 @@ export function legSeconds(gait: GaitLimits, from: GroundPoint, way: readonly Gr
     let time = 0;
     for (let i = 0; i < pieces; i++) {
       const middle = gone + (i + .5) * step, ahead = corners.filter((corner) => corner.distance > middle).map((corner) => ({ ...corner, distance: corner.distance - middle }));
+      // A piece is crossed at the mean of the speed it is entered at and the speed asked at its middle:
+      // near the end the speed asked comes to 0, and the body brakes across the piece from what it had.
+      const entered = speed;
       speed = travelSpeed(gait, facing, total - middle, ahead, speed, ceiling);
-      time += speed > 0 ? step / speed : Infinity;
+      time += entered + speed > 0 ? 2 * step / (entered + speed) : Infinity;
     }
     seconds.push(length > 0 ? time : 0);
     gone += length; at = point;

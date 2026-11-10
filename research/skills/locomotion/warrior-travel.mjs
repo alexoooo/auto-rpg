@@ -20,7 +20,7 @@ import { DEFAULT_ENGINE } from '../../../src/core/physics/engines.ts';
 import { massCentreToRef, massOf } from '../../../src/core/bodies/read-motion.ts';
 import { Quaternion, Vector3 } from '../../../src/core/math/vector.ts';
 import { recordingKey } from '../../../src/core/world/recording.ts';
-import { MOVE } from '../../../src/skills/locomotion/move-part.ts';
+import { GOING } from '../../../src/skills/locomotion/move-part.ts';
 import { STOCK_GAITS } from '../../../src/skills/locomotion/gaits.ts';
 import { stanceEnvelope } from '../../../src/skills/locomotion/stance/envelope.ts';
 import { walkRunEnvelope } from '../../../src/skills/locomotion/walk-run/envelope.ts';
@@ -71,7 +71,7 @@ script.push({ at: stop, orders: { move: null, face: o.mode === 'facing' ? { x: 0
 let mind = defaultMind('workshop-fighter');
 const tuning = o.settings ? JSON.parse(readFileSync(o.settings, 'utf8')) : null;
 if (tuning) {
-  mind = { ...mind, tuning: { ...mind.tuning, parts: { ...mind.tuning?.parts, legs: { ...MOVE,
+  mind = { ...mind, tuning: { ...mind.tuning, parts: { ...mind.tuning?.parts, legs: { ...GOING,
     gaits: STOCK_GAITS.map(gait => gait.legs.kind === 'walk-run' ? { ...gait, legs: { ...gait.legs, tuning } } : gait) } } } };
 }
 const lone = { model: 'workshop-fighter', mind, balance: 0,

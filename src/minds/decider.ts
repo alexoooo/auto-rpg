@@ -50,6 +50,8 @@ export interface Sight {
   readonly report: SkillReport;
   /** What the skills' locomotion was measured to hold with this body (`Locomotion.envelope`), as it is now: its fastest walk, and its turns. */
   readonly envelope: StanceEnvelope | null;
+  /** What the body's plain walk holds (`Body.envelope`): the ceiling of orders to walk, not run (`Intent.walk`). */
+  readonly walkEnvelope: StanceEnvelope | null;
   /** The limits it walks by going by a gait (`Skills.limitsOf`). */
   readonly limitsOf: Skills["limitsOf"];
   /** How the body keeps clear of the solids sensed (`Skills.clearance`): its navigator's, so replacing the navigator replaces it for the decider. */
@@ -99,7 +101,7 @@ export function driveBy(body: Body, decider: Decider, make: (body: Body) => Skil
   const { every, phase, orders } = pace;
   if (!Number.isInteger(every) || every < 1 || !(phase >= 0 && phase < 1)) throw new Error(`a decider decides every whole number of steps on a phase in [0, 1), not every ${every} on ${phase}`);
   const skills = make(body), offset = Math.floor(phase * every);
-  const sight: Sight = { get context() { return skills.context; }, view: body.view, report: skills.report, get envelope() { return skills.envelope; }, limitsOf: skills.limitsOf, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
+  const sight: Sight = { get context() { return skills.context; }, view: body.view, report: skills.report, get envelope() { return skills.envelope; }, walkEnvelope: body.envelope, limitsOf: skills.limitsOf, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
   /** What it last decided, the step it decided it on, the orders it decided on and the last action ended then (`Ended.sequence`). */
   const state = { held: null as Intent | null, decided: 0, orders: null as Orders | null, ended: 0 };
   const decide = (view: BodyView, dt: number): Intent => {

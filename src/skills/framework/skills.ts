@@ -20,8 +20,12 @@ export interface Skills extends Skill {
   readonly envelope: StanceEnvelope | null;
   /** The limits its legs walk by going by `gait` (`Locomotion.limitsOf`); null where they have no such gait. */
   limitsOf(gait: GaitName): GaitLimits | null;
-  /** The limits its legs state, which the speed rule reads (`travelSpeed`): what a team reads of how fast it goes. */
-  readonly gait: GaitLimits;
+  /**
+   * The limits of each gait its legs go by (`Locomotion.gaits`, `limitsOf`), or the legs' own where
+   * they go by no gait by name, which the speed rule reads (`travelSpeed`): what a team reads of how
+   * fast it can go.
+   */
+  readonly gaits: readonly GaitLimits[];
   /** How its planner keeps the body clear of the solids sensed: the policy supplied with its services. */
   readonly clearance: Clearance;
   readonly state: object;

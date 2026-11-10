@@ -1,4 +1,4 @@
-/** Several physical starts per phase; checkpoint selection reads only the trained phases. */
+/** Several physical starts per phase; checkpoint selection reads every phase, the game's own orders among them. */
 import '../../../tests/harness/preload-data.mjs';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -15,13 +15,13 @@ import { sin, cos } from '../../../src/core/math/real.ts';
 import { massCentreToRef, massOf } from '../../../src/core/bodies/read-motion.ts';
 import { footStatesOf, groundContact } from '../../../src/control/support.ts';
 import { recoveryNetwork } from '../../../src/core/math/learning/recovery-network.ts';
-import { MOVE } from '../../../src/skills/locomotion/move-part.ts';
+import { GOING } from '../../../src/skills/locomotion/move-part.ts';
 import { STOCK_GAITS } from '../../../src/skills/locomotion/gaits.ts';
 import { readTravel } from '../../../src/evaluation/travel/read.ts';
 import { TRAVEL, travelScript } from '../../../src/evaluation/travel/protocol.ts';
 import { traceOf } from '../../../src/evaluation/trace.ts';
 import { travelEnvironment } from './travel-environment.mjs';
-import { slowingCues, slowingSeconds } from './travel-curriculum.mjs';
+import { slowingCues, slowingSeconds, wayOf, lengthOf, PLACE_NEAR, PLACE_SPARE } from './travel-curriculum.mjs';
 import { workerJobs } from '../../worker-jobs.mjs';
 import { BUILD_IDENTITY } from '../../../scripts/build-identity.mjs';
 
@@ -54,12 +54,34 @@ export function developmentCases(slow = []) {
       const orders = Array.isArray(item) ? item : [item], key = orders.join('>');
       return { id: `slow-${key}-${h}-${p}`, phase: 'slow', key, orders, pace: orders.at(-1), heading, at, seed: 1301 + h };
     }))),
+    ...GAME.headings.flatMap((heading, h) => GAME.paces.map((pace, k) => ({
+      id: `pace-${pace}-${h}`, phase: 'pace', pace, heading, loadout: GAME.loadout, ...rests[(h + k) % rests.length], seed: 1501 + 7 * h + k,
+    }))),
+    ...GAME.headings.flatMap((heading, h) => GAME.places.map((way, k) => ({
+      id: `place-${k}-${h}`, phase: 'place', way, heading, loadout: GAME.loadout, ...rests[(h + k) % rests.length], seed: 1601 + 7 * h + k,
+    }))),
   ];
 }
 
+/**
+ * The game's own orders, as the screen plays them: starts from a stand at the paces the navigator
+ * asks; places (a way of points, each [metres, degrees] from the last, the first from where the
+ * body faces, each leg after the first a corner, as the navigator routes rooms; `then`, a place
+ * ordered `at` s on instead) from a stand; each carrying what the Warrior carries in the Dungeon and
+ * the Arena (`loadout`), a sword in the right hand.
+ */
+const GAME = {
+  loadout: { left: 'empty', right: 'sword' },
+  headings: [.19, 1.27, 2.61, 4.43],
+  paces: [1, 2, 3],
+  places: [{ points: [[5, 0]] }, { points: [[10, 30]] }, { points: [[3, -90]] }, { points: [[7, 150]] },
+    { points: [[6, 0], [4, 90]] }, { points: [[5, 20], [5, -90]] }, { points: [[9, 0]], then: { at: 2.5, points: [[6, -80]] } },
+    { points: [[4, 0], [8, -30], [5, 25]] }, { points: [[2.2, 0], [14, 30]] }, { points: [[6, 0], [5, -40], [6, -30], [5, 35]] }, { points: [[11, 0], [9, 20]] }],
+};
+
 function mindOf(tuning) {
   const base = defaultMind('workshop-fighter');
-  return { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...MOVE,
+  return { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...GOING,
     gaits: STOCK_GAITS.map(gait => gait.legs.kind === 'walk-run' ? { ...gait, legs: { ...gait.legs, tuning } } : gait) } } } };
 }
 
@@ -161,6 +183,76 @@ async function slowCase(basePath, policy, c) {
     stop: { entered: false, met: false, fall: false }, digest: digest(samples), played: samples.length / hz };
 }
 
+/** Plays `program` from a quiet rest after the case's settle, turned and lowered as it says. */
+async function playRest(basePath, policy, c, program) {
+  const env = await travelEnvironment({ settings: basePath, heading: c.heading, seed: c.seed, ...(c.loadout ? { loadout: c.loadout } : {}), restTimes: [c.settle], yaws: [c.yaw], lowers: [c.lower],
+    trace: true, scripts: [{ ...program, start: 'rest' }] });
+  try {
+    let observation = await env.reset({ program: { ...program, start: 'rest' } }), result;
+    const initial = env.reading();
+    for (;;) {
+      result = env.step(policy(observation), { squashed: true }); observation = result.observation;
+      if (result.terminated || result.truncated) break;
+    }
+    return { initial, samples: env.samples(), hz: env.harness.hz };
+  } finally { env.dispose(); }
+}
+
+/** A start from a stand at a pace the navigator asks: met when its last 2 s average within `SLOW_BAND` of the pace, upright, in its corridor. */
+async function paceCase(basePath, policy, c) {
+  const program = { seconds: TRAVEL.start + 6, cues: [{ at: 0, orders: go(c.heading, c.pace) }] };
+  const { initial, samples, hz } = await playRest(basePath, policy, c, program);
+  const forward = direction(c.heading), along = samples.map(s => s.velocity[0] * forward.x + s.velocity[2] * forward.z);
+  const complete = samples.length === Math.round(program.seconds * hz), fall = samples.some(s => s.down);
+  const final = complete ? mean(along.slice(-2 * hz)) : null;
+  const corridor = samples.reduce((most, s) => Math.max(most,
+    Math.abs((s.centre[0] - initial.centre[0]) * forward.z - (s.centre[2] - initial.centre[2]) * forward.x)), 0);
+  const met = complete && !fall && corridor <= TRAVEL.corridor && final >= c.pace - SLOW_BAND.below && final <= c.pace + SLOW_BAND.above;
+  return { case: c, fixtureReached: true, beforeStop: { met, complete, fall, final, corridor, held: null },
+    stop: { entered: false, met: false, fall: false }, digest: digest(samples), played: samples.length / hz };
+}
+
+/** How far `at` is off the way from `from` through `points`, m. */
+function offWay(at, from, points) {
+  let least = Infinity;
+  for (const to of points) {
+    const dx = to.x - from.x, dz = to.z - from.z, l2 = dx * dx + dz * dz;
+    const t = l2 > 0 ? Math.max(0, Math.min(1, ((at.x - from.x) * dx + (at.z - from.z) * dz) / l2)) : 0;
+    least = Math.min(least, Math.hypot(at.x - from.x - t * dx, at.z - from.z - t * dz)); from = to;
+  }
+  return least;
+}
+
+/**
+ * A place as the game orders it, by the run: met when the body ends upright, quiet `TRAVEL.quiet` s
+ * and within half a metre of it, never more than `TRAVEL.corridor` off the way (once a second place
+ * is ordered, off either way, the second's from where the order found the body). Every point is
+ * from where the case began, as the game's are from where the order was given.
+ */
+async function placeCase(basePath, policy, c) {
+  const place = points => ({ move: { kind: 'place', points, near: PLACE_NEAR }, gait: 'run', face: null });
+  const first = wayOf(c.heading, c.way.points), then = c.way.then ? wayOf(c.heading, c.way.then.points) : null;
+  const program = { seconds: PLACE_SPARE + lengthOf(first) + (then ? c.way.then.at + lengthOf(then) : 0),
+    cues: [{ at: 0, orders: place(first) }, ...(then ? [{ at: c.way.then.at, orders: place(then) }] : [])] };
+  const { initial, samples, hz } = await playRest(basePath, policy, c, program), o = { x: initial.centre[0], z: initial.centre[2] };
+  const way = first.map(p => ({ x: o.x + p.x, z: o.z + p.z }));
+  const changed = then ? Math.min(samples.length - 1, Math.round(c.way.then.at * hz)) : Infinity;
+  const turned = then ? { x: samples[changed].centre[0], z: samples[changed].centre[2] } : null;
+  const later = then ? then.map(p => ({ x: o.x + p.x, z: o.z + p.z })) : null;
+  const end = (later ?? way).at(-1), fall = samples.some(s => s.down);
+  let corridor = 0, arrivedAt = null;
+  for (const [i, s] of samples.entries()) {
+    const at = { x: s.centre[0], z: s.centre[2] };
+    corridor = Math.max(corridor, i < changed ? offWay(at, o, way) : Math.min(offWay(at, o, way), offWay(at, turned, later)));
+    if (arrivedAt === null && (!then || i >= changed) && Math.hypot(at.x - end.x, at.z - end.z) <= .5) arrivedAt = i / hz;
+  }
+  const quiet = samples.slice(-TRAVEL.quiet * hz), last = samples.at(-1), miss = Math.hypot(last.centre[0] - end.x, last.centre[2] - end.z);
+  const still = quiet.length === TRAVEL.quiet * hz && quiet.every(s => s.standing && Math.hypot(s.velocity[0], s.velocity[2]) < TRAVEL.still);
+  const met = !fall && still && miss <= .5 && corridor <= TRAVEL.corridor;
+  return { case: c, fixtureReached: true, beforeStop: { met, fall, miss, still, arrivedAt, corridor, held: null },
+    stop: { entered: false, met: false, fall: false }, digest: digest(samples), played: samples.length / hz };
+}
+
 async function holdCase(basePath, policy, c) {
   const program = { seconds: 14, cues: [{ at: 0, orders: go(c.heading) }, { at: 10, orders: stop(c.heading) }] };
   const { entry, rejected, initial, samples, hz } = await playMoving(basePath, policy, c, program);
@@ -201,7 +293,8 @@ async function screenCandidate(manifest, candidate) {
   if (candidate.policy) tuning.learned.travel = read(candidate.policy);
   const policy = recoveryNetwork(tuning.learned.travel), rows = [];
   for (const c of manifest.cases) rows.push(c.phase === 'entry' ? await entryCase(tuning, c)
-    : c.phase === 'slow' ? await slowCase(settings, policy, c) : await holdCase(settings, policy, c));
+    : c.phase === 'slow' ? await slowCase(settings, policy, c) : c.phase === 'pace' ? await paceCase(settings, policy, c)
+    : c.phase === 'place' ? await placeCase(settings, policy, c) : await holdCase(settings, policy, c));
   const entries = rows.filter(row => row.case.phase === 'entry'), holds = rows.filter(row => row.case.phase === 'hold');
   const slows = rows.filter(row => row.case.phase === 'slow'), running = [...entries, ...holds];
   const summary = { id: candidate.id, cases: rows.length, fixtures: rows.filter(row => row.fixtureReached).length,
@@ -212,10 +305,13 @@ async function screenCandidate(manifest, candidate) {
     firstLeg: { left: entries.filter(row => row.beforeStop.firstLeg === 'left').length, right: entries.filter(row => row.beforeStop.firstLeg === 'right').length },
     slowCases: slows.length, slowMet: slows.filter(row => row.beforeStop.met).length, slowFalls: slows.filter(row => row.beforeStop.fall).length,
     slowFinal: mean(slows.map(row => row.beforeStop.final ?? 0)),
+    paceCases: rows.filter(row => row.case.phase === 'pace').length, paceMet: rows.filter(row => row.case.phase === 'pace' && row.beforeStop.met).length,
+    placeCases: rows.filter(row => row.case.phase === 'place').length, placeMet: rows.filter(row => row.case.phase === 'place' && row.beforeStop.met).length,
+    met: rows.filter(row => row.beforeStop.met).length,
     stopFalls: rows.filter(row => row.stop.fall).length, stops: rows.filter(row => row.stop.met).length,
     totalFalls: rows.filter(row => row.beforeStop.fall || row.stop.fall).length };
   return { candidate, summary, settings: tuning, fixtureSettings: read(settings), cases: manifest.cases,
-    code: manifest.code, stopTrained: manifest.stopTrained === true,
+    code: manifest.code,
     harness: { name: 'Node lone world Option Mind', engine: DEFAULT_ENGINE, hz: 120, balance: 0 }, rows };
 }
 
@@ -237,11 +333,9 @@ if (!isMainThread) {
       console.log(JSON.stringify(result.summary)); return result.summary; },
   });
   const valid = results.every(result => result.fixtures === result.cases);
-  const stopTrained = manifest.stopTrained === true;
-  results.sort((a, b) => (stopTrained ? a.totalFalls - b.totalFalls : a.falls - b.falls)
-    || b.entryRate - a.entryRate || b.slowMet - a.slowMet || (stopTrained ? b.stops - a.stops : 0) || b.held - a.held);
-  const rank = stopTrained ? ['whole-trial falls', 'entry rate', 'slowed runs met', 'stops', 'mean held speed']
-    : ['before-stop falls', 'entry rate', 'slowed runs met', 'mean held speed'];
+  // Every phase counts, whichever stage trained it: a checkpoint that loses one ranks below one that keeps it.
+  results.sort((a, b) => a.totalFalls - b.totalFalls || b.met - a.met || b.stops - a.stops || b.held - a.held);
+  const rank = ['whole-trial falls', 'cases met, every phase', 'stops', 'mean held speed'];
   writeFileSync(`${o.out}/ranking.json`, JSON.stringify({ valid, rank, results }) + '\n');
   if (!valid) { console.error('The development fixtures must all reach their stated starts before checkpoints are ranked'); process.exitCode = 1; }
 }

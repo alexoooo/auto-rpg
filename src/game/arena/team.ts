@@ -57,7 +57,7 @@ export function teamOfOne(duel: Duel, side: Side, config: CommanderConfig, comma
     // The menu is built at its first read and kept for the view's other readers.
     let menu: MemberView["menu"] | undefined;
     const member: MemberView = { id: side, at: at(side), fighting: !duel.eliminated(side), held: false, vitality: duel.life(side), radius, reach: attackMetres, home,
-      navigation: report?.navigation ?? null, gait: report?.gait ?? null, heading: report?.heading ?? null, kit: report?.kit ?? null,
+      navigation: report?.navigation ?? null, gaits: report?.gaits ?? null, heading: report?.heading ?? null, kit: report?.kit ?? null,
       get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return menu === undefined ? menu = report?.menu ?? null : menu; },
       get prospects() { return report?.prospects ?? null; } };
     return { time: duel.clock, look: true, lead: team.lead, members: [member],

@@ -133,7 +133,14 @@ fighting-walk comparisons, and name existing shortfalls rather than treating the
 ## Training curriculum
 
 Each stage resumes from the previous stage's chosen checkpoint and keeps the earlier stages'
-episodes in the mix.
+episodes in the mix, half its episodes theirs (`travelCurriculum`). Checkpoints are ranked on
+every phase on the development screen (`travel-screen.mjs`), the game's orders among them: starts
+from a stand at 1 to 3 m/s, and places from a stand through the navigator, near and far, to each
+side and behind, round a corner and changed on the way, each carrying the sword the Warrior carries
+in the Dungeon and the Arena. Half the training environments carry it too: empty-handed, the
+actor drifts off its way with it. A travel run starts its spread at
+`--log-std -1.4` (0.25), the most the seed survives, takes its seed's 64-unit layers, and reads
+train.log's `down` and shortfall. Its failures are falls; leaving the 1 m corridor is unmet.
 
 1. **Sustained running.** Physically reached moving states at several gait phases, on both
    stepping legs: warm-up speeds 1 to 4.5 m/s where reachable, episode starts 2 to 9 s,
@@ -146,8 +153,16 @@ episodes in the mix.
    once the smaller succeeds on development cases. Entry and moving episodes stay in the mix.
    The restored seed falls on nearly every order to slow from a reached run, so this stage
    opens on the smallest drop it survives, or on native braking work if it survives none.
-4. **Directions and turns.** Heading orders from rest, facing-held directions, rotating
-   directions, corners and reversals from reached runs.
+   The game-orders run keeps the orders 3.5 to 1 m/s, stops after slowing to 1 and 2 m/s, and a
+   stop straight from the forward run, which a nearer place ordered while running asks: without
+   it, training on routes raised the screen's stop falls from the forward run from 1 to 5.
+4. **The game's orders.** Places from rest at 2 to 15 m round the body, routes shaped as the
+   navigator plans the Dungeon's (1 to 5 legs of 2 to 16 m, corners a median 29 degrees and 56 at
+   the 90th percentile), and a place changed on the way (`placeScripts`), at the paces the
+   navigator asks: the Run's stops
+   planned at its `Locomotion.stopping` of 0.2 m/s² ask 1.8 m/s 8 m out and 2.4 m/s 15 m out. Heading orders,
+   facing-held directions, rotating directions, corners and reversals from reached runs join as
+   this stage's variations.
 5. **Loadouts and gusts**, as step 5 of the work says.
 
 These are development stages, not acceptance gates. A moving-start run does not prove entry
@@ -168,17 +183,27 @@ adds slowing: zero falls, twelve of twelve entries, eight moving holds, a mean s
 of 4.52 m/s, and every slowing order from 3.5 to 1.5 m/s met. The 1 m/s order runs at 1.4 to
 1.7 m/s. Stops after slowing meet on eight of eight cases from 1 m/s (1.0 to 1.6 s) and seven of
 eight from 2 m/s; from 3 m/s three of eight; a direct stop from the forward run meets none, taking
-2.4 to 3 s to come under 0.15 m/s. The stop gate is short. The Warrior's walk-run record
-(`assets/skills/locomotion/walk-run/walk-run.json`) holds this actor and its native record, so
-the game's Run gait uses them; the Braced gait is the stance's own walk and reads neither.
+2.4 to 3 s to come under 0.15 m/s. The stop gate is short. From rest it enters only on the
+forward case's 4 m/s order: on the game's orders it falls on 28 of the screen's 124 cases and
+reaches 4 of its 28 places, the 3 m ones, which it walks. Its input normalisation, frozen from
+the first stage, saturates the asked pace below 3.4 m/s.
 
-From rest, the record's run enters only on the forward case's 4 m/s order. Asked 1.5 or 2.8 m/s,
-or sent to a place 5 to 20 m ahead at the speed rule's asks, it falls within 2 s. Its envelope's
-6.5 m/s forward is the curriculum's ceiling (`travel-training-ceiling`), so the game prices and
-asks the Run by limits it does not hold: an Option Mind with one follow-orders option per gait,
-each priced by the time its gait takes, chooses the Run and falls in the Crypt (34 falls over 16
-seeds of 60 s, against none by the Braced gait). Entry from rest at the speed rule's asks, stops
-at a place, and corners are what the Run needs before the game chooses gaits by value.
+The game-orders stage starts from it (`--start`, its normalisation measured anew) on every
+earlier stage's episodes and the game's places, then trains on with direct stops from the forward
+run and with the sword the Warrior carries. Its 13 M checkpoint, which the Warrior's walk-run
+record (`assets/skills/locomotion/walk-run/walk-run.json`) holds, so the game's Run gait uses it,
+falls on none of the screen's 140 cases (game cases carrying the sword) and meets 68: 22 of 44
+places, 8 of 12 paces from a stand and 38 of 64 slowing orders. Its stops from 3.4 to 4.2 m/s
+brake at 1.6 to 2.0 m/s², but it follows a falling pace slowly: with the navigator planning by
+1.5, 1.0 or 0.5 m/s² it overshoots and meets 0, 2 and 9 places, so the Run states 0.2
+(`Locomotion.stopping`). Trained 5 M on at 1.5 m/s² (the same episodes), it meets 5 to 12 places
+with 1 to 6 falls a checkpoint, in slowing to 1 or 2 m/s and in stops. In the Dungeon (hero sent
+to the farthest enemy, 16 seeds of 60 s) the Option Mind follows the order by the gait it values
+most and runs 101.7 m in all; the Run falls on 2 seeds, one into a foe at 0.7 m, one where it
+slows to about 1 m/s off its heading and hands the walk a body it cannot catch. Asked to slow
+from 2.3 to 1.3 m/s into a corner, it neither slows nor turns, drifts toward a wall, and brakes
+there in a long leap. The stance walk taking over at the body's own speed, rather than from a
+standstill, removes that fall but costs the screen 3 falls and 10 slowing orders on this actor.
 
 Its native record raises the braking reference's rate to 5 m/s²; at 3.2 m/s² the same curriculum
 met stops after slowing to 3 m/s on one of eight. Without the actor the native run falls, so a

@@ -3,7 +3,7 @@ import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import type { Region } from "../../skills/framework/action.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import { optionApplies, type OptionBody, type OptionPart } from "./parts.ts";
-import { choice, json } from "../../parts/fields.ts";
+import { choice, json, optionalChoice } from "../../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
 import { GAIT_CHOICES } from "../../skills/locomotion/move-rule-part.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
@@ -35,8 +35,11 @@ function kind<K extends string>(kind: K, label: string, make: (given: ProfileOpt
     fits: anyBody, faults: () => [], make: (_config: { readonly kind: K }, given: ProfileOptionContext) => make(given) });
 }
 
-/** **Following the orders** a person gives (`followOrders`). */
-export const ORDERS_OPTION = deepFreeze({ ...kind("orders", "Follow orders", (given) => [followOrders(given.walk)]), obeys: true });
+/** **Following the orders** a person gives (`followOrders`): one option by each gait its body's legs go by (`gaitsOf`), one by the legs' own where they go by none. */
+export const ORDERS_OPTION = deepFreeze({ ...kind("orders", "Follow orders", (given) => {
+  const gaits = gaitsOf(given.parts, given.legs);
+  return gaits.length ? gaits.map((gait) => followOrders(gait, given.walk)) : [followOrders(null, given.walk)];
+}), obeys: true });
 
 /**
  * **A strike's config**: the executor it strikes by (`skill`, of its kind's skill), the limbs it
@@ -213,25 +216,26 @@ export const STOMP_OPTION = strikeKind("stomp", "Stomp", "either-foot");
 /** **The bite** (`jaw-bite`), with the jaw. */
 export const BITE_OPTION = strikeKind("jaw-bite", "Bite", "jaw");
 
-/** **A walk's config**: the gait of its body's legs it goes by (`Gait.name`), and the navigation that plans its way (Visibility routes unless it names one). */
+/** **A walk's config**: the gait of its body's legs it goes by (`Gait.name`), every one where it names none, and the navigation that plans its way (Visibility routes unless it names one). */
 export interface WalkConfig {
   readonly kind: "walk";
-  readonly gait: GaitName;
+  readonly gait?: GaitName;
   readonly navigation?: PartConfig | null;
 }
 
 /**
- * **The walk** (`walkBy`): by the gait its config names of its body's legs (`gaitsOf`), meaning go
- * to a place by that gait, its places the sites its mind's options name (`Sites`); none on legs
- * without that gait. Its way is planned by its navigation.
+ * **The walk** (`walkBy`): one option by each gait of its body's legs (`gaitsOf`), or by the one its
+ * config names, meaning go to a place by that gait, its places the sites its mind's options name
+ * (`Sites`); none on legs without that gait. Its way is planned by its navigation.
  */
 export const WALK_OPTION: ProfileOptionPart<WalkConfig> = deepFreeze({
-  role: "option", model: PROFILE_MODEL, label: "Walk to a site", stage: "game", fields: [choice<WalkConfig, "gait">("gait", "Gait", GAIT_CHOICES)],
-  slots: [slotOne("navigation", "Navigation", "navigation", true)], defaults: { kind: "walk", gait: "braced" },
+  role: "option", model: PROFILE_MODEL, label: "Walk to a site", stage: "game", fields: [optionalChoice<WalkConfig, "gait">("gait", "Gait", "Every gait", GAIT_CHOICES)],
+  slots: [slotOne("navigation", "Navigation", "navigation", true)], defaults: { kind: "walk" },
   keys: { kind: true, gait: true, navigation: true }, fits: anyBody, faults: () => [],
-  applicable: (config: WalkConfig, { parts, legs }) => legs === null || gaitsOf(parts, legs).some(gait => gait.name === config.gait),
+  applicable: (config: WalkConfig, { parts, legs }) => legs === null || gaitsOf(parts, legs).some(gait => config.gait === undefined || gait.name === config.gait),
   skills: (config: WalkConfig) => config.navigation ? { navigation: config.navigation } : {},
-  make: (config: WalkConfig, given: ProfileOptionContext) => gaitsOf(given.parts, given.legs).filter((gait) => gait.name === config.gait).map((gait) => walkBy(gait, given.sites, given.walk)),
+  make: (config: WalkConfig, given: ProfileOptionContext) => gaitsOf(given.parts, given.legs).filter((gait) => config.gait === undefined || gait.name === config.gait)
+    .map((gait) => walkBy(gait, given.sites, given.walk)),
 });
 
 /** **A place on the ground** to hold at: where it is, m, and how near its centre the body holds there. */

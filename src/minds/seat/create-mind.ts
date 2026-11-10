@@ -107,7 +107,7 @@ function snapshot(value: unknown, previous: unknown): unknown {
 function saidReport(said: () => Omit<ReportNow, "engagement">, live: MindReport): MindReport {
   return {
     get engagement() { return live.engagement; }, get prospects() { return said().prospects; }, get heading() { return said().heading; },
-    get gait() { return said().gait; }, get navigation() { return said().navigation; }, get kit() { return said().kit; },
+    get gaits() { return said().gaits; }, get navigation() { return said().navigation; }, get kit() { return said().kit; },
     get actions() { return said().actions; }, get ended() { return said().ended; }, get menu() { return live.menu; },
   };
 }
@@ -161,7 +161,7 @@ function embodyApart(built: BuiltBody, world: World, place: MindPlace, catalog: 
   const said = () => seat!.said().report;
   const report: MindReport = {
     get engagement() { shown = true; return said()?.engagement ?? null; }, get prospects() { return said()?.prospects ?? null; }, get heading() { return said()?.heading ?? null; },
-    get gait() { return said()?.gait ?? null; }, get navigation() { return said()?.navigation ?? null; }, get kit() { return said()?.kit ?? null; },
+    get gaits() { return said()?.gaits ?? null; }, get navigation() { return said()?.navigation ?? null; }, get kit() { return said()?.kit ?? null; },
     get actions() { return said()?.actions ?? null; }, get ended() { return said()?.ended ?? null; },
     get menu() { return seat!.menu(at()); },
   };

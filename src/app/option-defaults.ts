@@ -3,8 +3,8 @@ import { deepFreeze } from "../core/state.ts";
 import { ORDERS_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, type WalkConfig } from "../minds/option/index.ts";
 import { BRACE_OPTION, BRACE_TUMBLING_OPTION, STEADY_OPTION, FLATTEN_OPTION, LAND_OPTION } from "../minds/option/index.ts";
 
-/** The gaits available when a configuration omits its options, in preference order. */
-const WALKS: readonly WalkConfig[] = deepFreeze(["braced", "run", "trot"].map((gait) => ({ kind: "walk", gait })));
+/** A walk by every gait the body's legs go by. */
+const WALKS: readonly WalkConfig[] = deepFreeze([{ kind: "walk" }]);
 
 /** Recovery choices supplied by the application's default framework configuration. */
 const RISE_OPTIONS: readonly PartConfig[] = deepFreeze([

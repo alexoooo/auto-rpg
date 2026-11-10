@@ -140,7 +140,7 @@ test("a worker startup frame failure reports its error and disposes the complete
 test("mind threads resend values changed inside a stable gait object", async () => {
   let stopping = 1;
   const gait = { envelope: null, get stopping() { return stopping; }, lag: 0 };
-  globalThis.__lifetimeSeatHost = { handle() {}, says: () => ({ has: "fixture", report: { gait, kit: null } }) };
+  globalThis.__lifetimeSeatHost = { handle() {}, says: () => ({ has: "fixture", report: { gaits: [gait], kit: null } }) };
   const hook = registerHooks({ resolve(specifier, context, next) {
     if (context.parentURL?.endsWith("/src/app/apart/thread.ts?lifetime-regression") && specifier === "../../minds/seat/apart.ts") {
       return { shortCircuit: true, url: "data:text/javascript," + encodeURIComponent(
@@ -152,11 +152,11 @@ test("mind threads resend values changed inside a stable gait object", async () 
     const { mindThread } = await import("../src/app/apart/thread.ts?lifetime-regression");
     const sent = [], thread = mindThread(length => new Float64Array(length), { say(reply) { sent.push(reply); }, answered() {} });
     const made = thread.handle({ seq: 1, specs: [[0, modelSpec("workshop-fighter")]], asks: [{ seat: 0, ask: { kind: "make", recipe: { statics: { spec: 0 } } }, inbound: new Float64Array(), outbound: new Float64Array() }] });
-    assert.deepEqual(made.said[0].gait, { envelope: null, stopping: 1, lag: 0 });
+    assert.deepEqual(made.said[0].gaits, [{ envelope: null, stopping: 1, lag: 0 }]);
     stopping = 9;
     thread.handle({ seq: 2, asks: [{ seat: 0, ask: { kind: "step" } }] });
-    assert.deepEqual(sent[0].said[0].gait, { envelope: null, stopping: 9, lag: 0 });
-    assert.deepEqual(made.said[0].gait, { envelope: null, stopping: 1, lag: 0 });
+    assert.deepEqual(sent[0].said[0].gaits, [{ envelope: null, stopping: 9, lag: 0 }]);
+    assert.deepEqual(made.said[0].gaits, [{ envelope: null, stopping: 1, lag: 0 }]);
   } finally { hook.deregister(); delete globalThis.__lifetimeSeatHost; }
 });
 
