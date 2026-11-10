@@ -1,7 +1,8 @@
 import { defineConfig, type Plugin } from "vite";
 import { currentBuildIdentity } from "./scripts/build-identity.mjs";
 
-const identityModules = ["./src/app/node/build-identity.ts", "./src/app/browser/build-identity.ts"].map((file) => decodeURIComponent(new URL(file, import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, "$1"));
+const sourcePath = (file: string): string => decodeURIComponent(new URL(file, import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, "$1");
+const identityModules = ["./src/app/node/build-identity.ts", "./src/app/browser/build-identity.ts"].map(sourcePath);
 
 /** The build's identity in its module, as Node reads it: the page's bundle and the world worker's each load it. */
 const identity = (): Plugin => ({ name: "recording-build-identity", enforce: "pre",
@@ -53,12 +54,11 @@ export default defineConfig({
     emptyOutDir: true,
     target: "es2022",
     chunkSizeWarningLimit: 4096,
-    // Every page is named here: Vite's default is `index.html` alone, so another page works in dev,
-    // where every request is served from source, and is absent from `dist`.
+    // Every page is named here; absolute paths also resolve in the dev dependency scanner.
     rollupOptions: { input: {
-      index: "src/app/browser/index.html",
-      characterLab: "src/app/browser/character-lab/index.html",
-      physicsBench: "src/app/browser/physics-bench/index.html",
+      index: sourcePath("./src/app/browser/index.html"),
+      characterLab: sourcePath("./src/app/browser/character-lab/index.html"),
+      physicsBench: sourcePath("./src/app/browser/physics-bench/index.html"),
     } },
   },
 });
