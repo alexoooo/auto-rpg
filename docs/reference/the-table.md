@@ -33,7 +33,9 @@ trial on the conditions both counted, every reading of the cell pooled (`compare
 worse where the 95 % paired bootstrap interval of the mean difference leaves zero on that side,
 else within noise. Each reading is also shown against its best version.
 
-`npm run evaluate -- table` reads saved evidence and links each reading's Ratings page. It derives
+`npm run evaluate -- table` reads saved evidence and links each reading's Ratings page. The
+records and baselines stay on the machine that played them (`assets/evaluations/`, ignored by
+Git): a fresh clone's table is unread until it plays or the folder is copied in. It derives
 the required cases from each current protocol and merges compatible partial records. A reading
 recorded at an earlier version (its subject's, or the code of a case it played: the drill and its
 opponent) stands as of its record, its commit and date shown and marked not

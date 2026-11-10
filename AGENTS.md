@@ -104,7 +104,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   dropped experiment keeps nothing; its reading goes in the commit message. A file loose in
   `research/runs/`, a folder there with no README or an entry its README does not name, or a
   folder over 1,000 files or 1 GB fails `tests/workspace.test.mjs`. `npm run evaluate` caches
-  played rows in `.tmp/evaluations/`; its records are what it keeps.
+  played rows in `.tmp/evaluations/`; its records are what it keeps, in `assets/evaluations/`,
+  which Git ignores and no commit adds.
 
 ## Writing
 

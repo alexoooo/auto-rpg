@@ -6,8 +6,8 @@ import { buildFall, risingReport } from "../../src/app/node/evaluation.ts";
 import { DEFAULT_ENGINE } from "../../src/core/physics/engines.ts";
 
 test("Warrior unproduced fall is excluded from recovery statistics", () => {
-  const saved = readFileSync(new URL("../../assets/evaluations/rising-target/2026-11-05T111931-5c41b664-6e921c71.jsonl", import.meta.url), "utf8").trim().split("\n").map(JSON.parse);
-  const rows = saved.slice(1).filter(row => row.condition.model === "workshop-fighter" && row.condition.loadout.left === "buckler" && row.condition.loadout.right === "club").map(row => ({...row.condition, ...row.reading}));
+  // The Warrior's sixteen fresh falls holding the club and the buckler, each a played row's condition and reading.
+  const rows = readFileSync(new URL("./fixtures/warrior-club-buckler-falls.jsonl", import.meta.url), "utf8").trim().split("\n").map(JSON.parse);
   assert.equal(rows.length, 16, "saved fixture must contain every direction");
   assert.equal(rows.filter(row => row.takeover === null).length, 1);
   const [group] = risingReport(rows, true).groups;

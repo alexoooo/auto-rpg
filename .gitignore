@@ -43,6 +43,10 @@ __pycache__/
 # Research runs: what a later run reads, each folder's README.md naming it (AGENTS.md).
 /research/runs/
 
+# Evaluation records and baselines: what the table and the Ratings read, kept on the machine that
+# played them (docs/reference/the-table.md).
+/assets/evaluations/
+
 # The stand-up research's recorded frames and run logs, kept beside its code (research/stand-controller/).
 /research/stand-controller/c/view/*.json
 /research/stand-controller/**/runs/

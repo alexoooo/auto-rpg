@@ -631,10 +631,9 @@ target stands with its arms lowered (`drill-open`).
   the question, subjects, figures and a drill trial's `outcome`.
 - **A case's key** is the digest of everything it plays; a row (`Row`) is found again by its key, so
   only changed cases replay. `--write` keeps a record under `assets/evaluations/<id>/`
-  (`record.ts`), grouped into pools with numbered versions (`history.ts`), and deletes the records
+  (`record.ts`), a folder Git ignores, grouped into pools with numbered versions (`history.ts`), and deletes the records
   it replaces (`replacedBy`): the same protocol, engine and subjects with no subject at the version
-  it plays. It keeps any such record that is untracked, a baseline's or cited by a tracked
-  file. Git history keeps what it deletes.
+  it plays. It keeps any such record that is a baseline's or cited by a tracked file.
   Subjects retain their body restrictions and character attributes through normalization,
   scheduling, versioning and historical reconstruction. Each code-bearing part declares its
   component configuration; identity follows those parts and the selected aim's declared data.

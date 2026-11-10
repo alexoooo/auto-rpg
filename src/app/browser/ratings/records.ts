@@ -1,5 +1,6 @@
 /**
- * **The records the build carries** (`assets/evaluations/<id>/*.jsonl`), fetched when an
+ * **The records the build carries** (`assets/evaluations/<id>/*.jsonl`, those on the machine that
+ * builds: Git ignores the folder), fetched when an
  * evaluation is first opened and kept for the tab. An imported run's source rows
  * (`assets/evaluations/imports/`) are not records.
  */

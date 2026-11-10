@@ -17,7 +17,8 @@ import "../tests/harness/preload-data.mjs";
  * evaluation's own, `default`, or the ids given, one per flag) and not the panel among itself; an evaluation
  * whose schedule is a panel is played no other way. Rows are kept as they come in
  * `.tmp/evaluations/<evaluation>/` (every file there is read, so machines merge by copying), a
- * cache `npm run clean` deletes once a day untouched, and found again by key, with every record's under `assets/evaluations/<evaluation>/`. `--previous`
+ * cache `npm run clean` deletes once a day untouched, and found again by key, with every record's under `assets/evaluations/<evaluation>/`
+ * (ignored by Git: records stay on the machine that played them). `--previous`
  * names the first subject's parent: the newest recorded version of that id, else that subject here;
  * against a panel it is the baseline of the panel report, and in a battery the subject's figures are
  * read against it, condition by condition. `--ablate` makes the first subject the `--previous` mind
@@ -104,11 +105,11 @@ const listOf = (id, name) => {
   return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : [];
 };
 
-/** Which of `names` (record file names) a tracked file outside the records cites: a document or a test that reads it. */
+/** Which of `names` (record file names) a tracked file cites: a document that names it. */
 function citedOf(names) {
   if (names.length === 0) return new Set();
   try {
-    return new Set(git("grep", "-h", "-o", "-F", ...names.flatMap((name) => ["-e", name]), "--", ".", ":(exclude)assets/evaluations").split("\n"));
+    return new Set(git("grep", "-h", "-o", "-F", ...names.flatMap((name) => ["-e", name]), "--", ".").split("\n"));
   } catch (error) {
     if (error.status === 1) return new Set();
     throw error;
@@ -117,19 +118,17 @@ function citedOf(names) {
 
 /**
  * Delete the records `header`'s run replaces (`replacedBy`), so a folder keeps each question's
- * newest answer. A replaced record stays where Git could not bring it back (untracked), where a
- * baseline names it (`baselines.json`), or where a tracked file cites it; each kept one is named with why.
+ * newest answer. A replaced record stays where a baseline names it (`baselines.json`) or a
+ * tracked file cites it; each kept one is named with why.
  */
 function retireReplaced(header) {
   const id = header.evaluation, replaced = replacedBy(recordsOf(id), header);
   if (replaced.length === 0) return;
   const names = replaced.map((record) => basename(record.name)), cited = citedOf(names);
-  const tracked = new Set(git("ls-files", "--", ...replaced.map((record) => record.name)).split("\n").filter(Boolean).map((path) => basename(path)));
   const baselined = new Set(listOf(id, "baselines.json").flatMap((one) => one.records ?? [one.record]));
   for (const record of replaced) {
     const name = basename(record.name);
-    const why = !tracked.has(name) ? "untracked" : baselined.has(name) ? "a baseline"
-      : cited.has(name) ? "cited" : null;
+    const why = baselined.has(name) ? "a baseline" : cited.has(name) ? "cited" : null;
     if (why) console.log(`kept ${name}, replaced but ${why}`);
     else { rmSync(record.name); console.log(`deleted ${name}, replaced`); }
   }
