@@ -64,27 +64,45 @@ export function walker(_spec: BodySpec) {
     stride,
     /**
      * How fast `gait` carries out `now`'s orders to move, m/s: along an ordered place's way (the
-     * navigator's route there where it plans its way to that place, else the order's points), its
-     * length over its time (`seconds`), facing as ordered or along the way; along an ordered
-     * direction, at its pace that way (`pace`); and at the stride (`stride`) where the orders keep a
-     * range, stand or face, the body is at the place, or the legs go by no gait.
+     * navigator's route there where it plans its way to that place, else the order's points), or to
+     * an ordered range of a body (the navigator's route to its spot where it plans one, else straight
+     * toward the body to the middle of the range), its length over its time (`seconds`), facing as
+     * ordered or along the way; along an ordered direction, at its pace that way (`pace`); and at the
+     * stride (`stride`) where the orders stand or face, the body is at the place or in the range, or
+     * the legs go by no gait.
      */
     obeying(now: Situation, gait: GaitName | null): number {
-      const move = now.orders?.move, face = orderedFacing(now.orders?.face ?? null);
-      if (gait === null || !move || move.kind === "range") return stride(now);
-      if (move.kind === "direct") {
-        const { x, z } = move.direction, length = hypot(x, z);
-        if (length === 0) return stride(now);
-        const [forward, right] = frameOf(face)(x / length, z / length);
-        return pace(now, gait, forward, right);
+      const move = now.orders?.move, face = orderedFacing(now.orders?.face ?? null), where = now.where, route = now.sight.report.navigation;
+      if (gait === null || !move) return stride(now);
+      /** How fast `gait` goes `way`, m/s, where it is longer than `near`. */
+      const along = (way: readonly GroundPoint[], near: number): number => {
+        let length = 0, at: GroundPoint = where;
+        for (const point of way) { length += hypot(point.x - at.x, point.z - at.z); at = point; }
+        if (length <= near) return stride(now);
+        const time = seconds(now, gait, way, face).reduce((sum, one) => sum + one, 0);
+        return time > 0 ? length / time : stride(now);
+      };
+      switch (move.kind) {
+        case "direct": {
+          const { x, z } = move.direction, length = hypot(x, z);
+          if (length === 0) return stride(now);
+          const [forward, right] = frameOf(face)(x / length, z / length);
+          return pace(now, gait, forward, right);
+        }
+        case "range": {
+          const other = now.sight.view.senses.others.find((body) => body.id === move.focus && !body.out);
+          if (!other) return stride(now);
+          const dx = other.centre.x - where.x, dz = other.centre.z - where.z, apart = hypot(dx, dz), gap = apart - (move.near + move.far) / 2;
+          if (apart - move.far <= 0 && move.near - apart <= 0) return stride(now);
+          const spot = { x: where.x + dx * gap / apart, z: where.z + dz * gap / apart };
+          return along(route?.route.length ? route.route : [spot], 0);
+        }
+        case "place": {
+          const goal = move.points.at(-1)!;
+          return along(route?.goal && route.goal.x === goal.x && route.goal.z === goal.z && route.route.length ? route.route : move.points, move.near);
+        }
+        default: { const never: never = move; throw new Error(`unknown movement ${JSON.stringify(never)}`); }
       }
-      const goal = move.points.at(-1)!, route = now.sight.report.navigation, where = now.where;
-      const way = route?.goal && route.goal.x === goal.x && route.goal.z === goal.z && route.route.length ? route.route : move.points;
-      let length = 0, at: GroundPoint = where;
-      for (const point of way) { length += hypot(point.x - at.x, point.z - at.z); at = point; }
-      if (length <= move.near) return stride(now);
-      const time = seconds(now, gait, way, face).reduce((sum, one) => sum + one, 0);
-      return time > 0 ? length / time : stride(now);
     },
     /** The heading to the focus, or the body's own with none. */
     facing(now: Situation): number {
