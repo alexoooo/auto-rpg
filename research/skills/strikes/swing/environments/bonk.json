@@ -1,7 +1,7 @@
 {
   "kind": "cases",
   "evaluation": "strike",
-  "part": "mind.options.16.skill",
+  "part": "mind.options.1.skill",
   "layout": "assets/skills/strikes/bonk/bonk.layout.json",
   "subjects": [
     {

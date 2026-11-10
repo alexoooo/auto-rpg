@@ -119,7 +119,7 @@ export const BARE_MIND: Controller = controller<BareConfig>({
     // With no network it pulls nothing where no trainer answers it.
     const layout = bareLayout(host.spec), still: readonly number[] = new Array<number>(layout.outputs.length).fill(0);
     const decide = config.network ? recoveryNetwork(config.network) : () => still;
-    const learner = learnerOf(layout.inputs.length, config.interval, true);
+    const learner = learnerOf(layout.inputs.length, config.interval, { running: true, trained: config.network !== undefined });
     const state: BareState = { learner, keptPulls: new Float64Array(layout.outputs.length) };
     host.take((own) => {
       if (own.muscles.channels.map((channel) => channel.name).join("\n") !== channelsOf(host.spec).join("\n")) throw new Error("the bare layout's channels are not the body's");

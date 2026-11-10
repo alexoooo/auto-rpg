@@ -139,13 +139,19 @@ Steps 1 to 3 are done; step 4 has no trained actor yet.
   0.2 m), three at gap 0.7 m or nearer are never admitted, none falls; 1.9 s from the action's
   start to contact. The drill walks its striker into the window and stands it there by firm
   orders, so it reads the bonk only while firm orders keep the legs.
-- **Its footwork** is most of that time: the swing steps each foot to its footing (two steps,
-  each a weight shift of 0.3 to 0.8 s and a 0.3 s swing), a step landing more than 2 cm short
-  (`PLACING.near`, `src/skills/locomotion/locomotion.ts`) taken again. Against a moving foe the
-  first step often lands 3 to 24 cm short. Placing the feet within 8 cm cut the footwork's median
-  from 2.0 to 1.6 s in eight Skeleton bouts but did not land more (49 hits of 70 swings against
-  48 of 62); the swing without its footing lands 1 of the rung's 16. A footing nearer the stance
-  the walk leaves, searched with the swing, is the next question.
+- **Its footwork** is most of that time: the swing's `set` stage lasts until the legs report
+  both feet placed (1.36 s of the 1.9 s from the action's start to contact at gap 1 m; settle
+  0.13 s, the swing 0.43 s). The legs step each foot to its footing (two steps, each a weight
+  shift of 0.3 to 0.8 s and a 0.3 s swing), a step landing more than 2 cm short (`PLACING.near`,
+  `src/skills/locomotion/locomotion.ts`) taken again. A foot arriving from a walk is never within
+  2 cm, so both feet step wherever the footing is: on the bonk rung's places from gaps 0.9 to
+  1.4 m every footing takes 1.9 to 2.3 s to contact, a square one where the feet stand included
+  (which also loses the blow's full strength), and a footing-only search scored on the time found
+  none better than the record's. Against a moving foe the first step often lands 3 to 24 cm short.
+  Placing the feet within 8 cm cut the footwork's median from 2.0 to 1.6 s in eight Skeleton bouts
+  but did not land more (49 hits of 70 swings against 48 of 62); the swing without its footing
+  lands 1 of the rung's 16. The time is the steps', so a faster bonk takes fewer or quicker steps,
+  not a different footing.
 - **In the Arena** Option Mind offers the bonk (`src/entrants/option/mind.ts`) as its only club
   blow, priced by its profile from the drill (`research/skills/strikes/strike-profiles.mjs`); the
   club blow is experimental, a drill opponent's. Node, `Duel` on a flat floor, 60 s bouts from
@@ -160,9 +166,8 @@ To pick it up:
 - **Screen the swing or a policy** on held-out places, every rung's condition with `--all`:
   `node research/skills/strikes/straight-punch/punch-policy-check.mjs --config research/skills/strikes/swing/environments/bonk.json --policy none --rates 120,480`
   (`--policy <run>/policy-<n>.json` for a checkpoint; `--config` a run's configuration to screen
-  on its places). It stops on the preset's minds now ("a case environment drives one learner;
-  the world has 3 in its option minds", `learnerIn` in `research/case-learning-environment.mjs`):
-  the environment is to find the swing's own learner among them before a screen or a run.
+  on its places). With no steer it lands 51 of 60 held-out places at 120 Hz and 58 of 60 at
+  480 Hz, none falling.
 - **Train** from a configuration naming the environment and its curriculum: `environment`
   `research/skills/strikes/swing/environments/bonk.json`, `workers` 20, `each` 4, `rates` `[120]`,
   and `places` the environment's `bonk` draw, `walk` where `{ mark: "high", hand: "right", start:

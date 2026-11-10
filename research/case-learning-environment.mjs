@@ -23,7 +23,8 @@ import { isRefused } from "../src/core/refusal.ts";
  *   fall, which ends the episode.
  *
  * The learner is found in the world's hosted minds (`WorldKind.hosted`) of the subject's kind (its
- * own, or its `mind`'s: a drill's subject that names its skill beside its mind), one in all. An
+ * own, or its `mind`'s: a drill's subject that names its skill beside its mind), one in all, a
+ * learner its part's own trained network answers (a learned gait's) left out. An
  * episode starts at its learner's first request and plays one request a step through the learning
  * adapter (`learner-adapter.mjs`): the trainer's outputs (through tanh) answer it, and the world
  * steps until the learner asks again; it ends with its case's reader, with the learner no longer
@@ -132,28 +133,29 @@ export function subjectFor(o, condition, configureMind) {
 /** The value at `path` (dotted) in `config`. */
 const at = (config, path) => path ? path.split('.').reduce((value, key) => value?.[key], config) : config;
 
-/** Every learner in `value`'s plain data (objects and arrays alone), held as `learner`. */
+/** Every learner a trainer drives in `value`'s plain data (objects and arrays alone), held as `learner`: one its part's own trained network answers is not one (`Learner.trained`). */
 function learnersIn(value, found = [], seen = new Set()) {
   if (!value || typeof value !== 'object' || seen.has(value)) return found;
   const proto = Object.getPrototypeOf(value);
   if (!Array.isArray(value) && proto !== Object.prototype && proto !== null) return found;
   seen.add(value);
   for (const [key, child] of Object.entries(value)) {
-    if (key === 'learner' && child && Array.isArray(child.inputs) && Array.isArray(child.outputs) && typeof child.decisions === 'number') found.push(child);
+    if (key === 'learner' && child && Array.isArray(child.inputs) && Array.isArray(child.outputs) && typeof child.decisions === 'number') { if (!child.trained) found.push(child); }
     else learnersIn(child, found, seen);
   }
   return found;
 }
 
 /**
- * The one learner of `built`'s hosted minds of `value`'s kind (its own, or its `mind`'s), and the
- * body its mind drives; a world kind that lists no minds, or a count other than one, is refused.
+ * The one learner a trainer drives in `built`'s hosted minds of `value`'s kind (its own, or its
+ * `mind`'s), and the body of the mind that holds it; a world kind that lists no minds, or a count
+ * other than one, is refused.
  */
 export function learnerIn(kind, built, value) {
   if (!kind.hosted) throw new Error('the world lists no minds it hosts');
-  const mindKind = value.kind ?? value.mind?.kind, minded = kind.hosted(built).filter((one) => one.kind === mindKind), learners = minded.flatMap((one) => learnersIn(one));
-  if (learners.length !== 1) throw new Error(`a case environment drives one learner; the world has ${learners.length} in its ${mindKind} minds`);
-  return { learner: learners[0], body: minded[0].body };
+  const mindKind = value.kind ?? value.mind?.kind, held = kind.hosted(built).filter((one) => one.kind === mindKind).flatMap((one) => learnersIn(one).map((learner) => ({ learner, body: one.body })));
+  if (held.length !== 1) throw new Error(`a case environment drives one learner; the world has ${held.length} in its ${mindKind} minds`);
+  return held[0];
 }
 
 export async function caseEnvironment(configuration = {}, { configureMind } = {}) {

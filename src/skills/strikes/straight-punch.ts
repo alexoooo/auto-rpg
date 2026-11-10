@@ -189,7 +189,7 @@ const AIM_SPEED = 4;
  * guard and stands. An attack given up before the drive is dropped; a drive begun is thrown to its
  * end. It has the legs from its stand to its return, and the hand is closed throughout.
  */
-function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, faces: Partial<Record<Side, StrikingFace>>, layout: PunchLayout) {
+function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, faces: Partial<Record<Side, StrikingFace>>, layout: PunchLayout, { trained }: { readonly trained: boolean }) {
   const built = body.built, spec = built.spec, sense = { left: turnSense("left"), right: turnSense("right") };
   if (!straightPunchFits(spec)) throw new Error(`${spec.model} cannot throw the straight punch`);
   const effectors = bodyEffectors(built), at = new Vector3(), before = new Vector3();
@@ -256,7 +256,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
      * With `steered`: its learner (`Learner`), running through the drive: what the drive last read
      * of itself (`punchFeatures`) every `layout.interval` s, and the steer it adds (`steerPushes`).
      */
-    learner: learnerOf(layout.inputs.length, layout.interval, false),
+    learner: learnerOf(layout.inputs.length, layout.interval, { running: false, trained }),
     still: 0, thrown: { left: 0, right: 0 },
     /**
      * Each shoulder at contact from the head as the last step left it, across, up and forward, m:
@@ -424,7 +424,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
     readonly faces?: Partial<Record<Side, StrikingFace>>; readonly layout?: PunchLayout } = {}): Executor {
   if (!validStraightPunch(settings)) throw new Error("invalid straight punch settings");
   if (faces && faceFault(settings)) throw new Error(faceFault(settings)!);
-  const technique = straightTechnique(body, guard, settings, faces ?? {}, layout), motion = technique.state;
+  const technique = straightTechnique(body, guard, settings, faces ?? {}, layout, { trained: policy !== undefined }), motion = technique.state;
   technique.read(body.view);
   const ahead = bodyAhead(body.built.spec);
   const alignerOf = (hand: Side) => faces?.[hand] ? faceAligner(body.built.spec, hand, faces[hand]!, { either: false }) : null;

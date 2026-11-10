@@ -78,7 +78,7 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
     origin: { x: body.view.stance.centre.x, z: body.view.stance.centre.z },
     previousCentre: { x: body.view.stance.centre.x, z: body.view.stance.centre.z }, moving: false, face: 0, command: 0,
   };
-  const learner = learnerOf(TRAVEL_LAYOUT.inputs.length, settings.interval, true);
+  const learner = learnerOf(TRAVEL_LAYOUT.inputs.length, settings.interval, { running: true, trained: true });
   const state = { motion: motion.state, inference, learner };
   const decide = (): void => {
     const observation = inference.observation;

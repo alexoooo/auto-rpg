@@ -23,12 +23,14 @@ export interface Learner {
   due: number;
   /** Whether its decisions are requests: a punch's steered drive, a bare mind always. */
   running: boolean;
+  /** Whether its part answers it with a trained network of its own: a trainer drives only a learner that is not. */
+  readonly trained: boolean;
 }
 
-/** A learner of `inputs` readings deciding every `interval` s that has asked nothing, running or not. */
-export function learnerOf(inputs: number, interval: number, running: boolean): Learner {
+/** A learner of `inputs` readings deciding every `interval` s that has asked nothing, running or not, its part's network `trained` or not. */
+export function learnerOf(inputs: number, interval: number, { running, trained }: { readonly running: boolean; readonly trained: boolean }): Learner {
   if (!(interval > 0) || !Number.isFinite(interval)) throw new Error("a learner's decision interval is finite and positive");
-  return { inputs: new Array<number>(inputs).fill(0), outputs: [], interval, decisions: 0, answered: 0, due: 0, running };
+  return { inputs: new Array<number>(inputs).fill(0), outputs: [], interval, decisions: 0, answered: 0, due: 0, running, trained };
 }
 
 /** Control steps between decisions at `dt` s a step: the interval rounded, one at least. */

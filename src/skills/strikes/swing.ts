@@ -163,7 +163,7 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       /** Whether a steered swing has read itself before its swing (its one decision over the windup). */
       opened: boolean },
     /** With a layout, its learner (`Learner`), running through a steered swing alone; null without. */
-    learner: layout ? learnerOf(layout.inputs.length, layout.interval, false) : null,
+    learner: layout ? learnerOf(layout.inputs.length, layout.interval, { running: false, trained: policy !== undefined }) : null,
   };
   const halt = () => { if (state.learner) stop(state.learner); };
   const release = (ending: ActionEnding) => {

@@ -251,7 +251,7 @@ export async function residualEnvironment(configuration = {}) {
     control = { asked: null, stopOrder: false, action: new Array(12).fill(0), referenceAction: new Array(12).fill(0), referenceObservation: [],
       frozenSteerAction: new Array(12).fill(0), steeringObservation: [],
       reference: { left: new Array(6).fill(0), right: new Array(6).fill(0) }, lineX: 0 };
-    observation = []; goal = null; learner = learnerOf(layout.inputs.length, layout.interval, false); native = null;
+    observation = []; goal = null; learner = learnerOf(layout.inputs.length, layout.interval, { running: false, trained: false }); native = null;
     /** The learner's request from this step's observation; the frozen teachers decide with it. */
     const request = () => {
       for (let i = 0; i < observation.length; i++) learner.inputs[i] = observation[i];
