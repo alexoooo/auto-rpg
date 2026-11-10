@@ -17,7 +17,8 @@ import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { readFileSync } from "node:fs";
-import ts from "typescript";
+import { generate } from "@babel/generator";
+import { parseSource } from "./syntax.mjs";
 
 /** The registry an entrant is a line in, with its list's line: the game's entrants. */
 const REGISTRIES = Object.freeze({ "src/app/entrants.ts": /^export const ENTRANTS\b/ });
@@ -35,26 +36,22 @@ export function entrantOf(path) {
 
 /** The registry with just this entrant removed; every other registration and statement must agree. */
 function otherRegistrations(text, name) {
-  const source = ts.createSourceFile("entrants.ts", text, ts.ScriptTarget.Latest, true), own = new Set();
-  const printer = ts.createPrinter({ removeComments: true });
-  for (const statement of source.statements) if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)
-    && statement.moduleSpecifier.text === `../entrants/${name}/index.ts`) {
-    const bindings = statement.importClause?.namedBindings;
-    if (bindings && ts.isNamedImports(bindings)) for (const binding of bindings.elements) own.add(binding.name.text);
+  const source = parseSource("entrants.ts", text), own = new Set();
+  for (const statement of source.body) if (statement.type === "ImportDeclaration" && statement.source.value === `../entrants/${name}/index.ts`) {
+    for (const binding of statement.specifiers) if (binding.type === "ImportSpecifier") own.add(binding.local.name);
   }
   const rest = [];
-  for (const statement of source.statements) {
-    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)
-      && statement.moduleSpecifier.text === `../entrants/${name}/index.ts`) continue;
-    if (ts.isVariableStatement(statement) && statement.declarationList.declarations.some(d => ts.isIdentifier(d.name) && d.name.text === "ENTRANTS")) {
-      if (statement.declarationList.declarations.length !== 1) return null;
-      const declaration = statement.declarationList.declarations[0], array = declaration.initializer;
-      if (!array || !ts.isArrayLiteralExpression(array)) return null;
-      if (array.elements.filter(e => ts.isIdentifier(e) && own.has(e.text)).length > 1) return null;
-      const kept = ts.factory.updateArrayLiteralExpression(array, array.elements.filter(e => !ts.isIdentifier(e) || !own.has(e.text)));
-      rest.push(printer.printNode(ts.EmitHint.Unspecified, ts.factory.updateVariableStatement(statement, statement.modifiers,
-        ts.factory.updateVariableDeclarationList(statement.declarationList, [ts.factory.updateVariableDeclaration(declaration, declaration.name, declaration.exclamationToken, declaration.type, kept)])), source));
-    } else rest.push(printer.printNode(ts.EmitHint.Unspecified, statement, source));
+  for (const statement of source.body) {
+    if (statement.type === "ImportDeclaration" && statement.source.value === `../entrants/${name}/index.ts`) continue;
+    const variable = statement.type === "ExportNamedDeclaration" ? statement.declaration : statement;
+    if (variable?.type === "VariableDeclaration" && variable.declarations.some(d => d.id.type === "Identifier" && d.id.name === "ENTRANTS")) {
+      if (variable.declarations.length !== 1) return null;
+      const array = variable.declarations[0].init;
+      if (array?.type !== "ArrayExpression") return null;
+      if (array.elements.filter(e => e?.type === "Identifier" && own.has(e.name)).length > 1) return null;
+      array.elements = array.elements.filter(e => e?.type !== "Identifier" || !own.has(e.name));
+    }
+    rest.push(generate(statement, { comments: false }).code);
   }
   return rest.join("\n");
 }

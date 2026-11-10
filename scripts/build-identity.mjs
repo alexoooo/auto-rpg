@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
-import { createRequire } from "node:module";
+import { parseSource, visitSyntax } from "./syntax.mjs";
 import { dirname, resolve, relative, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -69,12 +69,8 @@ export const BUILD_IDENTITY = /^sha256:[0-9a-f]{64}$/.test(process.env.AUTO_RPG_
 /** The modules whose imports the walk reads. */
 const CODE = new Set([".ts", ".mts", ".mjs", ".js"]);
 
-/** TypeScript, loaded only by what reads imports: a build's identity never needs it. */
-let typescript = null;
-const parser = () => typescript ??= createRequire(import.meta.url)("typescript");
-
 /**
- * **What module `file` (its source `text`) imports**, read with TypeScript's parser, each relative
+ * **What module `file` (its source `text`) imports**, read from its syntax, each relative
  * specifier resolved to a path from the root: `imports` what it loads as it loads (static imports,
  * re-exports and side-effect imports; an `import type` or `export type` left out, and an import of
  * types alone by name kept, which Node loads), `loads` the literal `import()`s it may load later,
@@ -82,26 +78,22 @@ const parser = () => typescript ??= createRequire(import.meta.url)("typescript")
  * lockfile names.
  */
 export function importsOf(file, text) {
-  const ts = parser();
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, /\.m?ts$/.test(file) ? ts.ScriptKind.TS : ts.ScriptKind.JS);
+  const source = parseSource(file, text);
   const imports = [], loads = [];
   let computed = 0;
   const at = (specifier) => relative(ROOT, resolve(ROOT, dirname(file), specifier.replace(/\?.*$/, ""))).replaceAll("\\", "/");
-  const visit = (node) => {
-    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
-      if (!node.importClause?.isTypeOnly && node.moduleSpecifier.text.startsWith(".")) imports.push(at(node.moduleSpecifier.text));
-    } else if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-      if (!node.isTypeOnly && node.moduleSpecifier.text.startsWith(".")) imports.push(at(node.moduleSpecifier.text));
-    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-      const [specifier] = node.arguments;
-      if (specifier && (ts.isStringLiteral(specifier) || ts.isNoSubstitutionTemplateLiteral(specifier))) {
-        if (specifier.text.startsWith(".")) loads.push(at(specifier.text));
+  visitSyntax(source, node => {
+    if (node.type === "ImportDeclaration" || ["ExportNamedDeclaration", "ExportAllDeclaration"].includes(node.type) && node.source) {
+      if (node.importKind !== "type" && node.exportKind !== "type" && node.source.value.startsWith(".")) imports.push(at(node.source.value));
+    } else if (node.type === "ImportExpression") {
+      const specifier = node.source;
+      if (specifier.type === "StringLiteral" || specifier.type === "TemplateLiteral" && specifier.expressions.length === 0) {
+        const value = specifier.type === "StringLiteral" ? specifier.value : specifier.quasis[0].value.cooked;
+        if (value.startsWith(".")) loads.push(at(value));
       } else computed++;
     }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-  return { imports: [...new Set(imports)].sort(), loads: [...new Set(loads)].sort(), computed, source, ts };
+  });
+  return { imports: [...new Set(imports)].sort(), loads: [...new Set(loads)].sort(), computed, source };
 }
 
 /**
@@ -127,45 +119,41 @@ const RUNTIME = (file) => file === "package-lock.json" || file.startsWith("vendo
  * literal of what they import, optionally frozen, and nothing else. A kinds list is an array (its kinds' modules in
  * its order); the world kinds list and a role's list an object (each kind's module by its kind).
  */
-function listOf(file, { source, ts }) {
+function listOf(file, { source }) {
   const bound = new Map(), refuse = (why) => { throw new Error(`${file} holds its imports and its list and nothing else: ${why}`); };
-  const object = file === CUTS.worlds || CUTS.roles.includes(file), literal = object ? ts.isObjectLiteralExpression : ts.isArrayLiteralExpression;
-  const entry = (element) => ts.isIdentifier(element) && bound.has(element.text) ? bound.get(element.text) : refuse(`an entry that is no imported name, ${element.getText(source)}`);
-  const contents = (node) => ts.isCallExpression(node) && node.arguments.length === 1
-    && ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression)
-    && node.expression.expression.text === "Object" && node.expression.name.text === "freeze" ? node.arguments[0] : node;
+  const object = file === CUTS.worlds || CUTS.roles.includes(file), literal = object ? "ObjectExpression" : "ArrayExpression";
+  const entry = element => element?.type === "Identifier" && bound.has(element.name) ? bound.get(element.name) : refuse("an entry that is no imported name");
+  const contents = node => node.type === "CallExpression" && node.arguments.length === 1
+    && node.callee.type === "MemberExpression" && !node.callee.computed && node.callee.object.type === "Identifier"
+    && node.callee.object.name === "Object" && node.callee.property.name === "freeze" ? node.arguments[0] : node;
   let list = null;
-  for (const statement of source.statements) {
-    if (ts.isImportDeclaration(statement)) {
-      const clause = statement.importClause, target = relative(ROOT, resolve(ROOT, dirname(file), statement.moduleSpecifier.text)).replaceAll("\\", "/");
-      if (!clause?.isTypeOnly) for (const element of clause?.namedBindings && ts.isNamedImports(clause.namedBindings) ? clause.namedBindings.elements : [])
-        if (!element.isTypeOnly) bound.set(element.name.text, target);
+  for (const statement of source.body) {
+    if (statement.type === "ImportDeclaration") {
+      const target = relative(ROOT, resolve(ROOT, dirname(file), statement.source.value)).replaceAll("\\", "/");
+      if (statement.importKind !== "type") for (const element of statement.specifiers)
+        if (element.type === "ImportSpecifier" && element.importKind !== "type") bound.set(element.local.name, target);
       continue;
     }
-    const exported = ts.isVariableStatement(statement) && statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
-    const [declaration, ...more] = exported ? statement.declarationList.declarations : [];
-    if (list || !declaration || more.length > 0 || !declaration.initializer || !literal(contents(declaration.initializer))) refuse(statement.getText(source).split("\n")[0]);
-    const value = contents(declaration.initializer);
+    const exported = statement.type === "ExportNamedDeclaration" && statement.declaration?.type === "VariableDeclaration";
+    const [declaration, ...more] = exported ? statement.declaration.declarations : [];
+    if (list || !declaration || more.length > 0 || !declaration.init || contents(declaration.init).type !== literal) refuse(`unexpected ${statement.type}`);
+    const value = contents(declaration.init);
     list = !object ? value.elements.map(entry)
-      : Object.fromEntries(value.properties.map((property) => ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
-        ? [property.name.text, entry(property.initializer)] : refuse(`an entry that is no kind and imported name, ${property.getText(source)}`)));
+      : Object.fromEntries(value.properties.map(property => property.type === "ObjectProperty" && !property.computed && ["Identifier", "StringLiteral"].includes(property.key.type)
+        ? [property.key.name ?? property.key.value, entry(property.value)] : refuse("an entry that is no kind and imported name")));
   }
   return list ?? refuse("no list");
 }
 
 /** The mind data store's modules by key: each loader's literal `import()`. */
-function storeModules(file, { source, ts }) {
+function storeModules(file, { source }) {
   const modules = {};
-  const visit = (node) => {
-    if (ts.isPropertyAssignment(node) && (ts.isStringLiteral(node.name) || ts.isIdentifier(node.name))) {
-      const find = (inner) => ts.isCallExpression(inner) && inner.expression.kind === ts.SyntaxKind.ImportKeyword && ts.isStringLiteral(inner.arguments[0])
-        ? inner.arguments[0].text : ts.forEachChild(inner, find);
-      const specifier = find(node.initializer);
-      if (specifier) modules[node.name.text] = relative(ROOT, resolve(ROOT, dirname(file), specifier)).replaceAll("\\", "/");
+  visitSyntax(source, node => {
+    if (node.type === "ObjectProperty" && !node.computed && ["StringLiteral", "Identifier"].includes(node.key.type)) {
+      const specifier = visitSyntax(node.value, inner => inner.type === "ImportExpression" && inner.source.type === "StringLiteral" ? inner.source.value : undefined);
+      if (specifier) modules[node.key.name ?? node.key.value] = relative(ROOT, resolve(ROOT, dirname(file), specifier)).replaceAll("\\", "/");
     }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
+  });
   return modules;
 }
 

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { builtinModules } from "node:module";
-import ts from "typescript";
+import { bindingNames, moduleImports, parseSource, visitSyntax } from "./syntax.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const NODE_PACKAGES = new Set(builtinModules.map(name => name.replace(/^node:/, "")));
@@ -41,35 +41,31 @@ function rankOf(file) {
 
 /** Every import, including dynamic imports and re-exports, resolved relative to its owner. */
 function imports(file, source) {
-  return ts.preProcessFile(source, true, true).importedFiles.map(({ fileName }) => fileName.startsWith(".")
+  return moduleImports(file, source).map(fileName => fileName.startsWith(".")
     ? path.posix.normalize(path.posix.join(path.posix.dirname(file), fileName)) : fileName);
 }
 
 /** Browser and Node-only names, outside strings and comments. These are not runtime-neutral contracts. */
 function runtimeNames(file, source) {
-  const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true), names = new Set(), local = new Set();
+  const parsed = parseSource(file, source), names = new Set(), local = new Set();
   const browser = /^(?:window|document|navigator|localStorage|sessionStorage|HTMLElement|HTML\w*Element|Document|Window|OffscreenCanvas|AudioContext|AudioBuffer|AudioNode|Worker|MessageEvent|Transferable|ImageBitmap|requestAnimationFrame|cancelAnimationFrame)$/;
   const node = /^(?:process|Buffer|__dirname|__filename)$/;
-  const bindings = (at) => {
-    if ((ts.isVariableDeclaration(at) || ts.isBindingElement(at) || ts.isParameter(at) || ts.isFunctionDeclaration(at) || ts.isFunctionExpression(at)
-      || ts.isClassDeclaration(at) || ts.isInterfaceDeclaration(at) || ts.isTypeAliasDeclaration(at)
-      || ts.isImportSpecifier(at) || ts.isImportClause(at) || ts.isNamespaceImport(at)) && at.name && ts.isIdentifier(at.name)) local.add(at.name.text);
-    ts.forEachChild(at, bindings);
-  };
-  bindings(parsed);
-  const visit = (at) => {
-    if (ts.isIdentifier(at)) {
-      const parent = at.parent;
-      const member = ts.isPropertyAccessExpression(parent) && parent.name === at;
-      const key = (ts.isPropertyAssignment(parent) || ts.isPropertySignature(parent) || ts.isMethodDeclaration(parent) || ts.isMethodSignature(parent)) && parent.name === at;
-      if (!member && !key && !local.has(at.text)) {
-        if (browser.test(at.text)) names.add(`browser name ${at.text}`);
-        if (node.test(at.text)) names.add(`Node name ${at.text}`);
+  visitSyntax(parsed, at => {
+    if (["VariableDeclarator", "FunctionDeclaration", "FunctionExpression", "ClassDeclaration", "TSInterfaceDeclaration", "TSTypeAliasDeclaration"].includes(at.type))
+      for (const name of bindingNames(at.id)) local.add(name);
+    if (["ImportSpecifier", "ImportDefaultSpecifier", "ImportNamespaceSpecifier"].includes(at.type)) local.add(at.local.name);
+    if (at.params) for (const parameter of at.params) for (const name of bindingNames(parameter)) local.add(name);
+  });
+  visitSyntax(parsed, (at, parent) => {
+    if (at.type === "Identifier") {
+      const member = ["MemberExpression", "OptionalMemberExpression"].includes(parent?.type) && !parent.computed && parent.property === at;
+      const key = ["ObjectProperty", "ObjectMethod", "ClassMethod", "TSPropertySignature", "TSMethodSignature"].includes(parent?.type) && !parent.computed && parent.key === at;
+      if (!member && !key && !local.has(at.name)) {
+        if (browser.test(at.name)) names.add(`browser name ${at.name}`);
+        if (node.test(at.name)) names.add(`Node name ${at.name}`);
       }
     }
-    ts.forEachChild(at, visit);
-  };
-  visit(parsed);
+  });
   return [...names].sort();
 }
 

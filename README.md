@@ -18,7 +18,8 @@ each controlled by an AI; there are no animations, only physics.
 
 ## Run it locally
 
-Needs Node 22.13.0 or newer, Git LFS, and Windows or Linux x64 to build the art.
+Needs Node 22.18 or newer on the 22.x line, or Node 24.11 or newer, Git LFS, and Windows or Linux
+x64 to build the art.
 
 ```powershell
 git lfs install; git lfs pull

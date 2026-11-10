@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import ts from "typescript";
+import { moduleImports, parseSource, visitSyntax } from "../scripts/syntax.mjs";
 import { sourceCrossings, sourceFiles } from "../scripts/source-boundary.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -51,7 +51,7 @@ function boundaryViolations(entries, inside) {
     seen.add(file);
     if (isData(file)) return;
     const source = fs.readFileSync(path.join(ROOT, file), "utf8");
-    for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
+    for (const specifier of moduleImports(file, source)) {
       const route = [...chain, file].join(" -> ");
       if (!specifier.startsWith(".")) {
         if (!PACKAGES.some((prefix) => specifier === prefix || specifier.startsWith(prefix))) {
@@ -104,13 +104,13 @@ const EXACT_MATH = new Set(["PI", "SQRT2", "SQRT1_2", "abs", "max", "min", "sqrt
  * type-only import brings no arithmetic and loads nothing.
  */
 function valueImports(file) {
-  const source = ts.createSourceFile(file, fs.readFileSync(path.join(ROOT, file), "utf8"), ts.ScriptTarget.Latest, true), out = [];
-  for (const statement of source.statements) {
-    const from = (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) && statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : null;
+  const source = parseSource(file, fs.readFileSync(path.join(ROOT, file), "utf8")), out = [];
+  for (const statement of source.body) {
+    const from = ["ImportDeclaration", "ExportNamedDeclaration", "ExportAllDeclaration"].includes(statement.type) ? statement.source?.value : null;
     if (!from) continue;
-    const clause = ts.isImportDeclaration(statement) ? statement.importClause : null;
-    const typeOnly = ts.isExportDeclaration(statement) ? statement.isTypeOnly : clause !== null && clause !== undefined && (clause.isTypeOnly
-      || !clause.name && clause.namedBindings !== undefined && ts.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.every((element) => element.isTypeOnly));
+    const typeOnly = statement.type === "ImportDeclaration" ? statement.importKind === "type"
+      || statement.specifiers.length > 0 && statement.specifiers.every(element => element.type === "ImportSpecifier" && element.importKind === "type")
+      : statement.exportKind === "type";
     if (!typeOnly) out.push(from.startsWith(".") ? path.posix.normalize(path.posix.join(path.posix.dirname(file), from)) : from);
   }
   return out;
@@ -143,9 +143,9 @@ const LAB_SCENARIOS = ["src/game/lab/scenarios.ts", "src/app/browser/lab/lab-sce
 const WORLD_WORKER = "src/app/browser/worker/world.worker.ts";
 
 /** Each listed evaluation's cases (the `cases.ts` beside its module), which write their worlds. */
-const caseModules = () => ts.preProcessFile(fs.readFileSync(path.join(ROOT, EVALUATION_LIST), "utf8"), true, true).importedFiles
-  .filter(({ fileName }) => fileName.startsWith(".") && fileName.endsWith("/index.ts"))
-  .map(({ fileName }) => path.posix.join(path.posix.dirname(EVALUATION_LIST), path.posix.dirname(fileName), "cases.ts"));
+const caseModules = () => moduleImports(EVALUATION_LIST, fs.readFileSync(path.join(ROOT, EVALUATION_LIST), "utf8"))
+  .filter(fileName => fileName.startsWith(".") && fileName.endsWith("/index.ts"))
+  .map(fileName => path.posix.join(path.posix.dirname(EVALUATION_LIST), path.posix.dirname(fileName), "cases.ts"));
 
 /**
  * The modules beside the core that a case's world is built with: all that the bout's builder, the
@@ -159,18 +159,16 @@ const worldBuilders = () => reached([BOUT_BUILDER, CRYPT_BUILDER, ...caseModules
  * operator. Read from the syntax tree, so a comment or a string that names one is not a use.
  */
 function engineArithmetic(text, file) {
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true), found = [];
-  const visit = (node) => {
-    if (ts.isIdentifier(node) && node.text === "Math") {
-      const parent = node.parent, member = ts.isPropertyAccessExpression(parent) && parent.expression === node ? parent.name.text : null;
-      const isOwnName = (ts.isPropertyAccessExpression(parent) || ts.isPropertyAssignment(parent)) && parent.name === node;
+  const source = parseSource(file, text), found = [];
+  visitSyntax(source, (node, parent) => {
+    if (node.type === "Identifier" && node.name === "Math") {
+      const member = parent.type === "MemberExpression" && !parent.computed && parent.object === node ? parent.property.name : null;
+      const isOwnName = parent.type === "MemberExpression" && !parent.computed && parent.property === node
+        || parent.type === "ObjectProperty" && !parent.computed && parent.key === node;
       if (member === null ? !isOwnName : !EXACT_MATH.has(member)) found.push(`${file} Math${member === null ? "" : `.${member}`}`);
     }
-    if (ts.isBinaryExpression(node) && (node.operatorToken.kind === ts.SyntaxKind.AsteriskAsteriskToken
-      || node.operatorToken.kind === ts.SyntaxKind.AsteriskAsteriskEqualsToken)) found.push(`${file} ${node.operatorToken.getText(source)}`);
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
+    if (["BinaryExpression", "AssignmentExpression"].includes(node.type) && ["**", "**="].includes(node.operator)) found.push(`${file} ${node.operator}`);
+  });
   return found;
 }
 
@@ -220,7 +218,7 @@ const isEngineModule = (file) => file.startsWith("src/core/physics/") && !SEAM.h
 function seamCrossings(files) {
   const out = [];
   for (const [file, source] of files) {
-    for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
+    for (const specifier of moduleImports(file, source)) {
       if (!specifier.startsWith(".")) {
         if (ENGINE_PACKAGES.some((prefix) => specifier.startsWith(prefix)) && !isEngineModule(file)) out.push(`${file} imports the engine package "${specifier}"`);
         continue;
@@ -271,7 +269,7 @@ function mindCrossings(files, { folders = MIND_FOLDERS, adapters = MIND_ADAPTERS
   const crossings = [];
   for (const [file, source] of files) {
     if (!folders.some((folder) => file.startsWith(folder)) || adapters.some((adapter) => adapter.endsWith("/") ? file.startsWith(adapter) : file === adapter)) continue;
-    for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
+    for (const specifier of moduleImports(file, source)) {
       if (specifier.startsWith("@dimforge/rapier")) crossings.push(`${file} imports the engine package "${specifier}"`);
       if (!specifier.startsWith(".")) continue;
       const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
@@ -319,6 +317,7 @@ test("source imports follow responsibility, runtime and package ownership", () =
   assert.deepEqual(Object.entries(report).filter(([, found]) => found.length > 0), []);
   const probe = sourceCrossings([
     ["src/skills/private.ts", `import { thinker } from "../minds/private.ts";`],
+    ["src/skills/type-import.ts", `export type Hidden = import("../minds/private.ts").Hidden;`],
     ["src/game/alone.ts", `import { draw } from "../app/browser/draw.ts";`],
     ["src/game/reads.ts", `import { read } from "../evaluation/read.ts";`],
     ["src/core/physics/hosted.ts", `import type { Body } from "../bodies/body.ts";`],
@@ -330,7 +329,7 @@ test("source imports follow responsibility, runtime and package ownership", () =
     ["src/unknown/alone.ts", ""],
   ]);
   assert.deepEqual(probe.unplaced, ["src/unknown/alone.ts"]);
-  assert.deepEqual(probe.layers, ["src/core/physics/hosted.ts -> src/core/bodies/body.ts", "src/game/alone.ts -> src/app/browser/draw.ts", "src/game/reads.ts -> src/evaluation/read.ts", "src/skills/private.ts -> src/minds/private.ts"]);
+  assert.deepEqual(probe.layers, ["src/core/physics/hosted.ts -> src/core/bodies/body.ts", "src/game/alone.ts -> src/app/browser/draw.ts", "src/game/reads.ts -> src/evaluation/read.ts", "src/skills/private.ts -> src/minds/private.ts", "src/skills/type-import.ts -> src/minds/private.ts"]);
   assert.deepEqual(probe.runtimes, ["src/app/browser/alone.ts -> node:fs", "src/core/bodies/alone.ts: browser name document", "src/game/alone.ts -> src/app/browser/draw.ts", "src/skills/alone.ts -> fs"]);
   assert.ok(probe.ownership.includes("src/entrants/one/mind.ts -> src/entrants/two/mind.ts"));
   assert.ok(probe.ownership.includes("src/entrants/one/private.ts -> src/minds/mind.ts"));
@@ -352,7 +351,7 @@ function entrantCrossings(files) {
   for (const [file, source] of files) {
     const name = entrantOf(file);
     if (name === null || ENTRANT_LISTS.has(file)) continue;
-    for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
+    for (const specifier of moduleImports(file, source)) {
       if (!specifier.startsWith(".")) {
         crossings.push(`${file} imports the package "${specifier}"`);
         continue;
