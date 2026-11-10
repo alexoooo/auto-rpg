@@ -2,7 +2,7 @@ import type { MindConfig } from "../minds/catalog/config.ts";
 import type { BeatsConfig } from "../minds/command/beats.ts";
 import type { CommanderConfig } from "../minds/command/kind.ts";
 import type { OptionMindConfig } from "../minds/option/mind.ts";
-import { ORDERS_OPTION, COVER_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../minds/option/kinds.ts";
+import { ORDERS_OPTION, COVER_OPTION, BONK_OPTION, CUT_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../minds/option/kinds.ts";
 import { deepFreeze } from "../core/state.ts";
 import { type GameContext } from "../game/arena/context.ts";
 
@@ -51,9 +51,12 @@ export function createDrillOpponents(context: GameContext) {
   /**
    * A body that goes where it is ordered and, ordered at its foe, walks into the window of one of
    * the strikes of `kinds` and throws it, each as Option Mind's entrant configures it (each body's
-   * record), and out of its foe's reach as Option Mind does, its hands otherwise at guard.
+   * record), and out of its foe's reach as Option Mind does, its hands otherwise at guard. A kind
+   * Option Mind does not offer is a defect here: an opponent without it would strike nothing.
    */
   function striking(kinds: readonly StrikeKindPart[]): MindConfig {
+    const missing = kinds.filter((kind) => !(OPTION.options ?? []).some((option) => option.kind === kind.defaults.kind));
+    if (missing.length > 0) throw new Error(`Option Mind offers no ${missing.map((kind) => kind.defaults.kind).join(", ")}, so a drill opponent striking with it strikes nothing`);
     const strikes = (OPTION.options ?? []).filter((option) => kinds.some((kind) => kind.defaults.kind === option.kind));
     return deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...strikes, ...WALKS, ...STANDING_OPTIONS] });
   }
@@ -69,7 +72,7 @@ export function createDrillOpponents(context: GameContext) {
       commander: beats([{ seconds: 1.2, move: { kind: "range", near: .8, far: 1 } }, { seconds: 1.2, move: { kind: "range", near: 1.6, far: 1.8 } }]) },
     "drill-guard": { label: "Drill: guard", mind: GUARDS },
     "drill-punch": { label: "Drill: punch on a rhythm", mind: PUNCHES, commander: beats(RHYTHM) },
-    "drill-club": { label: "Drill: club on a rhythm", mind: striking([CLUB_BLOW_OPTION]), commander: beats(RHYTHM) },
+    "drill-club": { label: "Drill: club on a rhythm", mind: striking([BONK_OPTION]), commander: beats(RHYTHM) },
     "drill-sword": { label: "Drill: sword on a rhythm", mind: striking([CUT_OPTION, SWORD_THRUST_OPTION]), commander: beats(RHYTHM) },
     "drill-press": { label: "Drill: press forward", mind: MOVES, commander: beats([{ seconds: 1, move: { kind: "range", near: .5, far: .7 } }]) },
   });
