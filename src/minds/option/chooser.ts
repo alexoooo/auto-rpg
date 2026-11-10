@@ -118,9 +118,10 @@ const keyOf = (leaves: Leaves, seconds: number): string => {
 
 /**
  * **The states a search at `root` reads** (`Situation`), over `options` priced by `objective` at
- * `obedience` over the `horizon`, s, made once a decision. A model is asked once a state for each
- * Option and target (`modelAt`, `pairsAt`: at `root` an Option with no targets only where its entry
- * admits, `onOffer`; elsewhere its model says whether it is on offer), and a state an Option leaves
+ * `obedience` over the `horizon`, s, made once a decision. A model is asked at most once a state for
+ * each Option and target, and only where something reads it (`modelAt`, `pairsAt`: at `root` an Option
+ * with no targets only where its entry admits, `onOffer`; elsewhere its model says whether it is on
+ * offer), and a state an Option leaves
  * the body in made once from each state for each place it names (`child`, `placed`). A path is
  * priced whole by the objective (`price`, `Path`). A line (`line`) runs its Option (`Option.model`),
  * then at each way it ends (`Outcome`) the best single Option from there where it goes deeper
@@ -152,20 +153,29 @@ function space(root: Situation, options: readonly Option[], objective: Objective
     if (terms === undefined) row[slot] = terms = option.model(at, { target, ...option.open ? {} : { until: horizon } });
     return terms;
   };
-  /** The Options on offer at `at`, at each of their targets. */
-  const pairsAt = (at: Situation): readonly Pair[] => {
-    let pairs = offered.get(at);
-    if (pairs) return pairs;
+  /** The Options on offer at `at`, at each of their targets, out of the pairs `asked` lets through. A pair it leaves out is not modelled. */
+  const offeredOf = (at: Situation, asked: (pair: Pair) => boolean): Pair[] => {
     const found: Pair[] = [];
     for (const option of options) {
       if (at === root && !option.targets && !onOffer(option, at)) continue;
       const offset = offsets.get(option)!;
       for (let target = 0; target < Math.max(1, option.targets?.length ?? 0); target++) {
         const pair = descriptors[offset + target]!;
-        if (modelAt(pair, at)) found.push(pair);
+        if (asked(pair) && modelAt(pair, at)) found.push(pair);
       }
     }
-    offered.set(at, pairs = found);
+    return found;
+  };
+  /** Every pair, for `offeredOf`. */
+  const everyPair = (): boolean => true;
+  /** Whether a pair is a walk to a site (`Option.sites`). */
+  const toSite = ({ option, target }: Pair): boolean => option.targets !== undefined && sites.has(option.targets[target]!);
+  /** The pairs a leaf reads where a walk has arrived (`arrivedReads`), and where it is held (`heldReads`). */
+  const arrivedReads = (pair: Pair): boolean => !toSite(pair), heldReads = (pair: Pair): boolean => pair.option.open === true;
+  /** The Options on offer at `at`, at each of their targets. */
+  const pairsAt = (at: Situation): readonly Pair[] => {
+    let pairs = offered.get(at);
+    if (!pairs) offered.set(at, pairs = offeredOf(at, everyPair));
     return pairs;
   };
   /** The state `leaves` leaves the body in from `at` after `seconds` s, made once. */
@@ -239,7 +249,11 @@ function space(root: Situation, options: readonly Option[], objective: Objective
    */
   const leaf = (at: Situation, reach: Reach, dealt: number, taken: number, orders: number, seconds: number): number => {
     let top = -Infinity;
-    for (const pair of pairsAt(at)) {
+    // A leaf where a walk has arrived never walks on to a site, and a held leaf reads only open Options.
+    // Such a leaf models only the pairs it reads. Most leaves are where a walk arrives, so modelling every
+    // walk from each of them would be most of a search's cost.
+    const pairs = reach === "whole" ? pairsAt(at) : offered.get(at) ?? offeredOf(at, reach === "held" ? heldReads : arrivedReads);
+    for (const pair of pairs) {
       const { option, target } = pair;
       if (option.open) top = Math.max(top, line(pair, at, 1, dealt, taken, orders, seconds));
       else if (reach === "held") continue;
