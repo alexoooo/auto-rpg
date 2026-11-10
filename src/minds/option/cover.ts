@@ -8,9 +8,6 @@ import { NOTHING } from "../choice.ts";
 import { holding } from "./rest.ts";
 import { type Side, pairedSegment, sidesWith } from "../../core/bodies/bilateral.ts";
 
-/** The longest cover holds a hand up against one run of blows, s. */
-const LONGEST = 1;
-
 /** The share of a blow's life on the head a cover keeps off. */
 const STOPS = .6;
 
@@ -18,25 +15,20 @@ const STOPS = .6;
  * **The cover**: one option of a body of `spec`, its target the blow predicted to reach the head
  * (`Situation.incoming`, `READINGS.predicted`), carried out by the hand on the side the blow closes
  * from (`coveringHand`: none where that hand holds a covering face, whose ward is the guard's).
- * On offer while there is such a hand and no action under way holds it, down or standing, for at
- * most `LONGEST` s of one run of blows, then not until the threat has gone. It claims that hand,
+ * On offer while there is such a hand and no action under way holds it, down or standing. It claims that hand,
  * asks it between the blow and the head, and is priced as holding the body as it is (`holding`)
  * less the share of the blow's life it keeps off (`STOPS` of `Predictions.danger`), at a state with
  * a blow coming. It runs as long as it is held (`Option.open`) and always yields. Its memory is
- * when the run began, whether it is spent, and the hand, read once a step. None for a body without
- * hands.
+ * the hand, read once a step. None for a body without hands.
  */
 export function covers(spec: BodySpec): readonly Option[] {
-  const state = { read: -Infinity, since: null as number | null, spent: false, hand: null as Side | null };
-  /** The run of blows at `now`, once a step: which hand covers it, or null where none does. The blow is asked for at each call, so a chooser watches it (`Cues`). */
+  const state = { read: -Infinity, hand: null as Side | null };
+  /** The blow at `now`, once a step: which hand covers it, or null where none does. The blow is asked for at each call, so a chooser watches it (`Cues`). */
   const handAt = (now: Situation): Side | null => {
     const threat = now.incoming;
     if (state.read === now.time) return state.hand;
     state.read = now.time; state.hand = null;
-    if (!threat) { state.since = null; state.spent = false; return null; }
-    if (state.spent) return null;
-    state.since ??= now.time;
-    if (now.time - state.since >= LONGEST) { state.spent = true; return null; }
+    if (!threat) return null;
     const h = now.sight.report.heading, dx = threat.threat[0] - threat.guarded[0], dz = threat.threat[2] - threat.guarded[2];
     return state.hand = coveringHand(spec, dx * cos(h) - dz * sin(h) >= 0 ? "right" : "left");
   };
