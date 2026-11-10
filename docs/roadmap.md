@@ -30,7 +30,7 @@ Where the project is going and what is open. What is built is in the
 | [Warrior travel](plans/2026-11-05-warrior-travel.md) | first milestone: preserve 4 m/s from-rest entry while training stops; then the Run from a stand with no braced step, directions, manoeuvres and loadouts |
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an intentional overhead club strike at the head with either hand, with and without the buckler, returning to guard: a graded reader, a searched push schedule, then a learned actor |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
-| [Readable code](plans/2026-11-10-readable-code.md) | each concept one declared type, plain composition in place of context closures, `Part` split by role, kinds the compiler checks, no meaning read from a name's spelling, one operation a statement |
+| [Readable code](plans/2026-11-10-readable-code.md) | Option Mind's build as one declared type read top to bottom, shown to the owner; then `Part` split by role, one walk of a part tree, kinds the compiler checks |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
 
 Now: the Warrior's [travel capabilities](plans/2026-11-05-warrior-travel.md) and
@@ -76,6 +76,11 @@ with Option Mind as its hero.
   the Commanders.
 - A planner's memory forks only through the skills it drives (`driveBy`).
 - Research-only code under `src/core/` moves to `research/` or goes with its question.
+- 42 modules wrap all they hold in `createX(context)`; `src/app/evaluation.ts` spreads 38 of them
+  into one object and `src/evaluation/evaluations.ts` builds each evaluation a second time.
+- Meaning is read from a name's spelling: `endsWith("Trunk")`, `startsWith("shoulder.")`,
+  `startsWith("strike-")`, `startsWith("ended:")`.
+- The compiler checks no caller of `src/` under `scripts/`, `research/` or `tests/`.
 - Ratings when asked: items, characters and attributes; ablations beside a battery; live runs on
   the screen.
 
