@@ -1,7 +1,7 @@
 import { PROFILE_MODEL } from "./profile-contract.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { PartField } from "../../parts/fields.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { ChooserPart } from "./parts.ts";
 import { anyBody, slotOne, type PartConfig } from "../../parts/parts.ts";
 import type { OfferTerms } from "../engagement.ts";
@@ -467,7 +467,7 @@ function searching(make: (now: Situation) => Lines): Appraise<Situation, OfferTe
  * by chance (`Chance`), none unless given, and the objective it prices options by (`objective`, a
  * part of role `objective`; the few terms, `FEW_TERMS`, unless given).
  */
-interface SearchConfig { readonly horizon?: number; readonly obedience?: ObedienceLevel; readonly margin?: number; readonly objective?: PartConfig | null }
+interface SearchConfig { readonly horizon?: number; readonly obedience?: ObedienceLevel; readonly margin?: number; readonly objective?: ConfigFor<"objective"> | null }
 
 /** **The valued chooser's config**: its depth (`VALUED_DEPTHS`), and what every search is given (`SearchConfig`). */
 interface ValuedConfig extends SearchConfig { readonly kind: "valued"; readonly depth: number }
@@ -551,3 +551,10 @@ export const TREE_CHOOSER: OptionChooserPart<TreeConfig> = deepFreeze({
       { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING, { tree: stream.state });
   },
 });
+
+declare module "./parts.ts" {
+  interface ChooserConfigs {
+    readonly valued: ValuedConfig;
+    readonly tree: TreeConfig;
+  }
+}

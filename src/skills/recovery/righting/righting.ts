@@ -361,3 +361,10 @@ export const RIGHTING_ROUTES: TechniquePart<{ readonly kind: "righting-routes" }
   fits: fitsAll(fitsPaws, fitsWhen(holdsRoutes, "needs legs whose ranges hold the righting routes' poses")), faults: () => [],
   make: (own: OwnBody, view: BodyView, clock: Clock, kit: MindKit) => rightingByRoutes(own, view, clock, kit),
 });
+
+declare module "../technique.ts" {
+  interface TechniqueConfigs {
+    readonly "righting-recipe": RecipeConfig;
+    readonly "righting-routes": { readonly kind: "righting-routes" };
+  }
+}

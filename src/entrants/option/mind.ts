@@ -2,11 +2,11 @@ import type { MindPreset } from "../../minds/index.ts";
 import type { OptionMindConfig } from "../../minds/option/index.ts";
 import { BASE_OPTIONS as OPTIONS } from "./options.ts";
 import { BITE_OPTION, BONK_OPTION, CUT_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeConfig } from "../../minds/option/index.ts";
-import type { PartConfig } from "../../parts/index.ts";
+import type { ConfigFor } from "../../parts/index.ts";
 import { deepFreeze } from "../../core/state.ts";
 
 /** Its low support, under every blow of its hands: the support fold. */
-const SUPPORT: PartConfig = deepFreeze({ kind: "support-fold" });
+const SUPPORT: ConfigFor<"support"> = deepFreeze({ kind: "support-fold" });
 
 /**
  * **The straight punch** (`assets/skills/strikes/straight-punch/straight-punch.json`, the toed Warrior's trained): with

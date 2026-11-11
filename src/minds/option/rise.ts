@@ -1,9 +1,9 @@
 import type { TargetRef } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { tumbling, type GroundReading, type Position } from "../../control/ground-reading.ts";
-import { isWayUp, type TechniquePart } from "../../skills/recovery/technique.ts";
+import { isWayUp, type TechniqueName, type TechniquePart } from "../../skills/recovery/technique.ts";
 import { edgeExpected } from "../../skills/recovery/data/profiles.ts";
 import { anyBody, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
 import { WHOLE, type Status } from "../choice.ts";
@@ -182,7 +182,7 @@ function wayUp(given: ProfileOptionContext, config: GroundConfig<string>, part: 
 }
 
 /** **A kind of ground option's config**: its kind, and the technique it runs (`skill`, a `TechniquePart`): a way up, or a mode of the ground. */
-interface GroundConfig<K extends string> { readonly kind: K; readonly skill: PartConfig }
+interface GroundConfig<K extends string> { readonly kind: K; readonly skill: ConfigFor<"technique"> }
 
 /** Whether the technique `config` names fits a body of `spec`. */
 const fitting = (config: GroundConfig<string>, spec: BodySpec, parts: PartLookup): boolean => parts.of("technique", config.skill).fits(spec, config.skill, parts) === null;
@@ -192,7 +192,7 @@ const fitting = (config: GroundConfig<string>, spec: BodySpec, parts: PartLookup
  * up where `wayUp`, else a mode of the ground; `technique` unless given), made by `make` where that
  * technique fits the body, none else.
  */
-function groundKind<K extends string>(kind: K, label: string, technique: string, routing: { readonly purpose: "ascent" | "fallback" } | null,
+function groundKind<K extends string>(kind: K, label: string, technique: TechniqueName, routing: { readonly purpose: "ascent" | "fallback" } | null,
   make: (given: ProfileOptionContext, config: GroundConfig<K>, part: TechniquePart) => readonly Option[]): ProfileOptionPart<GroundConfig<K>> {
   const wayUp = routing !== null;
   return deepFreeze({ role: "option", model: PROFILE_MODEL, label, stage: "game", ...(routing ? { recovery: { purpose: routing.purpose, technique: (config: GroundConfig<K>) => config.skill } } : {}), fields: [], slots: [slotSkill("skill", "Technique", "technique")],
@@ -321,7 +321,7 @@ export const BRACE_OPTION: ProfileOptionPart<GroundConfig<"brace-down">> = deepF
     [brace(fitting(config, given.spec, given.parts) ? { action: config.skill.kind, effector: bindingSegments(given.parts.of("technique", config.skill), given.spec, config.skill)(given.parts.of("technique", config.skill).starts[0]!) } : null)] });
 
 /** The way-up options of `techniques`, each a way up of its own (`WAY_UP_OPTION`). */
-const waysUp = (kind: "way-up" | "reposition", techniques: readonly PartConfig[]): readonly PartConfig[] => techniques.map((skill) => ({ kind, skill }));
+const waysUp = (kind: "way-up" | "reposition", techniques: readonly ConfigFor<"technique">[]): readonly ConfigFor<"option">[] => techniques.map((skill) => ({ kind, skill }));
 
 /** The selected profile Option's declared recovery purpose and configured technique. */
 function recoveryOf(parts: PartLookup, option: PartConfig) {
@@ -330,16 +330,28 @@ function recoveryOf(parts: PartLookup, option: PartConfig) {
 }
 
 /** The applicable techniques of declared ordinary ascent choices, in configured order. */
-export const waysUpIn = (parts: PartLookup, spec: BodySpec, options: readonly PartConfig[]): readonly PartConfig[] => options.flatMap(option => {
+export const waysUpIn = (parts: PartLookup, spec: BodySpec, options: readonly PartConfig[]): readonly ConfigFor<"technique">[] => options.flatMap(option => {
   if (recoveryOf(parts, option)?.purpose !== "ascent") return [];
   const technique = parts.of("option", option).skills?.(option, spec, parts, options)?.technique;
   return technique && isWayUp(parts.of("technique", technique)) ? [technique] : [];
 });
 
 /** Replace declared ascent choices, excluding fallback transitions whose technique is now an ascent. */
-export function withWaysUp(parts: PartLookup, options: readonly PartConfig[], techniques: readonly PartConfig[]): readonly PartConfig[] {
+export function withWaysUp(parts: PartLookup, options: readonly ConfigFor<"option">[], techniques: readonly ConfigFor<"technique">[]): readonly ConfigFor<"option">[] {
   const kinds = new Set(techniques.map((technique) => technique.kind)), declared = options.map(option => recoveryOf(parts, option));
   const first = declared.findIndex(one => one?.purpose === "ascent");
   return options.flatMap((option, i) => i === first ? waysUp("way-up", techniques)
     : declared[i]?.purpose === "ascent" || declared[i]?.purpose === "fallback" && kinds.has(declared[i]!.technique.kind) ? [] : [option]);
+}
+
+declare module "./parts.ts" {
+  interface OptionConfigs {
+    readonly "way-up": GroundConfig<"way-up">;
+    readonly reposition: GroundConfig<"reposition">;
+    readonly flattening: GroundConfig<"flattening">;
+    readonly steadying: GroundConfig<"steadying">;
+    readonly landing: GroundConfig<"landing">;
+    readonly "brace-tumbling": GroundConfig<"brace-tumbling">;
+    readonly "brace-down": GroundConfig<"brace-down">;
+  }
 }

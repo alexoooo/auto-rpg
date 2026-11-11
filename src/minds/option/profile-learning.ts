@@ -3,7 +3,7 @@ import type { Refused } from "../../core/refusal.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { MindConfig } from "../catalog/config.ts";
 import type { OptionMindConfig } from "./config.ts";
-import { strikesIn } from "./kinds.ts";
+import { strikesIn, type StrikeConfig } from "./kinds.ts";
 
 /** The profile fighter's training adapter selects one configured strike and may steer its executor. */
 export function profileLearningMind(parts: PartLookup, preset: MindConfig, request: { readonly skill: string; readonly steered?: true }): MindConfig | Refused {
@@ -15,7 +15,8 @@ export function profileLearningMind(parts: PartLookup, preset: MindConfig, reque
   const strikes = strikesIn(parts, options);
   const selected = strikes.find(option => option.skill.kind === request.skill);
   if (!selected) return { refused: `the preset has no strike by ${request.skill}` };
-  const alone = request.steered ? { ...selected, skill: { ...selected.skill, tuning: { steered: true } } } : selected;
+  // Steering is a research tuning of the executors that take it (`Part.tuning`); on another it is a fault of the tree.
+  const alone = request.steered ? { ...selected, skill: { ...selected.skill, tuning: { steered: true } } } as StrikeConfig : selected;
   const configured: OptionMindConfig = { ...config, options: options.flatMap(option => option === selected ? [alone] : strikes.some(strike => strike === option) ? [] : [option]) };
   return configured;
 }

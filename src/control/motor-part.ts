@@ -57,8 +57,14 @@ export interface MotorPart<C extends PartConfig = PartConfig> extends Part<C> {
   make(config: C, parts: PartLookup): MotorMaker;
 }
 
+/** **A motor's config**, by registered kind. */
+export interface MotorConfigs {}
+
 declare module "../parts/lookup.ts" {
   interface RoleParts {
     readonly motor: MotorPart;
+  }
+  interface RoleConfigs {
+    readonly motor: MotorConfigs;
   }
 }

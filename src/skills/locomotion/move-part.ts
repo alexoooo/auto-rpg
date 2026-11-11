@@ -6,9 +6,7 @@ import { slotList, type PartConfig } from "../../parts/parts.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { gaitNamed, STOCK_GAITS, type Gait } from "./gaits.ts";
 import { move, type MoveGait } from "./move.ts";
-import { GAIT_CHOICES } from "./move-rule-part.ts";
-import type { MoveRuleConfig } from "./move-rule-part.ts";
-export type { MoveRuleConfig } from "./move-rule-part.ts";
+import { GAIT_CHOICES, type MoveRuleConfig } from "./move-rule-part.ts";
 
 /**
  * The legs a body gets about by (`move`): by the gait its legs goal names (`LegsGoal.gait`), the

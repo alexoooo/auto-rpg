@@ -1,7 +1,7 @@
 import type { GaitName } from "../../skills/framework/skill.ts";
-import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
+import type { ActionConfig, ExecutorConfigs, ExecutorEntry } from "../../skills/config.ts";
 import type { Region } from "../../skills/framework/action.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { optionApplies, type OptionBody, type OptionPart } from "./parts.ts";
 import { choice, json, optionalChoice } from "../../parts/fields.ts";
 import { anyBody, slotOne, slotSkill, type KeysOf, type PartConfig } from "../../parts/parts.ts";
@@ -23,7 +23,7 @@ import { strike, strikeMeasure } from "./strike.ts";
 export type ProfileOptionPart<C extends PartConfig = PartConfig> = OptionPart<C, ProfileOptionContext, Option> & {
   readonly model: typeof PROFILE_MODEL;
   /** Ordinary ascent choices establish routes; fallback transitions only serve uncovered starts. */
-  readonly recovery?: { readonly purpose: "ascent" | "fallback"; technique(config: C): PartConfig };
+  readonly recovery?: { readonly purpose: "ascent" | "fallback"; technique(config: C): ConfigFor<"technique"> };
 };
 
 /** The profile model's declared constructor and reporting protocol. */
@@ -44,23 +44,23 @@ export const ORDERS_OPTION = deepFreeze({ ...kind("orders", "Follow orders",
  * strikes with by role (`LimbRole`), where its executor aims the regions it strikes, in order, and
  * its aim (`AimPart`), and the low support it strikes from where it names one (`LowSupportPart`).
  */
-export interface StrikeConfig<K extends string = string> {
+export interface StrikeConfig<K extends string = keyof ExecutorConfigs> {
   readonly kind: `strike-${K}`;
-  readonly skill: PartConfig;
+  readonly skill: ConfigFor<"executor">;
   readonly limbs: LimbRole;
   readonly regions?: readonly Region[];
-  readonly aim?: PartConfig;
-  readonly support?: PartConfig | null;
+  readonly aim?: ConfigFor<"aim">;
+  readonly support?: ConfigFor<"support"> | null;
 }
 
 /** **A kind of strike**: a kind of option (`ProfileOptionPart`) that strikes by one skill, the executor kind it names (`skill`). */
-export type StrikeKindPart<K extends string = string> = ProfileOptionPart<StrikeConfig<K>> & { readonly skill: K };
+export type StrikeKindPart<K extends string = keyof ExecutorConfigs> = ProfileOptionPart<StrikeConfig<K>> & { readonly skill: K };
 
 /** Each executor's config as its body's skills hold it (`ExecutorEntry`), named by its kind: a skill is one config a mind. */
-const ENTRIES = new WeakMap<PartConfig, ExecutorEntry>();
+const ENTRIES = new WeakMap<ConfigFor<"executor">, ExecutorEntry>();
 
 /** **The executor `skill` as its body's skills hold it**, named by its kind, made once a config. */
-function executorEntry(skill: PartConfig): ExecutorEntry {
+function executorEntry(skill: ConfigFor<"executor">): ExecutorEntry {
   let entry = ENTRIES.get(skill);
   if (!entry) ENTRIES.set(skill, entry = Object.freeze({ ...skill, name: skill.kind }));
   return entry;
@@ -159,7 +159,7 @@ function aimingFaults(config: StrikeConfig, parts: PartLookup): readonly string[
  * and the limb), each priced by its profile among the strikes' where one is measured as the body
  * reads it (`strikeMeasure`); none where the body does not fit its skill or has no limb of its role.
  */
-function strikeKind<K extends string>(skill: K, label: string, limbs: LimbRole): StrikeKindPart<K> {
+function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, limbs: LimbRole): StrikeKindPart<K> {
   const of = (config: StrikeConfig<K>, given: ProfileOptionContext): readonly Option[] => {
     const action = strikeAction(given.parts, given.spec, config, strikeName(config, strikesIn(given.parts, given.options)));
     if (!action) return [];
@@ -218,7 +218,7 @@ export const BITE_OPTION = strikeKind("jaw-bite", "Bite", "jaw");
 export interface WalkConfig {
   readonly kind: "walk";
   readonly gait?: GaitName;
-  readonly navigation?: PartConfig | null;
+  readonly navigation?: ConfigFor<"navigation"> | null;
 }
 
 /**
@@ -276,4 +276,22 @@ export function optionsOf(of: (config: PartConfig) => ProfileOptionPart, configs
   }
   Object.freeze(all); Object.freeze(names);
   return made;
+}
+
+declare module "./parts.ts" {
+  interface OptionConfigs {
+    readonly orders: { readonly kind: "orders" };
+    readonly "strike-straight-punch": StrikeConfig<"straight-punch">;
+    readonly "strike-club-blow": StrikeConfig<"club-blow">;
+    readonly "strike-bonk": StrikeConfig<"bonk">;
+    readonly "strike-cut": StrikeConfig<"cut">;
+    readonly "strike-sword-thrust": StrikeConfig<"sword-thrust">;
+    readonly "strike-stomp": StrikeConfig<"stomp">;
+    readonly "strike-jaw-bite": StrikeConfig<"jaw-bite">;
+    readonly walk: WalkConfig;
+    readonly "hold-at-place": PlaceConfig;
+    readonly covers: { readonly kind: "covers" };
+    readonly "hold-position": { readonly kind: "hold-position" };
+    readonly "hands-at-guard": { readonly kind: "hands-at-guard" };
+  }
 }

@@ -1,6 +1,6 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { recordingKey } from "../../core/world/recording.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig, Role } from "../../parts/parts.ts";
 import { eachPart, type ConfigPath } from "../../parts/tree.ts";
 import { FILLED, filledOf } from "../../skills/assembly/kit.ts";
@@ -64,6 +64,6 @@ export function describeOptionMind(spec: BodySpec, config: OptionMindConfig, res
   component("navigation", "navigation", named.navigation ?? resolved.navigation);
 
   const waysUp = waysUpIn(parts, spec, resolved.options);
-  const recovery = { techniques: waysUp, replace: (next: readonly PartConfig[]) => ({ ...config, options: withWaysUp(parts, resolved.options, next) }) };
+  const recovery = { techniques: waysUp, replace: (next: readonly ConfigFor<"technique">[]) => ({ ...config, options: withWaysUp(parts, resolved.options, next) }) };
   return { executors: named.executors, actions, techniques: named.techniques, components, ...(waysUp.length ? { recovery } : {}) };
 }

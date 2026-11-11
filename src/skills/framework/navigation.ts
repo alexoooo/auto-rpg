@@ -8,7 +8,6 @@ import type { BodyView } from "../../control/body.ts";
 
 /** **A navigation's config**, by registered kind. */
 export interface NavigationConfigs {}
-export type NavigationConfig = NavigationConfigs[keyof NavigationConfigs];
 
 export type NavigationStatus = "stopped" | "moving" | "arrived" | "unreachable" | "stalled" | "unavailable" | "lost-focus";
 
@@ -105,5 +104,8 @@ export function navigatorOf(parts: PartLookup, spec: BodySpec, config: PartConfi
 declare module "../../parts/lookup.ts" {
   interface RoleParts {
     readonly navigation: NavigatorPart;
+  }
+  interface RoleConfigs {
+    readonly navigation: NavigationConfigs;
   }
 }

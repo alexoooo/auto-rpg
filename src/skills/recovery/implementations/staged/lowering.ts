@@ -130,3 +130,9 @@ export const STAGED_LOWERING = Object.freeze<LegAdapterPart<{ readonly kind: "st
   defaults: { kind: "staged-lowering" }, keys: { kind: true }, fits: anyBody, faults: () => [],
   make: (body, legs) => lowering(body, legs),
 });
+
+declare module "../../../framework/leg-adapter.ts" {
+  interface LegAdapterConfigs {
+    readonly "staged-lowering": { readonly kind: "staged-lowering" };
+  }
+}

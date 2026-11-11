@@ -48,19 +48,18 @@ In place:
   `src/parts/fields.ts`). What a fight asks of a mind (what it strikes with, what it holds that
   it uses, whether it obeys, what its phases are called) is on `Controller`, and Option Mind
   answers from its Options (`OptionPart`) and its guard (`GuardPart`).
+- **A slot's config is typed by the kinds its role registers** (`ConfigFor<"chooser">`,
+  `src/parts/lookup.ts`), so a misspelt kind in a preset fails to compile. Each part adds its
+  config to its role's map (`RoleConfigs`); a kind an entrant registers is any scoped
+  `<name>:<kind>`.
 
 What is hard to follow now:
 
-- **A config is `{ kind: string }`.** A misspelt kind compiles and fails when the catalog looks
-  it up.
 - **The catalog is one 300-line function** (`catalogOf`) returning about 20 members.
 
-What it becomes, in this order:
+What it becomes:
 
-3. **A slot's config is typed by the kinds its role registers**, so a misspelt kind fails to
-   compile. A role's kinds are the map its parts already extend (`GuardConfigs`, `AimConfigs`,
-   `TechniqueConfigs`); a kind an entrant registers keeps a plain string.
-4. **The catalog's tree walks become plain functions** over the walker.
+- **The catalog's tree walks become plain functions** over the walker.
 
 How it is checked: the fingerprint is unmoved, and the count of `as unknown as` casts that read a
 config is reported before and after.

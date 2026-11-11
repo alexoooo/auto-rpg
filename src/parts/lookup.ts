@@ -9,6 +9,21 @@ import type { BodySpec } from "../core/bodies/spec/body.ts";
 export interface RoleParts {}
 
 /**
+ * **Each role's configs, by kind** (`GuardConfigs`, `AimConfigs`): the map every part of the role
+ * adds its config to, beside the part. A role adds its map here where the map is declared.
+ */
+export interface RoleConfigs {}
+
+/** **The config of a part an entrant registers**: its kind carries the entrant's name (`scopeOf`), which no toolkit kind does. */
+interface EntrantConfig { readonly kind: `${string}:${string}` }
+
+/**
+ * **The config a slot of `role` holds**: one of the kinds the role's parts register
+ * (`RoleConfigs`), or an entrant's part (`EntrantConfig`). A kind that is neither fails to compile.
+ */
+export type ConfigFor<R extends keyof RoleConfigs> = RoleConfigs[R][keyof RoleConfigs[R]] | EntrantConfig;
+
+/**
  * **The parts a tree may name, by kind** (`partLookup`, `catalog.ts`): what a part whose checks
  * read the parts it names is handed (`Part.fits`, `Part.faults`), and what a mind's host hands
  * its maker (`BodyHost.parts`) for every assembly that builds a part. No part's module reads the
@@ -24,7 +39,7 @@ export interface PartLookup {
    * part of the role (`Part.stage`, the toolkit's) that fits the body; why none does, or which two
    * do, a sentence, where not one does: two fitting one body is a fault of the build, never a pick.
    */
-  fitting(role: Role, spec: BodySpec): PartConfig | string;
+  fitting<R extends Role & keyof RoleConfigs>(role: R, spec: BodySpec): ConfigFor<R> | string;
   /** **Every game part of `role`** (the toolkit's), as its config: what a role filled by fit (`fitting`) may be. */
-  game(role: Role): readonly PartConfig[];
+  game<R extends Role & keyof RoleConfigs>(role: R): readonly ConfigFor<R>[];
 }

@@ -22,3 +22,10 @@ export const PRIOR_PREDICTIONS: PredictionsPart<{ readonly kind: "prior" }> = de
   role: "predictions", model: PROFILE_MODEL, label: "The prior alone", stage: "game", fields: [], slots: [], defaults: { kind: "prior" }, keys: { kind: true },
   fits: anyBody, faults: () => [], make: () => profileModel({ strikes: [], edges: [] }),
 });
+
+declare module "./parts.ts" {
+  interface PredictionsConfigs {
+    readonly measured: MeasuredConfig;
+    readonly prior: { readonly kind: "prior" };
+  }
+}

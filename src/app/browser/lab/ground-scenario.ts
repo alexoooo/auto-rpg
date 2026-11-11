@@ -10,12 +10,12 @@ import { labAddress } from "../setup.ts";
 import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "../../../game/lab/ground-mode.ts";
 import { groundPlacement, groundPostures } from "../../../game/lab/ground-starts.ts";
 import { TECHNIQUES } from "../../registration/techniques.ts";
-import { isWayUp, type TechniqueConfig, type TechniqueName, type TechniquePart } from "../../../skills/recovery/technique.ts";
+import { isWayUp, type TechniqueName, type TechniquePart } from "../../../skills/recovery/technique.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { partLookup } from "../../catalog.ts";
 import { GAME } from "../../catalog.ts";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
-import type { PartConfig } from "../../../parts/parts.ts";
+import type { ConfigFor } from "../../../parts/lookup.ts";
 import { recordHistory } from "./history.ts";
 import { createPlayer } from "../../../game/lab/player.ts";
 import { shoveSound } from "./sound-log.ts";
@@ -33,7 +33,7 @@ import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 
 /** The Lab's stock stand-up route, in the order offered to the mind. */
-const STAND_UP: readonly TechniqueConfig[] = deepFreeze([
+const STAND_UP: readonly ConfigFor<"technique">[] = deepFreeze([
   { kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" },
 ]);
 
@@ -45,7 +45,7 @@ const recoveryOf = (mind: MindConfig, spec: BodySpec) => describeMind(GAME, spec
 const rises = (mind: MindConfig, spec: BodySpec): boolean => recoveryOf(mind, spec) !== undefined;
 
 /** The ways up `rise` names, or `drive`'s alone: the game's Stand up's, or `own`. */
-function techniquesBy(own: readonly PartConfig[], rise: GroundRise, drive: LabAddress["ground"]["drive"]): readonly PartConfig[] {
+function techniquesBy(own: readonly ConfigFor<"technique">[], rise: GroundRise, drive: LabAddress["ground"]["drive"]): readonly ConfigFor<"technique">[] {
   if (drive !== "mind") return [{ kind: drive }];
   switch (rise) {
     case "stand-up": return STAND_UP;

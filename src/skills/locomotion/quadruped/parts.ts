@@ -57,8 +57,14 @@ export interface PawGaitPart<C extends PartConfig = PartConfig> extends Part<C> 
 }
 
 // The paw gaits' role, added to the roles the part lookup knows (`RoleParts`).
+/** **A paw gait's config**, by registered kind. */
+export interface PawGaitConfigs {}
+
 declare module "../../../parts/lookup.ts" {
   interface RoleParts {
     readonly "paw-gait": PawGaitPart;
+  }
+  interface RoleConfigs {
+    readonly "paw-gait": PawGaitConfigs;
   }
 }

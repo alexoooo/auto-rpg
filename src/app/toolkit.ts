@@ -2,9 +2,7 @@ import { stanceCalibration } from "../skills/locomotion/stance/calibration.ts";
 import { BALANCES } from "./registration/balances.ts";
 import { MOTORS } from "./registration/motors.ts";
 import { AIMS } from "./registration/aims.ts";
-import type { AimConfig, ExecutorConfig, GaitConfig, GuardConfig, LocomotionConfig, SupportConfig } from "../skills/config.ts";
 import { EXECUTORS } from "./registration/executors.ts";
-import type { TechniqueConfig } from "../skills/recovery/technique.ts";
 import { TECHNIQUES } from "./registration/techniques.ts";
 import { GUARDS } from "./registration/guards.ts";
 import { MIND_KINDS } from "./mind-kinds.ts";
@@ -15,12 +13,11 @@ import { CHOOSERS } from "./registration/option-choosers.ts";
 import { OPTION_KINDS } from "./registration/option-kinds.ts";
 import { OBJECTIVES } from "./registration/option-objectives.ts";
 import { PREDICTIONS } from "./registration/option-predictions.ts";
-import type { NavigationConfig } from "../skills/framework/navigation.ts";
 import { SUPPORTS } from "./registration/supports.ts";
 import { catalogOf, type Catalog, type CatalogLists } from "../minds/catalog/catalog.ts";
-import type { ConfigOf, Part } from "../parts/parts.ts";
+import type { RoleConfigs } from "../parts/lookup.ts";
+import type { Part } from "../parts/parts.ts";
 import { REPTILE_PARTS } from "./registration/quadruped-parts.ts";
-import type { MoveRuleConfig } from "../skills/locomotion/move-part.ts";
 import { MOVE_RULES } from "./registration/move-rules.ts";
 import { STRIKE_DATA } from "./data/registration.ts";
 import { WALK_RUN_DATA } from "../skills/locomotion/walk-run/data/registration.ts";
@@ -39,12 +36,11 @@ const calibratedStagedData = Object.fromEntries(Object.entries(STAGED_DATA).map(
   },
 })]));
 
-/** Every part's config below a mind, by kind. */
-type AnyPart = AimConfig | ConfigOf<typeof LEG_ADAPTERS> | ConfigOf<typeof REPTILE_PARTS> | TechniqueConfig | ConfigOf<typeof MOTORS> | MoveRuleConfig | LocomotionConfig | GaitConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
+/** The config of every kind a role below a mind registers (`RoleConfigs`). */
+type Registered = { [R in keyof RoleConfigs]: RoleConfigs[R][keyof RoleConfigs[R]] }[keyof RoleConfigs];
 
-/** A part for each kind a config below a mind names: a kind no list holds fails to compile. */
-type LibraryPart = Exclude<AnyPart, { readonly kind: `${string}:${string}` }>;
-type Covered = { readonly [K in LibraryPart["kind"]]: Part<Extract<LibraryPart, { kind: K }>> };
+/** A part for each kind a config below a mind may name: a kind no list holds fails to compile. */
+type Covered = { readonly [K in Registered["kind"]]: Part<Extract<Registered, { kind: K }>> };
 
 /** What `lists` hold together, each list's own entries. */
 type Merged<L> = L extends readonly [infer H, ...infer R] ? H & Merged<R> : unknown;

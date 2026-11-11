@@ -92,9 +92,6 @@ export interface Part<C extends PartConfig = PartConfig> extends Edited<C> {
 /** Every key of `C`, each `true`: the keys a config of it may hold, a key missing or extra refused by the compiler. */
 export type KeysOf<C> = { readonly [P in keyof C]-?: true };
 
-/** The config of every part a list by kind holds: the union a role's slot takes. */
-export type ConfigOf<R> = { [K in keyof R]: R[K] extends { readonly defaults: infer C } ? C : never }[keyof R];
-
 /** A slot of a ranked list of parts of `role`. */
 export const slotList = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: true, optional: true });
 

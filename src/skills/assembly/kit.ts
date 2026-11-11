@@ -4,7 +4,7 @@ import type { Body } from "../../control/body.ts";
 import type { MotorMaker } from "../../control/motor-part.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { Legs } from "../framework/locomotion-part.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import { adaptLegs } from "../framework/leg-adapter.ts";
 
@@ -16,15 +16,15 @@ import { adaptLegs } from "../framework/leg-adapter.ts";
 export const FILLED = Object.freeze({ motor: "motor", legs: "locomotion", guard: "guard" } as const);
 
 /** What lies under a body's skills (`FILLED`), each a part's config: one an experiment passes in, else the one the body fits (`filledOf`). */
-export type Filled = { readonly [K in keyof typeof FILLED]?: PartConfig };
+export type Filled = { readonly [K in keyof typeof FILLED]?: ConfigFor<typeof FILLED[K]> };
 
 /**
  * **The part under `spec`'s skills in `filled`'s place** (`FILLED`): the one `given` passes in,
  * else the one game part of its role that fits the body (`PartLookup.fitting`). A body no single
  * part fits is no body a mind is made on: its mind's fit refused it (`Part.fits`).
  */
-export function filledOf(parts: PartLookup, spec: BodySpec, filled: keyof typeof FILLED, given: Filled = {}): PartConfig {
-  const part = given[filled] ?? parts.fitting(FILLED[filled], spec);
+export function filledOf<F extends keyof typeof FILLED>(parts: PartLookup, spec: BodySpec, filled: F, given: Filled = {}): ConfigFor<typeof FILLED[F]> {
+  const part: ConfigFor<typeof FILLED[F]> | string = given[filled] ?? parts.fitting(FILLED[filled], spec);
   if (typeof part === "string") throw new Error(`no ${filled} for ${spec.model}: ${part}`);
   return part;
 }

@@ -264,3 +264,9 @@ export const TROT_PART: PawGaitPart<TrotConfig> = deepFreeze({
     return { state: skill.state, settings, reach, travel: { speed: settings.speed, stopping: settings.acceleration }, resume: skill.resume, command: skill.command };
   },
 });
+
+declare module "./parts.ts" {
+  interface PawGaitConfigs {
+    readonly "paw-trot": TrotConfig;
+  }
+}

@@ -90,12 +90,27 @@ export interface PredictionsPart<C extends PartConfig = PartConfig> extends Part
   make(config: C): OptionEvaluation;
 }
 
-// The option framework's roles, added to the roles the part lookup knows (`RoleParts`).
+/** **A chooser's config**, by registered kind. */
+export interface ChooserConfigs {}
+/** **An Option's config**, by registered kind. */
+export interface OptionConfigs {}
+/** **An objective's config**, by registered kind. */
+export interface ObjectiveConfigs {}
+/** **A predictions part's config**, by registered kind. */
+export interface PredictionsConfigs {}
+
+// The option framework's roles, added to the roles the part lookup knows (`RoleParts`), each with its configs (`RoleConfigs`).
 declare module "../../parts/lookup.ts" {
   interface RoleParts {
     readonly chooser: ChooserPart;
     readonly option: OptionPart;
     readonly objective: ObjectivePart;
     readonly predictions: PredictionsPart;
+  }
+  interface RoleConfigs {
+    readonly chooser: ChooserConfigs;
+    readonly option: OptionConfigs;
+    readonly objective: ObjectiveConfigs;
+    readonly predictions: PredictionsConfigs;
   }
 }

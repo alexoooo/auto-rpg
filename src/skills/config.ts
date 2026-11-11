@@ -1,24 +1,20 @@
-import type { PartConfig } from "../parts/parts.ts";
+import type { ConfigFor } from "../parts/lookup.ts";
 import type { Region } from "./framework/action.ts";
 
 /** **The legs' config**, by registered kind. */
 export interface LocomotionConfigs {}
-export type LocomotionConfig = LocomotionConfigs[keyof LocomotionConfigs];
 
 /** **A gait's legs' config**, by registered kind. */
 export interface GaitConfigs {}
-export type GaitConfig = GaitConfigs[keyof GaitConfigs];
 
 /** **An executor's config**, by registered kind: its settings and the name its actions call it by. */
 export interface ExecutorConfigs {}
-export type ExecutorConfig = ExecutorConfigs[keyof ExecutorConfigs];
 
 /** **An executor as a body's skills hold it** (`ExecutorPart`): its config, of any part of the role, and the name its actions call it by. */
-export interface ExecutorEntry extends PartConfig { readonly name: string }
+export type ExecutorEntry = ConfigFor<"executor"> & { readonly name: string };
 
 /** **A registered aim's config**, by registered kind. */
 export interface AimConfigs {}
-export type AimConfig = AimConfigs[keyof AimConfigs];
 
 /**
  * **An action a body's skills carry out**, as its Options ask it (`NamedSkills.action`): its name,
@@ -31,24 +27,33 @@ export interface ActionConfig {
   readonly executor: string;
   readonly effectors: readonly string[];
   readonly regions?: readonly Region[];
-  readonly aim?: AimConfig | PartConfig;
+  readonly aim?: ConfigFor<"aim">;
 }
 
 /** **A registered guard's config**, by registered kind. */
 export interface GuardConfigs {}
-export type GuardConfig = GuardConfigs[keyof GuardConfigs];
 
 /** **A registered low support's config**, by registered kind. */
 export interface SupportConfigs {}
-export type SupportConfig = SupportConfigs[keyof SupportConfigs];
+
+declare module "../parts/lookup.ts" {
+  interface RoleConfigs {
+    readonly locomotion: LocomotionConfigs;
+    readonly gait: GaitConfigs;
+    readonly executor: ExecutorConfigs;
+    readonly aim: AimConfigs;
+    readonly guard: GuardConfigs;
+    readonly support: SupportConfigs;
+  }
+}
 
 /** **What a body's skills are made from** (`kitSkills`): its legs, its navigation, its guard, its executors and the actions they carry out, and its low support, each any part of its role. */
 export interface SkillKit {
-  readonly legs: PartConfig;
-  readonly navigation: PartConfig;
-  readonly guard: PartConfig;
+  readonly legs: ConfigFor<"locomotion">;
+  readonly navigation: ConfigFor<"navigation">;
+  readonly guard: ConfigFor<"guard">;
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
   /** Its low support (`LowSupportPart`), or none. */
-  readonly support: PartConfig | null;
+  readonly support: ConfigFor<"support"> | null;
 }

@@ -22,3 +22,9 @@ export const stanceBalance = (envelope: (spec: BodySpec) => StanceEnvelope | nul
   make: () => (built, tuning, assist) => stanceControl(built, { ...calibration?.(built.spec), ...tuning }, assist),
   envelope: (spec, _config, experiment) => !experiment.measuring && Object.keys(experiment.stance ?? {}).length === 0 ? envelope(spec) : null,
 });
+
+declare module "../balance-part.ts" {
+  interface BalanceConfigs {
+    readonly stance: StanceBalanceConfig;
+  }
+}

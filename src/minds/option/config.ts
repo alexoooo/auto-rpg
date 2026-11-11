@@ -1,6 +1,5 @@
 import { recordingKey } from "../../core/world/recording.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
-import type { PartConfig } from "../../parts/parts.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import { FILLED, type Filled } from "../../skills/assembly/kit.ts";
 
 /**
@@ -11,9 +10,9 @@ import { FILLED, type Filled } from "../../skills/assembly/kit.ts";
  */
 export interface OptionMindConfig {
   readonly kind: "option";
-  readonly chooser: PartConfig;
-  readonly options?: readonly PartConfig[] | null;
-  readonly predictions?: PartConfig | null;
+  readonly chooser: ConfigFor<"chooser">;
+  readonly options?: readonly ConfigFor<"option">[] | null;
+  readonly predictions?: ConfigFor<"predictions"> | null;
   /** The rate it decides at, Hz (`everyOf`, `Pace`): every control step unless given; its skills make the command every step from what it last decided. */
   readonly rate?: number;
   /** An experiment's research tuning, which a link does not carry: `parts`, a part in place of what lies under its skills, by its place (`Filled`). */
@@ -21,18 +20,18 @@ export interface OptionMindConfig {
 }
 
 /** `config` on the legs `legs` (role `locomotion`) in place of those its body fits: an experiment's (`OptionMindConfig.tuning`). */
-export const withLegs = (config: OptionMindConfig, legs: PartConfig): OptionMindConfig => ({ ...config, tuning: { ...config.tuning, parts: { ...config.tuning?.parts, legs } } });
+export const withLegs = (config: OptionMindConfig, legs: ConfigFor<"locomotion">): OptionMindConfig => ({ ...config, tuning: { ...config.tuning, parts: { ...config.tuning?.parts, legs } } });
 
 /** The defaults the calling composition supplies: the Options, chooser and predictions a config that names none takes, and the navigation its walks go by where no Option names one. */
 export interface OptionAssembly {
-  readonly options: readonly PartConfig[];
-  readonly chooser: PartConfig;
-  readonly predictions: PartConfig;
-  readonly navigation: PartConfig;
+  readonly options: readonly ConfigFor<"option">[];
+  readonly chooser: ConfigFor<"chooser">;
+  readonly predictions: ConfigFor<"predictions">;
+  readonly navigation: ConfigFor<"navigation">;
 }
 
 /** **A config with its assembly's defaults filled in** (`resolveConfig`): what the checks, the description and the build read. */
-export type ResolvedConfig = OptionMindConfig & { readonly options: readonly PartConfig[]; readonly predictions: PartConfig; readonly navigation: PartConfig };
+export type ResolvedConfig = OptionMindConfig & { readonly options: readonly ConfigFor<"option">[]; readonly predictions: ConfigFor<"predictions">; readonly navigation: ConfigFor<"navigation"> };
 
 /** `config` with `assembly`'s options and predictions where it names none, and `assembly`'s navigation. */
 export const resolveConfig = (config: OptionMindConfig, assembly: OptionAssembly): ResolvedConfig => ({ ...config, options: config.options ?? assembly.options,
@@ -42,7 +41,7 @@ export const resolveConfig = (config: OptionMindConfig, assembly: OptionAssembly
 export const isSettings = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** Repeated configured choices are one Option twice, independent of their implementation. */
-function optionsFaults(options: readonly PartConfig[]): readonly string[] {
+function optionsFaults(options: readonly ConfigFor<"option">[]): readonly string[] {
   const seen = new Set<string>(), faults: string[] = [];
   for (const option of options) {
     const key = recordingKey(option);

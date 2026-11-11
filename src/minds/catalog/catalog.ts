@@ -246,8 +246,8 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
       const part = isPart(value) ? partOf(value) : null;
       return part?.role === role ? part as never : null;
     },
-    fitting,
-    game,
+    fitting: fitting as PartLookup["fitting"],
+    game: game as PartLookup["game"],
   });
 
   /** Whether `value` is a part's config: an object with a kind that names a part. */
@@ -423,8 +423,8 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
           if (found && !named.has((value as PartConfig).kind)) throw new Error(`${partOf(config).label} looks up ${(value as PartConfig).kind}, a part its tree does not name`);
           return found;
         },
-        fitting,
-        game,
+        fitting: fitting as PartLookup["fitting"],
+        game: game as PartLookup["game"],
       });
     },
     treeFaults(config: PartConfig, at = ""): readonly string[] {

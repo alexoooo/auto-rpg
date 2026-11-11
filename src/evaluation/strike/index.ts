@@ -69,7 +69,7 @@ export function createStrikeIndex(context: GameContext) {
     const at = name.lastIndexOf("@"), named = at < 0 ? name : name.slice(0, at), held = at < 0 ? undefined : loadoutNamed(name.slice(at + 1));
     const slash = named.indexOf("/"), id = slash < 0 ? named : named.slice(0, slash), preset = Object.hasOwn(MINDS, id) ? MINDS[id]! : null;
     if (!preset) throw new Error(`${name} is no strike: name a mind and its skill, <mind>/<skill>[@<left>,<right>] (${Object.keys(MINDS).join(", ")})`);
-    const skills = [...new Set(BODY_MODELS.filter(model => !preset.models || preset.models.includes(model)).flatMap(model => {
+    const skills: readonly string[] = [...new Set(BODY_MODELS.filter(model => !preset.models || preset.models.includes(model)).flatMap(model => {
       const spec = modelHoldingChecked(model, held ?? { left: "empty", right: "empty" }, preset.character);
       if (isRefused(spec)) return [];
       return describeMind(context.catalog, spec, preset.config)?.executors.map(executor => executor.kind) ?? [];

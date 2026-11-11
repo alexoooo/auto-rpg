@@ -1,5 +1,5 @@
 import type { GaitName } from "../framework/skill.ts";
-import type { PartConfig } from "../../parts/parts.ts";
+import type { ConfigFor } from "../../parts/lookup.ts";
 import { deepFreeze } from "../../core/state.ts";
 
 /**
@@ -11,7 +11,7 @@ import { deepFreeze } from "../../core/state.ts";
 export interface Gait {
   readonly name: string;
   readonly label: string;
-  readonly legs: PartConfig;
+  readonly legs: ConfigFor<"gait">;
 }
 
 
@@ -21,11 +21,10 @@ export interface Gait {
  * is the walk and run (`WalkRunConfig`) by its body's record. Move changes between them on the
  * move (`move`).
  */
-const DEFAULT_GAITS = {
+const GAITS: Readonly<Record<string, { readonly label: string; readonly legs: ConfigFor<"gait"> }>> = deepFreeze({
   "braced": { label: "Braced", legs: { kind: "stance-walk" } },
   "run": { label: "Run", legs: { kind: "walk-run" } },
-};
-const GAITS = deepFreeze(DEFAULT_GAITS satisfies Readonly<Record<string, { readonly label: string; readonly legs: PartConfig }>>);
+});
 
 /** **The stock gaits** (`GAITS`) as gaits: what Move walks by where its config names none. */
 export const STOCK_GAITS: readonly Gait[] = deepFreeze(Object.entries(GAITS).map(([name, gait]) => ({ name, label: gait.label, legs: gait.legs })));

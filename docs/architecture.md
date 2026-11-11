@@ -70,7 +70,7 @@ The public APIs for entrant authors are:
 | `src/skills/config.ts` | component-owned configuration maps |
 | `src/skills/framework/navigation.ts`, `src/skills/locomotion/move-rule-part.ts` | navigation and movement-rule extension contracts |
 
-Role owners augment `RoleParts`; skill implementations augment their configuration maps.
+Role owners augment `RoleParts` and `RoleConfigs`; each part adds its config to its role's map by kind.
 `DataKey` is `keyof DataOf`. An implementation registers its owned loaders beside its components;
 an entrant supplies them in its manifest. The application catalog loads the same registered keys
 in Node and the browser. Case identity hashes the current module paths and contents; saved rows
@@ -412,6 +412,14 @@ augmented beside each role's contract. `treeFaults` names each fault by path. Co
 through slots and children alike, and admission, fit, scope, data dependencies and inspection all
 use it. `tuning` never travels in a link.
 
+**A slot's config is typed by its role** (`ConfigFor<"chooser">`, `lookup.ts`): one of the kinds
+the role's parts register, each adding its config to the role's map beside the part
+(`RoleConfigs`: `OptionConfigs`, `ExecutorConfigs`, `TechniqueConfigs` and the rest), or a kind an
+entrant registers, scoped `<name>:<kind>`. A config field that holds a part says its role
+(`OptionMindConfig.chooser`, `StrikeConfig.skill`), so a kind no part registers fails to compile
+where a preset names it. Code that only reads a config of any role takes a `PartConfig`. The
+toolkit's lists hold a part for every registered kind (`Covered`, `toolkit.ts`).
+
 **What a fight asks of a mind, the mind answers** (`Controller`): what it strikes with
 (`strikes`), what it holds that it has a use for (`supportedEquipment`), whether it obeys orders
 (`obeys`) and what its phases are called (`phases`). The catalog asks the controller and walks no
@@ -567,7 +575,8 @@ model's preset, `modelRefusal` why a mind cannot play a body.
 4. A kind of mind of its own is one `controller({ ... })`: a config type, defaults, faults and a
    maker that takes the body once (`host.take`) and returns its `state`.
 5. Declare owned data in `DataOf` and provide its loader in the manifest; shared code needs no
-   entrant-specific registration. New component roles add their contract to `RoleParts`.
+   entrant-specific registration. New component roles add their contract to `RoleParts` and their
+   configs' map to `RoleConfigs`.
 
 `tests/minds/contract.test.mjs` checks delayed command delivery, queue clearing on suspension and
 restoration with commands in flight. Broader execution equivalence is read with the fingerprint

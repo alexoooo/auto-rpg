@@ -1,6 +1,6 @@
 import type { ActionConfig, ExecutorEntry } from "../../skills/config.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
+import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 
@@ -12,18 +12,18 @@ import { recordingKey } from "../../core/world/recording.ts";
 export interface NamedSkills {
   readonly executor?: ExecutorEntry;
   readonly action?: ActionConfig;
-  readonly technique?: PartConfig;
-  readonly support?: PartConfig;
-  readonly navigation?: PartConfig;
+  readonly technique?: ConfigFor<"technique">;
+  readonly support?: ConfigFor<"support">;
+  readonly navigation?: ConfigFor<"navigation">;
 }
 
 /** **The skills a body builds of its Options** (`skillsOf`): its executors and their actions, its ground techniques, its low support and its navigation, each once. */
 export interface OptionSkills {
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
-  readonly techniques: readonly PartConfig[];
-  readonly support: PartConfig | null;
-  readonly navigation: PartConfig | null;
+  readonly techniques: readonly ConfigFor<"technique">[];
+  readonly support: ConfigFor<"support"> | null;
+  readonly navigation: ConfigFor<"navigation"> | null;
   readonly faults: readonly string[];
 }
 
@@ -34,8 +34,8 @@ export interface OptionSkills {
  * Options name one of each, `optionMindFaults`). An Option whose skills the body does not fit names none.
  */
 export function skillsOf(parts: PartLookup, spec: BodySpec, options: readonly PartConfig[]): OptionSkills {
-  const executors: ExecutorEntry[] = [], actions: ActionConfig[] = [], techniques: PartConfig[] = [];
-  let support: PartConfig | null = null, navigation: PartConfig | null = null;
+  const executors: ExecutorEntry[] = [], actions: ActionConfig[] = [], techniques: ConfigFor<"technique">[] = [];
+  let support: ConfigFor<"support"> | null = null, navigation: ConfigFor<"navigation"> | null = null;
   const faults: string[] = [];
   const add = <T extends { readonly name?: string; readonly kind?: string }>(values: T[], next: T, key: string, label: string): void => {
     const had = values.find(value => (value.name ?? value.kind) === key);

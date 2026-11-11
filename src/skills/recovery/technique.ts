@@ -13,9 +13,8 @@ import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 export type TechniqueEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted";
 /** Each implementation declares its configuration under its kind. */
 export interface TechniqueConfigs {}
-/** A registered technique's configuration. */
-export type TechniqueConfig = TechniqueConfigs[keyof TechniqueConfigs];
-export type TechniqueName = TechniqueConfig["kind"];
+/** The kind of a technique the toolkit registers. */
+export type TechniqueName = keyof TechniqueConfigs;
 export interface TechniqueRun<Start extends string = string> {
   readonly state: object;
   readonly phase: string;
@@ -99,5 +98,8 @@ export function poseDrive(muscles: MuscleReading) {
 declare module "../../parts/lookup.ts" {
   interface RoleParts {
     readonly technique: TechniquePart;
+  }
+  interface RoleConfigs {
+    readonly technique: TechniqueConfigs;
   }
 }

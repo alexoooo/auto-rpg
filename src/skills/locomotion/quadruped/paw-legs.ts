@@ -8,7 +8,8 @@ import { rootFrameToRef, intoFrameToRef } from "../../../control/kinematics.ts";
 import { withinSupport } from "../../../control/support.ts";
 import type { StanceEnvelope } from "../../../control/stance/stance-envelope.ts";
 import { cos, hypot, sin } from "../../../core/math/real.ts";
-import { slotOne, type PartConfig } from "../../../parts/parts.ts";
+import type { ConfigFor } from "../../../parts/lookup.ts";
+import { slotOne } from "../../../parts/parts.ts";
 import { motionAtToRef } from "../../../core/bodies/read-motion.ts";
 import type { LocomotionPart } from "../../framework/locomotion-part.ts";
 import type { LegsAsked } from "../../framework/skill.ts";
@@ -23,7 +24,7 @@ import { REPTILE_CRAWL, REPTILE_TROT } from "./tuning.ts";
 import { pawsOf } from "../../../core/bodies/spec/body.ts";
 
 /** **The paw legs**' config: the gait it travels by and the one it crawls by (`PawGaitPart`), the stock ones where it names none. */
-interface PawMoveConfig { readonly kind: "paw-move"; readonly trot?: PartConfig; readonly crawl?: PartConfig }
+interface PawMoveConfig { readonly kind: "paw-move"; readonly trot?: ConfigFor<"paw-gait">; readonly crawl?: ConfigFor<"paw-gait"> }
 
 /** The stock gaits: the trot to travel, the crawl close in and while the paws are placed again. */
 const STOCK = deepFreeze({ trot: { kind: "paw-trot" }, crawl: { kind: "paw-crawl" } });
@@ -186,3 +187,9 @@ export const PAW_MOVE: LocomotionPart<PawMoveConfig> = deepFreeze({
     return pawLegs(body, gait("trot"), gait("crawl"));
   },
 });
+
+declare module "../../config.ts" {
+  interface LocomotionConfigs {
+    readonly "paw-move": PawMoveConfig;
+  }
+}

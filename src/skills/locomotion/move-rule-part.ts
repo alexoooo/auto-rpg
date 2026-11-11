@@ -1,5 +1,6 @@
 import type { GaitName } from "../framework/skill.ts";
 import { choice, type PartField } from "../../parts/fields.ts";
+import type { ConfigFor } from "../../parts/lookup.ts";
 import { anyBody, type KeysOf, type Part, type PartConfig } from "../../parts/parts.ts";
 import { STOCK_GAITS } from "./gaits.ts";
 import type { MoveRule } from "./move.ts";
@@ -36,8 +37,12 @@ declare module "../../parts/lookup.ts" {
   interface RoleParts {
     readonly "move-rule": MoveRulePart;
   }
+  interface RoleConfigs {
+    readonly "move-rule": MoveRuleConfigs;
+  }
 }
 
 /** Each registered gait rule declares its own configuration. */
 export interface MoveRuleConfigs {}
-export type MoveRuleConfig = MoveRuleConfigs[keyof MoveRuleConfigs];
+/** **A Move rule's config**: one of the registered kinds, or an entrant's, which names its gait as they do. */
+export type MoveRuleConfig = ConfigFor<"move-rule"> & RuleConfig;

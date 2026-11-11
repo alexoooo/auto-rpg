@@ -92,3 +92,10 @@ export const REACH_PLACE_PART: ObjectivePart<ReachConfig, Objective> = deepFreez
   faults: (config: ReachConfig) => Number.isFinite(config.x) && Number.isFinite(config.z) ? [] : ["x, z: a place, m"],
   make: reachPlace,
 });
+
+declare module "./parts.ts" {
+  interface ObjectiveConfigs {
+    readonly "few-terms": { readonly kind: "few-terms" };
+    readonly "reach-place": ReachConfig;
+  }
+}

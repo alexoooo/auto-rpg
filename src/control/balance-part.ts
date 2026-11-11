@@ -29,8 +29,14 @@ export interface BalancePart<C extends PartConfig = PartConfig> extends Part<C> 
   envelope(spec: BodySpec, config: C, experiment: Experiment): StanceEnvelope | null;
 }
 
+/** **A balance's config**, by registered kind. */
+export interface BalanceConfigs {}
+
 declare module "../parts/lookup.ts" {
   interface RoleParts {
     readonly balance: BalancePart;
+  }
+  interface RoleConfigs {
+    readonly balance: BalanceConfigs;
   }
 }

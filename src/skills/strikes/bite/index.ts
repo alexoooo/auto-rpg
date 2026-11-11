@@ -287,3 +287,9 @@ export const JAW_BITE: ExecutorPart<JawBiteConfig> = {
   strikesWith: (spec, _config, effector) => jawOf(spec).head.name === effector,
   make: ({ body, aim }, config, actions) => biteExecutor(body, actions.map((action) => action.name), biteSettings(body.built.spec, config), aim),
 };
+
+declare module "../../config.ts" {
+  interface ExecutorConfigs {
+    readonly "jaw-bite": JawBiteConfig;
+  }
+}

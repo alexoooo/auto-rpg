@@ -182,3 +182,9 @@ export const CRAWL_PART: PawGaitPart<CrawlConfig> = deepFreeze({
     return { state: skill.state, settings, reach, travel: { speed: reach.forward, stopping: reach.forward / stride }, resume: skill.resume, command: skill.command };
   },
 });
+
+declare module "./parts.ts" {
+  interface PawGaitConfigs {
+    readonly "paw-crawl": CrawlConfig;
+  }
+}

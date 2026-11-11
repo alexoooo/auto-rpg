@@ -127,3 +127,9 @@ export const FIRST_EXPOSED_AIM: AimPart<FirstExposedConfig> = deepFreeze({
   role: "aim", label: "First exposed surface", stage: "game", unit: null, fields: [], slots: [], defaults: { kind: "first-exposed" }, keys: { kind: true },
   fits: (spec, _config, parts) => fitsBite(spec, { kind: "first-exposed" }, parts), fitReads: ["bite"], faults: () => [], reads: () => ["bite"], make: (spec) => firstExposed(spec),
 });
+
+declare module "../../config.ts" {
+  interface AimConfigs {
+    readonly "first-exposed": FirstExposedConfig;
+  }
+}

@@ -19,6 +19,10 @@ export function adaptLegs(parts: PartLookup, body: Body, legs: Locomotion): Loco
   return legs;
 }
 
+/** **A leg adapter's config**, by registered kind. */
+export interface LegAdapterConfigs {}
+
 declare module "../../parts/lookup.ts" {
   interface RoleParts { readonly "leg-adapter": LegAdapterPart }
+  interface RoleConfigs { readonly "leg-adapter": LegAdapterConfigs }
 }

@@ -140,3 +140,9 @@ export const PAW_MOTOR: MotorPart<PawMotorConfig> = deepFreeze({
     envelope: () => null,
   }),
 });
+
+declare module "../motor-part.ts" {
+  interface MotorConfigs {
+    readonly "paw-motor": PawMotorConfig;
+  }
+}
