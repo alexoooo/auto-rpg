@@ -1,6 +1,5 @@
 import type { BodyHost } from "../mind.ts";
 import { motorRequirementRefusal } from "../../control/motor-part.ts";
-import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { ComponentDescription } from "../catalog/description.ts";
 import type { Body } from "../../control/body.ts";
 import { aimsState, configuredAims } from "../../skills/assembly/action-config.ts";
@@ -9,6 +8,7 @@ import { controller, type MindWiring } from "../catalog/controller.ts";
 import { everyOf } from "../decider.ts";
 import { kitBody, kitSkills } from "../../skills/assembly/assembly.ts";
 import { groundSkills } from "../../skills/recovery/skills.ts";
+import { standUpFaults } from "../../skills/recovery/stand-up.ts";
 import { FILLED, filledOf, filledRefusal, mindKitOf, motorOf, type Filled } from "../../skills/assembly/kit.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import { slotList, slotOne, slotsOf, partRequirements, type Part, type PartConfig, type Slot, type Role } from "../../parts/parts.ts";
@@ -19,6 +19,8 @@ import { deepFreeze } from "../../core/state.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import { skillsOf } from "./skills.ts";
 import { optionDecider, type DeciderMaking } from "./decider.ts";
+import { PROFILE_MODEL } from "./profile-contract.ts";
+import { waysUpIn, withWaysUp } from "./rise.ts";
 
 /**
  * The selected chooser, decision provider, options and decision rate. Omitted or null options and
@@ -94,15 +96,12 @@ function createOptionMind(host: BodyHost, config: Configured, wiring: MindWiring
   return driven;
 }
 
-/** Defaults and optional admission/inspection policies supplied by the calling composition. */
+/** The defaults the calling composition supplies: the Options, chooser and predictions a config that names none takes, and the navigation its walks go by where no Option names one. */
 export interface OptionAssembly {
   readonly options: readonly PartConfig[];
   readonly chooser: PartConfig;
   readonly predictions: PartConfig;
   readonly navigation: PartConfig;
-  readonly recovery?: (parts: PartLookup, spec: BodySpec, options: readonly PartConfig[]) => readonly PartConfig[];
-  readonly validate?: (spec: BodySpec, options: readonly PartConfig[], techniques: readonly PartConfig[], parts: PartLookup, model: string) => string | null;
-  readonly replaceRecovery?: (parts: PartLookup, options: readonly PartConfig[], techniques: readonly PartConfig[]) => readonly PartConfig[];
 }
 
 export function optionMind(assembly: OptionAssembly) {
@@ -125,8 +124,9 @@ export function optionMind(assembly: OptionAssembly) {
       if (refused) return refused;
       const resolved = configured(config), named = skillsOf(parts, spec, resolved.options);
       if (named.faults.length) return named.faults[0]!;
-      const admission = assembly.validate?.(spec, resolved.options, named.techniques, parts, parts.of("predictions", resolved.predictions).model);
-      if (admission) return admission;
+      // Under the profile model, its ways up are a route to standing (`standUpFaults`).
+      const route = parts.of("predictions", resolved.predictions).model === PROFILE_MODEL ? standUpFaults(waysUpIn(parts, spec, resolved.options), parts)[0] : undefined;
+      if (route) return `options: ${route}`;
       const needs = (role: Role, configs: readonly PartConfig[]) => configs.flatMap(part => partRequirements(parts, role, part, spec));
       const required = [...needs("option", resolved.options), ...needs("executor", named.executors), ...needs("technique", named.techniques),
         ...needs("aim", named.actions.flatMap(action => action.aim ? [action.aim] : [])),
@@ -180,10 +180,10 @@ export function optionMind(assembly: OptionAssembly) {
           config.tuning?.parts?.[place] ? ["tuning", "parts", place] : null);
       }
       component("navigation", "navigation", named.navigation ?? resolved.navigation);
-      const techniques = assembly.recovery?.(parts, spec, resolved.options) ?? [];
+      const techniques = waysUpIn(parts, spec, resolved.options);
       return { executors: named.executors, actions, techniques: named.techniques, components,
-        ...(assembly.replaceRecovery && techniques.length ? { recovery: { techniques,
-          replace: (next: readonly PartConfig[]) => ({ ...config, options: assembly.replaceRecovery!(parts, resolved.options, next) }) } } : {}) };
+        ...(techniques.length ? { recovery: { techniques,
+          replace: (next: readonly PartConfig[]) => ({ ...config, options: withWaysUp(parts, resolved.options, next) }) } } : {}) };
     },
     supportedEquipment: (spec, config, parts) => {
       const guard = filledOf(parts, spec, "guard", config.tuning?.parts);
