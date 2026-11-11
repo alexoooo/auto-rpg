@@ -21,18 +21,17 @@ npm run evaluate -- table --body workshop-fighter --skill punch --by mark
 npm run evaluate -- table --body workshop-fighter --skill punch --by hand
 ```
 
-Each reading is its cell's baseline already (its line says `baseline this reading`), so
-`--baseline` has nothing to name.
-
 Each cell reads three protocols of the Strike drill: a still target (`still`), a target walked to
 (`walk`) and a moment of a fight (`fight`). Every protocol orders the punch at the high mark (the
-head) and the middle mark (the trunk), with each hand. The `empty,empty` cell's trials:
+head) and the middle mark (the trunk), with each hand. The cells read 0.444 (`empty,empty`, within
+noise of its baseline), 0.139 (`empty,club`, better) and 0.200 hp a second (`empty,sword`,
+better). The `empty,empty` cell's trials:
 
 | Protocol | High mark | Middle mark |
 | --- | --- | --- |
-| `still` | 32 of 32 refused | 23 landed, 6 outside, 3 refused |
-| `walk` | 64 of 64 refused | 47 landed, 5 missed, 5 outside, 4 guarded, 3 refused |
-| `fight` | 8 of 8 refused | 3 outside, 2 guarded, 2 missed, 1 refused, none landed |
+| `still` | 32 of 32 refused | 23 landed, 5 refused, 2 outside, 1 guarded, 1 missed |
+| `walk` | 64 of 64 refused | 46 landed, 7 refused, 6 missed, 4 outside, 1 guarded |
+| `fight` | 8 of 8 refused | 3 landed, 2 elsewhere, 1 guarded, 1 refused, 1 outside |
 
 What they say:
 
@@ -45,31 +44,30 @@ What they say:
   target's head past its guard ([the approaches](../approaches.md#unarmed-strikes)), and the
   punch's record keeps it off the head (`above`). A blow around or over a guard is another skill,
   read on its own row.
-- **At the trunk it lands about three in four, still or walked to.** The rest never come into the
-  window (`outside`), miss, meet the guard or are refused.
-- **In a fight it lands none of eight.** The punch's window is not where fighters stand
+- **At the trunk it lands about three in four, still or walked to.** The window reaches 0.06 m
+  past the punch's stand-off (`band`), and the steer is trained on that window, so few trials stay
+  `outside`; the rest are refused, miss or meet the guard.
+- **In a fight it lands three of eight.** The punch's window is not where fighters stand
   ([the approaches](../approaches.md#unarmed-strikes)).
 - **Holding a club or a sword**, the hand that holds it has no punch, so three quarters of those
-  cells' cases are refused by the mark and the hand alone, and 78 to 85 % in all; the empty hand's
-  trunk punch lands 4 and 5 of 16 on `still`, against 12 of 16 with both hands empty.
+  cells' cases are refused by the mark and the hand alone; the empty hand's trunk punch lands 10
+  and 8 of 16 on `still`.
 
 ## The questions, by the value each can move
 
-1. **The trunk cases it does not land**: 9 of 32 still and 17 of 64 walked to. By `gap`,
-   `across`, `hand` and `start` (`--by`) they spread evenly. Two kinds come before the blow:
-   `outside`, the walk never brings the body into the punch's window (`band` 0.03 m past its
-   stand-off, `CROWDED` 0.05 m short of it), and a `refused` with no reason, in the window and
-   ready but never settled for the drill to order it within its patience. The rest, walked to, miss
-   or meet the guard. A trial's last phase and its times are read with `drillTrial`
-   (`punch-drill.mjs`) on the game's mind (`MINDS.option.config`), one condition at a time; the
-   reel (the Ratings link on each reading's line, opened as [the table](../reference/the-table.md)
-   says) shows it.
-2. **The fight.** None of eight lands. This is footwork and openings, the Mind's and not the
-   punch's ([Minds](../approaches.md#minds)): the roadmap's
-   [Blows in fights](../roadmap.md#next), not worked here. Its eight cases stay in the cell's
-   value.
-3. **The cells with a club or a sword**: why the empty hand's punch lands a third as often with
-   an item in the other hand.
+1. **The trunk cases refused**: 5 of 32 still and 7 of 64 walked to, a `refused` with no reason:
+   in the window and ready but never settled for the drill to order it within its patience, or
+   priced below another Option by the punch's profiles. A trial's last phase and its times are read
+   with `drillTrial` (`punch-drill.mjs`) on the game's mind (`MINDS.option.config`), one condition
+   at a time; the reel (the Ratings link on each reading's line, opened as
+   [the table](../reference/the-table.md) says) shows it.
+2. **The steer's later checkpoints**: its training run goes on past the installed 1M
+   checkpoint; each is screened on `punch-policy-check.mjs` (160 trials a rate, seed 5001) and
+   installed where it lands more, its profiles measured again on the sampled rung, the Warrior's
+   rows alone.
+3. **The fight.** This is footwork and openings, the Mind's and not the punch's
+   ([Minds](../approaches.md#minds)): the roadmap's [Blows in fights](../roadmap.md#next), not
+   worked here. Its eight cases stay in the cell's value.
 
 ## To pick it up
 
@@ -84,8 +82,8 @@ What they say:
   means `src/evaluation/strike/read.ts`, its score `score.ts`.
 - **Research**: `research/skills/strikes/straight-punch/` holds the schedule search
   (`punch-drill.mjs`), the held-out screen of a schedule or a policy (`punch-policy-check.mjs`) and
-  the training environments; the kept training run is `research/runs/punch-ppo14/` (its README
-  names each file).
+  the training environments. The installed network is the record's own; a policy is screened
+  against it by extracting it (`network` in the record) to a file.
 - **One protocol of the drill**, played and not kept:
   `npm run evaluate -- strike option/straight-punch --protocol still`; with `--write` it becomes
   the newest result the table reads. Price it from its first trials.
