@@ -5,6 +5,7 @@ import { techniqueEditor } from "./mind-ground.ts";
 import { GAME, isKind, kindsFor, partOf, partLookup, treeFaults, type EntryRule } from "../../catalog.ts";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { partOffered, slotsOf, type Part, type PartConfig, type Slot } from "../../../parts/parts.ts";
+import { slotValue } from "../../../parts/tree.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { mindFaults } from "../setup.ts";
 import { recordingKey } from "../../../core/world/recording.ts";
@@ -110,7 +111,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
     }
     for (const slot of slotsOf(part, config)) {
       const child = slot.role === "technique" && slot.many
-        ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, current),
+        ? techniqueEditor((slotValue(config, slot) ?? []) as readonly PartConfig[], kindsFor(slot.role, spec, current),
           (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)
         : drawSlot(config, slot, write, path);
       if (child) block.append(child);
@@ -120,7 +121,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
 
   /** `slot` of `config`: its part or parts, each with its own block beneath. */
   const drawSlot = (config: PartConfig, slot: Slot, write: (config: PartConfig) => void, path: readonly (string | number)[]): HTMLElement | null => {
-    const holder = document.createElement("div"), value = (config as unknown as Record<string, unknown>)[slot.key];
+    const holder = document.createElement("div"), value = slotValue(config, slot);
     holder.className = "mind-slot"; holder.dataset.slot = slot.key;
     const set = (next: unknown) => write({ ...config, [slot.key]: next } as PartConfig);
     if (!slot.many) {

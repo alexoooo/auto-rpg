@@ -149,27 +149,3 @@ export function fitsAll<C = PartConfig>(...fits: readonly ((spec: BodySpec, conf
     return null;
   };
 }
-
-/** Mechanical requirements of selected configured children, including slot fallbacks, without candidate dependencies. */
-export function partRequirements(parts: PartLookup, role: Role, config: PartConfig, spec: BodySpec): readonly Requirement[] {
-  const found = new Set<Requirement>();
-  const visit = (role: Role, config: PartConfig): void => {
-    const part: Part = parts.of(role, config);
-    const slots = slotsOf(part, config);
-    const contents = (slot: Slot): readonly PartConfig[] => {
-      const value = (config as unknown as Record<string, unknown>)[slot.key];
-      return slot.many ? Array.isArray(value) ? value : [] : value == null ? [] : [value as PartConfig];
-    };
-    if (slots.some(slot => slot.skills && contents(slot).some(child => { const owner: Part = parts.of(slot.role, child); return owner.fits(spec, child, parts) !== null; }))) return;
-    for (const requirement of part.requires ?? []) found.add(requirement);
-    for (const slot of slots) {
-      const value = (config as unknown as Record<string, unknown>)[slot.key];
-      const children = slot.many ? Array.isArray(value) ? value : [] : value == null ? [] : [value];
-      if (children.length === 0 && slot.fallback) visit(slot.role, slot.fallback);
-      for (const child of children) visit(slot.role, child as PartConfig);
-    }
-    for (const child of part.children?.(config) ?? []) visit(child.role, child.config as PartConfig);
-  };
-  visit(role, config);
-  return [...found];
-}

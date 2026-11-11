@@ -1,5 +1,5 @@
 import { constructionScope } from "../core/construction.ts";
-import { partRequirements } from "../parts/parts.ts";
+import { partRequirements } from "../parts/tree.ts";
 import { motorRequirementRefusal } from "../control/motor-part.ts";
 import { isRefused } from "../core/refusal.ts";
 import { supportHeight } from "../control/support-reference.ts";

@@ -31,7 +31,7 @@ and the decision library) lowest, then `catalog/` (configs, controllers, catalog
 | Layer | Where | Owns |
 | --- | --- | --- |
 | Core | `src/core/`, `math/`, `data/`, `physics/`, `bodies/`, `world/` | arithmetic, physics, body descriptions and muscles, clock, state and data store |
-| Parts | `src/parts/` | component contracts, scoped configurations and role lookup |
+| Parts | `src/parts/` | component contracts, scoped configurations, role lookup and the walk over a tree of parts (`eachPart`) |
 | Combat | `src/combat/` | blows, wounds, life and rulebooks |
 | Control | `src/control/` | motion and support goals turned into muscle commands |
 | Skills | `src/skills/framework/`, `reach/`, `perception/`, `locomotion/`, `intent/`, `guard/`, `strikes/`, `recovery/`, `assembly/` | capability contracts, implementations and owned records |

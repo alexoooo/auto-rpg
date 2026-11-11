@@ -1,6 +1,7 @@
 import { motorRequirementRefusal } from "../../control/motor-part.ts";
 import { deepFreeze } from "../../core/state.ts";
-import { partRequirements, slotList, slotOne, type PartConfig, type Role, type Slot } from "../../parts/parts.ts";
+import { slotList, slotOne, type PartConfig, type Role, type Slot } from "../../parts/parts.ts";
+import { partRequirements } from "../../parts/tree.ts";
 import { FILLED, filledOf, filledRefusal, motorOf } from "../../skills/assembly/kit.ts";
 import { standUpFaults } from "../../skills/recovery/stand-up.ts";
 import { controller } from "../catalog/controller.ts";

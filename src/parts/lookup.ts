@@ -17,6 +17,8 @@ export interface RoleParts {}
 export interface PartLookup {
   /** The part `config` names; a thrown error where no part has its kind or the part is not of `role`. */
   of<R extends Role>(role: R, config: PartConfig): RoleParts[R];
+  /** The part `value` names where it is the config of a part of `role`; null where it is not, as a tree with a fault may hold (`eachPart`). */
+  find<R extends Role>(role: R, value: unknown): RoleParts[R] | null;
   /**
    * **The part that fills `role` on a body of `spec`**, as its config (its defaults): the one game
    * part of the role (`Part.stage`, the toolkit's) that fits the body; why none does, or which two

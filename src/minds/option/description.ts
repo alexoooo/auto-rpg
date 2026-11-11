@@ -1,9 +1,10 @@
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
-import { slotsOf, type Part, type PartConfig, type Role } from "../../parts/parts.ts";
+import type { PartConfig, Role } from "../../parts/parts.ts";
+import { eachPart, type ConfigPath } from "../../parts/tree.ts";
 import { FILLED, filledOf } from "../../skills/assembly/kit.ts";
-import type { ComponentDescription, ConfigPath, MindDescription } from "../catalog/description.ts";
+import type { ComponentDescription, MindDescription } from "../catalog/description.ts";
 import type { OptionMindConfig, ResolvedConfig } from "./config.ts";
 import { waysUpIn, withWaysUp } from "./rise.ts";
 import { skillsOf } from "./skills.ts";
@@ -13,25 +14,15 @@ import { skillsOf } from "./skills.ts";
  * value through each part's slots and declared children; null where the tree does not hold it.
  */
 function pathOf(parts: PartLookup, root: PartConfig, target: PartConfig, wanted: Role): ConfigPath | null {
-  const visit = (value: PartConfig, role: Role, path: ConfigPath): ConfigPath | null => {
-    if (role === wanted && recordingKey(value) === recordingKey(target)) return path;
-    const owner: Part = parts.of(role, value);
-    for (const slot of slotsOf(owner, value)) {
-      const raw = (value as unknown as Record<string, unknown>)[slot.key];
-      const children = slot.many ? Array.isArray(raw) ? raw : [] : raw ? [raw] : [];
-      for (const [i, child] of children.entries()) {
-        const found = visit(child as PartConfig, slot.role, [...path, slot.key, ...slot.many ? [i] : []]);
-        if (found) return found;
-      }
-    }
-    for (const child of owner.children?.(value) ?? []) {
-      if (child.path === null) continue;
-      const found = visit(child.config as PartConfig, child.role, [...path, ...child.path]);
-      if (found) return found;
-    }
-    return null;
-  };
-  return visit(root, "mind", []);
+  const key = recordingKey(target);
+  let found: ConfigPath | null = null;
+  eachPart(parts, "mind", root, ({ part, config, path }) => {
+    if (path === null) return "skip";
+    if (part.role !== wanted || recordingKey(config) !== key) return undefined;
+    found = path;
+    return "stop";
+  });
+  return found;
 }
 
 /**

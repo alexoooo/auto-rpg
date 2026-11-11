@@ -5,6 +5,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { scopeOf, type Entrant } from "./entrant.ts";
 import type { PartLookup, RoleParts } from "../../parts/lookup.ts";
 import { slotsOf, type Part, type PartConfig, type Role } from "../../parts/parts.ts";
+import { eachPart, heldBy, leftOut, slotValue, type Fallbacks, type PartAt, type Walk } from "../../parts/tree.ts";
 import type { MindDescription } from "./description.ts";
 
 /**
@@ -236,23 +237,22 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
       if (part.role !== role) throw new Error(`a ${part.role} part cannot go where a ${role} part goes`);
       return part as never;
     },
+    find<R extends Role>(role: R, value: unknown): RoleParts[R] | null {
+      const part = isPart(value) ? partOf(value) : null;
+      return part?.role === role ? part as never : null;
+    },
     fitting,
     game,
   });
 
-  /** What each slot of `config` holds, by the slot, as a list: a single slot's part or none, or a list slot's parts. */
-  function held(config: PartConfig): { readonly slot: Part["slots"][number]; readonly parts: readonly unknown[] }[] {
-    return slotsOf(partOf(config), config).map((slot) => {
-      const value = (config as unknown as Record<string, unknown>)[slot.key];
-      return { slot, parts: slot.many ? (value == null && slot.optional ? [] : Array.isArray(value) ? value : [value]) : value === null || value === undefined ? [] : [value] };
-    }).concat((partOf(config).children?.(config) ?? []).map(child => ({
-      slot: { key: child.path?.join(".") ?? `implicit ${child.role}`, label: child.path?.join(".") ?? `implicit ${child.role}`, role: child.role, many: false, optional: false }, parts: [child.config],
-    })));
+  /** Whether `value` is a part's config: an object with a kind that names a part. */
+  function isPart(value: unknown): value is PartConfig {
+    return typeof value === "object" && value !== null && isKind((value as { kind?: unknown }).kind);
   }
 
-  /** Whether `value` is a part's config: an object with a kind that names a part. */
-  const isPart = (value: unknown): value is PartConfig =>
-    typeof value === "object" && value !== null && isKind((value as { kind?: unknown }).kind);
+  /** Visits every part of the tree `config` roots, whatever its role (`eachPart`). */
+  const eachIn = (config: PartConfig, visit: (at: PartAt) => Walk, fallbacks?: Fallbacks): void =>
+    eachPart(partLookup, partOf(config).role, config, visit, fallbacks);
 
   /** The entrants whose kinds the tree `config` roots names (`scopeOf`), each once, in the tree's order. */
   const scopesOf = (config: PartConfig): readonly string[] =>
@@ -265,8 +265,8 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     if (!isPart(config)) return { formed: false, faults: [where(kind(config))] };
     const slots: string[] = [];
     let formed = true;
-    for (const { slot, parts } of held(config)) {
-      const value = (config as unknown as Record<string, unknown>)[slot.key], path = at ? `${at}.${slot.key}` : slot.key;
+    for (const { slot, parts } of heldBy(partOf(config), config)) {
+      const value = slotValue(config, slot), path = at ? `${at}.${slot.key}` : slot.key;
       if (slot.many && !(value == null && slot.optional) && !Array.isArray(value)) { formed = false; slots.push(where(`a list of ${slot.role} parts`, path)); continue; }
       if (!slot.many && parts.length === 0 && !slot.optional) { formed = false; slots.push(where(`a ${slot.role} part is needed`, path)); continue; }
       parts.forEach((child, i) => {
@@ -284,22 +284,21 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
       ...(formed ? partOf(config).faults(config, partLookup).map((fault) => where(fault)) : []), ...slots] };
   }
 
-  /** `visit` each part of the tree `config` roots, the root first: what a part runs besides its slots (`Part.uses`), and an empty slot's fallback (`Slot.fallback`) included. */
-  function eachPart(config: PartConfig, visit: (one: PartConfig) => void): void {
-    const walk = (one: PartConfig): void => {
-      visit(one);
-      for (const used of partOf(one).uses?.(one, partLookup) ?? []) walk(used);
-      for (const { slot, parts } of held(one)) {
-        if (parts.length === 0 && slot.fallback) walk(slot.fallback);
-        for (const child of parts) if (isPart(child)) walk(child);
-      }
-    };
-    walk(config);
+  /**
+   * `visit` each part whose code a case of the tree `config` roots holds, the root first: the
+   * tree's parts, an empty slot's fallback included (`Slot.fallback`), and with each part what it
+   * runs besides (`Part.uses`), each of those a tree read the same way.
+   */
+  function eachCoded(config: PartConfig, visit: (part: Part, config: PartConfig) => void): void {
+    eachIn(config, ({ part, config: one }) => {
+      visit(part, one);
+      for (const used of part.uses?.(one, partLookup) ?? []) eachCoded(used, visit);
+    }, "with-fallbacks");
   }
 
   function treeKinds(config: PartConfig): readonly string[] {
     const kinds = new Set<string>();
-    eachPart(config, (one) => { kinds.add(one.kind); });
+    eachCoded(config, (_, one) => { kinds.add(one.kind); });
     return [...kinds];
   }
 
@@ -319,20 +318,14 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
   }
 
   function treeRefusal(spec: BodySpec, config: PartConfig, at = ""): string | null {
-    const where = (reason: string) => at ? `${at}: ${reason}` : reason;
-    const part = partOf(config), own = part.fits(spec, config, partLookup);
-    if (own !== null) return where(own);
-    const slots = held(config);
-    // A skill the body cannot use is left out, not a refusal (`Slot.skills`), and the part that runs it with it, its other slots unread.
-    if (slots.some(({ slot, parts }) => slot.skills && parts.some((child) => isPart(child) && partOf(child).fits(spec, child, partLookup) !== null))) return null;
-    for (const { slot, parts } of slots) {
-      const path = at ? `${at}.${slot.key}` : slot.key;
-      for (const [i, child] of parts.entries()) {
-        const refused = treeRefusal(spec, child as PartConfig, slot.many ? `${path}.${i}` : path);
-        if (refused !== null) return refused;
-      }
-    }
-    return null;
+    let refusal: string | null = null;
+    eachIn(config, ({ part, config: one, at: below }) => {
+      const own = part.fits(spec, one, partLookup), where = at && below ? `${at}.${below}` : at || below;
+      if (own !== null) { refusal = where ? `${where}: ${own}` : own; return "stop"; }
+      // A skill the body cannot use is left out, not a refusal, and the part that runs it with it, its other slots unread.
+      return leftOut(partLookup, part, one, spec) ? "skip" : undefined;
+    });
+    return refusal;
   }
 
   /** **Why the tree `config` roots may not enter a scenario of `rules`** with a body of `spec`, a sentence, or null where it may. */
@@ -348,20 +341,21 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
   /** Every held item has a declared use somewhere in this mind's assembly. */
   function equipmentSupported(spec: BodySpec, config: PartConfig): boolean {
     const supported = new Set<string>();
-    const collect = (one: PartConfig): void => {
-      for (const segment of partOf(one).supportedEquipment?.(spec, one, partLookup) ?? []) supported.add(segment);
-      for (const segment of partOf(one).strikes?.(spec, one, partLookup) ?? []) supported.add(segment);
-      for (const slot of held(one)) for (const child of slot.parts) collect(child as PartConfig);
-    };
-    collect(config);
+    eachIn(config, ({ part, config: one }) => {
+      for (const segment of part.supportedEquipment?.(spec, one, partLookup) ?? []) supported.add(segment);
+      for (const segment of part.strikes?.(spec, one, partLookup) ?? []) supported.add(segment);
+    });
     return (spec.held ?? []).every(({ segment }) => supported.has(segment));
   }
 
   /** **Whether a body of `spec` can attack under the tree `config` roots**: a part of it strikes with some effector there (`Part.strikes`). */
   function attacks(spec: BodySpec, config: PartConfig): boolean {
-    const strikes = (one: PartConfig): boolean => (partOf(one).strikes?.(spec, one, partLookup)?.length ?? 0) > 0
-      || held(one).some((slot) => slot.parts.some((child) => isPart(child) && strikes(child)));
-    return strikes(config);
+    let strikes = false;
+    eachIn(config, ({ part, config: one }) => {
+      strikes = (part.strikes?.(spec, one, partLookup)?.length ?? 0) > 0;
+      return strikes ? "stop" : undefined;
+    });
+    return strikes;
   }
 
   function withoutTuning<C extends PartConfig>(config: C): C {
@@ -427,6 +421,11 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
           if (!named.has(part.kind)) throw new Error(`${partOf(config).label} looks up ${part.kind}, a part its tree does not name`);
           return partLookup.of(role, part);
         },
+        find<R extends Role>(role: R, value: unknown): RoleParts[R] | null {
+          const found = partLookup.find(role, value);
+          if (found && !named.has((value as PartConfig).kind)) throw new Error(`${partOf(config).label} looks up ${(value as PartConfig).kind}, a part its tree does not name`);
+          return found;
+        },
         fitting,
         game,
       });
@@ -441,8 +440,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     phaseLabels: (config: PartConfig): Readonly<Record<string, string | null>> => Object.assign({}, ...treeKinds(config).map((kind) => partOf({ kind }).phases ?? {})),
     treeData(config: PartConfig): readonly DataKey[] {
       const keys = new Set<DataKey>();
-      eachPart(config, (one) => {
-        const part = partOf(one);
+      eachCoded(config, (part, one) => {
         for (const key of [...part.reads?.(one) ?? [], ...part.fitReads ?? []]) keys.add(key);
       });
       return [...keys];

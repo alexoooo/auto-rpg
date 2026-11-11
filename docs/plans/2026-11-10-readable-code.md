@@ -37,23 +37,26 @@ readable; where they do not, the approach changes before more code is touched.
 
 ## 2. Parts
 
+In place:
+
+- **One function walks a part tree** (`eachPart`, `src/parts/tree.ts`), over the one function
+  that says what a part's config holds (`heldBy`). What the motor must give
+  (`partRequirements`), where Option Mind's description finds a part, and the catalog's reads of
+  a tree (its kinds, its data, whether a body fits it, whether it attacks) all call it.
+
 What is hard to follow now:
 
 - **`Part` carries every role's concerns** (`src/parts/parts.ts`, about 20 members): what a
   screen shows (`label`, `offered`, `fields`, `phases`), strikes (`strikes`), guards
   (`supportedEquipment`), orders (`obeys`), data loading (`reads`, `fitReads`) and the tree
   (`slots`, `slotsFor`, `children`, `uses`).
-- **The walk over a part's children is written by hand four times**: twice in
-  `partRequirements`, in Option Mind's description, and inside the catalog
-  (`src/minds/catalog/catalog.ts`).
 - **A config is `{ kind: string }`.** A misspelt kind compiles and fails when the catalog looks
-  it up, and code reads a config by casting it; `src/` holds 206 `as unknown as` casts.
+  it up.
 - **The catalog is one 300-line function** (`catalogOf`) returning about 20 members, seven of
-  them walks of a part tree.
+  them reads of a part tree.
 
 What it becomes, in this order:
 
-1. **One function walks a part tree**, in `src/parts/`, and the four hand-written walks call it.
 2. **`Part` keeps what every part has** (its role, defaults, slots, `fits`, `faults`). What only
    one role uses moves to that role's own type; what a screen shows moves beside the part and is
    read by `src/app/browser/`.
@@ -62,8 +65,8 @@ What it becomes, in this order:
    `TechniqueConfigs`); a kind an entrant registers keeps a plain string.
 4. **The catalog's tree walks become plain functions** over the walker.
 
-How it is checked: the fingerprint is unmoved, and the count of `as unknown as` casts is
-reported before and after.
+How it is checked: the fingerprint is unmoved, and the count of `as unknown as` casts that read a
+config is reported before and after.
 
 ## When it lands
 
