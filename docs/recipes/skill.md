@@ -94,6 +94,8 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
 ### An Option's code
 
 - **An Option's profile measures its outcomes**, falls among them, so the Mind prices its risk.
+  It is measured against a target at guard (`sampled`), as a foe in a fight stands: a profile says
+  what the blow brings there, where a skill's own test asks whether the blow works.
 - **One Mind for every body**: Option Mind runs one loop for every body, and everything it does is
   an Option, made and priced the same way, with no special case for any act.
 - **One act an Option**: one skill used one way, its limbs, target and aim, as the item is really

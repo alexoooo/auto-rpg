@@ -37,8 +37,7 @@ stopped 2 of 96 of them:
   and not the punch's ([Blows in fights](../roadmap.md#next)).
 
 What is not checked: no fresh agent has watched the installed steer's reel
-([the claim](../recipes/skill.md#the-claim)), and the punch's profiles, which price it for the
-Mind, were measured on the `sampled` protocol while its target stood in guard.
+([the claim](../recipes/skill.md#the-claim)).
 
 ## Open questions
 

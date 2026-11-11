@@ -36,13 +36,17 @@ export function createDrillOpponents(context: GameContext) {
 
   const WALKS = (OPTION.options ?? []).filter((option) => option.kind === "walk");
 
-  /** Option Mind standing where it is (`STANDING_OPTIONS`), its hands at guard, throwing nothing and taking no orders: what an opponent that guards or strikes is made from. */
+  /**
+   * Option Mind standing where it is (`STANDING_OPTIONS`), its hands at guard, throwing nothing and
+   * taking no orders: a foe as it stands in a fight, which a strike's profile is measured against,
+   * and what an opponent that guards or strikes is made from.
+   */
   const AT_GUARD: MindConfig = deepFreeze({ ...OPTION, options: STANDING_OPTIONS });
 
   /**
    * **Who is struck**: `AT_GUARD` with its arms lowered at its sides (the `lowered` guard), covering
    * nothing, so its marks are open and a failed trial is the striker's. A target guards only
-   * where the guard is what a rung tests (`GUARDS`).
+   * where the guard is part of what a rung reads (`AT_GUARD`, `GUARDS`).
    */
   const STANDS: MindConfig = deepFreeze({ ...AT_GUARD, tuning: { ...OPTION.tuning, parts: { ...OPTION.tuning?.parts, guard: { kind: "lowered" } } } });
 
@@ -71,6 +75,7 @@ export function createDrillOpponents(context: GameContext) {
   /** **Each drill opponent**, by the id a drill names it by: a mind that plays its part, led on its rhythm where it has one. None is on a menu. */
   const DRILL_OPPONENTS: Readonly<Record<string, DrillOpponent>> = deepFreeze({
     "drill-stand": { label: "Drill: stand, arms lowered", mind: STANDS },
+    "drill-at-guard": { label: "Drill: stand at guard", mind: AT_GUARD },
     "drill-step": { label: "Drill: step in and out", mind: MOVES,
       commander: beats([{ seconds: 1.2, move: { kind: "range", near: .8, far: 1 } }, { seconds: 1.2, move: { kind: "range", near: 1.6, far: 1.8 } }]) },
     "drill-guard": { label: "Drill: guard", mind: GUARDS },

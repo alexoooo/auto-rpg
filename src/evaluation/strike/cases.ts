@@ -10,7 +10,7 @@
  * carries the order out. A subject is asked a condition only where its mind offers its skill with
  * that limb at that mark on that body (`caseFaults`): a rung lists every mark and limb a strike is
  * asked at, and each strike's cases are its own of them. The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent (`DRILL_OPPONENTS`:
- * a mind, led on a rhythm by a beats Commander where it keeps one; `drill-stand` stands with its arms lowered and throws nothing, and a target guards only on the rung that tests the guard, `guarding`), set the condition's gap ahead and offset across, the two on
+ * a mind, led on a rhythm by a beats Commander where it keeps one; `drill-stand` stands with its arms lowered and throws nothing, and a target guards only where the guard is part of what the rung reads: `guarding`, and `sampled`, which a strike's profile is measured on), set the condition's gap ahead and offset across, the two on
  * the stage's own axis as a bout's spawns are (`LEVELS`), so the Arena's camera sees them side on.
  * Nothing ends a trial but its reader: the action's end and a short settle after it, the striker's
  * patience run out before its action was admitted, or the protocol's seconds. A trial is a bout
@@ -96,6 +96,8 @@ const SWING_MOTION = deepFreeze({ ...STILL, models: ["workshop-fighter"] as Body
 
 /**
  * **Starts drawn at random**, the `sampled` rung: the still rung's trials on every striker's body,
+ * at a target standing at guard (`drill-at-guard`) as a foe in a fight stands, since a strike's
+ * profile is measured here,
  * each begun from a start drawn from a fixed stream (`seed`), so its trials are the same at every
  * play: by turns still, stepping in, backing off and sideways (`APPROACHES`), each hand alike, at
  * the middle mark; the target's gap ahead from `gaps` (stepping in, from `closer`) and its offset across from
@@ -104,7 +106,7 @@ const SWING_MOTION = deepFreeze({ ...STILL, models: ["workshop-fighter"] as Body
  * ready, then walks into its window and strikes the first step it is ready there: where it began
  * and how it moved then are what the trial records (`StrikeReading.foeAt`).
  */
-const SAMPLED = deepFreeze({ ...STILL, models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[],
+const SAMPLED = deepFreeze({ ...STILL, models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[], opponent: "drill-at-guard",
   marks: ["middle"] as Mark[], trials: 96, seed: 1, gaps: [.6, 1.4], closer: [1.2, 2.2], across: [0, .2], speeds: [.3, 1], times: [.3, 1] });
 
 /** **How a sampled start moves** (`SAMPLED`), degrees off the line to the target: still, stepping in, backing off, sideways to the right and to the left. */

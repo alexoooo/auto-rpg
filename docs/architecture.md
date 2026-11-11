@@ -733,7 +733,9 @@ the swell's collider first on the head, the arm straight, its energy, and the re
 
 A drill's struck target stands with its arms lowered (`drill-stand`, `STANDS` in
 `src/evaluation/drill-opponents.ts`), so its marks are open and a failed trial is the striker's;
-a target guards only on the rung that tests the guard (`guarding`, `drill-guard`).
+a target guards only where the guard is part of what the rung reads: the rung that tests the
+guard (`guarding`, `drill-guard`), and the rung a strike's profile is measured on (`sampled`,
+`drill-at-guard`), since a profile says what a blow brings against a foe in a fight.
 
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)
