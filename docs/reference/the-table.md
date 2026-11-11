@@ -38,9 +38,16 @@ trial by trial on the conditions both counted, every reading of the cell pooled
 leaves zero on that side, else within noise.
 
 `npm run evaluate -- table` reads the drills' results (`assets/evaluations/<drill>.json`,
-`src/evaluation/results.ts`) and links each reading's Ratings page. A result keeps a few numbers a
-trial, what its judge needs (`keep`), by the name of the trial's condition, so the table plays
-nothing to read. It derives the required cases from each current protocol. A reading stands as it
+`src/evaluation/results.ts`) and prints the grid: each cell's value and its mark against its
+baseline. Asked for some cells (`--body`, `--skill`, `--loadout`), it prints their lines after the
+grid: the cell, then a line a reading with its figures, how many trials came to each outcome, its
+baseline and its Ratings page. `--by <field>` adds the outcomes at each value of one field of the
+conditions (`mark`, `hand`, `gap`, `start`), so where a cell loses is read from its saved trials.
+A result keeps a few numbers a trial, what its judge needs (`keep`), and its outcome, by the name
+of the trial's condition, so the table plays nothing to read.
+
+The table reads the game's rate, 120 Hz. 480 Hz is held out: a search and a confirmation read it
+beside 120 Hz ([the skill recipe](../recipes/skill.md)), and no cell does. It derives the required cases from each current protocol. A reading stands as it
 was read, shown with the commit and date it was read at, until its cell is asked for again
 (`--fresh`): its trials answer the protocol's cases by condition, so a change to the code asks for
 no replay.

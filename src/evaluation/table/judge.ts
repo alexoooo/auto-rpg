@@ -131,6 +131,13 @@ export function valueOf(reading: Judged, trials: readonly Trial[], required: rea
     figures: `${values.size} of ${trials.length} trials counted, ${figuresOf(reading, read)}${coverage}` };
 }
 
+/** How many of `trials` came to each outcome, the commonest first: `23 landed, 6 outside`. */
+export function outcomeCounts(trials: readonly Trial[]): string {
+  const counts = new Map<string, number>();
+  for (const { outcome } of trials) if (outcome !== null) counts.set(outcome, (counts.get(outcome) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1]).map(([label, count]) => `${count} ${label}`).join(", ");
+}
+
 /** What `reading`'s trials came to beside their value, in words. */
 function figuresOf(reading: Judged, trials: readonly Trial[]): string {
   const rows = trials.map(trial => trial.kept!);
@@ -145,9 +152,9 @@ function figuresOf(reading: Judged, trials: readonly Trial[]): string {
       const begun = trials.filter(trial => trial.kept![0] !== null);
       const declined = trials.filter(trial => trial.kept![0] === null && strikeOffered(trial.outcome));
       const onMark = begun.filter(trial => (trial.outcome === "landed" || trial.outcome === "weak") && trial.kept![3] !== null);
-      const hit = reading.hit === undefined ? "" : `, the hit's ${medianOf(onMark.map(trial => trial.kept![3]!))?.toFixed(2) ?? "-"} ${reading.hit === "energy" ? "J" : "m/s"} on the mark (median; the person's ${personOf(reading.hit)})`;
-      return `${begun.length} begun, ${onMark.length} on the mark, ${trials.filter(trial => trial.outcome === "landed").length} landed, `
-        + `${rows.filter(row => row[2]).length} fell, ${declined.length} not begun at 0${hit}`;
+      const hit = reading.hit === undefined ? "" : `; the hit's ${medianOf(onMark.map(trial => trial.kept![3]!))?.toFixed(2) ?? "-"} ${reading.hit === "energy" ? "J" : "m/s"} on the mark (median; the person's ${personOf(reading.hit)})`;
+      return `${begun.length} begun, ${onMark.length} on the mark, ${rows.filter(row => row[2]).length} fell, `
+        + `${declined.length} not begun at 0; ${outcomeCounts(trials)}${hit}`;
     }
     case "cover": {
       const blows = rows.reduce((sum, row) => sum + row[1]!, 0);
