@@ -69,7 +69,7 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * focus that name a skill or a limb admit only its limbs of that skill (its executor, named by its
  * kind) and limb (`orderAllows`).
  *
- * Its model, where its drill measured it as it is read now (its profile among its measure's,
+ * Its model, where fights measured it as it is read now (its profile among its measure's,
  * found by `measure`, read at the senses' reaction time): what the profile expects at the range
  * (to its reach), the start's velocity (`startOf`) and the focus's phase (`readProfile`): the focus's life its blows took, how long
  * it ran until its limb was back (`Expected.recovers`), and its chance of ending down; through the blow coming, and the focus's pressure while it
@@ -250,7 +250,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; state.began = null; state.place = null; },
     end() { state.id = null; state.limb = null; state.target = null; state.began = null; state.place = null; },
     priced(now) {
-      if (!found) return "by hand, no drill measured it";
+      if (!found) return "by hand, no fight measured it";
       const stale = staleness(found.profile, { ...measured, reaction: now.reaction });
       if (stale !== null) return `by hand, ${stale}`;
       if (!expected(now)) return "by hand, no trial of its profile reads here";

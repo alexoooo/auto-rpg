@@ -1,6 +1,9 @@
 /**
- * **A skill's profile**: what its drill measured the skill to bring from where it began, so that a
- * chooser prices it on measured numbers rather than a hand-built model. A profile is a sample of
+ * **A skill's profile**: what the skill was measured to bring from where it began, so that a
+ * chooser prices it on measured numbers rather than a hand-built model: a strike's where it is
+ * used, in fights against a foe fighting back (the Strike drill's `fights`), never at a drill's
+ * target, which reads how well the body throws it and nothing of what it brings; a ground edge's,
+ * which has no foe, in its own tries. A profile is a sample of
  * trials (`Trial`), each keeping what it brought and where it began (`Start`): the range to the
  * foe, centre to centre across the ground, m; the foe's phase as the striker sensed it (the `phase`
  * percept, `sensedPhase`); how the two bodies stood; and the velocity at the start, in the frame of
@@ -610,8 +613,8 @@ interface Found {
 
 /**
  * **The profile of the skill `now` names** among `profiles`: the one measured as it is read, else
- * one on its body, else any of the skill's, with why it is stale; null where no drill measured the
- * skill.
+ * one on its body, else any of the skill's, with why it is stale; null where the skill was never
+ * measured.
  */
 export function profileFor(profiles: readonly Profile[], now: Measured): Found | null {
   let body: Profile | null = null, any: Profile | null = null;
@@ -639,5 +642,5 @@ export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: num
     if (why === null) fresh.push(profile);
     else if (profile.measured.body === body) stale ??= why;
   }
-  return { fresh, stale: stale ?? `no drill measured the strikes of a ${body}` };
+  return { fresh, stale: stale ?? `no fight measured the strikes of a ${body}` };
 }

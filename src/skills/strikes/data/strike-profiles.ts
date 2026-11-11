@@ -5,5 +5,5 @@ declare module "../../../core/data/store.ts" { interface DataOf { "strike-profil
 import data from "../../../../assets/skills/strikes/strike-profiles/strike-profiles.json" with { type: "json" };
 import { deepFreeze } from "../../../core/state.ts";
 
-/** The strikes' profiles (`dataOf("strike-profiles")`), from the Strike drill (`research/skills/strikes/strike-profiles.mjs`): a module of its own, imported only when loaded (`loadData`). */
+/** The strikes' profiles (`dataOf("strike-profiles")`), from the Strike drill's fights (`research/skills/strikes/strike-profiles.mjs`): a module of its own, imported only when loaded (`loadData`). */
 export const STRIKE_PROFILES: unknown = deepFreeze(data.profiles);

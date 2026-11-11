@@ -3,14 +3,17 @@
  * starts drawn at random, moving or still, `sampled`), at one lying (`stomping`, and from starts
  * drawn at random, `stomping-sampled`), a club's blow at one's head (`bonk`), at one
  * carried past on a rail (`moving`), at one walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
- * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`). The striker is the
+ * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`, and over the fights
+ * a strike's profile is measured in, `fights`). The rungs at a target ask how well the body throws
+ * the strike; the fights ask what the strike brings where it is used, another question, and a
+ * profile is that one's answer alone. The striker is the
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
  * the drill Commander (`DrillCommanderConfig`): it stands, walks the striker into its action's
  * window, and orders the one action at one mark with one limb, a hand or a foot, once; the mind
  * carries the order out. A subject is asked a condition only where its mind offers its skill with
  * that limb at that mark on that body (`caseFaults`): a rung lists every mark and limb a strike is
  * asked at, and each strike's cases are its own of them. The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent (`DRILL_OPPONENTS`:
- * a mind, led on a rhythm by a beats Commander where it keeps one; `drill-stand` stands with its arms lowered and throws nothing, and a target guards only where the guard is part of what the rung reads: `guarding`, and `sampled`, which a strike's profile is measured on), set the condition's gap ahead and offset across, the two on
+ * a mind, led on a rhythm by a beats Commander where it keeps one; `drill-stand` stands with its arms lowered and throws nothing, and a target guards only where the guard is what the rung reads: `guarding`), set the condition's gap ahead and offset across, the two on
  * the stage's own axis as a bout's spawns are (`LEVELS`), so the Arena's camera sees them side on.
  * Nothing ends a trial but its reader: the action's end and a short settle after it, the striker's
  * patience run out before its action was admitted, or the protocol's seconds. A trial is a bout
@@ -96,8 +99,6 @@ const SWING_MOTION = deepFreeze({ ...STILL, models: ["workshop-fighter"] as Body
 
 /**
  * **Starts drawn at random**, the `sampled` rung: the still rung's trials on every striker's body,
- * at a target standing at guard (`drill-at-guard`) as a foe in a fight stands, since a strike's
- * profile is measured here,
  * each begun from a start drawn from a fixed stream (`seed`), so its trials are the same at every
  * play: by turns still, stepping in, backing off and sideways (`APPROACHES`), each hand alike, at
  * the middle mark; the target's gap ahead from `gaps` (stepping in, from `closer`) and its offset across from
@@ -106,7 +107,7 @@ const SWING_MOTION = deepFreeze({ ...STILL, models: ["workshop-fighter"] as Body
  * ready, then walks into its window and strikes the first step it is ready there: where it began
  * and how it moved then are what the trial records (`StrikeReading.foeAt`).
  */
-const SAMPLED = deepFreeze({ ...STILL, models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[], opponent: "drill-at-guard",
+const SAMPLED = deepFreeze({ ...STILL, models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[],
   marks: ["middle"] as Mark[], trials: 96, seed: 1, gaps: [.6, 1.4], closer: [1.2, 2.2], across: [0, .2], speeds: [.3, 1], times: [.3, 1] });
 
 /** **How a sampled start moves** (`SAMPLED`), degrees off the line to the target: still, stepping in, backing off, sideways to the right and to the left. */
@@ -239,7 +240,9 @@ export type StillCondition = { readonly model: BodyModel; readonly mark: Mark } 
   /** Where the drill lets its strike go, s after it began; absent where it does not. */
   readonly letGo?: number };
 
-type FightCondition = { readonly model: BodyModel; readonly foe: string; readonly mark: Mark; readonly hand: Hand; readonly moment: number };
+type FightCondition = { readonly model: BodyModel; readonly foe: string; readonly mark: Mark } & Limb & { readonly moment: number;
+  /** How far apart the two start, m, where its rung names it: the open stage's own where it does not. */
+  readonly gap?: number };
 
 export type StrikeCondition = StillCondition | FightCondition;
 
@@ -289,6 +292,20 @@ const STRIKERS: readonly BodyModel[] = Object.freeze(["workshop-fighter", "works
 /** `rung` thrown by the strikers its own trials leave out (`STRIKERS`), its trials otherwise the same: its `-bodies` protocol. */
 const onOtherBodies = <P extends { readonly models: readonly BodyModel[] }>(rung: P): P =>
   deepFreeze({ ...rung, models: STRIKERS.filter((model) => !rung.models.includes(model)) as BodyModel[] });
+
+/**
+ * **The fights a strike's profile is measured in**, the `fights` rung: a fight's moments (`FIGHT`)
+ * on every striker's body, with each hand and each foot, in the fight begun from each of the
+ * standard match's gaps on the open stage, m (`gaps`), at each of the mind's first `moments`
+ * actions aimed at a body. A profile says what a strike brings where it is used, in a fight
+ * against a foe that fights back, so these trials alone make it
+ * (`research/skills/strikes/strike-profiles.mjs`); how well the body throws the strike is the
+ * other rungs' question, and no answer to this one. The strike is thrown at each moment whichever
+ * the mind chose there, so one it seldom chooses is measured as often as one it favours. A moment
+ * a fight never came to, and a strike not begun at its moment (a stomp while the foe stands), is
+ * no trial of it.
+ */
+const FIGHTS = deepFreeze({ ...FIGHT, models: [...STRIKERS], feet: [...SIDES] as Hand[], gaps: [3, 4, 5], moments: [1, 2, 3, 4, 5, 6, 7, 8] });
 
 export function createStrikeCases(context: GameContext) {
   const { treeObeys, controllers: CONTROLLERS, minds: MINDS } = context.catalog;
@@ -392,10 +409,10 @@ export function createStrikeCases(context: GameContext) {
     };
   }
 
-  function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReading> {
-    const conditions: FightCondition[] = [];
-    for (const model of protocol.models) for (const foe of protocol.foes) for (const mark of protocol.marks) for (const hand of protocol.hands)
-      for (const moment of protocol.moments) conditions.push({ model, foe, mark, hand, moment });
+  function fightCases(protocol: typeof FIGHT & { readonly feet?: readonly Hand[]; readonly gaps?: readonly number[] }): Cases<StrikeCondition, StrikeReading> {
+    const conditions: FightCondition[] = [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
+    for (const model of protocol.models) for (const foe of protocol.foes) for (const gap of protocol.gaps ?? [undefined]) for (const mark of protocol.marks) for (const limb of limbs)
+      for (const moment of protocol.moments) conditions.push({ model, foe, mark, ...limb, moment, ...(gap === undefined ? {} : { gap }) });
     return {
       arity: 1,
       play: protocol as unknown as Json,
@@ -403,12 +420,13 @@ export function createStrikeCases(context: GameContext) {
       seconds: protocol.seconds,
       faults: caseFaults,
       world: ([value], condition, engine, [character]) => {
-        const { model, foe, mark, hand, moment } = condition as FightCondition;
-        // A fight on the open stage from its spawns, nothing ending it but the reader.
+        const { model, foe, mark, moment, gap } = condition as FightCondition;
+        // A fight on the open stage from its spawns (its gap's, where the rung names one), nothing ending it but the reader.
         return { kind: "bout", engine, tape: [],
           recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
             ...sideAttributes({ left: character, right: MINDS[foe]!.character }), ...loadoutsOf(value as unknown as StrikeSubject),
-            ...opposed(striker(value as unknown as StrikeSubject, `hand.${hand}`, mark, { after: 0, pace: protocol.pace, walking: true, moment }), opponentOf(foe)!) } };
+            ...opposed(striker(value as unknown as StrikeSubject, effectorOf(condition as FightCondition), mark, { after: 0, pace: protocol.pace, walking: true, moment }), opponentOf(foe)!),
+            ...(gap === undefined ? {} : { gap }) } };
       },
       read: (built, condition) => readStrike(built, condition, protocol),
     };
@@ -418,7 +436,7 @@ export function createStrikeCases(context: GameContext) {
   const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
     "swing-motion": stillCases(SWING_MOTION),
     moving: stillCases(MOVING), walk: stillCases(WALK), bonk: stillCases(BONK),
-    stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
+    stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT), fights: fightCases(FIGHTS),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
     "stomping-sampled": stillCases(STOMPING_SAMPLED, sampledConditions(STOMPING_SAMPLED)),
     "still-bodies": stillCases(onOtherBodies(STILL)), "walk-bodies": stillCases(onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),

@@ -56,8 +56,10 @@ What is not checked: no fresh agent has watched the installed steer's reel
   network's layout in `assets/skills/strikes/straight-punch/`.
 - **The Option**: `strikeKind` and `STRAIGHT_PUNCH_OPTION` in `src/minds/option/kinds.ts`; the
   game's config in `src/entrants/option/mind.ts`; its profiles, which price it for the Mind, are
-  built by `research/skills/strikes/strike-profiles.mjs` into
-  `assets/skills/strikes/strike-profiles/strike-profiles.json`.
+  built from the Strike drill's fights (`--protocol fights`) by
+  `research/skills/strikes/strike-profiles.mjs` into
+  `assets/skills/strikes/strike-profiles/strike-profiles.json`. The asset's are still the ones
+  measured at a drill's target; no fight is played for them yet.
 - **The drill**: its cases `src/evaluation/strike/cases.ts`, its reader and what each outcome
   means `src/evaluation/strike/read.ts`, its score `score.ts`.
 - **Research**: `research/skills/strikes/straight-punch/` holds the schedule search

@@ -513,8 +513,9 @@ The profile model supplies these components:
   the first time a step asks for each and kept for the step (`perceiver`); predictions price from
   measured profiles (`Profile`, `src/skills/framework/profile.ts`),
   a stale one unread and a model with none priced by its prior. A measured predictor may receive
-  immutable ground profiles (`edges`) for the skill settings an experiment runs. A profile is a sample of its
-  drill's trials, each keeping what it brought and where it began (the range, the foe's phase,
+  immutable ground profiles (`edges`) for the skill settings an experiment runs. A profile is a sample of
+  trials, a strike's thrown in fights (the Strike drill's `fights`) and a ground Option's tried
+  in falls, each keeping what it brought and where it began (the range, the foe's phase,
   both postures, the velocity in its target's frame, `startVelocity`, and, for a skill begun from
   a window, where in it the body stood, `placeInWindow`); a reading takes the trials nearest the
   start asked at, its velocity and place read within the spans its trials began at, and a
@@ -733,9 +734,13 @@ the swell's collider first on the head, the arm straight, its energy, and the re
 
 A drill's struck target stands with its arms lowered (`drill-stand`, `STANDS` in
 `src/evaluation/drill-opponents.ts`), so its marks are open and a failed trial is the striker's;
-a target guards only where the guard is part of what the rung reads: the rung that tests the
-guard (`guarding`, `drill-guard`), and the rung a strike's profile is measured on (`sampled`,
-`drill-at-guard`), since a profile says what a blow brings against a foe in a fight.
+a target guards only on the rung that tests the guard (`guarding`, `drill-guard`). Those rungs
+read how well a body throws a strike. What the strike brings in a fight is read in fights, a bout
+of Option Mind against Option Mind in which the drill throws the strike in place of the blow the
+Mind was about to begin, and only what follows that moment is the trial's: `fight` for a table
+cell, and `fights` (every striker's body, starting gaps of 3, 4 and 5 m, the first eight such
+moments) for the strikes' profiles, which are built from nothing else
+(`research/skills/strikes/strike-profiles.mjs`).
 
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)

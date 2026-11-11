@@ -30,6 +30,11 @@ What is in work now, what is next, and what is open. What is built is in the
 ([its notes](plans/2026-11-10-warrior-punch.md)): the straight punch at the trunk. A run works
 one question of it from a brief the owner approves ([the rules](../AGENTS.md#the-rules)).
 
+**The strikes' profiles from fights**: a strike's profile is built only from the Strike drill's
+fights (`fights`, [the evaluations](architecture.md#evaluations)). The asset still holds the ones
+measured at a drill's target, and no fight is played for them yet. The first build replaces every
+strike's profile, so it plays every strike that has one: the punch, the stomp and the bonk.
+
 The standing goal behind it: every cell of the table raised from its baseline, a row at a time
 ([the skill recipe](recipes/skill.md#one-row-one-question)).
 

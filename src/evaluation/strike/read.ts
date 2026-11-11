@@ -291,9 +291,13 @@ export type StrikeReading = {
   readonly hit: StrikeHit | null;
   /** The bar the striker's blow was judged by (`barOf` its body, unless the reader was given one). */
   readonly bar: Bar;
-  /** The hit points each of the target's segments lost to the striker's touches over the trial, by the segment touched. */
+  /**
+   * The hit points each of the target's segments lost to the striker's touches over the trial, by
+   * the segment touched: from the step the drill had the body (`handed`), so a fight's blows
+   * before its moment are the fight's, not the trial's.
+   */
   readonly dealt: Readonly<Record<string, number>>;
-  /** The hit points the striker lost in its contacts with the target over the trial, any part on any part. */
+  /** The hit points the striker lost in its contacts with the target over the trial (from `handed`, as `dealt`), any part on any part. */
   readonly taken: number;
   /**
    * Where the drill let its action go (`StillCondition.letGo`): when it let it go and when the
@@ -623,14 +627,16 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
         || id === null && handed !== null && world.time >= handed + ending.settled + ending.patience;
     },
     reading() {
+      // The trial's blows: those from the step the drill had the body, the bout's start but in a fight, whose earlier blows are the fight's.
+      const from = handed ?? 0;
       let taken = 0, opening = 0;
       for (const blow of duel.blows) for (const side of blow.sides)
-        if (side.fighter === "left" && blow.sides.some((other) => other.fighter === "right")) {
+        if (blow.time >= from && side.fighter === "left" && blow.sides.some((other) => other.fighter === "right")) {
           taken += side.damage;
           if (letAt !== null && blow.time >= letAt && blow.time <= (again ?? world.time)) opening += side.damage;
         }
       const touches = duel.blows.flatMap((blow) => {
-        if (blow.kind !== "impact") return [];
+        if (blow.kind !== "impact" || blow.time < from) return [];
         const k = blow.sides.findIndex((side) => side.fighter === "left"), by = blow.sides[k], on = blow.sides[1 - k];
         if (!by || !on || on.fighter !== "right" || on.item !== null) return [];
         const sign = k === 0 ? 1 : -1, normal = [blow.normal[0] * sign, blow.normal[1] * sign, blow.normal[2] * sign] as const;

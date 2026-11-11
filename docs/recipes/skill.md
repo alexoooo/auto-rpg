@@ -94,8 +94,9 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
 ### An Option's code
 
 - **An Option's profile measures its outcomes**, falls among them, so the Mind prices its risk.
-  It is measured against a target at guard (`sampled`), as a foe in a fight stands: a profile says
-  what the blow brings there, where a skill's own test asks whether the blow works.
+  How well a body throws a move and what the move brings in a fight are two readings: a skill's
+  own test reads the first, at a target that lets it happen; a profile is the second, read where
+  the Mind uses it. A strike's is built only from blows thrown in fights (`fights`).
 - **One Mind for every body**: Option Mind runs one loop for every body, and everything it does is
   an Option, made and priced the same way, with no special case for any act.
 - **One act an Option**: one skill used one way, its limbs, target and aim, as the item is really
@@ -181,8 +182,10 @@ Follows [the training recipe](training.md). What is particular to a new skill:
   rates, approaches, moving targets, misses and cancellations. Each keeps the earlier cases in
   the mix.
 - Confirm on held-out cases once, on the chosen checkpoint or record.
-- Register it in Option Mind, install its record in the game and read its profiles; a drill
-  Commander using it alone does not show the Mind uses it.
+- Register it in Option Mind, install its record in the game and build its profiles from fights
+  (a strike's: the Strike drill's `fights` kept with `--json`, then
+  `research/skills/strikes/strike-profiles.mjs --write`); a drill Commander using it alone does
+  not show the Mind uses it.
 - Play its table cells (`npm run evaluate -- table --body <model> --skill <name> --fresh`) and
   make [the claim](#the-claim); a good drill reading with a cell that did not move is a skill the
   game does not use.

@@ -79,7 +79,7 @@ export interface Option extends Choice<Situation> {
   readonly sites?: readonly Site[];
   /**
    * How its model is priced now, a sentence: measured, where its profile prices it (and why
-   * scaled, `ProfileReading.scaled`); else by hand, and why: no drill measured it, its profile is
+   * scaled, `ProfileReading.scaled`); else by hand, and why: it was never measured, its profile is
    * stale (`staleness`), or no trial reads where it stands. Absent where it reads no profile.
    */
   priced?(now: Situation): string;

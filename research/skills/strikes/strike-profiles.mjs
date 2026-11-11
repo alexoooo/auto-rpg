@@ -1,21 +1,24 @@
 import { skillsOf } from "../../../src/minds/option/skills.ts";
 /**
  * **The strikes' profiles** (`src/skills/framework/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
- * Strike drill runs (`npm run evaluate -- strike ... --json <run.json>`, and the baseline's punch
- * rows, whose `rung` names theirs), each strike's trials on a mark its action aims at, with a limb
+ * fights, the Strike drill's `fights` rung (`npm run evaluate -- strike <subject> --protocol fights --json <run.json>`),
+ * where each strike is thrown at the moments of fights against Option Mind fighting back. A profile
+ * says what a strike brings where it is used, so no trial at a drill's target makes one: how well
+ * a body throws a strike there is another question, and a run of another rung is refused. Each
+ * strike's trials are those on a mark its action aims at, with a limb
  * that throws it with what it holds (`strikesOf`). A profile a skill on a body against a target: its measured-on read
  * from each row's world (the left body's spec as the bout builds it, the skill's digest as the mind
  * holds it, the harness's rate and command delay (`harnessRule`), the recipe's sense delay, the rate
  * its mind decides at), its target the right body's; its trials those whose strike began (a trial
- * whose action never began measures the drill's walk, not the strike).
+ * whose action never began measures the fight, not the strike). A strike no fight began has no
+ * profile, and its mind prices it by hand.
  *
  * A trial's start (`Start`) is where the striker sensed the target as it began (the reading's
  * `foeAt` and `foePhase`): the range centre to centre, the target's phase and posture, the
  * striker's velocity against the target's (`foeAt.velocity`), and where it stood in its strike's
  * window (`inWindow`); each absent in a record from before the reading held it. A profile keeps
  * the trials that record the most of their start alone: fresh trials replace the older. A record
- * that does not hold the phase is refused: its rung is played again. The
- * `walk` rung is left out: it was asked of a body still walking at no start the drill sets.
+ * that does not hold the phase is refused: its rung is played again.
  *
  * What a trial brought: whether it landed; the life the rules take from the target for the
  * striker's touches on it, each segment's damage (`StrikeReading.dealt`) at that
@@ -34,7 +37,9 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  *
  * `--write` puts the runs' profiles in the asset, each in place of the one measured on the same
  * body, skill and target; the asset's others stay while a preset still throws their skill on a body
- * the game builds (`profileKeys`), so one skill is measured again without the rest.
+ * the game builds (`profileKeys`), so one skill is measured again without the rest. The asset names
+ * the rung its profiles were measured on (`source.protocol`): those of an asset that names another
+ * are not kept beside these.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { EMPTY_LOADOUT, withLoadout } from "../../../src/core/bodies/items/held.ts";
@@ -50,9 +55,11 @@ import { lifeFactor } from "../../../src/combat/pool.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
+/** The Strike drill's rung a profile is measured on: a strike thrown at the moments of fights (`FIGHTS`, `src/evaluation/strike/cases.ts`). */
+const PROTOCOL = "fights";
 const write = process.argv.includes("--write");
 const paths = process.argv.slice(2).filter((arg) => arg !== "--write");
-if (!paths.length) throw new Error("name a Strike drill run: npm run evaluate -- strike <subject> --protocol <rung> --json <run.json>");
+if (!paths.length) throw new Error(`name a run of the Strike drill's fights: npm run evaluate -- strike <subject> --protocol ${PROTOCOL} --json <run.json>`);
 
 /** A run's header and rows (`npm run evaluate -- ... --json`). */
 const read = (path) => {
@@ -94,15 +101,16 @@ const marksOf = (action) => (action.regions ?? []).every((region) => region.kind
 const profiles = new Map();
 for (const path of paths) {
   const [header, ...rows] = read(path);
-  if (header.evaluation !== "strike" && header.evaluation !== "baseline") throw new Error(`${path} is no run of the Strike drill or the baseline`);
+  if (header.evaluation !== "strike" || header.protocol !== PROTOCOL)
+    throw new Error(`${path} is a run of ${header.evaluation} ${header.protocol}: a profile is measured in fights, the Strike drill's ${PROTOCOL} rung`);
   const rule = harnessRule(header.harness);
   if (!rule) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
   const { hz, delay } = rule;
   for (const row of rows) {
-    const rung = row.condition.rung ?? header.protocol, recipe = row.world?.recipe, mind = recipe?.minds?.left, led = recipe?.commanders?.left;
+    const recipe = row.world?.recipe, mind = recipe?.minds?.left, led = recipe?.commanders?.left;
     // The drill Commander's config (naming its skill, or, in a record from before orders named skills, its action), or, in a record from before it, the drill's tactics in the mind.
     const drill = led?.kind === "drill" ? { kind: "drill", skill: led.skill, action: led.action, effector: led.limb, letGo: led.letGo } : partIn(mind, "drill");
-    if (row.fault || !row.reading || row.world.kind !== "bout" || drill?.kind !== "drill" || rung === "walk") continue;
+    if (row.fault || !row.reading || row.world.kind !== "bout" || drill?.kind !== "drill") continue;
     const spec = specOf(recipe), { executors, actions } = strikesOf(spec, mind);
     const action = actions.find((one) => drill.skill === undefined ? one.name === drill.action : executors.find((executor) => executor.name === one.executor)?.kind === drill.skill);
     // A body that does not throw the action (a rung's other model) was refused it, and measures nothing.
@@ -139,6 +147,8 @@ for (const path of paths) {
 
 /** How much of its start a trial records: its velocity, and where it stood in its window. */
 const recorded = (trial) => (trial.start.velocity ? 1 : 0) + (trial.start.window ? 1 : 0);
+// A strike no fight began has no profile: its mind prices it by hand.
+for (const [key, profile] of profiles) if (!profile.trials.length) { console.log(`${profile.label}: begun in no fight, so it has no profile`); profiles.delete(key); }
 for (const profile of profiles.values()) {
   const most = Math.max(...profile.trials.map(recorded));
   profile.trials = profile.trials.filter((trial) => recorded(trial) === most);
@@ -162,13 +172,16 @@ for (const profile of profiles.values()) {
 if (write) {
   // Each of the asset's profiles keeps its place; one a run made again is replaced there, and the new follow.
   const keyOf = (profile) => JSON.stringify([profile.measured, profile.target]), current = profileKeys().strike;
-  const remade = new Map(made.map((profile) => [keyOf(profile), profile])), kept = [];
-  for (const profile of JSON.parse(readFileSync(OUT, "utf8")).profiles) {
+  const remade = new Map(made.map((profile) => [keyOf(profile), profile])), kept = [], asset = JSON.parse(readFileSync(OUT, "utf8"));
+  // An asset measured on another rung holds no profile to keep beside these.
+  const others = asset.source?.protocol === PROTOCOL ? asset.profiles : [];
+  if (others.length < asset.profiles.length) console.log(`dropped: the asset's ${asset.profiles.length} profiles, measured on ${asset.source?.protocol ?? "a drill's targets"}, not in ${PROTOCOL}`);
+  for (const profile of others) {
     const again = remade.get(keyOf(profile));
     remade.delete(keyOf(profile));
     if (again) kept.push(again);
     else if (current.has(`${profile.measured.body} ${profile.measured.spec} ${profile.measured.skill}`)) kept.push(profile);
     else console.log(`dropped: ${profile.measured.body} (spec ${profile.measured.spec}), skill ${profile.measured.skill}, which no preset throws now`);
   }
-  writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT }, profiles: [...kept, ...remade.values()] }, null, 2)}\n`);
+  writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT, protocol: PROTOCOL }, profiles: [...kept, ...remade.values()] }, null, 2)}\n`);
 }

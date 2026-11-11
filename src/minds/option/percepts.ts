@@ -154,7 +154,7 @@ interface Model {
 
 /** Why `strike` is priced by hand with the senses `reaction` s late, a sentence; null where its profile is fresh (`sameReaction`). */
 const byHand = (strike: ModelledStrike, reaction: number | null, hz: number): string | null =>
-  !strike.profile ? "no drill measured it as it is"
+  !strike.profile ? "no fight measured it as it is"
     : sameReaction(strike.profile.measured.reaction, reaction, hz) ? null : `measured with senses ${strike.profile.measured.reaction} s late, read ${reaction} s late`;
 
 /** Why `strike` is priced by hand at `postures`, a sentence: stale (`byHand`), or measured fresh with the bodies standing otherwise (`measuredAt`); null where its profile reads them. */
@@ -178,7 +178,7 @@ function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySp
 }
 
 /**
- * **The strikes a foe of `foe` is modelled by**: those a drill measured on its body (`profilesOn`),
+ * **The strikes a foe of `foe` is modelled by**: those fights measured on its body (`profilesOn`),
  * else this body's own measured (`Seen.strikes`), each fresh at the senses' reaction time and
  * this mind's rate (`Seen.rate`: a foe's mind is taken for one like it) and thrown with the limbs it names (`Profile.limbs`); and each other limb the foe strikes with
  * (`defaultStrikeLimbs`), by its prior. A foe's strikes are not sensed, so its limbs stand for them: a limb
