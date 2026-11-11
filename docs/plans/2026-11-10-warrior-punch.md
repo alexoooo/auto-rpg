@@ -37,7 +37,7 @@ stopped 2 of 96 of them:
   stand ([the approaches](../approaches.md#unarmed-strikes)): footwork and openings, the Mind's
   and not the punch's ([Blows in fights](../roadmap.md#next)).
 
-What is not checked: no fresh agent has watched the installed steer's reel
+What is not checked: no fresh agent has checked the installed steer
 ([the claim](../recipes/skill.md#the-claim)).
 
 ## Open questions

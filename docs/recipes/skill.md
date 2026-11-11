@@ -80,10 +80,14 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
   reading on a drill, a search or a training screen is progress toward a claim and never the claim.
   A check that shows a change works (the table cell, the fresh agent, the fingerprint) is never
   dropped to save time; time is saved on everything else.
-- **A fresh agent checks a claim before it is reported**: a subagent given the claim, the cell's
-  link and the game in a browser, and no account of the work, watches the cell's reel, failures
-  first, then the skill in the screen that uses it, and says what it saw. The report carries its
-  words beside the claim; where they contradict it, the claim is withdrawn.
+- **A fresh agent checks a claim before it is reported**: a subagent given the claim and the
+  cell's commands, and no account of the work, reads in Node alone: the cell's lines and its
+  trials' outcomes from the saved results, failures first
+  (`npm run evaluate -- table --body <model> --skill <name> --by <field>`), and the drill's
+  held-out cases where it has them (the stand-up target's `fresh`), played once. It says what
+  the numbers show. The report carries its words beside the claim; where they contradict it, the
+  claim is withdrawn. How a skill looks is the owner's to watch
+  ([the roadmap](../roadmap.md#waiting-on-the-owner)), never an agent's to judge in a browser.
 - **Compare minds alike**: the same scenarios, bodies, physics, assists and scoring, results by
   opponent, fresh cases to confirm a gain. A claim is `npm run match`; a mind's figure from
   another commit or protocol is read again before it is compared with another mind's.
