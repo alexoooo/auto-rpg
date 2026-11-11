@@ -13,6 +13,9 @@ document holds.
   reads it, the questions open and how to pick it up, each reading with the command that reads it
   again. It proposes no step and names no skill the owner did not ask for: what is worked next is
   the run's brief. A reading taken on the way goes in its commit message.
+- **A brief is a file the owner reads** (`docs/briefs/`): the run's first message as
+  [AGENTS.md](../../AGENTS.md#the-rules) shapes it, the request in the owner's words, the one
+  document that quotes them. It is never left in `.tmp/` or only in a conversation.
 - **The roadmap says where the work stands.** A line of it is taken up on the owner's request.
   What the owner should see goes on its list to watch, and an agent never marks it seen. Status
   lives in the roadmap; code never cites a plan or an analysis.

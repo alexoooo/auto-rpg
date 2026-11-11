@@ -107,6 +107,7 @@ Ten rules bind every change. A kind of work has its own, in its own document
 | `docs/architecture.md` | the layers, their contracts, where each lives |
 | `docs/roadmap.md` | the one row or goal in work now, what is next in order, what is parked and what is open, a line each |
 | `docs/plans/` | notes on the work in hand and on the parked work the roadmap lists; deleted when it lands |
+| `docs/briefs/` | a run's brief, written for the owner to read and approve; deleted when its run reports |
 | `docs/analysis/` | the study behind a decision still open; deleted once decided |
 | `docs/diagrams/` | pages showing the current design, or a target a plan in flight names |
 | `docs/reference/` | only what code needs and a comment cannot hold |
