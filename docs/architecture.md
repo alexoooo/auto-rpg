@@ -416,8 +416,8 @@ each a state with its chance, `Outcome`), its step, and a status.
 the catalog registers (`optionMind`): its slots, whether a body fits it, the posture its body is
 built in. `config.ts` is the config (`OptionMindConfig`), its defaults (`resolveConfig`) and what
 is wrong with it (`optionMindFaults`). `description.ts` says what a config builds, for a screen
-(`describeOptionMind`). `build.ts` declares the running mind (`OptionMind`: what it handed its
-host, its skills, decider, state and report) and builds it (`buildOptionMind`) in six steps:
+(`describeOptionMind`). `build.ts` declares the running mind (`OptionMind`: its skills, state and
+report) and builds it (`buildOptionMind`) in six steps:
 
 1. the parts under its skills, its motor, legs and guard (`filledOf`);
 2. what its Options name of the body's skills (`skillsOf`), which with those parts is its kit

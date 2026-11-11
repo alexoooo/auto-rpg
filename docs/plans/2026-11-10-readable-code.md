@@ -21,8 +21,7 @@ builds and checks a mind, and a mind's memory stays plain data in its `state`.
 The code is in place, and the [architecture](../architecture.md)'s Minds section describes it:
 
 - **`OptionMind` is a declared type** (`src/minds/option/build.ts`) that names what a running
-  Option Mind holds: what it handed its host (the object with `act` and `think`, and the body
-  under command layers), its skills, its decider, its state and its report. `create` returns it.
+  Option Mind gives the fight: its skills, its state and its report. `create` returns it.
   The build (`buildOptionMind`) reads in order, six steps, each value named before the call that
   uses it.
 - **The file is split by job**: `config.ts`, the config and its faults; `description.ts`, the
