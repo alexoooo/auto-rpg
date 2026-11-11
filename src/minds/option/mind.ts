@@ -1,7 +1,7 @@
 import { motorRequirementRefusal } from "../../control/motor-part.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { slotList, slotOne, type PartConfig, type Slot } from "../../parts/parts.ts";
-import { partRequirements } from "../../parts/tree.ts";
+import { partRequirements, whenEmpty } from "../../parts/tree.ts";
 import { FILLED, filledOf, filledRefusal, motorOf } from "../../skills/assembly/filled.ts";
 import { standUpFaults } from "../../skills/recovery/stand-up.ts";
 import { controller } from "../catalog/controller.ts";
@@ -24,7 +24,7 @@ import { skillsOf } from "./skills.ts";
 export function optionMind(assembly: OptionAssembly) {
   const defaults: OptionMindConfig = deepFreeze({ kind: "option", chooser: assembly.chooser, options: assembly.options });
   const slots: readonly Slot[] = Object.freeze([
-    slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("predictions", "Predictions", "predictions", true, assembly.predictions),
+    slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("predictions", "Predictions", "predictions", true),
   ]);
   /** Each Option `config` runs, its own or the assembly's, with its part; one that is no Option's config is passed over, a fault of the tree. */
   const optionsOf = (config: OptionMindConfig, parts: PartLookup): readonly (readonly [OptionPart, PartConfig])[] =>
@@ -35,9 +35,14 @@ export function optionMind(assembly: OptionAssembly) {
     // The parts an experiment passes in under its skills, each at its place in the config.
     children: config => isSettings(config.tuning?.parts) ? Object.entries(config.tuning.parts).flatMap(([place, value]) => Object.hasOwn(FILLED, place)
       ? [{ path: ["tuning", "parts", place], role: FILLED[place as keyof typeof FILLED], config: value }] : []) : [],
-    // The options it starts with where its config names none, the navigation its walks go by where none names one, and every part that may lie under its skills.
-    uses: (config, parts) => [...config.options ? [] : assembly.options, ...config.predictions ? [] : [assembly.predictions], assembly.navigation, ...Object.values(FILLED).flatMap((role) => parts.game(role)), ...parts.game("leg-adapter"),
-      ...Object.values(config.tuning?.parts ?? {})],
+    // What it runs that its config does not say: its predictions and the options it starts with where it names none, the navigation its walks go by
+    // where no Option names one, and every part that may lie under its skills, of which a body gets the one it fits.
+    supplies: (config, parts) => [
+      ...whenEmpty(slots, config, { predictions: assembly.predictions }),
+      ...(config.options ? [] : assembly.options).map((option) => ({ role: "option" as const, config: option })),
+      { role: "navigation" as const, config: assembly.navigation },
+      ...[...Object.values(FILLED), "leg-adapter" as const].flatMap((role) => parts.game(role).map((one) => ({ role, config: one }))),
+    ],
     faults: (config, parts) => optionMindFaults(resolveConfig(config, assembly), parts),
     fits: (spec, config, parts) => {
       const refused = filledRefusal(parts, spec, config.tuning?.parts);

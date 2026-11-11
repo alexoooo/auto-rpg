@@ -6,7 +6,7 @@ import { GAME, isKind, kindsFor, partOf, partLookup, treeFaults, type EntryRule 
 import type { MindConfig } from "../../../minds/catalog/config.ts";
 import { partOffered } from "../../../parts/fields.ts";
 import type { Part, PartConfig, Slot } from "../../../parts/parts.ts";
-import { slotValue } from "../../../parts/tree.ts";
+import { emptyRuns, slotValue } from "../../../parts/tree.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { mindFaults } from "../setup.ts";
 import { recordingKey } from "../../../core/world/recording.ts";
@@ -57,7 +57,8 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
 
   const same = (a: PartConfig | null | undefined, b: PartConfig | undefined): boolean =>
     a != null && b !== undefined && recordingKey(a) === recordingKey(b);
-  const defaultFallback = (slot: Slot): boolean => slot.fallback !== undefined && same(slot.fallback, partOf(slot.fallback).defaults);
+  /** Whether what a slot runs empty (`fallback`, `emptyRuns`) is its part's defaults: the empty choice then stands for that kind. */
+  const defaultFallback = (fallback: PartConfig | undefined): boolean => fallback !== undefined && same(fallback, partOf(fallback).defaults);
   /** Options with no admitted skills stay in the configuration while their body or equipment changes. */
   const usable = (slot: Slot, config: PartConfig, siblings: readonly PartConfig[]): boolean => {
     // Invalid configurations remain editable so their faults can be corrected.
@@ -66,12 +67,12 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
   };
 
   /** Parts the screen supplies; Option choices use the same skill admission as their selected rows. */
-  const choices = (slot: Slot, child?: PartConfig | null, siblings: readonly PartConfig[] = []) => [
-    ...(slot.optional && !slot.many ? [{ value: "", text: slot.fallback ? `Default: ${partOf(slot.fallback).label}` : "None", disabled: false }] : []),
+  const choices = (slot: Slot, child?: PartConfig | null, siblings: readonly PartConfig[] = [], fallback?: PartConfig) => [
+    ...(slot.optional && !slot.many ? [{ value: "", text: fallback ? `Default: ${partOf(fallback).label}` : "None", disabled: false }] : []),
     ...kindsFor(slot.role, spec, current)
       .filter(({ kind, part }) => partOffered(part) || child?.kind === kind)
       .filter(({ kind, part, reason }) => slot.role !== "option" || kind === child?.kind || reason === null && usable(slot, part.defaults, siblings))
-      .filter(({ kind }) => !defaultFallback(slot) || kind !== slot.fallback!.kind || child?.kind === kind && !same(child, slot.fallback))
+      .filter(({ kind }) => !defaultFallback(fallback) || kind !== fallback!.kind || child?.kind === kind && !same(child, fallback))
       .map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
   ];
   const defaultsOf = (kind: string): PartConfig => partOf({ kind }).defaults;
@@ -126,9 +127,9 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
     holder.className = "mind-slot"; holder.dataset.slot = slot.key;
     const set = (next: unknown) => write({ ...config, [slot.key]: next } as PartConfig);
     if (!slot.many) {
-      const child = value as PartConfig | null;
-      const chosen = child ?? slot.fallback, selected = defaultFallback(slot) && same(child, slot.fallback) ? "" : child?.kind ?? "";
-      const options = choices(slot, child), fixed = options.length === 1 && options[0]!.value === selected && !options[0]!.disabled;
+      const child = value as PartConfig | null, fallback = emptyRuns(partLookup, partOf(config), config, slot);
+      const chosen = child ?? fallback, selected = defaultFallback(fallback) && same(child, fallback) ? "" : child?.kind ?? "";
+      const options = choices(slot, child, [], fallback), fixed = options.length === 1 && options[0]!.value === selected && !options[0]!.disabled;
       const childPath = [...path, slot.key], content = chosen ? drawPart(chosen, set, childPath) : null;
       if (fixed && !content?.hasChildNodes()) return null;
       const line = document.createElement("div"); line.className = "mind-choice-line";

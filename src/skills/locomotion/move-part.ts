@@ -61,7 +61,9 @@ export const MOVE_PART: LocomotionPart<MoveConfig> = deepFreeze({
   role: "locomotion", label: "Move", stage: "game", defaults: GOING, keys: { kind: true, gaits: true, rules: true, otherwise: true },
   fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
   slots: [slotList("rules", "When", "move-rule")],
-  children: config => Array.isArray(gaitsOfMove(config)) ? gaitsOfMove(config).map((gait, i) => ({ path: config.gaits == null ? null : ["gaits", i, "legs"], role: "gait", config: gait?.legs })) : [],
+  children: config => Array.isArray(config.gaits) ? config.gaits.map((gait, i) => ({ path: ["gaits", i, "legs"], role: "gait", config: gait?.legs })) : [],
+  // The stock gaits' legs, where it names no gaits of its own.
+  supplies: config => config.gaits == null ? STOCK_GAITS.map((gait) => ({ role: "gait" as const, config: gait.legs })) : [],
   fits: (spec, config, parts) => {
     for (const gait of gaitsOf(config)) {
       const refusal = parts.of("gait", gait.legs).fits(spec, gait.legs, parts);

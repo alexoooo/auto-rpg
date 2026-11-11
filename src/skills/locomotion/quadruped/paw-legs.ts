@@ -10,6 +10,7 @@ import type { StanceEnvelope } from "../../../control/stance/stance-envelope.ts"
 import { cos, hypot, sin } from "../../../core/math/real.ts";
 import type { ConfigFor } from "../../../parts/lookup.ts";
 import { slotOne } from "../../../parts/parts.ts";
+import { whenEmpty } from "../../../parts/tree.ts";
 import { motionAtToRef } from "../../../core/bodies/read-motion.ts";
 import type { LocomotionPart } from "../../framework/locomotion-part.ts";
 import type { LegsAsked } from "../../framework/skill.ts";
@@ -171,10 +172,13 @@ function pawLegs(body: Body, trot: Gait, creep: Gait): Locomotion {
   };
 }
 
+/** The paw legs' slots: a gait part for the trot and one for the crawl, each the stock one (`STOCK`) where empty. */
+const PAW_SLOTS = Object.freeze([slotOne("trot", "Trot", "paw-gait", true), slotOne("crawl", "Crawl", "paw-gait", true)]);
+
 /** **The paw legs** (`pawLegs`) as a kind of locomotion: a body on three paws or more (`fitsPaws`), its gaits the parts its config names (`PawGaitPart`). */
 export const PAW_MOVE: LocomotionPart<PawMoveConfig> = deepFreeze({
   role: "locomotion", requires: [SUPPORT_REFERENCE], label: "Paw gaits", stage: "game", fields: [], defaults: { kind: "paw-move" }, keys: { kind: true, trot: true, crawl: true },
-  slots: [slotOne("trot", "Trot", "paw-gait", true, STOCK.trot), slotOne("crawl", "Crawl", "paw-gait", true, STOCK.crawl)],
+  slots: PAW_SLOTS, supplies: (config) => whenEmpty(PAW_SLOTS, config, STOCK),
   fits: fitsPaws, faults: () => [],
   gaits: (config) => GAIT_NAMES.map((name) => ({ name, label: LABELS[name], legs: config[name] ?? STOCK[name] })),
   make(body, config, legs) {

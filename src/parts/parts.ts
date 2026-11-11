@@ -22,8 +22,8 @@ export interface PartConfig { readonly kind: string }
 
 /**
  * **A slot**: a key of a part's config that holds another part of `role` (`many`: a ranked list of
- * them), plain data under the key. A slot that is `optional` may hold null, and then runs its
- * `fallback` where it names one.
+ * them), plain data under the key. A slot that is `optional` may hold null, and then runs what
+ * its part supplies in its place (`Part.supplies`), or nothing.
  */
 export interface Slot {
   readonly key: string;
@@ -31,13 +31,22 @@ export interface Slot {
   readonly role: Role;
   readonly many: boolean;
   readonly optional: boolean;
-  /** The part an optional slot runs where it holds none: what a case's code holds of it (`treeKinds`) and a person is shown; none, it runs nothing. */
-  readonly fallback?: PartConfig;
   /**
    * A skill (`slotSkill`): a part in it that a body cannot use (`Part.fits`) is left out on that
    * body, and what holds it with it, not a refusal of the part holding it.
    */
   readonly skills?: boolean;
+}
+
+/**
+ * **A part a part runs that its config does not say** (`Part.supplies`): one of `role`, as
+ * `config`. With `slot`, it is what that slot runs where it holds nothing, which a person is
+ * shown as the slot's default.
+ */
+export interface Supplied {
+  readonly role: Role;
+  readonly config: PartConfig;
+  readonly slot?: string;
 }
 
 /**
@@ -64,8 +73,15 @@ export interface Part<C extends PartConfig = PartConfig> extends Edited<C> {
 
   // The parts its config holds (`heldBy`).
   readonly slots: readonly Slot[];
-  /** Configured parts outside its slots, each with its role and where it is in the config; a null path marks a default the config does not say. */
-  children?(config: C): readonly { readonly path: readonly (string | number)[] | null; readonly role: Role; readonly config: unknown }[];
+  /** Configured parts outside its slots, each with its role and where it is in the config. */
+  children?(config: C): readonly { readonly path: readonly (string | number)[]; readonly role: Role; readonly config: unknown }[];
+  /**
+   * The parts it runs that `config` does not say (`Supplied`): what an empty slot runs, a default
+   * where the config names none, and each part it picks among by the body. This is the one place
+   * a part says so. It answers for them itself (`fits`, `faults`); a walk of the tree reads their
+   * code, their data and what they require (`eachPart`).
+   */
+  supplies?(config: C, parts: PartLookup): readonly Supplied[];
 
   // Its checks.
   /** Physical facts the configured motor must publish before this part can execute. */
@@ -98,9 +114,8 @@ export const slotList = (key: string, label: string, role: Role): Slot => Object
 /** A slot of one skill of `role`, used on a body that can use it (`Slot.skills`). */
 export const slotSkill = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: false, optional: false, skills: true });
 
-/** A slot of one part of `role`, or of none where it is `optional`, which runs `fallback` where it names one. */
-export const slotOne = (key: string, label: string, role: Role, optional = false, fallback?: PartConfig): Slot =>
-  Object.freeze({ key, label, role, many: false, optional, ...(fallback === undefined ? {} : { fallback }) });
+/** A slot of one part of `role`, or of none where it is `optional`. */
+export const slotOne = (key: string, label: string, role: Role, optional = false): Slot => Object.freeze({ key, label, role, many: false, optional });
 
 /** A part's `fits` for every body. Each of these is a function declaration, which a module that imports it in a cycle can call as it loads. */
 export function anyBody(): string | null {

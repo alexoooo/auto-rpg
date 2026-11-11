@@ -102,7 +102,7 @@ export interface Catalog {
    * names the kinds of two entrants is a fault (`scopesOf`).
    */
   treeFaults(config: PartConfig, at?: string): readonly string[];
-  /** **Every kind of part in the tree `config` roots**, the root's included, an empty slot's fallback (`Slot.fallback`) and what a mind runs besides its tree (`Controller.uses`), each once: what a case's code holds the parts' own code of (`caseCoder`). */
+  /** **Every kind of part in the tree `config` roots**, the root's included, with what each part runs that its config does not say (`Part.supplies`), each once: what a case's code holds the parts' own code of (`caseCoder`). */
   treeKinds(config: PartConfig): readonly string[];
   /** Whether the mind `config` roots carries out a person's orders (`Controller.obeys`). */
   treeObeys(config: PartConfig): boolean;
@@ -210,29 +210,17 @@ function lookupOf(kinds: () => Readonly<Record<string, Part>>): PartLookup {
   return lookup;
 }
 
-/**
- * `visit` each part whose code a case of the tree `config` roots holds, the root first: the
- * tree's parts, an empty slot's fallback included (`Slot.fallback`), and with each mind what it
- * runs besides (`Controller.uses`), each of those a tree read the same way.
- */
-function eachCoded(parts: PartLookup, config: PartConfig, visit: (part: Part, config: PartConfig) => void): void {
-  eachPart(parts, config, ({ part, config: one }) => {
-    visit(part, one);
-    for (const used of parts.find("mind", one)?.uses?.(one, parts) ?? []) eachCoded(parts, used, visit);
-  }, "with-fallbacks");
-}
-
-/** Every kind of part a case of the tree `config` roots holds the code of (`eachCoded`), each once, the root's first. */
+/** Every kind of part a case of the tree `config` roots holds the code of, each once, the root's first: the tree's parts and what each runs that its config does not say (`eachPart`). */
 function treeKinds(parts: PartLookup, config: PartConfig): readonly string[] {
   const kinds = new Set<string>();
-  eachCoded(parts, config, (_, one) => { kinds.add(one.kind); });
+  eachPart(parts, config, ({ config: one }) => { kinds.add(one.kind); });
   return [...kinds];
 }
 
 /** The mind data the parts of the tree `config` roots read (`Part.reads`, `Part.fitReads`), every key once. */
 function treeData(parts: PartLookup, config: PartConfig): readonly DataKey[] {
   const keys = new Set<DataKey>();
-  eachCoded(parts, config, (part, one) => {
+  eachPart(parts, config, ({ part, config: one }) => {
     for (const key of [...part.reads?.(one) ?? [], ...part.fitReads ?? []]) keys.add(key);
   });
   return [...keys];

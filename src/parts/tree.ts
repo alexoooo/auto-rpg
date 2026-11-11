@@ -1,7 +1,7 @@
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 // The walk of a tree of parts, and what is read and copied of one by it. Each is given the lookup of the parts the tree may name.
 import type { PartLookup } from "./lookup.ts";
-import type { Part, PartConfig, Requirement, Slot } from "./parts.ts";
+import type { Part, PartConfig, Requirement, Slot, Supplied } from "./parts.ts";
 
 /** **Where a part is in a tree's config**: each step a key, or an index in a list. */
 export type ConfigPath = readonly (string | number)[];
@@ -13,8 +13,8 @@ export type ConfigPath = readonly (string | number)[];
  */
 export interface Held {
   readonly slot: Slot;
-  /** Where the place is in the part's config; null where the config says nothing and the part supplies a default. */
-  readonly path: ConfigPath | null;
+  /** Where the place is in the part's config. */
+  readonly path: ConfigPath;
   /** What it holds, as the config has it and unchecked: none, one, or a list's entries. */
   readonly parts: readonly unknown[];
 }
@@ -29,10 +29,23 @@ export function heldBy(part: Part, config: PartConfig): readonly Held[] {
     return { slot, path: [slot.key], parts: slot.many ? (value == null && slot.optional ? [] : Array.isArray(value) ? value : [value]) : value == null ? [] : [value] };
   });
   const declared = (part.children?.(config) ?? []).map((child): Held => {
-    const key = child.path?.join(".") ?? `implicit ${child.role}`;
+    const key = child.path.join(".");
     return { slot: { key, label: key, role: child.role, many: false, optional: false }, path: child.path, parts: [child.config] };
   });
   return [...slots, ...declared];
+}
+
+/** **What each empty slot of `config` runs**, as a part says it (`Part.supplies`): for each of `slots` that `config` holds nothing in, the part `defaults` has under the slot's key. */
+export function whenEmpty(slots: readonly Slot[], config: PartConfig, defaults: Readonly<Record<string, PartConfig>>): readonly Supplied[] {
+  return slots.flatMap((slot) => {
+    const one = defaults[slot.key];
+    return one !== undefined && slotValue(config, slot) == null ? [{ role: slot.role, config: one, slot: slot.key }] : [];
+  });
+}
+
+/** **What `slot` of `part` runs where a config like `config` holds nothing in it** (`Supplied.slot`); undefined where it runs nothing. */
+export function emptyRuns(parts: PartLookup, part: Part, config: PartConfig, slot: Slot): PartConfig | undefined {
+  return part.supplies?.({ ...config, [slot.key]: null }, parts).find((one) => one.slot === slot.key)?.config;
 }
 
 /**
@@ -58,38 +71,37 @@ export function partOf(parts: PartLookup, config: PartConfig): Part {
 export interface PartAt {
   readonly part: Part;
   readonly config: PartConfig;
-  /** Where it is in the root's config; null where a default supplies it, or something above it. */
+  /** Where it is in the root's config; null where the config does not say it: a part supplies it (`Part.supplies`), or something above it. */
   readonly path: ConfigPath | null;
-  /** Where it is, as a fault names it: its path with dots (`options.0.skill`), a default named by its role (`implicit gait`); empty at the root. */
+  /** Where it is, as a fault names it: its path with dots (`options.0.skill`), one a part supplies named by its slot or its role (`implicit gait`); empty at the root. */
   readonly at: string;
 }
 
 /** What a visit says of the walk from here: go on (nothing), `skip` what this part holds, or `stop` the walk. */
 export type Walk = void | "skip" | "stop";
 
-/** Whether a walk visits an empty slot's fallback (`Slot.fallback`) as what the slot holds, or only what the config says. */
-export type Fallbacks = "with-fallbacks" | "as-configured";
-
 /**
  * **Visits every part of the tree `config` roots**, whatever its role, each before what it holds:
- * what its slots hold, in order, then what it declares outside them (`heldBy`). With `fallbacks`,
- * an empty slot's fallback is visited as what the slot holds (`Slot.fallback`). What a slot holds
- * that is no part of the slot's role is passed over: the tree's faults say so (`treeFaults`).
+ * what its slots hold, in order, what it declares outside them (`heldBy`), then what it runs that
+ * its config does not say (`Part.supplies`), each of those with a null path, and all below it. A
+ * visit that reads only what the config says skips a null path. What a slot holds that is no part
+ * of the slot's role is passed over: the tree's faults say so (`treeFaults`).
  */
-export function eachPart(parts: PartLookup, config: PartConfig, visit: (at: PartAt) => Walk, fallbacks: Fallbacks = "as-configured"): void {
+export function eachPart(parts: PartLookup, config: PartConfig, visit: (at: PartAt) => Walk): void {
   const walk = (part: Part, config: PartConfig, path: ConfigPath | null, at: string): boolean => {
     const said = visit({ part, config, path, at });
     if (said === "stop") return true;
     if (said === "skip") return false;
     for (const { slot, path: place, parts: held } of heldBy(part, config)) {
-      const below = at ? `${at}.${slot.key}` : slot.key, under = path === null || place === null ? null : [...path, ...place];
-      if (held.length === 0 && slot.fallback && fallbacks === "with-fallbacks") {
-        if (walk(parts.of(slot.role, slot.fallback), slot.fallback, null, below)) return true;
-      }
+      const below = at ? `${at}.${slot.key}` : slot.key, under = path === null ? null : [...path, ...place];
       for (const [i, child] of held.entries()) {
         const found: Part | null = parts.find(slot.role, child);
         if (found && walk(found, child as PartConfig, under && slot.many ? [...under, i] : under, slot.many ? `${below}.${i}` : below)) return true;
       }
+    }
+    for (const one of part.supplies?.(config, parts) ?? []) {
+      const found: Part | null = parts.find(one.role, one.config), key = one.slot ?? `implicit ${one.role}`;
+      if (found && walk(found, one.config, null, at ? `${at}.${key}` : key)) return true;
     }
     return false;
   };
@@ -98,16 +110,17 @@ export function eachPart(parts: PartLookup, config: PartConfig, visit: (at: Part
 
 /**
  * **What the tree `config` roots requires of its body's motor** (`Part.requires`), each once: of
- * every part in it, an empty slot's fallback included, a part left out on a body of `spec`
- * (`leftOut`) passed over with what it holds.
+ * every part in it, a part left out on a body of `spec` (`leftOut`) passed over with what it
+ * holds. Of the parts a part supplies (`Part.supplies`), those the body fits: a part picks among
+ * them by the body.
  */
 export function partRequirements(parts: PartLookup, config: PartConfig, spec: BodySpec): readonly Requirement[] {
   const found = new Set<Requirement>();
-  eachPart(parts, config, ({ part, config }) => {
-    if (leftOut(parts, part, config, spec)) return "skip";
+  eachPart(parts, config, ({ part, config, path }) => {
+    if (leftOut(parts, part, config, spec) || path === null && part.fits(spec, config, parts) !== null) return "skip";
     for (const requirement of part.requires ?? []) found.add(requirement);
     return undefined;
-  }, "with-fallbacks");
+  });
   return [...found];
 }
 
@@ -163,11 +176,13 @@ export function treeValidation(parts: PartLookup, config: PartConfig, at: string
  * **Why a body of `spec` cannot carry out what the tree `config` roots commands**, prefixed with
  * where under `at` (`options.0: `), or null where it can: the first part that refuses it
  * (`Part.fits`). A skill the body cannot use is no refusal: the part that holds it is left out
- * (`leftOut`), what else it holds unread.
+ * (`leftOut`), what else it holds unread. What a part supplies (`Part.supplies`) is its own to
+ * answer for, in its `fits`.
  */
 export function fitRefusal(parts: PartLookup, spec: BodySpec, config: PartConfig, at = ""): string | null {
   let refusal: string | null = null;
-  eachPart(parts, config, ({ part, config: one, at: below }) => {
+  eachPart(parts, config, ({ part, config: one, path, at: below }) => {
+    if (path === null) return "skip";
     const own = part.fits(spec, one, parts), where = at && below ? `${at}.${below}` : at || below;
     if (own !== null) { refusal = where ? `${where}: ${own}` : own; return "stop"; }
     return leftOut(parts, part, one, spec) ? "skip" : undefined;
@@ -192,7 +207,7 @@ export function withoutTuning<C extends PartConfig>(parts: PartLookup, config: C
     if (next === before) return value;
     return Array.isArray(value) ? value.map((child, i) => i === key ? next : child) : { ...value, [key]: next };
   };
-  for (const child of part.children?.(config) ?? []) if (child.path?.length) out = stripAt(out, child.path, 0) as Record<string, unknown>;
+  for (const child of part.children?.(config) ?? []) if (child.path.length) out = stripAt(out, child.path, 0) as Record<string, unknown>;
   return out as C;
 }
 

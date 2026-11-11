@@ -7,7 +7,7 @@ import type { AttributeOverrides } from "../../core/bodies/character-attributes.
 import type { Pose } from "../../core/bodies/spec/pose.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { MindConfig } from "./config.ts";
-import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
+import type { KeysOf, Part } from "../../parts/parts.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { Experiment } from "../../control/body.ts";
 import type { Senses } from "../../core/bodies/senses.ts";
@@ -52,11 +52,6 @@ export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
   create(host: BodyHost, config: C): MindMade;
   /** Configured execution capabilities and their actual component paths, where published. */
   describe?(spec: BodySpec, config: C, parts: PartLookup): MindDescription;
-  /**
-   * The parts a config of it runs beside those its tree holds (`eachPart`), any of them as `parts`
-   * offers it (`PartLookup.game`): what a case's code holds of it (`treeKinds`).
-   */
-  uses?(config: C, parts: PartLookup): readonly PartConfig[];
   /**
    * The effectors its blows strike with on a body of `spec`, as it holds what it holds; none
    * where it says nothing. What a scenario that asks an attack reads (`EntryRule` `attacks`), and

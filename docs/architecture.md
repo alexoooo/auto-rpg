@@ -424,10 +424,17 @@ tree of parts (`Part`, `parts.ts`), each with a role, a stage, slots and default
 why a body cannot carry it out (`fits`) and what is wrong with its config (`faults`). `Part` holds
 only what every part has; what the mind editor shows of one is beside it (`Edited`, `fields.ts`),
 and what one role does more is in that role's type. Roles are an open list (`RoleParts`),
-augmented beside each role's contract. `treeFaults` names each fault by path. Component-owned
-`children` declare nested configuration paths and roles; one walk (`eachPart`, `tree.ts`) goes
-through slots and children alike, and admission, fit, scope, data dependencies and inspection all
-use it. `tuning` never travels in a link.
+augmented beside each role's contract. `treeFaults` names each fault by path. `tuning` never
+travels in a link.
+
+**A part holds other parts in three ways, each declared once.** What its config says: in a slot
+(`Part.slots`), or outside one at a path it declares (`Part.children`). What its config does not
+say: `Part.supplies`, the one place a part names what an empty slot runs (`whenEmpty`), a default
+where the config names none, and the parts it picks among by the body. One walk (`eachPart`,
+`tree.ts`) visits all three; what a part supplies is visited with a null path. A read of what the
+config says skips a null path (`fitRefusal`, `treeValidation`, a description's paths): the part
+answers for what it supplies in its own `fits` and `faults`. A read of what a case runs keeps
+them (`treeKinds`, `treeData`, `partRequirements`).
 
 **What is read of a tree is a plain function given the lookup** (`PartLookup`). In
 `src/parts/tree.ts`: what is wrong with a tree (`treeValidation`), why a body cannot carry it out
