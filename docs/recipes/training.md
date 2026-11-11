@@ -22,7 +22,7 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 ## Before the first run
 
 1. **Name the value and its cases from the game.** Write down, in the plan, the skill's value
-   ([AGENTS.md](../../AGENTS.md#developing-skills-and-options)) and the evaluation cases that read
+   ([the skill recipe](skill.md#what-a-change-is-kept-on)) and the evaluation cases that read
    it, taken from the situations the game puts the skill in and the orders it gives there, as it
    gives them. A case the game never produces is not read, and training reward never decides it. The development cases that choose checkpoints hold several cases per
    phase (8 or more), varied in what the skill must handle: its starting state, its side, its

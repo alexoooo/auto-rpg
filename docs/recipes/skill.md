@@ -1,18 +1,113 @@
 # Developing a skill
 
-How a skill goes from a request to something the owner sees in the game: a reader scoring the skill's
-value, what the body can do, a native controller that already succeeds on some cases, then a
-learned actor over it. [The training recipe](training.md) is the last of these steps. Each step's output
-is the next step's input; a step skipped is how days pass without a kept gain.
+How a skill goes from a request to something the owner sees in the game: the rules every piece of
+skill work keeps, then the steps in order. Skill work is any change to a skill, an Option, a
+body's control, a training run or a table cell. Read this page before starting it; its rules bind
+as [AGENTS.md](../../AGENTS.md)'s do. [The training recipe](training.md) is the steps' last part,
+[the table](../reference/the-table.md) is how a skill is read, and
+[the approaches](../approaches.md) is what has been tried.
 
-## 1. The reader and its score
+## The rules
+
+### One row, one question
+
+- **A run works one skill on one body**: one row of [the table](../reference/the-table.md), its
+  loadouts the cells. A wider goal is worked a row at a time, each brought to a kept gain or a
+  named ceiling before the next opens. A run's report is the table's lines for its rows as the
+  run began and as it ends (`npm run evaluate -- table --body <model> --skill <name>`), each cell
+  better, worse or within noise, the worse ones first.
+- **An iteration is one question**: one implementation changed, read paired against the one
+  before (`--previous`, `npm run match`), kept or dropped with the reason in the commit message,
+  and in the approaches when the reason is the mechanism's. A live alternative stays only while an
+  open question uses it.
+- **A run answers a decision**: name the question and what each answer would change first. Play
+  only what the decision reads; screen small (one body, one loadout, calm air) and widen where it
+  is close. Price a run from its first trials (a training run from its first chunk's rate, never
+  its first returns). Keep what is played as rows and reuse them: a saved reading answers a
+  question before a new one is played (`--by`).
+
+### The approach
+
+- **Choose an approach that can work.** Before a goal's work starts or changes direction, read its
+  section of [the approaches](../approaches.md) and `git log -i --grep=<skill>`. The plan names
+  the mechanism that does the part that fails today and the entries it was checked against; a
+  ruled-out approach is taken up again only with evidence that its cause no longer holds. A
+  mechanism that fails for a structural reason is replaced, never tuned.
+- **An approach is stopped by evidence, never by the clock.** Before an approach's work starts,
+  name its signal (the reading that moves if its mechanism does the part that fails today) and
+  the result that would show the mechanism cannot. Read the signal the cheapest way first: the
+  failing part alone, on a few cases. While the signal moves the work goes on, however long; an
+  approach's cost is priced and reported, and is never the reason to pass it over. An approach
+  stops when its signal stays flat: a search or a training run at its recipe's plateau, other
+  work after three changes of different kinds aimed at the named cause. Its best is kept, the
+  approaches say whether the mechanism or its settings limit it, and the next approach starts.
+- **A failure's cause is a constraint in [the approaches](../approaches.md)**, written in the
+  commit that drops the attempt: what the mechanism cannot do, why, and the evidence commits. A
+  reading that ends short says whether the mechanism or its settings limit it, and never ends on
+  the next tweak of a ruled-out mechanism.
+
+### What a change is kept on
+
+- **A change is kept when it raises the skill's value.** The value is what the skill gains in
+  play, in the game's own terms (the time an order takes, the life a blow takes and costs, the life
+  a guard keeps), read on the game's cases paired against the version before, beyond the spread
+  of one version read twice. Every effect is priced in it: a fall costs its time down, its rising
+  and what is lost meanwhile. No figure is a gate and no effect vetoes a change; a change to a
+  shared piece adds its gains and losses on every skill it touches and reports each. A skill's
+  first reading when its work begins is its baseline (`npm run evaluate -- table --baseline`
+  names it where the cell has none).
+  Where an iteration brings no gain, its best is kept and its ceiling named from a reading (the
+  body, the controller or the drill).
+- **What a change is judged on**: a record or a variant on its own body; a shared piece on every
+  body. A body a shared change sets back is searched again on the new code first; a setback that
+  remains is a defect in its path or the reason it gets a record or a variant of its own, never
+  the reason to reject the change.
+- **A bug is fixed to its own layer's contract**, never judged by a reading above it; what the fix
+  breaks above is a defect there, fixed next in the same push. A table cell that drops meanwhile
+  is named in the commit.
+- **Reference figures are a scale**: a person's or one the owner names, reported beside each
+  reading; they decide nothing.
+
+### The claim
+
+- **A claim that a skill is better is its table cell**: the cell's line from
+  `npm run evaluate -- table`, read at the commit claimed (the commit its line shows), its value
+  against its baseline and its Ratings link. The table plays the game's Mind with what is
+  installed, so a skill the Mind does not use moves no cell and is reported as not in the game. A
+  reading on a drill, a search or a training screen is progress toward a claim and never the claim.
+- **A fresh agent checks a claim before it is reported**: a subagent given the claim, the cell's
+  link and the game in a browser, and no account of the work, watches the cell's reel, failures
+  first, then the skill in the screen that uses it, and says what it saw. The report carries its
+  words beside the claim; where they contradict it, the claim is withdrawn.
+- **Compare minds alike**: the same scenarios, bodies, physics, assists and scoring, results by
+  opponent, fresh cases to confirm a gain. A claim is `npm run match`; a mind's figure from
+  another commit or protocol is read again before it is compared with another mind's.
+- **Name the harness** of every figure (Node stand or page, engine, rate); say whether a peak was
+  driven or struck; read the faster physics rate at the slower one's spacing; believe the stand
+  over the fight; never one seed. A conclusion is void once its reference is corrected.
+
+### An Option's code
+
+- **An Option's profile measures its outcomes**, falls among them, so the Mind prices its risk.
+- **One act an Option**: one skill used one way, its limbs, target and aim; what Options share is
+  code they call, never a kind of Option that makes one of each.
+- **No body is named in control code**: settings are a record per body (`SkillRecord`,
+  `recordFault`); other logic for a body is a skill only that body fits.
+
+## The steps
+
+Each step's output is the next step's input; a step skipped is how days pass without a kept gain.
+A skill that exists enters at the step its failing part belongs to.
+
+### 1. The reader and its score
 
 - **Read physical facts**: contact by collider, speed, energy, path, falls, where the limb ends.
   An executor's phase labels are not evidence.
-- **One graded score a trial: the skill's value** ([AGENTS.md](../../AGENTS.md#developing-skills-and-options)),
-  every effect priced in it, a fall at what it costs in play. Form the owner asks for (a blow's
-  shape) is part of the score, graded by nearness, not a pass or fail. The same score is the
-  search's objective, the training reward and the reading a change is kept on.
+- **One graded score a trial: the skill's value**
+  ([What a change is kept on](#what-a-change-is-kept-on)), every effect priced in it, a fall at
+  what it costs in play. Form the owner asks for (a blow's shape) is part of the score, graded by
+  nearness, not a pass or fail. The same score is the search's objective, the training reward and
+  the reading a change is kept on.
 - **Show the reader scoring the visible failure low**, for a physical reason, before anything is
   searched.
 - **Build only the primary screen first**: the reader, one fixture, one hand, one loadout, one
@@ -21,7 +116,7 @@ is the next step's input; a step skipped is how days pass without a kept gain.
 - **Develop against a target that lets the case happen.** A drill opponent's guard in front of
   the mark fails a good blow for the target's stance; the guarded target is a later case.
 
-## 2. What the body can do
+### 2. What the body can do
 
 - **Find what the body can do before building a controller**: a search with the skill's channels
   pushed flat out, or its controller's limits wide, scored on the skill's value.
@@ -33,7 +128,7 @@ is the next step's input; a step skipped is how days pass without a kept gain.
   (shoulder, elbow, then a wrist cock and snap); a run's from flight. Declare that mechanism as a
   phase of the motion, so the form term reads it rather than forbids it.
 
-## 3. A native controller that succeeds on some cases
+### 3. A native controller that succeeds on some cases
 
 - **Name the mechanism that makes the motion** (foot placement from balance for a start or a stop,
   timed pushes for a blow) and check it against [the approaches](../approaches.md). A controller
@@ -46,10 +141,10 @@ is the next step's input; a step skipped is how days pass without a kept gain.
   its first generation; a search learns over tens of generations. A plateau is ten generations
   without a better best.
 - **Before training, it succeeds on some held-out cases**: the sign the mechanism works. The straight punch's
-  schedule landed 8 of 60 before training took it to 35. A controller that succeeds on none is
+  schedule landed 8 of 60 before training took it to 92 %. A controller that succeeds on none is
   not a seed: change the controller, or go back to feasibility. Training does not make up for it.
 
-## 4. A learned actor over it
+### 4. A learned actor over it
 
 Follows [the training recipe](training.md). What is particular to a new skill:
 
@@ -61,7 +156,7 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 - **Start from scratch or from this skill's own earlier actor.** Another skill's network starts
   behind scratch.
 
-## 5. Widen and confirm
+### 5. Widen and confirm
 
 - Add what step 1 held back, one at a time, as episodes and cases: the other hand, loadouts,
   rates, approaches, moving targets, the guarded target, misses and cancellations. Each keeps the
@@ -69,10 +164,9 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 - Confirm on held-out cases once, on the chosen checkpoint or record.
 - Register it in Option Mind, install its record in the game and read its profiles; a drill
   Commander using it alone does not show the Mind uses it.
-- Play its table cells (`npm run evaluate -- table --body <model> --skill <name> --fresh`). The
-  claim is the cell against its baseline, checked by a fresh agent
-  ([AGENTS.md](../../AGENTS.md#doing-the-work)); a good drill reading with a cell that did not
-  move is a skill the game does not use.
+- Play its table cells (`npm run evaluate -- table --body <model> --skill <name> --fresh`) and
+  make [the claim](#the-claim); a good drill reading with a cell that did not move is a skill the
+  game does not use.
 
 ## Traps
 
@@ -82,7 +176,6 @@ Follows [the training recipe](training.md). What is particular to a new skill:
   nothing to keep.
 - **A fixed bar deciding what is kept**: a gain short of an arbitrary number is thrown away.
 - **A form term that forbids the mechanism its figure needs.**
-- **Waiting for approval** to run a search or a training block.
 - **Reporting the drill**: the search's or the screen's figure given as the skill's, with the
   record never installed or the Mind never choosing it.
 - **Reading a record change on stale profiles**: a technique's digest covers its body's whole

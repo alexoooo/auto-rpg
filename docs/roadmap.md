@@ -1,7 +1,8 @@
 # Roadmap
 
-Where the project is going and what is open. What is built is in the
-[architecture](architecture.md).
+What is in work now, what is next, and what is open. What is built is in the
+[architecture](architecture.md); how each skill reads now is
+[the table](reference/the-table.md) (`npm run evaluate -- table`).
 
 ## Where the project is going
 
@@ -21,22 +22,41 @@ Where the project is going and what is open. What is built is in the
 - **Later**: an end-to-end learned controller on the muscles; a Ladder of Arena bouts; a Crypt
   party commanded by a person or an AI.
 
-## Plans in flight
+## Now
+
+**The Warrior's punch**: the table's `punch` row on `workshop-fighter`
+([its plan](plans/2026-11-10-warrior-punch.md)). The next row opens when this one stands at a
+kept gain or a named ceiling ([the skill recipe](recipes/skill.md#one-row-one-question)).
+
+The standing goal behind it: every cell of the table raised from its baseline, a row at a time,
+each skill on every body and loadout as good as it can be made.
+
+## Next
+
+In order; each is a row of the table or one question, taken up when the one before it lands.
+
+1. **Stand-up on the Rogue and the Skeleton.** Their rows are the table's slowest against the
+   Warrior's, and a body's time to stand prices every fall in its other cells.
+2. **The Warrior's bonk with the buckler**, which never meets the head
+   ([its plan](plans/2026-11-05-warrior-bonk.md)).
+3. **The Warrior's cut and thrust**: the grip and the edge's alignment before another search
+   ([the approaches](approaches.md#weapon-strikes)).
+4. **The Warrior's start from a stand**: a controller that places feet by balance under the run
+   ([its plan](plans/2026-11-05-warrior-travel.md)).
+5. **Blows in fights**: Option Mind's footwork, places round the foe chosen by its reach and
+   striking arc, so the blows that land in the drill land in a bout.
+
+## Parked plans
+
+Each holds its goal, where it stands and its next question, and is taken up from there.
 
 | Plan | What it builds |
 | --- | --- |
+| [Warrior travel](plans/2026-11-05-warrior-travel.md) | the Run from a stand with no braced step, slow paces, the stop, directions, manoeuvres and loadouts |
+| [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an overhead club strike at the head with either hand, with and without the buckler: the buckler cell, then a learned steer |
 | [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
-| [Options trained body by body](plans/2026-11-03-options-training.md) | every table cell raised from its baseline: stand-up on every body and loadout, the run on the Warrior and the Rogue, the strikes on every body |
-| [Warrior travel](plans/2026-11-05-warrior-travel.md) | first milestone: preserve 4 m/s from-rest entry while training stops; then the Run from a stand with no braced step, directions, manoeuvres and loadouts |
-| [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an intentional overhead club strike at the head with either hand, with and without the buckler, returning to guard: a graded reader, a searched push schedule, then a learned actor |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
-
-Now: the Warrior's [travel capabilities](plans/2026-11-05-warrior-travel.md) and
-[bonk](plans/2026-11-05-warrior-bonk.md), with recovery performance preserved; the remaining Option control
-contracts and body-by-body training, the rat's open
-steps, fights the owner watches, the Strike and Footwork rungs, and the Commander in the Crypt
-with Option Mind as its hero.
 
 ## Waiting on the owner
 
@@ -63,6 +83,9 @@ with Option Mind as its hero.
 - The Crypt's commands (H, X, Q, E, right click), the level-clearer (`&party=clearer`) and the mob.
 
 ## Open, by layer
+
+What no plan and no row above carries. A skill that reads low is a cell of the table, not a line
+here.
 
 ### Framework
 
@@ -94,13 +117,9 @@ with Option Mind as its hero.
   0.7 m/s and the run's turns need it held.
 - Braking: the walk's pace ramp, and the stance envelope measured again at it.
 - The stance asked to stand a lying body diverges; no mind asks it.
-- The Warrior's [travel](plans/2026-11-05-warrior-travel.md): its start, slow paces and stop; the club throws the Rogue's run.
-- Stand-up time, every body in every loadout, beside the [owner's 10 s](reference/rising.md#the-owners-target); the Rogue's arms on hands and knees; the Skeleton holding the club.
 - The Warrior's stand-up: on hands and knees with the club and buckler the hands bear almost
   nothing and the trunk sinks back; the sit-back hands over to the stance still on its knees and
   lurches into a split stance; its sword falls rise a second past 10 s.
-- Strikes on every body: the punch, then sword, club and buckler; the stomp on the Warrior and
-  the Rogue.
 - The Rogue's stomp holding a club or a sword never chambers: each try runs about 10 s
   uncommitted and stalls (`withdrawal deadline`), and Option Mind chases it, priced by its prior.
 - Holds and equipment: shield and weapon lines, two hands on one item (a closed chain), equipped
@@ -114,13 +133,10 @@ with Option Mind as its hero.
 ### Blows and wounds
 
 - Not built: a part's own tolerance, the face apart from the head, armour, edges and points.
-- The fist's threshold against a head; read again before a punch is trained on the head.
-- A punch at the head goes around or over the guard, or waits for it to open.
 - Striking a body that is down waits on faster rises.
 
 ### The AI
 
-- Option Mind's footwork: places around the foe chosen by its reach and striking arc.
 - An approach to a downed target, to check: it stops within its tolerance and keeps its chosen
   side as the target moves (the Skeleton's stopping path, the Rogue's side through the stomping
   approach).
@@ -130,9 +146,6 @@ with Option Mind as its hero.
 - The foe's phase reads `rising` in bursts only.
 - Nothing in the rules costs effort; fatigue only if a trained mind strikes without pause.
 - Options chosen by profile: targets after a guard, spacing, ground choices, obedience.
-- Option Mind's decision cost: reduce mean and tail time at 100 tree runs, and justify the
-  ownership and lifetime of search-path allocations
-  ([Option Mind's speed](plans/2026-11-04-option-mind-speed.md)).
 - The measured stomp profiles, which waited on a chooser that prefers a strike sooner, are read
   again under the tree.
 - A predicted state reads the body's real view, then a predicted foe: begun when the tree's lost

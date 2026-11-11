@@ -13,9 +13,9 @@ records and training checkpoints as seeds, replayed on this body before reuse; t
 readings on this body are the baseline, taken before the body or controller changes. Every body
 change is read on recovery as well.
 
-This plan owns the Warrior's movement within [Options trained body by
-body](2026-11-03-options-training.md). The Rogue's run remains that plan's. Warrior recovery is
-serviceable for this work: a change here that costs recovery reports the cost beside its gain.
+This plan owns the Warrior's movement: the table's `run` row on `workshop-fighter`. Warrior
+recovery is serviceable for this work: a change here that costs recovery reports the cost beside
+its gain.
 Body and controller changes serve travel and recovery together. A changed toe or other body part
 retains the recovery capability; calibrate and read both skills on the changed body before keeping it.
 
@@ -65,7 +65,7 @@ new start.
 The travel's value is the time from an order to the body standing, or moving as asked, where the
 order asks, on the screen's cases of the game's orders. A fall costs its time down and its rising;
 a place missed costs the time to correct it. A change is kept when that time falls, paired
-against the version before ([AGENTS.md](../../AGENTS.md#developing-skills-and-options)). The
+against the version before ([the skill recipe](../recipes/skill.md#what-a-change-is-kept-on)). The
 figures below are read beside it on every case, in the direction named, to show where the time
 goes; none is a gate. The owner's 4 m/s forward is the reference mark beside the held speed.
 
@@ -193,77 +193,40 @@ A moving-start run does not read entry from rest, and a higher requested speed d
 lower order the configured Mind must obey: confirmation reads the value and figures on the
 actual orders and the cases of [Value and figures](#value-and-figures).
 
-## Development reading
+## Where it stands
 
-From a stand, a Dungeon click 9 to 12 m off has the Option Mind go by the Run at once; the Run
-turns on the spot at about 0.2 m/s for 1.5 s, walks by the stance's walk at about 1 m/s, and
-runs from 2.8 to 3.3 s after the order (Node, Warrior with the sword, seeds 1 and 6).
+The row, from saved results: `npm run evaluate -- table --body workshop-fighter --skill run`. Each
+loadout loses 6.8 to 7.1 s against the orders of the Travel confirmation protocol, falling on
+none and ending down on 9 to 25 of 312.
 
-The Node Option Mind development screen runs at 120 Hz, unassisted, empty-handed and in calm
-air. The retained restored seed meets all twelve from-rest entry-and-hold cases and all eight
-moving holds, with a mean slowest held speed of 4.731 m/s. Its stop reading is zero of twenty,
-with nineteen falls during stopping.
+The actor of the curriculum's game-orders stage is the one the Warrior's walk-run record holds
+(`assets/skills/locomotion/walk-run/walk-run.json`), and the game's Run gait uses it. The
+per-phase machinery work step 2 deletes (`slowVelocity`, `trainingActor`) is still in the code.
 
-The slowing stage's actor (`research/runs/warrior-travel/slowing/`) keeps the forward run and
-adds slowing: zero falls, twelve of twelve entries, eight moving holds, a mean slowest held speed
-of 4.52 m/s, and every slowing order from 3.5 to 1.5 m/s met. The 1 m/s order runs at 1.4 to
-1.7 m/s. Stops after slowing meet on eight of eight cases from 1 m/s (1.0 to 1.6 s) and seven of
-eight from 2 m/s; from 3 m/s three of eight; a direct stop from the forward run meets none, taking
-2.4 to 3 s to come under 0.15 m/s. Its stops are slow. From rest it enters only on the
-forward case's 4 m/s order: on the game's orders it falls on 28 of the screen's 124 cases and
-reaches 4 of its 28 places, the 3 m ones, which it walks. Its input normalisation, frozen from
-the first stage, saturates the asked pace below 3.4 m/s.
+What limits it is named in [the approaches](../approaches.md#travel): the clip cycle has no gait
+between the stance's walk and its slowest clip (2.75 m/s), so a start from a stand, a pace below
+that clip and a quick stop are not its to give, and more training of this actor on them does not
+move the row.
 
-The game-orders stage starts from it (`--start`, its normalisation measured anew) on every
-earlier stage's episodes and the game's places, then trains on with direct stops from the forward
-run and with the sword the Warrior carries. Its 13 M checkpoint, which the Warrior's walk-run
-record (`assets/skills/locomotion/walk-run/walk-run.json`) holds, so the game's Run gait uses it,
-falls on none of the screen's 140 cases (game cases carrying the sword) and meets 68: 22 of 44
-places, 8 of 12 paces from a stand and 38 of 64 slowing orders. Its stops from 3.4 to 4.2 m/s
-brake at 1.6 to 2.0 m/s², but it follows a falling pace slowly: with the navigator planning by
-1.5, 1.0 or 0.5 m/s² it overshoots and meets 0, 2 and 9 places, so the Run states 0.2
-(`Locomotion.stopping`). Trained 5 M on at 1.5 m/s² (the same episodes), it meets 5 to 12 places
-with 1 to 6 falls a checkpoint, in slowing to 1 or 2 m/s and in stops. In the Dungeon (hero sent
-to the farthest enemy, 16 seeds of 60 s) the Option Mind follows the order by the gait it values
-most and runs 101.7 m in all; the Run falls on 2 seeds, one into a foe at 0.7 m, one where it
-slows to about 1 m/s off its heading and hands the walk a body it cannot catch. Asked to slow
-from 2.3 to 1.3 m/s into a corner, it neither slows nor turns, drifts toward a wall, and brakes
-there in a long leap. The stance walk taking over at the body's own speed, rather than from a
-standstill, removes that fall but costs the screen 3 falls and 10 slowing orders on this actor.
+## The next question
 
-Its native record raises the braking reference's rate to 5 m/s²; at 3.2 m/s² the same curriculum
-met stops after slowing to 3 m/s on one of eight. Without the actor the native run falls, so a
-native change is read only after retraining. A stop from the forward run loses its time in three
-places: the run's slowest cycle is the 2.75 m/s clip, and below it the run holds near 2.5 m/s for
-about a second; each braking stance is followed by a flight phase that does not brake; and the
-run gives way to the walk only at a landing under the walk's top pace, after which the stance
-walk takes 0.5 to 0.9 s to come under 0.15 m/s. Handing over at up to 1.4 m/s saves about 0.3 s;
-the walk handed a body above 2 m/s falls. Training stops after slowing to 3 m/s as the newest
-order raises those to six of eight at best, at the cost of the 1 m/s order and the stops from
-2 m/s. Holding the braking stance's knee and ankle at mid-stance under the slowest clip, so the
-stance stays planted until the other foot lands, removes most flight but leaves direct stops at
-2 to 3 s after retraining, with more falls between checkpoints. The stance walk's acceleration
-does not shorten its part. The remaining limit is the lack of a gait between the walk and
-2.75 m/s, which the clip cycle cannot supply ([the approaches](../approaches.md#travel)).
+Work step 4: which of the two candidates of
+[Start, slow paces and the stop](#start-slow-paces-and-the-stop) starts the body from a stand
+without falling. Its signal is the Start and Short place cases
+(`research/skills/locomotion/travel-screen.mjs`, phases `start` and `short`; Node, 120 Hz,
+unassisted, the Warrior with the sword), where the installed record meets none and falls on none.
+A candidate that starts none of the eight headings after its three changes shows the mechanism
+cannot, and is written into the approaches.
 
-On the Start and Short place cases (`travel-screen.mjs`'s `start` and `short` phases, Node,
-120 Hz, unassisted, the Warrior with the sword) the installed record meets none and falls on none:
-its starts move the centre of mass toward the way 0.76 to 1.09 s after the order by 4 to 39 steps
-of the stance's walk, and it stands at every short place within 0.17 to 0.23 m by 3 to 42 of them.
+## To pick it up
 
-A start that begins the cycle on the order, with no stance step, meets at best 2 of 8 starts (the
-ways 45 degrees off) and no short place, falling on 21 of the 24 cases, with slower clips, a foot
-landing turned toward the way, a capture-point handover at the stop and the cycle's run and
-braking searched through the Option Mind; the installed actor on it falls on 23 or 24. The cycle's
-limits are in [the approaches](../approaches.md#travel).
+- The seeds and the development cases: `research/runs/warrior-travel/README.md`.
+- Screen a record: `research/skills/locomotion/warrior-travel.mjs --settings <record>`, then the
+  `travel` evaluation's minimum protocol.
+- Work goes under `.tmp/warrior-travel/`.
 
 ## Completion
 
-The plan lands when its work steps are built and no change left to try raises the value, its
-ceiling named from a reading. Until then each change
-raises the travel's value on every loadout, read on the confirmation conditions with complete
-case coverage and confirmed directional and turning envelopes; a plateau names its limit from a
-reading. The table names the actual protocol, body, loadout, harness and current version. Implementation checks
-follow [AGENTS.md](../../AGENTS.md#doing-the-work); capability evidence lives in drills and paired
-evaluations. A claim is the run's table cells, checked by a fresh agent. Delete this plan when the work lands and place the resulting movement
-contract in the reference documentation.
+The plan lands when its work steps are built and no change left to try raises the row's value,
+its ceiling named from a reading. The movement contract then goes into the reference
+documentation and this plan is deleted.

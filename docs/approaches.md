@@ -1,8 +1,7 @@
 # Approaches
 
-What each approach to a goal can and cannot do, and why. Read a goal's section, and
-`git log -i --grep=<skill>`, before choosing how to reach it
-([AGENTS.md](../AGENTS.md#doing-the-work)). Each entry names the mechanism, the constraint, its
+What each approach to a goal can and cannot do, and why. Read a goal's section before choosing
+how to reach it ([the skill recipe](recipes/skill.md#the-approach)). Each entry names the mechanism, the constraint, its
 cause and the commits that show it (`git show <commit>` reads the story). An entry changes only
 when new evidence contradicts it, cited the same way; a cleanup never removes one.
 
@@ -44,7 +43,15 @@ Confidence: *repeated* (shown three or more times), *shown* (once or twice, plai
   travel blocks were rejected one after another at none of seven gates (`7db04797`); the stomp's
   bar went from 6.4 to 3.0 m/s within an hour of landing none (`bcd4f589`, `1d958355`); the club's
   bar moved five times, among them `41766c12`. A skill is read by its value against the version
-  before ([AGENTS.md](../AGENTS.md#developing-skills-and-options)). *Repeated.*
+  before ([the skill recipe](recipes/skill.md#what-a-change-is-kept-on)). *Repeated.*
+- **A strike cell is low where the Mind refuses its cases before it is low where the blow
+  misses.** The drill orders each blow at the high and the middle mark with each hand, a blow not
+  begun counts 0, and an Option takes only its own regions with the hands that can throw it. Every
+  blow but the bonk is offered at the middle mark alone, so half of each of its readings is
+  refused, and three quarters or more where one hand holds an item: the Warrior's punch is refused on 32
+  of 32 high cases still and 64 of 64 walking, and lands 23 of 32 and 47 of 64 at the middle
+  (`9dd4c338`). Read a cell's outcomes by mark and hand (`--by`) before working on the blow.
+  *Shown.*
 - **A strike bar that reads speed or touch alone accepts nudges, chops and bent-arm pushes**: a
   blow's worth is the mass behind the fist (`54a592aa`, `127eb165`, `ed11435a`). Since `3d6b1a01`
   `landed` counts any completed touch with the striking face, in the drill and the training reward,
@@ -80,7 +87,11 @@ steps and walks to about 1.7 m/s straight (`af46f126`, `62c7a814`).
   Slower clips (CMU 16_15, 16_21), a foot landing turned, a capture-point handover at the stop and
   searched braking met 2 of 8 starts and no short place, falling on 21 of 24 (`0c959c5a`); slow
   orders fell before (`70b08c6a`); a jog clip scored lower (`bf9cbbc0`); harder braking never
-  stopped a 4 m/s run within 2 s (`4813e84b`, `840a8ac0`, `4582c7c2`). These phases need a
+  stopped a 4 m/s run within 2 s (`4813e84b`, `840a8ac0`, `4582c7c2`). A stop from the run loses
+  its time in three places: below the slowest clip the run holds near 2.5 m/s for about a second,
+  each braking stance is followed by a flight that does not brake, and the stance's walk takes the
+  body only at a landing under its own top pace (handed one above 2 m/s it falls) and then needs
+  0.5 to 0.9 s to stand (`840a8ac0`). These phases need a
   controller that places feet by balance. Untested candidates: a learned actor trained on starts
   from rest with the swing foot's landing in its action; a capture-point stepper built to
   accelerate to the cycle's pace. *Repeated.*
@@ -165,7 +176,15 @@ ward (below).
   bonk from 96 to 63 J (`9ef3f183`); a blow searched at one rate misses at the other (`a6e778e2`).
   *Repeated.*
 - **An open-loop blow strikes where the target stood when it committed**: moving targets need a
-  steer inside the stroke (`ac95c74d`, `79b2631c`). *Shown.*
+  steer inside the stroke (`ac95c74d`, `79b2631c`); walking in, the bonk mostly meets the head with
+  the shaft before the swell (`7ed3c982`). *Shown.*
+- **The bonk's time is its footwork's steps, not its footing.** From the action's start to contact
+  at a 1 m gap takes 1.9 s, 1.36 s of it the two steps that set the feet, each a weight shift and
+  a swing. A foot arriving from a walk is never within the 2 cm a placed foot needs
+  (`PLACING.near`), so both feet step wherever the footing is. A search of the footing alone found
+  none faster, and placing within 8 cm cut the footwork from 2.0 to 1.6 s without landing more;
+  the swing without its footing lands 1 of 16 (`c460c637`, `f61dd813`). A faster bonk takes fewer
+  or quicker steps. *Shown.*
 - **The sword's cut fails on its edge's orientation and the thrust on the grip's geometry, not on
   speed**: the grip lays the blade square to the hand (`13ad8999`, `8b2fee9e`, `9ca0a63d`). The
   grip, the wrist's range or an alignment term in the score comes before another search.

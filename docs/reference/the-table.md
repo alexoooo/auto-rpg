@@ -41,24 +41,24 @@ leaves zero on that side, else within noise.
 `src/evaluation/results.ts`) and prints the grid: each cell's value and its mark against its
 baseline. Asked for some cells (`--body`, `--skill`, `--loadout`), it prints their lines after the
 grid: the cell, then a line a reading with its figures, how many trials came to each outcome, its
-baseline and its Ratings page. `--by <field>` adds the outcomes at each value of one field of the
-conditions (`mark`, `hand`, `gap`, `start`), so where a cell loses is read from its saved trials.
+baseline and its Ratings link. The link follows the game's address, the built game served on a
+port of its own (`npm run build`, then `npm run preview -- --port <port> --strictPort`).
+`--by <field>` adds the outcomes at each value of one field of the conditions, any of them
+(`mark`, `hand`, `gap`, `across`, `start`), so where a cell loses is read from its saved trials.
 A result keeps a few numbers a trial, what its judge needs (`keep`), and its outcome, by the name
 of the trial's condition, so the table plays nothing to read.
 
 The table reads the game's rate, 120 Hz. 480 Hz is held out: a search and a confirmation read it
-beside 120 Hz ([the skill recipe](../recipes/skill.md)), and no cell does. It derives the required cases from each current protocol. A reading stands as it
-was read, shown with the commit and date it was read at, until its cell is asked for again
-(`--fresh`): its trials answer the protocol's cases by condition, so a change to the code asks for
-no replay.
+beside 120 Hz ([the skill recipe](../recipes/skill.md)), and no cell does. The cases a reading
+must hold are its protocol's as it is now. A reading stands as it was read, shown with the commit
+and date it was read at, until its cell is asked for again: its trials answer the protocol's cases
+by condition, so a change to the code asks for no replay.
 
 `npm run evaluate -- table --play --workers 22` plays each reading that has no whole result and
-keeps it; a whole reading is kept, so a change to the code plays
-nothing. `--fresh` plays the readings of the cells asked for (`--body`, `--skill`, `--loadout`)
+keeps it. `--fresh` plays the readings of the cells asked for (`--body`, `--skill`, `--loadout`)
 again on the code now; the stand-up reading that prices a fall is played again only where a cell
 asked for reads it. Both play one reading at a time, each to evaluate's budget (`--budget`, 10 minutes): a pass keeps every
 trial it plays (`.tmp/evaluations/`) and every complete unit in its result, names a reading that failed at its end and
 plays the rest, and with `--baseline` names a cell's baseline as soon as its reading is whole.
 Passes are repeated until none plays. Node, core world, 120 Hz, each command 1 step late
-(`COMMAND_DELAY`). The report names the
-commit and date each reading was read at. A reading that is not whole cannot become a baseline.
+(`COMMAND_DELAY`). A reading that is not whole cannot become a baseline.

@@ -1,8 +1,8 @@
 # Working on Auto-RPG
 
-The rules for working here. [README](README.md) says what the game is; the
-[architecture](docs/architecture.md) how it is built; the [roadmap](docs/roadmap.md) where it is
-going.
+The rules every change keeps. [README](README.md) says what the game is; the
+[architecture](docs/architecture.md) how it is built; the [roadmap](docs/roadmap.md) what is in
+work now and what is next.
 
 ## Commands
 
@@ -15,7 +15,9 @@ npm run build             # type-check, then the bundle
 npm run pull:merge        # fetch, merge, validate once, commit; -- --continue after resolving conflicts
 npm run match -- <a> <b>  # two minds, each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases where no row has them; --write keeps its results
-npm run evaluate -- table [--play] [--baseline]   # every body, loadout and skill: its value against its baseline; --play plays only what has no result
+npm run evaluate -- table                         # the grid from saved results: every cell's value against its baseline; plays nothing
+npm run evaluate -- table --body <model> --skill <name> [--by <field>]   # a row's lines from saved results, its outcomes by a condition's field; plays nothing
+npm run evaluate -- table [--play] [--baseline]   # --play plays only what has no result; --baseline names a cell's first reading
 npm run evaluate -- table --body <model> --skill <name> [--loadout <left,right>] --fresh   # one cell or row, played again on the code now
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 node scripts/fingerprint.mjs          # what the game computes, before and after a refactor
@@ -30,19 +32,13 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   skill belongs in its plan or record. A principle the owner states is applied by finding every
   place the old rule lives, documents and code, and changing them all; an exception needs the
   owner's own words.
-- **A run works one skill on one body**: one row of [the table](docs/reference/the-table.md),
-  its loadouts the cells. A wider goal is worked a row at a time, each brought to a kept gain or
-  a named ceiling before the next opens. A run's report is the table's lines for its rows as the
-  run began and as it ends, each cell better, worse or within noise, the worse ones first.
-- **Choose an approach that can work.** Before a goal's work starts or changes direction, read its
-  section of [the approaches](docs/approaches.md) and `git log -i --grep=<skill>`. The plan names
-  the mechanism that does the part that fails today and the entries it was checked against; a
-  ruled-out approach is taken up again only with evidence that its cause no longer holds. A
-  mechanism that fails for a structural reason is replaced, never tuned.
-- **A failure's cause is a constraint in [the approaches](docs/approaches.md)**, written in the
-  commit that drops the attempt: what the mechanism cannot do, why, and the evidence commits. A
-  reading that ends short says whether the mechanism or its settings limit it, and never ends on
-  the next tweak of a ruled-out mechanism.
+- **Skill work follows [the skill recipe](docs/recipes/skill.md)**: a change to a skill, an
+  Option, a body's control, a training run or a table cell. Read it before starting; its rules
+  bind as these do: one row of the table at a time, an approach checked against
+  [the approaches](docs/approaches.md), a change kept on the skill's value, a claim that is its
+  table cell checked by a fresh agent. Training follows
+  [the training recipe](docs/recipes/training.md). Work of a kind that has a recipe in
+  `docs/recipes/` follows it.
 - **What works is not deleted as cruft**: a capability goes only after a reading on the game's
   cases shows what replaces it does as well. A change under a body (anatomy, engine, rate, timing)
   reads every skill on it in the same change, and its commit names each loss.
@@ -55,39 +51,10 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   commands or configuration changes also get the checks their behaviour requires.
 - **No measurement unless the question is a measurement.** A feature lands without a battery or a
   fingerprint. Look in a browser, briefly, when the change is something to see.
-- **A run answers a decision**: name the question and what each answer would change first. Play
-  only what the decision reads; screen small (one body, one loadout, calm air) and widen where it
-  is close. Price a run from its first trials (a training run from its first chunk's rate, never
-  its first returns). Keep what is played as rows and reuse them.
 - **Keep going without asking.** No run, training block or search waits for the owner's
   approval, however long it takes. A progress report, each hour with paired readings, is a
   message and never a pause; the owner interrupts when they want something else.
-- **An approach is stopped by evidence, never by the clock.** Before an approach's work starts,
-  name its signal (the reading that moves if its mechanism does the part that fails today) and
-  the result that would show the mechanism cannot. Read the signal the cheapest way first: the
-  failing part alone, on a few cases. While the signal moves the work goes on, however long; an
-  approach's cost is priced and reported, and is never the reason to pass it over. An approach
-  stops when its signal stays flat: a search or a training run at its recipe's plateau, other
-  work after three changes of different kinds aimed at the named cause. Its best is kept, the
-  approaches say whether the mechanism or its settings limit it, and the next approach starts.
-- **A skill is developed by [the skill recipe](docs/recipes/skill.md)**: a graded score, a
-  feasible bar, a native controller that succeeds on some cases, then training.
-- **Training follows [the training recipe](docs/recipes/training.md)**: one actor a skill, a run
-  of millions of decisions, checkpoints chosen on the evaluation's cases, a retrain after any
-  change under the actor. Work of a kind that has a recipe in `docs/recipes/` follows it.
-- **An iteration is one question**: one implementation changed, read paired against the one
-  before (`--previous`, `npm run match`), kept or dropped with the reason in the
-  commit message, and in the approaches when the reason is the mechanism's. A live alternative
-  stays only while an open question uses it.
-- **A claim that a skill is better is its table cell**: the cell's line from
-  `npm run evaluate -- table`, read at the commit claimed (the commit its line shows), its value against its
-  baseline and its Ratings link. The table plays the game's Mind with what is installed, so a
-  skill the Mind does not use moves no cell and is reported as not in the game. A reading on a
-  drill, a search or a training screen is progress toward a claim and never the claim.
-- **A fresh agent checks a claim before it is reported**: a subagent given the claim, the cell's
-  link and the game in a browser, and no account of the work, watches the cell's reel, failures
-  first, then the skill in the screen that uses it, and says what it saw. The report carries its
-  words beside the claim; where they contradict it, the claim is withdrawn.
+- **Failures are reported as failures**: passing checks and a better battery are not completion.
 - **Landing**: name the checks run and any failure left; commit each landable change on main. A
   branch only when the owner asks. Never push unless asked.
 - **Pull and merge** with `npm run pull:merge`; resolve conflicts by meaning, stage only those
@@ -110,16 +77,17 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 | Document | Holds |
 | --- | --- |
-| `README.md` | what the game is, its screens, how to run it |
-| `AGENTS.md` | commands, rules no test enforces, the traps that have bitten |
+| `README.md` | what the game is and how to run it |
+| `AGENTS.md` | commands and the rules every change keeps |
 | `docs/architecture.md` | the layers, their contracts, where each lives |
-| `docs/roadmap.md` | current goals and open items, one line each; the plans in flight |
-| `docs/plans/` | work the owner asked for over several sessions, in flight; deleted when it lands |
+| `docs/roadmap.md` | the one row or goal in work now, what is next in order, what is parked and what is open, a line each |
+| `docs/plans/` | the plan of the work in hand and the parked plans the roadmap lists; deleted when it lands |
 | `docs/analysis/` | the study behind a decision still open; deleted once decided |
 | `docs/diagrams/` | pages showing the current design, or a target a plan in flight names |
 | `docs/reference/` | only what code needs and a comment cannot hold |
-| `docs/recipes/` | how a kind of work is done: its steps in order, budgets and traps |
+| `docs/recipes/` | how a kind of work is done: its rules, its steps in order, budgets and traps |
 | `docs/approaches.md` | what each approach to a goal can and cannot do, with its evidence commits |
+| `docs/traps.md` | what has bitten in Babylon, Rapier and a browser, by area |
 | `docs/art/`, asset and vendor READMEs | where each asset comes from and how to rebuild it |
 
 - **Every sentence is true of the code now, something a reader acts on, and said once.** Plain
@@ -128,6 +96,9 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   path is provenance and stays, as do the approaches' evidence commits. The story of a change,
   its before/after tables included, goes in the commit message; what it shows a mechanism cannot
   do goes in the approaches as well.
+- **A plan holds its goal, where the work stands as the table reads it, the next question and how
+  to pick it up.** A reading taken on the way goes in its commit message; a plan keeps only the
+  readings its next question starts from, each with the command that reads it again.
 - **A number cites a document only when it comes from a paper or an asset.** A value tuned for a
   result says in one line what it does, and has no record.
 - **A reference record holds what code uses**: no history, no "tried and not kept"; what an
@@ -149,6 +120,10 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   `scripts/source-boundary.mjs`, held by `tests/core-boundary.test.mjs`. Runtime-neutral code stays
   outside `node/` and `browser/`; application composition supplies catalogs and adapters. The same
   gate checks exact arithmetic (`EXACT_MATH`), engine access and what a Mind may read and do.
+- **A Mind is an entrant** (`src/entrants/<name>/`, a line in `ENTRANTS`); it imports published library APIs and
+  itself, never another entrant. The registry is `src/app/entrants.ts`. `node scripts/entrant-check.mjs` names a change an entrant's, the
+  toolkit's or mixed; an entrant's change touches its own files and its registry line; a toolkit
+  change names its moved fingerprint cases.
 - **Simulation code uses the core's vectors** and plain poses; drawing code uses Babylon's, and a
   page poses a puppet from the simulated poses. A module that does both is split.
 - **A spec's number is a `Quantity`** read from a `SOURCES` entry (`src/core/sources.ts`: a paper,
@@ -158,6 +133,11 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **One world step** (`World.step`, 120 Hz) owns physics, the clock and the order of its hooks;
   minds, control and blows run as hooks. A page advances by real time (`World.advance`). `scene.render()` never advances the world, and a test
   never steps by rendering.
+- **Rapier is vendored** (`vendor/rapier`); never the npm SIMD package. Its wasm loads once a realm,
+  only through `rapierModule`: two `init`s make two instances whose worlds cross.
+- **One engine**: training, tuning, evaluation and tests run the game's `DEFAULT_ENGINE`; a
+  script names another only to compare engines. A setting tuned on one engine is not read on
+  another.
 - **A body's level** comes from where the bodies are, never from the machine; a body is not
   rebuilt to save a step.
 - **Solver conditioning is not anatomy**: an iteration count, inertia floor or damping for the
@@ -190,40 +170,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **Two watchers on one body**: set a flag in the callback; act on it at the next control step.
 - **Every page is in `vite.config.ts`'s `rollupOptions.input`**; one missing works in dev and is
   absent from `dist`.
-
-## Babylon and Rapier
-
-- **Rapier is vendored** (`vendor/rapier`); never the npm SIMD package. Its wasm loads once a realm,
-  only through `rapierModule`: two `init`s make two instances whose worlds cross.
-- **One engine**: training, tuning, evaluation and tests run the game's `DEFAULT_ENGINE`; a
-  script names another only to compare engines. A setting tuned on one engine is not read on
-  another.
-- **Motor impulse** is applied to the joint's parent; `jointMotorImpulse` reads the last substep,
-  `jointMotorStepImpulse` sums the step. Neither measures work.
-- **Side-effect imports are load-bearing** (shadows, depth renderer, post-process, HDR, shaders,
-  `Culling/ray.js` for `scene.pick`, the glTF loader).
-- **Read a mesh's transform from `position` and `rotationQuaternion`**: `getWorldMatrix()` caches
-  per render id. Turn a vector with `applyRotationQuaternionToRef`, never `rotateByQuaternionToRef`.
-- **A joint's angles are the ones its limit reads** (`jointAngles`); press a limit before trusting
-  a reading. **Build a jointed body in the pose its joints demand**, or the solver flings it.
-- **A fast chain's controller asks for the motion under way** (`bias` in `bodyDynamics`,
-  gyroscopic torque included).
-- **Bodies never sleep**; **linear velocity is the centre of mass's**, not the node's.
-- **Zero self-contacts proves only that no pair was admitted**: measure clearance geometrically.
-- **Materials belong to the scene**: a body part disposes with `dispose(false, false)`.
-- **Pointer events only**; read `event.buttons`. A DOM control over the canvas stops `pointerdown`
-  and `pointermove`, lets `pointerup` through, and blurs on click.
-- **Observers are removed asynchronously**: count the active ones, not the calls to remove.
-
-## In a browser
-
-- **A hidden tab does not render**: check `document.visibilityState` and that `engine.frameId`
-  moves.
-- **The Arena's, crowd's and Crypt's worlds are in workers**: `await __arena.step(n)` (or
-  `__crowd`, `__dungeon`) steps and draws; `__arena.world.tape()`, `__arena.verdict` and
-  `__dungeon.run` read the state.
-- `Material.isReady(mesh)` is false outside a render pass; use `mesh.material`, not
-  `scene.materials`; after a hot reload, navigate.
+- **Engine, drawing and page code has [traps](docs/traps.md)**: read them before changing code
+  that calls Rapier or Babylon, handles a pointer, or is checked in a browser.
 
 ## Tests
 
@@ -246,45 +194,6 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   headless stand is `tests/harness/core-stand.mjs`.
 - **Under CPU load a dropped test count is a timeout**, not a regression: re-run on a quiet
   machine.
-
-## Minds and measurement
-
-- **A Mind is an entrant** (`src/entrants/<name>/`, a line in `ENTRANTS`); it imports published library APIs and
-  itself, never another entrant. The registry is `src/app/entrants.ts`. `node scripts/entrant-check.mjs` names a change an entrant's, the
-  toolkit's or mixed; an entrant's change touches its own files and its registry line; a toolkit
-  change names its moved fingerprint cases.
-- **Compare minds alike**: the same scenarios, bodies, physics, assists and scoring, results by
-  opponent, fresh cases to confirm a gain. A claim is `npm run match`; a figure from another
-  commit or protocol is read again before it is compared.
-- **Name the harness** of every figure (Node stand or page, engine, rate); say whether a peak was
-  driven or struck; read the faster physics rate at the slower one's spacing; believe the stand
-  over the fight; never one seed. A conclusion is void once its reference is corrected.
-- **Failures are reported as failures**: passing checks and a better battery are not completion.
-
-## Developing skills and Options
-
-- **A bug is fixed to its own layer's contract**, never judged by a reading above it; what the fix breaks above is a defect there, fixed next in
-  the same push. A table cell that drops meanwhile is named in the commit.
-- **What a change is judged on**: a record or a variant on its own body; a shared piece on every
-  body. A body a shared change sets back is searched again on the new code first; a setback that
-  remains is a defect in its path or the reason it gets a record or a variant of its own, never
-  the reason to reject the change.
-- **A change is kept when it raises the skill's value.** The value is what the skill gains in
-  play, in the game's own terms (the time an order takes, the life a blow takes and costs, the life
-  a guard keeps), read on the game's cases paired against the version before, beyond the spread
-  of one version read twice. Every effect is priced in it: a fall costs its time down, its rising
-  and what is lost meanwhile. No figure is a gate and no effect vetoes a change; a change to a
-  shared piece adds its gains and losses on every skill it touches and reports each. A skill's
-  first reading when its work begins is its baseline (`npm run evaluate -- table --baseline`).
-  Where an iteration brings no gain, its best is kept and its ceiling named from a reading (the
-  body, the controller or the drill).
-- **Reference figures are a scale**: a person's or one the owner names, reported beside each
-  reading; they decide nothing.
-- **An Option's profile measures its outcomes**, falls among them, so the Mind prices its risk.
-- **One act an Option**: one skill used one way, its limbs, target and aim; what Options share is
-  code they call, never a kind of Option that makes one of each.
-- **No body is named in control code**: settings are a record per
-  body (`SkillRecord`, `recordFault`); other logic for a body is a skill only that body fits.
 
 ## Line endings
 

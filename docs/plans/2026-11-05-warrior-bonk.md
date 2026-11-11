@@ -88,95 +88,56 @@ strikes as it arrives (`walk`), at the paces its walk serves; faster with
    profiles, and watch Option Mind choose and land it in the Arena.
 7. **Confirm.** Held-out places at both rates, each hand and loadout, the opponent still and
    moving, the Warrior standing and walking in: the score against the baseline. Watch the reel,
-   failures first, at normal speed and slow motion, and report the bonk's table cells with what a fresh agent saw.
+   failures first, at normal speed and slow motion, and make [the claim](../recipes/skill.md#the-claim).
 
 ## Where it stands
 
-Steps 1 to 3 are done; step 4 has no trained actor yet.
+The row, from saved results:
+`npm run evaluate -- table --body workshop-fighter --skill bonk --by gap`.
 
-- **The native swing** (the record, with its footing) lands 29 of 30 held-out still places at
-  120 Hz and 29 of 30 at 480 Hz, none falling; the miss at both rates (gap 0.955, across 0.2) is
-  never admitted. Mirrored to the left hand (`swing-drill.mjs --verify --hands left`) it meets
-  every form test at gap 1.1, 102 J at across −0.1 and 72 J at 0.
-- **On the widening rungs** (right hand, `empty,club`, no steer, every condition,
-  `punch-policy-check.mjs --all`), landed:
+- **Work steps 1 to 3 are done, and step 6**: the native swing (its record, with its footing) is
+  the Warrior's bonk, Option Mind's only club blow (`src/entrants/option/mind.ts`), priced by its
+  profile from the drill (`research/skills/strikes/strike-profiles.mjs`).
+- **`empty,club`**: 12 of 16 land at a median 102 J; the places at a gap of 0.7 m or nearer are
+  refused.
+- **`buckler,club`**: none of the 14 begun meets the head with the swell: 6 land elsewhere, 5 on
+  the guard, 3 miss.
+- **Step 4 has no trained actor.** The training environment
+  (`research/skills/strikes/swing/environments/bonk.json`) reads each trial as the swing lets go
+  (`releasedScore`, `onward: false`). A pooled episode's first decision holds the windup, about
+  190 world steps, so the trainer's environments wait on it and the run makes 100 decisions a
+  second ([the training recipe's traps](../recipes/training.md#traps)).
+- **What the swing cannot do** is in [the approaches](../approaches.md#weapon-strikes): it strikes
+  where the target stood when it committed, and its time is its footwork's steps.
 
-  | Rung | 120 Hz | 480 Hz |
-  | --- | --- | --- |
-  | `walk`, settled | 8/16 | 14/16 |
-  | `walk`, walking | 8/16 | 16/16 |
-  | `moving` | 4/18, one fall | 5/18 |
-  | `stepping` | 0/3 | 0/3 |
-  | `guarding` | 2/3 | 2/3 |
+## The next question
 
-  A walk-in at 120 Hz mostly meets the head with the shaft before the swell, at 88 to 115 J; a
-  moving target is struck where it stood at commitment. These are the steer's cases.
-- **Outside the swing**: a settled walk-in from 2.4 to 3 m is never asked, its legs stepping in
-  place for 5 s after they arrive; against `stepping` the striker is never admitted.
-- **The training environment** (`research/skills/strikes/swing/environments/bonk.json`) reads each
-  trial as the swing lets go (`releasedScore`, `onward: false`); with zero steer its pooled
-  episodes at 120 Hz land 82%, and each reads as the trial played to its end does. The
-  development baseline at 120 Hz, the held-out half: still places 29/30, `walk` walking 4/10,
-  `moving` 2/9.
-- **It trains too slowly to judge**: 100 decisions/s against the recipe's 370. The steered
-  swing's learner starts as the swing begins, so a pooled episode's first decision holds the
-  windup (the feet set, then the stance settles: 1.6 s, about 190 world steps at 120 Hz), and the
-  trainer's 80 environments, stepped together, wait on it. The next change: the environment
-  answers that first request itself, with no steer, and plays the windup in its idle time, so an
-  episode the trainer sees begins at commitment.
-- **Exploration**: at the trainer's default spread (`--log-std -1`) 7.5% of episodes land, at
-  −2.5 37%, at −3 about half: the steer adds to an open-loop swing's pushes, so its run starts
-  at −3 or lower.
-- **On the drill page** the native bonk is recorded on the `bonk` rung as subject
-  `option-bonk@empty,club` (`?play=ratings&evaluation=strike&subject=option-bonk@empty,club`).
-  Played now, Option Mind's preset with the bonk (a file `{ mind, skill: "bonk", held: { left:
-  "empty", right: "club" } }` given to `npm run evaluate -- strike <file> --protocol bonk`), 12 of
-  the 16 fixed places land at 89 to 112 J (median 102 J), one is weak (86 J at gap 0.8 m, across
-  0.2 m), three at gap 0.7 m or nearer are never admitted, none falls; 1.9 s from the action's
-  start to contact. The drill walks its striker into the window and stands it there by firm
-  orders, so it reads the bonk only while firm orders keep the legs.
-- **Its footwork** is most of that time: the swing's `set` stage lasts until the legs report
-  both feet placed (1.36 s of the 1.9 s from the action's start to contact at gap 1 m; settle
-  0.13 s, the swing 0.43 s). The legs step each foot to its footing (two steps, each a weight
-  shift of 0.3 to 0.8 s and a 0.3 s swing), a step landing more than 2 cm short (`PLACING.near`,
-  `src/skills/locomotion/locomotion.ts`) taken again. A foot arriving from a walk is never within
-  2 cm, so both feet step wherever the footing is: on the bonk rung's places from gaps 0.9 to
-  1.4 m every footing takes 1.9 to 2.3 s to contact, a square one where the feet stand included
-  (which also loses the blow's full strength), and a footing-only search scored on the time found
-  none better than the record's. Against a moving foe the first step often lands 3 to 24 cm short.
-  Placing the feet within 8 cm cut the footwork's median from 2.0 to 1.6 s in eight Skeleton bouts
-  but did not land more (49 hits of 70 swings against 48 of 62); the swing without its footing
-  lands 1 of the rung's 16. The time is the steps', so a faster bonk takes fewer or quicker steps,
-  not a different footing.
-- **In the Arena** Option Mind offers the bonk (`src/entrants/option/mind.ts`) as its only club
-  blow, priced by its profile from the drill (`research/skills/strikes/strike-profiles.mjs`); the
-  club blow is experimental, a drill opponent's. Node, `Duel` on a flat floor, 60 s bouts from
-  gaps of 1.6 to 4 m, the Warrior holding `empty,club`: against the Skeleton, 33 bonks begun, 31
-  swung, one stalled at the swing's 6 s settling deadline, its right foot never placed; and once
-  the Warrior went down in the footwork, 1.9 s into a bonk, a fall to find. Against a Warrior
-  holding `empty,club`, 37 begun, 34 swung, 3 let go before the swing, no falls; three of the
-  four bouts end with a side slain.
+Why the bonk never meets the head with the buckler in the other hand, where the same swing lands
+12 of 16 without it. Its signal is the `buckler,club` cell's outcomes on the `bonk` protocol's 16
+places; watch the cell's reel first (the Ratings link on its line).
 
-To pick it up:
+After it, step 4: the environment answers an episode's first request itself, with no steer, and
+plays the windup in its idle time, so an episode the trainer sees begins at commitment; then the
+steered swing is trained from a spread of `--log-std -3` or lower.
+
+## To pick it up
 
 - **Screen the swing or a policy** on held-out places, every rung's condition with `--all`:
   `node research/skills/strikes/straight-punch/punch-policy-check.mjs --config research/skills/strikes/swing/environments/bonk.json --policy none --rates 120,480`
   (`--policy <run>/policy-<n>.json` for a checkpoint; `--config` a run's configuration to screen
-  on its places). With no steer it lands 51 of 60 held-out places at 120 Hz and 58 of 60 at
-  480 Hz, none falling.
+  on its places).
 - **Train** from a configuration naming the environment and its curriculum: `environment`
   `research/skills/strikes/swing/environments/bonk.json`, `workers` 20, `each` 4, `rates` `[120]`,
   and `places` the environment's `bonk` draw, `walk` where `{ mark: "high", hand: "right", start:
   "walking" }` and `moving` where `{ mark: "high", hand: "right" }`; run
   `research/run-train.py --config <it> --output .tmp/warrior-bonk/<run> --keywords released,short,down --log-std -3 --profile`.
   The trainer's default keywords are travel's and fail on this environment.
-
-A shared change (the swing executor, the strike reader, a muscle's speed) is read on every skill
-and body it touches, as [AGENTS.md](../../AGENTS.md#developing-skills-and-options) says: the club's
-trunk blow, the sword cut, the punch, stand-up and travel. Work goes under `.tmp/warrior-bonk/`.
+- The swing executor, the strike reader and a muscle's speed are shared pieces: a change to one
+  is read on the club's trunk blow, the sword cut, the punch, stand-up and travel as well. Work
+  goes under `.tmp/warrior-bonk/`.
 
 ## Completion
 
-The confirmation reading of step 7 is read, Option Mind uses the bonk in the Arena, and its table cells are
-reported with what a fresh agent saw. The motion's reading goes into reference documentation;
-the code and reference this plan replaced are gone, and this plan is deleted.
+The confirmation reading of step 7 is read, Option Mind uses the bonk in the Arena, and its table
+cells are claimed as [the skill recipe](../recipes/skill.md#the-claim) says. The motion's reading
+goes into reference documentation and this plan is deleted.
