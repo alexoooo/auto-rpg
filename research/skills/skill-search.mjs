@@ -255,7 +255,8 @@ function save(file, text) {
 
 /** Each of `trials` of `settings`, played on the pool, and their mean score. */
 async function scored(pool, settings, trials) {
-  const each = await Promise.all(trials.map((trial) => pool.evaluate({ settings, trial })));
+  // Each reading says which trial it is.
+  const each = await Promise.all(trials.map(async (trial) => ({ trial, ...await pool.evaluate({ settings, trial }) })));
   const error = each.find((r) => r.error);
   return { score: each.reduce((sum, r) => sum + r.score, 0) / each.length, falls: each.filter((r) => r.felled || r.down).length, each, ...(error ? { error: error.error } : {}) };
 }
@@ -263,7 +264,7 @@ async function scored(pool, settings, trials) {
 if (!isMainThread && workerData?.search) {
   const search = SEARCHES[workerData.skill];
   parentPort.on("message", async ({ id, x }) => {
-    let r; try { r = await search.trial(x.settings, x.trial); } catch (error) { r = { score: search.error, error: String(error?.stack ?? error) }; }
+    let r; try { r = await search.trial(x.settings, x.trial); } catch (error) { r = { score: search.error, down: true, error: String(error?.stack ?? error) }; }
     parentPort.postMessage({ id, r });
   });
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -287,6 +288,9 @@ if (!isMainThread && workerData?.search) {
       base: { score: base.score, falls: base.falls, each: base.each }, best: { score: best.score, falls: best.falls, each: best.each }, kept,
       seconds: Math.round((Date.now() - started) / 1000) };
     console.log(JSON.stringify(report));
+    // A trial that threw is a defect, not a lost trial: nothing is kept on it.
+    const threw = base.error ?? best.error;
+    if (threw) { await pool.terminate(); throw new Error(`a confirming trial threw, nothing is written: ${threw}`); }
     if (values.write && kept === "record") console.log(`${recordName}: ${body}'s record is kept as it is, nothing written`);
     else if (values.write) {
       const commit = execSync("git rev-parse --short=8 HEAD").toString().trim(), settings = kept === "best" ? found.best.settings : found.start;
@@ -306,6 +310,7 @@ if (!isMainThread && workerData?.search) {
   mkdirSync(dirname(values.out), { recursive: true });
   const set = values.set ? JSON.parse(values.set) : null;
   const saved = values.resume && existsSync(values.out) ? JSON.parse(readFileSync(values.out, "utf8")) : null, resume = saved?.checkpoint, before = saved?.seconds ?? 0;
+  if (saved && (saved.skill !== skill || saved.body !== body)) throw new Error(`${values.out} is a search of ${saved.skill} on ${saved.body}, not of ${skill} on ${body}`);
   const start = saved?.start ?? { ...startOf(skill, model, values.source), ...set }, trials = search.trials(model, search.search), lambda = Number(values.lambda ?? 16);
   // With a plateau to end on and no count given, the search runs until it ends on one.
   const generations = Number(values.generations ?? (values.patience === undefined ? 10 : Number.MAX_SAFE_INTEGER));
