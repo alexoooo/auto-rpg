@@ -68,7 +68,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const state = { actions: instances.state, aims: services.aims ?? [], legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders, defaultOwners: {} as DefaultOwners,
     reservations: {} as Record<string, number>,
-    /** The hands a cover drove at the last step (`SkillReport.covering`). */
+    /** The hands a cover drove at the last step (`GuardReport.covering`). */
     covering: [] as string[],
     /** Whether last step an action held the legs with no stance (`ActionClaim.legs` null): the services resume when none does. */
     unstanced: false,
@@ -94,26 +94,30 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     instances.observe(step, time, contacts);
   });
   const report = {
-    get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference ?? null; },
-    get legs() { return legs.unmet ?? ALL_MET; },
-    get actions() { return instances.live; }, get ledger() { return instances.ledger; }, get covering() { return state.covering; }, holders: state.owners, defaultOwners: state.defaultOwners, reservations: state.reservations,
+    legs: { get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference ?? null; }, get unmet() { return legs.unmet ?? ALL_MET; } },
+    guard: { get covering() { return state.covering; } },
     ...(navigation ? { navigation: navigation.report } : {}),
-    ...(support ? { support: support.report } : {}),
+    get actions() { return instances.live; }, get ledger() { return instances.ledger; }, holders: state.owners, defaultOwners: state.defaultOwners,
   };
   const resume = (view: BodyView): void => {
     instances.resume(view); legs.resume(view); guard.resume(view); support?.resume(view); navigation?.resume();
   };
   const kit = kitOf(executors, actions);
   return {
-    state, report, context: around, resume, instance: instances.instance, readiness: instances.readiness, needs: instances.needs,
-    kit, menu: () => menuOf(kit, body.view, around, instances.readiness, services.spot, navigation?.report.request ?? null),
-    clearance: services.clearance,
-    get envelope() { return legs.envelope ?? null; },
-    gaits: Object.freeze(legs.gaits && legs.limitsOf ? legs.gaits.map((name): GaitLimits => {
-      const of = () => legs.limitsOf!(name);
-      return { get envelope() { return of()?.envelope ?? null; }, get stopping() { return of()?.stopping ?? 0; }, get lag() { return of()?.lag ?? 0; } };
-    }) : [{ get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; }, get lag() { return legs.lag; } }]),
-    limitsOf: (gait: GaitName) => legs.limitsOf?.(gait) ?? null,
+    state, report, resume,
+    legs: {
+      get envelope() { return legs.envelope ?? null; },
+      limitsOf: (gait: GaitName) => legs.limitsOf?.(gait) ?? null,
+      gaits: Object.freeze(legs.gaits && legs.limitsOf ? legs.gaits.map((name): GaitLimits => {
+        const of = () => legs.limitsOf!(name);
+        return { get envelope() { return of()?.envelope ?? null; }, get stopping() { return of()?.stopping ?? 0; }, get lag() { return of()?.lag ?? 0; } };
+      }) : [{ get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; }, get lag() { return legs.lag; } }]),
+    },
+    navigation: { clearance: services.clearance },
+    actions: {
+      kit, menu: () => menuOf(kit, body.view, around, instances.readiness, services.spot, navigation?.report.request ?? null),
+      instance: instances.instance, readiness: instances.readiness, needs: instances.needs, around,
+    },
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {
       instances.interrupt(view, reason); legs.resume(view); guard.resume(view); support?.resume(view);
       navigation?.resume();

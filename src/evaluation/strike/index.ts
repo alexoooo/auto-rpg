@@ -106,10 +106,10 @@ export function createStrikeIndex(context: GameContext) {
     },
     /**
      * A learning environment's percepts, each a second: `unmet`, how many fields of their last goal
-     * the striker's legs left undone (`SkillReport.legs`), 0 for a mind that runs no skills.
+     * the striker's legs left undone (`LegsReport.unmet`), 0 for a mind that runs no skills.
      */
     percepts: {
-      unmet: (built) => built.duel.duelists.left.minded.skills?.report.legs.fields.length ?? 0,
+      unmet: (built) => built.duel.duelists.left.minded.skills?.report.legs.unmet.fields.length ?? 0,
     },
     figures: [
       { name: "landed", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.outcome === "landed" },

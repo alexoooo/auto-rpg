@@ -17,7 +17,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 const PATIENCE = 2;
 
 /** What an action's executor reads of the skills beside it, as the last step left them. */
-export const around = (sight: Sight): ActionAround => sight.context;
+export const around = (sight: Sight): ActionAround => sight.actions.around;
 
 /**
  * What a strike's profile is looked up by: the body throwing it, what a profile read by it must
@@ -62,7 +62,7 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * It yields until its blow is committed (let go, the blow is dropped) and again from its exit, its
  * stroke's end (the blow's `release`): there, given up, it asks no more and its executor may hand
  * the arm to the guard; kept, it strikes again, its blow let go and the next asked of the first
- * limb ready. It claims what its blow needs with the limb it strikes with (`Sight.needs`): its blow
+ * limb ready. It claims what its blow needs with the limb it strikes with (`SkillsActions.needs`): its blow
  * under way's, else the limb ready's, else the first with a window's; and holds what its blow holds
  * (`asking`). Its legs are kept out of every fallen body's reach but the focus's (`Walker.kept`). The region struck is what the
  * orders name on the focus, else the first of the action's regions the focus has; orders at the
@@ -118,7 +118,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     return focus && action.regions ? orderedTarget(now.orders ?? null, focus, action.regions) : null;
   };
   const readiness = (now: Situation, limb: string, target: TargetRef): Readiness =>
-    now.sight.readiness(now.sight.view, action.name, limb, target, around(now.sight));
+    now.sight.actions.readiness(now.sight.view, action.name, limb, target, around(now.sight));
   type Limb = { readonly limb: string; readonly readiness: Readiness };
   /** The first limb ready at `target`, and the first with a window to walk to (`position`) where none is: what a walk into it goes to (`window`). */
   const scan = (now: Situation, target: TargetRef): { ready: Limb | null; placed: Limb | null } => {
@@ -152,7 +152,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   const unfit = (now: Situation): boolean => !now.focus || state.target !== null && state.target.body !== now.focus.id;
   /** What it claims (`Option.claims`), as its entry last read it: what its blow needs with the limb it strikes with. */
   const claimed = { claims: Object.freeze([]) as readonly Resource[] };
-  const claim = (now: Situation, limb: string | undefined): void => { if (limb !== undefined) claimed.claims = now.sight.needs(action.name, limb); };
+  const claim = (now: Situation, limb: string | undefined): void => { if (limb !== undefined) claimed.claims = now.sight.actions.needs(action.name, limb); };
   const entry = (now: Situation): Readiness => {
     const running = live(now);
     if (running) { claim(now, running.effector); return READY; }
@@ -210,7 +210,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
           kept.place = stood ? stood.place : null;
         } else {
           const { ready, placed } = offer(at), window = ready === null && placed?.readiness.kind === "position" ? placed.readiness.window : null;
-          kept.spot = window ? windowSpot(at.sight.view, window, at.sight.report.heading, side, kept.beside) : null;
+          kept.spot = window ? windowSpot(at.sight.view, window, at.sight.report.legs.heading, side, kept.beside) : null;
           kept.place = window && kept.spot ? placeInWindow(window, kept.spot.x, kept.spot.z, kept.spot.face) : null;
           if (kept.spot && foe) kept.stood = { focus: foe.id, spot: { x: kept.spot.x, z: kept.spot.z, face: kept.spot.face, ...(kept.spot.facing === undefined ? {} : { facing: kept.spot.facing }) },
             place: kept.place, foe: [foe.centre.x, foe.centre.z] };
@@ -287,7 +287,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const chosen = scan(now, state.target).ready;
     if (!chosen) { state.over = true; return still; }
     state.limb = chosen.limb; state.place = placeOf(now);
-    state.id = now.sight.instance();
+    state.id = now.sight.actions.instance();
     return { ...still, actions: [{ id: state.id, action: action.name, effector: chosen.limb, target: structuredClone(state.target) }] };
   }
 }

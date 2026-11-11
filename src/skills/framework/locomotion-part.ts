@@ -98,7 +98,7 @@ export interface Locomotion extends Skill {
   readonly reference?: number | null;
   /**
    * What the legs were measured to hold with the body (`StanceEnvelope`), which caps their walk and
-   * turn and which minds plan by (`Sight.envelope`); null or absent where they state none.
+   * turn and which minds plan by (`SkillsLegs.envelope`); null or absent where they state none.
    */
   readonly envelope?: StanceEnvelope | null;
   /** Whether the feet have been placed at the footing last asked; absent, legs that place no feet. */

@@ -33,7 +33,7 @@ export type CoverReading = {
   /** The hit points the subject lost in the opponent's touches, all of them, and those on its head. */
   readonly taken: number;
   readonly headTaken: number;
-  /** How long it covered with a hand (`SkillReport.covering`), s. */
+  /** How long it covered with a hand (`GuardReport.covering`), s. */
   readonly covering: number;
   readonly first: CoverTouch | null;
   /** How many of the opponent's blows touched it (`BLOW_GAP`), and how many of those its left hand's item met first. */
@@ -82,11 +82,11 @@ export function readCover({ world, duel }: { readonly world: World; readonly due
   const guard = new Set(SIDES.flatMap((side) => armOf(spec, `hand.${side}`)));
   const shield = spec.held?.find((held) => held.segment === "hand.left")?.item.name ?? null;
   const foe = duel.duelists.right.minded.skills;
-  const attacks = new Set((foe?.kit ?? []).filter(entry => entry.regions.length > 0).map(entry => entry.action));
+  const attacks = new Set((foe?.actions.kit ?? []).filter(entry => entry.regions.length > 0).map(entry => entry.action));
   const state = { down: false, covering: 0, last: world.time, attempted: false };
   return {
     afterStep() {
-      if (skills.report.covering.length > 0) state.covering += world.time - state.last;
+      if (skills.report.guard.covering.length > 0) state.covering += world.time - state.last;
       state.last = world.time;
       state.down ||= left.body.down;
       state.attempted ||= [...foe?.report.actions ?? [], ...foe?.report.ledger ?? []].some(action => attacks.has(action.action) && action.target.kind === "body");

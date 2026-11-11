@@ -29,7 +29,7 @@ export function covers(spec: BodySpec): readonly Option[] {
     if (state.read === now.time) return state.hand;
     state.read = now.time; state.hand = null;
     if (!threat) return null;
-    const h = now.sight.report.heading, dx = threat.threat[0] - threat.guarded[0], dz = threat.threat[2] - threat.guarded[2];
+    const h = now.sight.report.legs.heading, dx = threat.threat[0] - threat.guarded[0], dz = threat.threat[2] - threat.guarded[2];
     return state.hand = coveringHand(spec, dx * cos(h) - dz * sin(h) >= 0 ? "right" : "left");
   };
   const OFF = blocked("no blow for a hand to cover"), HELD = blocked("an action holds the covering hand");
@@ -48,7 +48,7 @@ export function covers(spec: BodySpec): readonly Option[] {
     model: (at, ask) => at.incoming ? holding(at, ask, (1 - STOPS) * at.predictions.danger) : null,
     step: (now) => {
       const hand = pairedSegment("hand", handAt(now)!);
-      return { asked: { move: null, face: now.sight.report.heading, actions: [], guard: { [hand]: now.incoming! } }, holds: NOTHING };
+      return { asked: { move: null, face: now.sight.report.legs.heading, actions: [], guard: { [hand]: now.incoming! } }, holds: NOTHING };
     },
   };
   return sides.length ? [option] : [];

@@ -90,7 +90,7 @@ function guard(hands: readonly string[], shields: readonly string[] = []): Optio
   return { name: "guard", claims: Object.freeze(hands.map(segmentResource)), state: {}, ...RESTING,
     entry: (now) => legsReadiness(now.sight.view), model: (at, ask) => standing(at) ? holding(at, ask) : null,
     step: (now) => {
-      const asked = { move: null, face: now.sight.report.heading, actions: [] };
+      const asked = { move: null, face: now.sight.report.legs.heading, actions: [] };
       if (!shields.length || !now.ward) return { asked, holds: NOTHING };
       for (const hand of shields) covers[hand] = now.ward;
       return { asked: { ...asked, guard: covers }, holds: NOTHING };
@@ -119,9 +119,9 @@ export function brace(by: { readonly action: string; readonly effector: string }
     begin() { state.id = null; }, end() { state.id = null; },
     entry: (now) => legsReadiness(now.sight.view).kind === "ready" ? STANDING : READY, model: (at, ask) => at.down ? holding(at, ask) : null,
     step(now) {
-      if (!by) return { asked: { move: null, face: now.sight.report.heading, actions: [] }, holds: NOTHING };
-      state.id ??= now.sight.instance();
-      const asked = { move: null, face: now.sight.report.heading, actions: [{ id: state.id, action: by.action, effector: by.effector, target: HERE }] };
+      if (!by) return { asked: { move: null, face: now.sight.report.legs.heading, actions: [] }, holds: NOTHING };
+      state.id ??= now.sight.actions.instance();
+      const asked = { move: null, face: now.sight.report.legs.heading, actions: [{ id: state.id, action: by.action, effector: by.effector, target: HERE }] };
       return { asked, holds: asking(now, asked) };
     } };
 }

@@ -458,11 +458,11 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
   /** Where the striker stands now in the window of the drill's choice (`placeInWindow`), as its menu reads it; null where it names none. */
   const placed = (): StrikeReading["inWindow"] => {
     if (!view) return null;
-    const entry = skills.menu().find((one) => one.limb === effector && one.foe === duel.duelists.right.id && one.region?.kind === "mark" && one.region.mark === mark
+    const entry = skills.actions.menu().find((one) => one.limb === effector && one.foe === duel.duelists.right.id && one.region?.kind === "mark" && one.region.mark === mark
       && (drilled === undefined || one.skill === drilled));
     const ready = entry?.readiness;
     return (ready?.kind === "ready" || ready?.kind === "position") && ready.window
-      ? placeInWindow(ready.window, view.stance.centre.x, view.stance.centre.z, skills.report.heading) : null;
+      ? placeInWindow(ready.window, view.stance.centre.x, view.stance.centre.z, skills.report.legs.heading) : null;
   };
   const velocity = new Vector3(), segments = [...left.built.segments.values()], mass = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0);
   /** The striker's centre of mass's velocity over the ground, as this step left it, m/s. */
@@ -556,7 +556,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
           ?? (drill.phase === "under way" ? [...skills.report.actions].reverse().find((one) => one.effector === effector && one.target.kind === "body") : undefined);
       if (action && id === null) {
         id = action.id; times.began = world.time; asked = footing(); foeBegan ??= sensed();
-        const kind = skillOf(skills.kit, action.action);
+        const kind = skillOf(skills.actions.kit, action.action);
         const registered = kind !== null && catalog.isKind(kind) && catalog.partOf({ kind }).role === "executor";
         meets = (registered ? catalog.partLookup.of("executor", { kind: kind! }).meets : undefined) ?? "blunt";
         const face = armed && hand !== null ? faceOf(spec, hand, meets) : null;

@@ -70,7 +70,7 @@ export const standIntent = (face = 0): Intent => ({ move: null, face, guard: NO_
 
 /**
  * **What one option of a set a mind selected asks this step**: the resources it claims while it
- * runs (`*`, the whole body), what its asks hold (`Sight.needs`), and its asks: the walk and facing
+ * runs (`*`, the whole body), what its asks hold (`SkillsActions.needs`), and its asks: the walk and facing
  * where it claims the legs, its actions and its hands' covers.
  */
 export interface SelectedAsk {

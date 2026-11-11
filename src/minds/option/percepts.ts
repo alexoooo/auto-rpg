@@ -477,7 +477,7 @@ function downRateAtOf(seen: Seen): (posture: Position) => number {
  * the share of the clock's time from its start to its verdict that has passed, `Senses.begins` to
  * `Senses.ends`; 0 where no clock ends the bout). The gait's: where the stance is in a step
  * (`StanceReading.phase`), which feet the ground bears (`Bearing`) and the centre of mass's velocity
- * over the ground, m/s (`velocity`). What the controllers did not carry out: the legs' (`SkillReport.legs`) and
+ * over the ground, m/s (`velocity`). What the controllers did not carry out: the legs' (`LegsReport.unmet`) and
  * the motor's (`BodyView.unmet`). The focus's phase (`FoePhase`), its posture (`sensedPosture`;
  * standing with no focus), and the time to contact of the
  * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, another posture,
@@ -490,7 +490,7 @@ const PERCEPTS = Object.freeze({
   ground: { read: ({ risen, sight }) => risen.state.rising ? sight.view.ground : null } as Percept<GroundReading | null>,
   tumbled: { read: (seen) => seen.risen.state.tumbled } as Percept<number>,
   steadied: { read: (seen) => seen.risen.state.steadied } as Percept<number>,
-  where: { read: ({ sight }) => ({ x: sight.view.stance.centre.x, z: sight.view.stance.centre.z, face: sight.report.heading }) } as Percept<Spot>,
+  where: { read: ({ sight }) => ({ x: sight.view.stance.centre.x, z: sight.view.stance.centre.z, face: sight.report.legs.heading }) } as Percept<Spot>,
   reached: { read: (seen) => seen.reach } as Percept<ReachMemory>,
   orders: { read: (seen) => seen.orders, cue: ordersAsked } as Percept<Orders | null>,
   focus: { read: (seen) => seen.focus, cue: (focus) => focus?.id ?? null } as Percept<BodySense | null>,
@@ -505,7 +505,7 @@ const PERCEPTS = Object.freeze({
   stride: { read: ({ sight }) => sight.view.stance.phase } as Percept<StancePhase>,
   bearing: { read: ({ sight }) => bearingOf(sight.view.stance.ends) } as Percept<Bearing>,
   velocity: { read: ({ sight }) => ({ x: sight.view.stance.velocity.x, z: sight.view.stance.velocity.z }) } as Percept<Ground>,
-  legsUnmet: { read: ({ sight }) => sight.report.legs } as Percept<LegsUnmet>,
+  legsUnmet: { read: ({ sight }) => sight.report.legs.unmet } as Percept<LegsUnmet>,
   motorUnmet: { read: ({ sight }) => sight.view.unmet } as Percept<MotorUnmet>,
   phase: { read: ({ focus, blow }) => foePhase(focus, blow) } as Percept<FoePhase>,
   foePosture: { read: ({ focus }) => focus ? sensedPosture(focus) : "standing" } as Percept<Position>,

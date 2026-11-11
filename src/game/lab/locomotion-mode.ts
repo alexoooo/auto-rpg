@@ -24,7 +24,7 @@ import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
  * the square), they face that way and walk toward the point `AIM_AHEAD` ahead in the body's own
  * frame: forward, sideways or back.
  *
- * Their pace is the body's fastest walk (`Sight.envelope`, what its locomotion was measured to hold
+ * Their pace is the body's fastest walk (`SkillsLegs.envelope`, what its locomotion was measured to hold
  * with it: forward, on a course walked facing along it, and the fastest of its ways on one walked
  * facing one way, `fastestOf`), or the pace the lab asks (`LocomotionOptions.top`), which may be
  * past it: a locomotion skill takes a walk asked past what the body holds that way at the most it
@@ -188,7 +188,7 @@ function trackScript(track: Track, { top, pace: most, turn, facing }: TrackOptio
     onPiece: track.lengths.map(() => ({ metres: 0, seconds: 0 })) };
   return {
     name: "track", state,
-    decide({ view, report, envelope }, dt): Intent {
+    decide({ view, report, legs: { envelope } }, dt): Intent {
       const c = view.stance.centre, v = view.stance.velocity, fastest = Math.min(top ?? fastestOf(envelope, facing), most ?? Infinity);
       if (view.time > 0) {
         state.setOff ??= view.time;
@@ -223,18 +223,18 @@ function trackScript(track: Track, { top, pace: most, turn, facing }: TrackOptio
         const corner = Math.max(CORNER_PACE, Math.sqrt(2 * BRAKE * toCorner(track, state.along)));
         // Facing along the track, no faster than its turns carry it round the arc from its heading to the point it aims at.
         if (facing === undefined) {
-          const lag = Math.abs(wrap(toward - report.heading)), reach = Math.sqrt((to.x - c.x) * (to.x - c.x) + (to.z - c.z) * (to.z - c.z));
+          const lag = Math.abs(wrap(toward - report.legs.heading)), reach = Math.sqrt((to.x - c.x) * (to.x - c.x) + (to.z - c.z) * (to.z - c.z));
           const radius = radiusTo(lag, reach);
           bend = Math.min(bend, paceRoundTo(envelope, radius, top), carried(turning, radius));
         }
         state.bending = Math.min(bend, corner) < fastest;
         state.pace = Math.min(fastest, bend, corner);
         if (facing === undefined) {
-          state.face = turn === undefined ? toward : report.heading + Math.max(-turn * dt, Math.min(turn * dt, wrap(toward - report.heading)));
+          state.face = turn === undefined ? toward : report.legs.heading + Math.max(-turn * dt, Math.min(turn * dt, wrap(toward - report.legs.heading)));
           state.move = [state.pace, 0];
         } else {
           // Toward the point in the body's own frame: forward along its heading, and to its right.
-          const off = toward - report.heading;
+          const off = toward - report.legs.heading;
           state.move = [state.pace * cos(off), state.pace * sin(off)];
         }
       }
@@ -266,7 +266,7 @@ function commandsScript(commands: Commands, { top }: { readonly top?: number } =
   const stand = (): Intent => ({ move: null, face: state.face, guard: NO_COVER, actions: [] });
   return {
     name: "commands", state,
-    decide({ view, report, envelope }): Intent {
+    decide({ view, report, legs: { envelope } }): Intent {
       if (view.time <= 0) return stand();
       const c = view.stance.centre, v = view.stance.velocity, dt = state.last === null ? 0 : view.time - state.last;
       state.last = view.time;
@@ -295,7 +295,7 @@ function commandsScript(commands: Commands, { top }: { readonly top?: number } =
       // Braking to arrive at the corner's pace, from `LEAD` early at the body's own speed; no faster than its turns carry it round to the destination.
       const early = LEAD * Math.sqrt(v.x * v.x + v.z * v.z);
       const arrive = Math.sqrt(CORNER_PACE * CORNER_PACE + 2 * BRAKE * Math.max(0, d - ARRIVED - early));
-      const turning = paceRoundTo(envelope, radiusTo(Math.abs(wrap(toward - report.heading)), d), top);
+      const turning = paceRoundTo(envelope, radiusTo(Math.abs(wrap(toward - report.legs.heading)), d), top);
       state.bending = Math.min(arrive, turning) < fastest;
       state.pace = Math.min(fastest, arrive, turning);
       state.face = toward;
@@ -341,7 +341,7 @@ export function startLocomotion(actor: Actor, course: Track | Commands, { top, f
   const frame = (): LocomotionFrame => {
     const s = body.view.stance, time = body.view.time;
     return {
-      ...script.frame(time, s.centre.x, s.centre.z), time, heading: report.heading, fallen: body.view.down, walking: report.pace ?? 0,
+      ...script.frame(time, s.centre.x, s.centre.z), time, heading: report.legs.heading, fallen: body.view.down, walking: report.legs.pace ?? 0,
       speed: hypot(s.velocity.x, s.velocity.z), gait: meter.reading(), wind: blowing.state.force, gusts: blowing.state.count,
     };
   };

@@ -123,7 +123,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     if (!available) state.lastProgress += Math.max(0, elapsed);
     if (!request) { state.route = []; update("stopped", 0, null); return { move: null, face: null }; }
     const along = (x: number, z: number, speed: number) => {
-      const distance = hypot(x, z), h = report.heading;
+      const distance = hypot(x, z), h = report.legs.heading;
       return distance > 0 && speed > 0 ? [(x * sin(h) + z * cos(h)) * speed / distance, (x * cos(h) - z * sin(h)) * speed / distance] as const : null;
     };
     /**
@@ -132,21 +132,21 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
      * it goes, or, held to a stop, the way asked.
      */
     const steered = (x: number, z: number, speed: number): { readonly move: readonly [number, number] | null; readonly face: number | null } => {
-      const distance = hypot(x, z), crowd = distance > 0 && speed > 0 ? crowdWalk(view, radius, report.heading, { x: x * speed / distance, z: z * speed / distance }, gait) : null;
+      const distance = hypot(x, z), crowd = distance > 0 && speed > 0 ? crowdWalk(view, radius, report.legs.heading, { x: x * speed / distance, z: z * speed / distance }, gait) : null;
       state.held = crowd?.held ?? false;
       if (!crowd) return { move: along(x, z, speed), face: distance > 0 && speed > 0 ? atan2(x, z) : null };
       const most = hypot(crowd.x, crowd.z);
-      return { move: clearMove(centre, solids, report.heading, along(crowd.x, crowd.z, most), radius, .5), face: most > 0 ? atan2(crowd.x, crowd.z) : atan2(x, z) };
+      return { move: clearMove(centre, solids, report.legs.heading, along(crowd.x, crowd.z, most), radius, .5), face: most > 0 ? atan2(crowd.x, crowd.z) : atan2(x, z) };
     };
     /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead, from the speed the body has that way. */
     const going = (x: number, z: number, left: number, corners: readonly Corner[]): number => {
-      const h = report.heading, way = hypot(x, z), velocity = view.stance.velocity, on = way > 0 ? (velocity.x * x + velocity.z * z) / way : 0;
+      const h = report.legs.heading, way = hypot(x, z), velocity = view.stance.velocity, on = way > 0 ? (velocity.x * x + velocity.z * z) / way : 0;
       const speed = travelSpeed(gait, [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, on, ceiling);
       return Number.isFinite(speed) ? speed : 0;
     };
     if (request.kind === "direct") {
       const direction = request.direction, speed = going(direction.x, direction.z, Infinity, NO_CORNERS);
-      const move = clearMove(centre, solids, report.heading, steered(direction.x, direction.z, speed).move, radius, .5);
+      const move = clearMove(centre, solids, report.legs.heading, steered(direction.x, direction.z, speed).move, radius, .5);
       update(move ? "moving" : "stopped", null, null);
       return { move, face: hypot(direction.x, direction.z) > 0 ? atan2(direction.x, direction.z) : null };
     }
@@ -216,7 +216,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
           const dz = (focus.velocity?.z ?? 0) + (distance > 0 ? (target.z - here.z) * correction / distance : 0);
           const speed = Math.min(going(dx, dz, Infinity, NO_CORNERS), hypot(dx, dz)), walk = steered(dx, dz, speed);
           update("arrived", 0, here);
-          return { move: clearMove(centre, solids, report.heading, walk.move, radius, .5), face: walk.face, destination: 0 };
+          return { move: clearMove(centre, solids, report.legs.heading, walk.move, radius, .5), face: walk.face, destination: 0 };
         }
         const range = (request.near + request.far) / 2, bearing = atan2(here.x - target.x, here.z - target.z);
         const focusRadius = focus.spec ? bodyClearance(focus.spec) : .2;

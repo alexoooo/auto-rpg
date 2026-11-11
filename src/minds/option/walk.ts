@@ -29,11 +29,11 @@ export function walker(_spec: BodySpec) {
   /**
    * The speed the rule asks going `forward` and `right` (a direction, in the frame of the way the
    * body faces) with nothing ahead to stop for, m/s: what the gait holds that way (`heldPace`),
-   * `gait` where it names one the legs have (`Sight.limitsOf`), else the one they go by, under the
+   * `gait` where it names one the legs have (`SkillsLegs.limitsOf`), else the one they go by, under the
    * orders' ceiling (`ceiling`). Forward unless given.
    */
   const pace = (now: Situation, gait?: GaitName | null, forward = 1, right = 0): number => {
-    const envelope = (gait === undefined || gait === null ? null : now.sight.limitsOf(gait)?.envelope) ?? now.sight.envelope;
+    const envelope = (gait === undefined || gait === null ? null : now.sight.legs.limitsOf(gait)?.envelope) ?? now.sight.legs.envelope;
     return Math.min(envelope ? heldPace(envelope, forward, right) : Infinity, ceiling(now));
   };
   /**
@@ -42,7 +42,7 @@ export function walker(_spec: BodySpec) {
    * every gait.
    */
   const stride = (now: Situation): number => {
-    const envelope = now.sight.envelope;
+    const envelope = now.sight.legs.envelope;
     return envelope ? heldPace(envelope, 1, 0) : now.orders?.pace ?? 0;
   };
   /** The way the frame of `face` (rad) reads a ground direction: forward and to the right; forward everywhere with none. */
@@ -58,7 +58,7 @@ export function walker(_spec: BodySpec) {
    * it can turn at.
    */
   const seconds = (now: Situation, gait: GaitName, way: readonly GroundPoint[], face: number | null): number[] => {
-    const limits = now.sight.limitsOf(gait), where = now.where, v = now.velocity, envelope = limits?.envelope;
+    const limits = now.sight.legs.limitsOf(gait), where = now.where, v = now.velocity, envelope = limits?.envelope;
     const most = face === null && envelope ? Math.min(ceiling(now), steeredPace(envelope, heldPace(envelope, 1, 0))) : ceiling(now);
     if (!limits) {
       let at: GroundPoint = where;
@@ -115,7 +115,7 @@ export function walker(_spec: BodySpec) {
     /** The heading to the focus, or the body's own with none. */
     facing(now: Situation): number {
       const { focus, sight } = now;
-      return focus ? atan2(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : sight.report.heading;
+      return focus ? atan2(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : sight.report.legs.heading;
     },
     /**
      * `asked` kept out of what the body must keep clear of (`keepOut`): a solid's clearance and the
@@ -124,7 +124,7 @@ export function walker(_spec: BodySpec) {
      * walk, not of the choice.
      */
     kept<A extends Walk>(now: Situation, asked: A, exempt: string | null = null): A {
-      const kept = keepOut(now.sight.view, now.sight.clearance, asked, exempt, now.orders?.pace), gait = now.orders?.gait;
+      const kept = keepOut(now.sight.view, now.sight.navigation.clearance, asked, exempt, now.orders?.pace), gait = now.orders?.gait;
       return gait === undefined ? kept : { ...kept, gait };
     },
   };

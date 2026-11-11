@@ -1,4 +1,3 @@
-import type { Clearance } from "../skills/framework/navigation.ts";
 import type { Body, BodyView } from "../control/body.ts";
 import type { StanceEnvelope } from "../control/stance/stance-envelope.ts";
 import type { SkillReport, Skills } from "../skills/framework/skills.ts";
@@ -37,26 +36,27 @@ export interface Decider<S = Sight, I = Intent, D = unknown> {
 export type Script = Decider<Sight, Intent, never>;
 
 /**
- * What a decider sees: the body's view, with what it senses of the others (`BodyView.senses`), how
- * its skills are going, and what its stance holds.
+ * **What a decider sees**: the body's view, with what it senses of the others
+ * (`BodyView.senses`), and its skills: how they are going (`report`), and what it reads and asks
+ * of its legs, its navigation and its actions (`Skills`).
  */
 export interface Sight {
-  readonly context: Skills["context"];
-  readonly instance: Skills["instance"];
-  readonly readiness: Skills["readiness"];
-  readonly needs: Skills["needs"];
   readonly view: BodyView;
-  /** How the skills are going, as the last step left them. */
-  readonly report: SkillReport;
-  /** What the skills' locomotion was measured to hold with this body (`Locomotion.envelope`), as it is now: its fastest walk, and its turns. */
-  readonly envelope: StanceEnvelope | null;
   /** What the body's plain walk holds (`Body.envelope`): the ceiling of orders to walk, not run (`Intent.walk`). */
   readonly walkEnvelope: StanceEnvelope | null;
-  /** The limits it walks by going by a gait (`Skills.limitsOf`). */
-  readonly limitsOf: Skills["limitsOf"];
-  /** How the body keeps clear of the solids sensed (`Skills.clearance`): its navigator's, so replacing the navigator replaces it for the decider. */
-  readonly clearance: Clearance;
+  /** How the skills are going, as the last step left them. */
+  readonly report: SkillReport;
+  /** How fast its legs can go, by each gait (`SkillsLegs`). */
+  readonly legs: Skills["legs"];
+  /** How its navigation keeps the body clear (`SkillsNavigation`): the navigator's, so replacing the navigator replaces it for the decider. */
+  readonly navigation: Skills["navigation"];
+  /** Whether an action can begin and what it would hold (`SkillsActions`). */
+  readonly actions: Skills["actions"];
 }
+
+/** **What `body`'s decider sees** with `skills` (`Sight`). */
+export const sightOf = (body: Pick<Body, "view" | "envelope">, skills: Pick<Skills, "report" | "legs" | "navigation" | "actions">): Sight =>
+  ({ view: body.view, walkEnvelope: body.envelope, report: skills.report, legs: skills.legs, navigation: skills.navigation, actions: skills.actions });
 
 /**
  * **A mind driven by its decider over its skills** (`driveBy`): the mind's memory, its
@@ -100,7 +100,7 @@ export function driveBy(body: Body, decider: Decider, skills: Skills, pace: Pace
   const { every, phase, orders } = pace;
   if (!Number.isInteger(every) || every < 1 || !(phase >= 0 && phase < 1)) throw new Error(`a decider decides every whole number of steps on a phase in [0, 1), not every ${every} on ${phase}`);
   const offset = Math.floor(phase * every);
-  const sight: Sight = { get context() { return skills.context; }, view: body.view, report: skills.report, get envelope() { return skills.envelope; }, walkEnvelope: body.envelope, limitsOf: skills.limitsOf, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
+  const sight = sightOf(body, skills);
   /** What it last decided, the step it decided it on, the orders it decided on and the last action ended then (`Ended.sequence`). */
   const state = { held: null as Intent | null, decided: 0, orders: null as Orders | null, ended: 0 };
   const decide = (view: BodyView, dt: number): Intent => {

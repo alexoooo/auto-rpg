@@ -119,7 +119,7 @@ export function walkBy(gait: GaitOf, { all: sites, names }: Sites, walk: Walker)
       return spot ? walkTerms(at, spot, gait, walk) : null;
     },
     step: (now) => {
-      const spot = away(now, state.at), heading = now.sight.report.heading;
+      const spot = away(now, state.at), heading = now.sight.report.legs.heading;
       const asked = spot ? approachSpot(now.sight.view, spot, now.orders?.pace ?? Infinity, heading) : { move: null, face: walk.facing(now) };
       return { asked: { ...walk.kept(now, asked, spot?.by ?? null), actions: [], gait: gait.name }, holds: LEGS };
     },

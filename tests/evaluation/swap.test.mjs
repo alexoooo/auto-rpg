@@ -170,8 +170,8 @@ test("Cover requires an attempted attack before untouched can pass", async () =>
   const { readCover } = await import("../../src/evaluation/cover/read.ts");
   const { modelSpec } = await import("../../src/core/bodies/models.ts");
   const spec = modelSpec("workshop-fighter"), world = { time: 0 };
-  const attacker = { kit: [{ action: "punch", regions: [{ kind: "mark", mark: "high" }] }], report: { actions: [], ledger: [] } };
-  const duel = { blows: [], duelists: { left: { built: { spec }, body: { down: false }, minded: { skills: { report: { covering: [] } } } },
+  const attacker = { actions: { kit: [{ action: "punch", regions: [{ kind: "mark", mark: "high" }] }] }, report: { actions: [], ledger: [] } };
+  const duel = { blows: [], duelists: { left: { built: { spec }, body: { down: false }, minded: { skills: { report: { guard: { covering: [] } } } } },
     right: { built: { spec }, minded: { skills: attacker } } } };
   const reader = readCover({ world, duel }, { seconds: 8 });
   world.time = 8; reader.afterStep();

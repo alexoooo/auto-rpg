@@ -35,7 +35,7 @@ export interface Situation extends Percepts {
 /** What an option asks of the skills in a step, the hands' cover aside. */
 export type Asked = SelectedAsk["asked"];
 
-/** **An option's step**: what it asks, and what its asks hold (`Sight.needs`, `asking`), by resource. */
+/** **An option's step**: what it asks, and what its asks hold (`SkillsActions.needs`, `asking`), by resource. */
 export interface Step {
   readonly asked: Asked;
   readonly holds: readonly Resource[];
@@ -215,12 +215,12 @@ export const READY: Readiness = Object.freeze({ kind: "ready" });
 /** An entry or exit that does not admit, for `reason`: made once, as the options are. */
 export const blocked = (reason: string): Readiness => Object.freeze({ kind: "blocked", reason });
 
-/** What a step's asks hold (`Sight.needs`): each blow continued, what it holds; each asked anew, what it will. */
+/** What a step's asks hold (`SkillsActions.needs`): each blow continued, what it holds; each asked anew, what it will. */
 export function asking(now: Situation, asked: Asked): readonly Resource[] {
   const held: Resource[] = [];
   for (const request of asked.actions) {
     const live = now.sight.report.actions.find((action) => action.id === request.id);
-    for (const resource of live ? live.holds : now.sight.needs(request.action, request.effector)) if (!hasResource(held, resource)) held.push(resource);
+    for (const resource of live ? live.holds : now.sight.actions.needs(request.action, request.effector)) if (!hasResource(held, resource)) held.push(resource);
   }
   return held;
 }

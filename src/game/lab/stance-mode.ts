@@ -95,7 +95,7 @@ function stanceScript(orders: StanceOrders): Script {
       const walking = orders.forward !== 0 || orders.right !== 0;
       return {
         move: walking ? [orders.forward, orders.right] : null,
-        face: report.heading + orders.turn * LAB_TURN_RATE * dt,
+        face: report.legs.heading + orders.turn * LAB_TURN_RATE * dt,
         guard: NO_COVER,
         actions: [],
         lower: orders.lower,
@@ -115,14 +115,14 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
   const driven = actor.drive(stanceScript(orders));
   if (isRefused(driven)) return driven;
   const { report } = driven.skills;
-  const shoving = shoveBody(body, world, () => report.heading, pushed);
+  const shoving = shoveBody(body, world, () => report.legs.heading, pushed);
   if (isRefused(shoving)) return shoving;
 
   const frame = (): StanceFrame => {
     const s = body.view.stance, height = s.centre.y - s.support.y;
     return {
-      time: body.view.time, heading: report.heading, phase: s.phase, strides: s.strides, recoveries: s.recoveries,
-      speed: hypot(s.velocity.x, s.velocity.z), height, goal: report.reference === null ? height : report.reference - orders.lower,
+      time: body.view.time, heading: report.legs.heading, phase: s.phase, strides: s.strides, recoveries: s.recoveries,
+      speed: hypot(s.velocity.x, s.velocity.z), height, goal: report.legs.reference === null ? height : report.legs.reference - orders.lower,
       off: hypot(s.centre.x - s.place.x, s.centre.z - s.place.z), fallen: body.view.down,
     };
   };

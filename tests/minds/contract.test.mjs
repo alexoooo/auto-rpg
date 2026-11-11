@@ -183,7 +183,7 @@ test("a fallback recovery Option does not count its own transition as an ordinar
     options: [fallback], tables: { strikes: [], edges: [] }, walk: walker(spec), record: optionRecord(), sites: { all: [], names: [] } });
   assert.ok(option, "the fallback constructor must produce its transition Option");
   const ground = { settled: true, position: from, raw: from, side: "left", velocity: new Vector3(), spin: 0 };
-  const now = { ground, sight: { context: { heading: 0, placed: false, lower: 0, support: null, walk: null }, view: { ground }, readiness: () => ({ kind: "ready" }) } };
+  const now = { ground, sight: { view: { ground }, actions: { around: { heading: 0, placed: false, lower: 0, support: null, walk: null }, readiness: () => ({ kind: "ready" }) } } };
   assert.deepEqual(option.entry(now), { kind: "ready" }, "a ready uncovered start must retain the fallback's own transition");
   assert.deepEqual(waysUpIn(GAME.partLookup, spec, [fallback]), []);
   const ascent = { ...WAY_UP_OPTION, defaults: { kind: "fixture:ascent", skill: fallback.skill } };
@@ -207,7 +207,7 @@ test("a measured Lab script follows an explicit numeric walk without a gait enve
     const course = trackOf([{ kind: "corner", metres: 0, turn: 0 }, { kind: "straight", metres: 80 }]);
     session = startLocomotion(actor, course, { top: .7, facing: 0 });
     assert.equal("refused" in session, false, "the numeric walk must start");
-    assert.equal(actor.mind.skills.envelope, null, "the fixture must remove its measured gait envelope");
+    assert.equal(actor.mind.skills.legs.envelope, null, "the fixture must remove its measured gait envelope");
     stand.step(stand.seconds(1));
     assert.ok(Number.isFinite(actor.state.script.orders.pace) && actor.state.script.orders.pace > 0, "the script must publish a finite numeric movement");
     assert.equal(actor.mind.report.engagement.phase, "follow orders");

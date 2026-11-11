@@ -222,6 +222,11 @@ A skill set (`skillSet`, `src/skills/framework/arbiter.ts`) turns an `Intent`
 beneath, executors running discrete actions over them. Every skill answers `Skill.resume`; the
 arbiter releases every action when another mind takes the body.
 
+What a mind holds is one object (`Skills`, `skills.ts`): `command` and `release`, its `state`, and
+what the mind reads and asks of each skill under that skill's name (`legs`, `navigation`,
+`actions`). How each is going is under the same name in its `report` (`SkillReport`). A decider is
+given the same groups in what it sees (`Sight`, `sightOf`).
+
 - **An action** (`ActionRequest`, `action.ts`) has an id, a name, an effector and a sensed target
   region. Admission reads readiness and reserves resources (joints, effectors, segment configurations, support limbs and whole-body assist);
   actions overlap where reservations allow. An executor runs `prepare`, `commit` and `release` and

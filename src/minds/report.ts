@@ -45,9 +45,9 @@ export interface MindReport {
 export function skillsReport(skills: Skills, decider: { readonly engagement?: Engagement; readonly prospects?: readonly Prospect[] }, state: object): MindReport {
   const menu = (): readonly MenuEntry[] => {
     const saved = saveState(state);
-    try { return skills.menu(); } finally { loadState(state, saved); }
+    try { return skills.actions.menu(); } finally { loadState(state, saved); }
   };
-  return { get engagement() { return decider.engagement ?? null; }, get prospects() { return decider.prospects ?? null; }, get heading() { return skills.report.heading; }, gaits: skills.gaits,
-    get navigation() { return skills.report.navigation ?? null; }, kit: skills.kit, get actions() { return skills.report.actions; },
+  return { get engagement() { return decider.engagement ?? null; }, get prospects() { return decider.prospects ?? null; }, get heading() { return skills.report.legs.heading; }, gaits: skills.legs.gaits,
+    get navigation() { return skills.report.navigation ?? null; }, kit: skills.actions.kit, get actions() { return skills.report.actions; },
     get ended() { return skills.report.ledger; }, get menu() { return menu(); } };
 }

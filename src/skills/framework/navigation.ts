@@ -40,7 +40,7 @@ export interface NavigationSight {
     readonly root?: { readonly position: Point; readonly rotation: Turn };
     readonly effectors?: Readonly<Record<string, { readonly points: Readonly<Record<string, Point>>; readonly rotation: Turn }>>;
   };
-  readonly report: { readonly heading: number };
+  readonly report: { readonly legs: { readonly heading: number } };
 }
 
 /**

@@ -94,8 +94,8 @@ const liveOf = (now: Situation, memory: Asking) => memory.id === null ? undefine
 
 /** **A ground option's step**: the ground action `action`, asked on the side `memory` keeps (its effector of `sides`, `sideEffectors`), from the step it is first asked. */
 function asks(now: Situation, memory: Asking, action: string, sides: (start: string) => string): Step {
-  memory.id ??= now.sight.instance();
-  const asked = { move: null, face: now.sight.report.heading, actions: [{ id: memory.id, action, effector: sides(memory.start), target: HERE }] };
+  memory.id ??= now.sight.actions.instance();
+  const asked = { move: null, face: now.sight.report.legs.heading, actions: [{ id: memory.id, action, effector: sides(memory.start), target: HERE }] };
   return { asked, holds: asking(now, asked) };
 }
 
@@ -105,7 +105,7 @@ function asks(now: Situation, memory: Asking, action: string, sides: (start: str
  * unless its entry reads motion (`calm`, `TechniquePart.moving`), an edge of `edges` from where it
  * lies (raw where its entry reads motion, as last settled else; `toward` says where it goes from
  * there), on the side it lies on first, then left, then right, where its skill admits it there
- * (`Sight.readiness`). Begun, it runs until its action ends, yielding while the action is
+ * (`SkillsActions.readiness`). Begun, it runs until its action ends, yielding while the action is
  * prepared; its try noted in `record` as it ends (`OptionRecord.note`), done where the action ended
  * done. Priced as what it is expected to do from where it is begun (`way`): its seconds down
  * (`downTerms`), ending where it goes in the share done and where its failures come to rest
@@ -119,7 +119,7 @@ function attempt(given: ProfileOptionContext, part: TechniquePart, skill: PartCo
   const fromOf = (g: GroundReading): Position => part.moving && edges.some((edge) => edge.from === g.raw) ? g.raw : g.position;
   const beginningOf = (now: Situation, g: GroundReading): string | null => {
     for (const start of [g.side, ...part.starts])
-      if (start && part.starts.includes(start) && now.sight.readiness(now.sight.view, name, sides(start), HERE, around(now.sight)).kind !== "blocked") return start;
+      if (start && part.starts.includes(start) && now.sight.actions.readiness(now.sight.view, name, sides(start), HERE, around(now.sight)).kind !== "blocked") return start;
     return null;
   };
   const note = (done: boolean): void => { if (memory.from !== null) record.note(name, memory.from, done); memory.from = null; };
@@ -275,7 +275,7 @@ export const LAND_OPTION = groundKind("landing", "Land", "land", null, (given, c
 /**
  * **Brace while tumbling**, in its rise off its feet and moving: not calm (`calm`), or lying, its
  * position read, where one of its mind's ways up (`waysUpIn`) begins but none admits the body yet
- * (`Sight.readiness`: too fast for it). A body on its feet is the stance's to catch, and bracing it
+ * (`SkillsActions.readiness`: too fast for it). A body on its feet is the stance's to catch, and bracing it
  * would fold the legs under it. Priced as lying where it is: tumbling, for what is left of what a
  * brace saves (`BRACED`); else until a way up admits it, where the body is then, by its profile from
  * where it lies where one is measured, by hand else (`groundWay`, `SETTLE_PRIOR`).
@@ -294,7 +294,7 @@ export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while t
       if (!way.edges.some((edge) => edge.from === g.position || edge.from === g.raw)) continue;
       begins = true;
       for (const binding of way.bindings(given.spec, config))
-        if (now.sight.readiness(now.sight.view, config.kind, binding.segment, HERE, around(now.sight)).kind !== "blocked") return false;
+        if (now.sight.actions.readiness(now.sight.view, config.kind, binding.segment, HERE, around(now.sight)).kind !== "blocked") return false;
     }
     return begins;
   };

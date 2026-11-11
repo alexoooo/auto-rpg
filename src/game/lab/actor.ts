@@ -9,7 +9,7 @@ import type { GameContext } from "../arena/context.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import { createMind } from "../../minds/seat/create-mind.ts";
 import { clockSenses } from "../../core/world/senses.ts";
-import type { Script, Sight } from "../../minds/decider.ts";
+import { sightOf, type Script, type Sight } from "../../minds/decider.ts";
 import type { World } from "../../core/world/world.ts";
 import type { Intent } from "../../skills/framework/intent.ts";
 import type { Orders } from "../../minds/orders.ts";
@@ -81,14 +81,13 @@ interface ScriptOrdersState { memory: object | null; time: number | null; orders
  * given the same.
  */
 function scriptOrders(state: ScriptOrdersState, script: Script, watch: Watch | undefined, body: HostedBody, world: World, skills: LabMind["skills"]): () => Orders {
-  const sight: Sight = { get context() { return skills.context; }, view: body.view, report: skills.report, get envelope() { return skills.envelope; }, walkEnvelope: body.envelope, limitsOf: skills.limitsOf,
-    instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
+  const sight = sightOf(body, skills);
   return () => {
     if (state.orders === null || state.time !== body.view.time) {
       const dt = state.time === null ? world.dt : body.view.time - state.time;
       state.time = body.view.time;
       watch?.(sight, dt);
-      state.orders = intentOrders(script.decide(sight, dt), skills.report.heading);
+      state.orders = intentOrders(script.decide(sight, dt), skills.report.legs.heading);
     }
     return state.orders;
   };

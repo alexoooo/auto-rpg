@@ -44,7 +44,7 @@ export function profileModel(tables: ProfileTables): OptionEvaluation {
         if (fresh) { prospect(state.prospects, options, read); for (const other of priced) prospect(state.prospects, options, other); }
         reader.keep(now);
         const intent = stepSet(set, now, dt, () => ({ move: null, face: walk.facing(now) }));
-        state.details = [unmetDetail(seen.report.legs, seen.view.unmet), profileDetail(options, now)];
+        state.details = [unmetDetail(seen.report.legs.unmet, seen.view.unmet), profileDetail(options, now)];
         return intent;
       },
     };

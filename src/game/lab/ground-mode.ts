@@ -165,7 +165,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
       ? { ...STAND_ORDERS, move: directMovement(environment.approach.x, environment.approach.z), pace: STAND_CHECK.pace } : check.orders() });
   if (isRefused(driven)) return driven;
   const { skills } = driven;
-  const shoving = shoveBody(body, world, () => skills.report.heading, options.pushed), shove = groundShove(address);
+  const shoving = shoveBody(body, world, () => skills.report.legs.heading, options.pushed), shove = groundShove(address);
   if (isRefused(shoving)) return shoving;
   scope.own(shoving);
   const wind = startWind(body.built, world, address.ground.gusts ? labGusts(address.model) : CALM, address.seed);
