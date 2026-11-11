@@ -32,25 +32,17 @@
     }
   },
   "workshop-rogue+toes": {
-    "made": "Folded elbows through planting and sitting back keep the weight transfer from asking the arms to lift the chest.",
+    "made": "The sit-back's stages as its recipe times them (scale 1), as the workshop-rogue's stand-up plays them on its target falls.",
     "settings": {
       "stages": {
         "up": {
           "scale": 1
         },
         "sit back": {
-          "scale": 1,
-          "posture": {
-            "elbow.left flexion": 1.5,
-            "elbow.right flexion": 1.5
-          }
+          "scale": 1
         },
         "plant": {
-          "scale": 1,
-          "posture": {
-            "elbow.left flexion": 1.5,
-            "elbow.right flexion": 1.5
-          }
+          "scale": 1
         }
       }
     }
