@@ -18,7 +18,7 @@ import type { MindConfig } from "../minds/catalog/config.ts";
 import type { Minded } from "../minds/seat/create-mind.ts";
 import type { ArenaSeat as Side } from "../game/arena/seat.ts";
 
-/** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
+/** Plain finite JSON: what survives a key, a cached row, a URL and `postMessage`. */
 export type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };
 
 /** What is evaluated: `id` stable and readable; `value` what a case's world is built from. */
@@ -161,7 +161,7 @@ export interface Evaluation<C extends Json = Json, R extends Json = Json, B exte
   readonly question: string;
   readonly protocols: Readonly<Record<string, Cases<C, R, B>>>;
   readonly defaultProtocol: string;
-  /** Whether one command plays every protocol, each its own record, unless one is named; otherwise the default alone. */
+  /** Whether one command plays every protocol, each its own result, unless one is named; otherwise the default alone. */
   readonly every?: true;
   /** Whom a contest's subjects meet unless told: every pair, or a panel (`schedule.ts`). */
   readonly schedule: "all" | "versus";
@@ -170,10 +170,9 @@ export interface Evaluation<C extends Json = Json, R extends Json = Json, B exte
   readonly figures: readonly Figure<R>[];
   /**
    * A drill's: what a trial came to in a word, and whether it passed, as the Ratings strip shows
-   * each trial and its reel plays the failures first; for a failure, why in a phrase where the
-   * drill says (`why`), which the Arena shows when it plays the trial.
+   * each trial and its reel plays the failures first.
    */
-  outcome?(reading: R): { readonly label: string; readonly passed: boolean; readonly why?: string };
+  outcome?(reading: R): { readonly label: string; readonly passed: boolean };
   /**
    * What a learning environment may weigh at a trial's end beside its reading's own numbers
    * (`research/case-learning-environment.mjs`): named terms, each from the reading and its condition.

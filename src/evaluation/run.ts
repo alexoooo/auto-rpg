@@ -54,7 +54,7 @@ interface CaseJob {
 const keyOf = (fields: { evaluation: string; play: Json; engine: EngineName; world: CaseWorld; seconds: number; code: string }): string =>
   sha256Text(recordingKey(fields)).slice(0, 32);
 
-/** `world` with a bout's reaction time and seed written in its recipe (`senseDelayOf`, `boutSeedOf`), so its key and record name them. */
+/** `world` with a bout's reaction time and seed written in its recipe (`senseDelayOf`, `boutSeedOf`), so its key names them. */
 function named(world: CaseWorld): CaseWorld {
   return world.kind === "bout" ? { ...world, recipe: { ...world.recipe, senseDelay: senseDelayOf(world.recipe), seed: boutSeedOf(world.recipe) } } : world;
 }

@@ -13,8 +13,8 @@ import { createCoverCases, type CoverCondition } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
 /** What the strip shows a trial as: its outcome, and whether it passed (nothing on its head, the subject up). */
-const coverOutcome = (reading: CoverReading) => reading.attempted !== true
-  ? { label: "unreached", passed: false, why: reading.attempted === false ? "the fixture never attempted an attack" : "the record does not retain attack attempts" }
+const coverOutcome = (reading: CoverReading) => !reading.attempted
+  ? { label: "unreached", passed: false }
   : { label: reading.outcome, passed: reading.outcome === "covered" || reading.outcome === "untouched" };
 
 export function createCoverIndex(context: GameContext) {

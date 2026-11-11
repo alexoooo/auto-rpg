@@ -20,15 +20,15 @@ const DRILLED = ["option/straight-punch"];
 const trialText = (c: StandCondition): string => `${c.impulse} N s at ${c.way}°, ${c.height}${c.hand ? `, ${c.hand} hand striking` : ""}`;
 
 /**
- * What the strip shows a trial as, and why it failed: not shoved (the striking limb never flew,
- * outside the entry condition), fallen (balance lost), unsettled (still moving at the end), its
- * strike unfinished; passed where it settled on its feet and any strike finished.
+ * What the strip shows a trial as: not shoved (the striking limb never flew fast enough to be
+ * shoved, outside the entry condition), fallen (balance lost), unsettled (still moving at the end),
+ * its strike unfinished; passed where it settled on its feet and any strike finished.
  */
-function standOutcome(r: StandReading): { readonly label: string; readonly passed: boolean; readonly why?: string } {
-  if (r.shoved === null) return { label: "unshoved", passed: false, why: "outside the entry condition: the striking limb never flew fast enough to be shoved" };
-  if (!r.upright) return { label: "fell", passed: false, why: `balance lost: down ${(r.fellAt! - r.shoved).toFixed(2)} s after the shove` };
-  if (r.settled === null) return { label: "unsettled", passed: false, why: "still moving at the end" };
-  if (r.strike && !r.strike.finished) return { label: "unfinished", passed: false, why: `the strike did not finish: ${r.strike.outcome}` };
+function standOutcome(r: StandReading): { readonly label: string; readonly passed: boolean } {
+  if (r.shoved === null) return { label: "unshoved", passed: false };
+  if (!r.upright) return { label: "fell", passed: false };
+  if (r.settled === null) return { label: "unsettled", passed: false };
+  if (r.strike && !r.strike.finished) return { label: "unfinished", passed: false };
   return { label: "settled", passed: true };
 }
 

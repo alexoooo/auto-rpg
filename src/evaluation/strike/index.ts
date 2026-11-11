@@ -46,45 +46,11 @@ function loadoutNamed(key: string): Loadout {
   return loadout;
 }
 
-/**
- * How near its aim the striking limb came for the drill to say it reached it, m: a miss that came
- * this near found the target gone from where it aimed.
- */
-const REACHED = .05;
-
-/**
- * Why a trial failed, in the drill's words: outside the entry condition (never admitted, the
- * reason its readiness gave), balance lost, blocked by the arms, the target moved (the limb reached
- * where it aimed and the target was not there), short of the aim, off the mark, met with the wrong surface, incomplete, or let go before it committed; undefined for one that passed.
- */
-function whyFailed(reading: StrikeReading): string | undefined {
-  switch (reading.outcome) {
-    case "landed": return undefined;
-    case "fell": return "balance lost: the striker fell";
-    case "guarded": return "blocked: the limb met the target's arms alone";
-    case "elsewhere": return `off the mark: the limb met the target's ${reading.met ?? "body"}`;
-    case "weak": return reading.hit?.faced === false ? "not met with what it strikes with"
-      : reading.hit?.overhead?.short.length ? `short of the bonk's ${reading.hit.overhead.short.join(", ")}` : "the action did not end";
-    case "missed": {
-      // A record line without the nearest approach does not say it.
-      const nearest = reading.nearest ?? null;
-      return nearest !== null && nearest <= REACHED ? "the target moved: the limb reached its aim and the target was not there"
-        : `short of the aim${nearest === null ? "" : ` by ${nearest.toFixed(2)} m`}`;
-    }
-    case "abandoned": return "let go before it committed";
-    case "unlaid": return "invalid fixture: the target was not lying by the drill's first moment";
-    case "outside": case "refused": case "waiting": case "unreached":
-      return `outside the entry condition: ${reading.outcome === "unreached" ? "the fight never came to its moment" : `${reading.phase}${reading.reason ? `, ${reading.reason}` : ""}`}`;
-    default: { const never: never = reading.outcome; return never; }
-  }
-}
-
 /** Contact outcomes and diagnostic failures; an observation with incomplete motion coverage cannot pass. */
 const strikeOutcome = (reading: StrikeReading) => {
-  if (reading.motion?.chatter) return { label: "uncontrolled", passed: false, why: "unobstructed stroke: a wrist channel reverses beyond the monotonic-phase allowance" };
-  if (reading.motion && reading.began !== null) return { label: "unverified", passed: false, why: "course, clearance and physical stroke-end gates are not covered" };
-  const why = whyFailed(reading);
-  return { label: reading.outcome, passed: reading.outcome === "landed", ...(why === undefined ? {} : { why }) };
+  if (reading.motion?.chatter) return { label: "uncontrolled", passed: false };
+  if (reading.motion && reading.began !== null) return { label: "unverified", passed: false };
+  return { label: reading.outcome, passed: reading.outcome === "landed" };
 };
 
 export function createStrikeIndex(context: GameContext) {

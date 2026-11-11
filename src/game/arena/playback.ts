@@ -8,7 +8,7 @@ const AFTERMATH_LEVELS = Object.freeze({ wake: 0, rest: 0, company: 0, clear: 0,
 
 /**
  * The Arena's playback preserves the verdict and lets defeated bodies fall under gravity before
- * stopping; given `until`, s of the bout's clock, it stops there: a recorded case where its scoring
+ * stopping; given `until`, s of the bout's clock, it stops there: a saved trial where its scoring
  * stopped. Whoever steps the bout stops where it is `done`.
  */
 export function arenaPlayback(duel: Duel, until = Infinity) {

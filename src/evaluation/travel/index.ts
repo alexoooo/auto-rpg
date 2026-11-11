@@ -20,8 +20,7 @@ export function createTravelIndex(context: GameContext) {
       { name: "entry", unit: "share reaching the required entry", kind: "rate", better: "higher", of: r => r.entryMade },
       { name: "held speed", unit: "m/s, slowest rolling second", kind: "median", better: "higher", of: r => r.held },
     ],
-    outcome: r => ({ label: r.met ? "met" : r.short.some(reason => reason.includes("entry")) ? "unentered" : "short",
-      passed: r.met, why: r.short.join(", ") }),
+    outcome: r => ({ label: r.met ? "met" : r.short.some(reason => reason.includes("entry")) ? "unentered" : "short", passed: r.met }),
     summary: table => ({ lines: table.subjects.map(subject => {
       const rows = table.cases.filter(row => row.subjects[0] === subject.id);
       return `${subject.label}: ${rows.filter(row => row.reading.met).length}/${rows.length} met; `

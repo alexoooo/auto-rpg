@@ -1,7 +1,7 @@
 /**
  * **The baseline evaluation**: each competence of one mind's configuration on the Warrior, its
- * walk, punch, stand-up and fights, in one command (`Evaluation.every`), a record a competence, so
- * a later change reads what it touches against the same record (`npm run compare`). Its opponents
+ * walk, punch, stand-up and fights, in one command (`Evaluation.every`), a result a competence, so
+ * a later change reads what it touches against the same result (`--previous`). Its opponents
  * are minds' presets outside the subject (`OPPONENTS`), never its own earlier one.
  */
 import type { Evaluation, Figure, Json, Table } from "../evaluation.ts";

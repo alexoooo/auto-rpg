@@ -2,7 +2,7 @@
  * **The panel report**: a contest subject against its baseline (its previous version, or another),
  * each against the same panel members at the same conditions. The verdict reads the pairs in a
  * fixed order and stops at the first that settles it (`settle`), so rows played past it, or read
- * from a record, give the same answer. A battery's comparison is its figures' paired differences.
+ * from the cache, give the same answer. A battery's comparison is its figures' paired differences.
  */
 import { recordingKey } from "../core/world/recording.ts";
 

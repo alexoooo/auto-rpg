@@ -37,7 +37,7 @@ export type EntryRule = "attacks" | "uses-held";
 /** **What a fight asks of a mind** (an Arena bout, a match, a Crypt run): that it can attack, and has a use for what its body holds. */
 export const FIGHT_ENTRY: readonly EntryRule[] = Object.freeze(["attacks", "uses-held"]);
 
-/** **The first part of kind `kind` in `config`'s tree**, as plain data (a part in a record's mind, wherever its kind puts it); null where none is. */
+/** **The first part of kind `kind` in `config`'s tree**, as plain data (a part in a subject's mind, wherever its kind puts it); null where none is. */
 export function partIn(config: unknown, kind: string): PartConfig | null {
   if (!config || typeof config !== "object") return null;
   if (!Array.isArray(config) && (config as { kind?: unknown }).kind === kind) return config as PartConfig;

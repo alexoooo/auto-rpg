@@ -24,7 +24,7 @@ const done = (reading: TechniqueReading): boolean | null => begun(reading) ? dri
 /** What the strip shows a trial as: its edge's end, passed only when its edge completes. */
 const riseOutcome = (reading: TechniqueReading) => {
   const link = drilled(reading);
-  return { label: link.end, passed: link.end === "done", ...(link.entry === null ? { why: "the fixture never entered the technique" } : {}) };
+  return { label: link.end, passed: link.end === "done" };
 };
 
 /** The bands of the speed a body was begun at, m/s: still, slow, moving. */

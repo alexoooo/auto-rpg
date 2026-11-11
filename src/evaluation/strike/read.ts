@@ -286,8 +286,6 @@ export type StrikeReading = {
   readonly bar: Bar;
   /** The hit points each of the target's segments lost to the striker's touches over the trial, by the segment touched. */
   readonly dealt: Readonly<Record<string, number>>;
-  /** The target's segment the striker first touched once its action began; null where it touched none. */
-  readonly met: string | null;
   /** The hit points the striker lost in its contacts with the target over the trial, any part on any part. */
   readonly taken: number;
   /**
@@ -678,8 +676,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       const foe = foeBegan ?? atHand;
       const dealt: Record<string, number> = {};
       for (const { contact } of touches) dealt[contact.on] = (dealt[contact.on] ?? 0) + contact.damage;
-      const met = touches.find(({ contact }) => contact.time >= (times.began ?? 0))?.contact.on ?? null;
-      return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, inWindow: foe?.window ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, dealt, met, taken,
+      return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, inWindow: foe?.window ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, dealt, taken,
         ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }),
         recovers: watching !== null && again !== null ? again - watching : null, nearest, exit, down, seconds: world.time,
         ...(motion ? { motion: motion.reading() } : {}) };

@@ -1,25 +1,6 @@
 {
   "source": {
-    "script": "research/skills/strikes/strike-profiles.mjs",
-    "records": [
-      "assets/evaluations/baseline/2026-11-03-63af1d4c-e439d4f1.jsonl",
-      "assets/evaluations/strike/2026-11-03T104717-90bdd549-cd2a4372.jsonl",
-      "assets/evaluations/strike/2026-11-03-63af1d4c-2aa0460b.jsonl",
-      "assets/evaluations/strike/2026-11-03-63af1d4c-395aa682.jsonl",
-      "assets/evaluations/strike/2026-11-03-63af1d4c-3d58dd12.jsonl",
-      "assets/evaluations/strike/2026-11-03-63af1d4c-5e40121b.jsonl",
-      "assets/evaluations/strike/2026-11-03-63af1d4c-af88974b.jsonl",
-      "assets/evaluations/strike/2026-11-03-63af1d4c-e898dd90.jsonl",
-      "assets/evaluations/strike/2026-11-03-8ed9abf4-a8c859b0.jsonl",
-      "assets/evaluations/strike/2026-11-04T050004-00dfdd16-e5015db3.jsonl",
-      "assets/evaluations/strike/2026-11-04T050026-00dfdd16-c2752ce5.jsonl",
-      "assets/evaluations/strike/2026-11-04T050242-00dfdd16-fdecb1af.jsonl",
-      "assets/evaluations/strike/2026-11-04T050455-00dfdd16-a70636b7.jsonl",
-      "assets/evaluations/strike/2026-11-04T050506-00dfdd16-5bb26835.jsonl",
-      "assets/evaluations/strike/2026-11-04T050516-00dfdd16-bf2857b4.jsonl",
-      "assets/evaluations/strike/2026-11-04T050611-00dfdd16-82bbf6d7.jsonl",
-      "assets/evaluations/strike/2026-11-09T124735-7ed3c982-8a9ce197.jsonl"
-    ]
+    "script": "research/skills/strikes/strike-profiles.mjs"
   },
   "profiles": [
     {

@@ -31,7 +31,7 @@ export function pairsOf(subjects: readonly Subject[], schedule: Schedule): [Subj
   }
 }
 
-/** A schedule as a record's header names it. */
+/** A schedule as a run's header names it. */
 export function scheduleName(schedule: Schedule): string {
   switch (schedule.kind) {
     case "all": return "all";

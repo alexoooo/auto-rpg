@@ -1,5 +1,5 @@
 /**
- * **A drill trial's overlays**, drawn over a bout the Arena plays from its record: where the
+ * **A drill trial's overlays**, drawn over a bout the Arena plays from its conditions: where the
  * striker's actions aim (`ActionStatus.aim`, as its mind reports them, `MindReport`), the
  * target's path (the centre of the region its last action aims at, the middle of the other body
  * before one), each action's effector's path while it is under way, and each contact between the

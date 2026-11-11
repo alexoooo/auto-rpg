@@ -14,13 +14,13 @@ interface Played<R extends Json = Json> {
 
 /**
  * A case's row: its reading and digest, or its fault. A case's own error is an `error`; a reading
- * that is not finite JSON is `invalid`. Both are results, recorded and reused.
+ * that is not finite JSON is `invalid`. Both are results, cached and reused.
  */
 export interface Row<R extends Json = Json> {
   readonly key: string;
   readonly reading: R | null;
   readonly digest: string | null;
-  /** How long the case played until its reader ended, simulated s (its world kind's clock): where a watcher stops it. Null for an error, and on a record line without it. */
+  /** How long the case played until its reader ended, simulated s (its world kind's clock): where a watcher stops it. Null for an error. */
   readonly played: number | null;
   readonly fault: { readonly kind: "error" | "invalid" | "refused"; readonly message: string } | null;
 }
