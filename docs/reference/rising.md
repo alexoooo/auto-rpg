@@ -37,3 +37,24 @@ npm run evaluate -- rising-target [riser ...]
   ([Resisting arrest](https://research.bond.edu.au/en/publications/resisting-arrest-analysis-of-different-prone-body-positions-on-ti/),
   Bond University); the target's clock also holds the landing before the rise and the steadying
   after it.
+
+## One technique alone
+
+```powershell
+npm run evaluate -- rise [technique ...] --protocol <placed | moving | placed-bodies | moving-bodies>
+```
+
+The Rise drill (`src/evaluation/rise/`) plays one way up by itself, with no mind choosing and no
+profile read: where a technique is developed. Its techniques are the route's four (`EDGES`).
+
+- **`placed`**: the technique begun from each position it starts in, the body placed there at
+  rest, six seeds.
+- **`moving`**: the technique begun as the route hands the body over, after the techniques before
+  it; the route's first after a shove from standing.
+- **The bodies**: `placed` and `moving` play the Warrior with empty hands and with the club and
+  buckler. `placed-bodies` and `moving-bodies` play every other body and rated loadout
+  (`HUMANOID_MODELS`, `REPRESENTATIVE`), the trials otherwise the same. Its summary reads each
+  body and loadout apart.
+- **A technique's cases** are those on a body it fits (`Part.fits`), from a position that body has
+  an installed start in (`assets/research/posture-holds.json`). The Skeleton has none on hands
+  and knees, so its sit-back is read on `moving-bodies` alone.

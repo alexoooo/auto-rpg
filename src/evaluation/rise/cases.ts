@@ -4,11 +4,16 @@
  * position the edge is begun from, placed there at rest (`groundPlacement`, a seed moving its joints).
  * Rung `moving`: after the edges before it on the route, from the nearest begun lying, placed there
  * at rest, the first edge after a shove from standing: entered as the route hands the body over, at
- * the speeds the edge before leaves it. The Warrior on toes, six seeds, empty-handed and holding
- * the buckler and the club (`ARMS`): no edge is worked on flat feet.
+ * the speeds the edge before leaves it. Six seeds. A rung's own protocol plays the Warrior
+ * empty-handed and holding the buckler and the club (`OWN`); its `-bodies` protocol plays every
+ * other body and loadout a stand-up is read on (`OTHERS`), its trials otherwise the same. An edge's
+ * cases are those on a body it fits.
  */
 import type { TechniqueName } from "../../skills/recovery/technique.ts";
-import type { HumanoidModel } from "../../core/bodies/models.ts";
+import { HUMANOID_MODELS, type HumanoidModel } from "../../core/bodies/models.ts";
+import { humanoidSpec } from "../../core/bodies/human/spec.ts";
+import { withLoadout } from "../../core/bodies/items/held.ts";
+import { REPRESENTATIVE } from "../loadouts.ts";
 import type { Held } from "../../core/bodies/items/held.ts";
 import type { GROUND_POSTURES } from "../../game/lab/ground-starts.ts";
 import type { Cases, Json } from "../evaluation.ts";
@@ -33,10 +38,17 @@ type MovingCondition = { readonly model: HumanoidModel; readonly held: Held; rea
 
 export type RiseCondition = PlacedCondition | MovingCondition;
 
-const MODELS: readonly HumanoidModel[] = ["workshop-fighter"];
+/** A body and what its hands hold: its right's, and its left's where that is not empty. */
+type Carrier = { readonly model: HumanoidModel; readonly held: Held; readonly left?: Held };
 
-/** What the hands hold: nothing, and the buckler in the left with the club in the right. */
-const ARMS: readonly { readonly held: Held; readonly left?: Held }[] = [{ held: "empty" }, { held: "club", left: "buckler" }];
+/** What a rung's own protocol plays: the Warrior with nothing in its hands, and with the buckler in the left and the club in the right. */
+const OWN: readonly Carrier[] = [{ model: "workshop-fighter", held: "empty" }, { model: "workshop-fighter", held: "club", left: "buckler" }];
+
+const same = (a: Carrier, b: Carrier): boolean => a.model === b.model && a.held === b.held && (a.left ?? "empty") === (b.left ?? "empty");
+
+/** What a rung's `-bodies` protocol plays: every humanoid body holding every loadout minds are rated on (`REPRESENTATIVE`), but its own protocol's. */
+const OTHERS: readonly Carrier[] = HUMANOID_MODELS.flatMap((model) => REPRESENTATIVE.map((loadout): Carrier =>
+  ({ model, held: loadout.right, ...(loadout.left === "empty" ? {} : { left: loadout.left }) }))).filter((one) => !OWN.some((own) => same(own, one)));
 
 const SEEDS = [1, 2, 3, 4, 5, 6];
 
@@ -62,6 +74,10 @@ const seconds = TECHNIQUE_LIMITS.admit * (DRILLED.length + 1) + TECHNIQUE_LIMITS
 export function createRiseCases(context: GameContext) {
   const TECHNIQUES = context.techniques;
 
+  /** Why `edge` is no technique of the body a condition names, a sentence (`Part.fits`); null where it fits. */
+  const unfit = (edge: TechniqueName, condition: RiseCondition): string | null =>
+    TECHNIQUES[edge].fits(withLoadout(humanoidSpec(condition.model), { left: condition.left ?? "empty", right: condition.held }), TECHNIQUES[edge].defaults, context.catalog.partLookup);
+
   /** The positions `edge` is begun from. */
   const fromOf = (edge: TechniqueName): readonly string[] => TECHNIQUES[edge].edges.map((one) => one.from);
 
@@ -83,33 +99,44 @@ export function createRiseCases(context: GameContext) {
     return { ...body, start: { kind: "placed", posture: from[(condition.seed - 1) % from.length] as Posture }, chain };
   }
 
-  /** The drill's rungs. A case whose start no seed's draw places clear is refused before it plays. */
-  const RISE_CASES: Readonly<Record<"placed" | "moving", Cases<RiseCondition, TechniqueReading & Json, BuiltTechnique>>> = Object.freeze({
-    placed: {
-      arity: 1, play: play("placed"), seconds,
-      conditions: ARMS.flatMap((arms) => MODELS.flatMap((model) => POSTURES.flatMap((posture) => SEEDS.map((seed): PlacedCondition => ({ model, ...arms, posture, seed }))))),
-      faults(value, condition) {
-        const edge = edgeOf(value);
-        if (!isEdge(edge)) return [edge];
-        if (!("posture" in condition) || !fromOf(edge).includes(condition.posture)) return [`${edge} is not begun from ${"posture" in condition ? condition.posture : "a moving start"}`];
-        const placed = techniquePlacement(riseCase(edge, condition));
-        return "refused" in placed ? [placed.refused] : [];
-      },
-      world: ([value], condition, engine) => ({ kind: "technique", engine, technique: riseCase(edgeOf(value!) as TechniqueName, condition) }),
-      read: (built) => readTechnique(built),
+  type RiseCases = Cases<RiseCondition, TechniqueReading & Json, BuiltTechnique>;
+
+  /** Rung `placed` on `carriers`. */
+  const placed = (carriers: readonly Carrier[]): RiseCases => ({
+    arity: 1, play: play("placed"), seconds,
+    conditions: carriers.flatMap((carrier) => POSTURES.flatMap((posture) => SEEDS.map((seed): PlacedCondition => ({ ...carrier, posture, seed })))),
+    faults(value, condition) {
+      const edge = edgeOf(value);
+      if (!isEdge(edge)) return [edge];
+      if (!("posture" in condition) || !fromOf(edge).includes(condition.posture)) return [`${edge} is not begun from ${"posture" in condition ? condition.posture : "a moving start"}`];
+      const refused = unfit(edge, condition);
+      if (refused) return [refused];
+      const placed = techniquePlacement(riseCase(edge, condition));
+      return "refused" in placed ? [placed.refused] : [];
     },
-    moving: {
-      arity: 1, play: play("moving"), seconds,
-      conditions: ARMS.flatMap((arms) => MODELS.flatMap((model) => SEEDS.map((seed): MovingCondition => ({ model, ...arms, seed })))),
-      faults(value, condition) {
-        const edge = edgeOf(value);
-        if (!isEdge(edge)) return [edge];
-        const placed = techniquePlacement(riseCase(edge, condition));
-        return "refused" in placed ? [placed.refused] : [];
-      },
-      world: ([value], condition, engine) => ({ kind: "technique", engine, technique: riseCase(edgeOf(value!) as TechniqueName, condition) }),
-      read: (built) => readTechnique(built),
+    world: ([value], condition, engine) => ({ kind: "technique", engine, technique: riseCase(edgeOf(value!) as TechniqueName, condition) }),
+    read: (built) => readTechnique(built),
+  });
+
+  /** Rung `moving` on `carriers`. */
+  const moving = (carriers: readonly Carrier[]): RiseCases => ({
+    arity: 1, play: play("moving"), seconds,
+    conditions: carriers.flatMap((carrier) => SEEDS.map((seed): MovingCondition => ({ ...carrier, seed }))),
+    faults(value, condition) {
+      const edge = edgeOf(value);
+      if (!isEdge(edge)) return [edge];
+      const refused = unfit(edge, condition);
+      if (refused) return [refused];
+      const placed = techniquePlacement(riseCase(edge, condition));
+      return "refused" in placed ? [placed.refused] : [];
     },
+    world: ([value], condition, engine) => ({ kind: "technique", engine, technique: riseCase(edgeOf(value!) as TechniqueName, condition) }),
+    read: (built) => readTechnique(built),
+  });
+
+  /** The drill's rungs, each on its own bodies and on the others (`-bodies`). A case whose start no seed's draw places clear is refused before it plays. */
+  const RISE_CASES: Readonly<Record<"placed" | "moving" | "placed-bodies" | "moving-bodies", RiseCases>> = Object.freeze({
+    placed: placed(OWN), moving: moving(OWN), "placed-bodies": placed(OTHERS), "moving-bodies": moving(OTHERS),
   });
 
   return { RISE_CASES };
