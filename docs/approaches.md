@@ -159,11 +159,6 @@ steered (`35b6998e`). The stomp: a chamber, a braced stroke and a square-up step
 - **A light body cannot meet a mass-scaled strike bar by more speed**: the Skeleton's fist meets
   0.09 to 0.22 kg whatever its speed (`0c3b4599`, `168a82e6`, `2793a30c`, `ed11435a`). It needs a
   different act or a different bar. *Repeated.*
-- **A straight punch cannot reach a head in guard**: the guard stands in every straight lane to
-  the face. A schedule searched at the high mark from the trunk's, admitted at any height and
-  range, met the guard or the trunk, as did the surface aim moved beside the head's middle; a punch
-  into the guard takes 0.02 to 0.03 hp from a forearm. A head in guard is struck around or over
-  the guard (a hook, an overhand), or where the guard opens (`fa7ccec7`). *Shown.*
 - **The learned punch's window (0.89 to 1.01 m) is not where fighters stand** (about 0.6 m, the
   foe's guard over the mark); training on fight moments failed twice (`d664e869`, `d11e7e9d`,
   `843a8f8b`). Footwork and openings come before another punch run. *Suspected.*

@@ -37,13 +37,13 @@ What they say:
 
 - **The blow is not what limits the cell.** Where it lands, the fist meets the mark at a median
   7.3 m/s, above a person's rear hand.
-- **Half the cell is the head, and it is at a ceiling for a straight punch.** A blow not begun
-  counts 0. The drill Commander asks for the choice of its member's menu at the mark it orders
-  (`src/minds/command/drill.ts`), and Option Mind's punch names the middle mark alone
-  (`STRAIGHT_PUNCH`, `src/entrants/option/mind.ts`). A straight punch cannot reach the drill
-  target's head past its guard ([the approaches](../approaches.md#unarmed-strikes)), and the
-  punch's record keeps it off the head (`above`). A blow around or over a guard is another skill,
-  read on its own row.
+- **Half the cell's cases are orders at the head, which the punch is not offered for.** A blow not
+  begun counts 0. The drill Commander asks for the choice of its member's menu at the mark it
+  orders (`src/minds/command/drill.ts`), and Option Mind's punch names the middle mark alone
+  (`STRAIGHT_PUNCH`, `src/entrants/option/mind.ts`). The `still` and `walk` target stands in guard
+  (`drill-stand`, `src/evaluation/strike/cases.ts`), against
+  [the skill recipe](../recipes/skill.md#1-the-reader-and-its-score)'s rule that a skill is judged
+  on a target that lets it happen. Both are the owner's to decide: no head punch is asked for.
 - **At the trunk it lands about three in four, still or walked to.** The window reaches 0.06 m
   past the punch's stand-off (`band`), and the steer is trained on that window, so few trials stay
   `outside`; the rest are refused, miss or meet the guard.

@@ -135,8 +135,6 @@ here.
 ### Blows and wounds
 
 - Not built: a part's own tolerance, the face apart from the head, armour, edges and points.
-- A blow around or over a guard at the head (a hook, an overhand): no executor throws one, and a
-  straight punch cannot reach a head in guard ([the approaches](approaches.md#unarmed-strikes)).
 - Striking a body that is down waits on faster rises.
 
 ### The AI
