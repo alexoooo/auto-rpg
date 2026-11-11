@@ -11,4 +11,4 @@ The first message of a run ([AGENTS.md](../../AGENTS.md#the-rules)), as written;
 7. Measure: `npm run evaluate -- table --body workshop-rogue --skill stand-up`, before (15.16, 23.61, 24.53, 13.94, 18.08 s) and after with `--fresh`.
 8. Machine time: 60 minutes of play in all.
 9. The Rise drill's `-bodies` protocols and the one-body profile rebuild are played here for the first time: a defect in either is fixed at its cause and named in the report.
-10. Stops at the row read after one change, kept if better and reverted if not; gates passing, committed, not pushed. One report: the row and the technique's Rise lines before and after, and what is unchecked.
+10. Stops at the row read after one change, kept if better and reverted if not; a kept change is checked by a fresh agent in a browser before it is reported ([the skill recipe](../recipes/skill.md#the-claim)); gates passing, committed, not pushed. One report: the row and the technique's Rise lines before and after, and what is unchecked.
