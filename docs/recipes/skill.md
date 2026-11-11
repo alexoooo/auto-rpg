@@ -170,8 +170,10 @@ A skill that exists enters at the step its failing part belongs to.
   drill's trials and a trial's score.
 - **A search ends one of three ways, and its report says which.** *Better*: its best beats the
   record the body plays on fresh trials and is installed. *Flat*: it reached a plateau and the
-  record is kept, so these settings over these ranges do no better, and the next step is other
-  settings, another technique or the body. *Unfinished*: it was stopped before a plateau (a
+  record is kept. That says this search, from this start over these ranges, stopped finding
+  gains; it never says nothing better exists. A thing is shown possible by doing it once, and
+  shown impossible only by a bound the body cannot meet (a torque or a reach it does not have,
+  step 2), never by a search that failed. *Unfinished*: it was stopped before a plateau (a
   count of generations, a crash, a session that ended), which says nothing about what the skill
   can do. An unfinished search's out file is copied to
   `research/runs/<skill>-search/`, beside a `README.md` naming it and the commit it was played
