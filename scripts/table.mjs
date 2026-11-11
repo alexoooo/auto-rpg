@@ -96,8 +96,8 @@ function onCell(cell, reading, found) {
 /**
  * A cell over its readings, a fall costing `rise` s: each reading valued now and at its baseline.
  * Its state: not read where a reading is not whole now, no baseline where one has none, nothing
- * counted where every reading is whole and no trial of any counts (every blow refused or never
- * begun, every cover unattacked), else every reading's counted trials against their baseline's,
+ * counted where every reading is whole and no trial of any counts (every fall not made, every
+ * cover unattacked), else every reading's counted trials against their baseline's,
  * paired and pooled (`compareValues`). Its value now, the mean over every counted trial of its
  * readings; and its lines.
  */

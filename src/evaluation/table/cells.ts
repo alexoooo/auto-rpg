@@ -76,7 +76,7 @@ type Skill = { readonly name: string; readonly value: string; readonly bodies: r
 const always = () => true;
 
 /** What a blow's value is, in words. */
-const BLOW = "the life each trial begun took from the target less the life it cost, a second of the action's cycle, a fall adding its body's time to stand";
+const BLOW = "the life each trial took from the target less the life it cost, a second of the action's cycle, a fall adding its body's time to stand, a blow not begun worth 0";
 
 /** What a move's value is, in words. */
 const MOVE = "the seconds each trial lost against its orders, a trial ended down charged the rest of its body's time to stand";

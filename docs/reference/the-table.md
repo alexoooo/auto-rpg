@@ -7,7 +7,7 @@ game's own terms (`trialValue`), every trial its own value:
 | --- | --- | --- |
 | stand-up | seconds from a fall made to a verified stand, a fall not stood at the 30 s cap (`timeToStand`) | lower |
 | walk, run | seconds lost against the orders (`orderTime`), a trial ended down charged the rest of its rise (`ordersValue`) | lower |
-| punch, stomp, bonk, cut, thrust | life taken from the target less life lost, a second of the action's cycle from its start to the limb back at guard, a fall adding its rise (`strikeValue`) | higher |
+| punch, stomp, bonk, cut, thrust | life taken from the target less life lost, a second of the action's cycle from its start to the limb back at guard, a fall adding its rise; 0 for a blow the Mind did not begin (`strikeTrade`, `strikeOffered`) | higher |
 | buckler-cover | life lost to the opponent's blows over the trial, those while down among them (`coverValue`) | lower |
 
 - **Seconds lost against the orders**: under a move with a pace, the seconds the progress along
@@ -16,14 +16,18 @@ game's own terms (`trialValue`), every trial its own value:
   not standing still. A body down makes no progress.
 - **A fall's rise** is the body and loadout's stand-up value now, the cap where it is unread, so
   a risky act and a safe one are priced alike.
-- **What does not count**: a fall not made, a blow not begun (the Mind refused it), a cover never
-  attacked. Their counts are reported beside the value.
+- **A blow not begun is worth 0**: where the drill's fixture reaches its case and the Mind begins
+  no blow (it refuses, never comes into its window, or falls first), the trial counts at 0. An
+  Option not used in a situation is worth nothing there, so a cell's value falls with every case
+  the Mind declines.
+- **What does not count**: a fall not made, a blow whose fixture did not reach its case, a cover
+  never attacked. Their counts are reported beside the value.
 - **The figures beside** a value decide nothing: a strike's hit against the person's (`BAR`), the
   falls stood within the owner's 10 s, the share of blows the buckler met first.
 
 A reading counts only over its whole protocol: every case present and none faulted. A cell's
 value is the mean of every counted trial of its readings; a cell whose readings are whole with no
-trial counted (every blow refused or never begun, every cover unattacked) is marked nothing
+trial counted (every fall not made, every cover unattacked) is marked nothing
 counted, its counts beside it. The Warrior's run reads the Travel confirmation protocol, the Rogue's the
 Locomotion run protocol, the walk the Locomotion `every` protocol on every body.
 

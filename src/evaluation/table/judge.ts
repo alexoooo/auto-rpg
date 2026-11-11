@@ -12,7 +12,7 @@ import { timeToStand, type FallReading } from "../fall.ts";
 import { ordersValue } from "../order-time.ts";
 import { ROW_HEAD, rounded, type Kept, type Result } from "../results.ts";
 import { mean, medianOf, pairBootstrap } from "../stats.ts";
-import { BAR, strikeTrade, type StrikeReading } from "../strike/read.ts";
+import { BAR, strikeOffered, strikeTrade, type StrikeReading } from "../strike/read.ts";
 import type { Cell, HitFigure, Judge, Reading } from "./cells.ts";
 
 /** A reading as its judge needs it: how its trials are valued, and for a strike what its figure reads of the hit. */
@@ -75,15 +75,17 @@ export function keep(reading: Judged, read: Json): Kept {
 }
 
 /**
- * **One trial's value** as `judge` reads what it kept (`keep`), a fall's rest costing `rise` s (the
- * body's time to stand): null where the trial does not count (a fall not made, a blow not begun, a
- * cover never attacked).
+ * **One trial's value** as `judge` reads what it kept (`keep`) and its outcome, a fall's rest
+ * costing `rise` s (the body's time to stand). A strike's is its life traded over its cycle, a fall
+ * adding its rise; a blow the Mind did not begin where the drill offered it (`strikeOffered`) is
+ * worth 0. Null where the trial does not count: a fall not made, a blow whose fixture did not
+ * reach its case, a cover never attacked.
  */
-export function trialValue(judge: Judge, trial: Kept, rise: number): number | null {
+export function trialValue(judge: Judge, { kept, outcome }: { readonly kept: Kept; readonly outcome: string | null }, rise: number): number | null {
   switch (judge) {
-    case "stand": case "cover": return trial[0]!;
-    case "orders": return trial[0] === null ? null : ordersValue({ lost: trial[0]!, downFor: trial[1]! }, rise);
-    case "strike": return trial[0] === null ? null : trial[0]! / (trial[1]! + (trial[2] ? rise : 0));
+    case "stand": case "cover": return kept[0]!;
+    case "orders": return kept[0] === null ? null : ordersValue({ lost: kept[0]!, downFor: kept[1]! }, rise);
+    case "strike": return kept[0] !== null ? kept[0]! / (kept[1]! + (kept[2] ? rise : 0)) : strikeOffered(outcome) ? 0 : null;
     default: { const never: never = judge; throw new Error(`no judge ${String(never)}`); }
   }
 }
@@ -120,7 +122,7 @@ export function valueOf(reading: Judged, trials: readonly Trial[], required: rea
   const read = trials.filter(trial => trial.kept !== null), faulted = trials.length - read.length;
   const values = new Map<string, number>();
   for (const trial of read) {
-    const value = trialValue(reading.judge, trial.kept!, rise);
+    const value = trialValue(reading.judge, { kept: trial.kept!, outcome: trial.outcome }, rise);
     if (value !== null) values.set(trial.at, value);
   }
   const whole = trials.length > 0 && missing === 0 && faulted === 0;
@@ -141,10 +143,11 @@ function figuresOf(reading: Judged, trials: readonly Trial[]): string {
     case "orders": return `${rows.filter(row => row[2]).length} fell, ${rows.filter(row => row[1] !== null).length} ended down`;
     case "strike": {
       const begun = trials.filter(trial => trial.kept![0] !== null);
+      const declined = trials.filter(trial => trial.kept![0] === null && strikeOffered(trial.outcome));
       const onMark = begun.filter(trial => (trial.outcome === "landed" || trial.outcome === "weak") && trial.kept![3] !== null);
       const hit = reading.hit === undefined ? "" : `, the hit's ${medianOf(onMark.map(trial => trial.kept![3]!))?.toFixed(2) ?? "-"} ${reading.hit === "energy" ? "J" : "m/s"} on the mark (median; the person's ${personOf(reading.hit)})`;
       return `${begun.length} begun, ${onMark.length} on the mark, ${trials.filter(trial => trial.outcome === "landed").length} landed, `
-        + `${rows.filter(row => row[2]).length} fell, ${trials.filter(trial => trial.outcome === "refused").length} refused${hit}`;
+        + `${rows.filter(row => row[2]).length} fell, ${declined.length} not begun at 0${hit}`;
     }
     case "cover": {
       const blows = rows.reduce((sum, row) => sum + row[1]!, 0);

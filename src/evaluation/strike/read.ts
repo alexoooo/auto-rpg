@@ -245,6 +245,13 @@ type StrikeHit = StrikeContact & {
  */
 type StrikeOutcome = "landed" | "weak" | "guarded" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell" | "unreached" | "unlaid";
 
+/**
+ * Whether a trial's fixture reached its case, by its outcome's label: every outcome but `unreached`
+ * and `unlaid`. A blow the Mind did not begin there (refused, never in its window, still waiting,
+ * fallen first) is an Option not used where it was offered, worth nothing there.
+ */
+export const strikeOffered = (outcome: string | null): boolean => outcome !== null && outcome !== "unreached" && outcome !== "unlaid";
+
 /** What a trial came to. */
 export type StrikeReading = {
   readonly motion?: SwingMotion;
@@ -321,21 +328,10 @@ function dealtIn(r: Pick<StrikeReading, "dealt">): number {
 }
 
 /**
- * **A blow's value**, hit points a second: the life its trial took from the target less the life
- * the striker lost, over its action's cycle, from its start until the limb was back at its guard
- * (`recovers`), or to the trial's end where it was not; a fall adds `rise` s, its body's time to
- * stand, to the cycle. None for a trial whose action did not begin: the Option was not taken, and
- * its refusal is the Mind's choice, not the blow's. Higher is better.
- */
-export function strikeValue(r: Pick<StrikeReading, "began" | "ended" | "recovers" | "seconds" | "down" | "dealt" | "taken">, rise: number): number | null {
-  const trade = strikeTrade(r);
-  return trade === null ? null : trade.net / (trade.cycle + (r.down ? rise : 0));
-}
-
-/**
- * **What a blow's value is made of** (`strikeValue`): the life its trial took less the life it
- * cost (`net`, hit points), and its cycle before a fall's rise is added (`cycle`, s). None for a
- * trial whose action did not begin.
+ * **What a blow's value is made of**: the life its trial took from the target less the life the
+ * striker lost (`net`, hit points), and its action's cycle, from its start until the limb was back
+ * at its guard (`recovers`), or to the trial's end where it was not (`cycle`, s), before a fall's
+ * rise is added. None for a trial whose action did not begin.
  */
 export function strikeTrade(r: Pick<StrikeReading, "began" | "ended" | "recovers" | "seconds" | "dealt" | "taken">): { readonly net: number; readonly cycle: number } | null {
   if (r.began === null) return null;
