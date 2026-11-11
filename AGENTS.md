@@ -90,6 +90,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 | `docs/traps.md` | what has bitten in Babylon, Rapier and a browser, by area |
 | `docs/art/`, asset and vendor READMEs | where each asset comes from and how to rebuild it |
 
+- **Durable knowledge lives in these documents, in Git**: a rule, a finding or a correction goes
+  in the document the table names, never only in an agent's own memory.
 - **Every sentence is true of the code now, something a reader acts on, and said once.** Plain
   technical English, the present tense. No dates, session or step numbers, commit hashes, owner
   quotes, comparisons to other games, "there is no X", or what used to be. A paper or an asset

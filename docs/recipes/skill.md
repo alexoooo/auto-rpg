@@ -113,8 +113,11 @@ A skill that exists enters at the step its failing part belongs to.
 - **Build only the primary screen first**: the reader, one fixture, one hand, one loadout, one
   rate. Misses, cancellations, moving targets, repetitions, other hands, loadouts and rates come
   once the primary screen succeeds on some cases.
-- **Develop against a target that lets the case happen.** A drill opponent's guard in front of
-  the mark fails a good blow for the target's stance; the guarded target is a later case.
+- **A skill is judged on itself, against a target that lets it happen**: a blow at a mark it can
+  reach, as a person's punch is judged on a pad. A foe's guard or best answer says nothing of the
+  skill; against a best answer no act would pass. A defence in front of the mark is the fight's
+  question (when to strike, where the openings are), read in fight protocols, and never parks,
+  rules out or caps a skill.
 
 ### 2. What the body can do
 
