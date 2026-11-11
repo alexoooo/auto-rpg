@@ -171,7 +171,8 @@ A skill that exists enters at the step its failing part belongs to.
   technique or the body. *Unfinished*: its time ended before a plateau, which says nothing
   about what the skill can do. An unfinished search's out file is copied to
   `research/runs/<skill>-search/`, beside a `README.md` naming it and the commit it was played
-  on, and a later run goes on from it with `--resume`. One hand-made variant that fails is none
+  on, and a later run goes on from it with `--resume`. That folder is kept outside Git
+  ([the training recipe](training.md#what-to-keep)): nothing in it is added to a commit. One hand-made variant that fails is none
   of the three.
 - **Before training, it succeeds on some held-out cases**: the sign the mechanism works. The straight punch's
   schedule landed 8 of 60 before training took it to 92 %. A controller that succeeds on none is

@@ -4,8 +4,8 @@
  * `.tmp/`. On a scratch repository holding one of each kind of path, the strays are exactly the
  * untracked file and folder at the root, what a folder of toolchains holds beside its kept
  * toolchain, the folder hidden through `.git/info/exclude`, the crash dump, and in `research/runs/`
- * a loose file, a folder with no README and an entry its folder's README does not name; on this
- * working copy there are none.
+ * a loose file, a folder with no README and an entry its folder's README does not name, and the
+ * file added to Git past the rule that ignores it; on this working copy there are none.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -33,8 +33,10 @@ test("strays_are_the_untracked_outside_tracked_folders_the_hidden_and_the_garbag
       "research/runs/bare/a.json"]) put(stray);
     put("research/runs/seed/README.md", "- `actor.pt`: the actor the next run starts from\n");
     appendFileSync(join(root, ".git/info/exclude"), "\n/.snap/\n**/.claude/worktrees/\n");
+    put(".tools/kit/forced.cfg");
+    git("add", "-f", ".tools/kit/forced.cfg");
     assert.deepEqual(strays(root).map(({ path }) => path),
-      [".snap/", ".tools/old/", ".tools/probe.mjs", "notes.txt", "research/bash.exe.stackdump", "research/old/bash.exe.stackdump",
+      [".snap/", ".tools/kit/forced.cfg", ".tools/old/", ".tools/probe.mjs", "notes.txt", "research/bash.exe.stackdump", "research/old/bash.exe.stackdump",
         "research/runs/bare/", "research/runs/rows.jsonl", "research/runs/seed/trace.log", "scratch/"]);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

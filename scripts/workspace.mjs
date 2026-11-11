@@ -14,6 +14,8 @@
  *   normalisation and configuration, rows a comparison reuses), within `RUN_BUDGET`, beside a
  *   `README.md` naming each entry it holds; nothing lies loose in `research/runs/`. A run writes its
  *   output to `.tmp/<task>/` and moves there only what it keeps.
+ * - A path `.gitignore` keeps outside Git is never tracked: a file added past its rule
+ *   (`git add -f`) is in Git and ignored at once, and each says the other is wrong.
  *
  * `strays()` names every path these rules do not allow: `tests/workspace.test.mjs` fails on them and
  * `npm run clean` lists them.
@@ -64,9 +66,9 @@ function unkept(rule) {
 }
 
 /**
- * Every path under `root` outside its tracked tree that the rules above do not allow, each with why:
- * an untracked one outside the tracked folders, an ignored one that the repository's `.gitignore`
- * does not keep, or garbage. A folder all of whose contents are such is named once; an untracked
+ * Every path under `root` that the rules above do not allow, each with why: an untracked one
+ * outside the tracked folders, an ignored one that the repository's `.gitignore` does not keep,
+ * garbage, or one in Git's index that an ignore rule covers. A folder all of whose contents are such is named once; an untracked
  * folder that holds something kept is named by what else it holds.
  */
 export function strays(root = ROOT) {
@@ -96,6 +98,8 @@ export function strays(root = ROOT) {
     else found.push({ path, why: unkept(null) });
   }
   found.push(...unkeptRuns(root));
+  for (const path of fields(git(root, ["ls-files", "-c", "-i", "--exclude-standard", "-z"])))
+    found.push({ path, why: "tracked, and ignored by a rule: untrack it (git rm --cached) where it is kept outside Git, or keep it in a folder Git tracks" });
   return found.sort((a, b) => a.path.localeCompare(b.path));
 }
 
