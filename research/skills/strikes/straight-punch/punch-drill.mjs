@@ -66,12 +66,13 @@ const BRAKE = [0, 0.3];
 export const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
 
 /**
- * The drive's settings around a schedule, whole (`StraightPunch`): admitted at any range past
- * `reach` of the arm, driven for at most `longest` s; its pace, the posture beneath where a
- * schedule names none, and its return those of the flat-footed Puncher's searched punch.
+ * The drive's settings around a schedule, set over its body's record (`StraightPunch`): admitted at
+ * any range past `reach` of the arm and any height above the shoulder (`above`), driven for at
+ * most `longest` s and steered by nothing; its pace, the posture beneath where a schedule names
+ * none, and its return those of the flat-footed Puncher's searched punch.
  */
-export const AROUND = { pace: 1.021, reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5,
-  through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276, lead: 0.055, recover: 0.376 };
+export const AROUND = { pace: 1.021, reach: 0.6, band: 2, above: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5,
+  through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276, lead: 0.055, recover: 0.376, steered: false };
 
 /**
  * The schedule, the gap and the arm's aim that `x` holds for `hand`, the gap `gap` where given; the
@@ -91,9 +92,9 @@ export function decode(x, hand, gap, without = new Set(), { fire = false, brake 
 
 /**
  * Option Mind throwing its straight punch alone, driven on `pushes` by `hand` (its research `tuning`, whole), aimed from
- * `lead` s, `through` m past its target; with `aim`, its strike so aimed at the middle mark. With
- * `blow`, Option Mind's held blow of that kind so driven instead, `hand` holding its item and the
- * other the buckler, its action's own aim kept, at `mark` (its own where null).
+ * `lead` s, `through` m past its target, at `mark` (its own regions where null); with `aim`, its
+ * strike so aimed. With `blow`, Option Mind's held blow of that kind so driven instead, `hand`
+ * holding its item and the other the buckler, its action's own aim kept.
  */
 export function timedPuncher({ pushes, lead, through, beneath, fire, brake }, hand, aim = null, blow = null, mark = null, window = {}) {
   const tuning = { ...AROUND, ...window, lead, through, ...beneath, ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
@@ -104,7 +105,7 @@ export function timedPuncher({ pushes, lead, through, beneath, fire, brake }, ha
     return { mind: { ...preset, options }, skill: blow, held: { [hand]: HELD_BLOWS[blow].item, [other]: "buckler" } };
   }
   const punch = preset.options.find((option) => option.kind === "strike-straight-punch");
-  const strike = { ...punch, skill: { ...punch.skill, tuning }, ...(aim ? { aim, regions: [{ kind: "mark", mark: "middle" }] } : {}) };
+  const strike = { ...punch, skill: { ...punch.skill, tuning }, ...(aim ? { aim } : {}), ...(mark ? { regions: [{ kind: "mark", mark }] } : {}) };
   return { mind: { ...preset, options: preset.options.map((option) => option === punch ? strike : option).filter((option) => !struck(option) || option === strike) }, skill: punch.skill.kind };
 }
 
@@ -199,7 +200,7 @@ async function trial(x, cell) {
   const condition = { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap: decoded.gap, ...(cell.target ? { target: cell.target } : {}) };
   let worst = null;
   for (const hz of cell.rates) {
-    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null, cell.blow ?? null, cell.blow ? cell.mark : null, cell.window ?? {}), condition, hz);
+    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null, cell.blow ?? null, cell.mark, cell.window ?? {}), condition, hz);
     // A held blow's touch before its drive commits (its chamber's) is no blow: it scores as one that never came.
     if (cell.blow && reading.hit && (reading.committed === null || reading.hit.time < reading.committed)) { reading.hit = null; reading.outcome = "early"; }
     const score = scoreOf(reading, cell.hand, cell.heavier) + (cell.near && !reading.hit && !reading.down ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
@@ -234,7 +235,7 @@ if (!isMainThread && workerData?.drill) {
     const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
     for (const hz of list(values.rates, [120, 480], Number)) for (const model of list(values.models, [found.cell.model])) for (const mark of list(values.marks, [found.cell.mark]))
       for (const across of list(values.across, [found.cell.across], Number)) for (const gap of list(values.gaps, [decoded.gap], Number)) {
-        const reading = await drillTrial(timedPuncher(decoded, found.cell.hand, (values.chest ?? found.cell.chest) ? CHEST : null, found.cell.blow ?? null, found.cell.blow ? mark : null, found.cell.window ?? {}), { model, mark, hand: found.cell.hand, across, gap }, hz);
+        const reading = await drillTrial(timedPuncher(decoded, found.cell.hand, (values.chest ?? found.cell.chest) ? CHEST : null, found.cell.blow ?? null, mark, found.cell.window ?? {}), { model, mark, hand: found.cell.hand, across, gap }, hz);
         const h = reading.hit;
         console.log(JSON.stringify({ hz, model, mark, across, gap: +gap.toFixed(3), outcome: reading.outcome, score: +scoreOf(reading, found.cell.hand).toFixed(3),
           hit: h && { on: h.on, speed: h.speed && +h.speed.toFixed(2), kg: +h.kg.toFixed(2), energy: +h.energy.toFixed(1), mechanism: h.mechanism, straight: h.straight && +h.straight.toFixed(3), along: h.along && +h.along.toFixed(3), bend: +h.bend.toFixed(2), lean: +h.lean.toFixed(2), after: reading.began === null ? null : +(h.time - reading.began).toFixed(3) } }));
