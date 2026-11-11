@@ -1,4 +1,7 @@
-import type { BodyHost, HostGrants } from "../mind.ts";
+import type { BodyHost } from "../mind.ts";
+import type { AssistCeiling } from "../../core/bodies/assist.ts";
+import type { ContactIdentity } from "../../core/bodies/contact-identity.ts";
+import type { Rulebook } from "../../combat/rulebook.ts";
 import type { MindDescription } from "./description.ts";
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import type { Pose } from "../../core/bodies/spec/pose.ts";
@@ -36,7 +39,7 @@ export const presetFitsModel = (preset: Pick<MindPreset, "models">, model: BodyS
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with the keys its config
  * may hold, the posture its body is built in and how it is made: from a host of
- * its body (`BodyHost`), never the world or the built body, its config and the fight's wiring.
+ * its body (`BodyHost`), never the world or the built body, and its config.
  */
 export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
   readonly keys: KeysOf<C>;
@@ -46,7 +49,7 @@ export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
    * guard's (`GuardPart.posture`), which `parts` finds. `NO_POSTURE` builds the spec's reference pose.
    */
   builtIn(spec: BodySpec, config: C, parts: PartLookup): Pose;
-  create(host: BodyHost, config: C, wiring: MindWiring): MindMade;
+  create(host: BodyHost, config: C): MindMade;
   /** Configured execution capabilities and their actual component paths, where published. */
   describe?(spec: BodySpec, config: C, parts: PartLookup): MindDescription;
 }
@@ -68,12 +71,29 @@ declare module "../../parts/lookup.ts" {
   }
 }
 
-/** **What a fight gives the mind it makes**, beside the body and the config: what it grants the body (`HostGrants`), and its orders. */
-export interface MindWiring extends HostGrants {
+/**
+ * **What a fight gives `createMind`**, beside the body and the config: the mind's name, what the
+ * fight grants the body (its senses, its assist's ceiling, how it labels a contact), and what its
+ * maker reads from its host (`BodyHost`: the seed, the phase, the rules, its orders, an
+ * experiment's settings).
+ */
+export interface MindWiring {
   readonly name: string;
-  /** Research settings passed to a mind that builds command layers. */
+  /** What it senses (`SensesHub.add`); the clock alone unless given. */
+  readonly senses?: () => Senses;
+  /** The most its assist gives it; none unless given. */
+  readonly assist?: AssistCeiling;
+  /** Trusted body adapter for permitted contact labels (`OwnBody.contactIdentity`). */
+  readonly contactIdentity?: ContactIdentity;
+  /** The seed its mind's chances are drawn from (`BodyHost.seed`): the fight's for this body (`seedOf`); 0 unless given. */
+  readonly seed?: number;
+  /** Where in each period its periodic work falls (`BodyHost.phase`): the fight's for this body (`phaseOf`); 0 unless given. */
+  readonly phase?: number;
+  /** The rules its fight is played by (`BodyHost.rules`); supplied by the scenario. */
+  readonly rules: Rulebook;
+  /** Research settings passed to a mind that builds command layers (`BodyHost.experiment`). */
   readonly experiment?: Experiment;
-  /** Its orders this step, or null when it is left to itself. `senses` are its own, this step's. */
+  /** Its orders this step, or null when it is left to itself (`BodyHost.orders`). `senses` are its own, this step's. */
   orders(senses: Senses): Orders | null;
 }
 

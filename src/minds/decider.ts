@@ -59,11 +59,10 @@ export interface Sight {
 }
 
 /**
- * **A mind driven by its decider over its skills** (`driveBy`): the skills, the mind's memory, its
+ * **A mind driven by its decider over its skills** (`driveBy`): the mind's memory, its
  * skills', its decider's and what its aims hold (`MindMade.state`), and its report (`skillsReport`).
  */
 export interface Driven {
-  readonly skills: Skills;
   readonly state: { readonly skills: object; readonly decider: object | null; readonly pace: object; readonly aims?: readonly object[] };
   readonly report: MindReport;
 }
@@ -89,18 +88,18 @@ export const everyOf = (rate: number | undefined, hz: number): number => rate ==
 /**
  * Hand `body` to `decider`: on its `pace`'s steps (every step unless given), and on the step the
  * body is back from another mind, its orders change or an action ends, it decides on the body's view and the skills' report,
- * `dt` the time since it last decided; each control step the skills supplied by `make` turn its
+ * `dt` the time since it last decided; each control step `skills` turn its
  * last decision into a command, on
  * the body as it is when the body carries the decision out (`SplitDriver`): an
  * action asked again by its id goes on (`Intent.actions`), and an interrupt asked again of an
- * action ended is passed over; what its `aims` hold (`Aim.state`) is the mind's too. Returns the mind so driven (`Driven`). On the step the body is back from another mind
+ * action ended is passed over; what its `aims` hold (`Aim.state`) is the mind's too. It becomes the body's driver (`Body.drive`), and returns the mind so driven (`Driven`). On the step the body is back from another mind
  * (`BodyView.resumed`) the skills are resumed before the decider decides, so the report it reads
  * is of the body as it is.
  */
-export function driveBy(body: Body, decider: Decider, make: (body: Body) => Skills, pace: Pace = EVERY_STEP, aims?: readonly object[]): Driven {
+export function driveBy(body: Body, decider: Decider, skills: Skills, pace: Pace = EVERY_STEP, aims?: readonly object[]): Driven {
   const { every, phase, orders } = pace;
   if (!Number.isInteger(every) || every < 1 || !(phase >= 0 && phase < 1)) throw new Error(`a decider decides every whole number of steps on a phase in [0, 1), not every ${every} on ${phase}`);
-  const skills = make(body), offset = Math.floor(phase * every);
+  const offset = Math.floor(phase * every);
   const sight: Sight = { get context() { return skills.context; }, view: body.view, report: skills.report, get envelope() { return skills.envelope; }, walkEnvelope: body.envelope, limitsOf: skills.limitsOf, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
   /** What it last decided, the step it decided it on, the orders it decided on and the last action ended then (`Ended.sequence`). */
   const state = { held: null as Intent | null, decided: 0, orders: null as Orders | null, ended: 0 };
@@ -119,5 +118,5 @@ export function driveBy(body: Body, decider: Decider, make: (body: Body) => Skil
   const carry = (view: BodyView, intent: Intent, dt: number) => skills.command(view, intent, dt);
   const whole = { skills: skills.state, decider: decider.state ?? null, pace: state, ...(aims ? { aims } : {}) };
   body.drive({ state: whole, decide, carry }, skills.release);
-  return { skills, state: whole, report: skillsReport(skills, decider, whole) };
+  return { state: whole, report: skillsReport(skills, decider, whole) };
 }

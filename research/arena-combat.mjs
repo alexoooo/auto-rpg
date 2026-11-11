@@ -171,10 +171,7 @@ export async function combatTrial(config) {
       delete out.witness; delete out.wasDown; delete out.pressureRun;
       delete out.touching; delete out.drivenThisStep;
       delete out.lastPhase;
-      const tactics = d.minded.skills ? d.minded.state.decider : null;
-      const learned = tactics?.spacing;
       if(d.minded.skills)out.actionEndings=structuredClone(d.minded.skills.report.ledger);
-      if (learned) out.approachSpacing = structuredClone(learned);
       out.bar = d.pool.bar(); out.assist = { force: d.body.assist.meter.force, moment: d.body.assist.meter.moment };
     }
     return { config, recipe, protocol: COMBAT_PROTOCOL, harness: { kind: 'Node Arena Duel', engine: physicsEngine.name,

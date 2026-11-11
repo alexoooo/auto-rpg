@@ -3,7 +3,7 @@ import { networkFaults, recoveryNetwork, type Network } from "../../core/math/in
 import type { BodySpec } from "../../core/bodies/index.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { controller, NO_POSTURE, type Controller, type MindPreset } from "../../minds/index.ts";
-import type { MindWiring } from "../../minds/index.ts";
+import type { BodyHost } from "../../minds/index.ts";
 import type { MindConstruction } from "../../minds/index.ts";
 import type { OwnBody } from "../../core/bodies/index.ts";
 import type { Senses } from "../../core/bodies/index.ts";
@@ -57,7 +57,7 @@ function writeFrame(into: number[], at: number, vx: number, vy: number, vz: numb
 }
 
 /** Body and senses inputs in bareLayout order; every workspace value is overwritten by a read. */
-function inputsOf(own: OwnBody, orders: MindWiring["orders"]): (into: number[], senses: Senses) => void {
+function inputsOf(own: OwnBody, orders: BodyHost["orders"]): (into: number[], senses: Senses) => void {
   const root = rootSegment(own.built), parts = partsOn(own.built);
   const centre = new Vector3(), point = new Vector3(), velocity = new Vector3();
   const spins = [...own.built.segments.values()].map((part) => ({ part, spin: new Vector3() }));
@@ -115,7 +115,7 @@ export const BARE_MIND: Controller = controller<BareConfig>({
   faults: (config) => [...(config.interval > 0 && Number.isFinite(config.interval) ? [] : ["its decision interval is a finite positive number of seconds"]),
     ...(config.network ? networkFaults(config.network).faults : [])],
   builtIn: () => NO_POSTURE,
-  create: (host, config, wiring) => {
+  create: (host, config) => {
     // With no network it pulls nothing where no trainer answers it.
     const layout = bareLayout(host.spec), still: readonly number[] = new Array<number>(layout.outputs.length).fill(0);
     const decide = config.network ? recoveryNetwork(config.network) : () => still;
@@ -123,7 +123,7 @@ export const BARE_MIND: Controller = controller<BareConfig>({
     const state: BareState = { learner, keptPulls: new Float64Array(layout.outputs.length) };
     host.take((own) => {
       if (own.muscles.channels.map((channel) => channel.name).join("\n") !== channelsOf(host.spec).join("\n")) throw new Error("the bare layout's channels are not the body's");
-      const read = inputsOf(own, wiring.orders);
+      const read = inputsOf(own, host.orders);
       return { name: "bare", has: () => "bare", dispose() {}, mind: {
         state,
         act(control) {

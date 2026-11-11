@@ -123,7 +123,7 @@ test("a commanded Mind restores its driver's memory from its own state", async (
     driveBy(embodied.mind.body, { name: "counted stand", state: memory, decide() {
       memory.decisions++;
       return standIntent(0);
-    } }, standingSkills);
+    } }, standingSkills(embodied.mind.body));
     return { stand, embodied, memory, dispose() { embodied.dispose(); stand.dispose(); } };
   };
   const original = await make(), fork = await make();

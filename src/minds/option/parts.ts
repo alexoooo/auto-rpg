@@ -66,14 +66,14 @@ export interface ObjectivePart<C extends PartConfig = PartConfig, V = unknown> e
 
 /**
  * **A kind of predictions**: a part of role `predictions` that owns its config's keys and faults,
- * and makes the data a mind predicts from (`T`: the tables a drill measured, or none, so each model
- * reads its prior), read by the mind whose slot holds the part as its own.
+ * and makes what builds a mind's decider (`OptionEvaluation`) from what its config predicts by
+ * (the tables a drill measured, or none, so each model reads its prior).
  */
 export interface PredictionsPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "predictions";
   readonly model: string;
   readonly keys: KeysOf<C>;
-  /** The data a config of it predicts from. */
+  /** What builds a decider (`OptionEvaluation.build`) predicting as `config` says. */
   make(config: C): OptionEvaluation;
 }
 

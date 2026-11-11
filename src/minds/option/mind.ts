@@ -58,6 +58,6 @@ export function optionMind(assembly: OptionAssembly) {
       const guard = filledOf(parts, spec, "guard", config.tuning?.parts);
       return parts.of("guard", guard).posture(spec, guard);
     },
-    create: (host, config, wiring): OptionMind => buildOptionMind(host, resolveConfig(config, assembly), wiring),
+    create: (host, config): OptionMind => buildOptionMind(host, resolveConfig(config, assembly)),
   });
 }

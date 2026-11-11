@@ -85,13 +85,13 @@ test("late Arena callbacks and local Dungeon warming release every hosted mind",
   let made = 0, disposed = 0;
   const catalog = { ...CONTEXT.catalog, controllerOf(config) {
     const controller = CONTEXT.catalog.controllerOf(config);
-    return { ...controller, create(host, config, wiring) {
+    return { ...controller, create(host, config) {
       return controller.create({ ...host, take(make) {
         return host.take(own => {
           const mind = make(own); made++;
           return { ...mind, dispose() { disposed++; mind.dispose(); } };
         });
-      } }, config, wiring);
+      } }, config);
     } };
   } };
   const context = { ...CONTEXT, catalog }, engine = await freshEngine(), failure = new Error("late built callback");

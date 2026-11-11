@@ -57,7 +57,7 @@ export function createMind(catalog: Catalog, built: BuiltBody, world: World, con
   const { host, made, dispose } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { state.said = saidOf(mind!.report, state.said); } });
   let completed = false;
   try {
-  mind = catalog.controllerOf(config).create(host, config, wiring);
+  mind = catalog.controllerOf(config).create(host, config);
   const live = mind.report;
   if (!live) { const body = made(); completed = true; return { ...mind, kind: config.kind, body }; }
   state.mind = mind.state;

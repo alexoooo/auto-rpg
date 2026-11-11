@@ -339,10 +339,32 @@ physical segment bindings and opaque start tokens; bilateral implementations own
 **The seam.** A `Mind` (`src/minds/mind.ts`) requires `state`, `act(control)`, `think(senses)` and
 `interrupt()`. Each step its fast action sends commands before its next decision. It is made with
 its own body (`OwnBody`), fixed step duration and first senses; subsequent senses arrive only in
-`think`. Its memory is plain saved data in `state`.
-Construction metadata (`MindConstruction`) owns its name, ownership reader and disposal;
-`CommandedMind` adds the command layers exposed to drivers. A person gives `Orders`
+`think`. Its memory is plain saved data in `state`. A person gives `Orders`
 (`src/minds/orders.ts`), never muscle commands.
+
+**What goes into a build and comes out of it**, in the order the calls are made:
+
+1. A fight calls `createMind` (`seat/create-mind.ts`) with a body, a config and a `MindWiring`
+   (`catalog/controller.ts`): the mind's name, what the fight grants the body (its senses, its
+   assist's ceiling, its contact labels) and what the maker reads (the seed, the phase, the rules,
+   its orders, an experiment's settings).
+2. `createMind` makes the `BodyHost` (the type in `mind.ts`, made by `bodyHost` in
+   `seat/host.ts`) and calls the kind's `Controller.create(host, config)`, which the catalog finds
+   by the config's kind. The host is all a maker is given.
+3. The maker takes the body once (`BodyHost.take`), handing over a `MindConstruction`: the `Mind`
+   (the object with `act` and `think`), its name, who has the body (`has`) and its disposal. A
+   `CommandedMind` (`sub-mind.ts`) is a construction whose `Mind` hosts the command layers, with
+   the `Body` their drivers command. Taking the body hooks the `Mind` to the world's step
+   (`embody`, `seat/embodiment.ts`): the fight holds no reference to it.
+4. `create` returns a `MindMade`: the mind's memory above its body's, and its skills and report
+   where it has them. `createMind` returns a `Minded`: the skills, the memory and the report
+   (the last two kept with what the mind last said, `saidOf`), the mind's kind, and the body as
+   the fight holds it.
+
+**How a mind is stepped.** On each world step that simulates its body in full (a control step),
+the body's hook on the world (`embody`) calls `answer` and then `think` (`execution.ts`): `answer`
+calls `Mind.act`, which writes the command decided on the step before; `think` reads the senses
+and calls `Mind.think`, which decides the next.
 
 `OwnBody` holds fixed facts, body and actuator readings, and first senses. `BodyControl` views the
 saved mirror command directly: muscle arrays, assist vectors and ordered segment/configuration pairs. Only
@@ -354,7 +376,7 @@ research settings belong to `LayerOptions` in `src/control/body.ts`.
 
 - **The host** (`BodyHost`, `mind.ts`) is all a mind's maker gets: the spec, the clock, the parts
   its config may name (`PartLookup`), the seed (its only chance, through `randomStream`), its phase,
-  the rules, and one way to take the body (`take`). Its grants (`HostGrants`) are fixed.
+  the rules, its orders, an experiment's settings, and one way to take the body (`take`).
 - **Senses** (`Senses`, `senses.ts`): the clock, its side and life, and every other body
   (`BodySense`), read once before any mind (`createSenses`), others late by `Rulebook.reaction`.
 - **What a mind builds**: the command layers (`commandedMind`), sub-minds that take the body in rank
@@ -389,6 +411,24 @@ options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Optio
 (`Readiness`), the resources it claims, its model at the state now or one an Option leaves the
 body in (`Option.model`, `placed`; `Terms`: duration, what it deals and takes, and the ways it ends,
 each a state with its chance, `Outcome`), its step, and a status.
+
+**How an Option Mind is built** is four files in `src/minds/option/`. `mind.ts` is the controller
+the catalog registers (`optionMind`): its slots, whether a body fits it, the posture its body is
+built in. `config.ts` is the config (`OptionMindConfig`), its defaults (`resolveConfig`) and what
+is wrong with it (`optionMindFaults`). `description.ts` says what a config builds, for a screen
+(`describeOptionMind`). `build.ts` declares the running mind (`OptionMind`: what it handed its
+host, its skills, decider, state and report) and builds it (`buildOptionMind`) in six steps:
+
+1. the parts under its skills, its motor, legs and guard (`filledOf`);
+2. what its Options name of the body's skills (`skillsOf`), which with those parts is its kit
+   (`SkillKit`);
+3. the body, taken from the host under command layers (`commandedMind`);
+4. its skills on that body (`groundSkills`, `configuredAims`, `kitSkills`);
+5. its decider, the session its predictions part builds (`OptionEvaluation.build`);
+6. the decider made the body's driver (`driveBy`, `Body.drive`).
+
+Under the command layers, `Mind.think` asks the decider what to do, at its pace, and `Mind.act`,
+on the next step, has the skills turn that answer into the body's command.
 
 The selected evaluation provider constructs a complete decision session through `OptionEvaluation.build`,
 with its compatible Options, chooser protocol, situation reader and saved memory. Admission checks
@@ -435,8 +475,8 @@ The profile model supplies these components:
   spread of its siblings' worths, drawing each option's way of ending by its chance from a stream
   kept in its state; an option is worth the states its drawn ways of ending lead to, by their
   chances, and a state the more of its leaf and its best option run, so a search is never worth
-  less than its leaf. It goes deep where few options are on offer. Option Mind decides by the
-  tree unless its config names another. `research/lying.mjs` reads a mind's time down in the
+  less than its leaf. It goes deep where few options are on offer. The application's default
+  config names the tree (`src/app/option-controller.ts`). `research/lying.mjs` reads a mind's time down in the
   match's bouts and the cost of its steps.
 - **The search's storage** keeps its arithmetic and call order. A search gives each Option and
   target a slot (`space`, `Pair`); each situation owns one row of model results (`undefined`

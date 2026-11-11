@@ -115,7 +115,7 @@ const count = Number(values.bodies), side = Math.ceil(Math.sqrt(count));
 const bodies = Array.from({ length: count }, (_, i) => {
   const built = buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] });
   const body = stockBody(built, world, { servoSeconds: SERVO_SECONDS });
-  driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills);
+  driveBy(body, { name: "stand", decide: () => standIntent(0) }, standingSkills(body));
   return { built, body };
 });
 const SECONDS = 5 * world.hz;

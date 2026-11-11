@@ -144,7 +144,7 @@ test("pacing detects changed orders from a provider reusing its object", () => {
   const view = { time: 0, resumed: false }, orders = { face: null, pace: 1 };
   const body = { view, drive(value) { driver = value; } };
   const skills = { state: {}, report: { ledger: [] }, limitsOf() {}, instance() {}, readiness() {}, needs() {}, command() {}, release() {} };
-  driveBy(body, { name: "counted", decide() { decisions++; return {}; } }, () => skills, { every: 10, phase: 0, orders: () => orders });
+  driveBy(body, { name: "counted", decide() { decisions++; return {}; } }, skills, { every: 10, phase: 0, orders: () => orders });
   driver.decide(view, 1 / 120);
   view.time = 1 / 120; orders.pace = 0;
   driver.decide(view, 1 / 120);

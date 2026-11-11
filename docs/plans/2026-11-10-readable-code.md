@@ -18,36 +18,22 @@ builds and checks a mind, and a mind's memory stays plain data in its `state`.
 
 ## 1. Option Mind's build
 
-What is hard to follow now:
+The code is in place, and the [architecture](../architecture.md)'s Minds section describes it:
 
-- **One file does three jobs.** `src/minds/option/mind.ts` checks a config, describes it for a
-  screen (50 lines of nested functions) and builds the running mind.
-- **The running mind has no name.** `createOptionMind` states no return type and returns what
-  `driveBy` returns, a type private to `src/minds/decider.ts`. The object with `act` and `think`
-  is built in `src/minds/sub-mind.ts` and reaches the fight as a side effect of `host.take`.
-- **The build is fifteen dense lines.** Several values are made on one line, calls are nested
-  inside calls, and `skills` is read by a function written before `skills` is set.
-- **The application passes in three callbacks** (`recovery`, `validate`, `replaceRecovery`,
-  `src/app/option-controller.ts`) that call functions in the folder that receives them
-  (`src/minds/option/rise.ts`).
-- **Six names for what goes into and comes out of a build**: `BodyHost`, `HostGrants`,
-  `MindWiring`, `MindMade`, `MindConstruction`, `CommandedMind`.
+- **`OptionMind` is a declared type** (`src/minds/option/build.ts`) that names what a running
+  Option Mind holds: what it handed its host (the object with `act` and `think`, and the body
+  under command layers), its skills, its decider, its state and its report. `create` returns it.
+  The build (`buildOptionMind`) reads in order, six steps, each value named before the call that
+  uses it.
+- **The file is split by job**: `config.ts`, the config and its faults; `description.ts`, the
+  description a screen reads; `build.ts`, the build; `mind.ts`, the controller that calls them.
+- **Option Mind calls `waysUpIn`, `withWaysUp` and `standUpFaults` itself**; the application
+  passes only its defaults.
+- **A mind's maker is given one thing, its host** (`BodyHost`), and `Controller.create` takes the
+  host and the config. The names that remain differ in meaning: `MindWiring`, `BodyHost`,
+  `MindConstruction`, `CommandedMind`, `MindMade`, `Minded`.
 
-What it becomes:
-
-- **`OptionMind` is a declared type in a file of its own** that names what a running Option Mind
-  holds: its command layers, its skills, its decider and its state. `create` returns it. The
-  build reads in order, one step a statement, each value named before the call that uses it.
-- **The file is split by job**: the config and its faults; the description a screen reads; the
-  build.
-- **The three callbacks go.** Option Mind calls `waysUpIn`, `withWaysUp` and `standUpFaults`
-  itself; the application passes only its defaults.
-- **The names are cut to those that differ in meaning**, and the
-  [architecture](../architecture.md)'s Minds section names the ones that remain.
-
-How it is checked: the fingerprint is unmoved. A fresh agent given only the architecture's Minds
-section and the code traces how an Option Mind is built and stepped, and names each place it
-could not follow. Then the owner reads the build. Part 2 starts when the owner finds it
+What is left: the owner reads `src/minds/option/build.ts`. Part 2 starts when the owner finds it
 readable; where they do not, the approach changes before more code is touched.
 
 ## 2. Parts

@@ -1,5 +1,5 @@
 import type { Mirror } from "../mirror.ts";
-import type { MindMade, MindWiring } from "../catalog/controller.ts";
+import type { MindMade } from "../catalog/controller.ts";
 import type { BodyHost } from "../mind.ts";
 import type { Orders } from "../orders.ts";
 import type { Catalog } from "../catalog/catalog.ts";
@@ -166,6 +166,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
     };
     const host: BodyHost = Object.freeze({
       spec, parts: catalog.treeLookup(config), seed: recipe.seed, phase: recipe.phase, rules: recipe.rules,
+      orders: () => orders.now, ...(recipe.experiment ? { experiment: recipe.experiment } : {}),
       clock: Object.freeze({ dt: clock.dt, get steps() { return clock.steps; }, get time() { return clock.time; } }),
       take<M extends MindConstruction>(maker: (body: OwnBody) => M): M {
         if (taking.made) throw new Error("a mind takes its body once");
@@ -174,11 +175,9 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
         return taken;
       },
     });
-    const wiring: MindWiring = { name: recipe.name, seed: recipe.seed, phase: recipe.phase, rules: recipe.rules, orders: () => orders.now,
-      ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}), ...(recipe.experiment ? { experiment: recipe.experiment } : {}) };
     let complete = false;
     try {
-      const made = catalog.controllerOf(config).create(host, config, wiring);
+      const made = catalog.controllerOf(config).create(host, config);
       if (!taking.made) throw new Error("the mind took no body");
       complete = true;
       return { recipe, mirror, clock, orders, mind: taking.made.mind, construction: taking.made, made, deciding: false };
