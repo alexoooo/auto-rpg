@@ -88,10 +88,9 @@ export const validSitBack = (settings: unknown): boolean => isObject(settings) &
 /** Each spec's tuning, made once: equipped bodies may read different settings from the same body's record. */
 const byBody = new WeakMap<BodySpec, StepUpTuning>();
 
-/** A body of `spec`'s step-up record's settings (`dataOf("step-up")`), `sitBack`'s stages with them, and its loadout's over both. */
-function composed(spec: BodySpec, sitBack: SitBackTuning | undefined): StepUpTuning {
-  const key = bodyKey(spec), record = dataOf("step-up")[key]?.settings;
-  if (!record) throw new Error(`the step-up has no record for ${key}`);
+/** A body of `spec`'s step-up settings (`record`), `sitBack`'s stages with them, and its loadout's over both. */
+function composed(spec: BodySpec, record: StepUpTuning | undefined, sitBack: SitBackTuning | undefined): StepUpTuning {
+  if (!record) throw new Error(`the step-up has no record for ${bodyKey(spec)}`);
   const { loadouts, ...own } = record;
   const left = heldBy(spec, "left"), right = heldBy(spec, "right");
   const loaded = left === null || right === null ? undefined : loadouts?.[loadoutKey({ left, right })];
@@ -105,12 +104,19 @@ function composed(spec: BodySpec, sitBack: SitBackTuning | undefined): StepUpTun
  */
 export function stepUpTuning(spec: BodySpec): StepUpTuning {
   let tuning = byBody.get(spec);
-  if (!tuning) byBody.set(spec, tuning = composed(spec, dataOf("sit-back")[bodyKey(spec)]?.settings));
+  if (!tuning) byBody.set(spec, tuning = stepUpTuningWith(spec, {}));
   return tuning;
 }
 
-/** **A candidate sit-back on a body of `spec`**: the step-up's tuning with `sitBack` in place of the body's sit-back record, as a search plays it (a staged technique's `tuning`). */
-export const stepUpTuningWith = (spec: BodySpec, sitBack: SitBackTuning): StepUpTuning => composed(spec, sitBack);
+/**
+ * **A candidate on a body of `spec`**: the step-up's tuning with `stepUp` in place of the body's
+ * step-up record and `sitBack` in place of its sit-back record, each where given, as a search plays
+ * it (a staged technique's `tuning`).
+ */
+export function stepUpTuningWith(spec: BodySpec, { stepUp, sitBack }: { readonly stepUp?: StepUpTuning; readonly sitBack?: SitBackTuning }): StepUpTuning {
+  const key = bodyKey(spec);
+  return composed(spec, stepUp ?? dataOf("step-up")[key]?.settings, sitBack ?? dataOf("sit-back")[key]?.settings);
+}
 
 /** Each tuning's recipe of each base (`stepUpRecipe`): tunings and recipes are data, never changed once made. */
 const tuned = new WeakMap<StepUpTuning, WeakMap<Recipe, Recipe>>();

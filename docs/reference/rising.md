@@ -59,21 +59,28 @@ profile read: where a technique is developed. Its techniques are the route's fou
   an installed start in (`assets/research/posture-holds.json`). The Skeleton has none on hands
   and knees, so its sit-back is read on `moving-bodies` alone.
 
-A technique's record is searched on the same cases, one body at a time:
+A technique's settings are searched on the same cases, one body at a time: the sit-back's
+(`sit-back`) and the roll's (`roll`):
 
 ```powershell
-node research/skills/skill-search.mjs sit-back <model> --out .tmp/skill-search/<model>.json --patience 30
-node research/skills/skill-search.mjs sit-back <model> --confirm .tmp/skill-search/<model>.json --write
+node research/skills/skill-search.mjs <sit-back | roll> <model> --out .tmp/skill-search/<model>.json --patience 30
+node research/skills/skill-search.mjs <sit-back | roll> <model> --confirm .tmp/skill-search/<model>.json --write
 ```
 
-- **What it moves**: the joint angles the sit-back's three stages drive toward (`SEARCHES`), never
-  their times. A candidate is played as the body's sit-back record without being installed
+- **What it moves** (`SEARCHES`): for the sit-back, the joint angles its three stages drive
+  toward, never their times; for the roll, the joint angles its four poses drive toward and each
+  pose's time. A candidate is played as the body's record without being installed
   (`TechniqueCase.configs`, `stepUpTuningWith`).
-- **What it plays**: both techniques that read the record (`front-sit-back`, `sit-back`) on the
-  `placed` rung, the body holding each rated loadout: 60 trials a candidate on the Warrior and
-  the Rogue. Its first candidate is the record as it stands.
-- **A trial's score** is what the stand-up costs in play, in seconds: the technique's time where
-  the body stood, its longest run where it did not, a little less the higher the body got.
+- **Where the roll's settings live**: in the body's step-up record (`roll`, and `roll <pose>`
+  times), its poses the game's (`ROLL_POSES`, found on the Warrior) where the record has none.
+  The Skeleton has poses of its own; the Warrior's and the Rogue's are the game's.
+- **What it plays**: the techniques that read the settings (the sit-back: `front-sit-back` and
+  `sit-back`; the roll: `staged-roll`) on the `placed` rung, the body holding each rated loadout:
+  60 trials a candidate for the sit-back, 90 for the roll. Its first candidate is the record as
+  it stands.
+- **A trial's score** is what the technique costs in play, in seconds: its time where it was done
+  (the body stood, or lies on its front after a roll), its longest run where it was not, a little
+  less the higher the body got.
 - **How long**: with `--patience` and no `--generations` it runs for as long as it keeps
   improving and ends on its plateau; `--resume` goes on from an out file.
 - **`--confirm`** plays the record the body plays now and the search's best on seeds the drill
