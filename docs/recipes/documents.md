@@ -18,7 +18,7 @@ document holds.
 - **A brief is a file the owner reads** (`docs/briefs/`): the run's first message as
   [AGENTS.md](../../AGENTS.md#the-rules) shapes it, the request in the owner's words, the one
   document that quotes them. It is never left in `.tmp/` or only in a conversation.
-- **A brief is read through before the owner approves it**, by a fresh agent of the kind that
+- **A brief is read through before it is approved**, by a fresh agent of the kind that
   will run it, in a session that runs nothing:
   `codex exec -s read-only --ephemeral -C . -o .tmp/brief-read/<round>.md - < .tmp/brief-read/ask.md`,
   where `ask.md` holds the text below with the brief's path. What a round misreads or finds
@@ -37,6 +37,11 @@ document holds.
   > file), checked by reading the code.
 - **The next brief is chosen from the last run's report**, once its claims are checked against
   its commits and saved results (read, not played), and quotes the owner's goal it serves.
+- **A driven goal**: the owner may set an agent to drive a goal unattended. It writes each brief,
+  has it read through, approves it, starts the run (`codex exec -C . -o .tmp/runs/<brief>.md -`
+  with the brief on its input, the owner's own Codex settings), checks its report and chooses the
+  next. It stops and reports to the owner once the goal is met, or when no next brief has evidence
+  behind it.
 - **The roadmap says where the work stands.** A line of it is taken up on the owner's request.
   What the owner should see goes on its list to watch, and an agent never marks it seen. Status
   lives in the roadmap; code never cites a plan or an analysis.

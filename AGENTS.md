@@ -31,7 +31,8 @@ Ten rules bind every change. A kind of work has its own, in its own document
    words. A plan, a roadmap line, a table's number, a quoted passage and an answered choice say
    where things are; none is a request. A message that can be read two ways is asked about before
    code is touched. What the owner rejects is removed exactly, nothing wider.
-2. **Work that plays the game starts from a brief the owner approves**: a drill, a search, a
+2. **Work that plays the game starts from a brief the owner approves**, or the agent the owner
+   sets to drive a goal ([driven](docs/recipes/documents.md)): a drill, a search, a
    training run, a table play. A run is a session of its own, and its first message is the brief,
    written from the owner's request and never from a plan, in ten lines or fewer: the request in the owner's words; the one
    question; what will be changed, naming anything the owner did not ask for; the one measure and

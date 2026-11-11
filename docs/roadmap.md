@@ -26,14 +26,10 @@ What is in work now, what is next, and what is open. What is built is in the
 
 ## Now
 
-**The Warrior's punch**: the table's `punch` row on `workshop-fighter`
-([its notes](plans/2026-11-10-warrior-punch.md)): the straight punch at the trunk. A run works
-one question of it from a brief the owner approves ([the rules](../AGENTS.md#the-rules)).
-
-**The strikes' profiles from fights**: a strike's profile is built only from the Strike drill's
-fights (`fights`, [the evaluations](architecture.md#evaluations)). The asset still holds the ones
-measured at a drill's target, and no fight is played for them yet. The first build replaces every
-strike's profile, so it plays every strike that has one: the punch, the stomp and the bonk.
+**Stand-up on the Rogue and the Skeleton**, a goal driven unattended
+([driven](recipes/documents.md)): their rows are the table's slowest against the Warrior's, and a
+body's time to stand prices every fall in its other cells. A run works one question of it from an
+approved brief ([the rules](../AGENTS.md#the-rules)).
 
 The standing goal behind it: every cell of the table raised from its baseline, a row at a time
 ([the skill recipe](recipes/skill.md#one-row-one-question)).
@@ -42,15 +38,20 @@ The standing goal behind it: every cell of the table raised from its baseline, a
 
 In order; each is a row of the table or one question, taken up on the owner's request.
 
-1. **Stand-up on the Rogue and the Skeleton.** Their rows are the table's slowest against the
-   Warrior's, and a body's time to stand prices every fall in its other cells.
-2. **The Warrior's bonk with the buckler**, which never meets the head
+1. **The Warrior's punch**: the table's `punch` row on `workshop-fighter`
+   ([its notes](plans/2026-11-10-warrior-punch.md)): the straight punch at the trunk.
+2. **The strikes' profiles from fights**: a strike's profile is built only from the Strike drill's
+   fights (`fights`, [the evaluations](architecture.md#evaluations)). The asset still holds the
+   ones measured at a drill's target, and no fight is played for them yet. The first build
+   replaces every strike's profile, so it plays every strike that has one: the punch, the stomp
+   and the bonk.
+3. **The Warrior's bonk with the buckler**, which never meets the head
    ([its plan](plans/2026-11-05-warrior-bonk.md)).
-3. **The Warrior's cut and thrust**: the grip and the edge's alignment before another search
+4. **The Warrior's cut and thrust**: the grip and the edge's alignment before another search
    ([the approaches](approaches.md#weapon-strikes)).
-4. **The Warrior's start from a stand**: a controller that places feet by balance under the run
+5. **The Warrior's start from a stand**: a controller that places feet by balance under the run
    ([its plan](plans/2026-11-05-warrior-travel.md)).
-5. **Blows in fights**: Option Mind's footwork, places round the foe chosen by its reach and
+6. **Blows in fights**: Option Mind's footwork, places round the foe chosen by its reach and
    striking arc, so the blows that land in the drill land in a bout.
 
 ## Parked plans

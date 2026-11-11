@@ -1,6 +1,6 @@
 # Brief: the Rogue's roll, searched until it is stuck
 
-The first message of a run ([AGENTS.md](../../AGENTS.md#the-rules)), as written; a run starts on it once the owner approves it.
+The first message of a run ([AGENTS.md](../../AGENTS.md#the-rules)), as written; approved by the agent the owner set to drive the stand-up goal, and run as written.
 
 1. Request: "stand-up for all"; of the search, "i need it to keep running unless it gets stuck"; of a search of the Rogue's roll, "ok build it". This run: the Rogue (`workshop-rogue`), the table's `stand-up` row, by searching her roll onto her front (`staged-roll`) until the search is stuck, and nothing else. Why the roll: on her 80 held-out falls (`research/runs/sit-back-search/held-out-falls.json`) a fall she stood from spent 3.7 s rolling against the Warrior's 2.0 s, the largest part of her 3.3 s behind him; her roll's poses are the Warrior's.
 2. Question: run to its plateau (thirty generations without a better best), does the search end better (its best beats the roll she plays now, and her row is no worse for it), flat (nothing beats it), or with its best confirmed and then rejected by her row (7)? The report names the one ([the skill recipe](../recipes/skill.md#3-a-native-controller-that-succeeds-on-some-cases)).
