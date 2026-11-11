@@ -3,15 +3,25 @@
  * `src/skills/framework/records.ts`): diagonal CMA (`cma.mjs`) over the settings that shape
  * its motion (`SEARCHES`), from the body's record where it has one and the Warrior's where not, the
  * rest held at the start's, each candidate played on its task's trials on that body and scored by
- * their mean. `--confirm` then plays the start and the search's best on fresh trials (other gaps)
- * and keeps the better: the best only where it scores above the start there with no more falls;
- * with `--write`, that is the body's row (`writeRecord`, `research/skills/skill-records.mjs`), saying how it
- * was made.
+ * their mean. `--confirm` then plays the start and the search's best on fresh trials (other gaps,
+ * other seeds) and keeps the better: the best only where it scores above the start there and
+ * loses no more trials; with `--write`, that is the body's row (`writeRecord`,
+ * `research/skills/skill-records.mjs`), saying how it was made.
  *
  * - The stomp: the Strike drill's `stomping` rung (`STRIKE_CASES`, `src/evaluation/strike/cases.ts`),
  *   each foot at the middle of a Warrior and a Skeleton lying limp from its gaps, thrown by Option
  *   Mind's stomp (`src/entrants/option/mind.ts`); a trial scores the drill's bar (`barScore`: -3 a
  *   fall, -1 nothing on the mark, 9 landed) and 5 a hit point the stomp dealt.
+ * - The sit-back: the Rise drill's techniques that play its record (`front-sit-back`, `sit-back`),
+ *   each alone with no mind (`buildTechnique`, `src/evaluation/technique.ts`) on the body holding
+ *   each loadout minds are rated on: searched on the drill's `placed` rung (each from its own
+ *   position at rest), confirmed on `placed` and `moving` (after the technique before it on the
+ *   route) at seeds the drill does not play. The search moves the joint angles its three stages
+ *   drive toward, never their times. A trial scores what a stand-up costs in play, s, negated:
+ *   the time the technique took where the body stood; its longest run (`TECHNIQUE_LIMITS.run`)
+ *   and up to 1 s more where it did not, less by how high the body got (`riseTrial`). A record it
+ *   writes leaves the body's ground profiles stale: rebuild them
+ *   (`research/skills/recovery/edge-profiles.mjs --model <body> --write`) before the table reads.
  *
  * A body with no record of its own starts from the Warrior's (`--source` names another body whose
  * record it starts from, its own or not), its lengths (`SEARCHES`' `lengths`, m) scaled by the
@@ -22,13 +32,15 @@
  * alone on the search's trials and saves it as a search's result (no generation), for `--confirm`
  * to keep where it serves.
  *
- *   node research/skills/strikes/stomp/skill-search.mjs <skill> <model> --out <file.json> [--generations 10] [--lambda 16] [--sigma 0.2] [--until <score>] [--patience <generations>] [--workers N] [--seed 1] [--resume]
- *   node research/skills/strikes/stomp/skill-search.mjs <skill> <model> --out <file.json> --try
+ *   node research/skills/skill-search.mjs <skill> <model> --out <file.json> [--generations 10] [--lambda 16] [--sigma 0.2] [--until <score>] [--patience <generations>] [--workers N] [--seed 1] [--resume]
+ *   node research/skills/skill-search.mjs <skill> <model> --out <file.json> --try
  *   ... --source <model>: the start carried over from that body's record
  *   ... --set '{"lift": 0.7}': the start with those settings in its place, for a search or a --try
- *   node research/skills/strikes/stomp/skill-search.mjs <skill> <model> --confirm <file.json> [--hz 480] [--write [--from "<what the search started from>"]]
+ *   node research/skills/skill-search.mjs <skill> <model> --confirm <file.json> [--hz 480] [--write [--from "<what the search started from>"]]
  *
- * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), 120 Hz, or `--hz`'s rate.
+ * Harness: Node on Rapier (`DEFAULT_ENGINE`), each command one step late. The stomp: the bout
+ * world (`buildBout`), 120 Hz, or `--hz`'s rate. The sit-back: the technique world, 120 Hz, the
+ * one rate it plays at.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
@@ -37,16 +49,21 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { execSync } from "node:child_process";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
-import "../../../../tests/harness/preload-data.mjs";
-import { isRefused } from "../../../../src/core/refusal.ts";
-import { buildBout } from "../../../../src/app/node/evaluation.ts";
-import { STRIKE_CASES } from "../../../../src/app/node/evaluation.ts";
-import { barScore } from "../../../../src/evaluation/strike/score.ts";
-import { controllerOf } from "../../../../src/app/catalog.ts";
-import { modelSpec } from "../../../../src/core/bodies/models.ts";
-import { bodyKey } from "../../../../src/core/bodies/spec/body.ts";
-import { cmaSearch, workerPool } from "../../../cma.mjs";
-import { recordsOf, writeRecord } from "../../skill-records.mjs";
+import "../../tests/harness/preload-data.mjs";
+import { isRefused } from "../../src/core/refusal.ts";
+import { buildBout, buildTechnique, RISE_CASES, STRIKE_CASES } from "../../src/app/node/evaluation.ts";
+import { barScore } from "../../src/evaluation/strike/score.ts";
+import { REPRESENTATIVE } from "../../src/evaluation/loadouts.ts";
+import { TECHNIQUE_LIMITS } from "../../src/evaluation/technique.ts";
+import { controllerOf } from "../../src/app/catalog.ts";
+import { modelHolding, modelSpec } from "../../src/core/bodies/models.ts";
+import { bodyKey } from "../../src/core/bodies/spec/body.ts";
+import { DEFAULT_ENGINE } from "../../src/core/physics/engines.ts";
+import { GROUND_POSTURES } from "../../src/game/lab/ground-starts.ts";
+import { stepUpTuningWith } from "../../src/skills/recovery/implementations/staged/records.ts";
+import { SIT_BACK } from "../../src/skills/recovery/implementations/staged/stages.ts";
+import { cmaSearch, workerPool } from "../cma.mjs";
+import { recordsOf, writeRecord } from "./skill-records.mjs";
 
 /** A mind throwing the stomp with `settings` at the middle of a body lying ahead: Option Mind's stomp, on any body. */
 const stomper = (settings) => ({ ...controllerOf({ kind: "option" }).defaults, support: { kind: "support-fold" },
@@ -64,16 +81,83 @@ async function stompTrial(settings, { condition }) {
 const stompTrials = (model, gaps) => STRIKE_CASES.stomping.conditions.filter((c) => c.model === "workshop-fighter")
   .flatMap((c) => gaps.map((gap) => ({ condition: { ...c, model, gap } }))).filter((t, i, all) => all.findIndex((u) => JSON.stringify(u) === JSON.stringify(t)) === i);
 
+/** The techniques that play the sit-back's record: from the front in one rise, and from hands and knees. */
+const SIT_BACK_EDGES = ["front-sit-back", "sit-back"];
+
+/** A sit-back dimension's stage and the channels of its posture it moves, `@` both sides': `"sit back: hip.@ flexion"`. */
+const stageChannels = (key) => { const [stage, channel] = key.split(": "); return { stage, channels: channel.includes("@") ? ["left", "right"].map((side) => channel.replace("@", side)) : [channel] }; };
+
+/** The angle a sit-back's `settings` drive a dimension's channels toward: their own, else the recipe's (`SIT_BACK`). */
+function sitBackAngle(settings, key) {
+  const { stage, channels } = stageChannels(key);
+  return settings.stages[stage]?.posture?.[channels[0]] ?? SIT_BACK.rise.find((one) => one.name === stage).posture[channels[0]] ?? 0;
+}
+
+/** `settings` with a dimension's channels driven toward `angle`. */
+function sitBackWith(settings, key, angle) {
+  const { stage, channels } = stageChannels(key), timing = settings.stages[stage] ?? { scale: 1 };
+  return { ...settings, stages: { ...settings.stages, [stage]: { ...timing, posture: { ...timing.posture, ...Object.fromEntries(channels.map((name) => [name, angle])) } } } };
+}
+
+/**
+ * The Rise drill's trials of the sit-back's techniques on `model`, holding each loadout minds are
+ * rated on: on each of `rungs`, each technique from each position it is begun from (`placed`) or
+ * after the technique before it (`moving`), at each of `seeds`; a start the drill refuses is left out.
+ */
+const riseTrials = (model, { rungs, seeds }) => rungs.flatMap((rung) => SIT_BACK_EDGES.flatMap((edge) => REPRESENTATIVE.flatMap((loadout) => {
+  const carrier = { model, held: loadout.right, ...(loadout.left === "empty" ? {} : { left: loadout.left }) };
+  const conditions = rung === "placed" ? GROUND_POSTURES.flatMap((posture) => seeds.map((seed) => ({ ...carrier, posture, seed }))) : seeds.map((seed) => ({ ...carrier, seed }));
+  return conditions.filter((condition) => RISE_CASES[rung].faults({ kind: edge }, condition).length === 0).map((condition) => ({ rung, edge, condition }));
+})));
+
+/**
+ * One Rise trial of a sit-back's `settings`: the drill's case, its sit-back techniques played
+ * under the body's step-up tuning with `settings` as its sit-back record (`stepUpTuningWith`).
+ * Its score is what the stand-up costs in play, s, negated: the technique's time where the body
+ * stood and stayed up; where it did not, the technique's longest run and up to 1 s more, less by
+ * how high the middle of the trunk got, as a part of the body's stature.
+ */
+async function riseTrial(settings, { rung, edge, condition }) {
+  const world = RISE_CASES[rung].world([{ kind: edge }], condition, DEFAULT_ENGINE, [{}]);
+  if (isRefused(world)) throw new Error(world.refused);
+  const one = world.technique, spec = modelHolding(one.model, { left: one.left ?? "empty", right: one.held });
+  const tuning = stepUpTuningWith(spec, settings);
+  const built = await buildTechnique({ ...one, configs: Object.fromEntries(one.chain.filter((name) => SIT_BACK_EDGES.includes(name)).map((name) => [name, { kind: name, tuning }])) }, world.engine);
+  if (isRefused(built)) throw new Error(built.refused);
+  try {
+    const trunk = built.body.segments.get("middleTrunk");
+    let peak = 0;
+    while (!built.ended) { built.world.step(); built.afterStep(); peak = Math.max(peak, trunk.pose.position.y); }
+    const link = built.reading().links.at(-1), stood = link.end === "done", height = Math.min(1, peak / spec.stature.value);
+    return { score: stood ? -link.seconds : -(TECHNIQUE_LIMITS.run + 1 - height), end: link.end, seconds: link.seconds, height, down: !stood };
+  } finally { built.dispose(); }
+}
+
 /**
  * **What each skill's search plays**: the settings it searches, each with its range (the rest the
- * start's), the trials it searches on and confirms on (`gaps`, m), a trial's score, and its
- * settings that are lengths of the body (`lengths`, m), scaled to a body that starts from another's,
- * and heights over the ground toward the target (`heights`, m), kept.
+ * start's), read from settings by `get` and put into them by `set` where they are not the
+ * settings' own keys, and `settle`, what the settings must keep between them; the trials it
+ * searches on and confirms on (`search`, `confirm`, as `trials` takes them and `said` words
+ * them), a trial's score, the score of a trial that threw (`error`: the worst a trial scores),
+ * and what its lost trials are called (`lost`); whether its world takes a rate (`rates`, `--hz`);
+ * and its settings that are lengths of the body (`lengths`, m), scaled to a body that starts from
+ * another's, and heights over the ground toward the target (`heights`, m), kept.
  */
 const SEARCHES = {
   stomp: { dims: [["contactSpeed", 3, 14], ["swingSeconds", .1, .4], ["lift", .4, .9], ["over", .6, 1], ["alongNear", .35, .7], ["alongFar", .6, 1], ["chamberSeconds", .4, .8], ["brace", 0, .25]],
-    trials: stompTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: stompTrial, lengths: ["windup", "alongNear", "alongFar", "across", "returnNear"], heights: ["lift"],
+    // alongFar kept past alongNear.
+    settle: (settings) => "alongFar" in settings && settings.alongFar <= settings.alongNear + .1 ? { ...settings, alongFar: Number((settings.alongNear + .1).toFixed(4)) } : settings,
+    trials: stompTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], said: (gaps) => `from ${gaps.join(", ")} m`, trial: stompTrial, error: -3, lost: "falls", rates: true,
+    lengths: ["windup", "alongNear", "alongFar", "across", "returnNear"], heights: ["lift"],
     task: "the Strike drill's stomping rung (each foot at the middle mark of a Warrior and a Skeleton lying limp)" },
+  "sit-back": { dims: [["plant: knee.@ flexion", 1.9, 2.2], ["plant: hip.@ flexion", 1.5, 2.1], ["plant: shoulder.@ flexion", 1.2, 2.2], ["plant: elbow.@ flexion", 0, 1.6],
+      ["sit back: hip.@ flexion", 1.5, 2.2], ["sit back: shoulder.@ flexion", .2, 1.8], ["sit back: elbow.@ flexion", 0, 1.6], ["sit back: thoracic flexion", -.2, .35], ["sit back: ankle.@ dorsiflexion", 0, .7],
+      ["up: hip.@ flexion", .4, .85], ["up: shoulder.@ flexion", 0, 1.4], ["up: thoracic flexion", -.2, .35]],
+    get: sitBackAngle, set: sitBackWith,
+    trials: riseTrials, search: { rungs: ["placed"], seeds: [1, 2, 3, 4, 5, 6] }, confirm: { rungs: ["placed", "moving"], seeds: [7, 8, 9, 10, 11, 12] },
+    said: ({ rungs, seeds }) => `on its ${rungs.join(" and ")} rung${rungs.length > 1 ? "s" : ""} at seeds ${seeds[0]} to ${seeds.at(-1)}`,
+    trial: riseTrial, error: -(TECHNIQUE_LIMITS.run + 1), lost: "not stood",
+    task: "the Rise drill's front-sit-back and sit-back, each alone on the body holding each rated loadout" },
 };
 
 /** Play `subject` (a tuning, or a strike subject) on `condition` of `cases` to its reader's end. */
@@ -108,12 +192,14 @@ function startOf(skill, model, source) {
   return start;
 }
 
-/** `settings` with the searched dimensions set from `u` in the unit cube; alongFar kept past alongNear. */
+/** `settings` with the searched dimensions set from `u` in the unit cube, and what they must keep between them kept (`settle`). */
 function decode(search, start, u) {
-  const out = { ...start };
-  search.dims.forEach(([key, lo, hi], i) => { out[key] = Number((lo + (hi - lo) * Math.min(1, Math.max(0, u[i]))).toFixed(4)); });
-  if ("alongFar" in out && out.alongFar <= out.alongNear + .1) out.alongFar = Number((out.alongNear + .1).toFixed(4));
-  return out;
+  let out = { ...start };
+  search.dims.forEach(([key, lo, hi], i) => {
+    const value = Number((lo + (hi - lo) * Math.min(1, Math.max(0, u[i]))).toFixed(4));
+    out = search.set ? search.set(out, key, value) : { ...out, [key]: value };
+  });
+  return search.settle?.(out) ?? out;
 }
 
 /** Each of `trials` of `settings`, played on the pool, and their mean score. */
@@ -126,7 +212,7 @@ async function scored(pool, settings, trials) {
 if (!isMainThread && workerData?.search) {
   const search = SEARCHES[workerData.skill];
   parentPort.on("message", async ({ id, x }) => {
-    let r; try { r = await search.trial(x.settings, x.trial); } catch (error) { r = { score: -3, error: String(error?.stack ?? error) }; }
+    let r; try { r = await search.trial(x.settings, x.trial); } catch (error) { r = { score: search.error, error: String(error?.stack ?? error) }; }
     parentPort.postMessage({ id, r });
   });
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -135,6 +221,7 @@ if (!isMainThread && workerData?.search) {
     until: { type: "string" }, patience: { type: "string" }, try: { type: "boolean" }, hz: { type: "string" }, set: { type: "string" }, source: { type: "string" } } });
   const search = SEARCHES[skill];
   if (!search || !model) throw new Error(`usage: <skill> <model>, skill one of ${Object.keys(SEARCHES).join(", ")}`);
+  if (values.hz !== undefined && !search.rates) throw new Error(`${skill}'s trials play at one rate: --hz is not theirs`);
   const workers = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
   const hz = Number(values.hz ?? 120), pool = workerPool(fileURLToPath(import.meta.url), { search: true, skill, hz }, workers);
   const body = bodyKey(modelSpec(model)), started = Date.now();
@@ -142,15 +229,15 @@ if (!isMainThread && workerData?.search) {
     const found = JSON.parse(readFileSync(values.confirm, "utf8")), trials = search.trials(model, search.confirm);
     const start = await scored(pool, found.start, trials), best = await scored(pool, found.best.settings, trials);
     const kept = best.score > start.score && best.falls <= start.falls ? "best" : "start";
-    const report = { skill, body, hz, trials: trials.length, gaps: search.confirm, start: { score: start.score, falls: start.falls, each: start.each }, best: { score: best.score, falls: best.falls, each: best.each }, kept,
+    const report = { skill, body, ...(search.rates ? { hz } : {}), trials: trials.length, on: search.confirm, start: { score: start.score, falls: start.falls, each: start.each }, best: { score: best.score, falls: best.falls, each: best.each }, kept,
       seconds: Math.round((Date.now() - started) / 1000) };
     console.log(JSON.stringify(report));
     if (values.write) {
       const commit = execSync("git rev-parse --short=8 HEAD").toString().trim(), settings = kept === "best" ? found.best.settings : found.start;
       const fmt = (x) => x.toFixed(3);
-      writeRecord(skill, body, `Searched on the ${body.replace("+toes", "")} at ${commit} (research/skills/strikes/stomp/skill-search.mjs): CMA over ${search.dims.map(([key]) => key).join(", ")} from ${values.from ?? found.from}, `
-        + `${found.log.length} generations of ${found.lambda}, on ${search.task} from ${search.search.join(", ")} m, ${found.trials} trials a candidate, ${found.seconds} s; `
-        + `on fresh trials from ${search.confirm.join(", ")} m the search's best scored ${fmt(best.score)} (${best.falls} falls) and its start ${fmt(start.score)} (${start.falls} falls): `
+      writeRecord(skill, body, `Searched on the ${body.replace("+toes", "")} at ${commit} (research/skills/skill-search.mjs): CMA over ${search.dims.map(([key]) => key).join(", ")} from ${values.from ?? found.from}, `
+        + `${found.log.length} generations of ${found.lambda}, on ${search.task} ${search.said(search.search)}, ${found.trials} trials a candidate, ${found.seconds} s; `
+        + `on fresh trials ${search.said(search.confirm)} the search's best scored ${fmt(best.score)} (${best.falls} ${search.lost}) and its start ${fmt(start.score)} (${start.falls} ${search.lost}): `
         + (kept === "best" ? "the best is kept." : "the start is kept."), settings);
       console.log(`${skill}: ${body}'s row written`);
     }
@@ -172,7 +259,7 @@ if (!isMainThread && workerData?.search) {
   }
   const until = values.until === undefined ? Infinity : Number(values.until), patience = Number(values.patience ?? Infinity);
   let raised = 0, bestSoFar = -Infinity;
-  const unit = search.dims.map(([key, lo, hi]) => Math.min(1, Math.max(0, (start[key] - lo) / (hi - lo))));
+  const unit = search.dims.map(([key, lo, hi]) => Math.min(1, Math.max(0, ((search.get ? search.get(start, key) : start[key]) - lo) / (hi - lo))));
   const saved = values.resume && existsSync(values.out) ? JSON.parse(readFileSync(values.out, "utf8")) : null, resume = saved?.checkpoint, before = saved?.seconds ?? 0;
   console.error(`${skill} on ${body}: ${trials.length} trials a candidate, ${lambda} candidates a generation, ${generations} generations, ${workers} workers`);
   const { best } = await cmaSearch({ n: search.dims.length, start: unit, sigma: Number(values.sigma ?? .2), lambda, generations, seed: Number(values.seed ?? 1), resume,

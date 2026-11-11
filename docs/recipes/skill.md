@@ -163,7 +163,8 @@ A skill that exists enters at the step its failing part belongs to.
 - **Search it** with CMA-ES on drill trials, scored by the graded score, at both physics rates
   with the worse counting. A hand-picked set of variants is not a search. Price the search from
   its first generation; a search learns over tens of generations. A plateau is ten generations
-  without a better best.
+  without a better best. A record's settings are searched by `research/skills/skill-search.mjs`
+  (`SEARCHES`), which a skill joins with its settings, its drill's trials and a trial's score.
 - **Before training, it succeeds on some held-out cases**: the sign the mechanism works. The straight punch's
   schedule landed 8 of 60 before training took it to 92 %. A controller that succeeds on none is
   not a seed: change the controller, or go back to feasibility. Training does not make up for it.

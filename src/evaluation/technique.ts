@@ -21,12 +21,15 @@ import { createWorld, type World } from "../core/world/world.ts";
 import { groundPlacement, type GROUND_POSTURES } from "../game/lab/ground-starts.ts";
 import type { LabAddress } from "../game/lab/scenarios.ts";
 import type { CaseWorld, Json, Reader, WorldKind } from "./evaluation.ts";
+import type { PartConfig } from "../parts/parts.ts";
 import { type GameContext } from "../game/arena/context.ts";
 
 /**
  * One case, as plain data: the body, what its right hand holds and its left (empty where it names none), its start (placed in `posture`, or
  * standing in guard and shoved at 1 s toward `degrees` from +z by 1.5 s of its weight a kg), the
- * seed that moves a placed start's joints, and the techniques played in turn, the last the one read.
+ * seed that moves a placed start's joints, the techniques played in turn, the last the one read,
+ * and the config a technique of them is played under where it is not its own (`Part.defaults`): a
+ * candidate's settings, as a search plays them.
  */
 export interface TechniqueCase {
   readonly model: HumanoidModel;
@@ -35,6 +38,7 @@ export interface TechniqueCase {
   readonly seed: number;
   readonly start: { readonly kind: "placed"; readonly posture: (typeof GROUND_POSTURES)[number] } | { readonly kind: "shoved"; readonly degrees: number };
   readonly chain: readonly TechniqueName[];
+  readonly configs?: Readonly<Partial<Record<TechniqueName, PartConfig>>>;
 }
 
 /**
@@ -119,7 +123,7 @@ export function createTechnique(context: GameContext) {
     for (const name of one.chain) {
       const part = TECHNIQUES[name];
       if (!part) return { refused: `unknown technique ${name}` };
-      const refused = part.fits(spec, part.defaults, partLookup);
+      const refused = part.fits(spec, one.configs?.[name] ?? part.defaults, partLookup);
       if (refused) return { refused };
     }
     const scope = constructionScope(); let complete = false;
@@ -136,7 +140,7 @@ export function createTechnique(context: GameContext) {
     let runs: TechniqueRun[] = [];
     const body = commandedBody(built, world, { servoSeconds: .1, motor: motorAndGuardOf(partLookup, spec).motor }, [(own, view, clock, afterPhysics) => {
       const fitted = motorAndGuardOf(partLookup, own.spec), drive = poseDrive(own.muscles);
-      runs = one.chain.map((name) => { const part: TechniquePart = TECHNIQUES[name]; return part.make(own, view, clock, fitted, part.defaults, afterPhysics); });
+      runs = one.chain.map((name) => { const part: TechniquePart = TECHNIQUES[name]; return part.make(own, view, clock, fitted, one.configs?.[name] ?? part.defaults, afterPhysics); });
       state.runs = runs.map(run => run.state);
       const command = state.command;
       const remember = (control: BodyControl) => { command.activation.set(control.muscles.activation); command.velocity.set(control.muscles.velocity); };
@@ -230,7 +234,7 @@ export function createTechnique(context: GameContext) {
     clock: (built) => built.world.time,
     minds: () => [],
     parts: (world) => [...new Set(world.technique.chain)],
-    data: (world) => [...new Set(world.technique.chain.flatMap((name) => context.catalog.treeData(TECHNIQUES[name].defaults)))],
+    data: (world) => [...new Set(world.technique.chain.flatMap((name) => context.catalog.treeData(world.technique.configs?.[name] ?? TECHNIQUES[name].defaults)))],
   };
 
   return { buildTechnique, TECHNIQUE_WORLD };

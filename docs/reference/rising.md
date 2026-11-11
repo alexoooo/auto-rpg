@@ -58,3 +58,23 @@ profile read: where a technique is developed. Its techniques are the route's fou
 - **A technique's cases** are those on a body it fits (`Part.fits`), from a position that body has
   an installed start in (`assets/research/posture-holds.json`). The Skeleton has none on hands
   and knees, so its sit-back is read on `moving-bodies` alone.
+
+A technique's record is searched on the same cases, one body at a time:
+
+```powershell
+node research/skills/skill-search.mjs sit-back <model> --out .tmp/skill-search/<model>.json
+node research/skills/skill-search.mjs sit-back <model> --confirm .tmp/skill-search/<model>.json --write
+```
+
+- **What it moves**: the joint angles the sit-back's three stages drive toward (`SEARCHES`), never
+  their times. A candidate is played as the body's sit-back record without being installed
+  (`TechniqueCase.configs`, `stepUpTuningWith`).
+- **What it plays**: both techniques that read the record (`front-sit-back`, `sit-back`) on the
+  `placed` rung, the body holding each rated loadout: 60 trials a candidate on the Warrior and
+  the Rogue. Its first candidate is the record as it stands.
+- **A trial's score** is what the stand-up costs in play, in seconds: the technique's time where
+  the body stood, its longest run where it did not, a little less the higher the body got.
+- **`--confirm`** plays the record and the search's best on seeds the drill does not play, on
+  `placed` and `moving`, and keeps the best only where it scores better and stands no fewer;
+  `--write` installs what is kept. The body's profiles are then stale: rebuild them
+  ([the skill recipe](../recipes/skill.md#traps)) before the table reads the row.

@@ -7,7 +7,7 @@ throws no stomp (`recordFault`, `src/skills/framework/records.ts`), unless an ex
 research `tuning` is whole in its place (`wholeStomp`, `stomp-part.ts`); a research `tuning` sets
 settings over the record's (`tunedSettings`). `STOMP_PATH`'s values are the ones the records share
 outside [stomp settings](#stomp-settings); a search starts from a body's record, or the Warrior's
-where it has none (`research/skills/strikes/stomp/skill-search.mjs`).
+where it has none (`research/skills/skill-search.mjs`).
 
 ## Execution settings
 
@@ -53,7 +53,7 @@ Each toed body's row of `assets/skills/strikes/stomp/stomp.json` differs from `S
 agrees with it in the rest. Each is set for a blow down on a body lying ahead: its stroke and window
 (`contactSpeed`, `swingSeconds`, `chamberSeconds`, `lift`, `over`, `alongNear`, `alongFar` and
 `brace`) searched on the Strike drill's `stomping` rung
-(`research/skills/strikes/stomp/skill-search.mjs`, each row's `made`), the Rogue's `across` and `returnNear` the
+(`research/skills/skill-search.mjs`, each row's `made`), the Rogue's `across` and `returnNear` the
 Warrior's scaled by its stature. The Skeleton has no record and throws no stomp.
 
 | Setting | Warrior | Rogue | Why |

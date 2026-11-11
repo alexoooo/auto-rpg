@@ -4,7 +4,7 @@
  * `assets/skills/<capability>/<implementation>/<skill>.json`, each by its body's key (`bodyKey`: `workshop-fighter+toes`) beside the
  * records already there, and the bodies with one into `assets/skills/<capability>/<implementation>/<skill>.meta.json`. A row is
  * refused unless its settings are the skill's whole and valid. A search that tunes a skill on a
- * body writes its row through `writeRecord` (`research/skills/strikes/stomp/skill-search.mjs`); by hand, a row is
+ * body writes its row through `writeRecord` (`research/skills/skill-search.mjs`); by hand, a row is
  * written from a file of settings and says how they were made.
  *
  *   node research/skills/skill-records.mjs <skill> <bodyKey> --made "<how it was made>" --settings <settings.json>
