@@ -582,9 +582,9 @@ The profile model supplies these components:
   fault of the config. A person's order, and a drill's, names a skill the body has, its limb and
   its target (`Orders`: `skill`, `limb`, `region`; no limb, any that fits), which every strike of
   that skill with that limb keeps to (`orderAllows`). A drill's orders are firm (`Orders.firm`):
-  the strike they name is begun as soon as its skill admits it and kept while they stand, never
-  weighed (`Choice.bound`, `selectSet`), so a drill reads the skill and not the Mind's wish to
-  use it. A person's orders and a mind fighting by itself are weighed as before. A strike is on offer at its own sites, though
+  the strike they name is begun as soon as its skill admits it and kept while they stand, taken
+  before anything is priced (`Choice.bound`, `selectSet`), so a drill reads the skill and no
+  profile decides whether it is used. A person's orders and a mind fighting by itself are weighed as before. A strike is on offer at its own sites, though
   the window they were read in moves with each stride (`atSite`). What strikes share is
   `src/minds/option/strike.ts`, which the kinds call.
 - **The rise** (`src/minds/option/rise.ts`): each way up, reposition and mode of
