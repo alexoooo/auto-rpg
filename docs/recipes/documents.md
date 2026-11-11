@@ -18,6 +18,25 @@ document holds.
 - **A brief is a file the owner reads** (`docs/briefs/`): the run's first message as
   [AGENTS.md](../../AGENTS.md#the-rules) shapes it, the request in the owner's words, the one
   document that quotes them. It is never left in `.tmp/` or only in a conversation.
+- **A brief is read through before the owner approves it**, by a fresh agent of the kind that
+  will run it, in a session that runs nothing:
+  `codex exec -s read-only --ephemeral -C . -o .tmp/brief-read/<round>.md - < .tmp/brief-read/ask.md`,
+  where `ask.md` holds the text below with the brief's path. What a round misreads or finds
+  missing is fixed in the brief, the documents or the code and committed, and a new session reads
+  again. The read-through ends at a round on the committed text whose answer changes nothing the
+  run would do; a clean read says the brief is clear, never that the run will work.
+
+  > This is a read-through, not the run: run no `node`, `npm` or `npx` command and change no
+  > file; read any file, and use read-only commands (`git log`, `git show`, `rg`). The owner will
+  > start a run whose whole first message is the brief `<brief>`. Read it, and what it leads you
+  > to, as you would at that run's start. Then answer: 1. its goal and its one question; 2. every
+  > step in order, each exact command, what you wait for and how you choose between branches;
+  > 3. which files you change, which you commit, in which commits, and which you must not commit;
+  > 4. when the run stops and what its one report holds; 5. anything unclear, contradictory or
+  > missing, what you would guess, and anything that would fail as written (a path, a flag, a
+  > file), checked by reading the code.
+- **The next brief is chosen from the last run's report**, once its claims are checked against
+  its commits and saved results (read, not played), and quotes the owner's goal it serves.
 - **The roadmap says where the work stands.** A line of it is taken up on the owner's request.
   What the owner should see goes on its list to watch, and an agent never marks it seen. Status
   lives in the roadmap; code never cites a plan or an analysis.
