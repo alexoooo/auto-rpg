@@ -87,7 +87,7 @@ function beatsCommander(config: BeatsConfig): Commander {
 }
 
 /** **Beats** (`beatsCommander`): what a drill's opponent is led by, a script of moves; as it starts, pressing forward, half a metre to 0.7 m off the foe. It leads no side of a Crypt run. */
-export const BEATS: CommanderEntry = deepFreeze({
+export const BEATS = deepFreeze<CommanderEntry>({
   label: "Beats", sides: [], defaults: { kind: "beats", beats: [{ seconds: 1, move: { kind: "range", near: .5, far: .7 } }] }, faults: beatsFaults,
   create: (_host, config) => beatsCommander(config as BeatsConfig),
 });

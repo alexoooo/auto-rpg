@@ -360,7 +360,7 @@ function partyCommander(host: TeamHost, config: PartyConfig): Commander {
 }
 
 /** **A person's party** (`partyCommander`): the leader where its person steers, the others after it or where they were sent. */
-export const PARTY: CommanderEntry = deepFreeze({
+export const PARTY = deepFreeze<CommanderEntry>({
   label: "Led by you", sides: ["party"], defaults: { kind: "party" },
   faults: (config: CommanderConfig) => Object.entries(config).flatMap(([key, value]) => key === "kind" ? []
     : key !== "picks" ? [`${key}: not a setting of ${config.kind}`] : typeof value === "boolean" ? [] : ["picks: true or false"]),

@@ -20,7 +20,7 @@ interface StanceWalkConfig {
 }
 
 /** **Walk in the stance** (`locomotion`): it holds the body's stance envelope (`Body.envelope`) and stops at `STANCE_STOPPING`. */
-export const STANCE_WALK_PART: GaitPart<StanceWalkConfig> = deepFreeze({
+export const STANCE_WALK_PART = deepFreeze<GaitPart<StanceWalkConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk in the stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance-walk" },
   keys: { kind: true, tuning: true, carriage: true }, tuning: ["turnLimit", "turnStartup"], fits: fitsSoles,
   faults: (config) => [

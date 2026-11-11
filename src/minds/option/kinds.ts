@@ -31,7 +31,7 @@ export const isProfileOption = (part: OptionPart): part is ProfileOptionPart => 
 
 /** A kind of option with no settings of its own, `kind`, labelled `label`, made by `make`. */
 function kind<K extends string>(kind: K, label: string, make: (given: ProfileOptionContext) => readonly Option[]): ProfileOptionPart<{ readonly kind: K }> {
-  return deepFreeze({ role: "option", model: PROFILE_MODEL, label, stage: "game", fields: [], slots: [], defaults: { kind }, keys: { kind: true } as KeysOf<{ readonly kind: K }>,
+  return deepFreeze<ProfileOptionPart<{ readonly kind: K }>>({ role: "option", model: PROFILE_MODEL, label, stage: "game", fields: [], slots: [], defaults: { kind }, keys: { kind: true } as KeysOf<{ readonly kind: K }>,
     fits: anyBody, faults: () => [], make: (_config: { readonly kind: K }, given: ProfileOptionContext) => make(given) });
 }
 
@@ -169,7 +169,7 @@ function strikeKind<K extends keyof ExecutorConfigs>(skill: K, label: string, li
       return strike(one, given.walk, blows, strikeMeasure(given.parts, given.spec, executors, one, given.hz, given.tables.strikes, given.rate ?? given.hz, given.delay), `${action.name} ${limb}`);
     });
   };
-  return deepFreeze({
+  return deepFreeze<StrikeKindPart<K>>({
     role: "option", model: PROFILE_MODEL, label, stage: "game", skill,
     fields: [choice<StrikeConfig<K>, "limbs">("limbs", "Limbs", LIMB_ROLES), json<StrikeConfig<K>, "regions">("regions", "Target regions", "target-regions")],
     slots: [slotSkill("skill", "Skill", "executor"), slotOne("support", "Low support", "support", true), slotOne("aim", "Aim", "aim", true)],
@@ -226,7 +226,7 @@ export interface WalkConfig {
  * config names, meaning go to a place by that gait, its places the sites its mind's options name
  * (`Sites`); none on legs without that gait. Its way is planned by its navigation.
  */
-export const WALK_OPTION: ProfileOptionPart<WalkConfig> = deepFreeze({
+export const WALK_OPTION = deepFreeze<ProfileOptionPart<WalkConfig>>({
   role: "option", model: PROFILE_MODEL, label: "Walk to a site", stage: "game", fields: [optionalChoice<WalkConfig, "gait">("gait", "Gait", "Every gait", GAIT_CHOICES)],
   slots: [slotOne("navigation", "Navigation", "navigation", true)], defaults: { kind: "walk" },
   keys: { kind: true, gait: true, navigation: true }, fits: anyBody, faults: () => [],
@@ -245,7 +245,7 @@ const placeFaults = (config: PlaceConfig): readonly string[] => [
   ...Number.isFinite(config.within) && config.within > 0 ? [] : ["within: a distance above nothing, m"]];
 
 /** **Holding at a place on the ground** (`holdAt`), whatever the focus: a rest option at the place its config names, which is its site. */
-export const HOLD_AT_OPTION: ProfileOptionPart<PlaceConfig> = deepFreeze({
+export const HOLD_AT_OPTION = deepFreeze<ProfileOptionPart<PlaceConfig>>({
   role: "option", model: PROFILE_MODEL, label: "Hold at a place", stage: "game", fields: [], slots: [], defaults: { kind: "hold-at-place", x: 0, z: 0, within: .3 },
   keys: { kind: true, x: true, z: true, within: true }, fits: anyBody, faults: placeFaults,
   make: (config: PlaceConfig, given: ProfileOptionContext) => [holdAt(config.x, config.z, config.within, given.walk)],

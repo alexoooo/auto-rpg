@@ -57,7 +57,7 @@ function gaitFaults(config: MoveConfig): readonly string[] {
  * its stopping. Its gaits are made once for each complete configuration; its rules are made as the lookup finds them (`MoveRulePart`). Its
  * gaits are config (`MoveConfig.gaits`): a new gait is an entry, its legs any gait part's config (`GaitPart`).
  */
-export const MOVE_PART: LocomotionPart<MoveConfig> = deepFreeze({
+export const MOVE_PART = deepFreeze<LocomotionPart<MoveConfig>>({
   role: "locomotion", label: "Move", stage: "game", defaults: GOING, keys: { kind: true, gaits: true, rules: true, otherwise: true },
   fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
   slots: [slotList("rules", "When", "move-rule")],

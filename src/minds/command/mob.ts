@@ -136,7 +136,7 @@ function mobCommander(host: TeamHost): Commander {
 }
 
 /** **A mob** (`mobCommander`): its members spread over the foes they see, and round each. */
-export const MOB: CommanderEntry = deepFreeze({
+export const MOB = deepFreeze<CommanderEntry>({
   label: "Mob", sides: ["enemies"], defaults: { kind: "mob" }, faults: kindOnly,
   create: (host: TeamHost) => mobCommander(host),
 });

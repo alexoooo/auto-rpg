@@ -195,7 +195,7 @@ const fitting = (config: GroundConfig<string>, spec: BodySpec, parts: PartLookup
 function groundKind<K extends string>(kind: K, label: string, technique: TechniqueName, routing: { readonly purpose: "ascent" | "fallback" } | null,
   make: (given: ProfileOptionContext, config: GroundConfig<K>, part: TechniquePart) => readonly Option[]): ProfileOptionPart<GroundConfig<K>> {
   const wayUp = routing !== null;
-  return deepFreeze({ role: "option", model: PROFILE_MODEL, label, stage: "game", ...(routing ? { recovery: { purpose: routing.purpose, technique: (config: GroundConfig<K>) => config.skill } } : {}), fields: [], slots: [slotSkill("skill", "Technique", "technique")],
+  return deepFreeze<ProfileOptionPart<GroundConfig<K>>>({ role: "option", model: PROFILE_MODEL, label, stage: "game", ...(routing ? { recovery: { purpose: routing.purpose, technique: (config: GroundConfig<K>) => config.skill } } : {}), fields: [], slots: [slotSkill("skill", "Technique", "technique")],
     defaults: { kind, skill: { kind: technique } }, keys: { kind: true, skill: true } as KeysOf<GroundConfig<K>>, fits: anyBody,
     faults: (config: GroundConfig<K>, parts: PartLookup) => isWayUp(parts.of("technique", config.skill)) === wayUp ? [] : [`skill: ${wayUp ? "a way up" : "a mode of the ground"}`],
     skills: (config: GroundConfig<K>, spec: BodySpec, parts: PartLookup): NamedSkills | null => fitting(config, spec, parts) ? { technique: config.skill } : null,
@@ -315,7 +315,7 @@ export const BRACE_TUMBLING_OPTION = groundKind("brace-tumbling", "Brace while t
 });
 
 /** **Brace**, down (`brace`), a rest option: by the ground's brace where it fits the body, priced as lying where it lies; on offer on every body. */
-export const BRACE_OPTION: ProfileOptionPart<GroundConfig<"brace-down">> = deepFreeze({ ...groundKind("brace-down", "Brace", "brace", null, () => []),
+export const BRACE_OPTION = deepFreeze<ProfileOptionPart<GroundConfig<"brace-down">>>({ ...groundKind("brace-down", "Brace", "brace", null, () => []),
   skills: (config: GroundConfig<"brace-down">, spec: BodySpec, parts: PartLookup): NamedSkills => fitting(config, spec, parts) ? { technique: config.skill } : {},
   make: (config: GroundConfig<"brace-down">, given: ProfileOptionContext) =>
     [brace(fitting(config, given.spec, given.parts) ? { action: config.skill.kind, effector: bindingSegments(given.parts.of("technique", config.skill), given.spec, config.skill)(given.parts.of("technique", config.skill).starts[0]!) } : null)] });

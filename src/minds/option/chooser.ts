@@ -511,7 +511,7 @@ function pricing(config: SearchConfig, parts: PartLookup): { readonly obedience:
  * priced by its objective (`Objective.worth`), its orders at its obedience; a running option with
  * targets keeps the one it runs at `KEEP` s.
  */
-export const VALUED_CHOOSER: OptionChooserPart<ValuedConfig> = deepFreeze({
+export const VALUED_CHOOSER = deepFreeze<OptionChooserPart<ValuedConfig>>({
   role: "chooser", model: PROFILE_MODEL, label: "By worth", stage: "game", fields: [obedienceField<ValuedConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config), ...searchFaults(config)],
@@ -543,7 +543,7 @@ interface TreeConfig extends SearchConfig { readonly kind: "tree"; readonly runs
  * obedience; its draws from one stream begun at its seed, kept in its state; a running option with
  * targets keeps the one it runs at `KEEP` s.
  */
-export const TREE_CHOOSER: OptionChooserPart<TreeConfig> = deepFreeze({
+export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
   role: "chooser", model: PROFILE_MODEL, label: "By tree", stage: "game", fields: [obedienceField<TreeConfig>()], slots: OBJECTIVE_SLOTS, supplies: objectiveSupplied,
   defaults: { kind: "tree" }, keys: { kind: true, runs: true, exploration: true, horizon: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: TreeConfig) => [...searchFaults(config),

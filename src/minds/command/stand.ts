@@ -35,7 +35,7 @@ function standCommander(): Commander {
 }
 
 /** **Stand** (`standCommander`): what the Cover drill leads its subject by. It leads no side of a Crypt run. */
-export const STAND: CommanderEntry = deepFreeze({
+export const STAND = deepFreeze<CommanderEntry>({
   label: "Stand", sides: [], defaults: { kind: "stand" }, faults: kindOnly,
   create: () => standCommander(),
 });

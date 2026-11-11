@@ -15,7 +15,7 @@ export function fitsSoles(spec: BodySpec): string | null {
 }
 
 /** **The stance** as a balance: the game's. */
-export const stanceBalance = (envelope: (spec: BodySpec) => StanceEnvelope | null, calibration?: (spec: BodySpec) => StanceTuning): BalancePart<StanceBalanceConfig> => deepFreeze({
+export const stanceBalance = (envelope: (spec: BodySpec) => StanceEnvelope | null, calibration?: (spec: BodySpec) => StanceTuning): BalancePart<StanceBalanceConfig> => deepFreeze<BalancePart<StanceBalanceConfig>>({
   role: "balance", label: "Stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance" }, keys: { kind: true },
   reference: { fits: fitsSoles, read: standingHeight },
   fits: fitsSoles, faults: () => [],

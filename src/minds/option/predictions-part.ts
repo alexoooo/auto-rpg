@@ -10,7 +10,7 @@ import { deepFreeze } from "../../core/state.ts";
 interface MeasuredConfig { readonly kind: "measured"; readonly edges?: readonly Profile[] }
 
 /** **Measured**: supplied ground profiles where given, otherwise the drills' (`dataOf`); each model its own where fresh, else its prior. */
-export const MEASURED_PREDICTIONS: PredictionsPart<MeasuredConfig> = deepFreeze({
+export const MEASURED_PREDICTIONS = deepFreeze<PredictionsPart<MeasuredConfig>>({
   role: "predictions", model: PROFILE_MODEL, label: "Measured", stage: "game", fields: [], slots: [], defaults: { kind: "measured" }, keys: { kind: true, edges: true }, tuning: ["edges"],
   fits: anyBody, faults: config => config.edges === undefined || validProfiles(config.edges) ? [] : ["edges: invalid profiles"],
   reads: config => config.edges === undefined ? ["strike-profiles", "edge-profiles"] : ["strike-profiles"],
@@ -18,7 +18,7 @@ export const MEASURED_PREDICTIONS: PredictionsPart<MeasuredConfig> = deepFreeze(
 });
 
 /** **The prior alone**: no profile, each model its prior, set by hand. */
-export const PRIOR_PREDICTIONS: PredictionsPart<{ readonly kind: "prior" }> = deepFreeze({
+export const PRIOR_PREDICTIONS = deepFreeze<PredictionsPart<{ readonly kind: "prior" }>>({
   role: "predictions", model: PROFILE_MODEL, label: "The prior alone", stage: "game", fields: [], slots: [], defaults: { kind: "prior" }, keys: { kind: true },
   fits: anyBody, faults: () => [], make: () => profileModel({ strikes: [], edges: [] }),
 });

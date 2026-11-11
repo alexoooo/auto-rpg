@@ -247,7 +247,7 @@ function clearerCommander(host: TeamHost): Commander {
 }
 
 /** **A level-clearer** (`clearerCommander`): a party clearing a level by itself. */
-export const CLEARER: CommanderEntry = deepFreeze({
+export const CLEARER = deepFreeze<CommanderEntry>({
   label: "Level-clearer (AI)", sides: ["party"], defaults: { kind: "clearer" }, faults: kindOnly,
   create: (host: TeamHost) => clearerCommander(host),
 });

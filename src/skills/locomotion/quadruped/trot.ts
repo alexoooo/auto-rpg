@@ -252,7 +252,7 @@ function validTrot(settings: typeof REPTILE_TROT): boolean {
 interface TrotConfig { readonly kind: "paw-trot"; readonly tuning?: Partial<typeof REPTILE_TROT> }
 
 /** **The trot** as a gait: the quadruped's travel. */
-export const TROT_PART: PawGaitPart<TrotConfig> = deepFreeze({
+export const TROT_PART = deepFreeze<PawGaitPart<TrotConfig>>({
   role: "paw-gait", label: "Trot", stage: "game", fields: [], slots: [], defaults: { kind: "paw-trot" }, keys: { kind: true, tuning: true },
   tuning: Object.keys(REPTILE_TROT), fits: (spec, config) => fitsPaws(spec) ?? (validTrot({ ...REPTILE_TROT, ...config.tuning }) ? null : "invalid trot settings"),
   faults: (config: TrotConfig) => config.tuning === undefined || !!config.tuning && typeof config.tuning === "object" && !Array.isArray(config.tuning)

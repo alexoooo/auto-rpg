@@ -9,7 +9,7 @@ import { anyBody } from "../../../parts/parts.ts";
 interface LocalNavigationConfig { readonly kind: "local-navigation" }
 
 /** **Local clearance** (`routeWalker`): a place reached straight where the sweep there is clear of the solids sensed, and not otherwise. */
-export const LOCAL_NAVIGATION: NavigatorPart<LocalNavigationConfig> = deepFreeze({
+export const LOCAL_NAVIGATION = deepFreeze<NavigatorPart<LocalNavigationConfig>>({
   role: "navigation", label: "Local clearance", stage: "experimental", fields: [], slots: [], defaults: { kind: "local-navigation" }, keys: { kind: true },
   fits: anyBody, faults: () => [],
   make: (spec) => routeWalker(spec, (here, aim, solids, radius, height) =>

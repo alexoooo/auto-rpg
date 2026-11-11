@@ -326,7 +326,7 @@ const RIGHTING = { bindings: (spec: BodySpec) => bilateralBindings(spec, BOTH), 
  * `dataOf("righting")`), or a whole research recipe in its place. It is done once its last pose
  * holds the trunk upright and still, wherever its legs bear.
  */
-export const RIGHTING_RECIPE: TechniquePart<RecipeConfig> = deepFreeze({
+export const RIGHTING_RECIPE = deepFreeze<TechniquePart<RecipeConfig>>({
   ...RIGHTING, edges: toStanding(LYING), label: "Right by recipe", defaults: { kind: "righting-recipe" }, keys: { kind: true, tuning: true } as KeysOf<RecipeConfig>, tuning: ["settle", "servo", "upright", "calm", "still", "limit", "side", "back"],
   fits: fitsAll<RecipeConfig>(fitsPaws, recordFault("righting", deepFreeze(meta.bodies), wholeRecipe)),
   faults: (config: RecipeConfig) => config.tuning === undefined || wholeRecipe(config.tuning) ? [] : ["invalid righting recipe"],
@@ -356,7 +356,7 @@ const holdsRoutes = (spec: BodySpec): boolean => pawsOf(spec).every((paw) => {
  * between: a body on paws (`fitsPaws`) whose legs take the routes' poses (`holdsRoutes`), carried
  * up by its mind's motor.
  */
-export const RIGHTING_ROUTES: TechniquePart<{ readonly kind: "righting-routes" }> = deepFreeze({
+export const RIGHTING_ROUTES = deepFreeze<TechniquePart<{ readonly kind: "righting-routes" }>>({
   ...RIGHTING, requires: [MOTOR_SUPPORT], edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true },
   fits: fitsAll(fitsPaws, fitsWhen(holdsRoutes, "needs legs whose ranges hold the righting routes' poses")), faults: () => [],
   make: (own: OwnBody, view: BodyView, clock: Clock, fitted: MotorAndGuard) => rightingByRoutes(own, view, clock, fitted),

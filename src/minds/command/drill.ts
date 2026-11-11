@@ -282,7 +282,7 @@ const approachFine = (value: unknown): boolean => {
 const time = (value: unknown): boolean => typeof value === "number" && Number.isFinite(value) && value >= 0;
 
 /** **A drill** (`drillCommander`): one skill with one limb at one region of the nearest foe. It leads no side of a Crypt run. */
-export const DRILL: CommanderEntry = deepFreeze({
+export const DRILL = deepFreeze<CommanderEntry>({
   label: "Drill", sides: [], defaults: { kind: "drill", after: .5, pace: 1 },
   faults: (config: CommanderConfig) => {
     const given = config as Partial<DrillCommanderConfig>, keys = ["kind", "skill", "limb", "region", "after", "pace", "walking", "approach", "letGo", "moment"];

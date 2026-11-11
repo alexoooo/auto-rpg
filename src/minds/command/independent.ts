@@ -84,7 +84,7 @@ function independentCommander(host: TeamHost): Commander {
 }
 
 /** **Independent members** (`independentCommander`): each at the nearest foe it sees. */
-export const INDEPENDENT: CommanderEntry = deepFreeze({
+export const INDEPENDENT = deepFreeze<CommanderEntry>({
   label: "Independent", sides: ["enemies"], defaults: { kind: "independent" }, faults: kindOnly,
   create: (host: TeamHost) => independentCommander(host),
 });

@@ -50,7 +50,7 @@ export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "
 }): TechniquePart<{ readonly kind: K }> => {
   const { fits, sides, make, ...rest } = part;
   const supported = (start: string): start is Side => sides.some(side => side === start);
-  return Object.freeze({ moving: false, starts: sides, bindings: (spec: BodySpec) => bilateralBindings(spec, sides), ...rest,
+  const made: TechniquePart<{ readonly kind: K }> = { moving: false, starts: sides, bindings: (spec: BodySpec) => bilateralBindings(spec, sides), ...rest,
     role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [],
     fits: fits ? fitsAll(fitsStance, fits) : fitsStance, faults: () => [],
     make(...args: Parameters<TechniquePart["make"]>): TechniqueRun {
@@ -62,5 +62,6 @@ export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "
         step: (reading, senses, control, dt) => run.step(reading, senses, control, dt), end: () => run.end(),
         ...(run.forget ? { forget: () => run.forget!() } : {}),
       };
-    } });
+    } };
+  return Object.freeze(made);
 };

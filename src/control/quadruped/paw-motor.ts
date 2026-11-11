@@ -130,7 +130,7 @@ function pawMotor(built: ReadBody, muscles: MuscleReading, posture: Pose = {}, a
 }
 
 /** **The paw motor** (`pawMotor`) as a motor control: a body on three paws or more (`fitsPaws`). */
-export const PAW_MOTOR: MotorPart<PawMotorConfig> = deepFreeze({
+export const PAW_MOTOR = deepFreeze<MotorPart<PawMotorConfig>>({
   role: "motor", label: "Paw support", stage: "game", fields: [], slots: [], defaults: { kind: "paw-motor" }, keys: { kind: true },
   fits: fitsPaws, faults: () => [],
   make: () => ({

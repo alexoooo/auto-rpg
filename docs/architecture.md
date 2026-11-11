@@ -453,6 +453,14 @@ entrant registers, scoped `<name>:<kind>`. A config field that holds a part says
 where a preset names it. Code that only reads a config of any role takes a `PartConfig`. The
 toolkit's lists hold a part for every registered kind (`Covered`, `toolkit.ts`).
 
+**A lookup by kind is followed in two steps.** `parts.of("gait", config).make(...)` picks its part
+when it runs, so go-to-definition on `make` lands on the role's interface (`GaitPart.make`). From
+there the editor's "go to implementations" lists every part of the role. A part is found because
+its object names its role's type where it is written: `deepFreeze<GaitPart<C>>({ ... })`, a
+factory's `controller<C>({ ... })`, or a literal typed by the role. Most techniques are one step
+further: `technique` (`bilateral.ts`) builds the part around the `make` each is written with, so
+its `make` there leads to the callers (`FLATTEN`, `BRACE_MODE`) that hand theirs in.
+
 **What a fight asks of a mind, the mind answers** (`Controller`): what it strikes with
 (`strikes`), what it holds that it has a use for (`supportedEquipment`), whether it obeys orders
 (`obeys`) and what its phases are called (`phases`). The catalog asks the controller and walks no

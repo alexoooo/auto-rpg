@@ -78,7 +78,7 @@ function walkRunRefusal(spec: BodySpec): string | null {
  * has them. It holds its run's envelope (`walkRunEnvelope`, or the record's) and states it stops at
  * `RUN_STOPPING` (`walkRun`).
  */
-export const WALK_RUN_PART: GaitPart<WalkRunConfig> = deepFreeze({
+export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk and run", stage: "game", fields: [], slots: [], defaults: { kind: "walk-run" },
   keys: { kind: true, tuning: true },
   tuning: ["walk", "run", "braking", "stride", "learned", "envelope"], fits: walkRunRefusal,

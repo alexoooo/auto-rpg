@@ -123,7 +123,7 @@ function firstExposed(spec: Parameters<AimPart["make"]>[0]): Aim {
 }
 
 /** **The first exposed surface** (`firstExposed`) as a kind of aim: a jaw's, for a body with a bite (`fitsBite`). */
-export const FIRST_EXPOSED_AIM: AimPart<FirstExposedConfig> = deepFreeze({
+export const FIRST_EXPOSED_AIM = deepFreeze<AimPart<FirstExposedConfig>>({
   role: "aim", label: "First exposed surface", stage: "game", unit: null, fields: [], slots: [], defaults: { kind: "first-exposed" }, keys: { kind: true },
   fits: (spec, _config, parts) => fitsBite(spec, { kind: "first-exposed" }, parts), fitReads: ["bite"], faults: () => [], reads: () => ["bite"], make: (spec) => firstExposed(spec),
 });

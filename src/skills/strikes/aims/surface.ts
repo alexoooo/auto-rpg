@@ -62,7 +62,7 @@ const preference = (key: "head" | "upperTrunk" | "middleTrunk", label: string): 
     return Number.isFinite(value) && value >= -2 && value <= 2 ? { ...config, tuning: { ...rest, [key]: value } } : null;
   },
 });
-export const SURFACE_AIM: AimPart<SurfaceConfig> = deepFreeze({
+export const SURFACE_AIM = deepFreeze<AimPart<SurfaceConfig>>({
   role: "aim", label: "Surface opening", stage: "game", unit: "opening", slots: [], defaults: { kind: "surface", tuning: {} }, keys: { kind: true, tuning: true },
   tuning: ["head", "upperTrunk", "middleTrunk", "blocked", "reachPenalty", "repeated", "overhand", "headLateral", "hookCost", "uppercut", "uppercutReserve", "square"],
   fields: [preference("head", "Head"), preference("upperTrunk", "Upper trunk"), preference("middleTrunk", "Middle trunk")], fits: surfaceAimRefusal,

@@ -7,7 +7,7 @@ import { anyBody } from "../../../parts/parts.ts";
 interface VisibilityNavigationConfig { readonly kind: "visibility-navigation" }
 
 /** **Visibility routes** (`routeWalker`): a place reached by the shortest route round the solids sensed, corner to corner. */
-export const VISIBILITY_NAVIGATION: NavigatorPart<VisibilityNavigationConfig> = deepFreeze({
+export const VISIBILITY_NAVIGATION = deepFreeze<NavigatorPart<VisibilityNavigationConfig>>({
   role: "navigation", label: "Visibility routes", stage: "game", fields: [], slots: [], defaults: { kind: "visibility-navigation" }, keys: { kind: true },
   fits: anyBody, faults: () => [],
   make: (spec) => routeWalker(spec, (_here, aim, _solids, _radius, _height, router) => router().route(aim)),
