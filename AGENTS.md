@@ -35,11 +35,12 @@ Ten rules bind every change. A kind of work has its own, in its own document
    training run, a table play. A run is a session of its own, and its first message is the brief,
    written from the owner's request and never from a plan, in ten lines or fewer: the request in the owner's words; the one
    question; what will be changed, naming anything the owner did not ask for; the one measure and
-   the command that reads it; the machine time it may take; where it stops. Inside the brief the
+   the command that reads it; the machine time it may take, or none where the work ends itself
+   once it stops improving; where it stops. Inside the brief the
    how is the agent's: a modelling choice (a curve, a range, a solver setting) is decided toward
    the goal, never put to the owner, and nothing waits for approval. Other work lands on its
    checks and plays nothing; a change that is something to see is looked at in a browser, briefly.
-3. **A run ends at its question or its budget, with one report**: the measure before and after,
+3. **A run ends at its question, or at its budget where it has one, with one report**: the measure before and after,
    read by the same command; everything done beyond the question; what is unchecked. No next item
    is started.
 4. **A "cannot" is reported, never recorded.** A limit, a ceiling or a ruled-out approach goes

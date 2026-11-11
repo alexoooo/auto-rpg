@@ -62,7 +62,7 @@ profile read: where a technique is developed. Its techniques are the route's fou
 A technique's record is searched on the same cases, one body at a time:
 
 ```powershell
-node research/skills/skill-search.mjs sit-back <model> --out .tmp/skill-search/<model>.json
+node research/skills/skill-search.mjs sit-back <model> --out .tmp/skill-search/<model>.json --patience 30
 node research/skills/skill-search.mjs sit-back <model> --confirm .tmp/skill-search/<model>.json --write
 ```
 
@@ -74,7 +74,9 @@ node research/skills/skill-search.mjs sit-back <model> --confirm .tmp/skill-sear
   the Rogue. Its first candidate is the record as it stands.
 - **A trial's score** is what the stand-up costs in play, in seconds: the technique's time where
   the body stood, its longest run where it did not, a little less the higher the body got.
-- **`--confirm`** plays the record and the search's best on seeds the drill does not play, on
-  `placed` and `moving`, and keeps the best only where it scores better and stands no fewer;
-  `--write` installs what is kept. The body's profiles are then stale: rebuild them
+- **How long**: with `--patience` and no `--generations` it runs for as long as it keeps
+  improving and ends on its plateau; `--resume` goes on from an out file.
+- **`--confirm`** plays the record the body plays now and the search's best on seeds the drill
+  does not play, on `placed` and `moving`, and keeps the best only where it scores better and
+  stands no fewer; `--write` installs a kept best and leaves a kept record as it is. The body's profiles are then stale: rebuild them
   ([the skill recipe](../recipes/skill.md#traps)) before the table reads the row.

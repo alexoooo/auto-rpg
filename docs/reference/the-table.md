@@ -68,8 +68,10 @@ by condition, so a change to the code asks for no replay.
 
 `npm run evaluate -- table --play --workers 22` plays each reading that has no whole result and
 keeps it. `--fresh` plays the readings of the cells asked for (`--body`, `--skill`, `--loadout`)
-again on the code now; the stand-up reading that prices a fall is played again only where a cell
-asked for reads it. Both play one reading at a time, each to evaluate's budget (`--budget`, 10 minutes): a pass keeps every
+again on the code now, and prints under each a line comparing it with the reading it replaced
+(`replaced`), paired the way the baseline is: the version before against the version now, which
+the baseline is not after a cell's first change. The stand-up reading that prices a fall is
+played again only where a cell asked for reads it. Both play one reading at a time, each to evaluate's budget (`--budget`, 10 minutes): a pass keeps every
 trial it plays (`.tmp/evaluations/`) and every complete unit in its result, names a reading that failed at its end and
 plays the rest, and with `--baseline` names a cell's baseline as soon as its reading is whole.
 Passes are repeated until none plays. Node, core world, 120 Hz, each command 1 step late

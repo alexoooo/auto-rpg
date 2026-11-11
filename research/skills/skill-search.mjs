@@ -3,10 +3,11 @@
  * `src/skills/framework/records.ts`): diagonal CMA (`cma.mjs`) over the settings that shape
  * its motion (`SEARCHES`), from the body's record where it has one and the Warrior's where not, the
  * rest held at the start's, each candidate played on its task's trials on that body and scored by
- * their mean. `--confirm` then plays the start and the search's best on fresh trials (other gaps,
- * other seeds) and keeps the better: the best only where it scores above the start there and
- * loses no more trials; with `--write`, that is the body's row (`writeRecord`,
- * `research/skills/skill-records.mjs`), saying how it was made.
+ * their mean. `--confirm` then plays the search's best and what it would replace on fresh trials
+ * (other gaps, other seeds): the record the body plays now, or the search's start where the body
+ * has none. The best is kept only where it scores above that there and loses no more trials; with
+ * `--write`, what is kept is the body's row (`writeRecord`, `research/skills/skill-records.mjs`),
+ * saying how it was made, and a record that is kept is left as it is.
  *
  * - The stomp: the Strike drill's `stomping` rung (`STRIKE_CASES`, `src/evaluation/strike/cases.ts`),
  *   each foot at the middle of a Warrior and a Skeleton lying limp from its gaps, thrown by Option
@@ -28,11 +29,14 @@
  * body's stature over the source's and its heights (`heights`, m) kept: a height is measured from
  * the ground to a target that is the same for every body, so the same height keeps the source's
  * clearance over it. `--until` ends the search once its best scores that
- * much, `--patience` once that many generations have not raised it. `--try` plays the start
+ * much, `--patience` once that many generations have not raised it (a plateau); with `--patience`
+ * and no `--generations` the search has no other end, and runs for as long as it keeps improving.
+ * Its out file says how it ended (`ended`: `plateau`, `until`, or `generations` where its count
+ * ran out first), and `--resume` goes on from one. `--try` plays the start
  * alone on the search's trials and saves it as a search's result (no generation), for `--confirm`
  * to keep where it serves.
  *
- *   node research/skills/skill-search.mjs <skill> <model> --out <file.json> [--generations 10] [--lambda 16] [--sigma 0.2] [--until <score>] [--patience <generations>] [--workers N] [--seed 1] [--resume]
+ *   node research/skills/skill-search.mjs <skill> <model> --out <file.json> [--generations 10 | --patience <generations>] [--lambda 16] [--sigma 0.2] [--until <score>] [--workers N] [--seed 1] [--resume]
  *   node research/skills/skill-search.mjs <skill> <model> --out <file.json> --try
  *   ... --source <model>: the start carried over from that body's record
  *   ... --set '{"lift": 0.7}': the start with those settings in its place, for a search or a --try
@@ -227,17 +231,21 @@ if (!isMainThread && workerData?.search) {
   const body = bodyKey(modelSpec(model)), started = Date.now();
   if (values.confirm) {
     const found = JSON.parse(readFileSync(values.confirm, "utf8")), trials = search.trials(model, search.confirm);
-    const start = await scored(pool, found.start, trials), best = await scored(pool, found.best.settings, trials);
-    const kept = best.score > start.score && best.falls <= start.falls ? "best" : "start";
-    const report = { skill, body, ...(search.rates ? { hz } : {}), trials: trials.length, on: search.confirm, start: { score: start.score, falls: start.falls, each: start.each }, best: { score: best.score, falls: best.falls, each: best.each }, kept,
+    // What the best must beat: the record the body plays now, which a search resumed after an install no longer starts from; its start where the body has none.
+    const record = recordsOf(skill)[body]?.settings, against = record ? "record" : "start";
+    const base = await scored(pool, record ?? found.start, trials), best = await scored(pool, found.best.settings, trials);
+    const kept = best.score > base.score && best.falls <= base.falls ? "best" : against;
+    const report = { skill, body, ...(search.rates ? { hz } : {}), trials: trials.length, on: search.confirm, ...(found.ended ? { ended: found.ended } : {}), against,
+      base: { score: base.score, falls: base.falls, each: base.each }, best: { score: best.score, falls: best.falls, each: best.each }, kept,
       seconds: Math.round((Date.now() - started) / 1000) };
     console.log(JSON.stringify(report));
-    if (values.write) {
+    if (values.write && kept === "record") console.log(`${skill}: ${body}'s record is kept as it is, nothing written`);
+    else if (values.write) {
       const commit = execSync("git rev-parse --short=8 HEAD").toString().trim(), settings = kept === "best" ? found.best.settings : found.start;
       const fmt = (x) => x.toFixed(3);
       writeRecord(skill, body, `Searched on the ${body.replace("+toes", "")} at ${commit} (research/skills/skill-search.mjs): CMA over ${search.dims.map(([key]) => key).join(", ")} from ${values.from ?? found.from}, `
         + `${found.log.length} generations of ${found.lambda}, on ${search.task} ${search.said(search.search)}, ${found.trials} trials a candidate, ${found.seconds} s; `
-        + `on fresh trials ${search.said(search.confirm)} the search's best scored ${fmt(best.score)} (${best.falls} ${search.lost}) and its start ${fmt(start.score)} (${start.falls} ${search.lost}): `
+        + `on fresh trials ${search.said(search.confirm)} the search's best scored ${fmt(best.score)} (${best.falls} ${search.lost}) and ${record ? "the record it replaces" : "its start"} ${fmt(base.score)} (${base.falls} ${search.lost}): `
         + (kept === "best" ? "the best is kept." : "the start is kept."), settings);
       console.log(`${skill}: ${body}'s row written`);
     }
@@ -247,7 +255,9 @@ if (!isMainThread && workerData?.search) {
   if (!values.out) throw new Error("--out <file.json>");
   const set = values.set ? JSON.parse(values.set) : null;
   const saved = values.resume && existsSync(values.out) ? JSON.parse(readFileSync(values.out, "utf8")) : null, resume = saved?.checkpoint, before = saved?.seconds ?? 0;
-  const start = saved?.start ?? { ...startOf(skill, model, values.source), ...set }, trials = search.trials(model, search.search), lambda = Number(values.lambda ?? 16), generations = Number(values.generations ?? 10);
+  const start = saved?.start ?? { ...startOf(skill, model, values.source), ...set }, trials = search.trials(model, search.search), lambda = Number(values.lambda ?? 16);
+  // With a plateau to end on and no count given, the search runs until it ends on one.
+  const generations = Number(values.generations ?? (values.patience === undefined ? 10 : Number.MAX_SAFE_INTEGER));
   const sourceBody = bodyKey(modelSpec(values.source ?? (recordsOf(skill)[body] ? model : "workshop-fighter")));
   const from = saved?.from ?? (`the ${sourceBody.replace("+toes", "")}'s record${sourceBody === body ? "" : `, its lengths scaled by the body's stature${search.heights ? " and its heights kept" : ""}`}`
     + (set ? ` with ${Object.entries(set).map(([key, value]) => `${key} ${value}`).join(", ")}` : ""));
@@ -260,19 +270,21 @@ if (!isMainThread && workerData?.search) {
   }
   const until = values.until === undefined ? Infinity : Number(values.until), patience = Number(values.patience ?? Infinity);
   const unit = search.dims.map(([key, lo, hi]) => Math.min(1, Math.max(0, ((search.get ? search.get(start, key) : start[key]) - lo) / (hi - lo))));
-  let raised = resume?.best.g ?? 0, bestSoFar = resume?.best.score ?? -Infinity;
-  console.error(`${skill} on ${body}: ${trials.length} trials a candidate, ${lambda} candidates a generation, ${generations} generations, ${workers} workers`);
+  let raised = resume?.best.g ?? 0, bestSoFar = resume?.best.score ?? -Infinity, ended = null;
+  console.error(`${skill} on ${body}: ${trials.length} trials a candidate, ${lambda} candidates a generation, ${values.generations === undefined && values.patience !== undefined ? `until ${patience} generations raise nothing` : `${generations} generations`}, ${workers} workers`);
   const { best } = await cmaSearch({ n: search.dims.length, start: unit, sigma: Number(values.sigma ?? .2), lambda, generations, seed: Number(values.seed ?? 1), resume,
     score: (u) => scored(pool, decode(search, start, u), trials),
     onGeneration(entry, { best, checkpoint }) {
       console.error(JSON.stringify({ ...entry, seconds: Math.round((Date.now() - started) / 1000) }));
-      writeFileSync(values.out, JSON.stringify({ skill, body, from, start, lambda, trials: trials.length, dims: search.dims, log: checkpoint.log,
-        seconds: before + Math.round((Date.now() - started) / 1000),
-        best: { score: best.score, settings: decode(search, start, best.u), falls: best.r.falls, each: best.r.each }, checkpoint }));
       if (best.score > bestSoFar) { bestSoFar = best.score; raised = entry.g; }
-      if (best.score >= until || entry.g - raised >= patience) return false;
+      // How the search ended, once it has: on its plateau, at `--until`'s score, or at its count of generations with neither reached.
+      ended = best.score >= until ? "until" : entry.g - raised >= patience ? "plateau" : entry.g + 1 >= generations ? "generations" : null;
+      writeFileSync(values.out, JSON.stringify({ skill, body, from, start, lambda, trials: trials.length, dims: search.dims, log: checkpoint.log,
+        seconds: before + Math.round((Date.now() - started) / 1000), ...(ended ? { ended } : {}),
+        best: { score: best.score, settings: decode(search, start, best.u), falls: best.r.falls, each: best.r.each }, checkpoint }));
+      if (ended) return false;
     } });
-  console.log(JSON.stringify({ skill, body, best: { score: best.score, settings: decode(search, start, best.u) }, seconds: Math.round((Date.now() - started) / 1000) }));
+  console.log(JSON.stringify({ skill, body, ended, best: { score: best.score, g: best.g, settings: decode(search, start, best.u) }, seconds: Math.round((Date.now() - started) / 1000) }));
   await pool.terminate();
   process.exit(0);
 }

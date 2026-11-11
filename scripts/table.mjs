@@ -115,9 +115,12 @@ function byField(field, cases, trials) {
  * counted where every reading is whole and no trial of any counts (every fall not made, every
  * cover unattacked), else every reading's counted trials against their baseline's,
  * paired and pooled (`compareValues`). Its value now, the mean over every counted trial of its
- * readings; and its lines, with the outcomes by `by`'s values where it is given.
+ * readings; and its lines, with the outcomes by `by`'s values where it is given. Where `replaced`
+ * holds the readings a `--fresh` play replaced, a line compares each with the one in its place the
+ * same way: the version before against the version now, which the baseline is not after the
+ * first change.
  */
-function valueCell(cell, evidence, rise, by) {
+function valueCell(cell, evidence, rise, by, replaced) {
   const unit = unitOf(cell.readings[0].judge), pooled = { now: new Map(), then: new Map() }, counted = [];
   let state = null;
   const lines = cell.readings.map((reading) => {
@@ -135,10 +138,12 @@ function valueCell(cell, evidence, rise, by) {
     }
     counted.push(...now.trials.values());
     const same = based && found.result && based.commit === found.result.commit;
+    const was = replaced?.get(evidenceKey(reading)), before = was?.result && valueOf(reading, onCell(cell, reading, was).on(was.trials), names, rise);
     return [`  ${reading.drill}/${reading.protocol} ${reading.subject}: ${valueText(now.value, unit)}; ${now.figures}`
         + `${found.result ? ` (${readText(found.result)}: ${linkOf(reading)})` : " (no result)"}${found.fault ? `; ${found.fault}` : ""}`,
       `    baseline ${!base ? "none" : !then ? `its reading at ${base.commit} not kept` : same ? "this reading"
         : `${valueText(then.value, unit)}, now ${comparisonText(compareValues(now.trials, then.trials, unit))} (${readText(based)})`}`,
+      ...before ? [`    replaced ${valueText(before.value, unit)}, now ${comparisonText(compareValues(now.trials, before.trials, unit))} (${readText(was.result)})`] : [],
       ...by ? byField(by, cases, on(found.trials)) : []].join("\n");
   });
   if (state === null && counted.length === 0) state = "uncounted";
@@ -181,9 +186,11 @@ export function main() {
     && (!values.loadout || loadoutKey(cell.loadout) === values.loadout));
   // The stand-up reading prices every cell's falls, so it is read whatever the cells asked.
   const readings = [...cells.flatMap((cell) => cell.readings), STAND_UP];
-  let evidence = evidenceOf(readings);
+  let evidence = evidenceOf(readings), replaced = null;
   if (values.play || values.fresh) {
     const failed = [], asked = new Set(cells.flatMap((cell) => cell.readings).map(evidenceKey));
+    // What `--fresh` plays again is kept as it was read, to be compared with what replaces it.
+    if (values.fresh) replaced = new Map([...evidence].filter(([key, one]) => asked.has(key) && one.complete));
     for (const { reading, complete, fault } of [...evidence.values()]) {
       const key = evidenceKey(reading);
       // A whole result stands; only `--fresh` plays it again, and only for a cell asked for.
@@ -207,7 +214,7 @@ export function main() {
   const rises = risesOf(cells, evidence);
   const judged = cells.map((cell) => {
     const rise = rises.get(`${cell.body} ${loadoutKey(cell.loadout)}`);
-    return { cell, rise, ...valueCell(cell, evidence, rise, values.by) };
+    return { cell, rise, ...valueCell(cell, evidence, rise, values.by, replaced) };
   });
   const skills = TABLE_SKILLS.map((skill) => skill.name).filter((name) => judged.some(({ cell }) => cell.skill === name));
   console.log(`| Body | Loadout | ${skills.map((name) => `${name}, ${unitOf(judged.find(({ cell }) => cell.skill === name).cell.readings[0].judge).unit}`).join(" | ")} |`);

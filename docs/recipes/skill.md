@@ -14,7 +14,7 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
 
 - **A run works one question on one skill on one body**: one row of
   [the table](../reference/the-table.md), its loadouts the cells, from a brief the owner approved
-  ([AGENTS.md](../../AGENTS.md#the-rules)). It ends at its question or its budget and opens no
+  ([AGENTS.md](../../AGENTS.md#the-rules)). It ends at its question, or at its budget where it has one, and opens no
   other row. Its report is the table's lines for its row as the run began and as it ends
   (`npm run evaluate -- table --body <model> --skill <name>`), each cell better, worse or within
   noise, the worse ones first.
@@ -162,18 +162,22 @@ A skill that exists enters at the step its failing part belongs to.
   declared course runs behind it by its response time; at a blow's speed that lag is the stroke.
 - **Search it** with CMA-ES on drill trials, scored by the graded score, at both physics rates
   with the worse counting. A hand-picked set of variants is not a search. Price the search from
-  its first generation; a search learns over tens of generations. A plateau is ten generations
-  without a better best. A record's settings are searched by `research/skills/skill-search.mjs`
-  (`SEARCHES`), which a skill joins with its settings, its drill's trials and a trial's score.
+  its first generation; a search learns over tens of generations. A plateau is thirty generations
+  without a better best: a search still improving has gone nine between two bests. A search is
+  given no clock and no count of generations: it runs for as long as it improves and ends on
+  its plateau (`--patience 30`). A record's settings are searched by
+  `research/skills/skill-search.mjs` (`SEARCHES`), which a skill joins with its settings, its
+  drill's trials and a trial's score.
 - **A search ends one of three ways, and its report says which.** *Better*: its best beats the
-  start on fresh trials and is installed. *Flat*: it reached a plateau and the start is kept, so
-  these settings over these ranges do no better, and the next step is other settings, another
-  technique or the body. *Unfinished*: its time ended before a plateau, which says nothing
-  about what the skill can do. An unfinished search's out file is copied to
+  record the body plays on fresh trials and is installed. *Flat*: it reached a plateau and the
+  record is kept, so these settings over these ranges do no better, and the next step is other
+  settings, another technique or the body. *Unfinished*: it was stopped before a plateau (a
+  count of generations, a crash, a session that ended), which says nothing about what the skill
+  can do. An unfinished search's out file is copied to
   `research/runs/<skill>-search/`, beside a `README.md` naming it and the commit it was played
   on, and a later run goes on from it with `--resume`. That folder is kept outside Git
-  ([the training recipe](training.md#what-to-keep)): nothing in it is added to a commit. One hand-made variant that fails is none
-  of the three.
+  ([the training recipe](training.md#what-to-keep)): nothing in it is added to a commit. One
+  hand-made variant that fails is none of the three.
 - **Before training, it succeeds on some held-out cases**: the sign the mechanism works. The straight punch's
   schedule landed 8 of 60 before training took it to 92 %. A controller that succeeds on none is
   not a seed: change the controller, or go back to feasibility. Training does not make up for it.
