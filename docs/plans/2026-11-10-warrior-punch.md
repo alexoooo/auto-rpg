@@ -10,9 +10,7 @@ first; the other two cells are read with every change and worked after it.
 The work follows [the skill recipe](../recipes/skill.md): read it first, then the
 [Unarmed strikes](../approaches.md#unarmed-strikes),
 [Judging](../approaches.md#judging-a-skill-or-a-mind) and [Minds](../approaches.md#minds) sections
-of the approaches and the commits their entries name. `git log -i --grep=punch` lists about 500
-commits; `git log -i --grep=punch --grep=head --all-match --oneline` lists the ones where a punch
-met a head, the history of question 1.
+of the approaches and the commits their entries name (`git log -i --grep=punch`).
 
 ## Where it stands
 
@@ -40,14 +38,13 @@ What they say:
 
 - **The blow is not what limits the cell.** Where it lands, the fist meets the mark at a median
   7.3 m/s, above a person's rear hand.
-- **Half the cell is the head, and the Mind has no punch for it.** A blow not begun counts 0. The
-  drill Commander asks for the choice of its member's menu at the mark it orders
-  (`src/minds/command/drill.ts`), and Option Mind's punch names the middle mark alone: its Option's
-  default regions (`strikeKind`, `src/minds/option/kinds.ts`), which its config keeps
-  (`STRAIGHT_PUNCH`, `src/entrants/option/mind.ts`). A punch at the head is a second Option of
-  the punch's skill, its target and its aim its own
-  ([one act an Option](../recipes/skill.md#an-options-code)), as the bonk is the club's at the
-  head (`BONK_OPTION`); a mind's two strikes by one skill are told apart by name (`strikeName`).
+- **Half the cell is the head, and it is at a ceiling for a straight punch.** A blow not begun
+  counts 0. The drill Commander asks for the choice of its member's menu at the mark it orders
+  (`src/minds/command/drill.ts`), and Option Mind's punch names the middle mark alone
+  (`STRAIGHT_PUNCH`, `src/entrants/option/mind.ts`). A straight punch cannot reach the drill
+  target's head past its guard ([the approaches](../approaches.md#unarmed-strikes)), and the
+  punch's record keeps it off the head (`above`). A blow around or over a guard is another skill,
+  read on its own row.
 - **At the trunk it lands about three in four, still or walked to.** The rest never come into the
   window (`outside`), miss, meet the guard or are refused.
 - **In a fight it lands none of eight.** The punch's window is not where fighters stand
@@ -58,38 +55,20 @@ What they say:
 
 ## The questions, by the value each can move
 
-1. **A punch at the head.** It is half of every reading. Before anything is built, read what the
-   punch does there as it is. In the working tree, add a second punch to the game's config
-   (`OPTION_DEFAULTS.options`, `src/entrants/option/mind.ts`): `STRAIGHT_PUNCH_OPTION.defaults`
-   with its `regions` the high mark, the centre aim those defaults carry (the bonk's at the head)
-   and `STRAIGHT_PUNCH`'s support. Then play the `still` protocol, not kept:
-   `npm run evaluate -- strike option/straight-punch --protocol still`. It plays the Warrior's and
-   the Rogue's 64 cases each, the high mark and the middle. Its signal is the Warrior's 32 high
-   cases: how many begin, how many meet the head, and the life they take.
-   - **The trunk cases are the check on the run**: outcomes equal to the table above show that
-     neither the code since those readings nor the second Option has moved the trunk punch. Where
-     they differ, the protocol played on the tree unchanged says which did.
-   - **Still refused**: each trial's line names its reason (the menu, the window or the entry),
-     and that part is the next change.
-   - **Begun and not reaching the head**: the skill recipe's step 3 for a head punch, its schedule
-     searched at the high mark (`punch-drill.mjs`).
-   - **Reaching the head and taking life**: the Option stays in the config, its profiles are built
-     (`strike-profiles.mjs`), and the change is read on every body's punch row, because every body
-     shares the config.
-
-   What a fist takes from a head, and the threshold a bare fist is spared, are in
-   [wounds](../reference/wounds.md#the-fist); read the threshold again before a punch is trained
-   on the head. A drill opponent's guard stands over its head: a punch there goes around or over
-   the guard, or waits for it to open.
-2. **The trunk cases it does not land**: 9 of 32 still and 17 of 64 walked to. Read them by `gap`,
-   `across`, `hand` and `start` (`--by`) for where they gather, then watch those in the cell's
-   reel (the Ratings link on each reading's line, opened as
-   [the table](../reference/the-table.md) says).
-3. **The fight.** None of eight lands. This is footwork and openings, the Mind's and not the
+1. **The trunk cases it does not land**: 9 of 32 still and 17 of 64 walked to. By `gap`,
+   `across`, `hand` and `start` (`--by`) they spread evenly. Two kinds come before the blow:
+   `outside`, the walk never brings the body into the punch's window (`band` 0.03 m past its
+   stand-off, `CROWDED` 0.05 m short of it), and a `refused` with no reason, in the window and
+   ready but never settled for the drill to order it within its patience. The rest, walked to, miss
+   or meet the guard. A trial's last phase and its times are read with `drillTrial`
+   (`punch-drill.mjs`) on the game's mind (`MINDS.option.config`), one condition at a time; the
+   reel (the Ratings link on each reading's line, opened as [the table](../reference/the-table.md)
+   says) shows it.
+2. **The fight.** None of eight lands. This is footwork and openings, the Mind's and not the
    punch's ([Minds](../approaches.md#minds)): the roadmap's
    [Blows in fights](../roadmap.md#next), not worked here. Its eight cases stay in the cell's
    value.
-4. **The cells with a club or a sword**: why the empty hand's punch lands a third as often with
+3. **The cells with a club or a sword**: why the empty hand's punch lands a third as often with
    an item in the other hand.
 
 ## To pick it up
