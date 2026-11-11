@@ -3,7 +3,6 @@
  * it in its task's units; the runner (`run.ts`) combines the readings. One definition serves Node,
  * its workers and a page.
  */
-import type { PartConfig } from "../parts/parts.ts";
 import type { Refused } from "../core/refusal.ts";
 import type { DuelRecipe, OrdersEntry } from "../game/arena/duel.ts";
 import type { EngineName } from "../core/physics/engines.ts";
@@ -22,11 +21,7 @@ import type { ArenaSeat as Side } from "../game/arena/seat.ts";
 /** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
 export type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };
 
-/**
- * What is evaluated: `id` stable and readable; `parts` by id (`mind:duellist`, `model:workshop-rogue`,
- * `right:sword`) with what each is (a mind's config, a body's spec, an item's), whose versions the
- * records keep; `value` what a case's world is built from.
- */
+/** What is evaluated: `id` stable and readable; `value` what a case's world is built from. */
 export interface Subject {
   readonly id: string;
   readonly label: string;
@@ -34,25 +29,16 @@ export interface Subject {
   readonly models?: readonly string[];
   /** The attributes its bodies take (`MindPreset.character`); absent for none. */
   readonly character?: AttributeOverrides;
-  readonly parts: readonly { readonly id: string; readonly value: Json;
-    readonly component?: { readonly role: "mind" | "commander" | "part"; readonly config: PartConfig } }[];
   readonly value: Json;
 }
 
-/**
- * A mind as a subject: its id, the label shown, its config whole, and a preset's named
- * calibration and character, each a part where it has one.
- */
+/** A mind as a subject: its id, the label shown, its config whole, and a preset's named calibration and character. */
 export function mindSubject(id: string, label: string, given: Json, preset: Pick<Subject, "models" | "character"> = {}): Subject {
   const wrapped = given as { readonly mind?: Json; readonly models?: readonly string[]; readonly character?: AttributeOverrides } | null;
   const value = wrapped && typeof wrapped === "object" && !Array.isArray(wrapped) && wrapped.mind !== undefined ? wrapped.mind : given;
   const models = preset.models ?? (value !== given ? wrapped?.models : undefined);
   const character = preset.character ?? (value !== given ? wrapped?.character : undefined);
-  return { id, label, value,
-    parts: [{ id: `mind:${id}`, value, component: { role: "mind", config: value as unknown as PartConfig } },
-      ...(character === undefined ? [] : [{ id: `character:${id}`, value: character as Json }])],
-    ...(models === undefined ? {} : { models }), ...(character === undefined ? {} : { character }),
-  };
+  return { id, label, value, ...(models === undefined ? {} : { models }), ...(character === undefined ? {} : { character }) };
 }
 
 /**

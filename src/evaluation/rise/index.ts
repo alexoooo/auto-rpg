@@ -5,7 +5,6 @@
  * edge's profile: how often it is done and how long it takes, by how fast the body moved as it
  * was begun.
  */
-import type { PartConfig } from "../../parts/parts.ts";
 import type { TechniqueName } from "../../skills/recovery/technique.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import type { BuiltTechnique, LinkReading, TechniqueReading } from "../technique.ts";
@@ -44,11 +43,11 @@ export function createRiseIndex(context: GameContext) {
   const TECHNIQUES = context.techniques;
   const { RISE_CASES } = createRiseCases(context);
 
-  /** An edge as a subject: its technique's config, whose code the case names. */
+  /** An edge as a subject: its technique's config. */
   const edgeSubject = (kind: string): Subject => {
     if (!Object.hasOwn(EDGES, kind)) throw new Error(`${kind} is no edge the Rise drill plays: ${DRILLED.join(", ")}`);
     const value = { kind };
-    return { id: kind, label: TECHNIQUES[kind as TechniqueName].label, parts: [{ id: `technique:${kind}`, value, component: { role: "part", config: value } }], value };
+    return { id: kind, label: TECHNIQUES[kind as TechniqueName].label, value };
   };
 
   const RISE: Evaluation<RiseCondition, TechniqueReading & Json, BuiltTechnique> = {
@@ -61,8 +60,7 @@ export function createRiseIndex(context: GameContext) {
     schedule: "all",
     analysis: {},
     subjects(choice) {
-      return (choice.length > 0 ? choice : DRILLED).map((one) => typeof one !== "string"
-        ? { ...one, parts: [{ id: `technique:${one.id}`, value: one.value, component: { role: "part", config: one.value as unknown as PartConfig } }], value: one.value } : edgeSubject(one));
+      return (choice.length > 0 ? choice : DRILLED).map((one) => typeof one !== "string" ? one : edgeSubject(one));
     },
     outcome: riseOutcome,
     figures: [

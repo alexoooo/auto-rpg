@@ -5,7 +5,6 @@
  * share cleared (the hero standing at the exit) and the time taken. The subject is the party's
  * Commander; the reference is the level-clearer.
  */
-import type { PartConfig } from "../../parts/parts.ts";
 import { commanderOf } from "../../minds/command/commander.ts";
 import { recordingKey } from "../../core/world/recording.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
@@ -16,7 +15,7 @@ import { createCryptClearCases, type CryptCondition, type ClearReading } from ".
 import { type GameContext } from "../../game/arena/context.ts";
 
 /** A Commander as a subject. */
-const commanderSubject = (id: string, label: string, value: Json): Subject => ({ id, label, parts: [{ id: `commander:${id}`, value, component: { role: "commander", config: value as unknown as PartConfig } }], value });
+const commanderSubject = (id: string, label: string, value: Json): Subject => ({ id, label, value });
 
 export function createCryptClearIndex(context: GameContext) {
   const COMMANDERS = context.commanders;

@@ -30,7 +30,7 @@ import "../tests/harness/preload-data.mjs";
  * `--write` keeps each subject's reading as its newest result on the protocol, with a trial's row
  * where the evaluation names outcomes or the table reads the subject (`keep`), and a contest's
  * standings where the run plays every pair: refused unless a unit is complete and the commit holds
- * the files of every case's code unchanged (`caseCoder`).
+ * the files of every case's code unchanged (`caseCoder`), so the commit a result names is its code's.
  */
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -43,7 +43,7 @@ import { DEFAULT_ENGINE, isEngineName } from "../src/core/physics/engines.ts";
 import { recordingKey } from "../src/core/world/recording.ts";
 import { EVALUATIONS, tableCells } from "../src/app/node/evaluation.ts";
 import { CONTROLLERS, MINDS } from "../src/app/catalog.ts";
-import { caseName, codeOf, harnessOf, rounded, roundedEstimate, versionOf, withResult, withStandings } from "../src/evaluation/results.ts";
+import { caseName, harnessOf, rounded, roundedEstimate, withResult, withStandings } from "../src/evaluation/results.ts";
 import { indexRows } from "../src/evaluation/rows.ts";
 import { standingsOf } from "../src/evaluation/standings.ts";
 import { STAND_UP } from "../src/evaluation/table/cells.ts";
@@ -53,7 +53,7 @@ import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
 import { scheduleName } from "../src/evaluation/schedule.ts";
 import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
-import { caseNames, partNames } from "../src/app/node/evaluation.ts";
+import { caseNames } from "../src/app/node/evaluation.ts";
 import { BUILD_IDENTITY, caseCoder, fileTable } from "./build-identity.mjs";
 import { resultsOf, writeResults } from "./evaluation-results.mjs";
 import { belongsTo, resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
@@ -203,7 +203,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   const panelIds = new Set(schedule.panel ?? []), mine = [...chosen, ...baseline].filter((one) => !panelIds.has(one.id));
   const subjects = [...mine.filter((one, k) => mine.findIndex((other) => other.id === one.id) === k), ...panel];
   const coder = caseCoder(fileTable(), `src/evaluation/${id}/cases.ts`, Object.keys(CONTROLLERS)), environment = coder.environment;
-  const code = (world) => coder.code(caseNames(world)).digest, ownCode = (parts) => coder.code(partNames(parts)).own;
+  const code = (world) => coder.code(caseNames(world)).digest;
   const rule = evaluation.analysis.settle;
   if (counterpart.size > 0 && !rule) throw new Error(`${id} has no rule to settle a comparison on`);
   const selected = casesOf(evaluation, protocol, subjects, { engine, code, schedule });
@@ -261,14 +261,13 @@ async function runProtocol(evaluation, id, protocol, named, values) {
 
   const date = new Date().toISOString().slice(0, 10);
   const head = { evaluation: id, protocol, engine, harness, commit, date, schedule: [schedule, ...pairs.length ? [{ kind: "pairs", pairs }] : []].map(scheduleName).join("; "),
-    subjects: subjects.map((subject) => ({ id: subject.id, label: subject.label, version: versionOf(subject, cases.play, environment.digest, ownCode(subject.parts)) })) };
+    subjects: subjects.map((subject) => ({ id: subject.id, label: subject.label })) };
   const lines = complete.flat().map(({ subjects: seated, condition, world, key }) => ({ subjects: seated, condition, world, ...rows.get(key) }));
   const { faults } = tableOf(subjects, complete, rows), figures = figuresOf(evaluation, subjects, complete, rows);
   // The summary reads the complete units with no fault; a unit with one is named above it and left out.
   const clean = complete.filter((unit) => unit.every((one) => !rows.get(one.key).fault)), { table } = tableOf(subjects, clean, rows);
   const delays = senseDelaysOf(complete);
   if (delays.length > 0) console.log(`reaction time ${delays.map((seconds) => `${seconds} s`).join(", ")}; bout seeds ${boutSeedsOf(complete).join(", ")}`);
-  for (const one of head.subjects) console.log(`${one.id}: version ${one.version}`);
   console.log("\n| Subject | Figure | Units | Value (95 % interval) |\n|---|---|---|---|");
   // An evaluation of every protocol reads each figure on its own protocol's readings alone: the others' are empty there.
   for (const f of figures) if (!evaluation.every || f.units > 0) console.log(`| ${f.subject} | ${f.figure}, ${f.unit} | ${f.units} | ${estimateText(f.estimate)} |`);
@@ -306,7 +305,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
       if (mine.length === 0) continue;
       const judged = TABLE_READINGS.find((one) => one.drill === id && one.protocol === protocol && one.subject === subject.id) ?? null;
       const trials = evaluation.outcome || judged ? trialRows(evaluation, mine.map((one) => rows.get(one.key)), judged) : null;
-      results = withResult(results, { protocol, subject: subject.id, label: subject.label, version: subject.version, code: codeOf(mine.map((one) => one.key)), ...read, count: played.length,
+      results = withResult(results, { protocol, subject: subject.id, label: subject.label, ...read, count: played.length,
         figures: Object.fromEntries(figures.flatMap((one) => one.subject === subject.id && one.estimate ? [[one.figure, roundedEstimate(one.estimate)]] : [])),
         ...trials }, trials ? mine.map((one) => caseName(one.condition)) : undefined);
     }

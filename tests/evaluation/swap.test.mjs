@@ -121,15 +121,12 @@ test("every evaluation protocol and the Node stand play on the game's engine", a
 });
 
 
-test("custom subjects retain execution scope through normalization and into their version", async () => {
-  const { versionOf } = await import("../../src/evaluation/results.ts");
-  const { partNames } = await import("../../src/app/node/evaluation.ts");
+test("custom subjects retain execution scope through normalization", async () => {
   const scope = { models: ["workshop-fighter"], character: { strength: 1.1 } };
   const choice = { id: "independent", label: "Independent", value: MINDS.option.config, ...scope };
   for (const name of ["locomotion", "match", "court", "rising-target"]) {
     const [subject] = EVALUATIONS[name].subjects(name === "match" ? [choice, "option"] : [choice]);
     assert.deepEqual({ models: subject.models, character: subject.character }, scope, `${name} retains execution facts`);
-    assert.notEqual(versionOf(subject, {}, "scope-environment"), versionOf({ ...subject, character: { strength: 1.2 } }, {}, "scope-environment"));
   }
   const entrants = EVALUATIONS.tournament.subjects([choice]);
   assert.ok(entrants.length > 0, "the restricted custom mind enters at least one loadout");
@@ -137,9 +134,6 @@ test("custom subjects retain execution scope through normalization and into thei
   assert.ok(entrants.every(subject => JSON.stringify(subject.character) === JSON.stringify(scope.character)));
   const [strike] = EVALUATIONS.strike.subjects([{ ...choice, value: { mind: choice.value, skill: "straight-punch" } }]);
   assert.deepEqual({ models: strike.models, character: strike.character }, scope);
-  assert.ok(partNames(strike.parts).kinds.includes("option"), "a custom strike declares its mind independently of its id prefix");
-  const [edge] = EVALUATIONS.rise.subjects(["staged-roll"]);
-  assert.ok(partNames(edge.parts).parts.includes("staged-roll"), "standalone techniques declare their implementation code");
 });
 
 test("a run's rows refuse incomplete or conflicting cases", async () => {

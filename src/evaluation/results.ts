@@ -3,12 +3,13 @@
  * (`assets/evaluations/<id>.json`, in Git, so every build carries them). A result is one subject's
  * reading on one protocol: where and when it was read, its figures, and, for a drill, each trial as
  * a short row of numbers on the condition its list names. A subject keeps its newest reading on a
- * protocol, and each earlier one a table cell's baseline names. A contest keeps its standings.
+ * protocol, and each earlier one a table cell's baseline names, by the commit it was read at. A
+ * contest keeps its standings.
  * Nothing a trial played is kept: a trial is watched by playing it again from its subject and
  * condition.
  */
 import { recordingKey } from "../core/world/recording.ts";
-import type { Json, Subject } from "./evaluation.ts";
+import type { Json } from "./evaluation.ts";
 import { sha256Text } from "./sha256.ts";
 import type { Estimate } from "./stats.ts";
 
@@ -24,24 +25,6 @@ export const caseName = (condition: Json): string => sha256Text(recordingKey(con
 
 /** The name of a list of conditions (`Results.cases`), by their names in order. */
 const listName = (names: readonly string[]): string => sha256Text(names.join()).slice(0, 8);
-
-/** The digest of the keys of the cases a result read, in any order: equal to the cases' now where every one would be found again. */
-export const codeOf = (keys: readonly string[]): string => sha256Text([...keys].sort().join()).slice(0, 16);
-
-const digest = (value: unknown): string => sha256Text(recordingKey(value)).slice(0, 16);
-
-/**
- * **A subject's version** on the protocol `play` in `environment` (the code every case runs on),
- * its minds' own code beyond that `code` where it names any (`caseCoder`,
- * `scripts/build-identity.mjs`): the digest of what it plays as (its value, models, character and
- * parts) with those, whatever it is called.
- */
-export function versionOf(subject: Subject, play: Json, environment: string, code: string | null = null): string {
-  const own = digest({ value: subject.value, models: subject.models ?? null, character: subject.character ?? null,
-    parts: subject.parts.map(({ id, value, component }) => ({ id, value, ...(component ? { component: component as unknown as Json } : {}) })) });
-  const protocol = digest(play);
-  return digest(code === null ? { own, protocol, environment } : { own, protocol, environment, code });
-}
 
 /**
  * **A result's harness** (`Result.harness`): Node's core world on `engine`, its native rate, and
@@ -67,9 +50,7 @@ export interface Result {
   readonly protocol: string;
   readonly subject: string;
   readonly label: string;
-  /** The subject's version (`versionOf`) and the digest of its cases' keys (`codeOf`): both as now where the reading is current. */
-  readonly version: string;
-  readonly code: string;
+  /** The commit it was read at, which names it among its subject's readings on the protocol. */
   readonly commit: string;
   readonly date: string;
   readonly harness: string;
@@ -93,16 +74,16 @@ export const ROW_HEAD = 2;
 
 /**
  * **A table cell's baseline for one reading**: its body and loadout, the reading's protocol and
- * subject, and the version of the subject whose result it is. Written once, when the cell's work
- * begins (`npm run evaluate -- table --baseline`), and never overwritten; the result it names is
- * kept while it does.
+ * subject, and the commit of the result it is. Written once, when the cell's work begins
+ * (`npm run evaluate -- table --baseline`), and never overwritten; the result it names is kept
+ * while it does.
  */
 export interface Baseline {
   readonly body: string;
   readonly loadout: string;
   readonly protocol: string;
   readonly subject: string;
-  readonly version: string;
+  readonly commit: string;
 }
 
 /** An entrant's standing in a contest: its rating with its 95 % interval, and its bouts from its own side. */
@@ -149,12 +130,13 @@ function withList(results: Results, names: readonly string[]): { readonly result
 
 /**
  * `results` with `result` as its subject's newest on its protocol, its trials on the conditions
- * `names` where it has them: the subject's other results there go, but those a baseline names.
+ * `names` where it has them: the subject's other results there go, but those of another commit
+ * that a baseline names.
  */
 export function withResult(results: Results, result: Omit<Result, "cases">, names?: readonly string[]): Results {
   const listed = names ? withList(results, names) : null, kept: Result = listed ? { ...result, cases: listed.list } : result, base = listed?.results ?? results;
   const stays = (one: Result) => one.protocol !== kept.protocol || one.subject !== kept.subject
-    || one.version !== kept.version && base.baselines.some((baseline) => baseline.protocol === one.protocol && baseline.subject === one.subject && baseline.version === one.version);
+    || one.commit !== kept.commit && base.baselines.some((baseline) => baseline.protocol === one.protocol && baseline.subject === one.subject && baseline.commit === one.commit);
   return { ...base, results: [...base.results.filter(stays), kept] };
 }
 
@@ -165,9 +147,9 @@ export const withBaseline = (results: Results, baseline: Baseline): Results => (
 export const withStandings = (results: Results, standings: Standings): Results =>
   ({ ...results, standings: [...results.standings.filter((one) => one.protocol !== standings.protocol), standings] });
 
-/** `subject`'s newest result on `protocol`, or its result at `version` where given; null where it has none. */
-export const resultOf = (results: Results, protocol: string, subject: string, version?: string): Result | null =>
-  results.results.filter((one) => one.protocol === protocol && one.subject === subject && (version === undefined || one.version === version)).at(-1) ?? null;
+/** `subject`'s newest result on `protocol`, or its result read at `commit` where given; null where it has none. */
+export const resultOf = (results: Results, protocol: string, subject: string, commit?: string): Result | null =>
+  results.results.filter((one) => one.protocol === protocol && one.subject === subject && (commit === undefined || one.commit === commit)).at(-1) ?? null;
 
 /** The baseline of the cell `body` holding `loadout` (`loadoutKey`) for `subject`'s reading on `protocol`; null where it has none. */
 export const baselineOf = (results: Results, body: string, loadout: string, protocol: string, subject: string): Baseline | null =>

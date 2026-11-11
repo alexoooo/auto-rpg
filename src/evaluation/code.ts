@@ -4,13 +4,13 @@
  * in the case's `code` (`caseCoder`, `scripts/build-identity.mjs`).
  */
 import type { MindConfig } from "../minds/catalog/config.ts";
-import type { CaseWorld, Subject, WorldKind } from "./evaluation.ts";
+import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { createWorlds } from "./world-builders.ts";
 import { type GameContext } from "../game/arena/context.ts";
 
-/** The kind of world (a case's, none for a subject), the kinds of mind, the kinds of part in their trees and the mind data keys a case or a subject names. */
+/** The kind of world, the kinds of mind, the kinds of part in their trees and the mind data keys a case names. */
 interface CodeNames {
-  readonly world?: CaseWorld["kind"];
+  readonly world: CaseWorld["kind"];
   readonly kinds: readonly string[];
   readonly parts: readonly string[];
   readonly data: readonly string[];
@@ -20,7 +20,7 @@ export function createCode(context: GameContext) {
   const { treeData, treeKinds } = context.catalog;
   const { WORLD_BUILDERS } = createWorlds(context);
 
-  const namesOf = (minds: readonly MindConfig[]): CodeNames =>
+  const namesOf = (minds: readonly MindConfig[]): Omit<CodeNames, "world"> =>
     ({ kinds: [...new Set(minds.map((mind) => mind.kind))], parts: [...new Set(minds.flatMap((mind) => treeKinds(mind)))],
       data: [...new Set(minds.flatMap((mind) => treeData(mind)))] });
 
@@ -33,21 +33,5 @@ export function createCode(context: GameContext) {
     return { world: world.kind, ...minds, parts: [...new Set([...minds.parts, ...kind.parts?.(world) ?? []])] };
   };
 
-  /** The component configurations each subject part declares, including every dependency its tree reads. */
-  const partNames = (parts: Subject["parts"]): CodeNames => {
-    const kinds: string[] = [], components: string[] = [], data: string[] = [];
-    for (const { component } of parts) {
-      if (!component) continue;
-      const { role, config } = component;
-      switch (role) {
-        case "mind": kinds.push(config.kind); components.push(...treeKinds(config)); data.push(...treeData(config)); break;
-        case "part": components.push(...treeKinds(config)); data.push(...treeData(config)); break;
-        case "commander": components.push(config.kind); break;
-        default: { const never: never = role; throw new Error(`no component role ${String(never)}`); }
-      }
-    }
-    return { kinds: [...new Set(kinds)], parts: [...new Set(components)], data: [...new Set(data)] };
-  };
-
-  return { caseNames, partNames };
+  return { caseNames };
 }

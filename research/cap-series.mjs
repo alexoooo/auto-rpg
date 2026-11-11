@@ -25,8 +25,8 @@ if (!paths.length) throw new Error("name a tournament run: npm run evaluate -- t
 const lines = new Map();
 for (const path of paths) {
   const { header, cases } = JSON.parse(readFileSync(path, "utf8"));
-  const provenance = recordingKey({ engine: header.engine, harness: header.harness,
-    subjects: [...header.subjects].map(subject => ({ id: subject.id, version: subject.version })).sort((a,b) => a.id.localeCompare(b.id)) });
+  const provenance = recordingKey({ engine: header.engine, harness: header.harness, commit: header.commit,
+    subjects: header.subjects.map(subject => subject.id).sort() });
   for (const line of cases) if (!line.fault && line.reading.series) lines.set(`${provenance}|${line.key}`, { ...line, provenance });
 }
 const bouts = [...lines.values()];

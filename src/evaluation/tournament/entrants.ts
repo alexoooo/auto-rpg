@@ -3,31 +3,20 @@
  * (`MINDS`) or given whole, enters on each character and representative loadout it fits.
  */
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
-import { heldItem, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
+import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
-import { BODY_MODELS, modelSpec, type BodyModel } from "../../core/bodies/models.ts";
+import { BODY_MODELS, type BodyModel } from "../../core/bodies/models.ts";
 import { mindSubject, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { TOURNAMENT, type Entrant } from "./cases.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { type GameContext } from "../../game/arena/context.ts";
-
-/** `value` as plain JSON: what a part's version digests. */
-const plain = (value: unknown): Json => JSON.parse(JSON.stringify(value ?? null)) as Json;
-
-/** Each character's spec as plain JSON, made once. */
-const specs = new Map<BodyModel, Json>();
-
-const specOf = (model: BodyModel): Json => specs.get(model) ?? specs.set(model, plain(modelSpec(model))).get(model)!;
 
 /** The entrant of mind `id` (`config`, shown as `label`) on `model` with `loadout`, its body taking `character` (`MindPreset.character`). */
 function entrant(id: string, label: string, config: Json, model: BodyModel, loadout: Loadout, character: AttributeOverrides): Subject {
   const value: Entrant = { mind: config, model, loadout }, own = Object.keys(character).length > 0;
   return {
     id: `${id}/${model}/${loadoutKey(loadout)}`, label: `${label}, ${model}, ${loadoutKey(loadout)}`, models: [model], value: value as unknown as Json,
-    parts: [...mindSubject(id, label, config).parts, { id: `model:${model}`, value: specOf(model) },
-      { id: `left:${loadout.left}`, value: plain(heldItem(loadout.left)) }, { id: `right:${loadout.right}`, value: plain(heldItem(loadout.right)) },
-      ...(own ? [{ id: `character:${id}`, value: character as Json }] : [])],
     ...(own ? { character } : {}),
   };
 }

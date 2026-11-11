@@ -3,7 +3,7 @@
 
 },
 "results": [
-{"protocol":"standard","subject":"own","label":"The Warrior's own","version":"60eef31808d29bda","code":"5ba7d459b559f149","commit":"93bd2846","date":"2026-10-23","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":24,"figures":{"no fall":{"value":1,"low":0.862,"high":1},"falls":{"value":0,"low":0,"high":0},"done":{"value":1,"low":0.8569,"high":1},"not reached":{"value":0.0417,"low":0.0074,"high":0.2024},"time to done":{"value":34.1,"low":31.1083,"high":59.6917},"members pushed apart":{"value":20.125,"low":0.2917,"high":55.875},"pushed on the fallen":{"value":0,"low":0,"high":0}}}
+{"protocol":"standard","subject":"own","label":"The Warrior's own","commit":"93bd2846","date":"2026-10-23","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":24,"figures":{"no fall":{"value":1,"low":0.862,"high":1},"falls":{"value":0,"low":0,"high":0},"done":{"value":1,"low":0.8569,"high":1},"not reached":{"value":0.0417,"low":0.0074,"high":0.2024},"time to done":{"value":34.1,"low":31.1083,"high":59.6917},"members pushed apart":{"value":20.125,"low":0.2917,"high":55.875},"pushed on the fallen":{"value":0,"low":0,"high":0}}}
 ],
 "baselines": [
 

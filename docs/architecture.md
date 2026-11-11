@@ -636,9 +636,9 @@ target stands with its arms lowered (`drill-open`).
   condition's name), each earlier reading a table cell's baseline names, and a contest's standings
   (`standings.ts`). Nothing a trial played is kept: the Arena plays a trial again from its subject
   and condition as the build makes them.
-  Subjects retain their body restrictions and character attributes through normalization,
-  scheduling and versioning (`versionOf`). Each code-bearing part declares its
-  component configuration; identity follows those parts and the selected aim's declared data.
+  A reading is named by the commit it was read at; a table cell's baseline names its reading so.
+  Subjects retain their body restrictions and character attributes through normalization and
+  scheduling.
   A run's rows are admitted whole, and two that read one case differently stop the run (`indexRows`).
 - **Contests**: `match` (two minds, each on each side, one digest), `tournament` (Bradley-Terry,
   `rating.ts`), `unseen`. The panel report (`compare.ts`, `settle.ts`) pairs a subject with its

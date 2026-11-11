@@ -8,13 +8,12 @@
  *
  *   npm run evaluate -- table [--body <model>] [--skill <name>] [--loadout <left,right>] [--play] [--fresh] [--baseline] [--workers N] [--json <file>]
  *
- * A reading is its subject's newest result on its drill and protocol. One read at an earlier
- * version, or on cases whose code has changed since, stands as it was read, shown with its commit
- * and date. `--play` plays each reading with no whole result (`npm run evaluate -- <drill>
- * <subject> --protocol <p> --write`); a whole one stands, so a change to the code plays nothing.
- * `--fresh` plays the readings of the cells asked for again on the code now, where their result is
- * not at the version now; the stand-up reading that prices a fall is played again only where a cell
- * asked for reads it. Each reading plays to evaluate's budget and keeps its complete units, so a
+ * A reading is its subject's newest result on its drill and protocol, shown with the commit and
+ * date it was read at; it stands until it is asked for again. `--play` plays each reading with no
+ * whole result (`npm run evaluate -- <drill> <subject> --protocol <p> --write`); a whole one
+ * stands, so a change to the code plays nothing. `--fresh` plays the readings of the cells asked
+ * for again on the code now; the stand-up reading that prices a fall is played again only where a
+ * cell asked for reads it. Each reading plays to evaluate's budget and keeps its complete units, so a
  * pass always keeps what it played; one that fails is named at the end and the rest still play.
  * `--baseline` names each reading now as its cell's baseline, where the cell has none, as soon as
  * the reading is whole: a baseline is never overwritten, and the result it names is kept.
@@ -28,15 +27,12 @@ import { loadoutKey } from "../src/core/bodies/items/held.ts";
 import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
 import { isRefused } from "../src/core/refusal.ts";
 import { casesOf } from "../src/evaluation/run.ts";
-import { CONTROLLERS } from "../src/app/catalog.ts";
-import { caseNames, partNames } from "../src/app/node/evaluation.ts";
 import { EVALUATIONS } from "../src/app/node/evaluation.ts";
 import { FALL_CAP } from "../src/evaluation/fall.ts";
-import { baselineOf, caseName, codeOf, resultOf, versionOf, withBaseline } from "../src/evaluation/results.ts";
+import { baselineOf, caseName, resultOf, withBaseline } from "../src/evaluation/results.ts";
 import { STAND_UP, TABLE_BODIES, TABLE_LOADOUTS } from "../src/evaluation/table/cells.ts";
 import { TABLE_SKILLS, tableCells } from "../src/app/node/evaluation.ts";
 import { casesOn, compareValues, resultTrials, unitOf, valueOf } from "../src/evaluation/table/judge.ts";
-import { caseCoder, fileTable } from "./build-identity.mjs";
 import { resultsOf, writeResults } from "./evaluation-results.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -55,31 +51,26 @@ const trialsOf = (drill, result) => resultTrials(result, storeOf(drill).cases[re
 
 /**
  * Each reading's evidence, by `drill protocol subject`: the protocol's cases for its subject now
- * (each condition with its name), its newest result with its trials, whether that is at the version
- * now (the subject's, and every case's own code) and whether it has a trial for every case now.
+ * (each condition with its name), its newest result with its trials, and whether it has a trial
+ * for every case now.
  */
 function evidenceOf(readings) {
-  const evidence = new Map(), coders = new Map(), table = fileTable();
+  const evidence = new Map();
   for (const reading of readings) {
     const key = evidenceKey(reading);
     if (evidence.has(key)) continue;
     const evaluation = EVALUATIONS[reading.drill], cases = evaluation.protocols[reading.protocol];
-    if (!coders.has(reading.drill)) coders.set(reading.drill, caseCoder(table, `src/evaluation/${reading.drill}/cases.ts`, Object.keys(CONTROLLERS)));
-    const coder = coders.get(reading.drill);
-    let now = null, fault = null, required = [];
+    let fault = null, required = [];
     try {
-      const subject = evaluation.subjects([reading.subject])[0];
-      now = versionOf(subject, cases.play, coder.environment.digest, coder.code(partNames(subject.parts)).own);
-      const scheduled = casesOf(evaluation, reading.protocol, [subject], { engine: cases.engine ?? DEFAULT_ENGINE,
-        code: world => coder.code(caseNames(world)).digest, schedule: { kind: "all" } });
+      // The table reads each case's condition, never its key, so it names no code.
+      const scheduled = casesOf(evaluation, reading.protocol, evaluation.subjects([reading.subject]), { engine: cases.engine ?? DEFAULT_ENGINE,
+        code: () => "", schedule: { kind: "all" } });
       if (isRefused(scheduled)) throw new Error(scheduled.refused);
       required = scheduled.units.flat();
     } catch (error) { fault = error instanceof Error ? error.message : String(error); }
     const result = resultOf(storeOf(reading.drill), reading.protocol, reading.subject), trials = result ? trialsOf(reading.drill, result) : [];
     const read = new Set(trials.map(trial => trial.at)), named = required.map(one => ({ condition: one.condition, name: caseName(one.condition) }));
-    evidence.set(key, { reading, fault, result, trials, required: named,
-      current: !!result && result.version === now && required.length > 0 && result.code === codeOf(required.map(one => one.key)),
-      complete: required.length > 0 && named.every(one => read.has(one.name)) });
+    evidence.set(key, { reading, fault, result, trials, required: named, complete: required.length > 0 && named.every(one => read.has(one.name)) });
   }
   return evidence;
 }
@@ -117,7 +108,7 @@ function valueCell(cell, evidence, rise) {
     const found = evidence.get(evidenceKey(reading)), { names, on } = onCell(cell, reading, found);
     const now = valueOf(reading, on(found.trials), names, rise);
     const store = storeOf(reading.drill), base = baselineOf(store, cell.body, loadoutKey(cell.loadout), reading.protocol, reading.subject);
-    const based = base && resultOf(store, reading.protocol, reading.subject, base.version);
+    const based = base && resultOf(store, reading.protocol, reading.subject, base.commit);
     const then = based && valueOf(reading, on(trialsOf(reading.drill, based)), names, rise);
     if (!now.whole) state ??= "unread";
     else if (now.trials.size === 0) { /* A whole reading with no trial counted adds nothing to the cell's value. */ }
@@ -128,8 +119,8 @@ function valueCell(cell, evidence, rise) {
     }
     counted.push(...now.trials.values());
     return [`  ${reading.drill}/${reading.protocol} ${reading.subject}: ${valueText(now.value, unit)}; ${now.figures}`
-        + `${found.result ? ` (${readText(found.result)}${found.current ? ", current" : ", not the version now"}: ${linkOf(reading)})` : " (no result)"}${found.fault ? `; ${found.fault}` : ""}`,
-      `    baseline ${base ? then ? `${valueText(then.value, unit)}, now ${comparisonText(compareValues(now.trials, then.trials, unit))} (${readText(based)})` : `version ${base.version} not kept` : "none"}`].join("\n");
+        + `${found.result ? ` (${readText(found.result)}: ${linkOf(reading)})` : " (no result)"}${found.fault ? `; ${found.fault}` : ""}`,
+      `    baseline ${base ? then ? `${valueText(then.value, unit)}, now ${comparisonText(compareValues(now.trials, then.trials, unit))} (${readText(based)})` : `its reading at ${base.commit} not kept` : "none"}`].join("\n");
   });
   if (state === null && counted.length === 0) state = "uncounted";
   const value = state === "unread" || counted.length === 0 ? null : counted.reduce((sum, one) => sum + one, 0) / counted.length;
@@ -154,8 +145,8 @@ function keepBaselines(cells, evidence, reads = () => true) {
       const found = evidence.get(evidenceKey(reading)), store = storeOf(reading.drill), mine = onCell(cell, reading, found).on(found.trials);
       const named = `${cell.body} ${loadoutKey(cell.loadout)} ${reading.drill}/${reading.protocol} ${reading.subject}`;
       if (baselineOf(store, cell.body, loadoutKey(cell.loadout), reading.protocol, reading.subject)) { console.log(`${named}: has a baseline, kept`); continue; }
-      if (!found.current || !found.complete || mine.length === 0 || mine.some(trial => trial.kept === null)) { console.log(`${named}: no trials to keep`); continue; }
-      stores.set(reading.drill, withBaseline(store, { body: cell.body, loadout: loadoutKey(cell.loadout), protocol: reading.protocol, subject: reading.subject, version: found.result.version }));
+      if (!found.complete || mine.length === 0 || mine.some(trial => trial.kept === null)) { console.log(`${named}: no trials to keep`); continue; }
+      stores.set(reading.drill, withBaseline(store, { body: cell.body, loadout: loadoutKey(cell.loadout), protocol: reading.protocol, subject: reading.subject, commit: found.result.commit }));
       changed.add(reading.drill);
       console.log(`${named}: baseline ${readText(found.result)}`);
     }
@@ -174,10 +165,10 @@ export function main() {
   let evidence = evidenceOf(readings);
   if (values.play || values.fresh) {
     const failed = [], asked = new Set(cells.flatMap((cell) => cell.readings).map(evidenceKey));
-    for (const { reading, complete, current, fault } of [...evidence.values()]) {
+    for (const { reading, complete, fault } of [...evidence.values()]) {
       const key = evidenceKey(reading);
-      // A whole result at an earlier version stands; only `--fresh` plays it again, and only for a cell asked for.
-      const stands = complete && (current || !(values.fresh && asked.has(key)));
+      // A whole result stands; only `--fresh` plays it again, and only for a cell asked for.
+      const stands = complete && !(values.fresh && asked.has(key));
       if (fault || stands) continue;
       console.log(`playing ${key}`);
       try {

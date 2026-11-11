@@ -112,8 +112,7 @@ export function createStrikeIndex(context: GameContext) {
     if (skill === undefined || !skills.includes(skill)) throw new Error(`${id} has no skill ${skill ?? ""}: one of ${skills.join(", ") || "none"}`);
     const value = { mind: preset.config as unknown as Json, skill, ...(held === undefined ? {} : { held }) };
     const subject = mindSubject(id, preset.label, value.mind, preset), holding = held === undefined ? "" : loadoutKey(held);
-    return { ...subject, id: `${id}/${skill}${held === undefined ? "" : `@${holding}`}`, label: `${preset.label}: ${skill}${held === undefined ? "" : `, holding ${holding}`}`,
-      parts: [...subject.parts, { id: "skill", value: skill }, ...(held === undefined ? [] : [{ id: "held", value: held }])], value };
+    return { ...subject, id: `${id}/${skill}${held === undefined ? "" : `@${holding}`}`, label: `${preset.label}: ${skill}${held === undefined ? "" : `, holding ${holding}`}`, value };
   }
 
   const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {

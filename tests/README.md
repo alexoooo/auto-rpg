@@ -201,7 +201,7 @@ completed bouts do not exercise:
 
 | File and case | Concrete justification |
 | --- | --- |
-| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `custom subjects retain execution scope through normalization and into their version` | Custom subject adapters lost body restrictions and attributes, while code identity skipped standalone strike and technique implementations. |
+| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `custom subjects retain execution scope through normalization` | Custom subject adapters lost body restrictions and attributes. |
 | [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `a run's rows refuse incomplete or conflicting cases` | Incomplete rows were admitted, and of two rows that read one case differently the first was taken without agreement. |
 | [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `a table cell is valued only on every protocol case with none faulted` | One passing row satisfied a full run cell; null fault readings were dereferenced. |
 | [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `Cover requires an attempted attack before untouched can pass` | An opponent that never attacked produced a passing untouched result. |

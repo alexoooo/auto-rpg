@@ -15,7 +15,7 @@ npm run build             # type-check, then the bundle
 npm run pull:merge        # fetch, merge, validate once, commit; -- --continue after resolving conflicts
 npm run match -- <a> <b>  # two minds, each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases where no row has them; --write keeps its results
-npm run evaluate -- table [--play] [--baseline]   # every body, loadout and skill: its value against its baseline; --play plays only what has no record
+npm run evaluate -- table [--play] [--baseline]   # every body, loadout and skill: its value against its baseline; --play plays only what has no result
 npm run evaluate -- table --body <model> --skill <name> [--loadout <left,right>] --fresh   # one cell or row, played again on the code now
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 node scripts/fingerprint.mjs          # what the game computes, before and after a refactor
@@ -80,7 +80,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   commit message, and in the approaches when the reason is the mechanism's. A live alternative
   stays only while an open question uses it.
 - **A claim that a skill is better is its table cell**: the cell's line from
-  `npm run evaluate -- table`, read at the commit claimed (`current`), its value against its
+  `npm run evaluate -- table`, read at the commit claimed (the commit its line shows), its value against its
   baseline and its Ratings link. The table plays the game's Mind with what is installed, so a
   skill the Mind does not use moves no cell and is reported as not in the game. A reading on a
   drill, a search or a training screen is progress toward a claim and never the claim.

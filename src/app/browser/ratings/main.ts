@@ -123,8 +123,8 @@ function figuresView(evaluation: Evaluation, newest: readonly Result[]): HTMLEle
   const shown = evaluation.figures.filter((figure) => rows.some((row) => row.figures[figure.name] !== undefined));
   return el("section", { className: "battery" }, el("h3", { textContent: "Figures" }),
     el("p", { className: "note", textContent: shown.map((figure) => `${figure.name}: ${figure.unit}, ${figure.better} is better`).join("; ") + ". 95 % intervals: Wilson for a rate, cases resampled for a mean or median." }),
-    el("div", { className: "scroll" }, table(["Subject", "Protocol", "Version", "Cases", ...shown.map((figure) => figure.name), "Read"],
-      rows.map((row) => [link(ratingsHref({ evaluation: evaluation.id, protocol: row.protocol, subject: row.subject }), row.subject), row.protocol, row.version.slice(0, 8), String(row.count),
+    el("div", { className: "scroll" }, table(["Subject", "Protocol", "Cases", ...shown.map((figure) => figure.name), "Read"],
+      rows.map((row) => [link(ratingsHref({ evaluation: evaluation.id, protocol: row.protocol, subject: row.subject }), row.subject), row.protocol, String(row.count),
         ...shown.map((figure) => estimateText(row.figures[figure.name])), readText(row)]), "figures")));
 }
 
@@ -138,7 +138,7 @@ function subjectView(evaluation: Evaluation, results: Results, mine: readonly Re
   if (mine.length > 1) section.append(el("p", { className: "protocols" }, "Protocol: ", ...mine.flatMap((one, k) => [k ? " · " : "",
     one === chosen ? el("strong", { textContent: one.protocol }) : link(here(one.protocol), one.protocol)])));
   const shown = evaluation.figures.filter((figure) => chosen.figures[figure.name] !== undefined);
-  section.append(el("p", { className: "note", textContent: `Protocol ${chosen.protocol}, ${chosen.count} cases read at commit ${readText(chosen)}, version ${chosen.version.slice(0, 8)}; ${chosen.harness}.` }),
+  section.append(el("p", { className: "note", textContent: `Protocol ${chosen.protocol}, ${chosen.count} cases read at commit ${readText(chosen)}; ${chosen.harness}.` }),
     el("div", { className: "scroll" }, table(["Figure", "Unit", "Better", "Value (95 %)"], shown.map((figure) => [figure.name, figure.unit, figure.better, estimateText(chosen.figures[figure.name])]), "figures")));
   if (chosen.trials && chosen.outcomes?.length) section.append(trialsView(evaluation, chosen, results.cases[chosen.cases!] ?? [], here(chosen.protocol)));
   return section;

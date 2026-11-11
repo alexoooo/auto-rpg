@@ -228,9 +228,8 @@ const digestOf = (files, paths) => {
  *   list names it), of each kind of mind its world names, of each part their trees name that a
  *   role's list holds (its module's closure less the environment) or an entrant registers (its
  *   entrant's own code) and of each data key their minds
- *   read (`added`): its `digest` is the case key's `code`, its `files` what a result's commit must hold
- *   unchanged, and `own` the digest of `added` alone, null where nothing is added (a version's
- *   `code`, `versionOf`, read of a subject's parts, which name no world).
+ *   read (`added`): its `digest` is the case key's `code`, and its `files` what a result's commit
+ *   must hold unchanged.
  */
 export function caseCoder(files, caseModule, kinds) {
   const [toolkitList, entrantList] = CUTS.kinds, listed = files[toolkitList]?.kinds ?? [], entrants = files[entrantList]?.kinds ?? [];
@@ -284,8 +283,7 @@ export function caseCoder(files, caseModule, kinds) {
       const id = JSON.stringify([named.world ?? null, [...new Set(named.kinds)].sort(), parts, [...new Set(named.data)].sort()]);
       if (!codes.has(id)) {
         const added = new Set([...named.world ? world(named.world) : [], ...named.kinds.flatMap(own), ...parts.flatMap(part), ...named.data.flatMap(read)]);
-        codes.set(id, { digest: digestOf(files, [...environment, ...added]), files: [...environment, ...added].sort(), added: [...added].sort(),
-          own: added.size > 0 ? digestOf(files, added) : null });
+        codes.set(id, { digest: digestOf(files, [...environment, ...added]), files: [...environment, ...added].sort(), added: [...added].sort() });
       }
       return codes.get(id);
     },
