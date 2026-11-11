@@ -16,7 +16,7 @@ import { DEFAULT_ENGINE, loadEngine } from "../core/physics/engines.ts";
 import { humanoidSpec } from "../core/bodies/human/spec.ts";
 import { armedWith, loadoutKey, type Held } from "../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "./loadouts.ts";
-import type { OptionMindConfig } from "../minds/option/mind.ts";
+import type { OptionMindConfig } from "../minds/option/config.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
 import { groundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";

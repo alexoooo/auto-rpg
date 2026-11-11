@@ -139,7 +139,7 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
   const [{ modelSpec }, { labActor }, { startLocomotion }, { TRACKS, trackOf }, { commandsOf }, { LAB_MIND }, { STANCE_GAIT }, { coreStand }, { armedWith }, { withLegs }] = await Promise.all([
     import("../../../src/core/bodies/models.ts"), import("../../../src/app/node/game.ts"), import("../../../src/game/lab/locomotion-mode.ts"), import("../../../src/game/lab/track.ts"),
     import("../../../src/game/lab/commands.ts"), import("../../../src/app/node/setup.ts"), import("../../../src/control/stance/stance-tuning.ts"), import("../../../tests/harness/core-stand.mjs"),
-    import("../../../src/core/bodies/items/held.ts"), import("../../../src/minds/option/mind.ts"),
+    import("../../../src/core/bodies/items/held.ts"), import("../../../src/minds/option/config.ts"),
   ]);
   const line = LINES[id];
   const info = id === "random" ? { facing: undefined } : line === undefined ? TRACKS[id] : { pieces: [{ kind: "corner", metres: 0, turn: line }, { kind: "straight", metres: 80 }], facing: 0 };

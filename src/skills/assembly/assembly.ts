@@ -27,18 +27,20 @@ interface MoreSkills {
 /** No executor beyond the config's. */
 const NO_MORE: MoreSkills = Object.freeze({ executors: Object.freeze([]), actions: Object.freeze([]) });
 
-/** The skills `config` names, each part the one `parts` finds, a mind's own included, and `more` beside them; action aims are `aims` (the body's one, `configuredAims`) and read the body's `ledger`. */
-export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, ledger: () => readonly Ended[],
-  more: MoreSkills = NO_MORE, aims?: ReadonlyMap<string, Aim>): Skills {
+/** The skills `config` names, each part the one `parts` finds, a mind's own included, and `more` beside them; action aims are `aims` (the body's one, `configuredAims`) and read these skills' ledger of actions ended. */
+export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, more: MoreSkills = NO_MORE, aims?: ReadonlyMap<string, Aim>): Skills {
   const guard = parts.of("guard", config.guard).make(made.built, config.guard);
   const legs = legsOf(parts, made, config.legs);
   const navigation = navigatorOf(parts, made.built.spec, config.navigation);
   const configured = aims ?? configuredAims(parts, made.built.spec, config.actions);
-  return skillSet(made, {
+  // Read each time an action aims, which is after the skills are made.
+  const ledger = (): readonly Ended[] => skills.report.ledger;
+  const skills: Skills = skillSet(made, {
     legs, navigation, clearance: navigation, guard, spot: windowSpotFinder,
     support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
     aims: aimsState(configured),
     executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger, configured), ...more.executors],
     actions: [...config.actions, ...more.actions],
   });
+  return skills;
 }

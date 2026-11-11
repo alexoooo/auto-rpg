@@ -62,7 +62,7 @@ export interface Sight {
  * **A mind driven by its decider over its skills** (`driveBy`): the skills, the mind's memory, its
  * skills', its decider's and what its aims hold (`MindMade.state`), and its report (`skillsReport`).
  */
-interface Driven {
+export interface Driven {
   readonly skills: Skills;
   readonly state: { readonly skills: object; readonly decider: object | null; readonly pace: object; readonly aims?: readonly object[] };
   readonly report: MindReport;

@@ -321,7 +321,7 @@ test("Option skills assemble with physical feet alone and an effector named assi
     let skills;
     try {
       skills = kitSkills(actor.driver, stand.world.clock, partLookup, { legs: partLookup.fitting("locomotion", spec), guard: partLookup.fitting("guard", spec), navigation: partLookup.game("navigation")[0],
-        actions: [], executors: [], support: null }, () => []);
+        actions: [], executors: [], support: null });
       actor.drive((view, dt) => skills.command(view, standIntent(0), dt));
       stand.step(120);
       assert.equal(actor.view.down, false, "the assembled services hold the altered body standing");
@@ -370,7 +370,7 @@ test("default skill assembly roots the one configured memoryful aim", async () =
   let skills;
   try {
     skills = kitSkills(body.driver, stand.world.clock, custom, { legs: partLookup.fitting("locomotion", stock), guard: partLookup.fitting("guard", stock), navigation,
-      support: null, executors: [{ kind: "read-aim", name: "reader" }], actions: [{ name: "remember", executor: "reader", effectors: [], aim: { kind: "remember-aim" } }] }, () => []);
+      support: null, executors: [{ kind: "read-aim", name: "reader" }], actions: [{ name: "remember", executor: "reader", effectors: [], aim: { kind: "remember-aim" } }] });
     assert.equal(made, 1);
     const target = { kind: "point", at: [0, 0, 0] };
     aim(body.view, target, "remember", "hand.left");

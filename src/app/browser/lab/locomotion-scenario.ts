@@ -7,7 +7,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { massOf } from "../../../core/bodies/read-motion.ts";
 import { GOING, type MoveConfig } from "../../../skills/locomotion/move-part.ts";
-import { withLegs, type OptionMindConfig } from "../../../minds/option/mind.ts";
+import { withLegs, type OptionMindConfig } from "../../../minds/option/config.ts";
 import { STOCK_GAITS } from "../../../skills/locomotion/gaits.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";

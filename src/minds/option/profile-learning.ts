@@ -2,7 +2,7 @@ import { PROFILE_MODEL } from "./profile-contract.ts";
 import type { Refused } from "../../core/refusal.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { MindConfig } from "../catalog/config.ts";
-import type { OptionMindConfig } from "./mind.ts";
+import type { OptionMindConfig } from "./config.ts";
 import { strikesIn } from "./kinds.ts";
 
 /** The profile fighter's training adapter selects one configured strike and may steer its executor. */
