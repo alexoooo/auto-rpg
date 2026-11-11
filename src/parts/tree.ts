@@ -1,6 +1,6 @@
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 import type { PartLookup } from "./lookup.ts";
-import { slotsOf, type Part, type PartConfig, type Requirement, type Role, type Slot } from "./parts.ts";
+import type { Part, PartConfig, Requirement, Role, Slot } from "./parts.ts";
 
 /** **Where a part is in a tree's config**: each step a key, or an index in a list. */
 export type ConfigPath = readonly (string | number)[];
@@ -23,7 +23,7 @@ export const slotValue = (config: PartConfig, slot: Slot): unknown => (config as
 
 /** **Every place `config` of `part` holds other parts** (`Held`): its slots, in order, then what it declares outside them. */
 export function heldBy(part: Part, config: PartConfig): readonly Held[] {
-  const slots = slotsOf(part, config).map((slot): Held => {
+  const slots = part.slots.map((slot): Held => {
     const value = slotValue(config, slot);
     return { slot, path: [slot.key], parts: slot.many ? (value == null && slot.optional ? [] : Array.isArray(value) ? value : [value]) : value == null ? [] : [value] };
   });

@@ -1,7 +1,8 @@
 import { buttonInput } from "./inputs.ts";
 import type { Offered } from "../../catalog.ts";
 import type { TechniquePart } from "../../../skills/recovery/technique.ts";
-import { partOffered, type PartConfig } from "../../../parts/parts.ts";
+import { partOffered } from "../../../parts/fields.ts";
+import type { PartConfig } from "../../../parts/parts.ts";
 
 /**
  * A list slot of techniques (`TechniquePart`) as a person ranks them: each technique `offered`,

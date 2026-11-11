@@ -8,6 +8,8 @@ import { controller } from "../catalog/controller.ts";
 import { buildOptionMind, type OptionMind } from "./build.ts";
 import { isSettings, optionMindFaults, resolveConfig, type OptionAssembly, type OptionMindConfig } from "./config.ts";
 import { describeOptionMind } from "./description.ts";
+import type { PartLookup } from "../../parts/lookup.ts";
+import type { OptionPart } from "./parts.ts";
 import { PROFILE_MODEL } from "./profile-contract.ts";
 import { waysUpIn } from "./rise.ts";
 import { skillsOf } from "./skills.ts";
@@ -24,6 +26,9 @@ export function optionMind(assembly: OptionAssembly) {
   const slots: readonly Slot[] = Object.freeze([
     slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("predictions", "Predictions", "predictions", true, assembly.predictions),
   ]);
+  /** Each Option `config` runs, its own or the assembly's, with its part; one that is no Option's config is passed over, a fault of the tree. */
+  const optionsOf = (config: OptionMindConfig, parts: PartLookup): readonly (readonly [OptionPart, PartConfig])[] =>
+    resolveConfig(config, assembly).options.flatMap((option) => { const part = parts.find("option", option); return part ? [[part, option] as const] : []; });
   return controller<OptionMindConfig>({
     role: "mind", label: "Option Mind", stage: "game", fields: [], slots, defaults,
     keys: { kind: true, chooser: true, options: true, predictions: true, rate: true, tuning: true }, tuning: ["parts"],
@@ -51,9 +56,13 @@ export function optionMind(assembly: OptionAssembly) {
       return motorRequirementRefusal(motorOf(parts, filledOf(parts, spec, "motor", config.tuning?.parts)), spec, required);
     },
     describe: (spec, config, parts) => describeOptionMind(spec, config, resolveConfig(config, assembly), parts),
+    // What a fight asks of a mind, each answered by its Options, and by its guard for what it holds.
+    strikes: (spec, config, parts) => optionsOf(config, parts).flatMap(([part, option]) => part.strikes?.(spec, option, parts) ?? []),
+    obeys: (config, parts) => optionsOf(config, parts).some(([part]) => part.obeys === true),
+    phases: (config, parts) => Object.assign({}, ...optionsOf(config, parts).map(([part]) => part.phases ?? {})),
     supportedEquipment: (spec, config, parts) => {
       const guard = filledOf(parts, spec, "guard", config.tuning?.parts);
-      return parts.of("guard", guard).supportedEquipment?.(spec, guard, parts) ?? [];
+      return parts.of("guard", guard).supportedEquipment?.(spec, guard) ?? [];
     },
     builtIn: (spec, config, parts) => {
       const guard = filledOf(parts, spec, "guard", config.tuning?.parts);

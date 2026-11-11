@@ -47,7 +47,7 @@ export interface EngagementDetail {
 
 /**
  * **What a decider reports doing** (`Decider.engagement`): what every decider may say, its phase
- * (shown by its part's label, `Part.phases`), its focus and whether it lost it, and its own
+ * (shown by its part's label, `OptionPart.phases`), its focus and whether it lost it, and its own
  * details, which any decider publishes as it likes and a readout shows as they are (`details`).
  * A decider adds what is its own to show: a chooser over options the offers it chose among
  * (`offers`), an action controller its candidates and the one it pursues (`candidates`,

@@ -175,7 +175,6 @@ export const PAW_MOVE: LocomotionPart<PawMoveConfig> = deepFreeze({
   role: "locomotion", requires: [SUPPORT_REFERENCE], label: "Paw gaits", stage: "game", fields: [], defaults: { kind: "paw-move" }, keys: { kind: true, trot: true, crawl: true },
   slots: [slotOne("trot", "Trot", "paw-gait", true, STOCK.trot), slotOne("crawl", "Crawl", "paw-gait", true, STOCK.crawl)],
   fits: fitsPaws, faults: () => [],
-  uses: (config) => [config.trot ?? STOCK.trot, config.crawl ?? STOCK.crawl],
   gaits: (config) => GAIT_NAMES.map((name) => ({ name, label: LABELS[name], legs: config[name] ?? STOCK[name] })),
   make(body, config, legs) {
     const built = body.built, root = body.muscles.dynamics.root.segment, reading = pawReader(built).state, names = pawEndpoints(built).map((paw) => paw.segment);

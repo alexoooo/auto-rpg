@@ -403,11 +403,20 @@ research settings belong to `LayerOptions` in `src/control/body.ts`.
 
 **A mind is its config.** A `MindConfig` is plain data tagged by kind; `createMind` (`create-mind.ts`)
 makes it by the kind's `Controller` found in a `Catalog` (`src/minds/catalog/catalog.ts`). A mind is a
-tree of parts (`Part`, `parts.ts`), each with a role, a stage, fields, slots and defaults, saying
-why a body cannot carry it out (`fits`) and what is wrong with its config (`faults`). Roles are an
-open list (`RoleParts`), augmented beside each role's contract. `treeFaults` names each fault by
-path. Component-owned `children` declare nested configuration paths and roles; admission, fit,
-scope, data dependencies and inspection traverse those same children. `tuning` never travels in a link.
+tree of parts (`Part`, `parts.ts`), each with a role, a stage, slots and defaults, saying
+why a body cannot carry it out (`fits`) and what is wrong with its config (`faults`). `Part` holds
+only what every part has; what the mind editor shows of one is beside it (`Edited`, `fields.ts`),
+and what one role does more is in that role's type. Roles are an open list (`RoleParts`),
+augmented beside each role's contract. `treeFaults` names each fault by path. Component-owned
+`children` declare nested configuration paths and roles; one walk (`eachPart`, `tree.ts`) goes
+through slots and children alike, and admission, fit, scope, data dependencies and inspection all
+use it. `tuning` never travels in a link.
+
+**What a fight asks of a mind, the mind answers** (`Controller`): what it strikes with
+(`strikes`), what it holds that it has a use for (`supportedEquipment`), whether it obeys orders
+(`obeys`) and what its phases are called (`phases`). The catalog asks the controller and walks no
+tree for these (`stageRefusal`, `treeObeys`, `phaseLabels`). Option Mind answers from its Options
+(`OptionPart.strikes`, `obeys`, `phases`) and its guard (`GuardPart.supportedEquipment`).
 
 **Option Mind** (`src/minds/option/`, `optionMind`) is a reusable decision framework. Its entrant
 (`src/entrants/option/`) owns the ordered assembly and presets; the application registers the

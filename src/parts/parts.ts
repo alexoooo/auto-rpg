@@ -4,7 +4,7 @@ export type Requirement = keyof Requirements;
 
 import type { DataKey } from "../core/data/store.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
-import type { PartField } from "./fields.ts";
+import type { Edited } from "./fields.ts";
 import type { PartLookup, RoleParts } from "./lookup.ts";
 
 /**
@@ -41,69 +41,53 @@ export interface Slot {
 }
 
 /**
- * **A kind of part**: its role, what a person calls it, its stage, the settings a person may change
- * and the slots it has, the config it starts from when chosen, which bodies it fits and what is
- * wrong with a config of it. A part is made by its role's module; this is what every screen
- * shows of it.
+ * **A kind of part**: what every part has, whatever its role. What it is; the config it takes;
+ * the parts that config holds; whether a body fits it and what is wrong with a config of it; and
+ * the data it reads. What the mind editor shows of it is beside (`Edited`). What a part of one
+ * role does more is in that role's own type (`ExecutorPart`, `GuardPart`, `OptionPart`,
+ * `Controller` and the rest of `RoleParts`), its maker included.
  */
-export interface Part<C extends PartConfig = PartConfig> {
+export interface Part<C extends PartConfig = PartConfig> extends Edited<C> {
+  // What it is.
   readonly role: Role;
+  /** What a person calls it. */
   readonly label: string;
   readonly stage: Stage;
-  /** False: omitted from new selections; existing configurations remain visible. */
-  readonly offered?: false;
-  /** Physical facts the configured motor must publish before this part can execute. */
-  readonly requires?: readonly Requirement[];
-  /** Configured parts outside editable slots, with their required roles and actual paths; null marks an implicit default. */
-  children?(config: C): readonly { readonly path: readonly (string | number)[] | null; readonly role: Role; readonly config: unknown }[];
-  readonly fields: readonly PartField<C>[];
-  readonly slots: readonly Slot[];
-  /** The slots a config of it has where they depend on what it holds: a subset of `slots`, or all of them where absent (`slotsOf`). */
-  slotsFor?(config: C): readonly Slot[];
-  /** The parts a config of it runs beside those its slots hold, any of them as `parts` offers it (`PartLookup.game`): what a case's code holds of it (`treeKinds`). */
-  uses?(config: C, parts: PartLookup): readonly PartConfig[];
+
+  // Its config.
   /** The config a slot set to this kind takes. */
   readonly defaults: C;
   /** The keys a config of it may hold (`KeysOf`): a key outside them is a fault (`treeFaults`). */
   readonly keys: Readonly<Record<string, true>>;
   /** The keys of the research tuning a config of it may carry (`tuning`); none, it carries none. */
   readonly tuning?: readonly string[];
+
+  // The parts its config holds (`heldBy`).
+  readonly slots: readonly Slot[];
+  /** Configured parts outside its slots, each with its role and where it is in the config; a null path marks a default the config does not say. */
+  children?(config: C): readonly { readonly path: readonly (string | number)[] | null; readonly role: Role; readonly config: unknown }[];
+
+  // Its checks.
+  /** Physical facts the configured motor must publish before this part can execute. */
+  readonly requires?: readonly Requirement[];
   /**
    * Whether a body of `spec` can carry out what a part of `config` commands: null where it can,
    * otherwise why not, a sentence. The one source of a part's compatibility: construction, the
    * pickers and evaluation read it (`treeRefusal`). `parts` looks up the parts `config` names.
    */
   fits(spec: BodySpec, config: C, parts: PartLookup): string | null;
-  /** Held segments this part uses safely: striking, covering or another declared equipment use. */
-  supportedEquipment?(spec: BodySpec, config: C, parts: PartLookup): readonly string[];
-  /**
-   * The effectors its blows strike with on a body of `spec`, as it holds what it holds, or
-   * undefined where `config` names no blow of its own: what a scenario that asks an attack reads
-   * (`EntryRule` `attacks`), and each segment it names a declared use of what that segment holds.
-   */
-  strikes?(spec: BodySpec, config: C, parts: PartLookup): readonly string[] | undefined;
   /**
    * What is wrong with `config` itself, each a sentence, a fault found at a slot prefixed with its
    * key (`blow: `). Its slots' parts answer for their own; it is asked only once every descendant slot holds parts of its role and owner.
    */
   faults(config: C, parts: PartLookup): readonly string[];
+
+  // The data it reads.
   /** The mind data a part of `config` reads when built (`dataOf`); none where absent. Its slots' parts answer for their own (`treeData`). */
   reads?(config: C): readonly DataKey[];
   /** Data compatibility checks read before construction: loaded before a screen offers this part. */
   readonly fitReads?: readonly DataKey[];
-  /**
-   * What a person is shown for each phase it reports (`Decider.engagement`'s `phase`, or the
-   * name of a sub-mind that has the body), by the phase's name: a label, or null for a phase a feed
-   * leaves unsaid because what it does shows itself (an attack, as its action). A phase no part
-   * names is shown as its own name (`phaseLabels`).
-   */
-  readonly phases?: Readonly<Record<string, string | null>>;
-  /** Whether it carries out a person's `Orders`: a mind whose tree holds no part that does plays as its own while a person leads its side (`treeObeys`). */
-  readonly obeys?: boolean;
 }
-
-/** Whether a part is offered for a new selection. */
-export const partOffered = (part: Pick<Part, "offered">): boolean => part.offered !== false;
 
 /** Every key of `C`, each `true`: the keys a config of it may hold, a key missing or extra refused by the compiler. */
 export type KeysOf<C> = { readonly [P in keyof C]-?: true };
@@ -120,9 +104,6 @@ export const slotSkill = (key: string, label: string, role: Role): Slot => Objec
 /** A slot of one part of `role`, or of none where it is `optional`, which runs `fallback` where it names one. */
 export const slotOne = (key: string, label: string, role: Role, optional = false, fallback?: PartConfig): Slot =>
   Object.freeze({ key, label, role, many: false, optional, ...(fallback === undefined ? {} : { fallback }) });
-
-/** The slots `config` of `part` has: those it says it has by what it holds (`Part.slotsFor`), or all of its slots. */
-export const slotsOf = <C extends PartConfig>(part: Part<C>, config: C): readonly Slot[] => part.slotsFor?.(config) ?? part.slots;
 
 /** A part's `fits` for every body. Each of these is a function declaration, which a module that imports it in a cycle can call as it loads. */
 export function anyBody(): string | null {

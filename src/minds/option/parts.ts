@@ -40,6 +40,19 @@ export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = 
   /** Whether this Option applies to the body and its selected continuous services. */
   applicable?(config: C, body: OptionBody): boolean;
   skills?(config: C, spec: BodySpec, parts: PartLookup, options: readonly PartConfig[]): NamedSkills | null;
+  /**
+   * The effectors its blows strike with on a body of `spec`, as it holds what it holds, or
+   * undefined where `config` names no blow of its own: what its mind strikes with (`Controller.strikes`).
+   */
+  strikes?(spec: BodySpec, config: C, parts: PartLookup): readonly string[] | undefined;
+  /** Whether it carries out a person's `Orders`: its mind obeys where an Option of it does (`Controller.obeys`). */
+  readonly obeys?: boolean;
+  /**
+   * What a person is shown for each phase it reports (`Decider.engagement`'s `phase`), by the
+   * phase's name: a label, or null for a phase a feed leaves unsaid because what it does shows
+   * itself (an attack, as its action). A phase no Option names is shown as its own name.
+   */
+  readonly phases?: Readonly<Record<string, string | null>>;
   readonly keys: KeysOf<C>;
   /** The options a config of it makes, from what the mind gives (`given`), in their rank order. */
   make(config: C, given: G): readonly O[];

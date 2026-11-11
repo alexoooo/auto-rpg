@@ -31,6 +31,8 @@ export interface GuardSkill extends Skill {
 export interface GuardPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "guard";
   readonly keys: KeysOf<C>;
+  /** The segments of `spec` whose held item it covers with: a declared use of what they hold (`Controller.supportedEquipment`). */
+  supportedEquipment?(spec: BodySpec, config: C): readonly string[];
   /** The arms' rest a body of `spec` holds under `config`, before any skill is made: what it is built in. */
   posture(spec: BodySpec, config: C): Pose;
   /** The guard skill of `config` for the body `built`; its `posture` is `posture`'s for the body's spec. */

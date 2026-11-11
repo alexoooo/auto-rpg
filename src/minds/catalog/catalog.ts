@@ -4,7 +4,7 @@ import type { Controller, MindPreset } from "./controller.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { scopeOf, type Entrant } from "./entrant.ts";
 import type { PartLookup, RoleParts } from "../../parts/lookup.ts";
-import { slotsOf, type Part, type PartConfig, type Role } from "../../parts/parts.ts";
+import type { Part, PartConfig, Role } from "../../parts/parts.ts";
 import { eachPart, heldBy, leftOut, slotValue, type Fallbacks, type PartAt, type Walk } from "../../parts/tree.ts";
 import type { MindDescription } from "./description.ts";
 
@@ -104,11 +104,11 @@ export interface Catalog {
   treeFaults(config: PartConfig, at?: string): readonly string[];
   /** **The entrant whose tree `config` roots** (`scopeOf` of its kinds), or null for the toolkit's kinds alone; the first, where it names two. */
   treeScope(config: PartConfig): string | null;
-  /** **Every kind of part in the tree `config` roots**, the root's included, an empty slot's fallback (`Slot.fallback`) and what a part runs besides its slots (`Part.uses`), each once: what a case's code holds the parts' own code of (`caseCoder`). */
+  /** **Every kind of part in the tree `config` roots**, the root's included, an empty slot's fallback (`Slot.fallback`) and what a mind runs besides its tree (`Controller.uses`), each once: what a case's code holds the parts' own code of (`caseCoder`). */
   treeKinds(config: PartConfig): readonly string[];
-  /** Whether a part of `config`'s tree carries out a person's orders (`Part.obeys`). */
+  /** Whether the mind `config` roots carries out a person's orders (`Controller.obeys`). */
   treeObeys(config: PartConfig): boolean;
-  /** What a person is shown for each phase the parts of `config`'s tree report (`Part.phases`). */
+  /** What a person is shown for each phase the mind `config` roots reports (`Controller.phases`). */
   phaseLabels(config: PartConfig): Readonly<Record<string, string | null>>;
   /** **The mind data `config`'s parts read** (`Part.reads`), every key once: what a screen loads (`loadData`) before it builds the mind. */
   treeData(config: PartConfig): readonly DataKey[];
@@ -131,7 +131,7 @@ export interface Catalog {
   kindsFor(role: Role, spec: BodySpec, tree?: PartConfig | null): readonly Offered[];
   /**
    * **The tree `config` roots with what is at `path` replaced by `value`** (null removes a list's
-   * entry), a copy: `path` is dot-separated, each step a slot of the part it is in (`slotsOf`) or a
+   * entry), a copy: `path` is dot-separated, each step a slot of the part it is in (`Part.slots`) or a
    * key it states (`Part.keys`), in a list an index or an entry's name or kind, and in plain data a
    * key it has. A thrown error names the step that matches nothing, with what does.
    */
@@ -221,6 +221,11 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     if (!found) throw new Error(`no mind of kind ${JSON.stringify(config.kind)}`);
     return found;
   }
+  /** The controller of the mind `config` roots, or null where its kind is no mind's. */
+  const mindOf = (config: PartConfig): Controller | null => {
+    const controllers = registered().controllers;
+    return Object.hasOwn(controllers, config.kind) ? controllers[config.kind]! : null;
+  };
   /** Every game part of `role`, the toolkit's, as its config (`PartLookup.game`). */
   const game = (role: Role): readonly PartConfig[] => Object.entries(registered().parts)
     .filter(([kind, part]) => part.role === role && part.stage === "game" && scopeOf(kind) === null).map(([, part]) => part.defaults);
@@ -286,13 +291,13 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
 
   /**
    * `visit` each part whose code a case of the tree `config` roots holds, the root first: the
-   * tree's parts, an empty slot's fallback included (`Slot.fallback`), and with each part what it
-   * runs besides (`Part.uses`), each of those a tree read the same way.
+   * tree's parts, an empty slot's fallback included (`Slot.fallback`), and with each mind what it
+   * runs besides (`Controller.uses`), each of those a tree read the same way.
    */
   function eachCoded(config: PartConfig, visit: (part: Part, config: PartConfig) => void): void {
     eachIn(config, ({ part, config: one }) => {
       visit(part, one);
-      for (const used of part.uses?.(one, partLookup) ?? []) eachCoded(used, visit);
+      for (const used of mindOf(one)?.uses?.(one, partLookup) ?? []) eachCoded(used, visit);
     }, "with-fallbacks");
   }
 
@@ -338,30 +343,22 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     return null;
   }
 
-  /** Every held item has a declared use somewhere in this mind's assembly. */
+  /** The effectors the mind `config` roots strikes with on a body of `spec` (`Controller.strikes`); none where it is no mind. */
+  const strikesOf = (spec: BodySpec, config: PartConfig): readonly string[] => mindOf(config)?.strikes?.(spec, config, partLookup) ?? [];
+
+  /** Every item a body of `spec` holds has a use in the mind `config` roots: it strikes with it, or has another use for it (`Controller.supportedEquipment`). */
   function equipmentSupported(spec: BodySpec, config: PartConfig): boolean {
-    const supported = new Set<string>();
-    eachIn(config, ({ part, config: one }) => {
-      for (const segment of part.supportedEquipment?.(spec, one, partLookup) ?? []) supported.add(segment);
-      for (const segment of part.strikes?.(spec, one, partLookup) ?? []) supported.add(segment);
-    });
+    const supported = new Set([...strikesOf(spec, config), ...mindOf(config)?.supportedEquipment?.(spec, config, partLookup) ?? []]);
     return (spec.held ?? []).every(({ segment }) => supported.has(segment));
   }
 
-  /** **Whether a body of `spec` can attack under the tree `config` roots**: a part of it strikes with some effector there (`Part.strikes`). */
-  function attacks(spec: BodySpec, config: PartConfig): boolean {
-    let strikes = false;
-    eachIn(config, ({ part, config: one }) => {
-      strikes = (part.strikes?.(spec, one, partLookup)?.length ?? 0) > 0;
-      return strikes ? "stop" : undefined;
-    });
-    return strikes;
-  }
+  /** **Whether a body of `spec` can attack under the mind `config` roots**: it strikes with some effector there. */
+  const attacks = (spec: BodySpec, config: PartConfig): boolean => strikesOf(spec, config).length > 0;
 
   function withoutTuning<C extends PartConfig>(config: C): C {
     const { tuning: _, ...rest } = config as C & { tuning?: unknown };
     let out: Record<string, unknown> = rest;
-    for (const slot of slotsOf(partOf(config), config)) {
+    for (const slot of partOf(config).slots) {
       const value = out[slot.key];
       if (Array.isArray(value)) out[slot.key] = value.map((child) => isPart(child) ? withoutTuning(child) : child);
       else if (isPart(value)) out[slot.key] = withoutTuning(value);
@@ -382,7 +379,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     /** What a step in the part config `at` may be: its part's slots and stated keys, beside its kind. */
     const keysOf = (at: PartConfig): string[] => {
       const part = partOf(at);
-      return [...new Set([...slotsOf(part, at).map((slot) => slot.key), ...Object.keys(part.keys ?? {})])].filter((key) => key !== "kind");
+      return [...new Set([...part.slots.map((slot) => slot.key), ...Object.keys(part.keys ?? {})])].filter((key) => key !== "kind");
     };
     const walk = (at: unknown, k: number, holder: string): unknown => {
       const step = steps[k]!, last = k === steps.length - 1;
@@ -436,8 +433,8 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     },
     treeScope: (config: PartConfig): string | null => scopesOf(config)[0] ?? null,
     treeKinds,
-    treeObeys: (config: PartConfig): boolean => treeKinds(config).some((kind) => partOf({ kind }).obeys === true),
-    phaseLabels: (config: PartConfig): Readonly<Record<string, string | null>> => Object.assign({}, ...treeKinds(config).map((kind) => partOf({ kind }).phases ?? {})),
+    treeObeys: (config: PartConfig): boolean => mindOf(config)?.obeys?.(config, partLookup) ?? false,
+    phaseLabels: (config: PartConfig): Readonly<Record<string, string | null>> => mindOf(config)?.phases?.(config, partLookup) ?? {},
     treeData(config: PartConfig): readonly DataKey[] {
       const keys = new Set<DataKey>();
       eachCoded(config, (part, one) => {

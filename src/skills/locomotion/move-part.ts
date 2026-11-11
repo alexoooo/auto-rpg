@@ -71,7 +71,6 @@ export const MOVE_PART: LocomotionPart<MoveConfig> = deepFreeze({
     }
     return null;
   },
-  uses: (config) => gaitsOf(config).map((gait) => gait.legs),
   faults: gaitFaults, gaits: gaitsOfMove,
   make(body, config, legs) {
     const walked = gaitsOf(config), names = walked.map((gait) => gait.name), built = new Map<string, Locomotion>();

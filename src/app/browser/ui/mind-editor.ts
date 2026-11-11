@@ -4,7 +4,8 @@ import { editorRow as row, editorPicker as picker, editorButton as button, partF
 import { techniqueEditor } from "./mind-ground.ts";
 import { GAME, isKind, kindsFor, partOf, partLookup, treeFaults, type EntryRule } from "../../catalog.ts";
 import type { MindConfig } from "../../../minds/catalog/config.ts";
-import { partOffered, slotsOf, type Part, type PartConfig, type Slot } from "../../../parts/parts.ts";
+import { partOffered } from "../../../parts/fields.ts";
+import type { Part, PartConfig, Slot } from "../../../parts/parts.ts";
 import { slotValue } from "../../../parts/tree.ts";
 import type { BodySpec } from "../../../core/bodies/spec/body.ts";
 import { mindFaults } from "../setup.ts";
@@ -109,7 +110,7 @@ export function mindEditor(config: MindConfig, { spec: body, entry = [], onChang
       shown.className = "mind-tuning"; shown.textContent = `Research tuning, read-only\n${JSON.stringify(tuning, null, 1)}`;
       block.append(shown);
     }
-    for (const slot of slotsOf(part, config)) {
+    for (const slot of part.slots) {
       const child = slot.role === "technique" && slot.many
         ? techniqueEditor((slotValue(config, slot) ?? []) as readonly PartConfig[], kindsFor(slot.role, spec, current),
           (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)

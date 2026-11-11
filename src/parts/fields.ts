@@ -27,11 +27,24 @@ interface NumberField<C> extends Field<C> {
 }
 
 /**
- * **A setting a person may change** on a part's config (`Part.fields`): a player's field, never an
+ * **A setting a person may change** on a part's config (`Edited.fields`): a player's field, never an
  * experiment's `tuning`. The mind editor shows it (`src/app/browser/ui/mind-editor.ts`).
  */
 export type PartField<C> = ChoiceField<C> | NumberField<C> | (Field<C> & { readonly kind: "text" })
   | (Field<C> & { readonly kind: "json"; readonly editor?: string });
+
+/**
+ * **What the mind editor shows of a kind of part** (`Part`) beside its label and its slots: the
+ * settings a person may change, and whether it is offered for a new selection.
+ */
+export interface Edited<C> {
+  readonly fields: readonly PartField<C>[];
+  /** False: omitted from new selections; existing configurations remain visible. */
+  readonly offered?: false;
+}
+
+/** Whether a part is offered for a new selection. */
+export const partOffered = (part: { readonly offered?: false }): boolean => part.offered !== false;
 
 /** A structured setting whose implementation validates its meaning; unknown editors use JSON. */
 export function json<C, K extends keyof C & string>(key: K, label: string, editor?: string): PartField<C> {

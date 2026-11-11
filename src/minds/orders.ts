@@ -10,7 +10,7 @@ export type Heading = GroundPoint;
 /**
  * **What a body is told to do**, by a person, a team's plan or its own mind: plain data, in
  * the world's frame, naming no joint or camera, and a pace only as a ceiling. A mind that takes orders carries them out
- * (`Part.obeys`); the body defends itself meanwhile. An order says as much as it likes: what it
+ * (`OptionPart.obeys`); the body defends itself meanwhile. An order says as much as it likes: what it
  * leaves out its mind chooses (no `foe`, whom it fights; a `foe` and no `region`, `skill` or
  * `limb`, where and how it strikes it), and what it names the mind keeps to (`orderAllows`,
  * `orderedRegions`, `orderedTarget`).
