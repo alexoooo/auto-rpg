@@ -1,16 +1,14 @@
 # Warrior punch
 
+Notes on where the Warrior's punch stands. They say what is true now and how to read it again;
+what is worked next is the run's brief ([AGENTS.md](../../AGENTS.md#the-rules)), never a line here.
+
 ## Goal
 
 Raise the value of the Warrior's punch: the table's `punch` row on `workshop-fighter`, its cells
 the loadouts with an empty hand (`empty,empty`, `empty,club`, `empty,sword`). The value is the
-life a punch trades a second ([the table](../reference/the-table.md)). `empty,empty` is worked
-first; the other two cells are read with every change and worked after it.
-
-The work follows [the skill recipe](../recipes/skill.md): read it first, then the
-[Unarmed strikes](../approaches.md#unarmed-strikes),
-[Judging](../approaches.md#judging-a-skill-or-a-mind) and [Minds](../approaches.md#minds) sections
-of the approaches and the commits their entries name (`git log -i --grep=punch`).
+life a punch trades a second ([the table](../reference/the-table.md)). The punch is the straight
+punch at the trunk with an empty hand; no other blow is part of this goal.
 
 ## Where it stands
 
@@ -22,52 +20,44 @@ npm run evaluate -- table --body workshop-fighter --skill punch --by hand
 ```
 
 Each cell reads three protocols of the Strike drill: a still target (`still`), a target walked to
-(`walk`) and a moment of a fight (`fight`). Every protocol orders the punch at the high mark (the
-head) and the middle mark (the trunk), with each hand. The cells read 0.444 (`empty,empty`, within
-noise of its baseline), 0.139 (`empty,club`, better) and 0.200 hp a second (`empty,sword`,
-better). The `empty,empty` cell's trials:
+(`walk`) and a moment of a fight (`fight`), each asking the punch where it is offered: the middle
+mark (the trunk), with each empty hand. The cells read 0.888 (`empty,empty`, within noise of its
+baseline), 0.555 (`empty,club`, better) and 0.798 hp a second (`empty,sword`, better). The
+`empty,empty` cell's trials:
 
-| Protocol | High mark | Middle mark |
+| Protocol | Value | Trials |
 | --- | --- | --- |
-| `still` | 32 of 32 refused | 23 landed, 5 refused, 2 outside, 1 guarded, 1 missed |
-| `walk` | 64 of 64 refused | 46 landed, 7 refused, 6 missed, 4 outside, 1 guarded |
-| `fight` | 8 of 8 refused | 3 landed, 2 elsewhere, 1 guarded, 1 refused, 1 outside |
+| `still` | 1.106 | 23 landed, 5 refused, 2 outside, 1 guarded, 1 missed |
+| `walk` | 0.881 | 46 landed, 7 refused, 6 missed, 4 outside, 1 guarded |
+| `fight` | 0.068 | 3 landed, 2 elsewhere, 1 guarded, 1 refused, 1 outside |
 
 What they say:
 
 - **The blow is not what limits the cell.** Where it lands, the fist meets the mark at a median
   7.3 m/s, above a person's rear hand.
-- **Half the cell's cases are orders at the head, which the punch is not offered for.** A blow not
-  begun counts 0. The drill Commander asks for the choice of its member's menu at the mark it
-  orders (`src/minds/command/drill.ts`), and Option Mind's punch names the middle mark alone
-  (`STRAIGHT_PUNCH`, `src/entrants/option/mind.ts`). The `still` and `walk` target stands in guard
-  (`drill-stand`, `src/evaluation/strike/cases.ts`), against
-  [the skill recipe](../recipes/skill.md#1-the-reader-and-its-score)'s rule that a skill is judged
-  on a target that lets it happen. Both are the owner's to decide: no head punch is asked for.
-- **At the trunk it lands about three in four, still or walked to.** The window reaches 0.06 m
-  past the punch's stand-off (`band`), and the steer is trained on that window, so few trials stay
-  `outside`; the rest are refused, miss or meet the guard.
+- **It lands about three in four, still or walked to.** The window reaches 0.06 m past the
+  punch's stand-off (`band`), and the steer is trained on that window, so few trials stay
+  `outside`; the rest are refused or miss.
+- **The target's guard stops 3 of the 104 still and walked-to trials.** That target stands in
+  guard (`drill-stand`, `src/evaluation/strike/cases.ts`).
 - **In a fight it lands three of eight.** The punch's window is not where fighters stand
-  ([the approaches](../approaches.md#unarmed-strikes)).
-- **Holding a club or a sword**, the hand that holds it has no punch, so three quarters of those
-  cells' cases are refused by the mark and the hand alone; the empty hand's trunk punch lands 10
-  and 8 of 16 on `still`.
+  ([the approaches](../approaches.md#unarmed-strikes)): footwork and openings, the Mind's and not
+  the punch's ([Blows in fights](../roadmap.md#next)).
+- **Holding a club or a sword**, the empty hand's punch lands 10 and 8 of 16 on `still`.
 
-## The questions, by the value each can move
+What is not checked: no fresh agent has watched the installed steer's reel
+([the claim](../recipes/skill.md#the-claim)), so the cells marked better are readings and no
+claim.
 
-1. **The trunk cases refused**: 5 of 32 still and 7 of 64 walked to, a `refused` with no reason:
-   in the window and ready but never settled for the drill to order it within its patience, or
-   priced below another Option by the punch's profiles. A trial's last phase and its times are read
-   with `drillTrial` (`punch-drill.mjs`) on the game's mind (`MINDS.option.config`), one condition
-   at a time; the reel (the Ratings link on each reading's line, opened as
-   [the table](../reference/the-table.md) says) shows it.
-2. **The steer's later checkpoints**: its training run goes on past the installed 1M
-   checkpoint; each is screened on `punch-policy-check.mjs` (160 trials a rate, seed 5001) and
-   installed where it lands more, its profiles measured again on the sampled rung, the Warrior's
-   rows alone.
-3. **The fight.** This is footwork and openings, the Mind's and not the punch's
-   ([Minds](../approaches.md#minds)): the roadmap's [Blows in fights](../roadmap.md#next), not
-   worked here. Its eight cases stay in the cell's value.
+## Open questions
+
+- **Why trunk punches are refused**: 5 of 32 still and 7 of 64 walked to end `refused` with no
+  reason, in the window and ready. A trial's last phase and its times are read with `drillTrial`
+  (`punch-drill.mjs`) on the game's mind (`MINDS.option.config`), one condition at a time; the
+  reel (the Ratings link on each reading's line, opened as
+  [the table](../reference/the-table.md) says) shows it.
+- **Whether a later checkpoint of the steer lands more**: a checkpoint is screened on
+  `punch-policy-check.mjs` (160 trials a rate, seed 5001) against the installed network.
 
 ## To pick it up
 
@@ -94,7 +84,5 @@ What they say:
 
 ## Completion
 
-Each cell of the row stands at a kept gain or a ceiling named from a reading, the report gives the
-row's lines as the work began and as it ends, and the claim is made as
-[the skill recipe](../recipes/skill.md#the-claim) says. What a mechanism could not do goes into
-the approaches, what worked into the recipes, and this plan is deleted.
+The owner takes the row as it reads. What worked then goes into the recipes, what the owner
+accepts a mechanism cannot do into the approaches, and these notes are deleted.

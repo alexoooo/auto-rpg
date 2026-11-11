@@ -16,10 +16,14 @@ game's own terms (`trialValue`), every trial its own value:
   not standing still. A body down makes no progress.
 - **A fall's rise** is the body and loadout's stand-up value now, the cap where it is unread, so
   a risky act and a safe one are priced alike.
-- **A blow not begun is worth 0**: where the drill's fixture reaches its case and the Mind begins
-  no blow (it refuses, never comes into its window, or falls first), the trial counts at 0. An
-  Option not used in a situation is worth nothing there, so a cell's value falls with every case
-  the Mind declines.
+- **A strike is asked only what its Mind offers**: a cell is a body, a loadout and a skill the
+  Mind has there (`Skill.has`, `strikesBy`), and a strike's cases are the drill's conditions at
+  the marks and with the limbs its Option names on that body (`caseFaults`). A drill's rung lists
+  every mark and limb a strike is asked at; each strike's cases are its own of them.
+- **A blow not begun is worth 0**: where the drill's fixture reaches a case the strike is offered
+  at and the Mind begins no blow (it refuses, never comes into its window, or falls first), the
+  trial counts at 0. An Option not used in a situation it is offered for is worth nothing there,
+  so a cell's value falls with every such case the Mind declines.
 - **What does not count**: a fall not made, a blow whose fixture did not reach its case, a cover
   never attacked. Their counts are reported beside the value.
 - **The figures beside** a value decide nothing: a strike's hit against the person's (`BAR`), the
@@ -50,7 +54,7 @@ of the trial's condition, so the table plays nothing to read.
 
 The table reads the game's rate, 120 Hz. 480 Hz is held out: a search and a confirmation read it
 beside 120 Hz ([the skill recipe](../recipes/skill.md)), and no cell does. The cases a reading
-must hold are its protocol's as it is now. A reading stands as it was read, shown with the commit
+must hold are its subject's of its protocol as they are now. A reading stands as it was read, shown with the commit
 and date it was read at, until its cell is asked for again: its trials answer the protocol's cases
 by condition, so a change to the code asks for no replay.
 

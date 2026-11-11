@@ -44,14 +44,14 @@ Confidence: *repeated* (shown three or more times), *shown* (once or twice, plai
   bar went from 6.4 to 3.0 m/s within an hour of landing none (`bcd4f589`, `1d958355`); the club's
   bar moved five times, among them `41766c12`. A skill is read by its value against the version
   before ([the skill recipe](recipes/skill.md#what-a-change-is-kept-on)). *Repeated.*
-- **A strike cell is low where the Mind refuses its cases before it is low where the blow
-  misses.** The drill orders each blow at the high and the middle mark with each hand, a blow not
-  begun counts 0, and an Option takes only its own regions with the hands that can throw it. Every
-  blow but the bonk is offered at the middle mark alone, so half of each of its readings is
-  refused, and three quarters or more where one hand holds an item: the Warrior's punch is refused on 32
-  of 32 high cases still and 64 of 64 walking, and lands 23 of 32 and 47 of 64 at the middle
-  (`9dd4c338`). Read a cell's outcomes by mark and hand (`--by`) before working on the blow.
-  *Shown.*
+- **A test that asks a skill what it does not offer scores the test, and its zeros read as a
+  missing skill.** The Strike drill ordered every blow at each mark with each hand while a blow
+  not begun counted 0, so half of a reading or more was orders the Option does not take: the
+  Warrior's punch, offered at the middle mark with an empty hand, read 0.444 with them and 0.888
+  without (`9dd4c338`, `0b866060`), and a punch at the head was built to fill the zeros and then
+  called the straight punch's limit (`e0851a10`, `68f37a1b`, withdrawn in `046bb933`). A strike's
+  cases are the ones its Option offers (`caseFaults`). Read a low cell's outcomes by mark and
+  hand (`--by`) before working on the blow. *Shown.*
 - **A strike bar that reads speed or touch alone accepts nudges, chops and bent-arm pushes**: a
   blow's worth is the mass behind the fist (`54a592aa`, `127eb165`, `ed11435a`). Since `3d6b1a01`
   `landed` counts any completed touch with the striking face, in the drill and the training reward,

@@ -752,7 +752,8 @@ target stands with its arms lowered (`drill-open`).
 - **Batteries and drills**: a battery plays one subject over its conditions; a drill's trials pass
   or fail, its rungs its protocols (the strike's bar in `strike/read.ts`).
 - **The table** (`src/evaluation/table/`): Option Mind on every body by loadout by skill
-  (`tableCells`), valued from the drills' results: each trial's value in the game's
+  (`tableCells`), a blow where the Mind offers it there (`strikesBy`) and asked only at the marks
+  and with the limbs it is offered at (`caseFaults`), valued from the drills' results: each trial's value in the game's
   terms (`trialValue`: a stand's seconds, a move's seconds lost against its orders, `orderTime`, a
   blow's life traded a second, a cover's life lost), a fall priced at the body's time to stand;
   a reading's value the mean over its whole protocol (`valueOf`); a cell against its baseline
