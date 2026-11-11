@@ -437,7 +437,9 @@ tree for these (`stageRefusal`, `treeObeys`, `phaseLabels`). Option Mind answers
 
 **Option Mind** (`src/minds/option/`, `optionMind`) is a reusable decision framework. Its entrant
 (`src/entrants/option/`) owns the ordered assembly and presets; the application registers the
-shared root kind `option` with its application defaults (`src/app/option-defaults.ts`). It chooses among
+shared root kind `option` with its defaults (`src/app/option-controller.ts`). Every Option but a
+blow is one list (`BASE_OPTIONS`, `standard.ts`, the Options a body gets up by `RISE_OPTIONS`
+among them): the application's defaults are that list, and an entrant adds its blows to it. It chooses among
 options of the kinds in `OPTION_KINDS`, each a skill applied to a target (`Option`): its entry
 (`Readiness`), the resources it claims, its model at the state now or one an Option leaves the
 body in (`Option.model`, `placed`; `Terms`: duration, what it deals and takes, and the ways it ends,

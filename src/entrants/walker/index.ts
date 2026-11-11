@@ -2,20 +2,11 @@ import type { Entrant } from "../../minds/index.ts";
 import type { MindPreset } from "../../minds/index.ts";
 import type { ConfigFor } from "../../parts/index.ts";
 import type { OptionMindConfig } from "../../minds/option/index.ts";
-import { GUARD_OPTION, HOLD_OPTION, type WalkConfig } from "../../minds/option/index.ts";
-import { BRACE_OPTION, BRACE_TUMBLING_OPTION, STEADY_OPTION, FLATTEN_OPTION, LAND_OPTION } from "../../minds/option/index.ts";
+import { BRACE_OPTION, GUARD_OPTION, HOLD_OPTION, RISE_OPTIONS, type WalkConfig } from "../../minds/option/index.ts";
 import { deepFreeze } from "../../core/state.ts";
 
 /** The gaits this fighter may walk by, in preference order. */
 const WALKS: readonly WalkConfig[] = deepFreeze(["braced", "run", "trot", "crawl"].map((gait) => ({ kind: "walk" as const, gait })));
-
-/** Recovery choices, in preference order, for every body this fighter fits. */
-const RISE_OPTIONS: readonly ConfigFor<"option">[] = deepFreeze([
-  BRACE_TUMBLING_OPTION.defaults, STEADY_OPTION.defaults,
-  ...(["staged-roll", "staged-down", "sit-back", "front-sit-back", "righting-recipe", "righting-routes"] as const).map((kind) => ({ kind: "way-up" as const, skill: { kind } })),
-  ...(["roll", "roll-back"] as const).map((kind) => ({ kind: "reposition" as const, skill: { kind } })),
-  FLATTEN_OPTION.defaults, LAND_OPTION.defaults,
-]);
 
 /** Where it walks to, m on the ground from where it starts: ahead and to its left, so it turns on the way. */
 const PLACE = deepFreeze({ x: 2, z: 6 });
