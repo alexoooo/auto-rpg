@@ -10,7 +10,7 @@ import type { SupportGoal } from "../../control/supported-motor.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { BodyControl } from "../../core/bodies/body-control.ts";
 
-/** The gaits' legs of any registered kind (`GAIT_PARTS`), as a lookup finds them (`legsOf`, `kit.ts`): how Move makes the gaits it chooses among. */
+/** The gaits' legs of any registered kind (`GAIT_PARTS`), as a lookup finds them (`legsOf`, `filled.ts`): how Move makes the gaits it chooses among. */
 export interface Legs {
   make(body: Body, config: PartConfig): Locomotion;
   /** The lookup the legs were made with, for the parts their config names (Move's rules). */

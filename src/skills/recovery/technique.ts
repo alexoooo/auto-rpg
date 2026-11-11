@@ -1,4 +1,4 @@
-import type { MindKit } from "../framework/mind-kit.ts";
+import type { MotorAndGuard } from "../framework/motor-and-guard.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import type { MuscleReading, MuscleCommand } from "../../core/bodies/muscle/driver.ts";
 import type { BodyControl } from "../../core/bodies/body-control.ts";
@@ -42,8 +42,8 @@ export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
   /** Its entry (`TechniqueRun.admits`) reads the body's motion and its raw position (`GroundReading.raw`): a stand-up begins it on a body still tumbling where it admits it, and braces one only where none does. */
   readonly moving: boolean;
-  /** A run of it under `config` on the body, driving it with the mind's motor and guard (`kit`). */
-  make(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit, config: C, afterPhysics: Body["afterPhysics"]): TechniqueRun;
+  /** A run of it under `config` on the body, driving it with the mind's motor and guard (`fitted`). */
+  make(own: OwnBody, view: BodyView, clock: Clock, fitted: MotorAndGuard, config: C, afterPhysics: Body["afterPhysics"]): TechniqueRun;
 }
 
 /** Whether `part` is a way up: it takes the body between positions (its `edges`), where a mode of the ground holds it (none). */

@@ -10,7 +10,7 @@ import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import { SERVO_SECONDS } from "../../../../src/control/body.ts";
 import { carrying } from "../../../../src/control/motor.ts";
 import { locomotion, stanceOf } from "../../../../src/skills/locomotion/locomotion.ts";
-import { mindKitOf } from "../../../../src/skills/assembly/kit.ts";
+import { motorAndGuardOf } from "../../../../src/skills/assembly/filled.ts";
 import { partLookup } from "../../../../src/app/catalog.ts";
 import { standReady } from "../../../../src/control/ground-reading.ts";
 import { footStatesOf, readSupport, withinSupport } from "../../../../src/control/support.ts";
@@ -37,10 +37,10 @@ export function quintic(x0, v0, x1, T, t) {
 export function crouchSteady(own, view, variant = {}) {
   const control = { on: true, t0: null, from: null, mid: null, depth: null, height: null, c0: null, climbed: false, ready: 0, handBack: null,
     lead: 0, steps: 0, asked: null, at: 0, short: 0, path: null, planned: null };
-  const kit = mindKitOf(partLookup, own.spec), legs = locomotion(stanceFeetOf(own.spec), null, { segments: stanceSegmentsOf(own.spec) });
-  const motor = carrying(kit.motor.make(own.built, own.muscles, variant.servo ?? SERVO_SECONDS, kit.posture, variant.tuning, own.assist), ["stance"], "the crouch steady");
+  const fitted = motorAndGuardOf(partLookup, own.spec), legs = locomotion(stanceFeetOf(own.spec), null, { segments: stanceSegmentsOf(own.spec) });
+  const motor = carrying(fitted.motor.make(own.built, own.muscles, variant.servo ?? SERVO_SECONDS, fitted.posture, variant.tuning, own.assist), ["stance"], "the crouch steady");
   const channels = own.muscles.channels;
-  const blend = k => Object.fromEntries(channels.map((c, i) => [c.name, control.from[i] + ((kit.posture[c.name] ?? 0) - control.from[i]) * k]));
+  const blend = k => Object.fromEntries(channels.map((c, i) => [c.name, control.from[i] + ((fitted.posture[c.name] ?? 0) - control.from[i]) * k]));
   const feet = footStatesOf(own.built), middle = new Vector3();
   /** Whether the climb can begin: both soles flat and bearing, the centre of mass over what they hold, slow, and lower than `below` of standing. */
   const climbable = (r, f) => {
@@ -67,12 +67,12 @@ export function crouchSteady(own, view, variant = {}) {
         control.depth ??= Math.max(0, Math.min(1, (legs.reference - LOWER - (r.centre.y - r.support.y)) / span));
         const u = Math.min(1, t / f.T), depth = control.depth * (1 - smooth(u));
         if (u < 1) {
-          const pose = { ...kit.posture };
+          const pose = { ...fitted.posture };
           pose["lumbar flexion"] = (pose["lumbar flexion"] ?? 0) + (f.lumbar ?? .89) * depth;
           pose["thoracic flexion"] = (pose["thoracic flexion"] ?? 0) + (f.thoracic ?? .368) * depth;
           motor.setPosture(pose);
           goal = { feet: [footOn(own.spec, "left"), footOn(own.spec, "right")], centre: null, heading: h, height: legs.reference - LOWER - span * depth, pose: { pitch: (f.pitch ?? .9) * depth, seconds: f.response ?? .5 } };
-        } else motor.setPosture(kit.posture);
+        } else motor.setPosture(fitted.posture);
       }
       if (goal && variant.lift) {
         const f = variant.lift, top = legs.reference - LOWER, u = Math.min(1, t / f.T), k = smooth(u);
@@ -80,7 +80,7 @@ export function crouchSteady(own, view, variant = {}) {
         if (u < 1) {
           motor.setPosture(blend(0));
           goal = { feet: [footOn(own.spec, "left"), footOn(own.spec, "right")], centre: null, heading: h, height: control.height + (top - control.height) * k, pose: { pitch: f.pitch * (1 - k), seconds: f.response ?? .3 } };
-        } else motor.setPosture(kit.posture);
+        } else motor.setPosture(fitted.posture);
       }
       if (goal && variant.ramp) {
         // The shift, `delay` s: the height held, the centre of mass asked `d` m ahead of the feet's middle, the trunk's
@@ -114,7 +114,7 @@ export function crouchSteady(own, view, variant = {}) {
         const P = control.path, tp = t - P.at;
         if (tp < f.T) {
           const u = tp / f.T, b = 16 * u * u * (1 - u) * (1 - u);
-          const k = jerk(Math.min(1, tp / (f.Tp ?? f.T))), pose = Object.fromEntries(channels.map((c, i) => [c.name, P.from[i] + ((kit.posture[c.name] ?? 0) - P.from[i]) * k]));
+          const k = jerk(Math.min(1, tp / (f.Tp ?? f.T))), pose = Object.fromEntries(channels.map((c, i) => [c.name, P.from[i] + ((fitted.posture[c.name] ?? 0) - P.from[i]) * k]));
           for (const c of channels) {
             if (c.name === "lumbar flexion") pose[c.name] += (f.lean ?? 0) * b;
             if (c.name === "thoracic flexion") pose[c.name] += .4 * (f.lean ?? 0) * b;
@@ -127,7 +127,7 @@ export function crouchSteady(own, view, variant = {}) {
           control.planned = [x, y, z];
           goal = { feet: [footOn(own.spec, "left"), footOn(own.spec, "right")], centre: [x, z], heading: h, height: y, pose: { pitch, seconds: f.s ?? .1 } };
         } else {
-          if (!control.climbed) { control.climbed = true; motor.setPosture(kit.posture); }
+          if (!control.climbed) { control.climbed = true; motor.setPosture(fitted.posture); }
           goal = { ...goal, height: top };
         }
       }
@@ -143,7 +143,7 @@ export function crouchSteady(own, view, variant = {}) {
           }
           motor.setPosture(pose); goal = null;
         } else if (!control.climbed) {
-          control.climbed = true; motor.setPosture(kit.posture); resume(); motor.stance.read();
+          control.climbed = true; motor.setPosture(fitted.posture); resume(); motor.stance.read();
           goal = stanceOf(legs.goal({ ...view, stance: motor.stance.reading }, { walk: null, face: legs.heading }, dt));
         }
       }

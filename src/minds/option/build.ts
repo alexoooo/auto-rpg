@@ -1,7 +1,7 @@
 import { aimsState, configuredAims } from "../../skills/assembly/action-config.ts";
-import { kitBody, kitSkills } from "../../skills/assembly/assembly.ts";
-import { filledOf, mindKitOf } from "../../skills/assembly/kit.ts";
-import type { SkillKit } from "../../skills/config.ts";
+import { motorLayerOptions, makeSkills } from "../../skills/assembly/assembly.ts";
+import { filledOf, motorAndGuardOf } from "../../skills/assembly/filled.ts";
+import type { SkillParts } from "../../skills/config.ts";
 import type { Skills } from "../../skills/framework/skills.ts";
 import { groundSkills } from "../../skills/recovery/skills.ts";
 import type { MindMade } from "../catalog/controller.ts";
@@ -45,19 +45,19 @@ export function buildOptionMind(host: BodyHost, config: ResolvedConfig): OptionM
   const legs = filledOf(parts, spec, "legs", tuned);
   const guard = filledOf(parts, spec, "guard", tuned);
 
-  // What its Options name of the body's skills, and with the parts above, the kit its skills are made from.
+  // What its Options name of the body's skills, and with the parts above, what its skills are made from.
   const named = skillsOf(parts, spec, config.options);
   const navigation = named.navigation ?? config.navigation;
-  const kit: SkillKit = { legs, guard, navigation, executors: named.executors, actions: named.actions, support: named.support };
+  const skillParts: SkillParts = { legs, guard, navigation, executors: named.executors, actions: named.actions, support: named.support };
 
   // The body, taken once from its host under command layers on its motor. Taking it hooks the mind to the world's step (`embody`).
-  const layerOptions = { ...kitBody(motor, parts), ...host.experiment };
+  const layerOptions = { ...motorLayerOptions(motor, parts), ...host.experiment };
   const { body } = host.take(own => commandedMind(own, layerOptions, clock));
 
-  // Its skills on that body: its ways up off the ground, its aims, then the kit's.
-  const ground = groundSkills(body, clock, mindKitOf(parts, spec, tuned), named.techniques);
-  const aims = configuredAims(parts, spec, kit.actions);
-  const skills = kitSkills(body, clock, parts, kit, ground, aims);
+  // Its skills on that body: its ways up off the ground, its aims, then those its parts make.
+  const ground = groundSkills(body, clock, motorAndGuardOf(parts, spec, tuned), named.techniques);
+  const aims = configuredAims(parts, spec, skillParts.actions);
+  const skills = makeSkills(body, clock, parts, skillParts, ground, aims);
 
   // Its decider: the session its predictions part builds over its chooser and Options, deciding every `every`th control step.
   const hz = Math.round(1 / clock.dt);

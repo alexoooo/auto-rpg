@@ -25,7 +25,7 @@ import { recoveryMeasurement } from "../../../../../src/game/lab/recovery-measur
 import { turnOfToRef } from "../../../../../src/core/bodies/read-motion.ts";
 import { observeBody } from "../../../../../src/control/observation.ts";
 import { clockSenses } from "../../../../../src/core/world/senses.ts";
-import { mindKitOf } from "../../../../../src/skills/assembly/kit.ts";
+import { motorAndGuardOf } from "../../../../../src/skills/assembly/filled.ts";
 import { partLookup } from "../../../../../src/app/catalog.ts";
 import { groundReading } from "../../../../../src/control/ground-reading.ts";
 import { TECHNIQUES } from "../../../../../src/app/registration/techniques.ts";
@@ -46,7 +46,7 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
   const trial = { end: null, at: null, heading: 0, stage: [] };
   const body = stockBody(built, world, { servoSeconds: .1 }, [(own, view, clock, afterPhysics) => {
     const part = TECHNIQUES[technique];
-    const run = part.make(own, view, clock, mindKitOf(partLookup, own.spec), part.defaults, afterPhysics);
+    const run = part.make(own, view, clock, motorAndGuardOf(partLookup, own.spec), part.defaults, afterPhysics);
     const reader = groundReading(own.built, own.dt), state = { trial, run: run.state, reader: reader.state, begun: false };
     return { name: technique, has: () => technique, dispose() {}, mind: { state, wants: () => trial.end === null, begin() {}, end() {}, interrupt() {},
       // The technique runs in the motor part, on the body as it is, as the game's ground actions do.

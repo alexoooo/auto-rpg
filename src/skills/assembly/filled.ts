@@ -1,4 +1,4 @@
-import type { MindKit } from "../framework/mind-kit.ts";
+import type { MotorAndGuard } from "../framework/motor-and-guard.ts";
 import type { Locomotion } from "../framework/locomotion-part.ts";
 import type { Body } from "../../control/body.ts";
 import type { MotorMaker } from "../../control/motor-part.ts";
@@ -59,8 +59,8 @@ export function legsOf(parts: PartLookup, body: Body, config: PartConfig): Locom
 }
 
 
-/** **The kit of a body of `spec`**: its motor and its guard, each the one `given` passes in, else the one the body fits (`filledOf`), as `parts` finds it. */
-export function mindKitOf(parts: PartLookup, spec: BodySpec, given: Filled = {}): MindKit {
+/** **The motor and guard of a body of `spec`**, made: each the one `given` passes in, else the one the body fits (`filledOf`), as `parts` finds it. */
+export function motorAndGuardOf(parts: PartLookup, spec: BodySpec, given: Filled = {}): MotorAndGuard {
   const guarding = filledOf(parts, spec, "guard", given), guard = parts.of("guard", guarding);
   return { motor: motorOf(parts, filledOf(parts, spec, "motor", given)), posture: guard.posture(spec, guarding), guard: (built) => guard.make(built, guarding), parts };
 }

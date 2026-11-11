@@ -1,4 +1,4 @@
-import type { MindKit } from "../framework/mind-kit.ts";
+import type { MotorAndGuard } from "../framework/motor-and-guard.ts";
 import { segmentResource, poseResource, LEG_RESOURCE, TRUNK_RESOURCE, ASSIST_RESOURCE } from "../framework/action.ts";
 import type { Body, BodyView } from "../../control/body.ts";
 import { heldBody, heldCommand, heldPushes } from "./held-body.ts";
@@ -95,17 +95,17 @@ function groundSkill(name: string, run: TechniqueRun, ground: GroundBody, clock:
 
 /**
  * **A body's ground skills**: an executor each of `techniques` (each a technique's config, a way up
- * or a mode of the ground) that fits the body, run with the mind's motor and guard (`kit`) on the
+ * or a mode of the ground) that fits the body, run with the mind's motor and guard (`fitted`) on the
  * body they share (`groundBody`), and its action, named as the technique, asked through its declared action bindings (`TechniquePart.bindings`).
  */
-export function groundSkills(body: Body, clock: Clock, kit: MindKit, techniques: readonly PartConfig[]): { readonly executors: readonly ExecutorBinding[]; readonly actions: readonly ActionBinding[] } {
-  const fitting = techniques.filter((config) => kit.parts.of("technique", config).fits(body.built.spec, config, kit.parts) === null);
+export function groundSkills(body: Body, clock: Clock, fitted: MotorAndGuard, techniques: readonly PartConfig[]): { readonly executors: readonly ExecutorBinding[]; readonly actions: readonly ActionBinding[] } {
+  const fitting = techniques.filter((config) => fitted.parts.of("technique", config).fits(body.built.spec, config, fitted.parts) === null);
   if (!fitting.length) return { executors: [], actions: [] };
   const runs: TechniqueRun[] = [];
   const ground = groundBody(body, runs);
-  for (const config of fitting) runs.push(kit.parts.of("technique", config).make(ground.own, body.view, clock, kit, config, ground.afterPhysics));
+  for (const config of fitting) runs.push(fitted.parts.of("technique", config).make(ground.own, body.view, clock, fitted, config, ground.afterPhysics));
   const bindings = fitting.map(config => {
-    const part = kit.parts.of("technique", config);
+    const part = fitted.parts.of("technique", config);
     const declared = part.bindings(body.built.spec, config);
     if (declared.some(one => !part.starts.includes(one.start) || !body.built.segments.has(one.segment)) || new Set(declared.map(one => one.segment)).size !== declared.length) throw new Error(`invalid action bindings for ${config.kind}`);
     return declared;

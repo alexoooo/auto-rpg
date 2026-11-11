@@ -42,8 +42,8 @@ const CLIMBING = "steady:climb";
  * ground skill carried over, its motor forgets what it had under way.
  */
 export const STEADY_MODE = technique("steady", { requires: [SUPPORT_REFERENCE, MOTOR_STANCE], mode: { kind: "steady", climbing: CLIMBING }, label: "Steady", stage: "game", sides: ONE_SIDE, edges: NO_EDGES,
-  make: (own, view, _clock, kit): TechniqueRun => {
-    const steady = steadying(own, view, kit);
+  make: (own, view, _clock, fitted): TechniqueRun => {
+    const steady = steadying(own, view, fitted);
     return { ...MODE, state: steady.state, get phase() { return steady.state.climb.on ? CLIMBING : "steady"; },
       begin() { steady.begin(); }, step(_g, _senses, control, dt) { steady.step(control, dt); return null; }, forget() { steady.reset(); } };
   } });

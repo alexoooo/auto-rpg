@@ -237,7 +237,7 @@ export async function residualEnvironment(configuration = {}) {
     if (o.toeConditioning) await conditionToeStand(stand, o.toeConditioning);
     host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
       assist: balanceCeiling(0, balancePercent(rulebook('arena'))) });
-    body = host.driver; root = rootSegment(body.built);
+    body = host.commanded; root = rootSegment(body.built);
     const physical = uprightness(body.built);
     runView = Object.create(body.view, { down: { get: () => physical.fallen() } });
     physicalParts = [...stand.built.segments.values()]; mass = massOf(physicalParts);

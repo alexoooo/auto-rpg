@@ -17,7 +17,7 @@ test("a stance's named bearing end excludes another controller of its segment", 
     const embodied = embody(stand.built, stand.world,
       own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: stockMotor() }, stand.world));
     try {
-      const body = embodied.mind.body;
+      const body = embodied.construction.body;
       let carried = 0;
       body.drive(() => { carried++; return { posture: {}, pushes: [],
         stance: { feet: [end.name], centre: null, height: body.view.standing, heading: 0 },

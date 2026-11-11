@@ -1,4 +1,4 @@
-import type { MindKit } from "../../../framework/mind-kit.ts";
+import type { MotorAndGuard } from "../../../framework/motor-and-guard.ts";
 import { SUPPORT_REFERENCE } from "../../../../control/support-reference.ts";
 import { MOTOR_STANCE } from "../../../../control/motor-part.ts";
 import type { BodyView } from "../../../../control/body.ts";
@@ -87,8 +87,8 @@ const stagedEntry = (kind: StagedKind, tuning: StepUpTuning, g: GroundReading, s
  * (`risePart`). A rise that falls back to lying slack, or onto its back, fails; one longer than
  * step up's whole attempt (`LIMIT`) times out.
  */
-function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, tuning: StepUpTuning): TechniqueRun<Side> {
-  return PARTS[kind].first === null ? rollPart(own, view, kind, tuning) : risePart(own, view, kit, kind, tuning);
+function routePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: StagedKind, tuning: StepUpTuning): TechniqueRun<Side> {
+  return PARTS[kind].first === null ? rollPart(own, view, kind, tuning) : risePart(own, view, fitted, kind, tuning);
 }
 
 /** The exact roll or rise slices this route constructs, shared with its body admission. */
@@ -163,7 +163,7 @@ function rollPart(own: OwnBody, view: BodyView, kind: StagedKind, tuning: StepUp
  * route to its end, step up's climb and steadying (`stanceSteady`). It yields only while it lies
  * slack: its climb is its own until the body stands ready or falls.
  */
-function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, tuning: StepUpTuning): TechniqueRun<Side> {
+function risePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: StagedKind, tuning: StepUpTuning): TechniqueRun<Side> {
   const part: Part = PARTS[kind];
   const whole = stepUpRecipe(tuning, part.recipe);
   const at = (name: string): number => {
@@ -176,7 +176,7 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind, 
   const cuts = part.recipe ? [] : CUTS.map(cut => ({ index: at(cut.after), at: cut.at })).filter(cut => cut.index >= first && cut.at === part.to);
   const unrolled = routeRecipes(kind, tuning)[0]!;
   const rise: StepUpRise = stagedRise(own, view, unrolled);
-  const motor = carrying(kit.motor.make(own.built, own.muscles, .1, kit.posture), ["stance"], "a part of step up's route");
+  const motor = carrying(fitted.motor.make(own.built, own.muscles, .1, fitted.posture), ["stance"], "a part of step up's route");
   const steady = stanceSteady(own, view, motor, tuning.climb);
   // `cut`: the latest of `cuts` begun, -1 for none.
   const state = { phase: "rise" as "rise" | "steady", rose: false,
@@ -256,7 +256,7 @@ declare module "../../technique.ts" {
 const routeTechnique = <K extends StagedKind>(kind: K, label: string): TechniquePart<StagedConfig<K>> => Object.freeze({ ...technique(kind, { label, stage: "experimental", moving: true,
   sides: Object.freeze(["left"] as const), edges: Object.freeze(PARTS[kind].from.map(from => Object.freeze({ from, to: PARTS[kind].to as Position }))),
   requires: PARTS[kind].first === null ? [] : [SUPPORT_REFERENCE, MOTOR_STANCE], reads: () => ["step-up", "sit-back"],
-  make: (own, view, _clock: Clock, kit, config) => routePart(own, view, kit, kind, (config as StagedConfig<K>).tuning ?? stepUpTuning(own.spec)) }),
+  make: (own, view, _clock: Clock, fitted, config) => routePart(own, view, fitted, kind, (config as StagedConfig<K>).tuning ?? stepUpTuning(own.spec)) }),
   fitReads: ["step-up", "sit-back"] as const, fits: fitsPart(kind),
   keys: { kind: true, tuning: true } as const, tuning: ["settle", "climb", "stages", "rest", "over", "roll", "sideSwing", "heldSupport", "loadouts"],
   faults: (config: StagedConfig<K>) => config.tuning === undefined || validStepUp(config.tuning) ? [] : ["tuning: invalid step-up settings"],

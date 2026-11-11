@@ -26,7 +26,7 @@ test("a travel answer acts over exactly its own decision interval", async () => 
   let host;
   try {
     host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true });
-    const body = host.driver, pace = 1;
+    const body = host.commanded, pace = 1;
     const settings = { travel: network(1, { inputs: TRAVEL_LAYOUT.inputs.length, actions: TRAVEL_LAYOUT.outputs.length }),
       reference: network(3, { inputs: 49, actions: 12 }), velocityScale: .01, referenceScale: 0,
       interval: 1 / 30, entry: "landing", trim: "continuous",

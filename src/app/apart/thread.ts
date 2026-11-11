@@ -1,6 +1,6 @@
 import { recordingKey } from "../../core/world/recording.ts";
 import { seatHost, type ReportNow, type SeatAsk } from "../../minds/seat/apart.ts";
-import type { MirrorChannel } from "../../minds/seat/mirror.ts";
+import type { MirrorChannel } from "../../minds/seat/mirror-channel.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { MIND_CATALOGS } from "./catalogs.ts";
 import type { AskCrossing, Batch, Reply, Said, SpecNumber, ToldCrossing } from "./wire.ts";

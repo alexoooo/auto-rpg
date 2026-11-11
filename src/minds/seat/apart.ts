@@ -9,7 +9,7 @@ import type { MindConfig } from "../catalog/config.ts";
 import type { Mind, MindConstruction } from "../mind.ts";
 import type { Experiment } from "../../control/body.ts";
 import type { OwnBody } from "../../core/bodies/own-body.ts";
-import { mirrorBody, type MirrorChannel, type MirrorStatics } from "./mirror.ts";
+import { mirrorBody, type MirrorChannel, type MirrorStatics } from "./mirror-channel.ts";
 import { answer, think } from "../execution.ts";
 import type { MindReport } from "../report.ts";
 

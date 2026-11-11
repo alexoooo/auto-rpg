@@ -13,7 +13,7 @@ import { heldSteps } from "../../core/bodies/command-delay.ts";
 import type { Senses } from "../../core/bodies/senses.ts";
 import type { MindConstruction } from "../mind.ts";
 import { answer, think } from "../execution.ts";
-import { mirrorBody, mirrorStatics, mirrorWriter, type MirrorStatics, type MirrorWriter } from "./mirror.ts";
+import { mirrorBody, mirrorStatics, mirrorWriter, type MirrorStatics, type MirrorWriter } from "./mirror-channel.ts";
 import type { HeldReading } from "./physical-body.ts";
 import type { SheetLog } from "./sheets.ts";
 
@@ -24,7 +24,8 @@ interface Embodied<M extends MindConstruction = MindConstruction> {
   readonly own: OwnBody;
   /** The body as its fight holds it: its muscles, its assist and its senses, the world's own whatever its mind reads. */
   readonly held: HeldReading;
-  readonly mind: M;
+  /** What its maker made of it: the `Mind`, its name, who has the body and its disposal. */
+  readonly construction: M;
   /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, the mind's own, what its mind has asked and not yet answered (`Mirror.command`) and what its senses last showed it (`Mirror.seen`). */
   readonly state: object;
   /** Stop driving: the mind lets go (`MindConstruction.dispose`), its observers stop, and the motors are released. */
@@ -78,7 +79,7 @@ export function embody<M extends MindConstruction>(built: BuiltBody, world: Worl
   scope.own(thinking);
   scope.own(world.onLoad(() => { writer.write(); mirror.refresh({ dynamics: false }); mirror.recall(); }));
   complete = true;
-  return { own, held: { muscles, assist: help.assist, senses: sense }, mind: made,
+  return { own, held: { muscles, assist: help.assist, senses: sense }, construction: made,
     state: { muscles: muscles.state, assist: help.state, configurations: built.configurations.state, posed, toes: built.toes, strength: built.strength,
       mind: made.mind.state, asked: mirror.command, seen: mirror.seen },
     dispose: scope.dispose,

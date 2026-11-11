@@ -24,7 +24,7 @@ for (const model of ['workshop-fighter', 'workshop-rogue', 'crypt-skeleton']) {
   const host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true,
     assist: balanceCeiling(0, balancePercent(rulebook('arena'))) });
   try {
-    const body = host.driver, parts = [...stand.built.segments.values()], mass = massOf(parts), physical = uprightness(stand.built);
+    const body = host.commanded, parts = [...stand.built.segments.values()], mass = massOf(parts), physical = uprightness(stand.built);
     const legs = locomotion(stanceFeetOf(spec), null, { segments: stanceSegmentsOf(spec), idleFooting: standingFooting(stand.built) });
     const centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), samples = [];
     let requested = false, fellAt = null;

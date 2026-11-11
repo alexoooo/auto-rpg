@@ -25,42 +25,42 @@ export function phaseOf(order: number): number {
  * **`built` in `world` under the mind `make` makes**, given `given` (`Embodying`): the one way a
  * body takes a mind, in a fight or out of one. The fight's `PhysicalBody` is built the same way for
  * every mind: who has the body is the mind's (`MindConstruction.has`, its name where it hands nothing over),
- * and where the mind drives it through the command layers (`CommandedMind.body`) it shows their view and
- * drive as a `HostedBody` does.
+ * and where the mind drives it through the command layers (`CommandedMind.body`, the `commanded`
+ * body) it shows their view and drive as a `HostedBody` does.
  */
-function takeBody<M extends MindConstruction & Partial<Pick<CommandedMind, "body">>>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
-  const { held, mind, state, dispose } = embody(built, world, make, given);
-  const body = physicalBody(built, held, world, () => mind.has(), state, dispose), driver = mind.body;
-  return { mind, body: driver ? Object.assign(body, { view: driver.view, envelope: driver.envelope, drive: driver.drive, afterPhysics: driver.afterPhysics, driver }) : body };
+function takeBody<M extends MindConstruction & Partial<Pick<CommandedMind, "body">>>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly construction: M; readonly physical: PhysicalBody } {
+  const { held, construction, state, dispose } = embody(built, world, make, given);
+  const physical = physicalBody(built, held, world, () => construction.has(), state, dispose), commanded = construction.body;
+  return { construction, physical: commanded ? Object.assign(physical, { view: commanded.view, envelope: commanded.envelope, drive: commanded.drive, afterPhysics: commanded.afterPhysics, commanded }) : physical };
 }
 
 /** A body under explicitly configured command layers and ranked sub-minds. */
 export function commandedBody(built: BuiltBody, world: World, options: BodyOptions, subs: readonly SubMindMaker[] = []): HostedBody {
   const { senses, assist, contactIdentity, log, ...layers } = options;
-  return takeBody(built, world, { senses, assist, contactIdentity, log }, own => commandedMind(own, layers, clockOf(world), subs)).body as HostedBody;
+  return takeBody(built, world, { senses, assist, contactIdentity, log }, own => commandedMind(own, layers, clockOf(world), subs)).physical as HostedBody;
 }
 
 /**
  * A host for `built` in `world` as the fight wires it (`wiring`), its parts looked up in `parts`, its sheets written in
  * `log` and `answered` called with each answer (`Embodying`) where given, and the body its mind
- * took through it (`made`), which the fight holds.
+ * took through it (`taken`), which the fight holds.
  */
-export function bodyHost(built: BuiltBody, world: World, wiring: MindWiring, parts: PartLookup, { log, answered }: Pick<Embodying, "log" | "answered"> = {}): { readonly host: BodyHost; made(): PhysicalBody; dispose(): void } {
-  let body: PhysicalBody | null = null;
+export function bodyHost(built: BuiltBody, world: World, wiring: MindWiring, parts: PartLookup, { log, answered }: Pick<Embodying, "log" | "answered"> = {}): { readonly host: BodyHost; taken(): PhysicalBody; dispose(): void } {
+  let physical: PhysicalBody | null = null;
   const given: Embodying = { senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity, log,
     ...(answered ? { answered } : {}) };
   const host: BodyHost = Object.freeze({
     spec: built.spec, clock: clockOf(world), parts, seed: wiring.seed ?? 0, phase: wiring.phase ?? 0, rules: wiring.rules,
     orders: (senses: Senses) => wiring.orders(senses), ...(wiring.experiment ? { experiment: wiring.experiment } : {}),
     take<M extends MindConstruction>(make: (own: OwnBody) => M): M {
-      if (body) throw new Error("a mind takes its body once");
-      const taken = takeBody(built, world, given, make);
-      body = taken.body;
-      return taken.mind;
+      if (physical) throw new Error("a mind takes its body once");
+      const took = takeBody(built, world, given, make);
+      physical = took.physical;
+      return took.construction;
     },
   });
-  return { host, dispose: () => body?.dispose(), made() {
-    if (!body) throw new Error("the mind took no body");
-    return body;
+  return { host, dispose: () => physical?.dispose(), taken() {
+    if (!physical) throw new Error("the mind took no body");
+    return physical;
   } };
 }

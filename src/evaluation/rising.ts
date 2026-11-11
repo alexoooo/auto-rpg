@@ -20,7 +20,7 @@ import type { OptionMindConfig } from "../minds/option/config.ts";
 import type { MindConfig } from "../minds/catalog/config.ts";
 import { groundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
-import { mindKitOf } from "../skills/assembly/kit.ts";
+import { motorAndGuardOf } from "../skills/assembly/filled.ts";
 import { isWayUp, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/technique.ts";
 import { withWaysUp } from "../minds/option/rise.ts";
 import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/bodies/models.ts";
@@ -191,11 +191,11 @@ export function createRising(context: GameContext) {
     const destination = TECHNIQUES[technique].edges[0]!.to;
     if (!["workshop-fighter", "workshop-rogue", "crypt-skeleton"].includes(model)) throw new Error(`unsupported humanoid technique model ${model}`);
     const spec = strengthSpec(armedWith(humanoidSpec(model as "workshop-fighter"), "right", job.held ?? "empty"), factor);
-    const kit = mindKitOf(partLookup, spec);
+    const fitted = motorAndGuardOf(partLookup, spec);
     for (const name of [technique, ...(job.after ? [job.after] : [])]) {
       const part = TECHNIQUES[name];
       const refusal = part.fits(spec, part.defaults, partLookup)
-        ?? motorRequirementRefusal(kit.motor, spec, partRequirements(partLookup, part.defaults, spec));
+        ?? motorRequirementRefusal(fitted.motor, spec, partRequirements(partLookup, part.defaults, spec));
       if (refusal) return rejected(`${name}: ${refusal}`);
     }
     const start = job.start ?? "placed", posture = job.posture ?? "squat", seed = job.seed ?? 1;
@@ -216,11 +216,11 @@ export function createRising(context: GameContext) {
     let run!: TechniqueRun, predecessor: TechniqueRun | null = null;
     const control = { active: start !== "shoved", end: null as string | null, from: null as number | null, ended: null as number | null,
       predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
-    const body = lifetime.own(commandedBody(built, world, { servoSeconds: .1, motor: kit.motor }, [(own, view, into, afterPhysics) => {
-      const kit = mindKitOf(partLookup, own.spec);
+    const body = lifetime.own(commandedBody(built, world, { servoSeconds: .1, motor: fitted.motor }, [(own, view, into, afterPhysics) => {
+      const fitted = motorAndGuardOf(partLookup, own.spec);
       const part: TechniquePart = TECHNIQUES[technique], after: TechniquePart | undefined = job.after ? TECHNIQUES[job.after] : undefined;
-      run = part.make(own, view, into, kit, part.defaults, afterPhysics);
-      predecessor = after?.make(own, view, into, kit, after.defaults, afterPhysics) ?? null;
+      run = part.make(own, view, into, fitted, part.defaults, afterPhysics);
+      predecessor = after?.make(own, view, into, fitted, after.defaults, afterPhysics) ?? null;
       if (job.after && !predecessor) throw new Error(`unknown predecessor ${job.after}`);
       const name = `technique:${technique}`;
       return { name, has: () => name, dispose() {}, mind: { state: { control, run: run.state, predecessor: predecessor?.state ?? null },

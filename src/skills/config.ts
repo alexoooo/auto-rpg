@@ -47,8 +47,8 @@ declare module "../parts/lookup.ts" {
   }
 }
 
-/** **What a body's skills are made from** (`kitSkills`): its legs, its navigation, its guard, its executors and the actions they carry out, and its low support, each any part of its role. */
-export interface SkillKit {
+/** **What a body's skills are made from** (`makeSkills`): its legs, its navigation, its guard, its executors and the actions they carry out, and its low support, each any part of its role. */
+export interface SkillParts {
   readonly legs: ConfigFor<"locomotion">;
   readonly navigation: ConfigFor<"navigation">;
   readonly guard: ConfigFor<"guard">;

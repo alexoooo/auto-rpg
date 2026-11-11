@@ -66,7 +66,7 @@ for(const body of [original,spec]) {
    raw.step=(events,hooks)=>step(events,{...hooks,contactLayer:(a,b)=>handles.has(a)||handles.has(b)?layer:null});
   }
   const host=stockBody(s.built,s.world,{servoSeconds:.1,measuring:true});
-  const skill=walkRun(host.driver);
+  const skill=walkRun(host.commanded);
   const physical=uprightness(s.built),runView=Object.create(host.view,{down:{get:()=>physical.fallen()}});
   let goal=null;
   host.drive((view,dt)=>{

@@ -122,7 +122,7 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
   const assist = balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
   const host = stockBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
-  const body = host.driver;
+  const body = host.commanded;
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   if (isRefused(blowing)) { host.dispose(); stand.dispose(); throw new Error(blowing.refused); }
   const { at: fixedAt, swerve: fixedSwerve, ...fixedCycle } = running ?? {};

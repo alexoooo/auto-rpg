@@ -1,6 +1,6 @@
 import { catalogName, type MindPlace, type ReportNow, type Seat, type SeatAsk, type SeatSays } from "../../minds/seat/apart.ts";
 import type { MenuEntry } from "../../skills/framework/menu.ts";
-import type { MirrorChannel, MirrorStatics } from "../../minds/seat/mirror.ts";
+import type { MirrorChannel, MirrorStatics } from "../../minds/seat/mirror-channel.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { MIND_CATALOGS } from "./catalogs.ts";
 import { SHARED_NUMBERS, type AskCrossing, type Batch, type Carried, type Reply, type SpecNumber, type ToldCrossing } from "./wire.ts";

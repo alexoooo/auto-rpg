@@ -101,7 +101,7 @@ test("takeover clears a paced ward and staged toe support restores into a fresh 
     assert.ok(guard.state.wards["hand.left"], "the actual guard command began a paced ward");
     guard.resume(host.view);
     assert.equal(guard.state.wards["hand.left"], null);
-    const own = heldBody(host.driver, heldCommand(host.driver.muscles.channels.length)).own;
+    const own = heldBody(host.commanded, heldCommand(host.commanded.muscles.channels.length)).own;
     const first = riseLimbs(own, RISE), fresh = riseLimbs(own, RISE);
     const toes = own.spec.ends.map(end => end.kind === "foot");
     first.read(1, false, toes, { x: 0, z: 100 });
@@ -138,8 +138,8 @@ import { crouchSteady } from "../../research/skills/recovery/witness/climb.mjs";
 import { pendingControl } from "../../research/minds/pending-control.mjs";
 
 import { steadying } from "../../src/skills/recovery/implementations/modes/steady.ts";
-import { mindKitOf } from "../../src/skills/assembly/kit.ts";
-for (const [name, makeSteady] of [["witness crouch", crouchSteady], ["steady mode", (own, view) => steadying(own, view, mindKitOf(partLookup, own.spec))]]) {
+import { motorAndGuardOf } from "../../src/skills/assembly/filled.ts";
+for (const [name, makeSteady] of [["witness crouch", crouchSteady], ["steady mode", (own, view) => steadying(own, view, motorAndGuardOf(partLookup, own.spec))]]) {
 test(`${name} initializes its own stance when it is the first holder`, async () => {
   const stand = await coreStand(stock);
   let steady, ticks = 0;
@@ -182,12 +182,12 @@ test("replacement paw gaits normalize both travel axes and supply their own brak
   });
   try {
     const gaits = { customTrot: gait("trot", 2, .7), customCrawl: gait("crawl", 4, 1.1) };
-    const legs = PAW_MOVE.make(body.driver, { kind: "paw-move", trot: { kind: "customTrot" }, crawl: { kind: "customCrawl" } },
+    const legs = PAW_MOVE.make(body.commanded, { kind: "paw-move", trot: { kind: "customTrot" }, crawl: { kind: "customCrawl" } },
       { parts: { of: (_role, config) => ({ make: () => gaits[config.kind] }) } });
-    legs.goal(body.view, { walk: [1, .5], face: 0, gait: "trot" }, body.driver.dt);
+    legs.goal(body.view, { walk: [1, .5], face: 0, gait: "trot" }, body.commanded.dt);
     assert.deepEqual(seen.trot, { move: { x: .25, z: .5 }, face: { x: 0, z: 1 } });
     assert.equal(legs.stopping, .7);
-    legs.goal(body.view, { walk: [1, .5], face: 0, gait: "crawl" }, body.driver.dt);
+    legs.goal(body.view, { walk: [1, .5], face: 0, gait: "crawl" }, body.commanded.dt);
     assert.deepEqual(seen.crawl, { move: { x: .125, z: .25 }, face: { x: 0, z: 1 } });
     assert.equal(legs.stopping, 1.1);
   } finally { body.dispose(); stand.dispose(); }
@@ -211,7 +211,7 @@ test("idle stance reads physical foot yaw without an effector actuator or matchi
 });
 
 import { partLookup, MINDS, GAME } from "../../src/app/catalog.ts";
-import { filledRefusal } from "../../src/skills/assembly/kit.ts";
+import { filledRefusal } from "../../src/skills/assembly/filled.ts";
 
 test("explicit filled parts obey the same body applicability as automatic selection", () => {
   const rat = modelSpec("rat");
@@ -294,7 +294,7 @@ import { TROT_PART } from "../../src/skills/locomotion/quadruped/trot.ts";
 import { CRAWL_PART } from "../../src/skills/locomotion/quadruped/crawl.ts";
 import { JAW_BITE } from "../../src/skills/strikes/bite/index.ts";
 import { ROLL_POSES } from "../../src/skills/recovery/implementations/staged/stages.ts";
-import { kitSkills } from "../../src/skills/assembly/assembly.ts";
+import { makeSkills } from "../../src/skills/assembly/assembly.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, poseResource, hasResource } from "../../src/skills/framework/action.ts";
 import { MOVE_PART } from "../../src/skills/locomotion/move-part.ts";
 
@@ -320,7 +320,7 @@ test("Option skills assemble with physical feet alone and an effector named assi
     const stand = await coreStand(spec), actor = stockBody(stand.built, stand.world, { servoSeconds: .1 });
     let skills;
     try {
-      skills = kitSkills(actor.driver, stand.world.clock, partLookup, { legs: partLookup.fitting("locomotion", spec), guard: partLookup.fitting("guard", spec), navigation: partLookup.game("navigation")[0],
+      skills = makeSkills(actor.commanded, stand.world.clock, partLookup, { legs: partLookup.fitting("locomotion", spec), guard: partLookup.fitting("guard", spec), navigation: partLookup.game("navigation")[0],
         actions: [], executors: [], support: null });
       actor.drive((view, dt) => skills.command(view, standIntent(0), dt));
       stand.step(120);
@@ -369,7 +369,7 @@ test("default skill assembly roots the one configured memoryful aim", async () =
   const navigation = partLookup.game("navigation")[0];
   let skills;
   try {
-    skills = kitSkills(body.driver, stand.world.clock, custom, { legs: partLookup.fitting("locomotion", stock), guard: partLookup.fitting("guard", stock), navigation,
+    skills = makeSkills(body.commanded, stand.world.clock, custom, { legs: partLookup.fitting("locomotion", stock), guard: partLookup.fitting("guard", stock), navigation,
       support: null, executors: [{ kind: "read-aim", name: "reader" }], actions: [{ name: "remember", executor: "reader", effectors: [], aim: { kind: "remember-aim" } }] });
     assert.equal(made, 1);
     const target = { kind: "point", at: [0, 0, 0] };

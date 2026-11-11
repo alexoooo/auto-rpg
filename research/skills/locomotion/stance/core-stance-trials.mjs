@@ -186,8 +186,8 @@ function skillOf(legs, b, stride) {
   switch (legs) {
     case null: case undefined: return null;
     // The walk and run as the game builds it, from the body's record and its learned corrections; a stride searched, over the defaults.
-    case "walk-run": return stride === undefined ? WALK_RUN_PART.make(b.driver, { kind: "walk-run" }) : walkRun(b.driver, WALK_RUN, WALK_RUN_CYCLE, { stride });
-    case "braced": return STANCE_WALK_PART.make(b.driver, { kind: "stance-walk" });
+    case "walk-run": return stride === undefined ? WALK_RUN_PART.make(b.commanded, { kind: "walk-run" }) : walkRun(b.commanded, WALK_RUN, WALK_RUN_CYCLE, { stride });
+    case "braced": return STANCE_WALK_PART.make(b.commanded, { kind: "stance-walk" });
     default: throw new Error(`no locomotion skill named ${legs}`);
   }
 }
@@ -230,7 +230,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
   try {
     stand.step(stand.seconds(1));
     let low = -Infinity, down = false, measuring = false, facing = 0;
-    const samples = [], muscles = b.driver.muscles;
+    const samples = [], muscles = b.commanded.muscles;
     const yawChannels = trace ? muscles.channels.flatMap((channel, i) =>
       channel.name.includes("hip.") && channel.name.includes("internal rotation") ? [i] : []) : [];
     const was = { left: true, right: true }, widths = [];

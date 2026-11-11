@@ -347,6 +347,21 @@ its own body (`OwnBody`), fixed step duration and first senses; subsequent sense
 `think`. Its memory is plain saved data in `state`. A person gives `Orders`
 (`src/minds/orders.ts`), never muscle commands.
 
+**A body is a different type to each holder.** Where they meet (`seat/host.ts`) each value is
+named by its type's word: `built`, `own`, `commanded`, `physical`.
+
+| Type | Where | Who holds it | What it is |
+| --- | --- | --- | --- |
+| `BuiltBody` | `src/core/bodies/build/build-body.ts` | the world's side | the body in the engine, with what acts on it |
+| `ReadBody` | `src/core/bodies/read-body.ts` | a mind and its skills | the built body's readings alone; nothing in it moves a body |
+| `OwnBody` | `src/core/bodies/own-body.ts` | a mind's maker | what a mind is made with: the spec, the readings (`ReadBody`), the muscles' and assist's reading side, the first senses |
+| `Body` | `src/control/body.ts` | whatever drives the command layers | the body under motor control: a view to read and a command to hand back (`Body.drive`) |
+| `PhysicalBody` | `src/minds/seat/physical-body.ts` | a fight | the body whatever its mind: the built body, whether it is down, who has it, its level, its saved state, its disposal |
+
+A `HostedBody` (`src/minds/seat/hosted-body.ts`) is a `PhysicalBody` that also carries the `Body`
+under its command layers (`commanded`): what a Lab mode, a drill or a test builds outside a fight
+(`commandedBody`).
+
 **What goes into a build and comes out of it**, in the order the calls are made:
 
 1. A fight calls `createMind` (`seat/create-mind.ts`) with a body, a config and a `MindWiring`
@@ -455,10 +470,10 @@ is wrong with it (`optionMindFaults`). `description.ts` says what a config build
 report) and builds it (`buildOptionMind`) in six steps:
 
 1. the parts under its skills, its motor, legs and guard (`filledOf`);
-2. what its Options name of the body's skills (`skillsOf`), which with those parts is its kit
-   (`SkillKit`);
+2. what its Options name of the body's skills (`skillsOf`), which with those parts is what its
+   skills are made from (`SkillParts`);
 3. the body, taken from the host under command layers (`commandedMind`);
-4. its skills on that body (`groundSkills`, `configuredAims`, `kitSkills`);
+4. its skills on that body (`groundSkills`, `configuredAims`, `makeSkills`);
 5. its decider, the session its predictions part builds (`OptionEvaluation.build`);
 6. the decider made the body's driver (`driveBy`, `Body.drive`).
 

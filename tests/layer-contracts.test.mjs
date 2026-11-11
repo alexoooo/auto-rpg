@@ -128,7 +128,7 @@ test("command layers deliver changed tracking, bracing and moving-frame goals", 
   } };
   const embodied = embody(stand.built, stand.world, own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor }, stand.world));
   try {
-    const body = embodied.mind.body, segment = "hand.right", [point, at] = Object.entries(body.view.effectors[segment].points)[0];
+    const body = embodied.construction.body, segment = "hand.right", [point, at] = Object.entries(body.view.effectors[segment].points)[0];
     let goal = { places: [{ point, position: [at.x, at.y, at.z] }], seconds: .2 };
     const changes = [{}, { response: .1 }, { firm: true }, { unbend: true }, { origin: [.01, 0, 0] }, { drift: [.1, 0, 0] }];
     let index = 0;

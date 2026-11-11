@@ -9,7 +9,7 @@ import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { loadEngine } from "../core/physics/engines.ts";
 import { withLoadout, type Held } from "../core/bodies/items/held.ts";
 import { humanoidSpec } from "../core/bodies/human/spec.ts";
-import { mindKitOf } from "../skills/assembly/kit.ts";
+import { motorAndGuardOf } from "../skills/assembly/filled.ts";
 import { poseDrive, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/technique.ts";
 import type { GroundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
@@ -134,9 +134,9 @@ export function createTechnique(context: GameContext) {
       command: { activation: new Float64Array(spec.joints.reduce((n,j)=>n+j.dofs.length,0)), velocity: new Float64Array(spec.joints.reduce((n,j)=>n+j.dofs.length,0)) },
       runs: [] as object[], links: [] as LinkReading[], entry: null as LinkReading["entry"], last: "between" };
     let runs: TechniqueRun[] = [];
-    const body = commandedBody(built, world, { servoSeconds: .1, motor: mindKitOf(partLookup, spec).motor }, [(own, view, clock, afterPhysics) => {
-      const kit = mindKitOf(partLookup, own.spec), drive = poseDrive(own.muscles);
-      runs = one.chain.map((name) => { const part: TechniquePart = TECHNIQUES[name]; return part.make(own, view, clock, kit, part.defaults, afterPhysics); });
+    const body = commandedBody(built, world, { servoSeconds: .1, motor: motorAndGuardOf(partLookup, spec).motor }, [(own, view, clock, afterPhysics) => {
+      const fitted = motorAndGuardOf(partLookup, own.spec), drive = poseDrive(own.muscles);
+      runs = one.chain.map((name) => { const part: TechniquePart = TECHNIQUES[name]; return part.make(own, view, clock, fitted, part.defaults, afterPhysics); });
       state.runs = runs.map(run => run.state);
       const command = state.command;
       const remember = (control: BodyControl) => { command.activation.set(control.muscles.activation); command.velocity.set(control.muscles.velocity); };

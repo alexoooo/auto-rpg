@@ -1,6 +1,6 @@
 import { recordingKey } from "../../core/world/recording.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
-import { FILLED, type Filled } from "../../skills/assembly/kit.ts";
+import { FILLED, type Filled } from "../../skills/assembly/filled.ts";
 
 /**
  * **An Option Mind's config**: the selected chooser, decision provider, options and decision rate.

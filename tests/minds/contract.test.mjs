@@ -120,18 +120,18 @@ test("a commanded Mind restores its driver's memory from its own state", async (
     const stand = await coreStand(modelSpec("workshop-fighter"));
     const embodied = embody(stand.built, stand.world, own => commandedMind(own, { servoSeconds: SERVO_SECONDS, motor: stockMotor() }, stand.world));
     const memory = { decisions: 0 };
-    driveBy(embodied.mind.body, { name: "counted stand", state: memory, decide() {
+    driveBy(embodied.construction.body, { name: "counted stand", state: memory, decide() {
       memory.decisions++;
       return standIntent(0);
-    } }, standingSkills(embodied.mind.body));
+    } }, standingSkills(embodied.construction.body));
     return { stand, embodied, memory, dispose() { embodied.dispose(); stand.dispose(); } };
   };
   const original = await make(), fork = await make();
   try {
     original.stand.step(3);
     assert.equal(original.memory.decisions, 3, "the driver must decide before its state is saved");
-    const saved = saveState(original.embodied.mind.mind.state);
-    loadState(fork.embodied.mind.mind.state, saved);
+    const saved = saveState(original.embodied.construction.mind.state);
+    loadState(fork.embodied.construction.mind.state, saved);
     assert.deepEqual(fork.memory, original.memory);
     original.stand.step(); fork.stand.step();
     assert.deepEqual(fork.memory, original.memory);

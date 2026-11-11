@@ -17,7 +17,7 @@ test("run cadence scales clip feedforward with the reference phase", async () =>
   try {
     host = stockBody(stand.built, stand.world, { servoSeconds: .1, measuring: true });
     stand.step();
-    const body = host.driver, channel = body.muscles.channel("knee.right flexion"), angle = body.muscles.angle(channel), dt = 1 / stand.world.hz;
+    const body = host.commanded, channel = body.muscles.channel("knee.right flexion"), angle = body.muscles.angle(channel), dt = 1 / stand.world.hz;
     const stance = { ...body.view.stance, velocity: new Vector3(0, 0, 4),
       ends: Object.fromEntries(Object.entries(body.view.stance.ends).map(([name, end]) => [name, { ...end, touching: false }])) };
     const view = Object.create(body.view, { stance: { value: stance } });

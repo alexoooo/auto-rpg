@@ -1,4 +1,4 @@
-import type { MindKit } from "../../framework/mind-kit.ts";
+import type { MotorAndGuard } from "../../framework/motor-and-guard.ts";
 import { MOTOR_SUPPORT } from "../../../control/motor-part.ts";
 import { bilateralBindings } from "../bilateral.ts";
 import type { BodyControl } from "../../../core/bodies/body-control.ts";
@@ -155,15 +155,15 @@ const HIP = 0, KNEE = 1;
  * - **Placed**: one paw at a time is routed clear round the trunk (swept, folded, unwound, unfolded)
  *   and pressed down, each placed paw held where it landed; turned onto its back or a side
  *   (`ROLLED`), it is rolled again and places every paw afresh.
- * - **Risen**: the mind's motor (`MindKit.motor`) carries the body up over its placed paws to the
+ * - **Risen**: the mind's motor (`MotorAndGuard.motor`) carries the body up over its placed paws to the
  *   crawl's height, each paw not bearing brought down where it stands, and it is done once the body
  *   is up (`recoveryHeight`), on every paw flat and slow (`recoveredSpeed`) for `recovered` s.
  *
  * A route that takes too long (`routeLimit`) is tried the other way round the trunk; it times out
  * after `recoveryLimit` s. It yields until its paws are placed.
  */
-function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit): TechniqueRun {
-  const motor = kit.motor.make(own.built, own.muscles, clock.dt);
+function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, fitted: MotorAndGuard): TechniqueRun {
+  const motor = fitted.motor.make(own.built, own.muscles, clock.dt);
   if (!carries(motor, "support")) throw new Error("righting by routes needs a motor that carries a support over its paws");
   const reading = pawReader(own.built).state, feet = reading.endpoints, endpoints = pawEndpoints(own.built), root = own.muscles.dynamics.root.segment;
   const names = endpoints.map((e) => e.segment), paws = names.map((name) => own.built.segments.get(name)!);
@@ -331,7 +331,7 @@ export const RIGHTING_RECIPE: TechniquePart<RecipeConfig> = deepFreeze({
   fits: fitsAll<RecipeConfig>(fitsPaws, recordFault("righting", deepFreeze(meta.bodies), wholeRecipe)),
   faults: (config: RecipeConfig) => config.tuning === undefined || wholeRecipe(config.tuning) ? [] : ["invalid righting recipe"],
   reads: () => ["righting"],
-  make: (own: OwnBody, _view: BodyView, _clock: Clock, _kit: MindKit, config: RecipeConfig) =>
+  make: (own: OwnBody, _view: BodyView, _clock: Clock, _fitted: MotorAndGuard, config: RecipeConfig) =>
     rightingByRecipe(own, tunedSettings(dataOf("righting"), own.spec, config)),
 });
 
@@ -359,7 +359,7 @@ const holdsRoutes = (spec: BodySpec): boolean => pawsOf(spec).every((paw) => {
 export const RIGHTING_ROUTES: TechniquePart<{ readonly kind: "righting-routes" }> = deepFreeze({
   ...RIGHTING, requires: [MOTOR_SUPPORT], edges: toStanding([...LYING, "crouch", "between"]), label: "Right by routes", defaults: { kind: "righting-routes" }, keys: { kind: true },
   fits: fitsAll(fitsPaws, fitsWhen(holdsRoutes, "needs legs whose ranges hold the righting routes' poses")), faults: () => [],
-  make: (own: OwnBody, view: BodyView, clock: Clock, kit: MindKit) => rightingByRoutes(own, view, clock, kit),
+  make: (own: OwnBody, view: BodyView, clock: Clock, fitted: MotorAndGuard) => rightingByRoutes(own, view, clock, fitted),
 });
 
 declare module "../technique.ts" {

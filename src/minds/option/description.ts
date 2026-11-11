@@ -3,7 +3,7 @@ import { recordingKey } from "../../core/world/recording.ts";
 import type { ConfigFor, PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig, Role } from "../../parts/parts.ts";
 import { eachPart, type ConfigPath } from "../../parts/tree.ts";
-import { FILLED, filledOf } from "../../skills/assembly/kit.ts";
+import { FILLED, filledOf } from "../../skills/assembly/filled.ts";
 import type { ComponentDescription, MindDescription } from "../catalog/description.ts";
 import type { OptionMindConfig, ResolvedConfig } from "./config.ts";
 import { waysUpIn, withWaysUp } from "./rise.ts";

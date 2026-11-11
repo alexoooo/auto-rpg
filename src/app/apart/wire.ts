@@ -1,5 +1,5 @@
 import type { At, ReportNow, SeatAsk } from "../../minds/seat/apart.ts";
-import type { MirrorChannel, MirrorStatics } from "../../minds/seat/mirror.ts";
+import type { MirrorChannel, MirrorStatics } from "../../minds/seat/mirror-channel.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { MenuEntry } from "../../skills/framework/menu.ts";
 

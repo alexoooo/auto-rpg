@@ -57,21 +57,22 @@ interface SaidState {
 /**
  * **A mind made on its body**: by its controller in `catalog` (`Controller.create`), through a
  * host of the body (`bodyHost`) that finds only the parts its tree names (`treeLookup`). What it
- * makes is passed on as it is (`MindMade`), with its kind and the body as the fight holds it.
+ * makes is passed on as it is (`MindMade`), with its kind and the body as the fight holds it
+ * (`PhysicalBody`).
  * Where it reports, the fight reads what it last said (`saidReport`), and its memory holds that
  * beside the mind's own (`SaidState`).
  */
 function mindHere(catalog: Catalog, built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
   const kept: SaidState = { mind: null, said: null };
   let report: MindReport | undefined;
-  const { host, made, dispose } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { kept.said = saidOf(report, kept.said); } });
+  const { host, taken, dispose } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { kept.said = saidOf(report, kept.said); } });
   try {
-    const mind = catalog.controllerOf(config).create(host, config);
-    report = mind.report;
-    kept.mind = mind.state;
+    const made = catalog.controllerOf(config).create(host, config);
+    report = made.report;
+    kept.mind = made.state;
     kept.said = saidOf(report);
     const said = report ? { state: kept, report: saidReport(() => kept.said!, report) } : {};
-    return { ...mind, ...said, kind: config.kind, body: made() };
+    return { ...made, ...said, kind: config.kind, body: taken() };
   } catch (error) {
     dispose();
     throw error;

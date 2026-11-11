@@ -8,7 +8,7 @@ import type { PartLookup } from "../../parts/lookup.ts";
  * **What a mind hands the parts that drive its body themselves** (a sub-mind and its techniques):
  * its own motor and guard, so that a part swapped into the mind is the part they use.
  */
-export interface MindKit {
+export interface MotorAndGuard {
   /** What makes a motor control: the mind's motor (`MotorPart.make`). */
   readonly motor: MotorMaker;
   /** The arms' rest: the mind's guard's posture for the body (`GuardPart.posture`). */
