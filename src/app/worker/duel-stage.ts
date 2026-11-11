@@ -26,26 +26,20 @@ import { frameLayout, packFrame, type FramedBody } from "./frame.ts";
 import type { Stage } from "./stage.ts";
 import type { ArenaSeat as Side } from "../../game/arena/seat.ts";
 
-/** A bout played beside the duel, step for step: a recorded trial at another version. */
-interface BesideStart {
+/** **A duel as the Arena plays it** (`duelStage`): a drill's trial, or a bout a person may lead a side of. */
+export interface DuelStart {
   readonly recipe: DuelRecipe;
   readonly tape: readonly OrdersEntry[];
-  /** The bout's clock it stops at, s: where its record was scored; null plays it to its verdict's aftermath. */
+  /** The bout's clock it stops at, s: where its trial was scored; null plays it to its verdict's aftermath. */
   readonly played: number | null;
   readonly engine?: EngineName;
   readonly timing?: BoutTiming;
-}
-
-/** **A duel as the Arena plays it** (`duelStage`): a recorded bout, or one a person may lead a side of. */
-export interface DuelStart extends BesideStart {
   /** The side a person leads as a team of one (`teamOfOne`), or null. */
   readonly person: Side | null;
   /** Whether the bout holds where the person's side has a new choice (`choiceWatch`). */
   readonly hold: boolean;
   /** Whether what a trial draws is traced (`trialTrace`), and sent. */
   readonly traced: boolean;
-  /** The previous version's same trial, played beside it, or null. */
-  readonly beside: BesideStart | null;
 }
 
 /** Where a person's pointer points: a ray from the camera, world, and how far it reaches, m. */
@@ -97,7 +91,7 @@ export interface DuelNews {
   readonly clock: number;
   readonly start: number;
   readonly verdict: Verdict | null;
-  /** Whether it, and the bout beside it, have played what they are for. */
+  /** Whether it has played what it is for. */
   readonly done: boolean;
   /** Whether it holds here, where the person's side has a new choice. */
   readonly choosing: boolean;
@@ -106,19 +100,17 @@ export interface DuelNews {
   readonly cues: readonly SoundCue[];
   /** Each side's air now (`airOf`): its fastest point's speed, m/s, and where it is. */
   readonly air: readonly { readonly side: Side; readonly speed: number; readonly at: Vec3 }[];
-  /** What the trial's overlays and the one beside drew since the last news (`trialTrace`). */
+  /** What the trial's overlays drew since the last news (`trialTrace`). */
   readonly trace: TrialTrace | null;
-  readonly besideTrace: TrialTrace | null;
 }
 
-/** A body of a duel's stage as the page makes its spec: its side, and whether it is in the bout beside (`duelSpec` of that bout's recipe). */
+/** A body of a duel's stage as the page makes its spec: its side (`duelSpec` of the bout's recipe). */
 export interface DuelCard {
   readonly side: Side;
-  readonly beside: boolean;
 }
 
 /** A bout built and played as the Arena plays it: its verdict's aftermath shown with the defeated loose (`arenaPlayback`), stopped at `played`. */
-async function played(context: GameContext, start: BesideStart, hooks: ConstructorParameters<typeof Duel>[3] = {}) {
+async function played(context: GameContext, start: DuelStart, hooks: ConstructorParameters<typeof Duel>[3]) {
   const { defaultMind } = context, { loadData, treeData } = context.catalog;
   const { buildBout } = createBout(context);
   await loadData(SIDES.flatMap((side) => treeData(start.recipe.minds?.[side] ?? defaultMind(start.recipe[side]))));
@@ -141,9 +133,8 @@ const framed = (duel: Duel): FramedBody[] => SIDES.map((side) => {
 /**
  * **A duel's stage**: `start`'s bout built by `buildBout`, its minds' data loaded first, played as
  * the Arena plays it (`arenaPlayback`), its tape played as it steps, and the side a person leads
- * led as a team of one, whose orders go on its tape; with the bout beside it, where there is one,
- * stepped with it in a world of its own. Each step's news is what the Arena shows of it
- * (`DuelNews`); a new choice for the person's side holds it, where they asked.
+ * led as a team of one, whose orders go on its tape. Each step's news is what the Arena shows of
+ * it (`DuelNews`); a new choice for the person's side holds it, where they asked.
  */
 export async function duelStage(context: GameContext, start: DuelStart): Promise<Stage<DuelCard, DuelInput>> {
   const scope = constructionScope();
@@ -153,15 +144,12 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   const cues: SoundCue[] = [];
   const main = scope.own(await played(context, start, { onBlow: (blow) => { cues.push(...debrisCues(blow)); } }));
   scope.own(main.playback);
-  const beside = start.beside, other = beside ? scope.own(await played(context, beside)) : null;
-  scope.own(other?.playback);
   const { world, duel, playback } = main;
   const sides = SIDES.map((side) => ({ id: side, built: duel.duelists[side].built }));
   scope.own(hearTouches(world, sides, (cue) => { cues.push(cue); }));
   const airs = SIDES.map((side) => ({ side, air: airOf(duel.duelists[side].built) })), airAt = new Vector3();
-  const trace = scope.own(start.traced ? trialTrace(duel) : null), besideTrace = scope.own(start.traced && other ? trialTrace(other.duel) : null);
+  const trace = scope.own(start.traced ? trialTrace(duel) : null);
   duel.play(start.tape);
-  if (other && beside) other.duel.play(beside.tape);
   const leadSide = (side: Side | null): TeamOfOne | null => side ? teamOfOne(duel, side, { kind: "party", picks: false }, context.commanders) : null;
   let led = leadSide(start.person);
   scope.own({ dispose: () => led?.dispose() });
@@ -174,9 +162,8 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
   }));
   for (const side of SIDES) readings[side].sample(time());
 
-  const roster = [...SIDES.map((side) => ({ id: side, segments: [...duel.duelists[side].built.segments.keys()], card: { side, beside: false } })),
-    ...other ? SIDES.map((side) => ({ id: `beside.${side}`, segments: [...other.duel.duelists[side].built.segments.keys()], card: { side, beside: true } })) : []];
-  const bodies = [...framed(duel), ...other ? framed(other.duel) : []];
+  const roster = SIDES.map((side) => ({ id: side, segments: [...duel.duelists[side].built.segments.keys()], card: { side } }));
+  const bodies = framed(duel);
   const { length } = frameLayout(roster);
   const looks = Object.fromEntries(SIDES.map((side) => [side, { menu: false, mind: false }])) as Record<Side, { menu: boolean; mind: boolean }>;
   const watch = choiceWatch();
@@ -221,31 +208,28 @@ export async function duelStage(context: GameContext, start: DuelStart): Promise
         skills: mind.skills ? { report: { holders: mind.skills.report.holders, defaultOwners: mind.skills.report.defaultOwners, actions: mind.skills.report.actions } } : null,
         report: report ? { engagement: report.engagement, actions: report.actions, ended: report.ended } : null } } : {} };
   };
-  const mainDone = () => playback.done, besideDone = () => other?.playback.done ?? true;
-
   complete = true;
   return {
     hz: world.hz, roster,
     step() {
-      if (!mainDone()) {
+      if (!playback.done) {
         leading();
         world.step();
         state.choosing = chose();
       }
-      if (other && !besideDone()) other.world.step();
       state.taken += 1;
     },
     frame: () => packFrame(bodies, length, state.taken / world.hz, state.taken),
     news() {
       const air = airs.map(({ side, air }) => { const speed = air(airAt); return { side, speed, at: [airAt.x, airAt.y, airAt.z] as Vec3 }; });
-      const news: DuelNews = { clock: duel.clock, start: duel.state.start, verdict: duel.verdict, done: mainDone() && besideDone(), choosing: state.choosing,
+      const news: DuelNews = { clock: duel.clock, start: duel.state.start, verdict: duel.verdict, done: playback.done, choosing: state.choosing,
         sides: { left: sideNews("left"), right: sideNews("right") }, cues: cues.splice(0), air,
-        trace: trace?.take() ?? null, besideTrace: besideTrace?.take() ?? null };
+        trace: trace?.take() ?? null };
       const held = state.choosing;
       state.choosing = false;
       return { ...duel.verdict ? { verdict: duel.verdict } : {}, ...held ? { held } : {}, duel: news };
     },
-    over: () => mainDone() && besideDone(),
+    over: () => playback.done,
     input(input) {
       switch (input.kind) {
         case "control":

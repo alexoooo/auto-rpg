@@ -19,24 +19,11 @@
 :where(#screen-root[data-screen="ratings"]) .cards a:hover, :where(#screen-root[data-screen="ratings"]) .cards a:focus-visible { border-color: var(--accent); }
 :where(#screen-root[data-screen="ratings"]) .cards strong { font-size: 16px; color: #f1dfbc; }
 :where(#screen-root[data-screen="ratings"]) .cards small { color: var(--dim); }
-:where(#screen-root[data-screen="ratings"]) .pools ul { margin: 0; padding-left: 18px; font-size: 12px; color: var(--dim); }
-:where(#screen-root[data-screen="ratings"]) .pools li.shown { color: var(--ui-ink); }
-:where(#screen-root[data-screen="ratings"]) .by { font-size: 13px; }
 :where(#screen-root[data-screen="ratings"]) .scroll { overflow: auto; max-width: 100%; max-height: 70vh; border: 1px solid var(--line); }
 :where(#screen-root[data-screen="ratings"]) table { border-collapse: collapse; font-size: 12.5px; }
 :where(#screen-root[data-screen="ratings"]) th, :where(#screen-root[data-screen="ratings"]) td { padding: 3px 8px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
 :where(#screen-root[data-screen="ratings"]) thead th { position: sticky; top: 0; z-index: 1; color: #f1dfbc; font-weight: 400; background: #141215; }
 :where(#screen-root[data-screen="ratings"]) td.number { text-align: right; font-variant-numeric: tabular-nums; }
-:where(#screen-root[data-screen="ratings"]) .grid summary { margin-top: 22px; cursor: pointer; font-weight: 600; color: #f1dfbc; }
-:where(#screen-root[data-screen="ratings"]) .grid table { font-size: 10px; }
-:where(#screen-root[data-screen="ratings"]) .grid tbody th { position: sticky; left: 0; background: #141215; font-weight: 400; }
-:where(#screen-root[data-screen="ratings"]) .grid td { width: 9px; min-width: 9px; height: 9px; padding: 0; border: 1px solid #111012;
-  background: color-mix(in oklab, #b23a2e calc((1 - var(--score, .5)) * 100%), #e9d9a6); }
-:where(#screen-root[data-screen="ratings"]) .grid td:not([style]) { background: transparent; }
-:where(#screen-root[data-screen="ratings"]) .case dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; max-width: 900px; }
-:where(#screen-root[data-screen="ratings"]) .case dt { color: var(--dim); }
-:where(#screen-root[data-screen="ratings"]) .case dd { margin: 0; overflow-wrap: anywhere; }
-:where(#screen-root[data-screen="ratings"]) .case pre { margin: 0; font-size: 12px; white-space: pre-wrap; }
 :where(#screen-root[data-screen="ratings"]) code { font-size: 12px; color: #e3c690; }
 :where(#screen-root[data-screen="ratings"]) .legend { font-size: 12px; color: var(--dim); white-space: pre-wrap; }
 :where(#screen-root[data-screen="ratings"]) .swatch { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; border-radius: 2px; }

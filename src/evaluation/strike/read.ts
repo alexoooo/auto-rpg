@@ -330,9 +330,18 @@ function dealtIn(r: Pick<StrikeReading, "dealt">): number {
  * its refusal is the Mind's choice, not the blow's. Higher is better.
  */
 export function strikeValue(r: Pick<StrikeReading, "began" | "ended" | "recovers" | "seconds" | "down" | "dealt" | "taken">, rise: number): number | null {
+  const trade = strikeTrade(r);
+  return trade === null ? null : trade.net / (trade.cycle + (r.down ? rise : 0));
+}
+
+/**
+ * **What a blow's value is made of** (`strikeValue`): the life its trial took less the life it
+ * cost (`net`, hit points), and its cycle before a fall's rise is added (`cycle`, s). None for a
+ * trial whose action did not begin.
+ */
+export function strikeTrade(r: Pick<StrikeReading, "began" | "ended" | "recovers" | "seconds" | "dealt" | "taken">): { readonly net: number; readonly cycle: number } | null {
   if (r.began === null) return null;
-  const cycle = (r.ended !== null && r.recovers !== null ? r.ended + r.recovers : r.seconds) - r.began + (r.down ? rise : 0);
-  return (dealtIn(r) - r.taken) / cycle;
+  return { net: dealtIn(r) - r.taken, cycle: (r.ended !== null && r.recovers !== null ? r.ended + r.recovers : r.seconds) - r.began };
 }
 
 /**

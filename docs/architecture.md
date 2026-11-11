@@ -629,29 +629,29 @@ target stands with its arms lowered (`drill-open`).
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)
   the question, subjects, figures and a drill trial's `outcome`.
-- **A case's key** is the digest of everything it plays; a row (`Row`) is found again by its key, so
-  only changed cases replay. `--write` keeps a record under `assets/evaluations/<id>/`
-  (`record.ts`), a folder Git ignores, grouped into pools with numbered versions (`history.ts`), and deletes the records
-  it replaces (`replacedBy`): the same protocol, engine and subjects with no subject at the version
-  it plays. It keeps any such record that is a baseline's or cited by a tracked file.
+- **A case's key** is the digest of everything it plays; a row (`Row`) is found again by its key
+  while a run works (`.tmp/evaluations/<id>/`, `rows.ts`), so only changed cases replay. `--write`
+  keeps the run's results in `assets/evaluations/<id>.json` (`results.ts`): each subject's newest
+  reading on a protocol (its figures and, for a drill, a short row of numbers a trial, by its
+  condition's name), each earlier reading a table cell's baseline names, and a contest's standings
+  (`standings.ts`). Nothing a trial played is kept: the Arena plays a trial again from its subject
+  and condition as the build makes them.
   Subjects retain their body restrictions and character attributes through normalization,
-  scheduling, versioning and historical reconstruction. Each code-bearing part declares its
+  scheduling and versioning (`versionOf`). Each code-bearing part declares its
   component configuration; identity follows those parts and the selected aim's declared data.
-  Record admission validates complete rows. One shared index requires duplicate agreement before
-  the CLI, history, Ratings or Arena reels consume evidence.
+  A run's rows are admitted whole, and two that read one case differently stop the run (`indexRows`).
 - **Contests**: `match` (two minds, each on each side, one digest), `tournament` (Bradley-Terry,
   `rating.ts`), `unseen`. The panel report (`compare.ts`, `settle.ts`) pairs a subject with its
-  baseline and stops once settled; `npm run compare` (`record-comparison.ts`) pairs saved records.
+  baseline and stops once settled.
 - **Batteries and drills**: a battery plays one subject over its conditions; a drill's trials pass
   or fail, its rungs its protocols (the strike's bar in `strike/read.ts`).
 - **The table** (`src/evaluation/table/`): Option Mind on every body by loadout by skill
-  (`tableCells`), valued from compatible records merged by case: each trial's value in the game's
+  (`tableCells`), valued from the drills' results: each trial's value in the game's
   terms (`trialValue`: a stand's seconds, a move's seconds lost against its orders, `orderTime`, a
   blow's life traded a second, a cover's life lost), a fall priced at the body's time to stand;
   a reading's value the mean over its whole protocol (`valueOf`); a cell against its baseline
-  (`assets/evaluations/<drill>/baselines.json`, `baselineOf`) and its best version, paired by
-  condition with a bootstrap interval (`compareValues`), the person's figure beside a strike's
-  (`personOf`). A baseline retains every record contributing its rows.
+  (`baselineOf`, a pointer at the result it was read as), paired by condition with a bootstrap
+  interval (`compareValues`), the person's figure beside a strike's (`personOf`).
 - **Falls** (`fall.ts`): one body felled on one bed (`buildFall`), its stand verified
   (`STAND_CHECK`); a stand-up is read on the [owner's
   target](reference/rising.md#the-owners-target).
@@ -698,11 +698,11 @@ Bench have their own `index.html` beside their modules. Every entry document is 
 | Crowd fight | `src/app/browser/arena/crowd.ts` | two teams (`crowdFight`, `TeamBout`) |
 | Crypt | `src/game/dungeon/` | a party in a generated dungeon (`DungeonRun`), each side under a Commander |
 | Lab | `src/game/lab/` | one body in a scenario (`scenarios.ts`) |
-| Ratings | `src/app/browser/ratings/` | each evaluation's records; a drill's trials open in the Arena as a reel |
+| Ratings | `src/app/browser/ratings/` | each evaluation's results; a drill's trials open in the Arena as a reel |
 
 - **Links are recipes.** An Arena address is its bout's recipe (`recipeOf`); an edited mind travels
-  whole without `tuning` (`src/minds/catalog/config-link.ts`); a reel (`#reel=`) plays recorded cases from their
-  recipes and tapes.
+  whole without `tuning` (`src/minds/catalog/config-link.ts`); a reel (`#reel=`) plays a result's trials again from their
+  subject and conditions.
 - **Cosmetics never carry authority.** The arena's solids are colliders (`arenaSolids`), the same
   on the page and the stand; the visible room is checked against them (`validateRoomPlacements`).
   The Crypt's walls and doors are fixed boxes (`dungeonSolids`).

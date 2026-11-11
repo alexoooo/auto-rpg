@@ -121,19 +121,15 @@ test("every evaluation protocol and the Node stand play on the game's engine", a
 });
 
 
-test("custom subjects retain execution scope through normalization, recording and reconstruction", async () => {
-  const { recordedSubject, restoredSubject } = await import("../../src/evaluation/record.ts");
+test("custom subjects retain execution scope through normalization and into their version", async () => {
+  const { versionOf } = await import("../../src/evaluation/results.ts");
   const { partNames } = await import("../../src/app/node/evaluation.ts");
   const scope = { models: ["workshop-fighter"], character: { strength: 1.1 } };
   const choice = { id: "independent", label: "Independent", value: MINDS.option.config, ...scope };
   for (const name of ["locomotion", "match", "court", "rising-target"]) {
     const [subject] = EVALUATIONS[name].subjects(name === "match" ? [choice, "option"] : [choice]);
     assert.deepEqual({ models: subject.models, character: subject.character }, scope, `${name} retains execution facts`);
-    const recorded = recordedSubject(subject, {}, "scope-environment", null);
-    assert.deepEqual(restoredSubject(recorded), subject, `${name} reconstructs the complete subject`);
-    assert.notEqual(recorded.version.version, recordedSubject({ ...subject, character: { strength: 1.2 } }, {}, "scope-environment", null).version.version);
-    const { models: _models, ...legacy } = recorded;
-    assert.match(restoredSubject(legacy).refused, /incompatible historical execution metadata/);
+    assert.notEqual(versionOf(subject, {}, "scope-environment"), versionOf({ ...subject, character: { strength: 1.2 } }, {}, "scope-environment"));
   }
   const entrants = EVALUATIONS.tournament.subjects([choice]);
   assert.ok(entrants.length > 0, "the restricted custom mind enters at least one loadout");
@@ -146,47 +142,33 @@ test("custom subjects retain execution scope through normalization, recording an
   assert.ok(partNames(edge.parts).parts.includes("staged-roll"), "standalone techniques declare their implementation code");
 });
 
-test("record admission and every keyed evidence reader refuse incomplete or conflicting cases", async () => {
-  const { mindSubject } = await import("../../src/evaluation/evaluation.ts");
-  const { readRecord, recordIdentity, recordedSubject, recordText, indexRows } = await import("../../src/evaluation/record.ts");
-  const { poolsOf } = await import("../../src/evaluation/history.ts");
-  const { findCase } = await import("../../src/app/browser/ratings/analysis.ts");
-  const play = {}, engine = "rapier-coordinate", harness = "Node fixture, rapier-coordinate, 120 Hz";
-  const subject = recordedSubject(mindSubject("fixture", "Fixture", { kind: "bare" }), play, "fixture", null);
-  const header = { identity: recordIdentity(`sha256:${"a".repeat(64)}`, engine, harness, play), evaluation: "fixture", protocol: "fixture", play,
-    engine, harness, commit: "fixture", date: "fixture", schedule: "all", pool: { protocol: "fixture", environment: "fixture" }, subjects: [subject] };
-  const line = { key: "case", subjects: [subject.id], condition: {}, world: { kind: "lone", engine, lone: { model: "workshop-fighter", mind: { kind: "bare" } } },
-    code: "fixture", digest: "trace", played: 0, reading: { met: true }, fault: null };
-  const complete = readRecord(recordText(header, [line]), "complete");
-  assert.deepEqual(complete, { header, lines: [line] });
-  for (const field of ["world", "condition", "code", "digest", "reading", "fault", "subjects"]) {
-    const partial = { ...line }; delete partial[field];
-    assert.throws(() => readRecord(recordText(header, [partial]), `missing-${field}`), /not whole/);
+test("a run's rows refuse incomplete or conflicting cases", async () => {
+  const { indexRows } = await import("../../src/evaluation/rows.ts");
+  const row = { key: "case", reading: { met: true }, digest: "trace", played: 0, fault: null };
+  assert.deepEqual([...indexRows([{ name: "first", rows: [row] }, { name: "again", rows: [row] }])], [["case", row]]);
+  for (const field of ["reading", "digest", "fault"]) {
+    const partial = { ...row }; delete partial[field];
+    assert.throws(() => indexRows([{ name: `missing-${field}`, rows: [partial] }]), /not whole/);
   }
-  const first = { name: "first", ...complete }, other = { name: "other", header, lines: [{ ...line, reading: { met: false } }] };
-  for (const admit of [records => indexRows(records.map(record => ({ name: record.name, rows: record.lines }))), poolsOf, records => findCase(records, line.key)]) {
-    assert.throws(() => admit([first, other]), /case case reads differently in first and other/);
-  }
-  assert.equal(poolsOf([first, { ...first, name: "again" }])[0].cases.length, 1);
-  assert.deepEqual(findCase([first], line.key), { record: first, line });
+  assert.throws(() => indexRows([{ name: "first", rows: [row] }, { name: "other", rows: [{ ...row, reading: { met: false } }] }]),
+    /case case reads differently in first and other/);
 });
 
 test("a table cell is valued only on every protocol case with none faulted", async () => {
-  const { valueOf } = await import("../../src/evaluation/table/judge.ts");
-  const { indexRows } = await import("../../src/evaluation/record.ts");
+  const { keep, valueOf } = await import("../../src/evaluation/table/judge.ts");
+  const { caseName } = await import("../../src/evaluation/results.ts");
   const conditions = EVALUATIONS.locomotion.protocols.run.conditions.filter(condition => condition.model === "workshop-fighter"
     && condition.loadout.left === "empty" && condition.loadout.right === "empty");
   assert.ok(conditions.some(condition => condition.kind === "run-held") && conditions.some(condition => condition.kind === "run-turn")
     && conditions.some(condition => condition.kind === "run-stop"), "the fixture reaches every run kind");
-  const rows = conditions.map((condition, k) => ({ key: `case-${k}`, condition, reading: { kind: condition.kind, fell: false, lost: 1, downFor: null },
-    digest: "trace", played: 1, fault: null }));
-  assert.equal(valueOf({ judge: "orders" }, [rows[0]], rows, 8).value, null, "one row cannot value the cell");
-  const merged = [...indexRows([{ name: "a", rows: rows.slice(0, 1) }, { name: "b", rows: rows.slice(1) }]).values()].map(({ row }) => row);
-  assert.equal(valueOf({ judge: "orders" }, merged, rows, 8).value, 1, "compatible partial evidence completes the required coverage");
-  const faulted = [{ ...rows[0], reading: null, digest: null, played: null, fault: { kind: "error", message: "case failed" } }, ...rows.slice(1)];
-  const valued = valueOf({ judge: "orders" }, faulted, rows, 8);
+  const reading = { judge: "orders" }, names = conditions.map(caseName);
+  assert.equal(new Set(names).size, names.length, "each condition has a name of its own");
+  const trials = conditions.map((condition, k) => ({ at: names[k], kept: keep(reading, { kind: condition.kind, fell: false, lost: 1, downFor: null }), outcome: null }));
+  assert.equal(valueOf(reading, [trials[0]], names, 8).value, null, "one trial cannot value the cell");
+  assert.equal(valueOf(reading, trials, names, 8).value, 1, "a trial of every case values it");
+  const valued = valueOf(reading, [{ ...trials[0], kept: null }, ...trials.slice(1)], names, 8);
   assert.deepEqual({ value: valued.value, trials: valued.trials.size, figures: valued.figures },
-    { value: null, trials: rows.length - 1, figures: `${rows.length - 1} of ${rows.length} trials counted, 0 fell, 0 ended down; ${rows.length} of ${rows.length} cases, 1 faulted` });
+    { value: null, trials: trials.length - 1, figures: `${trials.length - 1} of ${trials.length} trials counted, 0 fell, 0 ended down; ${trials.length} of ${trials.length} cases, 1 faulted` });
 });
 
 

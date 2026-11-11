@@ -27,30 +27,29 @@ trial counted (every blow refused or never begun, every cover unattacked) is mar
 counted, its counts beside it. The Warrior's run reads the Travel confirmation protocol, the Rogue's the
 Locomotion run protocol, the walk the Locomotion `every` protocol on every body.
 
-A cell is compared with its baseline, its first reading when its work begins (kept by
-`npm run evaluate -- table --baseline` in `assets/evaluations/<drill>/baselines.json`), trial by
-trial on the conditions both counted, every reading of the cell pooled (`compareValues`): better or
-worse where the 95 % paired bootstrap interval of the mean difference leaves zero on that side,
-else within noise. Each reading is also shown against its best version.
+A cell is compared with its baseline, its first reading when its work begins (named by
+`npm run evaluate -- table --baseline`: a pointer at that reading's result, which is then kept),
+trial by trial on the conditions both counted, every reading of the cell pooled
+(`compareValues`): better or worse where the 95 % paired bootstrap interval of the mean difference
+leaves zero on that side, else within noise.
 
-`npm run evaluate -- table` reads saved evidence and links each reading's Ratings page. The
-records and baselines stay on the machine that played them (`assets/evaluations/`, ignored by
-Git): a fresh clone's table is unread until it plays or the folder is copied in. It derives
-the required cases from each current protocol and merges compatible partial records. A reading
-recorded at an earlier version (its subject's, or the code of a case it played: the drill and its
-opponent) stands as of its record, its commit and date shown and marked not
-the version now: its rows answer the protocol's cases by condition, so a change elsewhere in the
-mind asks for no replay. A row read before its reader recorded what the value needs counts for
-nothing; `--fresh` replays it.
+`npm run evaluate -- table` reads the drills' results (`assets/evaluations/<drill>.json`,
+`src/evaluation/results.ts`) and links each reading's Ratings page. A result keeps a few numbers a
+trial, what its judge needs (`keep`), by the name of the trial's condition, so the table plays
+nothing to read. It derives the required cases from each current protocol. A reading
+read at an earlier version (its subject's, or the code of a case it played: the drill and its
+opponent) stands as it was read, its commit and date shown and marked not
+the version now: its trials answer the protocol's cases by condition, so a change elsewhere in the
+mind asks for no replay.
 
-`npm run evaluate -- table --play --workers 22` plays each reading that has no whole record and
-writes its rows; a reading recorded at an earlier version is kept, so a change to the code plays
+`npm run evaluate -- table --play --workers 22` plays each reading that has no whole result and
+keeps it; a reading read at an earlier version is kept, so a change to the code plays
 nothing. `--fresh` plays the readings of the cells asked for (`--body`, `--skill`, `--loadout`)
 again on the code now; the stand-up reading that prices a fall is played again only where a cell
 asked for reads it. Both play one reading at a time, each to evaluate's budget (`--budget`, 10 minutes): a pass keeps every
-trial it plays and every complete unit as a record, names a reading that failed at its end and
-plays the rest, and with `--baseline` keeps a cell's baseline as soon as its reading is whole.
+trial it plays (`.tmp/evaluations/`) and every complete unit in its result, names a reading that failed at its end and
+plays the rest, and with `--baseline` names a cell's baseline as soon as its reading is whole.
 Passes are repeated until none plays. Node, core world, 120 Hz, each command 1 step late
 (`COMMAND_DELAY`). The report names each
-reading's recorded harness and whether its version is current. A baseline keeps all records
-contributing its cases; incomplete current coverage cannot become a baseline.
+reading's harness and whether its version is current. Incomplete current coverage cannot become a
+baseline.

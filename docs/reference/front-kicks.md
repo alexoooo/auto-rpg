@@ -69,7 +69,6 @@ Warrior's scaled by its stature. The Skeleton has no record and throws no stomp.
 | returnNear | 0.1 m | 0.092 m | The leg comes to rest short of the chamber after a blow; a nearer mark stalls the return |
 
 **Measurement** (the Strike drill's `stomping` rung; Node, core world, `rapier-coordinate`,
-120 Hz, each command 1 step late): the Warrior's blows at a lying Warrior carry 15 to 52 J
-(`assets/evaluations/strike/2026-11-03T104717-90bdd549-cd2a4372.jsonl`). Braced at contact alone
+120 Hz, each command 1 step late): the Warrior's blows at a lying Warrior carry 15 to 52 J. Braced at contact alone
 and with a slower stroke (`brace` 0, `contactSpeed` 7 m/s, `swingSeconds` 0.25 s, `chamberSeconds`
-0.6 s, `lift` 0.7 m, `over` 1), they carry 9.7 to 26.6 J (`assets/evaluations/strike/2026-11-03T080057-cf337055-27c071e6.jsonl`).
+0.6 s, `lift` 0.7 m, `over` 1), they carry 9.7 to 26.6 J.

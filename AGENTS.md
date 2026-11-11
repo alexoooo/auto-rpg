@@ -14,10 +14,9 @@ npm test                  # the gate
 npm run build             # type-check, then the bundle
 npm run pull:merge        # fetch, merge, validate once, commit; -- --continue after resolving conflicts
 npm run match -- <a> <b>  # two minds, each on each side, one digest
-npm run evaluate -- <id>  # an evaluation's cases where no row has them; --write keeps a record
+npm run evaluate -- <id>  # an evaluation's cases where no row has them; --write keeps its results
 npm run evaluate -- table [--play] [--baseline]   # every body, loadout and skill: its value against its baseline; --play plays only what has no record
 npm run evaluate -- table --body <model> --skill <name> [--loadout <left,right>] --fresh   # one cell or row, played again on the code now
-npm run compare -- <before.jsonl> <after.jsonl> --subject <id>  # paired saved evidence
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 node scripts/fingerprint.mjs          # what the game computes, before and after a refactor
 ```
@@ -77,7 +76,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   of millions of decisions, checkpoints chosen on the evaluation's cases, a retrain after any
   change under the actor. Work of a kind that has a recipe in `docs/recipes/` follows it.
 - **An iteration is one question**: one implementation changed, read paired against the one
-  before (`npm run compare`, `--previous`, `npm run match`), kept or dropped with the reason in the
+  before (`--previous`, `npm run match`), kept or dropped with the reason in the
   commit message, and in the approaches when the reason is the mechanism's. A live alternative
   stays only while an open question uses it.
 - **A claim that a skill is better is its table cell**: the cell's line from
@@ -104,8 +103,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   dropped experiment keeps nothing; its reading goes in the commit message. A file loose in
   `research/runs/`, a folder there with no README or an entry its README does not name, or a
   folder over 1,000 files or 1 GB fails `tests/workspace.test.mjs`. `npm run evaluate` caches
-  played rows in `.tmp/evaluations/`; its records are what it keeps, in `assets/evaluations/`,
-  which Git ignores and no commit adds.
+  played rows in `.tmp/evaluations/`; its results are what it keeps, a few numbers a trial in
+  `assets/evaluations/<id>.json`, committed with the change they read.
 
 ## Writing
 

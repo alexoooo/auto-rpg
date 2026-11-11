@@ -13,7 +13,6 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { LinesMesh } from "@babylonjs/core/Meshes/linesMesh.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
-import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { TrialTrace } from "../../../game/arena/trial-trace.ts";
 
@@ -30,11 +29,10 @@ const MARK = Object.freeze({ contact: .05, aim: .04 });
 const OVER = 1;
 
 /**
- * The overlays of a trial drawn on `scene` under `parent` where given (a bout played beside
- * another): `add` takes what its steps added (`trialTrace`), `update` redraws it, `dispose` takes
- * it all away.
+ * The overlays of a trial drawn on `scene`: `add` takes what its steps added (`trialTrace`),
+ * `update` redraws it, `dispose` takes it all away.
  */
-export function trialOverlay(scene: Scene, parent: TransformNode | null = null) {
+export function trialOverlay(scene: Scene) {
   // Over the bodies, clearing the depth they leave but not the stencil the sides' highlights draw by.
   scene.setRenderingAutoClearDepthStencil(OVER, true, true, false);
   const targetPath: Vector3[] = [], aims: Vector3[] = [], effectors = new Map<number, Vector3[]>();
@@ -52,7 +50,7 @@ export function trialOverlay(scene: Scene, parent: TransformNode | null = null) 
   };
   const mark = (name: keyof typeof COLOURS, point: Vector3, size: number): Mesh => {
     const mesh = MeshBuilder.CreateSphere(`trial.overlay.${name}.${marks.length}`, { diameter: size, segments: 8 }, scene);
-    mesh.material = materialOf(name); mesh.position.copyFrom(point); mesh.isPickable = false; mesh.parent = parent; mesh.renderingGroupId = OVER;
+    mesh.material = materialOf(name); mesh.position.copyFrom(point); mesh.isPickable = false; mesh.renderingGroupId = OVER;
     marks.push(mesh);
     return mesh;
   };
@@ -79,7 +77,7 @@ export function trialOverlay(scene: Scene, parent: TransformNode | null = null) 
       lines?.dispose(); lines = null;
       if (drawn.length) {
         lines = MeshBuilder.CreateLineSystem("trial.overlay.paths", { lines: drawn.map(({ path }) => path), colors: drawn.map(({ path, colour }) => path.map(() => Color4.FromColor3(colour))) }, scene);
-        lines.isPickable = false; lines.parent = parent; lines.renderingGroupId = OVER;
+        lines.isPickable = false; lines.renderingGroupId = OVER;
       }
       const aim = aims.at(-1);
       if (aim) { aimMark ??= mark("aim", aim, MARK.aim); aimMark.position.copyFrom(aim); }

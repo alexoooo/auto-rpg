@@ -1,44 +1,20 @@
-import { skillsOf } from "../../src/minds/option/skills.ts";
+import { profileKeys } from "../harness/profile-keys.mjs";
 import "../harness/preload-data.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { allParts, MINDS, partLookup, treeLookup } from "../../src/app/catalog.ts";
-import { presetFitsModel } from "../../src/minds/catalog/controller.ts";
-import { BODY_MODELS, modelHolds, resolveCharacter } from "../../src/core/bodies/models.ts";
-import { LOADOUTS, loadoutFaults, withLoadout } from "../../src/core/bodies/items/held.ts";
-import { limbAction } from "../../src/minds/option/kinds.ts";
-import { skillDigest, specDigest, techniqueDigest } from "../../src/skills/framework/profile.ts";
-import { bodyKey } from "../../src/core/bodies/spec/body.ts";
+import { resolveCharacter } from "../../src/core/bodies/models.ts";
+import { skillDigest } from "../../src/skills/framework/profile.ts";
 import { record } from "../../src/minds/option/value.ts";
 
 /**
  * Every measured profile (`assets/skills/strikes/<kind>/<kind>-profiles.json`) is of a skill the game has, on a body
- * it builds: a profile is read only where its body, spec digest and skill digest are the reader's
+ * it builds (`profileKeys`): a profile is read only where its body, spec digest and skill digest are the reader's
  * (`staleness`), so one keyed to a skill or body that has moved on is never read, and a strike or
- * edge that has none is priced by hand in silence. The bodies are each model at its defaults
- * holding each loadout it can; the skills, the strikes each preset's Options name on a body it fits (`skillsOf`), each with one limb (`limbAction`)
- * (`skillDigest`), and each technique by its kind (`techniqueDigest`).
+ * edge that has none is priced by hand in silence.
  */
 test("every measured profile is of a current skill on a current body", () => {
-  const bodies = [];
-  for (const model of BODY_MODELS) for (const loadout of LOADOUTS) {
-    if (loadoutFaults(loadout).length || !modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) continue;
-    bodies.push({ model, spec: withLoadout(resolveCharacter({ model }).spec, loadout) });
-  }
-  const on = (spec, skill) => `${bodyKey(spec)} ${specDigest(spec)} ${skill}`;
-  const keys = { strike: new Set(), edge: new Set() };
-  const techniques = Object.entries(allParts()).filter(([, part]) => part.role === "technique").map(([kind]) => ({ kind }));
-  for (const preset of Object.values(MINDS)) {
-    const config = preset.config, parts = treeLookup(config);
-    if (config.frame || !Array.isArray(config.options)) continue;
-    for (const { model, spec } of bodies) {
-      if (!presetFitsModel(preset, model)) continue;
-      const { executors, actions } = skillsOf(parts, spec, config.options);
-      for (const action of actions) for (const limb of action.effectors) keys.strike.add(on(spec, skillDigest(parts, spec, executors, limbAction(action, limb))));
-    }
-  }
-  for (const { spec } of bodies) for (const technique of techniques) keys.edge.add(on(spec, techniqueDigest(partLookup, spec, technique)));
+  const keys = profileKeys();
   assert.ok(keys.strike.size > 0 && keys.edge.size > 0, "the presets reached strikes and techniques to key profiles by");
   const stale = [];
   for (const kind of Object.keys(keys)) {

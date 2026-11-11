@@ -114,7 +114,7 @@ orders.
 ### 2. Read against the clearer
 
 `npm run evaluate -- crypt-clear` at one commit, the Option Commander and `clearer` each over
-Option Mind as the hero, paired by run (`npm run compare`), so the mind and the code are the same
+Option Mind as the hero, paired by run, so the mind and the code are the same
 on both sides. The owner watches a run with `&party=option`. An iteration from here is one question
 on the Option Commander, one change, paired. Open beside it: whether Option Mind should price time
 too (it reads no time in the Crypt, `Senses.ends` absent), so the hero and its Commander pursue the

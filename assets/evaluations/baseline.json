@@ -1,0 +1,19 @@
+{
+"cases": {
+
+},
+"results": [
+{"protocol":"walk","subject":"kinetic","label":"Kinetic","version":"19c33336605ef620","code":"b68a3e7251149949","commit":"c43aa358","date":"2026-10-28","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":39,"figures":{"walk: held":{"value":0.9487,"low":0.8311,"high":0.9858},"walk: on pace":{"value":1,"low":0.6756,"high":1},"walk: stopped":{"value":0.7273,"low":0.4344,"high":0.9025},"walk: top speed":{"value":1.8654,"low":1.569,"high":2.0013},"walk: shoves held":{"value":1,"low":0.8794,"high":1}}},
+{"protocol":"stand-up","subject":"step-up","label":".tmp/step3/step-up.json","version":"fe84b667ccb19735","code":"09ec36b3ab08e02c","commit":"35faee00","date":"2026-10-29","harness":"Node, core world (src/core/world.ts), rapier, 120 Hz","count":32,"figures":{"stand-up: falls made":{"value":1,"low":0.8928,"high":1},"stand-up: time to stand":{"value":13.5099,"low":12.2839,"high":15.0367},"stand-up: median time to stand":{"value":12.1958,"low":11.65,"high":12.6417},"stand-up: stood":{"value":0.9688,"low":0.8426,"high":0.9945},"stand-up: within 10 s":{"value":0.0625,"low":0.0173,"high":0.2015}}},
+{"protocol":"stand-up","subject":"kinetic","label":"Kinetic","version":"fa45d8ad53fdfbea","code":"1e9bfc4d8f4845b3","commit":"35faee00","date":"2026-10-29","harness":"Node, core world (src/core/world.ts), rapier, 120 Hz","count":32,"figures":{"stand-up: falls made":{"value":1,"low":0.8928,"high":1},"stand-up: time to stand":{"value":30,"low":30,"high":30},"stand-up: median time to stand":{"value":30,"low":30,"high":30},"stand-up: stood":{"value":0,"low":0,"high":0.1072},"stand-up: within 10 s":{"value":0,"low":0,"high":0.1072}}},
+{"protocol":"stand-up","subject":"flat","label":".tmp/step3/flat.json","version":"61aba6c55c7a7897","code":"24ddc3caa8a62053","commit":"35faee00","date":"2026-10-29","harness":"Node, core world (src/core/world.ts), rapier, 120 Hz","count":32,"figures":{"stand-up: falls made":{"value":1,"low":0.8928,"high":1},"stand-up: time to stand":{"value":13.513,"low":12.2878,"high":15.0391},"stand-up: median time to stand":{"value":12.1958,"low":11.65,"high":12.65},"stand-up: stood":{"value":0.9688,"low":0.8426,"high":0.9945},"stand-up: within 10 s":{"value":0.0625,"low":0.0173,"high":0.2015}}},
+{"protocol":"fight","subject":"option","label":"Option Mind","version":"cb53a5bc7fc1b46c","code":"c9c6450d2c6b4724","commit":"d6200840","date":"2026-10-30","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":60,"figures":{"fight: score":{"value":0.6167,"low":0.4833,"high":0.75},"fight: won":{"value":0.6167,"low":0.4902,"high":0.7291},"fight: margin":{"value":0.0674,"low":-0.0013,"high":0.1365}}},
+{"protocol":"punch","subject":"option","label":"Option Mind","version":"bb9dd4773a583d50","code":"173e6b19c12e0ee3","commit":"2b33ae18","date":"2026-11-03","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz, each command 1 step late","count":179,"figures":{"punch: landed":{"value":0.3631,"low":0.2962,"high":0.4358},"punch: landed on the body":{"value":0.7647,"low":0.6643,"high":0.8422},"punch: admitted":{"value":0.4749,"low":0.403,"high":0.5478},"punch: fell":{"value":0,"low":0,"high":0.021}}}
+],
+"baselines": [
+
+],
+"standings": [
+
+]
+}

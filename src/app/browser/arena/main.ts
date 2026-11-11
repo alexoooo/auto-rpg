@@ -13,7 +13,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { appearanceFor, appearancesFor, type Appearance } from "../../../game/appearance/appearance.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
 import { arenaSolids } from "../../../game/arena/solids.ts";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
+import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { buildArena } from "./scene.ts";
 import { LEVELS, type ArenaLevel } from "../../../game/arena/levels.ts";
 import { MENU_HREF } from "../../../game/route.ts";
@@ -105,18 +105,14 @@ const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string
   }
 };
 
-/** What the setup says of a reel's trial (`Trial`): its record, and what the pickers do not show of it. */
+/** What the setup says of a reel's trial (`Trial`): where it was read, and what the pickers do not show of it. */
 const trialNote = ({ commit, world }: Trial): string => {
   const extra = unshown(world.recipe);
-  return `A recorded case from commit ${commit.slice(0, 8)}: the reel plays its recipe and orders as this build's code builds them, `
-    + `which may not be the code it was recorded at. Fight plays a new bout of the choices shown.${extra.length ? ` The case also sets ${extra.join(", ")}, which the pickers do not show.` : ""}`;
+  return `A trial read at commit ${commit}: the reel plays its recipe and orders as this build's code builds them, `
+    + `which may not be the code it was read at. Fight plays a new bout of the choices shown.${extra.length ? ` The case also sets ${extra.join(", ")}, which the pickers do not show.` : ""}`;
 };
 /** The pause between one trial's end and the next one's start, with auto-play on, ms. */
 const TRIAL_BEAT_MS = 1000;
-/** Where the previous version's same trial plays, beside the trial: this far along +x, the stage's own axis, m. */
-const BESIDE = 4;
-/** How much of its side's colour the previous version's bodies are drawn in: its shapes, dimmed. */
-const BESIDE_SHADE = .55;
 
 /** The segment of `spec` no joint carries: the one the chase camera turns with. */
 
@@ -388,13 +384,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   context.own(() => highlights.dispose());
   /** A body drawn: its puppet, where it is in a frame, its centre and life as last shown. */
   interface Drawn { readonly puppet: Puppet; readonly offset: number; readonly centre: Vector3; life: number }
-  /** Each side's body of the bout, with its skin and shapes, and what the camera follows of it; and every body drawn, those beside too. */
+  /** Each side's body of the bout, with its skin and shapes, and what the camera follows of it; and every body drawn. */
   const bodies = new Map<Side, { readonly body: Drawn; readonly skin: SkinView; readonly shapes: BodyShapes; readonly head: TransformNode | null; readonly subject: ArenaSubjects[Side] }>();
   let shownBodies: Drawn[] = [], subjects: ArenaSubjects | null = null;
-  /** A trial's overlays (`trialOverlay`), while the bout plays one, and those of the previous version's beside it. */
-  let overlay: ReturnType<typeof trialOverlay> | null = null, besideOverlay: ReturnType<typeof trialOverlay> | null = null;
-  /** Where the previous version's same trial is drawn, beside the trial's: `BESIDE` m along, made the first time a reel plays one. */
-  let besideRoot: TransformNode | null = null;
+  /** A trial's overlays (`trialOverlay`), while the bout plays one. */
+  let overlay: ReturnType<typeof trialOverlay> | null = null;
   const profile = sceneProfile(scene);
   profile.register("world", visualGroup([...scene.meshes]));
   const geometry = solidGeometry(scene, arenaSolids(level));
@@ -452,7 +446,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     hud.hidden = true;
     undraw(); bout?.link.dispose(); bout = null; verdictShown = false; running = false; warm = false;
     leadSent = ""; looksSent = { left: "", right: "" };
-    overlay?.dispose(); overlay = null; besideOverlay?.dispose(); besideOverlay = null;
+    overlay?.dispose(); overlay = null;
     trial = null; trialShown = false; clearTimeout(nextTimer);
   };
 
@@ -497,7 +491,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   choiceBox.addEventListener("change", () => { choiceBox.blur(); pauseOnChoice = choiceBox.checked; bout?.link.input({ kind: "hold", hold: pauseOnChoice }); });
   goOn.addEventListener("click", () => { goOn.blur(); setPaused(false); });
   clockColumn.append(clock, controlField, pauseButton, choiceLabel, choosingLine, viewPanel, meter.element); hud.insertBefore(clockColumn, rows[1].label.parentElement);
-  // A reel's trial: which, its conditions and recorded outcome, auto-play and the next trial.
+  // A reel's trial: which, its conditions and the outcome it was read as, auto-play and the next trial.
   const reelLine = document.createElement("div"), trialText = document.createElement("span");
   const autoBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: auto });
   const autoLabel = document.createElement("label"), nextButton = Object.assign(document.createElement("button"), { type: "button", className: "action quiet", textContent: "Next trial" });
@@ -531,7 +525,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       if (drafted) void previews[side].setCharacter(0, { model: matchup[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
     }
   };
-  /** Begins a bout of `next`: the reel's trial `given`, as recorded, or the one the pickers make. */
+  /** Begins a bout of `next`: the reel's trial `given`, or the one the pickers make. */
   const begin = async (next: Matchup, given: Trial | null = null) => {
     if (beginButton.disabled) return;
     if (!given) {
@@ -564,23 +558,21 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
           context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view));
         }
-        // The bout: the trial's recipe as recorded, or the one the address and the pickers make.
-        const recipe = given?.world.recipe ?? recipeOf(location.search, attributes, level), previous = given?.previous ?? null;
+        // The bout: the trial's recipe, or the one the address and the pickers make.
+        const recipe = given?.world.recipe ?? recipeOf(location.search, attributes, level);
         const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
         context.signal.throwIfAborted();
         end();
         trial = given;
         audio.reset();
         controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
-        // A trial plays as recorded; a person leads their side of a new bout.
+        // A trial plays its own orders; a person leads their side of a new bout.
         const person = given ? null : you;
         const link = await openWorld<DuelCard>({ kind: "duel", start: {
           recipe, tape: given?.world.tape ?? [], played: given?.played ?? null, ...given ? { engine: given.world.engine, ...given.world.timing === undefined ? {} : { timing: given.world.timing } } : {},
           person, hold: pauseOnChoice, traced: given !== null,
-          beside: previous ? { recipe: previous.world.recipe, tape: previous.world.tape, played: previous.played, engine: previous.world.engine, ...previous.world.timing === undefined ? {} : { timing: previous.world.timing } } : null,
         } }, context.signal);
         const specs = { left: duelSpec(recipe, "left"), right: duelSpec(recipe, "right") };
-        const besideSpecs = previous ? { left: duelSpec(previous.world.recipe, "left"), right: duelSpec(previous.world.recipe, "right") } : null;
         const current: Bout = bout = { link, recipe, specs, person, news: null };
         link.listen({
           news: (news) => {
@@ -588,30 +580,19 @@ export async function bootArena(context: ScreenContext): Promise<void> {
             current.news = news.duel;
             for (const cue of news.duel.cues) audio.cue(cue);
             if (news.duel.trace) overlay?.add(news.duel.trace);
-            if (news.duel.besideTrace) besideOverlay?.add(news.duel.besideTrace);
             if (news.held) setPaused(true, "choice");
           },
           fault: (message) => { if (bout === current) need("boot-note").textContent = `The bout stopped: ${message}`; },
         });
-        if (previous) {
-          besideRoot ??= new TransformNode("arena.beside", scene);
-          besideRoot.position.set(BESIDE, 0, 0);
-        }
         // Each body as its worker built it, drawn at the world as it stands before the first step.
-        link.roster.forEach(({ id, segments, card: { side, beside } }, k) => {
-          const puppet = puppetBody((beside ? besideSpecs! : specs)[side], scene);
+        link.roster.forEach(({ id, segments, card: { side } }, k) => {
+          const puppet = puppetBody(specs[side], scene);
           puppets.push(puppet);
           if (segments.join() !== [...puppet.segments.keys()].join()) throw new Error(`the page draws ${id} with other segments than its world built`);
           const body: Drawn = { puppet, offset: link.offsets[k]!, centre: new Vector3(), life: 1 };
           shownBodies.push(body);
           posePuppet(puppet, body.offset, { from: link.newest, to: link.newest, share: 1 });
           bodyBetween(body.offset, { from: link.newest, to: link.newest, share: 1 }, body.centre);
-          if (beside) {
-            // The previous version's bodies, beside: their nodes under the root, their shapes dimmed.
-            for (const segment of puppet.segments.values()) segment.node.parent = besideRoot;
-            drawn.push(drawBody(puppet, scene, Color3.FromHexString(ARENA_SIDES[side].colour).scale(BESIDE_SHADE)), drawHeld(puppet, scene));
-            return;
-          }
           const hands = handsOf(puppet.configurations.state);
           const skin = dress.get(side)!(puppet, { clothing: { boots: true, armour: true }, closure: hands.closure });
           const shapes = drawBody(puppet, scene, Color3.FromHexString(ARENA_SIDES[side].colour));
@@ -623,13 +604,6 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         });
         subjects = { left: bodies.get("left")!.subject, right: bodies.get("right")!.subject };
         if (given) overlay = trialOverlay(scene);
-        if (previous) {
-          besideOverlay = trialOverlay(scene, besideRoot);
-          // The camera frames the trial's striker and the previous version's target: both bouts.
-          const own = subjects.right, at = new Vector3();
-          const target = shownBodies[link.roster.findIndex(({ card }) => card.beside && card.side === "right")]!;
-          subjects = { left: subjects.left, right: { get position() { return at.copyFrom(target.centre).addInPlaceFromFloats(BESIDE, 0, 0); }, get rotation() { return own.rotation; }, rest: own.rest } };
-        }
         rig.reset(); applyView();
         controlField.hidden = given !== null;
         showControl();
@@ -639,9 +613,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           row.inspector = mindInspector(config, specs[row.side], () => bout === current ? current.news?.sides[row.side].inspected ?? null : null);
           row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
         }
-        if (given) trialText.textContent = `Trial ${at + 1} of ${trials!.length}: ${given.condition}${given.outcome === null ? "" : `; recorded ${given.outcome}${given.why ? ` (${given.why})` : ""}`}`
-          + (!reel?.previous ? "" : given.previous ? `; beside, version ${given.previous.version.slice(0, 8)}${given.previous.outcome === null ? "" : `: ${given.previous.outcome}${given.previous.why ? ` (${given.previous.why})` : ""}`}`
-            : `; no record holds version ${reel.previous.slice(0, 8)}'s same trial`);
+        if (given) trialText.textContent = `Trial ${at + 1} of ${trials!.length}: ${given.condition}${given.outcome === null ? "" : `; read as ${given.outcome}`}`;
         reelLine.hidden = !given; nextButton.hidden = !given || at + 1 >= trials!.length;
         for (const id of ["random-replay", "bout-end-random"]) need(id).hidden = given !== null;
         hud.hidden = false;
@@ -793,15 +765,14 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     // While either side is hasted, each side's haste, per cent over a person's, signed.
     const haste = SIDES.map((side) => bout!.specs[side].attributes.haste.value), hasted = haste.some((h) => h !== HUMAN_HASTE.value);
     clock.textContent = `${(news.verdict?.time ?? news.clock).toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${trial ? " · replay" : ""}`;
-    // A trial ends where it was scored: its verdict, if any, and its outcome as recorded.
+    // A trial ends where it was scored: its verdict, if any, and its outcome as it was read.
     if (trial && news.done && !trialShown) {
       trialShown = true;
       const last = at + 1 >= trials!.length, { verdict } = news;
       need("bout-end").style.setProperty("--side-colour", verdict?.winner ? ARENA_SIDES[verdict.winner].colour : "var(--hot)");
       need("bout-verdict").textContent = `Trial ${at + 1} of ${trials!.length}${trial.outcome === null ? "" : `: ${trial.outcome}`}${last ? " · the reel is played" : ""}`;
       const decided = verdict ? `${verdict.winner ? `${MODEL_DISPLAY[matchup[verdict.winner]].label} ` : ""}${endingText(verdict.ending)} · ` : "";
-      need("bout-ending").textContent = `${trial.condition} · ${decided}${news.clock.toFixed(1)} s${trial.why ? ` · ${trial.why}` : ""}`
-        + (trial.previous ? ` · beside, version ${trial.previous.version.slice(0, 8)}: ${trial.previous.outcome ?? ""}${trial.previous.why ? `, ${trial.previous.why}` : ""}` : "");
+      need("bout-ending").textContent = `${trial.condition} · ${decided}${news.clock.toFixed(1)} s`;
       show("bout-end", true); audio.setActive(false); pauseButton.hidden = true;
       if (auto && !last) nextTimer = setTimeout(() => playTrial(at + 1), TRIAL_BEAT_MS);
     }
@@ -834,7 +805,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       if (!paused && !context.busy && profile.view === "world") arena.fire.burn(seconds);
       frame();
       if (!context.busy) steer();
-      readout(); audio.update(); overlay?.update(); besideOverlay?.update();
+      readout(); audio.update(); overlay?.update();
       scene.render();
     });
     measurement?.record({ ...timing, simulated: shownTime - shownBefore, time: shownTime, hz: bout?.link.hz ?? 0,

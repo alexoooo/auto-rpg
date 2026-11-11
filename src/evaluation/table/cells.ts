@@ -1,7 +1,7 @@
 /**
  * **The table's cells**: every body by loadout by skill Option Mind is asked to do, each with the
- * drill readings that value it in the game's own terms (`Judge`), read against the cell's baseline
- * and best version. A loadout is a record of slots (`Loadout`, the two hands), so a slot added to
+ * drill readings that value it in the game's own terms (`Judge`), read against the cell's baseline.
+ * A loadout is a record of slots (`Loadout`, the two hands), so a slot added to
  * it (a worn piece) adds to the loadout axis without reshaping a cell. A skill has a cell where its
  * body does it (`Skill.bodies`) and the loadout leaves it the limb it uses (`Skill.limbs`).
  */

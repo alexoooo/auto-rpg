@@ -18,7 +18,6 @@
     "test": "node scripts/test.mjs",
     "match": "node scripts/evaluate.mjs match",
     "evaluate": "node scripts/evaluate.mjs",
-    "compare": "node scripts/compare-evaluations.mjs",
     "clean": "node scripts/clean.mjs"
   },
   "dependencies": {

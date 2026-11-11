@@ -97,7 +97,7 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
    `--resume .tmp/<task>/<run>/model-<n>.zip --output .tmp/<task>/<run>-polish --lr 1e-4 --steps 3000000`.
    A checkpoint resumes only into another folder; decisions count on from its own.
 5. Compare the chosen checkpoint with the baseline, paired on the same cases
-   (`npm run compare`), and play its table cells. Keep it when the skill's value rises, each loss
+   (`npm run evaluate -- <drill> <subject> --previous <baseline>`), and play its table cells. Keep it when the skill's value rises, each loss
    named beside the gain. The limits the skill
    publishes, which the game plans by, are what it holds on the plan's cases, never what its
    training asked.

@@ -1,0 +1,21 @@
+{
+"cases": {
+
+},
+"results": [
+{"protocol":"standard","subject":"behaviours","label":"behaviours (1bacac44)","version":"84f0ff044c94859e","code":"52cbbec43b4194a8","commit":"1bacac44","date":"2026-10-21","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":60,"figures":{"won":{"value":0.3333,"low":0.2273,"high":0.4594},"drawn":{"value":0,"low":0,"high":0.0602},"lost":{"value":0.6667,"low":0.5406,"high":0.7727}}},
+{"protocol":"standard","subject":"classic","label":"classic (1bacac44)","version":"f0c134bada5100ca","code":"b2d18c05c85468b6","commit":"1bacac44","date":"2026-10-21","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":60,"figures":{"won":{"value":0.15,"low":0.081,"high":0.2611},"drawn":{"value":0,"low":0,"high":0.0602},"lost":{"value":0.85,"low":0.7389,"high":0.919}}},
+{"protocol":"standard","subject":"counter","label":"counter (1bacac44)","version":"d55a26ae27faed08","code":"a6c40f6a41aefd10","commit":"1bacac44","date":"2026-10-21","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":24,"figures":{"won":{"value":0.125,"low":0.0434,"high":0.31},"drawn":{"value":0,"low":0,"high":0.138},"lost":{"value":0.875,"low":0.69,"high":0.9566}}},
+{"protocol":"standard","subject":"duellist","label":"duellist (1bacac44)","version":"81feb18eed93ab01","code":"13c692985d232c89","commit":"1bacac44","date":"2026-10-21","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":60,"figures":{"won":{"value":0.4667,"low":0.3463,"high":0.5911},"drawn":{"value":0,"low":0,"high":0.0602},"lost":{"value":0.5333,"low":0.4089,"high":0.6537}}},
+{"protocol":"standard","subject":"options","label":"options (1bacac44)","version":"7e1288711f387737","code":"09194665c78d2b24","commit":"1bacac44","date":"2026-10-21","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":60,"figures":{"won":{"value":0.2167,"low":0.1312,"high":0.3362},"drawn":{"value":0.0167,"low":0.0029,"high":0.0886},"lost":{"value":0.7667,"low":0.6456,"high":0.8556}}},
+{"protocol":"standard","subject":"puncher","label":"puncher (1bacac44)","version":"5f34b2b5f9371aac","code":"44bedc66ff061ced","commit":"1bacac44","date":"2026-10-21","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":24,"figures":{"won":{"value":0.2917,"low":0.1491,"high":0.4917},"drawn":{"value":0,"low":0,"high":0.138},"lost":{"value":0.7083,"low":0.5083,"high":0.8509}}},
+{"protocol":"standard","subject":"scrapper","label":"scrapper (1bacac44)","version":"9037c48454a221be","code":"c9b80839a46ab433","commit":"1bacac44","date":"2026-10-21","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":48,"figures":{"won":{"value":0.2917,"low":0.1824,"high":0.4318},"drawn":{"value":0,"low":0,"high":0.0741},"lost":{"value":0.7083,"low":0.5682,"high":0.8176}}},
+{"protocol":"standard","subject":"tempo","label":"tempo (1bacac44)","version":"a84ae66384ca8c3b","code":"7cf3b00eab1537cf","commit":"1bacac44","date":"2026-10-21","harness":"Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz","count":48,"figures":{"won":{"value":0.3958,"low":0.2702,"high":0.5369},"drawn":{"value":0,"low":0,"high":0.0741},"lost":{"value":0.6042,"low":0.4631,"high":0.7298}}}
+],
+"baselines": [
+
+],
+"standings": [
+
+]
+}

@@ -1,9 +1,9 @@
 import { skillsOf } from "../../../src/minds/option/skills.ts";
 /**
  * **The strikes' profiles** (`src/skills/framework/profile.ts`, `assets/skills/strikes/strike-profiles/strike-profiles.json`): from
- * Strike drill records (`assets/evaluations/strike/`, and the baseline's punch rows, whose `rung`
- * names theirs), each strike's trials on a mark its action aims at, with a limb that throws it with
- * what it holds (`strikesOf`). A profile a skill on a body against a target: its measured-on read
+ * Strike drill runs (`npm run evaluate -- strike ... --json <run.json>`, and the baseline's punch
+ * rows, whose `rung` names theirs), each strike's trials on a mark its action aims at, with a limb
+ * that throws it with what it holds (`strikesOf`). A profile a skill on a body against a target: its measured-on read
  * from each row's world (the left body's spec as the bout builds it, the skill's digest as the mind
  * holds it, the harness's rate and command delay (`harnessRule`), the recipe's sense delay, the rate
  * its mind decides at), its target the right body's; its trials those whose strike began (a trial
@@ -30,9 +30,11 @@ import { skillsOf } from "../../../src/minds/option/skills.ts";
  * A profile is of one limb, as one Option strikes with one (`limbAction`): its skill's digest is
  * of the action struck with that limb, and it names the limb (`Profile.limbs`).
  *
- *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/strike-profiles.mjs [<record.jsonl or run.json> ...] [--write]
+ *   node --import ./tests/harness/preload-data.mjs research/skills/strikes/strike-profiles.mjs <run.json> ... [--write]
  *
- * With none named, the records the profiles name now; a run's `--json` file reads as a record.
+ * `--write` puts the runs' profiles in the asset, each in place of the one measured on the same
+ * body, skill and target; the asset's others stay while a preset still throws their skill on a body
+ * the game builds (`profileKeys`), so one skill is measured again without the rest.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { EMPTY_LOADOUT, withLoadout } from "../../../src/core/bodies/items/held.ts";
@@ -42,20 +44,19 @@ import { limbAction } from "../../../src/minds/option/kinds.ts";
 import { measuredOn, skillDigest, specDigest } from "../../../src/skills/framework/profile.ts";
 import { everyOf } from "../../../src/minds/decider.ts";
 import { bodyKey } from "../../../src/core/bodies/spec/body.ts";
-import { harnessRule } from "../../../src/evaluation/record.ts";
+import { harnessRule } from "../../../src/evaluation/results.ts";
+import { profileKeys } from "../../../tests/harness/profile-keys.mjs";
 import { lifeFactor } from "../../../src/combat/pool.ts";
 import { rulebook } from "../../../src/combat/rulebook.ts";
 
 const OUT = "assets/skills/strikes/strike-profiles/strike-profiles.json", SCRIPT = "research/skills/strikes/strike-profiles.mjs";
 const write = process.argv.includes("--write");
-const named = process.argv.slice(2).filter((arg) => arg !== "--write");
-const paths = named.length ? named : JSON.parse(readFileSync(OUT, "utf8")).source.records;
+const paths = process.argv.slice(2).filter((arg) => arg !== "--write");
+if (!paths.length) throw new Error("name a Strike drill run: npm run evaluate -- strike <subject> --protocol <rung> --json <run.json>");
 
-/** A record's header and rows: a kept record (`.jsonl`), or a run's `--json` file. */
+/** A run's header and rows (`npm run evaluate -- ... --json`). */
 const read = (path) => {
-  const text = readFileSync(path, "utf8");
-  if (!path.endsWith(".json")) return text.split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
-  const { header, cases } = JSON.parse(text);
+  const { header, cases } = JSON.parse(readFileSync(path, "utf8"));
   return [header, ...cases];
 };
 const round = (x) => Number(x.toFixed(4));
@@ -93,7 +94,7 @@ const marksOf = (action) => (action.regions ?? []).every((region) => region.kind
 const profiles = new Map();
 for (const path of paths) {
   const [header, ...rows] = read(path);
-  if (header.evaluation !== "strike" && header.evaluation !== "baseline") throw new Error(`${path} is no record of the Strike drill or the baseline`);
+  if (header.evaluation !== "strike" && header.evaluation !== "baseline") throw new Error(`${path} is no run of the Strike drill or the baseline`);
   const rule = harnessRule(header.harness);
   if (!rule) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
   const { hz, delay } = rule;
@@ -113,9 +114,8 @@ for (const path of paths) {
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
     const measured = measuredOn(spec, skillDigest(partLookup, spec, executors, limbed), hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
-    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector} on ${struck.model}`, effectors: limbed.effectors, limbs: new Set(), records: new Set(), trials: [] };
+    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.skill ?? drill.action} with ${drill.effector} on ${struck.model}`, effectors: limbed.effectors, limbs: new Set(), trials: [] };
     profiles.set(key, profile);
-    profile.records.add(path);
     profile.limbs.add(drill.effector);
     const r = row.reading;
     if (r.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
@@ -144,8 +144,8 @@ for (const profile of profiles.values()) {
   profile.trials = profile.trials.filter((trial) => recorded(trial) === most);
 }
 const order = (a, b) => (a.start.postures?.target ?? "").localeCompare(b.start.postures?.target ?? "") || a.start.phase.localeCompare(b.start.phase) || a.start.range - b.start.range;
-const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles.values()].map((profile) => ({ measured: profile.measured, target: profile.target,
-  limbs: profile.effectors.filter((limb) => profile.limbs.has(limb)), trials: [...profile.trials].sort(order) })) };
+const made = [...profiles.values()].map((profile) => ({ measured: profile.measured, target: profile.target,
+  limbs: profile.effectors.filter((limb) => profile.limbs.has(limb)), trials: [...profile.trials].sort(order) }));
 for (const profile of profiles.values()) {
   const m = profile.measured, run = profile.trials.filter((t) => !t.letGo), lets = profile.trials.length - run.length;
   console.log(`${profile.label} (${m.body}, spec ${m.spec}, skill ${m.skill}, ${m.hz} Hz${m.rate ? `, its mind at ${m.rate} Hz` : ""}${m.delay ? `, its command ${m.delay} steps late` : ""}, senses ${m.reaction} s late)`);
@@ -159,4 +159,16 @@ for (const profile of profiles.values()) {
     + ` landed ${round(run.filter((t) => t.done).length / run.length)}, dealt ${round(dealing.length / run.length)} of them, down ${round(run.filter((t) => t.down).length / run.length)};`
     + ` run median ${round(median(seconds))} s; recovers ${recovered.length ? `median ${round(median(recovered))} s, ${round(Math.min(...recovered))} to ${round(Math.max(...recovered))} s, in ${recovered.length} of ${run.length}` : "recorded by none"}; cycle ${round(cycle)} s`);
 }
-if (write) writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);
+if (write) {
+  // Each of the asset's profiles keeps its place; one a run made again is replaced there, and the new follow.
+  const keyOf = (profile) => JSON.stringify([profile.measured, profile.target]), current = profileKeys().strike;
+  const remade = new Map(made.map((profile) => [keyOf(profile), profile])), kept = [];
+  for (const profile of JSON.parse(readFileSync(OUT, "utf8")).profiles) {
+    const again = remade.get(keyOf(profile));
+    remade.delete(keyOf(profile));
+    if (again) kept.push(again);
+    else if (current.has(`${profile.measured.body} ${profile.measured.spec} ${profile.measured.skill}`)) kept.push(profile);
+    else console.log(`dropped: ${profile.measured.body} (spec ${profile.measured.spec}), skill ${profile.measured.skill}, which no preset throws now`);
+  }
+  writeFileSync(OUT, `${JSON.stringify({ source: { script: SCRIPT }, profiles: [...kept, ...remade.values()] }, null, 2)}\n`);
+}

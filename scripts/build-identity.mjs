@@ -228,9 +228,9 @@ const digestOf = (files, paths) => {
  *   list names it), of each kind of mind its world names, of each part their trees name that a
  *   role's list holds (its module's closure less the environment) or an entrant registers (its
  *   entrant's own code) and of each data key their minds
- *   read (`added`): its `digest` is the case key's `code`, its `files` what a record's commit must hold
+ *   read (`added`): its `digest` is the case key's `code`, its `files` what a result's commit must hold
  *   unchanged, and `own` the digest of `added` alone, null where nothing is added (a version's
- *   `code`, `src/evaluation/record.ts`, read of a subject's parts, which name no world).
+ *   `code`, `versionOf`, read of a subject's parts, which name no world).
  */
 export function caseCoder(files, caseModule, kinds) {
   const [toolkitList, entrantList] = CUTS.kinds, listed = files[toolkitList]?.kinds ?? [], entrants = files[entrantList]?.kinds ?? [];

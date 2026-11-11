@@ -134,8 +134,6 @@ it compares the complete sparse array alongside real `undefined` entries and esc
 | File and case | Concrete justification |
 | --- | --- |
 | [tooling.test.mjs](tooling.test.mjs): `one entrant cannot remove another through the shared registry line` | Reproduce a single entrant deleting a rival from the shared array while the ownership classifier still calls the change its own. A match does not check source ownership. |
-| [tooling.test.mjs](tooling.test.mjs): `historical import refuses a complete count played at undeclared gaps` | Reproduce imported rows at gap 99 passing count checks for a protocol declaring gap 1. An imported rating cannot validate its own scenario coverage. |
-| [tooling.test.mjs](tooling.test.mjs): `paired comparison reads imported null worlds and qualifies missing recipes` | Reproduce the Warrior travel import admitted by the record reader but crashing when paired comparison reads its null world. Assert the complete comparison and its missing-recipe qualification through record serialization and admission; drills construct worlds and cannot exercise imported evidence. |
 | [tooling.test.mjs](tooling.test.mjs): `build source identity canonicalizes included authoring text but preserves binary bytes` | Reproduce identical Python, PowerShell and Markdown inputs receiving different build identities after checkout line-ending conversion; keep binary distinctions intact. |
 | [tooling.test.mjs](tooling.test.mjs): `idle learning-worker errors survive until the next protocol request` | Reproduce a background environment failure discarded while no request waits; the next trainer request must receive that failure. Skill outcomes do not establish worker error delivery. |
 | [tooling.test.mjs](tooling.test.mjs): `a reported research job failure closes every worker before rejecting` | Reproduce a rejected posture job leaving its worker message listener alive and preventing child exit. The check asserts every owned worker is terminated before failure reaches the caller. |
@@ -203,8 +201,8 @@ completed bouts do not exercise:
 
 | File and case | Concrete justification |
 | --- | --- |
-| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `custom subjects retain execution scope through normalization, recording and reconstruction` | Custom subject adapters lost body restrictions and attributes, while code identity skipped standalone strike and technique implementations. |
-| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `record admission and every keyed evidence reader refuse incomplete or conflicting cases` | Incomplete rows were admitted and history, Ratings and reels selected conflicting first occurrences without agreement. |
+| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `custom subjects retain execution scope through normalization and into their version` | Custom subject adapters lost body restrictions and attributes, while code identity skipped standalone strike and technique implementations. |
+| [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `a run's rows refuse incomplete or conflicting cases` | Incomplete rows were admitted, and of two rows that read one case differently the first was taken without agreement. |
 | [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `a table cell is valued only on every protocol case with none faulted` | One passing row satisfied a full run cell; null fault readings were dereferenced. |
 | [evaluation/swap.test.mjs](evaluation/swap.test.mjs): `Cover requires an attempted attack before untouched can pass` | An opponent that never attacked produced a passing untouched result. |
 | [skills/boundaries.test.mjs](skills/boundaries.test.mjs): `resource compilation separates segment names from services and uses physical bearing chains` | Valid segment names collided with logical services, and a bearing end without an effector lost its support channels. |

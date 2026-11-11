@@ -1,19 +1,17 @@
 /**
- * **The cap from bar series**: for shorter caps, how many of the tournament records' bouts keep
- * their outcome there (an earlier ending, else the fuller bar, as `Duel` decides at its cap) and how
- * many matchups (a pair at a condition, both sides) keep their standing, with Wilson intervals, and
- * the simulated time a pair takes. Reads every record line with a bar series (`readBout`).
+ * **The cap from bar series**: for shorter caps, how many of a tournament run's bouts keep their
+ * outcome there (an earlier ending, else the fuller bar, as `Duel` decides at its cap) and how many
+ * matchups (a pair at a condition, both sides) keep their standing, with Wilson intervals, and the
+ * simulated time a pair takes. Reads every row with a bar series (`readBout`).
  *
- *   node research/cap-series.mjs [folder of records, assets/evaluations/tournament unless given]
+ *   node research/cap-series.mjs <run.json> ...   (npm run evaluate -- tournament --json <run.json>)
  *
  * A shorter cap is chosen when its matchups' interval lies above `KEEP`; 120 s stays when every
  * shorter cap's lies below; otherwise the rows are not yet enough.
  */
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { CAP_SECONDS } from "../src/game/arena/duel.ts";
 import { SERIES_SECONDS } from "../src/evaluation/contest.ts";
-import { readRecord } from "../src/evaluation/record.ts";
 import { recordingKey } from "../src/core/world/recording.ts";
 import { wilson } from "../src/evaluation/stats.ts";
 
@@ -22,13 +20,14 @@ const KEEP = 0.95;
 /** The caps read, s: multiples of the series' spacing. */
 const CAPS = [30, 40, 50, 60, 90];
 
-const dir = process.argv[2] ?? "assets/evaluations/tournament";
+const paths = process.argv.slice(2);
+if (!paths.length) throw new Error("name a tournament run: npm run evaluate -- tournament --json <run.json>");
 const lines = new Map();
-for (const name of readdirSync(dir).filter((one) => one.endsWith(".jsonl"))) {
-  const { header, lines: recorded } = readRecord(readFileSync(join(dir, name), "utf8"), name);
-  const provenance = recordingKey({ pool: header.pool, engine: header.engine, harness: header.harness, play: header.play,
+for (const path of paths) {
+  const { header, cases } = JSON.parse(readFileSync(path, "utf8"));
+  const provenance = recordingKey({ engine: header.engine, harness: header.harness,
     subjects: [...header.subjects].map(subject => ({ id: subject.id, version: subject.version })).sort((a,b) => a.id.localeCompare(b.id)) });
-  for (const line of recorded) if (!line.fault && line.reading.series) lines.set(`${provenance}|${line.key}`, { ...line, provenance });
+  for (const line of cases) if (!line.fault && line.reading.series) lines.set(`${provenance}|${line.key}`, { ...line, provenance });
 }
 const bouts = [...lines.values()];
 const short = bouts.filter(({ reading }) => reading.series.at(-1)[0] !== reading.bars[0] || reading.series.at(-1)[1] !== reading.bars[1]);
@@ -42,7 +41,7 @@ for (const bout of bouts) {
 const matchups = [...units.values()].filter((unit) => unit.length === 2 && unit[0].subjects[0] === unit[1].subjects[1] && unit[0].subjects[1] === unit[1].subjects[0]);
 const incomplete = [...units.values()].filter(unit => !matchups.includes(unit));
 if (incomplete.length) console.error(`${incomplete.length} incomplete or non-mirrored provenance groups excluded`);
-if (matchups.length === 0) { console.log(`no matchup in ${dir} has a bar series: the cap stays ${CAP_SECONDS} s until reports are recorded`); process.exit(0); }
+if (matchups.length === 0) { console.log(`no matchup in ${paths.join(", ")} has a bar series: the cap stays ${CAP_SECONDS} s`); process.exit(0); }
 
 /** A bout's winner had its cap been `t`. */
 const winnerAt = ({ reading }, t) => {
