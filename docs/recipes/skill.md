@@ -3,7 +3,8 @@
 How a skill goes from a request to something the owner sees in the game: the rules every piece of
 skill work keeps, then the steps in order. Skill work is any change to a skill, an Option, a
 body's control, a training run or a table cell. Read this page before starting it; its rules bind
-as [AGENTS.md](../../AGENTS.md)'s do. [The training recipe](training.md) is the steps' last part,
+as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
+[the training recipe](training.md#what-to-keep) says. [The training recipe](training.md) is the steps' last part,
 [the table](../reference/the-table.md) is how a skill is read, and
 [the approaches](../approaches.md) is what has been tried.
 
@@ -11,11 +12,12 @@ as [AGENTS.md](../../AGENTS.md)'s do. [The training recipe](training.md) is the 
 
 ### One row, one question
 
-- **A run works one skill on one body**: one row of [the table](../reference/the-table.md), its
-  loadouts the cells. A wider goal is worked a row at a time, each brought to a kept gain or a
-  named ceiling before the next opens. A run's report is the table's lines for its rows as the
-  run began and as it ends (`npm run evaluate -- table --body <model> --skill <name>`), each cell
-  better, worse or within noise, the worse ones first.
+- **A run works one question on one skill on one body**: one row of
+  [the table](../reference/the-table.md), its loadouts the cells, from a brief the owner approved
+  ([AGENTS.md](../../AGENTS.md#the-rules)). It ends at its question or its budget and opens no
+  other row. Its report is the table's lines for its row as the run began and as it ends
+  (`npm run evaluate -- table --body <model> --skill <name>`), each cell better, worse or within
+  noise, the worse ones first.
 - **An iteration is one question**: one implementation changed, read paired against the one
   before (`--previous`, `npm run match`), kept or dropped with the reason in the commit message,
   and in the approaches when the reason is the mechanism's. A live alternative stays only while an
@@ -29,22 +31,22 @@ as [AGENTS.md](../../AGENTS.md)'s do. [The training recipe](training.md) is the 
 ### The approach
 
 - **Choose an approach that can work.** Before a goal's work starts or changes direction, read its
-  section of [the approaches](../approaches.md) and `git log -i --grep=<skill>`. The plan names
+  section of [the approaches](../approaches.md) and `git log -i --grep=<skill>`. The brief names
   the mechanism that does the part that fails today and the entries it was checked against; a
   ruled-out approach is taken up again only with evidence that its cause no longer holds. A
   mechanism that fails for a structural reason is replaced, never tuned.
-- **An approach is stopped by evidence, never by the clock.** Before an approach's work starts,
-  name its signal (the reading that moves if its mechanism does the part that fails today) and
-  the result that would show the mechanism cannot. Read the signal the cheapest way first: the
-  failing part alone, on a few cases. While the signal moves the work goes on, however long; an
-  approach's cost is priced and reported, and is never the reason to pass it over. An approach
-  stops when its signal stays flat: a search or a training run at its recipe's plateau, other
-  work after three changes of different kinds aimed at the named cause. Its best is kept, the
-  approaches say whether the mechanism or its settings limit it, and the next approach starts.
-- **A failure's cause is a constraint in [the approaches](../approaches.md)**, written in the
-  commit that drops the attempt: what the mechanism cannot do, why, and the evidence commits. A
-  reading that ends short says whether the mechanism or its settings limit it, and never ends on
-  the next tweak of a ruled-out mechanism.
+- **An approach is stopped by its signal or the brief's budget.** Before an approach's work
+  starts, name its signal (the reading that moves if its mechanism does the part that fails
+  today) and the result that would show the mechanism cannot. Read the signal the cheapest way
+  first: the failing part alone, on a few cases. An approach stops when its signal stays flat: a
+  search or a training run at its recipe's plateau, other work after three changes of different
+  kinds aimed at the named cause. Its best is kept. At the budget the run stops with its signal
+  reported, and going on is the owner's choice.
+- **A failure's cause is reported with its evidence**: what the mechanism could not do, why, and
+  whether the mechanism or its settings limit it. It becomes a constraint in
+  [the approaches](../approaches.md) when the owner accepts it. A low reading is first a question
+  about its test: whether the cases ask what the skill offers, against a target that lets it
+  happen.
 
 ### What a change is kept on
 
@@ -56,10 +58,11 @@ as [AGENTS.md](../../AGENTS.md)'s do. [The training recipe](training.md) is the 
   shared piece adds its gains and losses on every skill it touches and reports each. A skill's
   first reading when its work begins is its baseline (`npm run evaluate -- table --baseline`
   names it where the cell has none).
-  Where an iteration brings no gain, its best is kept and its ceiling named from a reading (the
-  body, the controller or the drill).
+  Where an iteration brings no gain, its best is kept and the report says what its readings show
+  limits it (the body, the controller or the drill).
 - **What a change is judged on**: a record or a variant on its own body; a shared piece on every
-  body. A body a shared change sets back is searched again on the new code first; a setback that
+  body. A change under a body (anatomy, engine, rate, timing) reads every skill on it in the same
+  change, and its commit names each loss. A body a shared change sets back is searched again on the new code first; a setback that
   remains is a defect in its path or the reason it gets a record or a variant of its own, never
   the reason to reject the change; the architecture is never bent to spare a skill its retuning.
 - **A bug is fixed to its own layer's contract**, never judged by a reading above it; what the fix
@@ -75,6 +78,8 @@ as [AGENTS.md](../../AGENTS.md)'s do. [The training recipe](training.md) is the 
   against its baseline and its Ratings link. The table plays the game's Mind with what is
   installed, so a skill the Mind does not use moves no cell and is reported as not in the game. A
   reading on a drill, a search or a training screen is progress toward a claim and never the claim.
+  A check that shows a change works (the table cell, the fresh agent, the fingerprint) is never
+  dropped to save time; time is saved on everything else.
 - **A fresh agent checks a claim before it is reported**: a subagent given the claim, the cell's
   link and the game in a browser, and no account of the work, watches the cell's reel, failures
   first, then the skill in the screen that uses it, and says what it saw. The report carries its
@@ -119,6 +124,9 @@ A skill that exists enters at the step its failing part belongs to.
 - **Build only the primary screen first**: the reader, one fixture, one hand, one loadout, one
   rate. Misses, cancellations, moving targets, repetitions, other hands, loadouts and rates come
   once the primary screen succeeds on some cases.
+- **A test is built from the skill it tests**: its cases are the marks, limbs, bodies and
+  loadouts the skill's Option offers (`caseFaults`, `strikesBy`), never a list shared with other
+  skills. A case the skill does not offer is no case of it, and scores nothing.
 - **A skill is judged on itself, against a target that lets it happen**: a blow at a mark it can
   reach, as a person's punch is judged on a pad. A foe's guard or best answer says nothing of the
   skill; against a best answer no act would pass. A defence in front of the mark is the fight's
@@ -168,8 +176,8 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 ### 5. Widen and confirm
 
 - Add what step 1 held back, one at a time, as episodes and cases: the other hand, loadouts,
-  rates, approaches, moving targets, the guarded target, misses and cancellations. Each keeps the
-  earlier cases in the mix.
+  rates, approaches, moving targets, misses and cancellations. Each keeps the earlier cases in
+  the mix.
 - Confirm on held-out cases once, on the chosen checkpoint or record.
 - Register it in Option Mind, install its record in the game and read its profiles; a drill
   Commander using it alone does not show the Mind uses it.
@@ -179,6 +187,10 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 
 ## Traps
 
+- **Filling a score's zeros with a new skill**: a low cell says its skill is weak or its test asks
+  what the skill does not offer. It never asks for another skill; that is the owner's to ask.
+- **A plan followed as the request**: a plan's line, a roadmap item or an earlier agent's handover
+  says where things are. The request is the owner's words in the brief.
 - **Infrastructure first**: readers and fixtures for every case before any trial succeeds. Each
   is right and none moves the skill.
 - **An all-or-nothing objective**: with nothing met, every candidate ties and the search returns

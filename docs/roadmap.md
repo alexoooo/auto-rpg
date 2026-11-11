@@ -27,15 +27,15 @@ What is in work now, what is next, and what is open. What is built is in the
 ## Now
 
 **The Warrior's punch**: the table's `punch` row on `workshop-fighter`
-([its plan](plans/2026-11-10-warrior-punch.md)). The next row opens when this one stands at a
-kept gain or a named ceiling ([the skill recipe](recipes/skill.md#one-row-one-question)).
+([its notes](plans/2026-11-10-warrior-punch.md)): the straight punch at the trunk. A run works
+one question of it from a brief the owner approves ([the rules](../AGENTS.md#the-rules)).
 
-The standing goal behind it: every cell of the table raised from its baseline, a row at a time,
-each skill on every body and loadout as good as it can be made.
+The standing goal behind it: every cell of the table raised from its baseline, a row at a time
+([the skill recipe](recipes/skill.md#one-row-one-question)).
 
 ## Next
 
-In order; each is a row of the table or one question, taken up when the one before it lands.
+In order; each is a row of the table or one question, taken up on the owner's request.
 
 1. **Stand-up on the Rogue and the Skeleton.** Their rows are the table's slowest against the
    Warrior's, and a body's time to stand prices every fall in its other cells.
@@ -50,7 +50,8 @@ In order; each is a row of the table or one question, taken up when the one befo
 
 ## Parked plans
 
-Each holds its goal, where it stands and its next question, and is taken up from there.
+Each holds its goal, where it stands and the questions open
+([the documents recipe](recipes/documents.md)).
 
 | Plan | What it builds |
 | --- | --- |

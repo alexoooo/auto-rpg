@@ -69,8 +69,9 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
 - **Set the config's `workers` to the machine's logical processors.** The server's default of 8
   leaves most of a large machine idle, and the rate scales with workers.
 - **Price it from the first chunk**: train.log's decisions over its minutes gives the rate, and
-  20 M at that rate is the run's time. Hours are normal; time alone never stops a run that is
-  still gaining.
+  the run's decisions at that rate is its time. A run whose price is over the brief's budget
+  ([AGENTS.md](../../AGENTS.md#the-rules)) stops there and reports the price; a run within it
+  stops at the budget with its trend reported, and going on is the owner's choice.
 - **A run slower than 1 M decisions in 45 minutes is profiled before its question opens**:
   `--profile` shows whether the environment or the learner is the wait, and a wait that is a
   defect is fixed first. A run that is slow for what it simulates runs at its rate.
@@ -140,6 +141,14 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
   it. Without that retraining the reading measures the actor outside the states it learned on.
 
 ## What to keep
+
+A run's output goes to `.tmp/<task>/`: checkpoints, traces, screens, rejected candidates.
+`research/runs/<task>/` keeps only what a later run reads (a selected model with its
+normalisation and configuration, rows a comparison reuses) and a README naming each file. A file
+loose in `research/runs/`, a folder there with no README or an entry its README does not name, or
+a folder over 1,000 files or 1 GB fails `tests/workspace.test.mjs`. `npm run evaluate` caches
+played rows in `.tmp/evaluations/`; its results are what it keeps, a few numbers a trial in
+`assets/evaluations/<id>.json`, committed with the change they read.
 
 When a checkpoint is chosen, copy its `model-<n>.zip`, `normalize-<n>.pkl`, `policy-<n>.json`,
 `layout.json` and the run's config to `research/runs/<task>/<name>/`, and add a line for it to

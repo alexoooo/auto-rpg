@@ -11,6 +11,28 @@ inventory when a case changes. A small fixture that proves a scanner detects a d
 with its repository scan; a clean repository alone cannot distinguish a working scanner from one
 that reports nothing.
 
+## The rules
+
+- **Tests are a liability; less is more.** Each retained case has a concrete failure and a reason
+  capability drills or existing diagnostics do not establish it, in this inventory. Skill
+  behaviour belongs in drills and paired evaluations; allocation profiling and broad replay
+  batteries are explicit diagnostics. No test file has a blanket exemption. A new test reproduces
+  a concrete observed regression: its commit names the failure and the broken code on which it
+  fails. A new feature, a contract by itself or an artificial mutant is not a reason to add one.
+  Keep it under about 10 s; how well a mind plays is a match, not a test.
+- **Test the contract**: inputs, outputs, what can be observed; never a tuned number or a last
+  run's trajectory. Rules and replay are held to exact equality.
+- **A fixture that did not reach its case says so** before the asserts; bouts are capped. A
+  fixture is a recipe or a placed pose, not stored bytes.
+- **A green test can assert nothing**: assert whole records, with a fixture that can show the
+  defect, along the whole path.
+- **Never green by relaxing**: no eased threshold, easier seed or regenerated expectation. A red
+  physical check names its recipe, seed, condition and value against its limit.
+- **Node imports `src/` directly**: relative imports carry `.ts`; no parameter properties. The
+  headless stand is `tests/harness/core-stand.mjs`.
+- **Under CPU load a dropped test count is a timeout**, not a regression: re-run on a quiet
+  machine.
+
 ## Architectural boundaries
 
 [core-boundary.test.mjs](core-boundary.test.mjs) reads source; it does not play bouts. Type checking
