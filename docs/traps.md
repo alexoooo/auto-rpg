@@ -1,7 +1,8 @@
 # Traps
 
 What has bitten in code that calls Rapier or Babylon, handles a pointer, or is checked in a
-browser. Read the section before changing code of its kind.
+browser, and in the tools on the development machine. Read the section before changing code of
+its kind or running those tools.
 
 ## Rapier
 
@@ -37,3 +38,20 @@ browser. Read the section before changing code of its kind.
   `__dungeon.run` read the state.
 - `Material.isReady(mesh)` is false outside a render pass; use `mesh.material`, not
   `scene.materials`; after a hot reload, navigate.
+
+## Tools on Windows
+
+- **`git worktree remove` on a worktree with a `node_modules` junction empties the main
+  checkout's.** Delete the folder with `npm run clean` (or Node's `rmSync`), then
+  `git worktree prune`.
+- **Python's `open(path, 'w')` writes cp1252**: Vite's build then refuses the file while `tsc` and
+  `npm test` pass. Pass `encoding='utf-8'`.
+- **Git Bash dies in its own startup at times**, leaving `bash.exe.stackdump` in the repository
+  root (every frame in `msys-2.0.dll`, the runtime's fatal-error exit), which fails
+  `tests/workspace.test.mjs`. Many bash launches at once or in quick succession are the common
+  thread; a long script with quotes and backticks in a quoted heredoc is safer written to a file
+  first. A dump's first lines and time, and what was running, are read before `npm run clean`
+  deletes it; the remedy left is a newer Git for Windows.
+- **A background wait ends on its own**: a watcher loop outlives the tool that started it, so it
+  gets a timeout or an exit condition, and its pattern must be able to match (a training run's
+  checkpoints are named by decisions, `model-12060672`, not round millions).

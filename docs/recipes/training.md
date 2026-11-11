@@ -37,7 +37,9 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
    actor makes every trained actor a seed to retrain, never a reading. Budget 2 to 5 M decisions
    to bring it back, started with `--start`, `--start-layout` and `--critic-first`, then compare it
    with the baseline from step 2. Its input normalisation is measured anew on the new episodes:
-   statistics frozen on a narrower mix saturate what it never saw.
+   statistics frozen on a narrower mix saturate what it never saw. So a run waits for the
+   finished design: one trained while the controller, observation or actions are still changing
+   is retrained when they settle.
 4. **Start the spread at one the seed survives.** `--start` begins exploring at `--log-std`
    (default −1, a spread of 0.37), whatever the seed's own. Play the seed with that noise on each
    phase: where it fails in more than a few episodes, lower the spread until it does not, and

@@ -61,7 +61,7 @@ as [AGENTS.md](../../AGENTS.md)'s do. [The training recipe](training.md) is the 
 - **What a change is judged on**: a record or a variant on its own body; a shared piece on every
   body. A body a shared change sets back is searched again on the new code first; a setback that
   remains is a defect in its path or the reason it gets a record or a variant of its own, never
-  the reason to reject the change.
+  the reason to reject the change; the architecture is never bent to spare a skill its retuning.
 - **A bug is fixed to its own layer's contract**, never judged by a reading above it; what the fix
   breaks above is a defect there, fixed next in the same push. A table cell that drops meanwhile
   is named in the commit.
@@ -89,10 +89,16 @@ as [AGENTS.md](../../AGENTS.md)'s do. [The training recipe](training.md) is the 
 ### An Option's code
 
 - **An Option's profile measures its outcomes**, falls among them, so the Mind prices its risk.
-- **One act an Option**: one skill used one way, its limbs, target and aim; what Options share is
+- **One Mind for every body**: Option Mind runs one loop for every body, and everything it does is
+  an Option, made and priced the same way, with no special case for any act.
+- **One act an Option**: one skill used one way, its limbs, target and aim, as the item is really
+  used (a club is swung; a sword cuts and thrusts). No Option switches between acts by a setting
+  or bundles acts (walking over and striking): sequencing is the chooser's. What Options share is
   code they call, never a kind of Option that makes one of each.
-- **No body is named in control code**: settings are a record per body (`SkillRecord`,
-  `recordFault`); other logic for a body is a skill only that body fits.
+- **No body is named in control code**: a skill specializes by Option first, then by body.
+  Settings are a record per body (`SkillRecord`, `recordFault`), with entries per loadout where a
+  loadout needs its own; other logic for a body is a skill only that body fits, and a controller
+  is never made per loadout.
 
 ## The steps
 

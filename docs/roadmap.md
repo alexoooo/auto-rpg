@@ -19,6 +19,8 @@ What is in work now, what is next, and what is open. What is built is in the
   running. **Items next**: weapons, shields, two-handed items, ranged weapons, armour.
 - **Assistance as attributes**, each metered against a ceiling the character's attributes set;
   **attributes** (size, weight, strength, speed, assists) so characters differ.
+- **A web app**, played wherever a browser runs, with no device or touch goals; a person can take
+  either side in the Arena.
 - **Later**: an end-to-end learned controller on the muscles; a Ladder of Arena bouts; a Crypt
   party commanded by a person or an AI.
 

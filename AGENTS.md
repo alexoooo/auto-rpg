@@ -28,10 +28,19 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **The owner sets goals; how to reach them is the agent's.** A modelling choice (a muscle's
   curve, a joint's range, a solver setting, a bar's test) is decided toward the goal, never put to
   the owner. Stop only when the goal is met or no approach that can work is left to try; ask only a choice whose effect in play the owner can judge.
+- **Only what the owner asks is built or offered.** Work starts on the owner's request: a quoted
+  passage, a written plan or an answered choice is not one, and an ambiguous message is asked
+  about before code is touched. A plan's own step naming a skill is not a request for it; what the
+  owner rejects is removed exactly, nothing wider.
 - **A rule is general.** A rule here covers every skill, body and approach; what holds for one
-  skill belongs in its plan or record. A principle the owner states is applied by finding every
-  place the old rule lives, documents and code, and changing them all; an exception needs the
-  owner's own words.
+  skill belongs in its plan or record. The simplest rule that works is chosen, and a rule that
+  fails a new case is changed, never given an exception. A principle the owner states is applied
+  by finding every place the old rule lives, documents and code, and changing them all; an
+  exception needs the owner's own words.
+- **A defect is fixed at its root cause, in the code**: never a bandaid, and never a hook, a CI
+  step or a process unless the owner asks for one.
+- **Every failure in the working copy is the agent's**: a red gate, a stray file or a crash dump
+  is fixed in the same task, never reported as pre-existing.
 - **Skill work follows [the skill recipe](docs/recipes/skill.md)**: a change to a skill, an
   Option, a body's control, a training run or a table cell. Read it before starting; its rules
   bind as these do: one row of the table at a time, an approach checked against
@@ -42,8 +51,13 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **What works is not deleted as cruft**: a capability goes only after a reading on the game's
   cases shows what replaces it does as well. A change under a body (anatomy, engine, rate, timing)
   reads every skill on it in the same change, and its commit names each loss.
-- **A structural claim is a code search**: before reporting that a path is gone or a mechanism is
-  general, search the code for the old path and report what remains.
+- **A structural claim is a code search**: before reporting that a path is gone, a mechanism is
+  general or a request is done, search the code and quote what the search shows, with what is not
+  done. An idea is searched for in `git log` before it is offered as new.
+- **Saved work is carried forward**: results are read again by their commit, never recomputed
+  wholesale; a change that would void saved work says its price before it is made.
+- **Speed is working results sooner**: a check that shows a change works (the table cell, the
+  fresh agent, the fingerprint) is never dropped to save time; time is saved on everything else.
 - **Checks by change**: code, `npm run check` and `npm test`; browser code, assets, dependencies
   or build config, also `npm run build`; a refactor claiming no behaviour change, the fingerprint;
   prose-only documents, `node --test tests/documents.test.mjs` (the links), `git diff --check`
@@ -53,15 +67,21 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
   fingerprint. Look in a browser, briefly, when the change is something to see.
 - **Keep going without asking.** No run, training block or search waits for the owner's
   approval, however long it takes. A progress report, each hour with paired readings, is a
-  message and never a pause; the owner interrupts when they want something else.
+  message and never a pause; the owner interrupts when they want something else. What the owner
+  should see goes on the roadmap's list to watch, and an agent never marks it seen.
 - **Failures are reported as failures**: passing checks and a better battery are not completion.
 - **Landing**: name the checks run and any failure left; commit each landable change on main. A
-  branch only when the owner asks. Never push unless asked.
+  branch only when the owner asks. Never push unless asked. A push to main publishes the README's
+  Play link (`.github/workflows/pages.yml`: `npm test`, `npm run check` and `npm run build` on a
+  fresh checkout), so a change keeps those passing there.
 - **Pull and merge** with `npm run pull:merge`; resolve conflicts by meaning, stage only those
   files and `-- --continue`. Never stash or commit unrelated work.
 - **Servers**: leave none running. Port 5180 may be the owner's: never restart or kill it; use
   `npm run preview` on another port and kill it by PID (`netstat -ano | findstr :<port>`; killing
   `npx` leaves `vite` running).
+- **A browser check uses the Chrome on this machine**: the browser tools can reach the owner's
+  other computer too, and both report themselves local; the one on this machine is the one that
+  loads its preview server.
 - **Temporary files** in `.tmp/<task>/`, worktrees in `.tmp/worktrees/<name>/`; deleted when the
   task lands. Something kept outside Git gets its own `.gitignore` line. `tests/workspace.test.mjs`.
 - **A run's output goes to `.tmp/<task>/`**: checkpoints, traces, screens, rejected candidates.
@@ -87,7 +107,7 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 | `docs/reference/` | only what code needs and a comment cannot hold |
 | `docs/recipes/` | how a kind of work is done: its rules, its steps in order, budgets and traps |
 | `docs/approaches.md` | what each approach to a goal can and cannot do, with its evidence commits |
-| `docs/traps.md` | what has bitten in Babylon, Rapier and a browser, by area |
+| `docs/traps.md` | what has bitten in Babylon, Rapier, a browser and the tools on Windows, by area |
 | `docs/art/`, asset and vendor READMEs | where each asset comes from and how to rebuild it |
 
 - **Durable knowledge lives in these documents, in Git**: a rule, a finding or a correction goes
@@ -155,6 +175,11 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 
 ## Code
 
+- **Clean, simple and general.** A smell met along the way (needless complexity, two concerns in
+  one module, dead code) is fixed in the work, as a rule applied everywhere rather than a shim.
+  General means every body and every Option through the same code: no seam, hardening or
+  declaration for a consumer that does not exist. Nothing is kept for backwards compatibility,
+  and third-party projects are not patched upstream.
 - **Switch on a union with a `never` default.**
 - **An expected refusal is a returned value.** A throw is a defect; a catch only at a reporting
   boundary, keeping the error's message.
@@ -173,7 +198,8 @@ node scripts/fingerprint.mjs          # what the game computes, before and after
 - **Every page is in `vite.config.ts`'s `rollupOptions.input`**; one missing works in dev and is
   absent from `dist`.
 - **Engine, drawing and page code has [traps](docs/traps.md)**: read them before changing code
-  that calls Rapier or Babylon, handles a pointer, or is checked in a browser.
+  that calls Rapier or Babylon, handles a pointer, or is checked in a browser; the tools on
+  Windows have theirs there too.
 
 ## Tests
 
