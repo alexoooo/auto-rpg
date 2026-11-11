@@ -1,6 +1,7 @@
 /**
  * **The table's cells**: every body by loadout by skill Option Mind is asked to do, each with the
  * drill readings that value it in the game's own terms (`Judge`), read against the cell's baseline.
+ * A cell reads its skill on its own merit, in a drill built for it, and never in a fight.
  * A loadout is a record of slots (`Loadout`, the two hands), so a slot added to
  * it (a worn piece) adds to the loadout axis without reshaping a cell. A skill has a cell on a body
  * holding a loadout where it is done there (`Skill.has`): a blow, where the table's mind offers it
@@ -94,9 +95,13 @@ export function createTableCells(context: GameContext) {
   const strikeRung = (rung: string, hit: HitFigure, action: string, body: HumanoidModel, loadout: Loadout): Reading =>
     ({ drill: "strike", protocol: strikeProtocol(rung, body), subject: strikeSubject(action, loadout), judge: "strike", hit });
 
-  /** A blow's rungs: the Strike drill's still, walk and fight. */
+  /**
+   * A blow's rungs: the Strike drill's still and walk, a target that lets the blow happen. A cell
+   * reads a skill on its own merit; what a blow brings in a fight is its profile's, read in fights
+   * (`fights`) and never in a cell.
+   */
   const blowRungs = (action: string, hit: HitFigure, body: HumanoidModel, loadout: Loadout): readonly Reading[] =>
-    ["still", "walk", "fight"].map((rung) => strikeRung(rung, hit, action, body, loadout));
+    ["still", "walk"].map((rung) => strikeRung(rung, hit, action, body, loadout));
 
   /** **Every skill the table reads**, in the order it prints them. */
   const TABLE_SKILLS: readonly Skill[] = Object.freeze([

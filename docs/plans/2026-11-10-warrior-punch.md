@@ -12,8 +12,8 @@ punch at the trunk with an empty hand; no other blow is part of this goal.
 
 ## Where it stands
 
-The row's cells are not read. Each reads three protocols of the Strike drill: a still target
-(`still`), a target walked to (`walk`) and a moment of a fight (`fight`), each asking the punch
+The row's cells are not read. Each reads two protocols of the Strike drill: a still target
+(`still`) and a target walked to (`walk`), each asking the punch
 where it is offered: the middle mark (the trunk), with each empty hand. The still and walked-to
 target stands with its arms lowered (`drill-stand`), and no reading against it is played yet:
 
@@ -32,7 +32,8 @@ stopped 2 of 96 of them:
 - **It landed about three in four, still or walked to**: 23 of 32 and 46 of 64 with empty hands.
   The window reaches 0.06 m past the punch's stand-off (`band`), and the steer is trained on that
   window; the rest were refused (5 and 7), missed or began outside it.
-- **In a fight it lands three of eight** (`fight`, read). The punch's window is not where fighters
+- **In a fight it lands three of eight** (`fight`), which is no part of the row: what the punch
+  brings in a fight is its profile's. The punch's window is not where fighters
   stand ([the approaches](../approaches.md#unarmed-strikes)): footwork and openings, the Mind's
   and not the punch's ([Blows in fights](../roadmap.md#next)).
 

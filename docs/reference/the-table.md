@@ -16,6 +16,10 @@ game's own terms (`trialValue`), every trial its own value:
   not standing still. A body down makes no progress.
 - **A fall's rise** is the body and loadout's stand-up value now, the cap where it is unread, so
   a risky act and a safe one are priced alike.
+- **A cell reads its skill on its own merit**, in a drill built for it: a blow at a still target
+  and one walked to (`still`, `walk`), which let it happen. What a blow brings in a fight is
+  another reading, its profile's, taken in fights and never in a cell
+  ([the evaluations](../architecture.md#evaluations)).
 - **A strike is asked only what its Mind offers**: a cell is a body, a loadout and a skill the
   Mind has there (`Skill.has`, `strikesBy`), and a strike's cases are the drill's conditions at
   the marks and with the limbs its Option names on that body (`caseFaults`). A drill's rung lists

@@ -737,10 +737,11 @@ A drill's struck target stands with its arms lowered (`drill-stand`, `STANDS` in
 a target guards only on the rung that tests the guard (`guarding`, `drill-guard`). Those rungs
 read how well a body throws a strike. What the strike brings in a fight is read in fights, a bout
 of Option Mind against Option Mind in which the drill throws the strike in place of the blow the
-Mind was about to begin, and only what follows that moment is the trial's: `fight` for a table
-cell, and `fights` (every striker's body, starting gaps of 3, 4 and 5 m, the first eight such
-moments) for the strikes' profiles, which are built from nothing else
-(`research/skills/strikes/strike-profiles.mjs`).
+Mind was about to begin, and only what follows that moment is the trial's: `fight` (the
+Warrior's first four such moments) and `fights` (every striker's body, starting gaps of 3, 4 and
+5 m, the first eight), from which alone the strikes' profiles are built
+(`research/skills/strikes/strike-profiles.mjs`). No table cell reads a fight: a cell is its skill
+on its own merit, and a profile prices the skill where the Mind uses it.
 
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)
