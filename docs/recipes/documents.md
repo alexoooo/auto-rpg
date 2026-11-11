@@ -9,6 +9,8 @@ document holds.
   path is provenance and stays, as do the approaches' evidence commits. The story of a change,
   its before/after tables included, goes in the commit message; what it shows a mechanism cannot
   do goes in the approaches as well, once the owner accepts it.
+- **AGENTS.md stays short.** A kind of work's rules go in its recipe; AGENTS.md takes only what
+  every change keeps, and a change to it rewords or replaces before it adds.
 - **A plan is notes, never instructions.** It holds its goal, where the work stands as the table
   reads it, the questions open and how to pick it up, each reading with the command that reads it
   again. It proposes no step and names no skill the owner did not ask for: what is worked next is
