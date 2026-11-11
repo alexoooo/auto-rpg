@@ -12,47 +12,38 @@ punch at the trunk with an empty hand; no other blow is part of this goal.
 
 ## Where it stands
 
-The row, from saved results, playing nothing:
+The row's cells are not read. Each reads three protocols of the Strike drill: a still target
+(`still`), a target walked to (`walk`) and a moment of a fight (`fight`), each asking the punch
+where it is offered: the middle mark (the trunk), with each empty hand. The still and walked-to
+target stands with its arms lowered (`drill-stand`), and no reading against it is played yet:
 
 ```powershell
-npm run evaluate -- table --body workshop-fighter --skill punch --by mark
+npm run evaluate -- table --body workshop-fighter --skill punch --play --baseline --workers <logical processors>
 npm run evaluate -- table --body workshop-fighter --skill punch --by hand
 ```
 
-Each cell reads three protocols of the Strike drill: a still target (`still`), a target walked to
-(`walk`) and a moment of a fight (`fight`), each asking the punch where it is offered: the middle
-mark (the trunk), with each empty hand. The cells read 0.888 (`empty,empty`, within noise of its
-baseline), 0.555 (`empty,club`, better) and 0.798 hp a second (`empty,sword`, better). The
-`empty,empty` cell's trials:
+The first plays the row and names its baselines; the second reads it again, playing nothing.
 
-| Protocol | Value | Trials |
-| --- | --- | --- |
-| `still` | 1.106 | 23 landed, 5 refused, 2 outside, 1 guarded, 1 missed |
-| `walk` | 0.881 | 46 landed, 7 refused, 6 missed, 4 outside, 1 guarded |
-| `fight` | 0.068 | 3 landed, 2 elsewhere, 1 guarded, 1 refused, 1 outside |
+What is known of the installed punch, from trials against a target standing in guard, which
+stopped 2 of 96 of them:
 
-What they say:
-
-- **The blow is not what limits the cell.** Where it lands, the fist meets the mark at a median
-  7.3 m/s, above a person's rear hand.
-- **It lands about three in four, still or walked to.** The window reaches 0.06 m past the
-  punch's stand-off (`band`), and the steer is trained on that window, so few trials stay
-  `outside`; the rest are refused or miss.
-- **The target's guard stops 3 of the 104 still and walked-to trials.** That target stands in
-  guard (`drill-stand`, `src/evaluation/strike/cases.ts`).
-- **In a fight it lands three of eight.** The punch's window is not where fighters stand
-  ([the approaches](../approaches.md#unarmed-strikes)): footwork and openings, the Mind's and not
-  the punch's ([Blows in fights](../roadmap.md#next)).
-- **Holding a club or a sword**, the empty hand's punch lands 10 and 8 of 16 on `still`.
+- **Where it lands, the blow is strong**: the fist meets the mark at a median 7.3 m/s, above a
+  person's rear hand.
+- **It landed about three in four, still or walked to**: 23 of 32 and 46 of 64 with empty hands.
+  The window reaches 0.06 m past the punch's stand-off (`band`), and the steer is trained on that
+  window; the rest were refused (5 and 7), missed or began outside it.
+- **In a fight it lands three of eight** (`fight`, read). The punch's window is not where fighters
+  stand ([the approaches](../approaches.md#unarmed-strikes)): footwork and openings, the Mind's
+  and not the punch's ([Blows in fights](../roadmap.md#next)).
 
 What is not checked: no fresh agent has watched the installed steer's reel
-([the claim](../recipes/skill.md#the-claim)), so the cells marked better are readings and no
-claim.
+([the claim](../recipes/skill.md#the-claim)), and the punch's profiles, which price it for the
+Mind, were measured on the `sampled` protocol while its target stood in guard.
 
 ## Open questions
 
-- **Why trunk punches are refused**: 5 of 32 still and 7 of 64 walked to end `refused` with no
-  reason, in the window and ready. A trial's last phase and its times are read with `drillTrial`
+- **Why trunk punches are refused**: against the guarded target 5 of 32 still and 7 of 64 walked
+  to ended `refused` with no reason, in the window and ready. A trial's last phase and its times are read with `drillTrial`
   (`punch-drill.mjs`) on the game's mind (`MINDS.option.config`), one condition at a time; the
   reel (the Ratings link on each reading's line, opened as
   [the table](../reference/the-table.md) says) shows it.

@@ -36,17 +36,21 @@ export function createDrillOpponents(context: GameContext) {
 
   const WALKS = (OPTION.options ?? []).filter((option) => option.kind === "walk");
 
-  /** Who is struck: Option Mind standing where it is (`STANDING_OPTIONS`), its hands at guard, throwing nothing and taking no orders. */
-  const STANDS: MindConfig = deepFreeze({ ...OPTION, options: STANDING_OPTIONS });
+  /** Option Mind standing where it is (`STANDING_OPTIONS`), its hands at guard, throwing nothing and taking no orders: what an opponent that guards or strikes is made from. */
+  const AT_GUARD: MindConfig = deepFreeze({ ...OPTION, options: STANDING_OPTIONS });
 
-  /** Who is struck with its head open: `STANDS` with its arms lowered at its sides (the `lowered` guard), covering nothing. */
-  const OPEN: MindConfig = deepFreeze({ ...STANDS, tuning: { ...OPTION.tuning, parts: { ...OPTION.tuning?.parts, guard: { kind: "lowered" } } } });
+  /**
+   * **Who is struck**: `AT_GUARD` with its arms lowered at its sides (the `lowered` guard), covering
+   * nothing, so its marks are open and a failed trial is the striker's. A target guards only
+   * where the guard is what a rung tests (`GUARDS`).
+   */
+  const STANDS: MindConfig = deepFreeze({ ...AT_GUARD, tuning: { ...OPTION.tuning, parts: { ...OPTION.tuning?.parts, guard: { kind: "lowered" } } } });
 
-  /** A body that goes where it is ordered, its hands held at guard, and throws nothing. */
+  /** Who is struck moving: `STANDS` going where it is ordered, throwing nothing. */
   const MOVES: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...STANDING_OPTIONS] });
 
   /** A body that goes where it is ordered and covers a blow at its head with a hand (`COVER_OPTION`), else holds its hands at guard. */
-  const GUARDS: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, COVER_OPTION.defaults, ...STANDING_OPTIONS] });
+  const GUARDS: MindConfig = deepFreeze({ ...AT_GUARD, options: [ORDERS_OPTION.defaults, COVER_OPTION.defaults, ...STANDING_OPTIONS] });
 
   /**
    * A body that goes where it is ordered and, ordered at its foe, walks into the window of one of
@@ -58,7 +62,7 @@ export function createDrillOpponents(context: GameContext) {
     const missing = kinds.filter((kind) => !(OPTION.options ?? []).some((option) => option.kind === kind.defaults.kind));
     if (missing.length > 0) throw new Error(`Option Mind offers no ${missing.map((kind) => kind.defaults.kind).join(", ")}, so a drill opponent striking with it strikes nothing`);
     const strikes = (OPTION.options ?? []).filter((option) => kinds.some((kind) => kind.defaults.kind === option.kind));
-    return deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...strikes, ...WALKS, ...STANDING_OPTIONS] });
+    return deepFreeze({ ...AT_GUARD, options: [ORDERS_OPTION.defaults, ...strikes, ...WALKS, ...STANDING_OPTIONS] });
   }
 
   /** Option Mind's straight punch with either hand, at the trunk's middle. */
@@ -66,8 +70,7 @@ export function createDrillOpponents(context: GameContext) {
 
   /** **Each drill opponent**, by the id a drill names it by: a mind that plays its part, led on its rhythm where it has one. None is on a menu. */
   const DRILL_OPPONENTS: Readonly<Record<string, DrillOpponent>> = deepFreeze({
-    "drill-stand": { label: "Drill: stand", mind: STANDS },
-    "drill-open": { label: "Drill: stand, arms lowered", mind: OPEN },
+    "drill-stand": { label: "Drill: stand, arms lowered", mind: STANDS },
     "drill-step": { label: "Drill: step in and out", mind: MOVES,
       commander: beats([{ seconds: 1.2, move: { kind: "range", near: .8, far: 1 } }, { seconds: 1.2, move: { kind: "range", near: 1.6, far: 1.8 } }]) },
     "drill-guard": { label: "Drill: guard", mind: GUARDS },

@@ -1,7 +1,7 @@
 /**
  * **The Strike drill's cases**: one strike skill thrown once, at a still body (`still`, and from
  * starts drawn at random, moving or still, `sampled`), at one lying (`stomping`, and from starts
- * drawn at random, `stomping-sampled`), at one standing with its arms lowered (`bonk`), at one
+ * drawn at random, `stomping-sampled`), a club's blow at one's head (`bonk`), at one
  * carried past on a rail (`moving`), at one walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
  * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`). The striker is the
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
@@ -10,7 +10,7 @@
  * carries the order out. A subject is asked a condition only where its mind offers its skill with
  * that limb at that mark on that body (`caseFaults`): a rung lists every mark and limb a strike is
  * asked at, and each strike's cases are its own of them. The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent (`DRILL_OPPONENTS`:
- * a mind, led on a rhythm by a beats Commander where it keeps one; `drill-stand` stands in guard and throws nothing), set the condition's gap ahead and offset across, the two on
+ * a mind, led on a rhythm by a beats Commander where it keeps one; `drill-stand` stands with its arms lowered and throws nothing, and a target guards only on the rung that tests the guard, `guarding`), set the condition's gap ahead and offset across, the two on
  * the stage's own axis as a bout's spawns are (`LEVELS`), so the Arena's camera sees them side on.
  * Nothing ends a trial but its reader: the action's end and a short settle after it, the striker's
  * patience run out before its action was admitted, or the protocol's seconds. A trial is a bout
@@ -131,17 +131,19 @@ const WALK = deepFreeze({ ...STILL,
  */
 const OPPONENT = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], gaps: [8, 10, 12].map((tenths) => tenths / 10), across: [0] });
 
-/** The target's mind (`opponentOf`), where a protocol names one: `drill-stand` where it does not. */
+/**
+ * The target's mind (`opponentOf`), where a protocol names one: `drill-stand` where it does not,
+ * standing with its arms lowered, so its marks are open and a failed trial is the striker's.
+ */
 const STANDING = "drill-stand";
 
 const STEPPING = deepFreeze({ ...OPPONENT, opponent: "drill-step" });
 
 /**
  * The bonk, a club's overhead blow at the head (`Bar.overhead`): the still rung's places on the
- * Warrior with the right hand at the high mark, at a target standing with its arms lowered
- * (`drill-open`), so its head is open and a failed trial is the striker's.
+ * Warrior with the right hand at the high mark.
  */
-const BONK = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], marks: ["high"] as Mark[], hands: ["right"] as Hand[], opponent: "drill-open" });
+const BONK = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], marks: ["high"] as Mark[], hands: ["right"] as Hand[] });
 
 const GUARDING = deepFreeze({ ...OPPONENT, opponent: "drill-guard" });
 

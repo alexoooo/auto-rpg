@@ -40,7 +40,7 @@ by contact.
 - **The reader** reads a club's blunt blow at the high mark as a bonk on the terms above
   (`Bar.overhead`, `Overhead`, `src/evaluation/strike/read.ts`), graded by `overheadScore`
   (`score.ts`); the `bonk` protocol plays the still rung's places on the Warrior's right hand at
-  the arms-lowered target (`drill-open`).
+  the drill's standing target, its arms lowered (`drill-stand`).
 - **The bonk** is a swing (`swingExecutor`, `SWINGS.bonk` in `src/skills/strikes/swing-part.ts`): a
   chamber posture and timed pushes, its record `assets/skills/strikes/bonk/bonk.json`, thrown by
   its own experimental Option (`strike-bonk`, aimed at the head's centre). It is searched by
@@ -52,20 +52,19 @@ by contact.
 
 ## The target
 
-Development uses a drill opponent that stands with its arms lowered, so the head is open and a
-failed trial is the striker's; none of the drill opponents (`DRILL_OPPONENTS`) does yet, so step 1
-adds it. The standing opponent in guard (`drill-stand`) is a step 5 case: a bonk that lands on the
-raised arm is a landed blow on the arm, read as such, not a failed bonk.
+The drill's struck target stands with its arms lowered (`drill-stand`), so the head is open and a
+failed trial is the striker's. A guard over the head is the `guarding` rung's and the fight's
+question, not the bonk's.
 
 A moving opponent is the Strike drill's own cases: a target carried past on a rail (`moving`) and
-an opponent stepping in and out (`stepping`), arms lowered first, then in guard. Against them the
+an opponent stepping in and out (`stepping`). Against them the
 bonk aims where the head will be at contact, not where it is at commitment. The Warrior on the move
 strikes as it arrives (`walk`), at the paces its walk serves; faster with
 [Warrior travel](2026-11-05-warrior-travel.md).
 
 ## Work
 
-1. **Reader and score.** Add the arms-lowered drill opponent, and the terms above to the Strike
+1. **Reader and score.** Add the terms above to the Strike
    drill's reading of a held blow at the `high` mark, graded in `barScore`; right hand, club
    alone, 120 Hz, the still rung's places. Show the old swing scoring low on its form and the
    current bonk executor scoring low on its energy, both from watched trials. Build nothing else
@@ -82,7 +81,7 @@ strikes as it arrives (`walk`), at the paces its walk serves; faster with
    checkpoints on development places; held-out places confirm.
 5. **Widen.** One at a time, keeping the earlier cases in the mix: 480 Hz weighted with 120 Hz,
    the left hand, the buckler loadouts, the Warrior striking as it walks in, the opponent moving
-   (carried past, then stepping in and out), the target in guard, and a miss (the target removed
+   (carried past, then stepping in and out), and a miss (the target removed
    at commitment) that still follows through and returns to guard.
 6. **Option Mind.** Register the bonk as its own Option with the head as its target, read its
    profiles, and watch Option Mind choose and land it in the Arena.

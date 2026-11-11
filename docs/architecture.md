@@ -729,8 +729,11 @@ stroke-end coverage explicitly incomplete.
 
 The `bonk` protocol reads a club's blow at the head against its own tests (`Bar.overhead`,
 `Overhead` in `src/evaluation/strike/read.ts`): the chamber over the head, one descending stroke,
-the swell's collider first on the head, the arm straight, its energy, and the return to guard. Its
-target stands with its arms lowered (`drill-open`).
+the swell's collider first on the head, the arm straight, its energy, and the return to guard.
+
+A drill's struck target stands with its arms lowered (`drill-stand`, `STANDS` in
+`src/evaluation/drill-opponents.ts`), so its marks are open and a failed trial is the striker's;
+a target guards only on the rung that tests the guard (`guarding`, `drill-guard`).
 
 - **A case module** (`<id>/cases.ts`, `Cases`) gives each protocol's conditions, the world of a case
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)

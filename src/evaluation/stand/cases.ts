@@ -6,7 +6,7 @@
  * it in at a pace), and throwing its strike at a still foe (`striking`, rung 2, the Strike drill's
  * still rung with the shove given as the striking limb flies). The subject is a mind and one of its
  * strike actions, as the Strike drill's is (`StrikeSubject`); the strike is thrown only on rung 2.
- * The foe is a Warrior with empty hands that stands in guard and throws nothing (`drill-stand`),
+ * The foe is a Warrior with empty hands that stands with its arms lowered and throws nothing (`drill-stand`),
  * the two on the stage's own axis as a bout's spawns are, so the Arena's camera sees them side on.
  * A way is the subject's own: 0 shoves it forward, from behind; 90 toward its right; 180 back; 270
  * toward its left. A trial is a bout world, so the Arena plays it as it was scored.
@@ -83,7 +83,7 @@ const STRIKING: StandRung = deepFreeze({ state: "striking", models: ["workshop-f
 /** The Commander that leads a standing subject: stand facing the foe, and strike nothing. */
 const STANDING = deepFreeze({ kind: "stand" });
 
-/** The foe on every rung: a Warrior with empty hands that stands in guard and throws nothing. */
+/** The foe on every rung: a Warrior with empty hands that stands with its arms lowered and throws nothing. */
 const FOE = "drill-stand";
 
 /** The shove of `condition` on `rung`, the subject facing +x: its way, the subject's own, as the world's, from +z toward +x. */

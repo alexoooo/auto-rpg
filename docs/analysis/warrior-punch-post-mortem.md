@@ -143,8 +143,8 @@ asking whether the test itself was set up right.
   - empty,sword: 0.077 → 0.200, better.
   - Two caveats:
     - No fresh agent has watched the reel, so these are not yet a claim.
-    - All of them were measured against the guarded target, which stopped 3 of the 104 still and
-      walked-to trunk trials.
+    - All of them were measured against the guarded target, which stopped 2 of the 96 still and
+      walked-to trunk trials with empty hands.
 - `37476039`: the punch plan updated to those readings.
 - `fd685db6` and `a48a5b37`: your rules moved from my notes into `AGENTS.md`, the recipes, the
   roadmap and `docs/traps.md`. The notes folder is empty.
@@ -176,11 +176,15 @@ asking whether the test itself was set up right.
   what to do, a run ends at its question with a fixed report, and a "cannot" is reported to you,
   not written into the docs.
 - **The punch plan** is rewritten as notes, with no head punch in it.
+- **The struck target no longer guards.** A drill's target stands with its arms lowered; a target
+  guards only on the rung that tests the guard. The guard had stopped few punches (2 of 96) but
+  many cuts (up to 11 of 32). The readings played against the guarded target, and their
+  baselines, are removed, so the punch, cut and thrust cells read "not read" until they are
+  played again.
 
-## Decisions that are yours
+## What is left
 
-1. **What to keep:** whether to keep the trunk punch install, pending the fresh-agent check, and
-   whether to keep `fa7ccec7`.
-2. **The test target:** the still and walked-to target stands in guard (`drill-stand`). It stopped
-   3 of 104 trunk punches. Changing it would mean replaying every strike row, so it is left as it
-   is unless a row shows the guard blocking its blow.
+1. Play the punch, cut and thrust rows against the arms-lowered target; those readings become the
+   baselines.
+2. A fresh agent watches the retrained trunk punch in the game. It stays installed: it landed 106
+   of 160 held-out trials against 70 for the network before it.
