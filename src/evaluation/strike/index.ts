@@ -14,7 +14,7 @@ import type { AttributeOverrides } from "../../core/bodies/character-attributes.
 import { BODY_MODELS, modelHoldingChecked } from "../../core/bodies/models.ts";
 import { HELD, loadoutFaults, loadoutKey, type Held, type Loadout } from "../../core/bodies/items/held.ts";
 import { recordingKey } from "../../core/world/recording.ts";
-import { mindSubject, type Evaluation, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
+import { mindJson, mindSubject, type Evaluation, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import type { StrikeReading } from "./read.ts";
 import { barScore, releasedScore } from "./score.ts";
@@ -76,7 +76,7 @@ export function createStrikeIndex(context: GameContext) {
     }))];
     const skill = slash < 0 ? skills[0] : named.slice(slash + 1);
     if (skill === undefined || !skills.includes(skill)) throw new Error(`${id} has no skill ${skill ?? ""}: one of ${skills.join(", ") || "none"}`);
-    const value = { mind: preset.config as unknown as Json, skill, ...(held === undefined ? {} : { held }) };
+    const value = { mind: mindJson(preset.config), skill, ...(held === undefined ? {} : { held }) };
     const subject = mindSubject(id, preset.label, value.mind, preset), holding = held === undefined ? "" : loadoutKey(held);
     return { ...subject, id: `${id}/${skill}${held === undefined ? "" : `@${holding}`}`, label: `${preset.label}: ${skill}${held === undefined ? "" : `, holding ${holding}`}`, value };
   }

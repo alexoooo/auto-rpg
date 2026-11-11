@@ -8,6 +8,7 @@
  * between JavaScript engines: the starts and the shove (`src/game/lab/ground-starts.ts`,
  * `stance-mode.ts`) use arithmetic each engine rounds its own way.
  */
+import { mindOf } from "./evaluation.ts";
 import { addArenaSolids } from "../game/arena/solids.ts";
 import { buildBody, type BuiltBody } from "../core/bodies/build/build-body.ts";
 import { loadEngine, type EngineName } from "../core/physics/engines.ts";
@@ -151,7 +152,7 @@ export function fallCases<C extends Json & Omit<FallCase, "mind">>(play: Json, c
     arity: 1, play, conditions, seconds: FALL_CAP + FALL_AFTER,
     faults: (value, condition) => typeof value !== "object" || value === null || Array.isArray(value) ? ["a riser is a mind's config"]
       : bedFaults(condition),
-    world: ([mind], condition, engine) => ({ kind: "fall", engine, fall: { ...(condition as Omit<FallCase, "mind">), mind: mind as unknown as MindConfig } }),
+    world: ([mind], condition, engine) => ({ kind: "fall", engine, fall: { ...(condition as Omit<FallCase, "mind">), mind: mindOf(mind) } }),
     read: (built) => readFall(built),
   };
 }

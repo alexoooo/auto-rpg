@@ -15,7 +15,7 @@ import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
 
 import { deepFreeze } from "../../core/state.ts";
 import { PHYSICS_HZ } from "../../core/world/world.ts";
-import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
+import { mindOf, sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { createDrillOpponents } from "../drill-opponents.ts";
@@ -55,7 +55,7 @@ export function createCourtCases(context: GameContext) {
     if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
     if (!presetFitsModel(subject ?? {}, model))
       return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-    return mindFaults(value as unknown as MindConfig, modelHolding(model, HELD, subject?.character), { entry: FIGHT_ENTRY }).map((fault) => `${model} carrying ${loadoutKey(HELD)}: ${fault}`);
+    return mindFaults(mindOf(value), modelHolding(model, HELD, subject?.character), { entry: FIGHT_ENTRY }).map((fault) => `${model} carrying ${loadoutKey(HELD)}: ${fault}`);
   }
 
   function courtCases(protocol: typeof COURT): Cases<CourtCondition, CourtReading> {
@@ -76,7 +76,7 @@ export function createCourtCases(context: GameContext) {
           // A task, not a fight: the target throws nothing, so the bout asks no attack of either side (`EntryRule`); the subject's own is asked in `faultsOf`.
           recipe: { level: "obstacle-court", ...{ [side]: model, [foe]: "workshop-fighter" } as Record<Side, BodyModel>, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ...sideAttributes({ [side]: character }),
             loadouts: { [side]: HELD, [foe]: { left: "empty", right: "empty" } } as Record<Side, typeof HELD>,
-            minds: { [side]: mind as unknown as MindConfig, [foe]: target === "moving" ? MOVES : STANDS } as Record<Side, MindConfig> } };
+            minds: { [side]: mindOf(mind), [foe]: target === "moving" ? MOVES : STANDS } as Record<Side, MindConfig> } };
       },
       read({ world, duel, colliders }, { side }) {
         const furniture = new Set(LEVELS["obstacle-court"].furniture.map(({ solid }) => colliders.get(solid.name)));

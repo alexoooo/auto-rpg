@@ -92,8 +92,8 @@ export function createLocomotionIndex(context: GameContext) {
   /** A mind named or given whole, as a subject: a preset (its calibration and character), a kind's defaults, or a complete configuration (`mindSubject`). */
   function mindSubjects(choice: SubjectChoice, none: readonly string[]): readonly Subject[] {
     return (choice.length > 0 ? choice : none).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value, one)
-      : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one]!.label, MINDS[one]!.config as unknown as Json, MINDS[one])
-      : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one]!.label, CONTROLLERS[one]!.defaults as unknown as Json)
+      : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one]!.label, MINDS[one]!.config, MINDS[one])
+      : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one]!.label, CONTROLLERS[one]!.defaults)
       : (() => { throw new Error(`${one} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind (${Object.keys(CONTROLLERS).join(", ")}), or a config`); })());
   }
 

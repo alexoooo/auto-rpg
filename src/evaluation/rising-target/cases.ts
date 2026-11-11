@@ -1,3 +1,4 @@
+import { mindOf } from "../evaluation.ts";
 import { isRefused } from "../../core/refusal.ts";
 /**
  * **The stand-up target's falls**: every body in every rated loadout (`REPRESENTATIVE`), each
@@ -9,7 +10,6 @@ import { isRefused } from "../../core/refusal.ts";
  */
 import type { Loadout } from "../../core/bodies/items/held.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
-import type { MindConfig } from "../../minds/catalog/config.ts";
 import { modelHolding, type HumanoidModel } from "../../core/bodies/models.ts";
 import { FALL_AFTER, FALL_CAP, fallCases, type BuiltFall, type FallReading } from "../fall.ts";
 import type { Cases, Json } from "../evaluation.ts";
@@ -37,7 +37,7 @@ export function createRisingTargetCases(context: GameContext) {
         const bed = inner.faults?.(value, condition, subject) ?? [];
         if (bed.length) return bed;
         if (!presetFitsModel(subject ?? {}, condition.model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${condition.model} is unavailable`];
-        return mindFaults(value as unknown as MindConfig, modelHolding(condition.model, condition.loadout, subject?.character), { entry: [] });
+        return mindFaults(mindOf(value), modelHolding(condition.model, condition.loadout, subject?.character), { entry: [] });
       },
       world: (values, condition, engine, characters) => {
         const world = inner.world(values, condition, engine, characters), character = characters[0];

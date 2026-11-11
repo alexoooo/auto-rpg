@@ -1,3 +1,4 @@
+import { mindOf } from "../evaluation.ts";
 import { isRefused, type Refused } from "../../core/refusal.ts";
 /**
  * **The crowd task's cases**: a party of Warriors in the Crypt under the person's orders, every
@@ -188,7 +189,7 @@ export function createCrowdCases(context: GameContext) {
     if (!presetFitsModel(subject ?? {}, CROWD.model))
       return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${CROWD.model} is unavailable`];
     const held = modelInfo(CROWD.model).held;
-    return mindFaults(value as unknown as MindConfig, modelHolding(CROWD.model, { left: "empty", right: held }, subject?.character), { entry: FIGHT_ENTRY }).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
+    return mindFaults(mindOf(value), modelHolding(CROWD.model, { left: "empty", right: held }, subject?.character), { entry: FIGHT_ENTRY }).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
   }
 
   function crowdCases(protocol: typeof CROWD): Cases<CrowdCondition, CryptReading, BuiltCrypt> {
@@ -199,7 +200,7 @@ export function createCrowdCases(context: GameContext) {
       seconds: CRYPT_CAP,
       faults: (value, _condition, subject) => faultsOf(value, subject),
       world: ([mind], { situation, seed }, engine, [character]) => {
-        const crypt = crowdCase(situation, seed, mind as unknown as MindConfig);
+        const crypt = crowdCase(situation, seed, mindOf(mind));
         return isRefused(crypt) ? crypt : { kind: "crypt", engine, crypt: { ...crypt, ...(character ? { character } : {}) } };
       },
       read: (built) => readCrypt(built),

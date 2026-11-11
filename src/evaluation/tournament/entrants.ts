@@ -7,14 +7,14 @@ import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import { BODY_MODELS, type BodyModel } from "../../core/bodies/models.ts";
-import { mindSubject, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
+import { mindJson, mindOf, mindSubject, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { TOURNAMENT, type Entrant } from "./cases.ts";
 import { FIGHT_ENTRY } from "../../minds/catalog/catalog.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
 /** The entrant of mind `id` (`config`, shown as `label`) on `model` with `loadout`, its body taking `character` (`MindPreset.character`). */
-function entrant(id: string, label: string, config: Json, model: BodyModel, loadout: Loadout, character: AttributeOverrides): Subject {
-  const value: Entrant = { mind: config, model, loadout }, own = Object.keys(character).length > 0;
+function entrant(id: string, label: string, config: MindConfig, model: BodyModel, loadout: Loadout, character: AttributeOverrides): Subject {
+  const value: Entrant = { mind: mindJson(config), model, loadout }, own = Object.keys(character).length > 0;
   return {
     id: `${id}/${model}/${loadoutKey(loadout)}`, label: `${label}, ${model}, ${loadoutKey(loadout)}`, models: [model], value: value as unknown as Json,
     ...(own ? { character } : {}),
@@ -26,11 +26,11 @@ export function createTournamentEntrants(context: GameContext) {
   const { partOf, minds: MINDS } = context.catalog;
 
   /** Whether `config` can play `model` with `character`'s attributes carrying `loadout` in a fight (`modelRefusal`). */
-  const fits = (model: BodyModel, config: Json, loadout: Loadout, character: AttributeOverrides): boolean =>
-    modelRefusal(model, config as unknown as MindConfig, loadout, FIGHT_ENTRY, character) === null;
+  const fits = (model: BodyModel, config: MindConfig, loadout: Loadout, character: AttributeOverrides): boolean =>
+    modelRefusal(model, config, loadout, FIGHT_ENTRY, character) === null;
 
   /** Mind `id`'s entrants: one for each character and representative loadout it fits. */
-  const entrantsOf = (id: string, label: string, config: Json, models: readonly BodyModel[] = BODY_MODELS, character: AttributeOverrides = {}): Subject[] =>
+  const entrantsOf = (id: string, label: string, config: MindConfig, models: readonly BodyModel[] = BODY_MODELS, character: AttributeOverrides = {}): Subject[] =>
     models.flatMap((model) => TOURNAMENT.loadouts.filter((loadout) => fits(model, config, loadout, character)).map((loadout) => entrant(id, label, config, model, loadout, character)));
 
   /**
@@ -44,16 +44,16 @@ export function createTournamentEntrants(context: GameContext) {
     return named.flatMap((one) => {
       if (typeof one !== "string") {
         const subject = mindSubject(one.id, one.label, one.value, one);
-        return entrantsOf(subject.id, subject.label, subject.value, BODY_MODELS.filter(model => presetFitsModel(subject, model)), subject.character);
+        return entrantsOf(subject.id, subject.label, mindOf(subject.value), BODY_MODELS.filter(model => presetFitsModel(subject, model)), subject.character);
       }
       if (!one.includes("/")) {
         const preset = mind(one);
-        return entrantsOf(one, preset.label, preset.config as unknown as Json, BODY_MODELS.filter(model => presetFitsModel(preset, model)), preset.character);
+        return entrantsOf(one, preset.label, preset.config, BODY_MODELS.filter(model => presetFitsModel(preset, model)), preset.character);
       }
       const [id, model, held] = one.split("/"), loadout = TOURNAMENT.loadouts.find((each) => loadoutKey(each) === held);
       const { label, config, character = {} } = mind(id);
-      if (!BODY_MODELS.includes(model as BodyModel) || !presetFitsModel(mind(id), model!) || !loadout || !fits(model as BodyModel, config as unknown as Json, loadout, character)) throw new Error(`${one} is no entrant`);
-      return [entrant(id, label, config as unknown as Json, model as BodyModel, loadout, character)];
+      if (!BODY_MODELS.includes(model as BodyModel) || !presetFitsModel(mind(id), model!) || !loadout || !fits(model as BodyModel, config, loadout, character)) throw new Error(`${one} is no entrant`);
+      return [entrant(id, label, config, model as BodyModel, loadout, character)];
     });
   }
 

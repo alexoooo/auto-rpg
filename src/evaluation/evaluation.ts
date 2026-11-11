@@ -32,9 +32,15 @@ export interface Subject {
   readonly value: Json;
 }
 
-/** A mind as a subject: its id, the label shown, its config whole, and a preset's named calibration and character. */
-export function mindSubject(id: string, label: string, given: Json, preset: Pick<Subject, "models" | "character"> = {}): Subject {
-  const wrapped = given as { readonly mind?: Json; readonly models?: readonly string[]; readonly character?: AttributeOverrides } | null;
+/** A mind's config as the plain data it is: what a subject's value holds of it. */
+export const mindJson = (config: MindConfig): Json => config as unknown as Json;
+
+/** A subject's value as the mind's config it holds. What is wrong with it is the case's to find (`mindFaults`). */
+export const mindOf = (value: Json | undefined): MindConfig => value as unknown as MindConfig;
+
+/** A mind as a subject: its id, the label shown, its config whole (or a subject's value given whole), and a preset's named calibration and character. */
+export function mindSubject(id: string, label: string, mind: MindConfig | Json, preset: Pick<Subject, "models" | "character"> = {}): Subject {
+  const given = mind as Json, wrapped = given as { readonly mind?: Json; readonly models?: readonly string[]; readonly character?: AttributeOverrides } | null;
   const value = wrapped && typeof wrapped === "object" && !Array.isArray(wrapped) && wrapped.mind !== undefined ? wrapped.mind : given;
   const models = preset.models ?? (value !== given ? wrapped?.models : undefined);
   const character = preset.character ?? (value !== given ? wrapped?.character : undefined);

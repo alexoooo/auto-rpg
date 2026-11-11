@@ -1,6 +1,6 @@
+import { mindOf } from "../evaluation.ts";
 import type { Cases, Json } from "../evaluation.ts";
 import type { BuiltLone } from "../lone.ts";
-import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { GameContext } from "../../game/arena/context.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { DEFAULT_ENGINE } from "../../core/physics/engines.ts";
@@ -33,7 +33,7 @@ export function createTravelCases(context: GameContext) {
       conditions: cases, seconds: Math.max(...cases.map(c => travelScript(c).end)),
       faults: (value, c, subject) => admission.faults?.(value, { kind: "run", model: c.model }, subject) ?? [],
       world: ([mind], c, engine, [character]) => ({ kind: "lone", engine, lone: {
-        model: c.model, mind: mind as unknown as MindConfig, loadout: c.loadout, balance: 0, floorSize: 400,
+        model: c.model, mind: mindOf(mind), loadout: c.loadout, balance: 0, floorSize: 400,
         heading: c.heading, seed: c.seed, script: travelScript(c).cues,
         ...(character && Object.keys(character).length ? { character } : {}), ...(c.gusts ? { gusts: true as const } : {}),
       } }), read: readTravel };

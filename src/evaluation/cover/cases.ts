@@ -6,13 +6,12 @@
  * stage's own axis as a bout's spawns are, so the Arena's camera sees them side on. Nothing ends a
  * trial but its seconds. A trial is a bout world, so the Arena plays it as it was scored.
  */
-import type { MindConfig } from "../../minds/catalog/config.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { modelHolding } from "../../core/bodies/models.ts";
 import { deepFreeze } from "../../core/state.ts";
-import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
+import { mindOf, sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readCover, type CoverReading } from "./read.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
@@ -66,8 +65,8 @@ export function createCoverCases(context: GameContext) {
     const kind = (value as { kind?: unknown } | null)?.kind;
     if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
     if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-    if (!treeObeys(value as unknown as MindConfig)) return [`a ${kind} mind carries out no orders, so no drill leads it`];
-    return mindFaults(value as unknown as MindConfig, modelHolding(model, loadout, subject?.character), { entry: [] }).map((fault) => `${model}, ${loadoutKey(loadout)}: ${fault}`);
+    if (!treeObeys(mindOf(value))) return [`a ${kind} mind carries out no orders, so no drill leads it`];
+    return mindFaults(mindOf(value), modelHolding(model, loadout, subject?.character), { entry: [] }).map((fault) => `${model}, ${loadoutKey(loadout)}: ${fault}`);
   }
 
   function coverCases(protocol: Rung): Cases<CoverCondition, CoverReading> {
@@ -88,7 +87,7 @@ export function createCoverCases(context: GameContext) {
             loadouts: { left: loadoutOf(condition), right: protocol.foe },
             // Along +x, as the open stage's spawns are.
             start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, across], heading: -Math.PI / 2 } },
-            ...opposed({ mind: value as unknown as MindConfig, commander: STANDING }, opponentOf(protocol.opponent)!) } };
+            ...opposed({ mind: mindOf(value), commander: STANDING }, opponentOf(protocol.opponent)!) } };
       },
       read: (built) => readCover(built, protocol),
     };

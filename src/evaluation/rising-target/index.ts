@@ -47,9 +47,9 @@ export function createRisingTargetIndex(context: GameContext) {
    */
   function riserSubjects(choice: SubjectChoice): readonly Subject[] {
     return (choice.length > 0 ? choice : ["game"]).map((one) => typeof one !== "string" ? riserSubject(one.id, one.label, one.value, one)
-      : one === "game" ? riserSubject(one, "The game's Stand up", risingMind() as unknown as Json)
-      : one === "stand-up" ? riserSubject(one, "Stand up, every technique", risingMind(WAYS_UP) as unknown as Json)
-      : (WAYS_UP as readonly string[]).includes(one) ? riserSubject(one, `Stand up by ${TECHNIQUES[one as TechniqueName].label}`, risingMind([one as TechniqueName]) as unknown as Json)
+      : one === "game" ? riserSubject(one, "The game's Stand up", risingMind())
+      : one === "stand-up" ? riserSubject(one, "Stand up, every technique", risingMind(WAYS_UP))
+      : (WAYS_UP as readonly string[]).includes(one) ? riserSubject(one, `Stand up by ${TECHNIQUES[one as TechniqueName].label}`, risingMind([one as TechniqueName]))
       : (() => { throw new Error(`${one} is no riser: game, stand-up or a way up (${WAYS_UP.join(", ")})`); })());
   }
 

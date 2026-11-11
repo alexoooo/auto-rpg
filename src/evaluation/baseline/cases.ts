@@ -24,7 +24,7 @@ import { modelHolding, type BodyModel } from "../../core/bodies/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { readBout } from "../contest.ts";
 import type { BuiltCase, Cases, Json, Reader, Subject } from "../evaluation.ts";
-import { sideAttributes } from "../evaluation.ts";
+import { mindOf, sideAttributes } from "../evaluation.ts";
 import { readFall, type FallReading } from "../fall.ts";
 import type { LocomotionReading } from "../locomotion/read.ts";
 import type { StrikeReading } from "../strike/read.ts";
@@ -82,8 +82,8 @@ export function createBaselineCases(context: GameContext) {
 
   /** The subject's first strike, as the Strike drill's subject, by its skill; null for a mind with none. */
   function strikeSubject(value: Json): StrikeSubject | null {
-    const skill = describeMind(context.catalog, modelHolding(BODY, { left: "empty", right: "empty" }), value as unknown as MindConfig)?.executors[0]?.kind;
-    return skill === undefined ? null : { mind: value as unknown as MindConfig, skill };
+    const skill = describeMind(context.catalog, modelHolding(BODY, { left: "empty", right: "empty" }), mindOf(value))?.executors[0]?.kind;
+    return skill === undefined ? null : { mind: mindOf(value), skill };
   }
 
   const walkCases = (): Cases<Json, BaselineReading, BuiltCase> => {
@@ -124,9 +124,9 @@ export function createBaselineCases(context: GameContext) {
   };
 
   /** Why the mind of `value` (the subject's, or the preset `foe`'s) cannot fight on the Warrior carrying `loadout`. */
-  function fighterFaults(value: Json, loadout: Loadout, who: Pick<Subject, "models" | "character">): readonly string[] {
+  function fighterFaults(mind: MindConfig, loadout: Loadout, who: Pick<Subject, "models" | "character">): readonly string[] {
     if (!presetFitsModel(who, BODY)) return [`named calibration allows ${who.models?.join(", ") || "no bodies"}; ${BODY} is unavailable`];
-    return mindFaults(value as unknown as MindConfig, modelHolding(BODY, loadout, who.character), { entry: FIGHT_ENTRY }).map((fault) => `carrying ${loadoutKey(loadout)}: ${fault}`);
+    return mindFaults(mind, modelHolding(BODY, loadout, who.character), { entry: FIGHT_ENTRY }).map((fault) => `carrying ${loadoutKey(loadout)}: ${fault}`);
   }
 
   const fightCases = (): Cases<Json, BaselineReading, BuiltCase> => {
@@ -136,12 +136,12 @@ export function createBaselineCases(context: GameContext) {
       arity: 1, play: { fight: FIGHTS as unknown as Json, opponents: OPPONENTS as unknown as Json }, seconds: FIGHTS.capSeconds, conditions: conditions as unknown as Json[],
       faults: (value, condition, subject) => {
         const { foe, loadout } = condition as BaselineFight, other = MINDS[foe]!;
-        return [...fighterFaults(value, loadout, subject ?? {}), ...fighterFaults(other.config as unknown as Json, loadout, other).map((fault) => `${foe}: ${fault}`)];
+        return [...fighterFaults(mindOf(value), loadout, subject ?? {}), ...fighterFaults(other.config, loadout, other).map((fault) => `${foe}: ${fault}`)];
       },
       world: ([value], condition, engine, [character]) => {
         const { foe, side, loadout, gap } = condition as BaselineFight, other = MINDS[foe]!, foeSide: Side = otherSide(side);
         return { kind: "bout", engine, tape: [], recipe: { level: "open", left: BODY, right: BODY, gap, loadouts: { left: loadout, right: loadout },
-          minds: { [side]: value as unknown as MindConfig, [foeSide]: other.config as MindConfig } as Record<Side, MindConfig>, capSeconds: FIGHTS.capSeconds,
+          minds: { [side]: mindOf(value), [foeSide]: other.config } as Record<Side, MindConfig>, capSeconds: FIGHTS.capSeconds,
           ...sideAttributes({ [side]: character, [foeSide]: other.character }) } };
       },
       read: (built, condition) => {
