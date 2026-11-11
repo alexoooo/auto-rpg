@@ -30,7 +30,6 @@ Where the project is going and what is open. What is built is in the
 | [Warrior travel](plans/2026-11-05-warrior-travel.md) | first milestone: preserve 4 m/s from-rest entry while training stops; then the Run from a stand with no braced step, directions, manoeuvres and loadouts |
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an intentional overhead club strike at the head with either hand, with and without the buckler, returning to guard: a graded reader, a searched push schedule, then a learned actor |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
-| [Readable code](plans/2026-11-10-readable-code.md) | Option Mind's build as one declared type read top to bottom, shown to the owner; then `Part` split by role, one walk of a part tree, kinds the compiler checks |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
 
 Now: the Warrior's [travel capabilities](plans/2026-11-05-warrior-travel.md) and

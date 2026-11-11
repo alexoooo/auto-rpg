@@ -1,6 +1,6 @@
 import { motorRequirementRefusal } from "../../control/motor-part.ts";
 import { deepFreeze } from "../../core/state.ts";
-import { slotList, slotOne, type PartConfig, type Role, type Slot } from "../../parts/parts.ts";
+import { slotList, slotOne, type PartConfig, type Slot } from "../../parts/parts.ts";
 import { partRequirements } from "../../parts/tree.ts";
 import { FILLED, filledOf, filledRefusal, motorOf } from "../../skills/assembly/kit.ts";
 import { standUpFaults } from "../../skills/recovery/stand-up.ts";
@@ -48,11 +48,10 @@ export function optionMind(assembly: OptionAssembly) {
       const route = parts.of("predictions", resolved.predictions).model === PROFILE_MODEL ? standUpFaults(waysUpIn(parts, spec, resolved.options), parts)[0] : undefined;
       if (route) return `options: ${route}`;
       // Its motor gives what every part it builds requires.
-      const needs = (role: Role, configs: readonly PartConfig[]) => configs.flatMap(part => partRequirements(parts, role, part, spec));
-      const required = [...needs("option", resolved.options), ...needs("executor", named.executors), ...needs("technique", named.techniques),
-        ...needs("aim", named.actions.flatMap(action => action.aim ? [action.aim] : [])),
-        ...needs("support", named.support ? [named.support] : []), ...needs("navigation", [named.navigation ?? resolved.navigation]),
-        ...(Object.keys(FILLED) as (keyof typeof FILLED)[]).flatMap(place => needs(FILLED[place], [filledOf(parts, spec, place, config.tuning?.parts)]))];
+      const built: readonly PartConfig[] = [...resolved.options, ...named.executors, ...named.techniques, ...named.actions.flatMap(action => action.aim ? [action.aim] : []),
+        ...named.support ? [named.support] : [], named.navigation ?? resolved.navigation,
+        ...(Object.keys(FILLED) as (keyof typeof FILLED)[]).map(place => filledOf(parts, spec, place, config.tuning?.parts))];
+      const required = built.flatMap(part => partRequirements(parts, part, spec));
       return motorRequirementRefusal(motorOf(parts, filledOf(parts, spec, "motor", config.tuning?.parts)), spec, required);
     },
     describe: (spec, config, parts) => describeOptionMind(spec, config, resolveConfig(config, assembly), parts),

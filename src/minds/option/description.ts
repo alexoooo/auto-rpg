@@ -16,7 +16,7 @@ import { skillsOf } from "./skills.ts";
 function pathOf(parts: PartLookup, root: PartConfig, target: PartConfig, wanted: Role): ConfigPath | null {
   const key = recordingKey(target);
   let found: ConfigPath | null = null;
-  eachPart(parts, "mind", root, ({ part, config, path }) => {
+  eachPart(parts, root, ({ part, config, path }) => {
     if (path === null) return "skip";
     if (part.role !== wanted || recordingKey(config) !== key) return undefined;
     found = path;

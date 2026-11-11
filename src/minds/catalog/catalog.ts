@@ -5,7 +5,7 @@ import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import { scopeOf, type Entrant } from "./entrant.ts";
 import type { PartLookup, RoleParts } from "../../parts/lookup.ts";
 import type { Part, PartConfig, Role } from "../../parts/parts.ts";
-import { eachPart, heldBy, leftOut, slotValue, type Fallbacks, type PartAt, type Walk } from "../../parts/tree.ts";
+import { eachPart, fitRefusal, partOf, replacedAt, treeValidation, withoutTuning } from "../../parts/tree.ts";
 import type { MindDescription } from "./description.ts";
 
 /**
@@ -28,8 +28,8 @@ export interface Offered {
 }
 
 /**
- * **A scenario's entry rule**: what it asks of a mind beyond fitting the body (`treeRefusal`).
- * `attacks`: a part of it strikes with something the body has (`attacks`); `uses-held`: every
+ * **A scenario's entry rule**: what it asks of a mind beyond fitting the body (`fitRefusal`).
+ * `attacks`: it strikes with something the body has (`strikesOf`); `uses-held`: every
  * item the body holds has a use in it (`equipmentSupported`). A scenario states its own: a stand or
  * a course asks neither, so a mind may carry what it never uses there.
  */
@@ -99,11 +99,9 @@ export interface Catalog {
    * (`options.0: `). A slot that holds what is no part, a
    * part of another role, or nothing where it must hold one is a fault; a part's own faults
    * (`Part.faults`) are read only once every descendant slot holds parts of its role. A tree that
-   * names the kinds of two entrants is a fault (`treeScope`).
+   * names the kinds of two entrants is a fault (`scopesOf`).
    */
   treeFaults(config: PartConfig, at?: string): readonly string[];
-  /** **The entrant whose tree `config` roots** (`scopeOf` of its kinds), or null for the toolkit's kinds alone; the first, where it names two. */
-  treeScope(config: PartConfig): string | null;
   /** **Every kind of part in the tree `config` roots**, the root's included, an empty slot's fallback (`Slot.fallback`) and what a mind runs besides its tree (`Controller.uses`), each once: what a case's code holds the parts' own code of (`caseCoder`). */
   treeKinds(config: PartConfig): readonly string[];
   /** Whether the mind `config` roots carries out a person's orders (`Controller.obeys`). */
@@ -112,21 +110,14 @@ export interface Catalog {
   phaseLabels(config: PartConfig): Readonly<Record<string, string | null>>;
   /** **The mind data `config`'s parts read** (`Part.reads`), every key once: what a screen loads (`loadData`) before it builds the mind. */
   treeData(config: PartConfig): readonly DataKey[];
-  /**
-   * **Why a body of `spec` cannot carry out what the tree `config` roots commands**, prefixed with
-   * where (`subs.0: `), or null where it can: the first part that refuses it (`Part.fits`), a skill
-   * it cannot use and the part that holds it aside (`Slot.skills`, left out). Fit is only that:
-   * what a scenario asks beyond it is its entry rules (`EntryRule`).
-   */
-  treeRefusal(spec: BodySpec, config: PartConfig, at?: string): string | null;
-  /** **Whether a body of `spec` can stage what `config` roots** on its screen: fit (`treeRefusal`), then the scenario's entry rules (`EntryRule`); the first reason, or null. */
+  /** **Whether a body of `spec` can stage what `config` roots** on its screen: its tree's faults (`treeValidation`), fit (`fitRefusal`), then the scenario's entry rules (`EntryRule`); the first reason, or null. */
   stageRefusal(spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null;
   /** The tree `config` roots with every part's `tuning` left out: what a person's settings are, and what a link carries. */
   withoutTuning<C extends PartConfig>(config: C): C;
   /**
    * **Every part of `role`** a slot in the tree `tree` roots may hold, in the list's order, each with
    * why it cannot go there for a body of `spec`, or null:
-   * the toolkit's parts and the tree's own entrant's (`treeScope`). None of those is left out.
+   * the toolkit's parts and the tree's own entrant's (`scopesOf`). None of those is left out.
    */
   kindsFor(role: Role, spec: BodySpec, tree?: PartConfig | null): readonly Offered[];
   /**
@@ -148,256 +139,180 @@ interface Registry {
   readonly faults: readonly string[];
 }
 
+/** **What `lists` register** (`Registry`): the toolkit's parts and minds, then each entrant's, an entry at fault left out and named in `faults`. */
+function registryOf({ minds, parts: roles, entrants, data: dataLists = [] }: CatalogLists): Registry {
+  const parts: Record<string, Part> = {}, controllers: Record<string, Controller> = {}, presets: Record<string, MindPreset> = {}, entrantOf: Record<string, string> = {};
+  const faults: string[] = [], names = new Set<string>();
+  const data: Partial<Record<DataKey, () => Promise<unknown>>> = {};
+  for (const loaders of [...dataLists, ...entrants.map((entrant) => entrant.data ?? {})]) {
+    for (const [key, loader] of Object.entries(loaders) as [DataKey, () => Promise<unknown>][]) {
+      if (Object.hasOwn(data, key)) faults.push(`two registrations supply mind data ${JSON.stringify(key)}`);
+      else data[key] = loader;
+    }
+  }
+  const add = (kind: string, part: Part, what: string, scope: string | null) => {
+    if (scopeOf(kind) !== scope) faults.push(scope === null ? `${what} ${JSON.stringify(kind)} is scoped, and the toolkit's kinds are not` : `${what} ${JSON.stringify(kind)} is not scoped ${scope}:`);
+    else if (Object.hasOwn(parts, kind)) faults.push(`${what} ${JSON.stringify(kind)} is another part's kind`);
+    else {
+      parts[kind] = part;
+      if (part.role === "mind") controllers[kind] = part as Controller;
+    }
+  };
+  for (const list of roles) for (const [kind, part] of Object.entries(list)) {
+    if (part.defaults.kind !== kind) faults.push(`a list names ${JSON.stringify(part.defaults.kind)} ${JSON.stringify(kind)}`);
+    else add(kind, part, `the ${part.role} part`, null);
+  }
+  for (const entry of minds) add(entry.defaults.kind, entry, "the mind", null);
+  for (const entrant of entrants) {
+    if (names.has(entrant.name) || entrant.name.includes(":") || entrant.name.includes("/")) { faults.push(`an entrant called ${JSON.stringify(entrant.name)}: a name is one entrant's, with no : or /`); continue; }
+    names.add(entrant.name);
+    for (const entry of entrant.minds ?? []) add(entry.defaults.kind, entry, `${entrant.name}'s mind`, entrant.name);
+    for (const part of entrant.parts ?? []) {
+      if (part.role === "mind") faults.push(`${entrant.name}'s part ${JSON.stringify(part.defaults.kind)} is a mind: a mind goes in its minds`);
+      else add(part.defaults.kind, part, `${entrant.name}'s ${part.role} part`, entrant.name);
+    }
+    for (const [id, preset] of Object.entries(entrant.presets)) {
+      if (Object.hasOwn(presets, id)) faults.push(`${entrant.name}'s preset ${JSON.stringify(id)} is ${entrantOf[id]}'s`);
+      else { presets[id] = preset; entrantOf[id] = entrant.name; }
+    }
+  }
+  return { data: Object.freeze(data), parts: Object.freeze(parts), controllers: Object.freeze(controllers), presets: Object.freeze(presets), entrantOf: Object.freeze(entrantOf), faults: Object.freeze(faults) };
+}
+
+/** **The lookup over the parts `kinds` gives by kind** (`PartLookup`), read at each lookup, so the lists behind them are read on first use. */
+function lookupOf(kinds: () => Readonly<Record<string, Part>>): PartLookup {
+  const any = (value: unknown): Part | null => {
+    const kind = typeof value === "object" && value !== null ? (value as { kind?: unknown }).kind : undefined;
+    return typeof kind === "string" && Object.hasOwn(kinds(), kind) ? kinds()[kind]! : null;
+  };
+  const game = (role: Role): readonly PartConfig[] => Object.entries(kinds())
+    .filter(([kind, part]) => part.role === role && part.stage === "game" && scopeOf(kind) === null).map(([, part]) => part.defaults);
+  const fitting = (role: Role, spec: BodySpec): PartConfig | string => {
+    const refusals = game(role).map((config) => ({ config, refused: partOf(lookup, config).fits(spec, config, lookup) })), fit = refusals.filter(({ refused }) => refused === null);
+    if (fit.length === 1) return fit[0]!.config;
+    return fit.length === 0 ? `no ${role} part fits ${spec.model}: ${refusals.map(({ config, refused }) => `${partOf(lookup, config).label} ${refused}`).join("; ")}`
+      : `${fit.map(({ config }) => config.kind).join(" and ")} both fit ${spec.model} as its ${role}: one of a role fits a body`;
+  };
+  const lookup: PartLookup = Object.freeze({
+    any,
+    of<R extends Role>(role: R, config: PartConfig): RoleParts[R] {
+      const part = partOf(lookup, config);
+      if (part.role !== role) throw new Error(`a ${part.role} part cannot go where a ${role} part goes`);
+      return part as never;
+    },
+    find<R extends Role>(role: R, value: unknown): RoleParts[R] | null {
+      const part = any(value);
+      return part?.role === role ? part as never : null;
+    },
+    fitting: fitting as PartLookup["fitting"],
+    game: game as PartLookup["game"],
+  });
+  return lookup;
+}
+
+/**
+ * `visit` each part whose code a case of the tree `config` roots holds, the root first: the
+ * tree's parts, an empty slot's fallback included (`Slot.fallback`), and with each mind what it
+ * runs besides (`Controller.uses`), each of those a tree read the same way.
+ */
+function eachCoded(parts: PartLookup, config: PartConfig, visit: (part: Part, config: PartConfig) => void): void {
+  eachPart(parts, config, ({ part, config: one }) => {
+    visit(part, one);
+    for (const used of parts.find("mind", one)?.uses?.(one, parts) ?? []) eachCoded(parts, used, visit);
+  }, "with-fallbacks");
+}
+
+/** Every kind of part a case of the tree `config` roots holds the code of (`eachCoded`), each once, the root's first. */
+function treeKinds(parts: PartLookup, config: PartConfig): readonly string[] {
+  const kinds = new Set<string>();
+  eachCoded(parts, config, (_, one) => { kinds.add(one.kind); });
+  return [...kinds];
+}
+
+/** The mind data the parts of the tree `config` roots read (`Part.reads`, `Part.fitReads`), every key once. */
+function treeData(parts: PartLookup, config: PartConfig): readonly DataKey[] {
+  const keys = new Set<DataKey>();
+  eachCoded(parts, config, (part, one) => {
+    for (const key of [...part.reads?.(one) ?? [], ...part.fitReads ?? []]) keys.add(key);
+  });
+  return [...keys];
+}
+
+/** The entrants whose kinds the tree `config` roots names (`scopeOf`), each once, in the tree's order. */
+const scopesOf = (parts: PartLookup, config: PartConfig): readonly string[] =>
+  [...new Set(treeKinds(parts, config).map(scopeOf).filter((scope): scope is string => scope !== null))];
+
+/** What is wrong with the tree `config` roots (`treeValidation`), and, where nothing else is, that it names the kinds of two entrants. */
+function treeFaults(parts: PartLookup, config: PartConfig, at: string): readonly string[] {
+  const { formed, faults: found } = treeValidation(parts, config, at), scopes = formed && found.length === 0 ? scopesOf(parts, config) : [];
+  return scopes.length < 2 ? found : [...found, `${at ? `${at}: ` : ""}it names the kinds of ${scopes.join(" and ")}: a tree is one entrant's`];
+}
+
+/** **`parts`, refusing a part the tree `config` roots does not name** (`treeKinds`): the lookup a mind of `config` runs on. */
+function treeLookup(parts: PartLookup, config: PartConfig): PartLookup {
+  const named = new Set(treeKinds(parts, config));
+  const refuse = (kind: string): never => { throw new Error(`${partOf(parts, config).label} looks up ${kind}, a part its tree does not name`); };
+  return Object.freeze({
+    any(value: unknown): Part | null {
+      const found = parts.any(value);
+      return found && !named.has((value as PartConfig).kind) ? refuse((value as PartConfig).kind) : found;
+    },
+    of<R extends Role>(role: R, part: PartConfig): RoleParts[R] {
+      return named.has(part.kind) ? parts.of(role, part) : refuse(part.kind);
+    },
+    find<R extends Role>(role: R, value: unknown): RoleParts[R] | null {
+      const found = parts.find(role, value);
+      return found && !named.has((value as PartConfig).kind) ? refuse((value as PartConfig).kind) : found;
+    },
+    fitting: parts.fitting,
+    game: parts.game,
+  });
+}
+
+/** The effectors the mind `config` roots strikes with on a body of `spec` (`Controller.strikes`); none where it is no mind. */
+const strikesOf = (parts: PartLookup, spec: BodySpec, config: PartConfig): readonly string[] => parts.find("mind", config)?.strikes?.(spec, config, parts) ?? [];
+
+/** Every item a body of `spec` holds has a use in the mind `config` roots: it strikes with it, or has another use for it (`Controller.supportedEquipment`). */
+function equipmentSupported(parts: PartLookup, spec: BodySpec, config: PartConfig): boolean {
+  const supported = new Set([...strikesOf(parts, spec, config), ...parts.find("mind", config)?.supportedEquipment?.(spec, config, parts) ?? []]);
+  return (spec.held ?? []).every(({ segment }) => supported.has(segment));
+}
+
+/** **Why the mind `config` roots may not enter a scenario of `rules`** with a body of `spec`, a sentence, or null where it may. */
+function entryRefusal(parts: PartLookup, spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null {
+  for (const rule of rules) switch (rule) {
+    case "attacks": if (strikesOf(parts, spec, config).length === 0) return "it strikes with nothing the body has"; break;
+    case "uses-held": if (!equipmentSupported(parts, spec, config)) return "it has no use for something the body holds"; break;
+    default: { const never: never = rule; throw new Error(`no entry rule ${String(never)}`); }
+  }
+  return null;
+}
+
 /**
  * **The catalog of `lists`** (`Catalog`), read once on first use, never as the module that makes
  * it loads, so a part's module may be read in any order. What is wrong with the lists is the
- * catalog's `faults`, the entry at fault left out.
+ * catalog's `faults`, the entry at fault left out. What it reads of a tree is a plain function
+ * given its lookup: the walks every tree of parts takes (`src/parts/tree.ts`), and above, those
+ * that ask a mind or an entrant.
  */
 export function catalogOf(lists: () => CatalogLists): Catalog {
   let registry: Registry | null = null;
-  const registered = (): Registry => {
-    if (registry) return registry;
-    const { minds, parts: roles, entrants, data: dataLists = [] } = lists();
-    const parts: Record<string, Part> = {}, controllers: Record<string, Controller> = {}, presets: Record<string, MindPreset> = {}, entrantOf: Record<string, string> = {};
-    const faults: string[] = [], names = new Set<string>();
-    const data: Partial<Record<DataKey, () => Promise<unknown>>> = {};
-    for (const loaders of [...dataLists, ...entrants.map((entrant) => entrant.data ?? {})]) {
-      for (const [key, loader] of Object.entries(loaders) as [DataKey, () => Promise<unknown>][]) {
-        if (Object.hasOwn(data, key)) faults.push(`two registrations supply mind data ${JSON.stringify(key)}`);
-        else data[key] = loader;
-      }
-    }
-    const add = (kind: string, part: Part, what: string, scope: string | null) => {
-      if (scopeOf(kind) !== scope) faults.push(scope === null ? `${what} ${JSON.stringify(kind)} is scoped, and the toolkit's kinds are not` : `${what} ${JSON.stringify(kind)} is not scoped ${scope}:`);
-      else if (Object.hasOwn(parts, kind)) faults.push(`${what} ${JSON.stringify(kind)} is another part's kind`);
-      else {
-        parts[kind] = part;
-        if (part.role === "mind") controllers[kind] = part as Controller;
-      }
-    };
-    for (const list of roles) for (const [kind, part] of Object.entries(list)) {
-      if (part.defaults.kind !== kind) faults.push(`a list names ${JSON.stringify(part.defaults.kind)} ${JSON.stringify(kind)}`);
-      else add(kind, part, `the ${part.role} part`, null);
-    }
-    for (const entry of minds) add(entry.defaults.kind, entry, "the mind", null);
-    for (const entrant of entrants) {
-      if (names.has(entrant.name) || entrant.name.includes(":") || entrant.name.includes("/")) { faults.push(`an entrant called ${JSON.stringify(entrant.name)}: a name is one entrant's, with no : or /`); continue; }
-      names.add(entrant.name);
-      for (const entry of entrant.minds ?? []) add(entry.defaults.kind, entry, `${entrant.name}'s mind`, entrant.name);
-      for (const part of entrant.parts ?? []) {
-        if (part.role === "mind") faults.push(`${entrant.name}'s part ${JSON.stringify(part.defaults.kind)} is a mind: a mind goes in its minds`);
-        else add(part.defaults.kind, part, `${entrant.name}'s ${part.role} part`, entrant.name);
-      }
-      for (const [id, preset] of Object.entries(entrant.presets)) {
-        if (Object.hasOwn(presets, id)) faults.push(`${entrant.name}'s preset ${JSON.stringify(id)} is ${entrantOf[id]}'s`);
-        else { presets[id] = preset; entrantOf[id] = entrant.name; }
-      }
-    }
-    return registry = { data: Object.freeze(data), parts: Object.freeze(parts), controllers: Object.freeze(controllers), presets: Object.freeze(presets), entrantOf: Object.freeze(entrantOf), faults: Object.freeze(faults) };
-  };
+  const registered = (): Registry => registry ??= registryOf(lists());
+  const parts = lookupOf(() => registered().parts);
+
   let faults: readonly string[] | null = null;
   /** The lists' faults, then each preset whose tree is not one of parts in their slots (`treeValidation`), or names another entrant's kinds. */
   const faultsOf = (): readonly string[] => {
     if (faults) return faults;
     const { presets, entrantOf } = registered(), found = [...registered().faults];
     for (const [id, preset] of Object.entries(presets)) {
-      const { formed, faults: wrong } = treeValidation(preset.config, "");
+      const { formed, faults: wrong } = treeValidation(parts, preset.config, "");
       if (!formed || wrong.length > 0) { found.push(`${entrantOf[id]}'s preset ${JSON.stringify(id)}: ${wrong.join("; ")}`); continue; }
-      const other = scopesOf(preset.config).find((scope) => scope !== entrantOf[id]);
+      const other = scopesOf(parts, preset.config).find((scope) => scope !== entrantOf[id]);
       if (other !== undefined) found.push(`${entrantOf[id]}'s preset ${JSON.stringify(id)} names ${other}'s kinds`);
     }
     return faults = Object.freeze(found);
   };
-
-  const isKind = (kind: unknown): kind is string => typeof kind === "string" && Object.hasOwn(registered().parts, kind);
-  function partOf<C extends PartConfig>(config: C): Part<C> {
-    const part = isKind(config.kind) ? registered().parts[config.kind] : undefined;
-    if (!part) throw new Error(`no part of kind ${JSON.stringify(config.kind)}`);
-    return part as Part<C>;
-  }
-  function controllerOf(config: MindConfig): Controller {
-    const controllers = registered().controllers;
-    const found = Object.hasOwn(controllers, config.kind) ? controllers[config.kind] : undefined;
-    if (!found) throw new Error(`no mind of kind ${JSON.stringify(config.kind)}`);
-    return found;
-  }
-  /** The controller of the mind `config` roots, or null where its kind is no mind's. */
-  const mindOf = (config: PartConfig): Controller | null => {
-    const controllers = registered().controllers;
-    return Object.hasOwn(controllers, config.kind) ? controllers[config.kind]! : null;
-  };
-  /** Every game part of `role`, the toolkit's, as its config (`PartLookup.game`). */
-  const game = (role: Role): readonly PartConfig[] => Object.entries(registered().parts)
-    .filter(([kind, part]) => part.role === role && part.stage === "game" && scopeOf(kind) === null).map(([, part]) => part.defaults);
-  /** The one game part of `role` that fits a body of `spec` (`PartLookup.fitting`), or why not one does: each one's refusal, or the two that fit. */
-  const fitting = (role: Role, spec: BodySpec): PartConfig | string => {
-    const refusals = game(role).map((config) => ({ config, refused: partOf(config).fits(spec, config, partLookup) })), fit = refusals.filter(({ refused }) => refused === null);
-    if (fit.length === 1) return fit[0]!.config;
-    return fit.length === 0 ? `no ${role} part fits ${spec.model}: ${refusals.map(({ config, refused }) => `${partOf(config).label} ${refused}`).join("; ")}`
-      : `${fit.map(({ config }) => config.kind).join(" and ")} both fit ${spec.model} as its ${role}: one of a role fits a body`;
-  };
-  const partLookup: PartLookup = Object.freeze({
-    of<R extends Role>(role: R, config: PartConfig): RoleParts[R] {
-      const part = partOf(config);
-      if (part.role !== role) throw new Error(`a ${part.role} part cannot go where a ${role} part goes`);
-      return part as never;
-    },
-    find<R extends Role>(role: R, value: unknown): RoleParts[R] | null {
-      const part = isPart(value) ? partOf(value) : null;
-      return part?.role === role ? part as never : null;
-    },
-    fitting: fitting as PartLookup["fitting"],
-    game: game as PartLookup["game"],
-  });
-
-  /** Whether `value` is a part's config: an object with a kind that names a part. */
-  function isPart(value: unknown): value is PartConfig {
-    return typeof value === "object" && value !== null && isKind((value as { kind?: unknown }).kind);
-  }
-
-  /** Visits every part of the tree `config` roots, whatever its role (`eachPart`). */
-  const eachIn = (config: PartConfig, visit: (at: PartAt) => Walk, fallbacks?: Fallbacks): void =>
-    eachPart(partLookup, partOf(config).role, config, visit, fallbacks);
-
-  /** The entrants whose kinds the tree `config` roots names (`scopeOf`), each once, in the tree's order. */
-  const scopesOf = (config: PartConfig): readonly string[] =>
-    [...new Set(treeKinds(config).map(scopeOf).filter((scope): scope is string => scope !== null))];
-
-  /** Structural validity travels with a subtree's faults, so ancestor hooks may safely traverse its slots. */
-  function treeValidation(config: PartConfig, at: string): { readonly formed: boolean; readonly faults: readonly string[] } {
-    const where = (fault: string, path = at) => path ? `${path}: ${fault}` : fault;
-    const kind = (value: unknown) => `no part of kind ${JSON.stringify((value as { kind?: unknown } | null)?.kind)}`;
-    if (!isPart(config)) return { formed: false, faults: [where(kind(config))] };
-    const slots: string[] = [];
-    let formed = true;
-    for (const { slot, parts } of heldBy(partOf(config), config)) {
-      const value = slotValue(config, slot), path = at ? `${at}.${slot.key}` : slot.key;
-      if (slot.many && !(value == null && slot.optional) && !Array.isArray(value)) { formed = false; slots.push(where(`a list of ${slot.role} parts`, path)); continue; }
-      if (!slot.many && parts.length === 0 && !slot.optional) { formed = false; slots.push(where(`a ${slot.role} part is needed`, path)); continue; }
-      parts.forEach((child, i) => {
-        const here = slot.many ? `${path}.${i}` : path;
-        if (!isPart(child)) { formed = false; slots.push(where(kind(child), here)); }
-        else if (partOf(child).role !== slot.role) { formed = false; slots.push(where(`a ${partOf(child).role} part cannot go where a ${slot.role} part goes`, here)); }
-        else {
-          const checked = treeValidation(child, here);
-          formed = formed && checked.formed;
-          slots.push(...checked.faults);
-        }
-      });
-    }
-    return { formed, faults: [...unknownSettings(config).map((fault) => where(fault)),
-      ...(formed ? partOf(config).faults(config, partLookup).map((fault) => where(fault)) : []), ...slots] };
-  }
-
-  /**
-   * `visit` each part whose code a case of the tree `config` roots holds, the root first: the
-   * tree's parts, an empty slot's fallback included (`Slot.fallback`), and with each mind what it
-   * runs besides (`Controller.uses`), each of those a tree read the same way.
-   */
-  function eachCoded(config: PartConfig, visit: (part: Part, config: PartConfig) => void): void {
-    eachIn(config, ({ part, config: one }) => {
-      visit(part, one);
-      for (const used of mindOf(one)?.uses?.(one, partLookup) ?? []) eachCoded(used, visit);
-    }, "with-fallbacks");
-  }
-
-  function treeKinds(config: PartConfig): readonly string[] {
-    const kinds = new Set<string>();
-    eachCoded(config, (_, one) => { kinds.add(one.kind); });
-    return [...kinds];
-  }
-
-  /**
-   * The keys outside the config's complete type-checked shape, and outside its research tuning; a
-   * part that states no keys (`Part.keys`) has that fault.
-   */
-  function unknownSettings(config: PartConfig): readonly string[] {
-    const part = partOf(config), tuning = part.tuning ?? [];
-    const known: unknown = part.keys;
-    if (typeof known !== "object" || known === null) return [`${part.label} states none of its keys (Part.keys)`];
-    const given = (config as { tuning?: unknown }).tuning;
-    return [
-      ...Object.keys(config).filter((key) => !Object.hasOwn(known as object, key)).map((key) => `${part.label} has no setting ${key}`),
-      ...(part.tuning && typeof given === "object" && given !== null ? Object.keys(given).filter((key) => !tuning.includes(key)).map((key) => `${part.label} has no tuning ${key}`) : []),
-    ];
-  }
-
-  function treeRefusal(spec: BodySpec, config: PartConfig, at = ""): string | null {
-    let refusal: string | null = null;
-    eachIn(config, ({ part, config: one, at: below }) => {
-      const own = part.fits(spec, one, partLookup), where = at && below ? `${at}.${below}` : at || below;
-      if (own !== null) { refusal = where ? `${where}: ${own}` : own; return "stop"; }
-      // A skill the body cannot use is left out, not a refusal, and the part that runs it with it, its other slots unread.
-      return leftOut(partLookup, part, one, spec) ? "skip" : undefined;
-    });
-    return refusal;
-  }
-
-  /** **Why the tree `config` roots may not enter a scenario of `rules`** with a body of `spec`, a sentence, or null where it may. */
-  function entryRefusal(spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null {
-    for (const rule of rules) switch (rule) {
-      case "attacks": if (!attacks(spec, config)) return "it strikes with nothing the body has"; break;
-      case "uses-held": if (!equipmentSupported(spec, config)) return "it has no use for something the body holds"; break;
-      default: { const never: never = rule; throw new Error(`no entry rule ${String(never)}`); }
-    }
-    return null;
-  }
-
-  /** The effectors the mind `config` roots strikes with on a body of `spec` (`Controller.strikes`); none where it is no mind. */
-  const strikesOf = (spec: BodySpec, config: PartConfig): readonly string[] => mindOf(config)?.strikes?.(spec, config, partLookup) ?? [];
-
-  /** Every item a body of `spec` holds has a use in the mind `config` roots: it strikes with it, or has another use for it (`Controller.supportedEquipment`). */
-  function equipmentSupported(spec: BodySpec, config: PartConfig): boolean {
-    const supported = new Set([...strikesOf(spec, config), ...mindOf(config)?.supportedEquipment?.(spec, config, partLookup) ?? []]);
-    return (spec.held ?? []).every(({ segment }) => supported.has(segment));
-  }
-
-  /** **Whether a body of `spec` can attack under the mind `config` roots**: it strikes with some effector there. */
-  const attacks = (spec: BodySpec, config: PartConfig): boolean => strikesOf(spec, config).length > 0;
-
-  function withoutTuning<C extends PartConfig>(config: C): C {
-    const { tuning: _, ...rest } = config as C & { tuning?: unknown };
-    let out: Record<string, unknown> = rest;
-    for (const slot of partOf(config).slots) {
-      const value = out[slot.key];
-      if (Array.isArray(value)) out[slot.key] = value.map((child) => isPart(child) ? withoutTuning(child) : child);
-      else if (isPart(value)) out[slot.key] = withoutTuning(value);
-    }
-    const stripAt = (value: unknown, path: readonly (string | number)[], index: number): unknown => {
-      if (!value || typeof value !== "object" || !Object.hasOwn(value, path[index]!)) return value;
-      const key = path[index]!, before = (value as Record<string | number, unknown>)[key];
-      const next = index + 1 === path.length ? isPart(before) ? withoutTuning(before) : before : stripAt(before, path, index + 1);
-      if (next === before) return value;
-      return Array.isArray(value) ? value.map((child, i) => i === key ? next : child) : { ...value, [key]: next };
-    };
-    for (const child of partOf(config).children?.(config) ?? []) if (child.path?.length) out = stripAt(out, child.path, 0) as Record<string, unknown>;
-    return out as C;
-  }
-
-  function replacedAt<C extends PartConfig>(config: C, path: string, value: unknown): C {
-    const steps = path.split(".");
-    /** What a step in the part config `at` may be: its part's slots and stated keys, beside its kind. */
-    const keysOf = (at: PartConfig): string[] => {
-      const part = partOf(at);
-      return [...new Set([...part.slots.map((slot) => slot.key), ...Object.keys(part.keys ?? {})])].filter((key) => key !== "kind");
-    };
-    const walk = (at: unknown, k: number, holder: string): unknown => {
-      const step = steps[k]!, last = k === steps.length - 1;
-      if (Array.isArray(at)) {
-        const i = /^\d+$/.test(step) ? Number(step) : at.findIndex((one) => one?.name === step || one?.kind === step);
-        if (i < 0 || i >= at.length) throw new Error(`${holder} has no entry ${step}: ${at.map((one, j) => one?.name ?? one?.kind ?? j).join(", ")}`);
-        const copy = [...at];
-        if (last && value === null) copy.splice(i, 1);
-        else copy[i] = last ? value : walk(at[i], k + 1, `${holder}.${step}`);
-        return copy;
-      }
-      if (typeof at !== "object" || at === null) throw new Error(`${holder} holds nothing to read ${step} in`);
-      const open = isPart(at) ? keysOf(at) : Object.keys(at);
-      if (!open.includes(step)) throw new Error(`${holder} has no slot or setting ${step}: ${open.join(", ")}`);
-      return { ...at, [step]: last ? value : walk((at as Record<string, unknown>)[step], k + 1, `${holder}.${step}`) };
-    };
-    return walk(config, 0, config.kind) as C;
-  }
 
   return Object.freeze({
     get dataKeys() { return Object.freeze(Object.keys(registered().data) as DataKey[]); },
@@ -406,52 +321,31 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     get controllers() { return registered().controllers; },
     get minds() { return registered().presets; },
     get faults() { return faultsOf(); },
-    controllerOf,
+    controllerOf(config: MindConfig): Controller {
+      const controllers = registered().controllers;
+      const found = Object.hasOwn(controllers, config.kind) ? controllers[config.kind] : undefined;
+      if (!found) throw new Error(`no mind of kind ${JSON.stringify(config.kind)}`);
+      return found;
+    },
     allParts: () => registered().parts,
-    isKind,
-    partOf,
-    partLookup,
-    treeLookup(config: PartConfig): PartLookup {
-      const named = new Set(treeKinds(config));
-      return Object.freeze({
-        of<R extends Role>(role: R, part: PartConfig): RoleParts[R] {
-          if (!named.has(part.kind)) throw new Error(`${partOf(config).label} looks up ${part.kind}, a part its tree does not name`);
-          return partLookup.of(role, part);
-        },
-        find<R extends Role>(role: R, value: unknown): RoleParts[R] | null {
-          const found = partLookup.find(role, value);
-          if (found && !named.has((value as PartConfig).kind)) throw new Error(`${partOf(config).label} looks up ${(value as PartConfig).kind}, a part its tree does not name`);
-          return found;
-        },
-        fitting: fitting as PartLookup["fitting"],
-        game: game as PartLookup["game"],
-      });
-    },
-    treeFaults(config: PartConfig, at = ""): readonly string[] {
-      const { formed, faults: found } = treeValidation(config, at), scopes = formed && found.length === 0 ? scopesOf(config) : [];
-      return scopes.length < 2 ? found : [...found, `${at ? `${at}: ` : ""}it names the kinds of ${scopes.join(" and ")}: a tree is one entrant's`];
-    },
-    treeScope: (config: PartConfig): string | null => scopesOf(config)[0] ?? null,
-    treeKinds,
-    treeObeys: (config: PartConfig): boolean => mindOf(config)?.obeys?.(config, partLookup) ?? false,
-    phaseLabels: (config: PartConfig): Readonly<Record<string, string | null>> => mindOf(config)?.phases?.(config, partLookup) ?? {},
-    treeData(config: PartConfig): readonly DataKey[] {
-      const keys = new Set<DataKey>();
-      eachCoded(config, (part, one) => {
-        for (const key of [...part.reads?.(one) ?? [], ...part.fitReads ?? []]) keys.add(key);
-      });
-      return [...keys];
-    },
-    treeRefusal: (spec: BodySpec, config: PartConfig, at = ""): string | null => treeValidation(config, at).faults[0] ?? treeRefusal(spec, config, at),
+    isKind: (kind: unknown): kind is string => typeof kind === "string" && Object.hasOwn(registered().parts, kind),
+    partOf: <C extends PartConfig>(config: C): Part<C> => partOf(parts, config) as Part<C>,
+    partLookup: parts,
+    treeLookup: (config: PartConfig): PartLookup => treeLookup(parts, config),
+    treeFaults: (config: PartConfig, at = ""): readonly string[] => treeFaults(parts, config, at),
+    treeKinds: (config: PartConfig): readonly string[] => treeKinds(parts, config),
+    treeObeys: (config: PartConfig): boolean => parts.find("mind", config)?.obeys?.(config, parts) ?? false,
+    phaseLabels: (config: PartConfig): Readonly<Record<string, string | null>> => parts.find("mind", config)?.phases?.(config, parts) ?? {},
+    treeData: (config: PartConfig): readonly DataKey[] => treeData(parts, config),
     stageRefusal: (spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null =>
-      treeValidation(config, "").faults[0] ?? treeRefusal(spec, config) ?? entryRefusal(spec, config, rules),
-    withoutTuning,
+      treeValidation(parts, config, "").faults[0] ?? fitRefusal(parts, spec, config) ?? entryRefusal(parts, spec, config, rules),
+    withoutTuning: <C extends PartConfig>(config: C): C => withoutTuning(parts, config),
     kindsFor(role: Role, spec: BodySpec, tree: PartConfig | null = null): readonly Offered[] {
-      const scope = tree ? scopesOf(tree)[0] ?? null : null;
+      const scope = tree ? scopesOf(parts, tree)[0] ?? null : null;
       return Object.entries(registered().parts).filter(([kind, part]) => part.role === role && (scopeOf(kind) === null || scopeOf(kind) === scope))
-        .map(([kind, part]) => ({ kind, part, reason: treeRefusal(spec, part.defaults) }));
+        .map(([kind, part]) => ({ kind, part, reason: fitRefusal(parts, spec, part.defaults) }));
     },
-    replacedAt,
+    replacedAt: <C extends PartConfig>(config: C, path: string, value: unknown): C => replacedAt(parts, config, path, value),
   });
 }
 

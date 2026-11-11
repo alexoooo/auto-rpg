@@ -31,7 +31,7 @@ and the decision library) lowest, then `catalog/` (configs, controllers, catalog
 | Layer | Where | Owns |
 | --- | --- | --- |
 | Core | `src/core/`, `math/`, `data/`, `physics/`, `bodies/`, `world/` | arithmetic, physics, body descriptions and muscles, clock, state and data store |
-| Parts | `src/parts/` | component contracts, scoped configurations, role lookup and the walk over a tree of parts (`eachPart`) |
+| Parts | `src/parts/` | component contracts, scoped configurations, role lookup, the walk over a tree of parts (`eachPart`) and what is read of one (`tree.ts`) |
 | Combat | `src/combat/` | blows, wounds, life and rulebooks |
 | Control | `src/control/` | motion and support goals turned into muscle commands |
 | Skills | `src/skills/framework/`, `reach/`, `perception/`, `locomotion/`, `intent/`, `guard/`, `strikes/`, `recovery/`, `assembly/` | capability contracts, implementations and owned records |
@@ -411,6 +411,15 @@ augmented beside each role's contract. `treeFaults` names each fault by path. Co
 `children` declare nested configuration paths and roles; one walk (`eachPart`, `tree.ts`) goes
 through slots and children alike, and admission, fit, scope, data dependencies and inspection all
 use it. `tuning` never travels in a link.
+
+**What is read of a tree is a plain function given the lookup** (`PartLookup`). In
+`src/parts/tree.ts`: what is wrong with a tree (`treeValidation`), why a body cannot carry it out
+(`fitRefusal`), what it requires of the motor (`partRequirements`), and its copies without tuning
+or with one place replaced (`withoutTuning`, `replacedAt`). In `catalog.ts`, those that ask a mind
+or an entrant: the kinds and the data a case of it holds (`treeKinds`, `treeData`), the entrants
+it names (`scopesOf`), and a scenario's entry rules (`entryRefusal`). `catalogOf` registers the
+lists (`registryOf`), makes the lookup over them (`lookupOf`) and hands these out as the
+`Catalog`'s members.
 
 **A slot's config is typed by its role** (`ConfigFor<"chooser">`, `lookup.ts`): one of the kinds
 the role's parts register, each adding its config to the role's map beside the part

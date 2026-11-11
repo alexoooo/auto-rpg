@@ -1,6 +1,7 @@
 import type { BodySpec } from "../core/bodies/spec/body.ts";
+// The walk of a tree of parts, and what is read and copied of one by it. Each is given the lookup of the parts the tree may name.
 import type { PartLookup } from "./lookup.ts";
-import type { Part, PartConfig, Requirement, Role, Slot } from "./parts.ts";
+import type { Part, PartConfig, Requirement, Slot } from "./parts.ts";
 
 /** **Where a part is in a tree's config**: each step a key, or an index in a list. */
 export type ConfigPath = readonly (string | number)[];
@@ -46,6 +47,13 @@ export function leftOut(parts: PartLookup, part: Part, config: PartConfig, spec:
   }));
 }
 
+/** The part `config` names, whatever its role; a thrown error for a kind no part has, read from a save or a link. */
+export function partOf(parts: PartLookup, config: PartConfig): Part {
+  const part = parts.any(config);
+  if (!part) throw new Error(`no part of kind ${JSON.stringify(config.kind)}`);
+  return part;
+}
+
 /** **A part a walk has come to** (`eachPart`). */
 export interface PartAt {
   readonly part: Part;
@@ -63,12 +71,12 @@ export type Walk = void | "skip" | "stop";
 export type Fallbacks = "with-fallbacks" | "as-configured";
 
 /**
- * **Visits every part of the tree `config` roots**, a part of `role`, each before what it holds:
+ * **Visits every part of the tree `config` roots**, whatever its role, each before what it holds:
  * what its slots hold, in order, then what it declares outside them (`heldBy`). With `fallbacks`,
  * an empty slot's fallback is visited as what the slot holds (`Slot.fallback`). What a slot holds
  * that is no part of the slot's role is passed over: the tree's faults say so (`treeFaults`).
  */
-export function eachPart(parts: PartLookup, role: Role, config: PartConfig, visit: (at: PartAt) => Walk, fallbacks: Fallbacks = "as-configured"): void {
+export function eachPart(parts: PartLookup, config: PartConfig, visit: (at: PartAt) => Walk, fallbacks: Fallbacks = "as-configured"): void {
   const walk = (part: Part, config: PartConfig, path: ConfigPath | null, at: string): boolean => {
     const said = visit({ part, config, path, at });
     if (said === "stop") return true;
@@ -85,7 +93,7 @@ export function eachPart(parts: PartLookup, role: Role, config: PartConfig, visi
     }
     return false;
   };
-  walk(parts.of(role, config), config, [], "");
+  walk(partOf(parts, config), config, [], "");
 }
 
 /**
@@ -93,12 +101,125 @@ export function eachPart(parts: PartLookup, role: Role, config: PartConfig, visi
  * every part in it, an empty slot's fallback included, a part left out on a body of `spec`
  * (`leftOut`) passed over with what it holds.
  */
-export function partRequirements(parts: PartLookup, role: Role, config: PartConfig, spec: BodySpec): readonly Requirement[] {
+export function partRequirements(parts: PartLookup, config: PartConfig, spec: BodySpec): readonly Requirement[] {
   const found = new Set<Requirement>();
-  eachPart(parts, role, config, ({ part, config }) => {
+  eachPart(parts, config, ({ part, config }) => {
     if (leftOut(parts, part, config, spec)) return "skip";
     for (const requirement of part.requires ?? []) found.add(requirement);
     return undefined;
   }, "with-fallbacks");
   return [...found];
+}
+
+/**
+ * The keys of `config` outside its part's stated keys (`Part.keys`), and those of its research
+ * tuning outside the part's (`Part.tuning`); a part that states no keys has that fault.
+ */
+function unknownSettings(part: Part, config: PartConfig): readonly string[] {
+  const tuning = part.tuning ?? [];
+  const known: unknown = part.keys;
+  if (typeof known !== "object" || known === null) return [`${part.label} states none of its keys (Part.keys)`];
+  const given = (config as { tuning?: unknown }).tuning;
+  return [
+    ...Object.keys(config).filter((key) => !Object.hasOwn(known as object, key)).map((key) => `${part.label} has no setting ${key}`),
+    ...(part.tuning && typeof given === "object" && given !== null ? Object.keys(given).filter((key) => !tuning.includes(key)).map((key) => `${part.label} has no tuning ${key}`) : []),
+  ];
+}
+
+/**
+ * **What is wrong with the tree `config` roots**, each a sentence prefixed with where it is under
+ * `at` (`options.0: `): a part's own faults first, then each place it holds parts. What is no
+ * part, a part of another role, or nothing where one is needed is a fault, and the tree is then
+ * not `formed`: a part's own faults (`Part.faults`) are read only once every place below it holds
+ * parts of its role, so its checks may read them.
+ */
+export function treeValidation(parts: PartLookup, config: PartConfig, at: string): { readonly formed: boolean; readonly faults: readonly string[] } {
+  const where = (fault: string, path = at) => path ? `${path}: ${fault}` : fault;
+  const kind = (value: unknown) => `no part of kind ${JSON.stringify((value as { kind?: unknown } | null)?.kind)}`;
+  const part = parts.any(config);
+  if (!part) return { formed: false, faults: [where(kind(config))] };
+  const below: string[] = [];
+  let formed = true;
+  for (const { slot, parts: held } of heldBy(part, config)) {
+    const value = slotValue(config, slot), path = at ? `${at}.${slot.key}` : slot.key;
+    if (slot.many && !(value == null && slot.optional) && !Array.isArray(value)) { formed = false; below.push(where(`a list of ${slot.role} parts`, path)); continue; }
+    if (!slot.many && held.length === 0 && !slot.optional) { formed = false; below.push(where(`a ${slot.role} part is needed`, path)); continue; }
+    held.forEach((child, i) => {
+      const here = slot.many ? `${path}.${i}` : path, found = parts.any(child);
+      if (!found) { formed = false; below.push(where(kind(child), here)); }
+      else if (found.role !== slot.role) { formed = false; below.push(where(`a ${found.role} part cannot go where a ${slot.role} part goes`, here)); }
+      else {
+        const checked = treeValidation(parts, child as PartConfig, here);
+        formed = formed && checked.formed;
+        below.push(...checked.faults);
+      }
+    });
+  }
+  return { formed, faults: [...unknownSettings(part, config).map((fault) => where(fault)),
+    ...(formed ? part.faults(config, parts).map((fault) => where(fault)) : []), ...below] };
+}
+
+/**
+ * **Why a body of `spec` cannot carry out what the tree `config` roots commands**, prefixed with
+ * where under `at` (`options.0: `), or null where it can: the first part that refuses it
+ * (`Part.fits`). A skill the body cannot use is no refusal: the part that holds it is left out
+ * (`leftOut`), what else it holds unread.
+ */
+export function fitRefusal(parts: PartLookup, spec: BodySpec, config: PartConfig, at = ""): string | null {
+  let refusal: string | null = null;
+  eachPart(parts, config, ({ part, config: one, at: below }) => {
+    const own = part.fits(spec, one, parts), where = at && below ? `${at}.${below}` : at || below;
+    if (own !== null) { refusal = where ? `${where}: ${own}` : own; return "stop"; }
+    return leftOut(parts, part, one, spec) ? "skip" : undefined;
+  });
+  return refusal;
+}
+
+/** **The tree `config` roots with every part's `tuning` left out**, a copy: what a person's settings are, and what a link carries. */
+export function withoutTuning<C extends PartConfig>(parts: PartLookup, config: C): C {
+  const { tuning: _, ...rest } = config as C & { tuning?: unknown };
+  const part = partOf(parts, config), stripped = (value: unknown): unknown => parts.any(value) ? withoutTuning(parts, value as PartConfig) : value;
+  let out: Record<string, unknown> = rest;
+  for (const slot of part.slots) {
+    const value = out[slot.key];
+    if (Array.isArray(value)) out[slot.key] = value.map((child) => stripped(child));
+    else if (parts.any(value)) out[slot.key] = stripped(value);
+  }
+  const stripAt = (value: unknown, path: ConfigPath, index: number): unknown => {
+    if (!value || typeof value !== "object" || !Object.hasOwn(value, path[index]!)) return value;
+    const key = path[index]!, before = (value as Record<string | number, unknown>)[key];
+    const next = index + 1 === path.length ? stripped(before) : stripAt(before, path, index + 1);
+    if (next === before) return value;
+    return Array.isArray(value) ? value.map((child, i) => i === key ? next : child) : { ...value, [key]: next };
+  };
+  for (const child of part.children?.(config) ?? []) if (child.path?.length) out = stripAt(out, child.path, 0) as Record<string, unknown>;
+  return out as C;
+}
+
+/**
+ * **The tree `config` roots with what is at `path` replaced by `value`** (null removes a list's
+ * entry), a copy: `path` is dot-separated, each step a slot of the part it is in (`Part.slots`) or a
+ * key it states (`Part.keys`), in a list an index or an entry's name or kind, and in plain data a
+ * key it has. A thrown error names the step that matches nothing, with what does.
+ */
+export function replacedAt<C extends PartConfig>(parts: PartLookup, config: C, path: string, value: unknown): C {
+  const steps = path.split(".");
+  /** What a step in a config of `part` may be: its slots and stated keys, beside its kind. */
+  const keysOf = (part: Part): string[] => [...new Set([...part.slots.map((slot) => slot.key), ...Object.keys(part.keys ?? {})])].filter((key) => key !== "kind");
+  const walk = (at: unknown, k: number, holder: string): unknown => {
+    const step = steps[k]!, last = k === steps.length - 1;
+    if (Array.isArray(at)) {
+      const i = /^\d+$/.test(step) ? Number(step) : at.findIndex((one) => one?.name === step || one?.kind === step);
+      if (i < 0 || i >= at.length) throw new Error(`${holder} has no entry ${step}: ${at.map((one, j) => one?.name ?? one?.kind ?? j).join(", ")}`);
+      const copy = [...at];
+      if (last && value === null) copy.splice(i, 1);
+      else copy[i] = last ? value : walk(at[i], k + 1, `${holder}.${step}`);
+      return copy;
+    }
+    if (typeof at !== "object" || at === null) throw new Error(`${holder} holds nothing to read ${step} in`);
+    const part = parts.any(at), open = part ? keysOf(part) : Object.keys(at);
+    if (!open.includes(step)) throw new Error(`${holder} has no slot or setting ${step}: ${open.join(", ")}`);
+    return { ...at, [step]: last ? value : walk((at as Record<string, unknown>)[step], k + 1, `${holder}.${step}`) };
+  };
+  return walk(config, 0, config.kind) as C;
 }

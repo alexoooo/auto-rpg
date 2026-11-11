@@ -195,7 +195,7 @@ export function createRising(context: GameContext) {
     for (const name of [technique, ...(job.after ? [job.after] : [])]) {
       const part = TECHNIQUES[name];
       const refusal = part.fits(spec, part.defaults, partLookup)
-        ?? motorRequirementRefusal(kit.motor, spec, partRequirements(partLookup, "technique", part.defaults, spec));
+        ?? motorRequirementRefusal(kit.motor, spec, partRequirements(partLookup, part.defaults, spec));
       if (refusal) return rejected(`${name}: ${refusal}`);
     }
     const start = job.start ?? "placed", posture = job.posture ?? "squat", seed = job.seed ?? 1;

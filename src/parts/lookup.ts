@@ -1,4 +1,4 @@
-import type { PartConfig, Role } from "./parts.ts";
+import type { Part, PartConfig, Role } from "./parts.ts";
 import type { BodySpec } from "../core/bodies/spec/body.ts";
 
 /**
@@ -32,6 +32,8 @@ export type ConfigFor<R extends keyof RoleConfigs> = RoleConfigs[R][keyof RoleCo
 export interface PartLookup {
   /** The part `config` names; a thrown error where no part has its kind or the part is not of `role`. */
   of<R extends Role>(role: R, config: PartConfig): RoleParts[R];
+  /** The part `value` names, whatever its role; null where it is no part's config. */
+  any(value: unknown): Part | null;
   /** The part `value` names where it is the config of a part of `role`; null where it is not, as a tree with a fault may hold (`eachPart`). */
   find<R extends Role>(role: R, value: unknown): RoleParts[R] | null;
   /**

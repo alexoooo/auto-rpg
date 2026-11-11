@@ -73,7 +73,7 @@ export interface Part<C extends PartConfig = PartConfig> extends Edited<C> {
   /**
    * Whether a body of `spec` can carry out what a part of `config` commands: null where it can,
    * otherwise why not, a sentence. The one source of a part's compatibility: construction, the
-   * pickers and evaluation read it (`treeRefusal`). `parts` looks up the parts `config` names.
+   * pickers and evaluation read it (`fitRefusal`). `parts` looks up the parts `config` names.
    */
   fits(spec: BodySpec, config: C, parts: PartLookup): string | null;
   /**
