@@ -3,7 +3,7 @@ import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArriva
 import { ARRIVED, directMovement, placeMovement, SWAY } from "../../skills/framework/movement.ts";
 import { isRegion, type Orders } from "../orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../../skills/framework/action.ts";
-import { skillOf, type KitEntry, type MenuEntry, type Spot } from "../../skills/framework/menu.ts";
+import { sameRegion, skillOf, type KitEntry, type MenuEntry, type Spot } from "../../skills/framework/menu.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { hold, letGo, stillHeld, unheld } from "../../control/held.ts";
 import type { CommanderConfig, CommanderEntry } from "./kind.ts";
@@ -78,9 +78,6 @@ const heading = (angle: number) => ({ x: sin(angle), z: cos(angle) });
  * point of no return. A drill's orders are firm (`Orders.firm`): what it measures is the order carried out.
  */
 const STAND: Orders = deepFreeze({ move: null, face: null, firm: true });
-
-const sameRegion = (a: Region | null, b: Region | null): boolean => a !== null && b !== null
-  && (a.kind === "mark" ? b.kind === "mark" && a.mark === b.mark : b.kind === "segment" && a.segment === b.segment);
 
 /**
  * **Whether a drill asking `config`'s choice takes `action` as its own**: an action under way at a

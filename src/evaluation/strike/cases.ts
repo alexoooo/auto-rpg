@@ -7,7 +7,9 @@
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
  * the drill Commander (`DrillCommanderConfig`): it stands, walks the striker into its action's
  * window, and orders the one action at one mark with one limb, a hand or a foot, once; the mind
- * carries the order out. The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent (`DRILL_OPPONENTS`:
+ * carries the order out. A subject is asked a condition only where its mind offers its skill with
+ * that limb at that mark on that body (`caseFaults`): a rung lists every mark and limb a strike is
+ * asked at, and each strike's cases are its own of them. The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent (`DRILL_OPPONENTS`:
  * a mind, led on a rhythm by a beats Commander where it keeps one; `drill-stand` stands in guard and throws nothing), set the condition's gap ahead and offset across, the two on
  * the stage's own axis as a bout's spawns are (`LEVELS`), so the Arena's camera sees them side on.
  * Nothing ends a trial but its reader: the action's end and a short settle after it, the striker's
@@ -23,7 +25,10 @@
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import type { Approach, DrillCommanderConfig } from "../../minds/command/drill.ts";
 import { randomStream } from "../../core/math/random.ts";
+import { describeMind } from "../../minds/catalog/catalog.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
+import { kitOf, kitOffers, type KitEntry } from "../../skills/framework/menu.ts";
+import type { BodySpec } from "../../core/bodies/spec/body.ts";
 import type { BodyModel } from "../../core/bodies/models.ts";
 import { modelHolding, modelSpec } from "../../core/bodies/models.ts";
 import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
@@ -303,6 +308,46 @@ export function createStrikeCases(context: GameContext) {
       .map((fault) => `${model}${given.held === undefined ? "" : ` holding ${loadoutKey(held)}`}: ${fault}`);
   }
 
+  /** Each mind's kit on each body (`kitOn`), read once: null for a mind that describes nothing of what it builds. */
+  const KITS = new WeakMap<MindConfig, WeakMap<BodySpec, readonly KitEntry[] | null>>();
+
+  /** The kit `mind` has on a body of `spec` (`kitOf`), from what it says it builds there (`describeMind`); null where it says nothing. */
+  function kitOn(mind: MindConfig, spec: BodySpec): readonly KitEntry[] | null {
+    let bySpec = KITS.get(mind);
+    if (!bySpec) KITS.set(mind, bySpec = new WeakMap());
+    let kit = bySpec.get(spec);
+    if (kit === undefined) {
+      const described = describeMind(context.catalog, spec, mind);
+      bySpec.set(spec, kit = described && kitOf(described.executors, described.actions.map(({ action }) => action)));
+    }
+    return kit;
+  }
+
+  /**
+   * **Why `condition` is no case of the subject**: what keeps its mind from the condition's body
+   * (`faultsOf`), or that its mind does not offer its skill with the condition's limb at its mark
+   * there (`kitOffers`), so the drill's order would name no choice of its menu. A strike is asked
+   * only where it is offered; a blow the Mind does not begin where it is offered is the trial's
+   * to count (`strikeOffered`). A mind that describes nothing of what it builds is asked every condition.
+   */
+  function caseFaults(value: Json, condition: StrikeCondition, subject?: Subject): readonly string[] {
+    const faults = faultsOf(value, condition.model, subject);
+    if (faults.length) return faults;
+    const { mind, skill, held } = value as unknown as StrikeSubject;
+    const kit = kitOn(mind, modelHolding(condition.model, held ?? EMPTY_LOADOUT, subject?.character));
+    return kit === null || kitOffers(kit, skill, limbOf(condition), { kind: "mark", mark: condition.mark }) ? []
+      : [`${skill} is not offered with ${limbOf(condition)} at the ${condition.mark} mark`];
+  }
+
+  /**
+   * **Whether `mind` strikes by `skill` on `model` holding `held`**: its kit there has the skill
+   * with a limb at a region (`kitOn`). A mind that describes nothing of what it builds is taken to.
+   */
+  function strikesBy(mind: MindConfig, skill: string, model: BodyModel, held: Loadout): boolean {
+    const kit = kitOn(mind, modelHolding(model, held));
+    return kit === null || kit.some((entry) => entry.kind === skill && entry.limbs.length > 0 && entry.regions.length > 0);
+  }
+
   function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: readonly number[];
     readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID; readonly motion?: true; readonly timing?: BoutTiming } & Partial<Moving>,
     drawn?: readonly StillCondition[]): Cases<StrikeCondition, StrikeReading> {
@@ -318,7 +363,7 @@ export function createStrikeCases(context: GameContext) {
       ...protocol.timing === undefined ? {} : { timing: protocol.timing },
       conditions,
       seconds: protocol.seconds,
-      faults: (value, condition, subject) => [...faultsOf(value, condition.model, subject),
+      faults: (value, condition, subject) => [...caseFaults(value, condition, subject),
         ...protocol.motion && (value as unknown as StrikeSubject).held?.[handOf(condition)!] !== "club" ? ["swing motion observes the hand holding a club"] : []],
       world: ([value], condition, engine, [character]) => {
         const { model, gap, across, mark, target, start, approach, letGo, direction, speed } = condition as StillCondition, hand = handOf(condition as StillCondition);
@@ -352,7 +397,7 @@ export function createStrikeCases(context: GameContext) {
       play: protocol as unknown as Json,
       conditions,
       seconds: protocol.seconds,
-      faults: (value, { model }, subject) => faultsOf(value, model, subject),
+      faults: caseFaults,
       world: ([value], condition, engine, [character]) => {
         const { model, foe, mark, hand, moment } = condition as FightCondition;
         // A fight on the open stage from its spawns, nothing ending it but the reader.
@@ -375,5 +420,5 @@ export function createStrikeCases(context: GameContext) {
     "still-bodies": stillCases(onOtherBodies(STILL)), "walk-bodies": stillCases(onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
     "stomping-bodies": stillCases(onOtherBodies(STOMPING)) });
 
-  return { faultsOf, STRIKE_CASES };
+  return { faultsOf, strikesBy, STRIKE_CASES };
 }

@@ -42,8 +42,16 @@ const NO_PLACE: Readiness = deepFreeze({ kind: "blocked", reason: "no place besi
 /** The target of an action on the body itself: none; its executor reads the body. */
 const SELF: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
 
+/** Whether `a` and `b` are one region: the same mark, or the same segment. */
+export const sameRegion = (a: Region | null, b: Region | null): boolean => a !== null && b !== null
+  && (a.kind === "mark" ? b.kind === "mark" && a.mark === b.mark : b.kind === "segment" && a.segment === b.segment);
+
+/** **Whether `kit` offers `skill` with `limb` at `region`**: whether its menu holds that choice at a foe (`menuOf`), read from the kit alone. */
+export const kitOffers = (kit: readonly KitEntry[], skill: string, limb: string, region: Region): boolean =>
+  kit.some((entry) => entry.kind === skill && entry.limbs.includes(limb) && entry.regions.some((one) => sameRegion(one, region)));
+
 /** The kit `actions` make with `executors`: each action with its executor's kind, its limbs and its regions. */
-export function kitOf(executors: readonly ExecutorBinding[], actions: readonly ActionBinding[]): readonly KitEntry[] {
+export function kitOf(executors: readonly Pick<ExecutorBinding, "name" | "kind">[], actions: readonly ActionBinding[]): readonly KitEntry[] {
   const kinds = new Map(executors.map((one) => [one.name, one.kind]));
   return deepFreeze(actions.map((action): KitEntry => {
     const kind = kinds.get(action.executor);
