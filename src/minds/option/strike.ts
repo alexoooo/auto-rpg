@@ -1,4 +1,4 @@
-import type { Spot } from "../../skills/framework/menu.ts";
+import { sameRegion, type Spot } from "../../skills/framework/menu.ts";
 import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../../skills/framework/action.ts";
 import { regionSegments } from "../../skills/framework/action-aim.ts";
 import { heldBeside, placeInWindow, SIDES, windowHolds, windowSpot, type Side } from "../../skills/intent/action-window.ts";
@@ -67,7 +67,10 @@ type StrikeOption = Option & Required<Pick<Option, "priced" | "rate" | "sites" |
  * (`asking`). Its legs are kept out of every fallen body's reach but the focus's (`Walker.kept`). The region struck is what the
  * orders name on the focus, else the first of the action's regions the focus has; orders at the
  * focus that name a skill or a limb admit only its limbs of that skill (its executor, named by its
- * kind) and limb (`orderAllows`).
+ * kind) and limb (`orderAllows`). Firm orders at the focus (`Orders.firm`, a drill's) are carried
+ * out, never weighed (`Choice.bound`): it is asked for where a limb of it is ready as they name,
+ * and, its blow under way, while they allow that blow's limb at its region. A mind fighting by
+ * itself has no firm orders, and weighs it.
  *
  * Its model, where fights measured it as it is read now (its profile among its measure's,
  * found by `measure`, read at the senses' reaction time): what the profile expects at the range
@@ -162,6 +165,15 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     claim(now, ready?.limb ?? placed?.limb);
     return ready?.readiness ?? UNREADY;
   };
+  /** Whether firm orders at the focus ask for it at `now` (`Choice.bound`). */
+  const bound = (now: Situation): boolean => {
+    const orders = now.orders, focus = now.focus;
+    if (!orders?.firm || !focus || orders.foe !== focus.id) return false;
+    const running = live(now);
+    if (!running) return offer(now).ready !== null;
+    return orderAllows(orders, focus.id, action.executor, running.effector)
+      && (orders.region === undefined || running.target.kind === "body" && sameRegion(running.target.region, orders.region));
+  };
   /**
    * Its model (`Terms`) at `at`, begun at `place` in its window (`placeInWindow`; its blow under
    * way's where one is). Its blow under way, short of its exit, it is priced from where it
@@ -244,7 +256,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   return {
     name, get claims() { return claimed.claims; }, state,
     modelled: { name, limbs: action.effectors, profile: measuredProfile(measure) },
-    entry,
+    entry, bound,
     status: (now) => { if (state.over) return "over"; const phase = live(now)?.phase; return phase === "release" ? "exit" : phase === "commit" ? "committed" : "yields"; },
     sites,
     begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; state.began = null; state.place = null; },

@@ -75,7 +75,9 @@ const heading = (angle: number) => ({ x: sin(angle), z: cos(angle) });
 
 /**
  * A stand where the body stands, as it faces: it asks no strike, and lets go one not yet past its
- * point of no return. A drill's orders are firm (`Orders.firm`): what it measures is the order carried out.
+ * point of no return. A drill's orders are firm (`Orders.firm`): what it measures is the order
+ * carried out, so its member's mind begins the strike it orders as soon as the skill admits it and
+ * never weighs whether to.
  */
 const STAND: Orders = deepFreeze({ move: null, face: null, firm: true });
 

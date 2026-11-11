@@ -7,7 +7,7 @@ game's own terms (`trialValue`), every trial its own value:
 | --- | --- | --- |
 | stand-up | seconds from a fall made to a verified stand, a fall not stood at the 30 s cap (`timeToStand`) | lower |
 | walk, run | seconds lost against the orders (`orderTime`), a trial ended down charged the rest of its rise (`ordersValue`) | lower |
-| punch, stomp, bonk, cut, thrust | life taken from the target less life lost, a second of the action's cycle from its start to the limb back at guard, a fall adding its rise; 0 for a blow the Mind did not begin (`strikeTrade`, `strikeOffered`) | higher |
+| punch, stomp, bonk, cut, thrust | life taken from the target less life lost, a second of the action's cycle from its start to the limb back at guard, a fall adding its rise; 0 for a blow not begun where it was asked (`strikeTrade`, `strikeOffered`) | higher |
 | buckler-cover | life lost to the opponent's blows over the trial, those while down among them (`coverValue`) | lower |
 
 - **Seconds lost against the orders**: under a move with a pace, the seconds the progress along
@@ -24,10 +24,13 @@ game's own terms (`trialValue`), every trial its own value:
   Mind has there (`Skill.has`, `strikesBy`), and a strike's cases are the drill's conditions at
   the marks and with the limbs its Option names on that body (`caseFaults`). A drill's rung lists
   every mark and limb a strike is asked at; each strike's cases are its own of them.
+- **A drill's order is carried out**: the drill orders the blow firmly (`Orders.firm`), and the
+  Mind begins it as soon as the skill admits it, never weighing whether to (`Choice.bound`).
+  What a blow is priced at decides nothing in a cell; in a fight the Mind chooses by itself.
 - **A blow not begun is worth 0**: where the drill's fixture reaches a case the strike is offered
-  at and the Mind begins no blow (it refuses, never comes into its window, or falls first), the
-  trial counts at 0. An Option not used in a situation it is offered for is worth nothing there,
-  so a cell's value falls with every such case the Mind declines.
+  at and no blow begins, the trial counts at 0. The skill did not deliver there: it refused the
+  start (`refused`, `waiting`), the body never came into its window (`outside`) or fell first
+  (`fell`), or it was ordered and its skill no longer admitted it (`unbegun`).
 - **What does not count**: a fall not made, a blow whose fixture did not reach its case, a cover
   never attacked. Their counts are reported beside the value.
 - **The figures beside** a value decide nothing: a strike's hit against the person's (`BAR`), the

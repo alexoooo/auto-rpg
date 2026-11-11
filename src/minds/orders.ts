@@ -36,7 +36,11 @@ export interface Orders {
   readonly skill?: string;
   /** Strike it with this limb, an effector (`hand.right`, `foot.left`); absent, with any limb that fits the skill. */
   readonly limb?: string;
-  /** Carry them out first: a mind that weighs orders against its own judgement puts them before it. Absent, as the mind weighs them. */
+  /**
+   * Carry them out first: a mind that weighs orders against its own judgement puts them before it,
+   * and a strike they name at a foe it begins as soon as the skill admits it, unweighed
+   * (`Choice.bound`). Absent, as the mind weighs them.
+   */
   readonly firm?: true;
 }
 

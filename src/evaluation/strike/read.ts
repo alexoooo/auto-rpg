@@ -238,17 +238,20 @@ type StrikeHit = StrikeContact & {
  * `guarded`, the limb on the target's arms alone, its guard; `elsewhere`, the limb on the
  * target's body but not the mark; `missed`, committed and nothing of the
  * limb's on the target; `abandoned`, begun and ended before committing; `outside`, never in its
- * window; `refused` or `waiting`, never admitted for the reason its readiness gave; `fell`, the
+ * window; `refused` or `waiting`, never admitted for the reason its readiness gave; `unbegun`,
+ * ordered and never begun by the mind, whose skill no longer admitted it or whose limb a blow it
+ * could not let go still held; `fell`, the
  * striker down at any time of the trial; `unreached`, a fight that never came to its moment;
  * `unlaid`, a target the rung lays down not lying by the drill's first moment (`Ending.laid`):
  * the fixture did not reach its case.
  */
-type StrikeOutcome = "landed" | "weak" | "guarded" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell" | "unreached" | "unlaid";
+type StrikeOutcome = "landed" | "weak" | "guarded" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "unbegun" | "fell" | "unreached" | "unlaid";
 
 /**
  * Whether a trial's fixture reached its case, by its outcome's label: every outcome but `unreached`
- * and `unlaid`. A blow the Mind did not begin there (refused, never in its window, still waiting,
- * fallen first) is an Option not used where it was offered, worth nothing there.
+ * and `unlaid`. A blow not begun there (its skill refused it, the body never came into its
+ * window, was still waiting or fell first) is a skill that did not deliver where it was asked,
+ * worth nothing there.
  */
 export const strikeOffered = (outcome: string | null): boolean => outcome !== null && outcome !== "unreached" && outcome !== "unlaid";
 
@@ -674,7 +677,7 @@ export function readStrike({ world, duel, catalog }: Pick<BuiltBout, "world" | "
       const ledger = id === null ? undefined : skills.report.ledger.find((record) => record.id === id);
       const outcome: StrikeOutcome = handed === null ? "unreached" : lay === false ? "unlaid" : down ? "fell" : hit ? hit.faced !== false && times.ended !== null && (hit.overhead === null || hit.overhead.short.length === 0) ? "landed" : "weak"
         : byLimb.length ? byLimb.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
-        : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
+        : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : phase === "striking" ? "unbegun" : "refused";
       const foe = foeBegan ?? atHand;
       const dealt: Record<string, number> = {};
       for (const { contact } of touches) dealt[contact.on] = (dealt[contact.on] ?? 0) + contact.damage;

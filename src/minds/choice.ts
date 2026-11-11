@@ -38,6 +38,12 @@ export interface Choice<S> {
   aim?(index: number): void;
   /** Its entry, now: `ready` to begin or go on, else `waiting` or `blocked`, and why. */
   entry(now: S): Readiness;
+  /**
+   * Whether it is asked for firmly at `now`, as its user reads it there (a body's firm orders,
+   * `Orders.firm`): on offer, a selection takes it before it weighs any other, and keeps it for
+   * as long as it is asked. Absent, never.
+   */
+  bound?(now: S): boolean;
   /** Where it is now, running (`Status`). */
   status(now: S): Status;
   begin(now: S): void;
@@ -161,7 +167,8 @@ export const onOffer = <S>(choice: Choice<S>, now: S): boolean => choice.entry(n
  * it decides afresh: a running choice that does not yield keeps what it claims; with none, it
  * takes the situation (`now`, or one of `others`, another target) whose best choice is worth most,
  * `now` where none is worth more; then, of the choices on offer there (`onOffer`), each running one
- * raised by what letting it go costs (`Priced.letGo`) at the target it runs at, it takes the best (drawn by `chance` where
+ * raised by what letting it go costs (`Priced.letGo`) at the target it runs at, it takes first each asked for firmly there
+ * (`Choice.bound`), unweighed, whose claims are free; then the best (drawn by `chance` where
  * it gives a margin), then the best of the rest whose claims are still free, the first of equals,
  * until none is left. Another situation's best is held as `holding` says where it is given. A
  * rest choice takes a resource nothing else is worth more on: it is chosen
@@ -294,6 +301,8 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
         for (let k = 0; k < alternatives.length; k++) if (bests[k]! > top) { top = bests[k]!; at = alternatives[k]!; }
         if (at !== now) appraiseAt(at);
       } else appraiseAt(now);
+      // What is asked for firmly is carried out, never weighed: each such choice on offer, in the order priced.
+      for (const i of order) if (choices[i]!.bound?.(at) === true && free(i)) take(i);
       // The first, by chance where a margin is given: one drawn among those free worth more than the best free less the margin.
       const best = stream ? order.find(free) : undefined;
       if (stream && best !== undefined) {

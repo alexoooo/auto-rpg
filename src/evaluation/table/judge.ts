@@ -77,7 +77,7 @@ export function keep(reading: Judged, read: Json): Kept {
 /**
  * **One trial's value** as `judge` reads what it kept (`keep`) and its outcome, a fall's rest
  * costing `rise` s (the body's time to stand). A strike's is its life traded over its cycle, a fall
- * adding its rise; a blow the Mind did not begin where the drill offered it (`strikeOffered`) is
+ * adding its rise; a blow not begun where the drill asked for it (`strikeOffered`) is
  * worth 0. Null where the trial does not count: a fall not made, a blow whose fixture did not
  * reach its case, a cover never attacked.
  */
