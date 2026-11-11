@@ -27,6 +27,10 @@ import { AROUND, decode, mirrored } from './punch-drill.mjs';
  */
 const LONGEST = 0.3;
 
+/** The network as the core reads it (`Network`): the actor, with training's observation transform and action clamp where it has them. */
+const networkOf = ({ actions, layers, normalization, actionLimit }) =>
+  ({ actions, layers, ...(normalization ? { normalization } : {}), ...(actionLimit === undefined ? {} : { actionLimit }) });
+
 const { values, positionals } = parseArgs({ options: { policy: { type: 'string' }, made: { type: 'string' }, halts: { type: 'boolean' }, out: { type: 'string' } }, allowPositionals: true });
 if (!values.made || !positionals.length) throw new Error('usage: [--policy <policy.json>] --made <text> <bodyKey>=<schedule.json>@<reach>,<band>,<aside>,<above> ...');
 const blows = new Set(positionals.map((pair) => JSON.parse(readFileSync(pair.split('=')[1].split('@')[0], 'utf8')).cell.blow ?? null));
@@ -49,7 +53,7 @@ for (const pair of positionals) {
   const settings = { ...AROUND, longest: blow ? AROUND.longest : LONGEST, reach, band, aside, squared: true, above, lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
     ...(right.brake === undefined ? {} : { brake: right.brake }), ...(values.halts ? { halts: true } : {}),
     timed: { left: left.pushes, right: right.pushes }, ...(policy ? { steered: true } : {}) };
-  records[model] = { made: values.made, settings, network: policy ? { actions: policy.actions, layers: policy.layers } : null };
+  records[model] = { made: values.made, settings, network: policy ? networkOf(policy) : null };
 }
 writeFileSync(`${out}.json`, JSON.stringify(records) + '\n');
 writeFileSync(`${out}.meta.json`, JSON.stringify({ bodies: Object.keys(records) }) + '\n');
