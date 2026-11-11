@@ -73,7 +73,7 @@ Ten rules bind every change. A kind of work has its own, in its own document
   prose-only documents, `node --test tests/documents.test.mjs` (the links), `git diff --check`
   and the line-ending gate. Run only these gates for prose-only changes; executable examples,
   commands or configuration changes also get the checks their behaviour requires.
-- **Line endings**: the clone has `core.autocrlf = true`; the repository is LF. Gate a commit on
+- **Line endings**: the repository is LF, whatever the clone's `core.autocrlf`. Gate a commit on
   `git diff --numstat` equalling `git diff --ignore-cr-at-eol --numstat`.
 - **Landing**: name the checks run and any failure left; commit each landable change on main. A
   branch only when the owner asks. Never push unless asked. A push to main publishes the README's

@@ -54,9 +54,9 @@
  * world (`buildBout`), 120 Hz, or `--hz`'s rate. The sit-back and the roll: the technique world,
  * 120 Hz, the one rate it plays at.
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { execSync } from "node:child_process";
@@ -247,6 +247,12 @@ export function decode(search, start, u) {
   return search.settle?.(out) ?? out;
 }
 
+/** `text` written to `file` whole: beside it first, then moved over it, so a search cut off mid-write leaves the last whole one to resume. */
+function save(file, text) {
+  writeFileSync(`${file}.part`, text);
+  renameSync(`${file}.part`, file);
+}
+
 /** Each of `trials` of `settings`, played on the pool, and their mean score. */
 async function scored(pool, settings, trials) {
   const each = await Promise.all(trials.map((trial) => pool.evaluate({ settings, trial })));
@@ -286,7 +292,7 @@ if (!isMainThread && workerData?.search) {
       const commit = execSync("git rev-parse --short=8 HEAD").toString().trim(), settings = kept === "best" ? found.best.settings : found.start;
       const fmt = (x) => x.toFixed(3);
       const made = `Searched on the ${body.replace("+toes", "")} at ${commit} (research/skills/skill-search.mjs): CMA over ${search.dims.map(([key]) => key).join(", ")} from ${values.from ?? found.from}, `
-        + `${found.log.length} generations of ${found.lambda}, on ${search.task} ${search.said(search.search)}, ${found.trials} trials a candidate, ${found.seconds} s; `
+        + `${found.checkpoint?.generation ?? found.log.length} generations of ${found.lambda}, on ${search.task} ${search.said(search.search)}, ${found.trials} trials a candidate, ${found.seconds} s; `
         + `on fresh trials ${search.said(search.confirm)} the search's best scored ${fmt(best.score)} (${best.falls} ${search.lost}) and ${record ? "the record it replaces" : "its start"} ${fmt(base.score)} (${base.falls} ${search.lost}): `
         + (kept === "best" ? "the best is kept." : "the start is kept.");
       // A search of part of a record keeps how the rest of it was made.
@@ -297,6 +303,7 @@ if (!isMainThread && workerData?.search) {
     process.exit(0);
   }
   if (!values.out) throw new Error("--out <file.json>");
+  mkdirSync(dirname(values.out), { recursive: true });
   const set = values.set ? JSON.parse(values.set) : null;
   const saved = values.resume && existsSync(values.out) ? JSON.parse(readFileSync(values.out, "utf8")) : null, resume = saved?.checkpoint, before = saved?.seconds ?? 0;
   const start = saved?.start ?? { ...startOf(skill, model, values.source), ...set }, trials = search.trials(model, search.search), lambda = Number(values.lambda ?? 16);
@@ -307,7 +314,7 @@ if (!isMainThread && workerData?.search) {
     + (set ? ` with ${Object.entries(set).map(([key, value]) => `${key} ${value}`).join(", ")}` : ""));
   if (values.try) {
     const r = await scored(pool, start, trials), seconds = Math.round((Date.now() - started) / 1000);
-    writeFileSync(values.out, JSON.stringify({ skill, body, from, start, lambda: 0, trials: trials.length, dims: search.dims, log: [], seconds, best: { score: r.score, settings: start, falls: r.falls, each: r.each } }));
+    save(values.out, JSON.stringify({ skill, body, from, start, lambda: 0, trials: trials.length, dims: search.dims, log: [], seconds, best: { score: r.score, settings: start, falls: r.falls, each: r.each } }));
     console.log(JSON.stringify({ skill, body, start: { score: r.score, falls: r.falls }, seconds }));
     await pool.terminate();
     process.exit(0);
@@ -323,7 +330,7 @@ if (!isMainThread && workerData?.search) {
       if (best.score > bestSoFar) { bestSoFar = best.score; raised = entry.g; }
       // How the search ended, once it has: on its plateau, at `--until`'s score, or at its count of generations with neither reached.
       ended = best.score >= until ? "until" : entry.g - raised >= patience ? "plateau" : entry.g + 1 >= generations ? "generations" : null;
-      writeFileSync(values.out, JSON.stringify({ skill, body, from, start, lambda, trials: trials.length, dims: search.dims, log: checkpoint.log,
+      save(values.out, JSON.stringify({ skill, body, from, start, lambda, trials: trials.length, dims: search.dims, log: checkpoint.log,
         seconds: before + Math.round((Date.now() - started) / 1000), ...(ended ? { ended } : {}),
         best: { score: best.score, settings: decode(search, start, best.u), falls: best.r.falls, each: best.r.each }, checkpoint }));
       if (ended) return false;
