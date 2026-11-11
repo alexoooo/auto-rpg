@@ -32,43 +32,65 @@ export function builtAngles(catalog: Catalog, spec: BodySpec, config: MindConfig
 }
 
 /**
- * `built` under the mind `config` names, wired to its fight, made by its controller in `catalog`
- * (`Catalog.controllers`) through a host of the body (`bodyHost`) that finds only the parts its tree names
- * (`treeLookup`); a config with a fault anywhere in its
- * tree (`treeFaults`) is refused. Given a `log`, its order
- * sheets are written in it (`SheetLog`). What it reports (`Minded.report`) is what it said as it
- * was made and then with each answer, before the step's decision (`saidReport`), its menu as it
- * stands, as a mind apart reports. Where the world runs its minds apart (`World.minds`), it is made
- * there, on a mirror of its body (`embodyApart`): it has no skills to read here, and its memory is
- * where it runs.
+ * `built` under the mind `config` names, wired to its fight; a config with a fault anywhere in its
+ * tree (`treeFaults`) is refused. Given a `log`, its order sheets are written in it (`SheetLog`).
+ * The mind is made in one of two places: on its body, in the world's own thread (`mindHere`), or,
+ * where the world runs its minds apart (`World.minds`), there (`mindApart`). Either way what it
+ * reports (`Minded.report`) is what it said as it was made and then with each answer, before the
+ * step's decision, and its menu as it stands.
  */
 export function createMind(catalog: Catalog, built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
   const fault = catalog.treeFaults(config)[0];
   if (fault) throw new Error(fault);
-  if (world.minds) {
-    if (!isMindPlace(world.minds)) throw new Error("the world's minds run in a place no mind can be seated in");
-    const apart = embodyApart(built, world, world.minds, catalog, { config, name: wiring.name, seed: wiring.seed ?? 0, phase: wiring.phase ?? 0, rules: wiring.rules,
-      ...(wiring.experiment ? { experiment: wiring.experiment } : {}) }, wiring.orders,
-    { senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity, log });
-    return { state: MIND_APART, report: apart.report, kind: config.kind, body: physicalBody(built, apart.held, world, apart.has, apart.state, apart.dispose) };
-  }
-  let mind: MindMade | null = null;
-  const state = { mind: null as object | null, said: null as Omit<ReportNow, "engagement"> | null };
-  const { host, made, dispose } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { state.said = saidOf(mind!.report, state.said); } });
-  let completed = false;
-  try {
-  mind = catalog.controllerOf(config).create(host, config);
-  const live = mind.report;
-  if (!live) { const body = made(); completed = true; return { ...mind, kind: config.kind, body }; }
-  state.mind = mind.state;
-  state.said = saidOf(live);
-  const body = made(); completed = true;
-  return { ...mind, state, report: saidReport(() => state.said!, live), kind: config.kind, body };
-  } finally { if (!completed) dispose(); }
+  return world.minds ? mindApart(catalog, built, world, world.minds, config, wiring, log) : mindHere(catalog, built, world, config, wiring, log);
 }
 
-/** What `report` says now, its menu and engagement aside, as plain data that what it goes on to do leaves as it is: as a mind apart's crosses. */
-const saidOf = (report: MindReport | undefined, previous: Omit<ReportNow, "engagement"> | null = null): Omit<ReportNow, "engagement"> | null => {
+/** What a mind's report says, its menu and engagement aside: plain data, as a mind apart's crosses. */
+type Said = Omit<ReportNow, "engagement">;
+
+/** **The memory of a mind that reports**, as its fight saves it: the mind's own (`MindMade.state`), and what it last said, so that a saved or forked body says the same. */
+interface SaidState {
+  mind: object | null;
+  said: Said | null;
+}
+
+/**
+ * **A mind made on its body**: by its controller in `catalog` (`Controller.create`), through a
+ * host of the body (`bodyHost`) that finds only the parts its tree names (`treeLookup`). What it
+ * makes is passed on as it is (`MindMade`), with its kind and the body as the fight holds it.
+ * Where it reports, the fight reads what it last said (`saidReport`), and its memory holds that
+ * beside the mind's own (`SaidState`).
+ */
+function mindHere(catalog: Catalog, built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
+  const kept: SaidState = { mind: null, said: null };
+  let report: MindReport | undefined;
+  const { host, made, dispose } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { kept.said = saidOf(report, kept.said); } });
+  try {
+    const mind = catalog.controllerOf(config).create(host, config);
+    report = mind.report;
+    kept.mind = mind.state;
+    kept.said = saidOf(report);
+    const said = report ? { state: kept, report: saidReport(() => kept.said!, report) } : {};
+    return { ...mind, ...said, kind: config.kind, body: made() };
+  } catch (error) {
+    dispose();
+    throw error;
+  }
+}
+
+/**
+ * **A mind made apart from the world**, in `place`, on a mirror of its body (`embodyApart`): it
+ * has no skills to read here, and its memory is where it runs (`MIND_APART`).
+ */
+function mindApart(catalog: Catalog, built: BuiltBody, world: World, place: NonNullable<World["minds"]>, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
+  if (!isMindPlace(place)) throw new Error("the world's minds run in a place no mind can be seated in");
+  const recipe = { config, name: wiring.name, seed: wiring.seed ?? 0, phase: wiring.phase ?? 0, rules: wiring.rules, ...(wiring.experiment ? { experiment: wiring.experiment } : {}) };
+  const apart = embodyApart(built, world, place, catalog, recipe, wiring.orders, { senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity, log });
+  return { state: MIND_APART, report: apart.report, kind: config.kind, body: physicalBody(built, apart.held, world, apart.has, apart.state, apart.dispose) };
+}
+
+/** What `report` says now (`Said`), as plain data that what it goes on to do leaves as it is. */
+const saidOf = (report: MindReport | undefined, previous: Said | null = null): Said | null => {
   if (!report) return null;
   const { engagement: _shown, ...answer } = reportNow(report);
   return snapshot(answer, previous) as typeof answer;
@@ -104,7 +126,7 @@ function snapshot(value: unknown, previous: unknown): unknown {
 }
 
 /** A mind's report read from what it last said (`said`), and what it shows a person and its menu from `live`, which only a page reads. */
-function saidReport(said: () => Omit<ReportNow, "engagement">, live: MindReport): MindReport {
+function saidReport(said: () => Said, live: MindReport): MindReport {
   return {
     get engagement() { return live.engagement; }, get prospects() { return said().prospects; }, get heading() { return said().heading; },
     get gaits() { return said().gaits; }, get navigation() { return said().navigation; }, get kit() { return said().kit; },

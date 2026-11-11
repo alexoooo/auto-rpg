@@ -362,9 +362,11 @@ its own body (`OwnBody`), fixed step duration and first senses; subsequent sense
    the `Body` their drivers command. Taking the body hooks the `Mind` to the world's step
    (`embody`, `seat/embodiment.ts`): the fight holds no reference to it.
 4. `create` returns a `MindMade`: the mind's memory above its body's, and its skills and report
-   where it has them. `createMind` returns a `Minded`: the skills, the memory and the report
-   (the last two kept with what the mind last said, `saidOf`), the mind's kind, and the body as
-   the fight holds it.
+   where it has them. `createMind` returns a `Minded`: what `create` made as it is, with the
+   mind's kind and the body as the fight holds it (`mindHere`). Where the mind reports, the report
+   reads what it last said (`saidReport`) and the memory holds that beside the mind's own
+   (`SaidState`). Where the world runs its minds apart, the mind is made there instead
+   (`mindApart`): the fight holds its body and what it last said, never its skills or memory.
 
 **How a mind is stepped.** On each world step that simulates its body in full (a control step),
 the body's hook on the world (`embody`) calls `answer` and then `think` (`execution.ts`): `answer`
