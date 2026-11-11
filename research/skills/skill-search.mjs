@@ -246,10 +246,11 @@ if (!isMainThread && workerData?.search) {
   }
   if (!values.out) throw new Error("--out <file.json>");
   const set = values.set ? JSON.parse(values.set) : null;
-  const start = { ...startOf(skill, model, values.source), ...set }, trials = search.trials(model, search.search), lambda = Number(values.lambda ?? 16), generations = Number(values.generations ?? 10);
+  const saved = values.resume && existsSync(values.out) ? JSON.parse(readFileSync(values.out, "utf8")) : null, resume = saved?.checkpoint, before = saved?.seconds ?? 0;
+  const start = saved?.start ?? { ...startOf(skill, model, values.source), ...set }, trials = search.trials(model, search.search), lambda = Number(values.lambda ?? 16), generations = Number(values.generations ?? 10);
   const sourceBody = bodyKey(modelSpec(values.source ?? (recordsOf(skill)[body] ? model : "workshop-fighter")));
-  const from = `the ${sourceBody.replace("+toes", "")}'s record${sourceBody === body ? "" : `, its lengths scaled by the body's stature${search.heights ? " and its heights kept" : ""}`}`
-    + (set ? ` with ${Object.entries(set).map(([key, value]) => `${key} ${value}`).join(", ")}` : "");
+  const from = saved?.from ?? (`the ${sourceBody.replace("+toes", "")}'s record${sourceBody === body ? "" : `, its lengths scaled by the body's stature${search.heights ? " and its heights kept" : ""}`}`
+    + (set ? ` with ${Object.entries(set).map(([key, value]) => `${key} ${value}`).join(", ")}` : ""));
   if (values.try) {
     const r = await scored(pool, start, trials), seconds = Math.round((Date.now() - started) / 1000);
     writeFileSync(values.out, JSON.stringify({ skill, body, from, start, lambda: 0, trials: trials.length, dims: search.dims, log: [], seconds, best: { score: r.score, settings: start, falls: r.falls, each: r.each } }));
@@ -258,9 +259,8 @@ if (!isMainThread && workerData?.search) {
     process.exit(0);
   }
   const until = values.until === undefined ? Infinity : Number(values.until), patience = Number(values.patience ?? Infinity);
-  let raised = 0, bestSoFar = -Infinity;
   const unit = search.dims.map(([key, lo, hi]) => Math.min(1, Math.max(0, ((search.get ? search.get(start, key) : start[key]) - lo) / (hi - lo))));
-  const saved = values.resume && existsSync(values.out) ? JSON.parse(readFileSync(values.out, "utf8")) : null, resume = saved?.checkpoint, before = saved?.seconds ?? 0;
+  let raised = resume?.best.g ?? 0, bestSoFar = resume?.best.score ?? -Infinity;
   console.error(`${skill} on ${body}: ${trials.length} trials a candidate, ${lambda} candidates a generation, ${generations} generations, ${workers} workers`);
   const { best } = await cmaSearch({ n: search.dims.length, start: unit, sigma: Number(values.sigma ?? .2), lambda, generations, seed: Number(values.seed ?? 1), resume,
     score: (u) => scored(pool, decode(search, start, u), trials),

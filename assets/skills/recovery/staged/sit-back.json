@@ -32,17 +32,45 @@
     }
   },
   "workshop-rogue+toes": {
-    "made": "The sit-back's stages as its recipe times them (scale 1), as the workshop-rogue's stand-up plays them on its target falls.",
+    "made": "Searched on the workshop-rogue at c1deb94d (research/skills/skill-search.mjs): CMA over plant: knee.@ flexion, plant: hip.@ flexion, plant: shoulder.@ flexion, plant: elbow.@ flexion, sit back: hip.@ flexion, sit back: shoulder.@ flexion, sit back: elbow.@ flexion, sit back: thoracic flexion, sit back: ankle.@ dorsiflexion, up: hip.@ flexion, up: shoulder.@ flexion, up: thoracic flexion from the workshop-rogue's record, 50 generations of 16, on the Rise drill's front-sit-back and sit-back, each alone on the body holding each rated loadout on its placed rung at seeds 1 to 6, 60 trials a candidate, 1851 s; on fresh trials on its placed and moving rungs at seeds 7 to 12 the search's best scored -7.080 (29 not stood) and its start -11.503 (73 not stood): the best is kept.",
     "settings": {
       "stages": {
         "up": {
-          "scale": 1
+          "scale": 1,
+          "posture": {
+            "hip.left flexion": 0.4,
+            "hip.right flexion": 0.4,
+            "shoulder.left flexion": 0.0207,
+            "shoulder.right flexion": 0.0207,
+            "thoracic flexion": -0.0409
+          }
         },
         "sit back": {
-          "scale": 1
+          "scale": 1,
+          "posture": {
+            "hip.left flexion": 1.8581,
+            "hip.right flexion": 1.8581,
+            "shoulder.left flexion": 0.3155,
+            "shoulder.right flexion": 0.3155,
+            "elbow.left flexion": 0.4506,
+            "elbow.right flexion": 0.4506,
+            "thoracic flexion": 0.2654,
+            "ankle.left dorsiflexion": 0.4803,
+            "ankle.right dorsiflexion": 0.4803
+          }
         },
         "plant": {
-          "scale": 1
+          "scale": 1,
+          "posture": {
+            "knee.left flexion": 2.1949,
+            "knee.right flexion": 2.1949,
+            "hip.left flexion": 2.0017,
+            "hip.right flexion": 2.0017,
+            "shoulder.left flexion": 1.9351,
+            "shoulder.right flexion": 1.9351,
+            "elbow.left flexion": 0.2028,
+            "elbow.right flexion": 0.2028
+          }
         }
       }
     }
