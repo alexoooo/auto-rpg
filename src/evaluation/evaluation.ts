@@ -94,6 +94,8 @@ export interface WorldKind<W extends CaseWorld = CaseWorld, B extends { readonly
   clock(built: B): number;
   minds(world: W): readonly MindConfig[];
   parts?(world: W): readonly string[];
+  /** Data read by the world or its parts outside the minds' trees. */
+  data?(world: W): readonly string[];
   /** The bodies under a mind the built world plays, where the kind lists them: what a learning environment finds its learner in. */
   hosted?(built: B): readonly Minded[];
   /** The built world as it stands, and the same world put back to a save of it, where the kind can (a bout's, `Duel.save`). */

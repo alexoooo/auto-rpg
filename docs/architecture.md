@@ -750,7 +750,9 @@ on its own merit, and a profile prices the skill where the Mind uses it.
   (`CaseWorld`, `WORLD_BUILDERS`) and its reader; **a description** (`<id>/index.ts`, `Evaluation`)
   the question, subjects, figures and a drill trial's `outcome`.
 - **A case's key** is the digest of everything it plays; a row (`Row`) is found again by its key
-  while a run works (`.tmp/evaluations/<id>/`, `rows.ts`), so only changed cases replay. `--write`
+  while a run works (`.tmp/evaluations/<id>/`, `rows.ts`), so only changed cases replay. World kinds
+  declare data read outside their minds' trees (`WorldKind.data`); a technique world includes
+  the installed records its techniques read. `--write`
   keeps the run's results in `assets/evaluations/<id>.json` (`results.ts`): each subject's newest
   reading on a protocol (its figures and, for a drill, a short row of numbers a trial, by its
   condition's name), each earlier reading a table cell's baseline names, and a contest's standings

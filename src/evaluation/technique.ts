@@ -230,6 +230,7 @@ export function createTechnique(context: GameContext) {
     clock: (built) => built.world.time,
     minds: () => [],
     parts: (world) => [...new Set(world.technique.chain)],
+    data: (world) => [...new Set(world.technique.chain.flatMap((name) => context.catalog.treeData(TECHNIQUES[name].defaults)))],
   };
 
   return { buildTechnique, TECHNIQUE_WORLD };

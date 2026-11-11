@@ -30,7 +30,8 @@ export function createCode(context: GameContext) {
   /** What `world` names: its kind, the kinds of its minds, the parts of their trees and its other parts, Commanders and end rules (each one's own code cut as a part's), as its kind names them (`WorldKind`), and the data they read. */
   const caseNames = (world: CaseWorld): CodeNames => {
     const kind = kindOf(world), minds = namesOf(kind.minds(world));
-    return { world: world.kind, ...minds, parts: [...new Set([...minds.parts, ...kind.parts?.(world) ?? []])] };
+    return { world: world.kind, ...minds, parts: [...new Set([...minds.parts, ...kind.parts?.(world) ?? []])],
+      data: [...new Set([...minds.data, ...kind.data?.(world) ?? []])] };
   };
 
   return { caseNames };
