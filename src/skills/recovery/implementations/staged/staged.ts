@@ -56,6 +56,9 @@ const RAISED = 0.1;
 /** A contact whose normal is within this cosine of straight down is with the ground under the body, not a wall. */
 const GROUND_UP = 0.7;
 
+/** Transfer load is filtered over this time, s; impacts are clipped to this many body weights before filtering. */
+const FOOT_LOAD_SECONDS = 0.1, FOOT_LOAD_MAX = 1.5;
+
 /** What a rise reads of its recipe for a body of a spec: tables of data, read and never written (`riseTables`). */
 interface RiseTables {
   /** A stage's goal by channel, from the reference pose, as the muscles read their angles. */
@@ -147,7 +150,9 @@ function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleReading["cha
  * (`makeBearing`'s `effort`). A limb the stage leaves bears too, a small part (`LEFT`),
  * until the centre of mass is over the others. The stage is done when every limb it bears on is
  * down, those it leaves are let go, the centre of mass is at the place and slow, and the pelvis
- * is at its pitch. What its patches cannot give it asks of its assist, within the body's ceiling.
+ * is at its pitch. A load-ended stage hands over on its filtered foot load instead; one with an
+ * entry load is skipped where the feet already bear that load. What its patches cannot give it
+ * asks of its assist, within the body's ceiling.
  *
  * `view` is its host's, read this step before it is asked (`hosting`): whether the body is down
  * and how its centre of mass moves are the host's readings, so a body its host holds low on
@@ -211,6 +216,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     lifted: false,
     /** Whether this attempt has had every segment of the trunk `RAISED` over the ground. */
     raised: false,
+    /** Combined foot load, filtered in time, as a share of body weight. */
+    footLoad: 0,
     /**
      * The weight transfer's integral of the centre's horizontal error from the borne place, m: it
      * grows at the stage's rate while a stage leaves a limb and the centre is not yet over the
@@ -284,6 +291,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       return;
     }
     const stage = playing(phase)[index]!;
+    if (stage.kind === "bear" && stage.enter && state.footLoad >= stage.enter.feetBelow) { enter(phase, index + 1); return; }
     if (phase === "roll" && stage.kind === "pose" && stage.coast
       && coasts(turnOfToRef(root, lying.turn), root.body.angularVelocityToRef(work.rootSpin), stage, belly)) {
       enter(phase, index + 1);
@@ -463,6 +471,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   /** The rise from its first stage, as one attempt. */
   function rising(): void {
     state.tries = 1; state.furthest = -1; state.raised = false;
+    state.footLoad = 0;
     enter("rise", 0);
   }
 
@@ -473,6 +482,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     wants: () => state.phase !== "idle" || fallen(),
     begin() {
       settle();
+      state.footLoad = 0;
       state.tries = 0;
       state.furthest = -1;
     },
@@ -485,10 +495,12 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     beginRolling() {
       state.lie = lieOf(root, belly, lying);
       state.tries = 1; state.furthest = -1; state.raised = false;
+      state.footLoad = 0;
       enter(state.lie === "front" ? "rise" : "roll", 0);
     },
     end() { state.phase = "idle"; },
     step(_senses, control, dt) {
+      state.footLoad += (Math.min(FOOT_LOAD_MAX, view.ground?.footLoad.reduce((a, b) => a + b, 0) ?? 0) - state.footLoad) * dt / (FOOT_LOAD_SECONDS + dt);
       switch (state.phase) {
         case "idle":
           // Its rise is over and the body is still down: it lies slack and begins another.
@@ -540,7 +552,13 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
               return;
             }
             case "bear": {
-              const there = bear(stage, control, dt);
+              if (stage.until && stage.until.for === 0 && state.footLoad >= stage.until.feet) { enter(state.phase, state.stage + 1); return; }
+              let there = bear(stage, control, dt);
+              if (stage.until) {
+                const now = state.footLoad >= stage.until.feet;
+                state.reached = now ? state.reached + dt : 0;
+                there = now && state.reached + dt / 2 >= stage.until.for;
+              }
               state.time += dt;
               // A recipe that holds its last stage stays in it.
               if (recipe.holds && state.phase === "rise" && state.stage === recipe.rise.length - 1) return;
