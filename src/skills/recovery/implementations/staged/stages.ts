@@ -106,6 +106,10 @@ interface Level {
  * (`src/control/bearing.ts`), its centre of mass carried to a place over them.
  */
 export interface BearStage {
+  /** Begin only while the filtered combined foot load is below this share of body weight. */
+  readonly enter?: { readonly feetBelow: number };
+  /** Hand over once the filtered combined foot load bears this share of body weight for this many seconds. */
+  readonly until?: { readonly feet: number; readonly for: number };
   readonly kind: "bear";
   readonly name: string;
   /**
@@ -478,10 +482,11 @@ const UPRIGHT = {
 
 /**
  * **The sit-back**: from the front, the game's rise onto hands and knees (`fold` to `prop`); then
- * the toes planted under the feet, sat back onto the heels and the hands off, and the weight
- * brought up over the feet at the pace their balls stay down, where the stance takes the body to
- * standing. Each stage ends on what the body has done (`Until`). For a body with toes, which the
- * plant stands on, on the game's humans' names.
+ * the toes planted under the feet, sat back onto the heels and the hands off, and the trunk
+ * raised at the pace the balls stay down. With unloaded feet, the shins carry the weight back
+ * over the toe contacts until the feet bear it; the stance takes the body from there to standing.
+ * Each stage ends on measured movement or support. For a body with toes, which the plant stands
+ * on, on the game's humans' names.
  */
 export const SIT_BACK: Recipe = deepFreeze({
   ...RISE,
@@ -496,6 +501,13 @@ export const SIT_BACK: Recipe = deepFreeze({
     {
       kind: "pose", name: "up", posture: bothSides(UPRIGHT), seconds: 4, drive: { speed: 2, within: 0.2, turning: true },
       pace: { rate: 1.6, lift: 0.03, slow: 0.3 }, press: { above: 0.015, gains: { "hip.@ flexion": 8, "ankle.@ dorsiflexion": 8 } }, until: { along: 0.85, slow: 0.3, for: 0.05 },
+    },
+    // With unloaded feet, move the weight back over their toe contacts while the shins still
+    // support the body. Already loaded feet keep their handover; the transfer ends on load.
+    {
+      kind: "bear", name: "over feet", on: SIDES.map((side) => ({ limb: `shin.${side}`, share: 0.5 })),
+      leave: [], overProp: true, height: null, pitch: 0,
+      posture: bothSides(UPRIGHT), seconds: 0.35, limit: 4, enter: { feetBelow: 0.03 }, until: { feet: 0.75, for: 0 },
     },
   ],
 });
@@ -746,6 +758,13 @@ function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
         break;
       }
       case "bear": {
+        if (stage.enter && !(stage.enter.feetBelow > 0 && stage.enter.feetBelow <= 1 && Number.isFinite(stage.enter.feetBelow)))
+          faults.push(`stage ${stage.name} enters below an invalid foot load ${stage.enter.feetBelow}`);
+        if (stage.until) {
+          if (!(stage.until.feet > 0 && stage.until.feet <= 1 && Number.isFinite(stage.until.feet)))
+            faults.push(`stage ${stage.name} ends at an invalid foot load ${stage.until.feet}`);
+          if (!(stage.until.for >= 0 && Number.isFinite(stage.until.for))) faults.push(`stage ${stage.name} holds its end ${stage.until.for} s`);
+        }
         if (stage.postureSeconds !== undefined && (!(stage.postureSeconds > 0) || !Number.isFinite(stage.postureSeconds)))
           faults.push(`stage ${stage.name} drives its posture within ${stage.postureSeconds} s`);
         if (stage.posture !== "reference") postureFaults(stage, stage.posture);
