@@ -33,8 +33,10 @@ What the table read before this plan:
   at its cap. A fall that never reaches a posture it starts from is reported as not exercised, as
   a fall not made is now.
 - **A way up that meets an object lets go.** As it runs, a way up that has met a solid and stopped
-  making progress gives up, with the reason, and rank falls through to the next way up, then a
-  reposition (a roll away). It needs only what the body touches. Predicting a way up's room before
+  making progress gives up, with the reason (`obstructed`); its Option notes a failed try and may
+  begin it again, the staged roll over its other side. Where the way up is ranked first it is
+  begun again before any other; a reposition is on offer only from a posture no way up begins
+  from. It needs only what the body touches. Predicting a way up's room before
   it begins (where its body parts go, set against the solids it senses) is left for later, if
   reacting falls short. A cell counts its way up's attempts let go at an object apart from those that failed
   otherwise.
