@@ -89,8 +89,9 @@ Each lands on its checks; nothing is played without a brief.
    (`club-blow`) has no cell, so no drill to search on.
 4. Stand-up, with [its plan](2026-11-12-stand-up-drills.md): the obstacle levels and bout falls
    in the drill; `rise-search.mjs` and the sit-back and roll searches on the twin. *Landed*: a
-   cell per way up on the way-up drill, its twin the fresh falls; the searches on the twin.
-   the obstacle levels in the drill. *In work*: the bout falls.
+   cell per way up on the way-up drill, its twin the fresh falls; the searches on the twin; the
+   obstacle levels in the drill; a way up stuck against an object letting go. *In work*: falls
+   from bouts in the drill.
 5. Walk and run: the drills widened (paces to the envelope, diagonals, place orders); the
    scripts on their twins. *The walk widened*: Locomotion `every` walks eight ways, each at 0.3
    and 0.7 m/s and the fastest the body holds that way (705 trials to 1,115; its twin 705 to

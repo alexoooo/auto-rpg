@@ -39,7 +39,15 @@ What the table read before this plan:
   from. It needs only what the body touches. Predicting a way up's room before
   it begins (where its body parts go, set against the solids it senses) is left for later, if
   reacting falls short. A cell counts its way up's attempts let go at an object apart from those that failed
-  otherwise.
+  otherwise. Each choice below is the agent's, to be read again once the obstacle falls are
+  played:
+  - **Stuck** is 3 s with no stage new to the try and the body risen less than 5 per cent of its
+    standing height, while it presses a fixed solid that bears none of it from below (`STUCK`).
+  - **Another body pressed does not count**: a body moves, so pressing one is not being stuck.
+  - **A try let go does not block the same way up** from the same place: with all four staged
+    ways up fitting a body, no reposition is on offer, so a block would leave it lying.
+  - **The attempt cap is 16 s** (`ATTEMPT_CAP`): an attempt that does not reach where it goes
+    costs step up's whole attempt (`LIMIT`), however soon it ended.
 - **A fall at a fixed price**, 10 s (the owner's scale, `STAND_WITHIN`), set to be changed if it
   reads wrong. A trial ending down in a strike or move cell is charged it, the same on every body,
   not the stand-up cell's value: no cell moves for a skill it does not read.
@@ -81,10 +89,6 @@ What the table read before this plan:
 ## Open
 
 - **Falls from bouts** in the drill.
-- **How stuck reads**: the 3 s and the 5 per cent are unplayed; whether another body pressed
-  counts as an object (it does not now: the reading sees fixed solids alone); whether a try let go
-  should block the same way up from the same place (it does not now: with all four staged ways up
-  fitting, no reposition is on offer, so a block would leave the body lying).
 - **A record shared by two ways up**: the step-up record drives staged-roll and staged-down, the
   sit-back record sit-back and front-sit-back, so a search of one record scores on both cells'
   twins and a confirmation means over both.
