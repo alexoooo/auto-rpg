@@ -5,10 +5,19 @@
  * The list is every layer between the two bodies, in any order; a blow's is the two that touched.
  */
 export function energyShares(stiffness: readonly (number | null)[]): number[] {
-  const compliance = stiffness.map((k) => {
-    if (k !== null && !(k > 0 && Number.isFinite(k))) throw new Error(`a surface's stiffness is a finite N/m over 0, or null for a rigid one, not ${k}`);
-    return k === null ? 0 : 1 / k;
-  });
-  const sum = compliance.reduce((a, b) => a + b, 0);
-  return compliance.map((c) => (sum > 0 ? c / sum : 0));
+  const each = stiffness.map(compliance);
+  const sum = each.reduce((a, b) => a + b, 0);
+  return each.map((c) => (sum > 0 ? c / sum : 0));
+}
+
+/** What `energyShares([first, second])` gives `second`, read without its arrays: a blow's priced at each step of a search. */
+export function secondShare(first: number | null, second: number | null): number {
+  const a = compliance(first), b = compliance(second), sum = 0 + a + b;
+  return sum > 0 ? b / sum : 0;
+}
+
+/** A surface's compliance, 1/k, m/N: 0 for a rigid one (null). */
+function compliance(k: number | null): number {
+  if (k !== null && !(k > 0 && Number.isFinite(k))) throw new Error(`a surface's stiffness is a finite N/m over 0, or null for a rigid one, not ${k}`);
+  return k === null ? 0 : 1 / k;
 }

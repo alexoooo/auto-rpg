@@ -135,26 +135,33 @@ const afterActions = (sight: Sight): Sight => Object.create(sight, {
 /** Predictions past the blow coming, inheriting every other prediction. */
 const afterDanger = (predictions: Predictions): Predictions => Object.create(predictions, { danger: { value: 0 } });
 
+/**
+ * What `placedWith` defines a field by, one at a time: a value, neither writable, enumerable nor
+ * configurable, as `Object.create`'s descriptors define. Its value is let go once defined.
+ */
+const FIELD: PropertyDescriptor & { value: unknown } = { value: undefined };
+const define = (on: object, key: keyof Situation, value: unknown): void => { FIELD.value = value; Object.defineProperty(on, key, FIELD); FIELD.value = undefined; };
+
 /** A placement with the sight and predictions after the actions and blow coming end. */
 function placedWith(at: Situation, leaves: Leaves, seconds: number, sight: Sight, predictions: Predictions): Situation {
-  const props: PropertyDescriptorMap = { ground: { value: null }, incoming: { value: null }, sight: { value: sight }, predictions: { value: predictions } };
-  const where = leaves.where, focus = at.focus;
+  const there = Object.create(at) as Situation, where = leaves.where, focus = at.focus;
+  define(there, "ground", null); define(there, "incoming", null); define(there, "sight", sight); define(there, "predictions", predictions);
   if (where) {
-    props.where = { value: where };
+    define(there, "where", where);
     if (focus) {
       const apart = hypot(where.x - focus.centre.x, where.z - focus.centre.z);
-      props.apart = { value: apart }; props.range = { value: apart + at.range - at.apart };
-      props.around = { value: leaves.around ?? bearingAround(focus, where.x, where.z) };
+      define(there, "apart", apart); define(there, "range", apart + at.range - at.apart);
+      define(there, "around", leaves.around ?? bearingAround(focus, where.x, where.z));
     }
-  } else if (leaves.around !== undefined) props.around = { value: leaves.around };
-  if (leaves.posture) { props.posture = { value: leaves.posture }; props.down = { value: leaves.posture !== "standing" }; }
+  } else if (leaves.around !== undefined) define(there, "around", leaves.around);
+  if (leaves.posture) { define(there, "posture", leaves.posture); define(there, "down", leaves.posture !== "standing"); }
   if (leaves.velocity) {
-    props.velocity = { value: leaves.velocity };
-    if (hypot(leaves.velocity.x, leaves.velocity.z) <= SETTLED) props.stride = { value: "stand" };
+    define(there, "velocity", leaves.velocity);
+    if (hypot(leaves.velocity.x, leaves.velocity.z) <= SETTLED) define(there, "stride", "stand");
   }
-  const there = Object.create(at, props) as Situation, latency = at.predictions.pressure.latency, was = graceAt(at), within = inReach(there);
+  const latency = at.predictions.pressure.latency, was = graceAt(at), within = inReach(there);
   const grace = leaves.grace ?? (within !== inReach(at) ? was : within ? Math.max(0, was - seconds) : Math.min(latency, was + seconds));
-  Object.defineProperty(there, "grace", { value: grace });
+  define(there, "grace", grace);
   return there;
 }
 

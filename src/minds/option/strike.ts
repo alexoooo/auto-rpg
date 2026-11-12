@@ -102,8 +102,14 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     place: null as [number, number] | null };
   const { measured } = measure, found = profileFor(measure.profiles, measured);
   /** Its profile, where it is read now: measured as the body reads it, its senses as late. */
-  const profileNow = (now: Situation): Profile | null =>
-    found && staleness(found.profile, { ...measured, reaction: now.reaction }) === null ? found.profile : null;
+  // Whether its profile is fresh at a reaction time, as last read: `staleness` reads nothing else that changes.
+  let freshAt: { reaction: number | null; fresh: boolean } | null = null;
+  const profileNow = (now: Situation): Profile | null => {
+    if (!found) return null;
+    if (freshAt === null || !Object.is(freshAt.reaction, now.reaction))
+      freshAt = { reaction: now.reaction, fresh: staleness(found.profile, { ...measured, reaction: now.reaction }) === null };
+    return freshAt.fresh ? found.profile : null;
+  };
   /**
    * What its profile expects begun where the body stands now, as it moves (`startOf`) and at
    * `place` in its window (`placeInWindow`; its middle unless given), and, its motion `progress` s
@@ -113,8 +119,11 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const profile = profileNow(now), focus = now.focus;
     if (!profile || !focus) return null;
     const reading = readProfile(profile, measure.spec, { own: "standing", target: now.foePosture });
-    return reading.expect({ range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, velocity: startOf(now),
-      ...(place ? { window: place } : {}), ...(progress === undefined ? {} : { progress }) }, focus.spec);
+    const start: { range: number; phase: string; velocity: readonly [number, number]; window?: readonly [number, number]; progress?: number } =
+      { range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, velocity: startOf(now) };
+    if (place) start.window = place;
+    if (progress !== undefined) start.progress = progress;
+    return reading.expect(start, focus.spec);
   };
   const targetOf = (now: Situation): TargetRef | null => {
     const focus = now.focus;
@@ -187,9 +196,10 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const progress = under && state.began !== null ? at.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
     const preparing = running?.phase === "prepare", measured = expected(at, running ? state.place : place, preparing ? progress : undefined), e = measured ?? priorOf(at);
     const duration = Math.max(0, e.seconds + e.recovers - progress);
-    const letGo = preparing && e.letGo ? { letGo: e.letGo } : {};
-    return { duration, dealt: met ? 0 : e.dealt, taken: at.predictions.danger + threatened(at, duration), orders: 0,
-      outcomes: upOrDown({ where: along(at, e.exit?.range ?? apart) }, Math.max(e.down, measured ? 0 : clinched(at, duration, at.apart))), ...letGo };
+    const terms: { -readonly [K in keyof Terms]: Terms[K] } = { duration, dealt: met ? 0 : e.dealt, taken: at.predictions.danger + threatened(at, duration), orders: 0,
+      outcomes: upOrDown({ where: along(at, e.exit?.range ?? apart) }, Math.max(e.down, measured ? 0 : clinched(at, duration, at.apart))) };
+    if (preparing && e.letGo) terms.letGo = e.letGo;
+    return terms;
   };
   /**
    * Its prior, where no profile prices it, read as a profile is (`Expected`): `throws` blows
@@ -200,7 +210,8 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const { lands, seconds } = record(now.sight.report.ledger, action);
     const target = targetOf(now), segment = target?.kind === "body" && now.focus ? regionSegments(now.focus.spec, target.region)[0] : undefined;
     const struck = segment ?? now.focus?.spec.marks.high ?? "";
-    const blow = Math.max(...action.effectors.map((limb) => now.predictions.blows(limb, struck)));
+    let blow = -Infinity;
+    for (let i = 0; i < action.effectors.length; i++) blow = Math.max(blow, now.predictions.blows(action.effectors[i]!, struck));
     return { done: lands, dealt: throws * lands * blow, seconds, recovers: 0, down: 0, ends: [] };
   };
   /**

@@ -238,8 +238,8 @@ export const PROFILE_RANGE_SPAN = NEAREST.range;
 /** How near two distances are taken as one: the nearest trials' ties. */
 const TIE = 1e-9;
 
-/** Each profile's readings, by the striker's spec and the postures read at: a profile and a spec are immutable. */
-const READINGS = new WeakMap<Profile, WeakMap<BodySpec, Map<string, ProfileReading>>>();
+/** Each profile's readings, by the striker's spec and the postures read at, own then target: a profile and a spec are immutable. */
+const READINGS = new WeakMap<Profile, WeakMap<BodySpec, Map<string, Map<string, ProfileReading>>>>();
 
 /**
  * **`profile` read for a skill of a body of `striker`** (`ProfileReading`) at `postures`: its trials
@@ -248,12 +248,14 @@ const READINGS = new WeakMap<Profile, WeakMap<BodySpec, Map<string, ProfileReadi
 export function readProfile(profile: Profile, striker: BodySpec, postures: Postures = STANDING): ProfileReading {
   let bySpec = READINGS.get(profile);
   if (!bySpec) READINGS.set(profile, bySpec = new WeakMap());
-  let byPostures = bySpec.get(striker);
-  if (!byPostures) bySpec.set(striker, byPostures = new Map());
-  const key = `${postures.own} ${postures.target}`, known = byPostures.get(key);
+  let byOwn = bySpec.get(striker);
+  if (!byOwn) bySpec.set(striker, byOwn = new Map());
+  let byTarget = byOwn.get(postures.own);
+  if (!byTarget) byOwn.set(postures.own, byTarget = new Map());
+  const known = byTarget.get(postures.target);
   if (known) return known;
   const reading = profileReading(profile, striker, postures);
-  byPostures.set(key, reading);
+  byTarget.set(postures.target, reading);
   return reading;
 }
 

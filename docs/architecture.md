@@ -548,12 +548,19 @@ The profile model supplies these components:
   config names the tree (`src/app/option-controller.ts`). `research/lying.mjs` reads a mind's time down in the
   match's bouts and the cost of its steps.
 - **The search's storage** keeps its arithmetic and call order. A search gives each Option and
-  target a slot (`space`, `Pair`); each situation owns one row of model results (`undefined`
-  unasked, `null` a refusal) and its own offers (`pairsAt`). Predicted situations share read-only
-  overlays of sight, report and prediction (`placing`). A tree decision reads pressure through an
-  exact cache of range and velocity starts (`cachedPressure`). A profile query reuses the
-  distances its nearest search computed, in frames by call depth. Once a search's runs finish, its
-  root edges are copied into result records (`pricedLines`), releasing the tree.
+  target a slot (`space`, `Pair`) and the frozen ask its model is put (`Pair.ask`); each situation
+  owns one row of model results (`undefined` unasked, `null` a refusal), its own offers
+  (`pairsAt`) and those a held or an arrived leaf reads (`readsAt`). The states made from a
+  situation are told apart by the fields their leaves name, compared as a string key would (`Made`,
+  `madeFrom`: -0 as 0, NaN as NaN, absent apart from present). Predicted situations share
+  read-only overlays of sight, report and prediction (`placing`), their fields defined through one
+  reused descriptor (`placedWith`). A line's step is written into a frame for its depth
+  (`stepInto`), released when its deeper lines are priced; a tree edge keeps a step of its own, and
+  a cut edge's ways of ending share one empty store (`NO_ENDS`). A tree decision reads pressure
+  through an exact cache of range and velocity starts (`cachedPressure`), and a limb's prior is
+  made once for its numbers (`prior`). A profile query reuses the distances its nearest search
+  computed, in frames by call depth. Once a search's runs finish, its root edges are copied into
+  result records (`pricedLines`), releasing the tree.
 - **Where to walk**: an Option names its sites (`Option.sites`, `Site`), the spots it would begin
   from if not where the body stands: a strike whose readiness gives a window to be brought to
   (`Readiness`'s `position`) names a spot in it on each side of a body lying (`windowSpot`, `Side`),

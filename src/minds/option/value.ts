@@ -2,7 +2,7 @@ import type { Spot } from "../../skills/framework/menu.ts";
 import { impactEnergy } from "../../combat/impact.ts";
 import { lifeFactor } from "../../combat/pool.ts";
 import { sideDamage, type Rulebook } from "../../combat/rulebook.ts";
-import { energyShares } from "../../combat/share.ts";
+import { secondShare } from "../../combat/share.ts";
 import { landed } from "../../skills/framework/action-instances.ts";
 import type { Ended } from "../../skills/framework/action.ts";
 import type { BodySpec } from "../../core/bodies/spec/body.ts";
@@ -59,7 +59,7 @@ export const STILL: Ground = Object.freeze({ x: 0, z: 0 });
  * (`FALLEN` unless given) in the share `down`; one outcome where either share is none.
  */
 export function upOrDown(up: Leaves, down: number, posture: Position = FALLEN): readonly Outcome[] {
-  if (!(down > 0)) return [{ leaves: up, chance: 1 }];
+  if (!(down > 0)) return up === AS_IS ? UNMOVED : [{ leaves: up, chance: 1 }];
   const fallen: Outcome = { leaves: { posture, velocity: STILL }, chance: Math.min(1, down) };
   return down >= 1 ? [fallen] : [{ leaves: up, chance: 1 - down }, fallen];
 }
@@ -188,13 +188,13 @@ function strikingStiffness(spec: BodySpec, limb: string): number | null {
  * **The life a blow of `limb` of `striker` takes from `struck`'s segment `at`** (`limb` an
  * effector's segment, `hand.left` or `foot.right`; `at` its head, its `marks.high`, unless named),
  * by `rules`: its energy closing at `closing` m/s into that segment (`blowEnergy`), the segment's
- * share of it by the two faces' stiffness (`energyShares`), priced blunt as the rules price a
+ * share of it by the two faces' stiffness (`energyShares`, `secondShare`), priced blunt as the rules price a
  * side's damage (`sideDamage`) at the segment's cost in life (`lifeFactor`), over the struck body's
  * full life. An edge or a point is priced as its blunt impact, the limb's own model.
  */
 export function blowLife(rules: Rulebook, striker: BodySpec, limb: string, struck: BodySpec, closing = BLOW_SPEED, at = struck.marks.high): number {
   const face = segmentOf(struck, at)?.surface?.stiffness.value ?? null;
-  const share = energyShares([strikingStiffness(striker, limb), face])[1]!;
+  const share = secondShare(strikingStiffness(striker, limb), face);
   return sideDamage(rules, "blunt", blowEnergy(striker, limb, struck, at, closing), share, 0) * lifeFactor(rules, struck, at) / struck.wounds.hp.value;
 }
 

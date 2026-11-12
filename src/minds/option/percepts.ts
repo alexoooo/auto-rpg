@@ -137,9 +137,29 @@ const BY_HAND: Measured = Object.freeze({ body: "", spec: "", skill: "by hand", 
  * records no recovery, `Trial.recovers`).
  */
 function prior(striker: BodySpec, struck: BodySpec, range: number, life: number, seconds: number): ProfileReading {
-  return profileReading({ measured: BY_HAND, target: null,
-    trials: [{ start: { range, phase: "clear" }, done: true, dealt: life * struck.wounds.hp.value, taken: 0, seconds, recovers: null, down: false }] }, striker);
+  // A reading is made of these alone, and a spec is immutable: a prior is made once for them, for a caller whose
+  // numbers come from a few (a limb's reach, a share of its record's blows). A -0 is read as given, since a key takes it for 0.
+  if (Object.is(range, -0) || Object.is(life, -0) || Object.is(seconds, -0)) return priorOf(striker, struck, range, life, seconds);
+  let byStruck = PRIORS.get(striker);
+  if (!byStruck) PRIORS.set(striker, byStruck = new WeakMap());
+  let byRange = byStruck.get(struck);
+  if (!byRange) byStruck.set(struck, byRange = new Map());
+  let byLife = byRange.get(range);
+  if (!byLife) byRange.set(range, byLife = new Map());
+  let bySeconds = byLife.get(life);
+  if (!bySeconds) byLife.set(life, bySeconds = new Map());
+  let made = bySeconds.get(seconds);
+  if (!made) bySeconds.set(seconds, made = priorOf(striker, struck, range, life, seconds));
+  return made;
 }
+
+/** Each prior made (`prior`), by its striker's spec, the struck body's, its range, its life and its seconds. */
+const PRIORS = new WeakMap<BodySpec, WeakMap<BodySpec, Map<number, Map<number, Map<number, ProfileReading>>>>>();
+
+/** A prior (`prior`), made anew. */
+const priorOf = (striker: BodySpec, struck: BodySpec, range: number, life: number, seconds: number): ProfileReading =>
+  profileReading({ measured: BY_HAND, target: null,
+    trials: [{ start: { range, phase: "clear" }, done: true, dealt: life * struck.wounds.hp.value, taken: 0, seconds, recovers: null, down: false }] }, striker);
 
 /**
  * **The strikes a body is modelled by**: each measured, read for its striker (`readProfile`), with
@@ -430,7 +450,7 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
   const centre = sight.view.stance.centre, foe = blow.foe, range = hypot(foe.centre.x - centre.x, foe.centre.z - centre.z), phase = ownPhase(seen);
   const own = sight.view.stance.velocity, velocity = startVelocity({ x: foe.centre.x - centre.x, z: foe.centre.z - centre.z }, { x: own.x - foe.velocity.x, z: own.z - foe.velocity.z });
   const measured = foeModel(seen, blow.foe.spec).measured.filter((one) => one.limbs.includes(blow.limb)).map((one) => one.reading);
-  const model = measured.length ? measured : [prior(blow.foe.spec, spec, range, LANDS * blowLife(seen.rules, blow.foe.spec, blow.limb, spec, blow.closing), 1)];
+  const model = measured.length ? measured : [priorOf(blow.foe.spec, spec, range, LANDS * blowLife(seen.rules, blow.foe.spec, blow.limb, spec, blow.closing), 1)];
   let most = 0;
   for (const reading of model) most = Math.max(most, reading.expect({ range: Math.min(range, reading.reach(phase)), phase, velocity }, spec)?.dealt ?? 0);
   return most;
