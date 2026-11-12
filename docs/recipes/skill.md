@@ -40,7 +40,8 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
   today) and the result that would show the mechanism cannot. Read the signal the cheapest way
   first: the failing part alone, on a few cases. An approach stops when its signal stays flat: a
   search or a training run at its recipe's plateau, other work after three changes of different
-  kinds aimed at the named cause. Its best is kept. At the budget the run stops with its signal
+  kinds aimed at the named cause, each read doing what it was made to do; a change that breaks
+  what it did not aim at has a defect, found and fixed before it counts. Its best is kept. At the budget the run stops with its signal
   reported, and going on is the owner's choice.
 - **A failure's cause is reported with its evidence**: what the mechanism could not do, why, and
   whether the mechanism or its settings limit it. It becomes a constraint in
