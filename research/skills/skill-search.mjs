@@ -194,7 +194,7 @@ export const SEARCHES = {
     trial: riseTrial(SIT_BACK_EDGES, (sitBack) => ({ sitBack })), error: -(TECHNIQUE_LIMITS.run + 1), lost: "not stood",
     task: "the Rise drill's front-sit-back and sit-back, each alone on the body holding each rated loadout" },
   // Every channel the game's roll poses drive (`ROLL_POSES`), within each body's range, and each stage's time.
-  roll: { dims: [["wind: hip.far flexion", .4, 2], ["wind: hip.far abduction", 0, .55], ["wind: hip.near flexion", -.25, .8], ["wind: shoulder.near flexion", 1.4, 3],
+  roll: { dims: [["wind: hip.far flexion", .4, 2], ["wind: hip.far abduction", 0, .55], ["wind: hip.near flexion", -.35, .8], ["wind: shoulder.near flexion", 1.4, 3],
       ["swing: hip.far flexion", .2, 1.8], ["swing: hip.far internal rotation", -.5, .64], ["swing: hip.near abduction", -.2, .55], ["swing: lumbar flexion", 0, .88],
       ["swing: shoulder.far flexion", .4, 2.6], ["swing: shoulder.near flexion", .2, 2.6], ["swing: shoulder.near abduction", .4, 3],
       ["over: hip.far flexion", .4, 2], ["over: hip.far abduction", 0, .55], ["over: shoulder.near flexion", 1.4, 3],
