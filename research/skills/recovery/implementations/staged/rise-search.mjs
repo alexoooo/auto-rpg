@@ -1,30 +1,30 @@
-import { isRefused } from "../../../../../src/core/refusal.ts";
 /**
- * Search one body's loadout-specific recovery settings with immutable technique overrides.
- * Each candidate's ground profiles are calibrated before its normal chooser is scored, by its value:
- * the mean time to stand over the falls made, a fall not stood at the cap, lower better.
- * Node core world, Rapier, 120 Hz, no assists. Fresh falls are reserved for confirmation.
+ * Search one body's loadout-specific recovery settings with immutable technique overrides, scored
+ * on its drill ([research scores on its drill](../../../../../docs/recipes/skill.md#an-options-code)):
+ * the twin of the body's way-up cells holding the loadout (the way-up drill's fresh falls,
+ * `research/skills/recovery/way-up-trials.mjs`), every staged way up played on the candidate's
+ * tuning, which holds both the step-up's and the sit-back's stages, so every way up's cell reads
+ * it. A candidate's score is the cells' value, negated: the mean over the falls exercised of the
+ * seconds an attempt at the cell's way up, one not reaching where it goes at `ATTEMPT_CAP`.
+ * Node core world, Rapier, 120 Hz, the drills' Option Mind (`option-drill`), no assists; trials
+ * played on the drill's trial pool (`trialPool`, `scoreOn`, `research/drill-trials.mjs`).
  *
  * node research/skills/recovery/implementations/staged/rise-search.mjs --model workshop-fighter --loadout empty,club --generations 8 --lambda 8 --workers 8 --out .tmp/rise-search/best.json
- * --resume <checkpoint.json> continues a calibrated search; --offsets trains on other directions.
- * Calibration uses the profile writer's offsets; the fresh protocol is excluded from both.
- * Played calibration and scoring rows are kept beside --out as .trials.jsonl on the same build.
+ * --resume <checkpoint.json> continues a search. --confirm <out.json> plays the search's best and
+ * the body's records on the cells' own falls at 120 and 480 Hz, the worse counting (`confirmRow`).
+ * Scored candidates are kept beside --out as .trials.jsonl on the same build.
  * A pass stops after eight minutes or before another generation projects past ten.
  */
 import '../../../../../tests/harness/preload-data.mjs';
-import { isMainThread, parentPort } from 'node:worker_threads';
 import { parseArgs } from 'node:util';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { cmaSearch, workerPool } from '../../../../cma.mjs';
-import { risingJobs } from '../../../../../src/evaluation/rising.ts';
-import { buildFall } from "../../../../../src/app/node/evaluation.ts";
-import { DEFAULT_ENGINE } from "../../../../../src/core/physics/engines.ts";
+import { cmaSearch } from '../../../../cma.mjs';
+import { confirmRow, drillTrials, scoreOn, subjectOf, trialPool } from '../../../../drill-trials.mjs';
+import { RECORD_WAYS, stagedValue, wayCells } from '../../way-up-trials.mjs';
 import { stepUpTuning } from "../../../../../src/skills/recovery/implementations/staged/records.ts";
 import { modelHolding } from "../../../../../src/core/bodies/models.ts";
-import { MINDS } from "../../../../../src/app/catalog.ts";
 import { BUILD_IDENTITY } from '../../../../../scripts/build-identity.mjs';
-import { edgeTrial, edgeProfiles } from '../../edge-profile-trial.mjs';
 
 const dimensions = [
   ['fold', .12, .7], ['tuck', .12, .7], ['prop', .1, .7], ['fours', .3, 1.2],
@@ -40,97 +40,77 @@ const decode = (base,u) => {
   t.climb = values[7];
   return t;
 };
-const staged = new Set(['staged-roll','staged-down','sit-back','front-sit-back']);
-// The drills' Option Mind (`option-drill`): no profile and no tree search decides how it gets up.
-const DRILL = MINDS['option-drill'].config;
-const mindOf = tuning => ({...DRILL, options:DRILL.options.map(o => staged.has(o.skill?.kind) ? {...o,skill:{...o.skill,tuning}} : o)});
 
-async function trial(job,mind) {
-  const b = await buildFall({...job,cap:16,mind},DEFAULT_ENGINE);
-  if (isRefused(b)) throw new Error(b.refused);
+/** Every way up a staged tuning drives: both records'. */
+const WAYS = [...RECORD_WAYS['step-up'], ...RECORD_WAYS['sit-back']];
+
+/** A trial's subject value with every staged way up on `tuning`. */
+const valueOn = (tuning) => (one) => stagedValue(subjectOf(one).value, tuning);
+
+const {values}=parseArgs({options:{model:{type:'string',default:'workshop-fighter'},loadout:{type:'string',default:'empty,empty'},
+  generations:{type:'string',default:'8'},lambda:{type:'string',default:'8'},workers:{type:'string',default:'8'},
+  out:{type:'string'},sigma:{type:'string',default:'.13'},resume:{type:'string'},confirm:{type:'string'}}});
+const [left,right]=values.loadout.split(','), record=structuredClone(stepUpTuning(modelHolding(values.model,{left,right})));
+const cells=wayCells(WAYS,values.model,values.loadout);
+if(!cells.length) throw new Error(`the table has no way-up cell of ${values.model} holding ${values.loadout}`);
+const pool=trialPool(Number(values.workers));
+if(values.confirm) {
+  // The search's best against the body's records, on each cell's own falls at 120 and 480 Hz, the worse counting.
+  const found=JSON.parse(readFileSync(values.confirm,'utf8'));
   try {
-    while (!b.ended) {b.world.step(); b.afterStep();}
-    const r=b.reading(), time=r.takeover===null?null:r.stood&&r.verified!==null?r.verified:16;
-    return {loadout:job.loadout,degrees:job.degrees,reading:r,time};
-  } finally {b.dispose();}
-}
-
-/** One candidate: its profiles measured first, then its normal chooser scored on those profiles. */
-async function candidate({jobs,profileJobs,offsets,tuning}) {
-  const template=mindOf(tuning), calibration=[];
-  for(const job of profileJobs) calibration.push(await edgeTrial(job,template));
-  const profiles=edgeProfiles(calibration.flatMap(row=>row.trials)).map(({label,...profile})=>profile);
-  const mind={...template,predictions:{kind:'measured',edges:profiles}}, rows=[];
-  for(const job of jobs) rows.push(await trial(job,mind));
-  const made=rows.filter(row=>row.time!==null);
-  return {score:made.length?-made.reduce((sum,row)=>sum+row.time,0)/made.length:-Infinity,
-    within:rows.filter(row=>row.time!==null&&row.time<10).length,rows,profiles,calibration};
-}
-
-if(!isMainThread) {
-  parentPort.on('message',async({id,x})=>{
-    try {parentPort.postMessage({id,r:await candidate(x)});}
-    catch(error) {throw new Error(`calibrated recovery search: ${error.stack??error}`);}
-  });
-} else {
-  const {values}=parseArgs({options:{model:{type:'string',default:'workshop-fighter'},loadout:{type:'string',default:'empty,empty'},
-    generations:{type:'string',default:'8'},lambda:{type:'string',default:'8'},workers:{type:'string',default:'8'},
-    out:{type:'string'},sigma:{type:'string',default:'.13'},resume:{type:'string'},offsets:{type:'string',default:'0'}}});
-  if(!values.out) throw new Error('--out is required');
-  const previous=values.resume?JSON.parse(readFileSync(values.resume,'utf8')):null;
-  if(previous&&(previous.mode!=='calibrated'||previous.model!==values.model||previous.loadout!==values.loadout
-    ||JSON.stringify(previous.dimensions)!==JSON.stringify(dimensions))) throw new Error('resume needs a calibrated checkpoint of the same body, loadout and dimensions');
-  const [left,right]=values.loadout.split(','), base=previous?.base??structuredClone(stepUpTuning(modelHolding(values.model,{left,right})));
-  const offsets=values.offsets.split(',').map(Number);
-  const trainingOffset=offset=>Number.isFinite(offset)&&Math.abs(((offset%22.5)+22.5)%22.5-11.25)>=1e-9;
-  if(offsets.some(offset=>!trainingOffset(offset))) throw new Error('training offsets must be finite and leave the fresh protocol unused');
-  const profileOffsets=JSON.parse(readFileSync('assets/skills/recovery/edge-profiles.json','utf8')).source.offsets;
-  if(!Array.isArray(profileOffsets)||!profileOffsets.length||profileOffsets.some(offset=>!trainingOffset(offset))) throw new Error('calibration offsets must leave the fresh protocol unused');
-  const selected=job=>job.model===values.model&&`${job.loadout.left},${job.loadout.right}`===values.loadout;
-  const jobs=offsets.flatMap(offset=>risingJobs({target:true,offset})).filter(selected);
-  const profileJobs=profileOffsets.flatMap(offset=>risingJobs({target:true,offset})).filter(selected)
-    .map(({model,loadout,seed,start,degrees,balance,grit,gusts})=>({model,loadout,seed,start,degrees,balance,grit,gusts,target:true}));
-  if(!jobs.length||!profileJobs.length) throw new Error('the body and loadout need training and calibration cases');
-  const workers=Number(values.workers),lambda=Number(values.lambda),generations=Number(values.generations);
-  if(!Number.isSafeInteger(lambda)||lambda<2||!Number.isSafeInteger(generations)||generations<0) throw new Error('lambda and generations need valid integer counts');
-  const pool=workerPool(new URL(import.meta.url),{},workers);
-  const start=initial(base).map((value,i)=>(value-dimensions[i][1])/(dimensions[i][2]-dimensions[i][1]));
-  const started=Date.now();
-  mkdirSync(dirname(values.out),{recursive:true});
-  const cacheFile=`${values.out}.trials.jsonl`,cache=new Map();
-  if(existsSync(cacheFile)) for(const line of readFileSync(cacheFile,'utf8').trim().split('\n').filter(Boolean)) {
-    const row=JSON.parse(line);
-    if(row.build===BUILD_IDENTITY&&row.mode==='calibrated') cache.set(JSON.stringify([row.jobs,row.profileJobs,row.offsets,row.tuning]),row.result);
-  }
-  const score=async tuning=>{
-    const key=JSON.stringify([jobs,profileJobs,offsets,tuning]);
-    if(cache.has(key)) return cache.get(key);
-    const result=await pool.evaluate({jobs,profileJobs,offsets,tuning});
-    cache.set(key,result);
-    appendFileSync(cacheFile,JSON.stringify({build:BUILD_IDENTITY,mode:'calibrated',jobs,profileJobs,offsets,tuning,result})+'\n');
-    return result;
-  };
-  try {
-    const baseline=await score(base);
-    console.log(`calibrated baseline: ${baseline.within}/${jobs.length} under 10 s, mean ${(-baseline.score).toFixed(2)} s; ${((Date.now()-started)/1000).toFixed(1)} s`);
-    let kept={tuning:base,...baseline};
-    if(previous) {const reading=await score(previous.best.tuning);if(reading.score>kept.score)kept={tuning:previous.best.tuning,...reading};}
-    const resume=previous?.checkpoint;
-    if(resume) {resume.best.r=await score(decode(base,resume.best.u));resume.best.score=resume.best.r.score;}
-    const save=(log,checkpoint)=>writeFileSync(values.out,JSON.stringify({build:BUILD_IDENTITY,mode:'calibrated',model:values.model,loadout:values.loadout,
-      base,baseline,dimensions,offsets,profileOffsets,seconds:(Date.now()-started)/1000,log,best:kept,checkpoint},null,1));
-    save(previous?.log??[],resume??null);
-    let generationStarted=Date.now();
-    const result=await cmaSearch({n:dimensions.length,start,sigma:Number(values.sigma),lambda,generations,seed:13,resume,
-      score:unit=>score(decode(base,unit)),
-      onGeneration(entry,search) {
-        if(search.best.score>kept.score) kept={tuning:decode(base,search.best.u),...search.best.r};
-        const now=Date.now(),seconds=(now-started)/1000,generationSeconds=(now-generationStarted)/1000;
-        generationStarted=now;
-        save(search.log,search.checkpoint);
-        console.log(`generation ${entry.g}: kept ${kept.within}/${jobs.length} under 10 s, mean ${(-kept.score).toFixed(2)} s; ${seconds.toFixed(0)} s`);
-        if(seconds>=480||seconds+generationSeconds>600) return false;
-      }});
-    console.log(`finished: kept ${kept.within}/${jobs.length} under 10 s, mean ${(-kept.score).toFixed(2)} s; ${result.log.length} generations`);
+    const records=await confirmRow(cells,valueOn(record),{play:pool.play}), best=await confirmRow(cells,valueOn(found.best.tuning),{play:pool.play});
+    cells.forEach((cell,i)=>console.log(`${cell.skill}: records ${records.cells[i].worse?.toFixed(2)??'none'} s an attempt, best ${best.cells[i].worse?.toFixed(2)??'none'} (the worse of 120 and 480 Hz)`));
+    console.log(`the cells' mean: records ${records.worse?.toFixed(2)??'none'}, best ${best.worse?.toFixed(2)??'none'} s an attempt`);
   } finally {await pool.terminate();}
+  process.exit(0);
 }
+if(!values.out) throw new Error('--out is required');
+const previous=values.resume?JSON.parse(readFileSync(values.resume,'utf8')):null;
+if(previous&&(previous.mode!=='drill'||previous.model!==values.model||previous.loadout!==values.loadout
+  ||JSON.stringify(previous.dimensions)!==JSON.stringify(dimensions))) throw new Error('resume needs a drill checkpoint of the same body, loadout and dimensions');
+const base=previous?.base??record;
+const trials=cells.flatMap(cell=>drillTrials(cell,'twin'));
+const lambda=Number(values.lambda),generations=Number(values.generations);
+if(!Number.isSafeInteger(lambda)||lambda<2||!Number.isSafeInteger(generations)||generations<0) throw new Error('lambda and generations need valid integer counts');
+const start=initial(base).map((value,i)=>(value-dimensions[i][1])/(dimensions[i][2]-dimensions[i][1]));
+const started=Date.now();
+mkdirSync(dirname(values.out),{recursive:true});
+const names=trials.map(one=>one.name),cacheFile=`${values.out}.trials.jsonl`,cache=new Map();
+if(existsSync(cacheFile)) for(const line of readFileSync(cacheFile,'utf8').trim().split('\n').filter(Boolean)) {
+  const row=JSON.parse(line);
+  if(row.build===BUILD_IDENTITY&&row.mode==='drill') cache.set(JSON.stringify([row.names,row.tuning]),row.result);
+}
+/** A candidate: every twin trial played on its tuning, its score the cells' value negated, none counting at -Infinity. */
+const score=async tuning=>{
+  const key=JSON.stringify([names,tuning]);
+  if(cache.has(key)) return cache.get(key);
+  const r=await scoreOn(trials,valueOn(tuning),{play:pool.play});
+  const result={score:r.value===null?-Infinity:-r.value,counted:r.each.filter(one=>one.value!==null).length,reached:r.each.filter(one=>one.outcome==='reached').length,each:r.each};
+  cache.set(key,result);
+  appendFileSync(cacheFile,JSON.stringify({build:BUILD_IDENTITY,mode:'drill',names,tuning,result})+'\n');
+  return result;
+};
+const said=reading=>`${reading.reached}/${reading.counted} falls every attempt reached, ${(-reading.score).toFixed(2)} s an attempt`;
+try {
+  const baseline=await score(base);
+  console.log(`baseline: ${said(baseline)}; ${((Date.now()-started)/1000).toFixed(1)} s`);
+  let kept={tuning:base,...baseline};
+  if(previous) {const reading=await score(previous.best.tuning);if(reading.score>kept.score)kept={tuning:previous.best.tuning,...reading};}
+  const resume=previous?.checkpoint;
+  if(resume) {resume.best.r=await score(decode(base,resume.best.u));resume.best.score=resume.best.r.score;}
+  const save=(log,checkpoint)=>writeFileSync(values.out,JSON.stringify({build:BUILD_IDENTITY,mode:'drill',model:values.model,loadout:values.loadout,
+    base,baseline,dimensions,trials:trials.length,seconds:(Date.now()-started)/1000,log,best:kept,checkpoint},null,1));
+  save(previous?.log??[],resume??null);
+  let generationStarted=Date.now();
+  const result=await cmaSearch({n:dimensions.length,start,sigma:Number(values.sigma),lambda,generations,seed:13,resume,
+    score:unit=>score(decode(base,unit)),
+    onGeneration(entry,search) {
+      if(search.best.score>kept.score) kept={tuning:decode(base,search.best.u),...search.best.r};
+      const now=Date.now(),seconds=(now-started)/1000,generationSeconds=(now-generationStarted)/1000;
+      generationStarted=now;
+      save(search.log,search.checkpoint);
+      console.log(`generation ${entry.g}: kept ${said(kept)}; ${seconds.toFixed(0)} s`);
+      if(seconds>=480||seconds+generationSeconds>600) return false;
+    }});
+  console.log(`finished: kept ${said(kept)}; ${result.log.length} generations`);
+} finally {await pool.terminate();}

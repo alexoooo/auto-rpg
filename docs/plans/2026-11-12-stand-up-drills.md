@@ -47,8 +47,8 @@ What the table read before this plan:
 - **Research scores on the drill** ([research on drills](2026-11-12-research-on-drills.md)): the
   ways up are searched on the drill's twin, the target's `fresh` falls, the cells' falls held
   out. Held only outside the drills now, and added to them: the obstacle levels (rising bed, Lab)
-  and falls from bouts (`core-rise.mjs`). Probes, scoring no way up: `core-rise.mjs --shoves
-  128`, `rise-search.mjs --offsets`. The ground profiles' falls (`edge-profiles.mjs`) are outside
+  and falls from bouts (`core-rise.mjs`). A probe, scoring no way up: `core-rise.mjs --shoves
+  128`. The ground profiles' falls (`edge-profiles.mjs`) are outside
   on purpose: they measure profiles, not skills.
 
 ## Landed
@@ -60,16 +60,20 @@ What the table read before this plan:
   16 s (`ATTEMPT_CAP`), a fall never reaching a posture it begins from not exercised. Its twin is
   the fresh falls. The composite `rising-target` stays an evaluation, read in research.
 - **A fall at a fixed price**, 10 s (`FALL_PRICE`), in every strike and move cell.
+- **Research on the twin**: the sit-back and roll searches (`skill-search.mjs`) and
+  `rise-search.mjs` score on the twin of the way-up cells of the ways up their record drives
+  (`research/skills/recovery/way-up-trials.mjs`), each staged way up of the drills' Mind on the
+  candidate, at 120 Hz, and confirm on the cells' own falls at 120 and 480 Hz, the worse counting.
+  The Rise drill's placed starts and `rise-search.mjs`'s calibrated profiles score no search now.
 
 ## Open
 
-- **Research on the twin**: `rise-search.mjs` and the sit-back and roll searches still score on
-  their own scenarios.
 - **The obstacle levels and falls from bouts** in the drill.
 - **What "stopped making progress" reads**: a way up's stage not advancing for some time while a
   segment touches a solid that is not the ground; the time is not tuned without playing.
 - **A record shared by two ways up**: the step-up record drives staged-roll and staged-down, the
-  sit-back record sit-back and front-sit-back, so a search of one record reads two cells.
+  sit-back record sit-back and front-sit-back, so a search of one record scores on both cells'
+  twins and a confirmation means over both.
 
 ## The price
 

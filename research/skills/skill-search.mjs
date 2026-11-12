@@ -17,25 +17,23 @@
  *   is the cell's subject, the drills' Option Mind, its stomp so tuned (`withTuning`); a trial scores
  *   its value as the cell values it, a blow short of the bar graded below it (`searchScore`), and the
  *   confirmation keeps a record on the value.
- * - The sit-back: the Rise drill's techniques that play its record (`front-sit-back`, `sit-back`),
- *   each alone with no mind (`buildTechnique`, `src/evaluation/technique.ts`) on the body holding
- *   each loadout minds are rated on: searched on the drill's `placed` rung (each from its own
- *   position at rest), confirmed on `placed` and `moving` (after the technique before it on the
- *   route) at seeds the drill does not play. The search moves the joint angles its three stages
- *   drive toward, never their times. A trial scores what a stand-up costs in play, s, negated:
- *   the time the technique took where the body stood; its longest run (`TECHNIQUE_LIMITS.run`)
- *   and up to 1 s more where it did not, less by how high the body got (`riseTrial`). A record it
- *   writes leaves the body's ground profiles stale: rebuild them
+ * - The sit-back: its record drives two ways up (`front-sit-back`, `sit-back`), so it is searched
+ *   on the twin of both their table cells on the body, every loadout or `--loadout`'s (the way-up
+ *   drill's fresh falls, `research/skills/recovery/way-up-trials.mjs`), each fall risen by the
+ *   drills' Mind with the cell's way up first and every staged way up on the candidate
+ *   (`stagedValue`), at 120 Hz, and confirmed on the cells' own falls at 120 and 480 Hz, the worse
+ *   counting. The search moves the joint angles its three stages drive toward, never their times.
+ *   A trial scores the cell's value negated: the way up's seconds an attempt, one not reaching
+ *   where it goes at `ATTEMPT_CAP`; a fall not exercised scores nothing. A record it writes leaves
+ *   the body's ground profiles stale: rebuild them
  *   (`research/skills/recovery/edge-profiles.mjs --model <body> --write`) in the same change, for
  *   the game's Mind; the table reads none.
- * - The roll: the Rise drill's `staged-roll` the same way, on its `placed` rung (from the back
- *   and each side) and confirmed on `placed` and `moving` (after a shove from standing). The
- *   search moves the joint angles the roll's four poses drive toward and each pose's time; its
- *   settings are the body's step-up record (`record`), whose roll poses are the game's
+ * - The roll: the same way, on the cells of the ways up its record (the body's step-up record,
+ *   `record`) drives, `staged-roll` and `staged-down`. The search moves the joint angles the
+ *   roll's four poses drive toward and each pose's time; the record's roll poses are the game's
  *   (`ROLL_POSES`) where it has none of its own, and a row it writes keeps how the rest was made.
- *   A trial scores the time the roll took to have the body lying on its front, negated, as the
- *   sit-back's. The step-up's loadout rows (the Warrior's) keep the times they set. Its profiles
- *   are stale after a write, as the sit-back's.
+ *   The step-up's loadout rows (the Warrior's) keep the times they set. Its profiles are stale
+ *   after a write, as the sit-back's.
  *
  * A body with no record of its own starts from the Warrior's (`--source` names another body whose
  * record it starts from, its own or not), its lengths (`SEARCHES`' `lengths`, m) scaled by the
@@ -53,12 +51,12 @@
  *   node research/skills/skill-search.mjs <skill> <model> --out <file.json> --try
  *   ... --source <model>: the start carried over from that body's record
  *   ... --set '{"lift": 0.7}': the start with those settings in its place, for a search or a --try
- *   ... --loadout <left,right>: a strike's one cell of its row, for a search, a --try or a --confirm
+ *   ... --loadout <left,right>: one loadout's cells of its row, for a search, a --try or a --confirm
  *   node research/skills/skill-search.mjs <skill> <model> --confirm <file.json> [--write [--from "<what the search started from>"]]
  *
  * Harness: Node on Rapier (`DEFAULT_ENGINE`), each command one step late. The stomp: the bout
- * world (`playCase`), 120 Hz, its confirmation 120 and 480 Hz. The sit-back and the roll: the technique world,
- * 120 Hz, the one rate it plays at.
+ * world (`playCase`); the sit-back and the roll: the fall bed (`buildFall`); each searched at
+ * 120 Hz, its confirmation 120 and 480 Hz.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
@@ -68,18 +66,13 @@ import { parseArgs } from "node:util";
 import { execSync } from "node:child_process";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../../tests/harness/preload-data.mjs";
-import { isRefused } from "../../src/core/refusal.ts";
-import { buildTechnique, RISE_CASES } from "../../src/app/node/evaluation.ts";
-import { REPRESENTATIVE } from "../../src/evaluation/loadouts.ts";
-import { TECHNIQUE_LIMITS } from "../../src/evaluation/technique.ts";
-import { modelHolding, modelSpec } from "../../src/core/bodies/models.ts";
+import { ATTEMPT_CAP } from "../../src/evaluation/way-up/read.ts";
+import { modelSpec } from "../../src/core/bodies/models.ts";
 import { bodyKey } from "../../src/core/bodies/spec/body.ts";
-import { DEFAULT_ENGINE } from "../../src/core/physics/engines.ts";
-import { GROUND_POSTURES } from "../../src/game/lab/ground-starts.ts";
-import { stepUpTuningWith } from "../../src/skills/recovery/implementations/staged/records.ts";
 import { ROLL_POSES, SIT_BACK } from "../../src/skills/recovery/implementations/staged/stages.ts";
 import { cmaSearch, workerPool } from "../cma.mjs";
 import { CONFIRM_RATES, drillTrials, playTrial, rowOf, searchScore, subjectOf, withTuning } from "../drill-trials.mjs";
+import { RECORD_WAYS, stagedValue, tuningOn, wayCells } from "./recovery/way-up-trials.mjs";
 import { recordsOf, writeRecord } from "./skill-records.mjs";
 
 /**
@@ -139,46 +132,29 @@ function rollWith(settings, key, value) {
 }
 
 /**
- * The Rise drill's trials of `edges` on `model`, holding each loadout minds are rated on: on each
- * of `rungs`, each technique from each position it is begun from (`placed`) or after the technique
- * before it (`moving`), at each of `seeds`; a start the drill refuses is left out.
+ * A staged record's trials on `model`: the drill's trials of the table's way-up cells of the ways
+ * up `record` drives (`RECORD_WAYS`; `loadout`'s cells alone where given), their training twin's
+ * (`twin`, the search's) or the cells' own (`cell`, the confirmation's).
  */
-const riseTrials = (edges) => (model, { rungs, seeds }) => rungs.flatMap((rung) => edges.flatMap((edge) => REPRESENTATIVE.flatMap((loadout) => {
-  const carrier = { model, held: loadout.right, ...(loadout.left === "empty" ? {} : { left: loadout.left }) };
-  const conditions = rung === "placed" ? GROUND_POSTURES.flatMap((posture) => seeds.map((seed) => ({ ...carrier, posture, seed }))) : seeds.map((seed) => ({ ...carrier, seed }));
-  return conditions.filter((condition) => RISE_CASES[rung].faults({ kind: edge }, condition).length === 0).map((condition) => ({ rung, edge, condition }));
-})));
-
-/**
- * One Rise trial of `edges`' `settings`: the drill's case, those of its techniques that are `edges`
- * played under the body's step-up tuning with the candidate `as` makes of `settings` in place of
- * its record (`stepUpTuningWith`). Its score is what the technique costs in play, s, negated: its
- * time where it was done (the body stood and stayed up, or lay where the technique takes it);
- * where it was not, its longest run and up to 1 s more, less by how high the middle of the trunk
- * got, as a part of the body's stature.
- */
-const riseTrial = (edges, as) => async (settings, { rung, edge, condition }) => {
-  const world = RISE_CASES[rung].world([{ kind: edge }], condition, DEFAULT_ENGINE, [{}]);
-  if (isRefused(world)) throw new Error(world.refused);
-  const one = world.technique, spec = modelHolding(one.model, { left: one.left ?? "empty", right: one.held });
-  const tuning = stepUpTuningWith(spec, as(settings));
-  const built = await buildTechnique({ ...one, configs: Object.fromEntries(one.chain.filter((name) => edges.includes(name)).map((name) => [name, { kind: name, tuning }])) }, world.engine);
-  if (isRefused(built)) throw new Error(built.refused);
-  try {
-    const trunk = built.body.segments.get("middleTrunk");
-    let peak = 0;
-    while (!built.ended) { built.world.step(); built.afterStep(); peak = Math.max(peak, trunk.pose.position.y); }
-    const link = built.reading().links.at(-1), done = link.end === "done", height = Math.min(1, peak / spec.stature.value);
-    return { score: done ? -link.seconds : -(TECHNIQUE_LIMITS.run + 1 - height), end: link.end, seconds: link.seconds, height, down: !done };
-  } finally { built.dispose(); }
+const wayUpTrials = (record) => (model, held, loadout) => {
+  const cells = wayCells(RECORD_WAYS[record], model, loadout);
+  if (cells.length === 0) throw new Error(`the table has no way-up cell of ${RECORD_WAYS[record].join(" or ")} on ${model}${loadout ? ` holding ${loadout}` : ""}`);
+  return cells.flatMap((cell) => drillTrials(cell, held));
 };
 
-/** The techniques that play the sit-back's record (from the front in one rise, and from hands and knees), and the roll's. */
-const SIT_BACK_EDGES = ["front-sit-back", "sit-back"], ROLL_EDGES = ["staged-roll"];
+/**
+ * One drill trial of a staged record's `settings` (the record `as` makes of them) at `hz`: the
+ * cell's subject with every staged way up of its mind on the body's tuning with them
+ * (`stagedValue`, `tuningOn`), scored as the cell values it, negated, as lower is better there; no
+ * score for a fall not made or not exercised. It ends down where an attempt did not reach.
+ */
+const wayUpTrial = (as) => async (settings, trial, hz) => {
+  const played = await playTrial(trial, stagedValue(subjectOf(trial).value, tuningOn(trial, as(settings))), { hz });
+  return { score: played.value === null ? null : -played.value, outcome: played.outcome, down: played.value !== null && played.outcome !== "reached" };
+};
 
-/** The Rise drill's rungs and seeds a technique's search plays, and those its `--confirm` plays: other seeds, and the technique after what comes before it. */
-const RISE_SEARCH = { rungs: ["placed"], seeds: [1, 2, 3, 4, 5, 6] }, RISE_CONFIRM = { rungs: ["placed", "moving"], seeds: [7, 8, 9, 10, 11, 12] };
-const riseSaid = ({ rungs, seeds }) => `on its ${rungs.join(" and ")} rung${rungs.length > 1 ? "s" : ""} at seeds ${seeds[0]} to ${seeds.at(-1)}`;
+/** What a way-up search plays and confirms on, in words. */
+const wayUpSaid = (held) => held === "twin" ? "on their cells' training twins (the way-up drill's fresh falls) at 120 Hz" : "on their cells' own falls at 120 and 480 Hz, the worse counting";
 
 /**
  * **What each skill's search plays**: the settings it searches, each with its range (the rest the
@@ -187,7 +163,7 @@ const riseSaid = ({ rungs, seeds }) => `on its ${rungs.join(" and ")} rung${rung
  * searches on and confirms on (`search`, `confirm`, as `trials` takes them and `said` words
  * them), a trial's score, the score of a trial that threw (`error`: the worst a trial scores),
  * and what its lost trials are called (`lost`); the rates its confirmation plays at, the worse
- * counting (`rates`), where its world takes one (a strike's: it searches at the game's, 120 Hz);
+ * counting (`rates`; it searches at the game's, 120 Hz);
  * its settings that are lengths of the body (`lengths`, m), scaled to a body that starts from
  * another's, and heights over the ground toward the target (`heights`, m), kept; and the skill
  * whose record its settings are (`record`), where they are not a record of their own.
@@ -205,9 +181,9 @@ export const SEARCHES = {
       ["sit back: hip.@ flexion", 1.5, 2.2], ["sit back: shoulder.@ flexion", .2, 1.8], ["sit back: elbow.@ flexion", 0, 1.6], ["sit back: thoracic flexion", -.2, .35], ["sit back: ankle.@ dorsiflexion", 0, .7],
       ["up: hip.@ flexion", .4, .85], ["up: shoulder.@ flexion", 0, 1.4], ["up: thoracic flexion", -.2, .35]],
     get: sitBackAngle, set: sitBackWith, channels: postureChannels,
-    trials: riseTrials(SIT_BACK_EDGES), search: RISE_SEARCH, confirm: RISE_CONFIRM, said: riseSaid,
-    trial: riseTrial(SIT_BACK_EDGES, (sitBack) => ({ sitBack })), error: -(TECHNIQUE_LIMITS.run + 1), lost: "not stood",
-    task: "the Rise drill's front-sit-back and sit-back, each alone on the body holding each rated loadout" },
+    trials: wayUpTrials("sit-back"), search: "twin", confirm: "cell", said: wayUpSaid,
+    trial: wayUpTrial((sitBack) => ({ sitBack })), error: -ATTEMPT_CAP, lost: "falls with an attempt not reached", rates: CONFIRM_RATES,
+    task: "the way-up cells of front-sit-back and sit-back" },
   // Every channel the game's roll poses drive (`ROLL_POSES`), within each body's range, and each stage's time.
   roll: { dims: [["wind: hip.far flexion", .4, 2], ["wind: hip.far abduction", 0, .55], ["wind: hip.near flexion", -.35, .8], ["wind: shoulder.near flexion", 1.4, 3],
       ["swing: hip.far flexion", .2, 1.8], ["swing: hip.far internal rotation", -.5, .64], ["swing: hip.near abduction", -.2, .55], ["swing: lumbar flexion", 0, .88],
@@ -216,9 +192,9 @@ export const SEARCHES = {
       ["flat: shoulder.near flexion", 1.4, 3], ["flat: shoulder.far internal rotation", -1.5, .4], ["flat: elbow.far flexion", .6, 2.4],
       ["wind: scale", .1, 1.2], ["swing: scale", .3, 2], ["over: scale", .3, 2.4], ["flat: scale", .3, 1.8]],
     get: rollValue, set: rollWith, channels: postureChannels, record: "step-up",
-    trials: riseTrials(ROLL_EDGES), search: RISE_SEARCH, confirm: RISE_CONFIRM, said: riseSaid,
-    trial: riseTrial(ROLL_EDGES, (stepUp) => ({ stepUp })), error: -(TECHNIQUE_LIMITS.run + 1), lost: "not on the front",
-    task: "the Rise drill's staged-roll, alone on the body holding each rated loadout" },
+    trials: wayUpTrials("step-up"), search: "twin", confirm: "cell", said: wayUpSaid,
+    trial: wayUpTrial((stepUp) => ({ stepUp })), error: -ATTEMPT_CAP, lost: "falls with an attempt not reached", rates: CONFIRM_RATES,
+    task: "the way-up cells of staged-roll and staged-down" },
 };
 
 /** The search's ranges intersected with every channel they drive on `model`, rounded inward to the decoded angles' precision. */

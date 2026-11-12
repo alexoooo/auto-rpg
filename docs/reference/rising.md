@@ -89,8 +89,12 @@ profile read: where a technique is developed. Its techniques are the route's fou
   an installed start in (`assets/research/posture-holds.json`). The Skeleton has none on hands
   and knees, so its sit-back is read on `moving-bodies` alone.
 
-A technique's settings are searched on the same cases, one body at a time: the sit-back's
-(`sit-back`) and the roll's (`roll`):
+## Searching a way up's settings
+
+A staged record's settings are searched on the cells of the ways up it drives
+([the way-up drill](#the-way-up-drill)), one body at a time: the sit-back record's (`sit-back`,
+driving `sit-back` and `front-sit-back`) and the step-up record's roll (`roll`, driving
+`staged-roll` and `staged-down`):
 
 ```powershell
 node research/skills/skill-search.mjs <sit-back | roll> <model> --out .tmp/skill-search/<model>.json --patience 30
@@ -100,22 +104,28 @@ node research/skills/skill-search.mjs <sit-back | roll> <model> --confirm .tmp/s
 - **What it moves** (`SEARCHES`): for the sit-back, the joint angles its three stages drive
   toward, never their times; for the roll, the joint angles its four poses drive toward and each
   pose's time. Each angle's search range is intersected with the body's joint ranges on both sides
-  and rounded inward to the candidate's precision (`searchOn`). A candidate is played as the body's record without being installed
-  (`TechniqueCase.configs`, `stepUpTuningWith`).
+  and rounded inward to the candidate's precision (`searchOn`). A candidate is played as the
+  body's record without being installed: every staged way up of the drills' Mind takes the
+  candidate's whole tuning (`stagedValue`, `research/skills/recovery/way-up-trials.mjs`).
 - **Where the roll's settings live**: in the body's step-up record (`roll`, and `roll <pose>`
   times), its poses the game's (`ROLL_POSES`, found on the Warrior) where the record has none.
   The Skeleton has poses of its own; the Warrior's and the Rogue's are the game's.
-- **What it plays**: the techniques that read the settings (the sit-back: `front-sit-back` and
-  `sit-back`; the roll: `staged-roll`) on the `placed` rung, the body holding each rated loadout:
-  60 trials a candidate for the sit-back, 90 for the roll. Its first candidate is the record as
+- **What it plays**: the twin of each of those cells on the body, every loadout it has one on or
+  `--loadout`'s (the way-up drill's fresh falls), at 120 Hz. Its first candidate is the record as
   it stands.
-- **A trial's score** is what the technique costs in play, in seconds: its time where it was done
-  (the body stood, or lies on its front after a roll), its longest run where it was not, a little
-  less the higher the body got.
+- **A trial's score** is its cell's value negated: the way up's seconds an attempt, an attempt
+  not reaching where it goes counted at `ATTEMPT_CAP`; a fall the way up is not tried on scores
+  nothing.
 - **How long**: with `--patience` and no `--generations` it runs for as long as it keeps
   improving and ends on its plateau; `--resume` goes on from an out file.
-- **`--confirm`** plays the record the body plays now and the search's best on seeds the drill
-  does not play, on `placed` and `moving`, and keeps the best only where it scores better and
-  stands no fewer; `--write` installs a kept best and leaves a kept record as it is. The body's profiles are then stale: rebuild them
-  in the same change ([the skill recipe](../recipes/skill.md#traps)), for the game's Mind; the
-  table reads none.
+- **`--confirm`** plays the record the body plays now and the search's best on each cell's own
+  falls at 120 and 480 Hz, the worse counting, and keeps the best only where it scores better
+  there with no more falls an attempt did not reach, as every skill's search keeps one; `--write`
+  installs a kept best and leaves a kept record as it is. The body's profiles are then stale:
+  rebuild them in the same change ([the skill recipe](../recipes/skill.md#traps)), for the game's
+  Mind; the table reads none.
+- **A loadout's staged settings** (the step-up's stage times and poses, the climb) are searched
+  the same way by `research/skills/recovery/implementations/staged/rise-search.mjs`, on the twin
+  of the body's four staged way-up cells holding that loadout; `--confirm <out>` plays its best
+  and the body's records on the cells' own falls at 120 and 480 Hz (`confirmRow`,
+  `research/drill-trials.mjs`).
