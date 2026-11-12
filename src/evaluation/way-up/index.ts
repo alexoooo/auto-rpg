@@ -21,12 +21,14 @@ import { ATTEMPT_CAP, attemptsValue, wayUpAttempts, wayUpOutcome } from "./read.
 /** The mind every way-up subject ranks its way up in: the drills' Option Mind. */
 const DRILL_MIND = "option-drill";
 
-/** What a fall gives its way up beside the falls' own figures: whether it was exercised, and its seconds an attempt. */
+/** What a fall gives its way up beside the falls' own figures: whether it was exercised, its seconds an attempt, and its attempts let go stuck against an object. */
 const WAY_UP_FIGURES: readonly Figure<WayUpReading>[] = [
   { name: "exercised", unit: "share of falls made, an attempt at the way up begun", kind: "rate", better: "higher",
     of: (r) => { const one = wayUpAttempts(r); return one === null ? null : one.attempts > 0; } },
   { name: "seconds an attempt", unit: `s, the mean over a fall's attempts at the way up, one not reaching where it goes at ${ATTEMPT_CAP} s`, kind: "mean", better: "lower",
     of: (r) => attemptsValue(wayUpAttempts(r)) },
+  { name: "obstructed", unit: "attempts at the way up let go stuck against an object, a fall exercised", kind: "mean", better: "lower",
+    of: (r) => { const one = wayUpAttempts(r); return one === null || one.attempts === 0 ? null : one.obstructed; } },
 ];
 
 export function createWayUpIndex(context: GameContext) {
@@ -50,7 +52,7 @@ export function createWayUpIndex(context: GameContext) {
     return { id: one, label: `${MINDS[DRILL_MIND]!.label}: ${technique.label} first`, value: value as unknown as Json };
   }
 
-  /** Each subject's falls by level, body and loadout: how many were made and exercised, its attempts, those reached, and its seconds an attempt. */
+  /** Each subject's falls by level, body and loadout: how many were made and exercised, its attempts, those reached and those let go stuck, and its seconds an attempt. */
   function summary({ subjects, cases }: Table<WayUpCondition, WayUpReading>): { lines: readonly string[]; json: Json } {
     const reports = subjects.map((subject) => {
       const groups = new Map<string, WayUpReading[]>();
@@ -62,12 +64,12 @@ export function createWayUpIndex(context: GameContext) {
         const read = readings.map(wayUpAttempts), made = read.filter((one) => one !== null), exercised = made.filter((one) => one.attempts > 0);
         const values = exercised.map(attemptsValue) as number[];
         return { key, falls: readings.length, made: made.length, exercised: exercised.length, attempts: exercised.reduce((sum, one) => sum + one.attempts, 0),
-          reached: exercised.reduce((sum, one) => sum + one.reached, 0), value: values.length ? mean(values) : null };
+          reached: exercised.reduce((sum, one) => sum + one.reached, 0), obstructed: exercised.reduce((sum, one) => sum + one.obstructed, 0), value: values.length ? mean(values) : null };
       }) };
     });
     const lines = reports.flatMap(({ subject, groups }) => [`${subject}:`, "",
-      "| Group | Made | Exercised | Attempts | Reached | Seconds an attempt |", "|---|---|---|---|---|---|",
-      ...groups.map((g) => `| ${g.key} | ${g.made}/${g.falls} | ${g.exercised}/${g.made} | ${g.attempts} | ${g.reached} | ${g.value?.toFixed(2) ?? "none"} |`), ""]);
+      "| Group | Made | Exercised | Attempts | Reached | Stuck | Seconds an attempt |", "|---|---|---|---|---|---|---|",
+      ...groups.map((g) => `| ${g.key} | ${g.made}/${g.falls} | ${g.exercised}/${g.made} | ${g.attempts} | ${g.reached} | ${g.obstructed} | ${g.value?.toFixed(2) ?? "none"} |`), ""]);
     return { lines, json: JSON.parse(JSON.stringify(reports)) as Json };
   }
 

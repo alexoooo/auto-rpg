@@ -112,9 +112,9 @@ const readsAt = (tuning: StepUpTuning, g: GroundReading, to: Position): boolean 
 
 /**
  * **The roll**: the roll of the lie it reads at once, the attempt after one that failed over the
- * other side; lies slack after it and reads again, rolling again where it is not on its front; and
- * is done once its rolled body has been read on its front, slow enough to hand over, for
- * `REACHED_SECONDS`. It yields only while it lies slack before it has turned the body: a roll's
+ * other side, or after one let go against an object (`obstructed`); lies slack after it and reads
+ * again, rolling again where it is not on its front; and is done once its rolled body has been read
+ * on its front, slow enough to hand over, for `REACHED_SECONDS`. It yields only while it lies slack before it has turned the body: a roll's
  * settling and rolling again are its own until it reads on its front.
  */
 function rollPart(own: OwnBody, view: BodyView, kind: StagedKind, tuning: StepUpTuning): TechniqueRun<Side> {
@@ -130,15 +130,16 @@ function rollPart(own: OwnBody, view: BodyView, kind: StagedKind, tuning: StepUp
   const finish = (end: TechniqueEnd) => { state.ended = end; return end; };
   return {
     state, get phase() { return rises[state.entry].state.phase; },
+    get stage() { const now = rises[state.entry].state; return `${now.phase} ${now.stage}`; },
     get yields() { return state.ended !== null || rises[state.entry].state.phase === "settle" && !state.rolled; },
     admits: (g, side) => stagedEntry(kind, tuning, g, side),
     reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : readsAt(tuning, g, to),
     begin() {
-      state.flip = state.ended === "failed" || state.ended === "timed-out" ? !state.flip : false;
+      state.flip = state.ended === "failed" || state.ended === "timed-out" || state.ended === "obstructed" ? !state.flip : false;
       state.entry = state.flip ? "other" : "whole"; state.rolled = false; state.ended = null; state.elapsed = 0; state.reached = 0;
       rises[state.entry].beginRolling();
     },
-    end() { if (state.ended === null) { rises[state.entry].end(); finish("interrupted"); } },
+    end(why = "interrupted") { if (state.ended === null) { rises[state.entry].end(); finish(why); } },
     step(g, senses, control, dt) {
       if (state.ended !== null) return state.ended;
       state.elapsed += dt;
@@ -185,6 +186,7 @@ function risePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: Sta
   const finish = (end: TechniqueEnd) => { state.ended = end; return end; };
   return {
     state, get phase() { return state.phase === "steady" ? "steady" : rise.state.phase; },
+    get stage() { return state.phase === "steady" ? "steady" : `${rise.state.phase} ${rise.state.stage}`; },
     get yields() { return state.ended !== null || rise.state.phase === "settle"; },
     admits: (g, side) => stagedEntry(kind, tuning, g, side),
     reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : readsAt(tuning, g, to),

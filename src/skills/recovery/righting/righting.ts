@@ -105,7 +105,8 @@ function rightingByRecipe(own: OwnBody, recipe: RightingRecipe): TechniqueRun {
   const turn = new Quaternion(), up = new Vector3(), side = new Vector3();
   const readTurn = () => { turnOfToRef(root, turn); up.set(0, 1, 0).applyRotationQuaternionToRef(turn, up); side.set(1, 0, 0).applyRotationQuaternionToRef(turn, side); };
   return {
-    state, get phase() { return state.phase; }, get yields() { return state.phase === "settle"; },
+    state, get phase() { return state.phase; }, get stage() { return state.phase === "play" ? `play ${state.frame}` : state.phase; },
+    get yields() { return state.phase === "settle"; },
     admits: () => true,
     reached: (g, to) => g.position === to,
     begin() { state.phase = "settle"; state.time = 0; state.frame = 0; state.since = 0; state.still = -1; },
@@ -234,7 +235,8 @@ function rightingByRoutes(own: OwnBody, view: BodyView, clock: Clock, fitted: Mo
     return state.elapsed >= T.recoveryLimit ? "timed-out" : null;
   };
   return {
-    state, get phase() { return state.phase === "place" ? `place:${state.route}` : state.phase; }, get yields() { return state.phase === "roll"; },
+    state, get phase() { return state.phase === "place" ? `place:${state.route}` : state.phase; },
+    get stage() { return state.phase === "place" ? `place:${state.route} ${state.paw}` : state.phase; }, get yields() { return state.phase === "roll"; },
     admits: () => true,
     reached: (g, to) => g.position === to,
     begin() { start(); },

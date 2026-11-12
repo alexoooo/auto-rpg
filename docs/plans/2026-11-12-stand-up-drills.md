@@ -69,12 +69,20 @@ What the table read before this plan:
   Stand-up mode does (the tomb's step back toward it before the shove, the target's shove), and
   the way-up drill and its twin add the target's falls beside the column, the wall, the tomb and
   the bench: 80 falls a cell.
+- **React when stuck**: a way up's ground skill lets go a try stuck against an object, ended
+  `obstructed` (`STUCK`: no new stage and the body no higher by 5 per cent of its standing height
+  for 3 s, meanwhile a fixed solid touched that bears none of the body from below,
+  `GroundReading.against`). The Option notes a failed try and may begin again; the staged roll
+  then rolls over its other side. The way-up drill counts the obstructed attempts. The 3 s is set
+  by hand from the stages' times, not measured.
 
 ## Open
 
 - **Falls from bouts** in the drill.
-- **What "stopped making progress" reads**: a way up's stage not advancing for some time while a
-  segment touches a solid that is not the ground; the time is not tuned without playing.
+- **How stuck reads**: the 3 s and the 5 per cent are unplayed; whether another body pressed
+  counts as an object (it does not now: the reading sees fixed solids alone); whether a try let go
+  should block the same way up from the same place (it does not now: with all four staged ways up
+  fitting, no reposition is on offer, so a block would leave the body lying).
 - **A record shared by two ways up**: the step-up record drives staged-roll and staged-down, the
   sit-back record sit-back and front-sit-back, so a search of one record scores on both cells'
   twins and a confirmation means over both.

@@ -9,8 +9,11 @@ import type { Senses } from "../../core/bodies/senses.ts";
 import type { GroundReading, Position } from "../../control/ground-reading.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 
-/** A physical event completes a technique; other ends remain failures in the bed. */
-export type TechniqueEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted";
+/**
+ * A physical event completes a technique; other ends remain failures in the bed. A way up let go
+ * where it got nowhere against an object ends `obstructed` (`groundSkills`, `STUCK`).
+ */
+export type TechniqueEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted" | "obstructed";
 /** Each implementation declares its configuration under its kind. */
 export interface TechniqueConfigs {}
 /** The kind of a technique the toolkit registers. */
@@ -18,12 +21,15 @@ export type TechniqueName = keyof TechniqueConfigs;
 export interface TechniqueRun<Start extends string = string> {
   readonly state: object;
   readonly phase: string;
+  /** Where along its way it is, finer than its phase: a new one each time it moves on (a stage begun); absent, its phase says. */
+  readonly stage?: string;
   readonly yields: boolean;
   admits(reading: GroundReading, start: Start): boolean;
   reached(reading: GroundReading, to: Position): boolean;
   begin(start: Start): void;
   step(reading: GroundReading, senses: Senses, control: BodyControl, dt: number): TechniqueEnd | null;
-  end(): void;
+  /** Let it go before its end: interrupted, or `obstructed` where it got nowhere against an object, which a run may try differently next (the roll over its other side). */
+  end(why?: "interrupted" | "obstructed"): void;
   /** Forget what it had under way, as the body's ground skills begin afresh with none carried over (`groundBody`); absent where it keeps nothing past its run. */
   forget?(): void;
 }

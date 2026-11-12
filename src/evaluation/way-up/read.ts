@@ -13,11 +13,12 @@ import type { WayUpReading } from "./cases.ts";
 export const ATTEMPT_CAP = 16;
 
 /**
- * **A fall's attempts at its way up**: how many, and how many reached where it goes (ended `done`)
- * and their seconds together; null for a fall not made (no takeover). A fall made with no attempt
- * at it never reached a posture it begins from.
+ * **A fall's attempts at its way up**: how many, how many reached where it goes (ended `done`) and
+ * their seconds together, and how many were let go stuck against an object (ended `obstructed`,
+ * `STUCK`); null for a fall not made (no takeover). A fall made with no attempt at it never reached
+ * a posture it begins from.
  */
-export interface WayUpAttempts { readonly attempts: number; readonly reached: number; readonly reachedSeconds: number }
+export interface WayUpAttempts { readonly attempts: number; readonly reached: number; readonly reachedSeconds: number; readonly obstructed: number }
 
 /** An attempt as a fall's reading records it: its ground action (`controller`, the technique's name) or technique, how it ended and its seconds. */
 type Attempt = { readonly technique?: string; readonly controller?: string; readonly end?: string; readonly seconds: number };
@@ -27,7 +28,8 @@ export function wayUpAttempts(reading: Pick<WayUpReading, "takeover" | "attempts
   if (reading.takeover === null) return null;
   const mine = (reading.attempts as unknown as readonly Attempt[]).filter((attempt) => (attempt.technique ?? attempt.controller) === reading.way);
   const reached = mine.filter((attempt) => attempt.end === "done");
-  return { attempts: mine.length, reached: reached.length, reachedSeconds: reached.reduce((sum, attempt) => sum + attempt.seconds, 0) };
+  return { attempts: mine.length, reached: reached.length, reachedSeconds: reached.reduce((sum, attempt) => sum + attempt.seconds, 0),
+    obstructed: mine.filter((attempt) => attempt.end === "obstructed").length };
 }
 
 /**
@@ -35,7 +37,7 @@ export function wayUpAttempts(reading: Pick<WayUpReading, "takeover" | "attempts
  * seconds where it reached where it goes, `ATTEMPT_CAP` where it did not; null for a fall not made
  * or one with no attempt (not exercised).
  */
-export const attemptsValue = (one: WayUpAttempts | null): number | null =>
+export const attemptsValue = (one: Omit<WayUpAttempts, "obstructed"> | null): number | null =>
   one === null || one.attempts === 0 ? null : (one.reachedSeconds + (one.attempts - one.reached) * ATTEMPT_CAP) / one.attempts;
 
 /** **What a fall came to for its way up**, in a word: not made, not exercised, every attempt reached, or one failed. */

@@ -60,7 +60,8 @@ const number = (value: number | null | undefined): number | null => value == nul
  * **What a trial keeps for its judge**, from its drill's reading `read`: the numbers its value and
  * the figures beside it are made of.
  * - `way-up`: the attempts at the way up (null for a fall not made, 0 for one not exercised), those
- *   that reached where it goes and their seconds together (`wayUpAttempts`); whether the body stood.
+ *   that reached where it goes and their seconds together (`wayUpAttempts`); whether the body stood;
+ *   those let go stuck against an object.
  * - `orders`: the seconds lost against the orders (null where the reading has none); how long down
  *   at the end, s (null where it stood); whether it fell.
  * - `strike`: the life traded, hp, and the cycle before a fall's rise, s (`strikeTrade`; null for an
@@ -73,7 +74,7 @@ export function keep(reading: Judged, read: Json): Kept {
   switch (reading.judge) {
     case "way-up": {
       const r = read as unknown as WayUpReading, one = wayUpAttempts(r);
-      return [one?.attempts ?? null, one?.reached ?? null, number(one?.reachedSeconds), flag(r.stood && r.verified !== null)];
+      return [one?.attempts ?? null, one?.reached ?? null, number(one?.reachedSeconds), flag(r.stood && r.verified !== null), one?.obstructed ?? null];
     }
     case "orders": { const r = read as unknown as Moved; return [number(r.lost), number(r.downFor), flag(r.fell)]; }
     case "strike": {
@@ -159,7 +160,8 @@ function figuresOf(reading: Judged, trials: readonly Trial[]): string {
     case "way-up": {
       const made = rows.filter(row => row[0] !== null), exercised = made.filter(row => row[0]! > 0);
       const attempts = exercised.reduce((sum, row) => sum + row[0]!, 0), reached = exercised.reduce((sum, row) => sum + row[1]!, 0);
-      return `${attempts} attempts over ${exercised.length} falls, ${reached} reached, the rest at ${ATTEMPT_CAP} s; `
+      const obstructed = exercised.reduce((sum, row) => sum + (row[4] ?? 0), 0);
+      return `${attempts} attempts over ${exercised.length} falls, ${reached} reached, the rest at ${ATTEMPT_CAP} s, ${obstructed} let go stuck against an object; `
         + `${made.length - exercised.length} falls not exercised, ${rows.length - made.length} not made; ${made.filter(row => row[3]).length} of ${made.length} stood`;
     }
     case "orders": return `${rows.filter(row => row[2]).length} fell, ${rows.filter(row => row[1] !== null).length} ended down`;

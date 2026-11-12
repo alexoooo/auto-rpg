@@ -53,6 +53,13 @@ export interface GroundReading {
   readonly flat: Uint8Array;
   /** Each foot's share of body weight, as `sole`'s. */
   readonly footLoad: Float64Array;
+  /**
+   * The share of body weight the body and what it holds press this step against fixed solids that
+   * bear none of it from below (a wall, a column, a tomb's side), as `load`'s: a solid any part bears
+   * on this step (the floor, a tomb's top) is not one, however its other contacts face. None on an
+   * open floor. Whether it touches one: `againstSolid`.
+   */
+  against: number;
   /** Whether the body bears on an end it stands on, and on nothing but those and its hands: a crouch's supports, on one end or all. Read every step. */
   onFeet: boolean;
   /** Sole corners in world coordinates, for the hand-back's support polygon. */
@@ -127,7 +134,7 @@ export function groundReading(built: ReadBody, dt: number) {
   const feetUp = feet.map(f => Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.Inverse(f.segment.rest), new Vector3()));
   const reading: GroundReading = {
     load: new Float64Array(parts.length), sole: new Float64Array(feet.length), flat: new Uint8Array(feet.length), footLoad: new Float64Array(feet.length),
-    soles: feet.map(f => ({ corners: f.corners })), onFeet: false, centre: new Vector3(), velocity: new Vector3(),
+    soles: feet.map(f => ({ corners: f.corners })), against: 0, onFeet: false, centre: new Vector3(), velocity: new Vector3(),
     lie: "front", height: 0, upright: 0, spin: 0, raw: "between", position: "between", settled: false, side: null,
   };
   const state = { reading, candidate: "between" as Position, steps: 0 };
@@ -184,21 +191,30 @@ export function groundReading(built: ReadBody, dt: number) {
     return "between";
   };
   const fixed = (other: unknown) => other === null;
+  /** This step's fixed solids that bear the body from below, and its contacts that do not face up: each one's solid and share of weight. */
+  const bearing = new Set<number>(), side = { solids: [] as number[], shares: [] as number[] };
   return {
     state,
     reset() { state.steps = 0; state.candidate = "between"; reading.position = "between"; reading.settled = false; },
     read(): GroundReading {
-      reading.load.fill(0); heldLoad.fill(0);
+      reading.load.fill(0); heldLoad.fill(0); reading.against = 0;
+      bearing.clear(); side.solids.length = 0; side.shares.length = 0;
       // What is on the body bears it, and weighs; a part cut off is the ground's.
       const { segments: kept, mass } = on(), weight = mass * -built.physics.gravity[1];
       for (let i = 0; i < parts.length; i++) {
         if (!attached(parts[i]!)) continue;
         for (const contact of built.physics.contactsOf(parts[i]!.body, fixed)) {
           if (contact.fixed === null) continue;
-          for (const pair of contact.pairs) if (-pair.normal[1] >= GROUND_UP && pair.impulse > 0 && weight > 0)
-            (shapeIsBody[i]![pair.mine] ? reading.load : heldLoad)[i] += pair.impulse * -pair.normal[1] / (dt * weight);
+          for (const pair of contact.pairs) {
+            if (!(pair.impulse > 0 && weight > 0)) continue;
+            if (-pair.normal[1] >= GROUND_UP) {
+              (shapeIsBody[i]![pair.mine] ? reading.load : heldLoad)[i] += pair.impulse * -pair.normal[1] / (dt * weight);
+              bearing.add(contact.fixed);
+            } else { side.solids.push(contact.fixed); side.shares.push(pair.impulse / (dt * weight)); }
+          }
         }
       }
+      for (let k = 0; k < side.solids.length; k++) if (!bearing.has(side.solids[k]!)) reading.against += side.shares[k]!;
       for (let i = 0; i < feet.length; i++) {
         const foot = feet[i]!;
         soleMiddleToRef(foot, foot.middle);
@@ -240,6 +256,9 @@ export function groundReading(built: ReadBody, dt: number) {
     },
   };
 }
+
+/** Whether the body or what it holds touches a fixed solid that does not bear it from below (`GroundReading.against`), as a contact bears (`BEARS`). */
+export const againstSolid = (g: Pick<GroundReading, "against">): boolean => g.against >= BEARS;
 
 /** Whether the body is tumbling: its centre of mass faster than `TUMBLING`, or its pelvis spinning faster than `TUMBLING_SPIN`. */
 export function tumbling(g: GroundReading): boolean {

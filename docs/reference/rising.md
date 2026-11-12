@@ -21,7 +21,8 @@ npm run evaluate -- way-up [option-drill/<way up> ...] [--protocol fresh]
   way up runs in its place from a posture it begins from; the others, by rank, carry the body to
   where it begins. A way up that fails is not masked by one that works.
 - **What a fall reads**: the read way up's own attempts (`wayUpAttempts`), each ended where it goes
-  (`done`) or not. A fall that never reaches a posture the way up begins from is not exercised, and
+  (`done`) or not, those let go stuck against an object (`obstructed`, `STUCK` in
+  `src/skills/recovery/skills.ts`) counted beside them. A fall that never reaches a posture the way up begins from is not exercised, and
   one not made is not counted, as on the target.
 - **The value**, on each body and loadout's falls (`attemptsValue`): each fall's mean seconds an
   attempt, one that did not reach where it goes at 16 s (`ATTEMPT_CAP`, the staged route's whole

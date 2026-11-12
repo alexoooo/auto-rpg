@@ -330,7 +330,10 @@ given the same groups in what it sees (`Sight`, `sightOf`).
 each with edges (`isWayUp`), and the modes of the ground, with none (brace, land, steady, flatten).
 Each is a ground skill (`groundSkills`, `skills.ts`), an executor holding the whole body and
 asking no stance; a ground action is prepared while its run yields and committed once it does
-not. A posture (`Position`) names what bears the body, read each step by the ground reading
+not. A way up stuck against an object is let go, ended `obstructed` (`STUCK`): no stage it has not
+been in this try (`TechniqueRun.stage`) and the body no higher for 3 s, while it or what it holds
+has touched a solid that does not bear it from below (`GroundReading.against`); the Option notes a
+failed try, and the staged roll's next try rolls over its other side. A posture (`Position`) names what bears the body, read each step by the ground reading
 (`groundReading`) from its spec's ends (`BodySpec.ends`), so any body has one: on the ends its
 stance stands on it stands, on its trunk it lies (named by the side up), and between it is named by
 the ends that bear it. A way up names the postures it begins from and reaches (its `edges`), begun

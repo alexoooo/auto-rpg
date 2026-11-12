@@ -10,7 +10,7 @@ import { loadEngine } from "../core/physics/engines.ts";
 import { withLoadout, type Held } from "../core/bodies/items/held.ts";
 import { humanoidSpec } from "../core/bodies/human/spec.ts";
 import { motorAndGuardOf } from "../skills/assembly/filled.ts";
-import { poseDrive, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/technique.ts";
+import { poseDrive, type TechniqueEnd, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/technique.ts";
 import type { GroundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
 import { cos, sin } from "../core/math/real.ts";
@@ -56,7 +56,7 @@ export const TECHNIQUE_LIMITS = Object.freeze({ admit: 2, run: 16, stood: 2, res
 const TECHNIQUE_SPREAD = .02;
 
 /** How a technique of the chain came to its end: one of its own (`TechniqueEnd`), never admitted, or stood and fallen again. */
-type LinkEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted" | "not entered" | "fell";
+type LinkEnd = TechniqueEnd | "not entered" | "fell";
 
 /** What one technique of the chain came to: its end, how long it ran, s, and the body as it began and as it ended. */
 export type LinkReading = {
