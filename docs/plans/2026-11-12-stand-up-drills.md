@@ -54,10 +54,14 @@ What the table read before this plan:
 - **Getting up whole is not a skill cell.** How a mind chains ways up after a real fall is a
   fight's question; the target's composite reading stays an evaluation (`rising-target`), read in
   research, not a cell.
+- **Falls from bouts**: the riser's mind, the cell's way up first, fights a copy of itself on the
+  bout world, the same body and loadout; the first side down is the fall read, from that step, its
+  way up's own attempts read as the shoved falls' are. A bout nobody falls in within its wait is a
+  fall not made, not exercised. Its twin draws the bouts' starts halfway between.
 - **Research scores on the drill** ([research on drills](2026-11-12-research-on-drills.md)): the
   ways up are searched on the drill's twin, the target's `fresh` falls, the cells' falls held
-  out. Held only outside the drills now, and added to them: the obstacle levels (rising bed, Lab)
-  and falls from bouts (`core-rise.mjs`). A probe, scoring no way up: `core-rise.mjs --shoves
+  out. Held only outside the drills before, and added to them: the obstacle levels (rising bed,
+  Lab) and falls from bouts (`core-rise.mjs`). A probe, scoring no way up: `core-rise.mjs --shoves
   128`. The ground profiles' falls (`edge-profiles.mjs`) are outside
   on purpose: they measure profiles, not skills.
 
@@ -85,10 +89,17 @@ What the table read before this plan:
   `GroundReading.against`). The Option notes a failed try and may begin again; the staged roll
   then rolls over its other side. The way-up drill counts the obstructed attempts. The 3 s is set
   by hand from the stages' times, not measured.
+- **Falls from bouts in the drill** (`bouts`, its twin `bouts-fresh`,
+  `src/evaluation/way-up/bouts.ts`): the riser's mind against a copy of itself on the open stage,
+  Balance 0, nothing ending the bout but its reader; 30 s for a side to fall (`BOUT_WAIT`), then
+  the fall read as the fall bed reads one, the standing side ordered to stand. The bouts start 2,
+  3 and 4 m apart, the right side 1 m either way across or on the line (`BOUT_PLACES`): 9 a
+  cell; the twin halfway between, 4.
 
 ## Open
 
-- **Falls from bouts** in the drill.
+- **How often a bout falls**: one bout played (the Rogue, empty hands, 2.5 m, 0.5 m across, the
+  twin's) had no fall in its 30 s; how many of a cell's bouts are falls is unread.
 - **A record shared by two ways up**: the step-up record drives staged-roll and staged-down, the
   sit-back record sit-back and front-sit-back, so a search of one record scores on both cells'
   twins and a confirmation means over both.
@@ -99,8 +110,9 @@ What the table read before this plan:
 - Every strike and move cell's value changes with the fixed fall price, recomputed from its saved
   trials, none replayed. Every cell already reads "not read" until played on `option-drill`.
 - The roadmap's stand-up goal on the Rogue and the Skeleton is read on the way-up cells.
-- A way-up cell plays 80 falls, its twin 80 more: a table play of the 60 way-up cells is 4800
-  falls. No way-up cell has a saved reading to void.
+- A way-up cell plays 80 falls and 9 bouts, its twin 80 falls and 4 bouts: a table play of the
+  60 way-up cells is 4800 falls and 540 bouts, a bout up to 64 s (`BOUT_SECONDS`). No way-up cell
+  has a saved reading to void.
 
 ## Readings
 

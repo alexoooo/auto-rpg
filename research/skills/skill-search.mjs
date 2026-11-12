@@ -19,7 +19,7 @@
  *   confirmation keeps a record on the value.
  * - The sit-back: its record drives two ways up (`front-sit-back`, `sit-back`), so it is searched
  *   on the twin of both their table cells on the body, every loadout or `--loadout`'s (the way-up
- *   drill's fresh falls, `research/skills/recovery/way-up-trials.mjs`), each fall risen by the
+ *   drill's fresh falls and bouts, `research/skills/recovery/way-up-trials.mjs`), each fall risen by the
  *   drills' Mind with the cell's way up first and every staged way up on the candidate
  *   (`stagedValue`), at 120 Hz, and confirmed on the cells' own falls at 120 and 480 Hz, the worse
  *   counting. The search moves the joint angles its three stages drive toward, never their times.
@@ -154,7 +154,7 @@ const wayUpTrial = (as) => async (settings, trial, hz) => {
 };
 
 /** What a way-up search plays and confirms on, in words. */
-const wayUpSaid = (held) => held === "twin" ? "on their cells' training twins (the way-up drill's fresh falls) at 120 Hz" : "on their cells' own falls at 120 and 480 Hz, the worse counting";
+const wayUpSaid = (held) => held === "twin" ? "on their cells' training twins (the way-up drill's fresh falls and bouts) at 120 Hz" : "on their cells' own falls at 120 and 480 Hz, the worse counting";
 
 /**
  * **What each skill's search plays**: the settings it searches, each with its range (the rest the

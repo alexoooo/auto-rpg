@@ -7,7 +7,7 @@ drill) (`src/evaluation/rising.ts`, `src/evaluation/way-up/`, `src/evaluation/ri
 ## The way-up drill
 
 ```powershell
-npm run evaluate -- way-up [option-drill/<way up> ...] [--protocol fresh]
+npm run evaluate -- way-up [option-drill/<way up> ...] [--protocol fresh | bouts | bouts-fresh]
 ```
 
 - **The falls**: the owner's target's (below), every body in every rated loadout shoved sixteen
@@ -16,6 +16,14 @@ npm run evaluate -- way-up [option-drill/<way up> ...] [--protocol fresh]
   target's shove: 80 falls a body and loadout, on the fall bed (`buildFall`), each a case of every
   way up that fits the body holding its loadout. A way up stuck against an object is read where it
   sticks.
+- **The falls from bouts** (`--protocol bouts`, `src/evaluation/way-up/bouts.ts`): the riser's
+  mind fights a copy of itself on the open stage, the same body holding the same loadout, Balance
+  0, nothing ending the bout but its reader. The first side down is the fall read, from that
+  step: the other side is ordered to stand, the fallen one's stand verified as on the fall bed
+  (`standCheck`) and its way up's attempts read from its mind's ledger (`groundLedger`). A bout
+  nobody falls in within 30 s (`BOUT_WAIT`) is a fall not made. The bouts start 2, 3 and 4 m apart,
+  the right side 1 m either way across the line or on it (`BOUT_PLACES`): 9 a body and loadout.
+  The cell reads them beside the shoved falls, every counted fall pooled.
 - **The riser**: the drills' Option Mind (`option-drill`) with the way up read ranked first among
   its ways up (`wayUpMind`, `withWayUpFirst`): by rank it runs wherever it is on offer, and no other
   way up runs in its place from a posture it begins from; the others, by rank, carry the body to
@@ -30,7 +38,8 @@ npm run evaluate -- way-up [option-drill/<way up> ...] [--protocol fresh]
   ([the table](the-table.md)). Its outcome: reached (every attempt), failed, not exercised, or no
   takeover.
 - **The fresh falls** (`--protocol fresh`): the same shoved 11.25 degrees past each direction
-  (`FRESH_OFFSET`), the drill's training twin. Research scores on them and holds the cells' own
+  (`FRESH_OFFSET`), the drill's training twin; the bouts' twin (`bouts-fresh`) starts them halfway
+  between the drill's places, 2.5 and 3.5 m apart, half a metre either way across. Research scores on them and holds the cells' own
   falls out ([the skill recipe](../recipes/skill.md#an-options-code)).
 - **One record, two ways up**: the step-up record drives staged-roll and staged-down, the sit-back
   record sit-back and front-sit-back, so a search of one record reads the cells of both.
@@ -115,8 +124,8 @@ node research/skills/skill-search.mjs <sit-back | roll> <model> --confirm .tmp/s
   times), its poses the game's (`ROLL_POSES`, found on the Warrior) where the record has none.
   The Skeleton has poses of its own; the Warrior's and the Rogue's are the game's.
 - **What it plays**: the twin of each of those cells on the body, every loadout it has one on or
-  `--loadout`'s (the way-up drill's fresh falls), at 120 Hz. Its first candidate is the record as
-  it stands.
+  `--loadout`'s (the way-up drill's fresh falls and bouts), at 120 Hz. Its first candidate is the
+  record as it stands.
 - **A trial's score** is its cell's value negated: the way up's seconds an attempt, an attempt
   not reaching where it goes counted at `ATTEMPT_CAP`; a fall the way up is not tried on scores
   nothing.

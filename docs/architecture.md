@@ -805,7 +805,8 @@ on its own merit, and a profile prices the skill where the Mind uses it.
   interval (`compareValues`), the person's figure beside a strike's (`personOf`).
 - **Falls** (`fall.ts`): one body felled on one bed (`buildFall`), on the open floor or beside an
   obstacle (`GROUND_LEVELS`), its stand verified (`STAND_CHECK`); each way up is read on its own attempts on the [way-up
-  drill](reference/rising.md#the-way-up-drill) (`way-up/`), a mind's whole rise on the [owner's
+  drill](reference/rising.md#the-way-up-drill) (`way-up/`: shoved falls on the fall bed, and
+  falls from bouts of a riser against its copy), a mind's whole rise on the [owner's
   target](reference/rising.md#the-owners-target).
   Lone, fall and Crypt evaluation scripts expose cue indices, orders and progress through their
   state objects; their builders publish no save/load interface.

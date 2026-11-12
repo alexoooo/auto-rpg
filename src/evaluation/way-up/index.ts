@@ -11,11 +11,12 @@ import { type GameContext } from "../../game/arena/context.ts";
 import { isWayUp, type TechniqueName } from "../../skills/recovery/technique.ts";
 import { mindJson, type Evaluation, type Figure, type Json, type Subject, type SubjectChoice, type Table } from "../evaluation.ts";
 import type { BuiltFall } from "../fall.ts";
+import type { BuiltBout } from "../bout.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { mean } from "../stats.ts";
 import { createRising } from "../rising.ts";
 import { FALL_FIGURES } from "../rising-target/index.ts";
-import { createWayUpCases, type WayUpCondition, type WayUpReading, type WayUpValue } from "./cases.ts";
+import { createWayUpCases, type WayUpCase, type WayUpReading, type WayUpValue } from "./cases.ts";
 import { ATTEMPT_CAP, attemptsValue, wayUpAttempts, wayUpOutcome } from "./read.ts";
 
 /** The mind every way-up subject ranks its way up in: the drills' Option Mind. */
@@ -52,12 +53,12 @@ export function createWayUpIndex(context: GameContext) {
     return { id: one, label: `${MINDS[DRILL_MIND]!.label}: ${technique.label} first`, value: value as unknown as Json };
   }
 
-  /** Each subject's falls by level, body and loadout: how many were made and exercised, its attempts, those reached and those let go stuck, and its seconds an attempt. */
-  function summary({ subjects, cases }: Table<WayUpCondition, WayUpReading>): { lines: readonly string[]; json: Json } {
+  /** Each subject's falls by level (or from bouts), body and loadout: how many were made and exercised, its attempts, those reached and those let go stuck, and its seconds an attempt. */
+  function summary({ subjects, cases }: Table<WayUpCase, WayUpReading>): { lines: readonly string[]; json: Json } {
     const reports = subjects.map((subject) => {
       const groups = new Map<string, WayUpReading[]>();
       for (const { subjects: [id], condition, reading } of cases) if (id === subject.id) {
-        const key = `${condition.level}/${condition.model}/${loadoutKey(condition.loadout)}`;
+        const key = `${condition.start === "bout" ? "bout" : condition.level}/${condition.model}/${loadoutKey(condition.loadout)}`;
         groups.set(key, [...groups.get(key) ?? [], reading]);
       }
       return { subject: subject.id, groups: [...groups].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, readings]) => {
@@ -73,7 +74,7 @@ export function createWayUpIndex(context: GameContext) {
     return { lines, json: JSON.parse(JSON.stringify(reports)) as Json };
   }
 
-  const WAY_UP: Evaluation<WayUpCondition, WayUpReading, BuiltFall> = {
+  const WAY_UP: Evaluation<WayUpCase, WayUpReading, BuiltFall | BuiltBout> = {
     id: "way-up",
     title: "The way-up drill",
     group: "skills",

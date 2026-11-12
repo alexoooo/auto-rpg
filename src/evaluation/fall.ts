@@ -146,7 +146,31 @@ function bedFaults(fall: Pick<FallCase, "start">): readonly string[] {
 }
 
 /** An attempt at a way up, as a fall's reading records it: begun at, s, how long it ran, s, the ground action, and how it ended. */
-interface GroundAttempt { readonly at: number; readonly seconds: number; readonly controller: string; readonly end: string }
+export interface GroundAttempt { readonly at: number; readonly seconds: number; readonly controller: string; readonly end: string }
+
+/**
+ * **A mind's ground attempts from its report**: each ground action (a technique of `techniques`, by its kit) it has
+ * ended, from its ledger (`MindReport.ended`), and those under way when read, ended `cap`. A mind
+ * that runs the ground's actions as its own (Option Mind) is read so; one whose rise is a sub-mind's
+ * is read by the ground meter instead. A completed action ends `done`.
+ */
+export function groundLedger(techniques: Readonly<Record<string, unknown>>, report: MindReport | null, clock: () => number) {
+  const ground = new Set((report?.kit ?? []).filter((entry) => Object.hasOwn(techniques, entry.kind)).map((entry) => entry.action));
+  const state = { kept: [] as GroundAttempt[], begun: new Map<number, number>(), seen: 0 };
+  return { state,
+    sample() {
+      for (const action of report?.actions ?? []) if (ground.has(action.action) && !state.begun.has(action.id)) state.begun.set(action.id, clock());
+      for (const ended of report?.ended ?? []) {
+        if (ended.sequence <= state.seen) continue;
+        state.seen = ended.sequence;
+        if (ground.has(ended.action)) state.kept.push({ at: ended.began, seconds: ended.ended - ended.began, controller: ended.action,
+          end: ended.ending.kind === "completed" ? "done" : ended.ending.reason ?? ended.ending.kind });
+      }
+    },
+    attempts: (time: number): readonly GroundAttempt[] => [...state.kept, ...(report?.actions ?? []).filter((action) => ground.has(action.action))
+      .map((action) => { const at = state.begun.get(action.id) ?? time; return { at, seconds: time - at, controller: action.action, end: "cap" }; })],
+  };
+}
 
 /** A fall's reader: the fall's own ending, and its reading. */
 export function readFall(built: BuiltFall): Reader<FallReading> {
@@ -295,7 +319,7 @@ export function createFall(context: GameContext) {
     if (isRefused(wind)) return wind;
     scope.own(wind);
     const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;
-    const ledger = groundLedger(fighter.minded.report ?? null, () => world.time);
+    const ledger = groundLedger(context.techniques, fighter.minded.report ?? null, () => world.time);
     const state = { shoves: 0, shovedAt: null as number | null, ended: false, check: check.state, meter: meter?.state ?? null, ledger: ledger.state };
     const result: BuiltFall = {
       world, body: fighter.built, actor: null, combatant: fighter, state,
@@ -320,30 +344,6 @@ export function createFall(context: GameContext) {
     };
     complete = true; return result;
     } finally { if (!complete) scope.dispose(); }
-  }
-
-  /**
-   * **A mind's ground attempts from its report**: each ground action (`isGroundSkill`, by its kit) it has
-   * ended, from its ledger (`MindReport.ended`), and those under way when read, ended `cap`. A mind
-   * that runs the ground's actions as its own (Option Mind) is read so; one whose rise is a sub-mind's
-   * is read by the ground meter instead. A completed action ends `done`.
-   */
-  function groundLedger(report: MindReport | null, clock: () => number) {
-    const ground = new Set((report?.kit ?? []).filter((entry) => Object.hasOwn(context.techniques, entry.kind)).map((entry) => entry.action));
-    const state = { kept: [] as GroundAttempt[], begun: new Map<number, number>(), seen: 0 };
-    return { state,
-      sample() {
-        for (const action of report?.actions ?? []) if (ground.has(action.action) && !state.begun.has(action.id)) state.begun.set(action.id, clock());
-        for (const ended of report?.ended ?? []) {
-          if (ended.sequence <= state.seen) continue;
-          state.seen = ended.sequence;
-          if (ground.has(ended.action)) state.kept.push({ at: ended.began, seconds: ended.ended - ended.began, controller: ended.action,
-            end: ended.ending.kind === "completed" ? "done" : ended.ending.reason ?? ended.ending.kind });
-        }
-      },
-      attempts: (time: number): readonly GroundAttempt[] => [...state.kept, ...(report?.actions ?? []).filter((action) => ground.has(action.action))
-        .map((action) => { const at = state.begun.get(action.id) ?? time; return { at, seconds: time - at, controller: action.action, end: "cap" }; })],
-    };
   }
 
   /** The fall world kind: built by `buildFall`, its one body traced, played by the world's clock. */

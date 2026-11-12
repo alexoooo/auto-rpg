@@ -92,13 +92,13 @@ export function createTableCells(context: GameContext) {
 
   /**
    * **A way up's skill** (the way-up drill): its own attempts on the body's falls holding the
-   * loadout, risen by the table's mind with it ranked first, so no other way up runs in its place
-   * from a posture it begins from.
+   * loadout, shoved and from bouts, risen by the table's mind with it ranked first, so no other way
+   * up runs in its place from a posture it begins from.
    */
   const wayUp = (way: TechniqueName): Skill => ({ name: way, has: fits(way),
-    readings: () => [{ drill: "way-up", protocol: "standard", subject: `${TABLE_MIND}/${way}`, judge: "way-up", byLoadout: true }],
+    readings: () => ["standard", "bouts"].map((protocol) => ({ drill: "way-up", protocol, subject: `${TABLE_MIND}/${way}`, judge: "way-up" as const, byLoadout: true })),
     value: `the seconds each attempt at ${techniqueOf(way).label.toLowerCase()} took to reach where it goes, one that did not at ${ATTEMPT_CAP} s, `
-      + "over the body's sixteen falls holding the loadout that reach a posture it begins from" });
+      + "over the body's falls holding the loadout, shoved and from bouts, that reach a posture it begins from" });
 
   /** Whether the table's mind strikes by `action` on a body holding a loadout (`strikesBy`): where a blow has a cell. */
   const struck = (action: string) => (body: HumanoidModel, loadout: Loadout): boolean => strikesBy(context.catalog.minds[TABLE_MIND]!.config, action, body, loadout);
