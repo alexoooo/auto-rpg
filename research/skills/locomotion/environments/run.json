@@ -1,0 +1,12 @@
+{
+  "kind": "cases",
+  "evaluation": "travel",
+  "layout": "research/skills/locomotion/environments/run.layout.json",
+  "subject": {"preset": "option-drill", "gait": "run", "steered": true},
+  "places": [
+    {"protocol": "confirmation-twin", "where": {}}
+  ],
+  "pool": 8,
+  "refresh": 8,
+  "reward": {"end": {"value": -1}}
+}

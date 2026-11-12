@@ -95,9 +95,10 @@ Each lands on its checks; nothing is played without a brief.
    from a walk, a route with a corner and a goal moved as the body runs, to each side (Travel 1,560
    trials to 1,760, the Warrior's run cell 312 to 352; Locomotion `run` 320 to 720, the Rogue's run
    cell 32 to 72); the Locomotion drill plays on the open floor, as its runs went
-   through the arena's posts. Missing now: a
-   stance tuning has no way into a drill case; the case environment skips a trained learner, so
-   the run's cannot be trained on it.
+   through the arena's posts. *The run trains on its twin*: the case environment steers Move's
+   run gait (`gaitLearningMind`, `environments/run.json` on Travel's `confirmation-twin`), each
+   episode valued as the cell values it; a stance's settings reach a drill case as its balance's
+   `tuning`.
 
 ## Open
 

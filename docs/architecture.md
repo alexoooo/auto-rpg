@@ -271,8 +271,14 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   offsets and the learner live in the gait's saved state.
   A record can supply its travel envelope independently of the braced limits, with eight
   directional operating speeds interpolated between adjacent headings. The game's network and
-  the trainer answer the same learner. `research/skills/locomotion/travel-environment.mjs` trains
-  scripted orders through Option Mind from quiet rest and reached moving starts. Training can
+  the trainer answer the same learner. The actor trains on its drill's twin
+  (`research/skills/locomotion/environments/run.json`: Travel's `confirmation-twin` played by the
+  case environment on `option-drill`, the run gait steered, `gaitLearningMind`), each episode
+  valued as the cell values its trial (`Evaluation.terms`, `ordersValue`, a fall at `FALL_PRICE`).
+  A stance's settings reach a drill case as its balance's research `tuning`
+  (`OptionMindConfig.tuning.parts.motor`, `stanceBalance`). The earlier
+  `research/skills/locomotion/travel-environment.mjs` trains
+  scripted orders of its own through Option Mind from quiet rest and reached moving starts. Training can
   vary the settled rest time and rotate the body and its order scripts together. The weighted
   scripts in `research/skills/locomotion/travel-curriculum.mjs` retain the seed's forward entry
   alongside moving holds as pace changes and stops are added. Checkpoint selection uses

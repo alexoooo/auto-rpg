@@ -5,6 +5,8 @@ import { createLocomotionIndex } from "../locomotion/index.ts";
 import { createTravelCases } from "./cases.ts";
 import type { TravelCondition } from "./protocol.ts";
 import { travelLegCoverage, type TravelReading } from "./read.ts";
+import { ordersValue } from "../order-time.ts";
+import { FALL_PRICE } from "../table/judge.ts";
 
 export function createTravelIndex(context: GameContext) {
   const { mindSubjects } = createLocomotionIndex(context);
@@ -20,6 +22,8 @@ export function createTravelIndex(context: GameContext) {
       { name: "entry", unit: "share reaching the required entry", kind: "rate", better: "higher", of: r => r.entryMade },
       { name: "held speed", unit: "m/s, slowest rolling second", kind: "median", better: "higher", of: r => r.held },
     ],
+    /** A learning environment's terms: `value`, the trial's value as the table reads it (`ordersValue`, a fall at `FALL_PRICE`), s lost. */
+    terms: { value: r => ordersValue(r, FALL_PRICE) },
     outcome: r => ({ label: r.met ? "met" : r.short.some(reason => reason.includes("entry")) ? "unentered" : "short", passed: r.met }),
     summary: table => ({ lines: table.subjects.map(subject => {
       const rows = table.cases.filter(row => row.subjects[0] === subject.id);

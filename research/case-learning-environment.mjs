@@ -85,24 +85,25 @@ const matches = (condition, where = {}) => Object.entries(where).every(([key, va
 
 /**
  * The mind `given` names: `preset`, a mind preset's config as the game holds it (`MINDS`,
- * `src/app/catalog.ts`); with `skill`, kept to the strike by that skill, first; with
- * `steered`, that executor in learning mode, its settings its body's record's and its trainer
- * steering it (a research `tuning` of `{ steered: true }`). Anything else is refused: a mind written
- * out, or a setting over the record, learns a skill the game does not throw.
+ * `src/app/catalog.ts`); with `skill`, kept to the strike by that skill, first; with `gait`, the
+ * legs going by Move's stock gaits; with `steered`, that strike's executor or that gait in
+ * learning mode, its settings its body's record's and its trainer steering it (a research `tuning`
+ * of `{ steered: true }`). Anything else is refused: a mind written out, or a setting over the
+ * record, learns a skill the game does not play.
  */
 function presetMind(given, configureMind) {
-  const extra = given && typeof given === 'object' ? Object.keys(given).filter((key) => !['preset', 'skill', 'steered'].includes(key)) : [];
-  if (!given || typeof given.preset !== 'string' || extra.length)
-    throw new Error(`an environment's mind is a preset, its skill and whether it is steered ({ "preset", "skill", "steered" }), not ${JSON.stringify(given).slice(0, 120)}`);
+  const extra = given && typeof given === 'object' ? Object.keys(given).filter((key) => !['preset', 'skill', 'gait', 'steered'].includes(key)) : [];
+  if (!given || typeof given.preset !== 'string' || extra.length || given.skill !== undefined && given.gait !== undefined)
+    throw new Error(`an environment's mind is a preset, its skill or its gait, and whether it is steered ({ "preset", "skill" | "gait", "steered" }), not ${JSON.stringify(given).slice(0, 120)}`);
   const preset = MINDS[given.preset]?.config;
   if (!preset) throw new Error(`no mind preset ${given.preset}: ${Object.keys(MINDS).join(', ')}`);
-  if (given.skill === undefined) {
-    if (given.steered !== undefined) throw new Error('a steered mind names the skill whose executor it steers');
+  if (given.skill === undefined && given.gait === undefined) {
+    if (given.steered !== undefined) throw new Error('a steered mind names the skill whose executor or the gait it steers');
     return preset;
   }
   if (given.steered !== undefined && given.steered !== true) throw new Error('`steered` is true where given');
   if (!configureMind) throw new Error(`no configured-skill adapter was supplied for ${given.preset}`);
-  const configured = configureMind(preset, { skill: given.skill, ...(given.steered ? { steered: true } : {}) });
+  const configured = configureMind(preset, { ...(given.skill === undefined ? { gait: given.gait } : { skill: given.skill }), ...(given.steered ? { steered: true } : {}) });
   if (isRefused(configured)) throw new Error(configured.refused);
   return configured;
 }

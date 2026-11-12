@@ -58,8 +58,12 @@ export function learnedRunFaults(value: unknown): readonly string[] {
   return faults;
 }
 
-/** One actor corrects the native walk/run and stop; its reference, muscle ceilings and permissions stay fixed. */
-export function learnedRun(body: Body, motion: Locomotion & { readonly state: WalkRunState }, settings: LearnedRunSettings, settle: number): Locomotion {
+/**
+ * One actor corrects the native walk/run and stop; its reference, muscle ceilings and permissions
+ * stay fixed. `steered`, its actor is in learning mode: its network is left out and its learner
+ * (`Learner.trained` false) is answered by a trainer, the reference still its record's.
+ */
+export function learnedRun(body: Body, motion: Locomotion & { readonly state: WalkRunState }, settings: LearnedRunSettings, settle: number, { steered = false }: { readonly steered?: boolean } = {}): Locomotion {
   const faults = learnedRunFaults(settings);
   if (faults.length) throw new Error(faults.join("; "));
   const travel = recoveryNetwork(settings.travel), reference = recoveryNetwork(settings.reference);
@@ -78,7 +82,7 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
     origin: { x: body.view.stance.centre.x, z: body.view.stance.centre.z },
     previousCentre: { x: body.view.stance.centre.x, z: body.view.stance.centre.z }, moving: false, face: 0, command: 0,
   };
-  const learner = learnerOf(TRAVEL_LAYOUT.inputs.length, settings.interval, { running: true, trained: true });
+  const learner = learnerOf(TRAVEL_LAYOUT.inputs.length, settings.interval, { running: true, trained: !steered });
   const state = { motion: motion.state, inference, learner };
   const decide = (): void => {
     const observation = inference.observation;
@@ -97,7 +101,7 @@ export function learnedRun(body: Body, motion: Locomotion & { readonly state: Wa
     if (moving && !inference.moving) Object.assign(inference.origin, inference.previousCentre);
     else if (moving && asked.face !== inference.face) Object.assign(inference.origin, { x: view.stance.centre.x, z: view.stance.centre.z });
     inference.moving = moving; inference.face = asked.face; inference.command = command;
-    const answer = act(learner, travel);
+    const answer = act(learner, steered ? undefined : travel);
     if (answer.length) for (let i = 0; i < inference.action.length; i++) inference.action[i] = answer[i]!;
     const driven = motion.goal(view, asked, dt, context);
     const s = view.stance, phase = motion.state.run.phase, h = motion.state.walkRun.heading;

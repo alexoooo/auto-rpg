@@ -13,7 +13,8 @@ import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
 import type { Orders } from "../../minds/orders.ts";
 import type { LocomotionReading } from "./read.ts";
 import { createLocomotionCases, scriptOf, type LocomotionCondition } from "./cases.ts";
-import { routeLeft } from "../order-time.ts";
+import { ordersValue, routeLeft } from "../order-time.ts";
+import { FALL_PRICE } from "../table/judge.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
 /** Whether a walk came to its pace: along within 0.8 to 1.25 of it, under a quarter of it across, on its feet. */
@@ -140,6 +141,8 @@ export function createLocomotionIndex(context: GameContext) {
       },
       upright: (built) => { const turn = rootOf(built).pose.rotation; return 1 - 2 * (turn.x * turn.x + turn.z * turn.z); },
     },
+    /** A learning environment's terms: `value`, the trial's value as the table reads it (`ordersValue`, a fall at `FALL_PRICE`), s lost. */
+    terms: { value: (r) => ordersValue(r, FALL_PRICE) },
     outcome: (r) => ({ label: r.fell ? "fell" : r.stopped ? "stood" : "moving", passed: !r.fell }),
     summary: locomotionSummary,
   };

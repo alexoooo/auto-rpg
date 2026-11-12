@@ -26,7 +26,8 @@ import { learningWorker } from './learning-worker.mjs';
 /**
  * Each kind of environment's maker, by the `kind` its file names: an episode's shape, which its
  * settings fill in. `cases`: any learnable part of a mind played in an evaluation's cases
- * (`case-learning-environment.mjs`), a strike the preset has no Option for given its own (`owning`); `travel`: residual control around the retained running gait
+ * (`case-learning-environment.mjs`), a strike the preset has no Option for given its own (`owning`),
+ * a gait steered on Move's stock gaits (`gaitLearningMind`); `travel`: residual control around the retained running gait
  * (`skills/locomotion/residual-environment.mjs`), for pretraining and development screens;
  * `travel-orders`: one travel actor through scripted Option Mind orders and physically reached starts.
  */
@@ -35,9 +36,10 @@ const KINDS = {
   'travel-orders': async () => (await import('./skills/locomotion/travel-environment.mjs')).travelEnvironment,
   cases: async () => {
     const { caseEnvironment, owning } = await import('./case-learning-environment.mjs');
-    const { profileLearningMind } = await import('../src/minds/option/index.ts');
+    const { profileLearningMind, gaitLearningMind } = await import('../src/minds/option/index.ts');
     const { GAME } = await import('../src/app/catalog.ts');
-    return configuration => caseEnvironment(configuration, { configureMind: (preset, request) => profileLearningMind(GAME.partLookup, owning(GAME, preset, request.skill), request) });
+    return configuration => caseEnvironment(configuration, { configureMind: (preset, request) => request.gait !== undefined ? gaitLearningMind(preset, request)
+      : profileLearningMind(GAME.partLookup, owning(GAME, preset, request.skill), request) });
   },
 };
 

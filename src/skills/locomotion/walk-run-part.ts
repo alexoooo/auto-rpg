@@ -35,22 +35,24 @@ declare module "../../core/data/store.ts" {
 
 /**
  * **The walk and run's config**: an experiment's research `tuning` of the stride, walk, run,
- * braking, envelope and learned settings, which a link does not carry.
+ * braking, envelope and learned settings, which a link does not carry; and with `steered`, its
+ * learned corrections' actor in learning mode, its trainer answering it (`learnedRun`).
  */
 interface WalkRunConfig {
   readonly kind: "walk-run";
-  readonly tuning?: { readonly walk?: Partial<WalkRunSettings>; readonly run?: Partial<RunCycleSettings>; readonly braking?: Partial<RunCycleSettings>; readonly stride?: Partial<GaitTuning>; readonly learned?: LearnedRunSettings; readonly envelope?: StanceEnvelope };
+  readonly tuning?: { readonly walk?: Partial<WalkRunSettings>; readonly run?: Partial<RunCycleSettings>; readonly braking?: Partial<RunCycleSettings>; readonly stride?: Partial<GaitTuning>;
+    readonly learned?: LearnedRunSettings; readonly envelope?: StanceEnvelope; readonly steered?: true };
 }
 
-/** The settings `config`'s research tuning sets over `base`. */
-const tunedOver = (base: WalkRunRecord, config: WalkRunConfig): WalkRunRecord & { readonly braking: RunCycleSettings } => {
+/** The settings `config`'s research tuning sets over `base`, and whether its actor is steered by a trainer. */
+const tunedOver = (base: WalkRunRecord, config: WalkRunConfig): WalkRunRecord & { readonly braking: RunCycleSettings; readonly steered: boolean } => {
   const run = runCycleSettings(config.tuning?.run, base.run);
   const stride = config.tuning?.stride ? { ...(base.stride ?? STANCE_GAIT), ...config.tuning.stride } : base.stride;
   const learned = config.tuning?.learned ?? base.learned;
   const envelope = config.tuning?.envelope ?? base.envelope;
   return { walk: { ...base.walk, ...config.tuning?.walk }, run,
     braking: runCycleSettings(config.tuning?.braking, base.braking ?? run), ...(stride ? { stride } : {}),
-    ...(learned ? { learned } : {}), ...(envelope ? { envelope } : {}) };
+    ...(learned ? { learned } : {}), ...(envelope ? { envelope } : {}), steered: config.tuning?.steered === true };
 };
 
 /** The defaults every body takes scaled to its leg (`scaledGait`) where it has no record of its own. */
@@ -75,16 +77,16 @@ function walkRunRefusal(spec: BodySpec): string | null {
  * **The walk and run** (`walkRun`): its settings its body's record (`assets/skills/locomotion/walk-run/walk-run.json`,
  * `dataOf("walk-run")`), else the defaults (`WALK_RUN`, `WALK_RUN_CYCLE`) scaled to its leg, a
  * research `tuning` over either, with the record's learned corrections (`learnedRun`) where it
- * has them. It holds its run's envelope (`walkRunEnvelope`, or the record's) and states it stops at
+ * has them, their actor steered by a trainer where the tuning says `steered`. It holds its run's envelope (`walkRunEnvelope`, or the record's) and states it stops at
  * `RUN_STOPPING` (`walkRun`).
  */
 export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
   role: "gait", requires: [SUPPORT_REFERENCE], label: "Walk and run", stage: "game", fields: [], slots: [], defaults: { kind: "walk-run" },
   keys: { kind: true, tuning: true },
-  tuning: ["walk", "run", "braking", "stride", "learned", "envelope"], fits: walkRunRefusal,
+  tuning: ["walk", "run", "braking", "stride", "learned", "envelope", "steered"], fits: walkRunRefusal,
   faults: (config) => {
     if (config.tuning !== undefined && (!config.tuning || typeof config.tuning !== "object" || Array.isArray(config.tuning))) return ["invalid walk and run tuning"];
-    if (config.tuning && Object.values(config.tuning).some(value => !value || typeof value !== "object" || Array.isArray(value))) return ["invalid walk and run tuning"];
+    if (config.tuning && Object.entries(config.tuning).some(([key, value]) => key === "steered" ? value !== true : !value || typeof value !== "object" || Array.isArray(value))) return ["invalid walk and run tuning"];
     const { walk, run, braking, stride, learned, envelope } = tunedOver(DEFAULTS, config);
     return [
       ...learned === undefined ? [] : learnedRunFaults(learned),
@@ -97,9 +99,10 @@ export const WALK_RUN_PART = deepFreeze<GaitPart<WalkRunConfig>>({
   },
   reads: () => ["walk-run"],
   make: (body, config) => {
-    const { walk, run, braking, stride, learned, envelope } = tunedOver(dataOf("walk-run")[bodyKey(body.built.spec)]?.settings ?? DEFAULTS, config);
+    const { walk, run, braking, stride, learned, envelope, steered } = tunedOver(dataOf("walk-run")[bodyKey(body.built.spec)]?.settings ?? DEFAULTS, config);
     const motion = walkRun(body, walk, run, { braking, stride, envelope, entry: learned?.entry, trim: learned?.trim });
-    return learned ? learnedRun(body, motion, learned, run.settle) : motion;
+    // Steered with no learned corrections, there is no actor to steer: the gait runs as it is, and a trainer finds no learner in it.
+    return learned ? learnedRun(body, motion, learned, run.settle, { steered }) : motion;
   },
 });
 
