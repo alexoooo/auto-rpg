@@ -6,7 +6,6 @@ import type { MotorUnmet } from "../../control/motor.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../../skills/framework/skill.ts";
 import type { EngagementDetail } from "../engagement.ts";
 import type { Option, Situation } from "./option.ts";
-type Kept = { foe: string; dealt: number; taken: number };
 import { optionsOf, isProfileOption } from "./kinds.ts";
 import type { OptionEvaluation } from "./model.ts";
 import { PROFILE_MODEL, type ProfileTables } from "./profile-contract.ts";
@@ -28,7 +27,7 @@ export function profileModel(tables: ProfileTables): OptionEvaluation {
     const reader = situationReader({ spec, hz, rate, delay, rules, strikes: options.flatMap(option => option.modelled ? [option.modelled] : []), measured: tables.strikes,
       ordersOf: input.orders, record, parts, techniques });
     const chosen = chooserOf(parts, input.chooser, options, input.seed, input.phase);
-    const state = { chooser: chosen.state, model: { situation: reader.state, record: record.state }, options: options.map((option) => option.state), prospects: [] as Kept[], details: [] as EngagementDetail[] };
+    const state = { chooser: chosen.state, model: { situation: reader.state, record: record.state }, options: options.map((option) => option.state), prospects: [] as readonly Prospect[], details: [] as EngagementDetail[] };
     const engagement = {
       get phase() { return chosen.running[0]?.name ?? "hold"; },
       get offers() { return chosen.offers; },
@@ -41,7 +40,7 @@ export function profileModel(tables: ProfileTables): OptionEvaluation {
         const read = reader.read(seen);
         let priced: readonly Situation[] = NONE;
         const { set, at: now, fresh } = chosen.decide(read, () => priced = reader.others());
-        if (fresh) { prospect(state.prospects, options, read); for (const other of priced) prospect(state.prospects, options, other); }
+        if (fresh) { state.prospects = prospect(state.prospects, options, read); for (const other of priced) state.prospects = prospect(state.prospects, options, other); }
         reader.keep(now);
         const intent = stepSet(set, now, dt, () => ({ move: null, face: walk.facing(now) }));
         state.details = [unmetDetail(seen.report.legs.unmet, seen.view.unmet), profileDetail(options, now)];
@@ -62,18 +61,22 @@ function profileDetail(options: readonly Option[], now: Situation): EngagementDe
 }
 
 /**
- * **Write into `prospects` what `now` expects of its focus** (`Prospect`), at reach: the most its
+ * **`prospects` with what `now` expects of its focus** (`Prospect`), at reach: the most its
  * `options` are expected to deal the focus a second within their reach (`Option.rate`), and
  * the most the focus's are expected to take of it (`Pressure.peak` of `pressure`), in place of what
- * was kept of that foe; nothing with no focus.
+ * was kept of that foe; as they were with no focus or where nothing changed. They are reported, so
+ * a change is a new array, never a write into this one.
  */
-function prospect(prospects: Kept[], options: readonly Option[], now: Situation): void {
-  if (!now.focus) return;
+function prospect(prospects: readonly Prospect[], options: readonly Option[], now: Situation): readonly Prospect[] {
+  if (!now.focus) return prospects;
   let dealt = 0;
   for (const option of options) if (option.rate) dealt = Math.max(dealt, option.rate(now));
   const foe = now.focus.id, taken = now.predictions.pressure.peak;
-  const kept = prospects.find((one) => one.foe === foe);
-  if (kept) { kept.dealt = dealt; kept.taken = taken; } else prospects.push({ foe, dealt, taken });
+  const at = prospects.findIndex((one) => one.foe === foe), kept = prospects[at];
+  if (kept && Object.is(kept.dealt, dealt) && Object.is(kept.taken, taken)) return prospects;
+  const next = [...prospects], one = { foe, dealt, taken };
+  if (kept) next[at] = one; else next.push(one);
+  return next;
 }
 
 

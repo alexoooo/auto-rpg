@@ -23,7 +23,8 @@ export interface Prospect {
  * navigation's report; the actions its body has (`KitEntry`), those under way and those ended, and
  * its choices now (`MenuEntry`), read when asked and changing nothing of it; null for what it does not
  * say. A mind that runs the game's skills publishes theirs and its decider's (`skillsReport`); any
- * other may publish its own.
+ * other may publish its own. Each field's owner gives it a new value when it changes and never
+ * writes into one it has given: what a mind said is compared by identity and frozen (`saidNow`).
  */
 export interface MindReport {
   readonly engagement: Engagement | null;
@@ -47,7 +48,7 @@ export function skillsReport(skills: Skills, decider: { readonly engagement?: En
     const saved = saveState(state);
     try { return skills.actions.menu(); } finally { loadState(state, saved); }
   };
-  return { get engagement() { return decider.engagement ?? null; }, get prospects() { return decider.prospects ?? null; }, get heading() { return skills.report.legs.heading; }, gaits: skills.legs.gaits,
+  return { get engagement() { return decider.engagement ?? null; }, get prospects() { return decider.prospects ?? null; }, get heading() { return skills.report.legs.heading; }, get gaits() { return skills.legs.gaits; },
     get navigation() { return skills.report.navigation ?? null; }, kit: skills.actions.kit, get actions() { return skills.report.actions; },
     get ended() { return skills.report.ledger; }, get menu() { return menu(); } };
 }

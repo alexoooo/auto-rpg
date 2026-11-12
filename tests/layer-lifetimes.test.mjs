@@ -137,26 +137,28 @@ test("a worker startup frame failure reports its error and disposes the complete
   } finally { hook.deregister(); delete globalThis.__lifetimeStage; }
 });
 
-test("mind threads resend values changed inside a stable gait object", async () => {
-  let stopping = 1;
-  const gait = { envelope: null, get stopping() { return stopping; }, lag: 0 };
-  globalThis.__lifetimeSeatHost = { handle() {}, says: () => ({ has: "fixture", report: { gaits: [gait], kit: null } }) };
+test("mind threads send a gait value replaced since it was last said", async () => {
+  // A report's owners replace a value that changes (`gaitLimits`, `src/skills/framework/arbiter.ts`); the thread sends each field whose value is new.
+  let gaits = [{ envelope: null, stopping: 1, lag: 0 }];
+  globalThis.__lifetimeSeatHost = { handle() {}, decide() {}, says: () => ({ has: "fixture", report: { prospects: null, heading: 0, gaits, navigation: null, kit: null, actions: [], ended: [] } }) };
+  const apart = new URL("../src/minds/seat/apart.ts", import.meta.url).href;
   const hook = registerHooks({ resolve(specifier, context, next) {
     if (context.parentURL?.endsWith("/src/app/apart/thread.ts?lifetime-regression") && specifier === "../../minds/seat/apart.ts") {
       return { shortCircuit: true, url: "data:text/javascript," + encodeURIComponent(
-        "export const seatHost=()=>globalThis.__lifetimeSeatHost;") };
+        `export * from ${JSON.stringify(apart)}; export const seatHost=()=>globalThis.__lifetimeSeatHost;`) };
     }
     return next(specifier, context);
   } });
   try {
     const { mindThread } = await import("../src/app/apart/thread.ts?lifetime-regression");
     const sent = [], thread = mindThread(length => new Float64Array(length), { say(reply) { sent.push(reply); }, answered() {} });
+    const step = (seq) => { thread.handle({ seq, asks: [{ seat: 0, ask: { kind: "step" } }] }); return sent.at(-1).said[0].report; };
     const made = thread.handle({ seq: 1, specs: [[0, modelSpec("workshop-fighter")]], asks: [{ seat: 0, ask: { kind: "make", recipe: { statics: { spec: 0 } } }, inbound: new Float64Array(), outbound: new Float64Array() }] });
-    assert.deepEqual(made.said[0].gaits, [{ envelope: null, stopping: 1, lag: 0 }]);
-    stopping = 9;
-    thread.handle({ seq: 2, asks: [{ seat: 0, ask: { kind: "step" } }] });
-    assert.deepEqual(sent[0].said[0].gaits, [{ envelope: null, stopping: 9, lag: 0 }]);
-    assert.deepEqual(made.said[0].gaits, [{ envelope: null, stopping: 1, lag: 0 }]);
+    assert.deepEqual(made.said[0].report.gaits, [{ envelope: null, stopping: 1, lag: 0 }]);
+    assert.equal("gaits" in step(2), false, "a gait value said already does not cross again");
+    gaits = [{ envelope: null, stopping: 9, lag: 0 }];
+    assert.deepEqual(step(3).gaits, [{ envelope: null, stopping: 9, lag: 0 }]);
+    assert.deepEqual(made.said[0].report.gaits, [{ envelope: null, stopping: 1, lag: 0 }]);
   } finally { hook.deregister(); delete globalThis.__lifetimeSeatHost; }
 });
 

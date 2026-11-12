@@ -103,11 +103,34 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const report = {
     legs: { get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference ?? null; }, get unmet() { return legs.unmet ?? ALL_MET; } },
     guard: { get covering() { return state.covering; } },
-    ...(navigation ? { navigation: navigation.report } : {}),
+    get navigation() { return navigation?.report; },
     get actions() { return instances.live; }, get ledger() { return instances.ledger; }, holders: state.owners, defaultOwners: state.defaultOwners,
   };
   const resume = (view: BodyView): void => {
     instances.resume(view); legs.resume(view); guard.resume(view); support?.resume(view); navigation?.resume();
+  };
+  // The gaits' limits as last read: a new array where a limit has changed since, so a report holds what it read.
+  // An envelope's quantities carry the rule that computed them, a function, so a gait's is copied as
+  // data (as `structuredClone` copies, its enumerable fields) once for each envelope the legs give.
+  let limits: readonly GaitLimits[] = [], envelopes: readonly (StanceEnvelope | null)[] = [];
+  const gaitLimits = (): readonly GaitLimits[] => {
+    const names = legs.gaits && legs.limitsOf ? legs.gaits : null, count = names ? names.length : 1;
+    // A gait the legs have no limits for reads as none: no envelope, no stopping, no lag.
+    const of = (i: number): Partial<GaitLimits> | null => names ? legs.limitsOf!(names[i]!) : legs;
+    let same = limits.length === count;
+    for (let i = 0; same && i < count; i++) {
+      const was = limits[i]!, one = of(i);
+      same = envelopes[i] === (one?.envelope ?? null) && Object.is(was.stopping, one?.stopping ?? 0) && Object.is(was.lag, one?.lag ?? 0);
+    }
+    if (!same) {
+      const given = Array.from({ length: count }, (_, i) => of(i)?.envelope ?? null);
+      limits = given.map((envelope, i) => {
+        const one = of(i);
+        return { envelope: envelope === envelopes[i] ? limits[i]!.envelope : envelope && structuredClone(envelope), stopping: one?.stopping ?? 0, lag: one?.lag ?? 0 };
+      });
+      envelopes = given;
+    }
+    return limits;
   };
   const kit = kitOf(executors, actions);
   return {
@@ -115,10 +138,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     legs: {
       get envelope() { return legs.envelope ?? null; },
       limitsOf: (gait: GaitName) => legs.limitsOf?.(gait) ?? null,
-      gaits: Object.freeze(legs.gaits && legs.limitsOf ? legs.gaits.map((name): GaitLimits => {
-        const of = () => legs.limitsOf!(name);
-        return { get envelope() { return of()?.envelope ?? null; }, get stopping() { return of()?.stopping ?? 0; }, get lag() { return of()?.lag ?? 0; } };
-      }) : [{ get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; }, get lag() { return legs.lag; } }]),
+      get gaits() { return gaitLimits(); },
     },
     navigation: { clearance: services.clearance },
     actions: {

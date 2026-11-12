@@ -413,11 +413,13 @@ research settings belong to `LayerOptions` in `src/control/body.ts`.
   make the command every step from the intent last decided.
 - **The report** (`MindReport`, `report.ts`) says what a mind is engaged in, weighing and doing,
   read without moving its state. Screens and Commanders read the report, never a mind's kind or
-  state. Each answer snapshots its prospects, heading, navigation, actions and endings (`saidOf`,
-  `create-mind.ts`), reusing unchanged branches by value; subsequent live writes leave retained
-  snapshots unchanged. The snapshot, including kit and gait values, belongs to the saved Mind
-  state. The profile provider saves its completed-decision engagement details; the menu reads
-  current skills.
+  state. Each field's owner gives it a new value when it changes and never writes into one: the
+  prospects, the gaits' limits, navigation's report, the actions' statuses and the ledger. Each
+  answer takes the fields whose values are new by identity and deep-freezes them (`saidNow`,
+  `apart.ts`), so what a mind said stays what it said, and a write into a said value throws where
+  it is made; a mind apart sends only those fields. What it said belongs to the saved Mind state.
+  The profile provider saves its completed-decision engagement details; the menu reads current
+  skills.
 
 **A mind is its config.** A `MindConfig` is plain data tagged by kind; `createMind` (`create-mind.ts`)
 makes it by the kind's `Controller` found in a `Catalog` (`src/minds/catalog/catalog.ts`). A mind is a

@@ -56,17 +56,15 @@ export interface Carried {
 export interface Batch { readonly seq: number; readonly asks: readonly Carried[]; readonly specs?: readonly (readonly [SpecNumber, BodySpec])[]; readonly decide?: true; readonly stop?: true }
 
 /**
- * What a seat's mind says as it crosses: as it is made or answers, who has its body and its report
- * but its kit and its gaits, which cross only when they change, and its engagement, which crosses
- * as it is made and where its step was asked with `shown`; its outbound numbers where made anew;
- * or the menu it was asked for.
+ * What a seat's mind says as it crosses: as it is made or answers, who has its body and the fields
+ * of its report it has replaced since it last said them (`saidNow`), all of them as it is made; its
+ * engagement as it is made and where its step was asked with `shown`; its outbound numbers where
+ * made anew; or the menu it was asked for.
  */
 export type Said = {
   readonly seat: number;
   readonly has: string;
-  readonly report: Omit<ReportNow, "kit" | "gaits" | "engagement"> & { readonly engagement?: ReportNow["engagement"] } | null;
-  readonly kit?: ReportNow["kit"];
-  readonly gaits?: ReportNow["gaits"];
+  readonly report: Partial<ReportNow> | null;
   readonly outbound?: Float64Array;
 } | { readonly seat: number; readonly menu: readonly MenuEntry[] | null };
 

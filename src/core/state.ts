@@ -133,12 +133,16 @@ const FROZEN = new WeakSet<object>();
 
 /** A deeply frozen constant. Mutable containers belong to state, not constants. */
 export function deepFreeze<T>(value: T): T {
+  // A value already verified, or none to freeze, costs a lookup and nothing more.
+  if (typeof value !== "object" || value === null || FROZEN.has(value)) return value;
   const seen = new Set<object>();
   const freeze = (item: unknown): void => {
     if (typeof item !== "object" || item === null || FROZEN.has(item) || seen.has(item)) return;
     if (item instanceof Map || item instanceof Set || ArrayBuffer.isView(item)) throw new Error("a constant uses immutable records and arrays, not mutable containers");
     seen.add(item);
-    for (const child of Object.values(item)) freeze(child);
+    // Own enumerable values, as `Object.values` reads them, without an array of them: a published value is frozen at each answer.
+    if (Array.isArray(item)) for (let i = 0; i < item.length; i++) freeze(item[i]);
+    else for (const key in item) if (Object.hasOwn(item, key)) freeze((item as Record<string, unknown>)[key]);
     Object.freeze(item);
     FROZEN.add(item);
   };

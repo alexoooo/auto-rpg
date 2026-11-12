@@ -43,7 +43,8 @@ export interface SkillsLegs {
   /**
    * The limits of each gait the legs go by (`Locomotion.gaits`, `limitsOf`), or the legs' own where
    * they go by no gait by name, which the speed rule reads (`travelSpeed`): what a team reads of how
-   * fast it can go.
+   * fast it can go. A new array where a limit has changed since it was last read, never written in
+   * place.
    */
   readonly gaits: readonly GaitLimits[];
 }

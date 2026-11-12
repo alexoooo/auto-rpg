@@ -94,12 +94,19 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     held: false, lying: new Map() as FallenMemory,
     /** Whether it stood at its goal at its last step (`stands`). */
     stood: false,
-    report: { status: "stopped", remaining: null, goal: null } as { status: NavigationStatus; remaining: number | null; goal: GroundPoint | null } };
+    report: { status: "stopped", remaining: null, goal: null } as { status: NavigationStatus; remaining: number | null; goal: GroundPoint | null },
+    /** What it reports (`NavigationReport`), as it was last read: a new record where any of it has changed since, never written in place. */
+    published: { status: "stopped", remaining: null, goal: null, route: [], request: null } as NavigationReport };
   const update = (status: NavigationStatus, remaining: number | null, goal: GroundPoint | null) => {
     state.report.status = status; state.report.remaining = remaining; state.report.goal = goal;
   };
-  const report: NavigationReport = { get status() { return state.report.status; }, get remaining() { return state.report.remaining; },
-    get goal() { return state.report.goal; }, get route() { return state.route; }, get request() { return state.request; } };
+  // The route and request are replaced, never written in place, so the report holds them as they are.
+  const reported = (): NavigationReport => {
+    const was = state.published, now = state.report;
+    if (was.status !== now.status || !Object.is(was.remaining, now.remaining) || was.goal !== now.goal || was.route !== state.route || was.request !== state.request)
+      state.published = { status: now.status, remaining: now.remaining, goal: now.goal, route: state.route, request: state.request };
+    return state.published;
+  };
   /** Geometry and progress remain current while actuation is unavailable. */
   const plan = (sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available: boolean): NavigationStep => {
     const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
@@ -194,7 +201,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
         state.route = [{ ...aim }]; state.solids = sensed; state.fallen = fallen; state.clearance = radius; return true;
       }
       if (refit) return false;
-      if (n >= 2 && clearStep(atHeight(route[n - 2]!, centre.y), to, radius, solids)) { route[n - 1] = { ...aim }; return true; }
+      if (n >= 2 && clearStep(atHeight(route[n - 2]!, centre.y), to, radius, solids)) { state.route = [...route.slice(0, n - 1), { ...aim }]; return true; }
       return n > 0 && apart(route[n - 1]!, aim) <= NAV.moved;
     };
     // A route this step's search has found already.
@@ -279,8 +286,12 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     state.stood = stands(distance, near, state.stood);
     if (state.stood) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance, rest: [aim.x, aim.z] }; }
     // A corner is passed where the body turns onto the next leg (`passedWithin`), or once the leg past it is clear from here.
-    while (state.route.length > 1 && (apart(here, state.route[0]!) <= passedWithin(here, state.route[0]!, state.route[1]!)
-      || clearStep(atHeight(here, centre.y), atHeight(state.route[1]!, centre.y), radius, solids))) state.route.shift();
+    // The route is reported, so the corners passed are cut from a new array rather than this one.
+    const route = state.route;
+    let passed = 0;
+    while (route.length - passed > 1 && (apart(here, route[passed]!) <= passedWithin(here, route[passed]!, route[passed + 1]!)
+      || clearStep(atHeight(here, centre.y), atHeight(route[passed + 1]!, centre.y), radius, solids))) passed++;
+    if (passed > 0) state.route = route.slice(passed);
     if (!state.route.length) return unreachable(goal);
     // The way on: the route to the goal, then a place's points after it.
     const way = request.kind === "place" ? [...state.route, ...request.points.slice(state.waypoint + 1)] : state.route;
@@ -303,7 +314,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     const walk = steered(next.x - here.x, next.z - here.z, going(next.x - here.x, next.z - here.z, remaining - near, corners));
     return { move: walk.move, face: walk.face ?? atan2(next.x - here.x, next.z - here.z), destination: remaining };
   };
-  return { state, report, ...stockClearance(spec),
+  return { state, get report() { return reported(); }, ...stockClearance(spec),
     steer(view: NavigationSight["view"], heading: number, move: readonly [number, number] | null) {
       return clearMove(view.stance.centre, printsOf(view.senses.solids ?? NO_SOLIDS, view.stance.centre.y, view.stance.support?.y), heading, move, radiusOf(view), .5);
     },

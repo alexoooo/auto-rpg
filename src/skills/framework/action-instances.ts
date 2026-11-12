@@ -23,15 +23,16 @@ export interface ActionBinding { readonly name: string; readonly executor: strin
 export interface ExecutorBinding { readonly name: string; readonly kind: string; readonly executor: Executor }
 
 const counts = () => ({ target: 0, block: 0, incidental: 0, world: 0 });
-const summary = () => ({ counts: { prepare: counts(), commit: counts(), release: counts() }, loadedInCommit: false, blockedSegments: [] as string[], lastTarget: null as number | null });
-interface Live extends Omit<ActionRequest, "target"> {
-  target: TargetRef;
-  phase: Phase;
-  aim: [number, number, number] | null;
-  stage: string;
-  holds: Resource[];
-  observations: Observation[];
-  contacts: ReturnType<typeof summary>;
+const summary = (): ActionStatus["contacts"] => ({ counts: { prepare: counts(), commit: counts(), release: counts() }, loadedInCommit: false, blockedSegments: [], lastTarget: null });
+/**
+ * A live action: what it publishes (`status`), a value replaced whenever a field of it changes and
+ * never written in place, so a report that holds it holds what it said; and what only the
+ * instances read.
+ */
+interface Live {
+  status: ActionStatus;
+  /** Its executor's request, as the executor is handed it each step: replaced with the target. */
+  request: ActionRequest;
   observed: number;
   began: number;
   executor: number;
@@ -39,6 +40,29 @@ interface Live extends Omit<ActionRequest, "target"> {
   committed: boolean;
   targetSegments: string[];
 }
+
+/** Whether two targets name the same thing at the same place, numbers compared as `Object.is` compares them. */
+function sameTarget(a: TargetRef, b: TargetRef): boolean {
+  if (a.kind === "body" || b.kind === "body") {
+    if (a.kind !== "body" || b.kind !== "body" || a.body !== b.body) return false;
+    const left = a.region, right = b.region;
+    return left.kind === "mark" ? right.kind === "mark" && left.mark === right.mark : right.kind === "segment" && left.segment === right.segment;
+  }
+  return a.body === b.body && "body" in a === "body" in b && sameNumbers(a.at, b.at) && "direction" in a === "direction" in b
+    && (a.direction === undefined ? b.direction === undefined : b.direction !== undefined && sameNumbers(a.direction, b.direction));
+}
+const sameNumbers = (a: readonly number[], b: readonly number[]): boolean => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false;
+  return true;
+};
+const sameHolds = (a: readonly Resource[], b: readonly Resource[]): boolean => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i]!.kind !== b[i]!.kind || a[i]!.name !== b[i]!.name) return false;
+  return true;
+};
+/** What an executor is handed of `status`: its request, frozen. */
+const requestOf = (status: ActionStatus): ActionRequest => deepFreeze({ id: status.id, action: status.action, effector: status.effector, target: copyActionTarget(status.target) });
 
 /** The body's sampler supplies presence and onset across all ownership changes. */
 export interface ActionContact {
@@ -75,17 +99,25 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
     for (const effector of action.effectors) { resources.controls([segmentResource(effector)]); needsOf(executors[registered.get(action.executor)!]!.executor, action.name, effector); }
     bindings.set(action.name, deepFreeze({ ...action, effectors: [...action.effectors] }));
   }
-  const state = { issued: 0, seen: 0, sequence: 0, observedStep: -1, observedTime: 0, live: [] as Live[], ledger: [] as Ended[],
+  // `statuses` is what `live` publishes, a new array whenever a status in it is replaced; `ledger` is replaced at each ending.
+  const state = { issued: 0, seen: 0, sequence: 0, observedStep: -1, observedTime: 0, live: [] as Live[], statuses: [] as readonly ActionStatus[], ledger: [] as readonly Ended[],
     attribution: [] as { id: number; phase: Phase; effector: string; target: TargetRef }[], executors: executors.map(e => e.executor.state) };
   const continued = executors.map(() => [] as ActionRequest[]);
-  const find = (id: number): Live | undefined => state.live.find(item => item.id === id);
+  const find = (id: number): Live | undefined => state.live.find(item => item.status.id === id);
+  // A status's values are never written in place, so its record shares them.
   const record = (item: Live, ending: ActionEnding, time: number): void => {
-    state.ledger.push({ id: item.id, action: item.action, effector: item.effector, target: copyActionTarget(item.target), sequence: ++state.sequence,
-      began: item.began, ended: time, ending: { ...ending }, committed: item.committed,
-      contacts: { ...item.contacts, counts: { prepare: { ...item.contacts.counts.prepare }, commit: { ...item.contacts.counts.commit }, release: { ...item.contacts.counts.release } },
-        blockedSegments: [...item.contacts.blockedSegments] },
-      observations: item.observations.map(observation => ({ ...observation, struck: observation.struck ? { ...observation.struck } : null })), observed: item.observed });
-    if (state.ledger.length > length) state.ledger.shift();
+    const status = item.status, ended: Ended = { id: status.id, action: status.action, effector: status.effector, target: status.target, sequence: ++state.sequence,
+      began: item.began, ended: time, ending: { ...ending }, committed: item.committed, contacts: status.contacts, observations: status.observations, observed: item.observed };
+    const ledger = state.ledger, from = ledger.length >= length ? ledger.length - length + 1 : 0;
+    state.ledger = [...ledger.slice(from), ended];
+  };
+  /** The statuses `live` publishes: a new array where a status was replaced, added or removed since it was made. */
+  const published = (): readonly ActionStatus[] => {
+    const live = state.live, was = state.statuses;
+    let same = was.length === live.length;
+    for (let i = 0; same && i < live.length; i++) same = was[i] === live[i]!.status;
+    if (!same) state.statuses = live.map(item => item.status);
+    return state.statuses;
   };
   const end = (item: Live, ending: ActionEnding, time: number): void => {
     if (ending.kind === "completed" && item.withdrawn && !item.committed) ending = { kind: "cancelled" };
@@ -99,24 +131,28 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
     const executor = executors[registered.get(binding.executor)!]!.executor, needs = needsOf(executor, action, effector);
     const own = executor.readiness(view, action, effector, target, around);
     if (own.kind === "blocked") return own;
-    if (state.live.some(item => resources.overlap(needs, item.holds))) return { kind: "waiting", reason: "resources held" };
+    if (state.live.some(item => resources.overlap(needs, item.status.holds))) return { kind: "waiting", reason: "resources held" };
     return own;
   };
   const update = (change: LifecycleUpdate, owner: number, time: number): void => {
     const item = find(change.id);
     if (!item || item.executor !== owner) throw new Error(`unknown executor instance ${change.id}`);
     if ("ending" in change) { end(item, change.ending, time); return; }
-    if ((item.phase === "release" && change.phase !== "release") || (item.phase === "commit" && change.phase === "prepare")) throw new Error("action phase reversed");
+    const status = item.status;
+    if ((status.phase === "release" && change.phase !== "release") || (status.phase === "commit" && change.phase === "prepare")) throw new Error("action phase reversed");
     if (item.withdrawn && !item.committed && change.phase === "commit") throw new Error("withdrawn preparation cannot commit");
-    if (change.holds.some(resource => !hasResource(item.holds, resource))) throw new Error("action acquired a resource after admission");
+    if (change.holds.some(resource => !hasResource(status.holds, resource))) throw new Error("action acquired a resource after admission");
     resources.controls(change.holds);
-    item.phase = change.phase; item.stage = change.stage; item.holds = [...change.holds];
-    if (change.aim) { const aim = item.aim ??= [0, 0, 0]; aim[0] = change.aim[0]; aim[1] = change.aim[1]; aim[2] = change.aim[2]; }
+    const holds = sameHolds(status.holds, change.holds) ? status.holds : [...change.holds];
+    const aim = !change.aim || (status.aim && sameNumbers(status.aim, change.aim)) ? status.aim : [change.aim[0], change.aim[1], change.aim[2]] as const;
+    if (status.phase !== change.phase || status.stage !== change.stage || holds !== status.holds || aim !== status.aim) item.status = { ...status, phase: change.phase, stage: change.stage, holds, aim };
     item.committed ||= change.phase === "commit";
   };
   return {
     state,
-    get live(): readonly ActionStatus[] { return state.live; },
+    /** The live actions' statuses, in the order they began: values replaced as they change, never written in place. */
+    get live(): readonly ActionStatus[] { return published(); },
+    /** The last endings, oldest first: a new array at each ending. */
     get ledger(): readonly Ended[] { return state.ledger; },
     instance(): number { if (!Number.isSafeInteger(state.issued + 1)) throw new Error("action ids exhausted"); return ++state.issued; },
     readiness,
@@ -134,15 +170,19 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
         ids.add(request.id);
         if (request.id > state.seen) { if (request.id <= latest) throw new Error("new action ids out of order"); latest = request.id; }
         const item = find(request.id);
-        if (item && (!sameActionIdentity(item, request))) throw new Error("changed action request");
+        if (item && !sameActionIdentity(item.status, request)) throw new Error("changed action request");
       }
       for (const list of continued) list.length = 0;
       for (const item of state.live) {
-        const request = requests.find(r => r.id === item.id);
+        const request = requests.find(r => r.id === item.status.id);
         if (!request) item.withdrawn = true;
         if (request && !item.withdrawn) {
-          item.target = copyActionTarget(request.target);
-          continued[item.executor]!.push(deepFreeze({ id: item.id, action: item.action, effector: item.effector, target: copyActionTarget(item.target) }));
+          if (!sameTarget(item.status.target, request.target)) {
+            item.status = { ...item.status, target: copyActionTarget(request.target) };
+            item.request = requestOf(item.status);
+          }
+          // A loaded state's request is a copy, frozen again as it is handed on.
+          continued[item.executor]!.push(deepFreeze(item.request));
         }
       }
       executors.forEach((entry, index) => {
@@ -153,20 +193,19 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
         state.seen = request.id;
         const ready = readiness(view, request.action, request.effector, request.target, around);
         const binding = bindings.get(request.action), owner = binding ? registered.get(binding.executor)! : -1;
-        const item: Live = { ...request, target: copyActionTarget(request.target), phase: "prepare", stage: "admitting", holds: [], aim: null,
-          observations: [], contacts: summary(), observed: 0, began: view.time, executor: owner, withdrawn: false, committed: false,
+        const status: ActionStatus = { ...request, target: copyActionTarget(request.target), phase: "prepare", stage: "admitting",
+          holds: ready.kind === "ready" ? [...executors[owner]!.executor.needs(request.action, request.effector)] : [], aim: null, observations: [], contacts: summary() };
+        const item: Live = { status, request: requestOf(status), observed: 0, began: view.time, executor: owner, withdrawn: false, committed: false,
           targetSegments: view.senses?.others.find(other => other.id === request.target.body)?.spec.segments.map(segment => segment.name) ?? [] };
         if (ready.kind !== "ready") { record(item, { kind: "refused", reason: ready.kind === "position" ? "outside entry window" : ready.reason }, view.time); continue; }
-        const executor = executors[owner]!.executor;
-        item.holds = [...executor.needs(request.action, request.effector)];
         state.live.push(item);
-        executor.start(view, deepFreeze({ id: item.id, action: item.action, effector: item.effector, target: copyActionTarget(item.target) }), around);
+        executors[owner]!.executor.start(view, item.request, around);
       }
     },
     snapshot(): void {
       state.attribution.length = 0;
-      for (const item of state.live) if (resources.controls(item.holds).includes(`effector:${item.effector}`))
-        state.attribution.push({ id: item.id, phase: item.phase, effector: item.effector, target: copyActionTarget(item.target) });
+      for (const { status } of state.live) if (resources.controls(status.holds).includes(`effector:${status.effector}`))
+        state.attribution.push({ id: status.id, phase: status.phase, effector: status.effector, target: copyActionTarget(status.target) });
     },
     observe(step: number, time: number, contacts: readonly ActionContact[]): void {
       if (step <= state.observedStep) return;
@@ -177,7 +216,7 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
         if (!snapshot) continue;
         const item = find(snapshot.id);
         if (!item) continue;
-        if (contact.loaded && snapshot.phase === "commit") item.contacts.loadedInCommit = true;
+        if (contact.loaded && snapshot.phase === "commit" && !item.status.contacts.loadedInCommit) item.status = { ...item.status, contacts: { ...item.status.contacts, loadedInCommit: true } };
         if (!contact.onset) continue;
         const target = contact.target;
         let kind: ContactKind;
@@ -190,14 +229,13 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
         const observation: Observation = { step, time, phase: snapshot.phase, kind, by: contact.effector,
           struck: target.kind === "body" ? { body: target.body, segment: target.segment } : null };
         item.observed++;
-        item.contacts.counts[snapshot.phase][kind]++;
-        if (item.observations.length < history) item.observations.push(observation);
-        if (snapshot.phase === "commit" && kind === "target") item.contacts.lastTarget = time;
-        if (snapshot.phase === "commit" && kind === "block" && target.kind === "body" && item.targetSegments.includes(target.segment)
-          && !item.contacts.blockedSegments.includes(target.segment)) {
-          item.contacts.blockedSegments.push(target.segment);
-          item.contacts.blockedSegments.sort((a, b) => item.targetSegments.indexOf(a) - item.targetSegments.indexOf(b));
-        }
+        const status = item.status, was = status.contacts, tally = was.counts[snapshot.phase];
+        const blocks = snapshot.phase === "commit" && kind === "block" && target.kind === "body" && item.targetSegments.includes(target.segment)
+          && !was.blockedSegments.includes(target.segment) ? target.segment : null;
+        const contacts = { ...was, counts: { ...was.counts, [snapshot.phase]: { ...tally, [kind]: tally[kind] + 1 } },
+          blockedSegments: blocks === null ? was.blockedSegments : [...was.blockedSegments, blocks].sort((a, b) => item.targetSegments.indexOf(a) - item.targetSegments.indexOf(b)),
+          lastTarget: snapshot.phase === "commit" && kind === "target" ? time : was.lastTarget };
+        item.status = { ...status, observations: status.observations.length < history ? [...status.observations, observation] : status.observations, contacts };
       }
     },
     /** End each of `ids` that is live and whose executor can forget it at once (`Executor.interrupt`), as interrupted for `reason`. */

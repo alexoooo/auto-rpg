@@ -12,6 +12,7 @@ import type { OwnBody } from "../../core/bodies/own-body.ts";
 import { mirrorBody, type MirrorChannel, type MirrorStatics } from "./mirror-channel.ts";
 import { answer, think } from "../execution.ts";
 import type { MindReport } from "../report.ts";
+import { deepFreeze } from "../../core/state.ts";
 
 /**
  * **Minds apart from the world.** A fight's mind may run where the world does not: in another
@@ -237,6 +238,31 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
       return menu;
     },
   };
+}
+
+/** What a mind says of itself with each answer: its report but its menu and what it shows a person (`MindReport.engagement`). */
+export type SaidReport = Omit<ReportNow, "engagement">;
+
+/** The fields of what a mind says (`SaidReport`), in `reportNow`'s order. */
+export const SAID_FIELDS: readonly (keyof SaidReport)[] = Object.freeze(["prospects", "heading", "gaits", "navigation", "kit", "actions", "ended"]);
+
+/**
+ * **What `report` says now**, beside what it said last, `previous`: each field whose value is not
+ * the one `previous` holds, deep-frozen as it is taken (`deepFreeze`), and the rest as they were;
+ * `previous` itself where no field is new. A report's owners replace a value as it changes and
+ * never write into one (`MindReport`), so a field compared by identity is compared whole, and an
+ * owner that wrote into a value said would throw where it wrote. A loaded state's values are new
+ * objects (`loadState`), taken and frozen again as they are next said.
+ */
+export function saidNow(report: SaidReport, previous: SaidReport | null): SaidReport {
+  let said: Record<string, unknown> | null = previous ? null : {};
+  for (let i = 0; i < SAID_FIELDS.length; i++) {
+    const key = SAID_FIELDS[i]!, value = report[key];
+    if (previous && Object.is(value, previous[key])) continue;
+    said ??= { ...previous };
+    said[key] = deepFreeze(value);
+  }
+  return (said ?? previous) as SaidReport;
 }
 
 /** What `report` says now, its menu aside (`ReportNow`), each field read once. */
