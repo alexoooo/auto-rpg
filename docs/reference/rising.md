@@ -11,8 +11,11 @@ npm run evaluate -- way-up [option-drill/<way up> ...] [--protocol fresh]
 ```
 
 - **The falls**: the owner's target's (below), every body in every rated loadout shoved sixteen
-  ways on the open floor, on the fall bed (`buildFall`), each a case of every way up that fits the
-  body holding its loadout.
+  ways on the open floor, and the same falls beside each obstacle (`GROUND_LEVELS`: a column, a
+  wall, a tomb, a bench, 1.2 m behind the body, the tomb's fall after a step back toward it), the
+  target's shove: 80 falls a body and loadout, on the fall bed (`buildFall`), each a case of every
+  way up that fits the body holding its loadout. A way up stuck against an object is read where it
+  sticks.
 - **The riser**: the drills' Option Mind (`option-drill`) with the way up read ranked first among
   its ways up (`wayUpMind`, `withWayUpFirst`): by rank it runs wherever it is on offer, and no other
   way up runs in its place from a posture it begins from; the others, by rank, carry the body to

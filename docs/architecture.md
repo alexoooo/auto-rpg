@@ -800,8 +800,8 @@ on its own merit, and a profile prices the skill where the Mind uses it.
   a reading's value the mean over its whole protocol (`valueOf`); a cell against its baseline
   (`baselineOf`, a pointer at the result it was read as), paired by condition with a bootstrap
   interval (`compareValues`), the person's figure beside a strike's (`personOf`).
-- **Falls** (`fall.ts`): one body felled on one bed (`buildFall`), its stand verified
-  (`STAND_CHECK`); each way up is read on its own attempts on the [way-up
+- **Falls** (`fall.ts`): one body felled on one bed (`buildFall`), on the open floor or beside an
+  obstacle (`GROUND_LEVELS`), its stand verified (`STAND_CHECK`); each way up is read on its own attempts on the [way-up
   drill](reference/rising.md#the-way-up-drill) (`way-up/`), a mind's whole rise on the [owner's
   target](reference/rising.md#the-owners-target).
   Lone, fall and Crypt evaluation scripts expose cue indices, orders and progress through their

@@ -65,10 +65,14 @@ What the table read before this plan:
   (`research/skills/recovery/way-up-trials.mjs`), each staged way up of the drills' Mind on the
   candidate, at 120 Hz, and confirm on the cells' own falls at 120 and 480 Hz, the worse counting.
   The Rise drill's placed starts and `rise-search.mjs`'s calibrated profiles score no search now.
+- **The obstacle levels in the drill**: the fall bed places a level's solids as the Lab's
+  Stand-up mode does (the tomb's step back toward it before the shove, the target's shove), and
+  the way-up drill and its twin add the target's falls beside the column, the wall, the tomb and
+  the bench: 80 falls a cell.
 
 ## Open
 
-- **The obstacle levels and falls from bouts** in the drill.
+- **Falls from bouts** in the drill.
 - **What "stopped making progress" reads**: a way up's stage not advancing for some time while a
   segment touches a solid that is not the ground; the time is not tuned without playing.
 - **A record shared by two ways up**: the step-up record drives staged-roll and staged-down, the
@@ -81,6 +85,8 @@ What the table read before this plan:
 - Every strike and move cell's value changes with the fixed fall price, recomputed from its saved
   trials, none replayed. Every cell already reads "not read" until played on `option-drill`.
 - The roadmap's stand-up goal on the Rogue and the Skeleton is read on the way-up cells.
+- A way-up cell plays 80 falls, its twin 80 more: a table play of the 60 way-up cells is 4800
+  falls. No way-up cell has a saved reading to void.
 
 ## Readings
 

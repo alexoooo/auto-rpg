@@ -1,8 +1,8 @@
 /**
  * **A fall as a case**: one body, any model under any mind, in a world of its own with the arena's
- * solids. Every evaluated fall is played on one bed (`buildFall`): the body enlisted as a fight
- * enlists it, shoved as the stand-up target shoves, and its stand verified as the Lab verifies one,
- * whatever its mind. The research rising bed (`rising.ts`) plays a mind on the Lab's stand bed
+ * solids and its level's (`GROUND_LEVELS`). Every evaluated fall is played on one bed (`buildFall`):
+ * the body enlisted as a fight enlists it, shoved as the stand-up target shoves, and its stand
+ * verified as the Lab verifies one, whatever its mind. The research rising bed (`rising.ts`) plays a mind on the Lab's stand bed
  * (`buildStandFall`): shoved, dropped or placed on the ground of the Stand-up mode (`startGround`,
  * `src/game/lab/ground-mode.ts`), its actor read. It is not bit-equal
  * between JavaScript engines: the starts and the shove (`src/game/lab/ground-starts.ts`,
@@ -30,11 +30,12 @@ import type { BodySpec } from "../core/bodies/spec/body.ts";
 import { createWorld, type World } from "../core/world/world.ts";
 import { labActor, type Actor } from "../game/lab/actor.ts";
 import { groundPlacement } from "../game/lab/ground-starts.ts";
-import { groundShove, shoveImpulse, SHOVED, SHOVED_UNFELLED, standCheck, startGround, targetImpulse } from "../game/lab/ground-mode.ts";
+import { groundShove, shoveImpulse, SHOVED, SHOVED_UNFELLED, STAND_CHECK, standCheck, startGround, targetImpulse } from "../game/lab/ground-mode.ts";
 import { groundMeter } from "../game/lab/ground-meter.ts";
 import { shoveBody } from "../game/lab/stance-mode.ts";
 import { CALM, labGusts, startWind } from "../game/lab/wind.ts";
-import type { GroundLevel } from "../game/lab/ground-environment.ts";
+import { groundEnvironment, type GroundLevel } from "../game/lab/ground-environment.ts";
+import { directMovement } from "../skills/framework/movement.ts";
 import { loadoutSpecChecked } from "../game/lab/loadout.ts";
 import type { CaseWorld, Cases, Json, Reader, WorldKind } from "./evaluation.ts";
 import { createLabScenarios, type LabAddress } from "../game/lab/scenarios.ts";
@@ -139,10 +140,9 @@ export interface BuiltFall {
   dispose(): void;
 }
 
-/** Why the fall bed cannot play `fall`, each a sentence: a start other than a shove, a floor other than the open one, or an obstacle. */
-function bedFaults(fall: Pick<FallCase, "start" | "obstacle" | "level">): readonly string[] {
-  return [...fall.start !== "shoved" ? [`a ${fall.start} start is installed for the humanoid's postures: the fall bed shoves`] : [],
-    ...fall.level && fall.level !== "open" || fall.obstacle ? ["the fall bed plays the open floor"] : []];
+/** Why the fall bed cannot play `fall`, each a sentence: a start other than a shove. */
+function bedFaults(fall: Pick<FallCase, "start">): readonly string[] {
+  return fall.start !== "shoved" ? [`a ${fall.start} start is installed for the humanoid's postures: the fall bed shoves`] : [];
 }
 
 /** An attempt at a way up, as a fall's reading records it: begun at, s, how long it ran, s, the ground action, and how it ended. */
@@ -247,10 +247,13 @@ export function createFall(context: GameContext) {
 
   /**
    * **The fall bed**, every evaluated fall's whatever its mind: `fall`'s body built standing in its
-   * mind's posture, facing +z, and enlisted as a fight enlists it (`enlist`), alone, its orders the
-   * stand's verification's; at `SHOVED.first` s its middle trunk is shoved (`shoveBody`) by the fall's
-   * impulse (unless given: a target's fall by the target's, `targetImpulse`; else the Lab's draw from
-   * its seed) at its degrees from +z, and again the same way while it holds the shove (`SHOVED`). Its
+   * mind's posture, facing +z, on its level (`GROUND_LEVELS`: the level's solids fixed in the world
+   * and granted to its senses, as the Lab's Stand-up mode places them), and enlisted as a fight
+   * enlists it (`enlist`), alone, its orders the stand's verification's, or the level's approach
+   * at the check's pace until the first shove; at `SHOVED.first` s its middle trunk is shoved
+   * (`shoveBody`) by the fall's impulse (unless given: a target's or an obstacle's fall by the
+   * target's, `targetImpulse`; else the Lab's draw from its seed) at its degrees from +z, and again
+   * the same way while it holds the shove (`SHOVED`). Its
    * rise has taken it over once it is first down by the fight's rule (`PhysicalBody.down`), and its
    * stand is verified as the Lab verifies one (`standCheck`), the body its own at the end. A body not
    * taken over by `SHOVED_UNFELLED` s was not felled: the trial did not reach its case ("no
@@ -269,16 +272,22 @@ export function createFall(context: GameContext) {
     const spec = strengthSpec(checked, factor);
     const world = scope.own(createWorld(await loadEngine(engine), hz === undefined ? {} : { hz }));
     addArenaSolids(world.physics);
+    const environment = groundEnvironment(fall.level ?? "open");
+    for (const collider of addArenaSolids(world.physics, environment.solids)) scope.own(collider);
     const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
     let check: ReturnType<typeof standCheck> | null = null;
+    const { approach } = environment;
+    const orders = () => approach && world.time < SHOVED.first
+      ? { ...STAND_ORDERS, move: directMovement(approach.x, approach.z), pace: STAND_CHECK.pace } : check?.orders() ?? STAND_ORDERS;
     const fighter = enlist(world, { id: "fall", side: "fall", name: "fall", spec, rules: rulebook("arena"), mind: fall.mind, catalog: GAME, at: [0, 0, 0],
-      senses: scope.own(createSenses(world)), out: () => false, orders: () => check?.orders() ?? STAND_ORDERS, balance: fall.balance ?? 0 });
+      senses: scope.own(createSenses(world)), out: () => false, orders, balance: fall.balance ?? 0,
+      ...(environment.solids.length ? { solids: environment.solids } : {}) });
     scope.own(fighter.built);
     const body = scope.own(fighter.body);
     check = standCheck({ body, world, takenOver: () => body.down, inCommand: () => true }, cap);
     const defaults = labAddress("?scenario=ground");
     const drawn = groundShove({ seed: fall.seed, ground: { ...defaults.ground, degrees: fall.degrees ?? null, impulse: fall.impulse ?? null } });
-    const degrees = drawn.degrees, impulse = fall.target && fall.impulse == null ? targetImpulse(fighter.built) : drawn.impulse;
+    const degrees = drawn.degrees, impulse = (fall.target || fall.obstacle) && fall.impulse == null ? targetImpulse(fighter.built) : drawn.impulse;
     const shoving = shoveBody(body, world, () => 0);
     if (isRefused(shoving)) return shoving;
     scope.own(shoving);
