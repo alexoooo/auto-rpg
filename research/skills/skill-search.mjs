@@ -97,6 +97,13 @@ const stompTrials = (model, gaps) => STRIKE_CASES.stomping.conditions.filter((c)
 /** A sit-back dimension's stage and the channels of its posture it moves, `@` both sides': `"sit back: hip.@ flexion"`. */
 const stageChannels = (key) => { const [stage, channel] = key.split(": "); return { stage, channels: channel.includes("@") ? ["left", "right"].map((side) => channel.replace("@", side)) : [channel] }; };
 
+/** A searched posture's anatomical channels, on either side for a bilateral or relative channel; a pose's time has none. */
+const postureChannels = (key) => {
+  const channel = key.split(": ")[1];
+  return channel === "scale" ? [] : /\.(?:@|near|far) /.test(channel)
+    ? ["left", "right"].map(side => channel.replace(/\.(?:@|near|far) /, `.${side} `)) : [channel];
+};
+
 /** The angle a sit-back's `settings` drive a dimension's channels toward: their own, else the recipe's (`SIT_BACK`). */
 function sitBackAngle(settings, key) {
   const { stage, channels } = stageChannels(key);
@@ -189,7 +196,7 @@ export const SEARCHES = {
   "sit-back": { dims: [["plant: knee.@ flexion", 1.9, 2.2], ["plant: hip.@ flexion", 1.5, 2.1], ["plant: shoulder.@ flexion", 1.2, 2.2], ["plant: elbow.@ flexion", 0, 1.6],
       ["sit back: hip.@ flexion", 1.5, 2.2], ["sit back: shoulder.@ flexion", .2, 1.8], ["sit back: elbow.@ flexion", 0, 1.6], ["sit back: thoracic flexion", -.2, .35], ["sit back: ankle.@ dorsiflexion", 0, .7],
       ["up: hip.@ flexion", .4, .85], ["up: shoulder.@ flexion", 0, 1.4], ["up: thoracic flexion", -.2, .35]],
-    get: sitBackAngle, set: sitBackWith,
+    get: sitBackAngle, set: sitBackWith, channels: postureChannels,
     trials: riseTrials(SIT_BACK_EDGES), search: RISE_SEARCH, confirm: RISE_CONFIRM, said: riseSaid,
     trial: riseTrial(SIT_BACK_EDGES, (sitBack) => ({ sitBack })), error: -(TECHNIQUE_LIMITS.run + 1), lost: "not stood",
     task: "the Rise drill's front-sit-back and sit-back, each alone on the body holding each rated loadout" },
@@ -200,11 +207,29 @@ export const SEARCHES = {
       ["over: hip.far flexion", .4, 2], ["over: hip.far abduction", 0, .55], ["over: shoulder.near flexion", 1.4, 3],
       ["flat: shoulder.near flexion", 1.4, 3], ["flat: shoulder.far internal rotation", -1.5, .4], ["flat: elbow.far flexion", .6, 2.4],
       ["wind: scale", .1, 1.2], ["swing: scale", .3, 2], ["over: scale", .3, 2.4], ["flat: scale", .3, 1.8]],
-    get: rollValue, set: rollWith, record: "step-up",
+    get: rollValue, set: rollWith, channels: postureChannels, record: "step-up",
     trials: riseTrials(ROLL_EDGES), search: RISE_SEARCH, confirm: RISE_CONFIRM, said: riseSaid,
     trial: riseTrial(ROLL_EDGES, (stepUp) => ({ stepUp })), error: -(TECHNIQUE_LIMITS.run + 1), lost: "not on the front",
     task: "the Rise drill's staged-roll, alone on the body holding each rated loadout" },
 };
+
+/** The search's ranges intersected with every channel they drive on `model`, rounded inward to the decoded angles' precision. */
+export function searchOn(skill, model) {
+  const search = SEARCHES[skill];
+  if (!search?.channels) return search;
+  const spec = modelSpec(model), ranges = new Map(spec.joints.flatMap(joint => joint.dofs.map(dof =>
+    [`${joint.name} ${dof.positive}`, [dof.min.value + dof.bind.value, dof.max.value + dof.bind.value]])));
+  return { ...search, dims: search.dims.map(([key, lo, hi]) => {
+    for (const channel of search.channels(key)) {
+      const range = ranges.get(channel);
+      if (!range) throw new Error(`${skill}'s ${key} asks ${channel}, which ${model} lacks`);
+      lo = Math.max(lo, Math.ceil(range[0] * 1e4) / 1e4);
+      hi = Math.min(hi, Math.floor(range[1] * 1e4) / 1e4);
+    }
+    if (lo > hi) throw new Error(`${skill}'s ${key} has no range on ${model}`);
+    return [key, lo, hi];
+  }) };
+}
 
 /** Play `subject` (a tuning, or a strike subject) on `condition` of `cases` to its reader's end. */
 async function play(cases, subject, condition) {
@@ -272,7 +297,7 @@ if (!isMainThread && workerData?.search) {
   const { values, positionals: [skill, model] } = parseArgs({ allowPositionals: true, options: { out: { type: "string" }, confirm: { type: "string" }, write: { type: "boolean" },
     from: { type: "string" }, generations: { type: "string" }, lambda: { type: "string" }, sigma: { type: "string" }, workers: { type: "string" }, seed: { type: "string" }, resume: { type: "boolean" },
     until: { type: "string" }, patience: { type: "string" }, try: { type: "boolean" }, hz: { type: "string" }, set: { type: "string" }, source: { type: "string" } } });
-  const search = SEARCHES[skill];
+  const search = searchOn(skill, model);
   if (!search || !model) throw new Error(`usage: <skill> <model>, skill one of ${Object.keys(SEARCHES).join(", ")}`);
   const recordName = search.record ?? skill;
   if (values.hz !== undefined && !search.rates) throw new Error(`${skill}'s trials play at one rate: --hz is not theirs`);

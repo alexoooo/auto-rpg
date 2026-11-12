@@ -155,6 +155,7 @@ it compares the complete sparse array alongside real `undefined` entries and esc
 
 | File and case | Concrete justification |
 | --- | --- |
+| [skill-search.test.mjs](skill-search.test.mjs): `searched recovery angles remain inside the body ranges at both decoded endpoints` | The Skeleton roll search decoded hip flexion below its anatomical minimum, so candidate trials threw rather than testing a roll. Check both decoded endpoints through the staged recipe's admission on each humanoid and each searched recovery; successful drill trials do not cover the search's range. |
 | [tooling.test.mjs](tooling.test.mjs): `one entrant cannot remove another through the shared registry line` | Reproduce a single entrant deleting a rival from the shared array while the ownership classifier still calls the change its own. A match does not check source ownership. |
 | [tooling.test.mjs](tooling.test.mjs): `build source identity canonicalizes included authoring text but preserves binary bytes` | Reproduce identical Python, PowerShell and Markdown inputs receiving different build identities after checkout line-ending conversion; keep binary distinctions intact. |
 | [tooling.test.mjs](tooling.test.mjs): `idle learning-worker errors survive until the next protocol request` | Reproduce a background environment failure discarded while no request waits; the next trainer request must receive that failure. Skill outcomes do not establish worker error delivery. |

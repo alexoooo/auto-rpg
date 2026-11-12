@@ -69,7 +69,8 @@ node research/skills/skill-search.mjs <sit-back | roll> <model> --confirm .tmp/s
 
 - **What it moves** (`SEARCHES`): for the sit-back, the joint angles its three stages drive
   toward, never their times; for the roll, the joint angles its four poses drive toward and each
-  pose's time. A candidate is played as the body's record without being installed
+  pose's time. Each angle's search range is intersected with the body's joint ranges on both sides
+  and rounded inward to the candidate's precision (`searchOn`). A candidate is played as the body's record without being installed
   (`TechniqueCase.configs`, `stepUpTuningWith`).
 - **Where the roll's settings live**: in the body's step-up record (`roll`, and `roll <pose>`
   times), its poses the game's (`ROLL_POSES`, found on the Warrior) where the record has none.
