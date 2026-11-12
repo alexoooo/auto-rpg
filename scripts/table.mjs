@@ -1,5 +1,5 @@
 /**
- * **The table**: every cell of Option Mind on every body (`tableCells`,
+ * **The table**: every cell of Option Mind on its priors alone on every body (`tableCells`,
  * `src/evaluation/table/cells.ts`), body by loadout by skill, valued from the drills' results
  * (`src/evaluation/results.ts`) in the game's own terms (`valueOf`): each reading's value now and at
  * its baseline (`baselineOf`), compared trial by trial on the conditions both counted
