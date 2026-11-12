@@ -44,6 +44,9 @@ its kind or running those tools.
 
 ## Tools on Windows
 
+- **PowerShell runs `npm` as `npm.ps1`, which its execution policy refuses** (`Restricted`):
+  call `npm.cmd` there, with the same arguments; the policy is left as it is.
+
 - **`git worktree remove` on a worktree with a `node_modules` junction empties the main
   checkout's.** Delete the folder with `npm run clean` (or Node's `rmSync`), then
   `git worktree prune`.
