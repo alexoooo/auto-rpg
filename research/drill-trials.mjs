@@ -155,8 +155,8 @@ export function searchScore(trial, { value, reading, outcome }) {
   return value - SHORT * Math.min(1, Math.max(0, (LANDED - bar) / (LANDED - FELL)));
 }
 
-/** A played trial as a worker sends it back: its name, outcome, value and search score, and whether it ended down. */
-const brief = (trial, played) => ({ name: played.name, outcome: played.outcome, value: played.value, score: searchScore(trial, played), down: !!played.reading?.down });
+/** A played trial as a worker sends it back: its name, outcome, value and search score, and whether it ended down (a blow's or a cover's `down`, a move's `fell`). */
+const brief = (trial, played) => ({ name: played.name, outcome: played.outcome, value: played.value, score: searchScore(trial, played), down: !!(played.reading?.down || played.reading?.fell) });
 
 /**
  * **Trials played on worker threads**, `count` of them: `play(trial, value, { hz })` as `playTrial`

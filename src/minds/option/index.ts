@@ -15,4 +15,4 @@ export { PROFILE_MODEL, type ProfileOptionContext, type ProfileTables } from "./
 export type { NamedSkills, OptionSkills } from "./skills.ts";
 export type { Objective, Path } from "./objective.ts";
 export { profileLearningMind } from "./profile-learning.ts";
-export { gaitLearningMind } from "./gait-learning.ts";
+export { gaitLearningMind, withGaitTuning, withStanceTuning } from "./gait-learning.ts";

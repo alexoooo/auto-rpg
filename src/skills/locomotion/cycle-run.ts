@@ -84,7 +84,7 @@ export interface RunCycleSettings {
 /**
  * The run as it is taken unless told otherwise, set for the Warrior's leg (`SimbiconSettings.leg`):
  * its lateral, lean, stance and swing settings searched on the Warrior, the Rogue and the skeleton
- * together (`research/skills/locomotion/walk-run/run-cycle-search.mjs`), running, turning, stopping, empty-handed and with the
+ * together (`research/skills/locomotion/walk-run/run-cycle-search.mjs`, before it played the run's drill), running, turning, stopping, empty-handed and with the
  * club, in the guard and in wind, with the walk's `run` and `speedup` (`SIMBICON`). Its `brake` is
  * the walk's `slowdown` the search stops it by: the run's pace asked comes down no faster than that.
  */

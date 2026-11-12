@@ -63,7 +63,7 @@ new start.
 ## Value and figures
 
 The travel's value is the time from an order to the body standing, or moving as asked, where the
-order asks, on the screen's cases of the game's orders. A fall costs its time down and its rising;
+order asks, on the run drill's cases of the game's orders. A fall costs a fixed 10 s (`FALL_PRICE`);
 a place missed costs the time to correct it. A change is kept when that time falls, paired
 against the version before ([the skill recipe](../recipes/skill.md#what-a-change-is-kept-on)). The
 figures below are read beside it on every case, in the direction named, to show where the time
@@ -104,27 +104,24 @@ particular to travel. The seeds are in `research/runs/warrior-travel/` (its READ
 native settings, reached warm-up recipes, the restored entry actor and its named transfer layout,
 single-actor seeds with replayable primary rows in `sustained/` and `entry/`, and recovery,
 walking and minimum-protocol comparison records. Transfer the entry policy by its
-layout and retrain after changing the actor's observations, actions or native controller. Screen a record with
-`research/skills/locomotion/warrior-travel.mjs --settings <record>`, then the `travel`
-evaluation's minimum protocol.
+layout and retrain after changing the actor's observations, actions or native controller.
 
-Choose checkpoints on `research/skills/locomotion/travel-screen.mjs`'s development cases:
-twelve from-rest entries varied in heading, settle time and resting posture, and eight moving
-holds at varied gait phases. The entries exercise both first legs. Read through the stop order
-for entry and hold selection; report stopping separately until the stop stage trains it. The
-cases and restored actor's baseline are in `research/runs/warrior-travel/development/`.
-The restored entry actor is the stop stage's seed. Training uses separate headings, settle times and
-moving phases; development cases never become exact training starts.
+Train, screen and choose checkpoints on the run drill's twin, the Warrior's run row's cases
+drawn at other points: the case environment (`research/skills/locomotion/environments/run.json`)
+and `research/skills/locomotion/travel-screen.mjs`, which plays a record or each checkpoint's
+actor in it on the twin and ranks them by the time they lose; `--cell` confirms the chosen one on
+the row's own cases at 120 and 480 Hz. `research/skills/locomotion/travel-case.mjs` retains one
+trial. The earlier screen's development cases and the restored actor's baseline on them are in
+`research/runs/warrior-travel/development/`; that screen no longer plays them.
+The restored entry actor is the stop stage's seed.
 
-1. **Restore the forward run.** Retrain the entry seed through the `travel-orders`
-   environment on the current learner until the forward run's held speed plateaus. This is the seed for step 2.
+1. **Restore the forward run.** Retrain the entry seed on the run drill's twin
+   (`environments/run.json`) on the current learner until the forward run's held speed plateaus. This is the seed for step 2.
 2. **One travel actor.** Build one environment in which one actor steers the walk-run record in
    every phase: from rest and from reached runs, holding and changing pace, toward headings and
    with facing held, turning and stopping. An episode is a script of orders through the
    configured Option Mind. The actor replaces the velocity, low-speed and braking actors;
-   `learnedRun` keeps it beside the frozen reference actor. Delete the per-phase machinery
-   (`slowVelocity`, `steered`, `trainingActor`, the braking-only `option-travel` kind) once the
-   one actor replaces it.
+   `learnedRun` keeps it beside the frozen reference actor. The per-phase machinery it replaced is gone from the code.
 3. **Forward and stop in the game.** Train the curriculum's first three stages until the
    forward run and the stop plateau, empty hands, calm air. Install the record in the
    Warrior's walk-run record so the game's Option Mind runs it, and report its table cells with
@@ -158,10 +155,7 @@ fighting-walk comparisons, and name each loss beside the gain.
 
 Each stage resumes from the previous stage's chosen checkpoint and keeps the earlier stages'
 episodes in the mix, half its episodes theirs (`travelCurriculum`). Checkpoints are ranked on
-every phase on the development screen (`travel-screen.mjs`), the game's orders among them: starts
-from a stand at 1 to 3 m/s, and places from a stand through the navigator, near and far, to each
-side and behind, round a corner and changed on the way, each carrying the sword the Warrior carries
-in the Dungeon and the Arena. Half the training environments carry it too: empty-handed, the
+the run drill's twin (`travel-screen.mjs`), every phase the drill holds counting in the time lost. Half the training environments carry it too: empty-handed, the
 actor drifts off its way with it. A travel run starts its spread at
 `--log-std -1.4` (0.25), the most the seed survives, takes its seed's 64-unit layers, and reads
 train.log's `down` and shortfall.
@@ -197,12 +191,11 @@ actual orders and the cases of [Value and figures](#value-and-figures).
 
 The row, from saved results: `npm run evaluate -- table --body workshop-fighter --skill run`. Each
 loadout loses 6.8 to 7.1 s against the orders of the Travel confirmation protocol, falling on
-none and ending down on 9 to 25 of 312.
+none and ending down on 9 to 25 of 312, read before the protocol added a run from a walk and places
+by a route with a corner and moved (352 a loadout), so the row reads again when played.
 
 The actor of the curriculum's game-orders stage is the one the Warrior's walk-run record holds
-(`assets/skills/locomotion/walk-run/walk-run.json`), and the game's Run gait uses it. The
-per-phase machinery work step 2 deletes (`slowVelocity`, `trainingActor`) is still in the code.
-
+(`assets/skills/locomotion/walk-run/walk-run.json`), and the game's Run gait uses it.
 What limits it is named in [the approaches](../approaches.md#travel): the clip cycle has no gait
 between the stance's walk and its slowest clip (2.75 m/s), so a start from a stand, a pace below
 that clip and a quick stop are not its to give, and more training of this actor on them does not
@@ -212,17 +205,17 @@ move the row.
 
 Work step 4: which of the two candidates of
 [Start, slow paces and the stop](#start-slow-paces-and-the-stop) starts the body from a stand
-without falling. Its signal is the Start and Short place cases
-(`research/skills/locomotion/travel-screen.mjs`, phases `start` and `short`; Node, 120 Hz,
-unassisted, the Warrior with the sword), where the installed record meets none and falls on none.
+without falling. Its signal is the run drill's starts from a
+stand and its places (the twin, `research/skills/locomotion/travel-screen.mjs`; Node, 120 Hz); on
+the earlier screen's Start and Short place cases the installed record met none and fell on none.
 A candidate that starts none of the eight headings after its three changes shows the mechanism
 cannot, and is written into the approaches.
 
 ## To pick it up
 
 - The seeds and the development cases: `research/runs/warrior-travel/README.md`.
-- Screen a record: `research/skills/locomotion/warrior-travel.mjs --settings <record>`, then the
-  `travel` evaluation's minimum protocol.
+- Screen a record: `research/skills/locomotion/travel-screen.mjs` on the run row's twin, then
+  `--cell`.
 - Work goes under `.tmp/warrior-travel/`.
 
 ## Completion

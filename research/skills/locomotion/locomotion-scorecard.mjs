@@ -1,73 +1,71 @@
 /**
- * **The locomotion scorecard**: one fixed reading of a gait on the locomotion test bed
- * (`research/skills/locomotion/locomotion-run.mjs`: Node stand, Rapier, 120 Hz), so that two gaits, or two settings
- * of one, are read on the same thing. On the Warrior and the Rogue:
+ * **The locomotion scorecard**: a move's settings read on its drill, so that two gaits, or two
+ * settings of one, are read on the same thing ([the skill recipe](../../../docs/recipes/skill.md#an-options-code):
+ * research scores on its drill). Each body's walk row (`--skills walk,run` adds the run's), its
+ * cells' training twins at the game's rate, 120 Hz (`move-drill.mjs`), each trial played with the
+ * cell's own subject (`option-drill`) given the settings and valued as the cell values it: seconds
+ * lost against the orders, a fall at `FALL_PRICE`. With `--cell`, the cells' own cases instead, held
+ * out from research, at `--hz` (the confirmation's rates are 120 and 480).
  *
- * - **the lines**: forward, right, back and left at 0.3 to 2.0 m/s, 20 s each, under gusts of 20 N
- *   once a second, which hardly push but make each seed a run of its own; 10 seeds;
- * - **the turns**: the square and the circle at 0.5, 0.7 and 1.0 m/s, 30 s each, under 50 N gusts;
- *   10 seeds.
+ * It prints, per body, skill and loadout, the trials, the falls and the mean time lost, and writes
+ * each trial to `--out` (a line each: body, skill, loadout, trial, outcome, value, fell). With
+ * `--against <other.jsonl>`, each cell is paired with that reading's trial by trial: the mean
+ * difference with its 95 % bootstrap interval and verdict (`compareValues`), and the trials only one
+ * of them fell in.
  *
- * It prints, per body and line, the fastest pace at which 9 seeds in 10 held (`HELD`) and every
- * slower one did too, the mean speed along the line there, and the runs that fell at each pace;
- * per body and turn, the falls at each pace. Its runs go to `<out>-lines.jsonl` and
- * `<out>-turns.jsonl`, for `research/skills/locomotion/locomotion-pair.mjs` to read against another reading's.
+ *   node research/skills/locomotion/locomotion-scorecard.mjs --out .tmp/<task>/card.jsonl [--bodies workshop-fighter,workshop-rogue]
+ *     [--skills walk,run] [--legs '<json>'|file] [--stance '<json>'|file] [--gait run='<json>'|file ...]
+ *     [--cell [--hz 480]] [--against <other.jsonl>] [--workers 14]
  *
- *   node research/skills/locomotion/locomotion-scorecard.mjs --out .tmp/locomotion-scorecard/base [--quick] [any locomotion-run.mjs argument]
- *
- * `--quick` reads 4 seeds in place of 10. Everything else is passed to `locomotion-run.mjs` as it
- * is: `--legs`, `--stance`, `--physique`, `--sole`, `--models`, a probe's flags, `--workers`.
- * The whole card is 1,280 runs; on the development host (30 lanes) it takes a few minutes.
+ * - `--legs`: Move's legs in place of those the body fits (`withLegs`), whole.
+ * - `--stance`: the stance's research tuning (`StanceTuning`) over the body's calibration.
+ * - `--gait <name>=<tuning>`: a stock gait's research tuning over its own, the run's
+ *   (`walk`, `run`, `braking`, `stride`, `learned`); given once a gait.
  */
-import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, rmSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { availableParallelism } from "node:os";
+import { parseArgs } from "node:util";
+import { loadoutKey } from "../../../src/core/bodies/items/held.ts";
+import { compareValues, unitOf } from "../../../src/evaluation/table/judge.ts";
+import { drillTrials, scoreOn, trialPool } from "../../drill-trials.mjs";
+import { moveRow, valuesWith } from "./move-drill.mjs";
 
-/** The share of seeds a pace must hold on for a line to count as held at it. */
-const HELD = 0.9;
-const LINES = ["forward", "right", "back", "left"], TURNS = ["square", "circle"];
-const LINE_PACES = [0.3, 0.5, 0.7, 1, 1.2, 1.4, 1.7, 2], TURN_PACES = [0.5, 0.7, 1];
-
-const argv = process.argv.slice(2);
-const at = argv.indexOf("--out");
-if (at < 0) throw new Error("--out names the reading");
-const out = argv[at + 1], quick = argv.includes("--quick");
-const passed = argv.filter((a, i) => i !== at && i !== at + 1 && a !== "--quick");
-const seeds = Array.from({ length: quick ? 4 : 10 }, (_, i) => i + 1).join(",");
-const harness = fileURLToPath(new URL("./locomotion-run.mjs", import.meta.url));
-
-/** One leg of the card, its runs written fresh to `file`. */
-function read(file, tracks, paces, wind, seconds) {
-  if (existsSync(file)) rmSync(file);
-  const run = spawnSync(process.execPath, [harness, "--tracks", tracks.join(","), "--paces", paces.join(","), "--winds", wind,
-    "--seeds", seeds, "--seconds", String(seconds), "--out", file, ...passed], { stdio: ["ignore", "ignore", "inherit"] });
-  if (run.status !== 0) throw new Error(`locomotion-run.mjs ended ${run.status}`);
-  return readFileSync(file, "utf8").trim().split("\n").map((line) => JSON.parse(line));
-}
-
-const started = Date.now();
-const lines = read(`${out}-lines.jsonl`, LINES, LINE_PACES, "1:20", 20);
-const turns = read(`${out}-turns.jsonl`, TURNS, TURN_PACES, "1:50", 30);
-const models = [...new Set(lines.map((r) => r.model))];
-console.log(`scorecard ${out}: ${lines.length + turns.length} runs in ${((Date.now() - started) / 60000).toFixed(1)} min; ${passed.join(" ") || "the harness's defaults"}`);
-for (const model of models) {
-  const held = [];
-  for (const track of LINES) {
-    let fastest = null, holding = true;
-    const falls = [];
-    for (const pace of LINE_PACES) {
-      const runs = lines.filter((r) => r.model === model && r.track === track && r.pace === pace);
-      const up = runs.filter((r) => r.fell === null);
-      falls.push(runs.length - up.length);
-      holding &&= up.length >= HELD * runs.length;
-      if (holding) fastest = { pace, mean: up.reduce((s, r) => s + r.mean, 0) / up.length };
-    }
-    held.push(fastest?.pace ?? 0);
-    console.log(`${model} ${track}: held ${fastest ? `${fastest.pace} (${fastest.mean.toFixed(2)} m/s along)` : "none"}; fell by pace ${falls.join(",")}`);
+const { values: o } = parseArgs({ options: {
+  out: { type: "string" }, bodies: { type: "string", default: "workshop-fighter,workshop-rogue" }, skills: { type: "string", default: "walk" },
+  legs: { type: "string" }, stance: { type: "string" }, gait: { type: "string", multiple: true }, cell: { type: "boolean" }, hz: { type: "string", default: "120" },
+  against: { type: "string" }, workers: { type: "string" },
+} });
+if (!o.out) throw new Error("--out names the reading");
+/** A setting given inline as JSON or as a file holding it. */
+const given = (text) => JSON.parse(text.trimStart().startsWith("{") ? text : readFileSync(text, "utf8"));
+const gaits = Object.fromEntries((o.gait ?? []).map((one) => {
+  const at = one.indexOf("=");
+  if (at < 1) throw new Error(`--gait names a gait and its tuning (run=<json>), not ${one}`);
+  return [one.slice(0, at), given(one.slice(at + 1))];
+}));
+const settings = { ...(o.legs ? { legs: given(o.legs) } : {}), ...(Object.keys(gaits).length ? { gaits } : {}), ...(o.stance ? { stance: given(o.stance) } : {}) };
+const valueOf = valuesWith(Object.keys(settings).length ? settings : null), hz = Number(o.hz);
+const pool = trialPool(Number(o.workers ?? Math.max(1, availableParallelism() - 4)));
+const rows = [], started = Date.now();
+try {
+  for (const body of o.bodies.split(",")) for (const skill of o.skills.split(",")) for (const cell of moveRow({ body, skill }).cells) {
+    const loadout = loadoutKey(cell.loadout), played = await scoreOn(drillTrials(cell, o.cell ? "cell" : "twin"), valueOf, { play: pool.play, hz });
+    for (const one of played.each) rows.push({ body, skill, loadout, trial: one.name, outcome: one.outcome, value: one.value, fell: one.down });
+    console.log(`${body} ${skill} ${loadout}: ${played.trials} trials, fell ${played.falls}, lost ${played.value?.toFixed(3) ?? "-"} s a trial`);
   }
-  for (const track of TURNS) {
-    const falls = TURN_PACES.map((pace) => turns.filter((r) => r.model === model && r.track === track && r.pace === pace && r.fell !== null).length);
-    console.log(`${model} ${track}: fell by pace ${falls.join(",")} of ${seeds.split(",").length}`);
+} finally { await pool.terminate(); }
+writeFileSync(o.out, rows.map((row) => JSON.stringify(row)).join("\n") + "\n");
+console.log(`scorecard ${o.out}: ${rows.length} trials (${o.cell ? `the cells' own cases at ${hz} Hz` : "the twins at 120 Hz"}) in ${((Date.now() - started) / 60000).toFixed(1)} min; ${JSON.stringify(settings)}`);
+if (o.against) {
+  if (!existsSync(o.against)) throw new Error(`no reading ${o.against}`);
+  const then = readFileSync(o.against, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+  const keyOf = (row) => `${row.body} ${row.skill} ${row.loadout}`, unit = unitOf("orders");
+  for (const group of [...new Set(rows.map(keyOf))]) {
+    const mine = rows.filter((row) => keyOf(row) === group), theirs = new Map(then.filter((row) => keyOf(row) === group).map((row) => [row.trial, row]));
+    const values = (list) => new Map(list.filter((row) => row.value !== null).map((row) => [row.trial, row.value]));
+    const c = compareValues(values(mine), values([...theirs.values()]), unit);
+    const onlyNow = mine.filter((row) => row.fell && theirs.has(row.trial) && !theirs.get(row.trial).fell).length;
+    const onlyThen = mine.filter((row) => !row.fell && theirs.get(row.trial)?.fell).length;
+    console.log(`${group}: ${c.verdict} over ${c.pairs} pairs, ${c.difference?.toFixed(3) ?? "-"} s (${c.low?.toFixed(3) ?? "-"} to ${c.high?.toFixed(3) ?? "-"}); fell only now ${onlyNow}, only then ${onlyThen}`);
   }
-  console.log(`${model} lines held ${held.join("/")} (forward/right/back/left)`);
 }

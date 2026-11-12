@@ -48,7 +48,7 @@ export const WALK_RUN: WalkRunSettings = Object.freeze({ run: 0.8614, turn: 2, s
 /**
  * The run the walk and run takes unless told otherwise, set for the Warrior's leg: `RUN_CYCLE`'s
  * lateral, lean, stance, swing and timing settings searched on the walk and run's handover, with
- * the pace it begins at (`WALK_RUN.run`; `research/skills/locomotion/walk-run/run-cycle-search.mjs`, in the guard, on the
+ * the pace it begins at (`WALK_RUN.run`; `research/skills/locomotion/walk-run/run-cycle-search.mjs` before it played the run's drill, in the guard, on the
  * Warrior, the Rogue and the skeleton, running and stopping, empty-handed and with the club, still
  * and in a gust), the rest `RUN_CYCLE`'s.
  */

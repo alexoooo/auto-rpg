@@ -98,7 +98,15 @@ Each lands on its checks; nothing is played without a brief.
    through the arena's posts. *The run trains on its twin*: the case environment steers Move's
    run gait (`gaitLearningMind`, `environments/run.json` on Travel's `confirmation-twin`), each
    episode valued as the cell values it; a stance's settings reach a drill case as its balance's
-   `tuning`.
+   `tuning`. *The scripts on their twins*: `move-drill.mjs` gives a body's walk or run row's twins
+   and a candidate's gait, legs or stance settings in the cell's subject; the stride and run-cycle
+   searches, the scorecard, the run's checkpoint screen (`travel-screen.mjs`) and `travel-case.mjs`
+   play on it, scored by the time lost, and confirm on the cells' own cases at 120 and 480 Hz;
+   `warrior-travel.mjs` is gone (`travel-case.mjs --settings --rows` retains a trial). Left: the
+   `travel-orders` training environment (`travel-environment.mjs`, `travel-curriculum.mjs`,
+   `travel-seed.mjs`) and the residual search, screens and environment still play scenarios of
+   their own; the walk's turn rates are not in the drill; the probes (`locomotion-run.mjs`,
+   `stance/*.mjs` and the like) score no skill.
 
 ## Open
 

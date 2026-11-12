@@ -275,15 +275,15 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   (`research/skills/locomotion/environments/run.json`: Travel's `confirmation-twin` played by the
   case environment on `option-drill`, the run gait steered, `gaitLearningMind`), each episode
   valued as the cell values its trial (`Evaluation.terms`, `ordersValue`, a fall at `FALL_PRICE`).
-  A stance's settings reach a drill case as its balance's research `tuning`
-  (`OptionMindConfig.tuning.parts.motor`, `stanceBalance`). The earlier
+  A gait's settings reach a drill case as its research `tuning` (`withGaitTuning`), a stance's as
+  its balance's (`withStanceTuning`, `stanceBalance`); the walk's and the run's searches and screens
+  play their rows' twins so (`research/skills/locomotion/move-drill.mjs`), checkpoints among them
+  (`travel-screen.mjs`), ranked by the time they lose. The earlier
   `research/skills/locomotion/travel-environment.mjs` trains
   scripted orders of its own through Option Mind from quiet rest and reached moving starts. Training can
   vary the settled rest time and rotate the body and its order scripts together. The weighted
   scripts in `research/skills/locomotion/travel-curriculum.mjs` retain the seed's forward entry
-  alongside moving holds as pace changes and stops are added. Checkpoint selection uses
-  `research/skills/locomotion/travel-screen.mjs`: several physical starts per phase, with stops
-  ranked only when trained. The lone-body world saves physics, perception, orders,
+  alongside moving holds as pace changes and stops are added. The lone-body world saves physics, perception, orders,
   wind and controller state so its reached running starts can be restored.
   `move`, the legs (role `locomotion`), goes by the gait its goal names, else by its rules. It
   shares gait instances only for identical complete configurations. Each stock gait is its own
