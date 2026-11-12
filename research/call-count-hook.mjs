@@ -28,7 +28,7 @@ const counting = (name) => `globalThis.__calls[${JSON.stringify(name)}] = (globa
 
 export async function load(url, context, next) {
   const out = await next(url, context);
-  if (url.includes("/@dimforge/rapier3d-simd-compat/dist/rapier.mjs")) {
+  if (url.includes("/@dimforge/rapier3d-simd-compat/dist/rapier.base.mjs")) {
     const text = textOf(out.source);
     if (!KEPT.test(text)) throw new Error("the Rapier binding no longer keeps its exports where the counter looks");
     return { ...out, source: text.replace(KEPT, (_, into, from) => `return ${into}=globalThis.__countWasm(${from}.exports),`) };
