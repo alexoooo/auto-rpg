@@ -11,7 +11,7 @@
       },
       "value": {
         "mind": {
-          "preset": "option",
+          "preset": "option-drill",
           "skill": "bonk",
           "steered": true
         },

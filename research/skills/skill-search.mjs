@@ -78,10 +78,16 @@ import { ROLL_POSES, SIT_BACK } from "../../src/skills/recovery/implementations/
 import { cmaSearch, workerPool } from "../cma.mjs";
 import { recordsOf, writeRecord } from "./skill-records.mjs";
 
-/** A mind throwing the stomp with `settings` at the middle of a body lying ahead: the drills' Option Mind's (`option-drill`) stomp, on any body. */
-const stomper = (settings) => ({ ...MINDS["option-drill"].config, support: { kind: "support-fold" },
-  executors: [{ name: "stomp", kind: "stomp", tuning: settings }],
-  actions: [{ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "centre", lead: 0 } }] });
+/**
+ * A mind throwing the stomp with `settings` (its research `tuning`, whole) at the middle of a body
+ * lying ahead: the drills' Option Mind (`option-drill`), its stomp so tuned and no other blow.
+ */
+function stomper(settings) {
+  const preset = MINDS["option-drill"].config;
+  const options = preset.options.filter((option) => !option.kind.startsWith("strike-") || option.kind === "strike-stomp")
+    .map((option) => option.kind === "strike-stomp" ? { ...option, skill: { ...option.skill, tuning: settings } } : option);
+  return { ...preset, options };
+}
 
 /** One stomping trial of whole `settings`: the drill's bar and the hit points dealt. */
 async function stompTrial(settings, { condition }) {
