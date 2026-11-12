@@ -1,6 +1,6 @@
 {
   "crypt-skeleton+toes": {
-    "made": "Searched on its own target falls (Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty and with the club, a fall's score its verified standing and how soon. Its roll's side and poses found by CMA-ES on its body (research/cma.mjs).",
+    "made": "Searched on its own target falls (Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty and with the club, a fall's score its verified standing and how soon. Its roll's side and poses found by CMA-ES on its body (research/cma.mjs). Roll settings developed on its 160 offset target falls, Node fall bed, rapier-coordinate, 120 Hz, Balance 0, scored by paired seconds to stand.",
     "settings": {
       "settle": {
         "speed": 0.1881,
@@ -10,36 +10,36 @@
       "over": "right",
       "roll": {
         "wind": {
-          "hip.far flexion": 1.481,
-          "hip.far abduction": 0.216,
-          "hip.near flexion": -0.284,
-          "shoulder.near flexion": 1.632,
+          "hip.far flexion": 1.2506,
+          "hip.far abduction": 0.3392,
+          "hip.near flexion": -0.2728,
+          "shoulder.near flexion": 1.4686,
           "shoulder.far flexion": 2.832
         },
         "swing": {
-          "hip.far flexion": 1.59,
-          "hip.far internal rotation": -0.261,
-          "hip.near abduction": 0.019,
-          "lumbar flexion": 0.716,
-          "shoulder.far flexion": 2.022,
-          "shoulder.near flexion": 0.931,
-          "shoulder.near abduction": 0.796,
+          "hip.far flexion": 1.6358,
+          "hip.far internal rotation": -0.2596,
+          "hip.near abduction": -0.0597,
+          "lumbar flexion": 0.7506,
+          "shoulder.far flexion": 2.4091,
+          "shoulder.near flexion": 0.9711,
+          "shoulder.near abduction": 1.5035,
           "knee.far flexion": 0.388,
           "lumbar rotation near": 0.001,
           "thoracic rotation near": -0.338,
           "shoulder.far abduction": 0.293
         },
         "over": {
-          "hip.far flexion": 1.577,
-          "hip.far abduction": 0.142,
-          "shoulder.near flexion": 2.978,
+          "hip.far flexion": 1.6361,
+          "hip.far abduction": 0.287,
+          "shoulder.near flexion": 2.8643,
           "knee.far flexion": 0.113,
           "shoulder.far flexion": 1.935
         },
         "flat": {
-          "shoulder.near flexion": 2.689,
-          "shoulder.far internal rotation": -0.844,
-          "elbow.far flexion": 1.579,
+          "shoulder.near flexion": 2.9094,
+          "shoulder.far internal rotation": -0.2741,
+          "elbow.far flexion": 2.2453,
           "shoulder.far flexion": -0.368,
           "elbow.near flexion": 0.28,
           "shoulder.near abduction": 0.002
@@ -47,16 +47,16 @@
       },
       "stages": {
         "roll wind": {
-          "scale": 0.7776
+          "scale": 0.5263
         },
         "roll swing": {
-          "scale": 0.5243
+          "scale": 0.3503
         },
         "roll over": {
-          "scale": 2.165
+          "scale": 1.256
         },
         "roll flat": {
-          "scale": 0.7084
+          "scale": 0.3
         },
         "fold": {
           "scale": 0.2391
