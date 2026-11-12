@@ -75,7 +75,7 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
 
 - **A claim that a skill is better is its table cell**: the cell's line from
   `npm run evaluate -- table`, read at the commit claimed (the commit its line shows), its value
-  against its baseline and its Ratings link. The table plays the game's Mind with what is
+  against its baseline and its Ratings link. The table plays Option Mind on its priors with what is
   installed, so a skill the Mind does not use moves no cell and is reported as not in the game. A
   reading on a drill, a search or a training screen is progress toward a claim and never the claim.
   A check that shows a change works (the table cell, the fresh agent, the fingerprint) is never
