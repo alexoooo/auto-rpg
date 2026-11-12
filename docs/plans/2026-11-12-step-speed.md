@@ -78,6 +78,55 @@ place.
 - **In the browser**, once the target is met: the Arena, the crowd fight and the Crypt with their
   minds on workers (`npm run preview`), without slow motion.
 
+## The baseline
+
+On 13a857d8, each reading taken twice; the two rounds give the noise band. Least of each step over
+the playings unless named, ms.
+
+| Workload | Mean | 99th | Round to round |
+|---|---|---|---|
+| Sword bout, Option v Option (`step-time.mjs --link ... --runs 4`) | 3.81, 3.87 | 22.9, 23.1 | 1.4% mean |
+| Lying (`lying.mjs`, whole steps, raw) | median 2.47, 2.48 | 21.4, 21.3 | 99.9th 99.8, 98.5 |
+| Crowd (`step-time.mjs --crowd --runs 4 --minds 4`) | 26.2, 26.1 | 114, 115 | |
+| Crypt (`crypt-step.mjs --seeds 10,25`), a step's mean by seed | 5.76 / 5.98, 5.66 / 5.88 | | 2% |
+
+The bout's slowest steps are its decisions: 116 of 1796 steps over 8.33 ms, the 99th at 22 ms
+against a median of 2.5. Profile shares of the bout (`--profile`, own time by file): Rapier 15.5%,
+the report's copy (`create-mind.ts`) 15.3%, Option Mind's search 29.8% with what it calls, the
+arbiter's command 10.7% and the motor's control 9.9% with what they call.
+
+## Where it stands
+
+- The report published on change: landed (a7ae0622). Bout mean -16%, 99th equal.
+- The search's temporary work: landed (c8766a1b). Bout mean -6%, 99th -16%, scavenges -22%;
+  the step's allocation 1021 to 844 KiB. The largest own time left in JavaScript is the predicted
+  situations' overlays (`placedWith`, about 7%): each becomes a prototype, which V8 makes slowly.
+- Repeated solves: nothing to skip. Counted on c8766a1b with probes (`call-count.mjs`, its hook
+  repaired in 136e7068): `readSupport` ran 42 times in a 2036-step bout and 210 in 240 crowd steps,
+  never twice on one foot's unchanged pose; of the tracker's 301 steps in the bout none had its
+  three targets equal and 58 had two (crowd: 11 and 343 of 1823), a few of some 900 solves.
+- Ownership slots as integers: landed (21ec2cfa); the step's allocation 845 to 807 KiB.
+- Pushes by channel: landed (81213ba3); the motor indexes each channel's first push once a step.
+  With the slots, bout mean -3%, lying median -4%, tails equal.
+- The command in place: not made. Its copy is 0.2% of the bout's own time and 6.5 KiB a step, and
+  it is what lets an executor rewrite its own pushes in place (the rise's) while every reader holds
+  a frozen step; the view's angles are already filled in place (`feel`). The rise's held pushes
+  stay one record a channel: the motor's index reads them in one pass.
+- The posture as a channel array: its share read on 81213ba3, for the owner. The posture's
+  string-keyed work (the arbiter's assembly and copy, the motor's reads by name, `feel`, `path`)
+  is about 1.5% of a sword bout's own time, 2.5% with the servo's ask; moving the six producer
+  families would save part of that. The minds' mirror (`mirror-channel.ts`) is about 2%.
+- The ceilings: `mind` 739 to 570, `fall` 324 to 238 (1483f010).
+- Against the baseline, paired on 1483f010 (13a857d8 / now): sword bout mean 3.65 / 2.81 (-23%),
+  99th 22.2 / 18.1, 99.9th 27.5 / 22.7; crowd mean 25.0 / 19.6 (-22%), 99th 109 / 91, steps past
+  2 s over 8.33 ms 8524 / 3424 of 8528; Crypt a step's mean 5.6-5.8 / 4.1-4.6 (-25%), the run
+  111-116% / 101-102% of real time, its worst lag 176-194 / 99-139 ms.
+- In the browser (`vite preview`): the Arena bout at 118-120 steps a second, the mind inspector's
+  holders by name; the Crypt at 119; the crowd fight at 53, still slow. No console error.
+- Not met: the 99th percentile within 8.33 ms. The bout's tail is its decisions, which the exact
+  rewrites only thin; the parked changes of the mind are what move it. The recorded
+  Warrior-versus-three-reptiles encounter is not built.
+
 ## Exact rewrites
 
 Each lands green on its own: `npm run check`, `npm test`, `npm run build` where browser code
