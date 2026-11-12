@@ -52,7 +52,7 @@ training" (`37f9be19`).
 - **One way to play a skill's trials from a script**: (skill, body, loadout, twin or cell, rate)
   to the protocol's conditions (`faults`, `casesOn`), each played through its world and reader,
   valued by the cell's own value (`trialValue`) and the graded score beside it. The drills' Mind
-  with the candidate's settings. `punch-drill.mjs`'s `drillTrial` is most of it.
+  with the candidate's settings (`research/drill-trials.mjs`).
 - **Training on the twin**: an environment's places are the twin's conditions (`where`, as
   `case-learning-environment.mjs` takes them), its Mind `option-drill`.
 - **The drills widened** with the game's situations above, skill by skill, a probe left out: a
@@ -72,6 +72,18 @@ Each lands on its checks; nothing is played without a brief.
    a fixed 10 s (`FALL_PRICE`). A twin of a list of points has one fewer (the punch's 42 trials to
    the cell's 96).
 3. Strikes: the scripts and environments on their twins; the drills widened (target bodies).
+   *Landed*: the still, walk, bonk and stomping rungs (and their `-bodies`) strike each of the
+   game's foes (the Warrior, the Rogue, the Skeleton; `FOES`), so the strike cells hold 2580
+   cases where they held 920. `punch-drill.mjs` (punch, thrust), `swing-drill.mjs` (cut, bonk)
+   and the stomp's search (`skill-search.mjs`) search a body's row on its cells' twins at
+   120 Hz, a candidate the cell's own subject with its settings as the skill's tuning (its window,
+   loadout and Mind the cell's), each trial scored by its value graded (`searchScore`: a blow that
+   did not land up to 0.05 hp a second below its value, by how near it came to the bar), and
+   confirm on the cells' own cases at 120 and 480 Hz, the worse counting (`confirmRow`). The
+   punch, bonk and thrust environments place on the twins at 120 Hz;
+   `punch-policy-check.mjs` screens on them and confirms with `--cell`. Left: the training
+   rewards are still the bar's score, not the value, a change of reward scale only a training
+   run can check; the club's trunk blow (`club-blow`) has no cell, so no drill to search on.
 4. Stand-up, with [its plan](2026-11-12-stand-up-drills.md): the obstacle levels and bout falls
    in the drill; `rise-search.mjs` and the sit-back and roll searches on the twin.
 5. Walk and run: the drills widened (paces to the envelope, diagonals, place orders); the
@@ -82,8 +94,6 @@ Each lands on its checks; nothing is played without a brief.
 ## Open
 
 - Each drill's twin draws (where a grid's halfway points are, how a course is shifted).
-- A strike's value is sparse (a miss is worth about 0): whether a search scores on the value
-  alone or on the graded score that contains it.
 - The run's 6.5 m/s ceiling was set by its training (`walk-run.json`, `travel-training-ceiling`):
   whether the drill asks for it.
 

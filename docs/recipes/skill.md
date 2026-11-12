@@ -139,7 +139,11 @@ A skill that exists enters at the step its failing part belongs to.
   ([What a change is kept on](#what-a-change-is-kept-on)), every effect priced in it, a fall at
   what it costs in play. Form the owner asks for (a blow's shape) is part of the score, graded by
   nearness, not a pass or fail. The same score is the search's objective, the training reward and
-  the reading a change is kept on.
+  the reading a change is kept on. A strike's value is sparse (a blow that does not land trades
+  about nothing), so its search scores a trial by its value and a blow that did not land up to
+  0.05 hp a second below it by how near it came to the bar (`searchScore`,
+  `research/drill-trials.mjs`): candidates that land nothing still climb, and no nearness
+  outweighs a landing.
 - **Show the reader scoring the visible failure low**, for a physical reason, before anything is
   searched.
 - **Build only the primary screen first**: the reader, one fixture, one hand, one loadout, one

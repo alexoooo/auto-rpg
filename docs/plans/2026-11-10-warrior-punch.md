@@ -14,7 +14,8 @@ punch at the trunk with an empty hand; no other blow is part of this goal.
 
 The row's cells are not read. Each reads two protocols of the Strike drill: a still target
 (`still`) and a target walked to (`walk`), each asking the punch
-where it is offered: the middle mark (the trunk), with each empty hand. The still and walked-to
+where it is offered: the middle mark (the trunk), with each empty hand, at each of the game's
+foes (the Warrior, the Rogue, the Skeleton). The still and walked-to
 target stands with its arms lowered (`drill-stand`), and no reading against it is played yet:
 
 ```powershell
@@ -43,12 +44,13 @@ What is not checked: no fresh agent has checked the installed steer
 ## Open questions
 
 - **Why trunk punches are refused**: against the guarded target 5 of 32 still and 7 of 64 walked
-  to ended `refused` with no reason, in the window and ready. A trial's last phase and its times are read with `drillTrial`
-  (`punch-drill.mjs`) on the game's mind (`MINDS.option.config`), one condition at a time; the
+  to ended `refused` with no reason, in the window and ready. A trial's last phase and its times are read with `playTrial`
+  (`research/drill-trials.mjs`: its reading's `phase`) on the cell's subject, one case at a time; the
   reel (the Ratings link on each reading's line, opened as
   [the table](../reference/the-table.md) says) shows it.
 - **Whether a later checkpoint of the steer lands more**: a checkpoint is screened on
-  `punch-policy-check.mjs` (160 trials a rate, seed 5001) against the installed network.
+  `punch-policy-check.mjs` (its environment's twin places at 120 Hz; with `--cell`, the cells'
+  own cases at 120 and 480 Hz, the worse counting) against the installed network.
 
 ## To pick it up
 
@@ -63,9 +65,9 @@ What is not checked: no fresh agent has checked the installed steer
   measured at a drill's target; no fight is played for them yet.
 - **The drill**: its cases `src/evaluation/strike/cases.ts`, its reader and what each outcome
   means `src/evaluation/strike/read.ts`, its score `score.ts`.
-- **Research**: `research/skills/strikes/straight-punch/` holds the schedule search
-  (`punch-drill.mjs`), the held-out screen of a schedule or a policy (`punch-policy-check.mjs`) and
-  the training environments. The installed network is the record's own; a policy is screened
+- **Research**: `research/skills/strikes/straight-punch/` holds the schedule search on
+  the row's training twins (`punch-drill.mjs`, its `--confirm` on the cells' own cases), the screen
+  of a schedule or a policy (`punch-policy-check.mjs`) and the training environment, on the twin. The installed network is the record's own; a policy is screened
   against it by extracting it (`network` in the record) to a file.
 - **One protocol of the drill**, played and not kept:
   `npm run evaluate -- strike option/straight-punch --protocol still`; with `--write` it becomes

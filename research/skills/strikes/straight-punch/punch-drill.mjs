@@ -1,43 +1,41 @@
-import { fistOn } from "../../../../src/core/bodies/human/endpoints.ts";
 /**
- * **A timed punch searched on the Strike drill**: Option Mind's straight punch with its drive on a
- * schedule (`StraightPunch.timed`): each of the pushed channels (`ceilingChannels`: the trunk, both
- * legs and the striking arm) a level, a start and a length into the drive, the stance and the arm's
- * aim beneath. With `--blow <kind>`, a held blow driven straight (`HELD_BLOWS`:
- * `sword-thrust`) instead: Option Mind's, its striking hand holding the blow's item and the other
- * the buckler, as the game's loadouts hold them, the striking wrist's channels pushed beside the
- * arm's. A candidate is played as the drill plays a trial (`STRIKE_CASES.still`, its world
- * and its reader, `readStrike`) on one cell: a body, a hand, a mark, an offset across and a gap,
- * the gap searched with the schedule unless given, at each of `--rates` (its worst counts). It is scored by its striker's bar (`barOf`, `read.ts`): a
- * landed blow scores above every other, by its speed and mass past the bar; any other trial by how
- * near its hit came to each of the bar's tests (with `--near`, one with nothing on the mark by how
- * near the fist came to the punch's target, `NEAR`); a fall lowest. The punch is admitted at any range
- * past its arm's (a wide `band`), so where it stands is the cell's.
- * With `--window-of`, its window and drive are a straight punch record's (`PunchRecord.settings`) but for
- * what the search sets (`OWN`), so it is admitted where the record is; `--reach` and `--band` then override them.
+ * **A timed blow searched on its drill's twin**: a body's straight punch (`--skill punch`) or a held
+ * blow driven straight (`--skill thrust`: `HELD_BLOWS`' `sword-thrust`), its drive on a schedule
+ * (`StraightPunch.timed`): each of the pushed channels (`ceilingChannels`: the trunk, both legs and
+ * the striking arm, a held blow's wrist beside it) a level, a start and a length into the drive,
+ * searched for `--hand` and mirrored to the other hand (`mirrored`), the arm's aim and the posture
+ * beneath. A candidate is those settings as the skill's research tuning over the body's record
+ * (`withTuning`, unsteered), everything else the table's cell's: the drills' Option Mind
+ * (`option-drill`), its window, what it holds. It is played on the training twin of every cell of
+ * the body's row of the skill (`rowOf`; `--loadout` one cell), the drill's own admission giving
+ * each its places, marks and hands, at the game's rate, 120 Hz, and scored by the mean of its
+ * trials' search scores (`searchScore`: the cell's value, a blow short of the bar graded below it)
+ * ([the skill recipe](../../../../docs/recipes/skill.md#an-options-code): research scores on its
+ * drill). `--confirm` plays a search's best and the record the body plays now on the row's cells'
+ * own cases at 120 and 480 Hz, the worse counting (`confirmRow`).
  *
- *   node research/skills/strikes/straight-punch/punch-drill.mjs --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gap <m>]
- *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--fire] [--brake] [--chest] [--near] [--heavier <times>] [--blow <kind>] [--free] [--chamber [--chamber-range <m,m>]] [--targets <body,...> (with --spread)] [--reach <arm share>] [--band <m>] [--window-of <record.json>:<bodyKey>] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
- *   node research/skills/strikes/straight-punch/punch-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1,1.1] [--across 0,0.2] [--marks middle,high] [--models ...]
+ * Feasibility (the recipe's step 2) is searched the same way with the channels pushed free
+ * (`--free`: a channel pushed under `FREE` leaves the schedule) or some left off it (`--without`);
+ * with `--fire`, `--brake` and `--chamber`, the drive's fire, brake and chamber are searched too;
+ * with `--tune`, only a schedule's time scale and shift and its aim and posture, over `--from`'s.
  *
- * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
+ *   node research/skills/strikes/straight-punch/punch-drill.mjs --body workshop-fighter --skill punch|thrust --out <file.json> [--loadout <left,right>] [--hand right]
+ *     [--tune] [--without <channel,...>] [--fire] [--brake] [--free] [--chamber [--chamber-range <m,m>]] [--workers N] [--lambda 16] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
+ *   node research/skills/strikes/straight-punch/punch-drill.mjs --confirm <file.json> [--workers N]
+ *
+ * Harness: Node, the Strike drill's bout world (`playCase`) on Rapier (`DEFAULT_ENGINE`), 120 Hz;
+ * the confirmation 120 and 480 Hz.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../../../../tests/harness/preload-data.mjs";
-import { MINDS, partLookup } from "../../../../src/app/catalog.ts";
-import { skillsOf } from "../../../../src/minds/option/skills.ts";
-import { isRefused } from "../../../../src/core/refusal.ts";
-import { buildBout } from "../../../../src/app/node/evaluation.ts";
-import { STRIKE_CASES } from "../../../../src/app/node/evaluation.ts";
-import { barScore as scoreOf } from "../../../../src/evaluation/strike/score.ts";
-import { cmaSearch, workerPool } from "../../../cma.mjs";
 import { HELD_BLOWS } from "../../../../src/skills/strikes/held-blow.ts";
 import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
+import { cmaSearch } from "../../../cma.mjs";
+import { confirmRow, drillTrials, rowOf, scoreOn, subjectOf, trialPool, withTuning } from "../../../drill-trials.mjs";
 
 /** The pushed channels, as the punch's ceiling pushes them (`punch-ceiling.mjs`): the trunk, both legs and the striking arm; with `wrist`, its wrist's too. */
 export function ceilingChannels(hand, wrist = false) {
@@ -48,11 +46,11 @@ export function ceilingChannels(hand, wrist = false) {
 }
 
 /**
- * The searched ranges: each channel's level, start and length, s; then the gap, m, when it is
- * searched (a held blow's reaching further, by its item); then when the arm's aim begins, s, and how far past the target it aims, m; then the
- * posture beneath, the hips' turn, the chest's and the trunk's lean, rad (`StraightPunch`).
+ * The searched ranges: each channel's level, start and length, s; then when the arm's aim begins,
+ * s, and how far past the target it aims, m; then the posture beneath, the hips' turn, the chest's
+ * and the trunk's lean, rad (`StraightPunch`).
  */
-const WINDOW = 0.45, GAPS = [0.75, 1.3], BLOW_GAPS = [0.8, 1.6], LEAD = [0, 0.45], THROUGH = [0, 0.3], HIPS = [0, 0.6], TURN = [0, 0.43], LEAN = [0, 0.5];
+const WINDOW = 0.45, LEAD = [0, 0.45], THROUGH = [0, 0.3], HIPS = [0, 0.6], TURN = [0, 0.43], LEAN = [0, 0.5];
 /** With `--free`, a channel whose level is under this leaves the schedule, pushed toward its goal as the punch pushes a channel it does not schedule. */
 const FREE = 0.25;
 /** With `--fire`, how near the fist comes to the target before the arm's drive begins, arm lengths (`StraightPunch.fire`). */
@@ -62,51 +60,19 @@ const CHAMBER = [-0.4, 1.2], SETTLE = [0, 0.8];
 /** With `--brake`, how near its goal a channel pushed toward one is held instead, rad (`StraightPunch.brake`). */
 const BRAKE = [0, 0.3];
 
-/** With `--chest`, the strike's aim: the chest's open surface over the belly's (`SURFACE_AIM`). */
-export const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
+/** The cell's skill as the table names it, and the executor its subject drills. */
+export const SKILLS = Object.freeze({ punch: "straight-punch", thrust: "sword-thrust" });
 
-/**
- * The drive's settings around a schedule, set over its body's record (`StraightPunch`): admitted at
- * any range past `reach` of the arm and any height above the shoulder (`above`), driven for at
- * most `longest` s and steered by nothing; its pace, the posture beneath where a schedule names
- * none, and its return those of the flat-footed Puncher's searched punch.
- */
-export const AROUND = { pace: 1.021, reach: 0.6, band: 2, above: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5,
-  through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276, lead: 0.055, recover: 0.376, steered: false };
-
-/**
- * The schedule, the gap and the arm's aim that `x` holds for `hand`, the gap `gap` where given; the
- * channels `without` left off the schedule, so the punch pushes them toward their goals.
- */
-export function decode(x, hand, gap, without = new Set(), { fire = false, brake = false, wrist = false, free = false, chamber = false } = {}) {
+/** The schedule, the arm's aim and the posture that `x` holds for `hand`; the channels `without` left off the schedule, so the punch pushes them toward their goals. */
+export function decode(x, hand, without = new Set(), { fire = false, brake = false, wrist = false, free = false, chamber = false } = {}) {
   const channels = ceilingChannels(hand, wrist), n = channels.length * 3;
   const pushes = channels.map((channel, i) => ({ channel, level: Math.abs(x[3 * i]) > 0.05 ? x[3 * i] : 0, from: x[3 * i + 1], length: Math.max(0, x[3 * i + 2]) }))
     .filter((p, i) => !without.has(channels[i]) && !(free && Math.abs(p.level) < FREE));
-  const rest = x.slice(n), searched = gap === undefined;
-  const [lead, through, hips, turn, lean, ...more] = rest.slice(searched ? 1 : 0);
+  const [lead, through, hips, turn, lean, ...more] = x.slice(n);
   const reach = fire ? more[0] : undefined, held = brake ? more[fire ? 1 : 0] : undefined;
   const set = (fire ? 1 : 0) + (brake ? 1 : 0), posed = chamber ? { chamber: more[set], settle: more[set + 1] } : {};
-  return { pushes, gap: searched ? rest[0] : gap, lead, through, beneath: hips === undefined ? posed : { hips, turn, lean, ...posed },
+  return { pushes, lead, through, beneath: hips === undefined ? posed : { hips, turn, lean, ...posed },
     ...(reach === undefined ? {} : { fire: reach }), ...(held === undefined ? {} : { brake: held }) };
-}
-
-/**
- * The drills' Option Mind (`option-drill`) throwing its straight punch alone, driven on `pushes` by `hand` (its research `tuning`, whole), aimed from
- * `lead` s, `through` m past its target, at `mark` (its own regions where null); with `aim`, its
- * strike so aimed. With `blow`, Option Mind's held blow of that kind so driven instead, `hand`
- * holding its item and the other the buckler, its action's own aim kept.
- */
-export function timedPuncher({ pushes, lead, through, beneath, fire, brake }, hand, aim = null, blow = null, mark = null, window = {}) {
-  const tuning = { ...AROUND, ...window, lead, through, ...beneath, ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
-  const preset = MINDS["option-drill"].config, struck = (option) => option.kind.startsWith("strike-");
-  if (blow) {
-    const other = hand === "left" ? "right" : "left";
-    const options = preset.options.map((option) => struck(option) && option.skill.kind === blow ? { ...option, skill: { ...option.skill, tuning }, ...(mark ? { regions: [{ kind: "mark", mark }] } : {}) } : option);
-    return { mind: { ...preset, options }, skill: blow, held: { [hand]: HELD_BLOWS[blow].item, [other]: "buckler" } };
-  }
-  const punch = preset.options.find((option) => option.kind === "strike-straight-punch");
-  const strike = { ...punch, skill: { ...punch.skill, tuning }, ...(aim ? { aim } : {}), ...(mark ? { regions: [{ kind: "mark", mark }] } : {}) };
-  return { mind: { ...preset, options: preset.options.map((option) => option === punch ? strike : option).filter((option) => !struck(option) || option === strike) }, skill: punch.skill.kind };
 }
 
 /**
@@ -132,138 +98,78 @@ const TUNE = [[0.7, 1.4], [-0.1, 0.1], LEAD, THROUGH, HIPS, TURN, LEAN];
 
 /** `base`, a whole schedule's `x`, with `knobs` (`TUNE`'s) set on it for `cell`. */
 function tuned(base, knobs, cell) {
-  const x = [...base], n = 3 * ceilingChannels(cell.hand, !!cell.blow).length, [scale, shift, ...rest] = knobs;
+  const x = [...base], n = 3 * ceilingChannels(cell.hand, cell.wrist).length, [scale, shift, ...rest] = knobs;
   for (let i = 0; i < n; i += 3) { x[i + 1] = Math.max(0, x[i + 1] * scale + shift); x[i + 2] *= scale; }
   rest.forEach((value, k) => { x[n + k] = value; });
   return x;
 }
 
-/** The places `--spread` names ("body:gap,gap;body:gap"), each at every offset across of `--offsets`; null without one. */
-function spreadOf(text, offsets, targets) {
-  if (!text) return null;
-  const across = (offsets ?? "0").split(",").map(Number), bodies = targets ? targets.split(",") : [null];
-  return text.split(";").flatMap((part) => {
-    const [model, gaps] = part.split(":");
-    return gaps.split(",").map(Number).flatMap((gap) => across.flatMap((offset) => bodies.map((target) => ({ model, gap, across: offset, ...(target ? { target } : {}) }))));
-  });
-}
-
 /**
- * One drill trial of `subject` on `condition` at `hz`, on the drill's `protocol` rung: its reading, and the nearest its fist came to
- * the punch's target through the drive, m; a held blow's, the reader's nearest of its face to its aim;
- * and when its action first committed (`committed`, s on the bout's clock; null where it never did).
+ * **The settings `x` holds for `search`** (its `cell`: the searched hand, the channels left off, its
+ * flags), whole for both hands, the other hand's its mirror image: the research tuning a candidate
+ * plays over the body's record, its drive unsteered (the schedule alone).
  */
-export async function drillTrial(subject, condition, hz, protocol = "still") {
-  const cases = STRIKE_CASES[protocol], world = cases.world([subject], condition, undefined, [{}]);
-  if (isRefused(world)) throw new Error(world.refused);
-  const built = await buildBout(world.recipe, { hz });
-  if (isRefused(built)) throw new Error(built.refused);
-  try {
-    // The executor's place among those the striker's body builds of its Options (`skillsOf`), as its skills' state lists them.
-    const used = skillsOf(partLookup, built.duel.duelists.left.built.spec, subject.mind.options).executors;
-    const at = Math.max(0, used.findIndex((one) => one.name === subject.skill));
-    const reader = cases.read(built, condition), motion = built.duel.duelists.left.minded.skills.state.actions.executors[at].motion, body = built.duel.duelists.left.body;
-    let nearest = Infinity, committed = null;
-    built.duel.play(world.tape);
-    while (!reader.ended) {
-      if (built.duel.clock > cases.seconds + 1) throw new Error("the trial ran past its seconds");
-      built.world.step();
-      reader.afterStep();
-      if (committed === null && built.duel.duelists.left.minded.skills.report.actions.some((action) => action.phase === "commit")) committed = built.duel.clock;
-      if (!subject.held && motion.phase === "swing") {
-        const f = body.view.pointMotion[fistOn(body.built.spec, condition.hand)].knuckles.position, t = motion.target;
-        nearest = Math.min(nearest, Math.sqrt((f.x - t[0]) * (f.x - t[0]) + (f.y - t[1]) * (f.y - t[1]) + (f.z - t[2]) * (f.z - t[2])));
-      }
-    }
-    const reading = reader.reading();
-    return subject.held ? { ...reading, nearest: reading.nearest ?? Infinity, committed } : Object.assign(reading, { nearest, committed });
-  } finally { built.dispose(); }
+export function settingsOf(x, search) {
+  const { hand, without = [], fire, brake, wrist, free, chamber } = search, flags = { fire: !!fire, brake: !!brake, wrist: !!wrist, free: !!free, chamber: !!chamber };
+  const whole = search.base ? tuned(search.base, x, search) : x;
+  const sided = (side) => {
+    const y = [...whole];
+    if (side !== hand) mirrored(y, hand, side, flags.wrist);
+    return decode(y, side, new Set(without.map((c) => side === hand ? c : c.replace(`.${hand} `, `.${side} `))), flags);
+  };
+  const right = sided("right"), left = sided("left");
+  return { lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
+    ...(right.brake === undefined ? {} : { brake: right.brake }), steered: false, timed: { left: left.pushes, right: right.pushes } };
 }
 
-/** With `--near`, how much a trial with nothing on the mark gains for its fist's coming within `NEAR` m of the punch's target: up to `NEARING`, still below any hit's. */
-const NEAR = 0.25, NEARING = 0.5;
-
-/**
- * `x` played on `cell` at each of its rates, the worst rate's score and what it read there; with a
- * spread, on each of its places (a body, a gap and an offset across), scored by their mean.
- */
-async function trial(x, cell) {
-  if (cell.base) return trial(tuned(cell.base, x, cell), { ...cell, base: null });
-  if (cell.spread) {
-    const each = [];
-    for (const place of cell.spread) each.push(await trial(x, { ...cell, ...place, spread: null }));
-    const landed = each.filter((r) => r.outcome === "landed").length;
-    return { score: each.reduce((sum, r) => sum + r.score, 0) / each.length, landed, places: each.length,
-      outcomes: each.map((r) => r.outcome), worst: each.reduce((a, b) => (b.score < a.score ? b : a)) };
-  }
-  const decoded = decode(x, cell.hand, cell.gap ?? undefined, new Set(cell.without ?? []), { fire: !!cell.fire, brake: !!cell.brake, wrist: !!cell.blow, free: !!cell.free, chamber: !!cell.chamber });
-  const condition = { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap: decoded.gap, ...(cell.target ? { target: cell.target } : {}) };
-  let worst = null;
-  for (const hz of cell.rates) {
-    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null, cell.blow ?? null, cell.mark, cell.window ?? {}), condition, hz);
-    // A held blow's touch before its drive commits (its chamber's) is no blow: it scores as one that never came.
-    if (cell.blow && reading.hit && (reading.committed === null || reading.hit.time < reading.committed)) { reading.hit = null; reading.outcome = "early"; }
-    const score = scoreOf(reading, cell.hand, cell.heavier) + (cell.near && !reading.hit && !reading.down ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
-    if (worst === null || score < worst.score) worst = { score, hz, gap: decoded.gap, outcome: reading.outcome, hit: reading.hit && { speed: reading.hit.speed, kg: reading.hit.kg, energy: reading.hit.energy, mechanism: reading.hit.mechanism, straight: reading.hit.straight, along: reading.hit.along, bend: reading.hit.bend, lean: reading.hit.lean, on: reading.hit.on, time: reading.began === null ? null : reading.hit.time - reading.began } };
-  }
-  return worst;
+/** Each trial's value with `settings` as its subject's research tuning (`withTuning`), each subject resolved once. */
+function valuesWith(settings) {
+  const values = new Map();
+  return (trial) => {
+    if (!values.has(trial.subject)) values.set(trial.subject, settings === null ? subjectOf(trial).value : withTuning(subjectOf(trial).value, settings));
+    return values.get(trial.subject);
+  };
 }
 
-/** What a searched schedule sets of a straight punch's settings: its pushes, its aim and posture, and its fire and brake; not steered. */
-const OWN = ["timed", "lead", "through", "hips", "turn", "lean", "fire", "brake", "steered"];
-
-/** A straight punch record's settings (`<record.json>:<bodyKey>`) less what the search sets (`OWN`); none where not named. */
-function recordWindow(named) {
-  if (!named) return {};
-  const at = named.lastIndexOf(":"), records = JSON.parse(readFileSync(named.slice(0, at), "utf8")), record = records[named.slice(at + 1)];
-  if (!record) throw new Error(`${named}: no such record`);
-  return Object.fromEntries(Object.entries(record.settings).filter(([key]) => !OWN.includes(key)));
-}
-
-if (!isMainThread && workerData?.drill) {
-  parentPort.on("message", async ({ id, x }) => {
-    let r; try { r = await trial(x, workerData.cell); } catch (error) { r = { score: -5, error: String(error?.stack ?? error) }; }
-    parentPort.postMessage({ id, r });
-  });
-} else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { values } = parseArgs({ options: { out: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" }, across: { type: "string" },
-    gap: { type: "string" }, hz: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
-    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, fire: { type: "boolean" }, brake: { type: "boolean" }, chest: { type: "boolean" }, near: { type: "boolean" }, heavier: { type: "string" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, blow: { type: "string" }, free: { type: "boolean" }, chamber: { type: "boolean" }, "chamber-range": { type: "string" }, targets: { type: "string" }, reach: { type: "string" }, band: { type: "string" }, "window-of": { type: "string" } } });
-  if (values.verify) {
-    const found = JSON.parse(readFileSync(values.verify, "utf8"));
-    const decoded = decode(found.cell.base ? tuned(found.cell.base, found.best.x, found.cell) : found.best.x, found.cell.hand, found.cell.gap ?? undefined, new Set(found.cell.without ?? []), { fire: !!found.cell.fire, brake: !!found.cell.brake, wrist: !!found.cell.blow, free: !!found.cell.free, chamber: !!found.cell.chamber });
-    const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
-    for (const hz of list(values.rates, [120, 480], Number)) for (const model of list(values.models, [found.cell.model])) for (const mark of list(values.marks, [found.cell.mark]))
-      for (const across of list(values.across, [found.cell.across], Number)) for (const gap of list(values.gaps, [decoded.gap], Number)) {
-        const reading = await drillTrial(timedPuncher(decoded, found.cell.hand, (values.chest ?? found.cell.chest) ? CHEST : null, found.cell.blow ?? null, mark, found.cell.window ?? {}), { model, mark, hand: found.cell.hand, across, gap }, hz);
-        const h = reading.hit;
-        console.log(JSON.stringify({ hz, model, mark, across, gap: +gap.toFixed(3), outcome: reading.outcome, score: +scoreOf(reading, found.cell.hand).toFixed(3),
-          hit: h && { on: h.on, speed: h.speed && +h.speed.toFixed(2), kg: +h.kg.toFixed(2), energy: +h.energy.toFixed(1), mechanism: h.mechanism, straight: h.straight && +h.straight.toFixed(3), along: h.along && +h.along.toFixed(3), bend: +h.bend.toFixed(2), lean: +h.lean.toFixed(2), after: reading.began === null ? null : +(h.time - reading.began).toFixed(3) } }));
-      }
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const { values } = parseArgs({ options: { out: { type: "string" }, body: { type: "string" }, skill: { type: "string" }, loadout: { type: "string" }, hand: { type: "string" },
+    workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" }, sigma: { type: "string" }, tune: { type: "boolean" },
+    lambda: { type: "string" }, without: { type: "string" }, fire: { type: "boolean" }, brake: { type: "boolean" }, confirm: { type: "string" }, free: { type: "boolean" },
+    chamber: { type: "boolean" }, "chamber-range": { type: "string" } } });
+  const pool = trialPool(Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
+  if (values.confirm) {
+    const found = JSON.parse(readFileSync(values.confirm, "utf8")), cells = rowOf(found.cell);
+    const best = await confirmRow(cells, valuesWith(settingsOf(found.best.x, found.cell)), { play: pool.play });
+    const record = await confirmRow(cells, valuesWith(null), { play: pool.play });
+    console.log(JSON.stringify({ cell: found.cell, best, record, kept: best.worse !== null && (record.worse === null || best.worse > record.worse) ? "best" : "record" }));
+    pool.terminate();
     process.exit(0);
   }
-  const cell = { model: values.model ?? "workshop-fighter", hand: values.hand ?? "right", mark: values.mark ?? "middle", across: Number(values.across ?? 0),
-    gap: values.gap === undefined ? (values.spread ? 0 : null) : Number(values.gap), spread: spreadOf(values.spread, values.offsets, values.targets), without: (values.without ?? "").split(",").filter(Boolean), fire: !!values.fire, brake: !!values.brake, chest: !!values.chest, near: !!values.near, heavier: Number(values.heavier ?? 1), rates: (values.rates ?? values.hz ?? "120").split(",").map(Number), blow: values.blow ?? null, free: !!values.free, chamber: !!values.chamber,
-    ...(values.reach || values.band || values["window-of"] ? { window: { ...recordWindow(values["window-of"]), ...(values.reach ? { reach: Number(values.reach) } : {}), ...(values.band ? { band: Number(values.band) } : {}) } } : {}) };
-  if (cell.blow && !Object.hasOwn(HELD_BLOWS, cell.blow)) throw new Error(`no held blow ${cell.blow}: one of ${Object.keys(HELD_BLOWS).join(", ")}`);
-  const wrist = !!cell.blow, channels = ceilingChannels(cell.hand, wrist);
-  const nw = Number(values.workers ?? Math.max(1, availableParallelism() - 4)), generations = Number(values.generations ?? 60);
-  const lo = [], hi = [], without = new Set(cell.without);
+  if (!values.out || !values.body || !Object.hasOwn(SKILLS, values.skill ?? "")) throw new Error(`--body <model> --skill <${Object.keys(SKILLS).join("|")}> --out <file.json>`);
+  const blow = SKILLS[values.skill] === "straight-punch" ? null : SKILLS[values.skill];
+  if (blow && !Object.hasOwn(HELD_BLOWS, blow)) throw new Error(`no held blow ${blow}: one of ${Object.keys(HELD_BLOWS).join(", ")}`);
+  const cell = { body: values.body, skill: values.skill, ...(values.loadout ? { loadout: values.loadout } : {}), hand: values.hand ?? "right",
+    without: (values.without ?? "").split(",").filter(Boolean), fire: !!values.fire, brake: !!values.brake, wrist: !!blow, free: !!values.free, chamber: !!values.chamber };
+  const trials = rowOf(cell).flatMap((one) => drillTrials(one, "twin")), channels = ceilingChannels(cell.hand, cell.wrist);
+  const generations = Number(values.generations ?? 60), lo = [], hi = [], without = new Set(cell.without);
   for (const channel of channels) { const level = without.has(channel) ? 0 : 1; lo.push(-level, 0, 0); hi.push(level, WINDOW, WINDOW); }
-  for (const [low, high] of [...(cell.gap === null ? [cell.blow ? BLOW_GAPS : GAPS] : []), LEAD, THROUGH, HIPS, TURN, LEAN, ...(cell.fire ? [FIRE] : []), ...(cell.brake ? [BRAKE] : []), ...(cell.chamber ? [values["chamber-range"] ? values["chamber-range"].split(",").map(Number) : CHAMBER, SETTLE] : [])]) { lo.push(low); hi.push(high); }
+  for (const [low, high] of [LEAD, THROUGH, HIPS, TURN, LEAN, ...(cell.fire ? [FIRE] : []), ...(cell.brake ? [BRAKE] : []),
+    ...(cell.chamber ? [values["chamber-range"] ? values["chamber-range"].split(",").map(Number) : CHAMBER, SETTLE] : [])]) { lo.push(low); hi.push(high); }
   if (values.tune) { lo.length = 0; hi.length = 0; for (const [low, high] of TUNE) { lo.push(low); hi.push(high); } }
   const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, v)));
   const fromFile = values.from ? JSON.parse(readFileSync(values.from, "utf8")) : null, from = fromFile ? [...fromFile.best.x] : null;
-  if (from && fromFile.cell.gap === null && cell.gap !== null) from.splice(3 * channels.length, 1);
-  if (from && fromFile.cell.hand !== cell.hand) mirrored(from, fromFile.cell.hand, cell.hand, wrist);
-  if (values.tune) { cell.base = [...from]; const n = 3 * channels.length; from.length = 0; from.push(1, 0, ...cell.base.slice(n, n + 5)); }
+  // A search that searched its gap with the schedule (one before the drill's twin set the places) holds it after the channels.
+  if (from && fromFile.cell.gap === null) from.splice(3 * channels.length, 1);
+  if (from && fromFile.cell.hand !== cell.hand) mirrored(from, fromFile.cell.hand, cell.hand, cell.wrist);
+  if (values.tune) { if (!from) throw new Error("--tune tunes --from's schedule"); cell.base = [...from]; const n = 3 * channels.length; from.length = 0; from.push(1, 0, ...cell.base.slice(n, n + 5)); }
   const start = from ? lo.map((l, i) => from[i] === undefined || hi[i] === l ? 0.5 : (from[i] - l) / (hi[i] - l)) : undefined;
-  const pool = workerPool(fileURLToPath(import.meta.url), { drill: true, cell }, nw);
-  const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 4 * nw), generations, seed: Number(values.seed ?? 1),
-    score: (u) => pool.evaluate(toX(u)),
+  console.error(`${cell.skill} on ${cell.body}: ${trials.length} trials of the twin a candidate`);
+  const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 16), generations, seed: Number(values.seed ?? 1),
+    // A candidate none of whose trials counts scores below every one that has one.
+    score: async (u) => { const r = await scoreOn(trials, valuesWith(settingsOf(toX(u), cell)), { play: pool.play }); return { ...r, score: r.score ?? -1e3, each: undefined }; },
     onGeneration(entry, { best, mean, log }) {
       console.error(JSON.stringify(entry));
-      if (values.out) writeFileSync(values.out, JSON.stringify({ cell, from: values.from ?? null, channels, best: { ...best, x: toX(best.u) }, mean: toX(mean), log }));
+      writeFileSync(values.out, JSON.stringify({ cell, from: values.from ?? null, channels, trials: trials.length, best: { ...best, x: toX(best.u) }, mean: toX(mean), log }));
     } });
   pool.terminate();
   console.log(JSON.stringify({ cell, best: { score: found.score, g: found.g, r: found.r } }));

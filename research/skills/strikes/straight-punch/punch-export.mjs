@@ -1,58 +1,42 @@
 /**
  * **A straight punch's records**: each body's searched schedule (`research/skills/strikes/straight-punch/punch-drill.mjs` results)
- * as the straight punch's settings for both hands, the left mirrored from the right, with the
- * drive's settings the search played it with (`AROUND`), where it is admitted (`reach`, `band`, `aside` and `above`:
- * where the steered punch lands, read on held-out trials, `punch-policy-check.mjs`; `aside` of
- * the punching shoulder's line, `squared`), and, with `--policy`, the steer's trained network
- * (`research/run-train.py`'s `policy.json`), written as the core reads them (`PunchRecord`,
+ * as the settings it was searched and confirmed with: its tuning for both hands, the left mirrored
+ * from the right (`settingsOf`), over the body's record it played over (its window, pace, return
+ * and the rest), and, with `--policy`, the steer's trained network (`research/run-train.py`'s
+ * `policy.json`), written as the core reads them (`PunchRecord`,
  * `src/skills/strikes/straight-punch/data/records.ts`) into `<out>.json` (`assets/skills/strikes/straight-punch/straight-punch` where not
  * given), each by its body's key (`bodyKey`: `workshop-fighter+toes`) beside the records already
  * there, and the bodies with one into `<out>.meta.json`. With `--halts`, the punch stops a walk at
  * once as it commits (`StraightPunch.halts`), as it was trained. A held blow's schedule (one searched
- * with `--blow <kind>`) is written as its blow's record (`HeldBlowRecord`, `assets/skills/strikes/<kind>/<kind>`
- * where `--out` is not given), its network read by its blow's layout.
+ * with `--skill thrust`) is written as its blow's record (`HeldBlowRecord`, `assets/skills/strikes/<kind>/<kind>`
+ * where `--out` is not given), its network read by its blow's layout. A body is written over the
+ * record it has: one with none has no table cell, so no search on its drill.
  *
- *   node research/skills/strikes/straight-punch/punch-export.mjs [--policy <policy.json>] --made "<how it was made>" [--halts] [--out <path>] <bodyKey>=<schedule.json>@<reach>,<band>,<aside>,<above> [...]
+ *   node research/skills/strikes/straight-punch/punch-export.mjs [--policy <policy.json>] --made "<how it was made>" [--halts] [--out <path>] <bodyKey>=<search.json> [...]
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { PUNCH_ACTIONS } from "../../../../src/skills/strikes/learned-punch.ts";
 import { HELD_BLOWS } from "../../../../src/skills/strikes/held-blow.ts";
-import { AROUND, decode, mirrored } from './punch-drill.mjs';
-
-/**
- * The longest a punch's drive runs, s: a still blow touches by 0.19 s, and a drive that chases a foe
- * stepping back for longer carries its body over. A held blow keeps the search's (`AROUND`): drawn
- * back, it touches later.
- */
-const LONGEST = 0.3;
+import { SKILLS, settingsOf } from './punch-drill.mjs';
 
 /** The network as the core reads it (`Network`): the actor, with training's observation transform and action clamp where it has them. */
 const networkOf = ({ actions, layers, normalization, actionLimit }) =>
   ({ actions, layers, ...(normalization ? { normalization } : {}), ...(actionLimit === undefined ? {} : { actionLimit }) });
 
 const { values, positionals } = parseArgs({ options: { policy: { type: 'string' }, made: { type: 'string' }, halts: { type: 'boolean' }, out: { type: 'string' } }, allowPositionals: true });
-if (!values.made || !positionals.length) throw new Error('usage: [--policy <policy.json>] --made <text> <bodyKey>=<schedule.json>@<reach>,<band>,<aside>,<above> ...');
-const blows = new Set(positionals.map((pair) => JSON.parse(readFileSync(pair.split('=')[1].split('@')[0], 'utf8')).cell.blow ?? null));
-if (blows.size !== 1) throw new Error(`one skill's records at a time, not ${[...blows].join(', ')}`);
-const blow = [...blows][0], skill = blow ?? 'straight-punch', out = values.out ?? `assets/skills/strikes/${skill}/${skill}`;
+if (!values.made || !positionals.length) throw new Error('usage: [--policy <policy.json>] --made <text> <bodyKey>=<search.json> ...');
+const skills = new Set(positionals.map((pair) => SKILLS[JSON.parse(readFileSync(pair.split('=')[1], 'utf8')).cell.skill]));
+if (skills.size !== 1 || skills.has(undefined)) throw new Error(`one skill's records at a time, each a search of punch-drill.mjs, not ${[...skills].join(', ')}`);
+const skill = [...skills][0], blow = skill === 'straight-punch' ? null : skill, out = values.out ?? `assets/skills/strikes/${skill}/${skill}`;
 const actions = blow ? HELD_BLOWS[blow].layout.outputs.length : PUNCH_ACTIONS;
 const policy = values.policy ? JSON.parse(readFileSync(values.policy, 'utf8')) : null;
 if (policy && policy.actions !== actions) throw new Error(`${values.policy}: ${policy.actions} outputs, not the layout's ${actions}`);
 const records = existsSync(`${out}.json`) ? JSON.parse(readFileSync(`${out}.json`, 'utf8')) : {};
 for (const pair of positionals) {
-  const [model, rest] = pair.split('='), [file, window] = rest.split('@'), [reach, band, aside, above] = (window ?? '').split(',').map(Number);
-  if (!(reach > 0 && band > 0 && aside > 0 && Number.isFinite(above))) throw new Error(`${pair}: name where the punch is admitted, <schedule.json>@<reach>,<band>,<aside>,<above>`);
-  const found = JSON.parse(readFileSync(file, 'utf8')), cell = found.cell, flags = { fire: !!cell.fire, brake: !!cell.brake, wrist: !!cell.blow, free: !!cell.free, chamber: !!cell.chamber };
-  const sided = (hand) => {
-    const x = [...found.best.x];
-    if (hand !== cell.hand) mirrored(x, cell.hand, hand, flags.wrist);
-    return decode(x, hand, cell.gap ?? undefined, new Set((cell.without ?? []).map((c) => hand === cell.hand ? c : c.replace(`.${cell.hand} `, `.${hand} `))), flags);
-  };
-  const right = sided('right'), left = sided('left');
-  const settings = { ...AROUND, longest: blow ? AROUND.longest : LONGEST, reach, band, aside, squared: true, above, lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
-    ...(right.brake === undefined ? {} : { brake: right.brake }), ...(values.halts ? { halts: true } : {}),
-    timed: { left: left.pushes, right: right.pushes }, ...(policy ? { steered: true } : {}) };
+  const [model, file] = pair.split('='), found = JSON.parse(readFileSync(file, 'utf8'));
+  if (!records[model]) throw new Error(`${model} has no ${skill} record to write the search over`);
+  const settings = { ...records[model].settings, ...settingsOf(found.best.x, found.cell), ...(values.halts ? { halts: true } : {}), ...(policy ? { steered: true } : {}) };
   records[model] = { made: values.made, settings, network: policy ? networkOf(policy) : null };
 }
 writeFileSync(`${out}.json`, JSON.stringify(records) + '\n');

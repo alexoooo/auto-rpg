@@ -5,7 +5,9 @@
  * the cell's body and loadout (`casesOf`, `casesOn`), each a plain record a worker can take. A trial
  * is played with a subject's value given whole (the cell's subject with a candidate's settings in
  * it), at the game's rate or a finer one, and valued as the cell values it (`trialValue`, a fall at
- * `FALL_PRICE`), its reading beside the value for a script's own graded score.
+ * `FALL_PRICE`), its reading beside the value; a search scores it by `searchScore`, the value
+ * graded. A search works a body's row (`rowOf`), its trials played on worker threads (`trialPool`,
+ * `scoreOn`), and its record is kept on the row's confirmation (`confirmRow`).
  *
  *   import { cellOf, drillTrials, playTrial, subjectOf, confirm } from "../drill-trials.mjs";
  *   const cell = cellOf({ body: "workshop-fighter", skill: "stomp", loadout: "empty,empty" });
@@ -13,7 +15,11 @@
  *   const one = await playTrial(trials[0], valueWith(subjectOf(trials[0])), { hz: 120 });
  *   const kept = await confirm(cell, (trial) => valueWith(subjectOf(trial)));   // 120 and 480 Hz, the worse counting
  */
+import { fileURLToPath } from "node:url";
+import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../tests/harness/preload-data.mjs";
+import { workerPool } from "./cma.mjs";
+import { barScore } from "../src/evaluation/strike/score.ts";
 import { isRefused } from "../src/core/refusal.ts";
 import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
@@ -92,4 +98,101 @@ export async function confirm(cell, valueOf, { rates = CONFIRM_RATES, play = pla
   const values = Object.values(byRate);
   const worse = values.includes(null) ? null : unit.better === "higher" ? Math.min(...values) : Math.max(...values);
   return { byRate, worse, unit };
+}
+
+/**
+ * **A body's row of `skill`**: the table's cells of that body and skill, one a loadout the body
+ * does it holding ([the skill recipe](../docs/recipes/skill.md#one-row-one-question): a run works
+ * one row); the one cell of `loadout` where it is given.
+ */
+export function rowOf({ body, skill, loadout }) {
+  if (loadout !== undefined) return [cellOf({ body, skill, loadout })];
+  const cells = tableCells().filter((one) => one.body === body && one.skill === skill);
+  if (cells.length === 0) throw new Error(`the table has no ${skill} on ${body}`);
+  return cells;
+}
+
+/**
+ * **A row confirmed**: each of `cells` confirmed (`confirm`) and the mean of their worse values, the
+ * row's, which a record is kept on; null where a cell's is.
+ */
+export async function confirmRow(cells, valueOf, options = {}) {
+  const each = [];
+  for (const cell of cells) each.push({ loadout: loadoutKey(cell.loadout), ...await confirm(cell, valueOf, options) });
+  const worse = each.some((one) => one.worse === null) ? null : each.reduce((sum, one) => sum + one.worse, 0) / each.length;
+  return { cells: each, worse };
+}
+
+/**
+ * **A subject's value with its skill so set**: a drill subject's mind with the Option of the skill
+ * it drills (`value.skill`) given `tuning`, its research tuning over the body's record (the
+ * record's network then unread), everything else the cell's: its other Options, its window's
+ * settings where `tuning` names none, what it holds.
+ */
+export function withTuning(value, tuning) {
+  let found = 0;
+  const options = value.mind.options.map((option) => option.skill?.kind !== value.skill ? option : (found++, { ...option, skill: { ...option.skill, tuning } }));
+  if (found !== 1) throw new Error(`the subject's mind has ${found} Options of ${value.skill}, not one`);
+  return { ...value, mind: { ...value.mind, options } };
+}
+
+/** How much a blow that did not land may score below its value in a search, hp a second: less than any landing in a strike cell trades. */
+export const SHORT = 0.05;
+
+/** `barScore`'s landed blow and its fall: the span a blow short of the bar is graded over. */
+const LANDED = 9, FELL = -3;
+
+/**
+ * **A trial's score in a search**, the skill's value graded ([the skill recipe](../docs/recipes/skill.md#1-the-reader-and-its-score)):
+ * its value as the cell values it (`playTrial`); a blow that did not land, up to `SHORT` hp a second
+ * less by how far short of the drill's bar it came (`barScore`: 9 a landed blow, -3 a fall), so a
+ * search whose candidates land nothing still climbs, and no nearness outweighs a landing. Any other
+ * judge's, its value alone. Null where the trial does not count.
+ */
+export function searchScore(trial, { value, reading, outcome }) {
+  if (value === null || trial.judge.judge !== "strike" || outcome === "landed") return value;
+  const bar = barScore(reading, "hand" in trial.condition ? trial.condition.hand : null);
+  return value - SHORT * Math.min(1, Math.max(0, (LANDED - bar) / (LANDED - FELL)));
+}
+
+/** A played trial as a worker sends it back: its name, outcome, value and search score, and whether it ended down. */
+const brief = (trial, played) => ({ name: played.name, outcome: played.outcome, value: played.value, score: searchScore(trial, played), down: !!played.reading?.down });
+
+/**
+ * **Trials played on worker threads**, `count` of them: `play(trial, value, { hz })` as `playTrial`
+ * plays it, resolved with its brief (its name, outcome, value, search score and fall), for a
+ * search's candidates and `confirm` alike; `terminate` when done.
+ */
+export function trialPool(count) {
+  const pool = workerPool(fileURLToPath(import.meta.url), { drillTrials: true }, count);
+  return {
+    play: async (trial, value, { hz } = {}) => {
+      const r = await pool.evaluate({ trial, value, hz });
+      if (r.error) throw new Error(`${trial.name}: ${r.error}`);
+      return r;
+    },
+    terminate: () => pool.terminate(),
+  };
+}
+
+/**
+ * **A candidate scored on `trials`**: each played with `valueOf(trial)` at `hz` (the game's rate)
+ * on `play` (a `trialPool`'s), the mean search score and value of those that count, how many
+ * landed and fell, and each one's brief.
+ */
+export async function scoreOn(trials, valueOf, { play, hz = 120 }) {
+  const each = await Promise.all(trials.map(async (trial) => {
+    const played = await play(trial, valueOf(trial), { hz });
+    return "score" in played ? played : brief(trial, played);
+  }));
+  const counted = each.filter((one) => one.score !== null);
+  return { score: counted.length === 0 ? null : counted.reduce((sum, one) => sum + one.score, 0) / counted.length, value: meanValue(each),
+    landed: each.filter((one) => one.outcome === "landed").length, falls: each.filter((one) => one.down).length, trials: each.length, each };
+}
+
+if (!isMainThread && workerData?.drillTrials) {
+  parentPort.on("message", async ({ id, x: { trial, value, hz } }) => {
+    let r; try { r = brief(trial, await playTrial(trial, value, hz === undefined ? {} : { hz })); } catch (error) { r = { error: String(error?.stack ?? error) }; }
+    parentPort.postMessage({ id, r });
+  });
 }

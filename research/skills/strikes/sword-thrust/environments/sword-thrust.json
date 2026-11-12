@@ -3,59 +3,37 @@
   "evaluation": "strike",
   "part": "mind.options.1.skill",
   "layout": "assets/skills/strikes/sword-thrust/sword-thrust.layout.json",
-  "subjects": [
-    {
-      "where": {
-        "model": "workshop-fighter",
-        "hand": "right"
-      },
-      "value": {
-        "mind": {
-          "preset": "option-drill",
-          "skill": "sword-thrust",
-          "steered": true
-        },
-        "skill": "sword-thrust",
-        "held": {
-          "right": "sword",
-          "left": "buckler"
-        }
-      }
+  "subject": {
+    "mind": {
+      "preset": "option-drill",
+      "skill": "sword-thrust",
+      "steered": true
+    },
+    "skill": "sword-thrust",
+    "held": {
+      "right": "sword",
+      "left": "buckler"
     }
-  ],
+  },
   "places": [
     {
-      "protocol": "still",
-      "draw": {
-        "model": "workshop-fighter",
-        "mark": [
-          "middle"
-        ],
-        "hand": [
-          "right"
-        ],
-        "across": {
-          "between": [
-            -0.45,
-            -0.15
-          ]
-        },
-        "gap": {
-          "between": [
-            1.16,
-            1.36
-          ]
-        }
+      "protocol": "still-twin",
+      "where": {
+        "model": "workshop-fighter"
+      }
+    },
+    {
+      "protocol": "walk-twin",
+      "where": {
+        "model": "workshop-fighter"
       }
     }
   ],
   "rates": [
-    120,
-    480
+    120
   ],
   "pool": 4,
   "refresh": 16,
-  "split": "train",
   "reward": {
     "effort": 0.02,
     "unmet": -1,
@@ -64,16 +42,5 @@
       "short": -4,
       "met": 0
     }
-  },
-  "curriculum": {
-    "from": {
-      "rates": [
-        120
-      ]
-    },
-    "over": [
-      0,
-      1500000
-    ]
   }
 }

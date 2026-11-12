@@ -3,60 +3,31 @@
   "evaluation": "strike",
   "part": "mind.options.1.skill",
   "layout": "assets/skills/strikes/bonk/bonk.layout.json",
-  "subjects": [
-    {
-      "where": {
-        "model": "workshop-fighter",
-        "hand": "right"
-      },
-      "value": {
-        "mind": {
-          "preset": "option-drill",
-          "skill": "bonk",
-          "steered": true
-        },
-        "skill": "bonk",
-        "held": {
-          "right": "club",
-          "left": "empty"
-        }
-      }
+  "subject": {
+    "mind": {
+      "preset": "option-drill",
+      "skill": "bonk",
+      "steered": true
+    },
+    "skill": "bonk",
+    "held": {
+      "right": "club",
+      "left": "empty"
     }
-  ],
+  },
   "places": [
     {
-      "protocol": "bonk",
-      "draw": {
-        "model": "workshop-fighter",
-        "mark": [
-          "high"
-        ],
-        "hand": [
-          "right"
-        ],
-        "across": {
-          "between": [
-            -0.1,
-            0.25
-          ]
-        },
-        "gap": {
-          "between": [
-            0.95,
-            1.5
-          ]
-        }
+      "protocol": "bonk-twin",
+      "where": {
+        "model": "workshop-fighter"
       }
     }
   ],
   "rates": [
-    120,
-    480,
-    480
+    120
   ],
   "pool": 4,
   "refresh": 16,
-  "split": "train",
   "onward": false,
   "reward": {
     "effort": 0.02,

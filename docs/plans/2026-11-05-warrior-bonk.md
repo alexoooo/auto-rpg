@@ -40,12 +40,14 @@ by contact.
 - **The reader** reads a club's blunt blow at the high mark as a bonk on the terms above
   (`Bar.overhead`, `Overhead`, `src/evaluation/strike/read.ts`), graded by `overheadScore`
   (`score.ts`); the `bonk` protocol plays the still rung's places on the Warrior's right hand at
-  the drill's standing target, its arms lowered (`drill-stand`).
+  the drill's standing target, its arms lowered (`drill-stand`), each of the game's foes (the
+  Warrior, the Rogue, the Skeleton).
 - **The bonk** is a swing (`swingExecutor`, `SWINGS.bonk` in `src/skills/strikes/swing-part.ts`): a
   chamber posture and timed pushes, its record `assets/skills/strikes/bonk/bonk.json`, thrown by
-  its own experimental Option (`strike-bonk`, aimed at the head's centre). It is searched by
-  `research/skills/strikes/swing/swing-drill.mjs --blow bonk --protocol bonk --other empty`;
-  `--feasible` ranks a blow that meets the form by its energy alone.
+  its own experimental Option (`strike-bonk`, aimed at the head's centre). It is searched on the
+  training twins of the body's bonk row's cells by
+  `research/skills/strikes/swing/swing-drill.mjs --body workshop-fighter --skill bonk`, scored by
+  the cell's value graded (`searchScore`), and confirmed on the cells' own cases (`--confirm`).
 - **The straight punch** (`src/skills/strikes/straight-punch.ts`, `learned-punch.ts`) is the
   worked example of every step below: a graded bar, a searched push schedule, a learned actor
   correcting it.
@@ -100,7 +102,8 @@ The row, from saved results:
 - **`buckler,club`**: none of the 14 begun meets the head with the swell: 6 land elsewhere, 5 on
   the guard, 3 miss.
 - **Step 4 has no trained actor.** The training environment
-  (`research/skills/strikes/swing/environments/bonk.json`) reads each trial as the swing lets go
+  (`research/skills/strikes/swing/environments/bonk.json`), on the `bonk` drill's training twin at
+  120 Hz, reads each trial as the swing lets go
   (`releasedScore`, `onward: false`). A pooled episode's first decision holds the windup, about
   190 world steps, so the trainer's environments wait on it and the run makes 100 decisions a
   second ([the training recipe's traps](../recipes/training.md#traps)).
@@ -119,14 +122,14 @@ steered swing is trained from a spread of `--log-std -3` or lower.
 
 ## To pick it up
 
-- **Screen the swing or a policy** on held-out places, every rung's condition with `--all`:
-  `node research/skills/strikes/straight-punch/punch-policy-check.mjs --config research/skills/strikes/swing/environments/bonk.json --policy none --rates 120,480`
+- **Screen the swing or a policy** on the environment's places, the twin's, at 120 Hz; with
+  `--cell`, the cells' own cases at 120 and 480 Hz, the worse counting:
+  `node research/skills/strikes/straight-punch/punch-policy-check.mjs --config research/skills/strikes/swing/environments/bonk.json --policy none`
   (`--policy <run>/policy-<n>.json` for a checkpoint; `--config` a run's configuration to screen
   on its places).
 - **Train** from a configuration naming the environment and its curriculum: `environment`
-  `research/skills/strikes/swing/environments/bonk.json`, `workers` 20, `each` 4, `rates` `[120]`,
-  and `places` the environment's `bonk` draw, `walk` where `{ mark: "high", hand: "right", start:
-  "walking" }` and `moving` where `{ mark: "high", hand: "right" }`; run
+  `research/skills/strikes/swing/environments/bonk.json`, `workers` 20, `each` 4, on the
+  environment's places (the `bonk` drill's twin) and rate; run
   `research/run-train.py --config <it> --output .tmp/warrior-bonk/<run> --keywords released,short,down --log-std -3 --profile`.
   The trainer's default keywords are travel's and fail on this environment.
 - The swing executor, the strike reader and a muscle's speed are shared pieces: a change to one

@@ -3,21 +3,27 @@ import { GAME } from "../../../../src/app/catalog.ts";
 import { profileLearningMind } from "../../../../src/minds/option/index.ts";
 import { workerJobs } from "../../../worker-jobs.mjs";
 /**
- * **A steered strike's policy on held-out trials** (the straight punch's, a held blow's or a swing's: a strike its preset has no Option for gets its own, `owning`): places drawn as its training environment draws
- * them (`case-learning-environment.mjs`, `drawCondition`), on a seed of their own, and its listed
- * places' conditions (a fight's moments), each of the half training holds out (`heldOut`; with `--all`, every one), each played whole as
- * the Strike drill plays a trial (its world and its reader to the end, so a fall counts) at each of
- * `--rates`, the policy answering each of the punch's requests (`recoveryNetwork`, as the core
- * evaluates a learned network). With `--policy none`, the schedule alone: each request answered with no steer. Prints a line a
- * trial, then the landed share by rate and body, and by the target's distance.
+ * **A steered strike's policy on its drill** (the straight punch's, a held blow's or a swing's):
+ * its training environment's places (`case-learning-environment.mjs`: the conditions of a drill's
+ * training twin its `where` picks, as the drill's own admission gives them the subject,
+ * `subjectFor`), each played whole as the Strike drill plays a trial (its world and its reader to
+ * the end, so a fall counts) at the game's rate, the policy answering each of the strike's requests
+ * (`recoveryNetwork`, as the core evaluates a learned network). With `--policy none`, the schedule
+ * alone: each request answered with no steer. With `--cell`, the cells' own cases instead, the
+ * protocols the places' twins are of (`Cases.twin`), at 120 and 480 Hz, the worse counting: the
+ * confirmation ([the skill recipe](../../../../docs/recipes/skill.md#an-options-code)). Each trial is
+ * valued as its cell values it (`trialValue`) and scored as a search scores it (`searchScore`).
+ * Prints a line a trial, then by rate and body the landed share, the falls, the mean value and the
+ * mean score; with `--cell`, the worse rate's value.
  *
- *   node research/skills/strikes/straight-punch/punch-policy-check.mjs --config <environment.json> --policy <policy.json|none> [--trials 60] [--seed 1001] [--rates 120,480] [--workers 14] [--all]
+ *   node research/skills/strikes/straight-punch/punch-policy-check.mjs --config <environment.json> --policy <policy.json|none> [--cell] [--workers 14]
  *
  * The body is the environment's `character` (its attributes; none, the model's own). `--config` is
  * an environment file or a training run's configuration (`environment` and its overrides, its
- * curriculum unread: the trials are at `--rates`).
+ * curriculum unread).
  *
- * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
+ * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), 120 Hz; with `--cell`,
+ * 120 and 480 Hz.
  */
 import { readFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
@@ -28,11 +34,15 @@ import '../../../../tests/harness/preload-data.mjs';
 import { recoveryNetwork } from "../../../../src/core/math/learning/recovery-network.ts";
 import { answer, pending } from "../../../../src/core/math/learning/learner.ts";
 import { STRIKE } from "../../../../src/app/node/evaluation.ts";
-import { barScore } from '../../../../src/evaluation/strike/score.ts';
 import { BOUT_WORLD } from "../../../../src/app/node/evaluation.ts";
-import { drawCondition, generator, heldOut, learnerIn, owning, subjectFor } from '../../../case-learning-environment.mjs';
+import { FALL_PRICE, keep, trialValue } from "../../../../src/evaluation/table/judge.ts";
+import { learnerIn, owning, subjectFor } from '../../../case-learning-environment.mjs';
+import { CONFIRM_RATES, meanValue, searchScore } from '../../../drill-trials.mjs';
 
-/** One trial of `condition` on `protocol` at `hz`, steered by `act` (null: no steer): its reading's outcome and hit. */
+/** The game's rate, research's. */
+const GAME_RATE = 120;
+
+/** One trial of `condition` on `protocol` at `hz`, steered by `act` (null: no steer): its outcome, its value as the cell values it and its search score. */
 async function trial(o, act, protocol, condition, hz) {
   const cases = STRIKE.protocols[protocol], value = subjectFor(o, condition, (preset, request) => profileLearningMind(GAME.partLookup, owning(GAME, preset, request.skill), request)), world = cases.world([value], condition, undefined, [o.character ?? {}]);
   if (isRefused(world)) throw new Error(world.refused);
@@ -46,9 +56,8 @@ async function trial(o, act, protocol, condition, hz) {
       built.world.step(); reader.afterStep();
       if (pending(learner)) answer(learner, act ? act(learner.inputs) : []);
     }
-    const r = reader.reading(), h = r.hit;
-    return { outcome: r.outcome, began: r.began, score: barScore(r, condition.hand), hit: h && (h.overhead ? { energy: h.energy, on: h.on, short: h.overhead.short, bend: h.bend } : typeof h.hard === 'boolean' ? { energy: h.energy, held: h.held, faced: h.faced, speed: h.speed }
-      : { speed: h.speed, kg: h.kg, straight: h.straight, along: h.along, bend: h.bend, lean: h.lean }) };
+    const r = reader.reading(), outcome = STRIKE.outcome(r).label, worth = trialValue("strike", { kept: keep({ judge: "strike" }, r), outcome }, FALL_PRICE);
+    return { outcome, began: r.began, down: r.down, value: worth, score: searchScore({ judge: { judge: "strike" }, condition }, { value: worth, reading: r, outcome }) };
   } finally { built.dispose(); }
 }
 
@@ -58,23 +67,29 @@ if (!isMainThread) {
     try { parentPort.postMessage({ id, r: await trial(workerData.o, act, protocol, condition, hz) }); } catch (error) { parentPort.postMessage({ id, error: String(error?.stack ?? error) }); }
   });
 } else {
-  const { values } = parseArgs({ options: { config: { type: 'string' }, policy: { type: 'string' }, trials: { type: 'string' }, seed: { type: 'string' }, rates: { type: 'string' }, workers: { type: 'string' }, all: { type: 'boolean' } } });
+  const { values } = parseArgs({ options: { config: { type: 'string' }, policy: { type: 'string' }, cell: { type: 'boolean' }, workers: { type: 'string' } } });
   const given = JSON.parse(readFileSync(values.config, 'utf8'));
   const { environment, workers: _w, each: _e, seed: _s, ...overrides } = given;
   const o = typeof environment === 'string' ? { ...JSON.parse(readFileSync(environment, 'utf8')), ...overrides } : given;
   const policy = values.policy && values.policy !== 'none' ? JSON.parse(readFileSync(values.policy, 'utf8')) : null;
-  const random = generator(Number(values.seed ?? 1001)), rates = (values.rates ?? '120,480').split(',').map(Number);
+  if (o.places.some((place) => !place.where)) throw new Error('a place is a drill twin\'s conditions its `where` picks; a drawn place is no drill\'s');
+  const rates = values.cell ? CONFIRM_RATES : [GAME_RATE];
+  /** The protocol `twin` is the training twin of: a cell's own. */
+  const ownOf = (twin) => {
+    const own = Object.keys(STRIKE.protocols).find((name) => STRIKE.protocols[name].twin === twin);
+    if (!own) throw new Error(`${twin} is no protocol's training twin`);
+    return own;
+  };
+  const matches = (condition, where) => Object.entries(where).every(([key, value]) => JSON.stringify(condition[key]) === JSON.stringify(value));
   const jobs = [];
-  const still = o.places.filter((place) => place.draw), fights = o.places.filter((place) => !place.draw);
-  for (let k = 0; still.length && k < Number(values.trials ?? 60);) {
-    const place = still[Math.floor(random() * still.length)], condition = drawCondition(place.draw, random);
-    if (!values.all && !heldOut(condition)) continue;
-    for (const hz of rates) jobs.push({ id: jobs.length, protocol: place.protocol, condition, hz });
-    k++;
+  for (const place of o.places) {
+    const protocol = values.cell ? ownOf(place.protocol) : place.protocol, cases = STRIKE.protocols[protocol];
+    for (const condition of cases.conditions.filter((one) => matches(one, place.where))) {
+      const value = subjectFor(o, condition, (preset, request) => profileLearningMind(GAME.partLookup, owning(GAME, preset, request.skill), request));
+      if ((cases.faults?.(value, condition, { id: 'learner', label: 'learner', value, character: o.character ?? {} }) ?? []).length) continue;
+      for (const hz of rates) jobs.push({ id: jobs.length, protocol, condition, hz });
+    }
   }
-  for (const place of fights) for (const condition of STRIKE.protocols[place.protocol].conditions)
-    if (Object.entries(place.where ?? {}).every(([key, value]) => JSON.stringify(condition[key]) === JSON.stringify(value)) && (values.all || heldOut(condition)))
-      for (const hz of rates) jobs.push({ id: jobs.length, protocol: place.protocol, condition, hz });
   const results = new Array(jobs.length);
   const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
   await workerJobs(jobs, { lanes: count,
@@ -83,20 +98,19 @@ if (!isMainThread) {
   });
   for (const job of jobs) {
     const r = results[job.id], c = job.condition;
-    console.log(JSON.stringify({ began: r.began, hz: job.hz, model: c.model, hand: c.hand, ...(c.foe ? { foe: c.foe, moment: c.moment } : { gap: +c.gap.toFixed(3), across: +c.across.toFixed(3) }), protocol: job.protocol, ...Object.fromEntries(['mark', 'start', 'direction', 'speed'].filter((k) => k in c).map((k) => [k, c[k]])), outcome: r.outcome, score: +r.score.toFixed(2),
-      hit: r.hit && Object.fromEntries(Object.entries(r.hit).map(([k, v]) => [k, typeof v === 'number' ? +v.toFixed(3) : v ?? null])) }));
+    console.log(JSON.stringify({ began: r.began, hz: job.hz, protocol: job.protocol, model: c.model, ...Object.fromEntries(['hand', 'foot', 'mark', 'target', 'gap', 'across', 'start'].filter((k) => k in c).map((k) => [k, c[k]])),
+      outcome: r.outcome, value: r.value === null ? null : +r.value.toFixed(3), score: r.score === null ? null : +r.score.toFixed(3) }));
   }
-  // By rate and body: the landed share, and by how far the target stands (its gap and offset across together).
-  const tally = (mine) => `landed ${mine.filter((j) => results[j.id].outcome === 'landed').length} of ${mine.length}, fell ${mine.filter((j) => results[j.id].outcome === 'fell').length}`;
-  for (const hz of rates) for (const model of [...new Set(jobs.filter((j) => j.condition.foe).map((j) => j.condition.model))]) {
-    const mine = jobs.filter((j) => j.hz === hz && j.condition.model === model && j.condition.foe), outcomes = {};
-    for (const j of mine) outcomes[results[j.id].outcome] = (outcomes[results[j.id].outcome] ?? 0) + 1;
-    console.log(`${hz} Hz ${model} fights: ${tally(mine)}; ${Object.entries(outcomes).map(([k, n]) => `${k} ${n}`).join(', ')}`);
+  const mean = (list) => { const counted = list.filter((one) => one !== null); return counted.length ? counted.reduce((a, b) => a + b, 0) / counted.length : null; };
+  const byRate = {};
+  for (const hz of rates) for (const model of [...new Set(jobs.map((j) => j.condition.model))]) {
+    const mine = jobs.filter((j) => j.hz === hz && j.condition.model === model).map((j) => results[j.id]);
+    const value = meanValue(mine), score = mean(mine.map((r) => r.score));
+    byRate[hz] = meanValue(jobs.filter((j) => j.hz === hz).map((j) => results[j.id]));
+    console.log(`${hz} Hz ${model}: landed ${mine.filter((r) => r.outcome === 'landed').length} of ${mine.length}, fell ${mine.filter((r) => r.down).length}; value ${value?.toFixed(3) ?? '-'} hp a second, score ${score?.toFixed(3) ?? '-'}`);
   }
-  for (const hz of rates) for (const model of [...new Set(jobs.filter((j) => !j.condition.foe).map((j) => j.condition.model))]) {
-    const mine = jobs.filter((j) => j.hz === hz && j.condition.model === model && !j.condition.foe), landed = mine.filter((j) => results[j.id].outcome === 'landed').length, fell = mine.filter((j) => results[j.id].outcome === 'fell').length;
-    const bins = {};
-    for (const j of mine) { const b = (Math.floor(Math.sqrt(j.condition.gap * j.condition.gap + j.condition.across * j.condition.across) * 50) / 50).toFixed(2); bins[b] ??= [0, 0]; bins[b][1]++; if (results[j.id].outcome === 'landed') bins[b][0]++; }
-    console.log(`${hz} Hz ${model}: landed ${landed} of ${mine.length}, fell ${fell}; by distance ${Object.entries(bins).sort().map(([b, [l, n]]) => `${b}:${l}/${n}`).join(' ')}`);
+  if (values.cell) {
+    const all = Object.values(byRate);
+    console.log(`the cells' cases: value ${all.includes(null) ? '-' : Math.min(...all).toFixed(3)} hp a second at the worse rate`);
   }
 }
