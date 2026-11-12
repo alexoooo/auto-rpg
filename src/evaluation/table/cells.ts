@@ -123,7 +123,7 @@ export function createTableCells(context: GameContext) {
   const TABLE_SKILLS: readonly Skill[] = Object.freeze([
     ...drillWaysUp().map(wayUp),
     { name: "walk", has: always, readings: () => [{ drill: "locomotion", protocol: "every", subject: TABLE_MIND, judge: "orders", byLoadout: true }],
-      value: `${MOVE}: the Locomotion screen's walks, runs, turns and shoves, its walks again in the gusts` },
+      value: `${MOVE}: the Locomotion screen's walks eight ways at paces up to the body's fastest each way, runs, turns and shoves, its walks again in the gusts` },
     { name: "run", has: (body) => RUNNERS.includes(body),
       readings: body => body === "workshop-fighter"
         ? [{ drill: "travel", protocol: "confirmation", subject: TABLE_MIND, judge: "orders", byLoadout: true }]

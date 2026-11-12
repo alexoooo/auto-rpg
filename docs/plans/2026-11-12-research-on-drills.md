@@ -32,7 +32,7 @@ Almost no search, training or screen plays its drill's cases, and several run an
 | cut | `still`, `walk` (Warrior) | gap 1.2 m alone; the Skeleton as target; the item in the left hand | `swing-drill.mjs` |
 | bonk | `bonk` (still places, high mark, right hand) | gaps to 1.5 m; across −0.1 to 0.25 m; read at the release | `swing/environments/bonk.json` |
 | stomp | `stomping` (gaps 0.8, 1.0, 1.2 m; a Warrior or Skeleton lying) | the search's own split of the gaps | `skill-search.mjs` (`SEARCHES.stomp`) |
-| walk | Locomotion `every` (4 ways at 0.3, 0.7 m/s; unpaced run and turn; shoves; gusts) | paces to the body's envelope, diagonals, turn rates, long courses, 16-way shoves, edge and staggered starts; on the Lab's Mind or a core stand | `locomotion-*.mjs`, `stance/*.mjs`, `stride-search.mjs` |
+| walk | Locomotion `every` (8 ways at 0.3, 0.7 m/s and the body's fastest that way; unpaced run and turn; shoves; gusts) | turn rates, long courses, 16-way shoves, edge and staggered starts; on the Lab's Mind or a core stand | `locomotion-*.mjs`, `stance/*.mjs`, `stride-search.mjs` |
 | run | Travel `confirmation` (Warrior), Locomotion `run` (Rogue) | paces to 6.5 m/s and changes of pace; place orders over routes with corners and a moved goal; moving, crouched and turned starts; on the default Mind | `travel-environment.mjs`, `travel-screen.mjs`, `warrior-travel.mjs`, `residual-*.mjs`, `run-cycle-search.mjs` |
 
 Buckler-cover has no research script. No cell reads the high mark (every blow's Option but the
@@ -88,7 +88,9 @@ Each lands on its checks; nothing is played without a brief.
    in the drill; `rise-search.mjs` and the sit-back and roll searches on the twin. *In work*: a
    cell per way up on the way-up drill, its twin the fresh falls.
 5. Walk and run: the drills widened (paces to the envelope, diagonals, place orders); the
-   scripts on their twins. Missing now: a place order has no value (`orderTime` refuses it); a
+   scripts on their twins. *The walk widened*: Locomotion `every` walks eight ways, each at 0.3
+   and 0.7 m/s and the fastest the body holds that way (705 trials to 1,115; its twin 705 to
+   825). Missing now: a place order has no value (`orderTime` refuses it); a
    stance tuning has no way into a drill case; the case environment skips a trained learner, so
    the run's cannot be trained on it.
 

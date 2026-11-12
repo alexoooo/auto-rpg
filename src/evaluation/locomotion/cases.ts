@@ -25,8 +25,10 @@ import { mindOf } from "../evaluation.ts";
 import { presetFitsModel } from "../../minds/catalog/controller.ts";
 import type { Orders } from "../../minds/orders.ts";
 import { cos, sin } from "../../core/math/real.ts";
-import { modelSpec, type BodyModel } from "../../core/bodies/models.ts";
-import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
+import { modelHolding, modelSpec, type BodyModel } from "../../core/bodies/models.ts";
+import { EMPTY_LOADOUT, loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
+import { heldPace } from "../../control/stance/stance-envelope.ts";
+import { stanceEnvelopeOf } from "../../skills/locomotion/stance/envelope.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Cases, Json, Subject } from "../evaluation.ts";
@@ -76,18 +78,22 @@ const SCREEN = deepFreeze({
   walked: { ways: [0, 90, 180, 270], impulse: 20, pace: .3 },
 });
 
-type Protocol = typeof SCREEN;
+/** A screen's trials, and with `fastest`, each way's walks up to the body's fastest that way (`pacesOf`). */
+type Protocol = typeof SCREEN & { readonly fastest?: true };
 
 /**
- * The walk on every body in every rated loadout (`REPRESENTATIVE`): the screen's trials, and its
- * walks again in the lab's gusts.
+ * The walk on every body in every rated loadout (`REPRESENTATIVE`): the screen's trials eight ways,
+ * the diagonals among them, each way's walks up to the fastest the body holds that way
+ * (`fastest`), and its walks again in the lab's gusts.
  */
-const EVERY = deepFreeze({ ...SCREEN, models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[], loadouts: REPRESENTATIVE as Loadout[], gusts: true });
+const EVERY = deepFreeze({ ...SCREEN, models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[], ways: [0, 45, 90, 135, 180, 225, 270, 315],
+  fastest: true as const, loadouts: REPRESENTATIVE as Loadout[], gusts: true });
 
 /**
  * **The walk's training twin** (`src/evaluation/twin.ts`): `EVERY`'s trials drawn at other points,
- * research's to tune on, the cell's held out: its ways and its shoves' turned half their spacing,
- * its paces and impulses halfway between, its turns aside half as far, and the next seed.
+ * research's to tune on, the cell's held out: its ways and its shoves' turned half their spacing
+ * (each way's fastest walk read at its own way), its paces and impulses halfway between, its turns
+ * aside half as far, and the next seed.
  */
 const EVERY_TWIN = deepFreeze({ ...EVERY, ways: turned(EVERY.ways), paces: between(EVERY.paces), turns: EVERY.turns.map((way) => way < 180 ? way / 2 : 360 - (360 - way) / 2),
   shoves: { ways: turned(EVERY.shoves.ways), impulses: between(EVERY.shoves.impulses) }, walked: { ...EVERY.walked, ways: turned(EVERY.walked.ways) }, seed: 2 });
@@ -148,6 +154,20 @@ export const TURNING = 2 * Math.PI / TURN_RATE;
 const shoveOf = (model: BodyModel, impulse: number): number =>
   impulse * (modelSpec(model).mass.value / modelSpec("workshop-fighter").mass.value);
 
+/**
+ * **The paces `protocol` walks `model` holding `loadout` the way `way` degrees from forward**, m/s:
+ * its paces; and where it asks the `fastest` and the stance's envelope was measured on the body
+ * holding it (`stanceEnvelopeOf`), the fastest that envelope holds that way (`heldPace`, the rule
+ * the game's walk is held to), to the centimetre below, its paces past that left out, as the game
+ * asks no walk faster than its body holds.
+ */
+function pacesOf(protocol: Protocol, model: BodyModel, loadout: Loadout | undefined, way: number): readonly number[] {
+  const envelope = protocol.fastest ? stanceEnvelopeOf(modelHolding(model, loadout ?? EMPTY_LOADOUT)) : null;
+  if (!envelope) return protocol.paces;
+  const angle = way * Math.PI / 180, fastest = Math.floor(heldPace(envelope, cos(angle), sin(angle)) * 100) / 100;
+  return fastest > 0 ? [...protocol.paces.filter((pace) => pace < fastest), fastest] : protocol.paces;
+}
+
 /** The conditions of `protocol`, body by body, in the order the kinds are listed above. */
 function conditionsOf(protocol: Protocol): LocomotionCondition[] {
   return screenOf(protocol, {});
@@ -156,7 +176,7 @@ function conditionsOf(protocol: Protocol): LocomotionCondition[] {
 /** The screen's trials of `protocol` on each of its bodies, each naming `held`. */
 function screenOf(protocol: Protocol, held: Held): LocomotionCondition[] {
   return protocol.models.flatMap((model): LocomotionCondition[] => [
-    ...protocol.ways.flatMap((way) => protocol.paces.map((pace) => ({ kind: "walk" as const, model, way, pace }))),
+    ...protocol.ways.flatMap((way) => pacesOf(protocol, model, held.loadout, way).map((pace) => ({ kind: "walk" as const, model, way, pace }))),
     { kind: "run" as const, model },
     ...protocol.turns.map((way) => ({ kind: "turn" as const, model, way })),
     ...protocol.shoves.impulses.flatMap((impulse) => protocol.shoves.ways.map((way) => ({ kind: "shove" as const, model, way, impulse: shoveOf(model, impulse) }))),

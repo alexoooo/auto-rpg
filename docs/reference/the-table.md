@@ -53,7 +53,10 @@ A reading counts only over its whole protocol: every case present and none fault
 value is the mean of every counted trial of its readings; a cell whose readings are whole with no
 trial counted (every fall not made or not exercised, every cover unattacked) is marked nothing
 counted, its counts beside it. The Warrior's run reads the Travel confirmation protocol, the Rogue's the
-Locomotion run protocol, the walk the Locomotion `every` protocol on every body.
+Locomotion run protocol, the walk the Locomotion `every` protocol on every body: its walks eight
+ways, the diagonals among them, at 0.3 and 0.7 m/s and at the fastest the body holding the loadout
+holds that way (its stance's measured envelope, `stance-envelope.json`, by the rule the game's walk
+is held to, `heldPace`), a pace past that left out.
 
 A cell is compared with its baseline, its first reading when its work begins (named by
 `npm run evaluate -- table --baseline`: a pointer at that reading's result, which is then kept),
