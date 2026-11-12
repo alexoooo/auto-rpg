@@ -134,7 +134,7 @@ export function createTableCells(context: GameContext) {
     { name: "stomp", has: struck("stomp"), readings: (body, loadout) => [strikeRung("stomping", "foot", "stomp", body, loadout)],
       value: `${BLOW}; the foot's speed into the contact beside it` },
     { name: "bonk", has: struck("bonk"),
-      readings: (body, loadout) => [strikeRung("bonk", "energy", "bonk", body, loadout)],
+      readings: (body, loadout) => ["bonk", "walk"].map((rung) => strikeRung(rung, "energy", "bonk", body, loadout)),
       value: `${BLOW}; the blow's energy on the head beside it` },
     { name: "cut", has: struck("cut"), readings: (body, loadout) => blowRungs("cut", "edge", body, loadout),
       value: `${BLOW}; the blade's far end's speed into the contact beside it` },

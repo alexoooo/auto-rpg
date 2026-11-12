@@ -74,16 +74,19 @@ Each lands on its checks; nothing is played without a brief.
 3. Strikes: the scripts and environments on their twins; the drills widened (target bodies).
    *Landed*: the still, walk, bonk and stomping rungs (and their `-bodies`) strike each of the
    game's foes (the Warrior, the Rogue, the Skeleton; `FOES`), so the strike cells hold 2580
-   cases where they held 920. `punch-drill.mjs` (punch, thrust), `swing-drill.mjs` (cut, bonk)
+   cases where they held 920; the bonk is read walked to as well (the `walk` rung, its right
+   hand at the head), 48 cases a cell to 144. `punch-drill.mjs` (punch, thrust), `swing-drill.mjs` (cut, bonk)
    and the stomp's search (`skill-search.mjs`) search a body's row on its cells' twins at
    120 Hz, a candidate the cell's own subject with its settings as the skill's tuning (its window,
    loadout and Mind the cell's), each trial scored by its value graded (`searchScore`: a blow that
    did not land up to 0.05 hp a second below its value, by how near it came to the bar), and
    confirm on the cells' own cases at 120 and 480 Hz, the worse counting (`confirmRow`). The
    punch, bonk and thrust environments place on the twins at 120 Hz;
-   `punch-policy-check.mjs` screens on them and confirms with `--cell`. Left: the training
-   rewards are still the bar's score, not the value, a change of reward scale only a training
-   run can check; the club's trunk blow (`club-blow`) has no cell, so no drill to search on.
+   `punch-policy-check.mjs` screens on them and confirms with `--cell`. The environments reward
+   an episode by the search's score, the Strike drill's `value` term (`graded`), the bonk's
+   played on past its release so its value reads the whole trial. Left: the new reward's scale
+   against the effort and `unmet` terms, which only a training run checks; the club's trunk blow
+   (`club-blow`) has no cell, so no drill to search on.
 4. Stand-up, with [its plan](2026-11-12-stand-up-drills.md): the obstacle levels and bout falls
    in the drill; `rise-search.mjs` and the sit-back and roll searches on the twin. *Landed*: a
    cell per way up on the way-up drill, its twin the fresh falls; the searches on the twin.

@@ -21,6 +21,12 @@
       "where": {
         "model": "workshop-fighter"
       }
+    },
+    {
+      "protocol": "walk-twin",
+      "where": {
+        "model": "workshop-fighter"
+      }
     }
   ],
   "rates": [
@@ -28,13 +34,11 @@
   ],
   "pool": 4,
   "refresh": 16,
-  "onward": false,
   "reward": {
     "effort": 0.02,
     "unmet": -1,
     "end": {
-      "released": 1,
-      "short": -4
+      "value": 1
     }
   }
 }

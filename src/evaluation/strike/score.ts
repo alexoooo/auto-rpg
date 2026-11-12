@@ -86,3 +86,19 @@ export function barScore(reading: StrikeReading, hand: Hand | null, heavier = 1)
   return (2 * Math.min(1, speed) + heavier * Math.min(1, mass) + towards(hit.straight) + lined(hit.along) + within(hit.bend!, BAR.bend) + within(hit.lean!, BAR.lean)
     + Math.max(0, 1 - late / 0.3)) * 8 / (7 + heavier) - (reading.ended === null ? 0.5 : 0);
 }
+
+/** How much a blow that did not land may score below its value in a search, hp a second: less than any landing in a strike cell trades. */
+export const SHORT = 0.05;
+
+/** `barScore`'s landed blow and its fall: the span a blow short of the bar is graded over. */
+const LANDED = 9, FELL = -3;
+
+/**
+ * **A blow's value graded**, as research scores it ([the skill recipe](../../../docs/recipes/skill.md#1-the-reader-and-its-score)):
+ * `value`, its cell's value of the trial; a blow that did not land, up to `SHORT` hp a second less
+ * by how far short of the drill's bar it came (`barScore`), so a search whose candidates land
+ * nothing still climbs, and no nearness outweighs a landing.
+ */
+export function graded(value: number, reading: StrikeReading, hand: Hand | null, landed: boolean): number {
+  return landed ? value : value - SHORT * unit((LANDED - barScore(reading, hand)) / (LANDED - FELL));
+}

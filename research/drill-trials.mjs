@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../tests/harness/preload-data.mjs";
 import { workerPool } from "./cma.mjs";
-import { barScore } from "../src/evaluation/strike/score.ts";
+import { graded } from "../src/evaluation/strike/score.ts";
 import { isRefused } from "../src/core/refusal.ts";
 import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
 import { loadoutKey } from "../src/core/bodies/items/held.ts";
@@ -136,23 +136,15 @@ export function withTuning(value, tuning) {
   return { ...value, mind: { ...value.mind, options } };
 }
 
-/** How much a blow that did not land may score below its value in a search, hp a second: less than any landing in a strike cell trades. */
-export const SHORT = 0.05;
-
-/** `barScore`'s landed blow and its fall: the span a blow short of the bar is graded over. */
-const LANDED = 9, FELL = -3;
-
 /**
  * **A trial's score in a search**, the skill's value graded ([the skill recipe](../docs/recipes/skill.md#1-the-reader-and-its-score)):
- * its value as the cell values it (`playTrial`); a blow that did not land, up to `SHORT` hp a second
- * less by how far short of the drill's bar it came (`barScore`: 9 a landed blow, -3 a fall), so a
- * search whose candidates land nothing still climbs, and no nearness outweighs a landing. Any other
- * judge's, its value alone. Null where the trial does not count.
+ * its value as the cell values it (`playTrial`), a blow that did not land graded below it by how far
+ * short of the drill's bar it came (`graded`, the strike drill's `value` term, which training is
+ * rewarded by). Any other judge's, its value alone. Null where the trial does not count.
  */
 export function searchScore(trial, { value, reading, outcome }) {
-  if (value === null || trial.judge.judge !== "strike" || outcome === "landed") return value;
-  const bar = barScore(reading, "hand" in trial.condition ? trial.condition.hand : null);
-  return value - SHORT * Math.min(1, Math.max(0, (LANDED - bar) / (LANDED - FELL)));
+  if (value === null || trial.judge.judge !== "strike") return value;
+  return graded(value, reading, "hand" in trial.condition ? trial.condition.hand : null, outcome === "landed");
 }
 
 /** A played trial as a worker sends it back: its name, outcome, value and search score, and whether it ended down (a blow's or a cover's `down`, a move's `fell`). */

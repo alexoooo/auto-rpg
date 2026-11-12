@@ -188,9 +188,10 @@ export interface Evaluation<C extends Json = Json, R extends Json = Json, B exte
   outcome?(reading: R): { readonly label: string; readonly passed: boolean };
   /**
    * What a learning environment may weigh at a trial's end beside its reading's own numbers
-   * (`research/case-learning-environment.mjs`): named terms, each from the reading and its condition.
+   * (`research/case-learning-environment.mjs`): named terms, each from the reading and its condition,
+   * null where the trial does not count.
    */
-  readonly terms?: Readonly<Record<string, (reading: R, condition: C) => number>>;
+  readonly terms?: Readonly<Record<string, (reading: R, condition: C) => number | null>>;
   /**
    * What a learning environment may weigh as a trial plays: named percepts of its world, each read
    * after every step as a value a second, which the environment sums over the step's seconds.

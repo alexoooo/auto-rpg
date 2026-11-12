@@ -78,7 +78,7 @@ strikes as it arrives (`walk`), at the paces its walk serves; faster with
    and snap among them, CMA-searched on the bonk drill's twin by the score at 120 Hz. Extend `swing.ts` where its contract fits; the bonk keeps its own Option and record.
    Before training, it lands some held-out places.
 4. **Learned actor.** Train a residual actor over the schedule by the training recipe, from
-   scratch, rewarded by the score, on the twin's trials at places the window admits. Choose
+   scratch, rewarded by the score (the drill's `value` term), on the twin's trials at places the window admits. Choose
    checkpoints on development places; held-out places confirm.
 5. **Widen.** One at a time, keeping the earlier cases in the mix: the left hand, the buckler loadouts, the Warrior striking as it walks in, the opponent moving
    (carried past, then stepping in and out), and a miss (the target removed
@@ -103,10 +103,10 @@ The row, from saved results:
   the guard, 3 miss.
 - **Step 4 has no trained actor.** The training environment
   (`research/skills/strikes/swing/environments/bonk.json`), on the `bonk` drill's training twin at
-  120 Hz, reads each trial as the swing lets go
-  (`releasedScore`, `onward: false`). A pooled episode's first decision holds the windup, about
-  190 world steps, so the trainer's environments wait on it and the run makes 100 decisions a
-  second ([the training recipe's traps](../recipes/training.md#traps)).
+  120 Hz, rewards each trial by its value graded as the searches score it (the Strike drill's
+  `value` term), the trial played on past the release to its end. A pooled episode's first
+  decision holds the windup, about 190 world steps, so the trainer's environments wait on it and
+  the run makes 100 decisions a second ([the training recipe's traps](../recipes/training.md#traps)).
 - **What the swing cannot do** is in [the approaches](../approaches.md#weapon-strikes): it strikes
   where the target stood when it committed, and its time is its footwork's steps.
 
@@ -130,7 +130,7 @@ steered swing is trained from a spread of `--log-std -3` or lower.
 - **Train** from a configuration naming the environment and its curriculum: `environment`
   `research/skills/strikes/swing/environments/bonk.json`, `workers` 20, `each` 4, on the
   environment's places (the `bonk` drill's twin) and rate; run
-  `research/run-train.py --config <it> --output .tmp/warrior-bonk/<run> --keywords released,short,down --log-std -3 --profile`.
+  `research/run-train.py --config <it> --output .tmp/warrior-bonk/<run> --keywords value,down --log-std -3 --profile`.
   The trainer's default keywords are travel's and fail on this environment.
 - The swing executor, the strike reader and a muscle's speed are shared pieces: a change to one
   is read on the club's trunk blow, the sword cut, the punch, stand-up and travel as well. Work

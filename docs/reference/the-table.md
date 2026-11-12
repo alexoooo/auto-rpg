@@ -28,8 +28,8 @@ its own value:
   reads its own attempts. How a mind chains its ways up after a fall is a fight's question, read
   on the owner's target in research ([getting up](rising.md)), never in a cell.
 - **A cell reads its skill on its own merit**, in a drill built for it: a blow at a still target
-  and one walked to (`still`, `walk`), which let it happen, a bonk at one's head (`bonk`) and a
-  stomp at one lying (`stomping`). The target is each foe the game sets a striker against (the
+  and one walked to (`still`, `walk`), which let it happen, a bonk at one's head (`bonk`, and
+  walked to) and a stomp at one lying (`stomping`). The target is each foe the game sets a striker against (the
   Warrior, the Rogue of the Arena, the Skeleton of the Crypt; `FOES`). What a blow brings in a
   fight is another reading, its profile's, taken in fights and never in a cell
   ([the evaluations](../architecture.md#evaluations)).

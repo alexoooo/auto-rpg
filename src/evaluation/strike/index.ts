@@ -17,7 +17,8 @@ import { recordingKey } from "../../core/world/recording.ts";
 import { mindJson, mindSubject, type Evaluation, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import type { StrikeReading } from "./read.ts";
-import { barScore, releasedScore } from "./score.ts";
+import { barScore, graded, releasedScore } from "./score.ts";
+import { FALL_PRICE, keep, trialValue } from "../table/judge.ts";
 import { createStrikeCases, limbOf, type StrikeCondition } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
@@ -93,12 +94,17 @@ export function createStrikeIndex(context: GameContext) {
     subjects: (choice) => strikeSubjects(choice, DRILLED),
     outcome: strikeOutcome,
     /**
-     * A learning environment's terms: the human-reference comparison score, a bonk's as its swing
-     * lets go (`releasedScore`), whether the completed
-     * action landed physically, and, where
-     * the limb met nothing on the mark, how far short of its aim it stayed at its nearest, m, to 0.5.
+     * A learning environment's terms: `value`, the trial's value as its cell reads it (`trialValue`,
+     * a fall at `FALL_PRICE`), graded as research scores it (`graded`), null where the trial does not
+     * count; the human-reference comparison score, a bonk's as its swing lets go (`releasedScore`),
+     * whether the completed action landed physically, and, where the limb met nothing on the mark,
+     * how far short of its aim it stayed at its nearest, m, to 0.5.
      */
     terms: {
+      value: (reading, condition) => {
+        const { label } = strikeOutcome(reading), value = trialValue("strike", { kept: keep({ judge: "strike" }, reading as unknown as Json), outcome: label }, FALL_PRICE);
+        return value === null ? null : graded(value, reading, "hand" in condition ? condition.hand : null, label === "landed");
+      },
       score: (reading, condition) => barScore(reading, "hand" in condition ? condition.hand : null),
       released: (reading) => releasedScore(reading),
       met: (reading) => reading.outcome === "landed" ? 1 : 0,

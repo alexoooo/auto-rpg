@@ -38,9 +38,7 @@
     "effort": 0.02,
     "unmet": -1,
     "end": {
-      "score": 1,
-      "short": -4,
-      "met": 0
+      "value": 1
     }
   }
 }

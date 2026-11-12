@@ -11,5 +11,5 @@
   "rates": [120],
   "pool": 4,
   "refresh": 16,
-  "reward": {"effort": 0.02, "unmet": -1, "end": {"score": 1, "short": -4, "met": 0}}
+  "reward": {"effort": 0.02, "unmet": -1, "end": {"value": 1}}
 }
