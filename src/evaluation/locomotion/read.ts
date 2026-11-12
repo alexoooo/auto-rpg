@@ -15,8 +15,9 @@ import { AFTER, HOLD, RUN_UP, scriptOf, START, TURN_RATE, TURNING, WALK, type Lo
  * far its root ended from where it stood when its last cue came, m (`moved`). The run's bar: its
  * slowest second, m/s, forward over the held run and along its path over a turning one (`held`);
  * how far the way it went lagged the way asked at most, rad, over a turning run past its first
- * second (`trail`); its speed over the second before the stop, m/s (`speed`), and how long from
- * the stop it took to go slower than `HALTED` over `HALT_SPAN`, s (`halt`). Null where the trial
+ * second (`trail`); a stopped run's (one from a walk among them) speed over the second before the
+ * stop, m/s (`speed`), and how long from the stop it took to go slower than `HALTED` over
+ * `HALT_SPAN`, s (`halt`). A run to a place reads its time lost alone. Null where the trial
  * does not read it. The seconds lost against its orders, and how long it had been down at the end
  * (`lost`, `downFor`: `orderTime`).
  */
@@ -59,7 +60,7 @@ export function readLocomotion({ world, body }: BuiltLone, condition: Locomotion
       path.push(root.position.x, root.position.z);
       if (fellAt === null && body.body.down) fellAt = world.time;
       massCentreToRef(parts, mass, centre, work, velocity);
-      orders.step(velocity, upright.fallen());
+      orders.step(centre, velocity, upright.fallen());
     },
     get ended() { return steps >= end; },
     reading() {
@@ -95,7 +96,7 @@ export function readLocomotion({ world, body }: BuiltLone, condition: Locomotion
           trail = Math.max(trail, Math.abs(atan2(dx * az - dz * ax, dx * ax + dz * az)));
         }
       }
-      if (condition.kind === "run-stop") {
+      if (condition.kind === "run-stop" || condition.kind === "walk-run") {
         speed = gap(last - 1, last);
         for (let step = Math.round(last * hz); step <= Math.round((ended - HALT_SPAN) * hz); step++)
           if (gap(step / hz, step / hz + HALT_SPAN) / HALT_SPAN < HALTED) { halt = step / hz - last; break; }

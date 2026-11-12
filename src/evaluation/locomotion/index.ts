@@ -13,6 +13,7 @@ import type { BuiltSegment } from "../../core/bodies/build/build-body.ts";
 import type { Orders } from "../../minds/orders.ts";
 import type { LocomotionReading } from "./read.ts";
 import { createLocomotionCases, scriptOf, type LocomotionCondition } from "./cases.ts";
+import { routeLeft } from "../order-time.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
 /** Whether a walk came to its pace: along within 0.8 to 1.25 of it, under a quarter of it across, on its feet. */
@@ -42,6 +43,9 @@ const trialText = (condition: LocomotionCondition): string => {
     case "run-held": return "run held";
     case "run-turn": return `run turning ${condition.way > 0 ? "right" : "left"}`;
     case "run-stop": return "run stopped";
+    case "run-route": return `run round a corner ${condition.way > 0 ? "right" : "left"}`;
+    case "run-moved": return `run to a goal moved ${condition.way > 0 ? "right" : "left"}`;
+    case "walk-run": return "run from a walk";
     default: { const never: never = condition; throw new Error(`no locomotion trial ${JSON.stringify(never)}`); }
   }
 };
@@ -77,12 +81,21 @@ function rootOf(built: BuiltLone): BuiltSegment {
 /** The root's velocity, world, m/s, into a vector made once. */
 const rootVelocity = (() => { const out = new Vector3(); return (built: BuiltLone): Vector3 => rootOf(built).body.linearVelocityToRef(out); })();
 
-/** The ground direction the body is ordered to move, unit; null where it is ordered to stop or not ordered. */
+/**
+ * The ground direction the body is ordered to move, unit: a direct move's, or toward the point a
+ * place's route goes through first from where the root is (`routeLeft`); null where it is ordered
+ * to stop, not ordered, or already at the place.
+ */
 function orderedWay(built: BuiltLone, condition: LocomotionCondition): { readonly x: number; readonly z: number; readonly pace: number } | null {
   const orders = ordersAt(condition, built.world.time), move = orders?.move;
-  if (move?.kind !== "direct") return null;
-  const length = Math.sqrt(move.direction.x * move.direction.x + move.direction.z * move.direction.z);
-  return length > 0 ? { x: move.direction.x / length, z: move.direction.z / length, pace: orders?.pace ?? 0 } : null;
+  if (move?.kind !== "direct" && move?.kind !== "place") return null;
+  let direction = move.kind === "direct" ? move.direction : null;
+  if (move.kind === "place") {
+    const at = rootOf(built).pose.position, { left, toward } = routeLeft(move.points, move.near, { x: at.x, z: at.z });
+    direction = left > 0 ? { x: toward.x - at.x, z: toward.z - at.z } : null;
+  }
+  const length = direction ? Math.sqrt(direction.x * direction.x + direction.z * direction.z) : 0;
+  return direction && length > 0 ? { x: direction.x / length, z: direction.z / length, pace: orders?.pace ?? 0 } : null;
 }
 
 export function createLocomotionIndex(context: GameContext) {

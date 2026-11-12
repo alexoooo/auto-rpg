@@ -6,8 +6,8 @@ import { massCentreToRef, massOf } from "../../core/bodies/read-motion.ts";
 import { rootSegment } from "../../core/bodies/read-body.ts";
 import { uprightness } from "../../control/ground.ts";
 import { footStatesOf, groundContact } from "../../control/support.ts";
-import { atan2, sin, cos } from "../../core/math/real.ts";
-import { TRAVEL, travelScript, travelTurns, type TravelCondition } from "./protocol.ts";
+import { atan2, hypot, sin, cos } from "../../core/math/real.ts";
+import { TRAVEL, travelPlaced, travelScript, travelTurns, type TravelCondition } from "./protocol.ts";
 import { orderTime } from "../order-time.ts";
 
 export type TravelReading = { readonly met: boolean; readonly short: readonly string[]; readonly firstLeg: "left" | "right" | null;
@@ -22,7 +22,7 @@ const wrap = (angle: number): number => atan2(sin(angle), cos(angle));
 
 /** Physical COM motion after every step; no controller height flag can substitute for a fall. */
 export function readTravel({ world, body }: BuiltLone, c: TravelCondition): Reader<TravelReading> {
-  const p = travelScript(c), turning = travelTurns(c.mode), circle = c.mode === "circle", hz = world.hz;
+  const p = travelScript(c), turning = travelTurns(c.mode), circle = c.mode === "circle", placed = travelPlaced(c.mode), hz = world.hz;
   const parts = [...body.built.segments.values()], mass = massOf(parts), root = rootSegment(body.built), upright = uprightness(body.built);
   const centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), turn = new Quaternion(), inverse = Quaternion.Inverse(root.rest);
   const samples: Sample[] = [], absent = { left: 0, right: 0 };
@@ -45,7 +45,7 @@ export function readTravel({ world, body }: BuiltLone, c: TravelCondition): Read
       const yaw = atan2(2 * (turn.w * turn.y + turn.x * turn.z), 1 - 2 * (turn.x * turn.x + turn.y * turn.y));
       const down = upright.fallen();
       if (down && fellAt === null) fellAt = time;
-      orders.step(velocity, down);
+      orders.step(centre, velocity, down);
       const touched = { left: contacts("left"), right: contacts("right") };
       if (time > TRAVEL.start && firstLeg === null) for (const side of ["left", "right"] as const) {
         absent[side] = touched[side] ? 0 : absent[side] + 1 / hz;
@@ -72,17 +72,18 @@ export function readTravel({ world, body }: BuiltLone, c: TravelCondition): Read
         return null;
       };
       const fromRest = at(TRAVEL.start).speed <= TRAVEL.still && at(TRAVEL.start).standing;
-      const reachedAt = reach(TRAVEL.start, p.deadline);
-      const entryHeld = turning ? circle ? speedAt(p.cue) : minimum(TRAVEL.start + p.deadline, p.cue) : null;
-      const entryMade = fromRest && reachedAt !== null && (!turning || (entryHeld !== null && entryHeld >= c.pace));
+      const reachedAt = reach(p.begin, p.deadline);
+      const entryHeld = turning ? circle ? speedAt(p.cue) : minimum(p.begin + p.deadline, p.cue) : null;
+      // A walking start enters the run from the walk, not from rest.
+      const entryMade = (fromRest || c.mode === "walking") && reachedAt !== null && (!turning || (entryHeld !== null && entryHeld >= c.pace));
       const turnedAt = turning && !circle ? reach(p.cue, p.transition) : null;
-      const held = minimum(circle ? p.cue - 1 : p.holdFrom, p.stop);
+      const held = placed ? null : minimum(circle ? p.cue - 1 : p.holdFrom, p.stop);
       let corridor = 0, lag = 0, facingError = 0, route: number | null = null, rotation = 0, previous = at(p.cue).yaw;
-      const origin = at(TRAVEL.start), change = at(p.cue);
+      const origin = at(p.begin), change = at(p.cue);
       for (const sample of samples) {
-        if (sample.time < TRAVEL.start) continue;
+        if (sample.time < p.begin) continue;
         if (c.mode === "facing") facingError = Math.max(facingError, Math.abs(wrap(sample.yaw - c.heading)));
-        if (!circle && (!turning || sample.time <= p.cue || sample.time >= p.holdFrom)) {
+        if (!circle && !placed && (!turning || sample.time <= p.cue || sample.time >= p.holdFrom)) {
           const start = turning && sample.time >= p.holdFrom ? change : origin;
           const angle = turning && sample.time >= p.holdFrom ? p.final : p.initial;
           corridor = Math.max(corridor, Math.abs((sample.x - start.x) * cos(angle) - (sample.z - start.z) * sin(angle)));
@@ -117,16 +118,19 @@ export function readTravel({ world, body }: BuiltLone, c: TravelCondition): Read
       if (samples.length < Math.round(p.end * hz)) short.push("incomplete");
       if (!entryMade) short.push("entry not reached");
       if (turning && !circle && turnedAt === null) short.push("turn deadline");
-      if (held === null || held < c.pace) short.push("held speed");
+      if (!placed && (held === null || held < c.pace)) short.push("held speed");
       if (fellAt !== null) short.push("fall");
-      if (!circle && corridor > TRAVEL.corridor) short.push("corridor");
+      if (!circle && !placed && corridor > TRAVEL.corridor) short.push("corridor");
       if (circle && lag > TRAVEL.angle) short.push("steering lag");
       if (c.mode === "facing" && facingError > TRAVEL.angle) short.push("facing");
       if (c.mode === "reverse" && route !== c.sense) short.push("turn route");
-      if (!stopEntered) short.push("stop entry not reached");
+      // A place gives no stop to enter: it is to be stood at, within the corridor of its goal.
+      if (!placed && !stopEntered) short.push("stop entry not reached");
+      const last = at(p.end);
+      if (p.goal && hypot(last.x - p.goal.x, last.z - p.goal.z) > TRAVEL.corridor) short.push("place not reached");
       if (stoppedAt === null) short.push("stop and settle");
       return { met: short.length === 0, short, firstLeg, fromRest, reachedAt, entryMade, entryHeld, held, turnedAt,
-        corridor: circle ? null : corridor, lag: circle ? lag : null, facingError: c.mode === "facing" ? facingError : null,
+        corridor: circle || placed ? null : corridor, lag: circle ? lag : null, facingError: c.mode === "facing" ? facingError : null,
         route, stopEntered, stoppedAt, fellAt, seconds: steps / hz, ...orders.reading() };
     },
   };

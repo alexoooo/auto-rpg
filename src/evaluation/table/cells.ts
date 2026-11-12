@@ -128,7 +128,7 @@ export function createTableCells(context: GameContext) {
       readings: body => body === "workshop-fighter"
         ? [{ drill: "travel", protocol: "confirmation", subject: TABLE_MIND, judge: "orders", byLoadout: true }]
         : [{ drill: "locomotion", protocol: "run", subject: TABLE_MIND, judge: "orders", byLoadout: true }],
-      value: `${MOVE}: Warrior, the Travel drill's forward, directional, steering, corner, reversal and stop orders; Rogue, the Locomotion runs; calm and gusts, seeds 1 to 4` },
+      value: `${MOVE}: Warrior, the Travel drill's forward, directional, steering, corner, reversal and stop orders, a run from a walk, and places by a route with a corner and moved as it runs; Rogue, the Locomotion runs, the same three among them; calm and gusts, seeds 1 to 4` },
     { name: "punch", has: struck("straight-punch"), readings: (body, loadout) => blowRungs("straight-punch", "fist", body, loadout),
       value: `${BLOW}; the fist's speed over its last 0.1 m beside it` },
     { name: "stomp", has: struck("stomp"), readings: (body, loadout) => [strikeRung("stomping", "foot", "stomp", body, loadout)],

@@ -12,10 +12,14 @@ its own value:
 | punch, stomp, bonk, cut, thrust | life taken from the target less life lost, a second of the action's cycle from its start to the limb back at guard, a fall adding a fall's price; 0 for a blow not begun where it was asked (`strikeTrade`, `strikeOffered`) | higher |
 | buckler-cover | life lost to the opponent's blows over the trial, those while down among them (`coverValue`) | lower |
 
-- **Seconds lost against the orders**: under a move with a pace, the seconds the progress along
-  the way asked falls short of that pace over the order's span (faster gains nothing); with no
-  pace, short of 4 m/s (`UNPACED`, a person's run), so faster gains; under a stop, every second
-  not standing still. A body down makes no progress.
+- **Seconds lost against the orders**: under a move with a pace, the seconds the progress falls
+  short of that pace over the order's span (faster gains nothing); with no pace, short of 4 m/s
+  (`UNPACED`, a person's run), so faster gains; under a stop, every second not standing still. A
+  direct move's progress is its speed along the way asked. A place's is how much less of its
+  route the body has to go (`routeLeft`): the route runs from where the body was when the order
+  came through the order's points, and what is left of it is read from the point of it nearest the
+  body on, plus how far the body is off it, less how near the place the order is met; the span is
+  the place's own, and once the route is gone it asks nothing more. A body down makes no progress.
 - **A fall's price** is the owner's 10 s (`FALL_PRICE`, `STAND_WITHIN`), the same on every body
   and loadout, so a risky act and a safe one are priced alike and no cell moves for a way up it
   does not read.
@@ -53,7 +57,9 @@ A reading counts only over its whole protocol: every case present and none fault
 value is the mean of every counted trial of its readings; a cell whose readings are whole with no
 trial counted (every fall not made or not exercised, every cover unattacked) is marked nothing
 counted, its counts beside it. The Warrior's run reads the Travel confirmation protocol, the Rogue's the
-Locomotion run protocol, the walk the Locomotion `every` protocol on every body: its walks eight
+Locomotion run protocol, both with a run from a walk, a place by a route with a corner and a place
+moved as the body runs, each to both sides; the walk the Locomotion `every` protocol on every body,
+on an open floor as the runs are: its walks eight
 ways, the diagonals among them, at 0.3 and 0.7 m/s and at the fastest the body holding the loadout
 holds that way (its stance's measured envelope, `stance-envelope.json`, by the rule the game's walk
 is held to, `heldPace`), a pace past that left out.

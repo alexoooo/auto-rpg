@@ -57,6 +57,9 @@ export interface LoneCase {
   readonly seed?: number;
 }
 
+/** An open floor's side, m (`LoneCase.floorSize`): room for a run of the drills' longest course with no wall or post in its way. */
+export const OPEN_FLOOR = 400;
+
 /** A lone body's world, for its reader. */
 export interface BuiltLone {
   readonly world: World;

@@ -33,7 +33,7 @@ Almost no search, training or screen plays its drill's cases, and several run an
 | bonk | `bonk` (still places, high mark, right hand) | gaps to 1.5 m; across −0.1 to 0.25 m; read at the release | `swing/environments/bonk.json` |
 | stomp | `stomping` (gaps 0.8, 1.0, 1.2 m; a Warrior or Skeleton lying) | the search's own split of the gaps | `skill-search.mjs` (`SEARCHES.stomp`) |
 | walk | Locomotion `every` (8 ways at 0.3, 0.7 m/s and the body's fastest that way; unpaced run and turn; shoves; gusts) | turn rates, long courses, 16-way shoves, edge and staggered starts; on the Lab's Mind or a core stand | `locomotion-*.mjs`, `stance/*.mjs`, `stride-search.mjs` |
-| run | Travel `confirmation` (Warrior), Locomotion `run` (Rogue) | paces to 6.5 m/s and changes of pace; place orders over routes with corners and a moved goal; moving, crouched and turned starts; on the default Mind | `travel-environment.mjs`, `travel-screen.mjs`, `warrior-travel.mjs`, `residual-*.mjs`, `run-cycle-search.mjs` |
+| run | Travel `confirmation` (Warrior), Locomotion `run` (Rogue), each with a run from a walk, a route with a corner and a goal moved | paces to 6.5 m/s and changes of pace; crouched and turned starts; on the default Mind | `travel-environment.mjs`, `travel-screen.mjs`, `warrior-travel.mjs`, `residual-*.mjs`, `run-cycle-search.mjs` |
 
 Buckler-cover has no research script. No cell reads the high mark (every blow's Option but the
 bonk aims at the middle, `caseFaults`), so no research must play it.
@@ -90,7 +90,12 @@ Each lands on its checks; nothing is played without a brief.
 5. Walk and run: the drills widened (paces to the envelope, diagonals, place orders); the
    scripts on their twins. *The walk widened*: Locomotion `every` walks eight ways, each at 0.3
    and 0.7 m/s and the fastest the body holds that way (705 trials to 1,115; its twin 705 to
-   825). Missing now: a place order has no value (`orderTime` refuses it); a
+   825). *Place orders valued and in the run drills*: a place's progress is how much less of its
+   route the body has to go (`routeLeft`); Travel (Warrior) and Locomotion `run` (Rogue) add a run
+   from a walk, a route with a corner and a goal moved as the body runs, to each side (Travel 1,560
+   trials to 1,760, the Warrior's run cell 312 to 352; Locomotion `run` 320 to 720, the Rogue's run
+   cell 32 to 72); the Locomotion drill plays on the open floor, as its runs went
+   through the arena's posts. Missing now: a
    stance tuning has no way into a drill case; the case environment skips a trained learner, so
    the run's cannot be trained on it.
 

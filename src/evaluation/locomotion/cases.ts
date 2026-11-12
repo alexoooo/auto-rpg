@@ -1,6 +1,7 @@
 /**
- * **The Locomotion drill's cases**: a lone body under the subject's mind (`lone.ts`), given orders
- * and shoves by a script, its gaits the ones its mind chooses for them. Each trial is one of:
+ * **The Locomotion drill's cases**: a lone body under the subject's mind (`lone.ts`) on an open floor
+ * (`OPEN_FLOOR`: a run goes further than the arena's parapet and passes through its ring of posts),
+ * given orders and shoves by a script, its gaits the ones its mind chooses for them. Each trial is one of:
  *
  * - `walk`: told to walk `way` degrees from forward (+z, toward +x) at `pace` m/s, facing forward,
  *   from `START` s for `WALK` s, then to stop;
@@ -15,7 +16,13 @@
  * - `run-held`: told to run forward with no pace for `RUN_UP` s and `HOLD` s more, then to stop;
  * - `run-turn`: told to run forward at `TURNING_PACE` for `RUN_UP` s, then the way asked turning
  *   `way` times `TURN_RATE` rad/s for a circle, then to stop;
- * - `run-stop`: told to run forward at `STOPPING_PACE` for `RUN_UP` s and `SETTLE` s more, then to stop.
+ * - `run-stop`: told to run forward at `STOPPING_PACE` for `RUN_UP` s and `SETTLE` s more, then to stop;
+ * - `run-route`: told to run with no pace to a place by a route `COURSE.leg` m forward, then
+ *   `COURSE.aside` m to the side `way` names (1 toward +x), met within the commanders' arrival;
+ * - `run-moved`: told to run with no pace to a place `COURSE.ahead` m forward, which moves
+ *   `COURSE.aside` m to the side `way` names `RUN_UP` s on, as the body runs;
+ * - `walk-run`: told to walk forward at `WALKING_PACE` for `RUN_UP` s, then to run forward with no
+ *   pace for `RUN_UP` s and `SETTLE` s more, then to stop.
  *
  * A trial may name what the body holds (`loadout`, empty hands where it names none), the lab's
  * gusts (`gusts`, `labGusts`: the Warrior's, scaled by the body's mass) and the seed of its mind's chance and the gusts (`seed`). Calm
@@ -32,10 +39,11 @@ import { stanceEnvelopeOf } from "../../skills/locomotion/stance/envelope.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Cases, Json, Subject } from "../evaluation.ts";
-import type { BuiltLone, LoneCue } from "../lone.ts";
+import { OPEN_FLOOR, type BuiltLone, type LoneCue } from "../lone.ts";
 import { readLocomotion, type LocomotionReading } from "./read.ts";
 import { between, later, turned } from "../twin.ts";
 import { type GameContext } from "../../game/arena/context.ts";
+import { ARRIVAL } from "../../minds/command/goals.ts";
 
 /** When a trial's first order comes, and how long a walk or a turn's leg lasts, s. */
 export const START = 1, WALK = 4;
@@ -49,6 +57,16 @@ const RUN = 6, SHOVE = 2, SETTLE = 2;
  * stopped from, m/s.
  */
 export const RUN_UP = 3, HOLD = 10, TURNING_PACE = 2, TURN_RATE = 1, STOPPING_PACE = 3;
+
+/** The pace a run is started from while walking, m/s. */
+const WALKING_PACE = 1;
+
+/**
+ * A run to a place: a route's first leg and how far a goal is ahead, and how far the route's second
+ * leg or the moved goal is to the side, m. A place held to the end is to be reached in the time its
+ * legs take at `STOPPING_PACE` after the run-up.
+ */
+const COURSE = deepFreeze({ leg: 15, ahead: 24, aside: 9 });
 
 /** How often a turning way is given again, s. */
 const TURN_CUE = .1;
@@ -65,7 +83,10 @@ export type LocomotionCondition = Held & (
   | { readonly kind: "shoved-walk"; readonly model: BodyModel; readonly way: number; readonly impulse: number; readonly pace: number }
   | { readonly kind: "run-held"; readonly model: BodyModel }
   | { readonly kind: "run-turn"; readonly model: BodyModel; readonly way: 1 | -1 }
-  | { readonly kind: "run-stop"; readonly model: BodyModel });
+  | { readonly kind: "run-stop"; readonly model: BodyModel }
+  | { readonly kind: "run-route"; readonly model: BodyModel; readonly way: 1 | -1 }
+  | { readonly kind: "run-moved"; readonly model: BodyModel; readonly way: 1 | -1 }
+  | { readonly kind: "walk-run"; readonly model: BodyModel });
 
 /** What a trial may name beside its kind: what its body holds, the lab's gusts, and its seed. */
 type Held = { readonly loadout?: Loadout; readonly gusts?: true; readonly seed?: number };
@@ -112,7 +133,11 @@ const toward = (degrees: number) => { const way = degrees * Math.PI / 180; retur
 
 const STOP: Orders = deepFreeze({ move: null, face: FORWARD });
 
-/** The script `condition` gives its body, and when its last cue comes, s. */
+/** A run to `points` (`run-route`, `run-moved`), as fast as the body goes, met within the commanders' arrival. */
+const placed = (points: readonly { readonly x: number; readonly z: number }[]): Orders =>
+  ({ move: { kind: "place", points, near: ARRIVAL.point }, gait: "run", face: null });
+
+/** The script `condition` gives its body, and when its last cue comes, s: for a place held to the end, when it is to have come there. */
 export function scriptOf(condition: LocomotionCondition): { readonly cues: readonly LoneCue[]; readonly last: number } {
   switch (condition.kind) {
     case "walk": return { last: START + WALK, cues: [
@@ -139,6 +164,13 @@ export function scriptOf(condition: LocomotionCondition): { readonly cues: reado
     }
     case "run-stop": return { last: START + RUN_UP + SETTLE, cues: [
       { at: START, orders: { move: { kind: "direct", direction: FORWARD }, pace: STOPPING_PACE, gait: "run", face: null } }, { at: START + RUN_UP + SETTLE, orders: STOP }] };
+    case "run-route": return { last: START + RUN_UP + (COURSE.leg + COURSE.aside) / STOPPING_PACE, cues: [
+      { at: START, orders: placed([{ x: 0, z: COURSE.leg }, { x: condition.way * COURSE.aside, z: COURSE.leg }]) }] };
+    case "run-moved": return { last: START + RUN_UP + (COURSE.ahead + COURSE.aside) / STOPPING_PACE, cues: [
+      { at: START, orders: placed([{ x: 0, z: COURSE.ahead }]) }, { at: START + RUN_UP, orders: placed([{ x: condition.way * COURSE.aside, z: COURSE.ahead }]) }] };
+    case "walk-run": return { last: START + 2 * RUN_UP + SETTLE, cues: [
+      { at: START, orders: { move: { kind: "direct", direction: FORWARD }, pace: WALKING_PACE, face: FORWARD } },
+      { at: START + RUN_UP, orders: { move: { kind: "direct", direction: FORWARD }, gait: "run", face: null } }, { at: START + 2 * RUN_UP + SETTLE, orders: STOP }] };
     default: { const never: never = condition; throw new Error(`no locomotion trial ${JSON.stringify(never)}`); }
   }
 }
@@ -195,7 +227,9 @@ const everyOf = (protocol: typeof EVERY & { readonly seed?: number }): Locomotio
 const runsOf = (protocol: typeof RUN_BAR): LocomotionCondition[] => protocol.models.flatMap((model) => protocol.loadouts.flatMap((loadout) =>
   protocol.airs.flatMap((gusts) => protocol.seeds.flatMap((seed): LocomotionCondition[] => {
     const held: Held = { loadout, seed, ...(gusts ? { gusts: true as const } : {}) };
-    return [{ kind: "run-held", model, ...held }, { kind: "run-turn", model, way: 1, ...held }, { kind: "run-turn", model, way: -1, ...held }, { kind: "run-stop", model, ...held }];
+    return [{ kind: "run-held", model, ...held }, { kind: "run-turn", model, way: 1, ...held }, { kind: "run-turn", model, way: -1, ...held }, { kind: "run-stop", model, ...held },
+      { kind: "run-route", model, way: 1, ...held }, { kind: "run-route", model, way: -1, ...held },
+      { kind: "run-moved", model, way: 1, ...held }, { kind: "run-moved", model, way: -1, ...held }, { kind: "walk-run", model, ...held }];
   }))));
 
 /** How long a trial of `conditions` plays at most: its last cue and `AFTER`, s. */
@@ -219,7 +253,7 @@ export function createLocomotionCases(context: GameContext) {
       seconds: longest(conditions),
       faults: (value, { model }, subject) => faultsOf(value, model, subject),
       world: ([mind], condition, engine, [character]) => ({ kind: "lone", engine,
-        lone: { model: condition.model, mind: mindOf(mind), script: scriptOf(condition).cues,
+        lone: { model: condition.model, mind: mindOf(mind), script: scriptOf(condition).cues, floorSize: OPEN_FLOOR,
           ...(character && Object.keys(character).length > 0 ? { character } : {}),
           ...(condition.loadout && loadoutKey(condition.loadout) !== "empty,empty" ? { loadout: condition.loadout } : {}),
           ...(condition.gusts ? { gusts: true as const } : {}), ...(condition.seed !== undefined ? { seed: condition.seed } : {}) } }),
