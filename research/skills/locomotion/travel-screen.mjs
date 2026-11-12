@@ -8,7 +8,7 @@ import { Worker, isMainThread, parentPort } from 'node:worker_threads';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { LONE_WORLD } from '../../../src/app/node/evaluation.ts';
-import { defaultMind } from '../../../src/app/catalog.ts';
+import { MINDS } from '../../../src/app/catalog.ts';
 import { DEFAULT_ENGINE } from '../../../src/core/physics/engines.ts';
 import { Vector3 } from '../../../src/core/math/vector.ts';
 import { sin, cos } from '../../../src/core/math/real.ts';
@@ -95,8 +95,9 @@ const GAME = {
     { points: [[4, 0], [8, -30], [5, 25]] }, { points: [[2.2, 0], [14, 30]] }, { points: [[6, 0], [5, -40], [6, -30], [5, 35]] }, { points: [[11, 0], [9, 20]] }],
 };
 
+/** The drills' Option Mind (`option-drill`), its walk-run gaits on `tuning`. */
 function mindOf(tuning) {
-  const base = defaultMind('workshop-fighter');
+  const base = MINDS['option-drill'].config;
   return { ...base, tuning: { ...base.tuning, parts: { ...base.tuning?.parts, legs: { ...GOING,
     gaits: STOCK_GAITS.map(gait => gait.legs.kind === 'walk-run' ? { ...gait, legs: { ...gait.legs, tuning } } : gait) } } } };
 }

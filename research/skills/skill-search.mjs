@@ -68,7 +68,7 @@ import { buildBout, buildTechnique, RISE_CASES, STRIKE_CASES } from "../../src/a
 import { barScore } from "../../src/evaluation/strike/score.ts";
 import { REPRESENTATIVE } from "../../src/evaluation/loadouts.ts";
 import { TECHNIQUE_LIMITS } from "../../src/evaluation/technique.ts";
-import { controllerOf } from "../../src/app/catalog.ts";
+import { MINDS } from "../../src/app/catalog.ts";
 import { modelHolding, modelSpec } from "../../src/core/bodies/models.ts";
 import { bodyKey } from "../../src/core/bodies/spec/body.ts";
 import { DEFAULT_ENGINE } from "../../src/core/physics/engines.ts";
@@ -78,8 +78,8 @@ import { ROLL_POSES, SIT_BACK } from "../../src/skills/recovery/implementations/
 import { cmaSearch, workerPool } from "../cma.mjs";
 import { recordsOf, writeRecord } from "./skill-records.mjs";
 
-/** A mind throwing the stomp with `settings` at the middle of a body lying ahead: Option Mind's stomp, on any body. */
-const stomper = (settings) => ({ ...controllerOf({ kind: "option" }).defaults, support: { kind: "support-fold" },
+/** A mind throwing the stomp with `settings` at the middle of a body lying ahead: the drills' Option Mind's (`option-drill`) stomp, on any body. */
+const stomper = (settings) => ({ ...MINDS["option-drill"].config, support: { kind: "support-fold" },
   executors: [{ name: "stomp", kind: "stomp", tuning: settings }],
   actions: [{ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "centre", lead: 0 } }] });
 

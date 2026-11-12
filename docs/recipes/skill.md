@@ -76,8 +76,8 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
 
 - **A claim that a skill is better is its table cell**: the cell's line from
   `npm run evaluate -- table`, read at the commit claimed (the commit its line shows), its value
-  against its baseline and its Ratings link. The table plays Option Mind on its priors with what is
-  installed, so a skill the Mind does not use moves no cell and is reported as not in the game. A
+  against its baseline and its Ratings link. The table plays the drills' Option Mind (`option-drill`: its
+  priors, no profile, no tree search) with what is installed, so a skill the Mind does not use moves no cell and is reported as not in the game. A
   reading on a drill, a search or a training screen is progress toward a claim and never the claim.
   A check that shows a change works (the table cell, the fresh agent, the fingerprint) is never
   dropped to save time; time is saved on everything else.
@@ -102,6 +102,11 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
   How well a body throws a move and what the move brings in a fight are two readings: a skill's
   own test reads the first, at a target that lets it happen; a profile is the second, read where
   the Mind uses it. A strike's is built only from blows thrown in fights (`fights`).
+- **Drills read no profile and search no tree**: a table cell, its drill opponents and every
+  skill's search and training run the drills' Mind (`option-drill`: its priors, its options run
+  in their order, `RANKED_CHOOSER`), fast and the same each time: a drill drives its skills, and
+  whether the Mind would choose them is a fight's question. Profiles and the tree
+  search are for fights and for measuring the profiles themselves.
 - **One Mind for every body**: Option Mind runs one loop for every body, and everything it does is
   an Option, made and priced the same way, with no special case for any act.
 - **One act an Option**: one skill used one way, its limbs, target and aim, as the item is really

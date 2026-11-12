@@ -28,8 +28,8 @@ export function opposed(left: { readonly mind: MindConfig; readonly commander?: 
 export function createDrillOpponents(context: GameContext) {
   const { minds: MINDS } = context.catalog;
 
-  /** Option Mind as its entrant configures it (`option`): its body layer, its rate and its rise. */
-  const OPTION = MINDS.option!.config as OptionMindConfig;
+  /** The drills' Option Mind (`option-drill`): its body layer, its rate and its rise, on its priors with no tree searched. */
+  const OPTION = MINDS["option-drill"]!.config as OptionMindConfig;
 
   /** The drill's stationary and travelling choices from the registered fighter's configuration. */
   const STANDING_OPTIONS = (OPTION.options ?? []).filter((option) => !option.kind.startsWith("strike-") && !["orders", "walk", "covers"].includes(option.kind));

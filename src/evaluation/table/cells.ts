@@ -19,8 +19,8 @@ export const TABLE_BODIES: readonly HumanoidModel[] = Object.freeze(["workshop-f
 /** The loadouts the table reads: the five minds are rated on (`REPRESENTATIVE`). */
 export const TABLE_LOADOUTS: readonly Loadout[] = REPRESENTATIVE;
 
-/** The mind every cell reads: Option Mind on its priors alone, so no profile decides what it does in a cell. */
-const TABLE_MIND = "option-prior";
+/** The mind every cell reads: the drills' Option Mind (`option-drill`), so no profile and no tree search decides what it does in a cell. */
+const TABLE_MIND = "option-drill";
 
 /**
  * **How a reading is valued** (`trialValue`): a fall's time to stand (`stand`); a move's seconds

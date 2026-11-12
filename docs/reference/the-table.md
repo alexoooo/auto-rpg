@@ -1,6 +1,7 @@
 # The table
 
-Option Mind on its priors alone (`option-prior`) on every body, loadout and skill
+The drills' Option Mind (`option-drill`: its priors, its options run in their order, no profile
+and no tree search), its drill opponents made from it, on every body, loadout and skill
 (`src/evaluation/table/`), each cell valued in the game's own terms (`trialValue`), every trial
 its own value:
 

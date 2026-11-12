@@ -45,11 +45,14 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
   options: [OPTIONS[0]!, STRAIGHT_PUNCH, ...HELD_BLOWS, BONK, STOMP, BITE, ...OPTIONS.slice(1)], rate: 60 });
 
 /**
- * Its config, on any body it fits; and the same config on its priors alone (`PRIOR_PREDICTIONS`),
- * the mind the table's cells read: no profile decides what it does there, so a skill's reading
- * never depends on what its profiles said of it.
+ * Its config, on any body it fits, for fights and for measuring its profiles; the same config on its
+ * priors alone (`PRIOR_PREDICTIONS`); and the drills' mind (`option-drill`): on its priors, its
+ * options run by their rank (`RANKED_CHOOSER`), nothing priced, searched or drawn. A drill (the
+ * table's cells, their opponents, a skill's search) drives a skill fast and the same each time, and
+ * no profile decides what its mind does there.
  */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },
   "option-prior": { label: "Option Mind on its priors alone", config: { ...OPTION_DEFAULTS, predictions: { kind: "prior" } }, offered: false },
+  "option-drill": { label: "Option Mind for drills", config: { ...OPTION_DEFAULTS, chooser: { kind: "ranked" }, predictions: { kind: "prior" } }, offered: false },
 });

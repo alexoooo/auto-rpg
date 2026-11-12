@@ -131,9 +131,9 @@ export function createRising(context: GameContext) {
   const TECHNIQUES = context.techniques;
   const { buildStandFall, fallStart } = createFall(context);
 
-  /** The bed's riser: Option Mind (`option`) getting up by the ways up `techniques` in rank order (`withWaysUp`), by its own (the game's Stand up's) where none are given. Gameplay presets are untouched. */
+  /** The bed's riser: the drills' Option Mind (`option-drill`) getting up by the ways up `techniques` in rank order (`withWaysUp`), by its own (the game's Stand up's) where none are given. Gameplay presets are untouched. */
   function risingMind(techniques?: readonly TechniqueName[] | null): OptionMindConfig {
-    const option = MINDS.option!.config as OptionMindConfig;
+    const option = MINDS["option-drill"]!.config as OptionMindConfig;
     return techniques ? { ...option, options: withWaysUp(partLookup, option.options ?? (controllerOf(option).defaults as OptionMindConfig).options!, techniques.map((kind) => ({ kind }))) } : option;
   }
 

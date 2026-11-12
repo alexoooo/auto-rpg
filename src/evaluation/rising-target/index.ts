@@ -1,7 +1,7 @@
 /**
  * **The stand-up target** (`docs/reference/rising.md#the-owners-target`): how long does a riser take to stand from the target's 240
  * falls, on every body and loadout? A riser is a mind by its preset's or kind's name (`mindSubjects`), or
- * Option Mind getting up by its techniques (`risingMind`): the game's Stand up's (`STAND_UP`)
+ * the drills' Option Mind getting up by its techniques (`risingMind`): the game's Stand up's (`STAND_UP`)
  * unless others are named. The summary is the bed's report (`risingReport`).
  */
 import { isWayUp, type TechniqueName } from "../../skills/recovery/technique.ts";

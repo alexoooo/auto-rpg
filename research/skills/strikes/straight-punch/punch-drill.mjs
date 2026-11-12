@@ -91,14 +91,14 @@ export function decode(x, hand, gap, without = new Set(), { fire = false, brake 
 }
 
 /**
- * Option Mind throwing its straight punch alone, driven on `pushes` by `hand` (its research `tuning`, whole), aimed from
+ * The drills' Option Mind (`option-drill`) throwing its straight punch alone, driven on `pushes` by `hand` (its research `tuning`, whole), aimed from
  * `lead` s, `through` m past its target, at `mark` (its own regions where null); with `aim`, its
  * strike so aimed. With `blow`, Option Mind's held blow of that kind so driven instead, `hand`
  * holding its item and the other the buckler, its action's own aim kept.
  */
 export function timedPuncher({ pushes, lead, through, beneath, fire, brake }, hand, aim = null, blow = null, mark = null, window = {}) {
   const tuning = { ...AROUND, ...window, lead, through, ...beneath, ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
-  const preset = MINDS.option.config, struck = (option) => option.kind.startsWith("strike-");
+  const preset = MINDS["option-drill"].config, struck = (option) => option.kind.startsWith("strike-");
   if (blow) {
     const other = hand === "left" ? "right" : "left";
     const options = preset.options.map((option) => struck(option) && option.skill.kind === blow ? { ...option, skill: { ...option.skill, tuning }, ...(mark ? { regions: [{ kind: "mark", mark }] } : {}) } : option);

@@ -41,7 +41,9 @@ const decode = (base,u) => {
   return t;
 };
 const staged = new Set(['staged-roll','staged-down','sit-back','front-sit-back']);
-const mindOf = tuning => ({...MINDS.option.config, options:MINDS.option.config.options.map(o => staged.has(o.skill?.kind) ? {...o,skill:{...o.skill,tuning}} : o)});
+// The drills' Option Mind (`option-drill`): no profile and no tree search decides how it gets up.
+const DRILL = MINDS['option-drill'].config;
+const mindOf = tuning => ({...DRILL, options:DRILL.options.map(o => staged.has(o.skill?.kind) ? {...o,skill:{...o.skill,tuning}} : o)});
 
 async function trial(job,mind) {
   const b = await buildFall({...job,cap:16,mind},DEFAULT_ENGINE);

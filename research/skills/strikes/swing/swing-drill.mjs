@@ -118,14 +118,14 @@ export function settingsOf({ wound, timed, reach, settle, footing }, hand) {
 }
 
 /**
- * Option Mind throwing its swung blow of `blow` alone, so set for `hand`, `striking` holding its item
+ * The drills' Option Mind (`option-drill`) throwing its swung blow of `blow` alone, so set for `hand`, `striking` holding its item
  * (`hand` where none; the other hand swings its mirror image, `settingsOf`) and the other `held`, at `mark`. A blow its preset has no Option for (the bonk) is thrown by its own Option's
  * defaults (`strike-<blow>`), in the place of the preset's Option of a blow with the same item;
  * such a blow has no profile, and the Mind's own walks (`walk`) are left out: priced by its prior
  * alone, it is worth so little that a walk outbids it as it winds, and the swing is let go.
  */
 export function swinger(decoded, hand, blow, mark, held = "buckler", striking = hand) {
-  const preset = MINDS.option.config, other = striking === "left" ? "right" : "left", tuning = settingsOf(decoded, hand);
+  const preset = MINDS["option-drill"].config, other = striking === "left" ? "right" : "left", tuning = settingsOf(decoded, hand);
   const owned = preset.options.some((option) => option.kind.startsWith("strike-") && option.skill.kind === blow);
   const own = owned ? null : partLookup.of("option", { kind: `strike-${blow}` }).defaults;
   const options = preset.options.map((option) => !option.kind.startsWith("strike-") ? option

@@ -612,9 +612,27 @@ export const TREE_CHOOSER = deepFreeze<OptionChooserPart<TreeConfig>>({
   },
 });
 
+/** **The ranked chooser's config**: its kind alone. */
+interface RankedConfig { readonly kind: "ranked" }
+
+/**
+ * **Ranked**, the drills' chooser: each option worth its place in its mind's options, the first the
+ * most, at its first target. Firm orders are carried out first (`Choice.bound`); else the first
+ * option on offer runs, then the first of the rest whose claims are still free. Nothing is priced,
+ * searched or drawn, so a drill drives its skills by a fixed order, fast and the same each time;
+ * which option a fight should choose is the valued and tree choosers' question. Not offered.
+ */
+export const RANKED_CHOOSER = deepFreeze<OptionChooserPart<RankedConfig>>({
+  role: "chooser", model: PROFILE_MODEL, label: "By rank", stage: "game", offered: false, fields: [], slots: [],
+  defaults: { kind: "ranked" }, keys: { kind: true }, fits: anyBody, faults: () => [],
+  make: (_config: RankedConfig, options: readonly Option[], _seed: number, _parts: PartLookup, phase = 0) =>
+    chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), { ...DECIDING, phase }),
+});
+
 declare module "./parts.ts" {
   interface ChooserConfigs {
     readonly valued: ValuedConfig;
     readonly tree: TreeConfig;
+    readonly ranked: RankedConfig;
   }
 }

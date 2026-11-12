@@ -147,7 +147,7 @@ if (isMainThread) {
     mind: { type: "string" }, loadout: { type: "string" }, only: { type: "string" }, seeds: { type: "string", default: "1" }, workers: { type: "string" }, out: { type: "string" }, falls: { type: "boolean", default: false } } });
   const { risingJobs } = await import("../../../../../src/evaluation/rising.ts");
   const { MINDS } = await import("../../../../../src/app/catalog.ts");
-  const mind = values.mind ? JSON.parse(readFileSync(values.mind, "utf8")) : MINDS.option.config;
+  const mind = values.mind ? JSON.parse(readFileSync(values.mind, "utf8")) : MINDS["option-drill"].config;
   const only = values.only ? new Set(values.only.split(",")) : null;
   const seeds = values.seeds.split(",").map(Number);
   if (seeds.some(seed => !Number.isSafeInteger(seed) || seed < 1)) throw new Error('--seeds needs positive integers');

@@ -548,7 +548,11 @@ The profile model supplies these components:
   kept in its state; an option is worth the states its drawn ways of ending lead to, by their
   chances, and a state the more of its leaf and its best option run, so a search is never worth
   less than its leaf. It goes deep where few options are on offer. The application's default
-  config names the tree (`src/app/option-controller.ts`). `research/lying.mjs` reads a mind's time down in the
+  config names the tree (`src/app/option-controller.ts`). The ranked chooser
+  (`RANKED_CHOOSER`), the drills', prices nothing: firm orders first, then the first option on
+  offer in its mind's order, then the first of the rest whose claims are still free. Profiles and
+  the tree are for fights and for measuring profiles; every drill and skill search runs
+  `option-drill`, on its priors with the ranked chooser, so it drives its skills by a fixed order. `research/lying.mjs` reads a mind's time down in the
   match's bouts and the cost of its steps.
 - **The search's storage** keeps its arithmetic and call order. A search gives each Option and
   target a slot (`space`, `Pair`) and the frozen ask its model is put (`Pair.ask`); each situation
@@ -780,8 +784,8 @@ on its own merit, and a profile prices the skill where the Mind uses it.
   baseline and stops once settled.
 - **Batteries and drills**: a battery plays one subject over its conditions; a drill's trials pass
   or fail, its rungs its protocols (the strike's bar in `strike/read.ts`).
-- **The table** (`src/evaluation/table/`): Option Mind on its priors alone (`option-prior`, so
-  no profile decides anything in a cell) on every body by loadout by skill (`tableCells`), a blow where the Mind offers it there (`strikesBy`) and asked only at the marks
+- **The table** (`src/evaluation/table/`): the drills' Option Mind (`option-drill`, so no profile
+  and no tree search decides anything in a cell; its drill opponents are made from it too) on every body by loadout by skill (`tableCells`), a blow where the Mind offers it there (`strikesBy`) and asked only at the marks
   and with the limbs it is offered at (`caseFaults`), valued from the drills' results: each trial's value in the game's
   terms (`trialValue`: a stand's seconds, a move's seconds lost against its orders, `orderTime`, a
   blow's life traded a second, a cover's life lost), a fall priced at the body's time to stand;
