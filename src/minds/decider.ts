@@ -118,5 +118,5 @@ export function driveBy(body: Body, decider: Decider, skills: Skills, pace: Pace
   const carry = (view: BodyView, intent: Intent, dt: number) => skills.command(view, intent, dt);
   const whole = { skills: skills.state, decider: decider.state ?? null, pace: state, ...(aims ? { aims } : {}) };
   body.drive({ state: whole, decide, carry }, skills.release);
-  return { state: whole, report: skillsReport(skills, decider, whole) };
+  return { state: whole, report: skillsReport(skills, decider) };
 }

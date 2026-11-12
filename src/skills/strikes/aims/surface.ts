@@ -3,7 +3,7 @@ import { aimOn } from "../../framework/aim-on.ts";
 import type { BodyView } from "../../../control/body.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { type Aimed } from "../../framework/action-aim.ts";
-import type { AimPart } from "../../framework/aim-part.ts";
+import type { AimAsking, AimPart } from "../../framework/aim-part.ts";
 import type { PartField } from "../../../parts/fields.ts";
 import { openingNow, openingSelector, validOpeningTuning, type OpeningTuning } from "../../perception/openings.ts";
 import { hold, stillHeld, unheld, type Held } from "../../../control/held.ts";
@@ -68,11 +68,11 @@ export const SURFACE_AIM = deepFreeze<AimPart<SurfaceConfig>>({
   fields: [preference("head", "Head"), preference("upperTrunk", "Upper trunk"), preference("middleTrunk", "Middle trunk")], fits: surfaceAimRefusal,
   faults: (config: SurfaceConfig) => validOpeningTuning(config.tuning === undefined ? {} : config.tuning) ? [] : ["unsupported surface aim"],
   aimsWith: (effector: string) => effector === "hand.left" || effector === "hand.right",
-  make(spec, config: SurfaceConfig) {
+  make(spec, config: SurfaceConfig, asking: Readonly<AimAsking>) {
     const surface = openingSelector(spec, config.tuning);
     // Each opening held (`HELD_OPENING`), for the foe, hand, region and blocked segments it was found for.
     const state = { held: [] as HeldOpening[] };
-    // Each aim answered at `of`'s reading's `stamp`, for its foe as observed at its time, hand, region and blocked segments: every caller's while they stand.
+    // Each aim the mind's own work asked at `of`'s reading's `stamp`, for its foe as observed at its time, hand, region and blocked segments: every caller's while they stand.
     const found: { foe: BodySense; time: number; side: Side; names: readonly string[]; blocked: readonly string[]; aimed: Aimed | null }[] = [];
     let of: BodyView | null = null, stamp = -1;
     // The drift a hold is made from and checked against, filled each ask: the head about the segment, the segment's turn, and the hand about the head.
@@ -83,11 +83,13 @@ export const SURFACE_AIM = deepFreeze<AimPart<SurfaceConfig>>({
       const side = effector.slice(5) as Side;
       const blocked = ledger.filter(record => record.target.body === foe.id).flatMap(record => record.contacts.blockedSegments);
       if (of !== view || stamp !== view.reading.stamp) { of = view; stamp = view.reading.stamp; found.length = 0; }
-      if (view.resumed) state.held.length = 0;
+      // A reading of the mind (`AimAsking`) answers as the mind's own ask would and keeps nothing: no hold made, let go or dropped, no answer kept for a later ask.
+      const keeps = asking.keeps;
+      if (view.resumed && keeps) state.held.length = 0;
       const time = foe.time;
       if (time !== undefined) for (const one of found)
         if (one.foe === foe && one.time === time && one.side === side && sameNames(one.names, names) && sameNames(one.blocked, blocked)) return one.aimed;
-      let kept = state.held.find((one) => one.foe === foe.id && one.side === side && sameNames(one.names, names) && sameNames(one.blocked, blocked));
+      let kept = view.resumed ? undefined : state.held.find((one) => one.foe === foe.id && one.side === side && sameNames(one.names, names) && sameNames(one.blocked, blocked));
       const at = kept && sensedDrift(view, foe, kept.segment, effector, moved, turn, fist)
         && stillHeld(kept.held, view.time, HELD_OPENING.rethink, foe.id, drift, () => true) ? openingNow(view, foe, kept.segment, kept.local) : null;
       let aimed: Aimed | null;
@@ -95,16 +97,18 @@ export const SURFACE_AIM = deepFreeze<AimPart<SurfaceConfig>>({
       else {
         const opening = surface(view, foe, side, null, "mixed", { family: "straight", segments: names, blocked });
         aimed = opening ? deepFreeze<Aimed>({ at: opening.target, ...(opening.direction ? { direction: opening.direction } : {}), estimate: { unit: "opening", value: -opening.score } }) : null;
-        if (!kept) {
-          for (let k = state.held.length - 1; k >= 0; k--) if (view.time >= state.held[k]!.held.made + HELD_OPENING.rethink) state.held.splice(k, 1);
-          state.held.push(kept = { foe: foe.id, side, names: [...names], blocked: [...blocked], held: unheld(), segment: "", local: [0, 0, 0], direction: null, value: 0 });
+        if (keeps) {
+          if (!kept) {
+            for (let k = state.held.length - 1; k >= 0; k--) if (view.time >= state.held[k]!.held.made + HELD_OPENING.rethink) state.held.splice(k, 1);
+            state.held.push(kept = { foe: foe.id, side, names: [...names], blocked: [...blocked], held: unheld(), segment: "", local: [0, 0, 0], direction: null, value: 0 });
+          }
+          if (opening && sensedDrift(view, foe, opening.segment, effector, moved, turn, fist)) {
+            kept.segment = opening.segment; kept.local = [...opening.local]; kept.direction = opening.direction ? [...opening.direction] : null; kept.value = -opening.score;
+            hold(kept.held, view.time, foe.id, drift);
+          } else kept.held.made = -Infinity;
         }
-        if (opening && sensedDrift(view, foe, opening.segment, effector, moved, turn, fist)) {
-          kept.segment = opening.segment; kept.local = [...opening.local]; kept.direction = opening.direction ? [...opening.direction] : null; kept.value = -opening.score;
-          hold(kept.held, view.time, foe.id, drift);
-        } else kept.held.made = -Infinity;
       }
-      if (time !== undefined) found.push({ foe, time, side, names, blocked, aimed });
+      if (time !== undefined && keeps) found.push({ foe, time, side, names, blocked, aimed });
       return aimed;
     });
     return Object.assign(aim, { state });

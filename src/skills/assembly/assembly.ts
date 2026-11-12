@@ -1,5 +1,5 @@
 import { windowSpotFinder } from "../intent/action-window.ts";
-import type { Aim } from "../framework/aim-part.ts";
+import type { Aims } from "../framework/aim-part.ts";
 import { SERVO_SECONDS, type Body, type LayerOptions } from "../../control/body.ts";
 import { skillSet } from "../framework/arbiter.ts";
 import type { Skills } from "../framework/skills.ts";
@@ -7,7 +7,7 @@ import type { Ended } from "../framework/action.ts";
 import type { ActionBinding, ExecutorBinding } from "../framework/action-instances.ts";
 import type { Clock } from "../../core/world/clock.ts";
 import type { SkillParts } from "../config.ts";
-import { aimsState, configuredAims, configuredExecutors } from "./action-config.ts";
+import { configuredAims, configuredExecutors } from "./action-config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 import { navigatorOf } from "../framework/navigation.ts";
@@ -28,7 +28,7 @@ interface MoreSkills {
 const NO_MORE: MoreSkills = Object.freeze({ executors: Object.freeze([]), actions: Object.freeze([]) });
 
 /** The skills `config` names, each part the one `parts` finds, a mind's own included, and `more` beside them; action aims are `aims` (the body's one, `configuredAims`) and read these skills' ledger of actions ended. */
-export function makeSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillParts, more: MoreSkills = NO_MORE, aims?: ReadonlyMap<string, Aim>): Skills {
+export function makeSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillParts, more: MoreSkills = NO_MORE, aims?: Aims): Skills {
   const guard = parts.of("guard", config.guard).make(made.built, config.guard);
   const legs = legsOf(parts, made, config.legs);
   const navigation = navigatorOf(parts, made.built.spec, config.navigation);
@@ -38,7 +38,7 @@ export function makeSkills(made: Body, clock: Clock, parts: PartLookup, config: 
   const skills: Skills = skillSet(made, {
     legs, navigation, clearance: navigation, guard, spot: windowSpotFinder,
     support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
-    aims: aimsState(configured),
+    aims: configured,
     executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger, configured), ...more.executors],
     actions: [...config.actions, ...more.actions],
   });

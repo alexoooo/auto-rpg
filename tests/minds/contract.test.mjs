@@ -3,6 +3,7 @@ import { risingJobs } from "../../src/evaluation/rising.ts";
 import { DEFAULT_ENGINE } from "../../src/core/physics/engines.ts";
 import { recipeOf } from "../../src/app/node/setup.ts";
 import { reportNow } from "../../src/minds/seat/apart.ts";
+import { traceOf } from "../../src/evaluation/trace.ts";
 /** Command delivery, suspension and restoration, independent of skill capability. */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -169,6 +170,25 @@ test("a fresh bout load restores the whole published Mind report before another 
   } finally { original.dispose(); fork.dispose(); }
 });
 
+
+test("a bout whose minds' menus are read every step plays as it does unread", async () => {
+  const recipe = { ...recipeOf("?matchup=workshop-fighter,workshop-fighter&control=option,option&left.loadout=empty,sword&right.loadout=empty,sword", { left: {}, right: {} }, "open"), capSeconds: 4 };
+  // Every pose of the bout, with each side's menu read between steps where `reading`, as a Commander or a screen reads it.
+  const play = async (reading) => {
+    const bout = await buildBout(recipe), sides = ["left", "right"], trace = traceOf(sides.map((side) => bout.duel.duelists[side].built));
+    let offered = 0;
+    try {
+      while (bout.duel.verdict === null) {
+        bout.world.step(); trace.take();
+        if (reading) for (const side of sides) offered += bout.duel.duelists[side].minded.report.menu.filter((entry) => entry.foe !== null).length;
+      }
+      return { digest: trace.digest(), offered, steps: bout.world.steps };
+    } finally { bout.dispose(); }
+  };
+  const unread = await play(false), read = await play(true);
+  assert.ok(read.offered > 0, "the fixture must read menus offering blows at a foe");
+  assert.deepEqual({ digest: read.digest, steps: read.steps }, { digest: unread.digest, steps: unread.steps });
+});
 
 test("a mind's report is what it said at its answer, through a sword bout, a fall it rises from and a Crypt run", async () => {
   const [{ CONTEXT }, { evaluationApplication }, { gameApplication }, { SAID_FIELDS }] = await Promise.all([

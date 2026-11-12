@@ -59,7 +59,7 @@ export interface SkillsNavigation {
 export interface SkillsActions {
   /** The actions the body has (`KitEntry`). */
   readonly kit: readonly KitEntry[];
-  /** Its choices as the last step left the body (`menuOf`), from a stance with no walk; reading it changes nothing of the skills. */
+  /** Its choices as the last step left the body (`menuOf`), from a stance with no walk; reading it changes nothing of the skills: its aims keep nothing they find (`keepingNothing`). */
   menu(): readonly MenuEntry[];
   /** A new id for an action a mind is about to ask (`Intent.actions`). */
   instance(): number;

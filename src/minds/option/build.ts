@@ -1,4 +1,5 @@
-import { aimsState, configuredAims } from "../../skills/assembly/action-config.ts";
+import { configuredAims } from "../../skills/assembly/action-config.ts";
+import { aimsState } from "../../skills/framework/aim-part.ts";
 import { motorLayerOptions, makeSkills } from "../../skills/assembly/assembly.ts";
 import { filledOf, motorAndGuardOf } from "../../skills/assembly/filled.ts";
 import type { SkillParts } from "../../skills/config.ts";

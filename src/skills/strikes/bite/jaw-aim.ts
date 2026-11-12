@@ -7,7 +7,7 @@ import { hypot } from "../../../core/math/real.ts";
 import { turnAboutToRef } from "../../../core/math/turn.ts";
 import type { BodySense } from "../../../core/bodies/senses.ts";
 import { surfaceContains, surfaceEntry } from "../../perception/openings.ts";
-import type { Aim, AimPart } from "../../framework/aim-part.ts";
+import type { Aim, AimAsking, AimPart } from "../../framework/aim-part.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { headFrameToRef, jawOf, mouthToRef } from "./jaw.ts";
@@ -35,9 +35,9 @@ const buried = (view: BodyView, at: Vec3): boolean => view.senses.others.some((f
  * It holds what it found on the foe's segment, led `biteLead` s by its motion, with its tooth
  * (`Aimed.with`), until the target is another foe or region, the jaw has ended a bite since
  * (`ledger`), the point leaves the mouth's reach or height, the mouth is inside a foe, or another
- * had the body (`BodyView.resumed`).
+ * had the body (`BodyView.resumed`). A reading of the mind (`AimAsking`) answers alike and holds nothing.
  */
-function firstExposed(spec: Parameters<AimPart["make"]>[0]): Aim {
+function firstExposed(spec: Parameters<AimPart["make"]>[0], asking: Readonly<AimAsking>): Aim {
   const T = biteSettings(spec, {}), jaw = jawOf(spec);
   const arcs = jaw.teeth.map((tooth) => ({ tooth: tooth.name,
     arc: Array.from({ length: T.biteSamples + 1 }, (_, i) => pointAtToRef([jaw.hinge], [[T.open * (1 - i / T.biteSamples)]], tooth.tip, new Vector3())) }));
@@ -94,7 +94,7 @@ function firstExposed(spec: Parameters<AimPart["make"]>[0]): Aim {
   const aim: Aim = (view, target, effector, ledger = []) => {
     if (target.kind === "point") return { at: target.at, ...(target.direction ? { direction: target.direction } : {}) };
     const foe = sensedActionTarget(view, target);
-    if (effector !== jaw.head.name || !foe) { state.held = null; return null; }
+    if (effector !== jaw.head.name || !foe) { if (asking.keeps) state.held = null; return null; }
     const names = regionSegments(foe.spec, target.region);
     mouthToRef(view, jaw, mouth);
     const from: Vec3 = [mouth.x, mouth.y, mouth.z], inside = buried(view, from);
@@ -116,7 +116,7 @@ function firstExposed(spec: Parameters<AimPart["make"]>[0]): Aim {
         at = heldAt(foe, held);
       }
     }
-    state.held = held;
+    if (asking.keeps) state.held = held;
     return held && at ? { at, with: held.tooth } satisfies Aimed : null;
   };
   return Object.assign(aim, { state });
@@ -125,7 +125,7 @@ function firstExposed(spec: Parameters<AimPart["make"]>[0]): Aim {
 /** **The first exposed surface** (`firstExposed`) as a kind of aim: a jaw's, for a body with a bite (`fitsBite`). */
 export const FIRST_EXPOSED_AIM = deepFreeze<AimPart<FirstExposedConfig>>({
   role: "aim", label: "First exposed surface", stage: "game", unit: null, fields: [], slots: [], defaults: { kind: "first-exposed" }, keys: { kind: true },
-  fits: (spec, _config, parts) => fitsBite(spec, { kind: "first-exposed" }, parts), fitReads: ["bite"], faults: () => [], reads: () => ["bite"], make: (spec) => firstExposed(spec),
+  fits: (spec, _config, parts) => fitsBite(spec, { kind: "first-exposed" }, parts), fitReads: ["bite"], faults: () => [], reads: () => ["bite"], make: (spec, _config, asking) => firstExposed(spec, asking),
 });
 
 declare module "../../config.ts" {

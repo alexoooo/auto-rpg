@@ -4,7 +4,6 @@ import type { ActionStatus, Ended } from "../skills/framework/action.ts";
 import type { KitEntry, MenuEntry } from "../skills/framework/menu.ts";
 import type { NavigationReport } from "../skills/framework/navigation.ts";
 import type { Engagement } from "./engagement.ts";
-import { loadState, saveState } from "../core/state.ts";
 
 /**
  * **What a body expects of a fight with one foe**, at reach: the share of the foe's full life it
@@ -40,15 +39,11 @@ export interface MindReport {
 
 /**
  * What a mind says of itself, live (`MindReport`): what its `decider` reports doing, and the rest as
- * its `skills` report it. Its menu is read with the mind's `state` put back as it was after: what
- * a reading asks (an aim's held opening) moves nothing a mind keeps, whoever reads it and when.
+ * its `skills` report it. Its menu moves nothing a mind keeps, whoever reads it and when: its aims
+ * are asked keeping nothing (`SkillsActions.menu`).
  */
-export function skillsReport(skills: Skills, decider: { readonly engagement?: Engagement; readonly prospects?: readonly Prospect[] }, state: object): MindReport {
-  const menu = (): readonly MenuEntry[] => {
-    const saved = saveState(state);
-    try { return skills.actions.menu(); } finally { loadState(state, saved); }
-  };
+export function skillsReport(skills: Skills, decider: { readonly engagement?: Engagement; readonly prospects?: readonly Prospect[] }): MindReport {
   return { get engagement() { return decider.engagement ?? null; }, get prospects() { return decider.prospects ?? null; }, get heading() { return skills.report.legs.heading; }, get gaits() { return skills.legs.gaits; },
     get navigation() { return skills.report.navigation ?? null; }, kit: skills.actions.kit, get actions() { return skills.report.actions; },
-    get ended() { return skills.report.ledger; }, get menu() { return menu(); } };
+    get ended() { return skills.report.ledger; }, get menu() { return skills.actions.menu(); } };
 }

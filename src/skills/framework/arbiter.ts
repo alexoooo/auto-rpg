@@ -2,6 +2,7 @@ import type { StanceGoal } from "../../control/stance/goal.ts";
 import type { Clearance } from "./navigation.ts";
 import type { GaitLimits, Locomotion } from "./locomotion-part.ts";
 import { kitOf, menuOf, type SpotFinder } from "./menu.ts";
+import { aimsState, keepingNothing, type Aims } from "./aim-part.ts";
 import type { Intent } from "./intent.ts";
 import type { Body, BodyCommand, BodyView } from "../../control/body.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
@@ -24,7 +25,8 @@ import { attachment } from "../../core/bodies/read-body.ts";
 
 /** Continuous services surround the independently owned action instances. */
 interface SkillParts {
-  readonly aims?: readonly object[];
+  /** The body's aims (`configuredAims`): what they hold is the skills' state, and the menu asks them keeping nothing. */
+  readonly aims?: Aims;
   readonly executors: readonly ExecutorBinding[];
   readonly actions: readonly ActionBinding[];
   readonly legs: Locomotion;
@@ -79,7 +81,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const modelEffectors = models.map((model) => resources.effector.get(model.segment) ?? -1);
   const modelChannels = models.map((model) => model.channels.map((channel) => resources.channel.get(channel) ?? -1));
   const assisting = resources.ids.get("assist") ?? -1, writes = writerOf(slots, models, resources.channel, legsHeld);
-  const state = { actions: instances.state, aims: services.aims ?? [], legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null,
+  const state = { actions: instances.state, aims: services.aims ? aimsState(services.aims) : [], legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand,
     /** Each slot's holder: an action's id, the defaults (`DEFAULT`) or none yet (`UNHELD`). */
     owners: new Float64Array(count).fill(UNHELD),
@@ -170,7 +172,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     },
     navigation: { clearance: services.clearance },
     actions: {
-      kit, menu: () => menuOf(kit, body.view, around, instances.readiness, services.spot, navigation?.report.request ?? null),
+      kit, menu: () => keepingNothing(services.aims, () => menuOf(kit, body.view, around, instances.readiness, services.spot, navigation?.report.request ?? null)),
       instance: instances.instance, readiness: instances.readiness, needs: instances.needs, around,
     },
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {

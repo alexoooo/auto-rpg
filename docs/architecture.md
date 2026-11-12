@@ -431,7 +431,8 @@ research settings belong to `LayerOptions` in `src/control/body.ts`.
   `apart.ts`), so what a mind said stays what it said, and a write into a said value throws where
   it is made; a mind apart sends only those fields. What it said belongs to the saved Mind state.
   The profile provider saves its completed-decision engagement details; the menu reads current
-  skills.
+  skills, and its aims answer as the mind's own ask would, keeping nothing they find
+  (`keepingNothing`, `AimAsking`), so a Commander or a screen reading it every step moves nothing.
 
 **A mind is its config.** A `MindConfig` is plain data tagged by kind; `createMind` (`create-mind.ts`)
 makes it by the kind's `Controller` found in a `Catalog` (`src/minds/catalog/catalog.ts`). A mind is a
