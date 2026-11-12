@@ -127,8 +127,8 @@ here.
 - Braking: the walk's pace ramp, and the stance envelope measured again at it.
 - The stance asked to stand a lying body diverges; no mind asks it.
 - The Warrior's stand-up: on hands and knees with the club and buckler the hands bear almost
-  nothing and the trunk sinks back; the sit-back hands over to the stance still on its knees and
-  lurches into a split stance; its sword falls rise a second past 10 s.
+  nothing and the trunk sinks back; the sit-back lurches into a split stance when it hands the
+  body to the stance from its knees; its sword falls rise a second past 10 s.
 - The Rogue's stomp holding a club or a sword never chambers: each try runs about 10 s
   uncommitted and stalls (`withdrawal deadline`), and Option Mind chases it, priced by its prior.
 - Holds and equipment: shield and weapon lines, two hands on one item (a closed chain), equipped
