@@ -226,17 +226,26 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose, st
   const firm = new Float64Array(freedoms);
   const state = { pose: posture, pushes: [] as readonly MusclePush[], points: [] as readonly PointTask[], paths: NO_PATHS, standing: null as StanceGoal | null,
     effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state, unmet };
+  // Each channel's place by its name, and the first push of each channel this step by the channel's place (-1 for none): read
+  // once a step, in place of a search of the pushes for each channel. A push on a channel the body has not drives nothing.
+  let places: ReadonlyMap<string, number> | null = null, first: Int32Array | null = null;
+  const firstPushes = (driver: MuscleReading, pushes: readonly MusclePush[]): Int32Array => {
+    places ??= new Map(driver.channels.map((channel, i) => [channel.name, i]));
+    first ??= new Int32Array(driver.channels.length);
+    first.fill(-1);
+    for (let k = 0; k < pushes.length; k++) { const i = places.get(pushes[k]!.channel); if (i !== undefined && first[i] === -1) first[i] = k; }
+    return first;
+  };
   const control = (driver: MuscleReading, command: BodyControl, dt: number) => {
     const { pose, pushes, standing } = state;
     const owned = tracker.step(driver, pose, dt, !!standing?.pose);
     const path = (i: number): FreedomPath | undefined => state.paths[driver.channels[i]!.name];
     stance.command(driver, standing, dt);
     unmet.pushes.fill(0);
+    const pushed = firstPushes(driver, pushes);
     const work = servoAsk(driver, command.muscles, (i) => {
-      const name = driver.channels[i]!.name;
-      let k = 0;
-      while (k < pushes.length && pushes[k]!.channel !== name) k++;
-      const push = pushes[k];
+      const name = driver.channels[i]!.name, k = pushed[i]!;
+      const push = k < 0 ? undefined : pushes[k];
       if (!push) return standing && stance.owned[i] ? undefined : path(i)?.angle ?? owned(i)?.[0] ?? pose[name] ?? 0;
       // The stance's solve gives a freedom its legs drive its own torque, over the push.
       if (standing && stance.owned[i]) unmet.pushes[i] = 1;
