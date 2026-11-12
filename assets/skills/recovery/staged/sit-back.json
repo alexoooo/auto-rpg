@@ -1,10 +1,17 @@
 {
   "crypt-skeleton+toes": {
-    "made": "Found by CMA-ES on the crypt-skeleton's body (research/cma.mjs), with its roll.",
+    "made": "Found by CMA-ES on the crypt-skeleton's body (research/cma.mjs), with its roll. Roll and sit-back settings developed together by hand on its 160 offset target falls; Node fall bed, rapier-coordinate, 120 Hz, Balance 0, paired seconds to stand.",
     "settings": {
       "stages": {
         "up": {
-          "scale": 1.0063
+          "scale": 1.0063,
+          "posture": {
+            "hip.left flexion": 0.4,
+            "hip.right flexion": 0.4,
+            "shoulder.left flexion": 0.05,
+            "shoulder.right flexion": 0.05,
+            "thoracic flexion": -0.1
+          }
         },
         "sit back": {
           "scale": 1.1391
