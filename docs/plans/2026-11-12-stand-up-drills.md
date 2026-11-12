@@ -41,14 +41,15 @@ What the table reads now (`src/evaluation/table/cells.ts`, `STAND_UP`):
   own attempts (`RisingRow.attempts`): reached its destination or not, and its seconds, a failure
   at its cap. A fall that never reaches a posture it starts from is reported as not exercised, as
   a fall not made is now.
-- **Room at entry.** A way up is on offer only where its motion has room: its entry checks the
-  space it sweeps against the solids its body senses, blocked with the reason, as a strike is
-  outside its window. Rank then falls through to the next way up with room, then a reposition (a
-  roll away). A cell counts its way up's blocked falls apart from its tried and failed ones; one
-  that tries anyway and stalls is a failure of its own.
-- **A fall at a fixed price.** A trial ending down in a strike or move cell is charged a fixed
-  number of seconds, the same on every body, not the stand-up cell's value: no cell moves for a
-  skill it does not read.
+- **A way up that meets an object lets go.** As it runs, a way up that has met a solid and stopped
+  making progress gives up, with the reason, and rank falls through to the next way up, then a
+  reposition (a roll away). It needs only what the body touches. Predicting a way up's room before
+  it begins (where its body parts go, set against the solids it senses) is left for later, if
+  reacting falls short. A cell counts its way up's attempts let go at an object apart from those that failed
+  otherwise.
+- **A fall at a fixed price**, 10 s (the owner's scale, `STAND_WITHIN`), set to be changed if it
+  reads wrong. A trial ending down in a strike or move cell is charged it, the same on every body,
+  not the stand-up cell's value: no cell moves for a skill it does not read.
 - **Getting up whole is not a skill cell.** How a mind chains ways up after a real fall is a
   fight's question; the target's composite reading stays an evaluation (`rising-target`), read in
   research, not a cell.
@@ -56,16 +57,15 @@ What the table reads now (`src/evaluation/table/cells.ts`, `STAND_UP`):
   trials; a scenario played only in research is a gap. Held only outside the drills now, for
   stand-up: the obstacle levels (rising bed, Lab), `core-rise.mjs --shoves 128`, `rise-search.mjs
   --offsets`. The ground profiles' falls (`edge-profiles.mjs`) are outside on purpose: they
-  measure profiles, not skills. The other skills' research scenarios are not yet compared with
-  their drills.
+  measure profiles, not skills. Every other skill's research goes past its drill too
+  ([the drill gaps](../analysis/2026-11-12-drill-gaps.md)).
 
 ## Open
 
-- **The space a way up sweeps**: whether its stages' poses (`src/skills/recovery/implementations/`)
-  give it, or it has to be measured from its trials. Read first; the room check waits on it.
-- **The fall's price**, seconds: the owner's 10 s scale (`STAND_WITHIN`) or the 30 s cap
-  (`FALL_CAP`).
-- **The research-only scenarios of the other skills**, compared with their drills.
+- **What "stopped making progress" reads**: a way up's stage not advancing for some time while a
+  segment touches a solid that is not the ground; the time and the progress measure are read
+  from the obstacle falls.
+- **How each skill's gap closes** ([the drill gaps](../analysis/2026-11-12-drill-gaps.md)).
 
 ## The price
 
