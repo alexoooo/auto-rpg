@@ -14,6 +14,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { mindOf, sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readCover, type CoverReading } from "./read.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
+import { between } from "../twin.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
 
 /** What the subject holds in its right hand: nothing, a club or a sword. */
@@ -93,8 +94,12 @@ export function createCoverCases(context: GameContext) {
     };
   }
 
+  /** A rung a table cell reads, `name`, beside its training twin, `<name>-twin`: its places halfway between its gaps and its offsets across (`between`). */
+  const twinned = (name: string, rung: Rung): Record<string, Cases<CoverCondition, CoverReading>> =>
+    ({ [name]: { ...coverCases(rung), twin: `${name}-twin` }, [`${name}-twin`]: coverCases(deepFreeze({ ...rung, gaps: between(rung.gaps), across: between(rung.across) })) });
+
   /** Every protocol the Cover drill may be played on, by name: its rungs. */
-  const COVER_CASES: Readonly<Record<string, Cases<CoverCondition, CoverReading>>> = Object.freeze({ punched: coverCases(PUNCHED), club: coverCases(CLUBBED), sword: coverCases(SWORD) });
+  const COVER_CASES: Readonly<Record<string, Cases<CoverCondition, CoverReading>>> = Object.freeze({ punched: coverCases(PUNCHED), ...twinned("club", CLUBBED), ...twinned("sword", SWORD) });
 
   return { COVER_CASES };
 }

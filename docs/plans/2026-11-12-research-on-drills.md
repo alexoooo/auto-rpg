@@ -63,8 +63,14 @@ training" (`37f9be19`).
 
 Each lands on its checks; nothing is played without a brief.
 
-1. The defects: the stomp search's Mind, the training environments' preset.
-2. The twins and the shared player.
+1. The defects: the stomp search's Mind, the training environments' preset. *Landed*
+   (`5aa6efd8`).
+2. The twins and the shared player. *Landed*: every protocol a cell reads names its twin
+   (`Cases.twin`, `src/evaluation/twin.ts`), sharing no case with it; `research/drill-trials.mjs`
+   lists a cell's or its twin's trials, plays one at a rate and values it as the cell does, and
+   confirms on the cell's cases at 120 and 480 Hz; lone bodies and falls take a rate; a fall costs
+   a fixed 10 s (`FALL_PRICE`). A twin of a list of points has one fewer (the punch's 42 trials to
+   the cell's 96).
 3. Strikes: the scripts and environments on their twins; the drills widened (target bodies).
 4. Stand-up, with [its plan](2026-11-12-stand-up-drills.md): the obstacle levels and bout falls
    in the drill; `rise-search.mjs` and the sit-back and roll searches on the twin.

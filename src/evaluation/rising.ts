@@ -34,7 +34,7 @@ import { groundPlacement, groundPostures } from "../game/lab/ground-starts.ts";
 import type { LabAddress } from "../game/lab/scenarios.ts";
 import { cos, sin } from "../core/math/real.ts";
 import { mean, medianOf } from "./stats.ts";
-import { createFall, checkFall, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
+import { createFall, checkFall, STAND_WITHIN, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
 import { type GameContext } from "../game/arena/context.ts";
 
 /**
@@ -94,13 +94,12 @@ interface RisingOptions {
 
 /**
  * **The fresh falls**: the target's bodies and loadouts shoved halfway between its sixteen
- * directions, degrees (`docs/reference/rising.md#the-owners-target`). No edge, timing or route is
- * tuned on them; they show whether a gain on the target is fitted to its falls.
+ * directions, degrees (`docs/reference/rising.md#the-owners-target`): the target's training twin,
+ * which research tunes on, so the target's own falls show whether a gain is fitted to them.
  */
 export const FRESH_OFFSET = 11.25;
 
-/** A reference time for a fall's stand, s, reported beside the time to stand (`docs/reference/rising.md#the-owners-target`), deciding nothing. */
-export const STAND_WITHIN = 10;
+export { STAND_WITHIN };
 
 /**
  * The bed's jobs. The stand-up target: every body (`HUMANOID_MODELS`) in every rated loadout

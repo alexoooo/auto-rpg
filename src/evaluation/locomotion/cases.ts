@@ -32,6 +32,7 @@ import { deepFreeze } from "../../core/state.ts";
 import type { Cases, Json, Subject } from "../evaluation.ts";
 import type { BuiltLone, LoneCue } from "../lone.ts";
 import { readLocomotion, type LocomotionReading } from "./read.ts";
+import { between, later, turned } from "../twin.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
 /** When a trial's first order comes, and how long a walk or a turn's leg lasts, s. */
@@ -83,8 +84,19 @@ type Protocol = typeof SCREEN;
  */
 const EVERY = deepFreeze({ ...SCREEN, models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[], loadouts: REPRESENTATIVE as Loadout[], gusts: true });
 
+/**
+ * **The walk's training twin** (`src/evaluation/twin.ts`): `EVERY`'s trials drawn at other points,
+ * research's to tune on, the cell's held out: its ways and its shoves' turned half their spacing,
+ * its paces and impulses halfway between, its turns aside half as far, and the next seed.
+ */
+const EVERY_TWIN = deepFreeze({ ...EVERY, ways: turned(EVERY.ways), paces: between(EVERY.paces), turns: EVERY.turns.map((way) => way < 180 ? way / 2 : 360 - (360 - way) / 2),
+  shoves: { ways: turned(EVERY.shoves.ways), impulses: between(EVERY.shoves.impulses) }, walked: { ...EVERY.walked, ways: turned(EVERY.walked.ways) }, seed: 2 });
+
 /** The run's bar on the Warrior and the Rogue in every rated loadout: each run trial in calm air and the lab's gusts, seeds 1 to 4. */
 const RUN_BAR = deepFreeze({ models: ["workshop-fighter", "workshop-rogue"] as BodyModel[], loadouts: REPRESENTATIVE as Loadout[], seeds: [1, 2, 3, 4], airs: [false, true] });
+
+/** **The run's bar's training twin**: its trials on the next seeds (`later`), research's to tune on. */
+const RUN_TWIN = deepFreeze({ ...RUN_BAR, seeds: later(RUN_BAR.seeds) });
 
 /** Facing forward, +z. */
 const FORWARD = deepFreeze({ x: 0, z: 1 });
@@ -152,10 +164,12 @@ function screenOf(protocol: Protocol, held: Held): LocomotionCondition[] {
   ].map((condition) => ({ ...condition, ...held })));
 }
 
-/** The walk on every body in every loadout (`EVERY`): the screen's trials holding each, then its walks in the gusts. */
-const everyOf = (protocol: typeof EVERY): LocomotionCondition[] => protocol.loadouts.flatMap((loadout) => [
-  ...screenOf(protocol, { loadout }),
-  ...screenOf(protocol, { loadout, gusts: true }).filter((condition) => condition.kind === "walk")]);
+/** The walk on every body in every loadout (`EVERY`): the screen's trials holding each, then its walks in the gusts; each on the protocol's seed where it names one. */
+const everyOf = (protocol: typeof EVERY & { readonly seed?: number }): LocomotionCondition[] => protocol.loadouts.flatMap((loadout) => {
+  const seeded = protocol.seed === undefined ? {} : { seed: protocol.seed };
+  return [...screenOf(protocol, { loadout, ...seeded }),
+    ...screenOf(protocol, { loadout, gusts: true, ...seeded }).filter((condition) => condition.kind === "walk")];
+});
 
 /** The run's bar's trials (`RUN_BAR`): each body and loadout, each run trial, in each air and seed. */
 const runsOf = (protocol: typeof RUN_BAR): LocomotionCondition[] => protocol.models.flatMap((model) => protocol.loadouts.flatMap((loadout) =>
@@ -196,8 +210,10 @@ export function createLocomotionCases(context: GameContext) {
   /** Every protocol the drill may be played on, by name. */
   const LOCOMOTION_CASES: Readonly<Record<string, Cases<LocomotionCondition, LocomotionReading, BuiltLone>>> = Object.freeze({
     screen: locomotionCases(SCREEN as unknown as Json, conditionsOf(SCREEN)),
-    every: locomotionCases(EVERY as unknown as Json, everyOf(EVERY)),
-    run: locomotionCases(RUN_BAR as unknown as Json, runsOf(RUN_BAR)),
+    every: { ...locomotionCases(EVERY as unknown as Json, everyOf(EVERY)), twin: "every-twin" },
+    "every-twin": locomotionCases(EVERY_TWIN as unknown as Json, everyOf(EVERY_TWIN)),
+    run: { ...locomotionCases(RUN_BAR as unknown as Json, runsOf(RUN_BAR)), twin: "run-twin" },
+    "run-twin": locomotionCases(RUN_TWIN as unknown as Json, runsOf(RUN_TWIN)),
   });
 
   return { LOCOMOTION_CASES };

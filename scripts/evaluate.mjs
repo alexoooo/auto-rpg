@@ -46,7 +46,6 @@ import { CONTROLLERS, MINDS } from "../src/app/catalog.ts";
 import { caseName, harnessOf, rounded, roundedEstimate, withResult, withStandings } from "../src/evaluation/results.ts";
 import { indexRows } from "../src/evaluation/rows.ts";
 import { standingsOf } from "../src/evaluation/standings.ts";
-import { STAND_UP } from "../src/evaluation/table/cells.ts";
 import { keep } from "../src/evaluation/table/judge.ts";
 import { COMMAND_DELAY } from "../src/core/world/world.ts";
 import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf, tableOf } from "../src/evaluation/run.ts";
@@ -314,8 +313,14 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   }
 }
 
-/** Every reading the table makes (`tableCells`, and the stand-up reading that prices a fall): a subject it reads keeps what its judge needs of each trial. */
-const TABLE_READINGS = [...tableCells().flatMap((cell) => cell.readings), STAND_UP];
+/**
+ * Every reading the table makes (`tableCells`), and each one's on its protocol's training twin
+ * (`Cases.twin`), research's: a subject either reads keeps what its judge needs of each trial.
+ */
+const TABLE_READINGS = tableCells().flatMap((cell) => cell.readings).flatMap((reading) => {
+  const twin = EVALUATIONS[reading.drill]?.protocols[reading.protocol]?.twin;
+  return twin ? [reading, { ...reading, protocol: twin }] : [reading];
+});
 
 /**
  * A result's trial rows for the played `rows` of `evaluation` (`Result.trials`): how long each

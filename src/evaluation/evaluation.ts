@@ -124,6 +124,11 @@ export interface Cases<C extends Json = Json, R extends Json = Json, B extends B
   readonly timing?: BoutTiming;
   readonly conditions: readonly C[];
   readonly seconds: number;
+  /**
+   * The protocol of the same evaluation that is this one's training twin (`src/evaluation/twin.ts`),
+   * where a table cell reads this one: research scores there, and this one's cases stay held out. In no key.
+   */
+  readonly twin?: string;
   /** Why a subject cannot play `condition`; its scheduling metadata is available where admission needs it. */
   faults?(value: Json, condition: C, subject?: Subject): readonly string[];
   /** `characters` each seated subject's (`Subject.character`), `{}` for none. */

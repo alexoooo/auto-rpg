@@ -4,7 +4,8 @@ import { isRefused } from "../../core/refusal.ts";
  * **The stand-up target's falls**: every body in every rated loadout (`REPRESENTATIVE`), each
  * shoved sixteen ways (`risingJobs`), calm air, Balance 0 and Grit 0, a 30 s cap, the stand
  * verified (`docs/reference/rising.md#the-owners-target`). Protocol `fresh`: the same shoved
- * halfway between those directions (`FRESH_OFFSET`). The riser is a stand-up's mind or a whole
+ * halfway between those directions (`FRESH_OFFSET`), the target's training twin (`Cases.twin`):
+ * research tunes on them, the target's own falls held out. The riser is a stand-up's mind or a whole
  * mind, on its own character (`Subject.character`); a body it cannot rise as, holding the fall's
  * loadout, is refused.
  */
@@ -47,7 +48,7 @@ export function createRisingTargetCases(context: GameContext) {
   }
 
   const RISING_TARGET_CASES: Readonly<Record<string, Cases<TargetCondition, FallReading, BuiltFall>>> = Object.freeze({
-    standard: targetCases({ suite: "the owner's target", cap: FALL_CAP, after: FALL_AFTER }, targetFalls(0)),
+    standard: { ...targetCases({ suite: "the owner's target", cap: FALL_CAP, after: FALL_AFTER }, targetFalls(0)), twin: "fresh" },
     fresh: targetCases({ suite: "the owner's target's fresh falls", cap: FALL_CAP, after: FALL_AFTER }, targetFalls(FRESH_OFFSET)),
   });
 

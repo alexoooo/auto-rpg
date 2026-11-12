@@ -73,9 +73,9 @@ export function createLone(context: GameContext) {
   /**
    * A world with the arena's solids or an open floor and `lone`'s body at the centre, facing +z, its script
    * played: each cue's orders from the step it falls on, and its
-   * shove before that step.
+   * shove before that step; at `hz` steps a second where given (a confirmation's finer rate), else the game's.
    */
-  async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<BuiltLone | Refused> {
+  async function buildLone(lone: LoneCase, engine: CaseWorld["engine"], { hz }: { readonly hz?: number } = {}): Promise<BuiltLone | Refused> {
     if (lone.heading !== undefined && !Number.isFinite(lone.heading)) return { refused: "a lone body's heading must be finite" };
     if (lone.floorSize !== undefined && (!Number.isFinite(lone.floorSize) || lone.floorSize <= 0)) return { refused: "an open floor needs a finite positive side" };
     const spec = modelHoldingChecked(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character);
@@ -83,7 +83,7 @@ export function createLone(context: GameContext) {
     if ((lone.script ?? []).some(cue => cue.shove) && !spec.segments.some(segment => segment.name === "middleTrunk")) return { refused: "a shove needs a middle trunk" };
     const scope = constructionScope(); let complete = false;
     try {
-      const world = scope.own(createWorld(await loadEngine(engine)));
+      const world = scope.own(createWorld(await loadEngine(engine), hz === undefined ? {} : { hz }));
       if (lone.floorSize === undefined) addArenaSolids(world.physics);
       else world.physics.addFixedBox([0, -0.5, 0], [lone.floorSize, 1, lone.floorSize]);
       const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
@@ -119,7 +119,7 @@ export function createLone(context: GameContext) {
 
   /** The lone-body world kind: built by `buildLone`, its one body traced, played by the world's clock. */
   const LONE_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "lone" }>, BuiltLone> = {
-    build: (world) => buildLone(world.lone, world.engine),
+    build: (world, options) => buildLone(world.lone, world.engine, options?.hz === undefined ? {} : { hz: options.hz }),
     traced: (built) => [built.body.built],
     clock: (built) => built.world.time,
     minds: (world) => [world.lone.mind],

@@ -8,12 +8,18 @@
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import type { Json } from "../evaluation.ts";
 import { coverValue, type CoverReading } from "../cover/read.ts";
-import { timeToStand, type FallReading } from "../fall.ts";
+import { STAND_WITHIN, timeToStand, type FallReading } from "../fall.ts";
 import { ordersValue } from "../order-time.ts";
 import { ROW_HEAD, rounded, type Kept, type Result } from "../results.ts";
 import { mean, medianOf, pairBootstrap } from "../stats.ts";
 import { BAR, strikeOffered, strikeTrade, type StrikeReading } from "../strike/read.ts";
 import type { Cell, HitFigure, Judge, Reading } from "./cells.ts";
+
+/**
+ * **What a fall costs** a trial of any skill but the stand-up that ends down, s: the reference time
+ * to stand (`STAND_WITHIN`), the same on every body, so no cell moves for a way up it does not read.
+ */
+export const FALL_PRICE = STAND_WITHIN;
 
 /** A reading as its judge needs it: how its trials are valued, and for a strike what its figure reads of the hit. */
 type Judged = Pick<Reading, "judge"> & { readonly hit?: HitFigure };
@@ -76,7 +82,7 @@ export function keep(reading: Judged, read: Json): Kept {
 
 /**
  * **One trial's value** as `judge` reads what it kept (`keep`) and its outcome, a fall's rest
- * costing `rise` s (the body's time to stand). A strike's is its life traded over its cycle, a fall
+ * costing `rise` s (the table's `FALL_PRICE`). A strike's is its life traded over its cycle, a fall
  * adding its rise; a blow not begun where the drill asked for it (`strikeOffered`) is
  * worth 0. Null where the trial does not count: a fall not made, a blow whose fixture did not
  * reach its case, a cover never attacked.
@@ -145,7 +151,7 @@ function figuresOf(reading: Judged, trials: readonly Trial[]): string {
     case "stand": {
       const made = rows.filter(row => row[0] !== null), times = made.map(row => row[0]!);
       return `${made.filter(row => row[1]).length} of ${made.length} falls stood, ${rows.length - made.length} not made, `
-        + `median ${medianOf(times)?.toFixed(1) ?? "-"} s, ${times.filter(time => time <= 10).length} within the owner's 10 s`;
+        + `median ${medianOf(times)?.toFixed(1) ?? "-"} s, ${times.filter(time => time <= STAND_WITHIN).length} within the owner's ${STAND_WITHIN} s`;
     }
     case "orders": return `${rows.filter(row => row[2]).length} fell, ${rows.filter(row => row[1] !== null).length} ended down`;
     case "strike": {

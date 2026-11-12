@@ -42,6 +42,7 @@ import type { Rail } from "../../game/arena/rail.ts";
 import { createDrillOpponents, opposed } from "../drill-opponents.ts";
 import { type GameContext, mindFaults as contextMindFaults } from "../../game/arena/context.ts";
 import { SIDES } from "../../core/bodies/bilateral.ts";
+import { between } from "../twin.ts";
 
 /**
  * A subject's value: a mind given whole, the skill it drills (its executor's kind, as an order
@@ -432,15 +433,22 @@ export function createStrikeCases(context: GameContext) {
     };
   }
 
+  /**
+   * A rung a table cell reads, `name`, beside its training twin, `<name>-twin`: the rung's places
+   * drawn halfway between its gaps and its offsets across (`between`), research's to tune on.
+   */
+  const twinned = (name: string, rung: Parameters<typeof stillCases>[0]): Record<string, Cases<StrikeCondition, StrikeReading>> =>
+    ({ [name]: { ...stillCases(rung), twin: `${name}-twin` }, [`${name}-twin`]: stillCases(deepFreeze({ ...rung, gaps: between(rung.gaps), across: between(rung.across) })) });
+
   /** Every protocol the Strike drill may be played on, by name: its rungs. */
-  const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
+  const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ ...twinned("still", STILL), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
     "swing-motion": stillCases(SWING_MOTION),
-    moving: stillCases(MOVING), walk: stillCases(WALK), bonk: stillCases(BONK),
+    moving: stillCases(MOVING), ...twinned("walk", WALK), ...twinned("bonk", BONK),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT), fights: fightCases(FIGHTS),
-    letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
+    letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), ...twinned("stomping", STOMPING),
     "stomping-sampled": stillCases(STOMPING_SAMPLED, sampledConditions(STOMPING_SAMPLED)),
-    "still-bodies": stillCases(onOtherBodies(STILL)), "walk-bodies": stillCases(onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
-    "stomping-bodies": stillCases(onOtherBodies(STOMPING)) });
+    ...twinned("still-bodies", onOtherBodies(STILL)), ...twinned("walk-bodies", onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
+    ...twinned("stomping-bodies", onOtherBodies(STOMPING)) });
 
   return { faultsOf, strikesBy, STRIKE_CASES };
 }

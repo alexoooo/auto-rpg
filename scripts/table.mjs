@@ -3,8 +3,8 @@
  * `src/evaluation/table/cells.ts`), body by loadout by skill, valued from the drills' results
  * (`src/evaluation/results.ts`) in the game's own terms (`valueOf`): each reading's value now and at
  * its baseline (`baselineOf`), compared trial by trial on the conditions both counted
- * (`compareValues`), with the figures beside it and each drill link. A fall is priced at its body
- * and loadout's time to stand now, the stand-up cell's value, or the fall's cap where that is unread.
+ * (`compareValues`), with the figures beside it and each drill link. A trial that ends down is
+ * charged a fall's fixed price (`FALL_PRICE`), the same on every body.
  *
  *   npm run evaluate -- table [--body <model>] [--skill <name>] [--loadout <left,right>] [--by <field>] [--play] [--fresh] [--baseline] [--workers N] [--json <file>]
  *
@@ -18,8 +18,7 @@
  * date it was read at; it stands until it is asked for again. `--play` plays each reading with no
  * whole result (`npm run evaluate -- <drill> <subject> --protocol <p> --write`); a whole one
  * stands, so a change to the code plays nothing. `--fresh` plays the readings of the cells asked
- * for again on the code now; the stand-up reading that prices a fall is played again only where a
- * cell asked for reads it. Each reading plays to evaluate's budget and keeps its complete units, so a
+ * for again on the code now. Each reading plays to evaluate's budget and keeps its complete units, so a
  * pass always keeps what it played; one that fails is named at the end and the rest still play.
  * `--baseline` names each reading now as its cell's baseline, where the cell has none, as soon as
  * the reading is whole: a baseline is never overwritten, and the result it names is kept.
@@ -34,11 +33,10 @@ import { DEFAULT_ENGINE } from "../src/core/physics/engines.ts";
 import { isRefused } from "../src/core/refusal.ts";
 import { casesOf } from "../src/evaluation/run.ts";
 import { EVALUATIONS } from "../src/app/node/evaluation.ts";
-import { FALL_CAP } from "../src/evaluation/fall.ts";
 import { baselineOf, caseName, resultOf, withBaseline } from "../src/evaluation/results.ts";
-import { STAND_UP, TABLE_BODIES, TABLE_LOADOUTS } from "../src/evaluation/table/cells.ts";
+import { TABLE_BODIES, TABLE_LOADOUTS } from "../src/evaluation/table/cells.ts";
 import { TABLE_SKILLS, tableCells } from "../src/app/node/evaluation.ts";
-import { casesOn, compareValues, outcomeCounts, resultTrials, unitOf, valueOf } from "../src/evaluation/table/judge.ts";
+import { casesOn, compareValues, FALL_PRICE, outcomeCounts, resultTrials, unitOf, valueOf } from "../src/evaluation/table/judge.ts";
 import { resultsOf, writeResults } from "./evaluation-results.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -174,16 +172,6 @@ function valueCell(cell, evidence, rise, by, replaced) {
   return { state: state ?? compareValues(pooled.now, pooled.then, unit).verdict, value, unit, lines };
 }
 
-/** The time to stand on each body and loadout of `cells`, s, by `body loadout`: the stand-up cell's value now, the fall's cap where it is unread. */
-function risesOf(cells, evidence) {
-  const rises = new Map(), found = evidence.get(evidenceKey(STAND_UP));
-  for (const cell of cells) {
-    const key = `${cell.body} ${loadoutKey(cell.loadout)}`, { names, on } = onCell(cell, STAND_UP, found);
-    if (!rises.has(key)) rises.set(key, valueOf(STAND_UP, on(found.trials), names, FALL_CAP).value ?? FALL_CAP);
-  }
-  return rises;
-}
-
 /** Name each reading now of `cells` that `reads` (every one where not given) as its cell's baseline where it has none; say which have one already and which have no trials to name. */
 function keepBaselines(cells, evidence, reads = () => true) {
   const changed = new Set();
@@ -207,8 +195,7 @@ export function main() {
     body: { type: "string" }, skill: { type: "string" }, loadout: { type: "string" }, by: { type: "string" }, play: { type: "boolean" }, fresh: { type: "boolean" }, baseline: { type: "boolean" }, workers: { type: "string" }, json: { type: "string" } } });
   const cells = tableCells().filter((cell) => (!values.body || cell.body === values.body) && (!values.skill || cell.skill === values.skill)
     && (!values.loadout || loadoutKey(cell.loadout) === values.loadout));
-  // The stand-up reading prices every cell's falls, so it is read whatever the cells asked.
-  const readings = [...cells.flatMap((cell) => cell.readings), STAND_UP];
+  const readings = cells.flatMap((cell) => cell.readings);
   let evidence = evidenceOf(readings), replaced = null;
   if (values.play || values.fresh) {
     const failed = [], asked = new Set(cells.flatMap((cell) => cell.readings).map(evidenceKey));
@@ -237,11 +224,7 @@ export function main() {
     evidence = evidenceOf(readings);
   }
   if (values.baseline) keepBaselines(cells, evidence);
-  const rises = risesOf(cells, evidence);
-  const judged = cells.map((cell) => {
-    const rise = rises.get(`${cell.body} ${loadoutKey(cell.loadout)}`);
-    return { cell, rise, ...valueCell(cell, evidence, rise, values.by, replaced) };
-  });
+  const judged = cells.map((cell) => ({ cell, ...valueCell(cell, evidence, FALL_PRICE, values.by, replaced) }));
   const skills = TABLE_SKILLS.map((skill) => skill.name).filter((name) => judged.some(({ cell }) => cell.skill === name));
   console.log(`| Body | Loadout | ${skills.map((name) => `${name}, ${unitOf(judged.find(({ cell }) => cell.skill === name).cell.readings[0].judge).unit}`).join(" | ")} |`);
   console.log(`|---|---|${skills.map(() => "---").join("|")}|`);
@@ -257,13 +240,13 @@ export function main() {
     for (const skill of skills) {
       const cellsOf = judged.filter(({ cell }) => cell.skill === skill);
       console.log(`\n${skill}: ${cellsOf[0].unit.better} is better; ${cellsOf[0].cell.value}`);
-      for (const { cell, state, value, unit, rise, lines } of cellsOf)
-        console.log(`${cell.body} ${loadoutKey(cell.loadout)} ${cell.skill}: ${valueText(value, unit)}, ${MARK[state]}${cell.skill === "stand-up" ? "" : ` (a fall's rise ${Number(rise.toFixed(2))} s)`}\n${lines.join("\n")}`);
+      for (const { cell, state, value, unit, lines } of cellsOf)
+        console.log(`${cell.body} ${loadoutKey(cell.loadout)} ${cell.skill}: ${valueText(value, unit)}, ${MARK[state]}\n${lines.join("\n")}`);
     }
   } else console.log("\nA cell's lines: add --body, --skill or --loadout.");
   const counts = Object.entries(MARK).map(([state, mark]) => [mark, judged.filter((one) => one.state === state).length]).filter(([, n]) => n > 0);
   console.log(`\n${judged.length} cells: ${counts.map(([mark, n]) => `${n} ${mark}`).join(", ")}`);
-  if (values.json) writeFileSync(values.json, JSON.stringify(judged.map(({ cell, state, value, unit, rise, lines }) => ({ body: cell.body, loadout: cell.loadout, skill: cell.skill, value, unit, rise, state, lines })), null, 2));
+  if (values.json) writeFileSync(values.json, JSON.stringify(judged.map(({ cell, state, value, unit, lines }) => ({ body: cell.body, loadout: cell.loadout, skill: cell.skill, value, unit, state, lines })), null, 2));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

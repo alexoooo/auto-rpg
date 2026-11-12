@@ -31,10 +31,14 @@ const OVERRUN = 1;
 export function createPlay(context: GameContext) {
   const { WORLD_BUILDERS } = createWorlds(context);
 
-  /** Play `world` until `read`'s reader says it ended; an error once it runs `seconds` and `OVERRUN` more. Every kind of world is stepped and traced the same way (`WorldKind`). */
-  async function playCase<R extends Json>(world: CaseWorld, seconds: number, read: (built: BuiltCase) => Reader<R>): Promise<Played<R> | Refused> {
+  /**
+   * Play `world` until `read`'s reader says it ended; an error once it runs `seconds` and `OVERRUN`
+   * more. Every kind of world is stepped and traced the same way (`WorldKind`); at `hz` steps a
+   * second where given and its kind takes a rate (a confirmation's finer one), else at its own.
+   */
+  async function playCase<R extends Json>(world: CaseWorld, seconds: number, read: (built: BuiltCase) => Reader<R>, { hz }: { readonly hz?: number } = {}): Promise<Played<R> | Refused> {
     const kind = WORLD_BUILDERS[world.kind] as unknown as WorldKind;
-    const built = await kind.build(world);
+    const built = await kind.build(world, hz === undefined ? undefined : { hz });
     if (isRefused(built)) return built;
     try {
       const reader = read(built), trace = traceOf(kind.traced(built));

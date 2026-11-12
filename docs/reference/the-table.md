@@ -8,16 +8,17 @@ its own value:
 | Skill | Value | Better |
 | --- | --- | --- |
 | stand-up | seconds from a fall made to a verified stand, a fall not stood at the 30 s cap (`timeToStand`) | lower |
-| walk, run | seconds lost against the orders (`orderTime`), a trial ended down charged the rest of its rise (`ordersValue`) | lower |
-| punch, stomp, bonk, cut, thrust | life taken from the target less life lost, a second of the action's cycle from its start to the limb back at guard, a fall adding its rise; 0 for a blow not begun where it was asked (`strikeTrade`, `strikeOffered`) | higher |
+| walk, run | seconds lost against the orders (`orderTime`), a trial ended down charged the rest of a fall's price (`ordersValue`) | lower |
+| punch, stomp, bonk, cut, thrust | life taken from the target less life lost, a second of the action's cycle from its start to the limb back at guard, a fall adding a fall's price; 0 for a blow not begun where it was asked (`strikeTrade`, `strikeOffered`) | higher |
 | buckler-cover | life lost to the opponent's blows over the trial, those while down among them (`coverValue`) | lower |
 
 - **Seconds lost against the orders**: under a move with a pace, the seconds the progress along
   the way asked falls short of that pace over the order's span (faster gains nothing); with no
   pace, short of 4 m/s (`UNPACED`, a person's run), so faster gains; under a stop, every second
   not standing still. A body down makes no progress.
-- **A fall's rise** is the body and loadout's stand-up value now, the cap where it is unread, so
-  a risky act and a safe one are priced alike.
+- **A fall's price** is the owner's 10 s (`FALL_PRICE`, `STAND_WITHIN`), the same on every body
+  and loadout, so a risky act and a safe one are priced alike and no cell moves for a way up it
+  does not read.
 - **A cell reads its skill on its own merit**, in a drill built for it: a blow at a still target
   and one walked to (`still`, `walk`), which let it happen. What a blow brings in a fight is
   another reading, its profile's, taken in fights and never in a cell
@@ -64,8 +65,11 @@ port of its own (`npm run build`, then `npm run preview -- --port <port> --stric
 A result keeps a few numbers a trial, what its judge needs (`keep`), and its outcome, by the name
 of the trial's condition, so the table plays nothing to read.
 
-The table reads the game's rate, 120 Hz. Research scores on a drill's training twin and holds a
-cell's cases out; the confirmation that keeps a record plays them at 120 and 480 Hz, the worse
+The table reads the game's rate, 120 Hz. Every protocol a cell reads names its training twin
+(`Cases.twin`, `src/evaluation/twin.ts`): its situations drawn halfway between the cell's (a
+range's midpoints, ways round the circle turned half their spacing, the next seeds; the stand-up
+target's twin is its `fresh` falls). Research scores on the twin
+(`research/drill-trials.mjs`) and holds a cell's cases out; the confirmation that keeps a record plays them at 120 and 480 Hz, the worse
 counting ([the skill recipe](../recipes/skill.md#an-options-code)), and no cell reads 480 Hz. The cases a reading
 must hold are its subject's of its protocol as they are now. A reading stands as it was read, shown with the commit
 and date it was read at, until its cell is asked for again: its trials answer the protocol's cases

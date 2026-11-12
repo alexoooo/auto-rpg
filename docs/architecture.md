@@ -788,7 +788,9 @@ on its own merit, and a profile prices the skill where the Mind uses it.
   and no tree search decides anything in a cell; its drill opponents are made from it too) on every body by loadout by skill (`tableCells`), a blow where the Mind offers it there (`strikesBy`) and asked only at the marks
   and with the limbs it is offered at (`caseFaults`), valued from the drills' results: each trial's value in the game's
   terms (`trialValue`: a stand's seconds, a move's seconds lost against its orders, `orderTime`, a
-  blow's life traded a second, a cover's life lost), a fall priced at the body's time to stand;
+  blow's life traded a second, a cover's life lost), a fall at a fixed price (`FALL_PRICE`, 10 s);
+  each protocol a cell reads naming its training twin (`Cases.twin`, `src/evaluation/twin.ts`),
+  the same situations drawn halfway between, which research plays (`research/drill-trials.mjs`);
   a reading's value the mean over its whole protocol (`valueOf`); a cell against its baseline
   (`baselineOf`, a pointer at the result it was read as), paired by condition with a bootstrap
   interval (`compareValues`), the person's figure beside a strike's (`personOf`).

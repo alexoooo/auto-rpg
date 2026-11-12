@@ -60,7 +60,7 @@ const holds = (loadout: Loadout, held: Held): boolean => loadout.left === held |
 const strikeSubject = (action: string, loadout: Loadout): string =>
   `${TABLE_MIND}/${action}${loadout.left === "empty" && loadout.right === "empty" ? "" : `@${loadoutKey(loadout)}`}`;
 
-/** The stand-up's reading: the stand-up target's falls of the body holding the loadout, risen by the table's mind; its value is what a fall costs every other cell. */
+/** The stand-up's reading: the stand-up target's falls of the body holding the loadout, risen by the table's mind. */
 export const STAND_UP: Reading = Object.freeze({ drill: "rising-target", protocol: "standard", subject: TABLE_MIND, judge: "stand", byLoadout: true });
 
 /**
@@ -76,10 +76,10 @@ const always = () => true;
 const RUNNERS: readonly HumanoidModel[] = Object.freeze(["workshop-fighter", "workshop-rogue"]);
 
 /** What a blow's value is, in words. */
-const BLOW = "the life each trial took from the target less the life it cost, a second of the action's cycle, a fall adding its body's time to stand, a blow not begun worth 0";
+const BLOW = "the life each trial took from the target less the life it cost, a second of the action's cycle, a fall adding a fall's price (10 s), a blow not begun worth 0";
 
 /** What a move's value is, in words. */
-const MOVE = "the seconds each trial lost against its orders, a trial ended down charged the rest of its body's time to stand";
+const MOVE = "the seconds each trial lost against its orders, a trial ended down charged the rest of a fall's price (10 s)";
 
 export function createTableCells(context: GameContext) {
   const { STRIKE_CASES, strikesBy } = createStrikeCases(context);

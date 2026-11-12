@@ -29,8 +29,8 @@ npm run evaluate -- rising-target [riser ...]
   at the cap.
 - **The value**, on each body and loadout's sixteen falls: the mean time to stand over the falls
   made, a fall not stood at the cap (`timeToStand`), lower better; the table reads each body and
-  loadout's (`stand-up`, [the table](the-table.md)), and prices every other cell's falls by it.
-  The owner's 10 s a fall (`STAND_WITHIN`) is a scale reported beside it, deciding nothing.
+  loadout's (`stand-up`, [the table](the-table.md)). The owner's 10 s a fall (`STAND_WITHIN`) is
+  reported beside it, and is the fixed price of a fall in every other cell.
   `risingReport` states whether the rows are the target's conditions: every fall once, Balance 0
   and Grit 0.
 - **Against people**: young adults rising from the floor at a comfortable rate take 1.4 to 2.6 s

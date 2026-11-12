@@ -74,6 +74,13 @@ const onStandBed = (spec: BodySpec): boolean => soleRefusal(spec) === null;
 /** The longest recovery a fall is given, s, and how long past it a fall may run. */
 export const FALL_CAP = 30, FALL_AFTER = 4;
 
+/**
+ * **The reference time to stand**, s: reported beside a stand-up's time
+ * (`docs/reference/rising.md#the-owners-target`), and what a fall costs every other skill's
+ * trial that ends down (`FALL_PRICE`, `src/evaluation/table/judge.ts`).
+ */
+export const STAND_WITHIN = 10;
+
 /** What a fall came to: its verdict, the meter's times and trail (`groundMeter`), and the verification's. */
 export type FallReading = {
   readonly status: "stood" | "landed standing" | "no takeover" | "fell after verification" | "failed";
@@ -185,7 +192,7 @@ export function createFall(context: GameContext) {
    * It ends once the stand is verified or failed (`target`, `obstacle`),
    * else at hand-back or when the run stops; at `FALL_AFTER` s past the cap in any case.
    */
-  async function buildStandFall(fall: FallCase, engine: EngineName, given: { start?: Exclude<ReturnType<typeof fallStart>, Refused>; experiment?: Experiment } = {}): Promise<BuiltFall | Refused> {
+  async function buildStandFall(fall: FallCase, engine: EngineName, given: { start?: Exclude<ReturnType<typeof fallStart>, Refused>; experiment?: Experiment; hz?: number } = {}): Promise<BuiltFall | Refused> {
     const { start = fallStart(fall) } = given;
     if (isRefused(start)) return start;
     const { spec, placement } = start;
@@ -193,7 +200,7 @@ export function createFall(context: GameContext) {
     const scope = constructionScope(); let complete = false;
     try {
     const balance = fall.balance ?? 0, verifying = Boolean(fall.target || fall.obstacle);
-    const world = scope.own(createWorld(await loadEngine(engine)));
+    const world = scope.own(createWorld(await loadEngine(engine), given.hz === undefined ? {} : { hz: given.hz }));
     addArenaSolids(world.physics);
     const body = scope.own(buildBody(spec, world, placement));
     const address = verifying ? { ...start.address, ground: { ...start.address.ground, impulse: targetImpulse(body) } } : start.address;
@@ -248,9 +255,9 @@ export function createFall(context: GameContext) {
    * stand is verified as the Lab verifies one (`standCheck`), the body its own at the end. A body not
    * taken over by `SHOVED_UNFELLED` s was not felled: the trial did not reach its case ("no
    * takeover"). Its ground history (`groundMeter`) is read where its mind hosts a body (a view); its
-   * assist is metered either way.
+   * assist is metered either way. At `hz` steps a second where given (a confirmation's finer rate), else the game's.
    */
-  async function buildFall(fall: FallCase, engine: EngineName): Promise<BuiltFall | Refused> {
+  async function buildFall(fall: FallCase, engine: EngineName, { hz }: { readonly hz?: number } = {}): Promise<BuiltFall | Refused> {
     const refused = checkFall(fall) ?? bedFaults(fall)[0];
     if (refused) return { refused };
     const factor = fall.factor ?? 1;
@@ -260,7 +267,7 @@ export function createFall(context: GameContext) {
     const checked = modelHoldingChecked(fall.model, fall.loadout ?? { left: "empty", right: fall.held ?? "empty" }, characterOf(fall));
     if (isRefused(checked)) return checked;
     const spec = strengthSpec(checked, factor);
-    const world = scope.own(createWorld(await loadEngine(engine)));
+    const world = scope.own(createWorld(await loadEngine(engine), hz === undefined ? {} : { hz }));
     addArenaSolids(world.physics);
     const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
     let check: ReturnType<typeof standCheck> | null = null;
@@ -332,7 +339,7 @@ export function createFall(context: GameContext) {
 
   /** The fall world kind: built by `buildFall`, its one body traced, played by the world's clock. */
   const FALL_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "fall" }>, BuiltFall> = {
-    build: (world) => buildFall(world.fall, world.engine),
+    build: (world, options) => buildFall(world.fall, world.engine, options?.hz === undefined ? {} : { hz: options.hz }),
     traced: (built) => [built.body],
     clock: (built) => built.world.time,
     minds: (world) => [world.fall.mind],

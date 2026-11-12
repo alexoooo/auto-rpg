@@ -8,18 +8,25 @@ import { deepFreeze } from "../../core/state.ts";
 import { createLocomotionCases } from "../locomotion/cases.ts";
 import { TRAVEL, travelScript, type TravelCondition, type TravelMode } from "./protocol.ts";
 import { readTravel, type TravelReading } from "./read.ts";
+import { later, turned } from "../twin.ts";
 
-/** Minimum capability cases; confirmation reserves intermediate directions and starting headings. */
-function conditions({ confirmation }: { readonly confirmation: boolean }): TravelCondition[] {
-  return REPRESENTATIVE.flatMap(loadout => [false, true].flatMap(gusts => [1, 2, 3, 4].flatMap(seed => {
-    const heading = (seed - 1) * Math.PI / 2 + (confirmation ? Math.PI / 8 : 0);
+/**
+ * Minimum capability cases; confirmation reserves intermediate directions and starting headings.
+ * The confirmation's training twin (`twin`, `src/evaluation/twin.ts`) is the confirmation's
+ * trials on the next four seeds, its starting headings and its ways turned halfway between the
+ * confirmation's: research's to tune on, the confirmation held out.
+ */
+function conditions({ confirmation, twin = false }: { readonly confirmation: boolean; readonly twin?: boolean }): TravelCondition[] {
+  const seeds = [1, 2, 3, 4], count = confirmation ? 16 : 8;
+  return REPRESENTATIVE.flatMap(loadout => [false, true].flatMap(gusts => (twin ? later(seeds) : seeds).flatMap((seed, k) => {
+    const heading = k * Math.PI / 2 + (confirmation ? Math.PI / 8 : 0) + (twin ? Math.PI / 4 : 0);
     const base = { model: "workshop-fighter" as const, loadout, gusts, seed, heading };
     const rows: TravelCondition[] = [];
     const add = (mode: TravelMode, way = 0, sense: 1 | -1 = 1) => rows.push({ ...base, mode, way, sense,
       pace: mode === "circle" ? TRAVEL.circleSpeed : mode === "facing" && way !== 0 ? TRAVEL.directional : TRAVEL.forward });
     add("forward");
-    const count = confirmation ? 16 : 8;
-    for (let k = 0; k < count; k++) { add("heading", k * 360 / count); add("facing", k * 360 / count); }
+    const ways = Array.from({ length: count }, (_, k) => k * 360 / count);
+    for (const way of twin ? turned(ways) : ways) { add("heading", way); add("facing", way); }
     for (const sense of [-1, 1] as const) { add("circle", 0, sense); add("corner", 0, sense); add("reverse", 0, sense); }
     return rows;
   })));
@@ -27,9 +34,9 @@ function conditions({ confirmation }: { readonly confirmation: boolean }): Trave
 
 export function createTravelCases(context: GameContext) {
   const admission = createLocomotionCases(context).LOCOMOTION_CASES.run!;
-  const protocol = ({ confirmation }: { readonly confirmation: boolean }): Cases<TravelCondition, TravelReading, BuiltLone> => {
-    const cases = conditions({ confirmation });
-    return { arity: 1, engine: DEFAULT_ENGINE, play: { target: TRAVEL, confirmation } as unknown as Json,
+  const protocol = ({ confirmation, twin = false }: { readonly confirmation: boolean; readonly twin?: boolean }): Cases<TravelCondition, TravelReading, BuiltLone> => {
+    const cases = conditions({ confirmation, twin });
+    return { arity: 1, engine: DEFAULT_ENGINE, play: { target: TRAVEL, confirmation, ...(twin ? { twin } : {}) } as unknown as Json,
       conditions: cases, seconds: Math.max(...cases.map(c => travelScript(c).end)),
       faults: (value, c, subject) => admission.faults?.(value, { kind: "run", model: c.model }, subject) ?? [],
       world: ([mind], c, engine, [character]) => ({ kind: "lone", engine, lone: {
@@ -38,5 +45,6 @@ export function createTravelCases(context: GameContext) {
         ...(character && Object.keys(character).length ? { character } : {}), ...(c.gusts ? { gusts: true as const } : {}),
       } }), read: readTravel };
   };
-  return { TRAVEL_CASES: deepFreeze({ minimum: protocol({ confirmation: false }), confirmation: protocol({ confirmation: true }) }) };
+  return { TRAVEL_CASES: deepFreeze({ minimum: protocol({ confirmation: false }), confirmation: { ...protocol({ confirmation: true }), twin: "confirmation-twin" },
+    "confirmation-twin": protocol({ confirmation: true, twin: true }) }) };
 }
