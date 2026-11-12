@@ -34,6 +34,10 @@ approved brief ([the rules](../AGENTS.md#the-rules)).
 The standing goal behind it: every cell of the table raised from its baseline, a row at a time
 ([the skill recipe](recipes/skill.md#one-row-one-question)).
 
+**A fight step's speed** ([its plan](plans/2026-11-12-step-speed.md)): exact rewrites of the mind's
+report, Option Mind's search, repeated solves and the command, toward a step within 8.33 ms at the
+99th percentile; the changes of the mind it holds stay parked.
+
 ## Next
 
 In order; each is a row of the table or one question, taken up on the owner's request.
@@ -63,7 +67,6 @@ Each holds its goal, where it stands and the questions open
 | --- | --- |
 | [Warrior travel](plans/2026-11-05-warrior-travel.md) | the Run from a stand with no braced step, slow paces, the stop, directions, manoeuvres and loadouts |
 | [Warrior bonk](plans/2026-11-05-warrior-bonk.md) | an overhead club strike at the head with either hand, with and without the buckler: the buckler cell, then a learned steer |
-| [Option Mind's speed](plans/2026-11-04-option-mind-speed.md) | mean and tail cost at 100 runs: exact search storage and lifetime, decisions spread over steps, tree reuse, profile tables and a learned leaf; 8.33 ms at the 99th percentile |
 | [Commander](plans/2026-10-29-commander.md) | the Option Commander: team options claiming members, priced by the hero's life at the exit, read against `clearer` |
 | [The rat](plans/2026-11-01-rat.md) | the reptile at 1.0 m/s or more, the rat righting on Option Mind's loop, then rats in the Crypt |
 
