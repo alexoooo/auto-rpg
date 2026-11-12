@@ -32,6 +32,11 @@ place.
   coexist or escape gets fresh storage; temporary work is reused only after its readers finish,
   with independent frames for nested calls. Published offers and reports stay stable. Non-obvious
   ownership is explained near the code; readings go in the commit message.
+- **The baseline first**: before any rewrite, each cost reading is taken twice on the same code.
+  The spread between the two is the noise band, and "equal" below means within it. The baseline
+  records each workload's mean, 99th percentile and profile shares as numbers in this plan, and
+  whether its slowest steps are the decision steps: where they are, the exact rewrites move the
+  mean more than the tail, and the parked changes of the mind are what move the tail.
 - **Kept on time**: a change is kept when its paired time is equal or better and its allocation is
   not worse; a slower change is dropped whatever it does to allocation. Where allocation falls
   well below a ceiling, the ceiling is lowered by the step-cost rule so the gain is held.
@@ -76,28 +81,45 @@ place.
 ## Exact rewrites
 
 Each lands green on its own: `npm run check`, `npm test`, `npm run build` where browser code
-changes, the fingerprint, and the cost reading before and after. The search's storage built so far
+changes, the fingerprint, and the cost reading before and after. A change smaller than the noise
+band is read by its profile self-time and allocation sites, and the step time is read once over
+the group of such changes in one module. The search's storage built so far
 (profile and pressure queries, predicted situations, model and offer slots, release of a completed
 search) is in the [architecture](../architecture.md#minds).
 
 ### The report published on change
 
 A mind's answer (`act`) is followed in the same prepare hook by its decision (`think`,
-`src/minds/seat/embodiment.ts`), which writes reported state in place: the prospects always,
-actions and endings on a release or resume. Commanders read the report in the next step's sense
-and prepare hooks, after that decision, so a copy made on read is not the answer; the copy stays
-at answer time, of what changed only.
+`src/minds/seat/embodiment.ts`), which writes reported state: the prospects always, actions and
+endings on a release or resume. Commanders read the report in the next step's sense and prepare
+hooks, after that decision, so a copy made on read is not the answer: what is published is fixed
+at answer time.
 
-- Each source of a report field counts its writes in its own state: the prospects (decider), the
-  live actions and the ledger (`src/skills/framework/action-instances.ts`), the navigation report,
-  route and request, the gaits' limits. `saidOf` copies a field only when its count moved. The
-  kit is fixed when a mind is made (`kitOf`, deep-frozen) and is held, never walked.
-- Actions publish their `ActionStatus` fields, not the instances' internals.
-- A mind apart (`src/app/apart/thread.ts`) sends the fields whose counts moved, in place of a key
-  of the gaits and a clone of every field at every answer; `hear` (`src/app/apart/host.ts`) merges
-  what came.
-- Checked by a test that compares, at every answer of an Option Mind bout, the published report
-  with a full copy of `reportNow` taken at that moment; a write that moves no count fails it.
+Today `saidOf` walks every field by value at every answer (`snapshot`), and `sameKeys`
+(`src/minds/seat/create-mind.ts`) finds each key's place by scanning the other record again, a
+cost that grows as the square of a record's keys; a live action has about seventeen.
+
+- **Values replaced, never written in place.** Each report field's owner gives it a new value when
+  it changes: the prospects (the decider, `src/minds/option/profile-model.ts`), the actions'
+  statuses and the ledger (`src/skills/framework/action-instances.ts`), the navigation report
+  (`src/skills/locomotion/navigation/navigation.ts`), the gaits' limits (a record the legs replace,
+  in place of getters over them). The heading is a number; the kit is deep-frozen when a mind is
+  made (`kitOf`). Ledger records are already made once, at an action's end.
+- **Published by identity.** `saidOf` takes a field whose value is not the object it last took, and
+  deep-freezes each field it publishes (`deepFreeze`, `src/core/state.ts`: a lookup for a value
+  already frozen). An unchanged field costs one comparison. A write in place to a published value
+  throws where it is made, in any playing, not only under a test. `snapshot` and `sameKeys` go.
+- **Actions publish `ActionStatus` records** kept apart from the instances' internals (executor,
+  attribution, target segments), replaced when a status field changes.
+- **Saved state**: `loadState` gives a frozen slot a new object, so a loaded or forked mind's
+  report values are fresh, frozen again when next published; reading the menu, which saves and
+  loads the mind's state, renews them the same way.
+- **A mind apart** (`src/app/apart/thread.ts`) sends the fields whose values were replaced, in
+  place of a key of the gaits and a clone of every field at every answer; `hear`
+  (`src/app/apart/host.ts`) merges what came.
+- **Checked** by a test that compares, at every answer, the published report with a full copy of
+  `reportNow` taken at that moment, on an Option Mind bout, a Crypt run (navigation) and a fall
+  the body rises from (a release and a resume): every field changes in one of them.
 
 ### Option Mind's search: its temporary work
 
@@ -136,8 +158,12 @@ Only a repeat whose inputs are bit-identical is skipped; a solve that reads phys
 not cached. `research/call-count.mjs` reads how often each runs, before and after.
 
 - **The feet's support** (`readSupport`, `src/control/support.ts`) is read two or more times a
-  control step on unchanged segment poses (`stance.read`, then `stance.command` or `holdPose`, and
-  skills' own reads): read once a step, the reading carrying the step it was made on.
+  control step on unchanged segment poses (`src/control/stance/stance.ts`, then skills' own reads
+  in the stomp, support-fold and the staged rises). Callers pass different sets of feet to
+  average, so the call's result is not what repeats: each foot's reading is (its sole's middle,
+  edge and bearing), and the average over the chosen feet costs little. Each foot is read once a
+  control step, by one owner at the step's start where the order of calls allows it, or else
+  carrying the step it was read on; every other caller reads the feet as read.
 - **An effector's three reach solves** (`src/control/effector-tracker.ts`), at `time - dt`, `time`
   and `time + dt`, start from the same angles. Where their targets are equal (the path clamped
   before its start or past its end) the solve runs once and its answer is copied; the equality
@@ -167,7 +193,10 @@ own.
   move a family a commit: the guard; walk, run and cycle-run; support-fold and lowering; the
   quadruped's crawl and trot; the strikes; the rises; then the motors read by index. Per-step
   channel-name templates, entry filters and name patterns in the strikes become index sets made
-  at construction.
+  at construction. It is the largest part and comes last: property reads on records of a fixed
+  shape are already fast in V8, and the per-step strings, scans and copies go with the three
+  parts before it. After them, the posture's share of the step is read and put to the owner before
+  the producers move.
 - **Its price**: the arbiter's and the motor's saved state change shape (typed arrays, which
   `saveState` takes), so the fingerprint's state hashes move and its pose hashes do not. Before
   the posture moves, a code search shows whether any saved file (assets, saved results, tapes)
