@@ -1,8 +1,9 @@
 # What a step costs
 
 What one world step (`World.step`, `src/core/world/world.ts`) takes in time and memory, and how to read
-it with explicit diagnostics. Name the cost question before choosing a fixture; run allocation
-profiling and heavy-work counts when a change affects those costs.
+it. `tests/core-step-cost.test.mjs` holds the step's allocation under ceilings
+([below](#allocation-ceilings)); time and heavy-work counts are read with explicit diagnostics
+when a change affects them.
 
 ## Reading a step
 
@@ -35,25 +36,31 @@ node research/mind-split.mjs --threads 1,3,4,5 --cap 60    # what splitting the 
 node research/minds-apart.mjs --entrants --threads 1,2 --fork 10   # minds on worker threads and forks, the same to the bit
 ```
 
-## Allocation readings
+## Allocation ceilings
 
-V8's sampling heap profiler (`allocatedIn`, `tests/harness/garbage.mjs`) reads KiB a body a step.
-Run each fixture in a process of its own (`tests/harness/step-allocation.mjs`), so another
-fixture's optimization does not affect the reading:
+`CEILING` in `tests/core-step-cost.test.mjs`, in KiB a body a step, read by V8's sampling heap
+profiler (`allocatedIn`, `tests/harness/garbage.mjs`), each reading in a process of its own
+(`tests/harness/step-allocation.mjs`), so another fixture's optimization does not affect it:
 
-| Argument | Fixture |
+| Ceiling | Fixture |
 |---|---|
 | `standing` | two skeletons standing (`standBodies`), 240 steps read from 3 s |
 | `down` | the Warrior lying on its back under its ground reader, 240 steps read from 3 s |
-| `mind <id> <model> <held>` | the named preset on both sides of a bout of the named body, 3 m apart, each holding the named item in its right hand, 240 steps read from 2 s |
+| `fall` | the Skeleton's first stand-up target fall on the fall bed, its stand verified as the evaluation verifies it, 240 steps read from 3 s as it rises |
+| `mind` | each game mind (`GAME_MINDS`) on both sides of a bout of the first body it fits, 3 m apart, holding the first of a sword, nothing and a club it takes, 240 steps read from 2 s |
 
-Compare the affected fixture before and after the change with matching code/data identity and
-protocol. Keep allocation evidence separate from uninstrumented mean and tail timings; a lower
-allocation reading alone does not establish faster execution. Read opening and route searches
-with `research/call-count.mjs` and `research/crypt-plan.mjs` when their frequency is the question.
+A ceiling is the highest of five readings plus a quarter, rounded up. One `mind` ceiling holds
+every game mind, the highest of them, so a mind added is read without a number of its own. A change
+that goes over a ceiling takes its allocation out of the step or, where the allocation is the
+feature's, raises the ceiling by this rule and says why in its commit. A lower allocation reading
+alone does not establish faster execution: time is read apart from it. Read opening and route
+searches with `research/call-count.mjs` and `research/crypt-plan.mjs` when their frequency is the
+question.
 
 ```powershell
 node tests/harness/step-allocation.mjs standing
 node tests/harness/step-allocation.mjs down
+node tests/harness/step-allocation.mjs fall
 node tests/harness/step-allocation.mjs mind option workshop-fighter sword
+node --test tests/core-step-cost.test.mjs                  # every ceiling
 ```

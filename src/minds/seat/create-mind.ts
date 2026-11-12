@@ -9,7 +9,7 @@ import type { MindReport } from "../report.ts";
 import type { Catalog } from "../catalog/catalog.ts";
 import { bodyHost } from "./host.ts";
 import { mirrorDriven, type Embodying } from "./embodiment.ts";
-import { isMindPlace, reportNow, type At, type MindPlace, type MindRecipe, type ReportNow, type Seat } from "./apart.ts";
+import { isMindPlace, type At, type MindPlace, type MindRecipe, type ReportNow, type Seat } from "./apart.ts";
 import { physicalBody, type HeldReading, type PhysicalBody } from "./physical-body.ts";
 import type { Orders } from "../orders.ts";
 import type { Senses } from "../../core/bodies/senses.ts";
@@ -90,22 +90,56 @@ function mindApart(catalog: Catalog, built: BuiltBody, world: World, place: NonN
   return { state: MIND_APART, report: apart.report, kind: config.kind, body: physicalBody(built, apart.held, world, apart.has, apart.state, apart.dispose) };
 }
 
-/** What `report` says now (`Said`), as plain data that what it goes on to do leaves as it is. */
+/** What a mind says (`Said`), field by field in `reportNow`'s order. */
+const SAID: readonly (keyof Said)[] = Object.freeze(["prospects", "heading", "gaits", "navigation", "kit", "actions", "ended"]);
+
+/**
+ * What `report` says now (`Said`), as plain data that what it goes on to do leaves as it is. Read
+ * after every answer, so where nothing changed it allocates nothing: it is `previous` itself.
+ */
 const saidOf = (report: MindReport | undefined, previous: Said | null = null): Said | null => {
   if (!report) return null;
-  const { engagement: _shown, ...answer } = reportNow(report);
-  return snapshot(answer, previous) as typeof answer;
+  const was = previous as Record<string, unknown> | null;
+  let said: Record<string, unknown> | null = was ? null : {};
+  for (let i = 0; i < SAID.length; i++) {
+    const key = SAID[i]!, item = snapshot(report[key], was?.[key]);
+    if (!said && !Object.is(item, was![key])) said = { ...was };
+    if (said) said[key] = item;
+  }
+  return (said ?? was) as Said;
 };
+
+/**
+ * Whether `now` and `was` have the same own enumerable keys in the same order, read without
+ * allocating: a report's records are small, so each key of one is found by its place in the other.
+ */
+function sameKeys(now: object, was: object): boolean {
+  let i = 0;
+  for (const key in now) {
+    if (!Object.hasOwn(now, key)) continue;
+    let j = 0, same = false;
+    for (const other in was) {
+      if (!Object.hasOwn(was, other)) continue;
+      if (j++ === i) { same = other === key; break; }
+    }
+    if (!same) return false;
+    i++;
+  }
+  let count = 0;
+  for (const key in was) if (Object.hasOwn(was, key)) count++;
+  return i === count;
+}
 
 /**
  * An answer's records and arrays, detached from the live report: each unchanged branch keeps its
  * previous snapshot, and each changed branch copies only the path to its changed values. Report
  * fields are compared by value, including through getters: a producer may mutate them in place.
+ * An unchanged branch allocates nothing.
  */
 function snapshot(value: unknown, previous: unknown): unknown {
   if (value === null || typeof value !== "object") return value;
   if (Array.isArray(value)) {
-    const was = Array.isArray(previous) ? previous : [];
+    const was: unknown[] = Array.isArray(previous) ? previous : [];
     let copy: unknown[] | null = Array.isArray(previous) && was.length === value.length ? null : new Array(value.length);
     for (let i = 0; i < value.length; i++) {
       const item = snapshot(value[i], was[i]);
@@ -116,11 +150,16 @@ function snapshot(value: unknown, previous: unknown): unknown {
   }
   const now = value as Record<string, unknown>;
   const was = previous !== null && typeof previous === "object" && !Array.isArray(previous) ? previous as Record<string, unknown> : null;
-  const keys = Object.keys(now), before = was ? Object.keys(was) : [];
-  let copy: Record<string, unknown> | null = was && keys.length === before.length && keys.every((key, i) => key === before[i]) ? null : {};
-  for (const key of keys) {
-    const item = snapshot(now[key], was?.[key]);
-    if (!copy && !Object.is(item, was![key])) copy = { ...was };
+  if (!was || !sameKeys(now, was)) {
+    const copy: Record<string, unknown> = {};
+    for (const key in now) if (Object.hasOwn(now, key)) copy[key] = snapshot(now[key], was?.[key]);
+    return copy;
+  }
+  let copy: Record<string, unknown> | null = null;
+  for (const key in now) {
+    if (!Object.hasOwn(now, key)) continue;
+    const item = snapshot(now[key], was[key]);
+    if (!copy && !Object.is(item, was[key])) copy = { ...was };
     if (copy) copy[key] = item;
   }
   return copy ?? was;

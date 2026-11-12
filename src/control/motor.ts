@@ -234,7 +234,9 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose, st
     unmet.pushes.fill(0);
     const work = servoAsk(driver, command.muscles, (i) => {
       const name = driver.channels[i]!.name;
-      const push = pushes.find((p) => p.channel === name);
+      let k = 0;
+      while (k < pushes.length && pushes[k]!.channel !== name) k++;
+      const push = pushes[k];
       if (!push) return standing && stance.owned[i] ? undefined : path(i)?.angle ?? owned(i)?.[0] ?? pose[name] ?? 0;
       // The stance's solve gives a freedom its legs drive its own torque, over the push.
       if (standing && stance.owned[i]) unmet.pushes[i] = 1;

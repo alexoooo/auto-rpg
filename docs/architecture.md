@@ -122,7 +122,8 @@ operation for operation; `turn.ts`). A power is written as products. `EXACT_MATH
 `tests/core-boundary.test.mjs` names the members of `Math` allowed.
 
 The step's dear solves work in arrays made once with the body, which carry nothing between calls.
-Time, allocation and heavy work are read with the [step-cost diagnostics](reference/step-cost.md).
+What a step allocates is held under ceilings (`tests/core-step-cost.test.mjs`); time, allocation
+sites and heavy work are read with the [step-cost diagnostics](reference/step-cost.md).
 
 ## Build and engine
 

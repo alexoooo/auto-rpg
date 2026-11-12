@@ -2,9 +2,10 @@
 
 `npm test` runs these cases. Each row identifies a distinct failure and why capability drills do
 not establish the same fact. Physical recovery, footing and strike quality are read through
-[capability evaluations](../docs/reference/the-table.md); simulation-wide equivalence and cost
-use the fingerprint, worker and [step-cost diagnostics](../docs/reference/step-cost.md) when
-the change requires them. A successful engineering check does not accept a skill's capability.
+[capability evaluations](../docs/reference/the-table.md); what a step allocates is held under
+ceilings ([step cost](#step-cost)); simulation-wide equivalence and time use the fingerprint,
+worker and [step-cost diagnostics](../docs/reference/step-cost.md) when the change requires them.
+A successful engineering check does not accept a skill's capability.
 
 Keep observed-failure provenance in the commit that retains or introduces a case. Maintain this
 inventory when a case changes. A small fixture that proves a scanner detects a defect is paired
@@ -15,8 +16,9 @@ that reports nothing.
 
 - **Tests are a liability; less is more.** Each retained case has a concrete failure and a reason
   capability drills or existing diagnostics do not establish it, in this inventory. Skill
-  behaviour belongs in drills and paired evaluations; allocation profiling and broad replay
-  batteries are explicit diagnostics. No test file has a blanket exemption. A new test reproduces
+  behaviour belongs in drills and paired evaluations; broad replay batteries and timing are
+  explicit diagnostics, while what a step allocates is held by its ceilings. No test file has a
+  blanket exemption. A new test reproduces
   a concrete observed regression: its commit names the failure and the broken code on which it
   fails. A new feature, a contract by itself or an artificial mutant is not a reason to add one.
   Keep it under about 10 s; how well a mind plays is a match, not a test.
@@ -49,6 +51,26 @@ permits these imports and operations, and successful drills cannot establish tha
 | `source imports follow responsibility, runtime and package ownership` | Reject upward imports, including type-query imports, entry into another implementation's internals and modules omitted from the layer map. The compiler accepts those dependencies; game outcomes do not expose them. |
 | `an entrant reaches only libraries, its own folder and its own data` | Prevent an entrant from importing a rival's implementation or privileged application state. A competition result cannot establish independent entrant ownership. |
 | `a Commander reaches no engine, world, body or global: only its team's view and the orders it gives` | Enforce the Commander's narrower read/write authority, which is distinct from the Mind boundary and can be bypassed without causing a drill failure. |
+
+## Step cost
+
+[core-step-cost.test.mjs](core-step-cost.test.mjs) reads what a body's step allocates, KiB, each
+fixture in a process of its own, against `CEILING` ([allocation
+ceilings](../docs/reference/step-cost.md#allocation-ceilings)). A step's time is the machine's;
+its allocation is the same on every machine and is what a `map`, a spread or a copy put back into
+a step shows up as. Drills and evaluations play the same with garbage or without, so none of them
+sees it. Deleted with the suite's pruning (`7116f8a4`), the gate was not there when the mind's
+report copy began walking its kit and gaits every step and the stand check began deep-freezing a
+whole observation every step: on `9acd8a3e` the Option Mind's bout read 798 KiB a body a step
+over its 739, and a rising Skeleton 674 over 324.
+
+| Case | Concrete justification |
+| --- | --- |
+| `a_standing_body_s_step_allocates_no_more_than_its_ceiling` | Two skeletons standing under the command layers: the control path every body runs. It grew from 106 to 126 KiB a body a step unseen, most of it the arbiter's per-step iterators and a closure per muscle channel. |
+| `every_game_mind_s_step_allocates_no_more_than_the_ceiling` | Each game mind's bout, under one ceiling. Reproduces the report copy that read every key of the kit and the gaits each step (798 KiB on `9acd8a3e`). |
+| `a_down_body_s_step_allocates_no_more_than_its_ceiling` | The Warrior lying under its ground reader: every fixed support read each step, a path the standing and bout fixtures do not reach. |
+| `a_rising_body_s_step_allocates_no_more_than_its_ceiling` | A stand-up target fall under the stand's verification, which the evaluation and the Lab run every step. Reproduces the deep-frozen observation built each step to read three numbers (674 KiB on `9acd8a3e`). |
+| `the_meter_sees_an_array_made_in_a_step` | The positive control: a 4096-element array made each step must read at least half its size, so a meter that reads nothing cannot pass the ceilings. |
 
 ## Command transport
 

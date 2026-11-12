@@ -58,9 +58,9 @@ of a test.
 - **What changes step to step is plain data in one `state` object** per module
   (`src/core/state.ts`), so a bout forks by copying its state; a constant a state points at is
   frozen.
-- **The step's dear functions work in arrays made once**; a speed rewrite does the same
-  operations in the same order, moves no fingerprint, and reads its time before and after
-  ([step cost](../reference/step-cost.md)).
+- **The step's dear functions work in arrays made once**, under the step's allocation ceilings; a
+  speed rewrite does the same operations in the same order, moves no fingerprint, and reads its
+  time before and after ([step cost](../reference/step-cost.md)).
 - **A screen is an explicit argument**, never inferred from a state machine. Pause freezes the
   world, not the camera.
 - **Two watchers on one body**: set a flag in the callback; act on it at the next control step.

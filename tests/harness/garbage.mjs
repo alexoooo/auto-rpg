@@ -1,4 +1,6 @@
+import { spawn, spawnSync } from "node:child_process";
 import { Session } from "node:inspector/promises";
+import { fileURLToPath } from "node:url";
 import { SERVO_SECONDS } from "../../src/control/body.ts";
 import { stockBody } from "../../src/app/stock-body.ts";
 import { buildBody } from "../../src/core/bodies/build/build-body.ts";
@@ -16,7 +18,7 @@ import { poseAngles } from "../../src/control/kinematics.ts";
 /**
  * `count` bodies of `model` with the club on a ground in a world of their own, on a square grid
  * 3 m apart, each under the command layers with an order to stand: what a step allocates is read
- * on them (`research/step-garbage.mjs`).
+ * on them (`tests/core-step-cost.test.mjs`, `research/step-garbage.mjs`).
  */
 export async function standBodies(count, model = "crypt-skeleton") {
   const spec = armed(modelSpec(model), "right", woodenClub());
@@ -100,3 +102,29 @@ function allocationOf(profile) {
   walk(profile.head, []);
   return { bytes, self, within, files };
 }
+
+/**
+ * KiB a body's step allocates in `fixture` (`tests/harness/step-allocation.mjs`), read in a process
+ * of its own: what a step allocates depends on how far V8 has optimized the code it runs, so a
+ * reading after another fixture in one process reads less than one alone.
+ */
+export function stepAllocation(fixture, ...args) {
+  const child = spawnSync(process.execPath, [ALLOCATION, fixture, ...args], { encoding: "utf8" });
+  if (child.status !== 0) throw new Error(child.stderr);
+  return Number(child.stdout);
+}
+
+/** `stepAllocation` read in a process of its own without waiting on it: several at once. */
+export function stepAllocationAsync(fixture, ...args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [ALLOCATION, fixture, ...args]);
+    let out = "", err = "";
+    child.stdout.on("data", (data) => { out += data; });
+    child.stderr.on("data", (data) => { err += data; });
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve(Number(out)) : reject(new Error(`${fixture} ${args.join(" ")}: ${err}`)));
+  });
+}
+
+/** The fixture script a reading runs. */
+const ALLOCATION = fileURLToPath(new URL("./step-allocation.mjs", import.meta.url));

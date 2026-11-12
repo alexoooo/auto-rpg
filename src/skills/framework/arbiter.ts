@@ -64,6 +64,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const allControls = resources.controls(resources.all), legsControls = resources.controls([LEG_RESOURCE]);
   const on = attachment(body.built);
   const instances = actionInstances(executors, actions, resources, { attached: (effector) => on(body.built.segments.get(effector)!) }), guarding = guard.posture;
+  // The guard's posture is a constant: its channels are read once, not every step.
+  const guardChannels = Object.keys(guarding), guardSlots = guardChannels.map((channel) => `channel:${channel}`);
   const chains: Readonly<Record<string, readonly string[]>> = Object.fromEntries(models.map((model) => [model.segment, model.channels]));
   const state = { actions: instances.state, aims: services.aims ?? [], legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders, defaultOwners: {} as DefaultOwners,
@@ -83,8 +85,13 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   /** Whether the defaults write `slot`: no action holds it, or the one that holds it leaves it unwritten. */
   const available = (slot: string): boolean => {
     if (free(slot)) return true;
-    for (const item of claims) if (item.id === state.reservations[slot] && item.unwritten.includes(slot)) return true;
+    for (let i = 0; i < claims.length; i++) { const item = claims[i]!; if (item.id === state.reservations[slot] && item.unwritten.includes(slot)) return true; }
     return false;
+  };
+  /** The claim that holds the stance this step, if any. */
+  const stanceClaim = () => {
+    for (let i = 0; i < claims.length; i++) if (claims[i]!.controls.includes("stance")) return claims[i];
+    return undefined;
   };
   const stopObserving = body.afterPhysics((step, time) => {
     contacts.length = 0;
@@ -136,26 +143,33 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       for (const key in state.owners) delete state.owners[key];
       for (const key in state.reservations) delete state.reservations[key];
       claims.length = 0;
-      for (const item of instances.live) {
+      const live = instances.live;
+      for (let i = 0; i < live.length; i++) {
+        const item = live[i]!;
         const claim = instances.executor(item.id).command(view, item.id, near);
         resources.validate(item.holds, claim);
         const controls = resources.controls(item.holds), unwritten = controls.filter((control) => !writes(claim, control, legsControls, chains));
-        for (const control of controls) {
+        for (let k = 0; k < controls.length; k++) {
+          const control = controls[k]!;
           if (!free(control)) throw new Error(`two instances own ${control}`);
           state.owners[control] = item.id;
           state.reservations[control] = item.id;
         }
         claims.push({ id: item.id, claim, controls, unwritten });
       }
-      const legsAsked = claims.find(item => item.controls.includes("stance"))?.claim.legs;
+      const legOwner = stanceClaim(), legsAsked = legOwner?.claim.legs;
       state.walkable = legsAsked ? legsAsked.walk === undefined && legsAsked.footing === undefined : available("stance");
       const posture: Record<string, number> = {}, pushes: MusclePush[] = [], points: PointTask[] = [], effectors: Record<string, EffectorGoal | null> = {};
       const configurations: Partial<Record<string, ConfigurationName>> = {};
-      for (const control of allControls) state.defaultOwners[control] = "motor";
-      for (const [channel, angle] of Object.entries(guarding)) if (available(`channel:${channel}`)) { posture[channel] = angle; state.defaultOwners[`channel:${channel}`] = "guard"; }
+      for (let i = 0; i < allControls.length; i++) state.defaultOwners[allControls[i]!] = "motor";
+      for (let i = 0; i < guardChannels.length; i++) {
+        const channel = guardChannels[i]!, slot = guardSlots[i]!;
+        if (available(slot)) { posture[channel] = guarding[channel]!; state.defaultOwners[slot] = "guard"; }
+      }
       const covers = guard.command(view, intent.guard);
       state.covering.length = 0;
-      for (const hand of guard.effectors) {
+      for (let i = 0; i < guard.effectors.length; i++) {
+        const hand = guard.effectors[i]!;
         if (available(`effector:${hand}`)) effectors[hand] = covers[hand] ?? null;
         if (effectors[hand]) { state.covering.push(hand); state.defaultOwners[`effector:${hand}`] = "guard"; }
         const pose = available(`pose:${hand}`) ? guard.configuration?.(hand) ?? null : null;
@@ -163,14 +177,13 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         const held = !effectors[hand] && available(`effector:${hand}`) ? guard.hold?.(hand) : null;
         if (held) { points.push(held); state.defaultOwners[`effector:${hand}`] = "guard"; }
       }
-      const legOwner = claims.find(item => item.controls.includes("stance"));
       const asked = legOwner?.claim.legs !== undefined ? legOwner.claim.legs : available("stance") ? {} : null;
       const unstanced = legOwner?.claim.legs === null;
       if (state.unstanced && !unstanced) { legs.resume(view); guard.resume(view); support?.resume(view); navigation?.resume(); }
       state.unstanced = unstanced;
       let stance: StanceGoal | null = null, supported: SupportGoal | null = null, held: number | undefined;
       let assist: BodyCommand["assist"];
-      for (const { claim } of claims) if (claim.assist) assist = claim.assist;
+      for (let i = 0; i < claims.length; i++) { const claim = claims[i]!.claim; if (claim.assist) assist = claim.assist; }
       if (asked) {
         // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
         let goal = legsGoal(asked, intent, view, legs.heading, { waiting: !!support && !support.walks() });
@@ -179,19 +192,23 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
           goal = support.lay(view, goal);
         }
         const drive = legs.goal(view, goal, dt, { idleSettle: !legOwner });
-        if (drive.kind !== "drive" && drive.goal) for (const control of legsControls) if (available(control)) state.defaultOwners[control] = "locomotion";
+        if (drive.kind !== "drive" && drive.goal) for (let i = 0; i < legsControls.length; i++) if (available(legsControls[i]!)) state.defaultOwners[legsControls[i]!] = "locomotion";
         switch (drive.kind) {
           case "stance": stance = drive.goal; break;
           case "support": supported = drive.goal; break;
           case "drive": {
             if (drive.assist && available("assist")) { assist = drive.assist; state.defaultOwners.assist = "locomotion"; }
             for (const segment in drive.configurations) if (available(`pose:${segment}`)) { configurations[segment] = drive.configurations[segment]; state.defaultOwners[`pose:${segment}`] = "locomotion"; }
-            for (const [channel, angle] of Object.entries(drive.posture)) {
+            for (const channel in drive.posture) {
+              if (!Object.hasOwn(drive.posture, channel)) continue;
               if (!allControls.includes(`channel:${channel}`)) throw new Error(`unknown locomotion channel ${channel}`);
-              if (available(`channel:${channel}`)) { posture[channel] = angle; state.defaultOwners[`channel:${channel}`] = "locomotion"; }
+              if (available(`channel:${channel}`)) { posture[channel] = drive.posture[channel]!; state.defaultOwners[`channel:${channel}`] = "locomotion"; }
             }
             // The legs push their own channels, and any other no action holds: legs that hold the body whole.
-            for (const push of drive.pushes) if (legsControls.includes(`channel:${push.channel}`) || available(`channel:${push.channel}`)) { pushes.push(push); state.defaultOwners[`channel:${push.channel}`] = "locomotion"; }
+            for (let i = 0; i < drive.pushes.length; i++) {
+              const push = drive.pushes[i]!;
+              if (legsControls.includes(`channel:${push.channel}`) || available(`channel:${push.channel}`)) { pushes.push(push); state.defaultOwners[`channel:${push.channel}`] = "locomotion"; }
+            }
             held = drive.held;
             break;
           }
@@ -201,12 +218,17 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       // The fold's trunk, where no action holds it.
       if (support) for (const channel in support.report.posture) if (available(`channel:${channel}`)) { posture[channel] = support.report.posture[channel]!; state.defaultOwners[`channel:${channel}`] = "support"; }
       const swung = legs.arms?.(view);
-      if (swung) for (const model of models) {
+      if (swung) for (let m = 0; m < models.length; m++) {
+        const model = models[m]!;
         if (!guard.effectors.includes(model.segment) || !available(`effector:${model.segment}`) || effectors[model.segment]) continue;
-        for (const channel of model.channels) if (swung[channel] !== undefined && available(`channel:${channel}`)) { posture[channel] = swung[channel]!; state.defaultOwners[`channel:${channel}`] = "locomotion"; }
+        for (let i = 0; i < model.channels.length; i++) {
+          const channel = model.channels[i]!;
+          if (swung[channel] !== undefined && available(`channel:${channel}`)) { posture[channel] = swung[channel]!; state.defaultOwners[`channel:${channel}`] = "locomotion"; }
+        }
       }
       const paths: Record<string, FreedomPath> = {};
-      for (const { claim } of claims) {
+      for (let i = 0; i < claims.length; i++) {
+        const claim = claims[i]!.claim;
         Object.assign(posture, claim.posture);
         Object.assign(paths, claim.paths);
         pushes.push(...claim.pushes ?? []);
@@ -216,11 +238,14 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       }
       const command: BodyCommand = { posture, pushes, points, effectors, configurations, stance, ...(assist ? { assist } : {}), ...(supported ? { support: supported } : {}),
         ...(Object.keys(paths).length ? { paths } : {}), ...(held === undefined ? {} : { held }) };
-      if (command.stance) for (const end of command.stance.feet) {
-        const segment = feet.find((foot) => foot.name === end)?.segment;
+      if (command.stance) for (let i = 0; i < command.stance.feet.length; i++) {
+        const end = command.stance.feet[i]!;
+        let k = 0;
+        while (k < feet.length && feet[k]!.name !== end) k++;
+        const segment = feet[k]?.segment;
         if (segment !== undefined && command.effectors?.[segment]) throw new Error(`two controllers own ${segment}`);
       }
-      for (const control of allControls) { if (available(control)) state.owners[control] = "default"; else delete state.defaultOwners[control]; }
+      for (let i = 0; i < allControls.length; i++) { const control = allControls[i]!; if (available(control)) state.owners[control] = "default"; else delete state.defaultOwners[control]; }
       state.command = immutableCommand(command);
       instances.snapshot();
       return state.command;
