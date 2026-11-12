@@ -57,8 +57,8 @@ const trialsOf = (drill, result) => resultTrials(result, storeOf(drill).cases[re
 
 /**
  * Each reading's evidence, by `drill protocol subject`: the protocol's cases for its subject now
- * (each condition with its name), its newest result with its trials, and whether it has a trial
- * for every case now.
+ * (each condition with its name), its newest result with its trials, and whether it has an
+ * unfaulted trial for every case now.
  */
 function evidenceOf(readings) {
   const evidence = new Map();
@@ -75,7 +75,8 @@ function evidenceOf(readings) {
       required = scheduled.units.flat();
     } catch (error) { fault = error instanceof Error ? error.message : String(error); }
     const result = resultOf(storeOf(reading.drill), reading.protocol, reading.subject), trials = result ? trialsOf(reading.drill, result) : [];
-    const read = new Set(trials.map(trial => trial.at)), named = required.map(one => ({ condition: one.condition, name: caseName(one.condition) }));
+    // Complete as the judge reads whole (`valueOf`): a faulted trial answers no case, so `--play` plays it again.
+    const read = new Set(trials.filter(trial => trial.kept !== null).map(trial => trial.at)), named = required.map(one => ({ condition: one.condition, name: caseName(one.condition) }));
     evidence.set(key, { reading, fault, result, trials, required: named, complete: required.length > 0 && named.every(one => read.has(one.name)) });
   }
   return evidence;
