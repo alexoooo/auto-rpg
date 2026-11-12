@@ -180,7 +180,7 @@ function risePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: Sta
   const steady = stanceSteady(own, view, motor, tuning.climb);
   // `cut`: the latest of `cuts` begun, -1 for none.
   const state = { phase: "rise" as "rise" | "steady", rose: false,
-    ended: null as TechniqueEnd | null, elapsed: 0, cut: -1, reached: 0,
+    ended: null as TechniqueEnd | null, elapsed: 0, cut: -1, reached: 0, handover: 0,
     rise: rise.state, steady: steady.state, motor: motor.state };
   const finish = (end: TechniqueEnd) => { state.ended = end; return end; };
   return {
@@ -190,7 +190,7 @@ function risePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: Sta
     reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : readsAt(tuning, g, to),
     begin() {
       state.phase = "rise"; state.rose = false; state.ended = null;
-      state.elapsed = 0; state.cut = -1; state.reached = 0;
+      state.elapsed = 0; state.cut = -1; state.reached = 0; state.handover = 0;
       rise.beginRising();
       motor.reset();
     },
@@ -204,6 +204,13 @@ function risePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: Sta
         if (rise.state.phase === "rise") state.rose = true;
         else if (state.rose && rise.state.phase === "settle") { rise.end(); return finish("failed"); }
         if (rise.state.phase === "rise" && g.raw === "back" && g.height < LOW) { rise.end(); return finish("failed"); }
+        const handover = whole.handover;
+        if (handover && rise.state.phase === "rise" && rise.state.stage === unrolled.rise.length - 1) {
+          const load = g.footLoad.reduce((sum, value) => sum + value, 0);
+          const ready = g.onFeet && load >= handover.load && g.upright >= handover.upright && g.velocity.lengthSquared() < handover.speed * handover.speed;
+          state.handover = ready ? state.handover + dt : 0;
+          if (ready && state.handover + 1e-9 >= handover.seconds) rise.end();
+        }
         if (rise.state.phase !== "idle") {
           rise.step(senses, control, dt);
           // A rise fallen back to lying slack has failed, read at the next step.

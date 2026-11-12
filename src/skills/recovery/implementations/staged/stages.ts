@@ -162,6 +162,8 @@ export type Stage = PoseStage | BearStage;
  * segments and joints of the bodies it is for, and nothing in the player does.
  */
 export interface Recipe {
+  /** The stance may take the last rise stage early once this foot load, pelvis uprightness and speed hold for `seconds`. */
+  readonly handover?: { readonly load: number; readonly upright: number; readonly speed: number; readonly seconds: number };
   /** Channels selected for each bearing task; omitted ends use the staged policy. */
   readonly takes?: BearingPolicy;
   /** Use loaded item contacts as force patches under nearby hands; absent, use the hands' geometric ends. */
@@ -485,6 +487,7 @@ const UPRIGHT = {
  */
 export const SIT_BACK: Recipe = deepFreeze({
   ...RISE,
+  handover: { load: 0.5, upright: 0.7, speed: 0.8, seconds: 0.05 },
   roll: { back: [], left: [], right: [] },
   rise: [
     ...RISE.rise.slice(0, RISE.rise.findIndex((stage) => stage.name === "prop") + 1),
@@ -672,6 +675,11 @@ export function derivedRecipe(from: object, how: string, make: () => Recipe): Re
 
 function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
   const faults = limbFaults(spec, recipe.takes);
+  if (recipe.handover) {
+    const { load, upright, speed, seconds } = recipe.handover;
+    if (!(load > 0 && load <= 1 && upright >= -1 && upright <= 1 && speed > 0 && seconds >= 0)
+      || ![load, upright, speed, seconds].every(Number.isFinite)) faults.push("invalid stance handover readings");
+  }
   for (const [name, value] of Object.entries(recipe.progress ?? {})) {
     if (!(value > 0) || !Number.isFinite(value)) faults.push(`recovery progress ${name} must be finite and positive`);
   }
