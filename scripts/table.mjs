@@ -75,12 +75,33 @@ function evidenceOf(readings) {
       required = scheduled.units.flat();
     } catch (error) { fault = error instanceof Error ? error.message : String(error); }
     const result = resultOf(storeOf(reading.drill), reading.protocol, reading.subject), trials = result ? trialsOf(reading.drill, result) : [];
-    // Complete as the judge reads whole (`valueOf`): a faulted trial answers no case, so `--play` asks for its reading
-    // again, and evaluate plays the trial once its code, and so its key, has changed.
-    const read = new Set(trials.filter(trial => trial.kept !== null).map(trial => trial.at)), named = required.map(one => ({ condition: one.condition, name: caseName(one.condition) }));
-    evidence.set(key, { reading, fault, result, trials, required: named, complete: required.length > 0 && named.every(one => read.has(one.name)) });
+    const named = required.map(one => ({ condition: one.condition, name: caseName(one.condition) }));
+    evidence.set(key, { reading, fault, result, trials, required: named, complete: wholeOn(trials, named) });
   }
   return evidence;
+}
+
+/**
+ * Whether `trials` answer every case `named`, as the judge reads whole (`valueOf`): a faulted trial
+ * answers none, so `--play` asks for its reading again, and evaluate plays the trial once its code,
+ * and so its key, has changed.
+ */
+function wholeOn(trials, named) {
+  const read = new Set(trials.filter(trial => trial.kept !== null).map(trial => trial.at));
+  return named.length > 0 && named.every(one => read.has(one.name));
+}
+
+/**
+ * What a `--fresh` play replaces, as the evidence `one` holds it: its newest result where whole, else
+ * the newest whole one read at a commit other than `head`, so a play cut by its budget and
+ * resumed still compares with the reading it replaces, not with its own part.
+ */
+function replacedBy(one, head) {
+  if (one.complete) return one;
+  const { drill, protocol, subject } = one.reading;
+  const earlier = storeOf(drill).results.filter(result => result.protocol === protocol && result.subject === subject && !head.startsWith(result.commit)).reverse()
+    .find(result => wholeOn(trialsOf(drill, result), one.required));
+  return earlier ? { ...one, result: earlier, trials: trialsOf(drill, earlier), complete: true } : null;
 }
 
 const MARK = { unread: "not read", uncounted: "nothing counted", unbased: "no baseline", better: "better", worse: "worse", within: "within noise", unpaired: "unpaired" };
@@ -192,7 +213,10 @@ export function main() {
   if (values.play || values.fresh) {
     const failed = [], asked = new Set(cells.flatMap((cell) => cell.readings).map(evidenceKey));
     // What `--fresh` plays again is kept as it was read, to be compared with what replaces it.
-    if (values.fresh) replaced = new Map([...evidence].filter(([key, one]) => asked.has(key) && one.complete));
+    if (values.fresh) {
+      const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
+      replaced = new Map([...evidence].filter(([key]) => asked.has(key)).map(([key, one]) => [key, replacedBy(one, head)]).filter(([, one]) => one !== null));
+    }
     for (const { reading, complete, fault } of [...evidence.values()]) {
       const key = evidenceKey(reading);
       // A whole result stands; only `--fresh` plays it again, and only for a cell asked for.
