@@ -12,7 +12,7 @@
  * window, and orders the one action at one mark with one limb, a hand or a foot, once; the mind
  * carries the order out. A subject is asked a condition only where its mind offers its skill with
  * that limb at that mark on that body (`caseFaults`): a rung lists every mark and limb a strike is
- * asked at, and each strike's cases are its own of them. The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent (`DRILL_OPPONENTS`:
+ * asked at, and each strike's cases are its own of them. The target is a Warrior with empty hands, or each body the rung names (the rungs a table cell reads: each of the game's foes, `FOES`), under the rung's opponent (`DRILL_OPPONENTS`:
  * a mind, led on a rhythm by a beats Commander where it keeps one; `drill-stand` stands with its arms lowered and throws nothing, and a target guards only where the guard is what the rung reads: `guarding`), set the condition's gap ahead and offset across, the two on
  * the stage's own axis as a bout's spawns are (`LEVELS`), so the Arena's camera sees them side on.
  * Nothing ends a trial but its reader: the action's end and a short settle after it, the striker's
@@ -94,6 +94,16 @@ const STILL = deepFreeze({
   settled: .5, pace: 1, patience: 8, seconds: 11, settle: .5, recover: 2,
 });
 
+/**
+ * **Who is struck** at the rungs a table cell reads (still, walk, bonk, stomping): every foe the
+ * game puts a striker against, the Warrior, the Rogue (the Arena's) and the Skeleton (the Crypt's),
+ * each with empty hands (`atEveryFoe`).
+ */
+const FOES: readonly BodyModel[] = Object.freeze(["workshop-fighter", "workshop-rogue", "crypt-skeleton"]);
+
+/** `rung` at each of the game's foes (`FOES`), its trials otherwise the same. */
+const atEveryFoe = <P extends object>(rung: P): P & { readonly targets: readonly BodyModel[] } => deepFreeze({ ...rung, targets: FOES });
+
 /** A small held-swing observation: physical travel and guard settling through and after executor ownership. */
 const SWING_MOTION = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], gaps: [1.2], across: [0],
   marks: ["middle"] as Mark[], hands: ["right"] as Hand[], motion: true as const, settle: 2 });
@@ -174,12 +184,12 @@ const LAID = deepFreeze({ segment: "middleTrunk", speed: .5 });
 
 /**
  * Stomping: the opponent rungs' trials thrown with each foot (`feet`), no hand, at the middle mark
- * of a target lying on its back: a Warrior's or a Skeleton's body (`targets`) under the bare mind
+ * of a target lying on its back: each of the game's foes (`FOES`) under the bare mind
  * with no network, which pulls no muscle, laid down (`laid`) and lying still before the striker,
  * standing `settled` s first, walks round to its side; longer than the others, for that walk and
  * the stomp's slow preparation.
  */
-const STOMPING = deepFreeze({ ...OPPONENT, hands: [] as Hand[], feet: [...SIDES] as Hand[], targets: ["workshop-fighter", "crypt-skeleton"] as BodyModel[],
+const STOMPING = deepFreeze({ ...OPPONENT, hands: [] as Hand[], feet: [...SIDES] as Hand[], targets: FOES,
   marks: ["middle"] as Mark[], opponent: "bare", settled: 2, patience: 12, seconds: 25, laid: LAID });
 
 /**
@@ -441,13 +451,13 @@ export function createStrikeCases(context: GameContext) {
     ({ [name]: { ...stillCases(rung), twin: `${name}-twin` }, [`${name}-twin`]: stillCases(deepFreeze({ ...rung, gaps: between(rung.gaps), across: between(rung.across) })) });
 
   /** Every protocol the Strike drill may be played on, by name: its rungs. */
-  const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ ...twinned("still", STILL), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
+  const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ ...twinned("still", atEveryFoe(STILL)), sampled: stillCases(SAMPLED, sampledConditions(SAMPLED)),
     "swing-motion": stillCases(SWING_MOTION),
-    moving: stillCases(MOVING), ...twinned("walk", WALK), ...twinned("bonk", BONK),
+    moving: stillCases(MOVING), ...twinned("walk", atEveryFoe(WALK)), ...twinned("bonk", atEveryFoe(BONK)),
     stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT), fights: fightCases(FIGHTS),
     letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), ...twinned("stomping", STOMPING),
     "stomping-sampled": stillCases(STOMPING_SAMPLED, sampledConditions(STOMPING_SAMPLED)),
-    ...twinned("still-bodies", onOtherBodies(STILL)), ...twinned("walk-bodies", onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
+    ...twinned("still-bodies", atEveryFoe(onOtherBodies(STILL))), ...twinned("walk-bodies", atEveryFoe(onOtherBodies(WALK))), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
     ...twinned("stomping-bodies", onOtherBodies(STOMPING)) });
 
   return { faultsOf, strikesBy, STRIKE_CASES };

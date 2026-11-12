@@ -20,8 +20,10 @@ its own value:
   and loadout, so a risky act and a safe one are priced alike and no cell moves for a way up it
   does not read.
 - **A cell reads its skill on its own merit**, in a drill built for it: a blow at a still target
-  and one walked to (`still`, `walk`), which let it happen. What a blow brings in a fight is
-  another reading, its profile's, taken in fights and never in a cell
+  and one walked to (`still`, `walk`), which let it happen, a bonk at one's head (`bonk`) and a
+  stomp at one lying (`stomping`). The target is each foe the game sets a striker against (the
+  Warrior, the Rogue of the Arena, the Skeleton of the Crypt; `FOES`). What a blow brings in a
+  fight is another reading, its profile's, taken in fights and never in a cell
   ([the evaluations](../architecture.md#evaluations)).
 - **A strike is asked only what its Mind offers**: a cell is a body, a loadout and a skill the
   Mind has there (`Skill.has`, `strikesBy`), and a strike's cases are the drill's conditions at
