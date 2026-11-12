@@ -223,6 +223,11 @@ Follows [the training recipe](training.md). What is particular to a new skill:
   nothing to keep.
 - **A fixed bar deciding what is kept**: a gain short of an arbitrary number is thrown away.
 - **A form term that forbids the mechanism its figure needs.**
+- **Developing on starts the game does not give**: a sit-back handover finished more of the Rise
+  drill's trials, none slower, and its stand-up rows were still worse: on the Warrior's falls its
+  front-sit-back failed after a roll from states the drill's placed starts never hold
+  (`55d4839f`). A change to a skill read on falls is developed on falls neither its rows nor its
+  held-out falls play (the stand-up's: the profiles' offsets, 5.625 and 16.875 degrees).
 - **Reporting the drill**: the search's or the screen's figure given as the skill's, with the
   record never installed or the Mind never choosing it.
 - **Installing a record change on stale profiles**: a technique's digest covers its body's whole
