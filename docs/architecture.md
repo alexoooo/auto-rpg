@@ -233,7 +233,10 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   actions overlap where reservations allow. An executor runs `prepare`, `commit` and `release` and
   ends once (`Ended`). It never closes distance; the decider does.
   Resources distinguish physical segments, pose channels and services. Support reservations read
-  the body's declared bearing chains independently of optional effector actuators.
+  the body's declared bearing chains independently of optional effector actuators. Each control a
+  resource holds is a slot compiled once to an integer (`ResourceMap.slots`, `action-resources.ts`);
+  a step's ownership, reservations and default owners are arrays by slot in the arbiter's state,
+  named for a report only when read (`SkillReport.holders`, `defaultOwners`).
 - **Parts.** Each kind is a line of its role's list (`EXECUTORS`, `GUARDS` and the like), its
   module owning its config's keys, defaults, faults, fit and maker. A body builds only the skills
   it fits (`Slot.skills`). What lies under every skill (the motor,

@@ -72,6 +72,9 @@ export interface ActionContact {
   readonly onset: boolean;
 }
 
+/** The legs alone, as a list of resources. */
+const LEGS: readonly Resource[] = Object.freeze([LEG_RESOURCE]);
+
 /**
  * Protocol state belongs to the body; executors only own their motion and shared timing. An action
  * whose effector is off the body (`attached`, all on unless given) is refused.
@@ -88,15 +91,15 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
   /** What `action` holds with `effector` (`Executor.needs`): a thrown error where it names a resource the body has not, leaves out its effector, or moves a support effector without the legs. */
   const needsOf = (executor: Executor, action: string, effector: string): readonly Resource[] => {
     const needs = executor.needs(action, effector);
-    resources.controls(needs);
+    resources.check(needs);
     if (!hasResource(needs, segmentResource(effector))) throw new Error(`action ${action} does not reserve its effector`);
-    if (resources.controls([LEG_RESOURCE]).includes(`effector:${effector}`) && !hasResource(needs, LEG_RESOURCE)) throw new Error(`action ${action} needs legs for its support effector`);
+    if (resources.holds(LEGS, resources.effector.get(effector) ?? -1) && !hasResource(needs, LEG_RESOURCE)) throw new Error(`action ${action} needs legs for its support effector`);
     return needs;
   };
   for (const action of actions) {
     if (!action.name || bindings.has(action.name) || !registered.has(action.executor)) throw new Error(`invalid action ${action.name}`);
     // Every resource an action may hold is checked as the skill set is built, before any motion.
-    for (const effector of action.effectors) { resources.controls([segmentResource(effector)]); needsOf(executors[registered.get(action.executor)!]!.executor, action.name, effector); }
+    for (const effector of action.effectors) { resources.check([segmentResource(effector)]); needsOf(executors[registered.get(action.executor)!]!.executor, action.name, effector); }
     bindings.set(action.name, deepFreeze({ ...action, effectors: [...action.effectors] }));
   }
   // `statuses` is what `live` publishes, a new array whenever a status in it is replaced; `ledger` is replaced at each ending.
@@ -142,7 +145,7 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
     if ((status.phase === "release" && change.phase !== "release") || (status.phase === "commit" && change.phase === "prepare")) throw new Error("action phase reversed");
     if (item.withdrawn && !item.committed && change.phase === "commit") throw new Error("withdrawn preparation cannot commit");
     if (change.holds.some(resource => !hasResource(status.holds, resource))) throw new Error("action acquired a resource after admission");
-    resources.controls(change.holds);
+    resources.check(change.holds);
     const holds = sameHolds(status.holds, change.holds) ? status.holds : [...change.holds];
     const aim = !change.aim || (status.aim && sameNumbers(status.aim, change.aim)) ? status.aim : [change.aim[0], change.aim[1], change.aim[2]] as const;
     if (status.phase !== change.phase || status.stage !== change.stage || holds !== status.holds || aim !== status.aim) item.status = { ...status, phase: change.phase, stage: change.stage, holds, aim };
@@ -204,7 +207,7 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
     },
     snapshot(): void {
       state.attribution.length = 0;
-      for (const { status } of state.live) if (resources.controls(status.holds).includes(`effector:${status.effector}`))
+      for (const { status } of state.live) if (resources.holds(status.holds, resources.effector.get(status.effector) ?? -1))
         state.attribution.push({ id: status.id, phase: status.phase, effector: status.effector, target: copyActionTarget(status.target) });
     },
     observe(step: number, time: number, contacts: readonly ActionContact[]): void {
