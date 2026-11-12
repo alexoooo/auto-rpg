@@ -559,7 +559,7 @@
     }
   },
   "workshop-rogue+toes": {
-    "made": "Searched on its own target falls (Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty and with the club, a fall's score its verified standing and how soon. It rolls over its left side, so its right hand, which holds the club, comes over rather than under. Its roll: Searched on the workshop-rogue at 1987c9f9 (research/skills/skill-search.mjs): CMA over wind: hip.far flexion, wind: hip.far abduction, wind: hip.near flexion, wind: shoulder.near flexion, swing: hip.far flexion, swing: hip.far internal rotation, swing: hip.near abduction, swing: lumbar flexion, swing: shoulder.far flexion, swing: shoulder.near flexion, swing: shoulder.near abduction, over: hip.far flexion, over: hip.far abduction, over: shoulder.near flexion, flat: shoulder.near flexion, flat: shoulder.far internal rotation, flat: elbow.far flexion, wind: scale, swing: scale, over: scale, flat: scale from the workshop-rogue's record, 221 generations of 16, on the Rise drill's staged-roll, alone on the body holding each rated loadout on its placed rung at seeds 1 to 6, 90 trials a candidate, 5498 s; on fresh trials on its placed and moving rungs at seeds 7 to 12 the search's best scored -2.881 (7 not on the front) and the record it replaces -5.090 (7 not on the front): the best is kept.",
+    "made": "Searched on its own target falls (Node stand, Rapier, 120 Hz, Balance 0): eight shove directions offset from the target's, empty and with the club, a fall's score its verified standing and how soon. It rolls over its left side, so its right hand, which holds the club, comes over rather than under.",
     "settings": {
       "settle": {
         "speed": 0.06004,
@@ -573,16 +573,16 @@
       "over": "left",
       "stages": {
         "roll wind": {
-          "scale": 0.2872
+          "scale": 0.923
         },
         "roll swing": {
-          "scale": 0.4148
+          "scale": 1.605
         },
         "roll over": {
-          "scale": 0.3019
+          "scale": 0.9005
         },
         "roll flat": {
-          "scale": 0.3009
+          "scale": 1.514
         },
         "fold": {
           "scale": 0.1159
@@ -698,33 +698,6 @@
             "near": 0.08575,
             "turn": 0.1282
           }
-        }
-      },
-      "roll": {
-        "wind": {
-          "hip.far flexion": 0.6188,
-          "hip.far abduction": 0.5496,
-          "hip.near flexion": 0.5784,
-          "shoulder.near flexion": 2.7794
-        },
-        "swing": {
-          "hip.far flexion": 1.5834,
-          "hip.far internal rotation": 0.6384,
-          "hip.near abduction": 0.3348,
-          "lumbar flexion": 0.6635,
-          "shoulder.far flexion": 2.3081,
-          "shoulder.near flexion": 0.5731,
-          "shoulder.near abduction": 0.9392
-        },
-        "over": {
-          "hip.far flexion": 1.6344,
-          "hip.far abduction": 0.417,
-          "shoulder.near flexion": 2.9137
-        },
-        "flat": {
-          "shoulder.near flexion": 2.373,
-          "shoulder.far internal rotation": -0.1146,
-          "elbow.far flexion": 1.9342
         }
       }
     }
