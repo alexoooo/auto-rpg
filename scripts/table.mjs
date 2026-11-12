@@ -75,7 +75,8 @@ function evidenceOf(readings) {
       required = scheduled.units.flat();
     } catch (error) { fault = error instanceof Error ? error.message : String(error); }
     const result = resultOf(storeOf(reading.drill), reading.protocol, reading.subject), trials = result ? trialsOf(reading.drill, result) : [];
-    // Complete as the judge reads whole (`valueOf`): a faulted trial answers no case, so `--play` plays it again.
+    // Complete as the judge reads whole (`valueOf`): a faulted trial answers no case, so `--play` asks for its reading
+    // again, and evaluate plays the trial once its code, and so its key, has changed.
     const read = new Set(trials.filter(trial => trial.kept !== null).map(trial => trial.at)), named = required.map(one => ({ condition: one.condition, name: caseName(one.condition) }));
     evidence.set(key, { reading, fault, result, trials, required: named, complete: required.length > 0 && named.every(one => read.has(one.name)) });
   }
