@@ -29,7 +29,9 @@ What is in work now, what is next, and what is open. What is built is in the
 **Stand-up on the Rogue and the Skeleton**, a goal driven unattended
 ([driven](recipes/documents.md)): their rows are the table's slowest against the Warrior's, and a
 body's time to stand prices every fall in its other cells. A run works one question of it from an
-approved brief ([the rules](../AGENTS.md#the-rules)).
+approved brief ([the rules](../AGENTS.md#the-rules)). Its drills are being rebuilt: a cell per way
+up on its own attempts, shoved and beside obstacles, a fall at a fixed price
+([its plan](plans/2026-11-12-stand-up-drills.md)).
 
 The standing goal behind it: every cell of the table raised from its baseline, a row at a time
 ([the skill recipe](recipes/skill.md#one-row-one-question)).
