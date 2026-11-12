@@ -9,8 +9,11 @@
  */
 import { loadoutKey, type Held, type Loadout } from "../../core/bodies/items/held.ts";
 import { REPRESENTATIVE } from "../loadouts.ts";
-import type { HumanoidModel } from "../../core/bodies/models.ts";
+import { modelHolding, type HumanoidModel } from "../../core/bodies/models.ts";
+import type { TechniqueName } from "../../skills/recovery/technique.ts";
+import { createRising } from "../rising.ts";
 import { createStrikeCases } from "../strike/cases.ts";
+import { ATTEMPT_CAP } from "../way-up/read.ts";
 import { type GameContext } from "../../game/arena/context.ts";
 
 /** The bodies the table reads: the toed Warrior, the Rogue and the Skeleton. */
@@ -23,11 +26,11 @@ export const TABLE_LOADOUTS: readonly Loadout[] = REPRESENTATIVE;
 const TABLE_MIND = "option-drill";
 
 /**
- * **How a reading is valued** (`trialValue`): a fall's time to stand (`stand`); a move's seconds
- * lost against its orders (`orders`); a blow's life traded a second of its cycle (`strike`); a
- * cover's life lost to the opponent's blows (`cover`).
+ * **How a reading is valued** (`trialValue`): a way up's seconds an attempt (`way-up`); a move's
+ * seconds lost against its orders (`orders`); a blow's life traded a second of its cycle
+ * (`strike`); a cover's life lost to the opponent's blows (`cover`).
  */
-export type Judge = "stand" | "orders" | "strike" | "cover";
+export type Judge = "way-up" | "orders" | "strike" | "cover";
 
 /**
  * **What a strike's figure reads of its hit** (`StrikeHit`), beside its value: a fist's speed over
@@ -60,9 +63,6 @@ const holds = (loadout: Loadout, held: Held): boolean => loadout.left === held |
 const strikeSubject = (action: string, loadout: Loadout): string =>
   `${TABLE_MIND}/${action}${loadout.left === "empty" && loadout.right === "empty" ? "" : `@${loadoutKey(loadout)}`}`;
 
-/** The stand-up's reading: the stand-up target's falls of the body holding the loadout, risen by the table's mind. */
-export const STAND_UP: Reading = Object.freeze({ drill: "rising-target", protocol: "standard", subject: TABLE_MIND, judge: "stand", byLoadout: true });
-
 /**
  * **A skill**: its name, what its value is in words, whether a body holding a loadout does it
  * (`has`), and its readings there.
@@ -83,6 +83,22 @@ const MOVE = "the seconds each trial lost against its orders, a trial ended down
 
 export function createTableCells(context: GameContext) {
   const { STRIKE_CASES, strikesBy } = createStrikeCases(context);
+  const { drillWaysUp } = createRising(context);
+  const parts = context.catalog.partLookup, techniqueOf = (way: TechniqueName) => parts.of("technique", { kind: way });
+
+  /** Whether the way up `way` fits `body` holding `loadout`: where it has a cell. */
+  const fits = (way: TechniqueName) => (body: HumanoidModel, loadout: Loadout): boolean =>
+    techniqueOf(way).fits(modelHolding(body, loadout), techniqueOf(way).defaults, parts) === null;
+
+  /**
+   * **A way up's skill** (the way-up drill): its own attempts on the body's falls holding the
+   * loadout, risen by the table's mind with it ranked first, so no other way up runs in its place
+   * from a posture it begins from.
+   */
+  const wayUp = (way: TechniqueName): Skill => ({ name: way, has: fits(way),
+    readings: () => [{ drill: "way-up", protocol: "standard", subject: `${TABLE_MIND}/${way}`, judge: "way-up", byLoadout: true }],
+    value: `the seconds each attempt at ${techniqueOf(way).label.toLowerCase()} took to reach where it goes, one that did not at ${ATTEMPT_CAP} s, `
+      + "over the body's sixteen falls holding the loadout that reach a posture it begins from" });
 
   /** Whether the table's mind strikes by `action` on a body holding a loadout (`strikesBy`): where a blow has a cell. */
   const struck = (action: string) => (body: HumanoidModel, loadout: Loadout): boolean => strikesBy(context.catalog.minds[TABLE_MIND]!.config, action, body, loadout);
@@ -105,8 +121,7 @@ export function createTableCells(context: GameContext) {
 
   /** **Every skill the table reads**, in the order it prints them. */
   const TABLE_SKILLS: readonly Skill[] = Object.freeze([
-    { name: "stand-up", has: always, readings: () => [STAND_UP],
-      value: "the seconds from each fall made to a verified stand, a fall not stood at the cap, on the body's sixteen falls holding the loadout" },
+    ...drillWaysUp().map(wayUp),
     { name: "walk", has: always, readings: () => [{ drill: "locomotion", protocol: "every", subject: TABLE_MIND, judge: "orders", byLoadout: true }],
       value: `${MOVE}: the Locomotion screen's walks, runs, turns and shoves, its walks again in the gusts` },
     { name: "run", has: (body) => RUNNERS.includes(body),

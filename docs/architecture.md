@@ -787,7 +787,7 @@ on its own merit, and a profile prices the skill where the Mind uses it.
 - **The table** (`src/evaluation/table/`): the drills' Option Mind (`option-drill`, so no profile
   and no tree search decides anything in a cell; its drill opponents are made from it too) on every body by loadout by skill (`tableCells`), a blow where the Mind offers it there (`strikesBy`) and asked only at the marks
   and with the limbs it is offered at (`caseFaults`), valued from the drills' results: each trial's value in the game's
-  terms (`trialValue`: a stand's seconds, a move's seconds lost against its orders, `orderTime`, a
+  terms (`trialValue`: a way up's seconds an attempt, a move's seconds lost against its orders, `orderTime`, a
   blow's life traded a second, a cover's life lost), a fall at a fixed price (`FALL_PRICE`, 10 s);
   each protocol a cell reads naming its training twin (`Cases.twin`, `src/evaluation/twin.ts`),
   the same situations drawn halfway between, which research plays (`research/drill-trials.mjs`);
@@ -795,7 +795,8 @@ on its own merit, and a profile prices the skill where the Mind uses it.
   (`baselineOf`, a pointer at the result it was read as), paired by condition with a bootstrap
   interval (`compareValues`), the person's figure beside a strike's (`personOf`).
 - **Falls** (`fall.ts`): one body felled on one bed (`buildFall`), its stand verified
-  (`STAND_CHECK`); a stand-up is read on the [owner's
+  (`STAND_CHECK`); each way up is read on its own attempts on the [way-up
+  drill](reference/rising.md#the-way-up-drill) (`way-up/`), a mind's whole rise on the [owner's
   target](reference/rising.md#the-owners-target).
   Lone, fall and Crypt evaluation scripts expose cue indices, orders and progress through their
   state objects; their builders publish no save/load interface.

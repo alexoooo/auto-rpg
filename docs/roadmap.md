@@ -27,11 +27,10 @@ What is in work now, what is next, and what is open. What is built is in the
 ## Now
 
 **Stand-up on the Rogue and the Skeleton**, a goal driven unattended
-([driven](recipes/documents.md)): their rows are the table's slowest against the Warrior's, and a
-body's time to stand prices every fall in its other cells. A run works one question of it from an
-approved brief ([the rules](../AGENTS.md#the-rules)). Its drills are being rebuilt: a cell per way
-up on its own attempts, shoved and beside obstacles, a fall at a fixed price
-([its plan](plans/2026-11-12-stand-up-drills.md)).
+([driven](recipes/documents.md)): their ways up are read on the table's way-up cells, a cell per
+way up on its own attempts. A run works one question of it from an approved brief
+([the rules](../AGENTS.md#the-rules)). Its drills are being rebuilt: shoved beside obstacles, a way
+up that meets one letting go ([its plan](plans/2026-11-12-stand-up-drills.md)).
 
 **Research on drills**: every search, training run and screen scores on its skill's drill,
 drawn at other points so the cells stay held out, the game's situations research plays alone

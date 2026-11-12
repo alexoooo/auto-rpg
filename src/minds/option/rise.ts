@@ -344,6 +344,18 @@ export function withWaysUp(parts: PartLookup, options: readonly ConfigFor<"optio
     : declared[i]?.purpose === "ascent" || declared[i]?.purpose === "fallback" && kinds.has(declared[i]!.technique.kind) ? [] : [option]);
 }
 
+/** The techniques of `options`' declared ascent choices, in their order, whether or not they fit a body. */
+export const declaredWaysUp = (parts: PartLookup, options: readonly PartConfig[]): readonly ConfigFor<"technique">[] =>
+  options.flatMap((option) => { const recovery = recoveryOf(parts, option); return recovery?.purpose === "ascent" ? [recovery.technique] : []; });
+
+/**
+ * **`options` with the way up `first` ranked before the others they declare** (`withWaysUp`), the
+ * others in their order: by rank it runs wherever it is on offer, and the others carry the body to
+ * where it begins.
+ */
+export const withWayUpFirst = (parts: PartLookup, options: readonly ConfigFor<"option">[], first: ConfigFor<"technique">): readonly ConfigFor<"option">[] =>
+  withWaysUp(parts, options, [first, ...declaredWaysUp(parts, options).filter((technique) => technique.kind !== first.kind)]);
+
 declare module "./parts.ts" {
   interface OptionConfigs {
     readonly "way-up": GroundConfig<"way-up">;

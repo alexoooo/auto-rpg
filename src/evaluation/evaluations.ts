@@ -13,6 +13,7 @@ import { createStandIndex } from "./stand/index.ts";
 import { createStrikeIndex } from "./strike/index.ts";
 import { createTournamentIndex } from "./tournament/index.ts";
 import { createUnseenIndex } from "./unseen/index.ts";
+import { createWayUpIndex } from "./way-up/index.ts";
 import { type GameContext } from "../game/arena/context.ts";
 
 export function createEvaluations(context: GameContext) {
@@ -30,6 +31,7 @@ export function createEvaluations(context: GameContext) {
   const { STRIKE } = createStrikeIndex(context);
   const { TOURNAMENT } = createTournamentIndex(context);
   const { UNSEEN } = createUnseenIndex(context);
+  const { WAY_UP } = createWayUpIndex(context);
 
   /** **Every evaluation**, by its id: the one catalogue, its protocols the case modules a worker plays. */
   const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
@@ -47,6 +49,7 @@ export function createEvaluations(context: GameContext) {
     locomotion: LOCOMOTION as unknown as Evaluation,
     travel: TRAVEL_DRILL as unknown as Evaluation,
     rise: RISE as unknown as Evaluation,
+    "way-up": WAY_UP as unknown as Evaluation,
   });
 
   return { EVALUATIONS };

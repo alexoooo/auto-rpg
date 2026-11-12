@@ -85,7 +85,8 @@ Each lands on its checks; nothing is played without a brief.
    rewards are still the bar's score, not the value, a change of reward scale only a training
    run can check; the club's trunk blow (`club-blow`) has no cell, so no drill to search on.
 4. Stand-up, with [its plan](2026-11-12-stand-up-drills.md): the obstacle levels and bout falls
-   in the drill; `rise-search.mjs` and the sit-back and roll searches on the twin.
+   in the drill; `rise-search.mjs` and the sit-back and roll searches on the twin. *In work*: a
+   cell per way up on the way-up drill, its twin the fresh falls.
 5. Walk and run: the drills widened (paces to the envelope, diagonals, place orders); the
    scripts on their twins. Missing now: a place order has no value (`orderTime` refuses it); a
    stance tuning has no way into a drill case; the case environment skips a trained learner, so

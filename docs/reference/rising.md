@@ -1,6 +1,35 @@
 # Getting up
 
-The stand-up bar every riser is read on (`src/evaluation/rising.ts`, `src/evaluation/rising-target/`).
+How a body getting up is read: each way up on its own attempts (the way-up drill, the table's
+cells), a mind's whole rise (the owner's target, read in research) and a technique alone (the Rise
+drill) (`src/evaluation/rising.ts`, `src/evaluation/way-up/`, `src/evaluation/rising-target/`).
+
+## The way-up drill
+
+```powershell
+npm run evaluate -- way-up [option-drill/<way up> ...] [--protocol fresh]
+```
+
+- **The falls**: the owner's target's (below), every body in every rated loadout shoved sixteen
+  ways on the open floor, on the fall bed (`buildFall`), each a case of every way up that fits the
+  body holding its loadout.
+- **The riser**: the drills' Option Mind (`option-drill`) with the way up read ranked first among
+  its ways up (`wayUpMind`, `withWayUpFirst`): by rank it runs wherever it is on offer, and no other
+  way up runs in its place from a posture it begins from; the others, by rank, carry the body to
+  where it begins. A way up that fails is not masked by one that works.
+- **What a fall reads**: the read way up's own attempts (`wayUpAttempts`), each ended where it goes
+  (`done`) or not. A fall that never reaches a posture the way up begins from is not exercised, and
+  one not made is not counted, as on the target.
+- **The value**, on each body and loadout's falls (`attemptsValue`): each fall's mean seconds an
+  attempt, one that did not reach where it goes at 16 s (`ATTEMPT_CAP`, the staged route's whole
+  attempt), the mean over the falls exercised; lower better. The table's cell of a way up reads it
+  ([the table](the-table.md)). Its outcome: reached (every attempt), failed, not exercised, or no
+  takeover.
+- **The fresh falls** (`--protocol fresh`): the same shoved 11.25 degrees past each direction
+  (`FRESH_OFFSET`), the drill's training twin. Research scores on them and holds the cells' own
+  falls out ([the skill recipe](../recipes/skill.md#an-options-code)).
+- **One record, two ways up**: the step-up record drives staged-roll and staged-down, the sit-back
+  record sit-back and front-sit-back, so a search of one record reads the cells of both.
 
 ## The owner's target
 
@@ -21,16 +50,15 @@ npm run evaluate -- rising-target [riser ...]
   up (`game`, where none is named), `stand-up` with every technique, or a technique's name, each
   on the drills' mind (`option-drill`).
 - **The fresh falls** (`--protocol fresh`): the same bodies and loadouts shoved 11.25 degrees past
-  each direction (`FRESH_OFFSET`), read the same way: the target's training twin. Research
-  scores on them and the target's own falls are held out, so a cell shows whether a gain is
-  fitted to the falls it was tuned on ([the skill recipe](../recipes/skill.md#an-options-code)).
+  each direction (`FRESH_OFFSET`), read the same way.
 - **The timing**: from the riser's takeover (the body first down) to a stand verified by
   `STAND_CHECK` (`standCheck`), through landing, orientation and retries. A fall not stood counts
   at the cap.
 - **The value**, on each body and loadout's sixteen falls: the mean time to stand over the falls
-  made, a fall not stood at the cap (`timeToStand`), lower better; the table reads each body and
-  loadout's (`stand-up`, [the table](the-table.md)). The owner's 10 s a fall (`STAND_WITHIN`) is
-  reported beside it, and is the fixed price of a fall in every other cell.
+  made, a fall not stood at the cap (`timeToStand`), lower better. How a mind chains its ways up
+  after a real fall is a fight's question: no table cell reads the target, and research reads it
+  beside the way-up drill. The owner's 10 s a fall (`STAND_WITHIN`) is reported beside it, and is
+  the fixed price of a fall in every cell but a way up's.
   `risingReport` states whether the rows are the target's conditions: every fall once, Balance 0
   and Grit 0.
 - **Against people**: young adults rising from the floor at a comfortable rate take 1.4 to 2.6 s

@@ -9,27 +9,18 @@ be robust to different situations?"), handle a body next to an obstacle ("I ofte
 stuck when it's next to an object"), price a fall at a fixed cost, and close the gap between the
 scenarios research plays and the drills hold.
 
-What the table reads now (`src/evaluation/table/cells.ts`, `STAND_UP`):
+What the table read before this plan:
 
 - **One stand-up cell per body and loadout** (15): the stand-up target's falls
-  (`rising-target`, [getting up](../reference/rising.md)), each body shoved sixteen ways, risen by
-  the drills' mind (`option-drill`, its options run by rank since `37f9be19`). Its value is the
-  mean time to stand. Whichever way up is on offer runs and retries, so a way up that fails is
-  masked by one that works: on the tree it was not chosen again; by rank it is retried, and the
-  cell is slow without saying which way up failed (the Rogue holding nothing loops staged-roll,
-  staged-down, back down, for 30 s; front-sit-back, ranked after staged-down, is never tried).
-- **No obstacle.** The target's falls are on open floor and refuse obstacle rows
-  (`src/evaluation/rising.ts`, `risingReport`). The obstacle levels (beside a column, against a
-  wall, onto a bench, into a tomb; `GROUND_LEVELS`, `src/game/lab/ground-environment.ts`) are
-  played only by the rising bed's `--obstacles` and the Lab.
-- **No way up reads its surroundings.** No recovery skill or rise option reads the solids its body
-  senses (only navigation does, `src/skills/locomotion/navigation/`); `clearance`
-  (`src/control/ground.ts`) is the body's gap above the ground. A way up begun beside an object
-  meets it and stalls.
-- **A fall's price is the stand-up cell's value.** Every strike and move cell charges a trial that
-  ends down its body and loadout's current time to stand (`scripts/table.mjs`, `rises`; since
-  `3844aacc`), so a change to a way up moves every strike and move cell of that body, which did
-  not change. How often a skill falls is already a figure beside it ("fell, share of trials").
+  (`rising-target`, [getting up](../reference/rising.md)), risen by the drills' mind, valued by the
+  mean time to stand. Whichever way up was on offer ran and retried, so a way up that failed was
+  masked by one that worked (the Rogue holding nothing looped staged-roll, staged-down, back down,
+  for 30 s; front-sit-back, ranked after staged-down, was never tried).
+- **No obstacle**: the obstacle levels (beside a column, against a wall, onto a bench, into a
+  tomb; `GROUND_LEVELS`, `src/game/lab/ground-environment.ts`) were played only by the rising
+  bed's `--obstacles` and the Lab.
+- **No way up reads its surroundings**: no recovery skill or rise option reads the solids its body
+  touches or senses; a way up begun beside an object meets it and stalls.
 
 ## The design
 
@@ -60,13 +51,23 @@ What the table reads now (`src/evaluation/table/cells.ts`, `STAND_UP`):
   128`, `rise-search.mjs --offsets`. The ground profiles' falls (`edge-profiles.mjs`) are outside
   on purpose: they measure profiles, not skills.
 
+## Landed
+
+- **A cell per way up** (staged-roll, staged-down, sit-back, front-sit-back on each body and
+  loadout): the way-up drill (`src/evaluation/way-up/`, [getting up](../reference/rising.md#the-way-up-drill)),
+  the target's shoved falls risen by the drills' mind with the read way up first
+  (`withWayUpFirst`), valued by its seconds an attempt, an attempt not reaching where it goes at
+  16 s (`ATTEMPT_CAP`), a fall never reaching a posture it begins from not exercised. Its twin is
+  the fresh falls. The composite `rising-target` stays an evaluation, read in research.
+- **A fall at a fixed price**, 10 s (`FALL_PRICE`), in every strike and move cell.
+
 ## Open
 
+- **Research on the twin**: `rise-search.mjs` and the sit-back and roll searches still score on
+  their own scenarios.
+- **The obstacle levels and falls from bouts** in the drill.
 - **What "stopped making progress" reads**: a way up's stage not advancing for some time while a
-  segment touches a solid that is not the ground; the time and the progress measure are read
-  from the obstacle falls.
-- **Which bed**: the obstacle levels play on the Lab's stand bed (`risingTrial`); the drill's fall
-  bed refuses them (`src/evaluation/fall.ts`, `buildFall`).
+  segment touches a solid that is not the ground; the time is not tuned without playing.
 - **A record shared by two ways up**: the step-up record drives staged-roll and staged-down, the
   sit-back record sit-back and front-sit-back, so a search of one record reads two cells.
 
@@ -80,7 +81,8 @@ What the table reads now (`src/evaluation/table/cells.ts`, `STAND_UP`):
 ## Readings
 
 ```powershell
-npm run evaluate -- table --skill stand-up                  # the stand-up cells as saved
+npm run evaluate -- table --skill sit-back                  # a way up's cells as saved
+npm run evaluate -- way-up option-drill/sit-back --shard 1/10 # a slice of its drill
 npm run evaluate -- rising-target option-drill --shard 1/10 # a slice of the composite on the drills' mind
 node research/skills/recovery/rising-bed.mjs --obstacles    # the obstacle levels, research only now
 ```

@@ -7,7 +7,7 @@ its own value:
 
 | Skill | Value | Better |
 | --- | --- | --- |
-| stand-up | seconds from a fall made to a verified stand, a fall not stood at the 30 s cap (`timeToStand`) | lower |
+| staged-roll, staged-down, sit-back, front-sit-back | a way up's seconds an attempt on the falls that reach a posture it begins from, an attempt not reaching where it goes at 16 s (`attemptsValue`, [the way-up drill](rising.md#the-way-up-drill)) | lower |
 | walk, run | seconds lost against the orders (`orderTime`), a trial ended down charged the rest of a fall's price (`ordersValue`) | lower |
 | punch, stomp, bonk, cut, thrust | life taken from the target less life lost, a second of the action's cycle from its start to the limb back at guard, a fall adding a fall's price; 0 for a blow not begun where it was asked (`strikeTrade`, `strikeOffered`) | higher |
 | buckler-cover | life lost to the opponent's blows over the trial, those while down among them (`coverValue`) | lower |
@@ -19,6 +19,10 @@ its own value:
 - **A fall's price** is the owner's 10 s (`FALL_PRICE`, `STAND_WITHIN`), the same on every body
   and loadout, so a risky act and a safe one are priced alike and no cell moves for a way up it
   does not read.
+- **A way up has a cell of its own** on each body and loadout it fits: the drills' Mind ranks it
+  first among its ways up, so a way up that fails is not masked by one that works, and the cell
+  reads its own attempts. How a mind chains its ways up after a fall is a fight's question, read
+  on the owner's target in research ([getting up](rising.md)), never in a cell.
 - **A cell reads its skill on its own merit**, in a drill built for it: a blow at a still target
   and one walked to (`still`, `walk`), which let it happen, a bonk at one's head (`bonk`) and a
   stomp at one lying (`stomping`). The target is each foe the game sets a striker against (the
@@ -33,20 +37,21 @@ its own value:
   by a profile, so a skill's reading never depends on what its profiles said of it, and a change
   to a skill is read without rebuilding them. A strike drill orders the blow firmly
   (`Orders.firm`), and the Mind begins it as soon as the skill admits it, before it prices
-  anything (`Choice.bound`); the stand-up drill leaves the way up to the Mind, priced by its
-  priors. In a fight the game's Mind (`option`) chooses by its profiles.
+  anything (`Choice.bound`); the way-up drill ranks the way up read first. In a fight the game's
+  Mind (`option`) chooses by its profiles.
 - **A blow not begun is worth 0**: where the drill's fixture reaches a case the strike is offered
   at and no blow begins, the trial counts at 0. The skill did not deliver there: it refused the
   start (`refused`, `waiting`), the body never came into its window (`outside`) or fell first
   (`fell`), or it was ordered and its skill no longer admitted it (`unbegun`).
-- **What does not count**: a fall not made, a blow whose fixture did not reach its case, a cover
-  never attacked. Their counts are reported beside the value.
-- **The figures beside** a value decide nothing: a strike's hit against the person's (`BAR`), the
-  falls stood within the owner's 10 s, the share of blows the buckler met first.
+- **What does not count**: a fall not made or one that never reaches a posture the way up begins
+  from (not exercised), a blow whose fixture did not reach its case, a cover never attacked. Their
+  counts are reported beside the value.
+- **The figures beside** a value decide nothing: a strike's hit against the person's (`BAR`), a
+  way up's attempts reached and the falls stood, the share of blows the buckler met first.
 
 A reading counts only over its whole protocol: every case present and none faulted. A cell's
 value is the mean of every counted trial of its readings; a cell whose readings are whole with no
-trial counted (every fall not made, every cover unattacked) is marked nothing
+trial counted (every fall not made or not exercised, every cover unattacked) is marked nothing
 counted, its counts beside it. The Warrior's run reads the Travel confirmation protocol, the Rogue's the
 Locomotion run protocol, the walk the Locomotion `every` protocol on every body.
 
@@ -69,8 +74,8 @@ of the trial's condition, so the table plays nothing to read.
 
 The table reads the game's rate, 120 Hz. Every protocol a cell reads names its training twin
 (`Cases.twin`, `src/evaluation/twin.ts`): its situations drawn halfway between the cell's (a
-range's midpoints, ways round the circle turned half their spacing, the next seeds; the stand-up
-target's twin is its `fresh` falls). Research scores on the twin
+range's midpoints, ways round the circle turned half their spacing, the next seeds; the way-up
+drill's twin is its `fresh` falls). Research scores on the twin
 (`research/drill-trials.mjs`) and holds a cell's cases out; the confirmation that keeps a record plays them at 120 and 480 Hz, the worse
 counting ([the skill recipe](../recipes/skill.md#an-options-code)), and no cell reads 480 Hz. The cases a reading
 must hold are its subject's of its protocol as they are now. A reading stands as it was read, shown with the commit
@@ -81,8 +86,7 @@ by condition, so a change to the code asks for no replay.
 keeps it. `--fresh` plays the readings of the cells asked for (`--body`, `--skill`, `--loadout`)
 again on the code now, and prints under each a line comparing it with the reading it replaced
 (`replaced`), paired the way the baseline is: the version before against the version now, which
-the baseline is not after a cell's first change. The stand-up reading that prices a fall is
-played again only where a cell asked for reads it. Both play one reading at a time, each to evaluate's budget (10 minutes; the table takes no `--budget` of its own): a pass keeps every
+the baseline is not after a cell's first change. Both play one reading at a time, each to evaluate's budget (10 minutes; the table takes no `--budget` of its own): a pass keeps every
 trial it plays (`.tmp/evaluations/`) and every complete unit in its result, names a reading that failed at its end and
 plays the rest, and with `--baseline` names a cell's baseline as soon as its reading is whole.
 Passes are repeated until none plays. Node, core world, 120 Hz, each command 1 step late

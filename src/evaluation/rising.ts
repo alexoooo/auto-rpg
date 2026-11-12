@@ -22,7 +22,7 @@ import { groundReading } from "../control/ground-reading.ts";
 import { stanceFeet } from "../control/support.ts";
 import { motorAndGuardOf } from "../skills/assembly/filled.ts";
 import { isWayUp, type TechniqueName, type TechniquePart, type TechniqueRun } from "../skills/recovery/technique.ts";
-import { withWaysUp } from "../minds/option/rise.ts";
+import { declaredWaysUp, withWaysUp, withWayUpFirst } from "../minds/option/rise.ts";
 import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/bodies/models.ts";
 import { guardPosture } from "../skills/guard/guard.ts";
 
@@ -94,8 +94,8 @@ interface RisingOptions {
 
 /**
  * **The fresh falls**: the target's bodies and loadouts shoved halfway between its sixteen
- * directions, degrees (`docs/reference/rising.md#the-owners-target`): the target's training twin,
- * which research tunes on, so the target's own falls show whether a gain is fitted to them.
+ * directions, degrees (`docs/reference/rising.md#the-owners-target`): the way-up drill's training
+ * twin, which research tunes on, so the drill's own falls show whether a gain is fitted to them.
  */
 export const FRESH_OFFSET = 11.25;
 
@@ -133,8 +133,25 @@ export function createRising(context: GameContext) {
   /** The bed's riser: the drills' Option Mind (`option-drill`) getting up by the ways up `techniques` in rank order (`withWaysUp`), by its own (the game's Stand up's) where none are given. Gameplay presets are untouched. */
   function risingMind(techniques?: readonly TechniqueName[] | null): OptionMindConfig {
     const option = MINDS["option-drill"]!.config as OptionMindConfig;
-    return techniques ? { ...option, options: withWaysUp(partLookup, option.options ?? (controllerOf(option).defaults as OptionMindConfig).options!, techniques.map((kind) => ({ kind }))) } : option;
+    return techniques ? { ...option, options: withWaysUp(partLookup, optionsOf(option), techniques.map((kind) => ({ kind }))) } : option;
   }
+
+  /** An Option Mind's options: its own, else its controller's. */
+  const optionsOf = (option: OptionMindConfig) => option.options ?? (controllerOf(option).defaults as OptionMindConfig).options!;
+
+  /**
+   * **The way-up drill's riser**: the drills' Option Mind (`option-drill`) with the way up `way`
+   * ranked before its other ways up (`withWayUpFirst`), so it runs wherever it is on offer and the
+   * others carry the body to where it begins.
+   */
+  function wayUpMind(way: TechniqueName): OptionMindConfig {
+    const option = MINDS["option-drill"]!.config as OptionMindConfig;
+    return { ...option, options: withWayUpFirst(partLookup, optionsOf(option), { kind: way }) };
+  }
+
+  /** The ways up the drills' Option Mind declares, in its order, whether or not they fit a body: those a way-up drill reads. */
+  const drillWaysUp = (): readonly TechniqueName[] =>
+    declaredWaysUp(partLookup, optionsOf(MINDS["option-drill"]!.config as OptionMindConfig)).map((technique) => technique.kind as TechniqueName);
 
   /**
    * One fall of the bed, built afresh: a technique alone, or the fall through `fall.ts` on Rapier.
@@ -343,5 +360,5 @@ export function createRising(context: GameContext) {
           momentImpulse: rows.reduce((sum, row) => sum + (row.assist?.momentImpulse ?? 0), 0) } }, rows };
   }
 
-  return { risingMind, risingTrial, techniqueTrial, risingReport };
+  return { risingMind, wayUpMind, drillWaysUp, risingTrial, techniqueTrial, risingReport };
 }

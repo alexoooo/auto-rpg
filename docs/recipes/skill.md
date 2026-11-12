@@ -109,7 +109,7 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
   search are for fights and for measuring the profiles themselves.
 - **Research scores on its drill**: a search, a training run or a screen that scores a skill
   plays its drill's training twin, the protocols its cells read with the same situations drawn
-  at other points (the stand-up target's `fresh` falls, its shoves turned halfway), on the drills'
+  at other points (the way-up drill's `fresh` falls, its shoves turned halfway), on the drills'
   Mind at 120 Hz. The cells' own cases are held out: the confirmation plays them once before a
   record is kept, at 120 and 480 Hz, the worse counting, so a fit to the engine's step is caught.
   A situation the game puts the skill in is a case of its drill; one played only in research is
@@ -245,7 +245,7 @@ Follows [the training recipe](training.md). What is particular to a new skill:
   drill's trials, none slower, and its stand-up rows were still worse: on the Warrior's falls its
   front-sit-back failed after a roll from states the drill's placed starts never hold
   (`55d4839f`). A change to a skill read on falls is developed on its drill's twin (the
-  stand-up's: the target's `fresh` falls), its cells' falls held out.
+  stand-up's: the way-up drill's `fresh` falls), its cells' falls held out.
 - **Reporting the drill**: the search's or the screen's figure given as the skill's, with the
   record never installed or the Mind never choosing it.
 - **Installing a record change on stale profiles**: a technique's digest covers its body's whole

@@ -35,6 +35,8 @@ import { createTournamentEntrants } from "../evaluation/tournament/entrants.ts";
 import { createTournamentIndex } from "../evaluation/tournament/index.ts";
 import { createUnseenCases } from "../evaluation/unseen/cases.ts";
 import { createUnseenIndex } from "../evaluation/unseen/index.ts";
+import { createWayUpCases } from "../evaluation/way-up/cases.ts";
+import { createWayUpIndex } from "../evaluation/way-up/index.ts";
 import { createWorlds } from "../evaluation/world-builders.ts";
 import type { GameContext } from "../game/arena/context.ts";
 
@@ -78,6 +80,8 @@ export function evaluationApplication(context: GameContext) {
     ...createTournamentIndex(context),
     ...createUnseenCases(context),
     ...createUnseenIndex(context),
+    ...createWayUpCases(context),
+    ...createWayUpIndex(context),
     ...createWorlds(context),
   };
 }

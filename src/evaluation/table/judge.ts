@@ -8,15 +8,17 @@
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
 import type { Json } from "../evaluation.ts";
 import { coverValue, type CoverReading } from "../cover/read.ts";
-import { STAND_WITHIN, timeToStand, type FallReading } from "../fall.ts";
+import { STAND_WITHIN } from "../fall.ts";
 import { ordersValue } from "../order-time.ts";
 import { ROW_HEAD, rounded, type Kept, type Result } from "../results.ts";
 import { mean, medianOf, pairBootstrap } from "../stats.ts";
 import { BAR, strikeOffered, strikeTrade, type StrikeReading } from "../strike/read.ts";
+import type { WayUpReading } from "../way-up/cases.ts";
+import { ATTEMPT_CAP, attemptsValue, wayUpAttempts } from "../way-up/read.ts";
 import type { Cell, HitFigure, Judge, Reading } from "./cells.ts";
 
 /**
- * **What a fall costs** a trial of any skill but the stand-up that ends down, s: the reference time
+ * **What a fall costs** a trial of any skill but a way up's that ends down, s: the reference time
  * to stand (`STAND_WITHIN`), the same on every body, so no cell moves for a way up it does not read.
  */
 export const FALL_PRICE = STAND_WITHIN;
@@ -34,10 +36,10 @@ export const resultTrials = (result: Pick<Result, "trials" | "outcomes">, names:
 /** What a value is counted in, and which way is better. */
 export interface ValueUnit { readonly unit: string; readonly better: "higher" | "lower" }
 
-/** Each judge's value: a stand's seconds, a move's seconds lost against its orders, a blow's life traded a second, a cover's life lost. */
+/** Each judge's value: a way up's seconds an attempt, a move's seconds lost against its orders, a blow's life traded a second, a cover's life lost. */
 export function unitOf(judge: Judge): ValueUnit {
   switch (judge) {
-    case "stand": return { unit: "s to stand", better: "lower" };
+    case "way-up": return { unit: "s an attempt", better: "lower" };
     case "orders": return { unit: "s lost against the orders", better: "lower" };
     case "strike": return { unit: "hp a second traded", better: "higher" };
     case "cover": return { unit: "hp lost a trial", better: "lower" };
@@ -57,7 +59,8 @@ const number = (value: number | null | undefined): number | null => value == nul
 /**
  * **What a trial keeps for its judge**, from its drill's reading `read`: the numbers its value and
  * the figures beside it are made of.
- * - `stand`: the time to stand, s (null for a fall not made); whether it stood.
+ * - `way-up`: the attempts at the way up (null for a fall not made, 0 for one not exercised), those
+ *   that reached where it goes and their seconds together (`wayUpAttempts`); whether the body stood.
  * - `orders`: the seconds lost against the orders (null where the reading has none); how long down
  *   at the end, s (null where it stood); whether it fell.
  * - `strike`: the life traded, hp, and the cycle before a fall's rise, s (`strikeTrade`; null for an
@@ -68,7 +71,10 @@ const number = (value: number | null | undefined): number | null => value == nul
  */
 export function keep(reading: Judged, read: Json): Kept {
   switch (reading.judge) {
-    case "stand": { const r = read as unknown as FallReading; return [number(timeToStand(r)), flag(r.stood && r.verified !== null)]; }
+    case "way-up": {
+      const r = read as unknown as WayUpReading, one = wayUpAttempts(r);
+      return [one?.attempts ?? null, one?.reached ?? null, number(one?.reachedSeconds), flag(r.stood && r.verified !== null)];
+    }
     case "orders": { const r = read as unknown as Moved; return [number(r.lost), number(r.downFor), flag(r.fell)]; }
     case "strike": {
       const r = read as unknown as StrikeReading & { readonly hit: Hit | null };
@@ -82,14 +88,16 @@ export function keep(reading: Judged, read: Json): Kept {
 
 /**
  * **One trial's value** as `judge` reads what it kept (`keep`) and its outcome, a fall's rest
- * costing `rise` s (the table's `FALL_PRICE`). A strike's is its life traded over its cycle, a fall
+ * costing `rise` s (the table's `FALL_PRICE`). A way up's is its seconds an attempt (`attemptsValue`,
+ * an attempt not reaching where it goes at `ATTEMPT_CAP`). A strike's is its life traded over its cycle, a fall
  * adding its rise; a blow not begun where the drill asked for it (`strikeOffered`) is
- * worth 0. Null where the trial does not count: a fall not made, a blow whose fixture did not
- * reach its case, a cover never attacked.
+ * worth 0. Null where the trial does not count: a fall not made or not exercised, a blow whose
+ * fixture did not reach its case, a cover never attacked.
  */
 export function trialValue(judge: Judge, { kept, outcome }: { readonly kept: Kept; readonly outcome: string | null }, rise: number): number | null {
   switch (judge) {
-    case "stand": case "cover": return kept[0]!;
+    case "way-up": return kept[0] === null ? null : attemptsValue({ attempts: kept[0]!, reached: kept[1]!, reachedSeconds: kept[2]! });
+    case "cover": return kept[0]!;
     case "orders": return kept[0] === null ? null : ordersValue({ lost: kept[0]!, downFor: kept[1]! }, rise);
     case "strike": return kept[0] !== null ? kept[0]! / (kept[1]! + (kept[2] ? rise : 0)) : strikeOffered(outcome) ? 0 : null;
     default: { const never: never = judge; throw new Error(`no judge ${String(never)}`); }
@@ -148,10 +156,11 @@ export function outcomeCounts(trials: readonly Trial[]): string {
 function figuresOf(reading: Judged, trials: readonly Trial[]): string {
   const rows = trials.map(trial => trial.kept!);
   switch (reading.judge) {
-    case "stand": {
-      const made = rows.filter(row => row[0] !== null), times = made.map(row => row[0]!);
-      return `${made.filter(row => row[1]).length} of ${made.length} falls stood, ${rows.length - made.length} not made, `
-        + `median ${medianOf(times)?.toFixed(1) ?? "-"} s, ${times.filter(time => time <= STAND_WITHIN).length} within the owner's ${STAND_WITHIN} s`;
+    case "way-up": {
+      const made = rows.filter(row => row[0] !== null), exercised = made.filter(row => row[0]! > 0);
+      const attempts = exercised.reduce((sum, row) => sum + row[0]!, 0), reached = exercised.reduce((sum, row) => sum + row[1]!, 0);
+      return `${attempts} attempts over ${exercised.length} falls, ${reached} reached, the rest at ${ATTEMPT_CAP} s; `
+        + `${made.length - exercised.length} falls not exercised, ${rows.length - made.length} not made; ${made.filter(row => row[3]).length} of ${made.length} stood`;
     }
     case "orders": return `${rows.filter(row => row[2]).length} fell, ${rows.filter(row => row[1] !== null).length} ended down`;
     case "strike": {
