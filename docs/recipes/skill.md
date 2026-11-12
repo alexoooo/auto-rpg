@@ -84,8 +84,8 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
 - **A fresh agent checks a claim before it is reported**: a subagent given the claim and the
   cell's commands, and no account of the work, reads in Node alone: the cell's lines and its
   trials' outcomes from the saved results, failures first
-  (`npm run evaluate -- table --body <model> --skill <name> --by <field>`), and the drill's
-  held-out cases where it has them (the stand-up target's `fresh`), played once. It says what
+  (`npm run evaluate -- table --body <model> --skill <name> --by <field>`), and the cell's cases
+  at 480 Hz, played once. It says what
   the numbers show. The report carries its words beside the claim; where they contradict it, the
   claim is withdrawn. How a skill looks is the owner's to watch
   ([the roadmap](../roadmap.md#waiting-on-the-owner)), never an agent's to judge in a browser.
@@ -107,6 +107,14 @@ as [AGENTS.md](../../AGENTS.md)'s do, and a run's files go where
   in their order, `RANKED_CHOOSER`), fast and the same each time: a drill drives its skills, and
   whether the Mind would choose them is a fight's question. Profiles and the tree
   search are for fights and for measuring the profiles themselves.
+- **Research scores on its drill**: a search, a training run or a screen that scores a skill
+  plays its drill's training twin, the protocols its cells read with the same situations drawn
+  at other points (the stand-up target's `fresh` falls, its shoves turned halfway), on the drills'
+  Mind at 120 Hz. The cells' own cases are held out: the confirmation plays them once before a
+  record is kept, at 120 and 480 Hz, the worse counting, so a fit to the engine's step is caught.
+  A situation the game puts the skill in is a case of its drill; one played only in research is
+  a gap, closed by adding it to the drill. A probe (a rate the game does not run, a Balance or
+  physique changed, a finer sample of what the drill holds) scores no skill.
 - **One Mind for every body**: Option Mind runs one loop for every body, and everything it does is
   an Option, made and priced the same way, with no special case for any act.
 - **One act an Option**: one skill used one way, its limbs, target and aim, as the item is really
@@ -166,8 +174,9 @@ A skill that exists enters at the step its failing part belongs to.
 - **Start from the simplest controller that can make the motion**: a schedule of timed pushes
   (`src/skills/strikes/timed-push.ts`) over a posture, a gait, a stance. A tracker following a
   declared course runs behind it by its response time; at a blow's speed that lag is the stroke.
-- **Search it** with CMA-ES on drill trials, scored by the graded score, at both physics rates
-  with the worse counting. A hand-picked set of variants is not a search. Price the search from
+- **Search it** with CMA-ES on its drill's twin, scored by the graded score, at 120 Hz; its
+  confirmation plays the cells' cases at 120 and 480 Hz, the worse counting
+  ([research scores on its drill](#an-options-code)). A hand-picked set of variants is not a search. Price the search from
   its first generation; a search learns over tens of generations. A plateau is thirty generations
   without a better best: a search still improving has gone nine between two bests. A search is
   given no clock and no count of generations: it runs for as long as it improves and ends on
@@ -197,17 +206,17 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 - **The actor corrects the native controller**: it adds to its pushes and asks its stance. An
   output acts only through something that can move: a push on a leg bearing the body moves
   nothing, so the stance is asked instead.
-- **The reward is the graded score of step 1**, and an episode is a drill trial from saved
-  starts at the action's first decision, at places the action's window admits.
+- **The reward is the graded score of step 1**, and an episode is a trial of its drill's twin
+  from saved starts at the action's first decision, at places the action's window admits.
 - **Start from scratch or from this skill's own earlier actor.** Another skill's network starts
   behind scratch.
 
 ### 5. Widen and confirm
 
-- Add what step 1 held back, one at a time, as episodes and cases: the other hand, loadouts,
-  rates, approaches, moving targets, misses and cancellations. Each keeps the earlier cases in
+- Add what step 1 held back, one at a time, as episodes and cases of the twin: the other hand,
+  loadouts, approaches, moving targets, misses and cancellations. Each keeps the earlier cases in
   the mix.
-- Confirm on held-out cases once, on the chosen checkpoint or record.
+- Confirm once on the cells' cases at 120 and 480 Hz, on the chosen checkpoint or record.
 - Register it in Option Mind, install its record in the game and build its profiles from fights
   (a strike's: the Strike drill's `fights` kept with `--json`, then
   `research/skills/strikes/strike-profiles.mjs --write`); a drill Commander using it alone does
@@ -231,8 +240,8 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 - **Developing on starts the game does not give**: a sit-back handover finished more of the Rise
   drill's trials, none slower, and its stand-up rows were still worse: on the Warrior's falls its
   front-sit-back failed after a roll from states the drill's placed starts never hold
-  (`55d4839f`). A change to a skill read on falls is developed on falls neither its rows nor its
-  held-out falls play (the stand-up's: the profiles' offsets, 5.625 and 16.875 degrees).
+  (`55d4839f`). A change to a skill read on falls is developed on its drill's twin (the
+  stand-up's: the target's `fresh` falls), its cells' falls held out.
 - **Reporting the drill**: the search's or the screen's figure given as the skill's, with the
   record never installed or the Mind never choosing it.
 - **Installing a record change on stale profiles**: a technique's digest covers its body's whole

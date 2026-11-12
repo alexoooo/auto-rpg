@@ -64,8 +64,9 @@ port of its own (`npm run build`, then `npm run preview -- --port <port> --stric
 A result keeps a few numbers a trial, what its judge needs (`keep`), and its outcome, by the name
 of the trial's condition, so the table plays nothing to read.
 
-The table reads the game's rate, 120 Hz. 480 Hz is held out: a search and a confirmation read it
-beside 120 Hz ([the skill recipe](../recipes/skill.md)), and no cell does. The cases a reading
+The table reads the game's rate, 120 Hz. Research scores on a drill's training twin and holds a
+cell's cases out; the confirmation that keeps a record plays them at 120 and 480 Hz, the worse
+counting ([the skill recipe](../recipes/skill.md#an-options-code)), and no cell reads 480 Hz. The cases a reading
 must hold are its subject's of its protocol as they are now. A reading stands as it was read, shown with the commit
 and date it was read at, until its cell is asked for again: its trials answer the protocol's cases
 by condition, so a change to the code asks for no replay.

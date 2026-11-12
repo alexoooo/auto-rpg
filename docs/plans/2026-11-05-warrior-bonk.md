@@ -73,19 +73,17 @@ strikes as it arrives (`walk`), at the paces its walk serves; faster with
    wrist and trunk, the wrist cocked in the chamber, the elbow straight by contact), scored on
    energy under the form terms. Its strongest blow is the scale later readings are shown against.
 3. **Native controller.** A chamber posture and a schedule of timed pushes, the wrist's cock
-   and snap among them, CMA-searched on drill trials by the score at 120 and 480 Hz, the worse
-   counting. Extend `swing.ts` where its contract fits; the bonk keeps its own Option and record.
+   and snap among them, CMA-searched on the bonk drill's twin by the score at 120 Hz. Extend `swing.ts` where its contract fits; the bonk keeps its own Option and record.
    Before training, it lands some held-out places.
 4. **Learned actor.** Train a residual actor over the schedule by the training recipe, from
-   scratch, rewarded by the score, on drill trials at places the window admits. Choose
+   scratch, rewarded by the score, on the twin's trials at places the window admits. Choose
    checkpoints on development places; held-out places confirm.
-5. **Widen.** One at a time, keeping the earlier cases in the mix: 480 Hz weighted with 120 Hz,
-   the left hand, the buckler loadouts, the Warrior striking as it walks in, the opponent moving
+5. **Widen.** One at a time, keeping the earlier cases in the mix: the left hand, the buckler loadouts, the Warrior striking as it walks in, the opponent moving
    (carried past, then stepping in and out), and a miss (the target removed
    at commitment) that still follows through and returns to guard.
 6. **Option Mind.** Register the bonk as its own Option with the head as its target, read its
    profiles, and watch Option Mind choose and land it in the Arena.
-7. **Confirm.** Held-out places at both rates, each hand and loadout, the opponent still and
+7. **Confirm.** The cells' places at 120 and 480 Hz, the worse counting, each hand and loadout, the opponent still and
    moving, the Warrior standing and walking in: the score against the baseline. Watch the reel,
    failures first, at normal speed and slow motion, and make [the claim](../recipes/skill.md#the-claim).
 

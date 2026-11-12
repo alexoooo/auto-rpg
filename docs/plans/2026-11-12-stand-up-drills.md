@@ -53,19 +53,22 @@ What the table reads now (`src/evaluation/table/cells.ts`, `STAND_UP`):
 - **Getting up whole is not a skill cell.** How a mind chains ways up after a real fall is a
   fight's question; the target's composite reading stays an evaluation (`rising-target`), read in
   research, not a cell.
-- **Drills hold every situation the skill is tried in.** A search or training scores on drill
-  trials; a scenario played only in research is a gap. Held only outside the drills now, for
-  stand-up: the obstacle levels (rising bed, Lab), `core-rise.mjs --shoves 128`, `rise-search.mjs
-  --offsets`. The ground profiles' falls (`edge-profiles.mjs`) are outside on purpose: they
-  measure profiles, not skills. Every other skill's research goes past its drill too
-  ([the drill gaps](../analysis/2026-11-12-drill-gaps.md)).
+- **Research scores on the drill** ([research on drills](2026-11-12-research-on-drills.md)): the
+  ways up are searched on the drill's twin, the target's `fresh` falls, the cells' falls held
+  out. Held only outside the drills now, and added to them: the obstacle levels (rising bed, Lab)
+  and falls from bouts (`core-rise.mjs`). Probes, scoring no way up: `core-rise.mjs --shoves
+  128`, `rise-search.mjs --offsets`. The ground profiles' falls (`edge-profiles.mjs`) are outside
+  on purpose: they measure profiles, not skills.
 
 ## Open
 
 - **What "stopped making progress" reads**: a way up's stage not advancing for some time while a
   segment touches a solid that is not the ground; the time and the progress measure are read
   from the obstacle falls.
-- **How each skill's gap closes** ([the drill gaps](../analysis/2026-11-12-drill-gaps.md)).
+- **Which bed**: the obstacle levels play on the Lab's stand bed (`risingTrial`); the drill's fall
+  bed refuses them (`src/evaluation/fall.ts`, `buildFall`).
+- **A record shared by two ways up**: the step-up record drives staged-roll and staged-down, the
+  sit-back record sit-back and front-sit-back, so a search of one record reads two cells.
 
 ## The price
 

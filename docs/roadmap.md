@@ -33,6 +33,10 @@ approved brief ([the rules](../AGENTS.md#the-rules)). Its drills are being rebui
 up on its own attempts, shoved and beside obstacles, a fall at a fixed price
 ([its plan](plans/2026-11-12-stand-up-drills.md)).
 
+**Research on drills**: every search, training run and screen scores on its skill's drill,
+drawn at other points so the cells stay held out, the game's situations research plays alone
+added to the drills ([its plan](plans/2026-11-12-research-on-drills.md)).
+
 The standing goal behind it: every cell of the table raised from its baseline, a row at a time
 ([the skill recipe](recipes/skill.md#one-row-one-question)).
 

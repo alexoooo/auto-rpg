@@ -21,8 +21,9 @@ npm run evaluate -- rising-target [riser ...]
   up (`game`, where none is named), `stand-up` with every technique, or a technique's name, each
   on the drills' mind (`option-drill`).
 - **The fresh falls** (`--protocol fresh`): the same bodies and loadouts shoved 11.25 degrees past
-  each direction (`FRESH_OFFSET`), read the same way. Nothing is tuned on them: they
-  show whether a gain is fitted to the target's falls.
+  each direction (`FRESH_OFFSET`), read the same way: the target's training twin. Research
+  scores on them and the target's own falls are held out, so a cell shows whether a gain is
+  fitted to the falls it was tuned on ([the skill recipe](../recipes/skill.md#an-options-code)).
 - **The timing**: from the riser's takeover (the body first down) to a stand verified by
   `STAND_CHECK` (`standCheck`), through landing, orientation and retries. A fall not stood counts
   at the cap.

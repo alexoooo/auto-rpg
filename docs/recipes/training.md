@@ -13,8 +13,9 @@ Follow the steps in order. A step skipped is the usual reason a run teaches noth
   of the curriculum's episodes, never a second actor: switching between actors makes a handover,
   and handovers are where the failures land.
 - **One environment trains it**, with episodes that mix every phase the current stage asks for.
-  An episode is a script of the orders the game gives the skill, played through the game's own
-  mind, as the game gives them.
+  An episode is a trial of the skill's drill's training twin: the orders the game gives the
+  skill, as it gives them, played through the drills' Mind
+  ([research scores on its drill](skill.md#an-options-code)).
 - **The actor corrects a native controller** and decides on the learner's interval
   (`src/core/math/learning/learner.ts`). The native controller under it stays fixed while it
   trains.
