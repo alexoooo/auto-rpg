@@ -153,7 +153,7 @@ function tunedRecipe(tuning: StepUpTuning, base: Recipe): Recipe {
 
 /** The longest a whole attempt may take, s. */
 export const LIMIT = 16;
-/** Under this height, m, a body on its back is lying on it. */
+/** Under this share of standing height, a body borne on its back has failed its rise. */
 export const LOW = .5;
 
 /** A rise a part of the staged route plays (`stagedRise`). */

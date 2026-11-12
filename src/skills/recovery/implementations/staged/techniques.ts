@@ -203,7 +203,7 @@ function risePart(own: OwnBody, view: BodyView, fitted: MotorAndGuard, kind: Sta
         // The rise lies slack again once an attempt has failed.
         if (rise.state.phase === "rise") state.rose = true;
         else if (state.rose && rise.state.phase === "settle") { rise.end(); return finish("failed"); }
-        if (rise.state.phase === "rise" && g.lie === "back" && g.height < LOW) { rise.end(); return finish("failed"); }
+        if (rise.state.phase === "rise" && g.raw === "back" && g.height < LOW) { rise.end(); return finish("failed"); }
         if (rise.state.phase !== "idle") {
           rise.step(senses, control, dt);
           // A rise fallen back to lying slack has failed, read at the next step.
