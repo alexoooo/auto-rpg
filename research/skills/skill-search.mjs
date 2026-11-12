@@ -22,7 +22,8 @@
  *   the time the technique took where the body stood; its longest run (`TECHNIQUE_LIMITS.run`)
  *   and up to 1 s more where it did not, less by how high the body got (`riseTrial`). A record it
  *   writes leaves the body's ground profiles stale: rebuild them
- *   (`research/skills/recovery/edge-profiles.mjs --model <body> --write`) before the table reads.
+ *   (`research/skills/recovery/edge-profiles.mjs --model <body> --write`) in the same change, for
+ *   the game's Mind; the table reads none.
  * - The roll: the Rise drill's `staged-roll` the same way, on its `placed` rung (from the back
  *   and each side) and confirmed on `placed` and `moving` (after a shove from standing). The
  *   search moves the joint angles the roll's four poses drive toward and each pose's time; its

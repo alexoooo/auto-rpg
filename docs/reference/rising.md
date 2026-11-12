@@ -86,4 +86,5 @@ node research/skills/skill-search.mjs <sit-back | roll> <model> --confirm .tmp/s
 - **`--confirm`** plays the record the body plays now and the search's best on seeds the drill
   does not play, on `placed` and `moving`, and keeps the best only where it scores better and
   stands no fewer; `--write` installs a kept best and leaves a kept record as it is. The body's profiles are then stale: rebuild them
-  ([the skill recipe](../recipes/skill.md#traps)) before the table reads the row.
+  in the same change ([the skill recipe](../recipes/skill.md#traps)), for the game's Mind; the
+  table reads none.

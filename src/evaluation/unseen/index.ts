@@ -4,6 +4,7 @@
  * same character, on each side. Beside the tournament's ratings, never in them.
  */
 import { loadoutKey } from "../../core/bodies/items/held.ts";
+import { offered } from "../../minds/catalog/controller.ts";
 import { mindSubject, type Evaluation } from "../evaluation.ts";
 import { createUnseenCases, type UnseenCondition, type UnseenReading } from "./cases.ts";
 import { type GameContext } from "../../game/arena/context.ts";
@@ -21,9 +22,9 @@ export function createUnseenIndex(context: GameContext) {
     defaultProtocol: "standard",
     schedule: "all",
     analysis: {},
-    /** The minds named, or every game mind a person may pick (`Part.stage`) that fits an unrated loadout on some character. */
+    /** The minds named, or every game mind a person may pick (`Part.stage`, `MindPreset.offered`) that fits an unrated loadout on some character. */
     subjects(choice) {
-      const subjects = (choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => partOf(MINDS[id]!.config).stage === "game")).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value, one)
+      const subjects = (choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => offered(MINDS[id]!) && partOf(MINDS[id]!.config).stage === "game")).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value, one)
         : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config, { models: MINDS[one].models, character: MINDS[one].character })
         : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults)
         : (() => { throw new Error(`${one} is no mind`); })());

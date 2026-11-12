@@ -4,7 +4,7 @@
  */
 import type { AttributeOverrides } from "../../core/bodies/character-attributes.ts";
 import { loadoutKey, type Loadout } from "../../core/bodies/items/held.ts";
-import { presetFitsModel } from "../../minds/catalog/controller.ts";
+import { offered, presetFitsModel } from "../../minds/catalog/controller.ts";
 import type { MindConfig } from "../../minds/catalog/config.ts";
 import { BODY_MODELS, type BodyModel } from "../../core/bodies/models.ts";
 import { mindJson, mindOf, mindSubject, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
@@ -36,11 +36,11 @@ export function createTournamentEntrants(context: GameContext) {
   /**
    * The entrants `choice` names, in order: a mind's id gives its entrants, an entrant's id
    * (`mind/character/left,right`) that one, a mind given whole its entrants. None names the field:
-   * every game mind a person may pick (`Part.stage`); an experimental one enters when it is named.
+   * every game mind a person may pick (`Part.stage`, `MindPreset.offered`); any other enters when it is named.
    */
   function entrantSubjects(choice: SubjectChoice): Subject[] {
     const mind = (id: string) => MINDS[id] ?? (() => { throw new Error(`no mind ${id}: ${Object.keys(MINDS).join(", ")}`); })();
-    const named = choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => partOf(MINDS[id]!.config).stage === "game");
+    const named = choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => offered(MINDS[id]!) && partOf(MINDS[id]!.config).stage === "game");
     return named.flatMap((one) => {
       if (typeof one !== "string") {
         const subject = mindSubject(one.id, one.label, one.value, one);

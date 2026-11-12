@@ -1,7 +1,8 @@
 # The table
 
-Option Mind on every body, loadout and skill (`src/evaluation/table/`), each cell valued in the
-game's own terms (`trialValue`), every trial its own value:
+Option Mind on its priors alone (`option-prior`) on every body, loadout and skill
+(`src/evaluation/table/`), each cell valued in the game's own terms (`trialValue`), every trial
+its own value:
 
 | Skill | Value | Better |
 | --- | --- | --- |
@@ -24,10 +25,12 @@ game's own terms (`trialValue`), every trial its own value:
   Mind has there (`Skill.has`, `strikesBy`), and a strike's cases are the drill's conditions at
   the marks and with the limbs its Option names on that body (`caseFaults`). A drill's rung lists
   every mark and limb a strike is asked at; each strike's cases are its own of them.
-- **A drill's order is carried out**: the drill orders the blow firmly (`Orders.firm`), and the
-  Mind begins it as soon as the skill admits it, before it prices anything (`Choice.bound`).
-  No profile and no worth decides whether a blow begins in a cell; in a fight the Mind chooses by
-  itself.
+- **No profile decides anything in a cell**: the cell's Mind prices by hand-set priors, never
+  by a profile, so a skill's reading never depends on what its profiles said of it, and a change
+  to a skill is read without rebuilding them. A strike drill orders the blow firmly
+  (`Orders.firm`), and the Mind begins it as soon as the skill admits it, before it prices
+  anything (`Choice.bound`); the stand-up drill leaves the way up to the Mind, priced by its
+  priors. In a fight the game's Mind (`option`) chooses by its profiles.
 - **A blow not begun is worth 0**: where the drill's fixture reaches a case the strike is offered
   at and no blow begins, the trial counts at 0. The skill did not deliver there: it refused the
   start (`refused`, `waiting`), the body never came into its window (`outside`) or fell first

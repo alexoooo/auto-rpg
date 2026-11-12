@@ -44,7 +44,12 @@ const BITE: StrikeConfig = deepFreeze({ ...BITE_OPTION.defaults, regions: [{ kin
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "tree" },
   options: [OPTIONS[0]!, STRAIGHT_PUNCH, ...HELD_BLOWS, BONK, STOMP, BITE, ...OPTIONS.slice(1)], rate: 60 });
 
-/** Its one config, on any body it fits. */
+/**
+ * Its config, on any body it fits; and the same config on its priors alone (`PRIOR_PREDICTIONS`),
+ * the mind the table's cells read: no profile decides what it does there, so a skill's reading
+ * never depends on what its profiles said of it.
+ */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({
   option: { label: "Option Mind", config: OPTION_DEFAULTS },
+  "option-prior": { label: "Option Mind on its priors alone", config: { ...OPTION_DEFAULTS, predictions: { kind: "prior" } }, offered: false },
 });

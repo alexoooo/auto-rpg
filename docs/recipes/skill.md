@@ -224,8 +224,9 @@ Follows [the training recipe](training.md). What is particular to a new skill:
 - **A form term that forbids the mechanism its figure needs.**
 - **Reporting the drill**: the search's or the screen's figure given as the skill's, with the
   record never installed or the Mind never choosing it.
-- **Reading a record change on stale profiles**: a technique's digest covers its body's whole
+- **Installing a record change on stale profiles**: a technique's digest covers its body's whole
   record (`techniqueDigest`), every loadout included, so a change to one loadout's settings
-  leaves every loadout of that body without its profiles. Refresh the body's
-  (`node research/skills/recovery/edge-profiles.mjs --model <body> --write`) before reading the
-  change.
+  leaves every loadout of that body without its profiles, and the game's Mind prices it by hand.
+  Refresh the body's (`node research/skills/recovery/edge-profiles.mjs --model <body> --write`)
+  in the change that installs the record. The table reads no profile, so its reading neither
+  waits on nor moves with them.
