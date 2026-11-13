@@ -34,6 +34,13 @@ Skeleton's punch 0 and the stomp under 0.02, most of those not begun outside the
 buckler's cover loses 0.12 to 1.05 hp a trial. Its sword cells' readings are of a sword that cut
 and thrust, kept as they are.
 
+**The Warrior's punch into fights**, a goal driven unattended ([driven](recipes/documents.md)):
+the straight punch begun from close in the Strike drill, then landing in the Arena's fights by
+Option Mind's footwork; met when the `punch` row on `workshop-fighter` reads better than its
+baseline and the punch lands more often in the Strike drill's fights (`fight`) than it did when
+the goal began. The close trials not begun are the drill's footwork, not the punch
+([its notes](plans/2026-11-10-warrior-punch.md#why-the-close-trials-do-not-begin)).
+
 **Stand-up on the Rogue and the Skeleton**, a goal driven unattended
 ([driven](recipes/documents.md)): their ways up are read on the table's way-up cells, a cell per
 way up on its own attempts ([the way-up drill](reference/rising.md#the-way-up-drill)). A run works
