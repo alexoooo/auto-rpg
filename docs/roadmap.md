@@ -26,8 +26,12 @@ What is in work now, what is next, and what is open. What is built is in the
 
 ## Now
 
-**Every cell of the table reads "not read"**: the drills changed under them (the drills' Mind,
-every foe, a cell per way up, the wider walk and runs), and no cell is played on them yet.
+**Every cell of the table has its baseline**, read on the drills as they are at `82e2c881`: 116
+cells, 47 readings, none faulted. The ways up take 1.6 to 6 s an attempt on the Warrior, 3 to 10 s
+on the Rogue and 5 to 16 s on the Skeleton, worst holding a club; the walk loses 2.1 to 3.1 s
+against its orders, the runs 6.3 to 7.3 s; the blows trade at most 0.28 hp a second, the
+Skeleton's punch 0 and the stomp under 0.02, most of those not begun outside their window; the
+buckler's cover loses 0.12 to 1.05 hp a trial.
 
 **Stand-up on the Rogue and the Skeleton**, a goal driven unattended
 ([driven](recipes/documents.md)): their ways up are read on the table's way-up cells, a cell per
