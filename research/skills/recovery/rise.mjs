@@ -2,7 +2,7 @@ import { workerJobs } from "../../worker-jobs.mjs";
 /**
  * The battery of falls and its table: every model shoved
  * sixteen ways with the club in hand and with nothing, and the fall of each of the arena's nine
- * matchups, each watched for whether the body gets up (`core-rise-trials.mjs`). A line a cell: how
+ * matchups, each watched for whether the body gets up (`rise-trials.mjs`). A line a cell: how
  * many fell, how many of those rose, the median seconds to rise, the median of the fastest a
  * segment moved while down, the most the stance asked of the ground beyond its soles, the
  * median and the longest of the seconds until the body last moved, and how many are up at the
@@ -10,7 +10,7 @@ import { workerJobs } from "../../worker-jobs.mjs";
  * cell's bodies lay: how many, how many of those rose, the furthest stage of the rise each
  * reached, and how many played the rise to its end.
  *
- *   node research/skills/recovery/core-rise.mjs [--workers 12] [--mind '<MindConfig JSON>'] [--watch 15] [--only <text>]
+ *   node research/skills/recovery/rise.mjs [--workers 12] [--mind '<MindConfig JSON>'] [--watch 15] [--only <text>]
  *     [--shoves 16] [--turn 0] [--falls]
  *
  * With `--mind` every body has that mind in place of the game's (`defaultMind`); with `--watch` each
@@ -23,7 +23,7 @@ import { Worker } from "node:worker_threads";
 import { HUMANOID_MODELS } from "../../../src/core/bodies/models.ts";
 import { defaultLanes } from "../../bout-pool.mjs";
 import { RISE } from "../../../src/skills/recovery/implementations/staged/stages.ts";
-import { LOADOUTS, RISE_HARNESS, UP_SECONDS, WATCH_SECONDS } from "./core-rise-trials.mjs";
+import { LOADOUTS, RISE_HARNESS, UP_SECONDS, WATCH_SECONDS } from "./rise-trials.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, otherwise) => { const at = args.indexOf(`--${name}`); return at < 0 ? otherwise : args[at + 1]; };
@@ -49,7 +49,7 @@ cells.push({
 
 /** Every job on `lanes` workers, each worker one fall at a time; the rows in the jobs' order, each back by message. */
 async function run(jobs) {
-  return workerJobs(jobs, { lanes, create: () => new Worker(new URL("./core-rise-worker.mjs", import.meta.url)),
+  return workerJobs(jobs, { lanes, create: () => new Worker(new URL("./rise-worker.mjs", import.meta.url)),
     message: (job, id) => ({ ...job, mind, watch, id }) });
 }
 

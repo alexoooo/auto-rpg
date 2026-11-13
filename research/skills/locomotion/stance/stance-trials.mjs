@@ -2,7 +2,7 @@ import { isRefused } from "../../../../src/core/refusal.ts";
 import { footOn } from "../../../../src/control/support.ts";
 /**
  * The core stance's trials, one stand each (Node, the core's stand, 120 Hz unless `hz` is given):
- * the batteries `research/skills/locomotion/stance/core-stance-sweep.mjs` sweeps a stance tuning over. Each returns plain numbers.
+ * the batteries `research/skills/locomotion/stance/stance-sweep.mjs` sweeps a stance tuning over. Each returns plain numbers.
  */
 import { Quaternion, Vector3 } from "../../../../src/core/math/vector.ts";
 import { stockBody } from "../../../../src/app/stock-body.ts";

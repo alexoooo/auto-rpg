@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { Vector3 } from '../../../../../src/core/math/vector.ts';
-import { toppled, riserOf } from '../../core-rise-trials.mjs';
+import { toppled, riserOf } from '../../rise-trials.mjs';
 import { riseLimbs } from "../../../../../src/skills/recovery/implementations/staged/limbs.ts";
 import { stagedSubMind } from './staged-submind.mjs';
 import { RISE } from "../../../../../src/skills/recovery/implementations/staged/stages.ts";

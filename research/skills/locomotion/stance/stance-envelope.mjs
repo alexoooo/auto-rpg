@@ -12,7 +12,7 @@
  * begun are not played. A trial is played once a run: the readings over every thing held read the
  * trials each thing's own played.
  *
- *   node research/skills/locomotion/stance/core-stance-envelope.mjs [--legs stance|walk-run] [--write] [--add] [--out file]
+ *   node research/skills/locomotion/stance/stance-envelope.mjs [--legs stance|walk-run] [--write] [--add] [--out file]
  *     [--models man,...] [--holds empty,club] [--walks] [--gusts 1:5:1,2,3,4] [--workers 30]
  *     [--physique '{"speed":1.25}']
  *
@@ -35,7 +35,7 @@ import { HELD } from "../../../../src/core/bodies/items/held.ts";
 import { turnedAsAsked, wentAsAsked } from "../../../../src/evaluation/locomotion/acceptance.ts";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
 import { PHYSICS_HZ } from "../../../../src/core/world/world.ts";
-import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
+import { CORE_STANCE_HARNESS } from "./stance-trials.mjs";
 
 /**
  * The battery's speeds, m/s, by the legs it measures: the walk and run's reach past the stance
@@ -128,7 +128,7 @@ function feed(worker) {
   worker.postMessage({ ...next.job, id: 0 });
 }
 function startWorker() {
-  const worker = new Worker(new URL("./core-stance-worker.mjs", import.meta.url));
+  const worker = new Worker(new URL("./stance-worker.mjs", import.meta.url));
   pool.push(worker);
   worker.idle = true;
   worker.on("error", fail);

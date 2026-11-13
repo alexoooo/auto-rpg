@@ -1,12 +1,12 @@
 /**
  * Pose stages played on a fallen body, for finding them: the
- * battery's body toppled stiff the way asked (`toppled`, `core-rise-trials.mjs`), then under a
+ * battery's body toppled stiff the way asked (`toppled`, `rise-trials.mjs`), then under a
  * staged riser (`stagedRise`) whose recipe is the stages given, as the rise and as every roll, so
  * they are played however it lies. A line a stage, read at its last step: how the body lies, the
  * heights of its centre of mass and of its pelvis's, its upper trunk's and its head's, m, and the
  * freedoms furthest from the stage's posture, each angle less the posture's, rad.
  *
- *   node research/skills/recovery/implementations/staged/core-rise-poses.mjs [--model man] [--lie front|back|left|right]
+ *   node research/skills/recovery/implementations/staged/rise-poses.mjs [--model man] [--lie front|back|left|right]
  *     [--held empty] [--stages '<PoseStage[] JSON>'] [--degrees <about up>]
  *
  * `--lie` is the shove's way: forward, backward, or to that side; `--degrees`, if given, is the
@@ -18,7 +18,7 @@ import { centreOfToRef } from "../../../../../src/core/bodies/read-motion.ts";
 import { lieOf } from "../../../../../src/control/ground-reading.ts";
 import { stagedSubMind } from "./staged-submind.mjs";
 import { RISE } from "../../../../../src/skills/recovery/implementations/staged/stages.ts";
-import { RISE_HARNESS, riserOf, toppled } from "../../core-rise-trials.mjs";
+import { RISE_HARNESS, riserOf, toppled } from "../../rise-trials.mjs";
 
 /** How many of a stage's freedoms are read: those furthest from its posture. */
 const FURTHEST = 4;

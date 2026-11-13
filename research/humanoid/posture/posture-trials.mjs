@@ -35,7 +35,7 @@ import { derive, sourced } from "../../../src/core/quantity.ts";
 import { add, cross, dot, normalize, scale, sub } from "../../../src/core/bodies/spec/vec.ts";
 import { createWorld, PHYSICS_HZ } from "../../../src/core/world/world.ts";
 import { freshEngine } from "../../../tests/harness/core-stand.mjs";
-import { risenAt } from "../../skills/recovery/core-rise-trials.mjs";
+import { risenAt } from "../../skills/recovery/rise-trials.mjs";
 import { yawPitchRollToRef } from "../../yaw-pitch-roll.mjs";
 import MAN from "../../../assets/humanoid/man-contact-geometry.json" with { type: "json" };
 import { SIDES } from "../../../src/core/bodies/bilateral.ts";
@@ -1255,7 +1255,7 @@ export async function path({ from, to, names = [from, to], start, end, variant =
 /**
  * **The engine's body put where `body` stands**: each segment of `built` (a body of the same spec
  * in a world that steps) moved to its namesake's pose, `lift` m higher, at rest. Outside the
- * engine's contract, on the rigid body itself (as `research/core-rapier-probe.mjs` reaches it): done
+ * engine's contract, on the rigid body itself (as `research/rapier-probe.mjs` reaches it): done
  * before a step, and no velocity read until one has run, since a segment's velocities are kept for
  * the step.
  */
@@ -1314,7 +1314,7 @@ const HOLD_SECONDS = 3;
 const LIFT = 0.0005;
 /**
  * A freedom driven to its angle closes its error in `CLOSE_SECONDS`, at most `CLOSE_MOST` rad/s:
- * the pose drive the rise battery holds a body stiff with (`toppled`, `research/skills/recovery/core-rise-trials.mjs`).
+ * the pose drive the rise battery holds a body stiff with (`toppled`, `research/skills/recovery/rise-trials.mjs`).
  */
 const CLOSE_SECONDS = 0.2, CLOSE_MOST = 3;
 /** How far a segment may move from where it was put, m, and the posture have stayed. */

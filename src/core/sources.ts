@@ -444,14 +444,14 @@ const SOURCES = Object.freeze({
     kind: "tuned",
     for: "One hit point is 100 J of blunt blow.",
   },
-  "core-stance-envelope": {
+  "stance-envelope": {
     kind: "asset", file: "assets/skills/locomotion/stance/stance-envelope.json",
     what: "What the core stance held with each body as a fight plays it (in the guard, under its character's "
       + "balance, with a club and empty-handed) at the game's rate: the gait battery's walks at "
       + "0.2-0.7 m/s five ways and the turn battery's half-turns at 0.25-4 rad/s both ways, walking at each "
       + "speed up to the fastest walk, begun from 0 to 1.5 s after the walk sets off and under way; how many "
       + "held at each, and the fastest held by the rule of "
-      + "src/control/stance/stance-envelope.ts; written by research/skills/locomotion/stance/core-stance-envelope.mjs --write, whose "
+      + "src/control/stance/stance-envelope.ts; written by research/skills/locomotion/stance/stance-envelope.mjs --write, whose "
       + "harness it names.",
   },
   "travel-training-ceiling": {
@@ -462,7 +462,7 @@ const SOURCES = Object.freeze({
     kind: "asset", file: "assets/skills/locomotion/walk-run/walk-run-envelope.json",
     what: "How fast the walk and run (src/skills/locomotion/walk-run.ts) free to run walked each way with each body as a fight "
       + "plays it, with each thing held: the fastest speed, 0.2-4.5 m/s, at which every walk held, calm and in the lab's "
-      + "5 N gusts on four seeds; written by research/skills/locomotion/stance/core-stance-envelope.mjs --legs walk-run --walks "
+      + "5 N gusts on four seeds; written by research/skills/locomotion/stance/stance-envelope.mjs --legs walk-run --walks "
       + "--gusts 1:5:1,2,3,4 --write, whose harness it names. It measured no turns.",
   },
   "core-grip": {

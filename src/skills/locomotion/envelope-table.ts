@@ -25,7 +25,7 @@ interface EnvelopeEntry {
 }
 
 /**
- * An envelope's asset, as `research/skills/locomotion/stance/core-stance-envelope.mjs` writes it: its speeds and ways (degrees
+ * An envelope's asset, as `research/skills/locomotion/stance/stance-envelope.mjs` writes it: its speeds and ways (degrees
  * to the right of forward), and each model's readings over every thing its right hand held, the
  * least of them, with each one's own where it measured them (`holds`).
  */

@@ -23,7 +23,7 @@ const { values } = parseArgs({ options: {
   back: { type: "string", default: "0.15" }, seconds: { type: "string", default: "0.3" }, hz: { type: "string", default: "120,480,1920" },
 } });
 const across = Number(values.across), back = Number(values.back), seconds = Number(values.seconds);
-/** The guard the stance tests stand in (`research/skills/locomotion/stance/core-stance-trials.mjs`). */
+/** The guard the stance tests stand in (`research/skills/locomotion/stance/stance-trials.mjs`). */
 const GUARD = {
   "shoulder.right flexion": 0.5, "shoulder.right abduction": -0.2, "elbow.right flexion": 1.3,
   "shoulder.left flexion": 0.5, "shoulder.left abduction": -0.2, "elbow.left flexion": 1.3,

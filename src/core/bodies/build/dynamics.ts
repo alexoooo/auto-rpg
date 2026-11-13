@@ -36,7 +36,7 @@ import { partsOn, type Parts } from "../read-motion.ts";
  * wrist through this term, which the angles and the mass matrix cannot see.
  *
  * It includes each segment's gyroscopic torque, w x I w, because the engine does: Rapier keeps a
- * free body's angular momentum, not its spin (`research/core-rapier-probe.mjs` spins a box to show
+ * free body's angular momentum, not its spin (`research/rapier-probe.mjs` spins a box to show
  * it).
  * Passive spring torques are subtracted from the inertial bias, so the remaining torque is what
  * the muscles and contacts supply; this includes elasticity when every segment is still.

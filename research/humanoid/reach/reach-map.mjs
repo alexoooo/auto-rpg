@@ -6,7 +6,7 @@
  * guard, each next from the angles the last found. Kinematics alone: no step of the world is
  * taken (Node core stand, the lower trunk held).
  *
- *   node research/humanoid/reach/core-reach-map.mjs [--up 0.4,0.6,0.8,1,1.2,1.4,1.6,1.8,2] [--ahead 0.3,0.45,0.6,0.75,0.9,1.05]
+ *   node research/humanoid/reach/reach-map.mjs [--up 0.4,0.6,0.8,1,1.2,1.4,1.6,1.8,2] [--ahead 0.3,0.45,0.6,0.75,0.9,1.05]
  *
  * Prints, per point and wrist, each place's distance left, mm, and the greatest turn of any
  * angle from the place before it on its row, rad; then the places solved within a millimetre.

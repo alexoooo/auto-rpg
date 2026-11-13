@@ -121,7 +121,7 @@ const POSE = 13;
 const MOTOR = 7;
 /** The kinds of motor command `jointSetMotors` takes. */
 const MOTOR_KIND = { velocity: 0, bounded: 1, spring: 2 } as const;
-/** A Rapier body: the contract's, and Rapier's own for a probe of Rapier (`research/core-rapier-probe.mjs`). */
+/** A Rapier body: the contract's, and Rapier's own for a probe of Rapier (`research/rapier-probe.mjs`). */
 interface RapierBody extends SegmentBody {
   /** Rapier's own body: a velocity written to it is read from the next step on (`linearVelocityToRef`). */
   readonly rigid: RAPIER.RigidBody;

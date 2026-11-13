@@ -1,8 +1,8 @@
 /**
- * The core stance's batteries over stance tunings (`core-stance-trials.mjs`), each trial on a
+ * The core stance's batteries over stance tunings (`stance-trials.mjs`), each trial on a
  * worker of its own stand: prints, per tuning and human, what the tests read.
  *
- *   node research/skills/locomotion/stance/core-stance-sweep.mjs --variants '[{}, {"track": 0.15}]' [--batteries stand,edge,step,walk,shove] [--hz 120] [--workers 14] [--balance 25]
+ *   node research/skills/locomotion/stance/stance-sweep.mjs --variants '[{}, {"track": 0.15}]' [--batteries stand,edge,step,walk,shove] [--hz 120] [--workers 14] [--balance 25]
  *
  * `--balance` gives each an assist at that per cent of its weight, where an unarmed stand has none.
  *
@@ -32,7 +32,7 @@ import { Worker } from "node:worker_threads";
 import { workerJobs } from "../../../worker-jobs.mjs";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
-import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
+import { CORE_STANCE_HARNESS } from "./stance-trials.mjs";
 import { CORE_ENGINE } from "../../../../tests/harness/core-stand.mjs";
 import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
 
@@ -70,7 +70,7 @@ variants.forEach((stance, v) => { for (const model of models) {
 const started = Date.now();
 let done = 0;
 await workerJobs(jobs, { lanes,
-  create: () => new Worker(new URL("./core-stance-worker.mjs", import.meta.url)),
+  create: () => new Worker(new URL("./stance-worker.mjs", import.meta.url)),
   message: (job, id) => ({ ...job, id }),
   result: ({ result }, job) => {
     job.result = result;

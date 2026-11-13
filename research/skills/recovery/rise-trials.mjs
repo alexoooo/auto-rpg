@@ -2,7 +2,7 @@ import { rulebook } from "../../../src/combat/rulebook.ts";
 /**
  * The battery of falls, one world each (Node, the core's world, Rapier, 120 Hz): a body felled by a
  * shove or in a bout, and watched for whether it gets up. Each trial returns a plain row;
- * `research/skills/recovery/core-rise.mjs` runs them and prints the table.
+ * `research/skills/recovery/rise.mjs` runs them and prints the table.
  */
 import { Vector3 } from "../../../src/core/math/vector.ts";
 import { SIDES } from "../../../src/game/arena/duel.ts";

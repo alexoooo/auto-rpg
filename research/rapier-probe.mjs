@@ -16,7 +16,7 @@
  *   ceiling, how far it creeps in the second after a settling one, across the solver's iterations
  *   and PGS passes, the ceiling and the motor model.
  *
- *     node research/core-rapier-probe.mjs [--hz 120]
+ *     node research/rapier-probe.mjs [--hz 120]
  */
 import { Quaternion, Vector3 } from "../src/core/math/vector.ts";
 import { turnAboutToRef } from "../src/core/math/turn.ts";

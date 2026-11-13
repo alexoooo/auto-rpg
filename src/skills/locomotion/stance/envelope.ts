@@ -6,8 +6,8 @@ import { envelopeIn } from "../envelope-table.ts";
 /**
  * **What the stance can do with a body**, measured, so that a caller asks for "your fastest walk"
  * and not for a number that held on one engine. The numbers are
- * `assets/skills/locomotion/stance/stance-envelope.json`, which `research/skills/locomotion/stance/core-stance-envelope.mjs --write` writes from
- * the gait battery (`research/skills/locomotion/stance/core-stance-trials.mjs`' walk, five ways at each speed) and the turn
+ * `assets/skills/locomotion/stance/stance-envelope.json`, which `research/skills/locomotion/stance/stance-envelope.mjs --write` writes from
+ * the gait battery (`research/skills/locomotion/stance/stance-trials.mjs`' walk, five ways at each speed) and the turn
  * battery (its turn: half round each way at each rate, walking at each of the gait battery's speeds
  * up to the fastest walk, from the walk's setting off and through its first strides as well as
  * under way; and a quarter round onto a way to the side asked from the turn's start, as a fight
@@ -26,7 +26,7 @@ import { envelopeIn } from "../envelope-table.ts";
 
 /** The measured envelope of `spec`'s model, walking by the stance's own walk (`stance-walk`). */
 export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
-  return envelopeIn(measured, "core-stance-envelope", spec, "the stance");
+  return envelopeIn(measured, "stance-envelope", spec, "the stance");
 }
 
 /** The measured envelope of `spec`'s body (`stanceEnvelope`), or null where the stance's envelope was not measured on it. */

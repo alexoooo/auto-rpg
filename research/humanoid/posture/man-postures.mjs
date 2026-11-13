@@ -1,7 +1,7 @@
 /**
  * **The posture audit's statics on the man's hands and feet**: every
  * row (`ROWS`) searched on each envelope (`ENVELOPES`: the boot, the bare rigid foot and open hand,
- * and the bare foot with its toes on a passive hinge), as built, as `core-posture.mjs` searches it.
+ * and the bare foot with its toes on a passive hinge), as built, as `posture.mjs` searches it.
  * Each row from its seed posture (the toe's also with its toes bent, `TOES_BENT`); a row that holds
  * nothing so, from `--seeds` random postures; a row an envelope still holds nothing of, from every
  * other envelope's witness of it, its toes at rest (statics are one-sided: a witness is one whichever
@@ -14,8 +14,8 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { defaultLanes } from "../../bout-pool.mjs";
-import { bestOf, pictureOf, runJobs } from "./core-posture-runs.mjs";
-import { AUDITED, ENVELOPES, ROWS, rowName, STATICS_HARNESS, staticBody, TOE, TOES_BENT } from "./core-posture-trials.mjs";
+import { bestOf, pictureOf, runJobs } from "./posture-runs.mjs";
+import { AUDITED, ENVELOPES, ROWS, rowName, STATICS_HARNESS, staticBody, TOE, TOES_BENT } from "./posture-trials.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, otherwise) => { const at = args.indexOf(`--${name}`); return at < 0 ? otherwise : args[at + 1]; };
@@ -27,7 +27,7 @@ const envelopes = option("envelopes", ENVELOPES.join(",")).split(",");
 for (const envelope of envelopes) if (!ENVELOPES.includes(envelope)) throw new Error(`no envelope ${envelope}`);
 const OUT = new URL("../../../.tmp/postures/", import.meta.url);
 // Every envelope's step solved a variable a row (`project`'s `solve`), the cheaper with hulls: one
-// harness for all three, whose boot rounds apart from `core-posture.mjs`'s.
+// harness for all three, whose boot rounds apart from `posture.mjs`'s.
 const run = (jobs) => runJobs(jobs, { lanes, out: OUT, defaults: { evals, solve: "variables" } });
 
 const rows = ROWS.filter((row) => !only || only.includes(row.name))

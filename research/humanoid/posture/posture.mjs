@@ -1,7 +1,7 @@
 /**
  * The posture audit and its tables: for each row (`ROWS`), a support
  * between knees and hands and standing, whether the Warrior can hold itself still on it, the
- * least share of its strength that does, and what binds (`core-posture-trials.mjs`).
+ * least share of its strength that does, and what binds (`posture-trials.mjs`).
  *
  * Witness first: every row is searched from its seed posture. A row that holds nothing so is
  * searched again from `--seeds` random postures. Each stripped stop (`VARIANTS`) is searched on the
@@ -12,13 +12,13 @@
  * written to `.tmp/postures/records.json`. Each held answer is then put on the engine and
  * held by its motors (`least`), and handed to the game's stance (`handed`).
  *
- *   node research/humanoid/posture/core-posture.mjs [--workers 30] [--rows 'stand;half kneel, knee light'] [--variants built,knee]
+ *   node research/humanoid/posture/posture.mjs [--workers 30] [--rows 'stand;half kneel, knee light'] [--variants built,knee]
  *     [--seeds 8] [--evals 1500]
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { defaultLanes } from "../../bout-pool.mjs";
-import { bestOf, pictureOf, runJobs } from "./core-posture-runs.mjs";
-import { AUDITED, HOLD_HARNESS, ROWS, rowName, SOLVERS, STATICS_HARNESS, staticBody, STRONG, VARIANTS } from "./core-posture-trials.mjs";
+import { bestOf, pictureOf, runJobs } from "./posture-runs.mjs";
+import { AUDITED, HOLD_HARNESS, ROWS, rowName, SOLVERS, STATICS_HARNESS, staticBody, STRONG, VARIANTS } from "./posture-trials.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, otherwise) => { const at = args.indexOf(`--${name}`); return at < 0 ? otherwise : args[at + 1]; };
