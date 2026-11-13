@@ -197,6 +197,11 @@ ordinary capability drills use impulse joints and rigid contacts, so cannot expo
 
 ## Layer contract regressions
 
+`a quiet stance cannot commit a punch with its striking arm away from prepare or still moving`
+in [skills/boundaries.test.mjs](skills/boundaries.test.mjs) reproduces a fight punch committing
+while its elbow is displaced and moving. It checks every striking-arm freedom on each hand,
+then permits the prepared arm; strike outcomes alone do not establish the commitment condition.
+
 [skills/strike-prepare.test.mjs](skills/strike-prepare.test.mjs): `a held face prepares with
 reachable wrist goals under the damped servo` reproduces a sword chamber whose undamped wrist
 pushes keep it moving until preparation expires. Check wrist command ownership and bounded
