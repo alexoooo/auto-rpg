@@ -46,21 +46,6 @@
   opacity: var(--drain-opacity, 1);
 }
 
-:where(#screen-root[data-screen="arena"]) .arena-drain-notice {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 8px 14px;
-  border: 1px solid #ec6c56;
-  border-radius: 4px;
-  background: #35100ee8;
-  color: #ffe1cd;
-  text-align: center;
-  box-shadow: 0 0 18px #e53b2940;
-}
-:where(#screen-root[data-screen="arena"]) .arena-drain-notice strong { color: #ffac85; text-transform: uppercase; letter-spacing: .08em; }
-:where(#screen-root[data-screen="arena"]) .arena-drain-notice[hidden] { display: none; }
 :where(#screen-root[data-screen="arena"]).is-draining .hud-col progress { outline: 1px solid #ff795c; box-shadow: 0 0 14px #f44336b0; }
 
 @media (prefers-reduced-motion: reduce) {

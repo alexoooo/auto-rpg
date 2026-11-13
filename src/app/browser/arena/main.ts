@@ -441,7 +441,6 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const end = () => {
     routes.update([]);
     context.root.classList.remove("is-draining");
-    drainNotice.hidden = true;
     choosing = false;
     for (const row of rows) row.choices.reset();
     for (const row of rows) row.condition.reset();
@@ -477,12 +476,6 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const row of rows) row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === bout?.person ? " (you)" : ""}`;
   };
   const clockColumn = document.createElement("div"), clock = document.createElement("span"), pauseButton = document.createElement("button");
-  const drainNotice = document.createElement("p");
-  drainNotice.className = "arena-drain-notice"; drainNotice.hidden = true;
-  drainNotice.setAttribute("role", "status");
-  const drainTitle = document.createElement("strong"), drainDetail = document.createElement("span");
-  drainTitle.textContent = "Arena drain"; drainDetail.textContent = "Both fighters are losing health";
-  drainNotice.append(drainTitle, drainDetail);
   const meter = frameMeter(engine, context.signal);
   clockColumn.className = "hud-col hud-clock";
   pauseButton.id = "arena-pause"; pauseButton.type = "button"; pauseButton.className = "action quiet";
@@ -498,7 +491,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   for (const control of [controlField, choiceLabel, goOn]) for (const type of ["pointerdown", "pointermove"]) control.addEventListener(type, event => event.stopPropagation());
   choiceBox.addEventListener("change", () => { choiceBox.blur(); pauseOnChoice = choiceBox.checked; bout?.link.input({ kind: "hold", hold: pauseOnChoice }); });
   goOn.addEventListener("click", () => { goOn.blur(); setPaused(false); });
-  clockColumn.append(clock, drainNotice, controlField, pauseButton, choiceLabel, choosingLine, viewPanel, meter.element); hud.insertBefore(clockColumn, rows[1].label.parentElement);
+  clockColumn.append(clock, controlField, pauseButton, choiceLabel, choosingLine, viewPanel, meter.element); hud.insertBefore(clockColumn, rows[1].label.parentElement);
   // A reel's trial: which, its conditions and the outcome it was read as, auto-play and the next trial.
   const reelLine = document.createElement("div"), trialText = document.createElement("span");
   const autoBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: auto });
@@ -754,7 +747,6 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       return (rule.drained?.(news.clock, { ...rule.defaults, ...config }) ?? 0) > 0;
     });
     context.root.classList.toggle("is-draining", draining);
-    drainNotice.hidden = !draining;
     // The pulse follows the bout's clock, so pause and slow motion hold the damage cue too.
     if (draining) context.root.style.setProperty("--drain-opacity", String(.75 + .25 * Math.cos(news.clock * Math.PI)));
     for (const row of rows) {
