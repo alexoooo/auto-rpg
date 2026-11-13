@@ -36,10 +36,11 @@ buckler's cover loses 0.12 to 1.05 hp a trial.
 **Stand-up on the Rogue and the Skeleton**, a goal driven unattended
 ([driven](recipes/documents.md)): their ways up are read on the table's way-up cells, a cell per
 way up on its own attempts ([the way-up drill](reference/rising.md#the-way-up-drill)). A run works
-one question of it from an approved brief ([the rules](../AGENTS.md#the-rules)). Unread: how many
-of a cell's bouts end in a fall (the one played had none in its 30 s), and whether the hand-set
-choices read right once the obstacle falls are played: being stuck (`STUCK`), another body
-pressed not counting, a try let go not blocking the same way up, the attempt cap (`ATTEMPT_CAP`).
+one question of it from an approved brief ([the rules](../AGENTS.md#the-rules)). Of each way
+up's 135 bouts, 84 make no fall within 30 s (`BOUT_WAIT`), and the buckler loadouts' bouts but the
+Warrior's with the sword make none. Open: whether the hand-set choices read right on the obstacle
+falls, now played: being stuck (`STUCK`), another body pressed not counting, a try let go not
+blocking the same way up, the attempt cap (`ATTEMPT_CAP`).
 
 The standing goal behind it: every cell of the table raised from its baseline, a row at a time
 ([the skill recipe](recipes/skill.md#one-row-one-question)).
