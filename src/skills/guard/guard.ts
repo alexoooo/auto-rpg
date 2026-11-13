@@ -45,15 +45,19 @@ export const GUARD_COVER: Covering = Object.freeze({ out: 0.3, seconds: 0.15 });
  */
 export function guardPosture(spec: BodySpec): Pose {
   const held = spec.held ?? [];
-  if (!held.length) return GUARD;
   const posture: Record<string, number> = { ...GUARD };
+  for (const joint of spec.joints) for (const dof of joint.dofs) {
+    const channel = `${joint.name} ${dof.positive}`, angle = posture[channel];
+    if (angle !== undefined) posture[channel] = Math.max(dof.min.value, Math.min(dof.max.value, angle));
+  }
+  if (!held.length) return Object.freeze(posture);
   const at = new Vector3();
   for (const effector of spec.effectors ?? []) {
     const holding = held.find((h) => h.segment === effector.segment);
     if (!holding) continue;
     const chain = specChainTo(spec, effector.segment), free = effectorFreedoms(chain, effector.base);
     if (!free) throw new Error(`${spec.model}'s ${effector.segment} has no joint from ${effector.base}`);
-    const angles = chain.map((joint) => joint.dofs.map((dof) => GUARD[`${joint.spec.name} ${dof.spec.positive}`] ?? 0));
+    const angles = chain.map((joint) => joint.dofs.map((dof) => posture[`${joint.spec.name} ${dof.spec.positive}`] ?? 0));
     for (const f of free) angles[f.joint]![f.k] = Math.min(f.max, Math.max(f.min, angles[f.joint]![f.k]!));
     const grip = holding.origin.value, haft = add(grip, holding.along.value);
     pointAtToRef(chain, angles, grip, at);

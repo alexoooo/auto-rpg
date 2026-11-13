@@ -18,8 +18,18 @@ when a change affects them.
 - **Lag behind real time** after step k is `max(0, lag + t_k - dt)` (`lagOf`, `research/lag.mjs`),
   read on a playing's own steps, collections included, past its first seconds. A lag under a step
   is never seen: the page draws a step behind the newest frame.
-- **A speed rewrite** does the same operations in the same order, moves no fingerprint case, and
-  reads its step with `research/step-time.mjs` before and after.
+- **A speed rewrite** does the same operations in the same order: the fingerprint moves no pose
+  (`node scripts/fingerprint.mjs --json <before>`, then `--compare <before>`), and where it touches
+  a mind or its saved state, `research/minds-apart.mjs --fork` plays the same to the bit. Its time
+  is read paired with `research/step-time.mjs`: the code before and after played alternately on a
+  quiet machine, each warmed, against a noise band from the same reading taken twice on the code
+  before. It is kept when its time is equal or better and its allocation is not worse; a slower
+  rewrite is dropped whatever it saves in allocation, and an allocation that falls well below its
+  ceiling lowers the ceiling ([below](#allocation-ceilings)). A change too small for the band is
+  read by its profile's own time and allocation sites, and the time once over a group of them.
+- **A bout's slowest steps are Option Mind's decisions**: a speed rewrite thins them but moves the
+  mean more than the tail. A change to what the search computes is a change of the mind, judged
+  on its play (`npm run match`, the stand-up target's falls), not on the fingerprint.
 
 ```powershell
 node research/step-garbage.mjs --bodies 1,2,4,8,16,32,48   # time and allocation as bodies are added

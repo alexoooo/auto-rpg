@@ -2,7 +2,7 @@
 export { optionMind } from "./mind.ts";
 export type { OptionMindConfig, OptionAssembly } from "./config.ts";
 export { ORDERS_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, WALK_OPTION, HOLD_AT_OPTION,
-  BITE_OPTION, BONK_OPTION, CLUB_BLOW_OPTION, CUT_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION,
+  BITE_OPTION, BONK_OPTION, CLUB_BLOW_OPTION, STOMP_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION,
   type WalkConfig, type StrikeConfig, type ProfileOptionPart } from "./kinds.ts";
 export { BRACE_OPTION, BRACE_TUMBLING_OPTION, STEADY_OPTION, FLATTEN_OPTION, LAND_OPTION } from "./rise.ts";
 export { BASE_OPTIONS, RISE_OPTIONS } from "./standard.ts";

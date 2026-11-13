@@ -202,9 +202,6 @@ const BONK_KIND = strikeKind("bonk", "Bonk", "holding-hand");
 export const BONK_OPTION = deepFreeze({ ...BONK_KIND,
   defaults: { ...BONK_KIND.defaults, regions: [{ kind: "mark" as const, mark: "high" as const }] } });
 
-/** **The sword's cut** (`cut`), with the hand that holds the sword. */
-export const CUT_OPTION = strikeKind("cut", "Cut", "holding-hand");
-
 /** **The sword's thrust** (`sword-thrust`), with the hand that holds the sword. */
 export const SWORD_THRUST_OPTION = strikeKind("sword-thrust", "Sword thrust", "holding-hand");
 
@@ -284,7 +281,6 @@ declare module "./parts.ts" {
     readonly "strike-straight-punch": StrikeConfig<"straight-punch">;
     readonly "strike-club-blow": StrikeConfig<"club-blow">;
     readonly "strike-bonk": StrikeConfig<"bonk">;
-    readonly "strike-cut": StrikeConfig<"cut">;
     readonly "strike-sword-thrust": StrikeConfig<"sword-thrust">;
     readonly "strike-stomp": StrikeConfig<"stomp">;
     readonly "strike-jaw-bite": StrikeConfig<"jaw-bite">;

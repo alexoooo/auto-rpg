@@ -185,10 +185,11 @@ ward (below).
   none faster, and placing within 8 cm cut the footwork from 2.0 to 1.6 s without landing more;
   the swing without its footing lands 1 of 16 (`c460c637`, `f61dd813`). A faster bonk takes fewer
   or quicker steps. *Shown.*
-- **The sword's cut fails on its edge's orientation and the thrust on the grip's geometry, not on
-  speed**: the grip lays the blade square to the hand (`13ad8999`, `8b2fee9e`, `9ca0a63d`). The
-  grip, the wrist's range or an alignment term in the score comes before another search.
-  *Suspected.*
+- **A swung sword cut fails on its edge's orientation, not on speed**: with the wrist turning the
+  edge onto its path through the stroke, the grip lays the blade square to the hand
+  (`13ad8999`, `8b2fee9e`, `9ca0a63d`). The game strikes with the sword by the thrust alone. The
+  thrust is suspected of failing on the same grip; the grip or the wrist's range comes before
+  another search. *Suspected.*
 
 ## Guarding
 

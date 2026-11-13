@@ -53,16 +53,6 @@ Peer-reviewed data are thin; most figures are from practitioners.
 | Best peer-reviewed proxy | One-handed 1 kg, 0.65 m rod: 23.9 m/s at the tip (lay men) | -- | Muggenthaler 2018 (row 2) |
 | Kendo (shinai) speed | Not found | Not found | gap |
 
-- **The cut's bar: the rod's tip less one SD** (**derived**, the SD read from a range):
-  Muggenthaler 2018 gives means only (the full text is behind a paywall), and its sister study
-  (Trinh 2018, the same rods and lab) a range, men 14.0 to 35.5 m/s over every rod's mass and
-  length. The SD is that range over 4, (35.5 - 14.0) / 4 = 5.4 m/s, as a range gives the stomp's
-  ([3b](#3b-stomp); the expected range of 29 men, `d2` 4.06, gives 5.3; the range spans
-  every rod, so it is wider than one rod's). The bar is 23.9 - 5.4 = **18.5 m/s** at the point
-  Muggenthaler measured: the rod's tip, 0.65 m from its held end. On the short sword that is the
-  tip, 0.62 m from the grip's end, not the edge's striking point (`edge.right`, 0.36 m), so the cut
-  is read at the item's far end (`Bar.held`, `src/evaluation/strike/read.ts`).
-
 ## 3a. One-handed thrust: a person's stab
 
 Horsfall, Prosser, Watson & Champion 1999, Forensic Sci Int 102:79-89, Table 1, read at its source

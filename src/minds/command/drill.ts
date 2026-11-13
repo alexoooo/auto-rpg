@@ -193,8 +193,9 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       if (state.phase === "striking") {
         // The step it first sees its strike begun, it reads it as under way, a let-go included.
         const begun = member.actions?.find((action) => skillOf(member.kit ?? [], action.action) === state.choice!.skill && action.effector === state.choice!.limb && !state.begun.includes(action.id));
-        if (!begun) return decided(member, strike(state.struck!, state.set));
-        state.id = begun.id; state.began = view.time; state.phase = "under way";
+        if (begun) { state.id = begun.id; state.began = view.time; state.phase = "under way"; }
+        else if (!foe || ordered(member, foe.id)?.readiness.kind !== "position") return decided(member, strike(state.struck!, state.set));
+        // An order can lose admission before it arrives: read the window again and walk back in.
       }
       if (state.id !== null) {
         const live: ActionStatus | undefined = member.actions?.find((action) => action.id === state.id);

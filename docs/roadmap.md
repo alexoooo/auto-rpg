@@ -26,22 +26,39 @@ What is in work now, what is next, and what is open. What is built is in the
 
 ## Now
 
+**Every cell of the table has its baseline**, read on the drills as they are at `82e2c881`: 114
+cells, 43 readings, none faulted. The ways up take 1.6 to 6 s an attempt on the Warrior, 3 to 10 s
+on the Rogue and 5 to 16 s on the Skeleton, worst holding a club; the walk loses 2.1 to 3.1 s
+against its orders, the runs 6.3 to 7.3 s; the blows trade at most 0.28 hp a second, the
+Skeleton's punch 0 and the stomp under 0.02, most of those not begun outside their window; the
+buckler's cover loses 0.12 to 1.05 hp a trial. Its sword cells' readings are of a sword that cut
+and thrust, kept as they are.
+
+**The Warrior's punch into fights**, a goal driven unattended ([driven](recipes/documents.md)):
+the straight punch begun from close in the Strike drill, then landing in the Arena's fights by
+Option Mind's footwork; met when the `punch` row on `workshop-fighter` reads better than its
+baseline and the punch lands more often in the Strike drill's fights (`fight`) than it did when
+the goal began. The empty-handed cell reads 0.256 hp a second traded, better than its baseline;
+every Warrior punch trial begins across the three loadouts. The drill keeps its ordered facing
+on the final approach and positions an unbegun strike again when admission is lost
+([its notes](plans/2026-11-10-warrior-punch.md#why-the-close-trials-do-not-begin)). The punch lands
+2 of 8 reached `fight` trials, the same count as at the goal’s start; in `fights`, 13 of 42,
+against 12 of 42 at the start, with six moments unreached in both. The traces identify punch
+delivery and balance, guard and blow interceptions, moving foes and failed drill positioning
+([the diagnosis](plans/2026-11-10-warrior-punch.md#why-the-punch-does-not-land-in-fights)); the
+required gain on `fight` remains open.
+
 **Stand-up on the Rogue and the Skeleton**, a goal driven unattended
 ([driven](recipes/documents.md)): their ways up are read on the table's way-up cells, a cell per
-way up on its own attempts. A run works one question of it from an approved brief
-([the rules](../AGENTS.md#the-rules)). Its drills are being rebuilt: shoved beside obstacles, a way
-up that meets one letting go ([its plan](plans/2026-11-12-stand-up-drills.md)).
-
-**Research on drills**: every search, training run and screen scores on its skill's drill,
-drawn at other points so the cells stay held out, the game's situations research plays alone
-added to the drills ([its plan](plans/2026-11-12-research-on-drills.md)).
+way up on its own attempts ([the way-up drill](reference/rising.md#the-way-up-drill)). A run works
+one question of it from an approved brief ([the rules](../AGENTS.md#the-rules)). Of each way
+up's 135 bouts, 84 make no fall within 30 s (`BOUT_WAIT`), and the buckler loadouts' bouts but the
+Warrior's with the sword make none. Open: whether the hand-set choices read right on the obstacle
+falls, now played: being stuck (`STUCK`), another body pressed not counting, a try let go not
+blocking the same way up, the attempt cap (`ATTEMPT_CAP`).
 
 The standing goal behind it: every cell of the table raised from its baseline, a row at a time
 ([the skill recipe](recipes/skill.md#one-row-one-question)).
-
-**A fight step's speed** ([its plan](plans/2026-11-12-step-speed.md)): exact rewrites of the mind's
-report, Option Mind's search, repeated solves and the command, toward a step within 8.33 ms at the
-99th percentile; the changes of the mind it holds stay parked.
 
 ## Next
 
@@ -56,7 +73,7 @@ In order; each is a row of the table or one question, taken up on the owner's re
    and the bonk.
 3. **The Warrior's bonk with the buckler**, which never meets the head
    ([its plan](plans/2026-11-05-warrior-bonk.md)).
-4. **The Warrior's cut and thrust**: the grip and the edge's alignment before another search
+4. **The Warrior's thrust**: the grip's geometry before another search
    ([the approaches](approaches.md#weapon-strikes)).
 5. **The Warrior's start from a stand**: a controller that places feet by balance under the run
    ([its plan](plans/2026-11-05-warrior-travel.md)).
@@ -108,6 +125,17 @@ here.
 
 - Rare dear steps break real time at a step's delay (the crowd fight's opening, a Crypt body's
   build step); cut one when it shows in play.
+- A fight step's 99th percentile is past 8.33 ms (a sword bout about 18 ms): its slowest steps are
+  Option Mind's decisions ([step cost](reference/step-cost.md)). What would cut them changes the
+  mind: a decision spread over steps, the tree kept from one decision to the next, profiles read
+  from a table, a learned value at the leaf. The crowd fight plays about 53 steps a second in the
+  browser.
+- The posture is assembled and read by channel name, about 2% of a sword bout's time; the minds'
+  mirror (`mirror-channel.ts`) about 2%.
+- Research playing scenarios of its own, not its drill's twin: the run's orders training
+  (`travel-environment.mjs`, `travel-curriculum.mjs`, `travel-seed.mjs`, its top pace 6.5 m/s
+  its curriculum's) and the residual search, screens and environment (`residual-*.mjs`); the
+  walk's turn rates are in no drill.
 - A step that allocates nothing beyond what Rapier does ([step cost](reference/step-cost.md)).
 - One notion of a task across evaluations, the Lab and the Ratings; the Ratings reel plays bout
   cases only.
@@ -143,6 +171,7 @@ here.
   recovery, armour and bows.
 - Grit, a rising assist, has no mechanism; movement and attack-and-defence assists are not built.
 - The reach solver runs to its cap on a cover the joints' ranges keep out of reach.
+- A way up reads no solid before it begins: it lets go once stuck against one (`STUCK`).
 - A body on paws righted does not stand: the rat's recipe ends propped on folded legs, not its
   paws, and any drive of its legs from there rolls it onto its back; the reptile's routes turn it
   over while placing a paw, or hold a swept leg short of the hip's yaw limit.

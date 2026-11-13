@@ -133,7 +133,7 @@ steered swing is trained from a spread of `--log-std -3` or lower.
   `research/run-train.py --config <it> --output .tmp/warrior-bonk/<run> --keywords value,down --log-std -3 --profile`.
   The trainer's default keywords are travel's and fail on this environment.
 - The swing executor, the strike reader and a muscle's speed are shared pieces: a change to one
-  is read on the club's trunk blow, the sword cut, the punch, stand-up and travel as well. Work
+  is read on the club's trunk blow, the punch, stand-up and travel as well. Work
   goes under `.tmp/warrior-bonk/`.
 
 ## Completion

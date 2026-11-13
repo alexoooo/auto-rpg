@@ -32,12 +32,10 @@ const ALIGN_FULL = 0.2;
  * that way, by a damped least-squares step on their difference (`ALIGN_DAMPING`), each freedom's
  * effect read by turning it `ALIGN_PROBE` on the arm's chain as the body's angles stand, and each
  * pushed toward its turn, flat out from `ALIGN_FULL`, so the wrist holds the face against the
- * swinging arm's pull on the item. With
- * `either`, the facing against the way counts as met (a two-edged blade leads with either edge);
- * else only the facing along it (a point leads point first). Null where `hand` holds no item or
- * has no wrist.
+ * arm's pull on the item. Only the facing along the way counts as met (a point leads point first).
+ * Null where `hand` holds no item or has no wrist.
  */
-export function faceAligner(spec: BodySpec, hand: Side, face: StrikingFace, { either }: { readonly either: boolean }) {
+export function faceAligner(spec: BodySpec, hand: Side, face: StrikingFace) {
   const held = spec.held?.find((one) => one.segment === `hand.${hand}`), segment = spec.segments.find((one) => one.name === `hand.${hand}`);
   if (!held || !segment) return null;
   const chain: JointKinematics[] = specChainTo(spec, `hand.${hand}`), wrist = chain.findIndex((joint) => joint.spec.name === `wrist.${hand}`);
@@ -70,8 +68,7 @@ export function faceAligner(spec: BodySpec, hand: Side, face: StrikingFace, { ei
       if (!(n > 0)) return false;
       for (let j = 0; j < chain.length; j++) for (let k = 0; k < angles[j]!.length; k++) angles[j]![k] = view.angles[channels[j]![k]!] ?? 0;
       facingNow();
-      const sign = either && facing[0]! * way[0]! + facing[1]! * way[1]! + facing[2]! * way[2]! < 0 ? -1 : 1;
-      for (let i = 0; i < 3; i++) { goal[i] = sign * way[i]! / n; base[i] = facing[i]! - goal[i]!; }
+      for (let i = 0; i < 3; i++) { goal[i] = way[i]! / n; base[i] = facing[i]! - goal[i]!; }
       J.fill(0);
       for (let k = 0; k < freedoms; k++) {
         const was = angles[wrist]![k]!;

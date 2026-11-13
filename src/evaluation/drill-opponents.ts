@@ -2,7 +2,7 @@ import type { MindConfig } from "../minds/catalog/config.ts";
 import type { BeatsConfig } from "../minds/command/beats.ts";
 import type { CommanderConfig } from "../minds/command/kind.ts";
 import type { OptionMindConfig } from "../minds/option/config.ts";
-import { ORDERS_OPTION, COVER_OPTION, BONK_OPTION, CUT_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../minds/option/kinds.ts";
+import { ORDERS_OPTION, COVER_OPTION, BONK_OPTION, STRAIGHT_PUNCH_OPTION, SWORD_THRUST_OPTION, type StrikeKindPart } from "../minds/option/kinds.ts";
 import { deepFreeze } from "../core/state.ts";
 import { type GameContext } from "../game/arena/context.ts";
 
@@ -79,7 +79,7 @@ export function createDrillOpponents(context: GameContext) {
     "drill-guard": { label: "Drill: guard", mind: GUARDS },
     "drill-punch": { label: "Drill: punch on a rhythm", mind: PUNCHES, commander: beats(RHYTHM) },
     "drill-club": { label: "Drill: club on a rhythm", mind: striking([BONK_OPTION]), commander: beats(RHYTHM) },
-    "drill-sword": { label: "Drill: sword on a rhythm", mind: striking([CUT_OPTION, SWORD_THRUST_OPTION]), commander: beats(RHYTHM) },
+    "drill-sword": { label: "Drill: sword on a rhythm", mind: striking([SWORD_THRUST_OPTION]), commander: beats(RHYTHM) },
     "drill-press": { label: "Drill: press forward", mind: MOVES, commander: beats([{ seconds: 1, move: { kind: "range", near: .5, far: .7 } }]) },
   });
 

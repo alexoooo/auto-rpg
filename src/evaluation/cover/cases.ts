@@ -47,7 +47,7 @@ const CLUBBED = deepFreeze({ ...PUNCHED, opponent: "drill-club", foe: { left: "e
   models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[],
   loadouts: [{ left: "buckler", right: "club" }, { left: "buckler", right: "sword" }] as Loadout[] });
 
-/** The same, struck by a drill opponent's sword, cut and thrust. */
+/** The same, struck by a drill opponent's sword thrust. */
 const SWORD = deepFreeze({ ...CLUBBED, opponent: "drill-sword", foe: { left: "empty", right: "sword" } as Loadout });
 
 /** What the subject holds, as a loadout. */

@@ -9,7 +9,7 @@ its own value:
 | --- | --- | --- |
 | staged-roll, staged-down, sit-back, front-sit-back | a way up's seconds an attempt on the falls that reach a posture it begins from, an attempt not reaching where it goes at 16 s (`attemptsValue`, [the way-up drill](rising.md#the-way-up-drill)) | lower |
 | walk, run | seconds lost against the orders (`orderTime`), a trial ended down charged the rest of a fall's price (`ordersValue`) | lower |
-| punch, stomp, bonk, cut, thrust | life taken from the target less life lost, a second of the action's cycle from its start to the limb back at guard, a fall adding a fall's price; 0 for a blow not begun where it was asked (`strikeTrade`, `strikeOffered`) | higher |
+| punch, stomp, bonk, thrust | life taken from the target less life lost, a second of the action's cycle from its start to the limb back at guard, a fall adding a fall's price; 0 for a blow not begun where it was asked (`strikeTrade`, `strikeOffered`) | higher |
 | buckler-cover | life lost to the opponent's blows over the trial, those while down among them (`coverValue`) | lower |
 
 - **Seconds lost against the orders**: under a move with a pace, the seconds the progress falls

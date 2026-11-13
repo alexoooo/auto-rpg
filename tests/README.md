@@ -197,6 +197,21 @@ ordinary capability drills use impulse joints and rigid contacts, so cannot expo
 
 ## Layer contract regressions
 
+`a quiet stance cannot commit a punch with its striking arm away from prepare or still moving`
+in [skills/boundaries.test.mjs](skills/boundaries.test.mjs) reproduces a fight punch committing
+while its elbow is displaced and moving. It checks every striking-arm freedom on each hand,
+then permits the prepared arm; strike outcomes alone do not establish the commitment condition.
+
+[skills/strike-prepare.test.mjs](skills/strike-prepare.test.mjs): `a held face prepares with
+reachable wrist goals under the damped servo` reproduces a sword chamber whose undamped wrist
+pushes keep it moving until preparation expires. Check wrist command ownership and bounded
+requests; strike outcomes do not establish that preparation retains servo damping.
+
+[skills/guard-posture.test.mjs](skills/guard-posture.test.mjs): `the guard requests reachable
+angles on empty and equipped arms` reproduces the Skeleton guard asking for shoulder adduction
+and elbow flexion beyond its stops. Construction clamps those angles while the command retains
+them; a completed strike does not establish that its guard requests an attainable posture.
+
 [skills/locomotion/cycle-run.test.mjs](skills/locomotion/cycle-run.test.mjs) checks the running reference through its published knee-channel requests.
 
 | Case | Concrete justification |
@@ -227,6 +242,7 @@ or exact saved-state compatibility.
 | `pacing detects changed orders from a provider reusing its object` | Aliased remembered orders hid a provider's pace change and delayed the next decision. |
 | `walk pricing refuses zero pace and bounds tiny-pace pressure sampling` | Valid zero pace hung the pressure loop; tiny positive pace made its work unbounded. |
 | `walking preserves requested world velocity while facing turns` | Updating the facing before converting the moving-frame velocity rotated a fixed world order. Compare the complete stance command during the observed simultaneous walk and turn; movement drills hide the small per-step rotation. |
+| `ordered facing keeps route facing on a long trip and takes over before stopping` | A short backing correction faced its route and stopped facing away; preserving explicit facing for an entire trip also prevented the forward-only run from running to a distant place. Punch drills cover the short correction but never the long trip's route-facing policy. |
 | `fallen footprints retain observed elevation through navigation memory` | A fixed world height made an elevated fallen body disappear from navigation at its supporting level. |
 | `a changed destination retains a planned route while locomotion is unavailable` | Reproduce a dragged destination clearing the navigation report during an unavailable movement step. Check the updated route around a wall and suppressed movement together; skill drills do not check paths reported between movement steps. |
 

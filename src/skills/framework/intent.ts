@@ -23,8 +23,8 @@ export interface Intent {
   readonly pace?: number;
   /** Go no faster than the body's plain walk goes forward (the stance's walk, `Body.envelope`): a ceiling, whatever the gait. */
   readonly walk?: true;
-  /** With no explicit facing, navigation faces travel along its route. */
-  readonly travelFacing?: true;
+  /** Face along the route: always with true, or until this many metres remain before the ordered facing takes over. */
+  readonly travelFacing?: true | number;
   /** Face this way, rad about up (0 faces +z, growing to the right); the body turns toward it as its walk allows. */
   readonly face: number;
   /**
@@ -67,6 +67,10 @@ export const NO_COVER: Intent["guard"] = Object.freeze({});
 
 /** Standing in guard, facing `face`. */
 export const standIntent = (face = 0): Intent => ({ move: null, face, guard: NO_COVER, actions: [] });
+
+/** Whether navigation supplies the facing at this remaining route distance, m. */
+export const facesTravel = (asked: Intent["travelFacing"], remaining?: number): boolean =>
+  asked === true || typeof asked === "number" && remaining !== undefined && remaining > asked;
 
 /**
  * **What one option of a set a mind selected asks this step**: the resources it claims while it
