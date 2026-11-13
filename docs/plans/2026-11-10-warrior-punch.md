@@ -185,6 +185,145 @@ intervention results and counts are in the finding commit’s message.
 Unchecked: the precise native/learned split in P and navigation/stance split in D; Rogue and
 Skeleton causes; held items; Option Mind’s own punch choice and combat footwork; profiles;
 480 Hz; every reel. This reading does not establish the goal’s required gain on `fight`.
+
+## What a fight asks that the drill does not
+
+The commitment comparison reads the installed punch in Node, `rapier-coordinate`, 120 Hz,
+each command one step late, with empty hands. All 20 selected `fights` trials reproduce their
+saved outcome labels. Of the 414 `still`, `walk`, `still-twin` and `walk-twin` trials
+from `drillTrials(cellOf({ body: "workshop-fighter", skill: "punch" }), "cell")` and its `"twin"`,
+414 begin an action and 414 supply a first committed drive.
+The reference is every such commitment, including failed drill punches. Each fight commitment
+has at least one input outside that reference's component ranges; this identifies missing
+coverage, not by itself a cause of the failed punch.
+
+Elbow flexion is outside in 19 trials and thoracic
+rotation in 18; ground speed is outside in only
+1. A speed admitted by the drill's range therefore does not
+establish that the arm, trunk or velocity vector is a state the drill holds.
+
+The readings are the 59 inputs of `PUNCH_LAYOUT`, directly from `punchFeatures`
+at drive age zero, mirrored by `punchChannels`. Vectors stay together, in across/up/ahead order,
+across toward the punching hand. Network vectors use the root frame; admission and foe
+context use the ground heading. The admission readings use the target against the head,
+the legs' heading and the striker's ground speed; facing error uses target against centre,
+as `windowHolds` reads it. Foe centre velocity is context in that
+heading's frame. Times use the control view's clock for action start and commitment and the
+reader's `handed` for takeover; the reader samples after the physics step. The 5 m right
+moment 5 reads the original left punch; 5 m left moment 6 reads the original right punch.
+
+Ranges below are minima and maxima at commitment; vector cells give one interval per component.
+The outside column counts fight trials with at least one component outside. Trial IDs are
+gap in metres, requested hand, moment; each example names a trial on the linked Ratings page.
+Angles are rad,
+channel speeds rad/s, distances m, velocities m/s, time s and flags 0 or 1.
+
+| Layout input or admission reading | Drill range | Fight range | Outside / 20 | Example |
+| --- | --- | --- | --- | --- |
+| drive age | [0, 0] | [0, 0] | 0 | - |
+| touching | [0, 0] | [0, 0] | 0 | - |
+| arm length | [0.637888, 0.637888] | [0.637888, 0.637888] | 0 | - |
+| standing height | [1.014494, 1.014494] | [1.014494, 1.014494] | 0 | - |
+| near foot bearing | [1, 1] | [0, 1] | 1 | 5-right-3 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| far foot bearing | [1, 1] | [1, 1] | 0 | - |
+| stance shifting | [0, 0] | [0, 1] | 1 | 3-right-7 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| stance swinging | [0, 0] | [0, 0] | 0 | - |
+| target from shoulder | [-0.277691, 0.004951] / [-0.377241, 0.012746] / [0.678471, 0.822145] | [-0.757396, 0.435969] / [-0.521855, 0.31143] / [0.214144, 0.94135] | 13 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| fist from target | [-0.049555, 0.232994] / [0.089, 0.467252] / [-0.515163, -0.367093] | [-0.454313, 0.713731] / [-0.283873, 0.402624] / [-0.662338, 0.087719] | 12 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| fist velocity | [-0.215743, 0.317674] / [-0.006191, 0.082965] / [-0.033926, 0.325275] | [-1.055787, 1.227475] / [-0.359654, 1.853581] / [-1.669225, 0.374693] | 17 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| centre velocity | [-0.102665, 0.133251] / [-0.047312, 0.045873] / [-0.002568, 0.22389] | [-0.243646, 0.236895] / [-0.064601, 0.127444] / [-0.081382, 0.185454] | 20 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| target velocity | [-0.192799, 0.192994] / [-0.203661, 0.669855] / [-0.152308, 0.176037] | [-3.451354, 1.321905] / [-1.246259, 3.969329] / [-4.509167, 2.647295] | 15 | 3-left-4 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| foe centre velocity | [-0.000121, 0.000131] / [-0.027808, 0.006205] / [-0.063218, 0.000596] | [-0.717548, 0.313901] / [-0.463836, 0.216363] / [-0.079217, 0.583094] | 20 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle thoracic rotation right | [-0.000452, 0.000558] | [-0.361249, 0.434544] | 18 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle lumbar rotation right | [-0.036479, 0.035665] | [-0.0793, 0.068904] | 9 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle thoracic flexion | [-0.012163, 0.003201] | [-0.219384, 0.119327] | 15 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle lumbar flexion | [-0.048418, 0.002545] | [-0.037652, 0.880344] | 12 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle hip.left flexion | [0.219587, 0.464637] | [-0.355182, 1.134337] | 8 | 3-left-4 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle hip.left abduction | [-0.163424, 0.022338] | [-0.137879, 0.458939] | 7 | 3-right-1 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle hip.left internal rotation | [-0.134893, 0.109379] | [-0.806211, 0.440746] | 10 | 3-left-4 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle knee.left flexion | [0.49425, 0.607573] | [0.239089, 1.084488] | 16 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle ankle.left dorsiflexion | [0.169954, 0.33212] | [-0.019387, 0.665553] | 15 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle hip.right flexion | [0.222121, 0.448559] | [-0.097171, 0.614807] | 12 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle hip.right abduction | [-0.160045, 0.02396] | [-0.329133, 0.182447] | 10 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle hip.right internal rotation | [-0.101727, 0.085325] | [-0.647662, 0.567405] | 11 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle knee.right flexion | [0.49425, 0.606941] | [0.319915, 1.058717] | 15 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle ankle.right dorsiflexion | [0.19383, 0.330657] | [0.081961, 0.561046] | 14 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle shoulder.right flexion | [0.492886, 0.500046] | [0.422375, 1.558717] | 17 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle shoulder.right abduction | [-0.203701, -0.199707] | [-0.557587, -0.155971] | 16 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle shoulder.right internal rotation | [-0.000016, 0.004053] | [-0.201996, 0.235297] | 17 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| angle elbow.right flexion | [1.298402, 1.300049] | [-0.398908, 1.421949] | 19 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed thoracic rotation right | [-0.006722, 0.007107] | [-2.306956, 1.859167] | 18 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed lumbar rotation right | [-0.947739, 0.892387] | [-1.436441, 1.709754] | 3 | 3-right-3 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed thoracic flexion | [-0.020744, 0.096988] | [-0.452681, 2.878786] | 12 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed lumbar flexion | [-0.270488, 0.575762] | [-3.571657, 0.118384] | 11 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed hip.left flexion | [-2.364392, 0.466129] | [-2.229739, 2.459179] | 8 | 3-left-4 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed hip.left abduction | [-0.429681, 0.604369] | [-1.755183, 3.209714] | 5 | 3-left-4 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed hip.left internal rotation | [-1.242747, 1.068765] | [-1.855198, 2.818779] | 7 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed knee.left flexion | [-3.646422, 0.680743] | [-1.01773, 2.199424] | 4 | 3-left-4 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed ankle.left dorsiflexion | [-1.963924, 2.483696] | [-0.975578, 2.281829] | 0 | - |
+| speed hip.right flexion | [-2.027662, 0.500256] | [-2.173271, 2.220022] | 5 | 3-right-1 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed hip.right abduction | [-0.321885, 0.766076] | [-3.374849, 1.886697] | 5 | 3-left-4 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed hip.right internal rotation | [-0.852837, 1.132194] | [-3.548182, 2.088463] | 7 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed knee.right flexion | [-2.06668, 0.621474] | [-1.601948, 3.069566] | 4 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed ankle.right dorsiflexion | [-0.634975, 3.284954] | [-0.896006, 5.16222] | 3 | 3-right-3 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed shoulder.right flexion | [-0.028663, 0.062612] | [-2.272545, 1.433435] | 16 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed shoulder.right abduction | [-0.020146, 0.031335] | [-1.391736, 3.552254] | 15 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed shoulder.right internal rotation | [-0.041345, 0.021899] | [-1.00416, 1.57168] | 17 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| speed elbow.right flexion | [-0.010219, 0.017214] | [-0.730441, 8.292174] | 19 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| admission along | [0.659907, 0.810697] | [0.515239, 0.960023] | 5 | 3-right-1 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| admission across | [-0.080679, 0.200049] | [-0.173723, 0.230075] | 3 | 3-left-4 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| admission height | [-0.605618, -0.297824] | [-0.577773, -0.152947] | 6 | 3-left-2 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| admission facing | [-0.115248, 0.284089] | [-0.132675, 0.21748] | 1 | 3-left-4 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+| admission speed | [0.029432, 0.231597] | [0.031079, 0.249713] | 1 | 3-right-7 ([Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)) |
+
+The stance phases are `stand` in the reference and
+`stand`, `shift` in the fights. The per-trial values, times, gap names,
+nearest reference trial and controlled outcomes are in this finding's commit message.
+Nearest distance is the root mean square difference of all 51 varying network inputs, each
+divided by its drill maximum minus minimum. A differing zero-spread input makes the full
+distance infinite; its finite varying-input distance is reported alongside it. Admission and
+foe context are excluded from that network-input distance. The finite full distances span
+0.399902 to 162.015281; this is sample nearness,
+not a learned acceptance boundary.
+
+The run-local executor copy retains the installed network and receives no `tuning`.
+Each physical intervention occurs one step before the selected first drive; all
+pre-intervention centre traces match bit for bit. The 73 physical probes change one
+joint angle, one joint's subtree spin, one velocity vector or the striker's position.
+22 place the intended quantity inside its reference range at the resulting commitment;
+3 confirmations meet the outcome test, on 3 distinct fight trials.
+P (delivery) must land; a fallen S (learned stance) or A (learned arm) must stay up.
+The already-upright, outside A trial must also
+begin its requested left punch, so an unchanged outside result does not count as a repair.
+Causal attribution is partial: 17 trials have measured range gaps
+without a confirmed one-quantity cause under these interventions.
+A replay that fails to bring the quantity into range is not a causal test of that gap.
+Every other recorded input moved by each intervention is given in the commit message.
+
+Foe centre velocity is read directly from physical segment velocities, weighted by mass.
+
+At 3-left-4 ([fights Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)), changing **centre velocity** changes `fell` to `elsewhere` with the quantity in range; its coupled input changes are reported with the intervention.
+
+At 3-left-5 ([fights Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)), changing **angle thoracic rotation right** changes `fell` to `missed` with the quantity in range; its coupled input changes are reported with the intervention.
+
+At 5-left-5 ([fights Ratings](http://localhost:5180/?play=ratings&evaluation=strike&protocol=fights&subject=option%2Fstraight-punch)), changing **centre velocity** changes `fell` to `landed` with the quantity in range; its coupled input changes are reported with the intervention.
+
+The input mapping is `punchChannels` and `punchFeatures`
+(`src/skills/strikes/learned-punch.ts`); the first drive and its learned correction are
+`straightTechnique.drive`, with `stanceAsks` applied by `straightPunchExecutor.command`
+(`src/skills/strikes/straight-punch.ts`). Target velocity is the aim's finite difference,
+clipped per world component by `AIM_SPEED` in `aimAt`, rather than the foe's centre velocity.
+Admission is `punchReadiness` in `straight-punch.ts`, then `strikeWindow` and `quietToStrike`
+(`src/skills/strikes/strike-window.ts`), with facing read by `windowHolds`
+(`src/skills/intent/action-window.ts`). The range table describes those code paths' inputs;
+it does not identify a defect in them.
+
+Unchecked: the untested physical changes for the other outside inputs, combinations of changes,
+the native/learned delivery split, and whether adding cases closes any gap; G, B, D, T and
+unreached moments; held items; Rogue and Skeleton as strikers; Option Mind's choice and footwork;
+profiles; 480 Hz; every reel. Nothing is tuned or widened and the required gain on `fight`
+remains open.
+
 ## Open questions
 
 - **Why trunk punches are refused**: against the guarded target 5 of 32 still and 7 of 64 walked
