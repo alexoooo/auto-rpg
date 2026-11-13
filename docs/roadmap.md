@@ -31,8 +31,8 @@ cells, 43 readings, none faulted. The ways up take 1.6 to 6 s an attempt on the 
 on the Rogue and 5 to 16 s on the Skeleton, worst holding a club; the walk loses 2.1 to 3.1 s
 against its orders, the runs 6.3 to 7.3 s; the blows trade at most 0.28 hp a second, the
 Skeleton's punch 0 and the stomp under 0.02, most of those not begun outside their window; the
-buckler's cover loses 0.12 to 1.05 hp a trial. Its sword cells were read against a sword that cut
-and thrust; the sword now only thrusts, so they stand to be played again.
+buckler's cover loses 0.12 to 1.05 hp a trial. Its sword cells' readings are of a sword that cut
+and thrust, kept as they are.
 
 **Stand-up on the Rogue and the Skeleton**, a goal driven unattended
 ([driven](recipes/documents.md)): their ways up are read on the table's way-up cells, a cell per
