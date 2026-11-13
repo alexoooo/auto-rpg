@@ -42,13 +42,13 @@ by contact.
   (`score.ts`); the `bonk` protocol plays the still rung's places on the Warrior's right hand at
   the drill's standing target, its arms lowered (`drill-stand`), each of the game's foes (the
   Warrior, the Rogue, the Skeleton).
-- **The bonk** is a swing (`swingExecutor`, `SWINGS.bonk` in `src/skills/strikes/swing-part.ts`): a
-  chamber posture and timed pushes, its record `assets/skills/strikes/bonk/bonk.json`, thrown by
+- **The bonk** is a swing (`swingExecutor`, `BONK_PART` in `src/skills/strikes/bonk/index.ts`): a
+  chamber posture and timed pushes, its record `assets/skills/strikes/bonk/swing.json`, thrown by
   its own experimental Option (`strike-bonk`, aimed at the head's centre). It is searched on the
   training twins of the body's bonk row's cells by
   `research/skills/strikes/swing/swing-drill.mjs --body man --skill bonk`, scored by
   the cell's value graded (`searchScore`), and confirmed on the cells' own cases (`--confirm`).
-- **The straight punch** (`src/skills/strikes/straight-punch.ts`, `learned-punch.ts`) is the
+- **The straight punch** (`src/skills/strikes/straight-punch/drive/drive.ts`, `shared/steer.ts`) is the
   worked example of every step below: a graded bar, a searched push schedule, a learned actor
   correcting it.
 

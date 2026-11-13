@@ -1,13 +1,13 @@
-import meta from "../../../../../assets/skills/strikes/straight-punch/straight-punch.meta.json" with { type: "json" };
+import meta from "../../../../../assets/skills/strikes/straight-punch/drive.meta.json" with { type: "json" };
 import type { Network } from "../../../../core/math/learning/recovery-network.ts";
 import { deepFreeze } from "../../../../core/state.ts";
 import type { SkillRecord } from "../../../framework/records.ts";
-import type { StraightPunch } from "../../straight-punch.ts";
+import type { StraightPunch } from "../drive/drive.ts";
 
 /**
- * **A straight punch's record for one body** (`dataOf("straight-punch")`,
- * `assets/skills/strikes/straight-punch/straight-punch.json`, by model): the settings it was tuned to on that body,
- * whole, and the network that steers it where it was trained (`punchFeatures` in, its steer out,
+ * **A straight punch's record for one body** (`dataOf("straight-punch/drive")`,
+ * `assets/skills/strikes/straight-punch/drive.json`, by model): the settings it was tuned to on that body,
+ * whole, and the network that steers it where it was trained (`steerFeatures` in, its steer out,
  * as `PUNCH_LAYOUT` lays them out and `recoveryNetwork` evaluates it), or null; `made` says how
  * (`research/skills/strikes/straight-punch/punch-export.mjs` writes it). A body throws the straight punch by its own record or
  * not at all: settings tuned on one body and thrown by another throw a different punch.
@@ -21,10 +21,10 @@ type PunchRecords = Readonly<Record<string, PunchRecord>>;
 
 declare module "../../../../core/data/store.ts" {
   interface DataOf {
-    /** Every body's straight punch record. */
-    "straight-punch": PunchRecords;
+    /** Every body's straight punch record, its drive variation's. */
+    "straight-punch/drive": PunchRecords;
   }
 }
 
-/** **The bodies with a straight punch record**, known before the records load (`assets/skills/strikes/straight-punch/straight-punch.meta.json`). */
+/** **The bodies with a straight punch record**, known before the records load (`assets/skills/strikes/straight-punch/drive.meta.json`). */
 export const PUNCH_BODIES: readonly string[] = deepFreeze(meta.bodies);

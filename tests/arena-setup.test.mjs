@@ -9,7 +9,7 @@ import { dataOf } from "../src/core/data/store.ts";
 test("Arena setup loads compatibility data before offering Option Mind", async () => {
   const context = applicationContext("setup-test"), { catalog } = context;
   const { readControls, linkedMind } = createMatchup(context), { mindFaults } = mindLinks(catalog);
-  assert.throws(() => dataOf("stomp"), /mind data "stomp" is not loaded/);
+  assert.throws(() => dataOf("stomp/stomp"), /mind data "stomp\/stomp" is not loaded/);
   await catalog.loadFitData();
   const search = "?control=option&matchup=man,woman";
   assert.deepEqual(readControls(search), { left: "option", right: "option" });
@@ -22,5 +22,5 @@ test("Arena setup loads compatibility data before offering Option Mind", async (
   const reptile = modelSpec("reptile"), config = catalog.minds.option.config;
   assert.equal(catalog.kindsFor("aim", reptile, config).find(part => part.kind === "first-exposed").reason, null);
   assert.equal(catalog.kindsFor("executor", reptile, config).find(part => part.kind === "jaw-bite").reason, null);
-  assert.throws(() => dataOf("straight-punch"), /mind data "straight-punch" is not loaded/);
+  assert.throws(() => dataOf("straight-punch/drive"), /mind data "straight-punch\/drive" is not loaded/);
 });

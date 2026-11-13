@@ -9,7 +9,7 @@ import { derive } from "../../src/core/quantity.ts";
 import { validRunCycle, RUN_CYCLE } from "../../src/skills/locomotion/cycle-run.ts";
 import { WALK_RUN_PART } from "../../src/skills/locomotion/walk-run-part.ts";
 import { validStepUp } from "../../src/skills/recovery/implementations/staged/records.ts";
-import { validStraightPunchPart } from "../../src/skills/strikes/straight-punch.ts";
+import { validStraightPunchPart } from "../../src/skills/strikes/straight-punch/drive/drive.ts";
 import { surfaceContains } from "../../src/skills/perception/openings.ts";
 import { actionResources } from "../../src/skills/framework/action-resources.ts";
 import { profileReading, skillDigest } from "../../src/skills/framework/profile.ts";
@@ -287,12 +287,12 @@ test("a low quadruped clears its supporting arena floor while retaining real par
 });
 
 import { COVER_GUARD } from "../../src/skills/guard/guard-part.ts";
-import { STOMP_PART } from "../../src/skills/strikes/stomp-part.ts";
+import { STOMP_PART } from "../../src/skills/strikes/stomp/index.ts";
 import { STAGED_DOWN } from "../../src/skills/recovery/implementations/staged/techniques.ts";
 import { stepUpTuning } from "../../src/skills/recovery/implementations/staged/records.ts";
 import { TROT_PART } from "../../src/skills/locomotion/quadruped/trot.ts";
 import { CRAWL_PART } from "../../src/skills/locomotion/quadruped/crawl.ts";
-import { JAW_BITE } from "../../src/skills/strikes/bite/index.ts";
+import { JAW_BITE } from "../../src/skills/strikes/bite/bite/bite.ts";
 import { ROLL_POSES } from "../../src/skills/recovery/implementations/staged/stages.ts";
 import { makeSkills } from "../../src/skills/assembly/assembly.ts";
 import { LEG_RESOURCE, TRUNK_RESOURCE, poseResource, hasResource } from "../../src/skills/framework/action.ts";

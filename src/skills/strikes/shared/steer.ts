@@ -1,31 +1,26 @@
-import { supportHeight } from "../../control/support-reference.ts";
-import { fistOn } from "../../core/bodies/human/endpoints.ts";
-import layoutFile from "../../../assets/skills/strikes/straight-punch/learned-punch.layout.json" with { type: "json" };
-import { Vector3 } from "../../core/math/vector.ts";
-import type { Body, BodyView } from "../../control/body.ts";
-import { intoFrameToRef } from "../../control/kinematics.ts";
-import { cos, sin } from "../../core/math/real.ts";
-import type { MusclePush } from "../../control/motor.ts";
+import { supportHeight } from "../../../control/support-reference.ts";
+import { fistOn } from "../../../core/bodies/human/endpoints.ts";
+import { Vector3 } from "../../../core/math/vector.ts";
+import type { Body, BodyView } from "../../../control/body.ts";
+import { intoFrameToRef } from "../../../control/kinematics.ts";
+import { cos, sin } from "../../../core/math/real.ts";
+import type { MusclePush } from "../../../control/motor.ts";
 
-import { deepFreeze } from "../../core/state.ts";
-
-import { footOn } from "../../control/support.ts";
-import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
+import { footOn } from "../../../control/support.ts";
+import { type Side, otherSide } from "../../../core/bodies/bilateral.ts";
 
 /*
- * **The learned punch's steer**: a straight punch's timed drive (`StraightPunch.timed`) steered by a
- * ReLU network of two hidden layers of 256, its inputs and outputs named by its layout
- * (`PUNCH_LAYOUT`) and its weights in its body's record (`network`, `assets/skills/strikes/straight-punch/straight-punch.json`).
- * Every decision interval of its layout it reads the punch (`punchFeatures`), adds levels to the drive's pushes
- * (`steerPushes`) and asks the legs goal for a heading and a centre of mass (`stanceAsks`). Only
- * the bodies with a record (`PUNCH_BODIES`) throw it. Trained by PPO (`research/run-train.py`
- * against `research/run-learning-server.mjs` on `research/skills/strikes/straight-punch/environments/punch.json`) and written
- * into the record by `research/skills/strikes/straight-punch/punch-export.mjs`.
+ * **A learned steer**: a blow's timed drive steered by a ReLU network, its inputs and outputs named
+ * by its variation's layout (`SteerLayout`) and its weights in its body's record (`network`). Every
+ * decision interval of its layout it reads the blow (`steerFeatures`), adds levels to the drive's
+ * pushes (`steerPushes`) and asks the legs goal for a heading and a centre of mass (`stanceAsks`).
+ * Trained by PPO (`research/run-train.py` against `research/run-learning-server.mjs`) and written
+ * into its record by its research export.
  */
 
 /**
  * **What a steered punch reads before its channels**, each a number the drive reads of itself
- * (`punchFeatures`), named as a layout's inputs name them, for the right hand's punch: the drive's
+ * (`steerFeatures`), named as a layout's inputs name them, for the right hand's punch: the drive's
  * age, s; the target from the punching shoulder and the fist from the target, in the body frame,
  * m; the fist's velocity and the centre of mass's in the body frame, m/s; whether the hand
  * touches; the arm's straight length, shoulder to knuckles, and the height the body stands at
@@ -43,57 +38,51 @@ function axes(name: string): string[] {
 }
 
 /**
- * One output of a learned punch's steer (`PunchLayout`): a push on a named channel (the right
- * hand's punch's), the legs goal's heading turned the punching shoulder forward, rad, or its
- * centre of mass moved ahead along the way the punch faces or across it toward the punching hand's
+ * One output of a learned steer (`SteerLayout`): a push on a named channel (the right hand's
+ * blow's), the legs goal's heading turned the striking shoulder forward, rad, or its centre of
+ * mass moved ahead along the way the blow faces or across it toward the striking hand's
  * side, m, each its output times its full scale, a distance's in proportion to the body's leg; or
  * the walk under way kept (above 0) or halted (`walk`, `keepsWalk`).
  */
-type PunchOutput =
+type SteerOutput =
   | { readonly term: "pushes"; readonly channel: string }
   | { readonly term: "heading"; readonly full: number }
   | { readonly term: "centre"; readonly along: "ahead" | "across"; readonly full: number }
   | { readonly term: "walk" };
 
 /**
- * **A learned punch's layout** (`assets/skills/strikes/straight-punch/learned-punch.layout.json`; a held blow's,
- * `assets/skills/strikes/<kind>/<kind>.layout.json`): its inputs by name, each a reading (`READINGS`) or
+ * **A learned steer's layout**, a variation's (`assets/skills/strikes/<skill>/<variation>.layout.json`):
+ * its inputs by name, each a reading (`READINGS`) or
  * `angle <channel>` and `speed <channel>`, rad and rad/s, for the right hand's blow; the seconds between its
  * decisions at any rate; the leg its distances' full scales are for, m (`legOf`); and its outputs. A held blow reads its striking
- * point where the punch reads its fist (`punchFeatures`).
+ * point where the punch reads its fist (`steerFeatures`).
  */
-export interface PunchLayout {
+export interface SteerLayout {
   readonly inputs: readonly string[];
   readonly interval: number;
   readonly leg: number;
-  readonly outputs: readonly PunchOutput[];
+  readonly outputs: readonly SteerOutput[];
 }
 
-/** The learned punch's layout, its names checked as it loads. */
-export const PUNCH_LAYOUT: PunchLayout = deepFreeze(checkedLayout(layoutFile as PunchLayout));
-
 /** `layout`, its names and interval checked: an input it cannot read, an output it cannot steer or no interval is refused. */
-export function checkedLayout(layout: PunchLayout): PunchLayout {
-  if (!(layout.interval > 0) || !Number.isFinite(layout.interval)) throw new Error("a learned punch decides at a finite positive interval");
+export function checkedLayout(layout: SteerLayout): SteerLayout {
+  if (!(layout.interval > 0) || !Number.isFinite(layout.interval)) throw new Error("a learned steer decides at a finite positive interval");
   for (const name of layout.inputs) {
-    if (!READINGS.includes(name) && !/^(angle|speed) \S/.test(name)) throw new Error(`the learned punch reads no ${name}`);
+    if (!READINGS.includes(name) && !/^(angle|speed) \S/.test(name)) throw new Error(`a learned steer reads no ${name}`);
   }
   for (const output of layout.outputs) {
     const term: string = output.term;
-    if (term !== "pushes" && term !== "heading" && term !== "centre" && term !== "walk") throw new Error(`the learned punch steers no ${term}`);
+    if (term !== "pushes" && term !== "heading" && term !== "centre" && term !== "walk") throw new Error(`a learned steer steers no ${term}`);
   }
   return layout;
 }
-
-/** How many outputs a steered punch's steer has (`PUNCH_LAYOUT`'s outputs). */
-export const PUNCH_ACTIONS = PUNCH_LAYOUT.outputs.length;
 
 /**
  * `hand`'s punch as `layout` lays it out for a body whose leg is `leg` m (`legOf`): the left
  * hand's is the right's with the sides swapped and a turn or a side bend of the trunk reversed, so one steer
  * serves both.
  */
-export function punchChannels(hand: Side, leg: number, layout: PunchLayout = PUNCH_LAYOUT): PunchChannels {
+export function steerChannels(hand: Side, leg: number, layout: SteerLayout): SteerChannels {
   const swap = (name: string) => hand === "right" ? name : name.replace(/\.(left|right) /, (_, side: string) => `.${side === "left" ? "right" : "left"} `);
   const sense = (name: string) => hand === "left" && / (rotation|lateral flexion) right$/.test(name) && !name.includes(".") ? -1 : 1;
   const channelOf = (name: string) => /^(angle|speed) /.test(name) ? name.slice(6) : null;
@@ -115,14 +104,14 @@ export function punchChannels(hand: Side, leg: number, layout: PunchLayout = PUN
 }
 
 /**
- * A hand's punch as its layout lays it out (`punchChannels`). Each input: its reading's place in
+ * A hand's punch as its layout lays it out (`steerChannels`). Each input: its reading's place in
  * `READINGS` (-1 for a channel's), its channel, the hand's (null for a reading), its sense, and
  * whether it reads the channel's speed. Each output: the channel it pushes (null for an ask of the
  * legs), its sense, and its full scale on this body. Where among the outputs the legs goal's
  * heading, centre ahead and centre across are, and the walk's keep (-1 with none), and the hand's
  * side, 1 right and -1 left.
  */
-interface PunchChannels {
+interface SteerChannels {
   readonly readings: readonly number[];
   readonly inputs: readonly (string | null)[];
   readonly inputSenses: readonly number[];
@@ -149,11 +138,11 @@ const framed = (view: BodyView, x: number, y: number, z: number, out: Vector3): 
  * **What a steered punch reads**, into `out`, as `channels` lay its inputs out: the readings
  * (`READINGS`), the hand's side mirrored away (across negated for the left hand), and each named
  * channel's angle or speed, rad or rad/s, in its sense. `fromShoulder` is the target less the
- * shoulder, body frame; `channels` are `hand`'s (`punchChannels`). `strike`, world, is where the
+ * shoulder, body frame; `channels` are `hand`'s (`steerChannels`). `strike`, world, is where the
  * blow's striking point is, the fist's where null: a held blow's is its face's (`StrikingFace`);
  * the velocity read is the fist's either way.
  */
-export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: PunchChannels, since: number, fromShoulder: Vector3, target: readonly number[],
+export function steerFeatures(body: Body, view: BodyView, hand: Side, channels: SteerChannels, since: number, fromShoulder: Vector3, target: readonly number[],
   aimed: readonly number[], touching: boolean, arm: number, out: number[], strike: Vector3 | null = null): number[] {
   const side = hand === "right" ? 1 : -1, fist = view.pointMotion[fistOn(body.built.spec, hand)!]!.knuckles!, muscles = body.muscles, at = strike ?? fist.position;
   let k = 0;
@@ -193,7 +182,7 @@ export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: 
  * sign the sense, no more than flat out. A channel the drive does not push is left to what holds it
  * (the posture, the stance): a push of any level takes a channel from them.
  */
-export function steerPushes(pushes: MusclePush[], channels: PunchChannels, steer: readonly number[]): void {
+export function steerPushes(pushes: MusclePush[], channels: SteerChannels, steer: readonly number[]): void {
   if (steer.length === 0) return;
   const { pushes: names, senses } = channels;
   for (let i = 0; i < names.length; i++) {
@@ -214,7 +203,7 @@ export function steerPushes(pushes: MusclePush[], channels: PunchChannels, steer
  * heading's turn, rad, returned, and the centre of mass's shift, world (x, z), m, into `shift`;
  * nothing asked that `channels` have no output for, or before the steer is set.
  */
-export function stanceAsks(channels: PunchChannels, steer: readonly number[], face: number, sense: number, shift: [number, number]): number {
+export function stanceAsks(channels: SteerChannels, steer: readonly number[], face: number, sense: number, shift: [number, number]): number {
   shift[0] = 0; shift[1] = 0;
   const { heading, ahead: a, across: x, full } = channels;
   if (steer.length < full.length) return 0;
@@ -229,6 +218,6 @@ export function stanceAsks(channels: PunchChannels, steer: readonly number[], fa
  * Whether `steer` keeps the walk under way (its `walk` output above 0) or halts it: null where
  * `channels` have no such output, or before the steer is set.
  */
-export function keepsWalk(channels: PunchChannels, steer: readonly number[]): boolean | null {
+export function keepsWalk(channels: SteerChannels, steer: readonly number[]): boolean | null {
   return channels.walk < 0 || steer.length <= channels.walk ? null : steer[channels.walk]! > 0;
 }

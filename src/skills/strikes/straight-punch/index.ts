@@ -1,12 +1,12 @@
-import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
-import { recoveryNetwork } from "../../core/math/learning/recovery-network.ts";
-import { dataOf } from "../../core/data/store.ts";
-import { strikesWithOneOf, fitsAll, fitsWhen } from "../../parts/parts.ts";
-import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
-import { STRAIGHT_PUNCH_KEYS, timedChannelFault, straightPunchExecutor, straightPunchFits, validStraightPunch, validStraightPunchPart, type StraightPunch } from "./straight-punch.ts";
-import { handConfigurationRefusal, holdsNothing } from "../reach/hand.ts";
-import { PUNCH_BODIES } from "./straight-punch/data/records.ts";
-import { recordFault } from "../framework/records.ts";
+import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
+import { recoveryNetwork } from "../../../core/math/learning/recovery-network.ts";
+import { dataOf } from "../../../core/data/store.ts";
+import { strikesWithOneOf, fitsAll, fitsWhen } from "../../../parts/parts.ts";
+import { aimedPoint, type ExecutorPart } from "../../framework/executor-part.ts";
+import { STRAIGHT_PUNCH_KEYS, timedChannelFault, straightPunchExecutor, straightPunchFits, validStraightPunch, validStraightPunchPart, type StraightPunch } from "./drive/drive.ts";
+import { handConfigurationRefusal, holdsNothing } from "../../reach/hand.ts";
+import { PUNCH_BODIES } from "./data/records.ts";
+import { recordFault } from "../../framework/records.ts";
 
 /**
  * **The straight punch** (`straightPunchExecutor`): the arm driven flat out at a lined-up contact
@@ -28,17 +28,17 @@ export const PUNCH_PART: ExecutorPart<Config> = {
     (spec) => handConfigurationRefusal(spec, ["hand.left", "hand.right"], "fist"),
     recordFault("straight punch", PUNCH_BODIES, validStraightPunch), (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
   faults: (config) => config.tuning === undefined || validStraightPunchPart(config.tuning) ? [] : ["invalid straight punch tuning"],
-  reads: () => ["straight-punch"], effectors: ["hand.left", "hand.right"], aims: true,
+  reads: () => ["straight-punch/drive"], effectors: ["hand.left", "hand.right"], aims: true,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
   make({ body, guard, aim }, config, actions) {
-    const record = dataOf("straight-punch")[body.built.spec.model], settings = { ...record?.settings, ...config.tuning } as StraightPunch;
+    const record = dataOf("straight-punch/drive")[body.built.spec.model], settings = { ...record?.settings, ...config.tuning } as StraightPunch;
     const network = config.tuning === undefined ? record?.network : null;
     return straightPunchExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim), network ? { policy: recoveryNetwork(network) } : {});
   },
 };
 
-declare module "../config.ts" {
+declare module "../../config.ts" {
   interface ExecutorConfigs {
     readonly "straight-punch": Config;
   }

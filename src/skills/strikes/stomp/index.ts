@@ -1,19 +1,19 @@
-import { SUPPORT_REFERENCE } from "../../control/support-reference.ts";
-import { SIDES } from "../../core/bodies/bilateral.ts";
-import { soleRefusal } from "../../control/support.ts";
-import type { BodySpec } from "../../core/bodies/spec/body.ts";
-import meta from "../../../assets/skills/strikes/stomp/stomp.meta.json" with { type: "json" };
-import { dataOf } from "../../core/data/store.ts";
-import { fitsAll } from "../../parts/parts.ts";
-import { aimedPoint, type ExecutorPart } from "../framework/executor-part.ts";
-import { recordFault, tunedSettings, type SkillRecords } from "../framework/records.ts";
-import { deepFreeze } from "../../core/state.ts";
-import { stompExecutor, STOMP_PATH, validStompTuning, type StompTuning } from "./stomp.ts";
+import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
+import { SIDES } from "../../../core/bodies/bilateral.ts";
+import { soleRefusal } from "../../../control/support.ts";
+import type { BodySpec } from "../../../core/bodies/spec/body.ts";
+import meta from "../../../../assets/skills/strikes/stomp/stomp.meta.json" with { type: "json" };
+import { dataOf } from "../../../core/data/store.ts";
+import { fitsAll } from "../../../parts/parts.ts";
+import { aimedPoint, type ExecutorPart } from "../../framework/executor-part.ts";
+import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
+import { deepFreeze } from "../../../core/state.ts";
+import { stompExecutor, STOMP_PATH, validStompTuning, type StompTuning } from "./stomp/stomp.ts";
 
-declare module "../../core/data/store.ts" {
+declare module "../../../core/data/store.ts" {
   interface DataOf {
     /** Every body's stomp record. */
-    "stomp": SkillRecords<StompTuning>;
+    "stomp/stomp": SkillRecords<StompTuning>;
   }
 }
 
@@ -45,7 +45,7 @@ function stompRefusal(spec: BodySpec): string | null {
 
 /**
  * **The stomp** (`stompExecutor`): a stroke of either foot down from a high chamber on a body lying
- * ahead, its settings its body's record (`assets/skills/strikes/stomp/stomp.json`, `dataOf("stomp")`; the Warrior's,
+ * ahead, its settings its body's record (`assets/skills/strikes/stomp/stomp.json`, `dataOf("stomp/stomp")`; the Warrior's,
  * [stomp settings](../../../../docs/reference/front-kicks.md#stomp-settings)): a body with none
  * does not throw it. A research `tuning` sets settings over the record's, all of them where the
  * body has none.
@@ -54,13 +54,13 @@ export const STOMP_PART: ExecutorPart<Config> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Stomp", stage: "experimental", defaults: { kind: "stomp" },
   keys: { kind: true, tuning: true }, fields: [], slots: [], tuning: Object.keys(STOMP_PATH),
   fits: fitsAll(stompRefusal, recordFault("stomp", deepFreeze(meta.bodies), wholeStomp),
-    (spec, config) => validStompTuning(tunedSettings(dataOf("stomp"), spec, config)) ? null : "invalid stomp executor settings"),
+    (spec, config) => validStompTuning(tunedSettings(dataOf("stomp/stomp"), spec, config)) ? null : "invalid stomp executor settings"),
   faults: (config) => config.tuning === undefined || validStompPart(config.tuning) ? [] : ["invalid stomp tuning"],
-  fitReads: ["stomp"], reads: () => ["stomp"], effectors: ["foot.left", "foot.right"], aims: true,
-  make: ({ body, aim }, config, actions) => stompExecutor(body, actions.map(a => a.name), tunedSettings(dataOf("stomp"), body.built.spec, config), aimedPoint(aim)),
+  fitReads: ["stomp/stomp"], reads: () => ["stomp/stomp"], effectors: ["foot.left", "foot.right"], aims: true,
+  make: ({ body, aim }, config, actions) => stompExecutor(body, actions.map(a => a.name), tunedSettings(dataOf("stomp/stomp"), body.built.spec, config), aimedPoint(aim)),
 };
 
-declare module "../config.ts" {
+declare module "../../config.ts" {
   interface ExecutorConfigs {
     readonly "stomp": Config;
   }

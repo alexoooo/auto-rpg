@@ -2,7 +2,7 @@
   "kind": "cases",
   "evaluation": "strike",
   "part": "mind.options.1.skill",
-  "layout": "assets/skills/strikes/bonk/bonk.layout.json",
+  "layout": "assets/skills/strikes/bonk/swing.layout.json",
   "subject": {
     "mind": {
       "preset": "option-drill",

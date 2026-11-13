@@ -8,7 +8,7 @@ import { skillDigest } from "../../src/skills/framework/profile.ts";
 import { record } from "../../src/minds/option/value.ts";
 
 /**
- * Every measured profile (`assets/skills/strikes/<kind>/<kind>-profiles.json`) is of a skill the game has, on a body
+ * Every measured profile (`assets/skills/strikes/strike-profiles/strike-profiles.json`) is of a skill the game has, on a body
  * it builds (`profileKeys`): a profile is read only where its body, spec digest and skill digest are the reader's
  * (`staleness`), so one keyed to a skill or body that has moved on is never read, and a strike or
  * edge that has none is priced by hand in silence.

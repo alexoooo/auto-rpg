@@ -11,7 +11,7 @@ import type { Aim, AimAsking, AimPart } from "../../framework/aim-part.ts";
 import type { Vec3 } from "../../../core/quantity.ts";
 import { deepFreeze } from "../../../core/state.ts";
 import { headFrameToRef, jawOf, mouthToRef } from "./jaw.ts";
-import { biteSettings, fitsBite } from "./index.ts";
+import { biteSettings, fitsBite } from "./bite/bite.ts";
 
 /** **The first exposed surface**'s config. */
 interface FirstExposedConfig { readonly kind: "first-exposed" }
@@ -125,7 +125,7 @@ function firstExposed(spec: Parameters<AimPart["make"]>[0], asking: Readonly<Aim
 /** **The first exposed surface** (`firstExposed`) as a kind of aim: a jaw's, for a body with a bite (`fitsBite`). */
 export const FIRST_EXPOSED_AIM = deepFreeze<AimPart<FirstExposedConfig>>({
   role: "aim", label: "First exposed surface", stage: "game", unit: null, fields: [], slots: [], defaults: { kind: "first-exposed" }, keys: { kind: true },
-  fits: (spec, _config, parts) => fitsBite(spec, { kind: "first-exposed" }, parts), fitReads: ["bite"], faults: () => [], reads: () => ["bite"], make: (spec, _config, asking) => firstExposed(spec, asking),
+  fits: (spec, _config, parts) => fitsBite(spec, { kind: "first-exposed" }, parts), fitReads: ["bite/bite"], faults: () => [], reads: () => ["bite/bite"], make: (spec, _config, asking) => firstExposed(spec, asking),
 });
 
 declare module "../../config.ts" {

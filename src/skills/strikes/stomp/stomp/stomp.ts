@@ -1,23 +1,23 @@
-import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../framework/action.ts";
-import { supportHeight } from "../../control/support-reference.ts";
-import { Quaternion, Vector3 } from "../../core/math/vector.ts";
-import type { Body, BodyView } from "../../control/body.ts";
-import { intoFrameToRef } from "../../control/kinematics.ts";
-import type { EffectorGoal } from "../../control/motor.ts";
-import { footStatesOf, readSupport, withinSupport } from "../../control/support.ts";
-import { STANCE_GAIT } from "../../control/stance/stance-tuning.ts";
-import { supportReadiness, plantedSupport } from "./stomp/support-readiness.ts";
-import { hypot, sin, cos } from "../../core/math/real.ts";
-import { turnAboutToRef } from "../../core/math/turn.ts";
-import type { Vec3 } from "../../core/quantity.ts";
-import { STRIKE_EVENT } from "./strike-cycle.ts";
-import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
-import type { BearingEnd } from "../../core/bodies/spec/body.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
-import type { LegsGoal } from "../framework/skill.ts";
-import { withinActionWindow } from "../intent/action-window.ts";
-import { segmentOf } from "../../core/bodies/spec/body.ts";
-import { type Side, otherSide } from "../../core/bodies/bilateral.ts";
+import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../../framework/action.ts";
+import { supportHeight } from "../../../../control/support-reference.ts";
+import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
+import type { Body, BodyView } from "../../../../control/body.ts";
+import { intoFrameToRef } from "../../../../control/kinematics.ts";
+import type { EffectorGoal } from "../../../../control/motor.ts";
+import { footStatesOf, readSupport, withinSupport } from "../../../../control/support.ts";
+import { STANCE_GAIT } from "../../../../control/stance/stance-tuning.ts";
+import { supportReadiness, plantedSupport } from "../support-readiness.ts";
+import { hypot, sin, cos } from "../../../../core/math/real.ts";
+import { turnAboutToRef } from "../../../../core/math/turn.ts";
+import type { Vec3 } from "../../../../core/quantity.ts";
+import { STRIKE_EVENT } from "../../shared/strike-cycle.ts";
+import { effectorStrike, type StrikeCourse } from "../../shared/effector-strike.ts";
+import type { BearingEnd } from "../../../../core/bodies/spec/body.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../../../framework/action.ts";
+import type { LegsGoal } from "../../../framework/skill.ts";
+import { withinActionWindow } from "../../../intent/action-window.ts";
+import { segmentOf } from "../../../../core/bodies/spec/body.ts";
+import { type Side, otherSide } from "../../../../core/bodies/bilateral.ts";
 
 /** The stomp's settings: the keys every body's record holds, each record whole, and the values the records share outside each body's stroke and window: `docs/reference/front-kicks.md#execution-settings`. */
 export const STOMP_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,

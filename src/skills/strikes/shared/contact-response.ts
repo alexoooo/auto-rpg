@@ -1,4 +1,4 @@
-import type { EffectorFeedback } from "../../control/effector-feedback.ts";
+import type { EffectorFeedback } from "../../../control/effector-feedback.ts";
 
 /** Every loaded identity must belong to the selected opponent before a stroke continues. */
 export function unintendedContact(feedback: EffectorFeedback | undefined, foe: string | undefined): boolean {

@@ -121,7 +121,7 @@ about 1 m/s, upright at every heading and through half turns. What holds it:
 
 ### The lunge
 
-The bite (`jaw-bite`, `biteExecutor`, `src/skills/strikes/bite/index.ts`) aims the tooth its aim names
+The bite (`jaw-bite`, `biteExecutor`, `src/skills/strikes/bite/bite/bite.ts`) aims the tooth its aim names
 (`Aimed.with`) at the target by its mid-stroke point (`contactAt` of the opening), launches on an
 open jaw with the mouth within `biteAlign` of its aim, and lunges: through the stroke the head's
 goal and the lean still drive the mouth onto the aim while the jaw closes. The lean is bounded by

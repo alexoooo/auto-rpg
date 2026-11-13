@@ -2,7 +2,7 @@
   "kind": "cases",
   "evaluation": "strike",
   "part": "mind.options.1.skill",
-  "layout": "assets/skills/strikes/straight-punch/learned-punch.layout.json",
+  "layout": "assets/skills/strikes/straight-punch/drive.layout.json",
   "subject": {"mind": {"preset": "option-drill", "skill": "straight-punch", "steered": true}, "skill": "straight-punch"},
   "places": [
     {"protocol": "still-twin", "where": {"model": "man"}},

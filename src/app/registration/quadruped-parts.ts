@@ -2,7 +2,7 @@ import { PAW_MOTOR } from "../../control/quadruped/paw-motor.ts";
 import { TROT_PART } from "../../skills/locomotion/quadruped/trot.ts";
 import { CRAWL_PART } from "../../skills/locomotion/quadruped/crawl.ts";
 import { PAW_MOVE } from "../../skills/locomotion/quadruped/paw-legs.ts";
-import { JAW_BITE } from "../../skills/strikes/bite/index.ts";
+import { JAW_BITE } from "../../skills/strikes/bite/bite/bite.ts";
 import { FIRST_EXPOSED_AIM } from "../../skills/strikes/bite/jaw-aim.ts";
 import { RIGHTING_RECIPE, RIGHTING_ROUTES } from "../../skills/recovery/righting/righting.ts";
 

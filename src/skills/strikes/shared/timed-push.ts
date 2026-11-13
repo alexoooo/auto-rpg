@@ -1,4 +1,4 @@
-import type { MusclePush } from "../../control/motor.ts";
+import type { MusclePush } from "../../../control/motor.ts";
 
 /**
  * **A push on a schedule**: `channel` driven flat out from `from` s into a stroke for `length` s,

@@ -7,8 +7,8 @@ one stand a trial. A figure is read with its harness: Node, the stand or the mod
 engine and the rate. A script that writes a data file the core reads does so only when asked
 (`--write`, or `skills/locomotion/stance/stance-envelope.mjs`'s `--add`); without it, it prints. Three always write:
 `skills/locomotion/walk-run/run-cycle.mjs` (`assets/skills/locomotion/cycle-run/run-cycle.json`, or `--out`), `skills/skill-records.mjs`
-(`assets/skills/<capability>/<implementation>/<skill>.json` and `.meta.json`) and `skills/strikes/straight-punch/punch-export.mjs`
-(`assets/skills/strikes/straight-punch/straight-punch.json`, or a held blow's `assets/skills/strikes/<kind>/<kind>.json`, with its
+(`assets/skills/<capability>/<implementation>/<skill>.json`, a strike's `assets/skills/strikes/<skill>/<variation>.json`, and `.meta.json`) and `skills/strikes/straight-punch/punch-export.mjs`
+(`assets/skills/strikes/straight-punch/drive.json`, or the sword thrust's `assets/skills/strikes/sword-thrust/drive.json`, with its
 `.meta.json`; or `--out`). Each script's doc comment gives its options, what it prints and the rule
 it reads by.
 
@@ -93,8 +93,8 @@ integral trim and requested lean for diagnosing tracking and saturation.
 | `skills/skill-search.mjs` | a skill's settings (`SEARCHES`: the stomp's on the Strike drill's stomping rung, the sit-back's and the roll's on the way-up cells of the ways up their record drives, the roll's into the step-up record) searched on one body by CMA-ES on the training twins of its row's cells (`drill-trials.mjs`, `skills/recovery/way-up-trials.mjs`); with `--patience` alone it runs until that many generations raise nothing; `--confirm` keeps the best only where it beats the record the body plays now (its start where the body has none) on the cells' own cases at 120 and 480 Hz, the worse counting | `--out`; with `--confirm --write`, the body's row (through `skills/skill-records.mjs`) |
 | `skills/strikes/straight-punch/punch-drill.mjs` | a timed blow (the punch, the thrust) searched on the training twins of a body's row's cells (`drill-trials.mjs`): each pushed channel's level, start and length, the aim and the posture beneath; `--confirm` plays the best and the record on the cells' own cases at 120 and 480 Hz | `--out` |
 | `skills/strikes/swing/swing-drill.mjs` | a swung blow (`bonk`) searched on the training twins of a body's row's cells (`drill-trials.mjs`): each channel's windup and push, where it stands, how long it settles; `--confirm` plays the best and the record on the cells' own cases at 120 and 480 Hz | `--out` |
-| `skills/strikes/sword-thrust/sword-thrust-search.json` | the sword thrust's searched schedule (an earlier `skills/strikes/straight-punch/punch-drill.mjs --blow sword-thrust --chamber --near`, on places and a window of its own), which `assets/skills/strikes/sword-thrust/sword-thrust.json` names as how it was made | |
-| `skills/strikes/straight-punch/punch-reshape.py` | no measurement: a steered punch's training run (`run-train.py`'s model and normalisation) carried from one learned-punch layout to another, input and output by name | the new run's directory |
+| `skills/strikes/sword-thrust/sword-thrust-search.json` | the sword thrust's searched schedule (an earlier `skills/strikes/straight-punch/punch-drill.mjs --blow sword-thrust --chamber --near`, on places and a window of its own), which `assets/skills/strikes/sword-thrust/drive.json` names as how it was made | |
+| `skills/strikes/straight-punch/punch-reshape.py` | no measurement: a steered punch's training run (`run-train.py`'s model and normalisation) carried from one steer layout to another, input and output by name | the new run's directory |
 | `skills/locomotion/stance/stance-sweep.mjs`, `skills/locomotion/stance/stance-trials.mjs`, `skills/locomotion/stance/stance-worker.mjs` | the stance's batteries (stand, edge, step, walk, gait, shove) over tunings (`--variants`) | |
 | `humanoid/reach/reach-map.mjs` | kinematics alone: where the knuckles and the club's swell reach, wrist held and freed | |
 | `humanoid/posture/posture.mjs`, `humanoid/posture/posture-trials.mjs`, `humanoid/posture/posture-worker.mjs` | statics: whether the Warrior can hold still on each support from knees and hands to standing, at what share of its strength, then held by its motors on the world | `.tmp/postures/` |

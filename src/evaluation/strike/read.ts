@@ -16,7 +16,7 @@ import { effectorAim } from "../../control/effectors.ts";
 import { sensedPosture } from "../../skills/perception/threat.ts";
 import { acos, asin, cos } from "../../core/math/real.ts";
 import { skillOf } from "../../skills/framework/menu.ts";
-import { faceOf } from "../../skills/strikes/held-blow.ts";
+import { faceOf } from "../../skills/strikes/shared/held-face.ts";
 import type { Mechanism } from "../../combat/rulebook.ts";
 import type { BuiltBout } from "../bout.ts";
 import type { HostedBody } from "../../minds/seat/hosted-body.ts";

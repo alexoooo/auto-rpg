@@ -1,28 +1,23 @@
-import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../framework/action.ts";
-import { supportHeight } from "../../control/support-reference.ts";
-import { handConfiguration } from "../reach/hand.ts";
-import type { Body, BodyView } from "../../control/body.ts";
-import type { MusclePush } from "../../control/motor.ts";
-import { atan2, cos, hypot, sin } from "../../core/math/real.ts";
-import { Vector3 } from "../../core/math/vector.ts";
-import type { Vec3 } from "../../core/quantity.ts";
-import { bodyEffectors } from "../../control/effectors.ts";
-import { intoFrameToRef, pointAtToRef } from "../../control/kinematics.ts";
-import { channelName } from "../../core/bodies/muscle/driver.ts";
-import { act, ask, learnerOf, restart, start, stop } from "../../core/math/learning/learner.ts";
-import { legOf } from "../locomotion/gait-scale.ts";
-import { punchChannels, punchFeatures, steerPushes, type PunchLayout } from "./learned-punch.ts";
-import type { Pose } from "../../core/bodies/spec/pose.ts";
-import { type BearingEnd, type BodySpec } from "../../core/bodies/spec/body.ts";
-import { footOn } from "../../control/support.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../framework/action.ts";
-import { placedHeightFits } from "../reach/arm-reach.ts";
-import type { StrikingFace } from "./straight-punch.ts";
-import { clearAhead, quietToStrike, strikeWindow } from "./strike-window.ts";
-import { bodyAhead } from "../locomotion/navigation/held-clearance.ts";
-import { sensedActionTarget } from "../framework/action-aim.ts";
-import { timedPushes, validPush, type TimedPush } from "./timed-push.ts";
-import { otherSide, type Side, SIDES } from "../../core/bodies/bilateral.ts";
+import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../../framework/action.ts";
+import { supportHeight } from "../../../../control/support-reference.ts";
+import { handConfiguration } from "../../../reach/hand.ts";
+import type { Body } from "../../../../control/body.ts";
+import type { MusclePush } from "../../../../control/motor.ts";
+import { atan2, cos, sin } from "../../../../core/math/real.ts";
+import { act, ask, learnerOf, restart, start, stop } from "../../../../core/math/learning/learner.ts";
+import { steerPushes, type SteerLayout } from "../../shared/steer.ts";
+import type { Pose } from "../../../../core/bodies/spec/pose.ts";
+import { type BearingEnd, type BodySpec } from "../../../../core/bodies/spec/body.ts";
+import { footOn } from "../../../../control/support.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "../../../framework/action.ts";
+import { placedHeightFits } from "../../../reach/arm-reach.ts";
+import type { StrikingFace } from "../../shared/held-face.ts";
+import { faceSteering } from "../../shared/face-steering.ts";
+import { clearAhead, quietToStrike, strikeWindow } from "../../shared/strike-window.ts";
+import { bodyAhead } from "../../../locomotion/navigation/held-clearance.ts";
+import { sensedActionTarget } from "../../../framework/action-aim.ts";
+import { timedPushes, validPush, type TimedPush } from "../../shared/timed-push.ts";
+import { otherSide, type Side, SIDES } from "../../../../core/bodies/bilateral.ts";
 
 /**
  * **A swing's settings.** It is admitted with the body moving no faster than `pace` m/s, facing
@@ -120,17 +115,17 @@ const AIM_SPEED = 4;
  * target before it settles, so the arc starts from the same stance wherever the walk left it.
  * After the swing it brings the arm back to the guard. An attack given up
  * before the swing is dropped; a swing begun is thrown to its end. It has the hand, the trunk and
- * the legs from its windup to its return, and the hand grips throughout. With a `layout` (`PunchLayout`), a
+ * the legs from its windup to its return, and the hand grips throughout. With a `layout` (`SteerLayout`), a
  * `steered` swing's learner runs from its start to its release: it reads itself once as it begins
  * (one decision over the windup, which no steer moves), then every decision interval of its layout
- * through the swing (`punchFeatures`: the target from the striking shoulder, the face from the
+ * through the swing (`steerFeatures`: the target from the striking shoulder, the face from the
  * target, the arm's straight length from the shoulder to the face), and adds the steer,
  * `policy`'s or its trainer's, to its pushes (`steerPushes`).
  */
 export function swingExecutor(body: Body, guard: Pose, actions: readonly string[], settings: Swing, resolve: TargetResolver,
-  faces: Partial<Record<Side, StrikingFace>>, { layout, policy }: { readonly layout?: PunchLayout;
+  faces: Partial<Record<Side, StrikingFace>>, { layout, policy }: { readonly layout?: SteerLayout;
     readonly policy?: (inputs: readonly number[]) => readonly number[] } = {}): Executor {
-  const spec = body.built.spec, ahead = bodyAhead(spec), steering = layout ? steeringOf(body, faces, layout) : null;
+  const spec = body.built.spec, ahead = bodyAhead(spec), steering = layout ? faceSteering(body, faces, layout) : null;
   const sides = { left: [segmentResource("hand.left"), TRUNK_RESOURCE, LEG_RESOURCE], right: [segmentResource("hand.right"), TRUNK_RESOURCE, LEG_RESOURCE] } as const;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
@@ -266,44 +261,6 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       return { posture, pushes, ...(configuration ? { configurations: { [`hand.${live.hand}`]: configuration } } : {}),
         legs: { walk: null, face: live.face, ...(settings.halts ? { halt: true } : {}), height: supportHeight(view) - live.lower,
           ...(live.phase !== "release" && live.footing ? { footing: live.footing, heading: live.heading } : {}) } };
-    },
-  };
-}
-
-/**
- * **A swing's steer as `layout` lays it out**: each hand's channels (`punchChannels`), and for
- * each hand with a face, what its readings are measured from: the shoulder's centre on the trunk
- * chain, and the arm's straight length from it to the face's point (the elbow straight, the
- * reference pose otherwise). `read` writes what a steered swing reads into `out`.
- */
-function steeringOf(body: Body, faces: Partial<Record<Side, StrikingFace>>, layout: PunchLayout) {
-  const spec = body.built.spec, effectors = bodyEffectors(body.built), leg = legOf(spec);
-  const limbOf = (hand: Side) => {
-    const face = faces[hand];
-    if (!face) return null;
-    const effector = effectors.find((e) => e.segment.spec.name === `hand.${hand}`)!, chain = effector.chain, trunk = effector.free[0]!.joint;
-    const point = effector.points.get(face.point);
-    if (!point) throw new Error(`${spec.model}'s ${hand} hand has no point ${face.point} to swing with`);
-    const angles = chain.map((joint) => joint.dofs.map(() => 0)), shoulder = chain[trunk]!.spec.centre.value, at = new Vector3();
-    for (const f of effector.free) if (/^elbow/.test(f.name)) angles[f.joint]![f.k] = f.min;
-    pointAtToRef(chain, angles, point, at);
-    return { trunkChain: chain.slice(0, trunk), angles: angles.slice(0, trunk), shoulder, point: face.point,
-      arm: hypot(at.x - shoulder[0], at.y - shoulder[1], at.z - shoulder[2]) };
-  };
-  const limbs = { left: limbOf("left"), right: limbOf("right") };
-  const channels = { left: punchChannels("left", leg, layout), right: punchChannels("right", leg, layout) };
-  const shoulder = new Vector3(), target = new Vector3(), apart = new Vector3(), struck = new Vector3();
-  return {
-    channels,
-    /** What `hand`'s swing `since` s old reads (`punchFeatures`), into `out`: the target `sensed` (world) moving at `aimed`, m/s. */
-    read(view: BodyView, hand: Side, since: number, sensed: Vec3, aimed: readonly number[], touching: boolean, out: number[]): void {
-      const limb = limbs[hand]!;
-      limb.trunkChain.forEach((joint, j) => joint.dofs.forEach((_, k) => { limb.angles[j]![k] = view.angles[channelName(joint, k)] ?? 0; }));
-      pointAtToRef(limb.trunkChain, limb.angles, limb.shoulder, shoulder);
-      intoFrameToRef(view.root, sensed, target);
-      view.effectors[`hand.${hand}`]!.points[limb.point]!.applyRotationQuaternionToRef(view.root.rotation, struck).addInPlace(view.root.position);
-      punchFeatures(body, view, hand, channels[hand], since, apart.set(target.x - shoulder.x, target.y - shoulder.y, target.z - shoulder.z), sensed, aimed,
-        touching, limb.arm, out, struck);
     },
   };
 }

@@ -1,10 +1,10 @@
-import { Vector3 } from "../../core/math/vector.ts";
-import type { BodyView } from "../../control/body.ts";
-import { type EffectorFeedback } from "../../control/effector-feedback.ts";
+import { Vector3 } from "../../../core/math/vector.ts";
+import type { BodyView } from "../../../control/body.ts";
+import { type EffectorFeedback } from "../../../control/effector-feedback.ts";
 import { contactResponse } from "./contact-response.ts";
-import type { EffectorGoal } from "../../control/motor.ts";
-import { hypot } from "../../core/math/real.ts";
-import type { Vec3 } from "../../core/quantity.ts";
+import type { EffectorGoal } from "../../../control/motor.ts";
+import { hypot } from "../../../core/math/real.ts";
+import type { Vec3 } from "../../../core/quantity.ts";
 import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState, type StrikeLimits } from "./strike-cycle.ts";
 
 /** How a strike's contact is held: for how long and how far, and how square to the surface the stroke must meet it. */

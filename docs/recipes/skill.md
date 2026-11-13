@@ -176,7 +176,7 @@ A skill that exists enters at the step its failing part belongs to.
   timed pushes for a blow) and check it against [the approaches](../approaches.md). A controller
   without it is not searched or trained.
 - **Start from the simplest controller that can make the motion**: a schedule of timed pushes
-  (`src/skills/strikes/timed-push.ts`) over a posture, a gait, a stance. A tracker following a
+  (`src/skills/strikes/shared/timed-push.ts`) over a posture, a gait, a stance. A tracker following a
   declared course runs behind it by its response time; at a blow's speed that lag is the stroke.
 - **Search it** with CMA-ES on its drill's twin, scored by the graded score, at 120 Hz; its
   confirmation plays the cells' cases at 120 and 480 Hz, the worse counting

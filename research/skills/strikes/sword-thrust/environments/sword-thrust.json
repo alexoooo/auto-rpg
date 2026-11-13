@@ -2,7 +2,7 @@
   "kind": "cases",
   "evaluation": "strike",
   "part": "mind.options.1.skill",
-  "layout": "assets/skills/strikes/sword-thrust/sword-thrust.layout.json",
+  "layout": "assets/skills/strikes/sword-thrust/drive.layout.json",
   "subject": {
     "mind": {
       "preset": "option-drill",

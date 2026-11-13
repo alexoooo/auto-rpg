@@ -1,6 +1,6 @@
 /**
  * **A timed blow searched on its drill's twin**: a body's straight punch (`--skill punch`) or a held
- * blow driven straight (`--skill thrust`: `HELD_BLOWS`' `sword-thrust`), its drive on a schedule
+ * blow driven straight (`--skill thrust`: the sword thrust), its drive on a schedule
  * (`StraightPunch.timed`): each of the pushed channels (`ceilingChannels`: the trunk, both legs and
  * the striking arm, a held blow's wrist beside it) a level, a start and a length into the drive,
  * searched for `--hand` and mirrored to the other hand (`mirrored`), the arm's aim and the posture
@@ -32,7 +32,6 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import "../../../../tests/harness/preload-data.mjs";
-import { HELD_BLOWS } from "../../../../src/skills/strikes/held-blow.ts";
 import { SIDES } from "../../../../src/core/bodies/bilateral.ts";
 import { cmaSearch } from "../../../cma.mjs";
 import { confirmRow, drillTrials, rowOf, scoreOn, subjectOf, trialPool, withTuning } from "../../../drill-trials.mjs";
@@ -147,7 +146,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   }
   if (!values.out || !values.body || !Object.hasOwn(SKILLS, values.skill ?? "")) throw new Error(`--body <model> --skill <${Object.keys(SKILLS).join("|")}> --out <file.json>`);
   const blow = SKILLS[values.skill] === "straight-punch" ? null : SKILLS[values.skill];
-  if (blow && !Object.hasOwn(HELD_BLOWS, blow)) throw new Error(`no held blow ${blow}: one of ${Object.keys(HELD_BLOWS).join(", ")}`);
   const cell = { body: values.body, skill: values.skill, ...(values.loadout ? { loadout: values.loadout } : {}), hand: values.hand ?? "right",
     without: (values.without ?? "").split(",").filter(Boolean), fire: !!values.fire, brake: !!values.brake, wrist: !!blow, free: !!values.free, chamber: !!values.chamber };
   const trials = rowOf(cell).flatMap((one) => drillTrials(one, "twin")), channels = ceilingChannels(cell.hand, cell.wrist);

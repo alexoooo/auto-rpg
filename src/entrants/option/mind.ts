@@ -8,14 +8,14 @@ import { deepFreeze } from "../../core/state.ts";
 const SUPPORT: ConfigFor<"support"> = deepFreeze({ kind: "support-fold" });
 
 /**
- * **The straight punch** (`assets/skills/strikes/straight-punch/straight-punch.json`, the Warrior's trained): with
+ * **The straight punch** (`assets/skills/strikes/straight-punch/drive.json`, the Warrior's trained): with
  * either hand at the trunk's opening, aimed as the learned puncher aims, from its low support.
  */
 const STRAIGHT_PUNCH: StrikeConfig = deepFreeze({ ...STRAIGHT_PUNCH_OPTION.defaults,
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } }, support: SUPPORT });
 
 /**
- * **The sword's thrust**, as its body's record has it (`assets/skills/strikes/sword-thrust/sword-thrust.json`):
+ * **The sword's thrust**, as its body's record has it (`assets/skills/strikes/sword-thrust/drive.json`):
  * with the hand that holds the sword, aimed at the trunk's opening as the straight punch is.
  */
 const THRUST: StrikeConfig = deepFreeze({ ...SWORD_THRUST_OPTION.defaults, aim: STRAIGHT_PUNCH.aim, support: SUPPORT });

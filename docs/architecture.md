@@ -306,17 +306,22 @@ given the same groups in what it sees (`Sight`, `sightOf`).
   control step after its request until the next answer, so native play and training step alike.
   The learned run, the punch and the bare entrant decide this way; every training environment
   steps from one request to the next through `research/learner-adapter.mjs`.
-- **The straight punch** (`straight-punch.ts`) drives the arm flat out at a contact pose solved
-  each step, on a timed schedule (`TimedPush`). Steered, a network (`learned-punch.ts`), deciding every
+- **Strikes** live in `src/skills/strikes/`, a folder a skill, each holding its variation's code
+  (`straight-punch/drive/`) beside the skill's part (`straight-punch/index.ts`); the mechanics
+  variations share are in `shared/`. A variation's settings are
+  `assets/skills/strikes/<skill>/<variation>.json`, by model, its data `dataOf("<skill>/<variation>")`.
+- **The straight punch** (`straight-punch/drive/`) drives the arm flat out at a contact pose solved
+  each step, on a timed schedule (`TimedPush`). Steered, a network (`shared/steer.ts`), deciding every
   interval its layout names, adds to the trunk's and arm's pushes, asks the legs and keeps or halts the walk; it is its body's record
   (`PunchRecord`), trained by `research/run-train.py` and exported by `research/skills/strikes/straight-punch/punch-export.mjs`.
 - **Held blows** strike with what the hand holds (`StrikingFace`), naming the mechanism they meet
-  with (`ExecutorPart.meets`). The thrust is the punch's drive with the blade's point, through which
-  `faceAligner` servos the wrist onto the line to the target; a swing (the club's) winds up to its
-  record's angles, pushes on its `TimedPush` schedule and returns to guard.
-- **The stomp** (`stomp.ts`) is a strike cycle down from a high chamber onto a body lying ahead. A
+  with (`ExecutorPart.meets`). The sword thrust (`sword-thrust/drive/`) is a drive of its own with
+  the blade's point, through which `faceAligner` servos the wrist onto the line to the target; the
+  club blow and the bonk (`club-blow/swing/`, `bonk/swing/`) each wind up to their record's angles,
+  push on their `TimedPush` schedule and return to guard.
+- **The stomp** (`stomp/stomp/`) is a strike cycle down from a high chamber onto a body lying ahead. A
   strike's window (`strikeWindow`) keeps the two bodies clear.
-- **The bite** (`jaw-bite`, `src/skills/strikes/bite/index.ts`) is a strike cycle of the jaw on a crawl:
+- **The bite** (`jaw-bite`, `src/skills/strikes/bite/bite/`) is a strike cycle of the jaw on a crawl:
   the head driven to the mouth's goal, the jaw opened and closed on its path, aimed by the first
   exposed surface along the jaw's arc (`first-exposed`, `jaw-aim.ts`), its tooth carried with the
   aim (`Aimed.with`).

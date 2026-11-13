@@ -1,6 +1,6 @@
 /**
  * **A swing searched on its drill's twin**: a body's swung blow of `--skill <cell>` (`bonk`: a
- * table cell's skill, `SWINGS`' kind). Each of the swung channels (`swingChannels`: the trunk's
+ * table cell's skill, its swing variation's). Each of the swung channels (`swingChannels`: the trunk's
  * turn and bends, the striking arm and its wrist) has a windup angle, a fraction of its range
  * (`Swing.wound`), and a push: a level, a start and a length into the swing (`Swing.timed`); then
  * where it stands to swing (`reach`, the head from the target across the ground), how long the wound
@@ -34,7 +34,6 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import "../../../../tests/harness/preload-data.mjs";
 import { modelSpec } from "../../../../src/core/bodies/models.ts";
-import { SWINGS } from "../../../../src/skills/strikes/swing-part.ts";
 import { cmaSearch } from "../../../cma.mjs";
 import { confirmRow, drillTrials, rowOf, scoreOn, subjectOf, trialPool, withTuning } from "../../../drill-trials.mjs";
 import { recordsOf } from "../../skill-records.mjs";
@@ -57,7 +56,7 @@ const BEHIND = [0.4, 1.3], RIGHT = [-0.5, 0.5];
 /** A push weaker than this leaves the schedule. */
 const QUIET = 0.05;
 
-/** The table's swung blows this searches: a cell's skill, its swing's kind (`SWINGS`). */
+/** The table's swung blows this searches: a cell's skill, the skill whose swing variation it tunes. */
 const SKILLS = Object.freeze({ bonk: "bonk" });
 
 /** Each of `channels`' range on `model`, rad: its least and most angle. */
@@ -141,7 +140,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exit(0);
   }
   if (!values.out || !values.body || !Object.hasOwn(SKILLS, values.skill ?? "")) throw new Error(`--body <model> --skill <${Object.keys(SKILLS).join("|")}> --out <file.json>`);
-  if (!Object.hasOwn(SWINGS, SKILLS[values.skill])) throw new Error(`no swing ${SKILLS[values.skill]}: one of ${Object.keys(SWINGS).join(", ")}`);
   const cell = { body: values.body, skill: values.skill, ...(values.loadout ? { loadout: values.loadout } : {}), hand: values.hand ?? "right" };
   const trials = rowOf(cell).flatMap((one) => drillTrials(one, "twin")), channels = swingChannels(cell.hand);
   const ranges = rangesOf(cell.body, channels), lo = [], hi = [];

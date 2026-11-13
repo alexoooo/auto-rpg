@@ -1,32 +1,32 @@
-import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../framework/action.ts";
-import { SUPPORT_REFERENCE } from "../../../control/support-reference.ts";
-import { supportHeight } from "../../../control/support-reference.ts";
-import { Quaternion, Vector3 } from "../../../core/math/vector.ts";
-import type { Body, BodyView } from "../../../control/body.ts";
-import { channelName } from "../../../core/bodies/muscle/driver.ts";
-import { pointAtToRef, rootFrameToRef, intoFrameToRef, type Frame } from "../../../control/kinematics.ts";
-import type { EffectorGoal, FreedomPath } from "../../../control/motor.ts";
-import { effectorFeedback } from "../../../control/effector-feedback.ts";
-import { unintendedContact } from "../contact-response.ts";
-import { scalarPathToRef } from "../../../control/point-path.ts";
-import { nearestSurface } from "../../perception/targets.ts";
-import { sensedActionTarget } from "../../framework/action-aim.ts";
-import { atan2, cos, hypot, sin } from "../../../core/math/real.ts";
-import { motionAtToRef, pointOfToRef, turnOfToRef } from "../../../core/bodies/read-motion.ts";
-import type { BodyRef, ReadSegment } from "../../../core/bodies/read-body.ts";
-import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } from "../strike-cycle.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Window } from "../../framework/action.ts";
-import type { ExecutorPart, ExecutorMaking } from "../../framework/executor-part.ts";
-import type { LegsGoal } from "../../framework/skill.ts";
-import type { Vec3 } from "../../../core/quantity.ts";
-import { gapePoints, jawOf, mouthOf, mouthToRef, fitsJaw } from "./jaw.ts";
-import { pawReader } from "../../../control/quadruped/paws.ts";
-import meta from "../../../../assets/skills/strikes/bite/bite.meta.json" with { type: "json" };
-import { dataOf } from "../../../core/data/store.ts";
-import { fitsAll, type PartConfig } from "../../../parts/parts.ts";
-import { recordFault, tunedSettings, type SkillRecords } from "../../framework/records.ts";
-import type { BodySpec } from "../../../core/bodies/spec/body.ts";
-import { deepFreeze } from "../../../core/state.ts";
+import { segmentResource, LEG_RESOURCE, TRUNK_RESOURCE } from "../../../framework/action.ts";
+import { SUPPORT_REFERENCE } from "../../../../control/support-reference.ts";
+import { supportHeight } from "../../../../control/support-reference.ts";
+import { Quaternion, Vector3 } from "../../../../core/math/vector.ts";
+import type { Body, BodyView } from "../../../../control/body.ts";
+import { channelName } from "../../../../core/bodies/muscle/driver.ts";
+import { pointAtToRef, rootFrameToRef, intoFrameToRef, type Frame } from "../../../../control/kinematics.ts";
+import type { EffectorGoal, FreedomPath } from "../../../../control/motor.ts";
+import { effectorFeedback } from "../../../../control/effector-feedback.ts";
+import { unintendedContact } from "../../shared/contact-response.ts";
+import { scalarPathToRef } from "../../../../control/point-path.ts";
+import { nearestSurface } from "../../../perception/targets.ts";
+import { sensedActionTarget } from "../../../framework/action-aim.ts";
+import { atan2, cos, hypot, sin } from "../../../../core/math/real.ts";
+import { motionAtToRef, pointOfToRef, turnOfToRef } from "../../../../core/bodies/read-motion.ts";
+import type { BodyRef, ReadSegment } from "../../../../core/bodies/read-body.ts";
+import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } from "../../shared/strike-cycle.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Window } from "../../../framework/action.ts";
+import type { ExecutorPart, ExecutorMaking } from "../../../framework/executor-part.ts";
+import type { LegsGoal } from "../../../framework/skill.ts";
+import type { Vec3 } from "../../../../core/quantity.ts";
+import { gapePoints, jawOf, mouthOf, mouthToRef, fitsJaw } from "../jaw.ts";
+import { pawReader } from "../../../../control/quadruped/paws.ts";
+import meta from "../../../../../assets/skills/strikes/bite/bite.meta.json" with { type: "json" };
+import { dataOf } from "../../../../core/data/store.ts";
+import { fitsAll, type PartConfig } from "../../../../parts/parts.ts";
+import { recordFault, tunedSettings, type SkillRecords } from "../../../framework/records.ts";
+import type { BodySpec } from "../../../../core/bodies/spec/body.ts";
+import { deepFreeze } from "../../../../core/state.ts";
 
 /** Backward travel asked while the bite withdraws, m/s. */
 const WITHDRAW_SPEED = 1.15;
@@ -36,13 +36,13 @@ const BITE_SETTINGS = Object.freeze(["prepare", "snap", "release", "open", "jawE
   "biteElevation", "biteNear", "biteSlow", "biteHold", "biteReturnLimit", "contactAt", "closeRate", "biteResponse", "biteAlign", "biteShift",
   "contactSeconds", "biteSamples", "biteLead", "neckRetract"] as const);
 
-/** **The bite's settings** (`BITE_SETTINGS`): the jaw's path, its reach and the strike cycle's limits, a body's record (`dataOf("bite")`). */
+/** **The bite's settings** (`BITE_SETTINGS`): the jaw's path, its reach and the strike cycle's limits, a body's record (`dataOf("bite/bite")`). */
 type BiteTuning = { readonly [K in (typeof BITE_SETTINGS)[number]]: number };
 
-declare module "../../../core/data/store.ts" {
+declare module "../../../../core/data/store.ts" {
   interface DataOf {
     /** Every body's bite settings. */
-    "bite": SkillRecords<BiteTuning>;
+    "bite/bite": SkillRecords<BiteTuning>;
   }
 }
 
@@ -59,7 +59,7 @@ export const fitsBite = fitsAll<PartConfig & { readonly tuning?: Partial<BiteTun
   (spec, config) => wholeBite(biteSettings(spec, config)) ? null : "invalid bite settings");
 
 /** The bite's settings on a body of `spec`: its record's, with `config`'s research tuning over them. */
-export const biteSettings = (spec: BodySpec, config: { readonly tuning?: Partial<BiteTuning> }): BiteTuning => tunedSettings(dataOf("bite"), spec, config);
+export const biteSettings = (spec: BodySpec, config: { readonly tuning?: Partial<BiteTuning> }): BiteTuning => tunedSettings(dataOf("bite/bite"), spec, config);
 
 /** One bite under way: its request, the heading it bites along, its strike cycle and where it drives the jaw, the head and the lean this step. */
 interface Live {
@@ -281,14 +281,14 @@ interface JawBiteConfig {
  */
 export const JAW_BITE: ExecutorPart<JawBiteConfig> = {
   role: "executor", requires: [SUPPORT_REFERENCE], label: "Bite", stage: "game", defaults: { kind: "jaw-bite" }, keys: { kind: true, tuning: true }, fields: [], slots: [],
-  tuning: [...BITE_SETTINGS], fits: fitsBite, fitReads: ["bite"], reads: () => ["bite"],
+  tuning: [...BITE_SETTINGS], fits: fitsBite, fitReads: ["bite/bite"], reads: () => ["bite/bite"],
   faults: (config) => config.tuning === undefined || validBite(config.tuning) ? [] : ["invalid bite tuning"],
   effectors: ["head"], aims: true, meets: "point",
   strikesWith: (spec, _config, effector) => jawOf(spec).head.name === effector,
   make: ({ body, aim }, config, actions) => biteExecutor(body, actions.map((action) => action.name), biteSettings(body.built.spec, config), aim),
 };
 
-declare module "../../config.ts" {
+declare module "../../../config.ts" {
   interface ExecutorConfigs {
     readonly "jaw-bite": JawBiteConfig;
   }
